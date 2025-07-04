@@ -19,7 +19,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
-from .data_model import MAPPING_VIEW_ID
+from .data_model import INSTANCE_SOURCE_VIEW_ID
 
 
 class BaseMigrateCommand(ToolkitCommand, ABC):
@@ -54,10 +54,10 @@ class BaseMigrateCommand(ToolkitCommand, ABC):
 
     @staticmethod
     def validate_instance_source_exists(client: ToolkitClient) -> None:
-        view = client.data_modeling.views.retrieve(MAPPING_VIEW_ID)
+        view = client.data_modeling.views.retrieve(INSTANCE_SOURCE_VIEW_ID)
         if not view:
             raise ToolkitMigrationError(
-                f"The migration mapping view {MAPPING_VIEW_ID} does not exist. "
+                f"The migration mapping view {INSTANCE_SOURCE_VIEW_ID} does not exist. "
                 f"Please run the `cdf migrate prepare` command to deploy the migration data model."
             )
 
