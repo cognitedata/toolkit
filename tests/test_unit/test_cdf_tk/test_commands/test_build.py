@@ -9,6 +9,7 @@ from _pytest.monkeypatch import MonkeyPatch
 from cognite.client.data_classes.data_modeling import DataModelId, Space
 
 from cognite_toolkit._cdf_tk.commands.build_cmd import BuildCommand
+from cognite_toolkit._cdf_tk.constants import MODULE_DOCS_FOLDER, MODULES
 from cognite_toolkit._cdf_tk.data_classes import BuildVariables, Environment
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMissingModuleError,
@@ -62,6 +63,40 @@ class TestBuildCommand:
             )
             in cmd.warning_list
         )
+
+    def test_module_with_documentation_directory_no_warning(
+        self,
+        tmp_path: Path,
+        env_vars_with_client: EnvironmentVariables,
+    ) -> None:
+        my_org = tmp_path / "my_org"
+        build_dir = my_org / "build"
+
+        my_module = my_org / MODULES / "my_module"
+        space_resource = my_module / "data_models" / "my.Space.yaml"
+        space_resource.parent.mkdir(parents=True, exist_ok=True)
+        space_resource.write_text("space: my_space\n", encoding="utf-8")
+        module_readme = my_module / MODULE_DOCS_FOLDER / "README.md"
+        module_readme.parent.mkdir(parents=True, exist_ok=True)
+        module_readme.write_text("# my_module\n", encoding="utf-8")
+        module_doc_yaml = my_module / MODULE_DOCS_FOLDER / "some.yaml"
+        module_doc_yaml.write_text("some: content\n", encoding="utf-8")
+
+        cmd = BuildCommand(silent=True)
+        with patch.dict(
+            os.environ,
+            {"CDF_PROJECT": env_vars_with_client.CDF_PROJECT, "CDF_CLUSTER": env_vars_with_client.CDF_CLUSTER},
+        ):
+            cmd.execute(
+                verbose=False,
+                build_dir=build_dir,
+                organization_dir=my_org,
+                selected=None,
+                build_env_name="dev",
+                no_clean=False,
+            )
+
+        assert not cmd.warning_list, f"No warnings should be raised. Got {len(cmd.warning_list)}"
 
     @pytest.mark.skipif(not Flags.GRAPHQL.is_enabled(), reason="GraphQL schema files will give warnings")
     def test_custom_project_no_warnings(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
