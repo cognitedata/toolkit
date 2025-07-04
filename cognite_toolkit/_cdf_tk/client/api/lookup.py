@@ -8,6 +8,7 @@ from cognite.client.data_classes.capabilities import (
     Capability,
     DataSetsAcl,
     ExtractionPipelinesAcl,
+    FunctionsAcl,
     LocationFiltersAcl,
     SecurityCategoriesAcl,
     TimeSeriesAcl,
@@ -237,6 +238,30 @@ class ExtractionPipelineLookUpAPI(LookUpAPI):
         )
 
 
+class FunctionLookUpAPI(LookUpAPI):
+    def _id(self, external_id: SequenceNotStr[str]) -> dict[str, int]:
+        return {
+            function.external_id: function.id
+            for function in self._cognite_client.functions.retrieve_multiple(
+                external_ids=external_id, ignore_unknown_ids=True
+            )
+            if function.external_id and function.id
+        }
+
+    def _external_id(self, id: Sequence[int]) -> dict[int, str]:
+        return {
+            function.id: function.external_id
+            for function in self._cognite_client.functions.retrieve_multiple(ids=id, ignore_unknown_ids=True)
+            if function.external_id and function.id
+        }
+
+    def _read_acl(self) -> Capability:
+        return FunctionsAcl(
+            [FunctionsAcl.Action.Read],
+            scope=FunctionsAcl.Scope.All(),
+        )
+
+
 class AllLookUpAPI(LookUpAPI, ABC):
     def __init__(self, config: ClientConfig, api_version: str | None, cognite_client: "ToolkitClient") -> None:
         super().__init__(config, api_version, cognite_client)
@@ -302,3 +327,4 @@ class LookUpGroup(ToolkitAPI):
         self.security_categories = SecurityCategoriesLookUpAPI(config, api_version, cognite_client)
         self.location_filters = LocationFiltersLookUpAPI(config, api_version, cognite_client)
         self.extraction_pipelines = ExtractionPipelineLookUpAPI(config, api_version, cognite_client)
+        self.functions = FunctionLookUpAPI(config, api_version, cognite_client)

@@ -75,7 +75,7 @@ indexes: {}
 
         toolkit_client_approval.append(Container, [cdf_container])
 
-        worker = ResourceWorker(loader)
+        worker = ResourceWorker(loader, "deploy")
         resources = worker.prepare_resources([file])
         assert {
             "create": len(resources.to_create),

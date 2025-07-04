@@ -85,7 +85,7 @@ class TestViewLoader:
 
         toolkit_client_approval.append(dm.View, [cdf_view])
 
-        worker = ResourceWorker(loader)
+        worker = ResourceWorker(loader, "deploy")
         resources = worker.prepare_resources([file])
         assert {
             "create": len(resources.to_create),

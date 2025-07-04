@@ -49,7 +49,7 @@
         "--override-env",
         "modules",
         "init",
-        "my_org"
+        "cognite_toolkit"
       ],
       "console": "integratedTerminal",
       "justMyCode": false

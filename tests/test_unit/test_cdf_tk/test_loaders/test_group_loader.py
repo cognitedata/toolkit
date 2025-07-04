@@ -111,7 +111,7 @@ class TestGroupLoader:
         new_file.read_text.return_value = GroupWrite(
             name="new_group", source_id="123", capabilities=loaded.capabilities
         ).dump_yaml()
-        worker = ResourceWorker(loader)
+        worker = ResourceWorker(loader, "deploy")
         resources = worker.prepare_resources(
             [
                 LOAD_DATA / "auth" / "1.my_group_scoped.yaml",
@@ -152,7 +152,7 @@ class TestGroupLoader:
         )
 
         # group exists, no changes
-        worker = ResourceWorker(loader)
+        worker = ResourceWorker(loader, "deploy")
         resources = worker.prepare_resources([LOAD_DATA / "auth" / "1.my_group_scoped.yaml"])
 
         assert {
@@ -255,7 +255,7 @@ deletedTime: -1
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = local_group
 
-        worker = ResourceWorker(loader)
+        worker = ResourceWorker(loader, "deploy")
         resources = worker.prepare_resources([filepath])
         assert {
             "create": len(resources.to_create),
@@ -309,7 +309,7 @@ deletedTime: -1
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = local_group
 
-        worker = ResourceWorker(loader)
+        worker = ResourceWorker(loader, "deploy")
         resources = worker.prepare_resources([filepath])
         assert {
             "create": len(resources.to_create),
