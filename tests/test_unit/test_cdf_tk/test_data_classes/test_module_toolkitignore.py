@@ -1,18 +1,20 @@
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
 from cognite_toolkit._cdf_tk.data_classes._module_directories import ModuleLocation
 from cognite_toolkit._cdf_tk.data_classes._module_toml import ModuleToml
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 
 
 class TestModuleLocationWithToolkitIgnore:
     """Test ModuleLocation integration with .toolkitignore functionality."""
 
-    def test_module_ignores_directories_from_toolkitignore(self):
-        """Test that ModuleLocation respects .toolkitignore patterns."""
+    @patch.object(Flags.TOOLKIT_IGNORE, 'is_enabled', return_value=True)
+    def test_module_ignores_directories_from_toolkitignore(self, mock_flag: Mock) -> None:
+        """Test that ModuleLocation respects .toolkitignore patterns when feature flag is enabled."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             
@@ -64,8 +66,9 @@ class TestModuleLocationWithToolkitIgnore:
             assert "auth" not in not_resource_dirs  # Valid resource directory
             assert "data_models" not in not_resource_dirs  # Valid resource directory
 
-    def test_module_with_nested_toolkitignore_files(self):
-        """Test ModuleLocation with nested .toolkitignore files."""
+    @patch.object(Flags.TOOLKIT_IGNORE, 'is_enabled', return_value=True)
+    def test_module_with_nested_toolkitignore_files(self, mock_flag: Mock) -> None:
+        """Test ModuleLocation with nested .toolkitignore files when feature flag is enabled."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             
@@ -122,8 +125,9 @@ class TestModuleLocationWithToolkitIgnore:
             assert "auth" not in not_resource_dirs  # Valid resource directory
             assert "data_models" not in not_resource_dirs  # Valid resource directory
 
-    def test_module_with_negation_patterns(self):
-        """Test ModuleLocation with negation patterns in .toolkitignore."""
+    @patch.object(Flags.TOOLKIT_IGNORE, 'is_enabled', return_value=True)
+    def test_module_with_negation_patterns(self, mock_flag: Mock) -> None:
+        """Test ModuleLocation with negation patterns in .toolkitignore when feature flag is enabled."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             
@@ -174,7 +178,57 @@ class TestModuleLocationWithToolkitIgnore:
             assert "temp_logs" not in not_resource_dirs  # Ignored by pattern
             assert "auth" not in not_resource_dirs  # Valid resource directory
 
-    def test_module_without_toolkitignore(self):
+    @patch.object(Flags.TOOLKIT_IGNORE, 'is_enabled', return_value=False)
+    def test_module_with_feature_flag_disabled(self, mock_flag: Mock) -> None:
+        """Test ModuleLocation behavior when .toolkitignore feature flag is disabled."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            
+            # Create module directory structure
+            module_dir = temp_path / "test_module"
+            module_dir.mkdir()
+            
+            # Create .toolkitignore file (should be ignored when flag is off)
+            ignore_file = module_dir / ".toolkitignore"
+            ignore_file.write_text("node_modules\ntemp_files/\n")
+            
+            # Create directories
+            (module_dir / "auth").mkdir()
+            (module_dir / "data_models").mkdir()
+            (module_dir / "node_modules").mkdir()  # Should be flagged as invalid when flag is off
+            (module_dir / "temp_files").mkdir()  # Should be flagged as invalid when flag is off
+            
+            # Create files
+            (module_dir / "auth" / "groups.yaml").touch()
+            (module_dir / "data_models" / "model.yaml").touch()
+            (module_dir / "node_modules" / "package.json").touch()
+            (module_dir / "temp_files" / "cache.txt").touch()
+            
+            # Create source_paths list
+            source_paths = []
+            for file_path in module_dir.rglob("*"):
+                if file_path.is_file():
+                    source_paths.append(file_path)
+            
+            # Create ModuleLocation instance
+            module_location = ModuleLocation(
+                dir=module_dir,
+                source_absolute_path=temp_path,
+                source_paths=source_paths,
+                is_selected=True,
+                definition=None
+            )
+            
+            # Test that all non-resource directories are flagged as invalid when flag is off
+            not_resource_dirs = module_location.not_resource_directories
+            
+            # Should flag both directories as invalid since .toolkitignore is disabled
+            assert "node_modules" in not_resource_dirs
+            assert "temp_files" in not_resource_dirs
+            assert "auth" not in not_resource_dirs  # Valid resource directory
+            assert "data_models" not in not_resource_dirs  # Valid resource directory
+
+    def test_module_without_toolkitignore(self) -> None:
         """Test ModuleLocation behavior when no .toolkitignore file exists."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -216,8 +270,9 @@ class TestModuleLocationWithToolkitIgnore:
             assert "auth" not in not_resource_dirs  # Valid resource directory
             assert "data_models" not in not_resource_dirs  # Valid resource directory
 
-    def test_empty_toolkitignore_file(self):
-        """Test ModuleLocation with empty .toolkitignore file."""
+    @patch.object(Flags.TOOLKIT_IGNORE, 'is_enabled', return_value=True)
+    def test_empty_toolkitignore_file(self, mock_flag: Mock) -> None:
+        """Test ModuleLocation with empty .toolkitignore file when feature flag is enabled."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             
