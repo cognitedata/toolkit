@@ -47,9 +47,11 @@ class ResourceWorker(
         loader: ResourceLoader[
             T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
         ],
+        action: str,
     ):
         self.loader = loader
         self.duplicates: list[T_ID] = []
+        self.action = action
 
     def load_files(
         self, sort: bool = True, directory: Path | None = None, read_modules: list[ReadModule] | None = None
@@ -156,7 +158,7 @@ class ResourceWorker(
                 [item for _, item in local_by_id.values()], read_only=is_dry_run
             )
         if capabilities and (missing := self.loader.client.verify.authorization(capabilities)):
-            raise self.loader.client.verify.create_error(missing, action=f"clean {self.loader.display_name}")
+            raise self.loader.client.verify.create_error(missing, action=f"{self.action} {self.loader.display_name}")
 
     def categorize_resources(
         self,

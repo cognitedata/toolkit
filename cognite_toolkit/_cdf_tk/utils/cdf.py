@@ -12,6 +12,7 @@ from cognite.client.data_classes import (
 from cognite.client.data_classes.data_modeling import Edge, Node, ViewId
 from cognite.client.data_classes.filters import SpaceFilter
 from cognite.client.exceptions import CogniteAPIError
+from cognite.client.utils.useful_types import SequenceNotStr
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
@@ -61,7 +62,7 @@ def try_find_error(credentials: OidcCredentials | ClientCredentials | None) -> s
 def iterate_instances(
     client: ToolkitClient,
     instance_type: Literal["node"] = "node",
-    space: str | None = None,
+    space: str | SequenceNotStr[str] | None = None,
     source: ViewId | None = None,
     console: Console | None = None,
 ) -> Iterator[Node]: ...
@@ -71,7 +72,7 @@ def iterate_instances(
 def iterate_instances(
     client: ToolkitClient,
     instance_type: Literal["edge"],
-    space: str | None = None,
+    space: str | SequenceNotStr[str] | None = None,
     source: ViewId | None = None,
     console: Console | None = None,
 ) -> Iterator[Edge]: ...
@@ -80,7 +81,7 @@ def iterate_instances(
 def iterate_instances(
     client: ToolkitClient,
     instance_type: Literal["node", "edge"] = "node",
-    space: str | None = None,
+    space: str | SequenceNotStr[str] | None = None,
     source: ViewId | None = None,
     console: Console | None = None,
 ) -> Iterator[Node] | Iterator[Edge]:

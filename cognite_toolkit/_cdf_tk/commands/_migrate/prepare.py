@@ -33,7 +33,7 @@ class MigrationPrepareCommand(ToolkitCommand):
         ]:
             # MyPy does not understand that `loader_cls` has a `create_loader` method.
             loader = loader_cls.create_loader(client)  # type: ignore[attr-defined]
-            worker = ResourceWorker(loader)
+            worker = ResourceWorker(loader, "deploy")
             # MyPy does not understand that `loader` has a `get_id` method.
             local_by_id = {loader.get_id(item): (item.dump(), item) for item in resource_list}  # type: ignore[attr-defined]
             worker.validate_access(local_by_id, is_dry_run=dry_run)
