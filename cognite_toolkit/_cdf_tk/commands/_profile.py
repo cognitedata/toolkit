@@ -469,7 +469,7 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
             if row != selected_row:
                 new_table[(row, col)] = value
                 continue
-            is_complete = result.is_complete and result.row_count < self.max_profile_row_limit
+            is_complete = result.is_complete and result.row_count < self.profile_row_limit
             if col == self.Columns.RowCount:
                 new_table[(row, col)] = result.row_count if is_complete else WaitingAPICall
             elif col == self.Columns.ColumnCount:
