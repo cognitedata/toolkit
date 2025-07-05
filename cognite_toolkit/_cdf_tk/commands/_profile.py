@@ -17,6 +17,7 @@ from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawProfileResults, RawTable
+from cognite_toolkit._cdf_tk.constants import MAX_ROW_ITERATION_RUN_QUERY
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.aggregators import (
@@ -297,7 +298,14 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
         raise ValueError(f"Unexpected API Call for row {row} and column {col}.")
 
     def format_result(self, result: object, row: AssetIndex, col: str) -> CellValue:
-        if isinstance(result, int | float | bool | str):
+        if col == self.Columns.RowCount:
+            if isinstance(result, int):
+                if result == MAX_ROW_ITERATION_RUN_QUERY:
+                    return f"≥{result:,}"
+                else:
+                    return result
+            return None
+        elif isinstance(result, int | float | bool | str):
             return result
         elif col == self.Columns.DataSets:
             return result[0] if isinstance(result, list) and result and isinstance(result[0], str) else None
@@ -308,10 +316,6 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
         elif col == self.Columns.ColumnCount:
             if isinstance(result, RawProfileResults):
                 return result.column_count
-            return None
-        elif col == self.Columns.RawTable:
-            if isinstance(result, int):
-                return result
             return None
         raise ValueError(f"unexpected result type {type(result)} for row {row!s} and column {col}.")
 
@@ -672,10 +676,17 @@ class ProfileRawCommand(ProfileCommand[RawProfileIndex]):
         raise ValueError(f"There are no API calls for {row} in column {col}.")
 
     def format_result(self, result: object, row: RawProfileIndex, col: str) -> CellValue:
+        if col == self.Columns.Rows:
+            if isinstance(result, int):
+                if result == MAX_ROW_ITERATION_RUN_QUERY:
+                    return f"≥{result:,}"
+                else:
+                    return result
+            return None
         if isinstance(result, int | float | bool | str) or result is None:
             return result
         elif isinstance(result, RawProfileResults):
-            return result.row_count
+            return result.column_count
         raise ValueError(f"Unknown result type: {type(result)} for {row!s} in column {col}.")
 
     def update_table(
