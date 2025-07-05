@@ -17,6 +17,7 @@ from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawProfileResults, RawTable
+from cognite_toolkit._cdf_tk.constants import MAX_ROW_ITERATION_RUN_QUERY
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.aggregators import (
@@ -31,7 +32,7 @@ from cognite_toolkit._cdf_tk.utils.aggregators import (
     SequenceAggregator,
     TimeSeriesAggregator,
 )
-from cognite_toolkit._cdf_tk.utils.cdf import get_transformation_sources
+from cognite_toolkit._cdf_tk.utils.cdf import get_transformation_sources, raw_row_count
 from cognite_toolkit._cdf_tk.utils.sql_parser import SQLParser, SQLTable
 
 from ._base import ToolkitCommand
@@ -205,6 +206,7 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
         self.table_title = "Asset Profile for Hierarchy"
         self.hierarchy: str | None = None
         self.aggregators: dict[str, MetadataAggregator] = {}
+        self.profile_row_limit = self.max_profile_row_limit
 
     class Columns:
         Resource = "Resource"
@@ -217,13 +219,17 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
         ColumnCount = "Columns"
 
     is_dynamic_table = True
-    profile_row_limit = 10_000  # The number of rows to profile to get the number of columns.
+    max_profile_row_limit = 10_000  # The number of rows to profile to get the number of columns.
     # The actual limit is 1 million, we typically run this against 30 tables and that high limit
     # will cause 504 errors.
     profile_timeout_seconds = 60 * 4  # Timeout for the profiling operation in seconds,
 
     def assets(
-        self, client: ToolkitClient, hierarchy: str | None = None, verbose: bool = False
+        self,
+        client: ToolkitClient,
+        hierarchy: str | None = None,
+        profile_row_limit: int = max_profile_row_limit,
+        verbose: bool = False,
     ) -> list[dict[str, CellValue]]:
         """
         Profile assets in the given hierarchy.
@@ -232,8 +238,13 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
         """
         if hierarchy is None:
             raise NotImplementedError("Interactive mode is not implemented yet. Please provide a hierarchy.")
+        if profile_row_limit <= 0 or profile_row_limit > self.max_profile_row_limit:
+            raise ToolkitValueError(
+                f"Profile row limit must be between 1 and {self.max_profile_row_limit}, got {profile_row_limit}."
+            )
         self.hierarchy = hierarchy
         self.table_title = f"Asset Profile for Hierarchy: {hierarchy}"
+        self.profile_row_limit = profile_row_limit
         self.aggregators = {
             agg.display_name: agg
             for agg in [
@@ -274,7 +285,7 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
             if row.data_set_external_id is None:
                 raise ValueError(f"DataSet external ID is required for {row!s} in column {col}.")
             return partial(aggregator.used_transformations, data_set_external_ids=[row.data_set_external_id])
-        elif col == self.Columns.RowCount:
+        elif col == self.Columns.ColumnCount:
             if row.source is None:
                 raise ValueError(f"Database and table name are required for {row!s} in column {col}.")
             source = row.source
@@ -285,10 +296,26 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
                 limit=self.profile_row_limit,
                 timeout_seconds=self.profile_timeout_seconds,
             )
+        elif col == self.Columns.RowCount:
+            if row.source is None:
+                raise ValueError(f"Database and table name are required for {row!s} in column {col}.")
+            source = row.source
+            return partial(
+                raw_row_count,
+                client=client,
+                raw_table_id=source,
+            )
         raise ValueError(f"Unexpected API Call for row {row} and column {col}.")
 
     def format_result(self, result: object, row: AssetIndex, col: str) -> CellValue:
-        if isinstance(result, int | float | bool | str):
+        if col == self.Columns.RowCount:
+            if isinstance(result, int):
+                if result == MAX_ROW_ITERATION_RUN_QUERY:
+                    return f"≥{result:,}"
+                else:
+                    return result
+            return None
+        elif isinstance(result, int | float | bool | str):
             return result
         elif col == self.Columns.DataSets:
             return result[0] if isinstance(result, list) and result and isinstance(result[0], str) else None
@@ -296,9 +323,9 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
             if isinstance(result, list) and len(result) > 0 and isinstance(result[0], Transformation):
                 return f"{result[0].name} ({result[0].external_id})"
             return None
-        elif col == self.Columns.RowCount:
+        elif col == self.Columns.ColumnCount:
             if isinstance(result, RawProfileResults):
-                return result.row_count
+                return result.column_count
             return None
         raise ValueError(f"unexpected result type {type(result)} for row {row!s} and column {col}.")
 
@@ -320,7 +347,7 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
             self.Columns.DataSets: self._update_datasets,
             self.Columns.DataSetCount: self._update_dataset_count,
             self.Columns.Transformations: self._update_transformations,
-            self.Columns.RowCount: self._update_row_count,
+            self.Columns.ColumnCount: self._update_column_count,
         }
         handler = handlers.get(selected_col)
         if handler:
@@ -420,16 +447,16 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
                     if col == self.Columns.RawTable:
                         new_table[(new_index, col)] = str(source)
                     elif col == self.Columns.RowCount:
-                        new_table[(new_index, col)] = WaitingAPICall
-                    elif col == self.Columns.ColumnCount:
                         new_table[(new_index, col)] = None
+                    elif col == self.Columns.ColumnCount:
+                        new_table[(new_index, col)] = WaitingAPICall
                     elif col == self.Columns.Transformations:
                         new_table[(new_index, col)] = f"{transformation.name} ({transformation.external_id})"
                     else:
                         new_table[(new_index, col)] = value
         return new_table
 
-    def _update_row_count(
+    def _update_column_count(
         self,
         current_table: dict[tuple[AssetIndex, str], PendingCellValue],
         result: object,
@@ -444,7 +471,7 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
                 continue
             is_complete = result.is_complete and result.row_count < self.profile_row_limit
             if col == self.Columns.RowCount:
-                new_table[(row, col)] = result.row_count if is_complete else f"≥{result.row_count:,}"
+                new_table[(row, col)] = result.row_count if is_complete else WaitingAPICall
             elif col == self.Columns.ColumnCount:
                 new_table[(row, col)] = result.column_count if is_complete else f"≥{result.column_count:,}"
             else:
@@ -632,8 +659,8 @@ class ProfileRawCommand(ProfileCommand[RawProfileIndex]):
                     table[(index, self.Columns.Rows)] = "N/A"
                     table[(index, self.Columns.Columns)] = "N/A"
                 else:
-                    table[(index, self.Columns.Rows)] = WaitingAPICall
-                    table[(index, self.Columns.Columns)] = None
+                    table[(index, self.Columns.Rows)] = None
+                    table[(index, self.Columns.Columns)] = WaitingAPICall
                 table[(index, self.Columns.Transformation)] = f"{transformation.name} ({transformation.external_id})"
                 table[(index, self.Columns.Destination)] = (
                     transformation.destination.type if transformation.destination else "Unknown"
@@ -642,7 +669,7 @@ class ProfileRawCommand(ProfileCommand[RawProfileIndex]):
         return table
 
     def create_api_callable(self, row: RawProfileIndex, col: str, client: ToolkitClient) -> Callable:
-        if col == self.Columns.Rows:
+        if col == self.Columns.Columns:
             return partial(
                 client.raw.profile,
                 database=row.raw_table.db_name,
@@ -650,13 +677,26 @@ class ProfileRawCommand(ProfileCommand[RawProfileIndex]):
                 limit=self.profile_row_limit,
                 timeout_seconds=self.profile_timeout_seconds,
             )
+        elif col == self.Columns.Rows:
+            return partial(
+                raw_row_count,
+                client=client,
+                raw_table_id=row.raw_table,
+            )
         raise ValueError(f"There are no API calls for {row} in column {col}.")
 
     def format_result(self, result: object, row: RawProfileIndex, col: str) -> CellValue:
+        if col == self.Columns.Rows:
+            if isinstance(result, int):
+                if result == MAX_ROW_ITERATION_RUN_QUERY:
+                    return f"≥{result:,}"
+                else:
+                    return result
+            return None
         if isinstance(result, int | float | bool | str) or result is None:
             return result
         elif isinstance(result, RawProfileResults):
-            return result.row_count
+            return result.column_count
         raise ValueError(f"Unknown result type: {type(result)} for {row!s} in column {col}.")
 
     def update_table(
@@ -666,13 +706,13 @@ class ProfileRawCommand(ProfileCommand[RawProfileIndex]):
         selected_row: RawProfileIndex,
         selected_col: str,
     ) -> dict[tuple[RawProfileIndex, str], PendingCellValue]:
-        if not isinstance(result, RawProfileResults) or selected_col != self.Columns.Rows:
+        if not isinstance(result, RawProfileResults) or selected_col != self.Columns.Columns:
             return current_table
         is_complete = result.is_complete and result.row_count < self.profile_row_limit
         new_table: dict[tuple[RawProfileIndex, str], PendingCellValue] = {}
         for (row, col), value in current_table.items():
             if row == selected_row and col == self.Columns.Rows:
-                new_table[(row, col)] = result.row_count if is_complete else f"≥{result.row_count:,}"
+                new_table[(row, col)] = result.row_count if is_complete else WaitingAPICall
             elif row == selected_row and col == self.Columns.Columns:
                 new_table[(row, col)] = result.column_count if is_complete else f"≥{result.column_count:,}"
             else:
