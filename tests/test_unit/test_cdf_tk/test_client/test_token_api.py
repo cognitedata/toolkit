@@ -143,6 +143,12 @@ def get_scope_test_cases() -> Iterable:
         None,
         id="AssetsAcl with multiple actions, no overlapping scope",
     )
+    yield pytest.param(
+        [TimeSeriesAcl([TimeSeriesAcl.Action.Read], TimeSeriesAcl.Scope.DataSet([123]))],
+        [TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write],
+        None,
+        id="One of multiple actions is missing capability",
+    )
 
 
 class TestTokenAPI:
