@@ -206,6 +206,7 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
         self.table_title = "Asset Profile for Hierarchy"
         self.hierarchy: str | None = None
         self.aggregators: dict[str, MetadataAggregator] = {}
+        self.profile_row_limit = self.max_profile_row_limit
 
     class Columns:
         Resource = "Resource"
@@ -218,13 +219,17 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
         ColumnCount = "Columns"
 
     is_dynamic_table = True
-    profile_row_limit = 10_000  # The number of rows to profile to get the number of columns.
+    max_profile_row_limit = 10_000  # The number of rows to profile to get the number of columns.
     # The actual limit is 1 million, we typically run this against 30 tables and that high limit
     # will cause 504 errors.
     profile_timeout_seconds = 60 * 4  # Timeout for the profiling operation in seconds,
 
     def assets(
-        self, client: ToolkitClient, hierarchy: str | None = None, verbose: bool = False
+        self,
+        client: ToolkitClient,
+        hierarchy: str | None = None,
+        profile_row_limit: int = max_profile_row_limit,
+        verbose: bool = False,
     ) -> list[dict[str, CellValue]]:
         """
         Profile assets in the given hierarchy.
@@ -233,8 +238,13 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
         """
         if hierarchy is None:
             raise NotImplementedError("Interactive mode is not implemented yet. Please provide a hierarchy.")
+        if profile_row_limit <= 0 or profile_row_limit > self.max_profile_row_limit:
+            raise ToolkitValueError(
+                f"Profile row limit must be between 1 and {self.max_profile_row_limit}, got {profile_row_limit}."
+            )
         self.hierarchy = hierarchy
         self.table_title = f"Asset Profile for Hierarchy: {hierarchy}"
+        self.profile_row_limit = profile_row_limit
         self.aggregators = {
             agg.display_name: agg
             for agg in [
@@ -459,7 +469,7 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
             if row != selected_row:
                 new_table[(row, col)] = value
                 continue
-            is_complete = result.is_complete and result.row_count < self.profile_row_limit
+            is_complete = result.is_complete and result.row_count < self.max_profile_row_limit
             if col == self.Columns.RowCount:
                 new_table[(row, col)] = result.row_count if is_complete else WaitingAPICall
             elif col == self.Columns.ColumnCount:
