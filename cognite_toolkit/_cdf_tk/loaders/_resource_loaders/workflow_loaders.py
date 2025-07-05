@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import json
+from collections import defaultdict, deque
 from collections.abc import Hashable, Iterable, Sequence
 from functools import lru_cache
 from pathlib import Path
@@ -419,19 +420,30 @@ class WorkflowVersionLoader(
             upserted.append(self.client.workflows.versions.upsert(item))
         return WorkflowVersionList(upserted)
 
-    def _topological_sort_workflow_versions(self, items: WorkflowVersionUpsertList) -> list:
-        """Sort workflow versions in topological order based on subworkflow dependencies."""
-        from collections import defaultdict, deque
+    def _topological_sort_workflow_versions(self, items: WorkflowVersionUpsertList) -> list[WorkflowVersionUpsert]:
+        """Sort workflow versions in topological order based on subworkflow dependencies.
+        
+        Args:
+            items: List of workflow version upserts to sort
+            
+        Returns:
+            List of workflow version upserts sorted in dependency order (dependencies first)
+            
+        Raises:
+            ValueError: If circular dependencies are detected
+        """
+        if not items:
+            return []
         
         # Build a mapping from workflow version ID to item
-        id_to_item = {}
+        id_to_item: dict[WorkflowVersionId, WorkflowVersionUpsert] = {}
         for item in items:
             item_id = self.get_id(item)
             id_to_item[item_id] = item
         
         # Build dependency graph: dependents -> dependencies
-        dependencies = defaultdict(set)  # item_id -> set of dependency_ids
-        dependents = defaultdict(set)    # dependency_id -> set of dependent_ids
+        dependencies: dict[WorkflowVersionId, set[WorkflowVersionId]] = defaultdict(set)  # item_id -> set of dependency_ids
+        dependents: dict[WorkflowVersionId, set[WorkflowVersionId]] = defaultdict(set)    # dependency_id -> set of dependent_ids
         
         for item in items:
             item_id = self.get_id(item)
@@ -445,8 +457,8 @@ class WorkflowVersionLoader(
         
         # Perform topological sort using Kahn's algorithm
         # Start with items that have no dependencies in the current batch
-        queue = deque()
-        in_degree = defaultdict(int)
+        queue: deque[WorkflowVersionId] = deque()
+        in_degree: dict[WorkflowVersionId, int] = defaultdict(int)
         
         for item in items:
             item_id = self.get_id(item)
@@ -454,7 +466,7 @@ class WorkflowVersionLoader(
             if in_degree[item_id] == 0:
                 queue.append(item_id)
         
-        sorted_ids = []
+        sorted_ids: list[WorkflowVersionId] = []
         while queue:
             current_id = queue.popleft()
             sorted_ids.append(current_id)
@@ -468,14 +480,32 @@ class WorkflowVersionLoader(
         # Check for circular dependencies
         if len(sorted_ids) != len(items):
             remaining_items = [self.get_id(item) for item in items if self.get_id(item) not in sorted_ids]
-            raise ValueError(f"Circular dependency detected among workflow versions: {remaining_items}")
+            cycle_info = []
+            for item_id in remaining_items:
+                deps = [str(dep_id) for dep_id in dependencies[item_id] if dep_id in remaining_items]
+                if deps:
+                    cycle_info.append(f"{item_id} depends on {deps}")
+            
+            raise ValueError(
+                f"Circular dependency detected among workflow versions. "
+                f"The following workflow versions form a cycle: {remaining_items}. "
+                f"Dependencies: {'; '.join(cycle_info)}. "
+                f"Please review your subworkflow task dependencies and ensure they form a valid hierarchy."
+            )
         
         # Return items in sorted order
         return [id_to_item[item_id] for item_id in sorted_ids]
 
-    def _extract_workflow_dependencies(self, item) -> set:
-        """Extract workflow version dependencies from subworkflow tasks."""
-        dependencies = set()
+    def _extract_workflow_dependencies(self, item: WorkflowVersionUpsert) -> set[WorkflowVersionId]:
+        """Extract workflow version dependencies from subworkflow tasks.
+        
+        Args:
+            item: The workflow version upsert to analyze
+            
+        Returns:
+            Set of WorkflowVersionId objects that this workflow version depends on
+        """
+        dependencies: set[WorkflowVersionId] = set()
         
         workflow_def = item.workflow_definition
         if not workflow_def or not workflow_def.tasks:
@@ -488,7 +518,6 @@ class WorkflowVersionLoader(
                     workflow_ext_id = task.parameters.workflow_external_id
                     version = getattr(task.parameters, 'version', None)
                     if workflow_ext_id and version:
-                        from cognite.client.data_classes import WorkflowVersionId
                         dep_id = WorkflowVersionId(workflow_ext_id, version)
                         dependencies.add(dep_id)
             elif isinstance(task, dict) and task.get("type") == "subworkflow":
@@ -497,7 +526,6 @@ class WorkflowVersionLoader(
                 workflow_ext_id = subworkflow_params.get("workflowExternalId")
                 version = subworkflow_params.get("version")
                 if workflow_ext_id and version:
-                    from cognite.client.data_classes import WorkflowVersionId
                     dep_id = WorkflowVersionId(workflow_ext_id, version)
                     dependencies.add(dep_id)
         
