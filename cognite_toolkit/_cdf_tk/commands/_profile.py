@@ -274,7 +274,7 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
             if row.data_set_external_id is None:
                 raise ValueError(f"DataSet external ID is required for {row!s} in column {col}.")
             return partial(aggregator.used_transformations, data_set_external_ids=[row.data_set_external_id])
-        elif col == self.Columns.RowCount:
+        elif col == self.Columns.ColumnCount:
             if row.source is None:
                 raise ValueError(f"Database and table name are required for {row!s} in column {col}.")
             source = row.source
@@ -285,7 +285,7 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
                 limit=self.profile_row_limit,
                 timeout_seconds=self.profile_timeout_seconds,
             )
-        elif col == self.Columns.RawTable:
+        elif col == self.Columns.RowCount:
             if row.source is None:
                 raise ValueError(f"Database and table name are required for {row!s} in column {col}.")
             source = row.source
@@ -645,8 +645,8 @@ class ProfileRawCommand(ProfileCommand[RawProfileIndex]):
                     table[(index, self.Columns.Rows)] = "N/A"
                     table[(index, self.Columns.Columns)] = "N/A"
                 else:
-                    table[(index, self.Columns.Rows)] = WaitingAPICall
-                    table[(index, self.Columns.Columns)] = None
+                    table[(index, self.Columns.Rows)] = None
+                    table[(index, self.Columns.Columns)] = WaitingAPICall
                 table[(index, self.Columns.Transformation)] = f"{transformation.name} ({transformation.external_id})"
                 table[(index, self.Columns.Destination)] = (
                     transformation.destination.type if transformation.destination else "Unknown"
@@ -655,13 +655,19 @@ class ProfileRawCommand(ProfileCommand[RawProfileIndex]):
         return table
 
     def create_api_callable(self, row: RawProfileIndex, col: str, client: ToolkitClient) -> Callable:
-        if col == self.Columns.Rows:
+        if col == self.Columns.Columns:
             return partial(
                 client.raw.profile,
                 database=row.raw_table.db_name,
                 table=row.raw_table.table_name,
                 limit=self.profile_row_limit,
                 timeout_seconds=self.profile_timeout_seconds,
+            )
+        elif col == self.Columns.Rows:
+            return partial(
+                raw_row_count,
+                client=client,
+                raw_table_id=row.raw_table,
             )
         raise ValueError(f"There are no API calls for {row} in column {col}.")
 
@@ -679,13 +685,13 @@ class ProfileRawCommand(ProfileCommand[RawProfileIndex]):
         selected_row: RawProfileIndex,
         selected_col: str,
     ) -> dict[tuple[RawProfileIndex, str], PendingCellValue]:
-        if not isinstance(result, RawProfileResults) or selected_col != self.Columns.Rows:
+        if not isinstance(result, RawProfileResults) or selected_col != self.Columns.Columns:
             return current_table
         is_complete = result.is_complete and result.row_count < self.profile_row_limit
         new_table: dict[tuple[RawProfileIndex, str], PendingCellValue] = {}
         for (row, col), value in current_table.items():
             if row == selected_row and col == self.Columns.Rows:
-                new_table[(row, col)] = result.row_count if is_complete else f"≥{result.row_count:,}"
+                new_table[(row, col)] = result.row_count if is_complete else WaitingAPICall
             elif row == selected_row and col == self.Columns.Columns:
                 new_table[(row, col)] = result.column_count if is_complete else f"≥{result.column_count:,}"
             else:
