@@ -345,17 +345,26 @@ FROM
     return 0
 
 
-def raw_row_count(client: ToolkitClient, raw_table_id: RawTable) -> int:
+def raw_row_count(client: ToolkitClient, raw_table_id: RawTable, max_count: int = MAX_ROW_ITERATION_RUN_QUERY) -> int:
     """Get the number of rows in a raw table.
 
     Args:
         client: ToolkitClient instance
         raw_table_id: The ID of the raw table to count rows in.
+        max_count: The maximum number of rows to count. If the table has more rows than this, the count will be capped.
 
     Returns:
         The number of rows in the raw table.
     """
-    query = f"SELECT COUNT(key) AS row_count FROM `{raw_table_id.db_name}`.`{raw_table_id.table_name}` LIMIT {MAX_ROW_ITERATION_RUN_QUERY}"
+    if not 0 <= max_count <= MAX_ROW_ITERATION_RUN_QUERY:
+        raise ValueError(f"max_count must be between 0 and {MAX_ROW_ITERATION_RUN_QUERY} (inclusive).")
+
+    query = f"""SELECT COUNT(key) AS row_count
+FROM (
+    SELECT key
+    FROM `{raw_table_id.db_name}`.`{raw_table_id.table_name}`
+    LIMIT {max_count}
+) AS limited_keys"""
     results = client.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
     if results.results:
         return int(results.results[0]["row_count"])
