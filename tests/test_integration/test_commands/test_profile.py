@@ -38,67 +38,73 @@ class TestProfileAssetCommand:
         aggregator_time_series: Transformation,
         aggregator_sequences: Transformation,
     ) -> None:
-        results = ProfileAssetCommand().assets(toolkit_client, aggregator_root_asset.external_id)
+        profile_row_limit = TIMESERIES_COUNT - 1  # Force fallaback to using the preview endpoint for row count
+        results = ProfileAssetCommand().assets(
+            toolkit_client, aggregator_root_asset.external_id, profile_row_limit=profile_row_limit
+        )
         columns = ProfileAssetCommand.Columns
-        assert results == [
-            {
-                columns.Resource: resource,
-                columns.Count: count,
-                columns.DataSets: dataset,
-                columns.DataSetCount: count,
-                columns.Transformations: f"{transformation.name} ({transformation.external_id})",
-                columns.RawTable: f"{aggregator_raw_db}.{raw_table}",
-                columns.RowCount: row_count,
-                columns.ColumnCount: column_count,
-            }
-            for resource, count, dataset, transformation, raw_table, row_count, column_count in [
-                (
-                    "Assets",
-                    ASSET_COUNT,
-                    ASSET_DATASET,
-                    aggregator_assets,
-                    ASSET_TABLE,
-                    ASSET_COUNT - 1,
-                    4,
-                ),  # -1 root asset is not in the table
-                (
-                    "Events",
-                    EVENT_COUNT,
-                    EVENT_DATASET,
-                    aggregator_events,
-                    EVENT_TABLE,
-                    EVENT_COUNT,
-                    5,
-                ),
-                (
-                    "Files",
-                    FILE_COUNT,
-                    FILE_DATASET,
-                    aggregator_files,
-                    FILE_TABLE,
-                    FILE_COUNT,
-                    4,
-                ),
-                (
-                    "TimeSeries",
-                    TIMESERIES_COUNT,
-                    TIMESERIES_DATASET,
-                    aggregator_time_series,
-                    TIMESERIES_TABLE,
-                    TIMESERIES_COUNT,
-                    5,
-                ),
-                (
-                    "Sequences",
-                    SEQUENCE_COUNT,
-                    SEQUENCE_DATASET,
-                    aggregator_sequences,
-                    SEQUENCE_TABLE,
-                    SEQUENCE_COUNT,
-                    4,
-                ),
+        assert (
+            results
+            == [
+                {
+                    columns.Resource: resource,
+                    columns.Count: count,
+                    columns.DataSets: dataset,
+                    columns.DataSetCount: count,
+                    columns.Transformations: f"{transformation.name} ({transformation.external_id})",
+                    columns.RawTable: f"{aggregator_raw_db}.{raw_table}",
+                    columns.RowCount: row_count,
+                    columns.ColumnCount: column_count,
+                }
+                for resource, count, dataset, transformation, raw_table, row_count, column_count in [
+                    (
+                        "Assets",
+                        ASSET_COUNT,
+                        ASSET_DATASET,
+                        aggregator_assets,
+                        ASSET_TABLE,
+                        ASSET_COUNT - 1,
+                        4,
+                    ),  # -1 root asset is not in the table
+                    (
+                        "Events",
+                        EVENT_COUNT,
+                        EVENT_DATASET,
+                        aggregator_events,
+                        EVENT_TABLE,
+                        EVENT_COUNT,
+                        5,
+                    ),
+                    (
+                        "Files",
+                        FILE_COUNT,
+                        FILE_DATASET,
+                        aggregator_files,
+                        FILE_TABLE,
+                        FILE_COUNT,
+                        4,
+                    ),
+                    (
+                        "TimeSeries",
+                        TIMESERIES_COUNT,
+                        TIMESERIES_DATASET,
+                        aggregator_time_series,
+                        TIMESERIES_TABLE,
+                        TIMESERIES_COUNT,
+                        "≥5",  # Force fallback to using the preview endpoint for row count, then we get "≥5" as the column count
+                    ),
+                    (
+                        "Sequences",
+                        SEQUENCE_COUNT,
+                        SEQUENCE_DATASET,
+                        aggregator_sequences,
+                        SEQUENCE_TABLE,
+                        SEQUENCE_COUNT,
+                        4,
+                    ),
+                ]
             ]
-        ]
+        )
 
 
 class TestDumpResource:
