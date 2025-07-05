@@ -14,9 +14,9 @@
 from __future__ import annotations
 
 import json
-from collections import defaultdict, deque
 from collections.abc import Hashable, Iterable, Sequence
 from functools import lru_cache
+from graphlib import TopologicalSorter
 from pathlib import Path
 from typing import Any, final
 
@@ -441,57 +441,29 @@ class WorkflowVersionLoader(
             item_id = self.get_id(item)
             id_to_item[item_id] = item
         
-        # Build dependency graph: dependents -> dependencies
-        dependencies: dict[WorkflowVersionId, set[WorkflowVersionId]] = defaultdict(set)  # item_id -> set of dependency_ids
-        dependents: dict[WorkflowVersionId, set[WorkflowVersionId]] = defaultdict(set)    # dependency_id -> set of dependent_ids
+        # Build dependency graph for TopologicalSorter
+        # TopologicalSorter expects {node: [predecessors]} format
+        sorter = TopologicalSorter()
         
+        # Add all items to the sorter
         for item in items:
             item_id = self.get_id(item)
             deps = self._extract_workflow_dependencies(item)
-            
-            for dep_id in deps:
-                # Only consider dependencies that are in the current batch
-                if dep_id in id_to_item:
-                    dependencies[item_id].add(dep_id)
-                    dependents[dep_id].add(item_id)
+            # Only consider dependencies that are in the current batch
+            batch_deps = [dep_id for dep_id in deps if dep_id in id_to_item]
+            sorter.add(item_id, *batch_deps)
         
-        # Perform topological sort using Kahn's algorithm
-        # Start with items that have no dependencies in the current batch
-        queue: deque[WorkflowVersionId] = deque()
-        in_degree: dict[WorkflowVersionId, int] = defaultdict(int)
-        
-        for item in items:
-            item_id = self.get_id(item)
-            in_degree[item_id] = len(dependencies[item_id])
-            if in_degree[item_id] == 0:
-                queue.append(item_id)
-        
-        sorted_ids: list[WorkflowVersionId] = []
-        while queue:
-            current_id = queue.popleft()
-            sorted_ids.append(current_id)
-            
-            # Remove this item from dependency lists of its dependents
-            for dependent_id in dependents[current_id]:
-                in_degree[dependent_id] -= 1
-                if in_degree[dependent_id] == 0:
-                    queue.append(dependent_id)
-        
-        # Check for circular dependencies
-        if len(sorted_ids) != len(items):
-            remaining_items = [self.get_id(item) for item in items if self.get_id(item) not in sorted_ids]
-            cycle_info = []
-            for item_id in remaining_items:
-                deps = [str(dep_id) for dep_id in dependencies[item_id] if dep_id in remaining_items]
-                if deps:
-                    cycle_info.append(f"{item_id} depends on {deps}")
-            
-            raise ValueError(
-                f"Circular dependency detected among workflow versions. "
-                f"The following workflow versions form a cycle: {remaining_items}. "
-                f"Dependencies: {'; '.join(cycle_info)}. "
-                f"Please review your subworkflow task dependencies and ensure they form a valid hierarchy."
-            )
+        try:
+            # Get the sorted order
+            sorted_ids = list(sorter.static_order())
+        except ValueError as e:
+            if "cycle" in str(e).lower():
+                # Extract cycle information from the error
+                raise ValueError(
+                    f"Circular dependency detected among workflow versions. {str(e)}. "
+                    f"Please review your subworkflow task dependencies and ensure they form a valid hierarchy."
+                ) from e
+            raise
         
         # Return items in sorted order
         return [id_to_item[item_id] for item_id in sorted_ids]
@@ -512,19 +484,27 @@ class WorkflowVersionLoader(
             return dependencies
         
         for task in workflow_def.tasks:
-            if hasattr(task, 'type') and task.type == "subworkflow":
-                # Handle SDK object
-                if hasattr(task, 'parameters') and hasattr(task.parameters, 'workflow_external_id'):
-                    workflow_ext_id = task.parameters.workflow_external_id
-                    version = getattr(task.parameters, 'version', None)
-                    if workflow_ext_id and version:
-                        dep_id = WorkflowVersionId(workflow_ext_id, version)
-                        dependencies.add(dep_id)
-            elif isinstance(task, dict) and task.get("type") == "subworkflow":
-                # Handle dict representation
-                subworkflow_params = task.get("parameters", {}).get("subworkflow", {})
-                workflow_ext_id = subworkflow_params.get("workflowExternalId")
-                version = subworkflow_params.get("version")
+            # Check if this is a subworkflow task
+            task_type = getattr(task, 'type', None) if hasattr(task, 'type') else task.get("type") if isinstance(task, dict) else None
+            
+            if task_type == "subworkflow":
+                workflow_ext_id = None
+                version = None
+                
+                if isinstance(task, dict):
+                    # Handle dict representation
+                    subworkflow_params = task.get("parameters", {}).get("subworkflow", {})
+                    workflow_ext_id = subworkflow_params.get("workflowExternalId")
+                    version = subworkflow_params.get("version")
+                else:
+                    # Handle SDK object - SubworkflowReferenceParameters has direct attributes
+                    parameters = getattr(task, 'parameters', None)
+                    if parameters:
+                        # For SubworkflowReferenceParameters, workflow_external_id and version are direct attributes
+                        workflow_ext_id = getattr(parameters, 'workflow_external_id', None)
+                        version = getattr(parameters, 'version', None)
+                
+                # Add dependency if we found both required fields
                 if workflow_ext_id and version:
                     dep_id = WorkflowVersionId(workflow_ext_id, version)
                     dependencies.add(dep_id)

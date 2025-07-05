@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 from cognite.client.credentials import OAuthClientCredentials
-from cognite.client.data_classes import WorkflowTrigger
+from cognite.client.data_classes import WorkflowTrigger, WorkflowVersionUpsert, WorkflowVersionUpsertList
 from cognite.client.data_classes.workflows import WorkflowScheduledTriggerRule, WorkflowVersionId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
@@ -102,3 +104,186 @@ class TestWorkflowVersionLoader:
             if len(call.args[0]) > filter_limit
         ]
         assert not call_above_limit, "Above limit should not be called"
+
+    def test_topological_sort_empty_list(self) -> None:
+        """Test that empty lists are handled correctly by topological sort."""
+        with monkeypatch_toolkit_client() as client:
+            loader = WorkflowVersionLoader(client, None, None)
+
+            result = loader._topological_sort_workflow_versions(WorkflowVersionUpsertList([]))
+
+            assert len(result) == 0
+
+    def test_topological_sort_no_dependencies(self) -> None:
+        """Test sorting workflow versions without dependencies."""
+        with monkeypatch_toolkit_client() as client:
+            loader = WorkflowVersionLoader(client, None, None)
+
+            # Create workflow version without dependencies
+            version_dict = {
+                "workflowExternalId": "simple_workflow",
+                "version": "v1",
+                "workflowDefinition": {
+                    "tasks": [
+                        {
+                            "externalId": "simple_task",
+                            "type": "function",
+                            "parameters": {
+                                "function": {
+                                    "externalId": "some_function"
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+
+            version_upsert = WorkflowVersionUpsert._load(version_dict)
+
+            result = loader._topological_sort_workflow_versions(WorkflowVersionUpsertList([version_upsert]))
+
+            assert len(result) == 1
+            assert result[0].workflow_external_id == "simple_workflow"
+
+    def test_topological_sort_with_dependencies(self) -> None:
+        """Test sorting workflow versions with dependencies."""
+        with monkeypatch_toolkit_client() as client:
+            loader = WorkflowVersionLoader(client, None, None)
+
+            # Create base workflow version (dependency)
+            base_version_dict = {
+                "workflowExternalId": "base_workflow",
+                "version": "v1",
+                "workflowDefinition": {
+                    "tasks": [
+                        {
+                            "externalId": "simple_task",
+                            "type": "function",
+                            "parameters": {
+                                "function": {
+                                    "externalId": "some_function"
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+
+            # Create dependent workflow version
+            dependent_version_dict = {
+                "workflowExternalId": "dependent_workflow",
+                "version": "v1",
+                "workflowDefinition": {
+                    "tasks": [
+                        {
+                            "externalId": "call_base_workflow",
+                            "type": "subworkflow",
+                            "parameters": {
+                                "subworkflow": {
+                                    "workflowExternalId": "base_workflow",
+                                    "version": "v1"
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+
+            base_upsert = WorkflowVersionUpsert._load(base_version_dict)
+            dependent_upsert = WorkflowVersionUpsert._load(dependent_version_dict)
+
+            # Sort in wrong order (dependent first, then base)
+            result = loader._topological_sort_workflow_versions(
+                WorkflowVersionUpsertList([dependent_upsert, base_upsert])
+            )
+
+            # Should be sorted correctly: base first, then dependent
+            assert len(result) == 2
+            assert result[0].workflow_external_id == "base_workflow"  # dependency created first
+            assert result[1].workflow_external_id == "dependent_workflow"  # dependent created second
+
+    def test_topological_sort_circular_dependency(self) -> None:
+        """Test that circular dependencies are detected."""
+        with monkeypatch_toolkit_client() as client:
+            loader = WorkflowVersionLoader(client, None, None)
+
+            # Create circular dependency: A depends on B, B depends on A
+            version_a_dict = {
+                "workflowExternalId": "workflow_a",
+                "version": "v1",
+                "workflowDefinition": {
+                    "tasks": [
+                        {
+                            "externalId": "call_workflow_b",
+                            "type": "subworkflow",
+                            "parameters": {
+                                "subworkflow": {
+                                    "workflowExternalId": "workflow_b",
+                                    "version": "v1"
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+
+            version_b_dict = {
+                "workflowExternalId": "workflow_b",
+                "version": "v1",
+                "workflowDefinition": {
+                    "tasks": [
+                        {
+                            "externalId": "call_workflow_a",
+                            "type": "subworkflow",
+                            "parameters": {
+                                "subworkflow": {
+                                    "workflowExternalId": "workflow_a",
+                                    "version": "v1"
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+
+            version_a_upsert = WorkflowVersionUpsert._load(version_a_dict)
+            version_b_upsert = WorkflowVersionUpsert._load(version_b_dict)
+
+            # Should raise ValueError for circular dependency
+            with pytest.raises(ValueError, match="Circular dependency detected"):
+                loader._topological_sort_workflow_versions(
+                    WorkflowVersionUpsertList([version_a_upsert, version_b_upsert])
+                )
+
+    def test_dependency_extraction(self) -> None:
+        """Test that dependencies are correctly extracted from subworkflow tasks."""
+        with monkeypatch_toolkit_client() as client:
+            loader = WorkflowVersionLoader(client, None, None)
+            
+            # Create workflow version with subworkflow dependency
+            version_dict = {
+                "workflowExternalId": "dependent_workflow",
+                "version": "v1",
+                "workflowDefinition": {
+                    "tasks": [
+                        {
+                            "externalId": "call_external_workflow",
+                            "type": "subworkflow",
+                            "parameters": {
+                                "subworkflow": {
+                                    "workflowExternalId": "external_workflow",
+                                    "version": "v2"
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+            
+            version_upsert = WorkflowVersionUpsert._load(version_dict)
+            dependencies = loader._extract_workflow_dependencies(version_upsert)
+            
+            assert len(dependencies) == 1
+            dep = next(iter(dependencies))
+            assert dep.workflow_external_id == "external_workflow"
+            assert dep.version == "v2"
