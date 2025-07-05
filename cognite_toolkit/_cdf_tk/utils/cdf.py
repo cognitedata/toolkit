@@ -356,8 +356,8 @@ def raw_row_count(client: ToolkitClient, raw_table_id: RawTable, max_count: int 
     Returns:
         The number of rows in the raw table.
     """
-    if max_count > MAX_ROW_ITERATION_RUN_QUERY:
-        raise ValueError(f"max_count must be less than or equal to {MAX_ROW_ITERATION_RUN_QUERY}.")
+    if not 0 <= max_count <= MAX_ROW_ITERATION_RUN_QUERY:
+        raise ValueError(f"max_count must be between 0 and {MAX_ROW_ITERATION_RUN_QUERY} (inclusive).")
 
     query = f"""SELECT COUNT(key) AS row_count
 FROM (
