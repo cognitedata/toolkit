@@ -97,14 +97,14 @@ class TokenAPI:
         self, acl_cls: type[Capability], actions: set[Capability.Action]
     ) -> dict[Capability.Action, dict[type[Capability.Scope], Capability.Scope]]:
         scopes_by_action: dict[Capability.Action, dict[type[Capability.Scope], Capability.Scope]] = {}
+        for action in actions:
+            scopes_by_action[action] = {}
         for project_capability in self.token.capabilities:
             capability = project_capability.capability
             if not isinstance(capability, acl_cls):
                 continue
             for action in capability.actions:
                 if action in actions:
-                    if action not in scopes_by_action:
-                        scopes_by_action[action] = {}
                     scopes_by_cls = scopes_by_action[action]
                     scope_cls = type(capability.scope)
                     scopes_by_cls[scope_cls] = scope_union(capability.scope, scopes_by_cls.get(scope_cls))
