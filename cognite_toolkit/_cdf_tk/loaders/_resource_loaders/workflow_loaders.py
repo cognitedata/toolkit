@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 from collections.abc import Hashable, Iterable, Sequence
 from functools import lru_cache
+from graphlib import TopologicalSorter
 from pathlib import Path
 from typing import Any, final
 
@@ -411,10 +412,104 @@ class WorkflowVersionLoader(
         return WorkflowVersionList([self.client.workflows.versions.upsert(item) for item in items])
 
     def create(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
+        # Sort workflow versions topologically to ensure dependencies are created first
+        sorted_items = self._topological_sort_workflow_versions(items)
+        
         upserted = []
-        for item in items:
+        for item in sorted_items:
             upserted.append(self.client.workflows.versions.upsert(item))
         return WorkflowVersionList(upserted)
+
+    def _topological_sort_workflow_versions(self, items: WorkflowVersionUpsertList) -> list[WorkflowVersionUpsert]:
+        """Sort workflow versions in topological order based on subworkflow dependencies.
+        
+        Args:
+            items: List of workflow version upserts to sort
+            
+        Returns:
+            List of workflow version upserts sorted in dependency order (dependencies first)
+            
+        Raises:
+            ValueError: If circular dependencies are detected
+        """
+        if not items:
+            return []
+        
+        # Build a mapping from workflow version ID to item
+        id_to_item: dict[WorkflowVersionId, WorkflowVersionUpsert] = {}
+        for item in items:
+            item_id = self.get_id(item)
+            id_to_item[item_id] = item
+        
+        # Build dependency graph for TopologicalSorter
+        # TopologicalSorter expects {node: [predecessors]} format
+        sorter = TopologicalSorter()
+        
+        # Add all items to the sorter
+        for item in items:
+            item_id = self.get_id(item)
+            deps = self._extract_workflow_dependencies(item)
+            # Only consider dependencies that are in the current batch
+            batch_deps = [dep_id for dep_id in deps if dep_id in id_to_item]
+            sorter.add(item_id, *batch_deps)
+        
+        try:
+            # Get the sorted order
+            sorted_ids = list(sorter.static_order())
+        except ValueError as e:
+            if "cycle" in str(e).lower():
+                # Extract cycle information from the error
+                raise ValueError(
+                    f"Circular dependency detected among workflow versions. {str(e)}. "
+                    f"Please review your subworkflow task dependencies and ensure they form a valid hierarchy."
+                ) from e
+            raise
+        
+        # Return items in sorted order
+        return [id_to_item[item_id] for item_id in sorted_ids]
+
+    def _extract_workflow_dependencies(self, item: WorkflowVersionUpsert) -> set[WorkflowVersionId]:
+        """Extract workflow version dependencies from subworkflow tasks.
+        
+        Args:
+            item: The workflow version upsert to analyze
+            
+        Returns:
+            Set of WorkflowVersionId objects that this workflow version depends on
+        """
+        dependencies: set[WorkflowVersionId] = set()
+        
+        workflow_def = item.workflow_definition
+        if not workflow_def or not workflow_def.tasks:
+            return dependencies
+        
+        for task in workflow_def.tasks:
+            # Check if this is a subworkflow task
+            task_type = getattr(task, 'type', None) if hasattr(task, 'type') else task.get("type") if isinstance(task, dict) else None
+            
+            if task_type == "subworkflow":
+                workflow_ext_id = None
+                version = None
+                
+                if isinstance(task, dict):
+                    # Handle dict representation
+                    subworkflow_params = task.get("parameters", {}).get("subworkflow", {})
+                    workflow_ext_id = subworkflow_params.get("workflowExternalId")
+                    version = subworkflow_params.get("version")
+                else:
+                    # Handle SDK object - SubworkflowReferenceParameters has direct attributes
+                    parameters = getattr(task, 'parameters', None)
+                    if parameters:
+                        # For SubworkflowReferenceParameters, workflow_external_id and version are direct attributes
+                        workflow_ext_id = getattr(parameters, 'workflow_external_id', None)
+                        version = getattr(parameters, 'version', None)
+                
+                # Add dependency if we found both required fields
+                if workflow_ext_id and version:
+                    dep_id = WorkflowVersionId(workflow_ext_id, version)
+                    dependencies.add(dep_id)
+        
+        return dependencies
 
     def update(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
         updated = []
