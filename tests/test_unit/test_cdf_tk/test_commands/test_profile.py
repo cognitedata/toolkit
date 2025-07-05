@@ -1,5 +1,11 @@
 import pytest
-from cognite.client.data_classes import Database, Table, Transformation, TransformationPreviewResult
+from cognite.client.data_classes import (
+    Database,
+    Table,
+    Transformation,
+    TransformationDestination,
+    TransformationPreviewResult,
+)
 
 from cognite_toolkit._cdf_tk.client.data_classes.raw import (
     RawProfileColumns,
@@ -50,6 +56,7 @@ class TestProfileRawCommand:
                 name="My Transformation",
                 conflict_mode="update",
                 query="SELECT externalId, name FROM `database`.`table`",
+                destination=TransformationDestination(type="events"),
             ),
         )
         toolkit_client_approval.append(Database, Database("database"))
