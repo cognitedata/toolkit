@@ -359,9 +359,12 @@ def raw_row_count(client: ToolkitClient, raw_table_id: RawTable, max_count: int 
     if max_count > MAX_ROW_ITERATION_RUN_QUERY:
         raise ValueError(f"max_count must be less than or equal to {MAX_ROW_ITERATION_RUN_QUERY}.")
 
-    query = (
-        f"SELECT COUNT(key) AS row_count FROM `{raw_table_id.db_name}`.`{raw_table_id.table_name}` LIMIT {max_count}"
-    )
+    query = f"""SELECT COUNT(key) AS row_count
+FROM (
+    SELECT key
+    FROM `{raw_table_id.db_name}`.`{raw_table_id.table_name}`
+    LIMIT {max_count}
+) AS limited_keys"""
     results = client.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
     if results.results:
         return int(results.results[0]["row_count"])
