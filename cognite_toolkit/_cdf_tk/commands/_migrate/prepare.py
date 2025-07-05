@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     ViewLoader,
 )
 
-from .data_model import COGNITE_MIGRATION_MODEL, MAPPING_CONTAINER, MAPPING_VIEW, MODEL_ID, SPACE
+from .data_model import COGNITE_MIGRATION_MODEL, CONTAINERS, MODEL_ID, SPACE, VIEWS
 
 
 class MigrationPrepareCommand(ToolkitCommand):
@@ -27,8 +27,8 @@ class MigrationPrepareCommand(ToolkitCommand):
         results = DeployResults([], "deploy", dry_run=dry_run)
         for loader_cls, resource_list in [
             (SpaceLoader, [SPACE]),
-            (ContainerLoader, [MAPPING_CONTAINER]),
-            (ViewLoader, [MAPPING_VIEW]),
+            (ContainerLoader, CONTAINERS),
+            (ViewLoader, VIEWS),
             (DataModelLoader, [COGNITE_MIGRATION_MODEL]),
         ]:
             # MyPy does not understand that `loader_cls` has a `create_loader` method.
