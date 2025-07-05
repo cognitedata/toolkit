@@ -411,10 +411,97 @@ class WorkflowVersionLoader(
         return WorkflowVersionList([self.client.workflows.versions.upsert(item) for item in items])
 
     def create(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
+        # Sort workflow versions topologically to ensure dependencies are created first
+        sorted_items = self._topological_sort_workflow_versions(items)
+        
         upserted = []
-        for item in items:
+        for item in sorted_items:
             upserted.append(self.client.workflows.versions.upsert(item))
         return WorkflowVersionList(upserted)
+
+    def _topological_sort_workflow_versions(self, items: WorkflowVersionUpsertList) -> list:
+        """Sort workflow versions in topological order based on subworkflow dependencies."""
+        from collections import defaultdict, deque
+        
+        # Build a mapping from workflow version ID to item
+        id_to_item = {}
+        for item in items:
+            item_id = self.get_id(item)
+            id_to_item[item_id] = item
+        
+        # Build dependency graph: dependents -> dependencies
+        dependencies = defaultdict(set)  # item_id -> set of dependency_ids
+        dependents = defaultdict(set)    # dependency_id -> set of dependent_ids
+        
+        for item in items:
+            item_id = self.get_id(item)
+            deps = self._extract_workflow_dependencies(item)
+            
+            for dep_id in deps:
+                # Only consider dependencies that are in the current batch
+                if dep_id in id_to_item:
+                    dependencies[item_id].add(dep_id)
+                    dependents[dep_id].add(item_id)
+        
+        # Perform topological sort using Kahn's algorithm
+        # Start with items that have no dependencies in the current batch
+        queue = deque()
+        in_degree = defaultdict(int)
+        
+        for item in items:
+            item_id = self.get_id(item)
+            in_degree[item_id] = len(dependencies[item_id])
+            if in_degree[item_id] == 0:
+                queue.append(item_id)
+        
+        sorted_ids = []
+        while queue:
+            current_id = queue.popleft()
+            sorted_ids.append(current_id)
+            
+            # Remove this item from dependency lists of its dependents
+            for dependent_id in dependents[current_id]:
+                in_degree[dependent_id] -= 1
+                if in_degree[dependent_id] == 0:
+                    queue.append(dependent_id)
+        
+        # Check for circular dependencies
+        if len(sorted_ids) != len(items):
+            remaining_items = [self.get_id(item) for item in items if self.get_id(item) not in sorted_ids]
+            raise ValueError(f"Circular dependency detected among workflow versions: {remaining_items}")
+        
+        # Return items in sorted order
+        return [id_to_item[item_id] for item_id in sorted_ids]
+
+    def _extract_workflow_dependencies(self, item) -> set:
+        """Extract workflow version dependencies from subworkflow tasks."""
+        dependencies = set()
+        
+        workflow_def = item.workflow_definition
+        if not workflow_def or not workflow_def.tasks:
+            return dependencies
+        
+        for task in workflow_def.tasks:
+            if hasattr(task, 'type') and task.type == "subworkflow":
+                # Handle SDK object
+                if hasattr(task, 'parameters') and hasattr(task.parameters, 'workflow_external_id'):
+                    workflow_ext_id = task.parameters.workflow_external_id
+                    version = getattr(task.parameters, 'version', None)
+                    if workflow_ext_id and version:
+                        from cognite.client.data_classes import WorkflowVersionId
+                        dep_id = WorkflowVersionId(workflow_ext_id, version)
+                        dependencies.add(dep_id)
+            elif isinstance(task, dict) and task.get("type") == "subworkflow":
+                # Handle dict representation
+                subworkflow_params = task.get("parameters", {}).get("subworkflow", {})
+                workflow_ext_id = subworkflow_params.get("workflowExternalId")
+                version = subworkflow_params.get("version")
+                if workflow_ext_id and version:
+                    from cognite.client.data_classes import WorkflowVersionId
+                    dep_id = WorkflowVersionId(workflow_ext_id, version)
+                    dependencies.add(dep_id)
+        
+        return dependencies
 
     def update(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
         updated = []
