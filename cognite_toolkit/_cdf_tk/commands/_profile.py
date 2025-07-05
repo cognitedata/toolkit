@@ -31,7 +31,7 @@ from cognite_toolkit._cdf_tk.utils.aggregators import (
     SequenceAggregator,
     TimeSeriesAggregator,
 )
-from cognite_toolkit._cdf_tk.utils.cdf import get_transformation_sources
+from cognite_toolkit._cdf_tk.utils.cdf import get_transformation_sources, raw_row_count
 from cognite_toolkit._cdf_tk.utils.sql_parser import SQLParser, SQLTable
 
 from ._base import ToolkitCommand
@@ -285,6 +285,15 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
                 limit=self.profile_row_limit,
                 timeout_seconds=self.profile_timeout_seconds,
             )
+        elif col == self.Columns.RawTable:
+            if row.source is None:
+                raise ValueError(f"Database and table name are required for {row!s} in column {col}.")
+            source = row.source
+            return partial(
+                raw_row_count,
+                client=client,
+                raw_table_id=source,
+            )
         raise ValueError(f"Unexpected API Call for row {row} and column {col}.")
 
     def format_result(self, result: object, row: AssetIndex, col: str) -> CellValue:
@@ -299,6 +308,10 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
         elif col == self.Columns.ColumnCount:
             if isinstance(result, RawProfileResults):
                 return result.column_count
+            return None
+        elif col == self.Columns.RawTable:
+            if isinstance(result, int):
+                return result
             return None
         raise ValueError(f"unexpected result type {type(result)} for row {row!s} and column {col}.")
 
