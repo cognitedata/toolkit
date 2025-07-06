@@ -520,7 +520,7 @@ class WorkflowVersionLoader(
             raise ToolkitCycleError(
                 f"Cannot deploy workflows. Cycle detected {e.args} in the 'subworkflow' dependencies of the workflows.",
                 *e.args[1:],
-            )
+            ) from None
 
 
 @final
