@@ -4,11 +4,18 @@ from unittest.mock import MagicMock
 import pytest
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import WorkflowTrigger
-from cognite.client.data_classes.workflows import WorkflowScheduledTriggerRule, WorkflowVersionId
+from cognite.client.data_classes.workflows import (
+    SubworkflowReferenceParameters,
+    WorkflowDefinitionUpsert,
+    WorkflowScheduledTriggerRule,
+    WorkflowTask,
+    WorkflowVersionId,
+    WorkflowVersionUpsert,
+)
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError, ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.loaders import WorkflowTriggerLoader, WorkflowVersionLoader
 from cognite_toolkit._cdf_tk.utils import calculate_secure_hash
 
@@ -102,3 +109,33 @@ class TestWorkflowVersionLoader:
             if len(call.args[0]) > filter_limit
         ]
         assert not call_above_limit, "Above limit should not be called"
+
+    def test_topological_sort_raises_on_cycle(self) -> None:
+        dependencies = {
+            "a": "b",
+            "b": "c",
+            "c": "a",  # This creates a cycle
+        }
+
+        workflows = [
+            WorkflowVersionUpsert(
+                workflow_external_id=id_,
+                version="v1",
+                workflow_definition=WorkflowDefinitionUpsert(
+                    tasks=[
+                        WorkflowTask(
+                            external_id=f"task_{id_}",
+                            parameters=SubworkflowReferenceParameters(dependency, "v1"),
+                        ),
+                    ]
+                ),
+            )
+            for id_, dependency in dependencies.items()
+        ]
+
+        with pytest.raises(ToolkitCycleError) as exc:
+            WorkflowVersionLoader.topological_sort(workflows)
+
+        error = exc.value
+        assert isinstance(error, ToolkitCycleError)
+        assert error.args[1] == [WorkflowVersionId(id_, "v1") for id_ in ["a", "c", "b", "a"]]
