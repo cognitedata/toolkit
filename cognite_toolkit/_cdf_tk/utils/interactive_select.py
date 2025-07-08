@@ -28,8 +28,9 @@ from .aggregators import (
 
 
 class AssetCentricInteractiveSelect(ABC):
-    def __init__(self, client: ToolkitClient) -> None:
+    def __init__(self, client: ToolkitClient, operation: str) -> None:
         self.client = client
+        self.operation = operation
         self._aggregator = self._get_aggregator(client)
 
     @abstractmethod
@@ -88,7 +89,7 @@ class AssetCentricInteractiveSelect(ABC):
                 selected.append("No data set selected.")
             selected_str = "\n".join(selected)
             what = questionary.select(
-                f"\n{selected_str}\nSelect a hierarchy or data set to dump",
+                f"\n{selected_str}\nSelect a hierarchy or data set to {self.operation}",
                 choices=["Hierarchy", "Data Set", "Done", "Abort"],
             ).ask()
 
