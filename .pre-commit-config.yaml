@@ -17,7 +17,7 @@ repos:
           - --fixable=E,W,F,I,T,RUF,TID,UP
           - --target-version=py310
       - id: ruff-format
-    rev: v0.12.1
+    rev: v0.12.2
 
   - repo: https://github.com/igorshubovych/markdownlint-cli
     rev: v0.45.0
