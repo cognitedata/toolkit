@@ -16,10 +16,10 @@ class InstanceSourceAPI:
         self._view_id = InstanceSource.get_source()
 
     def retrieve(self, ids: Sequence[AssetCentricId]) -> NodeList[InstanceSource]:
-        """Retrieve a list of mappings by their IDs.
+        """Retrieve a list of instance sources by their IDs.
 
         Args:
-            ids (Sequence[AssetCentricId]): A sequence of AssetCentricId objects representing the IDs of the mappings to retrieve.
+            ids (Sequence[AssetCentricId]): A sequence of AssetCentricId objects representing the IDs of the instance sources to retrieve.
         """
         results: NodeList[InstanceSource] = NodeList[InstanceSource]([])
         for chunk in chunker_sequence(ids, self._RETRIEVE_LIMIT):
