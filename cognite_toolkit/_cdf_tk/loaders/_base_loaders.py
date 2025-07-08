@@ -479,7 +479,7 @@ class DataLoader(Loader, ABC):
     item_name: str
 
     @abstractmethod
-    def upload(self, state: BuildEnvironment, dry_run: bool) -> Iterable[tuple[str, int]]:
+    def upload(self, state: "BuildEnvironment", dry_run: bool) -> Iterable[tuple[str, int]]:
         raise NotImplementedError
 
     def _find_data_files(self, directory: Path) -> list[Path]:

@@ -33,7 +33,7 @@ class DatapointsLoader(DataLoader):
     def display_name(self) -> str:
         return "timeseries datapoints"
 
-    def upload(self, state: BuildEnvironment, dry_run: bool) -> Iterable[tuple[str, int]]:
+    def upload(self, state: "BuildEnvironment", dry_run: bool) -> Iterable[tuple[str, int]]:
         if self.folder_name not in state.built_resources:
             return
 
@@ -97,7 +97,7 @@ class FileLoader(DataLoader):
     def display_name(self) -> str:
         return "file content"
 
-    def upload(self, state: BuildEnvironment, dry_run: bool) -> Iterable[tuple[str, int]]:
+    def upload(self, state: "BuildEnvironment", dry_run: bool) -> Iterable[tuple[str, int]]:
         if self.folder_name not in state.built_resources:
             return
 
@@ -162,7 +162,7 @@ class RawFileLoader(DataLoader):
     def display_name(self) -> str:
         return "raw rows"
 
-    def upload(self, state: BuildEnvironment, dry_run: bool) -> Iterable[tuple[str, int]]:
+    def upload(self, state: "BuildEnvironment", dry_run: bool) -> Iterable[tuple[str, int]]:
         if self.folder_name not in state.built_resources:
             return
 

@@ -131,7 +131,7 @@ class BuiltResource(Generic[T_ID]):
             output["extra_sources"] = [source.dump() for source in self.extra_sources]
         return output
 
-    def create_full(self, module: BuiltModule, resource_dir: str) -> "BuiltResourceFull":
+    def create_full(self, module: "BuiltModule", resource_dir: str) -> "BuiltResourceFull":
         return BuiltResourceFull(
             identifier=self.identifier,
             source=self.source,
