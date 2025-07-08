@@ -40,6 +40,6 @@ class TestMappingAPI:
     def test_retrieve_mappings(self, toolkit_client: ToolkitClient, three_mappings: NodeList[Mapping]) -> None:
         ids = [mapping.as_asset_centric_id() for mapping in three_mappings]
 
-        retrieved = toolkit_client.migration.mapping.retrieve(ids)
+        retrieved = toolkit_client.migration.instance_source.retrieve(ids)
 
         assert retrieved.dump() == three_mappings.dump(), "Failed to retrieve mappings using asset-centric IDs"

@@ -42,27 +42,29 @@ class AssetCentricId(CogniteObject):
         return f"{self.resource_type}(id={self.id_})"
 
 
-class _MappingProperties:
+class _InstanceSourceProperties:
     resource_type = PropertyOptions("resourceType")
     id_ = PropertyOptions("id")
     data_set_id = PropertyOptions("dataSetId")
     classic_external_id = PropertyOptions("classicExternalId")
+    preferred_consumer_view_id = PropertyOptions("preferredConsumerViewId")
+    ingestion_view = PropertyOptions("ingestionView")
 
     @classmethod
     def get_source(cls) -> ViewId:
-        return ViewId("cognite_migration", "Mapping", "v1")
+        return ViewId("cognite_migration", "InstanceSource", "v1")
 
 
-class Mapping(_MappingProperties, TypedNode):
-    """This represents the reading format of mapping.
+class InstanceSource(_InstanceSourceProperties, TypedNode):
+    """This represents the reading format of instance source.
 
     It is used to when data is read from CDF.
 
-    The mapping between asset-centric and data modeling resources
+    The source of the instance in asset-centric resources.
 
     Args:
         space: The space where the node is located.
-        external_id: The external id of the mapping.
+        external_id: The external id of the instance source.
         version (int): DMS version.
         last_updated_time (int): The number of milliseconds since 00:00:00 Thursday, 1 January 1970,
             Coordinated Universal Time (UTC), minus leap seconds.
@@ -72,6 +74,8 @@ class Mapping(_MappingProperties, TypedNode):
         id_: The id field.
         data_set_id: The data set id field.
         classic_external_id: The classic external id field.
+        preferred_consumer_view_id: The preferred consumer view id field.
+        ingestion_view: The ingestion view field.
         type: Direct relation pointing to the type node.
         deleted_time: The number of milliseconds since 00:00:00 Thursday, 1 January 1970, Coordinated Universal Time
             (UTC), minus leap seconds. Timestamp when the instance was soft deleted. Note that deleted instances
@@ -90,6 +94,8 @@ class Mapping(_MappingProperties, TypedNode):
         id_: int,
         data_set_id: int | None = None,
         classic_external_id: str | None = None,
+        preferred_consumer_view_id: dict | None = None,
+        ingestion_view: DirectRelationReference | None = None,
         type: DirectRelationReference | None = None,
         deleted_time: int | None = None,
     ) -> None:
@@ -98,6 +104,8 @@ class Mapping(_MappingProperties, TypedNode):
         self.id_ = id_
         self.data_set_id = data_set_id
         self.classic_external_id = classic_external_id
+        self.preferred_consumer_view_id = preferred_consumer_view_id
+        self.ingestion_view = DirectRelationReference.load(ingestion_view) if ingestion_view else None
 
     def as_asset_centric_id(self) -> AssetCentricId:
         """Return the AssetCentricId representation of the mapping."""
