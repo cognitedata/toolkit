@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import collections.abc
 import io
 from collections.abc import Hashable, Iterable

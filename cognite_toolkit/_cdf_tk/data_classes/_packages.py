@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import sys
 from collections.abc import ItemsView, Iterable, Iterator, KeysView, Mapping, MutableMapping, ValuesView
 from dataclasses import dataclass, field
@@ -10,9 +8,12 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, Toolkit
 from ._module_directories import ModuleDirectories, ModuleLocation
 
 if sys.version_info >= (3, 11):
+    from typing import Self
+
     import toml
 else:
     import tomli as toml
+    from typing_extensions import Self
 
 
 @dataclass
@@ -37,7 +38,7 @@ class Package:
         return {module.name for module in self.modules}
 
     @classmethod
-    def load(cls, name: str, package_definition: dict) -> Package:
+    def load(cls, name: str, package_definition: dict) -> Self:
         return cls(
             name=name,
             title=package_definition["title"],
@@ -59,7 +60,7 @@ class Packages(dict, MutableMapping[str, Package]):
     def load(
         cls,
         root_module_dir: Path,
-    ) -> Packages:
+    ) -> Self:
         """Loads the packages in the source directory.
 
         Args:

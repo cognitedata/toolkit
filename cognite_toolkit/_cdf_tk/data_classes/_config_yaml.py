@@ -1,8 +1,7 @@
-from __future__ import annotations
-
 import itertools
 import os
 import re
+import sys
 from abc import ABC
 from collections import UserDict, defaultdict
 from collections.abc import Hashable, Iterable, Sequence, Set
@@ -51,6 +50,10 @@ from ._base import ConfigCore, _load_version_variable
 from ._built_resources import BuiltResourceList
 from ._module_directories import ModuleDirectories, ReadModule
 
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 _AVAILABLE_ENV_TYPES = tuple(get_args(EnvType))
 
 
@@ -66,7 +69,7 @@ class Environment:
         return self.validation_type.casefold() != "dev"
 
     @classmethod
-    def load(cls, data: dict[str, Any], build_name: str) -> Environment:
+    def load(cls, data: dict[str, Any], build_name: str) -> "Environment":
         _deprecation_selected(data)
         if "name" not in data:
             data["name"] = build_name
@@ -151,7 +154,7 @@ class BuildConfigYAML(ConfigYAMLCore, ConfigCore):
             return MediumSeverityWarning(mismatch_message)
 
     @classmethod
-    def load(cls, data: dict[str, Any], build_env_name: str, filepath: Path) -> BuildConfigYAML:
+    def load(cls, data: dict[str, Any], build_env_name: str, filepath: Path) -> Self:
         if "environment" not in data:
             err_msg = f"Expected 'environment' section in {filepath!s}."
             raise ToolkitEnvError(err_msg)
@@ -168,7 +171,7 @@ class BuildConfigYAML(ConfigYAMLCore, ConfigCore):
 
     def create_build_environment(
         self, built_modules: BuiltModuleList, selected_modules: ModuleDirectories
-    ) -> BuildEnvironment:
+    ) -> "BuildEnvironment":
         return BuildEnvironment(
             name=self.environment.name,  # type: ignore[arg-type]
             project=self.environment.project,
@@ -223,7 +226,7 @@ class BuildConfigYAML(ConfigYAMLCore, ConfigCore):
         return selected_modules
 
     @classmethod
-    def load_default(cls, organization_dir: Path) -> BuildConfigYAML:
+    def load_default(cls, organization_dir: Path) -> Self:
         return cls(filepath=organization_dir / BuildConfigYAML.get_filename(DEFAULT_ENV))
 
     def dump(self) -> dict[str, Any]:
@@ -260,7 +263,7 @@ class BuildEnvironment(Environment):
     @classmethod
     def load(
         cls, data: dict[str, Any], build_name: str | None, action: Literal["build", "deploy", "clean", "pull"] = "build"
-    ) -> BuildEnvironment:
+    ) -> Self:
         if "name" in data and build_name is not None and data["name"] != build_name:
             raise ToolkitEnvError(
                 f"Expected to {action} for {build_name!r} environment, but the last "
@@ -425,7 +428,7 @@ class WildcardSet(set, Set[_WildcardSequence]):
     """Sets that support wildcard matching."""
 
     @classmethod
-    def load(cls, items: Sequence[Sequence[str]]) -> WildcardSet:
+    def load(cls, items: Sequence[Sequence[str]]) -> Self:
         return cls(_WildcardSequence(item) for item in items)
 
     def __contains__(self, key: Any) -> bool:
@@ -461,7 +464,7 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
         cognite_root_module: Path,
         selected_paths: set[Path] | None = None,
         ignore_patterns: list[tuple[str, ...]] | None = None,
-    ) -> InitConfigYAML:
+    ) -> Self:
         """Loads all default.config.yaml files in the cognite root module."""
 
         default_files_iterable: Iterable[Path]
@@ -487,7 +490,7 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
 
     def _load_defaults(
         self, cognite_root_module: Path, defaults_files: list[Path], ignore_patterns: list[tuple[str, ...]] | None
-    ) -> InitConfigYAML:
+    ) -> Self:
         """Loads all default.config.yaml files in the cognite root module.
 
         This extracts the default values from the default.config.yaml files and
@@ -528,7 +531,7 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
         return self
 
     @classmethod
-    def load_existing(cls, existing_config_yaml: str, build_env_name: str = "dev") -> InitConfigYAML:
+    def load_existing(cls, existing_config_yaml: str, build_env_name: str = "dev") -> Self:
         """Loads an existing config.yaml file.
 
         This does a yaml.safe_load, in addition to extracting comments from the file.
@@ -568,7 +571,7 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
             entries=entries,
         )
 
-    def load_variables(self, organization_dir: Path, propagate_reused_variables: bool = False) -> InitConfigYAML:
+    def load_variables(self, organization_dir: Path, propagate_reused_variables: bool = False) -> Self:
         """This scans the content the files in the given directories and finds the variables.
         The motivation is to find the variables that are used in the templates, as well
         as picking up variables that are used in custom modules.
@@ -600,7 +603,7 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
 
     def _load_variables(
         self, variable_by_parent_key: dict[str, set[tuple[str, ...]]], propagate_reused_variables: bool = False
-    ) -> InitConfigYAML:
+    ) -> Self:
         for variable, key_parents in variable_by_parent_key.items():
             if len(key_parents) > 1 and propagate_reused_variables:
                 key_parents = {self._find_common_parent(list(key_parents))}
@@ -725,7 +728,7 @@ class ConfigYAMLs(UserDict[str, InitConfigYAML]):
         super().__init__(entries or {})
 
     @classmethod
-    def load_default_environments(cls, default: dict[str, Any]) -> ConfigYAMLs:
+    def load_default_environments(cls, default: dict[str, Any]) -> Self:
         instance = cls()
         for environment_name, environment_config in default.items():
             environment = Environment.load(environment_config, environment_name)
@@ -733,7 +736,7 @@ class ConfigYAMLs(UserDict[str, InitConfigYAML]):
         return instance
 
     @classmethod
-    def load_existing_environments(cls, existing_config_yamls: Sequence[Path]) -> ConfigYAMLs:
+    def load_existing_environments(cls, existing_config_yamls: Sequence[Path]) -> Self:
         instance = cls()
         for config_yaml in existing_config_yamls:
             config = InitConfigYAML.load_existing(safe_read(config_yaml), config_yaml.name.split(".")[0])

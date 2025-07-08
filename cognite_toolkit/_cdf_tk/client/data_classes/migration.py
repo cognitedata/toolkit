@@ -1,5 +1,4 @@
-from __future__ import annotations
-
+import sys
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -12,6 +11,11 @@ from cognite.client.data_classes.data_modeling.instances import (
     TypedNode,
 )
 
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
+
 
 @dataclass(frozen=True)
 class AssetCentricId(CogniteObject):
@@ -19,7 +23,7 @@ class AssetCentricId(CogniteObject):
     id_: int
 
     @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> AssetCentricId:
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
         """Load an AssetCentricId from a dictionary."""
         return cls(
             resource_type=resource["resourceType"],

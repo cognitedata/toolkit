@@ -1,6 +1,5 @@
-from __future__ import annotations
-
 import re
+import sys
 from abc import ABC, abstractmethod
 from collections.abc import Hashable, Iterable, Sequence, Set, Sized
 from functools import lru_cache
@@ -27,6 +26,11 @@ from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read,
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.data_classes import BuildEnvironment
 
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
+
 T_ID = TypeVar("T_ID", bound=Hashable)
 T_WritableCogniteResourceList = TypeVar("T_WritableCogniteResourceList", bound=WriteableCogniteResourceList)
 _COMPILED_PATTERN: dict[str, re.Pattern] = {}
@@ -52,7 +56,7 @@ class Loader(ABC):
     folder_name: str
     kind: str
     filename_pattern: str = ""
-    dependencies: frozenset[type[ResourceLoader]] = frozenset()
+    dependencies: "frozenset[type[ResourceLoader]]" = frozenset()
     exclude_filetypes: frozenset[str] = frozenset()
     _doc_base_url: str = "https://api-docs.cognite.com/20230101/tag/"
     _doc_url: str = ""
@@ -68,11 +72,11 @@ class Loader(ABC):
 
     @classmethod
     def create_loader(
-        cls: type[T_Loader],
+        cls,
         client: ToolkitClient,
         build_dir: Path | None = None,
         console: Console | None = None,
-    ) -> T_Loader:
+    ) -> Self:
         return cls(client, build_dir, console)
 
     @property
@@ -182,11 +186,11 @@ class ResourceLoader(
     support_drop = True
     support_update = True
     filetypes = frozenset({"yaml", "yml"})
-    dependencies: frozenset[type[ResourceLoader]] = frozenset()
+    dependencies: "frozenset[type[ResourceLoader]]" = frozenset()
     # For example, TransformationNotification and Schedule has Transformation as the parent resource
     # This is used in the iterate method to ensure that nothing is returned if
     # the resource type does not have a parent resource.
-    parent_resource: frozenset[type[ResourceLoader]] = frozenset()
+    parent_resource: "frozenset[type[ResourceLoader]]" = frozenset()
 
     # The methods that must be implemented in the subclass
     @classmethod
@@ -259,7 +263,7 @@ class ResourceLoader(
         return read_parameter_from_init_type_hints(cls.resource_write_cls).as_camel_case()
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> "Iterable[tuple[type[ResourceLoader], Hashable]]":
         """Returns all items that this item requires.
 
         For example, a TimeSeries requires a DataSet, so this method would return the
