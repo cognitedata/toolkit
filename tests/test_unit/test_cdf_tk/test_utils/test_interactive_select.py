@@ -47,7 +47,7 @@ class TestInteractiveSelect:
                 DataSet(id=3, external_id="dataset3"),
             ]
 
-            selector = AssetInteractiveSelect(client)
+            selector = AssetInteractiveSelect(client, "test_operation")
             selected_hierarchy, selected_dataset = selector.interactive_select_hierarchy_datasets()
 
         assert selected_hierarchy == ["Root2"]
@@ -77,7 +77,7 @@ class TestInteractiveSelect:
                 Asset(id=2, external_id="Root2", name="Root 2"),
             ]
             client.files.aggregate.return_value = [CountAggregate(100)]
-            selector = FileMetadataInteractiveSelect(client)
+            selector = FileMetadataInteractiveSelect(client, "test_operation")
             selected_hierarchy, selected_dataset = selector.interactive_select_hierarchy_datasets()
 
         assert selected_hierarchy == ["Root2"]
@@ -100,7 +100,7 @@ class TestInteractiveSelect:
             client.data_sets.list.return_value = []
             client.assets.list.return_value = []
             client.files.aggregate.return_value = [CountAggregate(100)]
-            selector = FileMetadataInteractiveSelect(client)
+            selector = FileMetadataInteractiveSelect(client, "test_operation")
             selected_hierarchy, selected_dataset = selector.interactive_select_hierarchy_datasets()
 
         assert selected_hierarchy == []
@@ -130,7 +130,7 @@ class TestInteractiveSelect:
                 Asset(id=2, external_id="Root2", name="Root 2"),
             ]
             client.time_series.aggregate_count.return_value = 100
-            selector = TimeSeriesInteractiveSelect(client)
+            selector = TimeSeriesInteractiveSelect(client, "test_operation")
             selected_hierarchy, selected_dataset = selector.interactive_select_hierarchy_datasets()
 
         assert selected_hierarchy == ["Root2"]
@@ -160,7 +160,7 @@ class TestInteractiveSelect:
                 Asset(id=2, external_id="Root2", name="Root 2"),
             ]
             client.events.aggregate_count.return_value = 100
-            selector = EventInteractiveSelect(client)
+            selector = EventInteractiveSelect(client, "test_operation")
             selected_hierarchy, selected_dataset = selector.interactive_select_hierarchy_datasets()
 
         assert selected_hierarchy == ["Root2"]
