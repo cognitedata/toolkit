@@ -1,4 +1,4 @@
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
 from functools import lru_cache
@@ -7,13 +7,9 @@ from typing import ClassVar, Literal
 import questionary
 from cognite.client.data_classes import (
     Asset,
-    AssetFilter,
     AssetList,
     DataSet,
     DataSetList,
-    EventFilter,
-    FileMetadataFilter,
-    TimeSeriesFilter,
     filters,
 )
 from cognite.client.data_classes.data_modeling import NodeList
@@ -22,18 +18,30 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.canvas import Canvas
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 
+from .aggregators import (
+    AssetAggregator,
+    AssetCentricAggregator,
+    EventAggregator,
+    FileAggregator,
+    TimeSeriesAggregator,
+)
 
-class AssetCentricInteractiveSelect:
+
+class AssetCentricInteractiveSelect(ABC):
     def __init__(self, client: ToolkitClient) -> None:
         self.client = client
+        self._aggregator = self._get_aggregator(client)
+
+    @abstractmethod
+    def _get_aggregator(self, client: ToolkitClient) -> AssetCentricAggregator:
+        raise NotImplementedError()
 
     @lru_cache
     def aggregate_count(self, hierarchies: tuple[str, ...], data_sets: tuple[str, ...]) -> int:
         return self._aggregate_count(list(hierarchies), list(data_sets))
 
-    @abstractmethod
     def _aggregate_count(self, hierarchies: list[str], data_sets: list[str]) -> int:
-        raise NotImplementedError()
+        return self._aggregator.count(hierarchies, data_sets)
 
     @lru_cache(maxsize=1)
     def _get_available_data_sets(self) -> DataSetList:
@@ -65,7 +73,7 @@ class AssetCentricInteractiveSelect:
         ), item_count
 
     def interactive_select_hierarchy_datasets(self) -> tuple[list[str], list[str]]:
-        """Interactively select hierarchies and data sets to dump."""
+        """Interactively select hierarchies and data sets."""
         hierarchies: set[str] = set()
         data_sets: set[str] = set()
         while True:
@@ -122,44 +130,23 @@ class AssetCentricInteractiveSelect:
 
 
 class AssetInteractiveSelect(AssetCentricInteractiveSelect):
-    def _aggregate_count(self, hierarchies: list[str], data_sets: list[str]) -> int:
-        return self.client.assets.aggregate_count(
-            filter=AssetFilter(
-                data_set_ids=[{"externalId": item} for item in data_sets] or None,
-                asset_subtree_ids=[{"externalId": item} for item in hierarchies] or None,
-            )
-        )
+    def _get_aggregator(self, client: ToolkitClient) -> AssetCentricAggregator:
+        return AssetAggregator(self.client)
 
 
 class FileMetadataInteractiveSelect(AssetCentricInteractiveSelect):
-    def _aggregate_count(self, hierarchies: list[str], data_sets: list[str]) -> int:
-        result = self.client.files.aggregate(
-            filter=FileMetadataFilter(
-                data_set_ids=[{"externalId": item} for item in data_sets] or None,
-                asset_subtree_ids=[{"externalId": item} for item in hierarchies] or None,
-            )
-        )
-        return result[0].count if result else 0
+    def _get_aggregator(self, client: ToolkitClient) -> AssetCentricAggregator:
+        return FileAggregator(self.client)
 
 
 class TimeSeriesInteractiveSelect(AssetCentricInteractiveSelect):
-    def _aggregate_count(self, hierarchies: list[str], data_sets: list[str]) -> int:
-        return self.client.time_series.aggregate_count(
-            filter=TimeSeriesFilter(
-                data_set_ids=[{"externalId": item} for item in data_sets] or None,
-                asset_subtree_ids=[{"externalId": item} for item in hierarchies] or None,
-            )
-        )
+    def _get_aggregator(self, client: ToolkitClient) -> AssetCentricAggregator:
+        return TimeSeriesAggregator(self.client)
 
 
 class EventInteractiveSelect(AssetCentricInteractiveSelect):
-    def _aggregate_count(self, hierarchies: list[str], data_sets: list[str]) -> int:
-        return self.client.events.aggregate_count(
-            filter=EventFilter(
-                data_set_ids=[{"externalId": item} for item in data_sets] or None,
-                asset_subtree_ids=[{"externalId": item} for item in hierarchies] or None,
-            )
-        )
+    def _get_aggregator(self, client: ToolkitClient) -> AssetCentricAggregator:
+        return EventAggregator(self.client)
 
 
 @dataclass
