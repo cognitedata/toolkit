@@ -59,7 +59,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.lookup.location_filters = MagicMock(spec_set=LocationFiltersLookUpAPI)
         self.lookup.extraction_pipelines = MagicMock(spec_set=ExtractionPipelineLookUpAPI)
         self.migration = MagicMock(spec=MigrationAPI)
-        self.migration.mapping = MagicMock(spec_set=InstanceSourceAPI)
+        self.migration.instance_source = MagicMock(spec_set=InstanceSourceAPI)
 
         self.robotics = MagicMock()
         self.robotics.robots = MagicMock(spec=RoboticsAPI)
