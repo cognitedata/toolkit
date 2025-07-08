@@ -1,4 +1,6 @@
+import json
 import sys
+import warnings
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -10,6 +12,8 @@ from cognite.client.data_classes.data_modeling.instances import (
     PropertyOptions,
     TypedNode,
 )
+
+from cognite_toolkit._cdf_tk.tk_warnings import IgnoredValueWarning
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -94,7 +98,7 @@ class InstanceSource(_InstanceSourceProperties, TypedNode):
         id_: int,
         data_set_id: int | None = None,
         classic_external_id: str | None = None,
-        preferred_consumer_view_id: dict | None = None,
+        preferred_consumer_view_id: ViewId | None = None,
         ingestion_view: DirectRelationReference | None = None,
         type: DirectRelationReference | None = None,
         deleted_time: int | None = None,
@@ -106,6 +110,22 @@ class InstanceSource(_InstanceSourceProperties, TypedNode):
         self.classic_external_id = classic_external_id
         self.preferred_consumer_view_id = preferred_consumer_view_id
         self.ingestion_view = DirectRelationReference.load(ingestion_view) if ingestion_view else None
+
+    @classmethod
+    def _load_properties(cls, resource: dict[str, Any]) -> dict[str, Any]:
+        if "preferredConsumerViewId" in resource:
+            preferred_consumer_view_id = resource.pop("preferredConsumerViewId")
+            try:
+                resource["preferredConsumerViewId"] = ViewId.load(preferred_consumer_view_id)
+            except (TypeError, KeyError) as e:
+                warnings.warn(
+                    IgnoredValueWarning(
+                        name="InstanceSource.preferredConsumerViewId",
+                        value=json.dumps(preferred_consumer_view_id),
+                        reason=f"Invalid ViewId format expected 'space', 'externalId', 'version': {e!s}",
+                    )
+                )
+        return super()._load_properties(resource)
 
     def as_asset_centric_id(self) -> AssetCentricId:
         """Return the AssetCentricId representation of the mapping."""
