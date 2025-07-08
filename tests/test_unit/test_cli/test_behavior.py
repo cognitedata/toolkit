@@ -799,7 +799,7 @@ dataModelingType: DATA_MODELING_ONLY
     # Verify that the workflow was created in the correct order, parent before child.
     filters = toolkit_client_approval.created_resources_of_type(LocationFilter)
     assert len(filters) == 2
-    assert [workflow.external_id for workflow in filters] == ["parent", "child"]
+    assert [loc_filter.external_id for loc_filter in filters] == ["parent", "child"]
 
 
 def test_build_project_with_only_identifiers(
