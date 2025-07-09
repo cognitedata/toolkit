@@ -256,27 +256,13 @@ class HTTPBatchProcessor(Generic[T_ID]):
                 with self._rate_limit_lock:
                     backoff_time = self._rate_limit_until - time.time()
                 if backoff_time > 0:
-                    time.sleep(backoff_time)
+                    jitter = random.uniform(0, 0.2)
+                    time.sleep(backoff_time + jitter)
 
                 response = self._make_request(work_item)
                 self._handle_response(response, work_item, work_queue, results_queue)
             except Exception as e:
-                # Handle network and timeout errors
-                if self._any_exception_in_context_isinstance(
-                    e, (socket.timeout, urllib3.exceptions.ReadTimeoutError, requests.exceptions.ReadTimeout)
-                ):
-                    self._handle_network_error(e, work_item, work_queue, results_queue, error_type="read")
-                if self._any_exception_in_context_isinstance(
-                    e,
-                    (
-                        ConnectionError,
-                        urllib3.exceptions.ConnectionError,
-                        urllib3.exceptions.ConnectTimeoutError,
-                        requests.exceptions.ConnectionError,
-                    ),
-                ):
-                    self._handle_network_error(e, work_item, work_queue, results_queue, error_type="connect")
-                raise e
+                self._handle_network_error(e, work_item, work_queue, results_queue)
             finally:
                 work_queue.task_done()
 
@@ -342,16 +328,28 @@ class HTTPBatchProcessor(Generic[T_ID]):
         work_item: WorkItem,
         work_queue: Queue,
         results_queue: Queue,
-        error_type: Literal["read", "connect"],
     ) -> None:
-        if error_type == "read":
+        if self._any_exception_in_context_isinstance(
+            e, (socket.timeout, urllib3.exceptions.ReadTimeoutError, requests.exceptions.ReadTimeout)
+        ):
+            error_type = "read"
             work_item.read_attempt += 1
             attempts = work_item.read_attempt
-        elif error_type == "connect":
+        elif self._any_exception_in_context_isinstance(
+            e,
+            (
+                ConnectionError,
+                urllib3.exceptions.ConnectionError,
+                urllib3.exceptions.ConnectTimeoutError,
+                requests.exceptions.ConnectionError,
+            ),
+        ):
+            error_type = "connect"
             work_item.connect_attempt += 1
             attempts = work_item.connect_attempt
         else:
-            raise ValueError(f"Invalid error_type: {error_type}. Expected 'read' or 'connect'.")
+            # Not a network error, re-raise
+            raise e
 
         if attempts < self.max_retries:
             time.sleep(self._backoff_time(attempts))
