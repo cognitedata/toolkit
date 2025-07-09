@@ -3,10 +3,13 @@ from scripts.regsetup import description
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteActivityApply
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.utils.batch_processor import HTTPBatchProcessor
+v
+
+
 class TestBatchProcessor:
     def test_batch_processor_create_nodes(self, toolkit_client_config: ToolkitClientConfig, toolkit_space: Space) -> None:
         config = toolkit_client_config
-        url = f"https://{config.cdf_cluster}.cognitedata.com/api/v1/projects/{config.project}/models/instances"
+        url = f"{config.base_url}/api/v1/projects/{config.project}/models/instances"
         processor = HTTPBatchProcessor[NodeId](
             endpoint_url=url,
             config=config,
