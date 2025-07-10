@@ -27,6 +27,7 @@ from .api.robotics.frames import FramesAPI
 from .api.robotics.locations import LocationsAPI as RoboticsLocationsAPI
 from .api.robotics.maps import MapsAPI
 from .api.statistics import StatisticsAPI
+from .api.token import TokenAPI
 from .api.verify import VerifyAPI
 
 
@@ -70,6 +71,8 @@ class ToolkitClientMock(CogniteClientMock):
 
         self.data_modeling.statistics = MagicMock(spec_set=StatisticsAPI)
 
+        # This is a helper API, not a real API.
+        self.token = TokenAPI(self)
         self.verify = MagicMock(spec_set=VerifyAPI)
 
 
