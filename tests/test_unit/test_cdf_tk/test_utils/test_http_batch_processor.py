@@ -59,6 +59,8 @@ class TestHTTPBatchProcessor:
 
             assert len(rsps.calls) == 1
             assert result.total_successful == 2
+            assert result.total_processed == 2
+            assert result.success_rate == 1.0
 
     def test_concurrent_processing(self, processor: HTTPBatchProcessor) -> None:
         """Test that items are processed concurrently using multiple workers"""
@@ -183,3 +185,100 @@ class TestHTTPBatchProcessor:
 
             # Verify each worker received a shutdown signal
             assert shutdown_signal_count == processor.max_workers
+
+    def test_no_access(self, processor: HTTPBatchProcessor) -> None:
+        """Test handling of 401 Unauthorized responses"""
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.POST,
+                processor.endpoint_url,
+                status=401,
+                json={"error": {"message": "Unauthorized access"}},
+            )
+
+            items = [{"id": i} for i in range(10)]
+            result = processor.process(items, total_items=len(items))
+
+            assert result.total_failed == 10
+            assert result.total_successful == 0
+            assert 401 in result.error_summary
+            assert result.error_summary[401] == 10
+            # Verify there was only one request attempt (no retries for 401)
+            assert len(rsps.calls) == 1
+
+    def test_rate_limit_handling(self, processor: HTTPBatchProcessor) -> None:
+        """Test handling of 429 rate limit responses with eventual success"""
+        responses_sequence = [
+            # First attempt gets rate limited
+            {"status": 429, "json": {"error": {"message": "Too many requests"}}},
+            # Second attempt succeeds
+            {"status": 200, "json": {"items": []}},
+        ]
+
+        with responses.RequestsMock() as rsps:
+            for resp in responses_sequence:
+                rsps.add(
+                    responses.POST,
+                    processor.endpoint_url,
+                    status=resp["status"],
+                    json=resp["json"],
+                )
+
+            with patch("time.sleep"):  # Skip actual waiting
+                items = [{"id": i} for i in range(10)]
+                result = processor.process(items, total_items=len(items))
+
+                assert result.total_successful == 10
+                assert result.total_failed == 0
+                assert len(rsps.calls) == 2  # First fails, second succeeds
+
+                # Verify rate limit was handled
+                assert rsps.calls[0].response.status_code == 429
+                assert rsps.calls[1].response.status_code == 200
+
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_permanent_failure_single_item(self, toolkit_config: ToolkitClientConfig) -> None:
+        """Test handling of permanent failure for a single item"""
+        url = "https://test.com/api"
+        processor = HTTPBatchProcessor(
+            endpoint_url=url,
+            config=toolkit_config,
+            as_id=lambda item: item["id"],
+            max_workers=2,
+            batch_size=1,
+        )
+
+        # Track which items were sent in requests
+        request_items = []
+
+        def request_callback(request):
+            payload = request.body.decode() if isinstance(request.body, bytes) else request.body
+            # Extract the item ID from the request
+            if '"id": 3' in payload:  # Item with ID 3 will fail
+                return (400, {}, '{"error": {"message": "Invalid format for item"}}')
+            else:
+                request_items.append(payload)
+                return (200, {}, '{"items": []}')
+
+        with responses.RequestsMock() as rsps:
+            rsps.add_callback(
+                responses.POST,
+                url,
+                callback=request_callback,
+            )
+
+            items = [{"id": i} for i in range(5)]
+            result = processor.process(items, total_items=len(items))
+
+            # Verify one item failed and four succeeded
+            assert result.total_successful == 4
+            assert result.total_failed == 1
+            assert 400 in result.error_summary
+            assert result.error_summary[400] == 1
+
+            # Verify the failed item has ID 3
+            failed_id = result.failed_items[0].item
+            assert failed_id == 3
+
+            # Verify each item was processed individually
+            assert len(rsps.calls) == 5
