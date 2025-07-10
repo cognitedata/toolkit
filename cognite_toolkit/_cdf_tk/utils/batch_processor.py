@@ -14,7 +14,7 @@ import requests
 import urllib3
 from cognite.client import global_config
 from cognite.client.utils import _json
-from cognite.client.utils._auxiliary import get_current_sdk_version, get_user_agent
+from cognite.client.utils._auxiliary import get_user_agent
 from requests.adapters import HTTPAdapter
 from requests.structures import CaseInsensitiveDict
 from rich.console import Console
@@ -22,6 +22,7 @@ from rich.progress import BarColumn, Progress, TaskProgressColumn, TextColumn, T
 from urllib3.util.retry import Retry
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
+from cognite_toolkit._cdf_tk.utils.auxiliary import get_current_toolkit_version
 
 T_ID = TypeVar("T_ID", bound=Hashable)
 
@@ -147,8 +148,7 @@ class HTTPBatchProcessor(Generic[T_ID]):
         headers.update(self._get_auth_header())
         headers["content-type"] = "application/json"
         headers["accept"] = "application/json"
-        # Todo; Replace SDK?
-        headers["x-cdp-sdk"] = f"CognitePythonSDK:{get_current_sdk_version()}"
+        headers["x-cdp-sdk"] = f"CogniteToolkit:{get_current_toolkit_version()}"
         headers["x-cdp-app"] = self._config.client_name
         headers["cdf-version"] = self._config.api_subversion
         if "User-Agent" in headers:
