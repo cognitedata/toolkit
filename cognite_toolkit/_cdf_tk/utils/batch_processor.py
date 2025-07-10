@@ -24,6 +24,8 @@ from urllib3.util.retry import Retry
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.utils.auxiliary import get_current_toolkit_version
 
+from .useful_types import JsonVal
+
 T_ID = TypeVar("T_ID", bound=Hashable)
 
 
@@ -186,7 +188,7 @@ class HTTPBatchProcessor(Generic[T_ID]):
             self.console.print(f"[yellow]Rate limit hit (429). Backing off for {backoff:.2f}s.[/yellow]")
             self._rate_limit_until = time.time() + backoff
 
-    def _producer(self, items_iterator: Iterable[dict], work_queue: Queue) -> None:
+    def _producer(self, items_iterator: Iterable[dict[str, JsonVal]], work_queue: Queue) -> None:
         batch: list[dict] = []
         for item in items_iterator:
             batch.append(item)
@@ -196,7 +198,7 @@ class HTTPBatchProcessor(Generic[T_ID]):
         if batch:
             work_queue.put(WorkItem(items=batch))
 
-    def process(self, items: Iterable[dict], total_items: int | None = None) -> ProcessorResult[T_ID]:
+    def process(self, items: Iterable[dict[str, JsonVal]], total_items: int | None = None) -> ProcessorResult[T_ID]:
         work_queue: Queue[WorkItem | None] = Queue(maxsize=self.max_workers * 2)
         results_queue: Queue[BatchResult[T_ID]] = Queue()
 
