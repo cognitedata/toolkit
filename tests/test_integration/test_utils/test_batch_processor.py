@@ -11,16 +11,6 @@ class TestBatchProcessor:
     ) -> None:
         config = toolkit_client_config
         url = f"{config.base_url}/api/v1/projects/{config.project}/models/instances"
-        processor = HTTPBatchProcessor[NodeId](
-            endpoint_url=url,
-            config=config,
-            as_id=lambda item: NodeId(item["space"], item["externalId"]),
-            body_parameters={"autoCreateDirectRelations": True},
-            method="POST",
-            batch_size=1000,
-            max_workers=2,
-            description="Create nodes",
-        )
         some_nodes = (
             CogniteActivityApply(
                 space=toolkit_space.space if i < 9 else "non_existent_space",
@@ -29,8 +19,17 @@ class TestBatchProcessor:
             ).dump()
             for i in range(10)
         )
-
-        result = processor.process(some_nodes)
+        with HTTPBatchProcessor[NodeId](
+            endpoint_url=url,
+            config=config,
+            as_id=lambda item: NodeId(item["space"], item["externalId"]),
+            body_parameters={"autoCreateDirectRelations": True},
+            method="POST",
+            batch_size=1000,
+            max_workers=2,
+            description="Create nodes",
+        ) as processor:
+            result = processor.process(some_nodes)
 
         assert result.total_successful == 9
         assert result.total_failed == 1

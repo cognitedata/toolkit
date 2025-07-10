@@ -134,6 +134,16 @@ class HTTPBatchProcessor(Generic[T_ID]):
         self._rate_limit_until = 0.0
         self._token_expiry = 0.0
 
+    def __enter__(self) -> "HTTPBatchProcessor[T_ID]":
+        return self
+
+    def __exit__(
+        self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: object | None
+    ) -> Literal[False]:
+        """Close the session when exiting the context."""
+        self.session.close()
+        return False  # Do not suppress exceptions
+
     def _create_thread_safe_session(self) -> requests.Session:
         session = requests.Session()
         adapter = HTTPAdapter(
@@ -380,8 +390,7 @@ class HTTPBatchProcessor(Generic[T_ID]):
         )
 
     def __del__(self) -> None:
-        if hasattr(self, "session"):
-            self.session.close()
+        return self.session.close()
 
     @classmethod
     def _any_exception_in_context_isinstance(
