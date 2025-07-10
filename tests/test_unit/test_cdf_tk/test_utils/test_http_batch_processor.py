@@ -122,6 +122,7 @@ class TestHTTPBatchProcessor:
             assert processed_batch_counts == [100, 50, 50], "Batch should be split into 100, 50, 50"
             assert result.total_successful == 100
 
+    @pytest.mark.usefixtures("disable_gzip")
     def test_network_errors(self, toolkit_config: ToolkitClientConfig) -> None:
         """Test prevention of queue deadlocks under error conditions"""
         url = "https://test.com/api"
@@ -135,7 +136,11 @@ class TestHTTPBatchProcessor:
         )
 
         def connection_error_callback(request):
-            raise requests.exceptions.ConnectionError("Connection error")
+            if '"id": 1' in request.body:
+                # Fist worker
+                raise requests.exceptions.ReadTimeout("Read timeout error")
+            else:
+                raise requests.exceptions.ConnectionError("Connection error")
 
         with responses.RequestsMock() as rsps:
             rsps.add_callback(
