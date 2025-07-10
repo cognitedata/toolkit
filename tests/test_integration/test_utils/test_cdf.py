@@ -275,6 +275,6 @@ class TestRawTableRowCount:
     def test_raw_table_row_count(
         self, toolkit_client: ToolkitClient, populated_raw_table: RawTable, raw_data: RowWriteList
     ) -> None:
-        count = raw_row_count(toolkit_client, populated_raw_table)
+        count = raw_row_count(toolkit_client, populated_raw_table, max_count=len(raw_data) - 1)
 
-        assert count == len(raw_data)
+        assert count == len(raw_data) - 1
