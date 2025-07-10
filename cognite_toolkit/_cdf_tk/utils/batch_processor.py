@@ -132,9 +132,6 @@ class HTTPBatchProcessor(Generic[T_ID]):
         # Shared state for rate limiting and backoff
         self._rate_limit_lock = threading.Lock()
         self._rate_limit_until = 0.0
-        self._token_lock = threading.Lock()
-        self._auth_header_name = ""
-        self._auth_header_value = ""
         self._token_expiry = 0.0
 
     def _create_thread_safe_session(self) -> requests.Session:
@@ -148,17 +145,11 @@ class HTTPBatchProcessor(Generic[T_ID]):
         session.mount("https://", adapter)
         return session
 
-    def _get_auth_header(self) -> dict[str, str]:
-        with self._token_lock:
-            if time.time() > self._token_expiry - 60:  # Refresh 1 min before expiry
-                self._auth_header_name, self._auth_header_value = self._config.credentials.authorization_header()
-                self._token_expiry = time.time() + 3600  # Assume 1-hour expiry
-            return {self._auth_header_name: self._auth_header_value}
-
     def _create_headers(self) -> MutableMapping[str, str]:
         headers: MutableMapping[str, str] = CaseInsensitiveDict()
         headers.update(requests.utils.default_headers())
-        headers.update(self._get_auth_header())
+        auth_name, auth_value = self._config.credentials.authorization_header()
+        headers[auth_name] = auth_value
         headers["content-type"] = "application/json"
         headers["accept"] = "application/json"
         headers["x-cdp-sdk"] = f"CogniteToolkit:{get_current_toolkit_version()}"
