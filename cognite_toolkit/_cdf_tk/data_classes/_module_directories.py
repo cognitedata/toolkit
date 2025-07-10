@@ -1,6 +1,5 @@
-from __future__ import annotations
-
 import shutil
+import sys
 from collections import defaultdict
 from collections.abc import Collection, Iterator, Sequence
 from dataclasses import dataclass
@@ -12,6 +11,11 @@ from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
 from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, iterate_modules, resource_folder_from_path
 
 from ._module_toml import ModuleToml
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 
 @dataclass(frozen=True)
@@ -142,7 +146,7 @@ class ModuleLocation:
     def __str__(self) -> str:
         return self.name
 
-    def as_read_module(self) -> ReadModule:
+    def as_read_module(self) -> "ReadModule":
         return ReadModule(
             dir=self.dir,
             resource_directories=tuple(self.resource_directories),
@@ -176,7 +180,7 @@ class ReadModule:
         return None
 
     @classmethod
-    def load(cls, data: dict[str, Any]) -> ReadModule:
+    def load(cls, data: dict[str, Any]) -> Self:
         return cls(
             dir=Path(data["dir"]),
             resource_directories=tuple(data["resource_directories"]),
@@ -197,7 +201,7 @@ class ModuleDirectories(tuple, Sequence[ModuleLocation]):
 
     # Subclassing tuple to make the class immutable. ModuleDirectories is expected to be initialized and
     # then used as a read-only object.
-    def __new__(cls, collection: Collection[ModuleLocation] | None) -> ModuleDirectories:
+    def __new__(cls, collection: Collection[ModuleLocation] | None) -> Self:
         # Need to override __new__ to as we are subclassing a tuple:
         #   https://stackoverflow.com/questions/1565374/subclassing-tuple-with-multiple-init-arguments
         return super().__new__(cls, tuple(collection or []))
@@ -209,7 +213,7 @@ class ModuleDirectories(tuple, Sequence[ModuleLocation]):
         return {selection for module_location in self for selection in module_location.module_selections}
 
     @cached_property
-    def selected(self) -> ModuleDirectories:
+    def selected(self) -> "ModuleDirectories":
         return ModuleDirectories([module for module in self if module.is_selected])
 
     @cached_property
@@ -225,7 +229,7 @@ class ModuleDirectories(tuple, Sequence[ModuleLocation]):
         cls,
         organization_dir: Path,
         user_selected_modules: set[str | Path] | None = None,
-    ) -> ModuleDirectories:
+    ) -> Self:
         """Loads the modules in the source directory.
 
         Args:
@@ -293,9 +297,9 @@ class ModuleDirectories(tuple, Sequence[ModuleLocation]):
     def __getitem__(self, index: SupportsIndex) -> ModuleLocation: ...
 
     @overload
-    def __getitem__(self, index: slice) -> ModuleDirectories: ...
+    def __getitem__(self, index: slice) -> "ModuleDirectories": ...
 
-    def __getitem__(self, index: SupportsIndex | slice, /) -> ModuleLocation | ModuleDirectories:
+    def __getitem__(self, index: SupportsIndex | slice, /) -> "ModuleLocation | ModuleDirectories":
         if isinstance(index, slice):
             return ModuleDirectories(super().__getitem__(index))
         return super().__getitem__(index)

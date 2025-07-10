@@ -1,5 +1,4 @@
-from __future__ import annotations
-
+import sys
 from collections.abc import Callable, Collection, Iterator, MutableSequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,6 +15,11 @@ from ._built_resources import (
     SourceLocation,
 )
 
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
+
 
 @dataclass
 class BuiltModule:
@@ -28,7 +32,7 @@ class BuiltModule:
     iteration: int
 
     @classmethod
-    def load(cls, data: dict[str, Any]) -> BuiltModule:
+    def load(cls, data: dict[str, Any]) -> Self:
         return cls(
             name=data["name"],
             location=SourceLocation.load(data["location"]),
@@ -69,9 +73,9 @@ class BuiltModuleList(list, MutableSequence[BuiltModule]):
     def __getitem__(self, index: SupportsIndex) -> BuiltModule: ...
 
     @overload
-    def __getitem__(self, index: slice) -> BuiltModuleList: ...
+    def __getitem__(self, index: slice) -> Self: ...
 
-    def __getitem__(self, index: SupportsIndex | slice, /) -> BuiltModule | BuiltModuleList:
+    def __getitem__(self, index: SupportsIndex | slice, /) -> "BuiltModule | BuiltModuleList":
         if isinstance(index, slice):
             return BuiltModuleList(super().__getitem__(index))
         return super().__getitem__(index)
@@ -83,7 +87,7 @@ class BuiltModuleList(list, MutableSequence[BuiltModule]):
         kind: str | None = None,
         selected: Path | str | None = None,
         is_supported_file: Callable[[Path], bool] | None = None,
-    ) -> BuiltFullResourceList[T_ID]:
+    ) -> "BuiltFullResourceList[T_ID]":
         resources = (
             resource.create_full(module, resource_dir)
             for module in self

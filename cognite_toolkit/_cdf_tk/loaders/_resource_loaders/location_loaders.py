@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from collections.abc import Hashable, Iterable, Sequence
 from functools import lru_cache
 from graphlib import CycleError, TopologicalSorter

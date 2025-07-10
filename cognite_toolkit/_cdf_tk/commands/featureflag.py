@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from rich import print
 from rich.table import Table
 

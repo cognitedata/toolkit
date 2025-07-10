@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableCogniteResource, T_WriteClass
 from cognite.client.utils.useful_types import SequenceNotStr
 

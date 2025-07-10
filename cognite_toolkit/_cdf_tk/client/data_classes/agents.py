@@ -1,5 +1,4 @@
-from __future__ import annotations
-
+import sys
 from abc import ABC
 from dataclasses import dataclass
 from typing import Any
@@ -13,6 +12,11 @@ from cognite.client.data_classes._base import (
 )
 
 from cognite_toolkit._cdf_tk.client.data_classes.agent_tools import AgentTool
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 
 @dataclass
@@ -46,7 +50,7 @@ class AgentCore(WriteableCogniteResource["AgentWrite"], ABC):
             result["instructions"] = ""  # match API behavior
         return result
 
-    def as_write(self) -> AgentWrite:
+    def as_write(self) -> "AgentWrite":
         return AgentWrite(
             external_id=self.external_id,
             name=self.name,
@@ -74,7 +78,7 @@ class Agent(AgentCore):
     """
 
     @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Agent:
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
         tools = (
             [AgentTool._load(item) for item in resource.get("tools", [])]
             if isinstance(resource.get("tools"), list)
@@ -108,7 +112,7 @@ class AgentWrite(AgentCore):
     """
 
     @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> AgentWrite:
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
         tools = (
             [AgentTool._load(item) for item in resource.get("tools", [])]
             if isinstance(resource.get("tools"), list)

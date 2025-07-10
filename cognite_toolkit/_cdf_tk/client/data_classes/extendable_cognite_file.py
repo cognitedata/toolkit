@@ -1,6 +1,5 @@
-from __future__ import annotations
-
 import itertools
+import sys
 from datetime import datetime
 from typing import Any, Literal
 
@@ -9,6 +8,11 @@ from cognite.client.data_classes._base import CogniteResourceList, WriteableCogn
 from cognite.client.data_classes.data_modeling import DirectRelationReference, ViewId
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFile, CogniteFileApply
 from cognite.client.utils._text import to_camel_case
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 
 class ExtendableCogniteFileApply(CogniteFileApply):
@@ -118,7 +122,7 @@ class ExtendableCogniteFileApply(CogniteFileApply):
         return output
 
     @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> ExtendableCogniteFileApply:
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
         base_props = cls._load_base_properties(resource)
         properties = cls._load_properties(resource)
         loaded_keys = {to_camel_case(p) for p in itertools.chain(base_props.keys(), properties.keys())} | {
@@ -198,7 +202,7 @@ class ExtendableCogniteFile(CogniteFile):
         return ViewId(space="cdf_cdm", external_id="CogniteFile", version="v1")
 
     @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> ExtendableCogniteFile:
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
         base_props = cls._load_base_properties(resource)
         all_properties = resource.get("properties", {})
         # There should only be one source in one view

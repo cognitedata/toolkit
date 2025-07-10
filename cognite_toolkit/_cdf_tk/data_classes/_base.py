@@ -1,5 +1,4 @@
-from __future__ import annotations
-
+import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
@@ -9,6 +8,11 @@ from cognite_toolkit import _version
 from cognite_toolkit._cdf_tk.constants import BUILD_ENVIRONMENT_FILE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitRequiredValueError, ToolkitVersionError
 from cognite_toolkit._cdf_tk.utils import read_yaml_file
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 
 @dataclass
@@ -23,7 +27,7 @@ class ConfigCore(ABC):
         return cls.filename.format(build_env=build_env)
 
     @classmethod
-    def load_from_directory(cls: type[T_BuildConfig], organization_dir: Path, build_env: str) -> T_BuildConfig:
+    def load_from_directory(cls, organization_dir: Path, build_env: str) -> Self:
         filename = cls.get_filename(build_env)
         filepath = organization_dir / filename
         filepath = filepath if filepath.is_file() else Path.cwd() / filename
@@ -37,7 +41,7 @@ class ConfigCore(ABC):
 
     @classmethod
     @abstractmethod
-    def load(cls: type[T_BuildConfig], data: dict[str, Any], build_env: str, filepath: Path) -> T_BuildConfig:
+    def load(cls, data: dict[str, Any], build_env: str, filepath: Path) -> Self:
         raise NotImplementedError
 
 

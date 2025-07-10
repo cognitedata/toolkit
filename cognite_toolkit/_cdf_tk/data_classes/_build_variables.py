@@ -1,6 +1,5 @@
-from __future__ import annotations
-
 import re
+import sys
 import uuid
 from collections import defaultdict
 from collections.abc import Collection, Iterator, Sequence
@@ -13,6 +12,11 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 
 from ._module_directories import ModuleLocation
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 
 @dataclass(frozen=True)
@@ -51,7 +55,7 @@ class BuildVariable:
         }
 
     @classmethod
-    def load(cls, data: dict[str, Any]) -> BuildVariable:
+    def load(cls, data: dict[str, Any]) -> Self:
         if isinstance(data["value"], list):
             # Convert the list to a tuple to make it hashable
             value = tuple(data["value"])
@@ -68,7 +72,7 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
 
     # Subclassing tuple to make the class immutable. BuildVariables is expected to be initialized and
     # then used as a read-only object.
-    def __new__(cls, collection: Collection[BuildVariable], source_path: Path | None = None) -> BuildVariables:
+    def __new__(cls, collection: Collection[BuildVariable], source_path: Path | None = None) -> Self:
         # Need to override __new__ to as we are subclassing a tuple:
         #   https://stackoverflow.com/questions/1565374/subclassing-tuple-with-multiple-init-arguments
         return super().__new__(cls, tuple(collection))
@@ -78,7 +82,7 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
         self.source_path = source_path
 
     @cached_property
-    def selected(self) -> BuildVariables:
+    def selected(self) -> "BuildVariables":
         return BuildVariables([variable for variable in self if variable.is_selected])
 
     @classmethod
@@ -88,7 +92,7 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
         available_modules: set[Path],
         selected_modules: set[Path] | None = None,
         source_path: Path | None = None,
-    ) -> BuildVariables:
+    ) -> Self:
         """Loads the variables from the user input."""
         variables = []
         to_check: list[tuple[Path, int | None, dict[str, Any]]] = [(Path(""), None, raw_variable)]
@@ -119,11 +123,11 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
         return cls(variables, source_path=source_path)
 
     @classmethod
-    def load(cls, data: list[dict[str, Any]]) -> BuildVariables:
+    def load(cls, data: list[dict[str, Any]]) -> Self:
         """Loads the variables from a dictionary."""
         return cls([BuildVariable.load(variable) for variable in data])
 
-    def get_module_variables(self, module: ModuleLocation) -> list[BuildVariables]:
+    def get_module_variables(self, module: ModuleLocation) -> "list[BuildVariables]":
         """Gets the variables for a specific module."""
         variables_by_key_by_iteration: dict[int | None, dict[str, list[BuildVariable]]] = defaultdict(
             lambda: defaultdict(list)
@@ -200,9 +204,9 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
     def __getitem__(self, index: SupportsIndex) -> BuildVariable: ...
 
     @overload
-    def __getitem__(self, index: slice) -> BuildVariables: ...
+    def __getitem__(self, index: slice) -> Self: ...
 
-    def __getitem__(self, index: SupportsIndex | slice, /) -> BuildVariable | BuildVariables:
+    def __getitem__(self, index: SupportsIndex | slice, /) -> "BuildVariable | BuildVariables":
         if isinstance(index, slice):
             return BuildVariables(super().__getitem__(index))
         return super().__getitem__(index)

@@ -1,7 +1,8 @@
-from __future__ import annotations
+
 
 import itertools
 import re
+import sys
 from collections.abc import Iterator, MutableSequence
 from functools import lru_cache
 from pathlib import Path
@@ -16,6 +17,10 @@ from cognite_toolkit._cdf_tk.data_classes import ModuleDirectories
 from cognite_toolkit._cdf_tk.utils import iterate_modules, read_yaml_file, safe_read, safe_write
 from cognite_toolkit._version import __version__
 
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 class Change:
     """A change is a single migration step that can be applied to a project."""
@@ -716,15 +721,15 @@ _CHANGES: list[type[Change]] = [
 
 class Changes(list, MutableSequence[Change]):
     @classmethod
-    def load(cls, module_version: Version, project_path: Path, workflow_dir: Path | None) -> Changes:
+    def load(cls, module_version: Version, project_path: Path, workflow_dir: Path | None) -> Self:
         return cls([change(project_path, workflow_dir) for change in _CHANGES if change.deprecated_from >= module_version])
 
     @property
-    def required_changes(self) -> Changes:
+    def required_changes(self) -> "Changes":
         return Changes([change for change in self if change.required_from is not None])
 
     @property
-    def optional_changes(self) -> Changes:
+    def optional_changes(self) -> "Changes":
         return Changes([change for change in self if change.required_from is None])
 
     def __iter__(self) -> Iterator[Change]:

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from abc import ABC
 from dataclasses import dataclass
 
@@ -94,7 +92,7 @@ class AssetCentricFilter(CogniteObject):
         return None
 
     @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> AssetCentricFilter:
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
         return cls(
             assets=cls._load_subfilter(resource, "assets"),
             events=cls._load_subfilter(resource, "events"),
@@ -163,7 +161,7 @@ class LocationFilterCore(WriteableCogniteResource["LocationFilterWrite"], ABC):
         self.data_modeling_type = data_modeling_type
         self._parent_external_id = _parent_external_id  # This is an internal property used to temporarily hold the parentExternalId when lookup is deferred
 
-    def as_write(self) -> LocationFilterWrite:
+    def as_write(self) -> "LocationFilterWrite":
         return LocationFilterWrite(
             external_id=self.external_id,
             name=self.name,
@@ -253,7 +251,7 @@ class LocationFilter(LocationFilterCore):
         asset_centric: AssetCentricFilter | None = None,
         views: list[LocationFilterView] | None = None,
         data_modeling_type: Literal["HYBRID", "DATA_MODELING_ONLY"] | None = None,
-        locations: LocationFilterList | None = None,
+        locations: "LocationFilterList | None" = None,
     ) -> None:
         super().__init__(
             external_id,

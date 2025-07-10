@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import re
 import warnings
 from collections.abc import Hashable
@@ -54,7 +52,7 @@ class ResourceWorker(
         self.action = action
 
     def load_files(
-        self, sort: bool = True, directory: Path | None = None, read_modules: list[ReadModule] | None = None
+        self, sort: bool = True, directory: Path | None = None, read_modules: "list[ReadModule] | None" = None
     ) -> list[Path]:
         filepaths = self.loader.find_files(directory)
 
