@@ -73,9 +73,9 @@ class ProcessorResult(Generic[T_ID]):
 @dataclass
 class WorkItem:
     items: list[dict]
-    connect_attempt: int = 1
-    read_attempt: int = 1
-    status_attempt: int = 1
+    connect_attempt: int = 0
+    read_attempt: int = 0
+    status_attempt: int = 0
 
     @property
     def total_attempts(self) -> int:
