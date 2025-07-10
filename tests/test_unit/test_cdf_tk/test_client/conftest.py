@@ -21,14 +21,6 @@ def toolkit_config():
 
 
 @pytest.fixture
-def disable_gzip():
-    old = global_config.disable_gzip
-    global_config.disable_gzip = True
-    yield
-    global_config.disable_gzip = old
-
-
-@pytest.fixture
 def max_retries_2():
     old = global_config.max_retries
     global_config.max_retries = 2
