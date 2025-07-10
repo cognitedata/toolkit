@@ -1,4 +1,5 @@
 import time
+from collections.abc import Iterator
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -30,25 +31,28 @@ def toolkit_config() -> ToolkitClientConfig:
 
 
 @pytest.fixture
-def processor(toolkit_config: ToolkitClientConfig) -> HTTPBatchProcessor:
-    return HTTPBatchProcessor(
+def processor(toolkit_config: ToolkitClientConfig) -> Iterator[HTTPBatchProcessor]:
+    with HTTPBatchProcessor(
         endpoint_url="https://test.com/api",
         config=toolkit_config,
         as_id=lambda item: item["id"],
         max_workers=4,
         batch_size=100,
-    )
+    ) as processor:
+        yield processor
 
 
 class TestHTTPBatchProcessor:
     def test_happy_path(self, toolkit_config: ToolkitClientConfig) -> None:
         url = "http://example.com/api"
-        processor = HTTPBatchProcessor[str](
-            url,
-            toolkit_config,
-            lambda item: item["externalId"],
-        )
-        with responses.RequestsMock() as rsps:
+        with (
+            HTTPBatchProcessor[str](
+                url,
+                toolkit_config,
+                lambda item: item["externalId"],
+            ) as processor,
+            responses.RequestsMock() as rsps,
+        ):
             rsps.add(
                 responses.POST,
                 url,
@@ -126,14 +130,6 @@ class TestHTTPBatchProcessor:
     def test_network_errors(self, toolkit_config: ToolkitClientConfig) -> None:
         """Test prevention of queue deadlocks under error conditions"""
         url = "https://test.com/api"
-        processor = HTTPBatchProcessor(
-            endpoint_url=url,
-            config=toolkit_config,
-            as_id=lambda item: item["id"],
-            max_workers=2,
-            batch_size=25,
-            max_retries=2,  # Small max_retries to prevent test from running too long
-        )
 
         def connection_error_callback(request):
             if '"id": 1' in request.body:
@@ -142,7 +138,17 @@ class TestHTTPBatchProcessor:
             else:
                 raise requests.exceptions.ConnectionError("Connection error")
 
-        with responses.RequestsMock() as rsps:
+        with (
+            HTTPBatchProcessor(
+                endpoint_url=url,
+                config=toolkit_config,
+                as_id=lambda item: item["id"],
+                max_workers=2,
+                batch_size=25,
+                max_retries=2,  # Small max_retries to prevent test from running too long
+            ) as processor,
+            responses.RequestsMock() as rsps,
+        ):
             rsps.add_callback(
                 responses.POST,
                 url,
@@ -162,14 +168,6 @@ class TestHTTPBatchProcessor:
     def test_worker_shutdown(self, toolkit_config):
         """Test that workers properly terminate when signaled"""
         url = "https://test.com/api"
-        processor = HTTPBatchProcessor(
-            endpoint_url=url,
-            config=toolkit_config,
-            as_id=lambda item: item["id"],
-            max_workers=4,
-            batch_size=25,
-        )
-
         # For this test, we need to monitor the worker threads directly
         # We'll use a mock for the worker method to detect shutdown signals
         shutdown_signal_count = 0
@@ -184,7 +182,16 @@ class TestHTTPBatchProcessor:
                     break
                 work_queue.task_done()
 
-        with patch.object(processor, "_worker", side_effect=mock_worker):
+        with (
+            HTTPBatchProcessor(
+                endpoint_url=url,
+                config=toolkit_config,
+                as_id=lambda item: item["id"],
+                max_workers=4,
+                batch_size=25,
+            ) as processor,
+            patch.object(processor, "_worker", side_effect=mock_worker),
+        ):
             items = [{"id": i} for i in range(50)]
             processor.process(items, total_items=len(items))
 
@@ -245,14 +252,6 @@ class TestHTTPBatchProcessor:
     def test_permanent_failure_single_item(self, toolkit_config: ToolkitClientConfig) -> None:
         """Test handling of permanent failure for a single item"""
         url = "https://test.com/api"
-        processor = HTTPBatchProcessor(
-            endpoint_url=url,
-            config=toolkit_config,
-            as_id=lambda item: item["id"],
-            max_workers=2,
-            batch_size=1,
-        )
-
         # Track which items were sent in requests
         request_items = []
 
@@ -265,7 +264,16 @@ class TestHTTPBatchProcessor:
                 request_items.append(payload)
                 return (200, {}, '{"items": []}')
 
-        with responses.RequestsMock() as rsps:
+        with (
+            HTTPBatchProcessor(
+                endpoint_url=url,
+                config=toolkit_config,
+                as_id=lambda item: item["id"],
+                max_workers=2,
+                batch_size=1,
+            ) as processor,
+            responses.RequestsMock() as rsps,
+        ):
             rsps.add_callback(
                 responses.POST,
                 url,
