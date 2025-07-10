@@ -7,6 +7,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
     LocationFilterScene,
     LocationFilterWrite,
 )
+from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
 from cognite_toolkit._cdf_tk.loaders._resource_loaders.location_loaders import LocationFilterLoader
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import LOAD_DATA
@@ -59,3 +60,60 @@ class TestLocationFilterLoader:
         assert exhaustive_filter.asset_centric.asset_subtree_ids[0] == {"externalId": "general-subtree-id-890"}
         assert exhaustive_filter.asset_centric.assets.asset_subtree_ids[0] == {"externalId": "root-asset"}
         assert exhaustive_filter.asset_centric.events.asset_subtree_ids[0] == {"externalId": "event-subtree-id-678"}
+
+    def test_topological_sort_success(self) -> None:
+        # Create location filters with parent-child relationships
+        # Structure: grandparent -> parent -> child
+        location_filters = [
+            LocationFilterWrite(
+                external_id="child",
+                name="Child Location",
+                parent_id=-1,  # Deferred lookup
+                _parent_external_id="parent",
+            ),
+            LocationFilterWrite(
+                external_id="parent",
+                name="Parent Location",
+                parent_id=-1,  # Deferred lookup
+                _parent_external_id="grandparent",
+            ),
+            LocationFilterWrite(
+                external_id="grandparent",
+                name="Grandparent Location",
+                parent_id=None,  # No parent
+            ),
+        ]
+
+        sorted_filters = LocationFilterLoader.topological_sort(location_filters)
+
+        # Should be sorted with grandparent first, then parent, then child
+        assert len(sorted_filters) == 3
+        assert sorted_filters[0].external_id == "grandparent"
+        assert sorted_filters[1].external_id == "parent"
+        assert sorted_filters[2].external_id == "child"
+
+    def test_topological_sort_raises_on_cycle(self) -> None:
+        # Create location filters with circular dependencies
+        dependencies = {
+            "a": "b",
+            "b": "c",
+            "c": "a",  # This creates a cycle
+        }
+
+        location_filters = []
+        for id_, parent_id in dependencies.items():
+            location_filter = LocationFilterWrite(
+                external_id=id_,
+                name=f"Location {id_}",
+                parent_id=-1,  # Deferred lookup
+                _parent_external_id=parent_id,
+            )
+            location_filters.append(location_filter)
+
+        with pytest.raises(ToolkitCycleError) as exc:
+            LocationFilterLoader.topological_sort(location_filters)
+
+        error = exc.value
+        assert isinstance(error, ToolkitCycleError)
+        assert "cycle" in str(error).lower()
+        assert "location filters" in str(error).lower()
