@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Hashable, Iterable, Sequence
 from functools import lru_cache
+from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from typing import Any, final
 
@@ -17,7 +18,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
     LocationFilterWriteList,
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
-from cognite_toolkit._cdf_tk.exceptions import ResourceRetrievalError
+from cognite_toolkit._cdf_tk.exceptions import ResourceRetrievalError, ToolkitCycleError
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.resource_classes import LocationYAML
 from cognite_toolkit._cdf_tk.utils import in_dict, quote_int_value_by_key_in_yaml, safe_read
@@ -105,14 +106,14 @@ class LocationFilterLoader(
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> LocationFilterWrite:
         if parent_external_id := resource.pop("parentExternalId", None):
-            # This is a workaround: when the parentExternalId cannot be resolved because the parent hasn't been created yet, , we save it so that we can try again "later"
-
-            #
+            # This is a workaround: when the parentExternalId cannot be resolved because the parent
+            # hasn't been created yet, we save it so that we can try again "later"
             try:
                 resource["parentId"] = self.client.lookup.location_filters.id(parent_external_id, is_dry_run)
             except ResourceRetrievalError:
                 resource["parentId"] = -1
-                resource["_parentExternalId"] = parent_external_id
+            # Store the parent external ID for topological sorting and late look up.
+            resource["_parentExternalId"] = parent_external_id
 
         if "assetCentric" not in resource:
             return LocationFilterWrite._load(resource)
@@ -162,15 +163,39 @@ class LocationFilterLoader(
             return diff_list_identifiable(local, cdf, get_identifier=dm_identifier)
         return super().diff_list(local, cdf, json_path)
 
+    @classmethod
+    def topological_sort(cls, items: Sequence[LocationFilterWrite]) -> list[LocationFilterWrite]:
+        """Sorts the location filters in topological order based on their parent-child relationships."""
+        location_by_id: dict[str, LocationFilterWrite] = {cls.get_id(item): item for item in items}
+        dependencies: dict[str, set[str]] = {}
+        for item_id, item in location_by_id.items():
+            dependencies[item_id] = set()
+            # If this item has a parent, add it as a dependency
+            if item._parent_external_id:
+                if item._parent_external_id in location_by_id:
+                    dependencies[item_id].add(item._parent_external_id)
+        try:
+            return [
+                location_by_id[item_id]
+                for item_id in TopologicalSorter(dependencies).static_order()
+                if item_id in location_by_id
+            ]
+        except CycleError as e:
+            raise ToolkitCycleError(
+                f"Cannot deploy location filters. Cycle detected {e.args} in the parent-child dependencies of the location filters.",
+                *e.args[1:],
+            ) from None
+
     def create(self, items: LocationFilterWrite | LocationFilterWriteList) -> LocationFilterList:
         if isinstance(items, LocationFilterWrite):
             items = LocationFilterWriteList([items])
 
-        created = []
+        created: list[LocationFilter] = []
         # Note: the Location API does not support batch creation, so we need to do this one by one.
         # Furthermore, we could not do the parentExternalId->parentId lookup before the parent was created,
         # hence it may be deferred here.
-        for item in items:
+        # Use topological sort to ensure parents are created before children
+        for item in self.topological_sort(items):
             # These are set if lookup has been deferred
             if item._parent_external_id and item.parent_id == -1:
                 item.parent_id = self.client.lookup.location_filters.id(item._parent_external_id)
