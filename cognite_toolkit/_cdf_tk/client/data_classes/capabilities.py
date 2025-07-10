@@ -68,14 +68,14 @@ def scope_intersection(scope1: T_Scope, scope2: T_Scope | None) -> Capability.Sc
         return None
     elif isinstance(scope1, TableScope) and isinstance(scope2, TableScope):
         intersection_tables = set(scope1.dbs_to_tables.keys()) & set(scope2.dbs_to_tables.keys())
-        if not intersection_tables:
-            return None
-        return TableScope(
-            dbs_to_tables={
-                db: sorted(set(scope1.dbs_to_tables[db]) & set(scope2.dbs_to_tables[db]))
-                for db in sorted(intersection_tables)
-            }
-        )
+        if intersection_tables:
+            return TableScope(
+                dbs_to_tables={
+                    db: sorted(set(scope1.dbs_to_tables[db]) & set(scope2.dbs_to_tables[db]))
+                    for db in sorted(intersection_tables)
+                }
+            )
+        return None
     elif isinstance(scope1, InstancesScope) and isinstance(scope2, InstancesScope):
         if intersection_instances := sorted(set(scope1.instances) & set(scope2.instances)):
             return InstancesScope(instances=intersection_instances)
