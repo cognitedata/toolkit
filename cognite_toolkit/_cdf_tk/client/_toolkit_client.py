@@ -14,6 +14,7 @@ from .api.lookup import LookUpGroup
 from .api.migration import MigrationAPI
 from .api.robotics import RoboticsAPI
 from .api.search_config import SearchConfigurationsAPI
+from .api.token import TokenAPI
 from .api.verify import VerifyAPI
 
 
@@ -89,6 +90,7 @@ class ToolkitClient(CogniteClient):
         self.raw: ExtendedRawAPI = ExtendedRawAPI(self._config, self._API_VERSION, self)
         self.canvas = CanvasAPI(self.data_modeling.instances)
         self.migration = MigrationAPI(self.data_modeling.instances)
+        self.token = TokenAPI(self)
 
     @property
     def config(self) -> ToolkitClientConfig:
