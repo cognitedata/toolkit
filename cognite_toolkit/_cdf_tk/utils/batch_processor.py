@@ -83,11 +83,22 @@ class WorkItem:
 
 
 class HTTPBatchProcessor(Generic[T_ID]):
-    """
-    A more performant and readable HTTP batch processor.
+    """A generic HTTP batch processor for sending items to a specified endpoint in batches.
 
-    This version uses a producer-consumer pattern with a single work queue,
-    and consolidates all logic into a single class for improved readability and reduced code.
+    This class handles batching, rate limiting, retries, and error handling for HTTP requests.
+
+    Args:
+        endpoint_url (str): The URL of the endpoint to send requests to.
+        config (ToolkitClientConfig): Configuration for the Toolkit client.
+        as_id (Callable[[dict], T_ID]): A function to convert an item to its ID.
+        method (Literal["POST", "GET"]): HTTP method to use for requests, default is "POST".
+        body_parameters (dict[str, object] | None): Additional parameters to include in the request body.
+        batch_size (int): Number of items per batch, default is 1000.
+        max_workers (int): Maximum number of worker threads, default is 8.
+        max_retries (int): Maximum number of retries for failed requests, default is 10.
+        console (Console | None): Optional console for output, defaults to a new Console instance.
+        description (str): Description for the progress bar, default is "Processing items".
+
     """
 
     def __init__(
