@@ -44,7 +44,9 @@ class AssetCentricAggregator(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def count(self, hierarchy: str | None = None, data_set_external_id: str | None = None) -> int:
+    def count(
+        self, hierarchy: str | list[str] | None = None, data_set_external_id: str | list[str] | None = None
+    ) -> int:
         raise NotImplementedError
 
     def transformation_count(self) -> int:
@@ -117,15 +119,23 @@ class MetadataAggregator(AssetCentricAggregator, ABC, Generic[T_CogniteFilter]):
 
     @classmethod
     def create_filter(
-        cls, hierarchy: str | None = None, data_set_external_id: str | None = None
+        cls, hierarchy: str | list[str] | None = None, data_set_external_id: str | list[str] | None = None
     ) -> T_CogniteFilter | None:
         """Creates a filter for the resource based on hierarchy and data set external ID."""
         if hierarchy is None and data_set_external_id is None:
             return None
-        return cls.filter_cls(
-            asset_subtree_ids=[{"externalId": hierarchy}] if hierarchy is not None else None,
-            data_set_ids=[{"externalId": data_set_external_id}] if data_set_external_id is not None else None,
-        )
+        asset_subtree_ids: list[dict[str, str]] | None = None
+        if isinstance(hierarchy, str):
+            asset_subtree_ids = [{"externalId": hierarchy}]
+        elif isinstance(hierarchy, list):
+            asset_subtree_ids = [{"externalId": item} for item in hierarchy]
+        data_set_ids: list[dict[str, str]] | None = None
+        if isinstance(data_set_external_id, str):
+            data_set_ids = [{"externalId": data_set_external_id}]
+        elif isinstance(data_set_external_id, list):
+            data_set_ids = [{"externalId": item} for item in data_set_external_id]
+
+        return cls.filter_cls(asset_subtree_ids=asset_subtree_ids, data_set_ids=data_set_ids)
 
 
 class LabelAggregator(MetadataAggregator, ABC, Generic[T_CogniteFilter]):
@@ -144,7 +154,9 @@ class AssetAggregator(LabelAggregator[AssetFilter]):
     def display_name(self) -> str:
         return "Assets"
 
-    def count(self, hierarchy: str | None = None, data_set_external_id: str | None = None) -> int:
+    def count(
+        self, hierarchy: str | list[str] | None = None, data_set_external_id: str | list[str] | None = None
+    ) -> int:
         return self.client.assets.aggregate_count(filter=self.create_filter(hierarchy, data_set_external_id))
 
     def used_data_sets(self, hierarchy: str | None = None) -> list[str]:
@@ -166,7 +178,9 @@ class EventAggregator(MetadataAggregator[EventFilter]):
     def display_name(self) -> str:
         return "Events"
 
-    def count(self, hierarchy: str | None = None, data_set_external_id: str | None = None) -> int:
+    def count(
+        self, hierarchy: str | list[str] | None = None, data_set_external_id: str | list[str] | None = None
+    ) -> int:
         return self.client.events.aggregate_count(filter=self.create_filter(hierarchy, data_set_external_id))
 
     def used_data_sets(self, hierarchy: str | None = None) -> list[str]:
@@ -188,7 +202,9 @@ class FileAggregator(LabelAggregator[FileMetadataFilter]):
     def display_name(self) -> str:
         return "Files"
 
-    def count(self, hierarchy: str | None = None, data_set_external_id: str | None = None) -> int:
+    def count(
+        self, hierarchy: str | list[str] | None = None, data_set_external_id: str | list[str] | None = None
+    ) -> int:
         response = self.client.files.aggregate(filter=self.create_filter(hierarchy, data_set_external_id))
         if response:
             return response[0].count
@@ -218,7 +234,9 @@ class TimeSeriesAggregator(MetadataAggregator[TimeSeriesFilter]):
     def display_name(self) -> str:
         return "TimeSeries"
 
-    def count(self, hierarchy: str | None = None, data_set_external_id: str | None = None) -> int:
+    def count(
+        self, hierarchy: str | list[str] | None = None, data_set_external_id: str | list[str] | None = None
+    ) -> int:
         return self.client.time_series.aggregate_count(filter=self.create_filter(hierarchy, data_set_external_id))
 
     def used_data_sets(self, hierarchy: str | None = None) -> list[str]:
@@ -241,7 +259,9 @@ class SequenceAggregator(MetadataAggregator):
     def display_name(self) -> str:
         return "Sequences"
 
-    def count(self, hierarchy: str | None = None, data_set_external_id: str | None = None) -> int:
+    def count(
+        self, hierarchy: str | list[str] | None = None, data_set_external_id: str | list[str] | None = None
+    ) -> int:
         return self.client.sequences.aggregate_count(filter=self.create_filter(hierarchy, data_set_external_id))
 
     def used_data_sets(self, hierarchy: str | None = None) -> list[str]:
@@ -260,7 +280,9 @@ class RelationshipAggregator(AssetCentricAggregator):
     def display_name(self) -> str:
         return "Relationships"
 
-    def count(self, hierarchy: str | None = None, data_set_external_id: str | None = None) -> int:
+    def count(
+        self, hierarchy: str | list[str] | None = None, data_set_external_id: str | list[str] | None = None
+    ) -> int:
         if hierarchy is not None or data_set_external_id is not None:
             raise NotImplementedError()
         results = relationship_aggregate_count(self.client)
@@ -277,7 +299,9 @@ class LabelCountAggregator(AssetCentricAggregator):
     def display_name(self) -> str:
         return "Labels"
 
-    def count(self, hierarchy: str | None = None, data_set_external_id: str | None = None) -> int:
+    def count(
+        self, hierarchy: str | list[str] | None = None, data_set_external_id: str | list[str] | None = None
+    ) -> int:
         if hierarchy is not None or data_set_external_id is not None:
             raise NotImplementedError()
         return label_aggregate_count(self.client)

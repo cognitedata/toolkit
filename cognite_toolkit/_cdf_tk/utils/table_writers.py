@@ -19,6 +19,8 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingDependencyError, To
 from cognite_toolkit._cdf_tk.utils import humanize_collection, to_directory_compatible
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 
+from .useful_types import JsonVal
+
 if sys.version_info >= (3, 11):
     from typing import Self
 else:
@@ -30,7 +32,6 @@ if TYPE_CHECKING:
 
 FileFormat: TypeAlias = Literal["csv", "parquet", "yaml"]
 DataType: TypeAlias = Literal["string", "integer", "float", "boolean", "json", "date", "timestamp"]
-JsonVal: TypeAlias = None | str | int | float | bool | dict[str, "JsonVal"] | list["JsonVal"]
 PrimaryCellValue: TypeAlias = datetime | date | str | int | float | bool | JsonVal | None
 CellValue: TypeAlias = PrimaryCellValue | list[PrimaryCellValue]
 Rows: TypeAlias = list[dict[str, CellValue]]
