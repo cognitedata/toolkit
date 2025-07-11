@@ -244,11 +244,12 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
         self._style_sheet(worksheet)
 
         try:
+        try:
             workbook.save(output_spreadsheet)
-        except PermissionError as e:
+        except OSError as e:
             raise ToolkitValueError(
                 f"Failed to write to {output_spreadsheet.as_posix()!r}. "
-                "Please ensure the file is not open in another application."
+                "Please ensure the file is not open, and that you have sufficient permissions and disk space."
             ) from e
         self.console(f"Profile data written to sheet {sheet!r} in {output_spreadsheet.as_posix()!r}")
 
