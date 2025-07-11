@@ -241,7 +241,7 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
         for row in data:
             worksheet.append(list(row.values()))
 
-        self._style_sheet_header(worksheet)
+        self._style_sheet(worksheet)
 
         try:
             workbook.save(output_spreadsheet)
@@ -252,7 +252,7 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
             ) from e
         self.console(f"Profile data written to sheet {sheet!r} in {output_spreadsheet.as_posix()!r}")
 
-    def _style_sheet_header(self, sheet: "Worksheet") -> None:
+    def _style_sheet(self, sheet: "Worksheet") -> None:
         """Styles the sheet with the given headers.
 
         Args:
