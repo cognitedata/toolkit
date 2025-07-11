@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from functools import cached_property, partial
 from typing import ClassVar, Generic, Literal, TypeAlias, TypeVar, overload
 
+import questionary
 from cognite.client.data_classes import Transformation
 from cognite.client.exceptions import CogniteException
 from rich import box
@@ -530,14 +531,18 @@ class ProfileTransformationCommand(ProfileCommand[str]):
     def transformation(
         self, client: ToolkitClient, destination_type: str | None = None, verbose: bool = False
     ) -> list[dict[str, CellValue]]:
+        if destination_type is None:
+            destination_type = questionary.select(
+                "Select destination type:", choices=sorted(self.valid_destinations)
+            ).ask()
         self.destination_type = self._validate_destination_type(destination_type)
         return self.create_profile_table(client)
 
     @classmethod
     def _validate_destination_type(
-        cls, destination_type: str | None
+        cls, destination_type: str
     ) -> Literal["assets", "files", "events", "timeseries", "sequences"]:
-        if destination_type is None or destination_type not in cls.valid_destinations:
+        if destination_type not in cls.valid_destinations:
             raise ToolkitValueError(
                 f"Invalid destination type: {destination_type}. Must be one of {humanize_collection(cls.valid_destinations)}."
             )
@@ -611,9 +616,13 @@ class ProfileRawCommand(ProfileCommand[RawProfileIndex]):
     def raw(
         self,
         client: ToolkitClient,
-        destination_type: str,
+        destination_type: str | None = None,
         verbose: bool = False,
     ) -> list[dict[str, CellValue]]:
+        if destination_type is None:
+            destination_type = questionary.select(
+                "Select destination type:", choices=sorted(ProfileTransformationCommand.valid_destinations)
+            ).ask()
         self.table_title = f"RAW Profile destination: {destination_type}"
         self.destination_type = destination_type
         return self.create_profile_table(client)
