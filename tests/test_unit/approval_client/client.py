@@ -507,8 +507,10 @@ class ApprovalToolkitClient:
                 "nan_count": int(dataframe.isna().sum().sum()),
                 "null_count": int(dataframe.isnull().sum().sum()),
                 "empty_count": int(dataframe[dataframe == ""].count().sum()),
-                "first_row": dataframe.iloc[0].round(4).to_dict(),
-                "last_row": dataframe.iloc[-1].round(4).to_dict(),
+                # We round float to 4 decimals places to avoid issues with floating point precision on different systems
+                # as this is stored a snapshot.
+                "first_row": dataframe.iloc[0].apply(lambda x: round(x, 4) if isinstance(x, float) else x).to_dict(),
+                "last_row": dataframe.iloc[-1].apply(lambda x: round(x, 4) if isinstance(x, float) else x).to_dict(),
                 "index_name": dataframe.index.name if dataframe.index.name else "missing",
             }
 
