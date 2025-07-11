@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import ClassVar, Literal
+from typing import ClassVar, Literal, get_args
 
 import questionary
 from cognite.client.data_classes import (
@@ -18,6 +18,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.canvas import Canvas
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 
+from . import humanize_collection
 from .aggregators import (
     AssetAggregator,
     AssetCentricAggregator,
@@ -25,6 +26,7 @@ from .aggregators import (
     FileAggregator,
     TimeSeriesAggregator,
 )
+from .useful_types import AssetCentricDestinationType
 
 
 class AssetCentricInteractiveSelect(ABC):
@@ -235,3 +237,35 @@ class InteractiveCanvasSelect:
         ).ask()
 
         return selected_canvases or []
+
+
+class AssetCentricDestinationSelect:
+    valid_destinations: tuple[str, ...] = get_args(AssetCentricDestinationType)
+
+    @classmethod
+    def validate(cls, destination_type: str) -> AssetCentricDestinationType:
+        if destination_type not in cls.valid_destinations:
+            raise ToolkitValueError(
+                f"Invalid destination type: {destination_type!r}. Must be one of {humanize_collection(cls.valid_destinations)}."
+            )
+        # We validated the destination type above
+        return destination_type  # type: ignore[return-value]
+
+    @classmethod
+    def select(cls) -> AssetCentricDestinationType:
+        """Interactively select a destination type."""
+        destination_type = questionary.select(
+            "Select a destination type",
+            choices=[questionary.Choice(title=dest.capitalize(), value=dest) for dest in cls.valid_destinations],
+        ).ask()
+        if destination_type is None:
+            raise ToolkitValueError("No destination type selected. Aborting.")
+        # We only input valid destination types, so we can safely skip MyPy's type checking here
+        return destination_type  # type: ignore[return-value]
+
+    @classmethod
+    def get(cls, destination_type: str | None = None) -> AssetCentricDestinationType:
+        """Get the destination type, either from the input or interactively."""
+        if destination_type is None:
+            return cls.select()
+        return cls.validate(destination_type)

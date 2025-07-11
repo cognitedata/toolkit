@@ -75,14 +75,14 @@ class ProfileApp(typer.Typer):
     @staticmethod
     def transformations(
         destination: Annotated[
-            str,
+            str | None,
             typer.Option(
                 "--destination",
                 "-d",
                 help="Destination type the transformations data should be written to. This can be 'assets', 'events', 'files',"
-                "'timeseries', or 'sequences'.",
+                "'timeseries', or 'sequences'. If not provided, and interactive mode is enabled, the user will be prompted to select a destination.",
             ),
-        ],
+        ] = None,
         verbose: bool = False,
     ) -> None:
         """This command gives an overview over the transformations that write to the given destination.
@@ -105,14 +105,14 @@ class ProfileApp(typer.Typer):
     def raw(
         ctx: typer.Context,
         destination: Annotated[
-            str,
+            str | None,
             typer.Option(
                 "--destination",
                 "-d",
                 help="Destination type the raw data should be written to. This can be 'assets', 'events', 'files',"
-                "'timeseries', or 'sequences'.",
+                "'timeseries', or 'sequences'. If not provided, and interactive mode is enabled, the user will be prompted to select a destination.",
             ),
-        ],
+        ] = None,
         verbose: bool = False,
     ) -> None:
         """This command gives an overview over the staging tables in CDF and where they are used.
