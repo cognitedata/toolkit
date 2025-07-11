@@ -278,12 +278,14 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
             except ValueError:
                 max_length = 0
 
-            selected_column = column_cells[0]
-            if isinstance(selected_column, MergedCell):
-                selected_column = column_cells[1]
+            # Find first non-merged cell to safely get column letter
+            safe_cell = next((c for c in column_cells if not isinstance(c, MergedCell)), None)
+            if safe_cell is None:
+                continue  # Skip if no such cell is found
 
-            current = sheet.column_dimensions[selected_column.column_letter].width or (max_length + 0.5)  # type: ignore[union-attr]
-            sheet.column_dimensions[selected_column.column_letter].width = min(  # type: ignore[union-attr]
+            column_letter = safe_cell.column_letter
+            current = sheet.column_dimensions[column_letter].width or (max_length + 0.5)
+            sheet.column_dimensions[column_letter].width = min(
                 max(current, max_length + 0.5), self.spreadsheet_max_column_with
             )
 
