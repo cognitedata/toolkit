@@ -296,3 +296,29 @@ class TestHTTPBatchProcessor:
 
             # Verify each item was processed individually
             assert len(rsps.calls) == 5
+
+    def test_invalid_as_id_function(self, toolkit_config: ToolkitClientConfig) -> None:
+        """Test that an error is raised if the as_id function is invalid"""
+
+        def invalid_as_id(item) -> str:
+            raise ValueError("Invalid ID function")
+
+        with (
+            responses.RequestsMock() as rsps,
+            HTTPBatchProcessor[str](
+                endpoint_url="https://test.com/api",
+                config=toolkit_config,
+                as_id=invalid_as_id,
+                max_workers=2,
+                batch_size=10,
+            ) as processor,
+        ):
+            rsps.add(
+                responses.POST,
+                processor.endpoint_url,
+                status=200,
+                json={"items": []},
+            )
+            result = processor.process([{"id": 1}, {"id": 2}, {"id": 3}])
+
+            assert len(result.unknown_items) == 3
