@@ -7,6 +7,7 @@ from .api.agents.agents import AgentsAPI
 from .api.canvas import CanvasAPI
 from .api.dml import DMLAPI
 from .api.extended_data_modeling import ExtendedDataModelingAPI
+from .api.extended_files import ExtendedFileMetadataAPI
 from .api.extended_raw import ExtendedRawAPI
 from .api.extended_timeseries import ExtendedTimeSeriesAPI
 from .api.location_filters import LocationFiltersAPI
@@ -87,6 +88,7 @@ class ToolkitClient(CogniteClient):
         self.data_modeling: ExtendedDataModelingAPI = ExtendedDataModelingAPI(self._config, self._API_VERSION, self)
         if enable_set_pending_ids:
             self.time_series: ExtendedTimeSeriesAPI = ExtendedTimeSeriesAPI(self._config, self._API_VERSION, self)
+            self.files: ExtendedFileMetadataAPI = ExtendedFileMetadataAPI(self._config, self._API_VERSION, self)
         self.raw: ExtendedRawAPI = ExtendedRawAPI(self._config, self._API_VERSION, self)
         self.canvas = CanvasAPI(self.data_modeling.instances)
         self.migration = MigrationAPI(self.data_modeling.instances)

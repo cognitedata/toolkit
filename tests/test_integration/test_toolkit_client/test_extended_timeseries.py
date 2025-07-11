@@ -1,24 +1,15 @@
 from datetime import datetime
 
-import pytest
 from cognite.client.data_classes import TimeSeries, TimeSeriesWrite
-from cognite.client.data_classes.data_modeling import NodeApplyResultList, SpaceApply
+from cognite.client.data_classes.data_modeling import NodeApplyResultList
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteTimeSeriesApply
 from cognite.client.utils._time import datetime_to_ms
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 
 
-@pytest.fixture(scope="session")
-def space(dev_cluster_client: ToolkitClient) -> str:
-    """Fixture to create a space for the tests."""
-    space_name = "toolkit_test_space"
-    dev_cluster_client.data_modeling.spaces.apply(SpaceApply(space=space_name))
-    return space_name
-
-
 class TestExtendedTimeSeriesAPI:
-    def test_set_pending_instance_id(self, dev_cluster_client: ToolkitClient, space: str) -> None:
+    def test_set_pending_instance_id(self, dev_cluster_client: ToolkitClient, dev_space: str) -> None:
         """Happy path for setting a pending instance ID on a time series.
 
         1. Create asset-centric time series.
@@ -37,7 +28,7 @@ class TestExtendedTimeSeriesAPI:
             is_string=False,
         )
         cognite_ts = CogniteTimeSeriesApply(
-            space=space,
+            space=dev_space,
             external_id=ts.external_id,
             is_step=False,
             time_series_type="numeric",
