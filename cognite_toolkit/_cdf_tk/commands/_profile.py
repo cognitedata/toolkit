@@ -230,8 +230,7 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
             workbook = load_workbook(output_spreadsheet)
             if sheet_name in workbook.sheetnames:
                 raise ToolkitValueError(f"Sheet '{sheet_name}' already exists in {output_spreadsheet.as_posix()}.")
-            else:
-                worksheet = workbook.create_sheet(title=sheet_name)
+            worksheet = workbook.create_sheet(title=sheet_name)
         else:
             workbook = Workbook()
             worksheet = workbook.active
