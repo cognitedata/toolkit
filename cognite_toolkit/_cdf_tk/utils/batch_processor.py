@@ -124,6 +124,7 @@ class HTTPBatchProcessor(Generic[T_ID]):
         self.as_id = as_id
         self.description = description
 
+        self._produced_count = 0
         self._config = config
 
         # Thread-safe session for connection pooling
@@ -206,14 +207,17 @@ class HTTPBatchProcessor(Generic[T_ID]):
             batch.append(item)
             if len(batch) >= self.batch_size:
                 work_queue.put(WorkItem(items=batch))
+                self._produced_count += len(batch)
                 batch = []
         if batch:
             work_queue.put(WorkItem(items=batch))
+            self._produced_count += len(batch)
 
     def process(self, items: Iterable[dict[str, JsonVal]], total_items: int | None = None) -> ProcessorResult[T_ID]:
         work_queue: Queue[WorkItem | None] = Queue(maxsize=self.max_workers * 2)
         results_queue: Queue[BatchResult[T_ID]] = Queue()
 
+        self._produced_count = 0
         producer_thread = threading.Thread(target=self._producer, args=(items, work_queue), daemon=True)
         producer_thread.start()
         batch_results: list[BatchResult[T_ID]] = []
@@ -233,23 +237,16 @@ class HTTPBatchProcessor(Generic[T_ID]):
 
                 producer_thread.join()
 
-                # Shut down workers gracefully once the work queue is empty
-                for _ in range(self.max_workers):
-                    work_queue.put(None)
-
-                # Process results until all workers are done
-                done_workers = 0
                 processed_count = 0
-                while done_workers < self.max_workers:
+                while True:
                     result = results_queue.get()
-                    if result is None:
-                        done_workers += 1
-                        continue
-
                     batch_results.append(result)
                     processed_count += result.total_items
                     progress.update(task, processed_items=processed_count)
-
+                    if self._produced_count <= processed_count:
+                        break
+                for _ in range(self.max_workers):
+                    work_queue.put(None)
         return self._aggregate_results(batch_results)
 
     def _worker(
@@ -257,24 +254,20 @@ class HTTPBatchProcessor(Generic[T_ID]):
         work_queue: Queue,
         results_queue: Queue,
     ) -> None:
-        try:
-            while (work_item := work_queue.get()) is not None:
-                try:
-                    with self._rate_limit_lock:
-                        backoff_time = self._rate_limit_until - time.time()
-                    if backoff_time > 0:
-                        jitter = random.uniform(0, 0.2)
-                        time.sleep(backoff_time + jitter)
+        while (work_item := work_queue.get()) is not None:
+            try:
+                with self._rate_limit_lock:
+                    backoff_time = self._rate_limit_until - time.time()
+                if backoff_time > 0:
+                    jitter = random.uniform(0, 0.2)
+                    time.sleep(backoff_time + jitter)
 
-                    response = self._make_request(work_item)
-                    self._handle_response(response, work_item, work_queue, results_queue)
-                except Exception as e:
-                    self._handle_error(e, work_item, work_queue, results_queue)
-                finally:
-                    work_queue.task_done()
-        finally:
-            # Use None as a sentinel to signal that the worker is done.
-            results_queue.put(None)
+                response = self._make_request(work_item)
+                self._handle_response(response, work_item, work_queue, results_queue)
+            except Exception as e:
+                self._handle_error(e, work_item, work_queue, results_queue)
+            finally:
+                work_queue.task_done()
 
     def _make_request(self, work_item: WorkItem) -> requests.Response:
         headers = self._create_headers()
