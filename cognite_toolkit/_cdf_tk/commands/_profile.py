@@ -227,7 +227,13 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
 
         sheet_name = (sheet or self.table_title)[:31]  # Limit title to 31 characters for Excel compatibility
         if output_spreadsheet.exists():
-            workbook = load_workbook(output_spreadsheet)
+            try:
+                workbook = load_workbook(output_spreadsheet)
+            except OSError as e:
+                raise ToolkitValueError(
+                    f"Failed to open {output_spreadsheet.as_posix()!r}. "
+                    "Please ensure the file is not corrupted or open in another application."
+                ) from e
             if sheet_name in workbook.sheetnames:
                 raise ToolkitValueError(f"Sheet '{sheet_name}' already exists in {output_spreadsheet.as_posix()}.")
             worksheet = workbook.create_sheet(title=sheet_name)
