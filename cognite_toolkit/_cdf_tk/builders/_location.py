@@ -47,7 +47,7 @@ class LocationBuilder(Builder):
                 parent_external_id = loaded_location.get("parentExternalId")
 
                 if ext_id:
-                    location_by_external_id[ext_id] = (loaded_location, source_file)
+                    location_by_external_id[ext_id] = loaded_location, source_file
                     location_hierarchy_graph.setdefault(ext_id, [])
 
                     if parent_external_id:
@@ -56,10 +56,13 @@ class LocationBuilder(Builder):
 
             warnings = WarningList[FileReadWarning]()
 
-        ordered_locations = []
+        ordered_locations: list[dict] = []
         try:
             for external_id in TopologicalSorter(location_hierarchy_graph).static_order():
-                (location, _) = location_by_external_id[external_id]
+                if external_id not in location_by_external_id:
+                    # The dependency is not in the module, so we skip it.
+                    continue
+                location, _ = location_by_external_id[external_id]
                 ordered_locations.append(location)
         except CycleError:
             raise ToolkitError(

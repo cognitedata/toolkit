@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import typer
 
 from cognite_toolkit._cdf_tk.commands import InitCommand

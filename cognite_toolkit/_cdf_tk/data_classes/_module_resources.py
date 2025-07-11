@@ -1,5 +1,4 @@
-from __future__ import annotations
-
+import sys
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
@@ -25,6 +24,11 @@ from ._built_resources import BuiltFullResourceList
 from ._config_yaml import BuildConfigYAML
 from ._module_directories import ModuleDirectories
 
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
+
 
 @dataclass
 class ModulesInfo:
@@ -32,7 +36,7 @@ class ModulesInfo:
     modules: BuiltModuleList
 
     @classmethod
-    def load(cls, data: dict[str, Any]) -> ModulesInfo:
+    def load(cls, data: dict[str, Any]) -> Self:
         return cls(
             version=data["version"],
             modules=BuiltModuleList([BuiltModule.load(module_data) for module_data in data["modules"]]),
@@ -52,13 +56,11 @@ class BuildInfo(ConfigCore):
     modules: ModulesInfo
 
     @classmethod
-    def load(cls, data: dict[str, Any], build_env: str, filepath: Path) -> BuildInfo:
+    def load(cls, data: dict[str, Any], build_env: str, filepath: Path) -> Self:
         return cls(filepath, ModulesInfo.load(data["modules"]))
 
     @classmethod
-    def rebuild(
-        cls, organization_dir: Path, build_env: str | None, needs_rebuild: set[Path] | None = None
-    ) -> BuildInfo:
+    def rebuild(cls, organization_dir: Path, build_env: str | None, needs_rebuild: set[Path] | None = None) -> Self:
         # To avoid circular imports
         # Ideally, this class should be in a separate module
         from cognite_toolkit._cdf_tk.commands.build_cmd import BuildCommand
@@ -110,7 +112,7 @@ class BuildInfo(ConfigCore):
         return new_build
 
     @classmethod
-    def _get_existing(cls, organization_dir: Path, build_env: str) -> BuildInfo | None:
+    def _get_existing(cls, organization_dir: Path, build_env: str) -> Self | None:
         try:
             existing = cls.load_from_directory(organization_dir, build_env)
         except FileNotFoundError:

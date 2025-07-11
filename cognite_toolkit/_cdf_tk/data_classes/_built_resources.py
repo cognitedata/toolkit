@@ -1,5 +1,4 @@
-from __future__ import annotations
-
+import sys
 from abc import abstractmethod
 from collections import defaultdict
 from collections.abc import Collection, Iterator, MutableSequence
@@ -20,6 +19,10 @@ from cognite_toolkit._cdf_tk.utils import (
 
 from ._build_variables import BuildVariables
 
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 if TYPE_CHECKING:
     from ._built_modules import BuiltModule
 
@@ -47,7 +50,7 @@ class SourceLocation:
         }
 
     @classmethod
-    def load(cls, data: dict[str, Any]) -> SourceLocation:
+    def load(cls, data: dict[str, Any]) -> "SourceLocationEager":
         return SourceLocationEager(
             path=Path(data["path"]),
             _hash=str(data["hash"]),
@@ -96,7 +99,7 @@ class BuiltResource(Generic[T_ID]):
     extra_sources: list[SourceLocation] | None
 
     @classmethod
-    def load(cls: type[T_BuiltResource], data: dict[str, Any], resource_folder: str) -> T_BuiltResource:
+    def load(cls, data: dict[str, Any], resource_folder: str) -> Self:
         from cognite_toolkit._cdf_tk.loaders import ResourceLoader, get_loader
 
         kind = data["kind"]
@@ -128,7 +131,7 @@ class BuiltResource(Generic[T_ID]):
             output["extra_sources"] = [source.dump() for source in self.extra_sources]
         return output
 
-    def create_full(self, module: BuiltModule, resource_dir: str) -> BuiltResourceFull[T_ID]:
+    def create_full(self, module: "BuiltModule", resource_dir: str) -> "BuiltResourceFull":
         return BuiltResourceFull(
             identifier=self.identifier,
             source=self.source,
@@ -184,9 +187,9 @@ class BuiltResourceList(list, MutableSequence[BuiltResource[T_ID]], Generic[T_ID
     def __getitem__(self, index: SupportsIndex) -> BuiltResource[T_ID]: ...
 
     @overload
-    def __getitem__(self, index: slice) -> BuiltResourceList[T_ID]: ...
+    def __getitem__(self, index: slice) -> "BuiltResourceList[T_ID]": ...
 
-    def __getitem__(self, index: SupportsIndex | slice, /) -> BuiltResource[T_ID] | BuiltResourceList[T_ID]:
+    def __getitem__(self, index: SupportsIndex | slice, /) -> "BuiltResource[T_ID] | BuiltResourceList[T_ID]":
         if isinstance(index, slice):
             return BuiltResourceList[T_ID](super().__getitem__(index))
         return super().__getitem__(index)
@@ -196,7 +199,7 @@ class BuiltResourceList(list, MutableSequence[BuiltResource[T_ID]], Generic[T_ID
         return [resource.identifier for resource in self]
 
     @classmethod
-    def load(cls, data: list[dict[str, Any]], resource_folder: str) -> BuiltResourceList[T_ID]:
+    def load(cls, data: list[dict[str, Any]], resource_folder: str) -> "BuiltResourceList[T_ID]":
         return cls([BuiltResource.load(resource_data, resource_folder) for resource_data in data])
 
     def dump(self, resource_folder: str, include_destination: bool = False) -> list[dict[str, Any]]:
@@ -226,14 +229,14 @@ class BuiltFullResourceList(BuiltResourceList[T_ID]):
     def __getitem__(self, index: SupportsIndex) -> BuiltResourceFull[T_ID]: ...
 
     @overload
-    def __getitem__(self, index: slice) -> BuiltFullResourceList[T_ID]: ...
+    def __getitem__(self, index: slice) -> "BuiltFullResourceList[T_ID]": ...
 
-    def __getitem__(self, index: SupportsIndex | slice, /) -> BuiltResourceFull[T_ID] | BuiltFullResourceList[T_ID]:
+    def __getitem__(self, index: SupportsIndex | slice, /) -> "BuiltResourceFull[T_ID] | BuiltFullResourceList[T_ID]":
         if isinstance(index, slice):
             return BuiltFullResourceList[T_ID](super().__getitem__(index))
         return cast(BuiltResourceFull[T_ID], super().__getitem__(index))
 
-    def by_file(self) -> dict[Path, BuiltFullResourceList[T_ID]]:
+    def by_file(self) -> "dict[Path, BuiltFullResourceList[T_ID]]":
         resources_by_file: dict[Path, BuiltFullResourceList[T_ID]] = defaultdict(lambda: BuiltFullResourceList())
         for resource in self:
             resources_by_file[resource.source.path].append(resource)

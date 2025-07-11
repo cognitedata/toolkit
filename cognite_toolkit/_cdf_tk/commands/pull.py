@@ -1,8 +1,7 @@
-from __future__ import annotations
-
 import dataclasses
 import itertools
 import re
+import sys
 import tempfile
 import uuid
 from collections import UserList
@@ -64,6 +63,11 @@ from cognite_toolkit._cdf_tk.utils.modules import (
 from ._base import ToolkitCommand
 from .build_cmd import BuildCommand
 from .clean import CleanCommand
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 _VARIABLE_PATTERN = re.compile(r"\{\{(.+?)\}\}")
 # The encoding and newline characters to use when writing files
@@ -159,7 +163,7 @@ class ResourceYAMLDifference(YAMLWithComments[tuple[Union[str, int], ...], Resou
         return self._comments.get(key)
 
     @classmethod
-    def load(cls, build_content: str, source_content: str) -> ResourceYAMLDifference:
+    def load(cls, build_content: str, source_content: str) -> Self:
         comments = cls._extract_comments(build_content)
         build = read_yaml_content(build_content)
         build_flatten = cls._flatten(build)
@@ -344,7 +348,7 @@ class TextFileDifference(UserList):
         super().__init__(lines or [])
 
     @classmethod
-    def load(cls, build_content: str, source_content: str) -> TextFileDifference:
+    def load(cls, build_content: str, source_content: str) -> Self:
         lines = []
         # Build and source content should have the same number of lines
         for no, (build, source) in enumerate(zip(build_content.splitlines(), source_content.splitlines())):
@@ -739,7 +743,7 @@ class PullCommand(ToolkitCommand):
         loaded_with_placeholder: dict[str, Any],
         to_write: dict[T_ID, dict[str, Any]],
         built_by_identifier: dict[T_ID, BuiltResourceFull[T_ID]],
-        replacer: ResourceReplacer,
+        replacer: "ResourceReplacer",
         extra_files: dict[Path, str],
     ) -> dict[str, Any]:
         if item_id not in to_write:

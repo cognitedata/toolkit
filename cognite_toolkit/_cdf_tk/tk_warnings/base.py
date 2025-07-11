@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import dataclasses
 import itertools
 import warnings
@@ -54,7 +52,7 @@ class ToolkitWarning(ABC, UserWarning):
     def as_tuple(self) -> tuple[Any, ...]:
         return type(self).__name__, *dataclasses.astuple(self)
 
-    def __lt__(self, other: ToolkitWarning) -> bool:
+    def __lt__(self, other: "ToolkitWarning") -> bool:
         if not isinstance(other, ToolkitWarning):
             return NotImplemented
         return self.as_tuple() < other.as_tuple()

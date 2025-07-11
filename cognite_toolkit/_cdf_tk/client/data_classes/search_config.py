@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from abc import ABC
 from dataclasses import dataclass
 from typing import Any
@@ -76,7 +74,7 @@ class SearchConfigCore(WriteableCogniteResource["SearchConfigWrite"], ABC):
         self.filter_layout = filter_layout
         self.properties_layout = properties_layout
 
-    def as_write(self) -> SearchConfigWrite:
+    def as_write(self) -> "SearchConfigWrite":
         return SearchConfigWrite(
             view=self.view,
             id=self.id,

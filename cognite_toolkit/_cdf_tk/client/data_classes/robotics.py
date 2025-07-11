@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from abc import ABC
 from typing import Any, Literal, TypeAlias
 
@@ -73,7 +71,7 @@ class RobotCapabilityWrite(RobotCapabilityCore):
         self.input_schema = input_schema
         self.data_handling_schema = data_handling_schema
 
-    def as_write(self) -> RobotCapabilityWrite:
+    def as_write(self) -> Self:
         return self
 
     @classmethod
@@ -209,7 +207,7 @@ class RobotCore(WriteableCogniteResource["RobotWrite"], ABC):
         self.metadata = metadata
         self.location_external_id = location_external_id
 
-    def as_write(self) -> RobotWrite:
+    def as_write(self) -> "RobotWrite":
         return RobotWrite(
             name=self.name,
             capabilities=self.capabilities,
@@ -370,7 +368,7 @@ class DataPostProcessingWrite(DataPostProcessingCore):
         super().__init__(name, external_id, method, description)
         self.input_schema = input_schema
 
-    def as_write(self) -> DataPostProcessingWrite:
+    def as_write(self) -> Self:
         return self
 
     @classmethod
@@ -501,7 +499,7 @@ class LocationWrite(LocationCore):
     ) -> None:
         super().__init__(name, external_id, description)
 
-    def as_write(self) -> LocationWrite:
+    def as_write(self) -> Self:
         return self
 
     @classmethod
@@ -704,7 +702,7 @@ class FrameWrite(FrameCore):
     ) -> None:
         super().__init__(name, external_id, transform)
 
-    def as_write(self) -> FrameWrite:
+    def as_write(self) -> Self:
         return self
 
     @classmethod
@@ -860,7 +858,7 @@ class MapWrite(MapCore):
     ) -> None:
         super().__init__(name, external_id, map_type, description, frame_external_id, data, location_external_id, scale)
 
-    def as_write(self) -> MapWrite:
+    def as_write(self) -> Self:
         return self
 
     @classmethod
