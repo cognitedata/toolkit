@@ -314,8 +314,22 @@ class HTTPBatchProcessor(Generic[T_ID]):
             attempts = (
                 work_item.status_attempt + 1 if response.status_code in {502, 503, 504} else work_item.status_attempt
             )
-            work_queue.put(WorkItem(items=work_item.items[:mid], status_attempt=attempts))
-            work_queue.put(WorkItem(items=work_item.items[mid:], status_attempt=attempts))
+            work_queue.put(
+                WorkItem(
+                    items=work_item.items[:mid],
+                    status_attempt=attempts,
+                    connect_attempt=work_item.connect_attempt,
+                    read_attempt=work_item.read_attempt,
+                )
+            )
+            work_queue.put(
+                WorkItem(
+                    items=work_item.items[mid:],
+                    status_attempt=attempts,
+                    connect_attempt=work_item.connect_attempt,
+                    read_attempt=work_item.read_attempt,
+                )
+            )
         elif work_item.status_attempt < self.max_retries and response.status_code in {429, 502, 503, 504}:
             if response.status_code == 429:
                 self._handle_rate_limit()
