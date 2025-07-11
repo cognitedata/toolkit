@@ -653,6 +653,7 @@ class ProfileTransformationCommand(ProfileCommand[str]):
         self, client: ToolkitClient, destination_type: str | None = None, verbose: bool = False
     ) -> list[dict[str, CellValue]]:
         self.destination_type = AssetCentricDestinationSelect.get(destination_type)
+        self.table_title = f"Transformation Profile destination: {self.destination_type}"
         return self.create_profile_table(client, sheet=self.destination_type)
 
     def create_initial_table(self, client: ToolkitClient) -> dict[tuple[str, str], PendingCellValue]:
@@ -732,7 +733,7 @@ class ProfileRawCommand(ProfileCommand[RawProfileIndex]):
         verbose: bool = False,
     ) -> list[dict[str, CellValue]]:
         self.destination_type = AssetCentricDestinationSelect.get(destination_type)
-        self.table_title = f"RAW Profile destination: {destination_type}"
+        self.table_title = f"RAW Profile destination: {self.destination_type}"
         return self.create_profile_table(client, sheet=self.destination_type)
 
     def create_initial_table(self, client: ToolkitClient) -> dict[tuple[RawProfileIndex, str], PendingCellValue]:
