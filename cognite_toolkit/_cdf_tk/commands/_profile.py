@@ -38,6 +38,7 @@ from cognite_toolkit._cdf_tk.utils.aggregators import (
 from cognite_toolkit._cdf_tk.utils.cdf import get_transformation_sources
 from cognite_toolkit._cdf_tk.utils.interactive_select import AssetCentricDestinationSelect
 from cognite_toolkit._cdf_tk.utils.sql_parser import SQLParser, SQLTable
+from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricDestinationType
 
 from ._base import ToolkitCommand
 
@@ -639,7 +640,7 @@ class ProfileTransformationCommand(ProfileCommand[str]):
     ) -> None:
         super().__init__(output_spreadsheet, print_warning, skip_tracking, silent)
         self.table_title = "Transformation Profile"
-        self.destination_type: Literal["assets", "files", "events", "timeseries", "sequences"] | None = None
+        self.destination_type: AssetCentricDestinationType | None = None
 
     class Columns:
         Transformation = "Transformation"
@@ -723,7 +724,7 @@ class ProfileRawCommand(ProfileCommand[RawProfileIndex]):
     ) -> None:
         super().__init__(output_spreadsheet, print_warning, skip_tracking, silent)
         self.table_title = "RAW Profile"
-        self.destination_type: Literal["assets", "files", "events", "timeseries", "sequences"] | None = None
+        self.destination_type: AssetCentricDestinationType | None = None
         self.client: ToolkitClient | None = None
 
     def raw(
