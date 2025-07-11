@@ -97,7 +97,7 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
                     except CogniteException as e:
                         result = type(e).__name__
                     except ToolkitThrottledError as e:
-                        result = f"Throttled: Wait {e.wait_time_seconds:.1f} seconds"
+                        result = f"Throttled: Wait {e.wait_time_seconds:.0f} seconds"
                     table[(row, col)] = self.format_result(result, row, col)
                     if self.is_dynamic_table:
                         table = self.update_table(table, result, row, col)
