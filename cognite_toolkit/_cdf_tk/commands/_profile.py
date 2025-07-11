@@ -237,7 +237,7 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
             worksheet.append(list(row.values()))
 
         workbook.save(output_spreadsheet)
-        self.console(f"Profile data written to {output_spreadsheet.as_posix()!r}")
+        self.console(f"Profile data written to sheet {sheet!r} in {output_spreadsheet.as_posix()!r}")
 
 
 @dataclass(frozen=True)
