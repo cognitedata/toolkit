@@ -60,6 +60,7 @@ class ProcessorResult(Generic[T_ID]):
     failed_items: list[FailedItem[T_ID]] = field(default_factory=list)
     unknown_items: list[FailedItem[str]] = field(default_factory=list)
     error_summary: dict[int, int] = field(default_factory=dict)  # status_code -> count
+    producer_error: Exception | None = None
 
     @property
     def total_successful(self) -> int:
@@ -133,6 +134,7 @@ class HTTPBatchProcessor(Generic[T_ID]):
         self.description = description
 
         self._produced_count = 0
+        self._process_exception: Exception | None = None
         self._config = config
 
         # Thread-safe session for connection pooling
@@ -215,24 +217,33 @@ class HTTPBatchProcessor(Generic[T_ID]):
 
     def _producer(self, items_iterator: Iterable[dict[str, JsonVal]], work_queue: Queue) -> None:
         batch: list[dict] = []
-        for item in items_iterator:
-            batch.append(item)
-            if len(batch) >= self.batch_size:
-                while work_queue.qsize() >= self.max_workers * 2:
-                    # Wait for space in the queue
-                    time.sleep(0.1)
+        try:
+            for item in items_iterator:
+                batch.append(item)
+                if len(batch) >= self.batch_size:
+                    while work_queue.qsize() >= self.max_workers * 2:
+                        # Wait for space in the queue
+                        time.sleep(0.1)
+                    work_queue.put(WorkItem(items=batch))
+                    self._produced_count += len(batch)
+                    batch = []
+            if batch:
                 work_queue.put(WorkItem(items=batch))
                 self._produced_count += len(batch)
-                batch = []
-        if batch:
-            work_queue.put(WorkItem(items=batch))
-            self._produced_count += len(batch)
+        except Exception as e:
+            self.console.print(f"[red]Error in producer thread: {e!s}[/red]")
+            # If an error occurs, we still want to put the items in the queue to avoid losing them
+            if batch:
+                work_queue.put(WorkItem(items=batch))
+                self._produced_count += len(batch)
+            self._process_exception = e
 
     def process(self, items: Iterable[dict[str, JsonVal]], total_items: int | None = None) -> ProcessorResult[T_ID]:
         work_queue: Queue[WorkItem | None] = Queue()
         results_queue: Queue[BatchResult[T_ID]] = Queue()
 
         self._produced_count = 0
+        self._process_exception = None
         producer_thread = threading.Thread(target=self._producer, args=(items, work_queue), daemon=True)
         producer_thread.start()
         batch_results: list[BatchResult[T_ID]] = []
@@ -265,7 +276,7 @@ class HTTPBatchProcessor(Generic[T_ID]):
                             break
                 for _ in range(self.max_workers):
                     work_queue.put(None)
-        return self._aggregate_results(batch_results)
+        return self._aggregate_results(batch_results, self._process_exception)
 
     def _worker(
         self,
@@ -428,7 +439,7 @@ class HTTPBatchProcessor(Generic[T_ID]):
         return BatchResult(successful_items=success_items, unknown_ids=unknown_items)
 
     @staticmethod
-    def _aggregate_results(results: list[BatchResult[T_ID]]) -> ProcessorResult[T_ID]:
+    def _aggregate_results(results: list[BatchResult[T_ID]], producer_error: Exception | None) -> ProcessorResult[T_ID]:
         successful_items = [item for r in results for item in r.successful_items]
         failed_items = [item for r in results for item in r.failed_items]
         unknown_ids = [item for r in results for item in r.unknown_ids]
@@ -443,6 +454,7 @@ class HTTPBatchProcessor(Generic[T_ID]):
             successful_items=successful_items,
             failed_items=failed_items,
             error_summary=error_summary,
+            producer_error=producer_error,
         )
 
     @classmethod
