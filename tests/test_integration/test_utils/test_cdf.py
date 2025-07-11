@@ -20,6 +20,7 @@ from cognite.client.data_classes.labels import LabelDefinitionWriteList
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
+from cognite_toolkit._cdf_tk.exceptions import ToolkitThrottledError
 from cognite_toolkit._cdf_tk.utils.cdf import (
     label_aggregate_count,
     metadata_key_counts,
@@ -271,7 +272,19 @@ class TestLabelAggregateCount:
         assert count == len(two_labels)
 
 
+@pytest.fixture()
+def use_raw_row_count(toolkit_client: ToolkitClient, populated_raw_table: RawTable) -> None:
+    try:
+        raw_row_count(toolkit_client, populated_raw_table, max_count=-1)
+    except ToolkitThrottledError:
+        pytest.skip("Skipping raw row count test")
+    except ValueError:
+        # A ValueError means this is available.
+        pass
+
+
 class TestRawTableRowCount:
+    @pytest.mark.usefixtures("use_raw_row_count")
     def test_raw_table_row_count(
         self, toolkit_client: ToolkitClient, populated_raw_table: RawTable, raw_data: RowWriteList
     ) -> None:
