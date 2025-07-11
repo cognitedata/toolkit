@@ -244,7 +244,6 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
         self._style_sheet(worksheet)
 
         try:
-        try:
             workbook.save(output_spreadsheet)
         except OSError as e:
             raise ToolkitValueError(
