@@ -236,7 +236,7 @@ class HTTPBatchProcessor(Generic[T_ID]):
                     executor.submit(self._worker, work_queue, results_queue)
 
                 producer_thread.join()
-
+                work_queue.join()
                 processed_count = 0
                 while True:
                     result = results_queue.get()
