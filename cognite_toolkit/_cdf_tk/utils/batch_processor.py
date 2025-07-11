@@ -381,7 +381,7 @@ class HTTPBatchProcessor(Generic[T_ID]):
             return
 
         if attempts < self.max_retries:
-            time.sleep(self._backoff_time(attempts))
+            time.sleep(self._backoff_time(work_item.total_attempts))
             work_queue.put(work_item)
         else:
             error_msg = f"RequestException after {self.max_retries} {error_type} attempts: {e!s}"
