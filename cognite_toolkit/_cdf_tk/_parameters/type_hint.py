@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import enum
 import inspect
 import itertools
@@ -111,7 +109,7 @@ class TypeHint:
         return repr(self.raw)
 
     @property
-    def sub_hints(self) -> Iterable[TypeHint]:
+    def sub_hints(self) -> "Iterable[TypeHint]":
         for arg in self.args:
             if self._is_none_type(arg):
                 continue

@@ -1,5 +1,4 @@
-from __future__ import annotations
-
+import sys
 from abc import ABC
 from typing import Any
 
@@ -7,6 +6,11 @@ from cognite.client import CogniteClient
 from cognite.client.data_classes._base import CogniteResourceList, WriteableCogniteResourceList
 from cognite.client.data_classes.data_modeling import DataModelId, ViewId
 from cognite.client.data_classes.data_modeling.core import DataModelingSchemaResource
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 
 class _GraphQLDataModelCore(DataModelingSchemaResource["GraphQLDataModelWrite"], ABC):
@@ -38,7 +42,7 @@ class GraphQLDataModelWrite(_GraphQLDataModelCore):
         self.preserve_dml = preserve_dml
 
     @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> GraphQLDataModelWrite:
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
         return cls(
             space=resource["space"],
             external_id=resource["externalId"],
@@ -50,7 +54,7 @@ class GraphQLDataModelWrite(_GraphQLDataModelCore):
             preserve_dml=resource.get("preserveDml"),
         )
 
-    def as_write(self) -> GraphQLDataModelWrite:
+    def as_write(self) -> Self:
         return self
 
 
@@ -83,7 +87,7 @@ class GraphQLDataModel(_GraphQLDataModelCore):
         )
 
     @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> GraphQLDataModel:
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
         return cls(
             space=resource["space"],
             external_id=resource["externalId"],

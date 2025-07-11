@@ -19,7 +19,7 @@ from .api.lookup import (
     SecurityCategoriesLookUpAPI,
     TimeSeriesLookUpAPI,
 )
-from .api.migration import MappingAPI, MigrationAPI
+from .api.migration import InstanceSourceAPI, MigrationAPI
 from .api.robotics import RoboticsAPI
 from .api.robotics.capabilities import CapabilitiesAPI
 from .api.robotics.data_postprocessing import DataPostProcessingAPI
@@ -27,6 +27,7 @@ from .api.robotics.frames import FramesAPI
 from .api.robotics.locations import LocationsAPI as RoboticsLocationsAPI
 from .api.robotics.maps import MapsAPI
 from .api.statistics import StatisticsAPI
+from .api.token import TokenAPI
 from .api.verify import VerifyAPI
 
 
@@ -58,7 +59,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.lookup.location_filters = MagicMock(spec_set=LocationFiltersLookUpAPI)
         self.lookup.extraction_pipelines = MagicMock(spec_set=ExtractionPipelineLookUpAPI)
         self.migration = MagicMock(spec=MigrationAPI)
-        self.migration.mapping = MagicMock(spec_set=MappingAPI)
+        self.migration.instance_source = MagicMock(spec_set=InstanceSourceAPI)
 
         self.robotics = MagicMock()
         self.robotics.robots = MagicMock(spec=RoboticsAPI)
@@ -70,6 +71,8 @@ class ToolkitClientMock(CogniteClientMock):
 
         self.data_modeling.statistics = MagicMock(spec_set=StatisticsAPI)
 
+        # This is a helper API, not a real API.
+        self.token = TokenAPI(self)
         self.verify = MagicMock(spec_set=VerifyAPI)
 
 

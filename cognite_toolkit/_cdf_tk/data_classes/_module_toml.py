@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -8,9 +6,12 @@ from typing import Any, ClassVar
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileExistsError
 
 if sys.version_info >= (3, 11):
+    from typing import Self
+
     import toml
 else:
     import tomli as toml
+    from typing_extensions import Self
 
 
 @dataclass(frozen=True)
@@ -21,7 +22,7 @@ class ExampleData:
     destination: Path
 
     @classmethod
-    def load(cls, data: dict[str, Any]) -> ExampleData:
+    def load(cls, data: dict[str, Any]) -> Self:
         return cls(
             repo_type=data["repoType"],
             repo=data["repo"],
@@ -45,7 +46,7 @@ class ModuleToml:
                 raise ToolkitFileExistsError(f"Extra resource {extra} must be a relative path")
 
     @classmethod
-    def load(cls, data: dict[str, Any] | Path) -> ModuleToml:
+    def load(cls, data: dict[str, Any] | Path) -> Self:
         if isinstance(data, Path):
             return cls.load(toml.loads(data.read_text(encoding="utf-8")))
 

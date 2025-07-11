@@ -1,6 +1,5 @@
-from __future__ import annotations
-
 import shutil
+import sys
 import tempfile
 import zipfile
 from collections import Counter
@@ -62,6 +61,10 @@ from cognite_toolkit._cdf_tk.utils.modules import module_directory_from_path
 from cognite_toolkit._cdf_tk.utils.repository import FileDownloader
 from cognite_toolkit._version import __version__
 
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 custom_style_fancy = questionary.Style(
     [
         ("qmark", "fg:#673ab7"),  # token in front of the question
@@ -95,7 +98,7 @@ class ModulesCommand(ToolkitCommand):
         if not self._temp_download_dir.exists():
             self._temp_download_dir.mkdir(parents=True, exist_ok=True)
 
-    def __enter__(self) -> ModulesCommand:
+    def __enter__(self) -> Self:
         """
         Context manager to ensure the temporary download directory is cleaned up after use. It requires the command to be used in a `with` block.
         """

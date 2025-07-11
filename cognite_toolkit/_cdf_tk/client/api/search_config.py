@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from urllib.parse import urljoin
 
 from cognite.client import CogniteClient

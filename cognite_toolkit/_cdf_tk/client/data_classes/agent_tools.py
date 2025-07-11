@@ -1,5 +1,4 @@
-from __future__ import annotations
-
+import sys
 from abc import ABC
 from dataclasses import dataclass
 from typing import Any
@@ -11,6 +10,11 @@ from cognite.client.data_classes._base import (
     WriteableCogniteResource,
     WriteableCogniteResourceList,
 )
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 
 @dataclass
@@ -30,7 +34,7 @@ class AgentToolCore(WriteableCogniteResource["AgentToolWrite"], ABC):
     description: str
     configuration: dict[str, Any] | None = None
 
-    def as_write(self) -> AgentToolWrite:
+    def as_write(self) -> "AgentToolWrite":
         return AgentToolWrite(
             name=self.name,
             type=self.type,
@@ -53,7 +57,7 @@ class AgentTool(AgentToolCore):
     """
 
     @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> AgentTool:
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
         return cls(
             name=resource["name"],
             type=resource["type"],

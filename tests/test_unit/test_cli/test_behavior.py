@@ -16,9 +16,16 @@ from cognite.client.data_classes import (
     WorkflowTrigger,
     WorkflowVersion,
     WorkflowVersionId,
+    WorkflowVersionUpsert,
 )
 from cognite.client.data_classes.capabilities import AssetsAcl, EventsAcl, TimeSeriesAcl
-from cognite.client.data_classes.workflows import WorkflowScheduledTriggerRule
+from cognite.client.data_classes.workflows import (
+    SubworkflowReferenceParameters,
+    TransformationTaskParameters,
+    WorkflowDefinitionUpsert,
+    WorkflowScheduledTriggerRule,
+    WorkflowTask,
+)
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk import cdf_toml
@@ -29,7 +36,7 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder, Work
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
 from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
-from cognite_toolkit._cdf_tk.loaders import RESOURCE_LOADER_LIST
+from cognite_toolkit._cdf_tk.loaders import RESOURCE_LOADER_LIST, LocationFilterLoader, WorkflowVersionLoader
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.constants import chdir
 from tests.data import (
@@ -735,6 +742,73 @@ def test_build_deploy_keep_special_characters(
     assert transformation.query == expected_query
 
 
+def test_location_filter_deployment_order(
+    build_tmp_path: Path,
+    toolkit_client_approval: ApprovalToolkitClient,
+    env_vars_with_client: EnvironmentVariables,
+) -> None:
+    child = """externalId: child
+name: Child Location Filter
+parentExternalId: parent
+dataModels:
+  - externalId: CogniteProcessIndustries
+    space: cdf_idm
+    version: v1
+instanceSpaces:
+  - instance-space-secondary
+dataModelingType: DATA_MODELING_ONLY
+"""
+    parent = """externalId: parent
+name: Parent Location Filter
+dataModels:
+  - externalId: CogniteCore
+    space: cdf_cdm
+    version: v1
+instanceSpaces:
+  - instance-space-main
+dataModelingType: DATA_MODELING_ONLY
+"""
+    org = build_tmp_path.parent / "org"
+    resource_folder_child = org / MODULES / "my_first" / LocationFilterLoader.folder_name
+    resource_folder_parent = org / MODULES / "my_second" / LocationFilterLoader.folder_name
+    # Default behavior of Toolkit is to respect the order of the files, however, this tests ensures
+    # that Toolkit does a topological sort of the location filter before deploying them.
+    child_file = resource_folder_child / f"1.child.{LocationFilterLoader.kind}.yaml"
+    parent_file = resource_folder_parent / f"2.parent.{LocationFilterLoader.kind}.yaml"
+    child_file.parent.mkdir(parents=True, exist_ok=True)
+    child_file.write_text(child, encoding="utf-8")
+    parent_file.parent.mkdir(parents=True, exist_ok=True)
+    parent_file.write_text(parent, encoding="utf-8")
+
+    BuildCommand(silent=True, skip_tracking=True).execute(
+        verbose=False,
+        organization_dir=org,
+        build_dir=build_tmp_path,
+        selected=None,
+        build_env_name=None,
+        no_clean=False,
+        client=env_vars_with_client.get_client(),
+        on_error="raise",
+    )
+
+    DeployCommand(silent=True, skip_tracking=True).deploy_build_directory(
+        env_vars=env_vars_with_client,
+        build_dir=build_tmp_path,
+        build_env_name="dev",
+        drop=False,
+        dry_run=False,
+        include=[],
+        drop_data=False,
+        verbose=False,
+        force_update=False,
+    )
+
+    # Verify that the workflow was created in the correct order, parent before child.
+    filters = toolkit_client_approval.created_resources_of_type(LocationFilter)
+    assert len(filters) == 2
+    assert [loc_filter.external_id for loc_filter in filters] == ["parent", "child"]
+
+
 def test_build_project_with_only_identifiers(
     build_tmp_path: Path,
     toolkit_client_approval: ApprovalToolkitClient,
@@ -763,3 +837,74 @@ def test_build_project_with_only_identifiers(
             loader.kind,
         )
         _ = PullCommand._get_local_resource_dict_by_id(built_resources, loader, {})
+
+
+def test_workflow_deployment_order(
+    build_tmp_path: Path,
+    toolkit_client_approval: ApprovalToolkitClient,
+    env_vars_with_client: EnvironmentVariables,
+) -> None:
+    subworkflow = WorkflowVersionUpsert(
+        workflow_external_id="mySubWorkflow",
+        version="v1",
+        workflow_definition=WorkflowDefinitionUpsert(
+            tasks=[
+                WorkflowTask(
+                    external_id="task1",
+                    parameters=TransformationTaskParameters(external_id="someTransformation"),
+                )
+            ],
+        ),
+    )
+    main_workflow = WorkflowVersionUpsert(
+        workflow_external_id="myWorkflow",
+        version="v1",
+        workflow_definition=WorkflowDefinitionUpsert(
+            tasks=[
+                WorkflowTask(
+                    external_id="subworkflowTask",
+                    parameters=SubworkflowReferenceParameters(subworkflow.workflow_external_id, subworkflow.version),
+                ),
+            ],
+        ),
+    )
+    org = build_tmp_path.parent / "org"
+    resource_folder = org / MODULES / "my_workflow_module" / WorkflowVersionLoader.folder_name
+    # Default behavior of Toolkit is to respect the order of the files, however, this tests ensures
+    # that Toolkit does a topological sort of the workflows before deploying them.
+    main_workflow_file = resource_folder / f"1.{main_workflow.workflow_external_id}.{WorkflowVersionLoader.kind}.yaml"
+    subworkflow_file = resource_folder / f"2.{subworkflow.workflow_external_id}.{WorkflowVersionLoader.kind}.yaml"
+    main_workflow_file.parent.mkdir(parents=True, exist_ok=True)
+    main_workflow_file.write_text(main_workflow.dump_yaml(), encoding="utf-8")
+    subworkflow_file.write_text(subworkflow.dump_yaml(), encoding="utf-8")
+
+    BuildCommand(silent=True, skip_tracking=True).execute(
+        verbose=False,
+        organization_dir=org,
+        build_dir=build_tmp_path,
+        selected=None,
+        build_env_name=None,
+        no_clean=False,
+        client=env_vars_with_client.get_client(),
+        on_error="raise",
+    )
+
+    DeployCommand(silent=True, skip_tracking=True).deploy_build_directory(
+        env_vars=env_vars_with_client,
+        build_dir=build_tmp_path,
+        build_env_name="dev",
+        drop=False,
+        dry_run=False,
+        include=[],
+        drop_data=False,
+        verbose=False,
+        force_update=False,
+    )
+
+    # Verify that the workflow was created in the corr
+    workflows = toolkit_client_approval.created_resources_of_type(WorkflowVersion)
+    assert len(workflows) == 2
+    assert [workflow.workflow_external_id for workflow in workflows] == [
+        subworkflow.workflow_external_id,
+        main_workflow.workflow_external_id,
+    ]

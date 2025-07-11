@@ -1,5 +1,4 @@
-from __future__ import annotations
-
+import sys
 from abc import ABC
 from collections import UserDict
 from collections.abc import Iterable
@@ -8,6 +7,11 @@ from functools import total_ordering
 from typing import Literal
 
 from rich.table import Table
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 
 @total_ordering
@@ -40,7 +44,7 @@ class ResourceDeployResult(DeployResult):
     def calculated_total(self) -> int:
         return self.created + self.deleted + self.changed + self.unchanged
 
-    def __iadd__(self, other: ResourceDeployResult) -> ResourceDeployResult:
+    def __iadd__(self, other: "ResourceDeployResult") -> "ResourceDeployResult":
         if self.name != other.name:
             raise ValueError("Cannot add two DeployResult objects with different names")
         self.created += other.created
@@ -69,7 +73,7 @@ class ResourceContainerDeployResult(ResourceDeployResult):
     item_name: str = ""
     dropped_datapoints: int = 0
 
-    def __iadd__(self, other: ResourceDeployResult) -> ResourceContainerDeployResult:
+    def __iadd__(self, other: ResourceDeployResult) -> "ResourceContainerDeployResult":
         if self.name != other.name:
             raise ValueError("Cannot add two ResourceContainerDeployResult objects with different names")
         super().__iadd__(other)
@@ -80,7 +84,7 @@ class ResourceContainerDeployResult(ResourceDeployResult):
     @classmethod
     def from_resource_deploy_result(
         cls, result: ResourceDeployResult, item_name: str = "", dropped_datapoints: int = 0
-    ) -> ResourceContainerDeployResult:
+    ) -> Self:
         return cls(
             name=result.name,
             created=result.created,
@@ -98,7 +102,7 @@ class UploadDeployResult(DeployResult):
     uploaded: int = 0
     item_name: str = ""
 
-    def __iadd__(self, other: UploadDeployResult) -> UploadDeployResult:
+    def __iadd__(self, other: "UploadDeployResult") -> "UploadDeployResult":
         if self.name != other.name:
             raise ValueError("Cannot add two DeployResult objects with different names")
         self.uploaded += other.uploaded

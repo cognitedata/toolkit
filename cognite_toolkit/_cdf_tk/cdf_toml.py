@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import re
 import sys
 import urllib
@@ -20,11 +18,14 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 
 if sys.version_info >= (3, 11):
+    from typing import Self
+
     import tomllib
     from tomllib import TOMLDecodeError
 else:
     import tomli as tomllib
     from tomli import TOMLDecodeError
+    from typing_extensions import Self
 
 
 @dataclass
@@ -36,7 +37,7 @@ class CLIConfig:
     has_user_set_default_env: bool = False
 
     @classmethod
-    def load(cls, raw: dict[str, Any], cwd: Path) -> CLIConfig:
+    def load(cls, raw: dict[str, Any], cwd: Path) -> Self:
         has_user_set_default_org = "default_organization_dir" in raw
         has_user_set_default_env = "default_env" in raw
         default_organization_dir = cwd / raw["default_organization_dir"] if has_user_set_default_org else Path.cwd()
@@ -55,7 +56,7 @@ class ModulesConfig:
     packages: dict[str, list[str]] = field(default_factory=dict)
 
     @classmethod
-    def load(cls, raw: dict[str, Any]) -> ModulesConfig:
+    def load(cls, raw: dict[str, Any]) -> Self:
         version = raw["version"]
         packages = raw.get("packages", {})
         if (
@@ -78,7 +79,7 @@ class Library:
     checksum: str
 
     @classmethod
-    def load(cls, raw: dict[str, Any]) -> Library:
+    def load(cls, raw: dict[str, Any]) -> Self:
         if "url" not in raw:
             raise ValueError("Library configuration must contain 'url' field.")
 
@@ -114,7 +115,7 @@ class CDFToml:
     is_loaded_from_file: bool = False
 
     @classmethod
-    def load(cls, cwd: Path | None = None, use_singleton: bool = True) -> CDFToml:
+    def load(cls, cwd: Path | None = None, use_singleton: bool = True) -> "CDFToml":
         """Loads the cdf.toml file from the given path. If use_singleton is True, the instance will be stored as a
         singleton and returned on subsequent calls."""
         global _CDF_TOML

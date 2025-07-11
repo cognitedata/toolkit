@@ -11,11 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from __future__ import annotations
+
 
 import json
 from collections.abc import Hashable, Iterable, Sequence
 from functools import lru_cache
+from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from typing import Any, final
 
@@ -39,6 +40,7 @@ from cognite.client.data_classes.capabilities import (
     Capability,
     WorkflowOrchestrationAcl,
 )
+from cognite.client.data_classes.workflows import SubworkflowReferenceParameters
 from cognite.client.exceptions import CogniteAuthError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
@@ -48,6 +50,7 @@ from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, Para
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
+    ToolkitCycleError,
     ToolkitRequiredValueError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
@@ -411,8 +414,8 @@ class WorkflowVersionLoader(
         return WorkflowVersionList([self.client.workflows.versions.upsert(item) for item in items])
 
     def create(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
-        upserted = []
-        for item in items:
+        upserted: list[WorkflowVersion] = []
+        for item in self.topological_sort(items):
             upserted.append(self.client.workflows.versions.upsert(item))
         return WorkflowVersionList(upserted)
 
@@ -494,6 +497,30 @@ class WorkflowVersionLoader(
             version = f"_v{id.version}"
 
         return to_directory_compatible(f"{id.workflow_external_id}{version}")
+
+    @classmethod
+    def topological_sort(cls, items: Sequence[WorkflowVersionUpsert]) -> list[WorkflowVersionUpsert]:
+        workflow_by_id: dict[WorkflowVersionId, WorkflowVersionUpsert] = {item.as_id(): item for item in items}
+        dependencies: dict[WorkflowVersionId, set[WorkflowVersionId]] = {}
+        for item_id, item in workflow_by_id.items():
+            dependencies[item_id] = set()
+            for task in item.workflow_definition.tasks:
+                if isinstance(task.parameters, SubworkflowReferenceParameters):
+                    dependencies[item_id].add(
+                        WorkflowVersionId(task.parameters.workflow_external_id, task.parameters.version)
+                    )
+
+        try:
+            return [
+                workflow_by_id[item_id]
+                for item_id in TopologicalSorter(dependencies).static_order()
+                if item_id in workflow_by_id
+            ]
+        except CycleError as e:
+            raise ToolkitCycleError(
+                f"Cannot deploy workflows. Cycle detected {e.args} in the 'subworkflow' dependencies of the workflows.",
+                *e.args[1:],
+            ) from None
 
 
 @final
