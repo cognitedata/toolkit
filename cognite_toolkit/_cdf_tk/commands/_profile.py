@@ -18,7 +18,7 @@ from rich.table import Table
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawProfileResults, RawTable
 from cognite_toolkit._cdf_tk.constants import MAX_ROW_ITERATION_RUN_QUERY
-from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitThrottledError, ToolkitValueError
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.aggregators import (
     AssetAggregator,
@@ -96,6 +96,8 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
                         result = future.result()
                     except CogniteException as e:
                         result = type(e).__name__
+                    except ToolkitThrottledError as e:
+                        result = f"Throttled: Wait for {e.wait_time_seconds:.1f} seconds"
                     table[(row, col)] = self.format_result(result, row, col)
                     if self.is_dynamic_table:
                         table = self.update_table(table, result, row, col)
