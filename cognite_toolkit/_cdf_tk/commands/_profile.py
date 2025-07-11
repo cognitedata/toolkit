@@ -225,16 +225,17 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
         # Local import as this is an optional dependency
         from openpyxl import Workbook, load_workbook
 
+        sheet_name = (sheet or self.table_title)[:31]  # Limit title to 31 characters for Excel compatibility
         if output_spreadsheet.exists():
             workbook = load_workbook(output_spreadsheet)
-            if sheet in workbook.sheetnames:
-                raise ToolkitValueError(f"Sheet '{sheet}' already exists in {output_spreadsheet.as_posix()}.")
+            if sheet_name in workbook.sheetnames:
+                raise ToolkitValueError(f"Sheet '{sheet_name}' already exists in {output_spreadsheet.as_posix()}.")
             else:
-                worksheet = workbook.create_sheet(title=(sheet or self.table_title)[:31])
+                worksheet = workbook.create_sheet(title=sheet_name)
         else:
             workbook = Workbook()
             worksheet = workbook.active
-            worksheet.title = (sheet or self.table_title)[:31]  # Limit title to 31 characters for Excel compatibility
+            worksheet.title = sheet_name
 
         worksheet.append(self.columns)
 
