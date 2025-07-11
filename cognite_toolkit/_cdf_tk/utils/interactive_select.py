@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import ClassVar, Literal
+from typing import ClassVar, Literal, get_args
 
 import questionary
 from cognite.client.data_classes import (
@@ -26,6 +26,7 @@ from .aggregators import (
     FileAggregator,
     TimeSeriesAggregator,
 )
+from .useful_types import AssetCentricDestinationType
 
 
 class AssetCentricInteractiveSelect(ABC):
@@ -239,10 +240,10 @@ class InteractiveCanvasSelect:
 
 
 class AssetCentricDestinationSelect:
-    valid_destinations: tuple[str, ...] = tuple(["assets", "files", "events", "timeseries", "sequences"])
+    valid_destinations: tuple[str, ...] = get_args(AssetCentricDestinationType)
 
     @classmethod
-    def validate(cls, destination_type: str) -> Literal["assets", "files", "events", "timeseries", "sequences"]:
+    def validate(cls, destination_type: str) -> AssetCentricDestinationType:
         if destination_type not in cls.valid_destinations:
             raise ToolkitValueError(
                 f"Invalid destination type: {destination_type!r}. Must be one of {humanize_collection(cls.valid_destinations)}."
@@ -251,7 +252,7 @@ class AssetCentricDestinationSelect:
         return destination_type  # type: ignore[return-value]
 
     @classmethod
-    def select(cls) -> Literal["assets", "files", "events", "timeseries", "sequences"]:
+    def select(cls) -> AssetCentricDestinationType:
         """Interactively select a destination type."""
         destination_type = questionary.select(
             "Select a destination type",
@@ -263,9 +264,7 @@ class AssetCentricDestinationSelect:
         return destination_type  # type: ignore[return-value]
 
     @classmethod
-    def get(
-        cls, destination_type: str | None = None
-    ) -> Literal["assets", "files", "events", "timeseries", "sequences"]:
+    def get(cls, destination_type: str | None = None) -> AssetCentricDestinationType:
         """Get the destination type, either from the input or interactively."""
         if destination_type is None:
             return cls.select()
