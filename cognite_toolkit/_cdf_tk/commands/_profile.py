@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from functools import cached_property, partial
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, Generic, Literal, TypeAlias, TypeVar, overload
+from zipfile import BadZipFile
 
 from cognite.client.data_classes import Transformation
 from cognite.client.exceptions import CogniteException
@@ -229,7 +230,7 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
         if output_spreadsheet.exists():
             try:
                 workbook = load_workbook(output_spreadsheet)
-            except OSError as e:
+            except (OSError, BadZipFile) as e:
                 raise ToolkitValueError(
                     f"Failed to open {output_spreadsheet.as_posix()!r}. "
                     "Please ensure the file is not corrupted or open in another application."
@@ -270,7 +271,7 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
         from openpyxl.styles import Font, PatternFill
 
         # This freezes all rows above the given row
-        sheet.freeze_panes = sheet["A1"]
+        sheet.freeze_panes = "A2"
 
         # Make the header row bold, larger, and colored
         for cell, *_ in sheet.iter_cols(min_row=1, max_row=1, min_col=1, max_col=len(self.columns)):
