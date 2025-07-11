@@ -99,7 +99,7 @@ class ProfileApp(typer.Typer):
                 help="Destination type the transformations data should be written to. This can be 'assets', 'events', 'files',"
                 "'timeseries', or 'sequences'. If not provided, and interactive mode is enabled, the user will be prompted to select a destination.",
             ),
-        ],
+        ] = None,
         output_spreadsheet: Annotated[
             Path | None,
             typer.Option(
@@ -137,7 +137,7 @@ class ProfileApp(typer.Typer):
                 help="Destination type the raw data should be written to. This can be 'assets', 'events', 'files',"
                 "'timeseries', or 'sequences'. If not provided, and interactive mode is enabled, the user will be prompted to select a destination.",
             ),
-        ],
+        ] = None,
         output_spreadsheet: Annotated[
             Path | None,
             typer.Option(
