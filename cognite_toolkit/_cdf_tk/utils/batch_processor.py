@@ -218,6 +218,9 @@ class HTTPBatchProcessor(Generic[T_ID]):
         for item in items_iterator:
             batch.append(item)
             if len(batch) >= self.batch_size:
+                while work_queue.qsize() >= self.max_workers * 2:
+                    # Wait for space in the queue
+                    time.sleep(0.1)
                 work_queue.put(WorkItem(items=batch))
                 self._produced_count += len(batch)
                 batch = []
@@ -226,7 +229,7 @@ class HTTPBatchProcessor(Generic[T_ID]):
             self._produced_count += len(batch)
 
     def process(self, items: Iterable[dict[str, JsonVal]], total_items: int | None = None) -> ProcessorResult[T_ID]:
-        work_queue: Queue[WorkItem | None] = Queue(maxsize=self.max_workers * 2)
+        work_queue: Queue[WorkItem | None] = Queue()
         results_queue: Queue[BatchResult[T_ID]] = Queue()
 
         self._produced_count = 0
