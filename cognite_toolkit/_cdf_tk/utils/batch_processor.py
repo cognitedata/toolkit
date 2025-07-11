@@ -325,16 +325,20 @@ class HTTPBatchProcessor(Generic[T_ID]):
         else:
             # Permanent failure
             error = response.text
-            body = response.json()
-            if "error" in body and "message" in body["error"]:
-                error = body["error"]["message"]
+            try:
+                body = response.json()
+                if "error" in body and "message" in body["error"]:
+                    error = body["error"]["message"]
+            except ValueError:
+                # If the response is not JSON, we keep the original text
+                pass
             failed = [FailedItem(self.as_id(item), response.status_code, error) for item in work_item.items]
             results_queue.put(BatchResult(failed_items=failed))
 
     @staticmethod
-    def _backoff_time(attempts: int) -> int:
+    def _backoff_time(attempts: int) -> float:
         backoff_time = 0.5 * (2**attempts)
-        return int(min(backoff_time, global_config.max_retry_backoff) * random.uniform(0, 1.0))
+        return min(backoff_time, global_config.max_retry_backoff) * random.uniform(0, 1.0)
 
     def _handle_network_error(
         self,
@@ -362,8 +366,10 @@ class HTTPBatchProcessor(Generic[T_ID]):
             work_item.connect_attempt += 1
             attempts = work_item.connect_attempt
         else:
-            # Not a network error, re-raise
-            raise e
+            error_msg = f"Unexpected exception: {e!s}"
+            failed = [FailedItem(self.as_id(item), 0, error_msg) for item in work_item.items]
+            results_queue.put(BatchResult(failed_items=failed))
+            return
 
         if attempts < self.max_retries:
             time.sleep(self._backoff_time(attempts))
