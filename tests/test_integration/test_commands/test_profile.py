@@ -1,3 +1,4 @@
+import pytest
 from cognite.client.data_classes import Asset, Transformation
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -27,6 +28,7 @@ from tests.test_integration.constants import (
 
 
 class TestProfileAssetCommand:
+    @pytest.mark.usefixtures("use_raw_row_count")
     def test_profile_asset_hierarchy(
         self,
         toolkit_client: ToolkitClient,
