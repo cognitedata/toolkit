@@ -197,9 +197,13 @@ class HTTPBatchProcessor(Generic[T_ID]):
 
     def _handle_rate_limit(self) -> None:
         with self._rate_limit_lock:
+            now = time.time()
+            if self._rate_limit_until > now:
+                # Another thread has already set a backoff. No need to set a new one.
+                return
             backoff = 1.0 + random.uniform(0, 1)
             self.console.print(f"[yellow]Rate limit hit (429). Backing off for {backoff:.2f}s.[/yellow]")
-            self._rate_limit_until = time.time() + backoff
+            self._rate_limit_until = now + backoff
 
     def _producer(self, items_iterator: Iterable[dict[str, JsonVal]], work_queue: Queue) -> None:
         batch: list[dict] = []
