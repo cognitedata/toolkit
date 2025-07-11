@@ -316,7 +316,7 @@ class HTTPBatchProcessor(Generic[T_ID]):
             )
             work_queue.put(WorkItem(items=work_item.items[:mid], status_attempt=attempts))
             work_queue.put(WorkItem(items=work_item.items[mid:], status_attempt=attempts))
-        elif work_item.status_attempt <= self.max_retries and response.status_code in {429, 502, 503, 504}:
+        elif work_item.status_attempt < self.max_retries and response.status_code in {429, 502, 503, 504}:
             if response.status_code == 429:
                 self._handle_rate_limit()
             work_item.status_attempt += 1
@@ -394,9 +394,6 @@ class HTTPBatchProcessor(Generic[T_ID]):
             failed_items=failed_items,
             error_summary=error_summary,
         )
-
-    def __del__(self) -> None:
-        return self.session.close()
 
     @classmethod
     def _any_exception_in_context_isinstance(
