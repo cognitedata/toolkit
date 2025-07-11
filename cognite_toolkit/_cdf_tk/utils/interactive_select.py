@@ -245,7 +245,7 @@ class AssetCentricDestinationSelect:
     def validate(cls, destination_type: str) -> Literal["assets", "files", "events", "timeseries", "sequences"]:
         if destination_type not in cls.valid_destinations:
             raise ToolkitValueError(
-                f"Invalid destination type: {destination_type}. Must be one of {humanize_collection(cls.valid_destinations)}."
+                f"Invalid destination type: {destination_type!r}. Must be one of {humanize_collection(cls.valid_destinations)}."
             )
         # We validated the destination type above
         return destination_type  # type: ignore[return-value]
