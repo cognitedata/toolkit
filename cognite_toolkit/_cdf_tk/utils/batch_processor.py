@@ -47,27 +47,35 @@ class SuccessItem(Generic[T_ID]):
 class BatchResult(Generic[T_ID]):
     successful_items: list[SuccessItem[T_ID]] = field(default_factory=list)
     failed_items: list[FailedItem[T_ID]] = field(default_factory=list)
+    unknown_ids: list[FailedItem[str]] = field(default_factory=list)
 
     @property
     def total_items(self) -> int:
-        return len(self.successful_items) + len(self.failed_items)
+        return len(self.successful_items) + len(self.failed_items) + len(self.unknown_ids)
 
 
 @dataclass(frozen=True)
 class ProcessorResult(Generic[T_ID]):
-    total_successful: int
-    total_failed: int
     successful_items: list[SuccessItem[T_ID]] = field(default_factory=list)
     failed_items: list[FailedItem[T_ID]] = field(default_factory=list)
+    unknown_items: list[FailedItem[str]] = field(default_factory=list)
     error_summary: dict[int, int] = field(default_factory=dict)  # status_code -> count
 
     @property
+    def total_successful(self) -> int:
+        return len(self.successful_items)
+
+    @property
+    def total_failed(self) -> int:
+        return len(self.failed_items)
+
+    @property
     def total_processed(self) -> int:
-        return self.total_successful + self.total_failed
+        return self.total_successful + self.total_failed + len(self.unknown_items)
 
     @property
     def success_rate(self) -> float:
-        return self.total_successful / self.total_processed if self.total_processed > 0 else 0.0
+        return len(self.successful_items) / self.total_processed if self.total_processed > 0 else 0.0
 
 
 @dataclass
@@ -289,17 +297,10 @@ class HTTPBatchProcessor(Generic[T_ID]):
         self, response: requests.Response, work_item: WorkItem, work_queue: Queue, results_queue: Queue
     ) -> None:
         if 200 <= response.status_code < 300:
-            results_queue.put(
-                BatchResult(
-                    successful_items=[
-                        SuccessItem(item=self.as_id(item), status_code=response.status_code) for item in work_item.items
-                    ]
-                )
-            )
+            results_queue.put(self._create_success_batch_result(work_item.items, status_code=response.status_code))
         elif response.status_code in {401, 403}:
             self.console.print("[red]Unauthorized request. Please check your credentials.[/red]")
-            failed = [FailedItem(self.as_id(item), response.status_code, response.text) for item in work_item.items]
-            results_queue.put(BatchResult(failed_items=failed))
+            results_queue.put(self._create_failed_batch_result(work_item.items, response.status_code, response.text))
         elif response.status_code in {400, 409, 422, 502, 503, 504} and len(work_item.items) > 1:
             # 400, 409, 422: There is at least one item that is invalid, split the batch to get all valid items processed
             # 502, 503, 504: Server errors, retry in smaller batches
@@ -339,8 +340,7 @@ class HTTPBatchProcessor(Generic[T_ID]):
             except ValueError:
                 # If the response is not JSON, we keep the original text
                 pass
-            failed = [FailedItem(self.as_id(item), response.status_code, error) for item in work_item.items]
-            results_queue.put(BatchResult(failed_items=failed))
+            results_queue.put(self._create_failed_batch_result(work_item.items, response.status_code, error))
 
     @staticmethod
     def _backoff_time(attempts: int) -> float:
@@ -374,8 +374,7 @@ class HTTPBatchProcessor(Generic[T_ID]):
             attempts = work_item.connect_attempt
         else:
             error_msg = f"Unexpected exception: {e!s}"
-            failed = [FailedItem(self.as_id(item), 0, error_msg) for item in work_item.items]
-            results_queue.put(BatchResult(failed_items=failed))
+            results_queue.put(self._create_failed_batch_result(work_item.items, 0, error_msg))
             return
 
         if attempts < self.max_retries:
@@ -383,20 +382,58 @@ class HTTPBatchProcessor(Generic[T_ID]):
             work_queue.put(work_item)
         else:
             error_msg = f"RequestException after {self.max_retries} {error_type} attempts: {e!s}"
-            failed = [FailedItem(self.as_id(item), 0, error_msg) for item in work_item.items]
-            results_queue.put(BatchResult(failed_items=failed))
+            results_queue.put(self._create_failed_batch_result(work_item.items, 0, error_msg))
+
+    def _create_failed_batch_result(
+        self,
+        items: list[dict[str, JsonVal]],
+        status_code: int,
+        error_message: str,
+    ) -> BatchResult[T_ID]:
+        failed_items: list[FailedItem[T_ID]] = []
+        unknown_items: list[FailedItem[str]] = []
+        for item in items:
+            try:
+                item_id = self.as_id(item)
+            except Exception as e:
+                unknown_items.append(
+                    FailedItem(f"as_id failed for item {str(item)[:50]} error {e!s}.", 0, error_message)
+                )
+            else:
+                failed_items.append(FailedItem(item_id, status_code, error_message))
+        return BatchResult(failed_items=failed_items, unknown_ids=unknown_items)
+
+    def _create_success_batch_result(
+        self, items: list[dict[str, JsonVal]], status_code: int, message: str | None = None
+    ) -> BatchResult[T_ID]:
+        success_items: list[SuccessItem[T_ID]] = []
+        unknown_items: list[FailedItem[str]] = []
+        for item in items:
+            try:
+                item_id = self.as_id(item)
+            except Exception as e:
+                unknown_items.append(
+                    FailedItem(
+                        f"as_id failed for item {str(item)[:50]} error {e!s}.", status_code, message or "as_id failed"
+                    )
+                )
+            else:
+                success_items.append(SuccessItem(item=item_id, status_code=status_code, message=message))
+        return BatchResult(successful_items=success_items, unknown_ids=unknown_items)
 
     @staticmethod
     def _aggregate_results(results: list[BatchResult[T_ID]]) -> ProcessorResult[T_ID]:
         successful_items = [item for r in results for item in r.successful_items]
         failed_items = [item for r in results for item in r.failed_items]
+        unknown_ids = [item for r in results for item in r.unknown_ids]
         error_summary: dict[int, int] = Counter()
         for item in failed_items:
             error_summary[item.status_code] += 1
+        for unknown_item in unknown_ids:
+            error_summary[unknown_item.status_code] += 1
 
         return ProcessorResult(
-            total_successful=len(successful_items),
-            total_failed=len(failed_items),
+            unknown_items=unknown_ids,
             successful_items=successful_items,
             failed_items=failed_items,
             error_summary=error_summary,
