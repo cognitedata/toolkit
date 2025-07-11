@@ -118,7 +118,7 @@ class SQLParser:
                     self._destination_columns.append(content_tokens[-1].value)
 
     def _find_tables(self, tokens: "list[Token]") -> None:
-        from sqlparse.sql import Identifier, TokenList
+        from sqlparse.sql import Identifier, IdentifierList, TokenList
         from sqlparse.tokens import Keyword
 
         content_tokens = [token for token in tokens if not token.is_whitespace and not token.is_newline]
@@ -126,10 +126,14 @@ class SQLParser:
         is_next_source: bool = False
         for token in content_tokens:
             if is_next_source and isinstance(token, Identifier):
-                if self._add_to_source(token) is False:
+                if not self._add_to_source(token):
                     # This could be a nested expression like '(SELECT ... FROM ...) Identifier'.
                     self._find_tables(token.tokens)
                 is_next_source = False
+            elif is_next_source and isinstance(token, IdentifierList):
+                for identifier in token.get_identifiers():
+                    if not self._add_to_source(identifier):
+                        self._find_tables(identifier.tokens)
             elif token.ttype is Keyword and (token.normalized == "FROM" or token.normalized.endswith("JOIN")):
                 is_next_source = True
             elif isinstance(token, TokenList):
