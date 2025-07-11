@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from functools import cached_property, partial
 from typing import ClassVar, Generic, Literal, TypeAlias, TypeVar, overload
 
-import questionary
 from cognite.client.data_classes import Transformation
 from cognite.client.exceptions import CogniteException
 from rich import box
@@ -19,7 +18,6 @@ from rich.table import Table
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawProfileResults, RawTable
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.aggregators import (
     AssetAggregator,
     AssetCentricAggregator,
@@ -33,6 +31,7 @@ from cognite_toolkit._cdf_tk.utils.aggregators import (
     TimeSeriesAggregator,
 )
 from cognite_toolkit._cdf_tk.utils.cdf import get_transformation_sources
+from cognite_toolkit._cdf_tk.utils.interactive_select import AssetCentricDestinationSelect
 from cognite_toolkit._cdf_tk.utils.sql_parser import SQLParser, SQLTable
 
 from ._base import ToolkitCommand
@@ -513,8 +512,6 @@ class ProfileAssetCentricCommand(ProfileCommand[str]):
 
 
 class ProfileTransformationCommand(ProfileCommand[str]):
-    valid_destinations: frozenset[str] = frozenset({"assets", "files", "events", "timeseries", "sequences"})
-
     def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
         super().__init__(print_warning, skip_tracking, silent)
         self.table_title = "Transformation Profile"
@@ -531,26 +528,11 @@ class ProfileTransformationCommand(ProfileCommand[str]):
     def transformation(
         self, client: ToolkitClient, destination_type: str | None = None, verbose: bool = False
     ) -> list[dict[str, CellValue]]:
-        if destination_type is None:
-            destination_type = questionary.select(
-                "Select destination type:", choices=sorted(self.valid_destinations)
-            ).ask()
-        self.destination_type = self._validate_destination_type(destination_type)
+        self.destination_type = AssetCentricDestinationSelect.get(destination_type)
         return self.create_profile_table(client)
 
-    @classmethod
-    def _validate_destination_type(
-        cls, destination_type: str
-    ) -> Literal["assets", "files", "events", "timeseries", "sequences"]:
-        if destination_type not in cls.valid_destinations:
-            raise ToolkitValueError(
-                f"Invalid destination type: {destination_type}. Must be one of {humanize_collection(cls.valid_destinations)}."
-            )
-        # We validated the destination type above
-        return destination_type  # type: ignore[return-value]
-
     def create_initial_table(self, client: ToolkitClient) -> dict[tuple[str, str], PendingCellValue]:
-        if self.valid_destinations is None:
+        if self.destination_type is None:
             raise ToolkitValueError("Destination type must be set before calling create_initial_table.")
         iterable: Iterable[Transformation] = client.transformations.list(
             destination_type=self.destination_type, limit=-1
@@ -610,7 +592,7 @@ class ProfileRawCommand(ProfileCommand[RawProfileIndex]):
     def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
         super().__init__(print_warning, skip_tracking, silent)
         self.table_title = "RAW Profile"
-        self.destination_type = ""
+        self.destination_type: Literal["assets", "files", "events", "timeseries", "sequences"] | None = None
         self.client: ToolkitClient | None = None
 
     def raw(
@@ -619,15 +601,13 @@ class ProfileRawCommand(ProfileCommand[RawProfileIndex]):
         destination_type: str | None = None,
         verbose: bool = False,
     ) -> list[dict[str, CellValue]]:
-        if destination_type is None:
-            destination_type = questionary.select(
-                "Select destination type:", choices=sorted(ProfileTransformationCommand.valid_destinations)
-            ).ask()
+        self.destination_type = AssetCentricDestinationSelect.get(destination_type)
         self.table_title = f"RAW Profile destination: {destination_type}"
-        self.destination_type = destination_type
         return self.create_profile_table(client)
 
     def create_initial_table(self, client: ToolkitClient) -> dict[tuple[RawProfileIndex, str], PendingCellValue]:
+        if self.destination_type is None:
+            raise ToolkitValueError("Destination type must be set before calling create_initial_table.")
         table: dict[tuple[RawProfileIndex, str], PendingCellValue] = {}
         existing_tables = self._get_existing_tables(client)
         transformations_by_raw_table = self._get_transformations_by_raw_table(client, self.destination_type)
