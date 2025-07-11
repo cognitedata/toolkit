@@ -330,3 +330,22 @@ class TestHTTPBatchProcessor:
         assert result.total_successful == 0
         assert result.total_failed == 0
         assert result.total_processed == 0
+
+    def test_raise_in_iteration(self, processor: HTTPBatchProcessor) -> None:
+        """Test that an exception raised during iteration is handled correctly"""
+
+        def items_generator():
+            yield {"id": 1}
+            yield {"id": 2}
+            raise ValueError("Raising an error during iteration")
+
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.POST,
+                processor.endpoint_url,
+                status=200,
+                json={"items": []},
+            )
+            result = processor.process(items_generator())
+
+        assert str(result.producer_error) == "Raising an error during iteration"
