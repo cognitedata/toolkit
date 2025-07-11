@@ -10,7 +10,7 @@ from cognite.client.credentials import OAuthClientCredentials
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.utils.auth import CLIENT_NAME
-from cognite_toolkit._cdf_tk.utils.batch_processor import HTTPBatchProcessor
+from cognite_toolkit._cdf_tk.utils.batch_processor import BatchResult, HTTPBatchProcessor, SuccessItem
 
 
 @pytest.fixture
@@ -180,6 +180,7 @@ class TestHTTPBatchProcessor:
                     shutdown_signal_count += 1
                     work_queue.task_done()
                     break
+                results_queue.put(BatchResult(successful_items=[SuccessItem("id", 200) for _ in work_item.items]))
                 work_queue.task_done()
 
         with (
