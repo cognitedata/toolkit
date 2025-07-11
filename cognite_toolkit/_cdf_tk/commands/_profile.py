@@ -1,3 +1,4 @@
+import importlib.util
 import itertools
 from abc import ABC, abstractmethod
 from collections import defaultdict
@@ -5,6 +6,7 @@ from collections.abc import Callable, Hashable, Iterable, Mapping
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from functools import cached_property, partial
+from pathlib import Path
 from typing import ClassVar, Generic, Literal, TypeAlias, TypeVar, overload
 
 from cognite.client.data_classes import Transformation
@@ -17,7 +19,7 @@ from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawProfileResults, RawTable
-from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingDependencyError, ToolkitValueError
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.aggregators import (
     AssetAggregator,
@@ -52,9 +54,18 @@ T_Index = TypeVar("T_Index", bound=Hashable)
 
 
 class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
-    def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
+    def __init__(
+        self,
+        output_spreadsheet: Path | None = None,
+        print_warning: bool = True,
+        skip_tracking: bool = False,
+        silent: bool = False,
+    ) -> None:
         super().__init__(print_warning, skip_tracking, silent)
         self.table_title = self.__class__.__name__.removesuffix("Command")
+        self.output_spreadsheet: Path | None = output_spreadsheet
+        if output_spreadsheet is not None:
+            self._validate_openpyxl_installed()
 
     class Columns:  # Placeholder for columns, subclasses should define their own Columns class
         ...
@@ -72,7 +83,15 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
             else tuple()
         )
 
-    def create_profile_table(self, client: ToolkitClient) -> list[dict[str, CellValue]]:
+    @staticmethod
+    def _validate_openpyxl_installed() -> None:
+        """Ensure that openpyxl is installed if output_spreadsheet is set."""
+        if importlib.util.find_spec("openpyxl") is None:
+            raise ToolkitMissingDependencyError(
+                "Writing to a spreadsheet requires 'openpyxl'. Install with 'pip install \"cognite-toolkit[table]\"'"
+            )
+
+    def create_profile_table(self, client: ToolkitClient, sheet: str | None = None) -> list[dict[str, CellValue]]:
         console = Console()
         with console.status("Setting up", spinner="aesthetic", speed=0.4) as _:
             table = self.create_initial_table(client)
@@ -99,7 +118,10 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
                     if self.is_dynamic_table:
                         table = self.update_table(table, result, row, col)
                     live.update(self.draw_table(table))
-        return self.as_record_format(table, allow_waiting_api_call=False)
+        result = self.as_record_format(table, allow_waiting_api_call=False)
+        if self.output_spreadsheet is not None:
+            self._write_to_spreadsheet(result, self.output_spreadsheet, sheet=sheet)
+        return result
 
     @abstractmethod
     def create_initial_table(self, client: ToolkitClient) -> dict[tuple[T_Index, str], PendingCellValue]:
@@ -191,6 +213,24 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
             return "-"
         return str(value)
 
+    def _write_to_spreadsheet(
+        self, data: list[dict[str, CellValue]], output_spreadsheet: Path, sheet: str | None = None
+    ) -> None:
+        """Write the profile data to a spreadsheet."""
+        # Local import as this is an optional dependency
+        from openpyxl import Workbook
+
+        workbook = Workbook()
+        worksheet = workbook.active
+        worksheet.title = (sheet or self.table_title)[:31]  # Limit title to 31 characters for Excel compatibility
+
+        worksheet.append(self.columns)
+
+        for row in data:
+            worksheet.append(list(row.values()))
+
+        workbook.save(output_spreadsheet)
+
 
 @dataclass(frozen=True)
 class AssetIndex:
@@ -200,8 +240,14 @@ class AssetIndex:
 
 
 class ProfileAssetCommand(ProfileCommand[AssetIndex]):
-    def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
-        super().__init__(print_warning, skip_tracking, silent)
+    def __init__(
+        self,
+        output_spreadsheet: Path | None = None,
+        print_warning: bool = True,
+        skip_tracking: bool = False,
+        silent: bool = False,
+    ) -> None:
+        super().__init__(output_spreadsheet, print_warning, skip_tracking, silent)
         self.table_title = "Asset Profile for Hierarchy"
         self.hierarchy: str | None = None
         self.aggregators: dict[str, MetadataAggregator] = {}
@@ -244,7 +290,7 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
                 SequenceAggregator(client),
             ]
         }
-        return self.create_profile_table(client)
+        return self.create_profile_table(client, sheet=hierarchy)
 
     def create_initial_table(self, client: ToolkitClient) -> dict[tuple[AssetIndex, str], PendingCellValue]:
         table: dict[tuple[AssetIndex, str], PendingCellValue] = {}
@@ -453,8 +499,14 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
 
 
 class ProfileAssetCentricCommand(ProfileCommand[str]):
-    def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
-        super().__init__(print_warning, skip_tracking, silent)
+    def __init__(
+        self,
+        output_spreadsheet: Path | None = None,
+        print_warning: bool = True,
+        skip_tracking: bool = False,
+        silent: bool = False,
+    ) -> None:
+        super().__init__(output_spreadsheet, print_warning, skip_tracking, silent)
         self.table_title = "Asset Centric Profile"
         self.aggregators: dict[str, AssetCentricAggregator] = {}
 
@@ -514,8 +566,14 @@ class ProfileAssetCentricCommand(ProfileCommand[str]):
 class ProfileTransformationCommand(ProfileCommand[str]):
     valid_destinations: frozenset[str] = frozenset({"assets", "files", "events", "timeseries", "sequences"})
 
-    def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
-        super().__init__(print_warning, skip_tracking, silent)
+    def __init__(
+        self,
+        output_spreadsheet: Path | None = None,
+        print_warning: bool = True,
+        skip_tracking: bool = False,
+        silent: bool = False,
+    ) -> None:
+        super().__init__(output_spreadsheet, print_warning, skip_tracking, silent)
         self.table_title = "Transformation Profile"
         self.destination_type: Literal["assets", "files", "events", "timeseries", "sequences"] | None = None
 
@@ -531,7 +589,7 @@ class ProfileTransformationCommand(ProfileCommand[str]):
         self, client: ToolkitClient, destination_type: str | None = None, verbose: bool = False
     ) -> list[dict[str, CellValue]]:
         self.destination_type = self._validate_destination_type(destination_type)
-        return self.create_profile_table(client)
+        return self.create_profile_table(client, sheet=self.destination_type)
 
     @classmethod
     def _validate_destination_type(
@@ -602,8 +660,14 @@ class ProfileRawCommand(ProfileCommand[RawProfileIndex]):
 
     is_dynamic_table = True
 
-    def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
-        super().__init__(print_warning, skip_tracking, silent)
+    def __init__(
+        self,
+        output_spreadsheet: Path | None = None,
+        print_warning: bool = True,
+        skip_tracking: bool = False,
+        silent: bool = False,
+    ) -> None:
+        super().__init__(output_spreadsheet, print_warning, skip_tracking, silent)
         self.table_title = "RAW Profile"
         self.destination_type = ""
         self.client: ToolkitClient | None = None
@@ -616,7 +680,7 @@ class ProfileRawCommand(ProfileCommand[RawProfileIndex]):
     ) -> list[dict[str, CellValue]]:
         self.table_title = f"RAW Profile destination: {destination_type}"
         self.destination_type = destination_type
-        return self.create_profile_table(client)
+        return self.create_profile_table(client, sheet=self.destination_type)
 
     def create_initial_table(self, client: ToolkitClient) -> dict[tuple[RawProfileIndex, str], PendingCellValue]:
         table: dict[tuple[RawProfileIndex, str], PendingCellValue] = {}
