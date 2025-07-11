@@ -75,7 +75,7 @@ class TestHTTPBatchProcessor:
             def request_callback(request):
                 request_times.append(time.time())
                 time.sleep(0.1)
-                return (200, {}, '{"items": []}')
+                return 200, {}, '{"items": []}'
 
             rsps.add_callback(responses.POST, processor.endpoint_url, callback=request_callback)
 
@@ -109,9 +109,9 @@ class TestHTTPBatchProcessor:
 
             # First batch (size 100) gets an error, others succeed
             if batch_count == 100:
-                return (502, {}, '{"error": {"message": "Server Error"}}')
+                return 502, {}, '{"error": {"message": "Server Error"}}'
             else:
-                return (200, {}, '{"items": []}')
+                return 200, {}, '{"items": []}'
 
         with responses.RequestsMock() as rsps:
             rsps.add_callback(
@@ -259,10 +259,10 @@ class TestHTTPBatchProcessor:
             payload = request.body.decode() if isinstance(request.body, bytes) else request.body
             # Extract the item ID from the request
             if '"id": 3' in payload:  # Item with ID 3 will fail
-                return (400, {}, '{"error": {"message": "Invalid format for item"}}')
+                return 400, {}, '{"error": {"message": "Invalid format for item"}}'
             else:
                 request_items.append(payload)
-                return (200, {}, '{"items": []}')
+                return 200, {}, '{"items": []}'
 
         with (
             HTTPBatchProcessor(
