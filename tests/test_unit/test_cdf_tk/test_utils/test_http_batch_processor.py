@@ -322,3 +322,11 @@ class TestHTTPBatchProcessor:
             result = processor.process([{"id": 1}, {"id": 2}, {"id": 3}])
 
             assert len(result.unknown_items) == 3
+
+    def test_empty_batch(self, processor: HTTPBatchProcessor) -> None:
+        """Test that processing an empty batch returns an empty result"""
+        result = processor.process([])
+
+        assert result.total_successful == 0
+        assert result.total_failed == 0
+        assert result.total_processed == 0
