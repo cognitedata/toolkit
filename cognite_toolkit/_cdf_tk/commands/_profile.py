@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from functools import cached_property, partial
 from pathlib import Path
-from typing import ClassVar, Generic, Literal, TypeAlias, TypeVar, overload
+from typing import TYPE_CHECKING, ClassVar, Generic, Literal, TypeAlias, TypeVar, overload
 
 from cognite.client.data_classes import Transformation
 from cognite.client.exceptions import CogniteException
@@ -38,6 +38,9 @@ from cognite_toolkit._cdf_tk.utils.sql_parser import SQLParser, SQLTable
 
 from ._base import ToolkitCommand
 
+if TYPE_CHECKING:
+    from openpyxl.worksheet.worksheet import Worksheet
+
 
 class WaitingAPICallClass:
     def __bool__(self) -> bool:
@@ -54,6 +57,8 @@ T_Index = TypeVar("T_Index", bound=Hashable)
 
 
 class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
+    spreadsheet_max_column_with = 70.0
+
     def __init__(
         self,
         output_spreadsheet: Path | None = None,
@@ -236,8 +241,50 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
         for row in data:
             worksheet.append(list(row.values()))
 
-        workbook.save(output_spreadsheet)
+        self._style_sheet_header(worksheet)
+
+        try:
+            workbook.save(output_spreadsheet)
+        except PermissionError as e:
+            raise ToolkitValueError(
+                f"Failed to write to {output_spreadsheet.as_posix()!r}. "
+                "Please ensure the file is not open in another application."
+            ) from e
         self.console(f"Profile data written to sheet {sheet!r} in {output_spreadsheet.as_posix()!r}")
+
+    def _style_sheet_header(self, sheet: "Worksheet") -> None:
+        """Styles the sheet with the given headers.
+
+        Args:
+            sheet: The sheet to style.
+            headers: The headers to style.
+        """
+        # Local import as this is an optional dependency
+        from openpyxl.cell import MergedCell
+        from openpyxl.styles import Font, PatternFill
+
+        # This freezes all rows above the given row
+        sheet.freeze_panes = sheet["A1"]
+
+        # Make the header row bold, larger, and colored
+        for cell, *_ in sheet.iter_cols(min_row=1, max_row=1, min_col=1, max_col=len(self.columns)):
+            cell.font = Font(bold=True, size=15)
+            cell.fill = PatternFill(fgColor="A9DFBF", patternType="solid")
+        # Adjust columns width based on widest cell in each column
+        for column_cells in sheet.columns:
+            try:
+                max_length = max(len(str(cell.value)) for cell in column_cells if cell.value is not None)
+            except ValueError:
+                max_length = 0
+
+            selected_column = column_cells[0]
+            if isinstance(selected_column, MergedCell):
+                selected_column = column_cells[1]
+
+            current = sheet.column_dimensions[selected_column.column_letter].width or (max_length + 0.5)  # type: ignore[union-attr]
+            sheet.column_dimensions[selected_column.column_letter].width = min(  # type: ignore[union-attr]
+                max(current, max_length + 0.5), self.spreadsheet_max_column_with
+            )
 
 
 @dataclass(frozen=True)
