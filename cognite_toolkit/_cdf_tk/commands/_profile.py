@@ -218,11 +218,18 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
     ) -> None:
         """Write the profile data to a spreadsheet."""
         # Local import as this is an optional dependency
-        from openpyxl import Workbook
+        from openpyxl import Workbook, load_workbook
 
-        workbook = Workbook()
-        worksheet = workbook.active
-        worksheet.title = (sheet or self.table_title)[:31]  # Limit title to 31 characters for Excel compatibility
+        if output_spreadsheet.exists():
+            workbook = load_workbook(output_spreadsheet)
+            if sheet in workbook.sheetnames:
+                raise ToolkitValueError(f"Sheet '{sheet}' already exists in {output_spreadsheet.as_posix()}.")
+            else:
+                worksheet = workbook.create_sheet(title=(sheet or self.table_title)[:31])
+        else:
+            workbook = Workbook()
+            worksheet = workbook.active
+            worksheet.title = (sheet or self.table_title)[:31]  # Limit title to 31 characters for Excel compatibility
 
         worksheet.append(self.columns)
 
@@ -230,6 +237,7 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
             worksheet.append(list(row.values()))
 
         workbook.save(output_spreadsheet)
+        self.console(f"Profile data written to {output_spreadsheet.as_posix()!r}")
 
 
 @dataclass(frozen=True)
