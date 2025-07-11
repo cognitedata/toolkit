@@ -413,9 +413,7 @@ class HTTPBatchProcessor(Generic[T_ID]):
             try:
                 item_id = self.as_id(item)
             except Exception as e:
-                unknown_items.append(
-                    FailedItem(f"as_id failed for item {str(item)[:50]} error {e!s}.", 0, error_message)
-                )
+                unknown_items.append(self._create_unknown_item(item, status_code, error_message, e))
             else:
                 failed_items.append(FailedItem(item_id, status_code, error_message))
         return BatchResult(failed_items=failed_items, unknown_ids=unknown_items)
@@ -429,14 +427,22 @@ class HTTPBatchProcessor(Generic[T_ID]):
             try:
                 item_id = self.as_id(item)
             except Exception as e:
-                unknown_items.append(
-                    FailedItem(
-                        f"as_id failed for item {str(item)[:50]} error {e!s}.", status_code, message or "as_id failed"
-                    )
-                )
+                unknown_items.append(self._create_unknown_item(item, status_code, message, e))
             else:
                 success_items.append(SuccessItem(item=item_id, status_code=status_code, message=message))
         return BatchResult(successful_items=success_items, unknown_ids=unknown_items)
+
+    @staticmethod
+    def _create_unknown_item(
+        item: dict[str, JsonVal], status_code: int, error_message: str | None, exception: Exception
+    ) -> FailedItem[str]:
+        try:
+            item_repr = str(item)[:50]
+        except Exception:
+            item_repr = "<unrepresentable item>"
+        return FailedItem(
+            f"as_id failed for item {item_repr} error {exception!s}.", status_code, error_message or "as_id failed"
+        )
 
     @staticmethod
     def _aggregate_results(results: list[BatchResult[T_ID]], producer_error: Exception | None) -> ProcessorResult[T_ID]:
