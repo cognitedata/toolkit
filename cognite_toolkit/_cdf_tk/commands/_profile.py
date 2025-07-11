@@ -97,7 +97,7 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
                     except CogniteException as e:
                         result = type(e).__name__
                     except ToolkitThrottledError as e:
-                        result = f"Throttled: Wait for {e.wait_time_seconds:.1f} seconds"
+                        result = f"Throttled: Wait {e.wait_time_seconds:.1f} seconds"
                     table[(row, col)] = self.format_result(result, row, col)
                     if self.is_dynamic_table:
                         table = self.update_table(table, result, row, col)
@@ -316,6 +316,8 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
                     return f"≥{result:,}"
                 else:
                     return result
+            elif isinstance(result, str):
+                return result
             return None
         elif isinstance(result, int | float | bool | str):
             return result
@@ -694,6 +696,8 @@ class ProfileRawCommand(ProfileCommand[RawProfileIndex]):
                     return f"≥{result:,}"
                 else:
                     return result
+            elif isinstance(result, str):
+                return result
             return None
         if isinstance(result, int | float | bool | str) or result is None:
             return result
