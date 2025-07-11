@@ -380,7 +380,7 @@ def raw_row_count(client: ToolkitClient, raw_table_id: RawTable, max_count: int 
     if not _IS_ROW_ROW_COUNT_ENABLED:
         to_wait = time.time() - _LAST_CALL_EPOC
         raise RuntimeError(
-            f"Row count is limited to once every {MAX_RUN_QUERY_FREQUENCY_MIN} minutes. Please wait before calling again.",
+            f"Row count is limited to once every {MAX_RUN_QUERY_FREQUENCY_MIN} minutes. Please wait {to_wait:.2f} seconds before calling again.",
             to_wait,
         )
 
