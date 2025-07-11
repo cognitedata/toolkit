@@ -271,7 +271,19 @@ class TestLabelAggregateCount:
         assert count == len(two_labels)
 
 
+@pytest.fixture()
+def use_raw_row_count(toolkit_client: ToolkitClient, populated_raw_table: RawTable) -> None:
+    try:
+        raw_row_count(toolkit_client, populated_raw_table, max_count=-1)
+    except RuntimeError:
+        pytest.skip("Skipping raw row count test")
+    except ValueError:
+        # A ValueError means this is available.
+        pass
+
+
 class TestRawTableRowCount:
+    @pytest.mark.usefixtures("use_raw_row_count")
     def test_raw_table_row_count(
         self, toolkit_client: ToolkitClient, populated_raw_table: RawTable, raw_data: RowWriteList
     ) -> None:
