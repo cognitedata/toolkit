@@ -248,15 +248,18 @@ class HTTPBatchProcessor(Generic[T_ID]):
                     executor.submit(self._worker, work_queue, results_queue)
 
                 producer_thread.join()
-                work_queue.join()
-                processed_count = 0
-                while True:
-                    result = results_queue.get()
-                    batch_results.append(result)
-                    processed_count += result.total_items
-                    progress.update(task, processed_items=processed_count)
-                    if self._produced_count <= processed_count:
-                        break
+                if self._produced_count == 0:
+                    self.console.print("[yellow]No items to process.[/yellow]")
+                else:
+                    work_queue.join()
+                    processed_count = 0
+                    while True:
+                        result = results_queue.get()
+                        batch_results.append(result)
+                        processed_count += result.total_items
+                        progress.update(task, processed_items=processed_count)
+                        if self._produced_count <= processed_count:
+                            break
                 for _ in range(self.max_workers):
                     work_queue.put(None)
         return self._aggregate_results(batch_results)
