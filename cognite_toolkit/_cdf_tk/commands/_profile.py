@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, Generic, Literal, TypeAlias, TypeVar, overload
 from zipfile import BadZipFile
 
+import questionary
 from cognite.client.data_classes import Transformation
 from cognite.client.exceptions import CogniteException
 from rich import box
@@ -589,6 +590,8 @@ class ProfileAssetCentricCommand(ProfileCommand[str]):
     ) -> list[dict[str, CellValue]]:
         if hierarchy is None and not select_all:
             self.hierarchy = AssetInteractiveSelect(client, "profile").select_hierarchy(allow_empty=True)
+            if questionary.confirm("Do you want to save the profile to a spreadsheet?").ask():
+                self.output_spreadsheet = Path(questionary.path("Where do you want to save the profile?").ask())
         else:
             self.hierarchy = hierarchy
         if self.hierarchy is not None:
