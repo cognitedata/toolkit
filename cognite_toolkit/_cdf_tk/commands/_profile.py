@@ -127,7 +127,7 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
                     live.update(self.draw_table(table))
         result = self.as_record_format(table, allow_waiting_api_call=False)
         if self.output_spreadsheet is not None:
-            self._write_to_spreadsheet(result, self.output_spreadsheet, sheet=sheet)
+            self._write_to_spreadsheet(result, list(self.columns), self.output_spreadsheet, sheet=sheet)
         return result
 
     @abstractmethod
@@ -221,7 +221,7 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
         return str(value)
 
     def _write_to_spreadsheet(
-        self, data: list[dict[str, CellValue]], output_spreadsheet: Path, sheet: str | None = None
+        self, data: list[dict[str, CellValue]], columns: list[str], output_spreadsheet: Path, sheet: str | None = None
     ) -> None:
         """Write the profile data to a spreadsheet."""
         # Local import as this is an optional dependency
@@ -244,7 +244,7 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
             worksheet = workbook.active
             worksheet.title = sheet_name
 
-        worksheet.append(self.columns)
+        worksheet.append(columns)
 
         for row in data:
             worksheet.append(list(row.values()))
@@ -616,7 +616,18 @@ class ProfileAssetCentricCommand(ProfileCommand[str]):
                     ]
                 }
             )
-        return self.create_profile_table(client)
+        result = self.create_profile_table(client, sheet=self.table_title)
+        if self.output_spreadsheet:
+            for aggregator in self.aggregators.values():
+                if isinstance(aggregator, MetadataAggregator):
+                    used_metadata_keys = aggregator.used_metadata_keys(hierarchy=self.hierarchy)
+                    self._write_to_spreadsheet(
+                        [{"Metadata Key": key, "Count": count} for key, count in used_metadata_keys],
+                        ["Metadata Key", "Count"],
+                        self.output_spreadsheet,
+                        sheet=aggregator.display_name,
+                    )
+        return result
 
     def create_initial_table(self, client: ToolkitClient) -> dict[tuple[str, str], PendingCellValue]:
         table: dict[tuple[str, str], str | int | float | bool | None | WaitingAPICallClass] = {}
