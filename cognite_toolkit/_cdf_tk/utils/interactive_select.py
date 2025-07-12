@@ -60,10 +60,16 @@ class AssetCentricInteractiveSelect(ABC):
 
     def _create_choice(self, item: Asset | DataSet) -> tuple[questionary.Choice, int]:
         """Create a questionary choice for the given item."""
+        args: dict[str, tuple[str, ...]] = dict(hierarchies=tuple(), data_sets=tuple())
+        if isinstance(item, Asset) and item.external_id is not None:
+            args["hierarchies"] = (item.external_id,)
+        elif isinstance(item, DataSet) and item.external_id is not None:
+            args["data_sets"] = (item.external_id,)
+
         if item.external_id is None:
             item_count = -1  # No count available for DataSet/Assets without external_id
         else:
-            item_count = self.aggregate_count(tuple(), (item.external_id,))
+            item_count = self.aggregate_count(**args)
 
         return questionary.Choice(
             title=f"{item.name} ({item.external_id}) [{item_count:,}]"
