@@ -60,17 +60,10 @@ class AssetCentricInteractiveSelect(ABC):
 
     def _create_choice(self, item: Asset | DataSet) -> tuple[questionary.Choice, int]:
         """Create a questionary choice for the given item."""
-
-        if isinstance(item, DataSet):
-            if item.external_id is None:
-                raise ValueError(f"Missing external ID for DataSet {item.id}")
-            item_count = self.aggregate_count(tuple(), (item.external_id,))
-        elif isinstance(item, Asset):
-            if item.external_id is None:
-                raise ValueError(f"Missing external ID for Asset {item.id}")
-            item_count = self.aggregate_count((item.external_id,), tuple())
+        if item.external_id is None:
+            item_count = -1  # No count available for DataSet/Assets without external_id
         else:
-            raise TypeError(f"Unsupported item type: {type(item)}")
+            item_count = self.aggregate_count(tuple(), (item.external_id,))
 
         return questionary.Choice(
             title=f"{item.name} ({item.external_id}) [{item_count:,}]"
