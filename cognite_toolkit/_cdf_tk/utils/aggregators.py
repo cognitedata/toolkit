@@ -119,14 +119,14 @@ class MetadataAggregator(AssetCentricAggregator, ABC, Generic[T_CogniteFilter]):
         self, hierarchy: str | list[str] | None = None, data_sets: str | list[str] | None = None
     ) -> int:
         """Returns the number of metadata keys used by the resource."""
-        hierarchy_ids, data_set_ids = self.lookup_hierarchy_data_set_pair(hierarchy, data_sets)
+        hierarchy_ids, data_set_ids = self._lookup_hierarchy_data_set_pair(hierarchy, data_sets)
         return len(self._used_metadata_keys(hierarchy=hierarchy_ids, data_sets=data_set_ids))
 
     def used_metadata_keys(
         self, hierarchy: str | list[str] | None = None, data_sets: str | list[str] | None = None
     ) -> list[tuple[str, int]]:
         """Returns a list of metadata keys and their counts."""
-        hierarchy_ids, data_set_ids = self.lookup_hierarchy_data_set_pair(hierarchy, data_sets)
+        hierarchy_ids, data_set_ids = self._lookup_hierarchy_data_set_pair(hierarchy, data_sets)
         return self._used_metadata_keys(hierarchy=hierarchy_ids, data_sets=data_set_ids)
 
     @cache
@@ -140,7 +140,7 @@ class MetadataAggregator(AssetCentricAggregator, ABC, Generic[T_CogniteFilter]):
             data_sets=list(data_sets) if data_sets else None,
         )
 
-    def lookup_hierarchy_data_set_pair(
+    def _lookup_hierarchy_data_set_pair(
         self, hierarchy: str | list[str] | None = None, data_sets: str | list[str] | None = None
     ) -> tuple[tuple[int, ...] | None, tuple[int, ...] | None]:
         """Returns a tuple of hierarchy and data sets."""
@@ -186,14 +186,14 @@ class MetadataAggregator(AssetCentricAggregator, ABC, Generic[T_CogniteFilter]):
 class LabelAggregator(MetadataAggregator, ABC, Generic[T_CogniteFilter]):
     def label_count(self, hierarchy: str | list[str] | None = None, data_sets: str | list[str] | None = None) -> int:
         """Returns the number of labels used by the resource."""
-        hierarchy_ids, data_set_ids = self.lookup_hierarchy_data_set_pair(hierarchy, data_sets)
+        hierarchy_ids, data_set_ids = self._lookup_hierarchy_data_set_pair(hierarchy, data_sets)
         return len(self._used_labels(hierarchy=hierarchy_ids, data_sets=data_set_ids))
 
     def used_labels(
         self, hierarchy: str | list[str] | None = None, data_sets: str | list[str] | None = None
     ) -> list[tuple[str, int]]:
         """Returns a list of labels and their counts."""
-        hierarchy_ids, data_set_ids = self.lookup_hierarchy_data_set_pair(hierarchy, data_sets)
+        hierarchy_ids, data_set_ids = self._lookup_hierarchy_data_set_pair(hierarchy, data_sets)
         return self._used_labels(hierarchy=hierarchy_ids, data_sets=data_set_ids)
 
     @cache
