@@ -222,6 +222,8 @@ def metadata_key_counts(
     Returns:
         A dictionary with the metadata keys as keys and the counts as values.
     """
+    if hierarchies and resource != "assets":
+        raise ValueError(f"Hierarchies are only supported for assets, but {resource} was provided.")
     where_clause = _create_where_clause(data_sets, hierarchies)
 
     query = f"""WITH meta AS (
@@ -279,8 +281,10 @@ def label_count(
         hierarchies: A list of hierarchy IDs to filter by. If None, no filtering is applied.
 
     Returns:
-        A dictionary with the labels as keys and the counts as values.
+        A list of tuples with the label and its count.
     """
+    if hierarchies and resource != "assets":
+        raise ValueError(f"Hierarchies are only supported for assets, but {resource} was provided.")
     where_clause = _create_where_clause(data_sets, hierarchies)
 
     query = f"""WITH labels as (SELECT explode(labels) AS label
