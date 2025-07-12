@@ -214,13 +214,7 @@ def metadata_key_counts(
     Returns:
         A dictionary with the metadata keys as keys and the counts as values.
     """
-    where_clause = ""
-    if data_sets is not None and hierarchies is not None:
-        where_clause = f"\n         WHERE dataSetId IN ({','.join(map(str, data_sets))}) AND rootId IN ({','.join(map(str, hierarchies))})"
-    elif data_sets is not None:
-        where_clause = f"\n         WHERE dataSetId IN ({','.join(map(str, data_sets))})"
-    elif hierarchies is not None:
-        where_clause = f"\n         WHERE rootId IN ({','.join(map(str, hierarchies))})"
+    where_clause = _create_where_clause(data_sets, hierarchies)
 
     query = f"""WITH meta AS (
          SELECT cast_to_strings(metadata) AS metadata_array
@@ -249,6 +243,17 @@ def metadata_key_counts(
 """
     results = client.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
     return [(item["key"], item["key_count"]) for item in results.results or []]
+
+
+def _create_where_clause(data_sets: list[int] | None, hierarchies: list[int] | None) -> str:
+    where_clause = ""
+    if data_sets is not None and hierarchies is not None:
+        where_clause = f"\n         WHERE dataSetId IN ({','.join(map(str, data_sets))}) AND rootId IN ({','.join(map(str, hierarchies))})"
+    elif data_sets is not None:
+        where_clause = f"\n         WHERE dataSetId IN ({','.join(map(str, data_sets))})"
+    elif hierarchies is not None:
+        where_clause = f"\n         WHERE rootId IN ({','.join(map(str, hierarchies))})"
+    return where_clause
 
 
 def label_count(
