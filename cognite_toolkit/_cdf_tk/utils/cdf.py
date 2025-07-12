@@ -247,11 +247,11 @@ def metadata_key_counts(
 
 def _create_where_clause(data_sets: list[int] | None, hierarchies: list[int] | None) -> str:
     where_clause = ""
-    if data_sets is not None and hierarchies is not None:
+    if data_sets and hierarchies:
         where_clause = f"\n         WHERE dataSetId IN ({','.join(map(str, data_sets))}) AND rootId IN ({','.join(map(str, hierarchies))})"
-    elif data_sets is not None:
+    elif data_sets:
         where_clause = f"\n         WHERE dataSetId IN ({','.join(map(str, data_sets))})"
-    elif hierarchies is not None:
+    elif hierarchies:
         where_clause = f"\n         WHERE rootId IN ({','.join(map(str, hierarchies))})"
     return where_clause
 
