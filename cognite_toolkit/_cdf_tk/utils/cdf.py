@@ -253,8 +253,12 @@ def metadata_key_counts(
 def _create_where_clause(data_sets: list[int] | None, hierarchies: list[int] | None) -> str:
     conditions = []
     if data_sets:
+        if not all(isinstance(item, int) for item in data_sets):
+            raise ToolkitValueError("All items in data_sets must be integers for SQL filtering.")
         conditions.append(f"dataSetId IN ({','.join(map(str, data_sets))})")
     if hierarchies:
+        if not all(isinstance(item, int) for item in hierarchies):
+            raise ToolkitValueError("All items in hierarchies must be integers for SQL filtering.")
         conditions.append(f"rootId IN ({','.join(map(str, hierarchies))})")
 
     if not conditions:
