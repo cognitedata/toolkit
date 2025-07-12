@@ -54,7 +54,37 @@ def two_datasets(toolkit_client: ToolkitClient) -> DataSetList:
 
 
 @pytest.fixture(scope="session")
-def two_hierarchies(toolkit_client: ToolkitClient, two_datasets: DataSetList) -> tuple[AssetList, AssetList]:
+def two_labels(toolkit_client: ToolkitClient, two_datasets: DataSetList) -> LabelDefinitionList:
+    data_set_id = two_datasets[0].id  # Using the first dataset for labels
+    labels = LabelDefinitionWriteList(
+        [
+            LabelDefinitionWrite(
+                external_id="toolkit_test_label_aggregate_count_1",
+                name="Test Label 1",
+                description="This is a test label 1",
+                data_set_id=data_set_id,
+            ),
+            LabelDefinitionWrite(
+                external_id="toolkit_test_label_aggregate_count_2",
+                name="Test Label 2",
+                description="This is a test label 2",
+                data_set_id=data_set_id,
+            ),
+        ]
+    )
+    existing = toolkit_client.labels.retrieve(external_id=labels.as_external_ids(), ignore_unknown_ids=True)
+    if missing := [label for label in labels if label.external_id not in set(existing.as_external_ids())]:
+        created = toolkit_client.labels.create(missing)
+        existing.extend(created)
+    return existing
+
+
+@pytest.fixture(scope="session")
+def two_hierarchies(
+    toolkit_client: ToolkitClient, two_datasets: DataSetList, two_labels: LabelDefinitionList
+) -> tuple[AssetList, AssetList]:
+    all_labels = [label.external_id for label in two_labels]
+    single_label = [two_labels[0].external_id]
     hierarchies = [
         AssetWriteList(
             [
@@ -73,6 +103,7 @@ def two_hierarchies(toolkit_client: ToolkitClient, two_datasets: DataSetList) ->
                         f"metadata_key_{i}": "does not matter either",
                         f"metadata_key_extra_{i}": "does not matter either",
                     },
+                    labels=all_labels if i == 0 else single_label,
                 ),
                 AssetWrite(
                     name=f"Child Asset extra {i}",
@@ -82,6 +113,7 @@ def two_hierarchies(toolkit_client: ToolkitClient, two_datasets: DataSetList) ->
                         f"extra_key{i}": "does not matter either",
                         f"another_extra_key{i}": "does not matter either",
                     },
+                    labels=single_label,
                 ),
             ]
         )
@@ -129,32 +161,6 @@ def asset_relationships(
     )
     if missing := [rel for rel in relationships if rel.external_id not in set(existing.as_external_ids())]:
         created = toolkit_client.relationships.create(missing)
-        existing.extend(created)
-    return existing
-
-
-@pytest.fixture(scope="session")
-def two_labels(toolkit_client: ToolkitClient, two_datasets: DataSetList) -> LabelDefinitionList:
-    data_set_id = two_datasets[0].id  # Using the first dataset for labels
-    labels = LabelDefinitionWriteList(
-        [
-            LabelDefinitionWrite(
-                external_id="toolkit_test_label_aggregate_count_1",
-                name="Test Label 1",
-                description="This is a test label 1",
-                data_set_id=data_set_id,
-            ),
-            LabelDefinitionWrite(
-                external_id="toolkit_test_label_aggregate_count_2",
-                name="Test Label 2",
-                description="This is a test label 2",
-                data_set_id=data_set_id,
-            ),
-        ]
-    )
-    existing = toolkit_client.labels.retrieve(external_id=labels.as_external_ids(), ignore_unknown_ids=True)
-    if missing := [label for label in labels if label.external_id not in set(existing.as_external_ids())]:
-        created = toolkit_client.labels.create(missing)
         existing.extend(created)
     return existing
 
