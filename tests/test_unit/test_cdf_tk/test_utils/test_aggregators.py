@@ -75,8 +75,8 @@ class TestAggregators:
         pytest.param(
             ["hierarchy1", "hierarchy2"],
             ["data_set1", "data_set2"],
-            [LookUpAPIMock.create_id("hierarchy1"), LookUpAPIMock.create_id("hierarchy2")],
-            [LookUpAPIMock.create_id("data_set1"), LookUpAPIMock.create_id("data_set2")],
+            sorted([LookUpAPIMock.create_id("hierarchy1"), LookUpAPIMock.create_id("hierarchy2")]),
+            sorted([LookUpAPIMock.create_id("data_set1"), LookUpAPIMock.create_id("data_set2")]),
             id="Multiple hierarchies and data sets",
         ),
     ]
