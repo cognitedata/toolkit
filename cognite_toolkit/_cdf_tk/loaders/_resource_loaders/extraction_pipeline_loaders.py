@@ -339,6 +339,23 @@ class ExtractionPipelineConfigLoader(
                 )
         return ExtractionPipelineConfigWrite._load(resource)
 
+    def dump_resource(self, resource: ExtractionPipelineConfig, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        local = local or {}
+        if (
+            "config" in dumped
+            and isinstance(dumped["config"], str)
+            and ("config" not in local or isinstance(local["config"], dict))
+        ):
+            try:
+                dumped["config"] = read_yaml_content(dumped["config"])
+            except yaml.YAMLError as e:
+                HighSeverityWarning(
+                    f"Configuration for {dumped.get('externalId', 'missing')} could not be parsed "
+                    f"as valid YAML, which is the recommended format. Error: {e}"
+                ).print_warning(console=self.console)
+        return dumped
+
     def diff_list(
         self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
     ) -> tuple[dict[int, int], list[int]]:
