@@ -59,15 +59,15 @@ class TestInteractiveSelect:
         assert selected_dataset == ["dataset3"]
 
     def test_interactive_select_filemetadata(self, monkeypatch) -> None:
-        def select_data_set(choices: list[Choice]) -> list[str]:
+        def select_data_set(choices: list[Choice]) -> str:
             assert len(choices) == 3
-            return [choices[2].value]
+            return choices[2].value
 
         def select_hierarchy(choices: list[Choice]) -> list[str]:
-            assert len(choices) == 2
-            return [choices[1].value]
+            assert len(choices) == 2 + 1  # +1 for "All Hierarchies" option
+            return [choices[2].value]
 
-        answers = ["Data Set", select_data_set, "Hierarchy", select_hierarchy, "Done"]
+        answers = ["Data Set", select_data_set, select_hierarchy]
         with (
             monkeypatch_toolkit_client() as client,
             MockQuestionary(FileMetadataInteractiveSelect.__module__, monkeypatch, answers),
@@ -89,15 +89,15 @@ class TestInteractiveSelect:
         assert selected_dataset == ["dataset3"]
 
     def test_interactive_select_filemetadata_empty_cdf(self, monkeypatch) -> None:
-        def select_data_set(choices: list[Choice]) -> list[str]:
+        def select_data_set(choices: list[Choice]) -> None:
             assert len(choices) == 0
-            return []
+            return None
 
         def select_hierarchy(choices: list[Choice]) -> list[str]:
             assert len(choices) == 0
             return []
 
-        answers = ["Data Set", select_data_set, "Hierarchy", select_hierarchy, "Done"]
+        answers = ["Data Set", select_data_set, select_hierarchy]
         with (
             monkeypatch_toolkit_client() as client,
             MockQuestionary(FileMetadataInteractiveSelect.__module__, monkeypatch, answers),
@@ -106,21 +106,21 @@ class TestInteractiveSelect:
             client.assets.list.return_value = []
             client.files.aggregate.return_value = [CountAggregate(100)]
             selector = FileMetadataInteractiveSelect(client, "test_operation")
-            selected_hierarchy, selected_dataset = selector.select_hierarchies_and_data_sets()
+            with pytest.raises(ToolkitValueError) as exc_info:
+                _ = selector.select_hierarchies_and_data_sets()
 
-        assert selected_hierarchy == []
-        assert selected_dataset == []
+        assert str(exc_info.value) == "No data Set available to select."
 
     def test_interactive_select_timeseries(self, monkeypatch) -> None:
-        def select_data_set(choices: list[Choice]) -> list[str]:
+        def select_data_set(choices: list[Choice]) -> str:
             assert len(choices) == 3
-            return [choices[2].value]
+            return choices[2].value
 
         def select_hierarchy(choices: list[Choice]) -> list[str]:
-            assert len(choices) == 2
-            return [choices[1].value]
+            assert len(choices) == 2 + 1  # +1 for "All Hierarchies" option
+            return [choices[2].value]
 
-        answers = ["Data Set", select_data_set, "Hierarchy", select_hierarchy, "Done"]
+        answers = ["Data Set", select_data_set, select_hierarchy]
         with (
             monkeypatch_toolkit_client() as client,
             MockQuestionary(TimeSeriesInteractiveSelect.__module__, monkeypatch, answers),
@@ -142,15 +142,15 @@ class TestInteractiveSelect:
         assert selected_dataset == ["dataset3"]
 
     def test_interactive_select_events(self, monkeypatch) -> None:
-        def select_data_set(choices: list[Choice]) -> list[str]:
+        def select_data_set(choices: list[Choice]) -> str:
             assert len(choices) == 3
-            return [choices[2].value]
+            return choices[2].value
 
         def select_hierarchy(choices: list[Choice]) -> list[str]:
-            assert len(choices) == 2
-            return [choices[1].value]
+            assert len(choices) == 2 + 1  # +1 for "All Hierarchies" option
+            return [choices[2].value]
 
-        answers = ["Data Set", select_data_set, "Hierarchy", select_hierarchy, "Done"]
+        answers = ["Data Set", select_data_set, select_hierarchy]
         with (
             monkeypatch_toolkit_client() as client,
             MockQuestionary(EventInteractiveSelect.__module__, monkeypatch, answers),
