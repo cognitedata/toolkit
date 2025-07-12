@@ -9,6 +9,8 @@ from functools import cached_property, partial
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, Generic, Literal, TypeAlias, TypeVar, overload
 from zipfile import BadZipFile
+from itertools import zip_longest
+from typing import ClassVar, Generic, Literal, TypeAlias, TypeVar, overload
 
 from cognite.client.data_classes import Transformation
 from cognite.client.exceptions import CogniteException
@@ -84,7 +86,7 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
     @cached_property
     def columns(self) -> tuple[str, ...]:
         return (
-            tuple([attr for attr in self.Columns.__dict__.keys() if not attr.startswith("_")])
+            tuple([value for attr, value in self.Columns.__dict__.items() if not attr.startswith("_")])
             if hasattr(self, "Columns")
             else tuple()
         )
@@ -172,9 +174,35 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
 
         rows = self.as_record_format(table)
 
+        last_row: list[str | Spinner] = []
         for row in rows:
-            rich_table.add_row(*[self._as_cell(value) for value in row.values()])
+            this_row = [self._as_cell(value) for value in row.values()]
+            draw_row = self._create_draw_row(this_row, last_row, self.columns)
+            rich_table.add_row(*draw_row)
+            last_row = this_row
         return rich_table
+
+    @classmethod
+    def _create_draw_row(
+        cls, this_row: list[str | Spinner], last_row: list[str | Spinner], columns: tuple[str, ...]
+    ) -> list[str | Spinner]:
+        """Creates the row to be drawn. This skips sequential cells that have not changed
+        such that the table does not have too many repeated values and thus becomes easier to read.
+        """
+        draw_row: list[str | Spinner] = []
+        row_has_changed = False
+        for cell, col, last_cell in zip_longest(this_row, columns, last_row, fillvalue=""):
+            if not row_has_changed and cls._should_skip_drawing(cell, col, last_cell):
+                cell = ""
+            else:
+                # If the first cell in the row has changed, all remaining cells in the row should be drawn.
+                row_has_changed = True
+            draw_row.append(cell)
+        return draw_row
+
+    @classmethod
+    def _should_skip_drawing(cls, cell: str | Spinner, col: str, last_cell: str | Spinner) -> bool:
+        return cell == last_cell or (isinstance(cell, Spinner) and isinstance(last_cell, Spinner))
 
     @classmethod
     @overload
