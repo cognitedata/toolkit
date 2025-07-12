@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from functools import cache
+from functools import lru_cache
 from typing import ClassVar, Generic, Literal, TypeVar
 
 from cognite.client.data_classes import (
@@ -129,7 +129,7 @@ class MetadataAggregator(AssetCentricAggregator, ABC, Generic[T_CogniteFilter]):
         hierarchy_ids, data_set_ids = self._lookup_hierarchy_data_set_pair(hierarchy, data_sets)
         return self._used_metadata_keys(hierarchy=hierarchy_ids, data_sets=data_set_ids)
 
-    @cache
+    @lru_cache
     def _used_metadata_keys(
         self, hierarchy: tuple[int, ...] | None = None, data_sets: tuple[int, ...] | None = None
     ) -> list[tuple[str, int]]:
@@ -196,7 +196,7 @@ class LabelAggregator(MetadataAggregator, ABC, Generic[T_CogniteFilter]):
         hierarchy_ids, data_set_ids = self._lookup_hierarchy_data_set_pair(hierarchy, data_sets)
         return self._used_labels(hierarchy=hierarchy_ids, data_sets=data_set_ids)
 
-    @cache
+    @lru_cache
     def _used_labels(
         self, hierarchy: tuple[int, ...] | None = None, data_sets: tuple[int, ...] | None = None
     ) -> list[tuple[str, int]]:
