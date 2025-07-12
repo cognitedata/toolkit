@@ -119,8 +119,7 @@ class MetadataAggregator(AssetCentricAggregator, ABC, Generic[T_CogniteFilter]):
         self, hierarchy: str | list[str] | None = None, data_sets: str | list[str] | None = None
     ) -> int:
         """Returns the number of metadata keys used by the resource."""
-        hierarchy_ids, data_set_ids = self._lookup_hierarchy_data_set_pair(hierarchy, data_sets)
-        return len(self._used_metadata_keys(hierarchy=hierarchy_ids, data_sets=data_set_ids))
+        return len(self.used_metadata_keys(hierarchy=hierarchy, data_sets=data_sets))
 
     def used_metadata_keys(
         self, hierarchy: str | list[str] | None = None, data_sets: str | list[str] | None = None
@@ -186,8 +185,7 @@ class MetadataAggregator(AssetCentricAggregator, ABC, Generic[T_CogniteFilter]):
 class LabelAggregator(MetadataAggregator, ABC, Generic[T_CogniteFilter]):
     def label_count(self, hierarchy: str | list[str] | None = None, data_sets: str | list[str] | None = None) -> int:
         """Returns the number of labels used by the resource."""
-        hierarchy_ids, data_set_ids = self._lookup_hierarchy_data_set_pair(hierarchy, data_sets)
-        return len(self._used_labels(hierarchy=hierarchy_ids, data_sets=data_set_ids))
+        return len(self.used_labels(hierarchy=hierarchy, data_sets=data_sets))
 
     def used_labels(
         self, hierarchy: str | list[str] | None = None, data_sets: str | list[str] | None = None
