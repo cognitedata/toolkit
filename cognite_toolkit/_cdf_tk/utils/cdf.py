@@ -21,6 +21,7 @@ from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN, MAX_ROW_ITERATION
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
     ToolkitTypeError,
+    ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
@@ -215,7 +216,9 @@ def metadata_key_counts(
         A dictionary with the metadata keys as keys and the counts as values.
     """
     if hierarchies and resource != "assets":
-        raise ValueError(f"Hierarchies are only supported for assets, but {resource} was provided.")
+        raise ToolkitValueError(
+            f"Hierarchies filtering for metadata keys are only supported for assets, but {resource} was provided."
+        )
     where_clause = _create_where_clause(data_sets, hierarchies)
 
     query = f"""WITH meta AS (
@@ -276,7 +279,9 @@ def label_count(
         A list of tuples with the label and its count.
     """
     if hierarchies and resource != "assets":
-        raise ValueError(f"Hierarchies are only supported for assets, but {resource} was provided.")
+        raise ToolkitValueError(
+            f"Hierarchies filtering for labels are only supported for assets, but {resource} was provided."
+        )
     where_clause = _create_where_clause(data_sets, hierarchies)
 
     query = f"""WITH labels as (SELECT explode(labels) AS label
