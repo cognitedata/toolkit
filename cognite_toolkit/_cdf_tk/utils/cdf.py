@@ -269,7 +269,7 @@ def label_count(
     resource: Literal["assets", "events", "files", "timeseries", "sequences"],
     data_sets: list[int] | None = None,
     hierarchies: list[int] | None = None,
-) -> list[dict[str, int | str]]:
+) -> list[tuple[str, int]]:
     """Get the label counts for a given resource.
 
     Args:
@@ -291,9 +291,9 @@ FROM labels
 GROUP BY label
 ORDER BY label_count DESC;
 """
-    results = client.transformations.preview(query, convert_to_string=False, limit=1000)
+    results = client.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
     # We know from the SQL that the result is a list of dictionaries with string keys and int values.
-    return results.results or []
+    return [(item["label"], item["label_count"]) for item in results.results or []]
 
 
 @dataclass
