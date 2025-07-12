@@ -147,17 +147,13 @@ class MetadataAggregator(AssetCentricAggregator, ABC, Generic[T_CogniteFilter]):
         if isinstance(hierarchy, str):
             hierarchy_ids = (self.client.lookup.assets.id(external_id=hierarchy, allow_empty=False),)
         elif isinstance(hierarchy, list) and all(isinstance(item, str) for item in hierarchy):
-            hierarchy_ids = tuple(
-                self.client.lookup.assets.id(external_id=item, allow_empty=False) for item in hierarchy
-            )
+            hierarchy_ids = tuple(self.client.lookup.assets.id(external_id=hierarchy, allow_empty=False))
 
         data_set_ids: tuple[int, ...] | None = None
         if isinstance(data_sets, str):
             data_set_ids = (self.client.lookup.data_sets.id(external_id=data_sets, allow_empty=False),)
         elif isinstance(data_sets, list) and all(isinstance(item, str) for item in data_sets):
-            data_set_ids = tuple(
-                self.client.lookup.data_sets.id(external_id=item, allow_empty=False) for item in data_sets
-            )
+            data_set_ids = tuple(self.client.lookup.data_sets.id(external_id=data_sets, allow_empty=False))
 
         return hierarchy_ids, data_set_ids
 
