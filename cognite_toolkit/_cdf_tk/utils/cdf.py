@@ -251,14 +251,15 @@ def metadata_key_counts(
 
 
 def _create_where_clause(data_sets: list[int] | None, hierarchies: list[int] | None) -> str:
-    where_clause = ""
-    if data_sets and hierarchies:
-        where_clause = f"\n         WHERE dataSetId IN ({','.join(map(str, data_sets))}) AND rootId IN ({','.join(map(str, hierarchies))})"
-    elif data_sets:
-        where_clause = f"\n         WHERE dataSetId IN ({','.join(map(str, data_sets))})"
-    elif hierarchies:
-        where_clause = f"\n         WHERE rootId IN ({','.join(map(str, hierarchies))})"
-    return where_clause
+    conditions = []
+    if data_sets:
+        conditions.append(f"dataSetId IN ({','.join(map(str, data_sets))})")
+    if hierarchies:
+        conditions.append(f"rootId IN ({','.join(map(str, hierarchies))})")
+
+    if not conditions:
+        return ""
+    return f"\n         WHERE {' AND '.join(conditions)}"
 
 
 def label_count(
