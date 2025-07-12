@@ -265,19 +265,26 @@ def _create_where_clause(data_sets: list[int] | None, hierarchies: list[int] | N
 
 
 def label_count(
-    client: ToolkitClient, resource: Literal["assets", "events", "files", "timeseries", "sequences"]
+    client: ToolkitClient,
+    resource: Literal["assets", "events", "files", "timeseries", "sequences"],
+    data_sets: list[int] | None = None,
+    hierarchies: list[int] | None = None,
 ) -> list[dict[str, int | str]]:
     """Get the label counts for a given resource.
 
     Args:
         client: ToolkitClient instance
         resource: The resource to get the label counts for. Can be one of "assets", "events", "files", "timeseries", or "sequences".
+        data_sets: A list of data set IDs to filter by. If None, no filtering is applied.
+        hierarchies: A list of hierarchy IDs to filter by. If None, no filtering is applied.
 
     Returns:
         A dictionary with the labels as keys and the counts as values.
     """
+    where_clause = _create_where_clause(data_sets, hierarchies)
+
     query = f"""WITH labels as (SELECT explode(labels) AS label
-	FROM _cdf.{resource}
+	FROM _cdf.{resource}{where_clause}
   )
 SELECT label, COUNT(label) as label_count
 FROM labels
