@@ -249,6 +249,7 @@ class ExtractionPipelineConfigLoader(
     kind = "Config"
     dependencies = frozenset({ExtractionPipelineLoader})
     _doc_url = "Extraction-Pipelines-Config/operation/createExtPipeConfig"
+    parent_resource = frozenset({ExtractionPipelineLoader})
 
     @property
     def display_name(self) -> str:
