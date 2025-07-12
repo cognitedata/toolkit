@@ -41,6 +41,20 @@ class TestAggregators:
                         {"assetSubtreeIds": [{"externalId": ""}], "dataSetIds": [{"externalId": "data_set"}]},
                     ),
                     ("", "", {"assetSubtreeIds": [{"externalId": ""}], "dataSetIds": [{"externalId": ""}]}),
+                    ([], [], None),
+                    (["hierarchy"], [], {"assetSubtreeIds": [{"externalId": "hierarchy"}]}),
+                    ([], ["data_set"], {"dataSetIds": [{"externalId": "data_set"}]}),
+                    (
+                        ["hierarchy"],
+                        ["data_set"],
+                        {"assetSubtreeIds": [{"externalId": "hierarchy"}], "dataSetIds": [{"externalId": "data_set"}]},
+                    ),
+                    (
+                        ["hierarchy"],
+                        [""],
+                        {"assetSubtreeIds": [{"externalId": "hierarchy"}], "dataSetIds": [{"externalId": ""}]},
+                    ),
+                    ([], ["data_set", ""], {"dataSetIds": [{"externalId": "data_set"}, {"externalId": ""}]}),
                 ],
             )
         ],
