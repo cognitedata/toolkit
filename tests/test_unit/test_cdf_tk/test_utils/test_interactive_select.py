@@ -1,4 +1,5 @@
 from datetime import datetime
+from unittest.mock import MagicMock
 
 import pytest
 from cognite.client.data_classes import (
@@ -14,6 +15,7 @@ from questionary import Choice
 from cognite_toolkit._cdf_tk.client.data_classes.canvas import CANVAS_INSTANCE_SPACE, Canvas
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.utils.aggregators import AssetCentricAggregator
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
     AssetInteractiveSelect,
     EventInteractiveSelect,
@@ -26,29 +28,32 @@ from tests.test_unit.utils import MockQuestionary
 
 class TestInteractiveSelect:
     def test_interactive_select_assets(self, monkeypatch) -> None:
-        def select_hierarchy(choices: list[Choice]) -> list[str]:
+        def select_hierarchy(choices: list[Choice]) -> str:
             assert len(choices) == 2
-            return [choices[1].value]
+            return choices[1].value
 
         def select_data_set(choices: list[Choice]) -> list[str]:
-            assert len(choices) == 3
-            return [choices[2].value]
+            assert len(choices) == 3 + 1  # +1 for "All Data Sets" option
+            return [choices[3].value]
 
-        answers = ["Hierarchy", select_hierarchy, "Data Set", select_data_set, "Done"]
+        answers = ["Hierarchy", select_hierarchy, select_data_set]
         with (
             monkeypatch_toolkit_client() as client,
             MockQuestionary(AssetInteractiveSelect.__module__, monkeypatch, answers),
         ):
+            selector = AssetInteractiveSelect(client, "test_operation")
             client.assets.list.return_value = [Asset(id=1, external_id="Root1"), Asset(id=2, external_id="Root2")]
-            client.assets.aggregate_count.return_value = 100
-            client.data_sets.list.return_value = [
+            aggregator = MagicMock(spec=AssetCentricAggregator)
+            aggregator.count.return_value = 1000
+            aggregator.used_data_sets.return_value = ["dataset1", "dataset2", "dataset3"]
+            selector._aggregator = aggregator
+            client.data_sets.retrieve_multiple.return_value = [
                 DataSet(id=1, external_id="dataset1"),
                 DataSet(id=2, external_id="dataset2"),
                 DataSet(id=3, external_id="dataset3"),
             ]
 
-            selector = AssetInteractiveSelect(client, "test_operation")
-            selected_hierarchy, selected_dataset = selector.interactive_select_hierarchy_datasets()
+            selected_hierarchy, selected_dataset = selector.select_hierarchies_and_data_sets()
 
         assert selected_hierarchy == ["Root2"]
         assert selected_dataset == ["dataset3"]
@@ -78,7 +83,7 @@ class TestInteractiveSelect:
             ]
             client.files.aggregate.return_value = [CountAggregate(100)]
             selector = FileMetadataInteractiveSelect(client, "test_operation")
-            selected_hierarchy, selected_dataset = selector.interactive_select_hierarchy_datasets()
+            selected_hierarchy, selected_dataset = selector.select_hierarchies_and_data_sets()
 
         assert selected_hierarchy == ["Root2"]
         assert selected_dataset == ["dataset3"]
@@ -101,7 +106,7 @@ class TestInteractiveSelect:
             client.assets.list.return_value = []
             client.files.aggregate.return_value = [CountAggregate(100)]
             selector = FileMetadataInteractiveSelect(client, "test_operation")
-            selected_hierarchy, selected_dataset = selector.interactive_select_hierarchy_datasets()
+            selected_hierarchy, selected_dataset = selector.select_hierarchies_and_data_sets()
 
         assert selected_hierarchy == []
         assert selected_dataset == []
@@ -131,7 +136,7 @@ class TestInteractiveSelect:
             ]
             client.time_series.aggregate_count.return_value = 100
             selector = TimeSeriesInteractiveSelect(client, "test_operation")
-            selected_hierarchy, selected_dataset = selector.interactive_select_hierarchy_datasets()
+            selected_hierarchy, selected_dataset = selector.select_hierarchies_and_data_sets()
 
         assert selected_hierarchy == ["Root2"]
         assert selected_dataset == ["dataset3"]
@@ -161,7 +166,7 @@ class TestInteractiveSelect:
             ]
             client.events.aggregate_count.return_value = 100
             selector = EventInteractiveSelect(client, "test_operation")
-            selected_hierarchy, selected_dataset = selector.interactive_select_hierarchy_datasets()
+            selected_hierarchy, selected_dataset = selector.select_hierarchies_and_data_sets()
 
         assert selected_hierarchy == ["Root2"]
         assert selected_dataset == ["dataset3"]
