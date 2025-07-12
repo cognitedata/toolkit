@@ -444,6 +444,32 @@ class LocationFilterFinder(ResourceFinder[tuple[str, ...]]):
         yield [], filters, LocationFilterLoader.create_loader(self.client), None
 
 
+class ExtractionPipelineFinder(ResourceFinder[tuple[str, ...]]):
+    def __init__(self, client: ToolkitClient, identifier: tuple[str, ...] | None = None):
+        super().__init__(client, identifier)
+        self.extraction_pipelines: CogniteResourceList | None = None
+
+    def _interactive_select(self) -> tuple[str, ...]:
+        self.extraction_pipelines = self.client.extraction_pipelines.list(limit=-1)
+        if not self.extraction_pipelines:
+            raise ToolkitMissingResourceError("No extraction pipelines found")
+        choices = [
+            Choice(f"{pipeline.name} ({pipeline.external_id})", value=pipeline.external_id)
+            for pipeline in sorted(self.extraction_pipelines, key=lambda p: p.name or "")
+            if pipeline.external_id
+        ]
+        selected_pipeline_ids: tuple[str, ...] | None = questionary.checkbox(
+            "Which extraction pipeline(s) would you like to dump?",
+            choices=choices,
+        ).ask()
+        if selected_pipeline_ids is None:
+            raise ToolkitValueError("No extraction pipelines selected for dumping.")
+        return tuple(selected_pipeline_ids)
+
+    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
+        raise NotImplementedError()
+
+
 class DumpResourceCommand(ToolkitCommand):
     def dump_to_yamls(
         self,
