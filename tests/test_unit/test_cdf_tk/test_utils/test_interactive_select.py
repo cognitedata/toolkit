@@ -171,6 +171,150 @@ class TestInteractiveSelect:
         assert selected_hierarchy == ["Root2"]
         assert selected_dataset == ["dataset3"]
 
+    def test_select_data_set(self, monkeypatch):
+        def select_data_set(choices) -> str:
+            assert len(choices) == 2
+            selection = choices[1].value
+            assert isinstance(selection, str)
+            return selection
+
+        answers = [select_data_set]
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(AssetInteractiveSelect.__module__, monkeypatch, answers),
+        ):
+            selector = AssetInteractiveSelect(client, "test")
+            aggregator = MagicMock(spec=AssetCentricAggregator)
+            aggregator.count.return_value = 1000
+            selector._aggregator = aggregator
+
+            client.data_sets.list.return_value = [
+                DataSet(id=1, external_id="ds1", name="DataSet 1"),
+                DataSet(id=2, external_id="ds2", name="DataSet 2"),
+            ]
+            result = selector.select_data_set()
+        assert result == "ds2"
+
+    def test_select_data_sets_allow_empty(self, monkeypatch) -> None:
+        def select_data_sets(choices) -> str | None:
+            assert len(choices) == 2 + 1  # +1 for "All Data Sets" option
+            assert choices[0].title.startswith("All")
+            return choices[0].value
+
+        answers = [select_data_sets]
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(AssetInteractiveSelect.__module__, monkeypatch, answers),
+        ):
+            selector = AssetInteractiveSelect(client, "test")
+            aggregator = MagicMock(spec=AssetCentricAggregator)
+            aggregator.count.return_value = 1000
+            selector._aggregator = aggregator
+
+            client.data_sets.list.return_value = [
+                DataSet(id=1, external_id="ds1", name="DataSet 1"),
+                DataSet(id=2, external_id="ds2", name="DataSet 2"),
+            ]
+
+            result = selector.select_data_set(allow_empty=True)
+        assert result is None
+
+    def test_select_data_sets(self, monkeypatch):
+        def select_data_sets(choices) -> str:
+            assert len(choices) == 2
+            selection = choices[0].value
+            assert isinstance(selection, str)
+            return selection
+
+        answers = [select_data_sets]
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(AssetInteractiveSelect.__module__, monkeypatch, answers),
+        ):
+            selector = AssetInteractiveSelect(client, "test")
+            aggregator = MagicMock(spec=AssetCentricAggregator)
+            aggregator.count.return_value = 1000
+            selector._aggregator = aggregator
+
+            client.data_sets.list.return_value = [
+                DataSet(id=1, external_id="ds1", name="DataSet 1"),
+                DataSet(id=2, external_id="ds2", name="DataSet 2"),
+            ]
+
+            result = selector.select_data_sets()
+        assert result == "ds1"
+
+    def test_select_hierarchy(self, monkeypatch):
+        def select_hierarchy(choices) -> str:
+            assert len(choices) == 2
+            selection = choices[0].value
+            assert isinstance(selection, str)
+            return selection
+
+        answers = [select_hierarchy]
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(AssetInteractiveSelect.__module__, monkeypatch, answers),
+        ):
+            selector = AssetInteractiveSelect(client, "test")
+            aggregator = MagicMock(spec=AssetCentricAggregator)
+            aggregator.count.return_value = 1000
+            selector._aggregator = aggregator
+
+            client.assets.list.return_value = [
+                Asset(id=1, external_id="root1", name="Root 1"),
+                Asset(id=2, external_id="root2", name="Root 2"),
+            ]
+
+            result = selector.select_hierarchy()
+        assert result == "root1"
+
+    def test_select_hierarchy_allow_empty(self, monkeypatch) -> None:
+        def select_hierarchy(choices) -> str | None:
+            assert len(choices) == 2 + 1
+            # +1 for "All Hierarchies" option
+            assert choices[0].title.startswith("All")
+            return choices[0].value
+
+        answers = [select_hierarchy]
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(AssetInteractiveSelect.__module__, monkeypatch, answers),
+        ):
+            selector = AssetInteractiveSelect(client, "test")
+            aggregator = MagicMock(spec=AssetCentricAggregator)
+            aggregator.count.return_value = 1000
+            selector._aggregator = aggregator
+
+            client.assets.list.return_value = [
+                Asset(id=1, external_id="root1", name="Root 1"),
+                Asset(id=2, external_id="root2", name="Root 2"),
+            ]
+
+            result = selector.select_hierarchy(allow_empty=True)
+        assert result is None
+
+    def test_select_hierarchies(self, monkeypatch):
+        def select_hierarchies(choices) -> list[str]:
+            assert len(choices) == 2
+            return [choices[1].value]
+
+        answers = [select_hierarchies]
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(AssetInteractiveSelect.__module__, monkeypatch, answers),
+        ):
+            selector = AssetInteractiveSelect(client, "test")
+            aggregator = MagicMock(spec=AssetCentricAggregator)
+            aggregator.count.return_value = 1000
+            selector._aggregator = aggregator
+            client.assets.list.return_value = [
+                Asset(id=1, external_id="root1", name="Root 1"),
+                Asset(id=2, external_id="root2", name="Root 2"),
+            ]
+            result = selector.select_hierarchies()
+        assert result == ["root2"]
+
 
 class TestInteractiveCanvasSelect:
     @pytest.mark.parametrize(
