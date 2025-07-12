@@ -457,6 +457,7 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
 class ProfileAssetCentricCommand(ProfileCommand[str]):
     def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
         super().__init__(print_warning, skip_tracking, silent)
+        self.hierarchy: str | None = None
         self.table_title = "Asset Centric Profile"
         self.aggregators: dict[str, AssetCentricAggregator] = {}
 
@@ -467,7 +468,15 @@ class ProfileAssetCentricCommand(ProfileCommand[str]):
         LabelCount = "Label Count"
         Transformation = "Transformations"
 
-    def asset_centric(self, client: ToolkitClient, verbose: bool = False) -> list[dict[str, CellValue]]:
+    def asset_centric(
+        self, client: ToolkitClient, hierarchy: str | None = None, verbose: bool = False
+    ) -> list[dict[str, CellValue]]:
+        if hierarchy is None:
+            self.hierarchy = AssetInteractiveSelect(client, "profile").select_hierarchy(allow_empty=True)
+        else:
+            self.hierarchy = hierarchy
+        if self.hierarchy is not None:
+            self.table_title = f"Asset Centric Profile: {self.hierarchy}"
         self.aggregators.update(
             {
                 agg.display_name: agg
