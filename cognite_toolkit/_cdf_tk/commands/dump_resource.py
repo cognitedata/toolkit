@@ -478,7 +478,7 @@ class ExtractionPipelineFinder(ResourceFinder[tuple[str, ...]]):
         else:
             yield list(self.identifier), None, pipeline_loader, None
         config_loader = ExtractionPipelineConfigLoader.create_loader(self.client)
-        configs = ExtractionPipelineConfigList(config_loader.iterate(parent_ids=list(self.identifier)))
+        configs = ExtractionPipelineConfigList(list(config_loader.iterate(parent_ids=list(self.identifier))))
         yield [], configs, config_loader, None
 
 
