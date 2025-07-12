@@ -51,11 +51,6 @@ class TestProfileCommand:
     def test_create_draw_row(
         self, this_row: list[str | Spinner], last_row: list[str | Spinner], expected: list[str | Spinner]
     ) -> None:
-        cmd = ProfileRawCommand()
-        assert len(this_row) == len(cmd.columns), (
-            "Invalid test data. The number of columns in this_row must match cmd.columns."
-        )
-
-        draw_row = cmd._create_draw_row(this_row, last_row, cmd.columns)
+        draw_row = ProfileRawCommand._create_draw_row(this_row, last_row)
 
         assert draw_row == expected
