@@ -327,7 +327,7 @@ class TestLabelCount:
             if not (hierarchy_str == "no hierarchies" and dataset_str == "no datasets")
         ),
     )
-    def test_metadata_key_counts_filtering_datasets_hierarchies(
+    def test_label_count_filtering_datasets_hierarchies(
         self,
         hierarchies: list[str] | None,
         datasets: list[str] | None,
