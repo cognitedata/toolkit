@@ -22,6 +22,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.utils.cdf import (
     label_aggregate_count,
+    label_count,
     metadata_key_counts,
     raw_row_count,
     relationship_aggregate_count,
@@ -275,6 +276,19 @@ class TestLabelAggregateCount:
         count = label_aggregate_count(toolkit_client, [data_set_id])
 
         assert count == len(two_labels)
+
+
+class TestLabelCount:
+    def test_label_count(self, toolkit_client: ToolkitClient, two_labels: LabelDefinitionList) -> None:
+        counts = label_count(toolkit_client, "assets")
+
+        ill_formed = [
+            (label, count)
+            for label, count in counts
+            if not isinstance(label, str) or not isinstance(count, int) or count < 0
+        ]
+        assert len(counts) > 0, "There should be some label counts."
+        assert len(ill_formed) == 0, f"Ill-formed label counts: {ill_formed}"
 
 
 class TestRawTableRowCount:
