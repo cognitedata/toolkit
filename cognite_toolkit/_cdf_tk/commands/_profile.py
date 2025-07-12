@@ -469,9 +469,9 @@ class ProfileAssetCentricCommand(ProfileCommand[str]):
         Transformation = "Transformations"
 
     def asset_centric(
-        self, client: ToolkitClient, hierarchy: str | None = None, verbose: bool = False
+        self, client: ToolkitClient, hierarchy: str | None = None, select_all: bool = False, verbose: bool = False
     ) -> list[dict[str, CellValue]]:
-        if hierarchy is None:
+        if hierarchy is None and not select_all:
             self.hierarchy = AssetInteractiveSelect(client, "profile").select_hierarchy(allow_empty=True)
         else:
             self.hierarchy = hierarchy
