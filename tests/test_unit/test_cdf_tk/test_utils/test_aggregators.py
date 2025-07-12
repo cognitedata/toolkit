@@ -67,6 +67,7 @@ class TestAggregators:
         expected_filter: dict[str, object] | None,
     ) -> None:
         actual_filter = aggregator_class.create_filter(hierarchy, data_set_external_id)
-        assert (actual_filter is None and expected_filter is None) or actual_filter.dump() == expected_filter, (
-            f"Failed with {hierarchy}, {data_set_external_id} -> {actual_filter.dump()} != {expected_filter}"
+        actual_dump = actual_filter.dump() if actual_filter is not None else None
+        assert actual_dump == expected_filter, (
+            f"Failed with {hierarchy}, {data_set_external_id} -> Got {actual_dump}, expected {expected_filter}"
         )
