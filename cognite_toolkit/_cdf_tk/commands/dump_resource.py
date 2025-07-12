@@ -8,6 +8,7 @@ import questionary
 import typer
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
+    ExtractionPipelineList,
     Group,
     GroupList,
     TransformationList,
@@ -21,6 +22,7 @@ from cognite.client.data_classes.agents import (
     AgentList,
 )
 from cognite.client.data_classes.data_modeling import DataModelId
+from cognite.client.data_classes.extractionpipelines import ExtractionPipelineConfigList
 from cognite.client.data_classes.workflows import (
     Workflow,
     WorkflowList,
@@ -46,6 +48,8 @@ from cognite_toolkit._cdf_tk.loaders import (
     AgentLoader,
     ContainerLoader,
     DataModelLoader,
+    ExtractionPipelineConfigLoader,
+    ExtractionPipelineLoader,
     GroupLoader,
     LocationFilterLoader,
     NodeLoader,
@@ -447,7 +451,7 @@ class LocationFilterFinder(ResourceFinder[tuple[str, ...]]):
 class ExtractionPipelineFinder(ResourceFinder[tuple[str, ...]]):
     def __init__(self, client: ToolkitClient, identifier: tuple[str, ...] | None = None):
         super().__init__(client, identifier)
-        self.extraction_pipelines: CogniteResourceList | None = None
+        self.extraction_pipelines: ExtractionPipelineList | None = None
 
     def _interactive_select(self) -> tuple[str, ...]:
         self.extraction_pipelines = self.client.extraction_pipelines.list(limit=-1)
@@ -467,7 +471,15 @@ class ExtractionPipelineFinder(ResourceFinder[tuple[str, ...]]):
         return tuple(selected_pipeline_ids)
 
     def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
-        raise NotImplementedError()
+        self.identifier = self._selected()
+        pipeline_loader = ExtractionPipelineLoader.create_loader(self.client)
+        if self.extraction_pipelines:
+            yield [], self.extraction_pipelines, pipeline_loader, None
+        else:
+            yield list(self.identifier), None, pipeline_loader, None
+        config_loader = ExtractionPipelineConfigLoader.create_loader(self.client)
+        configs = ExtractionPipelineConfigList(config_loader.iterate(parent_ids=list(self.identifier)))
+        yield [], configs, config_loader, None
 
 
 class DumpResourceCommand(ToolkitCommand):
