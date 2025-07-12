@@ -290,6 +290,60 @@ class TestLabelCount:
         assert len(counts) > 0, "There should be some label counts."
         assert len(ill_formed) == 0, f"Ill-formed label counts: {ill_formed}"
 
+    @pytest.mark.parametrize(
+        "hierarchies, datasets",
+        (
+            (hierarchies, datasets)
+            for hierarchies, datasets in itertools.product(
+                [
+                    None,
+                    ["toolkit_test_metadata_key_counts_root_asset_0"],
+                    ["toolkit_test_metadata_key_counts_root_asset_0", "toolkit_test_metadata_key_counts_root_asset_1"],
+                ],
+                [
+                    None,
+                    ["toolkit_test_metadata_key_counts_1"],
+                    ["toolkit_test_metadata_key_counts_1", "toolkit_test_metadata_key_counts_2"],
+                ],
+            )
+            if not (not hierarchies and not datasets)
+        ),
+        ids=(
+            f"{hierarchy_str} and {dataset_str}"
+            for hierarchy_str, dataset_str in itertools.product(
+                ["no hierarchies", "one hierarchy", "two hierarchies"],
+                ["no datasets", "one dataset", "two datasets"],
+                # We filter out this case as it will return all assets in the project as it has no filtering.
+            )
+            if not (hierarchy_str == "no hierarchies" and dataset_str == "no datasets")
+        ),
+    )
+    def test_metadata_key_counts_filtering_datasets_hierarchies(
+        self,
+        hierarchies: list[str] | None,
+        datasets: list[str] | None,
+        toolkit_client: ToolkitClient,
+        two_hierarchies: tuple[AssetList, AssetList],
+        two_datasets: DataSetList,
+    ) -> None:
+        hierarchy_external_to_internal = {assets[0].external_id: assets[0].id for assets in two_hierarchies}
+        datasets_external_to_internal = {dataset.external_id: dataset.id for dataset in two_datasets}
+        hierarchy_ids = (
+            [hierarchy_external_to_internal[external_id] for external_id in hierarchies] if hierarchies else None
+        )
+        dataset_ids = [datasets_external_to_internal[external_id] for external_id in datasets] if datasets else None
+        label_counts = label_count(toolkit_client, "assets", hierarchies=hierarchy_ids, data_sets=dataset_ids)
+
+        expected_keys = Counter()
+        for hierarchy in two_hierarchies:
+            for asset in hierarchy:
+                if (hierarchy_ids is None or asset.root_id in hierarchy_ids) and (
+                    dataset_ids is None or asset.data_set_id in dataset_ids
+                ):
+                    expected_keys.update([label.external_id for label in asset.labels or []])
+
+        assert {key: count for key, count in label_counts} == dict(expected_keys.items())
+
 
 class TestRawTableRowCount:
     def test_raw_table_row_count(
