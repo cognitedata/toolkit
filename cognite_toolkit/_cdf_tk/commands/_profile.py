@@ -250,7 +250,7 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
         for row in data:
             worksheet.append(list(row.values()))
 
-        self._style_sheet(worksheet)
+        self._style_sheet(worksheet, columns)
 
         try:
             workbook.save(output_spreadsheet)
@@ -261,7 +261,7 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
             ) from e
         self.console(f"Profile data written to sheet {sheet!r} in {output_spreadsheet.as_posix()!r}")
 
-    def _style_sheet(self, sheet: "Worksheet") -> None:
+    def _style_sheet(self, sheet: "Worksheet", columns: list[str]) -> None:
         """Styles the sheet with the given headers.
 
         Args:
@@ -276,7 +276,7 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
         sheet.freeze_panes = "A2"
 
         # Make the header row bold, larger, and colored
-        for cell, *_ in sheet.iter_cols(min_row=1, max_row=1, min_col=1, max_col=len(self.columns)):
+        for cell, *_ in sheet.iter_cols(min_row=1, max_row=1, min_col=1, max_col=len(columns)):
             cell.font = Font(bold=True, size=15)
             cell.fill = PatternFill(fgColor="A9DFBF", patternType="solid")
         # Adjust columns width based on widest cell in each column
@@ -296,6 +296,10 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
             sheet.column_dimensions[column_letter].width = min(
                 max(current, max_length + 0.5), self.spreadsheet_max_column_with
             )
+
+    def _ask_store_file(self) -> None:
+        if questionary.confirm("Do you want to save the profile to a spreadsheet?").ask():
+            self.output_spreadsheet = Path(questionary.path("Where do you want to save the profile?").ask())
 
 
 @dataclass(frozen=True)
@@ -344,6 +348,7 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
         """
         if hierarchy is None:
             self.hierarchy = AssetInteractiveSelect(client, "profile").select_hierarchy(allow_empty=False)
+            self._ask_store_file()
         else:
             self.hierarchy = hierarchy
         self.table_title = f"Asset Profile for Hierarchy: {self.hierarchy}"
@@ -590,8 +595,7 @@ class ProfileAssetCentricCommand(ProfileCommand[str]):
     ) -> list[dict[str, CellValue]]:
         if hierarchy is None and not select_all:
             self.hierarchy = AssetInteractiveSelect(client, "profile").select_hierarchy(allow_empty=True)
-            if questionary.confirm("Do you want to save the profile to a spreadsheet?").ask():
-                self.output_spreadsheet = Path(questionary.path("Where do you want to save the profile?").ask())
+            self._ask_store_file()
         else:
             self.hierarchy = hierarchy
         if self.hierarchy is not None:
