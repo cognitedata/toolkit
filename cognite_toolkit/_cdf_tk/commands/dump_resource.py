@@ -474,7 +474,10 @@ class ExtractionPipelineFinder(ResourceFinder[tuple[str, ...]]):
         self.identifier = self._selected()
         pipeline_loader = ExtractionPipelineLoader.create_loader(self.client)
         if self.extraction_pipelines:
-            yield [], self.extraction_pipelines, pipeline_loader, None
+            selected_pipelines = ExtractionPipelineList(
+                [p for p in self.extraction_pipelines if p.external_id in self.identifier]
+            )
+            yield [], selected_pipelines, pipeline_loader, None
         else:
             yield list(self.identifier), None, pipeline_loader, None
         config_loader = ExtractionPipelineConfigLoader.create_loader(self.client)
