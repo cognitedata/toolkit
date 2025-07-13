@@ -347,6 +347,8 @@ class ExtractionPipelineConfigLoader(
             and isinstance(dumped["config"], str)
             and ("config" not in local or isinstance(local["config"], dict))
         ):
+            # When we dump a config from CDF, i.e., running `cdf dump extraction-pipeline`, we want to parse the config
+            # as YAML to make it easier to read and edit.
             try:
                 dumped["config"] = read_yaml_content(dumped["config"])
             except yaml.YAMLError as e:
