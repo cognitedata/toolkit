@@ -290,11 +290,11 @@ class TransformationFinder(ResourceFinder[tuple[str, ...]]):
             yield list(self.identifier), None, TransformationLoader.create_loader(self.client), None
 
         schedule_loader = TransformationScheduleLoader.create_loader(self.client)
-        schedule_list = TransformationScheduleList(schedule_loader.iterate(parent_ids=list(self.identifier)))
+        schedule_list = TransformationScheduleList(list(schedule_loader.iterate(parent_ids=list(self.identifier))))
         yield [], schedule_list, schedule_loader, None
         notification_loader = TransformationNotificationLoader.create_loader(self.client)
         notification_list = TransformationNotificationList(
-            notification_loader.iterate(parent_ids=list(self.identifier))
+            list(notification_loader.iterate(parent_ids=list(self.identifier)))
         )
         yield [], notification_list, notification_loader, None
 
