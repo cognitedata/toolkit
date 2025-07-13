@@ -1,5 +1,6 @@
 import sys
 import tempfile
+import threading
 import time
 from collections.abc import Hashable, Iterator
 from dataclasses import dataclass
@@ -349,6 +350,7 @@ FROM
     return 0
 
 
+_WRITE_FILE_LOCK = threading.Lock()
 _LAST_CALL_RAW_ROW_COUNT = Path(tempfile.gettempdir()) / "tk-last-raw_count.bin"
 _IS_ROW_ROW_COUNT_ENABLED: bool | None = None
 _LAST_CALL_EPOC: float = 0
@@ -367,16 +369,17 @@ def raw_row_count(client: ToolkitClient, raw_table_id: RawTable, max_count: int 
     """
     global _IS_ROW_ROW_COUNT_ENABLED, _LAST_CALL_EPOC
     if _IS_ROW_ROW_COUNT_ENABLED is None:
-        if _LAST_CALL_RAW_ROW_COUNT.exists():
-            try:
-                _LAST_CALL_EPOC = float(_LAST_CALL_RAW_ROW_COUNT.read_text())
-            except ValueError:
-                pass
+        with _WRITE_FILE_LOCK:
+            if _LAST_CALL_RAW_ROW_COUNT.exists():
+                try:
+                    _LAST_CALL_EPOC = float(_LAST_CALL_RAW_ROW_COUNT.read_text())
+                except ValueError:
+                    _IS_ROW_ROW_COUNT_ENABLED = True
+                else:
+                    to_wait = (MAX_RUN_QUERY_FREQUENCY_MIN * 60) - (time.time() - _LAST_CALL_EPOC)
+                    _IS_ROW_ROW_COUNT_ENABLED = to_wait <= 0
             else:
-                to_wait = (MAX_RUN_QUERY_FREQUENCY_MIN * 60) - (time.time() - _LAST_CALL_EPOC)
-                _IS_ROW_ROW_COUNT_ENABLED = to_wait <= 0
-        else:
-            _IS_ROW_ROW_COUNT_ENABLED = True
+                _IS_ROW_ROW_COUNT_ENABLED = True
 
     if not _IS_ROW_ROW_COUNT_ENABLED:
         to_wait = (MAX_RUN_QUERY_FREQUENCY_MIN * 60) - (time.time() - _LAST_CALL_EPOC)
@@ -395,7 +398,8 @@ FROM (
     LIMIT {max_count}
 ) AS limited_keys"""
 
-    _LAST_CALL_RAW_ROW_COUNT.write_text(str(time.time()), encoding="utf-8")
+    with _WRITE_FILE_LOCK:
+        _LAST_CALL_RAW_ROW_COUNT.write_text(str(time.time()), encoding="utf-8")
     results = client.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
     if results.results:
         return int(results.results[0]["row_count"])
