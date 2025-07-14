@@ -7,14 +7,14 @@ from cognite_toolkit._cdf_tk.client.data_classes.canvas import (
     ContainerReferenceApply,
     FdmInstanceContainerReferenceApply,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.migration import Mapping
+from cognite_toolkit._cdf_tk.client.data_classes.migration import InstanceSource
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitMigrationError
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.interactive_select import InteractiveCanvasSelect
 
-from .data_model import MAPPING_VIEW_ID
+from .data_model import INSTANCE_SOURCE_VIEW_ID
 
 
 class MigrationCanvasCommand(ToolkitCommand):
@@ -43,7 +43,7 @@ class MigrationCanvasCommand(ToolkitCommand):
         required_capabilities: list[Capability] = [
             DataModelsAcl(
                 actions=[DataModelsAcl.Action.Read],
-                scope=SpaceIDScope([cls.canvas_schema_space, MAPPING_VIEW_ID.space]),
+                scope=SpaceIDScope([cls.canvas_schema_space, INSTANCE_SOURCE_VIEW_ID.space]),
             ),
             DataModelInstancesAcl(
                 actions=[
@@ -59,10 +59,10 @@ class MigrationCanvasCommand(ToolkitCommand):
 
     @classmethod
     def _validate_migration_mappings_exists(cls, client: ToolkitClient) -> None:
-        view = client.data_modeling.views.retrieve(MAPPING_VIEW_ID)
+        view = client.data_modeling.views.retrieve(INSTANCE_SOURCE_VIEW_ID)
         if not view:
             raise ToolkitMigrationError(
-                f"The migration mapping view {MAPPING_VIEW_ID} does not exist. "
+                f"The migration mapping view {InstanceSource} does not exist. "
                 f"Please run the `cdf migrate prepare` command to deploy the migration data model."
             )
 
@@ -92,9 +92,9 @@ class MigrationCanvasCommand(ToolkitCommand):
         if verbose:
             self.console(f"Found canvas: {canvas.canvas.name}")
         reference_ids = [ref.as_asset_centric_id() for ref in to_migrate]
-        mappings = client.migration.mapping.retrieve(reference_ids)
-        mapping_by_reference_id = {mapping.as_asset_centric_id(): mapping for mapping in mappings}
-        missing = set(reference_ids) - set(mapping_by_reference_id.keys())
+        instance_sources = client.migration.instance_source.retrieve(reference_ids)
+        source_by_reference_id = {source.as_asset_centric_id(): source for source in instance_sources}
+        missing = set(reference_ids) - set(source_by_reference_id.keys())
         if missing:
             self.warn(
                 HighSeverityWarning(
@@ -104,12 +104,12 @@ class MigrationCanvasCommand(ToolkitCommand):
             return
         if dry_run:
             self.console(
-                f"Canvas '{canvas.canvas.name}' is ready for migration all {len(mappings)} references asset-centric resources found."
+                f"Canvas '{canvas.canvas.name}' is ready for migration all {len(instance_sources)} references asset-centric resources found."
             )
             return
         if verbose:
             self.console(
-                f"Migrating canvas '{canvas.canvas.name}' with {len(mappings)} references to asset-centric resources."
+                f"Migrating canvas '{canvas.canvas.name}' with {len(instance_sources)} references to asset-centric resources."
             )
         backup = canvas.as_write().create_backup()
 
@@ -119,8 +119,8 @@ class MigrationCanvasCommand(ToolkitCommand):
             if ref.container_reference_type not in {"asset", "event", "file", "timeseries"}
         ]
         for ref in to_migrate:
-            mapping = mapping_by_reference_id[ref.as_asset_centric_id()]
-            fdm_ref = self.migrate_container_reference(ref, mapping)
+            source = source_by_reference_id[ref.as_asset_centric_id()]
+            fdm_ref = self.migrate_container_reference(ref, source)
             update.fdm_instance_container_references.append(fdm_ref)
 
         client.canvas.industrial.create(backup)
@@ -131,21 +131,20 @@ class MigrationCanvasCommand(ToolkitCommand):
 
     @classmethod
     def migrate_container_reference(
-        cls, reference: ContainerReferenceApply, mapping: Mapping
+        cls, reference: ContainerReferenceApply, source: InstanceSource
     ) -> FdmInstanceContainerReferenceApply:
         """Migrate a single container reference by replacing the asset-centric ID with the data model instance ID."""
+        consumer_view = source.consumer_view()
+
         return FdmInstanceContainerReferenceApply(
             external_id=reference.external_id,
             id_=reference.id_,
             container_reference_type="fdmInstance",
-            instance_space=mapping.space,
-            instance_external_id=mapping.external_id,
-            # For now, we just map into CogniteCore. Ideally, we should map to an extension view
-            # as that is likely what the user wants. However, this requires us to store which view to use for
-            # each instance
-            view_space="cdf_cdm",
-            view_external_id=mapping.default_core_view_external_id,
-            view_version="v1",
+            instance_space=source.space,
+            instance_external_id=source.external_id,
+            view_space=consumer_view.space,
+            view_external_id=consumer_view.external_id,
+            view_version=consumer_view.version,
             label=reference.label,
             properties_=reference.properties_,
             x=reference.x,
