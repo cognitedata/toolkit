@@ -20,7 +20,7 @@ def existing_search_config(toolkit_client: ToolkitClient) -> SearchConfig:
     configs = toolkit_client.search.configurations.list()
     if configs:
         for config in configs:
-            if config.use_as_name == SEARCH_CONFIG_NAME:
+            if config.view == view:
                 return config
 
     created = toolkit_client.search.configurations.upsert(search_config)
@@ -33,12 +33,12 @@ class TestSearchConfigAPI:
     ) -> None:
         view = existing_search_config.view
         test_description = f"Test description Update {randint(1000, 9999)}"
-        test_nanme = SEARCH_CONFIG_NAME
+        test_name = SEARCH_CONFIG_NAME
         search_config = SearchConfigWrite(
             id=existing_search_config.id,
             view=view,
             use_as_description=test_description,
-            use_as_name=test_nanme,
+            use_as_name=test_name,
         )
 
         updated = toolkit_client.search.configurations.upsert(search_config)
