@@ -55,7 +55,6 @@ class ToolkitClientMock(CogniteClientMock):
         self.search.configurations = MagicMock(spec_set=SearchConfigurationsAPI)
         self.canvas = MagicMock(spec_set=CanvasAPI)
         self.dml = MagicMock(spec_set=DMLAPI)
-        self.location_filters = MagicMock(spec_set=LocationFiltersAPI)
         self.lookup = MagicMock(spec=LookUpGroup)
         self.lookup.data_sets = MagicMock(spec_set=DataSetLookUpAPI)
         self.lookup.assets = MagicMock(spec_set=AssetLookUpAPI)
