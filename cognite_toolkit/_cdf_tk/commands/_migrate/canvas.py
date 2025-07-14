@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 from cognite.client.data_classes.capabilities import Capability, DataModelInstancesAcl, DataModelsAcl, SpaceIDScope
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -120,7 +122,7 @@ class MigrationCanvasCommand(ToolkitCommand):
         ]
         for ref in to_migrate:
             source = source_by_reference_id[ref.as_asset_centric_id()]
-            fdm_ref = self.migrate_container_reference(ref, source)
+            fdm_ref = self.migrate_container_reference(ref, source, canvas.canvas.external_id)
             update.fdm_instance_container_references.append(fdm_ref)
 
         client.canvas.industrial.create(backup)
@@ -131,13 +133,13 @@ class MigrationCanvasCommand(ToolkitCommand):
 
     @classmethod
     def migrate_container_reference(
-        cls, reference: ContainerReferenceApply, source: InstanceSource
+        cls, reference: ContainerReferenceApply, source: InstanceSource, canvas_external_id: str
     ) -> FdmInstanceContainerReferenceApply:
         """Migrate a single container reference by replacing the asset-centric ID with the data model instance ID."""
         consumer_view = source.consumer_view()
-
+        new_external_id = f"{canvas_external_id}_{uuid4()}"
         return FdmInstanceContainerReferenceApply(
-            external_id=reference.external_id,
+            external_id=new_external_id,
             id_=reference.id_,
             container_reference_type="fdmInstance",
             instance_space=source.space,
