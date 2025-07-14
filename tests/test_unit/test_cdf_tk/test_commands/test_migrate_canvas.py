@@ -1,17 +1,17 @@
 from datetime import datetime, timezone
 
 import pytest
-from cognite.client.data_classes.data_modeling import NodeList
+from cognite.client.data_classes.data_modeling import NodeList, ViewId
 
 from cognite_toolkit._cdf_tk.client.data_classes.canvas import Canvas, IndustrialCanvas, IndustrialCanvasApply
-from cognite_toolkit._cdf_tk.client.data_classes.migration import Mapping
+from cognite_toolkit._cdf_tk.client.data_classes.migration import InstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import MigrationCanvasCommand
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, ToolkitWarning
 
 
 @pytest.fixture(scope="session")
-def asset_centric_canvas() -> tuple[IndustrialCanvas, NodeList[Mapping]]:
+def asset_centric_canvas() -> tuple[IndustrialCanvas, NodeList[InstanceSource]]:
     canvas = IndustrialCanvas.load(
         {
             "annotations": [],
@@ -122,9 +122,9 @@ def asset_centric_canvas() -> tuple[IndustrialCanvas, NodeList[Mapping]]:
             ],
         }
     )
-    mapping = NodeList[Mapping](
+    mapping = NodeList[InstanceSource](
         [
-            Mapping(
+            InstanceSource(
                 space="MyNewInstanceSpace",
                 external_id="my_asset",
                 version=1,
@@ -132,8 +132,9 @@ def asset_centric_canvas() -> tuple[IndustrialCanvas, NodeList[Mapping]]:
                 created_time=1,
                 resource_type="asset",
                 id_=3840956528416998,
+                preferred_consumer_view_id=ViewId("my_space", "DoctrinoAsset", "v1"),
             ),
-            Mapping(
+            InstanceSource(
                 space="MyNewInstanceSpace",
                 external_id="my_timeseries",
                 version=1,
@@ -141,8 +142,9 @@ def asset_centric_canvas() -> tuple[IndustrialCanvas, NodeList[Mapping]]:
                 created_time=1,
                 resource_type="timeseries",
                 id_=11978459264156,
+                preferred_consumer_view_id=ViewId("my_space", "DoctrinoTimeSeries", "v1"),
             ),
-            Mapping(
+            InstanceSource(
                 space="MyNewInstanceSpace",
                 external_id="my_event",
                 version=1,
@@ -157,14 +159,16 @@ def asset_centric_canvas() -> tuple[IndustrialCanvas, NodeList[Mapping]]:
 
 
 class TestMigrationCanvasCommand:
-    def test_migrate_canvas_happy_path(self, asset_centric_canvas: tuple[IndustrialCanvas, NodeList[Mapping]]) -> None:
+    def test_migrate_canvas_happy_path(
+        self, asset_centric_canvas: tuple[IndustrialCanvas, NodeList[InstanceSource]]
+    ) -> None:
         command = MigrationCanvasCommand(silent=True)
-        canvas, mapping = asset_centric_canvas
+        canvas, instance_sources = asset_centric_canvas
 
         with monkeypatch_toolkit_client() as client:
             client.iam.verify_capabilities.return_value = []
             client.canvas.industrial.retrieve.return_value = canvas
-            client.migration.mapping.retrieve.return_value = mapping
+            client.migration.instance_source.retrieve.return_value = instance_sources
 
             command.migrate_canvas(client, external_ids=["my_canvas"], dry_run=False, verbose=True)
 
@@ -190,8 +194,8 @@ class TestMigrationCanvasCommand:
         assert isinstance(warning, ToolkitWarning)
         assert "Canvas with external ID 'non-existing' not found." in str(warning)
 
-    def test_migrate_canvas_missing_mappings(
-        self, asset_centric_canvas: tuple[IndustrialCanvas, NodeList[Mapping]]
+    def test_migrate_canvas_missing_instance_source(
+        self, asset_centric_canvas: tuple[IndustrialCanvas, NodeList[InstanceSource]]
     ) -> None:
         command = MigrationCanvasCommand(silent=True)
         canvas, _ = asset_centric_canvas
@@ -199,7 +203,7 @@ class TestMigrationCanvasCommand:
         with monkeypatch_toolkit_client() as client:
             client.iam.verify_capabilities.return_value = []
             client.canvas.industrial.retrieve.return_value = canvas
-            client.migration.mapping.retrieve.return_value = NodeList[Mapping]([])
+            client.migration.instance_source.retrieve.return_value = NodeList[InstanceSource]([])
 
             command.migrate_canvas(client, external_ids=[canvas.canvas.external_id], dry_run=False, verbose=True)
 
@@ -209,7 +213,7 @@ class TestMigrationCanvasCommand:
         assert "Canvas 'Asset-centric1' has references to resources that are not been migrated" in str(warning)
 
     def test_migrate_canvas_no_asset_centric_references(
-        self, asset_centric_canvas: tuple[IndustrialCanvas, NodeList[Mapping]]
+        self, asset_centric_canvas: tuple[IndustrialCanvas, NodeList[InstanceSource]]
     ) -> None:
         command = MigrationCanvasCommand(silent=True)
         canvas = IndustrialCanvas(
