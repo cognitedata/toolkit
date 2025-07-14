@@ -1,3 +1,5 @@
+from pydantic import Field
+
 from .base import BaseModelResource, ToolkitResource
 
 
@@ -7,7 +9,7 @@ class ViewId(BaseModelResource):
 
 
 class PropertyConfig(BaseModelResource):
-    property: str
+    property_name: str = Field(alias="property")
     disabled: bool | None = None
     selected: bool | None = None
     hidden: bool | None = None

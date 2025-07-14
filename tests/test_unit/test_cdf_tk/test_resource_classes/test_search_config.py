@@ -38,7 +38,7 @@ def invalid_search_config_test_cases() -> Iterable:
 
 class TestSearchConfigYAML:
     @pytest.mark.parametrize("data", list(find_resources("SearchConfig")))
-    def test_load_valid_space(self, data: dict[str, object]) -> None:
+    def test_load_valid_search_config(self, data: dict[str, object]) -> None:
         loaded = SearchConfigYAML.model_validate(data)
 
         assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
