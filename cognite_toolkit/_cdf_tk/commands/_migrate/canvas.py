@@ -1,6 +1,7 @@
 from uuid import uuid4
 
 from cognite.client.data_classes.capabilities import Capability, DataModelInstancesAcl, DataModelsAcl, SpaceIDScope
+from cognite.client.exceptions import CogniteException
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.canvas import (
@@ -125,11 +126,20 @@ class MigrationCanvasCommand(ToolkitCommand):
             fdm_ref = self.migrate_container_reference(ref, source, canvas.canvas.external_id)
             update.fdm_instance_container_references.append(fdm_ref)
 
-        client.canvas.industrial.create(backup)
-        client.canvas.industrial.update(update)
-        self.console(
-            f'Canvas "{canvas.canvas.name}" migrated successfully with {len(to_migrate)} references to data model instances.'
-        )
+        try:
+            client.canvas.industrial.create(backup)
+        except CogniteException as e:
+            raise ToolkitMigrationError(f"Failed to create backup for canvas '{canvas.canvas.name}': {e!s}. ")
+        try:
+            client.canvas.industrial.update(update)
+        except CogniteException as e:
+            raise ToolkitMigrationError(
+                f"Failed to migrate canvas '{canvas.canvas.name}': {e!s}. Please check the canvas and try again."
+            )
+        else:
+            self.console(
+                f'Canvas "{canvas.canvas.name}" migrated successfully with {len(to_migrate)} references to data model instances.'
+            )
 
     @classmethod
     def migrate_container_reference(
