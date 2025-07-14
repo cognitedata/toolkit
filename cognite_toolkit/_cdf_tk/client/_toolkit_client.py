@@ -15,7 +15,6 @@ from .api.lookup import LookUpGroup
 from .api.migration import MigrationAPI
 from .api.robotics import RoboticsAPI
 from .api.search import SearchAPI
-from .api.search_config import SearchConfigurationsAPI
 from .api.token import TokenAPI
 from .api.verify import VerifyAPI
 
@@ -81,7 +80,6 @@ class ToolkitClient(CogniteClient):
         super().__init__(config=config)
         self.search = SearchAPI(self._config, self._API_VERSION, self)
         self.location_filters = LocationFiltersAPI(self._config, self._API_VERSION, self)
-        self.search_configurations = SearchConfigurationsAPI(self._config, self._API_VERSION, self)
         self.robotics = RoboticsAPI(self._config, self._API_VERSION, self)
         self.dml = DMLAPI(self._config, self._API_VERSION, self)
         self.verify = VerifyAPI(self._config, self._API_VERSION, self)
