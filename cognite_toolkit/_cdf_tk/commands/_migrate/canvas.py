@@ -22,6 +22,8 @@ from .data_model import INSTANCE_SOURCE_VIEW_ID
 
 class MigrationCanvasCommand(ToolkitCommand):
     canvas_schema_space = Canvas.get_source().space
+    # Note sequences are not supported in Canvas, so we do not include them here.
+    asset_centric_resource_types = frozenset({"asset", "event", "file", "timeseries"})
 
     def migrate_canvas(
         self,
@@ -84,7 +86,7 @@ class MigrationCanvasCommand(ToolkitCommand):
         to_migrate = [
             ref
             for ref in update.container_references
-            if ref.container_reference_type in {"asset", "event", "file", "timeseries"}
+            if ref.container_reference_type in self.asset_centric_resource_types
         ]
         if not to_migrate:
             self.warn(
@@ -119,7 +121,7 @@ class MigrationCanvasCommand(ToolkitCommand):
         update.container_references = [
             ref
             for ref in update.container_references
-            if ref.container_reference_type not in {"asset", "event", "file", "timeseries"}
+            if ref.container_reference_type not in self.asset_centric_resource_types
         ]
         for ref in to_migrate:
             source = source_by_reference_id[ref.as_asset_centric_id()]
