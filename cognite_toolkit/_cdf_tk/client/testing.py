@@ -26,6 +26,8 @@ from .api.robotics.data_postprocessing import DataPostProcessingAPI
 from .api.robotics.frames import FramesAPI
 from .api.robotics.locations import LocationsAPI as RoboticsLocationsAPI
 from .api.robotics.maps import MapsAPI
+from .api.search import SearchAPI
+from .api.search_config import SearchConfigurationsAPI
 from .api.statistics import StatisticsAPI
 from .api.token import TokenAPI
 from .api.verify import VerifyAPI
@@ -48,6 +50,9 @@ class ToolkitClientMock(CogniteClientMock):
         #   - Add spacing above and below
         #   - Use `spec=MyAPI` only for "top level"
         #   - Use `spec_set=MyNestedAPI` for all nested APIs
+        self.search = MagicMock(spec=SearchAPI)
+        self.search.locations = MagicMock(spec_set=LocationFiltersAPI)
+        self.search.configurations = MagicMock(spec_set=SearchConfigurationsAPI)
         self.canvas = MagicMock(spec_set=CanvasAPI)
         self.dml = MagicMock(spec_set=DMLAPI)
         self.location_filters = MagicMock(spec_set=LocationFiltersAPI)
