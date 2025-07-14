@@ -1,6 +1,5 @@
 from uuid import uuid4
 
-from cognite.client.data_classes.capabilities import Capability, DataModelInstancesAcl, DataModelsAcl, SpaceIDScope
 from cognite.client.exceptions import CogniteException
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -11,19 +10,23 @@ from cognite_toolkit._cdf_tk.client.data_classes.canvas import (
     FdmInstanceContainerReferenceApply,
 )
 from cognite_toolkit._cdf_tk.client.data_classes.migration import InstanceSource
-from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
-from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitMigrationError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.interactive_select import InteractiveCanvasSelect
 
+from .base import BaseMigrateCommand
 from .data_model import INSTANCE_SOURCE_VIEW_ID
 
 
-class MigrationCanvasCommand(ToolkitCommand):
+class MigrationCanvasCommand(BaseMigrateCommand):
     canvas_schema_space = Canvas.get_source().space
     # Note sequences are not supported in Canvas, so we do not include them here.
     asset_centric_resource_types = frozenset({"asset", "event", "file", "timeseries"})
+
+    @property
+    def schema_spaces(self) -> list[str]:
+        return [self.canvas_schema_space, INSTANCE_SOURCE_VIEW_ID.space]
 
     def migrate_canvas(
         self,
@@ -32,8 +35,8 @@ class MigrationCanvasCommand(ToolkitCommand):
         dry_run: bool = False,
         verbose: bool = False,
     ) -> None:
-        self._validate_authorization(client)
-        self._validate_migration_mappings_exists(client)
+        self.validate_access(client, [CANVAS_INSTANCE_SPACE])
+        self.validate_instance_source_exists(client)
         external_ids = external_ids or InteractiveCanvasSelect(client).select_external_ids()
         if external_ids is None or not external_ids:
             self.console("No canvases selected for migration.")
@@ -41,37 +44,9 @@ class MigrationCanvasCommand(ToolkitCommand):
         action = "Would migrate" if dry_run else "Migrating"
         self.console(f"{action} {len(external_ids)} canvases.")
         for external_id in external_ids:
-            self._migrate_canvas(client, external_id, dry_run=dry_run, verbose=verbose)
+            self._migrate_single_canvas(client, external_id, dry_run=dry_run, verbose=verbose)
 
-    @classmethod
-    def _validate_authorization(cls, client: ToolkitClient) -> None:
-        required_capabilities: list[Capability] = [
-            DataModelsAcl(
-                actions=[DataModelsAcl.Action.Read],
-                scope=SpaceIDScope([cls.canvas_schema_space, INSTANCE_SOURCE_VIEW_ID.space]),
-            ),
-            DataModelInstancesAcl(
-                actions=[
-                    DataModelInstancesAcl.Action.Read,
-                    DataModelInstancesAcl.Action.Write,
-                    DataModelInstancesAcl.Action.Write_Properties,
-                ],
-                scope=SpaceIDScope([CANVAS_INSTANCE_SPACE]),
-            ),
-        ]
-        if missing := client.iam.verify_capabilities(required_capabilities):
-            raise AuthenticationError(f"Missing required capabilities: {humanize_collection(missing)}.")
-
-    @classmethod
-    def _validate_migration_mappings_exists(cls, client: ToolkitClient) -> None:
-        view = client.data_modeling.views.retrieve(INSTANCE_SOURCE_VIEW_ID)
-        if not view:
-            raise ToolkitMigrationError(
-                f"The migration mapping view {InstanceSource} does not exist. "
-                f"Please run the `cdf migrate prepare` command to deploy the migration data model."
-            )
-
-    def _migrate_canvas(
+    def _migrate_single_canvas(
         self,
         client: ToolkitClient,
         external_id: str,
