@@ -198,11 +198,11 @@ def _humanize_validation_error(error: ValidationError) -> list[str]:
             msg = item["msg"]
         if len(loc) > 1 and (error_type in {"extra_forbidden", "missing"} or is_metadata_key_error):
             # We skip the last element as this is in the message already
-            msg = f"In {as_json_path(loc[:-1])} {msg[0].casefold()}{msg[1:]}"
+            msg = f"In {as_json_path(loc[:-1])} {msg[:1].casefold()}{msg[1:]}"
         elif len(loc) > 1:
-            msg = f"In {as_json_path(loc)} {msg[0].casefold()}{msg[1:]}"
+            msg = f"In {as_json_path(loc)} {msg[:1].casefold()}{msg[1:]}"
         elif len(loc) == 1 and isinstance(loc[0], str) and error_type not in {"extra_forbidden", "missing"}:
-            msg = f"In field {loc[0]} {msg[0].casefold()}{msg[1:]}"
+            msg = f"In field {loc[0]} {msg[:1].casefold()}{msg[1:]}"
         errors.append(msg)
     return errors
 
