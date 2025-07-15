@@ -374,7 +374,7 @@ class NodeFinder(ResourceFinder[dm.ViewId]):
 class LocationFilterFinder(ResourceFinder[tuple[str, ...]]):
     @cached_property
     def all_filters(self) -> LocationFilterList:
-        return self.client.location_filters.list()
+        return self.client.search.locations.list()
 
     def _interactive_select(self) -> tuple[str, ...]:
         filters = self.all_filters
