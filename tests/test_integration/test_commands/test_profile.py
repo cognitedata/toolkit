@@ -101,9 +101,9 @@ class TestProfileAssetCommand:
         ]
 
 
-class TestDumpResource:
+class TestProfileAssentCentric:
     def test_profile_assent_centric(self, toolkit_client: ToolkitClient, monkeypatch) -> None:
-        results = ProfileAssetCentricCommand().asset_centric(toolkit_client, verbose=False)
+        results = ProfileAssetCentricCommand().asset_centric(toolkit_client, select_all=True, verbose=False)
 
         assert len(results) == 7
         assert {item["Resource"] for item in results} == {

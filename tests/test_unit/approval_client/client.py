@@ -93,7 +93,7 @@ class LookUpAPIMock:
         self._generate_random_external_id_on_lookup_failure = allow_reverse_lookup
 
     @staticmethod
-    def _create_id(string: str, allow_empty: bool = False) -> int:
+    def create_id(string: str, allow_empty: bool = False) -> int:
         if allow_empty and string == "":
             return 0
         # This simulates CDF setting the internal ID.
@@ -108,13 +108,13 @@ class LookUpAPIMock:
         self, external_id: str | SequenceNotStr[str], is_dry_run: bool = False, allow_empty: bool = False
     ) -> int | list[int]:
         if isinstance(external_id, str):
-            id_ = self._create_id(external_id, allow_empty)
+            id_ = self.create_id(external_id, allow_empty)
             if id_ not in self._reverse_cache:
                 self._reverse_cache[id_] = external_id
             return id_
         output: list[int] = []
         for ext_id in external_id:
-            id_ = self._create_id(ext_id, allow_empty)
+            id_ = self.create_id(ext_id, allow_empty)
             if id_ not in self._reverse_cache:
                 self._reverse_cache[id_] = ext_id
             output.append(id_)
