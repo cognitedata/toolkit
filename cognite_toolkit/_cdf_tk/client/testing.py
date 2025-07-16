@@ -7,6 +7,7 @@ from cognite.client.testing import CogniteClientMock
 
 from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
 
+from .api.agents.api import AgentsAPI
 from .api.canvas import CanvasAPI
 from .api.dml import DMLAPI
 from .api.location_filters import LocationFiltersAPI
@@ -50,6 +51,7 @@ class ToolkitClientMock(CogniteClientMock):
         #   - Add spacing above and below
         #   - Use `spec=MyAPI` only for "top level"
         #   - Use `spec_set=MyNestedAPI` for all nested APIs
+        self.agents = MagicMock(spec_set=AgentsAPI)
         self.search = MagicMock(spec=SearchAPI)
         self.search.locations = MagicMock(spec_set=LocationFiltersAPI)
         self.search.configurations = MagicMock(spec_set=SearchConfigurationsAPI)
