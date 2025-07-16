@@ -4,10 +4,9 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes import Transformation, TransformationList, TransformationScheduleList
+from cognite.client.data_classes.agents import Agent, AgentList, AskDocumentAgentTool
 from questionary import Choice
 
-from cognite_toolkit._cdf_tk.client.data_classes.agent_tools import AgentTool
-from cognite_toolkit._cdf_tk.client.data_classes.agents import Agent, AgentList
 from cognite_toolkit._cdf_tk.client.data_classes.location_filters import LocationFilter, LocationFilterList
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands.dump_resource import (
@@ -179,10 +178,9 @@ def three_agents() -> AgentList:
                 description=f"This is Agent {character}",
                 model="gpt-3.5-turbo",
                 tools=[
-                    AgentTool(
+                    AskDocumentAgentTool(
                         name="toolA",
                         description=f"This is tool {character}",
-                        type="documentAsk",
                     )
                 ],
             )
