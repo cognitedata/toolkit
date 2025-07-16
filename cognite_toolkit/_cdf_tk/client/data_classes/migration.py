@@ -11,9 +11,12 @@ from cognite.client.data_classes.data_modeling.ids import ViewId
 from cognite.client.data_classes.data_modeling.instances import (
     PropertyOptions,
     TypedNode,
+    TypedNodeApply,
 )
 
+from cognite_toolkit._cdf_tk.constants import COGNITE_MIGRATION_SPACE
 from cognite_toolkit._cdf_tk.tk_warnings import IgnoredValueWarning
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -133,3 +136,161 @@ class InstanceSource(_InstanceSourceProperties, TypedNode):
             resource_type=self.resource_type,
             id_=self.id_,
         )
+
+
+@dataclass
+class AssetCentricToViewMapping(CogniteObject):
+    to_property_id: dict[str, str]
+    metadata_to_property_id: dict[str, str] | None = None
+
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        """Load an AssetCentricToViewMapping from a dictionary."""
+        to_property_id = resource["toPropertyId"]
+        metadata_to_property_id = resource.get("metadataToPropertyId")
+
+        if not isinstance(to_property_id, dict):
+            raise TypeError(f"toPropertyId must be a dictionary, not {type(to_property_id)}")
+
+        if invalid_keys := [
+            key for key, value in to_property_id.items() if not (isinstance(key, str) and isinstance(value, str))
+        ]:
+            raise TypeError(
+                f"toPropertyId keys and values must be strings, found invalid keys: {humanize_collection(invalid_keys)}"
+            )
+
+        if metadata_to_property_id is not None and not isinstance(metadata_to_property_id, dict):
+            raise TypeError(f"metadataToPropertyId must be a dictionary or None, not {type(metadata_to_property_id)}")
+
+        if metadata_to_property_id and (
+            invalid_metadata_keys := [
+                key
+                for key, value in metadata_to_property_id.items()
+                if not (isinstance(key, str) and isinstance(value, str))
+            ]
+        ):
+            raise TypeError(
+                f"metadataToPropertyId keys and values must be strings, found invalid keys: {humanize_collection(invalid_metadata_keys)}"
+            )
+
+        return cls(
+            to_property_id=to_property_id,
+            metadata_to_property_id=metadata_to_property_id,
+        )
+
+
+class _ViewSourceProperties:
+    resource_type = PropertyOptions("resourceType")
+    view_id = PropertyOptions("viewId")
+
+    @classmethod
+    def get_source(cls) -> ViewId:
+        return ViewId("cognite_migration", "ViewSource", "v1")
+
+
+class ViewSourceApply(_ViewSourceProperties, TypedNodeApply):
+    """This represents the writing format of view source.
+
+    It is used to when data is written to CDF.
+
+    The source of the view in asset-centric resources.
+
+    Args:
+        external_id: The external id of the view source.
+        resource_type: The resource type field.
+        view_id: The view id field.
+        mapping: The mapping field.
+        existing_version: Fail the ingestion request if the node's version is greater than or equal to this value.
+            If no existingVersion is specified, the ingestion will always overwrite any existing data for the node
+            (for the specified container or node). If existingVersion is set to 0, the upsert will behave as an insert,
+            so it will fail the bulk if the item already exists. If skipOnVersionConflict is set on the ingestion
+            request, then the item will be skipped instead of failing the ingestion request.
+        type: Direct relation pointing to the type node.
+    """
+
+    def __init__(
+        self,
+        external_id: str,
+        *,
+        resource_type: Literal["asset", "event", "file", "sequence", "timeseries"],
+        view_id: ViewId,
+        mapping: AssetCentricToViewMapping,
+        existing_version: int | None = None,
+        type: DirectRelationReference | tuple[str, str] | None = None,
+    ) -> None:
+        TypedNodeApply.__init__(self, COGNITE_MIGRATION_SPACE, external_id, existing_version, type)
+        self.resource_type = resource_type
+        self.view_id = view_id
+        self.mapping = mapping
+
+
+class ViewSource(_ViewSourceProperties, TypedNode):
+    """This represents the reading format of view source.
+
+    It is used to when data is read from CDF.
+
+    The source of the view in asset-centric resources.
+
+    Args:
+        external_id: The external id of the view source.
+        version (int): DMS version.
+        last_updated_time (int): The number of milliseconds since 00:00:00 Thursday, 1 January 1970,
+            Coordinated Universal Time (UTC), minus leap seconds.
+        created_time (int): The number of milliseconds since 00:00:00 Thursday, 1 January 1970,
+            Coordinated Universal Time (UTC), minus leap seconds.
+        resource_type: The resource type field.
+        view_id: The view id field.
+        mapping: The mapping field.
+        type: Direct relation pointing to the type node.
+        deleted_time: The number of milliseconds since 00:00:00 Thursday, 1 January 1970, Coordinated Universal Time
+            (UTC), minus leap seconds. Timestamp when the instance was soft deleted. Note that deleted instances
+            are filtered out of query results, but present in sync results
+    """
+
+    def __init__(
+        self,
+        external_id: str,
+        version: int,
+        last_updated_time: int,
+        created_time: int,
+        *,
+        resource_type: Literal["asset", "event", "file", "sequence", "timeseries"],
+        view_id: ViewId,
+        mapping: AssetCentricToViewMapping,
+        type: DirectRelationReference | None = None,
+        deleted_time: int | None = None,
+    ) -> None:
+        TypedNode.__init__(
+            self, COGNITE_MIGRATION_SPACE, external_id, version, last_updated_time, created_time, deleted_time, type
+        )
+        self.resource_type = resource_type
+        self.view_id = view_id
+        self.mapping = mapping
+
+    def as_write(self) -> ViewSourceApply:
+        return ViewSourceApply(
+            self.external_id,
+            resource_type=self.resource_type,
+            view_id=self.view_id,
+            mapping=self.mapping,
+            existing_version=self.version,
+            type=self.type,
+        )
+
+    @classmethod
+    def _load_properties(cls, resource: dict[str, Any]) -> dict[str, Any]:
+        if "viewId" in resource:
+            view_id = resource.pop("ViewId")
+            try:
+                resource["viewId"] = ViewId.load(view_id)
+            except (TypeError, KeyError) as e:
+                raise ValueError(f"Invalid viewId format. Expected 'space', 'externalId', 'version'. Error: {e!s}")
+        if "mapping" in resource:
+            mapping = resource.pop("mapping")
+            try:
+                resource["mapping"] = AssetCentricToViewMapping._load(mapping)
+            except (TypeError, KeyError) as e:
+                raise ValueError(
+                    f"Invalid mapping format. Expected 'toPropertyId' and optionally 'metadataToPropertyId'. Error: {e!s}"
+                )
+        return super()._load_properties(resource)
