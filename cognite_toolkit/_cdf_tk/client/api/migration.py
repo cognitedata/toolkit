@@ -1,7 +1,16 @@
+import warnings
 from collections.abc import Sequence
 from itertools import groupby
 
-from cognite.client.data_classes.data_modeling import NodeApplyResultList, NodeList, ViewId, filters, query
+from cognite.client._constants import DEFAULT_LIMIT_READ
+from cognite.client.data_classes.data_modeling import (
+    Node,
+    NodeApplyResultList,
+    NodeId,
+    NodeList,
+    filters,
+    query,
+)
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.data_classes.migration import (
@@ -10,6 +19,8 @@ from cognite_toolkit._cdf_tk.client.data_classes.migration import (
     ViewSource,
     ViewSourceApply,
 )
+from cognite_toolkit._cdf_tk.constants import COGNITE_MIGRATION_SPACE
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 
 from .extended_data_modeling import ExtendedInstancesAPI
@@ -65,28 +76,66 @@ class ViewSourceAPI:
 
     def __init__(self, instance_api: ExtendedInstancesAPI) -> None:
         self._instance_api = instance_api
+        self._view_id = ViewSource.get_source()
 
-    def create(self, item: ViewSourceApply | Sequence[ViewSourceApply]) -> NodeApplyResultList:
+    def create(
+        self,
+        item: ViewSourceApply | Sequence[ViewSourceApply],
+        skip_on_version_conflict: bool = False,
+        replace: bool = False,
+    ) -> NodeApplyResultList:
         """Create one or more view sources."""
-        raise NotImplementedError()
+        return self._instance_api.apply(item, skip_on_version_conflict=skip_on_version_conflict, replace=replace).nodes
 
-    def retrieve(self, external_id: str | SequenceNotStr[str]) -> ViewSource | NodeList[ViewSource]:
+    def retrieve(self, external_id: str | SequenceNotStr[str]) -> ViewSource | NodeList[ViewSource] | None:
         """Retrieve one or more view sources by their external IDs."""
-        raise NotImplementedError()
+        if isinstance(external_id, str):
+            return self._instance_api.retrieve_nodes(
+                (NodeId(COGNITE_MIGRATION_SPACE, external_id),), node_cls=ViewSource
+            )
+        else:
+            nodes = self._instance_api.retrieve(
+                nodes=[NodeId(COGNITE_MIGRATION_SPACE, ext_id) for ext_id in external_id], sources=[self._view_id]
+            ).nodes
+            return self._safe_convert(nodes)
 
     def update(self, item: ViewSourceApply | Sequence[ViewSourceApply]) -> ViewSource | NodeList[ViewSource]:
         """Update a view source or a list of view sources."""
         raise NotImplementedError()
 
-    def delete(self, external_id: str | SequenceNotStr[str]) -> int:
+    def delete(self, external_id: str | SequenceNotStr[str]) -> NodeId | list[NodeId]:
         """Delete a view source or a list of view sources by their external IDs."""
-        raise NotImplementedError()
+        if isinstance(external_id, str):
+            return self._instance_api.delete(NodeId(COGNITE_MIGRATION_SPACE, external_id)).nodes[0]
+        else:
+            return self._instance_api.delete([NodeId(COGNITE_MIGRATION_SPACE, ext_id) for ext_id in external_id]).nodes
 
-    def list(
-        self, resource_type: str | None = None, view: ViewId | Sequence[ViewId] | None = None, limit: int | None = 25
-    ) -> NodeList[ViewSource]:
-        """List view sources, optionally filtered by resource type and view."""
-        raise NotImplementedError()
+    def list(self, resource_type: str | None = None, limit: int | None = DEFAULT_LIMIT_READ) -> NodeList[ViewSource]:
+        """List view sources optionally filtered by resource type"""
+        is_selected: filters.Filter | None = None
+        if resource_type:
+            is_selected = filters.Equals(self._view_id.as_property_ref("resourceType"), resource_type)
+
+        nodes = self._instance_api.list(
+            instance_type="node", filter=is_selected, limit=limit, space=COGNITE_MIGRATION_SPACE, sources=self._view_id
+        )
+        return self._safe_convert(nodes)
+
+    @classmethod
+    def _safe_convert(cls, nodes: NodeList[Node]) -> NodeList[ViewSource]:
+        results = NodeList[ViewSource]([])
+        for node in nodes:
+            try:
+                loaded = ViewSource._load(node.dump())
+            except ValueError as e:
+                warnings.warn(
+                    HighSeverityWarning(
+                        f"Node {node.as_id()!r} is in an invalid format. Skipping it. Error: {e!s}",
+                    )
+                )
+                continue
+            results.append(loaded)
+        return results
 
 
 class MigrationAPI:
