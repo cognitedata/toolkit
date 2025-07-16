@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Annotated, Any
 
 import typer
@@ -35,7 +36,15 @@ class ProfileApp(typer.Typer):
                 "--hierarchy",
                 "-h",
                 help="The asset hierarchy to profile. This should be the externalId of the root asset. If not provided,"
-                " ",
+                " an interactive prompt will be used to select the hierarchy.",
+            ),
+        ] = None,
+        output_spreadsheet: Annotated[
+            Path | None,
+            typer.Option(
+                "--output-spreadsheet",
+                "-o",
+                help="The path to the output spreadsheet. If not provided, the output will only be printed to the console.",
             ),
         ] = None,
         verbose: bool = False,
@@ -43,10 +52,10 @@ class ProfileApp(typer.Typer):
         """This command gives an overview over the assets in the given hierarchy.
         It works by listing all assets, events, files, timeseries, and sequences related to the given hierarchy.
         In addition, it lists the data sets that is used for each of the resources, the transformations that writes to
-        these data sets, and the RAW tables that is used in these transformations..
+        these data sets, and the RAW tables that is used in these transformations.
         """
         client = EnvironmentVariables.create_from_environment().get_client()
-        cmd = ProfileAssetCommand()
+        cmd = ProfileAssetCommand(output_spreadsheet)
         cmd.run(
             lambda: cmd.assets(
                 client,
@@ -58,16 +67,34 @@ class ProfileApp(typer.Typer):
     @staticmethod
     def asset_centric(
         ctx: typer.Context,
+        hierarchy: Annotated[
+            str | None,
+            typer.Option(
+                "--hierarchy",
+                "-h",
+                help="The asset hierarchy to profile. This should be the externalId of the root asset. If not provided,"
+                " an interactive prompt will be used to select the hierarchy (or select all assets-centric assets).",
+            ),
+        ] = None,
+        output_spreadsheet: Annotated[
+            Path | None,
+            typer.Option(
+                "--output-spreadsheet",
+                "-o",
+                help="The path to the output spreadsheet. If not provided, the output will only be printed to the console.",
+            ),
+        ] = None,
         verbose: bool = False,
     ) -> None:
         """This command gives an overview over the metadata and labels for each of the asset-centric resources.
         This shows an approximation of unstructured data count. This can, for example, be used to estimate the
         effort to model this data in data modeling."""
         client = EnvironmentVariables.create_from_environment().get_client()
-        cmd = ProfileAssetCentricCommand()
+        cmd = ProfileAssetCentricCommand(output_spreadsheet)
         cmd.run(
             lambda: cmd.asset_centric(
                 client,
+                hierarchy,
                 verbose,
             )
         )
@@ -83,6 +110,14 @@ class ProfileApp(typer.Typer):
                 "'timeseries', or 'sequences'.",
             ),
         ],
+        output_spreadsheet: Annotated[
+            Path | None,
+            typer.Option(
+                "--output-spreadsheet",
+                "-o",
+                help="The path to the output spreadsheet. If not provided, the output will only be printed to the console.",
+            ),
+        ] = None,
         verbose: bool = False,
     ) -> None:
         """This command gives an overview over the transformations that write to the given destination.
@@ -92,7 +127,7 @@ class ProfileApp(typer.Typer):
         source of the data in a specific CDF resource.
         """
         client = EnvironmentVariables.create_from_environment().get_client()
-        cmd = ProfileTransformationCommand()
+        cmd = ProfileTransformationCommand(output_spreadsheet)
         cmd.run(
             lambda: cmd.transformation(
                 client,
@@ -113,6 +148,14 @@ class ProfileApp(typer.Typer):
                 "'timeseries', or 'sequences'.",
             ),
         ],
+        output_spreadsheet: Annotated[
+            Path | None,
+            typer.Option(
+                "--output-spreadsheet",
+                "-o",
+                help="The path to the output spreadsheet. If not provided, the output will only be printed to the console.",
+            ),
+        ] = None,
         verbose: bool = False,
     ) -> None:
         """This command gives an overview over the staging tables in CDF and where they are used.
@@ -122,7 +165,7 @@ class ProfileApp(typer.Typer):
         source of the data in a specific CDF resource.
         """
         client = EnvironmentVariables.create_from_environment().get_client()
-        cmd = ProfileRawCommand()
+        cmd = ProfileRawCommand(output_spreadsheet)
         cmd.run(
             lambda: cmd.raw(
                 client,

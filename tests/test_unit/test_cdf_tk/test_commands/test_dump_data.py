@@ -138,7 +138,7 @@ class TestDumpData:
             )
 
             cmd.dump_table(
-                FileMetadataFinder(client, ["rootAsset"], []),
+                FileMetadataFinder(client, [], ["my_dataset"]),
                 output_dir,
                 clean=True,
                 limit=None,
