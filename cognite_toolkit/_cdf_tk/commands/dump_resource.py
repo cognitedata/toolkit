@@ -17,6 +17,9 @@ from cognite.client.data_classes import (
 from cognite.client.data_classes._base import (
     CogniteResourceList,
 )
+from cognite.client.data_classes.agents import (
+    AgentList,
+)
 from cognite.client.data_classes.data_modeling import DataModelId
 from cognite.client.data_classes.workflows import (
     Workflow,
@@ -32,9 +35,6 @@ from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.agents import (
-    AgentList,
-)
 from cognite_toolkit._cdf_tk.client.data_classes.location_filters import LocationFilterList
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceRetrievalError,
