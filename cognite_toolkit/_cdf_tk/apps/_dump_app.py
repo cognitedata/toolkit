@@ -51,6 +51,9 @@ class DumpApp(typer.Typer):
             self.command("group")(DumpConfigApp.dump_group)
             self.command("node")(DumpConfigApp.dump_node)
 
+            if Flags.AGENTS.is_enabled() and Flags.DUMP_EXTENDED.is_enabled():
+                self.command("agents")(DumpConfigApp.dump_agents)
+
     @staticmethod
     def dump_main(ctx: typer.Context) -> None:
         """Commands to dump resource configurations from CDF into a temporary directory."""
@@ -71,6 +74,8 @@ class DumpConfigApp(typer.Typer):
         self.command("node")(self.dump_node)
         if Flags.DUMP_EXTENDED.is_enabled():
             self.command("location-filters")(self.dump_location_filters)
+        if Flags.DUMP_EXTENDED.is_enabled() and Flags.AGENTS.is_enabled():
+            self.command("agents")(self.dump_agents)
 
     @staticmethod
     def dump_config_main(ctx: typer.Context) -> None:
