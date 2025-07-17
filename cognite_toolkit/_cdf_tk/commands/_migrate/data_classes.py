@@ -131,7 +131,8 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
             )
         if len(header) >= 5:
             errors.append(
-                "Mapping file must have at most 4 columns: id/externalId, dataSetId, space, externalId. Got {len(header)} columns."
+                "Mapping file must have at most 4 columns: "
+                f"id/externalId, dataSetId, space, externalId. Got {len(header)} columns."
             )
         if header[0] not in {"id", "externalId"}:
             errors.append(f"First column must be 'id' or 'externalId'. Got {header[0]!r}.")
