@@ -111,7 +111,7 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
             raise ToolkitFileNotFoundError(f"Mapping file {mapping_file} does not exist.")
         if mapping_file.suffix != ".csv":
             raise ToolkitValueError(f"Mapping file {mapping_file} must be a CSV file.")
-        with mapping_file.open(mode="r") as f:
+        with mapping_file.open(mode="r", encoding="utf-8-sig") as f:
             csv_file = csv.reader(f)
             header = next(csv_file, None)
             header = cls._validate_csv_header(header)
