@@ -6,6 +6,7 @@ from typing import overload
 from cognite.client._constants import DEFAULT_LIMIT_READ
 from cognite.client.data_classes.data_modeling import (
     Node,
+    NodeApplyResult,
     NodeApplyResultList,
     NodeId,
     NodeList,
@@ -79,14 +80,35 @@ class ViewSourceAPI:
         self._instance_api = instance_api
         self._view_id = ViewSource.get_source()
 
+    @overload
+    def upsert(
+        self,
+        item: ViewSourceApply,
+        skip_on_version_conflict: bool = False,
+        replace: bool = False,
+    ) -> NodeApplyResult: ...
+
+    @overload
+    def upsert(
+        self,
+        item: Sequence[ViewSourceApply],
+        skip_on_version_conflict: bool = False,
+        replace: bool = False,
+    ) -> NodeApplyResultList: ...
+
     def upsert(
         self,
         item: ViewSourceApply | Sequence[ViewSourceApply],
         skip_on_version_conflict: bool = False,
         replace: bool = False,
-    ) -> NodeApplyResultList:
+    ) -> NodeApplyResult | NodeApplyResultList:
         """Upsert one or more view sources."""
-        return self._instance_api.apply(item, skip_on_version_conflict=skip_on_version_conflict, replace=replace).nodes
+        result = self._instance_api.apply(
+            item, skip_on_version_conflict=skip_on_version_conflict, replace=replace
+        ).nodes
+        if isinstance(item, ViewSourceApply):
+            return result[0]
+        return NodeApplyResultList(result)
 
     @overload
     def retrieve(self, external_id: str) -> ViewSource | None: ...
