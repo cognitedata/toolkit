@@ -214,6 +214,15 @@ class TestMigrationMappingList:
                 "'sp_full_ts', 'full_ts_id']. ID and dataSetId must be integers.",
                 id="Invalid external_id value",
             ),
+            pytest.param(
+                "\n",
+                (
+                    "Invalid mapping file header:\n"
+                    " - Mapping file must have at least 3 columns: id/externalId, space, "
+                    "externalId. Got 0 columns."
+                ),
+                id="Empty header row",
+            ),
         ],
     )
     def test_read_invalid_mapping_file(self, content: str, expected_msg: str, tmp_path: Path) -> None:
