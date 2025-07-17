@@ -154,31 +154,34 @@ class TestMigrationMappingList:
                 "space,externalId,id,dataSetId\n",
                 (
                     "Invalid mapping file header:\n"
-                    " - First column must be 'id' or 'externalId'.\n"
-                    " - If there are 4 columns, the second column must be 'dataSetId'.\n"
-                    " - Last two columns must be 'space' and 'externalId'."
+                    " - First column must be 'id' or 'externalId'. Got 'space'.\n"
+                    " - If there are 4 columns, the second column must be 'dataSetId'. Got 'externalId'.\n"
+                    " - Last two columns must be 'space' and 'externalId'. Got 'id' and 'dataSetId'."
                 ),
                 id="invalid header",
             ),
             pytest.param(
                 "id,data_set_id,space,externalId\n",
-                ("Invalid mapping file header:\n - If there are 4 columns, the second column must be 'dataSetId'."),
+                (
+                    "Invalid mapping file header:\n - If there are 4 columns, "
+                    "the second column must be 'dataSetId'. Got 'data_set_id'."
+                ),
                 id="invalid header with data_set_id",
             ),
             pytest.param(
                 "id,externalId\n",
                 "Invalid mapping file header:\n"
                 " - Mapping file must have at least 3 columns: id/externalId, space, "
-                "externalId.\n"
-                " - Last two columns must be 'space' and 'externalId'.",
+                "externalId. Got 2 columns.\n"
+                " - Last two columns must be 'space' and 'externalId'. Got 'id' and 'externalId'.",
                 id="Too few columns",
             ),
             pytest.param(
                 "externalId,dataSetId,space,externalId,myExtra\n",
                 "Invalid mapping file header:\n"
                 " - Mapping file must have at most 4 columns: id/externalId, dataSetId, "
-                "space, externalId.\n"
-                " - Last two columns must be 'space' and 'externalId'.",
+                "space, externalId. Got 5 columns.\n"
+                " - Last two columns must be 'space' and 'externalId'. Got 'externalId' and 'myExtra'.",
                 id="Too many columns",
             ),
             pytest.param(
