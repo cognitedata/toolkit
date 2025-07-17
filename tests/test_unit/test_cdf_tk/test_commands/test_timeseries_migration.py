@@ -66,7 +66,7 @@ class TestMigrationMappingList:
     @pytest.mark.parametrize(
         "content, expected",
         [
-            (
+            pytest.param(
                 "id,dataSetId,space,externalId\n123,123,sp_full_ts,full_ts_id\n3231,,sp_step_ts,step_ts_id\n",
                 MigrationMappingList(
                     [
@@ -84,8 +84,9 @@ class TestMigrationMappingList:
                         ),
                     ]
                 ),
+                id="Internal IDs with dataSetId",
             ),
-            (
+            pytest.param(
                 "id,space,externalId\n230,my_space,target_external_id\n",
                 MigrationMappingList(
                     [
@@ -97,8 +98,9 @@ class TestMigrationMappingList:
                         )
                     ]
                 ),
+                id="Internal IDs without dataSetId",
             ),
-            (
+            pytest.param(
                 "externalId,dataSetId,space,externalId\n"
                 "full_ts,123,sp_full_ts,full_ts_id\n"
                 "minimum_ts,,sp_step_ts,step_ts_id\n",
@@ -118,8 +120,9 @@ class TestMigrationMappingList:
                         ),
                     ]
                 ),
+                id="External IDs with dataSetId",
             ),
-            (
+            pytest.param(
                 "externalId,space,externalId\nfull_ts,sp_full_ts,full_ts_id\nminimum_ts,sp_step_ts,step_ts_id\n",
                 MigrationMappingList(
                     [
@@ -137,6 +140,7 @@ class TestMigrationMappingList:
                         ),
                     ]
                 ),
+                id="External IDs without dataSetId",
             ),
         ],
     )
