@@ -142,6 +142,20 @@ class TestMigrationMappingList:
                 ),
                 id="External IDs without dataSetId",
             ),
+            pytest.param(
+                """\ufeffexternalId,dataSetId,space,externalId\nmy_external_id,123,sp_full_ts,full_ts_id\n""",
+                MigrationMappingList(
+                    [
+                        ExternalIdMigrationMapping(
+                            resource_type="timeseries",
+                            external_id="my_external_id",
+                            data_set_id=123,
+                            instance_id=NodeId("sp_full_ts", "full_ts_id"),
+                        )
+                    ]
+                ),
+                id="External IDs with BOM",
+            ),
         ],
     )
     def test_read_mapping_file(self, content: str, expected: MigrationMappingList, tmp_path: Path) -> None:
