@@ -96,7 +96,7 @@ class TestViewSourceAPI:
 
             deleted = toolkit_client.migration.view_source.delete(source.external_id)
 
-            assert deleted.as_id() == created.as_id(), "Expected the deleted view source to match the created one"
+            assert deleted == created.as_id(), "Expected the deleted view source to match the created one"
         finally:
             if created:
                 # Clean up by deleting the created view source if it exists
