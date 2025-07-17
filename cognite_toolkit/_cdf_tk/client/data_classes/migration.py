@@ -280,7 +280,7 @@ class ViewSource(_ViewSourceProperties, TypedNode):
     @classmethod
     def _load_properties(cls, resource: dict[str, Any]) -> dict[str, Any]:
         if "viewId" in resource:
-            view_id = resource.pop("ViewId")
+            view_id = resource.pop("viewId")
             try:
                 resource["viewId"] = ViewId.load(view_id)
             except (TypeError, KeyError) as e:
