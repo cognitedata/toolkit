@@ -347,7 +347,7 @@ class AgentFinder(ResourceFinder[tuple[str, ...]]):
             if agent.external_id
         ]
 
-        selected_agent_ids: tuple[str, ...] | None = questionary.checkbox(
+        selected_agent_ids: list[str] | None = questionary.checkbox(
             "Which agent(s) would you like to dump?",
             choices=choices,
         ).ask()
