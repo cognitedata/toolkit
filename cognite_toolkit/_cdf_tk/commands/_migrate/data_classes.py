@@ -138,7 +138,7 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
             errors.append(f"First column must be 'id' or 'externalId'. Got {header[0]!r}.")
         if len(header) == 4 and header[1] != "dataSetId":
             errors.append(f"If there are 4 columns, the second column must be 'dataSetId'. Got {header[1]!r}.")
-        if len(header) > 2 and header[-2:] != ["space", "externalId"]:
+        if len(header) >= 2 and header[-2:] != ["space", "externalId"]:
             errors.append(f"Last two columns must be 'space' and 'externalId'. Got {header[-2]!r} and {header[-1]!r}.")
         if errors:
             error_str = "\n - ".join(errors)
