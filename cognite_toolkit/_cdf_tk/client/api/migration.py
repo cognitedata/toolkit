@@ -104,6 +104,12 @@ class ViewSourceAPI:
             ).nodes
             return self._safe_convert(nodes)
 
+    @overload
+    def delete(self, external_id: str) -> NodeId: ...
+
+    @overload
+    def delete(self, external_id: SequenceNotStr[str]) -> list[NodeId]: ...
+
     def delete(self, external_id: str | SequenceNotStr[str]) -> NodeId | list[NodeId]:
         """Delete a view source or a list of view sources by their external IDs."""
         if isinstance(external_id, str):
@@ -142,3 +148,4 @@ class ViewSourceAPI:
 class MigrationAPI:
     def __init__(self, instance_api: ExtendedInstancesAPI) -> None:
         self.instance_source = InstanceSourceAPI(instance_api)
+        self.view_source = ViewSourceAPI(instance_api)
