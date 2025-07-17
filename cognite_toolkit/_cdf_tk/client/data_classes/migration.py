@@ -223,6 +223,14 @@ class ViewSourceApply(_ViewSourceProperties, TypedNodeApply):
         self.view_id = view_id
         self.mapping = mapping
 
+    def _dump_properties(self) -> dict[str, Any]:
+        """Dump the properties of the ViewSourceApply."""
+        return {
+            "resourceType": self.resource_type,
+            "viewId": self.view_id.dump(),
+            "mapping": self.mapping.dump(),
+        }
+
 
 class ViewSource(_ViewSourceProperties, TypedNode):
     """This represents the reading format of view source.
@@ -294,3 +302,11 @@ class ViewSource(_ViewSourceProperties, TypedNode):
                     f"Invalid mapping format. Expected 'toPropertyId' and optionally 'metadataToPropertyId'. Error: {e!s}"
                 )
         return super()._load_properties(resource)
+
+    def _dump_properties(self) -> dict[str, Any]:
+        """Dump the properties of the ViewSourceApply."""
+        return {
+            "resourceType": self.resource_type,
+            "viewId": self.view_id.dump(),
+            "mapping": self.mapping.dump(),
+        }
