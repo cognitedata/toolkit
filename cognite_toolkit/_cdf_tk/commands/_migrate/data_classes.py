@@ -126,15 +126,19 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
             raise ToolkitValueError("Mapping file is empty")
         errors: list[str] = []
         if len(header) < 3:
-            errors.append("Mapping file must have at least 3 columns: id/externalId, space, externalId.")
+            errors.append(
+                f"Mapping file must have at least 3 columns: id/externalId, space, externalId. Got {len(header)} columns."
+            )
         if len(header) >= 5:
-            errors.append("Mapping file must have at most 4 columns: id/externalId, dataSetId, space, externalId.")
+            errors.append(
+                "Mapping file must have at most 4 columns: id/externalId, dataSetId, space, externalId. Got {len(header)} columns."
+            )
         if header[0] not in {"id", "externalId"}:
-            errors.append("First column must be 'id' or 'externalId'.")
+            errors.append(f"First column must be 'id' or 'externalId'. Got {header[0]!r}.")
         if len(header) == 4 and header[1] != "dataSetId":
-            errors.append("If there are 4 columns, the second column must be 'dataSetId'.")
+            errors.append(f"If there are 4 columns, the second column must be 'dataSetId'. Got {header[1]!r}.")
         if header[-2:] != ["space", "externalId"]:
-            errors.append("Last two columns must be 'space' and 'externalId'.")
+            errors.append(f"Last two columns must be 'space' and 'externalId'. Got {header[-2]!r} and {header[-1]!r}.")
         if errors:
             error_str = "\n - ".join(errors)
             raise ToolkitValueError(f"Invalid mapping file header:\n - {error_str}")
