@@ -10,11 +10,10 @@ from .api.extended_data_modeling import ExtendedDataModelingAPI
 from .api.extended_files import ExtendedFileMetadataAPI
 from .api.extended_raw import ExtendedRawAPI
 from .api.extended_timeseries import ExtendedTimeSeriesAPI
-from .api.location_filters import LocationFiltersAPI
 from .api.lookup import LookUpGroup
 from .api.migration import MigrationAPI
 from .api.robotics import RoboticsAPI
-from .api.search_config import SearchConfigurationsAPI
+from .api.search import SearchAPI
 from .api.token import TokenAPI
 from .api.verify import VerifyAPI
 
@@ -78,8 +77,7 @@ class ToolkitClientConfig(ClientConfig):
 class ToolkitClient(CogniteClient):
     def __init__(self, config: ToolkitClientConfig | None = None, enable_set_pending_ids: bool = False) -> None:
         super().__init__(config=config)
-        self.location_filters = LocationFiltersAPI(self._config, self._API_VERSION, self)
-        self.search_configurations = SearchConfigurationsAPI(self._config, self._API_VERSION, self)
+        self.search = SearchAPI(self._config, self._API_VERSION, self)
         self.robotics = RoboticsAPI(self._config, self._API_VERSION, self)
         self.dml = DMLAPI(self._config, self._API_VERSION, self)
         self.verify = VerifyAPI(self._config, self._API_VERSION, self)

@@ -140,7 +140,7 @@ class TestLocationFilterFinder:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(LocationFilterFinder.__module__, monkeypatch, answers),
         ):
-            client.location_filters.list.return_value = three_location_filters
+            client.search.locations.list.return_value = three_location_filters
             finder = LocationFilterFinder(client, None)
             selected = finder._interactive_select()
 
@@ -150,7 +150,7 @@ class TestLocationFilterFinder:
 class TestDumpLocationFilter:
     def test_dump_location_filter(self, three_location_filters: LocationFilterList, tmp_path: Path) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.location_filters.list.return_value = three_location_filters
+            client.search.locations.list.return_value = three_location_filters
             cmd = DumpResourceCommand(silent=True)
             cmd.dump_to_yamls(
                 LocationFilterFinder(client, ("filterB", "filterC")),
