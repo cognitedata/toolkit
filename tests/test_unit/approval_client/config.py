@@ -636,7 +636,7 @@ API_RESOURCES = [
         },
     ),
     APIResource(
-        api_name="location_filters",
+        api_name="search.locations",
         resource_cls=LocationFilter,
         list_cls=LocationFilterList,
         _write_cls=LocationFilterWrite,
