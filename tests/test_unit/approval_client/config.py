@@ -780,7 +780,7 @@ API_RESOURCES = [
         },
     ),
     APIResource(
-        api_name="migration.view_sources",
+        api_name="migration.view_source",
         resource_cls=ViewSource,
         list_cls=NodeList[ViewSource],
         _write_cls=ViewSourceApply,
