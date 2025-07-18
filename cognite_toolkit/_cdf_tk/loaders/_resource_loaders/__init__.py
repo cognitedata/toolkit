@@ -24,6 +24,7 @@ from .hosted_extractors import (
 )
 from .industrial_tool_loaders import StreamlitLoader
 from .location_loaders import LocationFilterLoader
+from .migration import ViewSourceLoader
 from .raw_loaders import RawDatabaseLoader, RawTableLoader
 from .relationship_loader import RelationshipLoader
 from .robotics_loaders import (
@@ -84,6 +85,7 @@ __all__ = [
     "TransformationNotificationLoader",
     "TransformationScheduleLoader",
     "ViewLoader",
+    "ViewSourceLoader",
     "WorkflowLoader",
     "WorkflowTriggerLoader",
     "WorkflowVersionLoader",
