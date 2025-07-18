@@ -4,7 +4,7 @@ from typing import Any, final
 
 from cognite.client.data_classes import capabilities
 from cognite.client.data_classes.capabilities import Capability
-from cognite.client.data_classes.data_modeling import NodeApplyList, NodeList
+from cognite.client.data_classes.data_modeling import NodeApplyList, NodeList, ViewId
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk._parameters import ANYTHING, ParameterSpec, ParameterSpecSet
@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.migration import (
 )
 from cognite_toolkit._cdf_tk.constants import COGNITE_MIGRATION_SPACE
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.utils import in_dict
 
 from .datamodel_loaders import SpaceLoader, ViewLoader
 
@@ -94,7 +95,9 @@ class ViewSourceLoader(ResourceLoader[str, ViewSourceApply, ViewSource, NodeAppl
         yield ViewLoader, ViewSource.get_source()
 
         if "viewId" in item:
-            yield ViewLoader, ViewId.load(item["viewId"])
+            view_id = item["viewId"]
+            if in_dict(("space", "externalId"), view_id):
+                yield ViewLoader, ViewId.load(view_id)
 
     def dump_resource(self, resource: ViewSource, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump(context="local")
