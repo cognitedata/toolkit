@@ -52,7 +52,7 @@ class MigrateFilesCommand(BaseMigrateCommand):
         """Migrate resources from Asset-Centric to data modeling in CDF."""
         mappings = MigrationMappingList.read_mapping_file(mapping_file)
         self.validate_access(client, list(mappings.spaces()), list(mappings.get_data_set_ids()))
-        self._validate_files_existence(client, mappings)
+        self._validate_files(client, mappings)
         self.validate_available_capacity(client, len(mappings))
 
         if dry_run:
@@ -62,7 +62,7 @@ class MigrateFilesCommand(BaseMigrateCommand):
             return
         self._migrate(client, mappings, verbose)
 
-    def _validate_files_existence(self, client: ToolkitClient, mappings: MigrationMappingList) -> None:
+    def _validate_files(self, client: ToolkitClient, mappings: MigrationMappingList) -> None:
         total_validated = 0
         chunk: MigrationMappingList
         for chunk in track(  # type: ignore[assignment]
@@ -84,6 +84,13 @@ class MigrateFilesCommand(BaseMigrateCommand):
             missing_count = len(files) - len(mappings)
             if missing_count > 0:
                 raise ToolkitValueError(f"Missing {missing_count} Files does not exist in CDF.")
+
+            missing_file_content = [file for file in files if file.uploaded is not True]
+            if missing_file_content:
+                raise ToolkitValueError(
+                    f"The following files does not have file content yet: {humanize_collection(missing_file_content)}. "
+                    "You can only migrate files that have file content uploaded."
+                )
 
             existing_result = client.data_modeling.instances.retrieve(chunk.as_node_ids())
             if len(existing_result.nodes) != 0:
