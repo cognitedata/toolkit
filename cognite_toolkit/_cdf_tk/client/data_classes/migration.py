@@ -249,7 +249,8 @@ class ViewSourceApply(_ViewSourceProperties, TypedNodeApply):
                             "externalId": "ViewSource",
                             "version": "v1",
                             "type": "view"
-                        }
+                            },
+
                         "properties": {
                             "resourceType": "asset",
                             "viewId": {
