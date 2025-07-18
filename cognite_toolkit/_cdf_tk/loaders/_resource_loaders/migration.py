@@ -87,10 +87,14 @@ class ViewSourceLoader(ResourceLoader[str, ViewSourceApply, ViewSource, NodeAppl
             return []
 
     @classmethod
+    @classmethod
     def get_dependent_items(cls, item: dict) -> "Iterable[tuple[type[ResourceLoader], Hashable]]":
         yield SpaceLoader, COGNITE_MIGRATION_SPACE
 
         yield ViewLoader, ViewSource.get_source()
+
+        if "viewId" in item:
+            yield ViewLoader, ViewId.load(item["viewId"])
 
     def dump_resource(self, resource: ViewSource, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump(context="local")
