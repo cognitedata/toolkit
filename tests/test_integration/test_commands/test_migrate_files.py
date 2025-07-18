@@ -84,12 +84,12 @@ class TestMigrateFilesCommand:
         # Wait for syncer
         time.sleep(5)
 
-        migarated_files = client.files.retrieve_multiple(external_ids=three_files_with_content.as_external_ids())
+        migrated_files = client.files.retrieve_multiple(external_ids=three_files_with_content.as_external_ids())
 
-        missing_node_id = [ts.external_id for ts in migarated_files if ts.instance_id is None]
+        missing_node_id = [ts.external_id for ts in migrated_files if ts.instance_id is None]
         assert not missing_node_id, f"Some files are missing NodeId: {missing_node_id}"
 
-        node_ids = [ts.instance_id for ts in migarated_files]
+        node_ids = [ts.instance_id for ts in migrated_files]
         for node_id in node_ids:
             content = client.files.download_bytes(instance_id=node_id)
             assert content == b"test content", f"Content of file {node_id} does not match expected content."
