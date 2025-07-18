@@ -88,7 +88,6 @@ class ViewSourceLoader(ResourceLoader[str, ViewSourceApply, ViewSource, NodeAppl
             return []
 
     @classmethod
-    @classmethod
     def get_dependent_items(cls, item: dict) -> "Iterable[tuple[type[ResourceLoader], Hashable]]":
         yield SpaceLoader, COGNITE_MIGRATION_SPACE
 
