@@ -1,6 +1,10 @@
 import sys
+import tempfile
+import threading
+import time
 from collections.abc import Hashable, Iterator
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Literal, overload
 from urllib.parse import urlparse
 
@@ -17,9 +21,10 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
-from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN, MAX_ROW_ITERATION_RUN_QUERY
+from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN, MAX_ROW_ITERATION_RUN_QUERY, MAX_RUN_QUERY_FREQUENCY_MIN
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
+    ToolkitThrottledError,
     ToolkitTypeError,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
@@ -345,6 +350,12 @@ FROM
     return 0
 
 
+_WRITE_FILE_LOCK = threading.Lock()
+_LAST_CALL_RAW_ROW_COUNT = Path(tempfile.gettempdir()) / "tk-last-raw_count.bin"
+_IS_ROW_ROW_COUNT_ENABLED: bool | None = None
+_LAST_CALL_EPOC: float = 0
+
+
 def raw_row_count(client: ToolkitClient, raw_table_id: RawTable, max_count: int = MAX_ROW_ITERATION_RUN_QUERY) -> int:
     """Get the number of rows in a raw table.
 
@@ -356,6 +367,27 @@ def raw_row_count(client: ToolkitClient, raw_table_id: RawTable, max_count: int 
     Returns:
         The number of rows in the raw table.
     """
+    global _IS_ROW_ROW_COUNT_ENABLED, _LAST_CALL_EPOC
+    if _IS_ROW_ROW_COUNT_ENABLED is None:
+        with _WRITE_FILE_LOCK:
+            if _LAST_CALL_RAW_ROW_COUNT.exists():
+                try:
+                    _LAST_CALL_EPOC = float(_LAST_CALL_RAW_ROW_COUNT.read_text())
+                except ValueError:
+                    _IS_ROW_ROW_COUNT_ENABLED = True
+                else:
+                    to_wait = (MAX_RUN_QUERY_FREQUENCY_MIN * 60) - (time.time() - _LAST_CALL_EPOC)
+                    _IS_ROW_ROW_COUNT_ENABLED = to_wait <= 0
+            else:
+                _IS_ROW_ROW_COUNT_ENABLED = True
+
+    if not _IS_ROW_ROW_COUNT_ENABLED:
+        to_wait = (MAX_RUN_QUERY_FREQUENCY_MIN * 60) - (time.time() - _LAST_CALL_EPOC)
+        raise ToolkitThrottledError(
+            f"Row count is limited to once every {MAX_RUN_QUERY_FREQUENCY_MIN} minutes. Please wait {to_wait:.2f} seconds before calling again.",
+            to_wait,
+        )
+
     if not 0 <= max_count <= MAX_ROW_ITERATION_RUN_QUERY:
         raise ValueError(f"max_count must be between 0 and {MAX_ROW_ITERATION_RUN_QUERY} (inclusive).")
 
@@ -365,6 +397,9 @@ FROM (
     FROM `{raw_table_id.db_name}`.`{raw_table_id.table_name}`
     LIMIT {max_count}
 ) AS limited_keys"""
+
+    with _WRITE_FILE_LOCK:
+        _LAST_CALL_RAW_ROW_COUNT.write_text(str(time.time()), encoding="utf-8")
     results = client.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
     if results.results:
         return int(results.results[0]["row_count"])

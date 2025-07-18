@@ -219,3 +219,15 @@ class ToolkitMissingDependencyError(ToolkitError):
 
     def __init__(self, message: str) -> None:
         super().__init__(message)
+
+
+class ToolkitThrottledError(ToolkitError):
+    """Error raised when the CDF API is throttled."""
+
+    def __init__(self, message: str, wait_time_seconds: float) -> None:
+        super().__init__(message)
+        self.message = message
+        self.wait_time_seconds = wait_time_seconds
+
+    def __str__(self) -> str:
+        return f"ToolkitThrottledError: {self.message}"
