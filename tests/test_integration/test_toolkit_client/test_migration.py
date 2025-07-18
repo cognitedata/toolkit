@@ -1,8 +1,13 @@
 import pytest
-from cognite.client.data_classes.data_modeling import NodeApply, NodeApplyList, NodeList, NodeOrEdgeData, Space
+from cognite.client.data_classes.data_modeling import NodeApply, NodeApplyList, NodeList, NodeOrEdgeData, Space, ViewId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.migration import InstanceSource
+from cognite_toolkit._cdf_tk.client.data_classes.migration import (
+    AssetCentricToViewMapping,
+    InstanceSource,
+    ViewSource,
+    ViewSourceApply,
+)
 from cognite_toolkit._cdf_tk.tk_warnings import IgnoredValueWarning, catch_warnings
 
 
@@ -58,3 +63,41 @@ class TestInstanceSourceAPI:
         assert no_preferred_consumer_view == [three_sources[2].as_id()], (
             "Expected last item to have no preferred consumer view"
         )
+
+
+class TestViewSourceAPI:
+    def test_create_retrieve_list_delete(self, toolkit_client: ToolkitClient) -> None:
+        source = ViewSourceApply(
+            external_id="test_view_source",
+            resource_type="asset",
+            view_id=ViewId("cdf_cdm", "CogniteAsset", "v1"),
+            mapping=AssetCentricToViewMapping(
+                to_property_id={
+                    "name": "name",
+                    "description": "description",
+                }
+            ),
+        )
+
+        created: ViewSource | None = None
+        try:
+            created = toolkit_client.migration.view_source.upsert(source)
+
+            assert created.external_id == source.external_id
+
+            retrieved = toolkit_client.migration.view_source.retrieve(source.external_id)
+
+            assert retrieved.external_id == source.external_id
+
+            listed = toolkit_client.migration.view_source.list(resource_type="asset")
+            assert len(listed) > 0
+            existing = {vs.external_id for vs in listed}
+            assert source.external_id in existing, "Expected the created view source to be listed"
+
+            deleted = toolkit_client.migration.view_source.delete(source.external_id)
+
+            assert deleted == created.as_id(), "Expected the deleted view source to match the created one"
+        finally:
+            if created:
+                # Clean up by deleting the created view source if it exists
+                toolkit_client.data_modeling.instances.delete(source.as_id())
