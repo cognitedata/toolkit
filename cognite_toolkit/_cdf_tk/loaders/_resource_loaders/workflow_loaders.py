@@ -356,6 +356,19 @@ class WorkflowVersionLoader(
                     local_function = local_parameters["function"]
                     if local_function.get("data") == {} and "data" not in cdf_function:
                         cdf_parameters["function"] = local_function
+            elif local_task["type"] == "transformation" and cdf_task["type"] == "transformation":
+                cdf_parameters = cdf_task["parameters"]
+                local_parameters = local_task["parameters"]
+                if "transformation" in cdf_parameters and "transformation" in local_parameters:
+                    for default_key, default_transformation_value in [
+                        ("concurrencyPolicy", "fail"),
+                        ("useTransformationCredentials", False),
+                    ]:
+                        if (
+                            default_key not in local_parameters["transformation"]
+                            and cdf_parameters["transformation"].get(default_key) == default_transformation_value
+                        ):
+                            del cdf_parameters["transformation"][default_key]
         return dumped
 
     def diff_list(
