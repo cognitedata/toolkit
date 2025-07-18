@@ -11,8 +11,9 @@ from cognite_toolkit._cdf_tk.client.data_classes.migration import (
     ViewSourceApply,
 )
 from cognite_toolkit._cdf_tk.constants import COGNITE_MIGRATION_SPACE
-from cognite_toolkit._cdf_tk.loaders import SpaceLoader, ViewLoader
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+
+from .datamodel_loaders import SpaceLoader, ViewLoader
 
 
 @final
