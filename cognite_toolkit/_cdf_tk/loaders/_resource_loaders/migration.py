@@ -1,4 +1,5 @@
 from collections.abc import Hashable, Iterable, Sequence, Sized
+from functools import lru_cache
 from typing import Any, final
 
 from cognite.client.data_classes import capabilities
@@ -6,6 +7,7 @@ from cognite.client.data_classes.capabilities import Capability
 from cognite.client.data_classes.data_modeling import NodeApplyList, NodeList
 from cognite.client.utils.useful_types import SequenceNotStr
 
+from cognite_toolkit._cdf_tk._parameters import ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client.data_classes.migration import (
     ViewSource,
     ViewSourceApply,
@@ -98,3 +100,16 @@ class ViewSourceLoader(ResourceLoader[str, ViewSourceApply, ViewSource, NodeAppl
             # when we retrieve the node from the server.
             dumped.pop("existingVersion", None)
         return dumped
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Removed by the SDK
+        spec.add(ParameterSpec(("instanceType",), frozenset({"str"}), is_required=False, _is_nullable=False))
+        # Sources are used when writing to the API.
+        spec.add(ParameterSpec(("sources",), frozenset({"list"}), is_required=False, _is_nullable=False))
+        spec.add(ParameterSpec(("sources", ANYTHING), frozenset({"list"}), is_required=False, _is_nullable=False))
+        # Space is hardcoded and thus not part of the spec.
+        spec.add(ParameterSpec(("space",), frozenset({"str"}), is_required=False, _is_nullable=False))
+        return spec
