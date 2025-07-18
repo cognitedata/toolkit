@@ -96,7 +96,7 @@ class ViewSourceLoader(ResourceLoader[str, ViewSourceApply, ViewSource, NodeAppl
 
         if "viewId" in item:
             view_id = item["viewId"]
-            if in_dict(("space", "externalId"), view_id):
+            if isinstance(view_id, dict) and in_dict(("space", "externalId"), view_id):
                 yield ViewLoader, ViewId.load(view_id)
 
     def dump_resource(self, resource: ViewSource, local: dict[str, Any] | None = None) -> dict[str, Any]:
