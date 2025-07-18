@@ -58,7 +58,7 @@ class AgentLoader(ResourceLoader[str, AgentUpsert, Agent, AgentUpsertList, Agent
         return self.client.agents.upsert(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> AgentList:
-        return self.client.agents.retrieve(ids)
+        return self.client.agents.retrieve(ids, ignore_unknown_ids=True)
 
     def update(self, items: AgentUpsertList) -> AgentList:
         return self.client.agents.upsert(items)
