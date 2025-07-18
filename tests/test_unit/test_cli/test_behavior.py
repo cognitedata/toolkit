@@ -36,7 +36,7 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder, Work
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
 from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
-from cognite_toolkit._cdf_tk.loaders import RESOURCE_LOADER_LIST, WorkflowVersionLoader
+from cognite_toolkit._cdf_tk.loaders import RESOURCE_LOADER_LIST, LocationFilterLoader, WorkflowVersionLoader
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.constants import chdir
 from tests.data import (
@@ -740,6 +740,73 @@ def test_build_deploy_keep_special_characters(
     assert len(transformations) == 2
     transformation = next(t for t in transformations if t.external_id.endswith(encoding))
     assert transformation.query == expected_query
+
+
+def test_location_filter_deployment_order(
+    build_tmp_path: Path,
+    toolkit_client_approval: ApprovalToolkitClient,
+    env_vars_with_client: EnvironmentVariables,
+) -> None:
+    child = """externalId: child
+name: Child Location Filter
+parentExternalId: parent
+dataModels:
+  - externalId: CogniteProcessIndustries
+    space: cdf_idm
+    version: v1
+instanceSpaces:
+  - instance-space-secondary
+dataModelingType: DATA_MODELING_ONLY
+"""
+    parent = """externalId: parent
+name: Parent Location Filter
+dataModels:
+  - externalId: CogniteCore
+    space: cdf_cdm
+    version: v1
+instanceSpaces:
+  - instance-space-main
+dataModelingType: DATA_MODELING_ONLY
+"""
+    org = build_tmp_path.parent / "org"
+    resource_folder_child = org / MODULES / "my_first" / LocationFilterLoader.folder_name
+    resource_folder_parent = org / MODULES / "my_second" / LocationFilterLoader.folder_name
+    # Default behavior of Toolkit is to respect the order of the files, however, this tests ensures
+    # that Toolkit does a topological sort of the location filter before deploying them.
+    child_file = resource_folder_child / f"1.child.{LocationFilterLoader.kind}.yaml"
+    parent_file = resource_folder_parent / f"2.parent.{LocationFilterLoader.kind}.yaml"
+    child_file.parent.mkdir(parents=True, exist_ok=True)
+    child_file.write_text(child, encoding="utf-8")
+    parent_file.parent.mkdir(parents=True, exist_ok=True)
+    parent_file.write_text(parent, encoding="utf-8")
+
+    BuildCommand(silent=True, skip_tracking=True).execute(
+        verbose=False,
+        organization_dir=org,
+        build_dir=build_tmp_path,
+        selected=None,
+        build_env_name=None,
+        no_clean=False,
+        client=env_vars_with_client.get_client(),
+        on_error="raise",
+    )
+
+    DeployCommand(silent=True, skip_tracking=True).deploy_build_directory(
+        env_vars=env_vars_with_client,
+        build_dir=build_tmp_path,
+        build_env_name="dev",
+        drop=False,
+        dry_run=False,
+        include=[],
+        drop_data=False,
+        verbose=False,
+        force_update=False,
+    )
+
+    # Verify that the workflow was created in the correct order, parent before child.
+    filters = toolkit_client_approval.created_resources_of_type(LocationFilter)
+    assert len(filters) == 2
+    assert [loc_filter.external_id for loc_filter in filters] == ["parent", "child"]
 
 
 def test_build_project_with_only_identifiers(

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from abc import ABC
 from dataclasses import dataclass
 from typing import Any
@@ -76,7 +74,7 @@ class SearchConfigCore(WriteableCogniteResource["SearchConfigWrite"], ABC):
         self.filter_layout = filter_layout
         self.properties_layout = properties_layout
 
-    def as_write(self) -> SearchConfigWrite:
+    def as_write(self) -> "SearchConfigWrite":
         return SearchConfigWrite(
             view=self.view,
             id=self.id,
@@ -107,6 +105,19 @@ class SearchConfigCore(WriteableCogniteResource["SearchConfigWrite"], ABC):
 
 
 class SearchConfigWrite(SearchConfigCore):
+    """
+    SearchConfig write/requst format.
+
+    Args:
+        view: The configuration for one specific view.
+        id: A server-generated ID for the object.
+        use_as_name: The name of property to use for the name column in the UI.
+        use_as_description: The name of property to use for the description column in the UI.
+        column_layout: Array of column configurations per property.
+        filter_layout: Array of filter configurations per property.
+        properties_layout: Array of property configurations per property.
+    """
+
     @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
         return cls(

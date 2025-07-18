@@ -9,7 +9,7 @@ from cognite.client.utils._concurrency import execute_tasks
 from cognite.client.utils._identifier import IdentifierSequence
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk.client.data_classes.extended_filemetdata import (
+from cognite_toolkit._cdf_tk.client.data_classes.extended_filemetadata import (
     ExtendedFileMetadata,
     ExtendedFileMetadataList,
 )
@@ -37,15 +37,15 @@ class ExtendedFileMetadataAPI(FilesAPI):
         id: int | None = None,
         external_id: str | None = None,
     ) -> ExtendedFileMetadata | ExtendedFileMetadataList:
-        """Set a pending identifier for one or more filemetadata..
+        """Set a pending identifier for one or more filemetadata.
 
         Args:
             instance_id: The pending instance ID to set.
-            id: The ID of the time series.
-            external_id: The external ID of the time series.
+            id: The ID of the files.
+            external_id: The external ID of the files.
 
         Returns:
-            ExtendedFileMetadata: If a single instance ID is provided, returns the updated ExtendedTimeSeries object.
+            ExtendedFileMetadata: If a single instance ID is provided, returns the updated ExtendedFileMetadata object.
         """
         if isinstance(instance_id, NodeId) or (
             isinstance(instance_id, tuple)

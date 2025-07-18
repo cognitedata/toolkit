@@ -1,11 +1,9 @@
-from __future__ import annotations
-
 import sys
 from abc import abstractmethod
 from collections.abc import ItemsView, Iterator, KeysView, Mapping, ValuesView
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
 from cognite.client import CogniteClient
 from cognite.client.data_classes._base import (
@@ -26,13 +24,13 @@ class RawDatabase(WriteableCogniteResource):
     db_name: str
 
     @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> RawDatabase:
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
         return cls(db_name=resource["dbName"])
 
     def dump(self, camel_case: bool = True) -> dict[str, Any]:
         return {"dbName" if camel_case else "db_name": self.db_name}
 
-    def as_write(self) -> RawDatabase:
+    def as_write(self) -> Self:
         return self
 
 
@@ -42,7 +40,7 @@ class RawTable(WriteableCogniteResource):
     table_name: str
 
     @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> RawTable:
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
         return cls(db_name=resource["dbName"], table_name=resource["tableName"])
 
     def dump(self, camel_case: bool = True) -> dict[str, Any]:
@@ -51,7 +49,7 @@ class RawTable(WriteableCogniteResource):
             "tableName" if camel_case else "table_name": self.table_name,
         }
 
-    def as_write(self) -> RawTable:
+    def as_write(self) -> Self:
         return self
 
     def __str__(self) -> str:
@@ -61,14 +59,14 @@ class RawTable(WriteableCogniteResource):
 class RawDatabaseList(WriteableCogniteResourceList[RawDatabase, RawDatabase]):
     _RESOURCE = RawDatabase
 
-    def as_write(self) -> RawDatabaseList:
+    def as_write(self) -> Self:
         return self
 
 
 class RawTableList(WriteableCogniteResourceList[RawTable, RawTable]):
     _RESOURCE = RawTable
 
-    def as_write(self) -> RawTableList:
+    def as_write(self) -> Self:
         return self
 
 
@@ -79,15 +77,15 @@ class RawProfileColumn(CogniteObject):
     null_count: int
 
     @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> RawProfileColumn:
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
         for column_type, column_class in _RAW_PROFILE_COLUMN_BY_TYPE.items():
             if column_type in resource:
-                return column_class._load_column(resource)
-        return UnknownTypeProfileColumn._load_column(resource)
+                return cast(Self, column_class._load_column(resource))
+        return cast(Self, UnknownTypeProfileColumn._load_column(resource))
 
     @classmethod
     @abstractmethod
-    def _load_column(cls, resource: dict[str, object]) -> RawProfileColumn:
+    def _load_column(cls, resource: dict[str, object]) -> Self:
         """Load a specific type of RawProfileColumn based on the resource data."""
         raise NotImplementedError("Subclasses must implement this method.")
 
@@ -107,7 +105,7 @@ class StringProfile(CogniteObject):
     count: int
 
     @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> StringProfile:
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
         return cls(
             length_range=tuple(resource["lengthRange"]),
             distinct_count=resource["distinctCount"],
@@ -147,7 +145,7 @@ class NumberProfile(CogniteObject):
     median: float
 
     @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> NumberProfile:
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
         return cls(
             value_range=tuple(resource["valueRange"]),
             distinct_count=resource["distinctCount"],
@@ -182,7 +180,7 @@ class BooleanProfile(CogniteObject):
     true_count: int
 
     @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> BooleanProfile:
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
         return cls(
             count=resource["count"],
             true_count=resource["trueCount"],
@@ -196,7 +194,7 @@ class VectorProfile(CogniteObject):
     length_range: tuple[int, int]
 
     @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> VectorProfile:
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
         return cls(
             count=resource["count"],
             length_histogram=tuple((length, count) for length, count in zip(*resource["lengthHistogram"])),
@@ -222,7 +220,7 @@ class ObjectProfile(CogniteObject):
     key_count_range: tuple[int, int]
 
     @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> ObjectProfile:
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
         return cls(
             count=resource["count"],
             key_count_histogram=tuple((key_count, count) for key_count, count in zip(*resource["keyCountHistogram"])),
@@ -247,7 +245,7 @@ class StringProfileColumn(RawProfileColumn):
     string: StringProfile
 
     @classmethod
-    def _load_column(cls, resource: dict[str, Any]) -> RawProfileColumn:
+    def _load_column(cls, resource: dict[str, Any]) -> Self:
         return cls(
             count=resource["count"],
             null_count=resource["nullCount"],
@@ -266,7 +264,7 @@ class NumberProfileColumn(RawProfileColumn):
     number: NumberProfile
 
     @classmethod
-    def _load_column(cls, resource: dict[str, Any]) -> RawProfileColumn:
+    def _load_column(cls, resource: dict[str, Any]) -> Self:
         return cls(
             count=resource["count"],
             null_count=resource["nullCount"],
@@ -285,7 +283,7 @@ class BooleanProfileColumn(RawProfileColumn):
     boolean: BooleanProfile
 
     @classmethod
-    def _load_column(cls, resource: dict[str, Any]) -> RawProfileColumn:
+    def _load_column(cls, resource: dict[str, Any]) -> Self:
         return cls(
             count=resource["count"],
             null_count=resource["nullCount"],
@@ -304,7 +302,7 @@ class VectorProfileColumn(RawProfileColumn):
     vector: VectorProfile
 
     @classmethod
-    def _load_column(cls, resource: dict[str, Any]) -> RawProfileColumn:
+    def _load_column(cls, resource: dict[str, Any]) -> Self:
         return cls(
             count=resource["count"],
             null_count=resource["nullCount"],
@@ -323,7 +321,7 @@ class ObjectProfileColumn(RawProfileColumn):
     object: ObjectProfile
 
     @classmethod
-    def _load_column(cls, resource: dict[str, Any]) -> RawProfileColumn:
+    def _load_column(cls, resource: dict[str, Any]) -> Self:
         return cls(
             count=resource["count"],
             null_count=resource["nullCount"],
@@ -341,7 +339,7 @@ class UnknownTypeProfileColumn(RawProfileColumn):
     data: dict[str, object]
 
     @classmethod
-    def _load_column(cls, resource: dict[str, Any]) -> RawProfileColumn:
+    def _load_column(cls, resource: dict[str, Any]) -> Self:
         return cls(
             count=resource["count"],
             null_count=resource["nullCount"],
@@ -408,7 +406,7 @@ class RawProfileResults(CogniteResource):
         return len(self.columns)
 
     @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> RawProfileResults:
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
         return cls(
             row_count=resource["rowCount"],
             columns=RawProfileColumns._load(resource["columns"]),
