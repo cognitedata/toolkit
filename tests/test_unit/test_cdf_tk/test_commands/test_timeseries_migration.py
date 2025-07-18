@@ -66,7 +66,7 @@ class TestMigrationMappingList:
     @pytest.mark.parametrize(
         "content, expected",
         [
-            (
+            pytest.param(
                 "id,dataSetId,space,externalId\n123,123,sp_full_ts,full_ts_id\n3231,,sp_step_ts,step_ts_id\n",
                 MigrationMappingList(
                     [
@@ -84,8 +84,9 @@ class TestMigrationMappingList:
                         ),
                     ]
                 ),
+                id="Internal IDs with dataSetId",
             ),
-            (
+            pytest.param(
                 "id,space,externalId\n230,my_space,target_external_id\n",
                 MigrationMappingList(
                     [
@@ -97,8 +98,9 @@ class TestMigrationMappingList:
                         )
                     ]
                 ),
+                id="Internal IDs without dataSetId",
             ),
-            (
+            pytest.param(
                 "externalId,dataSetId,space,externalId\n"
                 "full_ts,123,sp_full_ts,full_ts_id\n"
                 "minimum_ts,,sp_step_ts,step_ts_id\n",
@@ -118,8 +120,9 @@ class TestMigrationMappingList:
                         ),
                     ]
                 ),
+                id="External IDs with dataSetId",
             ),
-            (
+            pytest.param(
                 "externalId,space,externalId\nfull_ts,sp_full_ts,full_ts_id\nminimum_ts,sp_step_ts,step_ts_id\n",
                 MigrationMappingList(
                     [
@@ -137,6 +140,21 @@ class TestMigrationMappingList:
                         ),
                     ]
                 ),
+                id="External IDs without dataSetId",
+            ),
+            pytest.param(
+                """\ufeffexternalId,dataSetId,space,externalId\nmy_external_id,123,sp_full_ts,full_ts_id\n""",
+                MigrationMappingList(
+                    [
+                        ExternalIdMigrationMapping(
+                            resource_type="timeseries",
+                            external_id="my_external_id",
+                            data_set_id=123,
+                            instance_id=NodeId("sp_full_ts", "full_ts_id"),
+                        )
+                    ]
+                ),
+                id="External IDs with BOM",
             ),
         ],
     )
@@ -154,31 +172,34 @@ class TestMigrationMappingList:
                 "space,externalId,id,dataSetId\n",
                 (
                     "Invalid mapping file header:\n"
-                    " - First column must be 'id' or 'externalId'.\n"
-                    " - If there are 4 columns, the second column must be 'dataSetId'.\n"
-                    " - Last two columns must be 'space' and 'externalId'."
+                    " - First column must be 'id' or 'externalId'. Got 'space'.\n"
+                    " - If there are 4 columns, the second column must be 'dataSetId'. Got 'externalId'.\n"
+                    " - Last two columns must be 'space' and 'externalId'. Got 'id' and 'dataSetId'."
                 ),
                 id="invalid header",
             ),
             pytest.param(
                 "id,data_set_id,space,externalId\n",
-                ("Invalid mapping file header:\n - If there are 4 columns, the second column must be 'dataSetId'."),
+                (
+                    "Invalid mapping file header:\n - If there are 4 columns, "
+                    "the second column must be 'dataSetId'. Got 'data_set_id'."
+                ),
                 id="invalid header with data_set_id",
             ),
             pytest.param(
                 "id,externalId\n",
                 "Invalid mapping file header:\n"
                 " - Mapping file must have at least 3 columns: id/externalId, space, "
-                "externalId.\n"
-                " - Last two columns must be 'space' and 'externalId'.",
+                "externalId. Got 2 columns.\n"
+                " - Last two columns must be 'space' and 'externalId'. Got 'id' and 'externalId'.",
                 id="Too few columns",
             ),
             pytest.param(
                 "externalId,dataSetId,space,externalId,myExtra\n",
                 "Invalid mapping file header:\n"
                 " - Mapping file must have at most 4 columns: id/externalId, dataSetId, "
-                "space, externalId.\n"
-                " - Last two columns must be 'space' and 'externalId'.",
+                "space, externalId. Got 5 columns.\n"
+                " - Last two columns must be 'space' and 'externalId'. Got 'externalId' and 'myExtra'.",
                 id="Too many columns",
             ),
             pytest.param(
@@ -192,6 +213,15 @@ class TestMigrationMappingList:
                 "Invalid ID or dataSetId in row 1: ['123', 'invalid_dataset_id', "
                 "'sp_full_ts', 'full_ts_id']. ID and dataSetId must be integers.",
                 id="Invalid external_id value",
+            ),
+            pytest.param(
+                "\n",
+                (
+                    "Invalid mapping file header:\n"
+                    " - Mapping file must have at least 3 columns: id/externalId, space, "
+                    "externalId. Got 0 columns."
+                ),
+                id="Empty header row",
             ),
         ],
     )

@@ -197,11 +197,11 @@ class LocationFilterLoader(
             # These are set if lookup has been deferred
             if item._parent_external_id and item.parent_id == -1:
                 item.parent_id = self.client.lookup.location_filters.id(item._parent_external_id)
-            created.append(self.client.location_filters.create(item))
+            created.append(self.client.search.locations.create(item))
         return LocationFilterList(created)
 
     def retrieve(self, external_ids: SequenceNotStr[str]) -> LocationFilterList:
-        all_locations = self.client.location_filters.list()
+        all_locations = self.client.search.locations.list()
         found_locations: LocationFilterList = LocationFilterList([])
 
         # locationfilter list returns a tree structure, so we need to traverse it
@@ -222,13 +222,13 @@ class LocationFilterLoader(
         updated = []
         ids = {item.external_id: item.id for item in self.retrieve([item.external_id for item in items])}
         for update in items:
-            updated.append(self.client.location_filters.update(ids[update.external_id], update))
+            updated.append(self.client.search.locations.update(ids[update.external_id], update))
         return LocationFilterList(updated)
 
     def delete(self, external_ids: SequenceNotStr[str]) -> int:
         count = 0
         for id in [loc.id for loc in self.retrieve(external_ids)]:
-            self.client.location_filters.delete(id)
+            self.client.search.locations.delete(id)
             count += 1
         return count
 
@@ -238,7 +238,7 @@ class LocationFilterLoader(
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[LocationFilter]:
-        return iter(self.client.location_filters)
+        return iter(self.client.search.locations)
 
     @classmethod
     @lru_cache(maxsize=1)
