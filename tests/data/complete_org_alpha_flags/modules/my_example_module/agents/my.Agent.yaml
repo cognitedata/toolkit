@@ -1,0 +1,8 @@
+externalId: toolkit_demo_agent
+name: The Toolkit Demo Agent
+description: This agent is designed to demonstrate that Toolkit can deploy agents
+model: azure/gpt-4o
+tools:
+- name: Operations on datapoints tool
+  description: This tool allows you to perform operations on query time series datapoints.
+  type: queryTimeSeriesDatapoints
