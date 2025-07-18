@@ -287,16 +287,13 @@ class ViewSourceApply(_ViewSourceProperties, TypedNodeApply):
         """
         output = super().dump(camel_case)
         source = output["sources"][0]
-        source["properties"].pop("node_source", None)
-        source["properties"].pop("extra_properties", None)
-        if context == "api":
-            source["viewId"] = self.view_id.dump(camel_case=camel_case)
-            source["mapping"] = self.mapping.dump(camel_case=camel_case)
-        else:
+        properties = source["properties"]
+        properties["viewId"] = self.view_id.dump(camel_case=camel_case)
+        properties["mapping"] = self.mapping.dump(camel_case=camel_case)
+
+        if context == "local":
             output.pop("sources", None)
-            output.update(source["properties"])
-            output["viewId"] = self.view_id.dump(include_type=False)
-            output["mapping"] = self.mapping.dump(camel_case=camel_case)
+            output.update(properties)
         return output
 
     @classmethod
