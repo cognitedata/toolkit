@@ -115,6 +115,28 @@ Node:
       type: view
       version: '1'
   space: APM_Config
+- externalId: testing_default_asset_mapping
+  instanceType: node
+  sources:
+  - properties:
+      mapping:
+        metadataToPropertyId:
+          altName: alias
+        toPropertyId:
+          description: description
+          name: name
+      resourceType: asset
+      viewId:
+        externalId: CogniteAsset
+        space: cdf_cdm
+        type: view
+        version: v1
+    source:
+      externalId: ViewSource
+      space: cognite_migration
+      type: view
+      version: v1
+  space: cognite_migration
 Space:
 - space: sp_instance
 - space: sp_schema
