@@ -714,6 +714,11 @@ workflowDefinition:
     parameters:
       function:
         externalId: fn_first_function
+  - externalId: myTask2
+    type: transformation
+    parameters:
+      transformation:
+        externalId: some_transformation
 """
         loader = WorkflowVersionLoader.create_loader(toolkit_client)
 
