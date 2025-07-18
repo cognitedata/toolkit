@@ -289,11 +289,12 @@ class ViewSourceApply(_ViewSourceProperties, TypedNodeApply):
         output = super().dump(camel_case)
         source = output["sources"][0]
         properties = source["properties"]
-        properties["viewId"] = self.view_id.dump(camel_case=camel_case)
+        properties["viewId"] = self.view_id.dump(camel_case=camel_case, include_type=context == "api")
         properties["mapping"] = self.mapping.dump(camel_case=camel_case)
 
         if context == "local":
-            output.pop("sources", None)
+            for key in ("space", "sources", "instanceType"):
+                output.pop(key, None)
             output.update(properties)
         return output
 
