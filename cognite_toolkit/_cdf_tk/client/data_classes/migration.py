@@ -223,13 +223,92 @@ class ViewSourceApply(_ViewSourceProperties, TypedNodeApply):
         self.view_id = view_id
         self.mapping = mapping
 
-    def _dump_properties(self) -> dict[str, Any]:
-        """Dump the properties of the ViewSourceApply."""
-        return {
-            "resourceType": self.resource_type,
-            "viewId": self.view_id.dump(),
-            "mapping": self.mapping.dump(),
-        }
+    def dump(self, camel_case: bool = True, context: Literal["api", "local"] = "api") -> dict[str, Any]:
+        """Dumps the object to a dictionary.
+
+        Args:
+            camel_case: Whether to use camel case or not.
+            context: If 'api', the output is for the API and will match the Node API schema. If 'local', the output is
+                for a YAML file and all properties are  on the same level as the node properties. See below
+
+        Example:
+            >>> node = ViewSourceApply(
+            ...    external_id="myMapping",
+            ...    resource_type="asset",
+            ...    view_id=ViewId("cdf_cdm", "CogniteAsset", "v1"),
+            ...    mapping=AssetCentricToViewMapping(to_property_id={"name": "name"}),
+            ... )
+            >>> node.dump(camel_case=True, context="api")
+            {
+                "space": "cognite_migration",
+                "externalId": "myMapping",
+                "sources": [
+                    {
+                        "source": {
+                            "space": "cognite_migration",
+                            "externalId": "ViewSource",
+                            "version": "v1",
+                            "type": "view"
+                        }
+                        "properties": {
+                            "resourceType": "asset",
+                            "viewId": {
+                                "space": "cdf_cdm",
+                                "externalId": "CogniteAsset",
+                                "version": "v1"
+                            },
+                            "mapping": {
+                                "toPropertyId": {
+                                    "name": "name"
+                                }
+                            }
+                        }
+                    }
+                ]
+            }
+            >>> node.dump(camel_case=True, context="local")
+            {
+                "externalId": "myMapping",
+                "resourceType": "asset",
+                "viewId": {
+                    "space": "cdf_cdm",
+                    "externalId": "CogniteAsset",
+                    "version": "v1"
+                },
+                "mapping": {
+                    "toPropertyId": {
+                        "name": "name"
+                    }
+                },
+            }
+
+        Returns:
+            dict[str, Any]: The dumped dictionary representation of the object.
+        """
+        output = super().dump(camel_case)
+        source = output["sources"][0]
+        source["properties"].pop("node_source", None)
+        source["properties"].pop("extra_properties", None)
+        if context == "api":
+            source["viewId"] = self.view_id.dump(camel_case=camel_case)
+            source["mapping"] = self.mapping.dump(camel_case=camel_case)
+        else:
+            output.pop("sources", None)
+            output.update(source["properties"])
+            output["viewId"] = self.view_id.dump(include_type=False)
+            output["mapping"] = self.mapping.dump(camel_case=camel_case)
+        return output
+
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        base_props = cls._load_base_properties(resource)
+        properties = cls._load_properties(resource)
+        if "viewId" in resource:
+            properties["view_id"] = ViewId.load(resource["viewId"])
+        if "mapping" in resource:
+            properties["mapping"] = AssetCentricToViewMapping._load(resource["mapping"], cognite_client=cognite_client)
+
+        return cls(**base_props, **properties)
 
 
 class ViewSource(_ViewSourceProperties, TypedNode):
