@@ -8,7 +8,7 @@ _TIME_SERIES_ID = "cdf_time_series_mapping"
 _FILE_METADATA_ID = "cdf_file_metadata_mapping"
 
 
-def default_mappings() -> list[ViewSourceApply]:
+def create_default_mappings() -> list[ViewSourceApply]:
     """Return the default mappings for migration."""
     return [
         ViewSourceApply(
