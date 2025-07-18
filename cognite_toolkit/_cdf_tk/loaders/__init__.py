@@ -119,6 +119,7 @@ ResourceTypes: TypeAlias = Literal[  # type: ignore[no-redef, misc]
     "data_sets",
     "hosted_extractors",
     "locations",
+    "migration",
     "transformations",
     "files",
     "timeseries",
