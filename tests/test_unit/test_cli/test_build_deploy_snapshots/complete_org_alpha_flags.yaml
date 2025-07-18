@@ -1,3 +1,16 @@
+Agent:
+- description: This agent is designed to demonstrate that Toolkit can deploy agents
+  externalId: toolkit_demo_agent
+  model: azure/gpt-4o
+  name: The Toolkit Demo Agent
+  tools:
+  - description: 'This tool allows the agent to ask questions about a document.
+
+      It is used to retrieve information from the provided document.
+
+      '
+    name: Document Ask Tool
+    type: documentAsk
 Asset:
 - dataSetId: 9434864499692429728
   description: This is the root asset on Drammen
