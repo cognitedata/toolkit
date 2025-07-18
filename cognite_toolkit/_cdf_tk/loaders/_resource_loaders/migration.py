@@ -89,3 +89,12 @@ class ViewSourceLoader(ResourceLoader[str, ViewSourceApply, ViewSource, NodeAppl
         yield SpaceLoader, COGNITE_MIGRATION_SPACE
 
         yield ViewLoader, ViewSource.get_source()
+
+    def dump_resource(self, resource: ViewSource, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_write().dump(context="local")
+        local = local or {}
+        if "existingVersion" not in local:
+            # Existing version is typically not set when creating nodes, but we get it back
+            # when we retrieve the node from the server.
+            dumped.pop("existingVersion", None)
+        return dumped
