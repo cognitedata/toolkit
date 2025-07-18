@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 from cognite.client.data_classes.data_modeling import ViewId
 
 from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricToViewMapping, ViewSourceApply
@@ -8,6 +10,7 @@ _TIME_SERIES_ID = "cdf_time_series_mapping"
 _FILE_METADATA_ID = "cdf_file_metadata_mapping"
 
 
+@lru_cache(maxsize=1)
 def create_default_mappings() -> list[ViewSourceApply]:
     """Return the default mappings for migration."""
     return [
