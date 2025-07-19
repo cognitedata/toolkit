@@ -364,7 +364,7 @@ class DataModelingSelect:
             return None
         if not isinstance(selected_spaces, list):
             raise ToolkitValueError(f"Selected space is not a valid list: {selected_spaces!r}")
-        return [space.space for space in selected_spaces]
+        return selected_spaces
 
     def _get_instance_count_by_space(
         self, all_spaces: SpaceList, view_id: ViewId, instance_type: Literal["node", "edge"]
