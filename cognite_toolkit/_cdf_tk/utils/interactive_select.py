@@ -11,11 +11,10 @@ from cognite.client.data_classes import (
     AssetList,
     DataSet,
     DataSetList,
-    View,
     filters,
 )
 from cognite.client.data_classes.aggregations import Count
-from cognite.client.data_classes.data_modeling import NodeList, Space, SpaceList, ViewId
+from cognite.client.data_classes.data_modeling import NodeList, Space, SpaceList, View, ViewId
 from cognite.client.exceptions import CogniteException
 from questionary import Choice
 from rich.console import Console
@@ -279,8 +278,8 @@ class DataModelingSelect:
         message = message or f"Select the space to {self.operation}:"
         spaces = self._get_available_spaces(include_global)
         selected_space = questionary.select(
-            message=message,
-            choices=[Choice(title=space.space, value=space) for space in sorted(spaces, key=lambda s: s.space)],
+            message,
+            [Choice(title=space.space, value=space) for space in sorted(spaces, key=lambda s: s.space)],
         ).ask()
         if selected_space is None:
             raise ToolkitValueError("No space selected")
@@ -328,10 +327,10 @@ class DataModelingSelect:
             multiselect=True,
         ).ask()
         if selected_spaces is None or len(selected_spaces) == 0:
-            raise ToolkitValueError("No space selected")
+            return None
         if not isinstance(selected_spaces, list):
             raise ToolkitValueError(f"Selected space is not a valid list: {selected_spaces!r}")
-        return selected_spaces
+        return [space.space for space in selected_spaces]
 
     def _get_instance_count_by_space(
         self, all_spaces: SpaceList, view_id: ViewId, instance_type: Literal["node", "edge"]
