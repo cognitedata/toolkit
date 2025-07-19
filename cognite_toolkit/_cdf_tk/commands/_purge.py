@@ -7,14 +7,17 @@ from typing import Literal, cast
 import questionary
 from cognite.client.data_classes import AggregateResultItem, DataSetUpdate, filters
 from cognite.client.data_classes.aggregations import Count
-from cognite.client.data_classes.data_modeling import NodeId, View
-from cognite.client.exceptions import CogniteAPIError
+from cognite.client.data_classes.data_modeling import NodeId, Space, View, ViewId
+from cognite.client.exceptions import CogniteAPIError, CogniteException
+from cognite.client.utils._identifier import InstanceId
+from questionary import Choice
 from rich import print
 from rich.console import Console
 from rich.panel import Panel
 from rich.status import Status
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.constants import COGNITE_FILE_CONTAINER, COGNITE_TIME_SERIES_CONTAINER
 from cognite_toolkit._cdf_tk.data_classes import DeployResults, ResourceDeployResult
 from cognite_toolkit._cdf_tk.exceptions import (
     CDFAPIError,
@@ -592,20 +595,29 @@ class PurgeCommand(ToolkitCommand):
         client: ToolkitClient,
         view: list[str] | None = None,
         instance_space: list[str] | None = None,
-        max_workers: int = 1,
+        instance_type: str = "node",
         dry_run: bool = False,
         auto_yes: bool = False,
+        unlink: bool = True,
         verbose: bool = False,
     ) -> None:
         is_interactive = view is None
         selected_view = self._get_selected_view(view, client)
         if is_interactive:
-            instance_space = self._interactive_instance_space_selection(client, selected_view)
-            max_workers = self._interactive_max_workers(client, view, instance_space)
+            selected_instance_type = self._interactive_instance_type_selection(selected_view.used_for)
+            instance_space = self._interactive_instance_space_selection(
+                client, selected_view.as_id(), selected_instance_type
+            )
             dry_run = questionary.confirm("Dry run?", default=True).ask()
+            if self._is_timeseries(selected_view):
+                unlink = questionary.confirm(
+                    "Do you want to unlink timeseries from the datapoints before deleting the instances?", default=True
+                ).ask()
         else:
+            selected_instance_type = self._validate_instance_type(instance_type, selected_view.used_for)
             self.validate_access(client, selected_view)
 
+        return
         instance_type_str = "nodes and edges" if selected_view.used_for == "all" else selected_view.used_for
 
         if not dry_run:
@@ -619,10 +631,10 @@ class PurgeCommand(ToolkitCommand):
                     return
 
         process: Callable[[]] = self._as_ids
-        if self._is_timeseries(selected_view):
+        if self._is_timeseries(selected_view) and unlink:
             process = self._unlink_timeseries
 
-        if self._is_files(selected_view):
+        if self._is_files(selected_view) and unlink:
             raise NotImplementedError("Purging files is not supported yet.")
 
         instances_types: list[Literal["node", "edge"]] = (
@@ -643,7 +655,7 @@ class PurgeCommand(ToolkitCommand):
             )
             total = total_result.value
             if total is None or total == 0:
-                print(f"No {instance_type} instances found with properties in the {selected_view.as_id()!r} view.")
+                print(f"No {instance_type_str} instances found with properties in the {selected_view.as_id()!r} view.")
                 continue
 
             iteration_count = int(total // 1000 + (1 if total % 1000 > 0 else 0))
@@ -651,7 +663,7 @@ class PurgeCommand(ToolkitCommand):
             executor = ProducerWorkerExecutor(
                 download_iterable=partial(self._iterate_instances),
                 process=process,
-                write=partial(client.data_modeling.instances.delete_fast, max_workers=max_workers),
+                write=client.data_modeling.instances.delete_fast,
                 iteration_count=iteration_count,
                 max_queue_size=10,
                 download_description=f"Retrieving {instance_type}",
@@ -664,7 +676,7 @@ class PurgeCommand(ToolkitCommand):
             if executor.error_occurred:
                 raise ResourceDeleteError(executor.error_message)
 
-            print(
+            console.print(
                 f"Successfully purged {executor.total_items:,} {instance_type} with properties in the {selected_view.as_id()!r} view."
             )
 
@@ -673,36 +685,142 @@ class PurgeCommand(ToolkitCommand):
         raise NotImplementedError()
 
     @staticmethod
+    def _validate_instance_type(
+        instance_type: str, view_used_for: Literal["node", "edge", "all"]
+    ) -> Literal["node", "edge"]:
+        if instance_type not in ["node", "edge"]:
+            raise ToolkitValueError(f"Invalid instance type: {instance_type!r}. Must be 'node' or 'edge'.")
+        if view_used_for == "all":
+            return instance_type
+        if view_used_for != instance_type:
+            raise ToolkitValueError(
+                f"View {view_used_for!r} does not support instance type {instance_type!r}. "
+                f"You must purge {view_used_for!r} instances or select another view."
+            )
+        return instance_type
+
+    @staticmethod
     def _is_timeseries(view: View) -> bool:
-        raise NotImplementedError()
+        return COGNITE_TIME_SERIES_CONTAINER in view.referenced_containers()
 
     @staticmethod
     def _is_files(view: View) -> bool:
-        raise NotImplementedError()
+        return COGNITE_FILE_CONTAINER in view.referenced_containers()
 
     @staticmethod
-    def _as_ids():
+    def _as_ids(instances) -> list[InstanceId]:
         raise NotImplementedError()
 
     @staticmethod
     def _iterate_instances(
         client: ToolkitClient,
         view: View,
-        instance_space: list[str] | None = None,
-        instance_type: Literal["node", "edge"] = "node",
-    ) -> iter[NodeId]: ...
+        instance_space: list[str] | None,
+        instance_type: Literal["node", "edge"],
+    ) -> iter[InstanceId]: ...
 
     @staticmethod
     def _unlink_timeseries():
         raise NotImplementedError("Unlinking timeseries is not implemented yet.")
 
     def _get_selected_view(self, view: list[str] | None, client: ToolkitClient) -> View:
-        raise NotImplementedError()
+        if view is None:
+            return self._interactive_view_selection(client)
+        elif isinstance(view, list) and len(view) == 3:
+            try:
+                retrieve_views = client.data_modeling.views.retrieve(tuple(view), include_inherited_properties=True)
+            except CogniteAPIError as e:
+                raise CDFAPIError(f"Failed to retrieve view {view!r}. Status {e.code} Error: {e.message}") from e
+            except CogniteException as e:
+                raise CDFAPIError(f"Failed to retrieve view {view!r}. Error: {e}") from e
+            if len(retrieve_views) == 0:
+                raise ToolkitMissingResourceError(f"View {view!r} does not exist")
+            return retrieve_views[0]
+        else:
+            raise ToolkitValueError(f"Invalid view format: {view}. Expected format is 'space externalId version'.")
 
-    def _interactive_instance_space_selection(self, client: ToolkitClient, selected_view: View) -> list[str] | None:
-        raise NotImplementedError()
+    @staticmethod
+    def _interactive_instance_type_selection(
+        view_used_for: Literal["node", "edge", "all"],
+    ) -> Literal["node", "edge"]:
+        if view_used_for in ["node", "edge"]:
+            return view_used_for  # type: ignore[return-value]
+        selected_instance_type = questionary.select(
+            "What type of instances do you want to purge?",
+            choices=[
+                Choice(title="Nodes", value="node"),
+                Choice(title="Edges", value="edge"),
+            ],
+        ).ask()
+        if selected_instance_type is None:
+            raise ToolkitValueError("No instance type selected")
+        if selected_instance_type not in ["node", "edge"]:
+            raise ToolkitValueError(f"Selected instance type is not valid: {selected_instance_type!r}")
+        return selected_instance_type
 
-    def _interactive_max_workers(
-        self, client: ToolkitClient, view: list[str] | None, instance_space: list[str] | None
-    ) -> int:
-        raise NotImplementedError()
+    @staticmethod
+    def _interactive_view_selection(client: ToolkitClient) -> View:
+        spaces = client.data_modeling.spaces.list(include_global=True, limit=-1)
+        selected_space = questionary.select(
+            "In which Spaces is the view you will use to select instances to purge?",
+            [Choice(title=space.space, value=space) for space in sorted(spaces, key=lambda s: s.space)],
+        ).ask()
+        if selected_space is None:
+            raise ToolkitValueError("No space selected")
+        if not isinstance(selected_space, Space):
+            raise ToolkitValueError(f"Selected space is not a valid Space object: {selected_space!r}")
+        views = client.data_modeling.views.list(
+            space=selected_space.space,
+            include_inherited_properties=True,
+            limit=-1,
+            include_global=selected_space.is_global,
+        )
+        if not views:
+            raise ToolkitMissingResourceError(f"No views found in space {selected_space.space!r}.")
+
+        selected_view = questionary.select(
+            "Which view do you want to use to select instances to purge?",
+            [Choice(title=f"{view.external_id} (version={view.version})", value=view) for view in views],
+        ).ask()
+        if selected_view is None:
+            raise ToolkitValueError("No view selected")
+        if not isinstance(selected_view, View):
+            raise ToolkitValueError(f"Selected view is not a valid View object: {selected_view!r}")
+        return selected_view
+
+    @staticmethod
+    def _interactive_instance_space_selection(
+        client: ToolkitClient, selected_view: ViewId, instance_type: Literal["node", "edge"]
+    ) -> list[str] | None:
+        all_spaces = client.data_modeling.spaces.list(limit=-1)
+        count_by_space: dict[str, float] = {}
+        for space in all_spaces:
+            count = client.data_modeling.instances.aggregate(
+                selected_view, Count("externalId"), instance_type=instance_type, space=space.space
+            ).value
+            if count is None or count == 0:
+                continue
+            count_by_space[space.space] = count
+
+        if not count_by_space:
+            raise ToolkitMissingResourceError(
+                f"No instances found in any space for the view {selected_view!r} with instance type {instance_type!r}."
+            )
+        if len(count_by_space) == 1:
+            selected_spaces = next(iter(count_by_space.keys()))
+            print(f"Only one space with instances found: {selected_spaces!r}. Using this space.")
+            return [selected_spaces]
+
+        selected_spaces = questionary.select(
+            "In which Space(s) do you want to purge instances?",
+            choices=[
+                Choice(title=f"{space} ({count:,} instances)", value=space)
+                for space, count in sorted(count_by_space.items(), key=lambda item: item[1], reverse=True)
+            ],
+            multiselect=True,
+        ).ask()
+        if selected_spaces is None or len(selected_spaces) == 0:
+            raise ToolkitValueError("No space selected")
+        if not isinstance(selected_spaces, list):
+            raise ToolkitValueError(f"Selected space is not a valid list: {selected_spaces!r}")
+        return selected_spaces
