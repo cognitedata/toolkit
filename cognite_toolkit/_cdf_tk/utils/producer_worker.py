@@ -111,7 +111,13 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
 
     def _download_worker(self, progress: Progress, download_task: TaskID) -> None:
         """Worker thread for downloading data."""
-        iterator = iter(self._download_iterable)
+        try:
+            iterator = iter(self._download_iterable)
+        except Exception as e:
+            self.error_occurred = True
+            self.error_message = str(e)
+            self.console.print(f"[red]Error[/red] occurred while {self.download_description}: {self.error_message}")
+            return
         while not self.error_occurred:
             try:
                 items = next(iterator)
