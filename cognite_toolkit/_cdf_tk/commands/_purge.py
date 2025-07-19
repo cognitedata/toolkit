@@ -1,5 +1,5 @@
 import uuid
-from collections.abc import Callable, Hashable
+from collections.abc import Callable, Hashable, Iterable
 from functools import partial
 from graphlib import CycleError, TopologicalSorter
 from typing import Literal, cast
@@ -47,6 +47,7 @@ from cognite_toolkit._cdf_tk.loaders import (
 )
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 
 from ._base import ToolkitCommand
@@ -615,73 +616,73 @@ class PurgeCommand(ToolkitCommand):
                 ).ask()
         else:
             selected_instance_type = self._validate_instance_type(instance_type, selected_view.used_for)
-            self.validate_access(client, selected_view)
-
-        return
-        instance_type_str = "nodes and edges" if selected_view.used_for == "all" else selected_view.used_for
+            self.validate_access(client, selected_view, instance_space)
 
         if not dry_run:
             self._print_panel("view", str(selected_view.as_id()))
             if not auto_yes:
                 confirm = questionary.confirm(
-                    f"Are you really sure you want to purge all {instance_type_str} with properties in the {selected_view.as_id()!r} view?",
+                    f"Are you really sure you want to purge all {selected_instance_type}s with properties in the {selected_view.as_id()!r} view?",
                     default=False,
                 ).ask()
                 if not confirm:
                     return
 
-        process: Callable[[]] = self._as_ids
+        process: Callable[[list[InstanceId]], list[InstanceId]] = self._no_op
         if self._is_timeseries(selected_view) and unlink:
-            process = self._unlink_timeseries
+            # If we are unlinking timeseries, we need to process the instances
+            process = partial(self._unlink_timeseries, client=client, dry_run=dry_run)  # type: ignore[assignment]
 
         if self._is_files(selected_view) and unlink:
             raise NotImplementedError("Purging files is not supported yet.")
 
-        instances_types: list[Literal["node", "edge"]] = (
-            ["node", "edge"] if selected_view.used_for == "all" else [selected_view.used_for]
+        is_selected_instances: filters.Filter | None = None
+        if instance_space:
+            is_selected_instances = filters.SpaceFilter(space=instance_space, instance_type=selected_instance_type)
+        total_result = client.data_modeling.instances.aggregate(
+            view=selected_view.as_id(),
+            aggregates=Count("externalId"),
+            instance_type=selected_instance_type,
+            filter=is_selected_instances,
+            limit=-1,
         )
-        for instance_type in instances_types:
-            is_selected_instances: filters.Filter = filters.HasData(views=[selected_view.as_id()])
-            if instance_space:
-                is_selected_instances = filters.And(
-                    is_selected_instances, filters.SpaceFilter(space=instance_space, instance_type=instance_type)
-                )
-            total_result = client.data_modeling.instances.aggregate(
-                view=selected_view.as_id(),
-                aggregates=Count("externalId"),
-                instance_type=instance_type,
-                filter=is_selected_instances,
-                limit=-1,
+        total = total_result.value
+        if total is None or total == 0:
+            print(
+                f"No {selected_instance_type}s instances found with properties in the {selected_view.as_id()!r} view."
             )
-            total = total_result.value
-            if total is None or total == 0:
-                print(f"No {instance_type_str} instances found with properties in the {selected_view.as_id()!r} view.")
-                continue
+            return
 
-            iteration_count = int(total // 1000 + (1 if total % 1000 > 0 else 0))
-            console = Console()
-            executor = ProducerWorkerExecutor(
-                download_iterable=partial(self._iterate_instances),
-                process=process,
-                write=client.data_modeling.instances.delete_fast,
-                iteration_count=iteration_count,
-                max_queue_size=10,
-                download_description=f"Retrieving {instance_type}",
-                process_description="Preparing instance IDs for deletion",
-                write_description=f"Deleting {instance_type}",
-                console=console,
-            )
+        iteration_count = int(total // 1000 + (1 if total % 1000 > 0 else 0))
+        console = Console()
 
-            executor.run()
-            if executor.error_occurred:
-                raise ResourceDeleteError(executor.error_message)
+        executor = ProducerWorkerExecutor[list[InstanceId], list[InstanceId]](
+            download_iterable=self._iterate_instances(
+                client=client,
+                view=selected_view,
+                instance_space=instance_space,
+                instance_type=selected_instance_type,
+            ),
+            process=process,
+            write=client.data_modeling.instances.delete_fast,  # type: ignore[arg-type]
+            iteration_count=iteration_count,
+            max_queue_size=10,
+            download_description=f"Retrieving {instance_type}",
+            process_description="Preparing instance IDs for deletion",
+            write_description=f"Deleting {instance_type}",
+            console=console,
+        )
 
-            console.print(
-                f"Successfully purged {executor.total_items:,} {instance_type} with properties in the {selected_view.as_id()!r} view."
-            )
+        executor.run()
+        if executor.error_occurred:
+            raise ResourceDeleteError(executor.error_message)
+
+        console.print(
+            f"Successfully purged {executor.total_items:,} {instance_type} with properties in the {selected_view.as_id()!r} view."
+        )
 
     @staticmethod
-    def validate_access(client: ToolkitClient, view: View) -> None:
+    def validate_access(client: ToolkitClient, view: View, instance_space: list[str] | None) -> None:
         raise NotImplementedError()
 
     @staticmethod
@@ -691,13 +692,13 @@ class PurgeCommand(ToolkitCommand):
         if instance_type not in ["node", "edge"]:
             raise ToolkitValueError(f"Invalid instance type: {instance_type!r}. Must be 'node' or 'edge'.")
         if view_used_for == "all":
-            return instance_type
+            return instance_type  # type: ignore[return-value]
         if view_used_for != instance_type:
             raise ToolkitValueError(
                 f"View {view_used_for!r} does not support instance type {instance_type!r}. "
                 f"You must purge {view_used_for!r} instances or select another view."
             )
-        return instance_type
+        return instance_type  # type: ignore[return-value]
 
     @staticmethod
     def _is_timeseries(view: View) -> bool:
@@ -708,27 +709,50 @@ class PurgeCommand(ToolkitCommand):
         return COGNITE_FILE_CONTAINER in view.referenced_containers()
 
     @staticmethod
-    def _as_ids(instances) -> list[InstanceId]:
-        raise NotImplementedError()
-
-    @staticmethod
     def _iterate_instances(
         client: ToolkitClient,
         view: View,
         instance_space: list[str] | None,
         instance_type: Literal["node", "edge"],
-    ) -> iter[InstanceId]: ...
+    ) -> Iterable[list[InstanceId]]:
+        chunk: list[InstanceId] = []
+        for instance in iterate_instances(  # type: ignore[call-overload]
+            client=client,
+            view=view,
+            instance_space=instance_space,
+            instance_type=instance_type,
+        ):
+            chunk.append(instance.as_id())
+            if len(chunk) >= 1000:
+                yield chunk
+                chunk = []
+        if chunk:
+            yield chunk
 
     @staticmethod
-    def _unlink_timeseries():
-        raise NotImplementedError("Unlinking timeseries is not implemented yet.")
+    def _no_op(instances: list[InstanceId]) -> list[InstanceId]:
+        """No operation function that returns the input instances unchanged."""
+        return instances
+
+    @staticmethod
+    def _unlink_timeseries(instances: list[InstanceId], client: ToolkitClient, dry_run: bool) -> list[InstanceId]:
+        node_ids = [instance for instance in instances if isinstance(instance, NodeId)]
+        timeseries = client.time_series.retrieve_multiple(instance_ids=node_ids, ignore_unknown_ids=True)
+        if dry_run:
+            unlinked = timeseries
+        else:
+            unlinked = client.time_series.unlink_instance_ids(id=timeseries.as_ids())
+        return [ts.instance_id for ts in unlinked if ts.instance_id is not None]
 
     def _get_selected_view(self, view: list[str] | None, client: ToolkitClient) -> View:
         if view is None:
             return self._interactive_view_selection(client)
         elif isinstance(view, list) and len(view) == 3:
             try:
-                retrieve_views = client.data_modeling.views.retrieve(tuple(view), include_inherited_properties=True)
+                retrieve_views = client.data_modeling.views.retrieve(
+                    ViewId.load(tuple(view)),  # type: ignore[arg-type]
+                    include_inherited_properties=True,
+                )
             except CogniteAPIError as e:
                 raise CDFAPIError(f"Failed to retrieve view {view!r}. Status {e.code} Error: {e.message}") from e
             except CogniteException as e:
