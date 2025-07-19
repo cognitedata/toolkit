@@ -4,6 +4,7 @@ import typer
 from rich import print
 
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 
@@ -13,6 +14,8 @@ class PurgeApp(typer.Typer):
         self.callback(invoke_without_command=True)(self.main)
         self.command("dataset")(self.purge_dataset)
         self.command("space")(self.purge_space)
+        if Flags.PURGE_INSTANCES.is_enabled():
+            self.command("instances")(self.purge_instances)
 
     def main(self, ctx: typer.Context) -> None:
         """Commands purge functionality"""
@@ -129,5 +132,74 @@ class PurgeApp(typer.Typer):
                 dry_run,
                 auto_yes,
                 verbose,
+            )
+        )
+
+    @staticmethod
+    def purge_instances(
+        view: Annotated[
+            list[str] | None,
+            typer.Argument(
+                help="Purge instances with properties in the specified view. Expected format is "
+                "'space externalId version'. For example 'cdf_cdm CogniteTimeSeries v1' will purge all nodes"
+                "that have properties in the CogniteTimeSeries view. If not provided, interactive mode will be used.",
+            ),
+        ] = None,
+        instance_space: Annotated[
+            list[str] | None,
+            typer.Option(
+                "--instance-space",
+                "-s",
+                help="Only purge instances that are in the specified instance space(s).",
+            ),
+        ] = None,
+        instance_type: Annotated[
+            str,
+            typer.Option(
+                "--instance-type",
+                "-t",
+                help="Type of instances to purge. Can be 'node' or 'edge'. Default is 'node'.",
+                case_sensitive=False,
+                show_default=True,
+            ),
+        ] = "node",
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-r",
+                help="Whether to do a dry-run, do dry-run if present.",
+            ),
+        ] = False,
+        auto_yes: Annotated[
+            bool,
+            typer.Option(
+                "--yes",
+                "-y",
+                help="Automatically confirm that you are sure you want to purge the instances.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will delete the contents of the specified instances."""
+
+        cmd = PurgeCommand()
+        client = EnvironmentVariables.create_from_environment().get_client(enable_set_pending_ids=True)
+        cmd.run(
+            lambda: cmd.instances(
+                client,
+                view,
+                instance_space,
+                instance_type,
+                dry_run=dry_run,
+                auto_yes=auto_yes,
+                verbose=verbose,
             )
         )

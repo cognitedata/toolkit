@@ -1,6 +1,6 @@
 import time
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Literal, NoReturn
 from unittest.mock import MagicMock
 
 import pytest
@@ -63,23 +63,34 @@ def test_download_worker_handles_full_queue(monkeypatch: Any) -> None:
 
 
 class FailingIterator:
-    def __init__(self):
-        self.first_call = True
+    def __init__(self, raise_in: Literal["iter", "next"] = "next") -> None:
+        self.raise_in = raise_in
 
-    def __iter__(self):
+    def __iter__(self) -> "FailingIterator":
+        if self.raise_in == "iter":
+            raise TypeError("Error on iter call")
         return self
 
-    def __next__(self):
+    def __next__(self) -> NoReturn:
         raise Exception("Error on first call")
 
 
 def test_error_handling_in_download_worker() -> None:
-    executor = ProducerWorkerExecutor(FailingIterator(), MagicMock(), MagicMock(), 1, 10)
+    executor = ProducerWorkerExecutor(FailingIterator(raise_in="next"), MagicMock(), MagicMock(), 1, 10)
     executor.run()
 
     # Verify error occurred
     assert executor.error_occurred
     assert "Error on first call" in executor.error_message
+
+
+def test_error_handling_in_download_worker_on_iter_call() -> None:
+    executor = ProducerWorkerExecutor(FailingIterator(raise_in="iter"), MagicMock(), MagicMock(), 1, 10)
+    executor.run()
+
+    # Verify error occurred
+    assert executor.error_occurred
+    assert "Error on iter call" in executor.error_message
 
 
 def test_error_handling_in_process_worker(
