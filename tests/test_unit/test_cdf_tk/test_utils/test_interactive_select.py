@@ -359,6 +359,23 @@ class TestDataModelingInteractiveSelect:
 
         assert instance_type == "node"
 
+    def test_select_single_space(self, monkeypatch) -> None:
+        spaces = [
+            Space(space="space1", **self.default_space_args),
+            Space(space="space2", **self.default_space_args),
+        ]
+        answers = [spaces[1]]
+
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(DataModelingSelect.__module__, monkeypatch, answers),
+        ):
+            client.data_modeling.spaces.list.return_value = SpaceList(spaces)
+            selector = DataModelingSelect(client, "test_operation")
+            selected_space = selector.select_space(include_global=True)
+
+        assert selected_space.space == "space2"
+
     def test_select_instance_spaces_one_space_with_instances(self, monkeypatch) -> None:
         def mock_aggregate(view_id, count, instance_type, space):
             if space == "space1":
