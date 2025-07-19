@@ -7,7 +7,7 @@ from typing import Literal, cast
 import questionary
 from cognite.client.data_classes import AggregateResultItem, DataSetUpdate, filters
 from cognite.client.data_classes.aggregations import Count
-from cognite.client.data_classes.capabilities import DataModelInstancesAcl, DataModelsAcl
+from cognite.client.data_classes.capabilities import DataModelInstancesAcl, DataModelsAcl, TimeSeriesAcl
 from cognite.client.data_classes.data_modeling import NodeId, View, ViewId
 from cognite.client.exceptions import CogniteAPIError, CogniteException
 from cognite.client.utils._identifier import InstanceId
@@ -47,7 +47,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     TransformationLoader,
     ViewLoader,
 )
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
 from cognite_toolkit._cdf_tk.utils.interactive_select import DataModelingSelect
@@ -606,13 +606,14 @@ class PurgeCommand(ToolkitCommand):
         verbose: bool = False,
     ) -> None:
         is_interactive = view is None
-        if client.token.get_scope([DataModelsAcl.Action.Read]) is None:
-            raise AuthorizationError("You have no permission to read data models. This is required to purge instances.")
-
+        self.validate_model_access(client, view)
+        self.validate_instance_access(client)
         selector = DataModelingSelect(client, operation="purge")
         selected_view = (
             selector.select_view(include_global=True) if view is None else self._get_selected_view(view, client)
         )
+        self.validate_timeseries_access(client, selected_view, unlink)
+
         if is_interactive:
             selected_instance_type = selector.select_instance_type(selected_view.used_for)
             instance_space = selector.select_instance_spaces(selected_view.as_id(), selected_instance_type)
@@ -623,7 +624,6 @@ class PurgeCommand(ToolkitCommand):
                 ).ask()
         else:
             selected_instance_type = self._validate_instance_type(instance_type, selected_view.used_for)
-            self.validate_access(client, selected_view, instance_space)
 
         if not dry_run:
             self._print_panel("view", str(selected_view.as_id()))
@@ -685,27 +685,68 @@ class PurgeCommand(ToolkitCommand):
             f"{prefix} {executor.total_items:,} {instance_type} with properties in the {selected_view.as_id()!r} view."
         )
 
-    @staticmethod
-    def validate_access(client: ToolkitClient, view: View, instance_space: list[str] | None) -> None:
-        required_capabilities = [
-            DataModelsAcl(
-                actions=[DataModelsAcl.Action.Read],
-                scope=DataModelsAcl.Scope.SpaceID([view.space]),
-            ),
-            DataModelInstancesAcl(
-                actions=[
-                    DataModelInstancesAcl.Action.Read,
-                    DataModelInstancesAcl.Action.Write,
-                    DataModelInstancesAcl.Action.Write_Properties,
-                ],
-                scope=DataModelInstancesAcl.Scope.SpaceID(instance_space)
-                if instance_space
-                else DataModelInstancesAcl.Scope.All(),
-            ),
-        ]
+    def validate_model_access(self, client: ToolkitClient, view: list[str] | None) -> None:
+        model_scopes = client.token.get_scope([DataModelsAcl.Action.Read])
+        if model_scopes is None:
+            raise AuthorizationError("You have no permission to read data models. This is required to purge instances.")
+        model_scope = model_scopes[0]
+        if isinstance(model_scope, DataModelsAcl.Scope.SpaceID):
+            if isinstance(view, list) and len(view) == 3 and isinstance(view[0], str):
+                space = view[0]
+                if space not in model_scope.space_ids:
+                    raise AuthorizationError(
+                        f"You have no permission to read {space} space. This is required to purge instances."
+                    )
+            else:
+                self.warn(
+                    LowSeverityWarning(
+                        f"You can only select views in the {len(model_scope.space_ids)} spaces you have access to: {humanize_collection(model_scope.space_ids)}."
+                    )
+                )
 
-        if missing := client.iam.verify_capabilities(required_capabilities):
-            raise AuthorizationError(f"Missing required capabilities: {humanize_collection(missing)}.", missing)
+    def validate_instance_access(self, client: ToolkitClient) -> None:
+        instance_scopes = client.token.get_scope(
+            [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write]
+        )
+        if instance_scopes is None:
+            raise AuthorizationError(
+                "You have no permission to read or write data model instances. This is required to purge instances."
+            )
+        instance_scope = instance_scopes[0]
+        if isinstance(instance_scope, DataModelInstancesAcl.Scope.SpaceID):
+            self.warn(
+                LowSeverityWarning(
+                    f"You can only purge instances in the {len(instance_scope.space_ids)} spaces you have access to: {humanize_collection(instance_scope.space_ids)}."
+                )
+            )
+
+    def validate_timeseries_access(self, client: ToolkitClient, view: View, unlink: bool) -> None:
+        if unlink is False or not self._is_timeseries(view):
+            return
+        timeseries_scopes = client.token.get_scope([TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write])
+        if timeseries_scopes is None:
+            raise AuthorizationError(
+                "You have no permission to read or write time series. This is required to unlink instances."
+            )
+        if isinstance(timeseries_scopes[0], TimeSeriesAcl.Scope.All):
+            return
+        access: list[str] = []
+        if dataset_ids := next(
+            (scope.ids for scope in timeseries_scopes if isinstance(scope, TimeSeriesAcl.Scope.DataSet)), None
+        ):
+            access.append(f"datasets ({humanize_collection(dataset_ids)})")
+        if ids := next((scope.ids for scope in timeseries_scopes if isinstance(scope, TimeSeriesAcl.Scope.ID)), None):
+            access.append(f"timeseries ({humanize_collection(client.lookup.time_series.external_id(ids))})")
+        if root_ids := next(
+            (scope.root_ids for scope in timeseries_scopes if isinstance(scope, TimeSeriesAcl.Scope.AssetRootID)), None
+        ):
+            access.append(f"roots ({humanize_collection(client.lookup.assets.external_id(root_ids))}")
+
+        self.warn(
+            LowSeverityWarning(
+                f"You can only unlink time series in the following scopes: {humanize_collection(access, bind_word='and')}."
+            )
+        )
 
     @staticmethod
     def _validate_instance_type(
