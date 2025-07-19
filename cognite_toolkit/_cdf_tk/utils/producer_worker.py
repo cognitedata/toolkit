@@ -97,7 +97,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
             process_task = progress.add_task(self.process_description.title(), total=self.iteration_count)
             process_thread = threading.Thread(target=self._process_worker, args=(progress, process_task))
 
-            write_task = progress.add_task(self.download_description.title(), total=self.iteration_count)
+            write_task = progress.add_task(self.write_description.title(), total=self.iteration_count)
             write_thread = threading.Thread(target=self._write_worker, args=(progress, write_task))
 
             download_thread.start()
