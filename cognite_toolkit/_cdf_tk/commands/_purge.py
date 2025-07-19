@@ -659,9 +659,10 @@ class PurgeCommand(ToolkitCommand):
         executor = ProducerWorkerExecutor[list[InstanceId], list[InstanceId]](
             download_iterable=self._iterate_instances(
                 client=client,
-                view=selected_view,
+                view_id=selected_view.as_id(),
                 instance_space=instance_space,
                 instance_type=selected_instance_type,
+                console=console,
             ),
             process=process,
             write=client.data_modeling.instances.delete_fast,  # type: ignore[arg-type]
@@ -711,16 +712,18 @@ class PurgeCommand(ToolkitCommand):
     @staticmethod
     def _iterate_instances(
         client: ToolkitClient,
-        view: View,
+        view_id: ViewId,
         instance_space: list[str] | None,
         instance_type: Literal["node", "edge"],
+        console: Console,
     ) -> Iterable[list[InstanceId]]:
         chunk: list[InstanceId] = []
-        for instance in iterate_instances(  # type: ignore[call-overload]
+        for instance in iterate_instances(
             client=client,
-            view=view,
-            instance_space=instance_space,
             instance_type=instance_type,
+            source=view_id,
+            space=instance_space,
+            console=console,
         ):
             chunk.append(instance.as_id())
             if len(chunk) >= 1000:
