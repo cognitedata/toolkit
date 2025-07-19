@@ -58,9 +58,9 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         write: Callable[[T_Processed], None],
         iteration_count: int,
         max_queue_size: int,
-        download_description: str = "downloading",
-        process_description: str = "processing",
-        write_description: str = "writing to file",
+        download_description: str = "Producing",
+        process_description: str = "Processing",
+        write_description: str = "Writing",
         console: Console | None = None,
     ) -> None:
         self._download_iterable = download_iterable
