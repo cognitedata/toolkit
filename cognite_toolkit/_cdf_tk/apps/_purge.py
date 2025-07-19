@@ -4,6 +4,7 @@ import typer
 from rich import print
 
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 
@@ -13,7 +14,8 @@ class PurgeApp(typer.Typer):
         self.callback(invoke_without_command=True)(self.main)
         self.command("dataset")(self.purge_dataset)
         self.command("space")(self.purge_space)
-        self.command("instances")(self.purge_instances)
+        if Flags.PURGE_INSTANCES.is_enabled():
+            self.command("instances")(self.purge_instances)
 
     def main(self, ctx: typer.Context) -> None:
         """Commands purge functionality"""
