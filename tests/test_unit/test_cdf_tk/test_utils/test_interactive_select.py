@@ -292,14 +292,14 @@ class TestInteractiveCanvasSelect:
 
 
 class TestDataModelingInteractiveSelect:
-    default_space_args: Mapping = {
-        "description": "Test Space",
-        "name": "Test Space",
-        "created_time": 1,
-        "last_updated_time": 1,
-        "is_global": False,
-    }
-    default_view_args: Mapping = dict(
+    DEFAULT_SPACE_ARGS: Mapping = dict(
+        description="Test Space",
+        name="Test Space",
+        created_time=1,
+        last_updated_time=1,
+        is_global=False,
+    )
+    DEFAULT_VIEW_ARGS: Mapping = dict(
         properties={},
         last_updated_time=1,
         created_time=1,
@@ -314,12 +314,12 @@ class TestDataModelingInteractiveSelect:
 
     def test_select_view(self, monkeypatch) -> None:
         spaces = [
-            Space(space="space1", **self.default_space_args),
-            Space(space="space2", **self.default_space_args),
+            Space(space="space1", **self.DEFAULT_SPACE_ARGS),
+            Space(space="space2", **self.DEFAULT_SPACE_ARGS),
         ]
         views = [
-            View(space="space1", external_id="view1", version="1", **self.default_view_args),
-            View(space="space1", external_id="view2", version="1", **self.default_view_args),
+            View(space="space1", external_id="view1", version="1", **self.DEFAULT_VIEW_ARGS),
+            View(space="space1", external_id="view2", version="1", **self.DEFAULT_VIEW_ARGS),
         ]
 
         answers = [spaces[0], views[1]]
@@ -335,7 +335,7 @@ class TestDataModelingInteractiveSelect:
         assert selected_view.external_id == "view2"
 
     def test_select_view_no_views_found(self, monkeypatch) -> None:
-        space = Space(space="space1", **self.default_space_args)
+        space = Space(space="space1", **self.DEFAULT_SPACE_ARGS)
         answers = [space]  # Direct string answer
         with (
             monkeypatch_toolkit_client() as client,
@@ -361,8 +361,8 @@ class TestDataModelingInteractiveSelect:
 
     def test_select_single_space(self, monkeypatch) -> None:
         spaces = [
-            Space(space="space1", **self.default_space_args),
-            Space(space="space2", **self.default_space_args),
+            Space(space="space1", **self.DEFAULT_SPACE_ARGS),
+            Space(space="space2", **self.DEFAULT_SPACE_ARGS),
         ]
         answers = [spaces[1]]
 
@@ -385,8 +385,8 @@ class TestDataModelingInteractiveSelect:
         with monkeypatch_toolkit_client() as client:
             client.data_modeling.spaces.list.return_value = SpaceList(
                 [
-                    Space(space="space1", **self.default_space_args),
-                    Space(space="space2", **self.default_space_args),
+                    Space(space="space1", **self.DEFAULT_SPACE_ARGS),
+                    Space(space="space2", **self.DEFAULT_SPACE_ARGS),
                 ]
             )
             client.data_modeling.instances.aggregate.side_effect = mock_aggregate
@@ -399,11 +399,16 @@ class TestDataModelingInteractiveSelect:
 
     def test_select_instance_spaces_multiple_spaces(self, monkeypatch) -> None:
         spaces = [
-            Space(space="space1", **self.default_space_args),
-            Space(space="space2", **self.default_space_args),
-            Space(space="space3", **self.default_space_args),
+            Space(space="space1", **self.DEFAULT_SPACE_ARGS),
+            Space(space="space2", **self.DEFAULT_SPACE_ARGS),
+            Space(space="space3", **self.DEFAULT_SPACE_ARGS),
         ]
-        answers = [[spaces[0], spaces[2]]]
+
+        def select_space(choices: list[Choice]) -> list[str]:
+            assert len(choices) == 3
+            return [choices[0].value, choices[2].value]
+
+        answers = [select_space]
 
         with (
             monkeypatch_toolkit_client() as client,
@@ -422,8 +427,8 @@ class TestDataModelingInteractiveSelect:
         with monkeypatch_toolkit_client() as client:
             client.data_modeling.spaces.list.return_value = SpaceList(
                 [
-                    Space(space="space1", **self.default_space_args),
-                    Space(space="space2", **self.default_space_args),
+                    Space(space="space1", **self.DEFAULT_SPACE_ARGS),
+                    Space(space="space2", **self.DEFAULT_SPACE_ARGS),
                 ]
             )
             client.data_modeling.instances.aggregate.return_value = CountValue("externalId", 0)

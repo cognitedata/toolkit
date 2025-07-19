@@ -288,8 +288,8 @@ class DataModelingSelect:
         return selected_space
 
     def select_instance_type(self, view_used_for: Literal["node", "edge", "all"]) -> Literal["node", "edge"]:
-        if view_used_for in ["node", "edge"]:
-            return view_used_for  # type: ignore[return-value]
+        if view_used_for != "all":
+            return view_used_for
         selected_instance_type = questionary.select(
             f"What type of instances do you want to {self.operation}?",
             choices=[
@@ -330,7 +330,7 @@ class DataModelingSelect:
             return None
         if not isinstance(selected_spaces, list):
             raise ToolkitValueError(f"Selected space is not a valid list: {selected_spaces!r}")
-        return [space.space for space in selected_spaces]
+        return selected_spaces
 
     def _get_instance_count_by_space(
         self, all_spaces: SpaceList, view_id: ViewId, instance_type: Literal["node", "edge"]
