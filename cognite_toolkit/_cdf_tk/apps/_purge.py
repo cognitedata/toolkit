@@ -142,7 +142,7 @@ class PurgeApp(typer.Typer):
                 "'space externalId version'. For example 'cdf_cdm CogniteTimeSeries v1' will purge all nodes"
                 "that have properties in the CogniteTimeSeries view. If not provided, interactive mode will be used.",
             ),
-        ],
+        ] = None,
         instance_space: Annotated[
             list[str] | None,
             typer.Option(
@@ -150,18 +150,17 @@ class PurgeApp(typer.Typer):
                 "-s",
                 help="Only purge instances that are in the specified instance space(s).",
             ),
-        ],
-        max_workers: Annotated[
-            int,
+        ] = None,
+        instance_type: Annotated[
+            str,
             typer.Option(
-                "--max-workers",
-                "-w",
-                help="The maximum number of workers to use for the purge operation. Default is 1."
-                "Note that typical concurrency limit for a project is 2. Furthermore, if you use the maximum"
-                "number of workers for the project, it will lead to throttling if any other user are deleting "
-                "data at the same time.",
+                "--instance-type",
+                "-t",
+                help="Type of instances to purge. Can be 'node' or 'edge'. Default is 'node'.",
+                case_sensitive=False,
+                show_default=True,
             ),
-        ] = 1,
+        ] = "node",
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -196,9 +195,9 @@ class PurgeApp(typer.Typer):
                 client,
                 view,
                 instance_space,
-                max_workers,
-                dry_run,
-                auto_yes,
-                verbose,
+                instance_type,
+                dry_run=dry_run,
+                auto_yes=auto_yes,
+                verbose=verbose,
             )
         )
