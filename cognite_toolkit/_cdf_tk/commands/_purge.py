@@ -637,7 +637,7 @@ class PurgeCommand(ToolkitCommand):
 
         process: Callable[[list[InstanceId]], list[InstanceId]] = self._no_op
         if self._is_timeseries(selected_view) and unlink:
-            process = partial(self._unlink_timeseries, client=client, dry_run=dry_run)
+            process = partial(self._unlink_timeseries, client=client, dry_run=dry_run, verbose=verbose)
 
         if self._is_files(selected_view) and unlink:
             raise ToolkitNotImplementedError("Purging files and unlinking them is not yet implemented.")
@@ -805,15 +805,18 @@ class PurgeCommand(ToolkitCommand):
         # This is used in dry-run mode to avoid actual deletion
         pass
 
-    @staticmethod
-    def _unlink_timeseries(instances: list[InstanceId], client: ToolkitClient, dry_run: bool) -> list[InstanceId]:
+    def _unlink_timeseries(
+        self, instances: list[InstanceId], client: ToolkitClient, dry_run: bool, verbose: bool
+    ) -> list[InstanceId]:
         node_ids = [instance for instance in instances if isinstance(instance, NodeId)]
-        timeseries = client.time_series.retrieve_multiple(instance_ids=node_ids, ignore_unknown_ids=True)
-        if dry_run:
-            unlinked = timeseries
-        else:
-            unlinked = client.time_series.unlink_instance_ids(id=timeseries.as_ids())
-        return [ts.instance_id for ts in unlinked if ts.instance_id is not None]
+        if node_ids:
+            timeseries = client.time_series.retrieve_multiple(instance_ids=node_ids, ignore_unknown_ids=True)
+            if not dry_run and timeseries:
+                migrated_timeseries_ids = [ts.id for ts in timeseries if ts.instance_id and ts.pending_instance_id]  # type: ignore[attr-defined]
+                client.time_series.unlink_instance_ids(id=migrated_timeseries_ids)
+                if verbose:
+                    self.console(f"Unlinked {len(migrated_timeseries_ids)} timeseries from datapoints.")
+        return instances
 
     @staticmethod
     def _get_selected_view(view: list[str], client: ToolkitClient) -> View:
