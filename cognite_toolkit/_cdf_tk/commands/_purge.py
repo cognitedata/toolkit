@@ -665,12 +665,12 @@ class PurgeCommand(ToolkitCommand):
                 console=console,
             ),
             process=process,
-            write=client.data_modeling.instances.delete_fast,  # type: ignore[arg-type]
+            write=self._no_delete if dry_run else client.data_modeling.instances.delete_fast,  # type: ignore[arg-type]
             iteration_count=iteration_count,
             max_queue_size=10,
-            download_description=f"Retrieving {instance_type}",
-            process_description="Preparing instance IDs for deletion",
-            write_description=f"Deleting {instance_type}",
+            download_description=f"Retrieving {instance_type}s",
+            process_description=f"Preparing {instance_type}s for deletion",
+            write_description=f"Deleting {instance_type}s",
             console=console,
         )
 
@@ -678,8 +678,9 @@ class PurgeCommand(ToolkitCommand):
         if executor.error_occurred:
             raise ResourceDeleteError(executor.error_message)
 
+        prefix = "Would have purged" if dry_run else "Purged"
         console.print(
-            f"Successfully purged {executor.total_items:,} {instance_type} with properties in the {selected_view.as_id()!r} view."
+            f"{prefix} {executor.total_items:,} {instance_type} with properties in the {selected_view.as_id()!r} view."
         )
 
     @staticmethod
@@ -736,6 +737,12 @@ class PurgeCommand(ToolkitCommand):
     def _no_op(instances: list[InstanceId]) -> list[InstanceId]:
         """No operation function that returns the input instances unchanged."""
         return instances
+
+    @staticmethod
+    def _no_delete(instances: list[InstanceId]) -> None:
+        """No operation function that does not delete the instances."""
+        # This is used in dry-run mode to avoid actual deletion
+        pass
 
     @staticmethod
     def _unlink_timeseries(instances: list[InstanceId], client: ToolkitClient, dry_run: bool) -> list[InstanceId]:
