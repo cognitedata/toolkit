@@ -5,9 +5,11 @@ import pytest
 from cognite.client.data_classes.aggregations import CountValue
 from cognite.client.data_classes.capabilities import (
     AllProjectsScope,
+    DataModelInstancesAcl,
     DataModelsAcl,
     ProjectCapability,
     ProjectCapabilityList,
+    TimeSeriesAcl,
 )
 from cognite.client.data_classes.data_modeling import (
     Boolean,
@@ -90,7 +92,20 @@ def purge_client(cognite_timeseries_2000_list: NodeList[CogniteTimeSeries]) -> I
                     ProjectCapability(
                         capability=DataModelsAcl([DataModelsAcl.Action.Read], DataModelsAcl.Scope.All()),
                         project_scope=AllProjectsScope(),
-                    )
+                    ),
+                    ProjectCapability(
+                        capability=DataModelInstancesAcl(
+                            [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write],
+                            DataModelInstancesAcl.Scope.All(),
+                        ),
+                        project_scope=AllProjectsScope(),
+                    ),
+                    ProjectCapability(
+                        capability=TimeSeriesAcl(
+                            [TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write], TimeSeriesAcl.Scope.All()
+                        ),
+                        project_scope=AllProjectsScope(),
+                    ),
                 ]
             ),
         )
@@ -117,7 +132,6 @@ def purge_client(cognite_timeseries_2000_list: NodeList[CogniteTimeSeries]) -> I
                 )
             ]
         )
-        client.iam.verify_capabilities.return_value = []
         response = MagicMock(spec=Response)
         response.json.return_value = {"items": [ts.dump() for ts in cognite_timeseries_2000_list]}
         client.post.return_value = response
