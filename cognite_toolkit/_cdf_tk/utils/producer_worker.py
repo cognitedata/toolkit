@@ -58,9 +58,9 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         write: Callable[[T_Processed], None],
         iteration_count: int,
         max_queue_size: int,
-        download_description: str = "downloading",
-        process_description: str = "processing",
-        write_description: str = "writing to file",
+        download_description: str = "Producing",
+        process_description: str = "Processing",
+        write_description: str = "Writing",
         console: Console | None = None,
     ) -> None:
         self._download_iterable = download_iterable
@@ -111,7 +111,13 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
 
     def _download_worker(self, progress: Progress, download_task: TaskID) -> None:
         """Worker thread for downloading data."""
-        iterator = iter(self._download_iterable)
+        try:
+            iterator = iter(self._download_iterable)
+        except TypeError as e:
+            self.error_occurred = True
+            self.error_message = str(e)
+            self.console.print(f"[red]Error[/red] occurred while {self.download_description}: {self.error_message}")
+            return
         while not self.error_occurred:
             try:
                 items = next(iterator)
