@@ -1,6 +1,6 @@
 import time
 from collections.abc import Callable
-from typing import Any, Literal
+from typing import Any, Literal, NoReturn
 from unittest.mock import MagicMock
 
 import pytest
@@ -66,12 +66,12 @@ class FailingIterator:
     def __init__(self, raise_in: Literal["iter", "next"] = "next") -> None:
         self.raise_in = raise_in
 
-    def __iter__(self):
+    def __iter__(self) -> "FailingIterator":
         if self.raise_in == "iter":
-            raise Exception("Error on iter call")
+            raise TypeError("Error on iter call")
         return self
 
-    def __next__(self):
+    def __next__(self) -> NoReturn:
         raise Exception("Error on first call")
 
 

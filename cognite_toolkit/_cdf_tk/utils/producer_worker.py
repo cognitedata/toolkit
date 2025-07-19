@@ -113,7 +113,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         """Worker thread for downloading data."""
         try:
             iterator = iter(self._download_iterable)
-        except Exception as e:
+        except TypeError as e:
             self.error_occurred = True
             self.error_message = str(e)
             self.console.print(f"[red]Error[/red] occurred while {self.download_description}: {self.error_message}")
