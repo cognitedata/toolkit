@@ -9,7 +9,9 @@ import numpy as np
 from cognite.client import CogniteClient
 from cognite.client.data_classes import FileMetadataUpdate, LabelFilter
 from cognite.extractorutils.uploader import TimeSeriesUploadQueue
+
 from common.cdf_helpers import create_missing_labels
+from common.utils import get_custom_mapping_metadata_dicts, rename_custom_metadata_fields_with_custom_names
 
 IMAGE_HEIGHT = 512
 IMAGE_WIDTH = 640
@@ -60,6 +62,8 @@ def handle(data, client):
         raise RuntimeError(
             "Data should contain all keys: 'input_label', 'output_label', 'success_label', 'failed_label', 'data_set_external_id'."
         )
+        
+    custom_metadata_dict, custom_mapping_dict, include_custom_metadata = get_custom_mapping_metadata_dicts(data)
 
     data_set_id = client.data_sets.retrieve(external_id=data["data_set_external_id"]).id
 
@@ -90,6 +94,23 @@ def handle(data, client):
         ir_raw_filename = "ir_raw.raw"
 
         asset = get_asset(client, file)
+        
+        if include_custom_metadata:
+            if asset is None:
+                custom_metadata_dict["custom_metadata_asset_tag"] = ""
+            elif "equipment_tag" in asset.metadata:
+                custom_metadata_dict["custom_metadata_asset_tag"] = asset.metadata["equipment_tag"] if asset else ""
+            else:
+                custom_metadata_dict["custom_metadata_asset_tag"] = asset.name if asset else ""
+                
+        parent_file_metadata = file.metadata
+
+        if include_custom_metadata:
+            metadata = rename_custom_metadata_fields_with_custom_names(
+                {**parent_file_metadata, **custom_metadata_dict}, custom_mapping_dict
+            )
+        else:
+            metadata = parent_file_metadata
 
         with tempfile.TemporaryDirectory(dir="/tmp") as directory:
             ir_image_path = str(Path.cwd() / directory / ir_image_filename)
@@ -113,6 +134,20 @@ def handle(data, client):
 
             # Save the image to the temp path
             plt.imsave(ir_image_path, temperatures_celsius)
+            
+            minimum_temperature = np.amin(temperatures_celsius)
+            maximum_temperature = np.amax(temperatures_celsius)
+            
+            metadata = {
+                **metadata,
+                **{
+                    "raw_file_id": file.id,
+                    "raw_file_name": file.name,
+                    "asset_id": file.metadata.get("asset_id", None),
+                    "temperatures_minimum": minimum_temperature,
+                    "temperatures_maximum": maximum_temperature,
+                },
+            }
 
             # Upload image and temperature data to CDF
             try:
@@ -123,11 +158,7 @@ def handle(data, client):
                     data_set_id=data_set_id,
                     mime_type="image/jpeg",
                     asset_ids=[asset.id],
-                    metadata={
-                        "asset_id": file.metadata.get("asset_id", None),
-                        "raw_file_id": file.id,
-                        "raw_file_name": file.name,
-                    },
+                    metadata=metadata,
                 )
                 file_update = FileMetadataUpdate(id=file.id).metadata.add({"ir_image_id": res_image.id})
                 client.files.update(file_update)
@@ -146,11 +177,7 @@ def handle(data, client):
                     data_set_id=data_set_id,
                     mime_type="text/csv",
                     asset_ids=[asset.id],
-                    metadata={
-                        "asset_id": file.metadata.get("asset_id", None),
-                        "raw_file_id": file.id,
-                        "raw_file_name": file.name,
-                    },
+                    metadata=metadata,
                 )
                 file_update = FileMetadataUpdate(id=file.id).metadata.add({"ir_temp_csv_id": res_csv.id})
                 client.files.update(file_update)
@@ -160,10 +187,6 @@ def handle(data, client):
                 continue
 
             print(f"Uploaded temperature file with ID: {res_csv.id}.")
-
-            # Write the minimum and maximum temperature to the corresponding timeseries
-            minimum_temperature = np.amin(temperatures_celsius)
-            maximum_temperature = np.amax(temperatures_celsius)
 
             # if "ts_external_id" in file.metadata:
             if any("ts_external_id" in key for key in file.metadata):
