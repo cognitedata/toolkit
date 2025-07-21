@@ -339,6 +339,8 @@ class DataModelingSelect:
         try:
             read_limit = self.client.data_modeling.statistics.project().concurrent_read_limit
         except CogniteException:
+            # Fetching a broad exception as the statistics endpoint is in pre-alpha and may suddenly no longer be
+            # available.
             read_limit = 2
 
         with ThreadPoolExecutor(max_workers=read_limit // 2) as executor:
@@ -352,7 +354,7 @@ class DataModelingSelect:
 
         return count_by_space
 
-    @lru_cache(maxsize=1)
+    @lru_cache
     def _instance_count_space(
         self, space: str, view_id: ViewId, instance_type: Literal["node", "edge"]
     ) -> tuple[str, float]:
