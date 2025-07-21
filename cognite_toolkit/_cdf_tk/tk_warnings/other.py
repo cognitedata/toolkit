@@ -165,3 +165,12 @@ class IgnoredValueWarning(ToolkitWarning):
 
     def get_message(self) -> str:
         return f"Ignoring value {self.value!r} for {self.name!r}: {self.reason!r}"
+
+
+@dataclass(frozen=True)
+class LimitedAccessWarning(ToolkitWarning):
+    severity: ClassVar[SeverityLevel] = SeverityLevel.LOW
+    message: ClassVar[str] = "Limited access to resource"
+
+    def get_message(self) -> str:
+        return self.message
