@@ -99,7 +99,8 @@ class SearchConfigLoader(ResourceLoader[str, SearchConfigWrite, SearchConfig, Se
 
     def retrieve(self, ids: SequenceNotStr[str]) -> SearchConfigList:
         """Retrieve search configurations by their IDs"""
-        numeric_ids = [int(id_str) if id_str.isdigit() else id_str for id_str in ids]
+        # TODO: Raise warning if ids are not numeric
+        numeric_ids = [int(id_str) for id_str in ids if id_str.isdigit()]
 
         all_configs = self.client.search.configurations.list()
         # The API does not support server-side filtering, so we filter in memory.
