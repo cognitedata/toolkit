@@ -111,7 +111,7 @@ class MigrationCanvasCommand(BaseMigrateCommand):
             client.canvas.industrial.update(update)
         except CogniteException as e:
             raise ToolkitMigrationError(
-                f"Failed to migrate canvas '{canvas.canvas.name}': {e!s}. Please check the canvas and try again."
+                f"Failed to migrate canvas '{canvas.canvas.name}': {e!s}. A backup was created with external ID '{backup.canvas.external_id}'."
             )
         else:
             self.console(
