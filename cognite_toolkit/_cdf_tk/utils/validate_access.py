@@ -14,11 +14,11 @@ class ValidateAccess:
         self.default_operation = default_operation
 
     def data_model(
-        self, access: Sequence[Literal["read", "write"]], space: str | None = None, operation: str | None = None
+        self, action: Sequence[Literal["read", "write"]], space: str | None = None, operation: str | None = None
     ) -> list[str] | None:
         operation = operation or self.default_operation
         model_scopes, actions_str = self._set_up_read_write(
-            access, DataModelsAcl.Action.Read, DataModelsAcl.Action.Write, operation
+            action, DataModelsAcl.Action.Read, DataModelsAcl.Action.Write, operation
         )
         if len(model_scopes) != 1:
             raise ValueError(f"Unexpected number of data model scopes: {len(model_scopes)}. Expected 1 scope.")
@@ -36,11 +36,11 @@ class ValidateAccess:
             raise ValueError(f"Unexpected data model scope type: {type(model_scope)}. Expected SpaceID or All.")
 
     def instances(
-        self, access: Sequence[Literal["read", "write"]], space: str | None = None, operation: str | None = None
+        self, action: Sequence[Literal["read", "write"]], space: str | None = None, operation: str | None = None
     ) -> list[str] | None:
         operation = operation or self.default_operation
         instance_scopes, action_str = self._set_up_read_write(
-            access, DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write, operation
+            action, DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write, operation
         )
         if len(instance_scopes) != 1:
             raise ValueError(
@@ -62,11 +62,11 @@ class ValidateAccess:
             )
 
     def timeseries(
-        self, access: Sequence[Literal["read", "write"]], dataset_id: int | None = None, operation: str | None = None
+        self, action: Sequence[Literal["read", "write"]], dataset_id: int | None = None, operation: str | None = None
     ) -> dict[str, list[str]] | None:
         operation = operation or self.default_operation
         timeseries_scopes, actions_str = self._set_up_read_write(
-            access, TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write, operation
+            action, TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write, operation
         )
 
         if isinstance(timeseries_scopes[0], TimeSeriesAcl.Scope.All):
@@ -93,13 +93,13 @@ class ValidateAccess:
 
     def _set_up_read_write(
         self,
-        access: Sequence[Literal["read", "write"]],
+        action: Sequence[Literal["read", "write"]],
         read: Capability.Action,
         write: Capability.Action,
         operation: str,
     ) -> tuple[list[Capability.Scope], str]:
-        actions_str = humanize_collection(access, bind_word="and")
-        actions = [{"read": read, "write": write}[action] for action in access]
+        actions_str = humanize_collection(action, bind_word="and")
+        actions = [{"read": read, "write": write}[a] for a in action]
         scopes = self.client.token.get_scope(actions)
         if scopes is None:
             raise AuthorizationError(
