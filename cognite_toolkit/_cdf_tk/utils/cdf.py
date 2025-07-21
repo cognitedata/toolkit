@@ -16,7 +16,7 @@ from cognite.client.data_classes.data_modeling import Edge, Node, ViewId
 from cognite.client.data_classes.filters import SpaceFilter
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
-from filelock import FileLock
+from filelock import FileLock, SoftFileLock
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
@@ -350,11 +350,40 @@ FROM
     return 0
 
 
-_LAST_CALL_RAW_ROW_COUNT = Path(tempfile.gettempdir()) / "tk-last-raw_count.bin"
-_WRITE_FILE_LOCK = FileLock(_LAST_CALL_RAW_ROW_COUNT)
-
+_FILENAME = "tk-last-raw_count-{project}.bin"
+_LOCK_BY_FILENAME: dict[str, SoftFileLock] = {}
 _IS_ROW_ROW_COUNT_ENABLED: bool | None = None
 _LAST_CALL_EPOC: float = 0
+
+
+def _set_row_count_enabled(project: str) -> None:
+    global _IS_ROW_ROW_COUNT_ENABLED, _LAST_CALL_EPOC
+    filename = _FILENAME.format(project=project)
+    filepath = Path(tempfile.gettempdir()) / filename
+    if filename not in _LOCK_BY_FILENAME:
+        _LOCK_BY_FILENAME[filename] = FileLock(filepath)
+    lock = _LOCK_BY_FILENAME[filename]
+    with lock:
+        if filepath.exists():
+            try:
+                _LAST_CALL_EPOC = float(filepath.read_text())
+            except ValueError:
+                _IS_ROW_ROW_COUNT_ENABLED = True
+            else:
+                to_wait = (MAX_RUN_QUERY_FREQUENCY_MIN * 60) - (time.time() - _LAST_CALL_EPOC)
+                _IS_ROW_ROW_COUNT_ENABLED = to_wait <= 0
+        else:
+            _IS_ROW_ROW_COUNT_ENABLED = True
+
+
+def _write_last_call_epoc(project: str) -> None:
+    filename = _FILENAME.format(project=project)
+    filepath = Path(tempfile.gettempdir()) / filename
+    if filename not in _LOCK_BY_FILENAME:
+        _LOCK_BY_FILENAME[filename] = FileLock(filepath)
+    lock = _LOCK_BY_FILENAME[filename]
+    with lock:
+        filepath.write_text(str(time.time()), encoding="utf-8")
 
 
 def raw_row_count(client: ToolkitClient, raw_table_id: RawTable, max_count: int = MAX_ROW_ITERATION_RUN_QUERY) -> int:
@@ -367,20 +396,13 @@ def raw_row_count(client: ToolkitClient, raw_table_id: RawTable, max_count: int 
 
     Returns:
         The number of rows in the raw table.
+
+    Raises:
+        ToolkitThrottledError: If the row count is limited to once every MAX_RUN_QUERY_FREQUENCY_MIN minutes.
+        ValueError: If max_count is not between 0 and MAX_ROW_ITERATION_RUN_QUERY (inclusive).
     """
-    global _IS_ROW_ROW_COUNT_ENABLED, _LAST_CALL_EPOC
     if _IS_ROW_ROW_COUNT_ENABLED is None:
-        with _WRITE_FILE_LOCK:
-            if _LAST_CALL_RAW_ROW_COUNT.exists():
-                try:
-                    _LAST_CALL_EPOC = float(_LAST_CALL_RAW_ROW_COUNT.read_text())
-                except ValueError:
-                    _IS_ROW_ROW_COUNT_ENABLED = True
-                else:
-                    to_wait = (MAX_RUN_QUERY_FREQUENCY_MIN * 60) - (time.time() - _LAST_CALL_EPOC)
-                    _IS_ROW_ROW_COUNT_ENABLED = to_wait <= 0
-            else:
-                _IS_ROW_ROW_COUNT_ENABLED = True
+        _set_row_count_enabled(client.config.project)
 
     if not _IS_ROW_ROW_COUNT_ENABLED:
         to_wait = (MAX_RUN_QUERY_FREQUENCY_MIN * 60) - (time.time() - _LAST_CALL_EPOC)
@@ -399,8 +421,8 @@ FROM (
     LIMIT {max_count}
 ) AS limited_keys"""
 
-    with _WRITE_FILE_LOCK:
-        _LAST_CALL_RAW_ROW_COUNT.write_text(str(time.time()), encoding="utf-8")
+    _write_last_call_epoc(client.config.project)
+
     results = client.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
     if results.results:
         return int(results.results[0]["row_count"])
