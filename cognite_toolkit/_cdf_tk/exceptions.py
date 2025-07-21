@@ -226,8 +226,7 @@ class ToolkitThrottledError(ToolkitError):
 
     def __init__(self, message: str, wait_time_seconds: float) -> None:
         super().__init__(message)
-        self.message = message
         self.wait_time_seconds = wait_time_seconds
 
     def __str__(self) -> str:
-        return f"ToolkitThrottledError: {self.message}"
+        return f"ToolkitThrottledError: {self.args[0]}"
