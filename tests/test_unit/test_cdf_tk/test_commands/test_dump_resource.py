@@ -295,6 +295,12 @@ class TestDumpExtractionPipeline:
             loader = ExtractionPipelineLoader(client, None, None)
 
             filepaths = list(loader.find_files(tmp_path))
-            assert len(filepaths) == 2
-            items = [read_yaml_file(filepath) for filepath in filepaths]
-            assert items == [loader.dump_resource(ep) for ep in three_extraction_pipelines[1:]]
+            items = sorted(
+                [read_yaml_file(filepath) for filepath in filepaths],
+                key=lambda d: d.get("external_id", d.get("externalId")),
+            )
+            expected = sorted(
+                [loader.dump_resource(ep) for ep in three_extraction_pipelines[1:]],
+                key=lambda d: d.get("external_id", d.get("externalId")),
+            )
+            assert items == expected

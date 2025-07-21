@@ -57,7 +57,7 @@ class TestDumpExtractionPipeline:
     @pytest.mark.usefixtures(
         "deployed_extraction_pipeline_config",
     )
-    def test_dump_transformation_with_schedule_and_notification(
+    def test_dump_extraction_pipeline_with_config(
         self,
         deployed_extraction_pipeline: ExtractionPipeline,
         toolkit_client: ToolkitClient,
