@@ -16,6 +16,20 @@ class ValidateAccess:
     def data_model(
         self, action: Sequence[Literal["read", "write"]], space: str | None = None, operation: str | None = None
     ) -> list[str] | None:
+        """Validate access to data models.
+
+        Args:
+            action (Sequence[Literal["read", "write"]]): The actions to validate access for.
+            space (str | None): The space ID to check access for. If None, checks access for all spaces.
+            operation (str | None): The operation being performed, used for error messages.
+
+        Returns:
+            list[str] | None: Returns a list of space IDs if access is limited to these spaces, or None if access is granted to all spaces.
+
+        Raises:
+            ValueError: If the client.token.get_scope() returns an unexpected number of data model scopes.
+            AuthorizationError: If the user does not have permission to perform the specified action on the given space.
+        """
         operation = operation or self.default_operation
         model_scopes, actions_str = self._set_up_read_write(
             action, DataModelsAcl.Action.Read, DataModelsAcl.Action.Write, operation, "data models"
@@ -40,6 +54,20 @@ class ValidateAccess:
     def instances(
         self, action: Sequence[Literal["read", "write"]], space: str | None = None, operation: str | None = None
     ) -> list[str] | None:
+        """Validate access to data model instances.
+
+        Args:
+            action (Sequence[Literal["read", "write"]]): The actions to validate access for.
+            space (str | None): The space ID to check access for. If None, checks access for all spaces.
+            operation (str | None): The operation being performed, used for error messages.
+
+        Returns:
+            list[str] | None: Returns a list of space IDs if access is limited to these spaces, or None if access is granted to all spaces.
+
+        Raises:
+            ValueError: If the client.token.get_scope() returns an unexpected number of data model instance scopes.
+            AuthorizationError: If the user does not have permission to perform the specified action on the given space.
+        """
         operation = operation or self.default_operation
         instance_scopes, action_str = self._set_up_read_write(
             action, DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write, operation, "instances"
@@ -68,6 +96,17 @@ class ValidateAccess:
     def timeseries(
         self, action: Sequence[Literal["read", "write"]], dataset_id: int | None = None, operation: str | None = None
     ) -> dict[str, list[str]] | None:
+        """Validate access to time series.
+        Args:
+            action (Sequence[Literal["read", "write"]]): The actions to validate access for.
+            dataset_id (int | None): The dataset ID to check access for. If None, checks access for all datasets.
+            operation (str | None): The operation being performed, used for error messages.
+        Returns:
+            dict[str, list[str]] | None: Returns a dictionary with keys 'dataset', 'asset root', and 'time series' if access is limited to these scopes, or None if access is granted to all time series.
+        Raises:
+            ValueError: If the client.token.get_scope() returns an unexpected timeseries scope type.
+            AuthorizationError: If the user does not have permission to perform the specified action on the given dataset or time series.
+        """
         operation = operation or self.default_operation
         timeseries_scopes, actions_str = self._set_up_read_write(
             action, TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write, operation, "time series"
