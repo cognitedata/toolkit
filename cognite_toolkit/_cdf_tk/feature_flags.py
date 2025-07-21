@@ -54,6 +54,10 @@ class Flags(Enum):
         "visible": True,
         "description": "Enables the support for external libraries in the config file",
     }
+    PURGE_INSTANCES: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
+        "visible": True,
+        "description": "Enables the cdf purge instances command",
+    }
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)
