@@ -26,6 +26,8 @@ from .api.robotics.data_postprocessing import DataPostProcessingAPI
 from .api.robotics.frames import FramesAPI
 from .api.robotics.locations import LocationsAPI as RoboticsLocationsAPI
 from .api.robotics.maps import MapsAPI
+from .api.search import SearchAPI
+from .api.search_config import SearchConfigurationsAPI
 from .api.statistics import StatisticsAPI
 from .api.token import TokenAPI
 from .api.verify import VerifyAPI
@@ -50,8 +52,10 @@ class ToolkitClientMock(CogniteClientMock):
         #   - Use `spec_set=MyNestedAPI` for all nested APIs
         self.canvas = MagicMock(spec=CanvasAPI)
         self.canvas.industrial = MagicMock(spec_set=IndustrialCanvasAPI)
+        self.search = MagicMock(spec=SearchAPI)
+        self.search.locations = MagicMock(spec_set=LocationFiltersAPI)
+        self.search.configurations = MagicMock(spec_set=SearchConfigurationsAPI)
         self.dml = MagicMock(spec_set=DMLAPI)
-        self.location_filters = MagicMock(spec_set=LocationFiltersAPI)
         self.lookup = MagicMock(spec=LookUpGroup)
         self.lookup.data_sets = MagicMock(spec_set=DataSetLookUpAPI)
         self.lookup.assets = MagicMock(spec_set=AssetLookUpAPI)
