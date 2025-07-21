@@ -102,6 +102,7 @@ class SearchConfigLoader(ResourceLoader[str, SearchConfigWrite, SearchConfig, Se
         numeric_ids = [int(id_str) if id_str.isdigit() else id_str for id_str in ids]
 
         all_configs = self.client.search.configurations.list()
+        # The API does not support server-side filtering, so we filter in memory.
         return SearchConfigList([config for config in all_configs if config.id in numeric_ids])
 
     def update(self, items: SearchConfigWrite | SearchConfigWriteList) -> SearchConfigList:
@@ -110,7 +111,7 @@ class SearchConfigLoader(ResourceLoader[str, SearchConfigWrite, SearchConfig, Se
             items = SearchConfigWriteList([items])
 
         if any([item for item in items if not item.id]):
-            raise KeyError("Search Configuaration Update Requires Id!")
+            raise KeyError("Search Configuration Update Requires Id!")
         return self.create(items)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
@@ -126,4 +127,13 @@ class SearchConfigLoader(ResourceLoader[str, SearchConfigWrite, SearchConfig, Se
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[SearchConfig]:
         """Iterate through all search configurations"""
-        return iter(self.client.search.configurations.list())
+        all_configs = self.client.search.configurations.list()
+        if space:
+            # The API does not support server-side filtering, so we filter in memory.
+            return iter([config for config in all_configs if config.view.space == space])
+
+        if data_set_external_id or parent_ids:
+            # These filters are not supported for SearchConfig
+            return iter([])
+
+        return iter(all_configs)

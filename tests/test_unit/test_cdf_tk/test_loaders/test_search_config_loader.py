@@ -138,7 +138,7 @@ class TestSearchConfigLoader:
 
         # Test update with no ID
         config_no_id = SearchConfigWrite(view=view)
-        with pytest.raises(KeyError, match="Search Configuaration Update Requires Id"):
+        with pytest.raises(KeyError, match="Search Configuration Update Requires Id"):
             loader.update(config_no_id)
 
     def test_iterate(self, env_vars_with_client: EnvironmentVariables) -> None:
@@ -164,3 +164,48 @@ class TestSearchConfigLoader:
             assert len(result) == 2
             assert result[0].id == 1001
             assert result[1].id == 1002
+
+    def test_iterate_with_space(self, env_vars_with_client: EnvironmentVariables) -> None:
+        """Test the _iterate method."""
+        loader = SearchConfigLoader.create_loader(env_vars_with_client.get_client())
+        with patch.object(loader.client.search.configurations, "list") as mock_list:
+            mock_list.return_value = [
+                SearchConfig(
+                    view=SearchConfigView(external_id="view1", space="space1"),
+                    id=1001,
+                    created_time=1625097600000,
+                    updated_time=1625097600000,
+                ),
+                SearchConfig(
+                    view=SearchConfigView(external_id="view2", space="space2"),
+                    id=1002,
+                    created_time=1625097600000,
+                    updated_time=1625097600000,
+                ),
+            ]
+            result = list(loader._iterate(space="space1"))
+            mock_list.assert_called_once()
+            assert len(result) == 1
+            assert result[0].id == 1001
+
+    def test_iterate_with_data_set(self, env_vars_with_client: EnvironmentVariables) -> None:
+        """Test the _iterate method."""
+        loader = SearchConfigLoader.create_loader(env_vars_with_client.get_client())
+        with patch.object(loader.client.search.configurations, "list") as mock_list:
+            mock_list.return_value = [
+                SearchConfig(
+                    view=SearchConfigView(external_id="view1", space="space1"),
+                    id=1001,
+                    created_time=1625097600000,
+                    updated_time=1625097600000,
+                ),
+                SearchConfig(
+                    view=SearchConfigView(external_id="view2", space="space2"),
+                    id=1002,
+                    created_time=1625097600000,
+                    updated_time=1625097600000,
+                ),
+            ]
+            result = list(loader._iterate(data_set_external_id="data_set_1"))
+            mock_list.assert_called_once()
+            assert len(result) == 0
