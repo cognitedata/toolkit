@@ -38,7 +38,7 @@ class ValidateAccess:
     def instances(
         self, access: Sequence[Literal["read", "write"]], space: str | None = None, operation: str | None = None
     ) -> list[str] | None:
-        operation = self.default_operation
+        operation = operation or self.default_operation
         instance_scopes, action_str = self._set_up_read_write(
             access, DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write, operation
         )
