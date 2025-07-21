@@ -170,7 +170,7 @@ class IgnoredValueWarning(ToolkitWarning):
 @dataclass(frozen=True)
 class LimitedAccessWarning(ToolkitWarning):
     severity: ClassVar[SeverityLevel] = SeverityLevel.LOW
-    message: ClassVar[str] = "Limited access to resource"
+    message: str
 
     def get_message(self) -> str:
         return self.message
