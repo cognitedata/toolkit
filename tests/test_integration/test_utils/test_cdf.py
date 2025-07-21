@@ -1,5 +1,6 @@
 import itertools
 from collections import Counter, defaultdict
+from unittest.mock import patch
 
 import pytest
 from cognite.client.data_classes import (
@@ -20,7 +21,6 @@ from cognite.client.data_classes.labels import LabelDefinitionWriteList
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
-from cognite_toolkit._cdf_tk.exceptions import ToolkitThrottledError
 from cognite_toolkit._cdf_tk.utils.cdf import (
     label_aggregate_count,
     metadata_key_counts,
@@ -274,13 +274,15 @@ class TestLabelAggregateCount:
 
 @pytest.fixture()
 def use_raw_row_count(toolkit_client: ToolkitClient, populated_raw_table: RawTable) -> None:
-    try:
-        raw_row_count(toolkit_client, populated_raw_table, max_count=-1)
-    except ToolkitThrottledError:
-        pytest.skip("Skipping raw row count test")
-    except ValueError:
-        # A ValueError means this is available.
+    def no_op(*args, **kwargs) -> None:
+        """No operation function to replace the write_last_call_epoc function."""
         pass
+
+    with (
+        patch(f"{raw_row_count.__module__}._IS_ROW_ROW_COUNT_ENABLED", True),
+        patch(f"{raw_row_count.__module__}._write_last_call_epoc", no_op),
+    ):
+        yield
 
 
 class TestRawTableRowCount:
