@@ -199,6 +199,26 @@ class TestValidateAccess:
                 None,
                 id="All scope",
             ),
+            pytest.param(
+                [TimeSeriesAcl([TimeSeriesAcl.Action.Read], TimeSeriesAcl.Scope.DataSet([1, 2]))],
+                None,
+                {"dataset": ["1", "2"]},
+                id="Limited list of datasets",
+            ),
+            pytest.param(
+                [
+                    TimeSeriesAcl([TimeSeriesAcl.Action.Read], TimeSeriesAcl.Scope.AssetRootID([10, 20])),
+                    TimeSeriesAcl([TimeSeriesAcl.Action.Read], TimeSeriesAcl.Scope.DataSet([15, 25])),
+                    TimeSeriesAcl([TimeSeriesAcl.Action.Read], TimeSeriesAcl.Scope.ID([100, 200])),
+                ],
+                None,
+                {
+                    "asset root": ["10", "20"],
+                    "dataset": ["15", "25"],
+                    "time series": ["100", "200"],
+                },
+                id="Multiple scopes with IDs",
+            ),
         ],
     )
     def test_timeseries_access(
