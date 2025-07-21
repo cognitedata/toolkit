@@ -18,7 +18,7 @@ class ValidateAccess:
     ) -> list[str] | None:
         operation = operation or self.default_operation
         model_scopes, actions_str = self._set_up_read_write(
-            action, DataModelsAcl.Action.Read, DataModelsAcl.Action.Write, operation
+            action, DataModelsAcl.Action.Read, DataModelsAcl.Action.Write, operation, "data models"
         )
         if len(model_scopes) != 1:
             raise ValueError(f"Unexpected number of data model scopes: {len(model_scopes)}. Expected 1 scope.")
@@ -28,8 +28,10 @@ class ValidateAccess:
         elif isinstance(model_scope, DataModelsAcl.Scope.SpaceID):
             if space is not None and space not in model_scope.space_ids:
                 raise AuthorizationError(
-                    f"You have no permission to {actions_str} {space} space. This is required to {operation}."
+                    f"You have no permission to {actions_str} the {space!r} space. This is required to {operation}."
                 )
+            elif space is not None and space in model_scope.space_ids:
+                return None
             else:
                 return model_scope.space_ids
         else:
@@ -40,7 +42,7 @@ class ValidateAccess:
     ) -> list[str] | None:
         operation = operation or self.default_operation
         instance_scopes, action_str = self._set_up_read_write(
-            action, DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write, operation
+            action, DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write, operation, "instances"
         )
         if len(instance_scopes) != 1:
             raise ValueError(
@@ -66,7 +68,7 @@ class ValidateAccess:
     ) -> dict[str, list[str]] | None:
         operation = operation or self.default_operation
         timeseries_scopes, actions_str = self._set_up_read_write(
-            action, TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write, operation
+            action, TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write, operation, "time series"
         )
 
         if isinstance(timeseries_scopes[0], TimeSeriesAcl.Scope.All):
@@ -97,12 +99,13 @@ class ValidateAccess:
         read: Capability.Action,
         write: Capability.Action,
         operation: str,
+        name: str,
     ) -> tuple[list[Capability.Scope], str]:
         actions_str = humanize_collection(action, bind_word="and")
         actions = [{"read": read, "write": write}[a] for a in action]
         scopes = self.client.token.get_scope(actions)
         if scopes is None:
             raise AuthorizationError(
-                f"You have no permission to {actions_str} data model instances. This is required to {operation} instances."
+                f"You have no permission to {actions_str} {name}. This is required to {operation}."
             )
         return scopes, actions_str
