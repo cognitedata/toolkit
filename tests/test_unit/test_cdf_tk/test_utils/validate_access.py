@@ -89,7 +89,7 @@ class TestValidateAccess:
                     )
                 ],
                 "space2",
-                "You have no permission to read space2 space. This is required to test the operation instances.",
+                "You have no permission to read instances in space 'space2'. This is required to test the operation instances.",
                 id="Space mismatch",
             ),
         ],

@@ -80,7 +80,7 @@ class ValidateAccess:
         if isinstance(instance_scope, DataModelInstancesAcl.Scope.SpaceID):
             if space is not None and space not in instance_scope.space_ids:
                 raise AuthorizationError(
-                    f"You have no permission to {action_str} {space} space. This is required to {operation} instances."
+                    f"You have no permission to {action_str} instances in space {space!r}. This is required to {operation} instances."
                 )
             elif space is not None and space in instance_scope.space_ids:
                 return None
