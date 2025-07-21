@@ -1,6 +1,5 @@
 import sys
 import tempfile
-import threading
 import time
 from collections.abc import Hashable, Iterator
 from dataclasses import dataclass
@@ -17,6 +16,7 @@ from cognite.client.data_classes.data_modeling import Edge, Node, ViewId
 from cognite.client.data_classes.filters import SpaceFilter
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
+from filelock import FileLock
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
@@ -350,8 +350,9 @@ FROM
     return 0
 
 
-_WRITE_FILE_LOCK = threading.Lock()
 _LAST_CALL_RAW_ROW_COUNT = Path(tempfile.gettempdir()) / "tk-last-raw_count.bin"
+_WRITE_FILE_LOCK = FileLock(_LAST_CALL_RAW_ROW_COUNT)
+
 _IS_ROW_ROW_COUNT_ENABLED: bool | None = None
 _LAST_CALL_EPOC: float = 0
 
