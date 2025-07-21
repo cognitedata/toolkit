@@ -349,13 +349,16 @@ class ExtractionPipelineConfigLoader(
         ):
             # When we dump a config from CDF, i.e., running `cdf dump extraction-pipeline`, we want to parse the config
             # as YAML to make it easier to read and edit.
-            try:
-                dumped["config"] = read_yaml_content(dumped["config"])
-            except yaml.YAMLError as e:
-                HighSeverityWarning(
-                    f"Configuration for {dumped.get('externalId', 'missing')} could not be parsed "
-                    f"as valid YAML, which is the recommended format. Error: {e}"
-                ).print_warning(console=self.console)
+            if dumped["config"].strip() == "":
+                dumped["config"] = {}
+            else:
+                try:
+                    dumped["config"] = read_yaml_content(dumped["config"])
+                except yaml.YAMLError as e:
+                    HighSeverityWarning(
+                        f"Configuration for {dumped.get('externalId', 'missing')} could not be parsed "
+                        f"as valid YAML, which is the recommended format. Error: {e!s}"
+                    ).print_warning(console=self.console)
         return dumped
 
     def diff_list(
