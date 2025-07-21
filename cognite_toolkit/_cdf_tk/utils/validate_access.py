@@ -54,6 +54,8 @@ class ValidateAccess:
                 raise AuthorizationError(
                     f"You have no permission to {action_str} {space} space. This is required to {operation} instances."
                 )
+            elif space is not None and space in instance_scope.space_ids:
+                return None
             else:
                 return instance_scope.space_ids
         elif isinstance(instance_scope, DataModelInstancesAcl.Scope.All):
@@ -80,6 +82,8 @@ class ValidateAccess:
                     raise AuthorizationError(
                         f"You have no permission to {actions_str} time series in dataset {dataset_id}. This is required to {operation}."
                     )
+                elif dataset_id is not None and dataset_id in scope.ids:
+                    return None
                 else:
                     output["dataset"] = self.client.lookup.data_sets.external_id(scope.ids)
             elif isinstance(scope, TimeSeriesAcl.Scope.AssetRootID):
