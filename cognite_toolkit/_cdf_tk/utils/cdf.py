@@ -359,7 +359,7 @@ _LAST_CALL_EPOC: float = 0
 def _set_row_count_enabled(project: str) -> None:
     global _IS_ROW_ROW_COUNT_ENABLED, _LAST_CALL_EPOC
     filename = _FILENAME.format(project=project)
-    filepath = Path(tempfile.gettempdir()) / filename
+    filepath = Path(tempfile.gettempdir()).resolve(strict=True) / filename
     if filename not in _LOCK_BY_FILENAME:
         _LOCK_BY_FILENAME[filename] = FileLock(filepath)
     lock = _LOCK_BY_FILENAME[filename]
@@ -378,7 +378,7 @@ def _set_row_count_enabled(project: str) -> None:
 
 def _write_last_call_epoc(project: str) -> None:
     filename = _FILENAME.format(project=project)
-    filepath = Path(tempfile.gettempdir()) / filename
+    filepath = Path(tempfile.gettempdir()).resolve(strict=True) / filename
     if filename not in _LOCK_BY_FILENAME:
         _LOCK_BY_FILENAME[filename] = FileLock(filepath)
     lock = _LOCK_BY_FILENAME[filename]
