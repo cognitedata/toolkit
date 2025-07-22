@@ -15,6 +15,8 @@ from .collection import humanize_collection
 
 INT32_MIN = -2_147_483_648
 INT32_MAX = 2_147_483_647
+INT64_MIN = -9_223_372_036_854_775_808
+INT64_MAX = 9_223_372_036_854_775_807
 
 
 def convert_to_primary_property(
@@ -121,9 +123,7 @@ class _Int64Converter(_ValueConverter):
                 raise ValueError(f"Cannot convert {value} to int64.")
         else:
             raise ValueError(f"Cannot convert {value} to int64.")
-        try:
-            output = ctypes.c_int64(output).value
-        except OverflowError:
+        if not (INT64_MIN <= output < INT64_MAX):
             raise ValueError(f"Value {value} is out of range for int64.")
         return output
 
@@ -177,6 +177,10 @@ class _JsonConverter(_ValueConverter):
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
         if isinstance(value, dict):
+            if non_string_keys := [k for k in value if not isinstance(k, str)]:
+                raise ValueError(
+                    f"JSON keys must be strings. Found non-string keys: {humanize_collection(non_string_keys)}"
+                )
             return value  # type: ignore[return-value]
         elif isinstance(value, str):
             try:
