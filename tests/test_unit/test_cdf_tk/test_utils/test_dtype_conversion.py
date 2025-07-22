@@ -1,7 +1,8 @@
+from abc import ABC
 from collections.abc import Mapping
 
 import pytest
-from cognite.client.data_classes.data_modeling import ContainerId, MappedProperty
+from cognite.client.data_classes.data_modeling import ContainerId, MappedProperty, PropertyType
 from cognite.client.data_classes.data_modeling.data_types import (
     Boolean,
     Enum,
@@ -16,7 +17,8 @@ from cognite.client.data_classes.data_modeling.data_types import (
 )
 from cognite.client.data_classes.data_modeling.instances import PropertyValueWrite
 
-from cognite_toolkit._cdf_tk.utils.dtype_conversion import convert_to_primary_property
+from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils.dtype_conversion import CONVERTER_BY_TYPE, convert_to_primary_property
 
 
 class TestConvertToContainerProperty:
@@ -155,4 +157,23 @@ class TestConvertToContainerProperty:
 
         assert str(exc_info.value) == error_message, (
             f"Expected error message '{error_message}', but got '{exc_info.value}'"
+        )
+
+    def test_all_converters_registered(self) -> None:
+        """Checks that all property types that are in the cognite-sdk have a corresponding converter."""
+        existing_types: set[str] = set()
+        to_check = [PropertyType]
+        while to_check:
+            current_type = to_check.pop()
+            for subclass in current_type.__subclasses__():
+                if hasattr(subclass, "_type"):
+                    existing_types.add(subclass._type)
+                if ABC in subclass.__bases__:
+                    to_check.append(subclass)
+
+        missing_converters = existing_types - set(CONVERTER_BY_TYPE.keys())
+
+        assert not missing_converters, (
+            f"Missing converters for types: {humanize_collection(missing_converters)}. "
+            "Please ensure all property types have a corresponding converter."
         )
