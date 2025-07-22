@@ -352,12 +352,12 @@ FROM
 
 _FILENAME = "tk-last-raw_count-{project}.bin"
 _LOCK_BY_FILENAME: dict[str, SoftFileLock] = {}
-_IS_ROW_ROW_COUNT_ENABLED: bool | None = None
+_IS_RAW_ROW_COUNT_ENABLED: bool | None = None
 _LAST_CALL_EPOC: float = 0
 
 
 def _set_row_count_enabled(project: str) -> None:
-    global _IS_ROW_ROW_COUNT_ENABLED, _LAST_CALL_EPOC
+    global _IS_RAW_ROW_COUNT_ENABLED, _LAST_CALL_EPOC
     filename = _FILENAME.format(project=project)
     filepath = Path(tempfile.gettempdir()).resolve(strict=True) / filename
     if filename not in _LOCK_BY_FILENAME:
@@ -368,12 +368,12 @@ def _set_row_count_enabled(project: str) -> None:
             try:
                 _LAST_CALL_EPOC = float(filepath.read_text())
             except ValueError:
-                _IS_ROW_ROW_COUNT_ENABLED = True
+                _IS_RAW_ROW_COUNT_ENABLED = True
             else:
                 to_wait = (MAX_RUN_QUERY_FREQUENCY_MIN * 60) - (time.time() - _LAST_CALL_EPOC)
-                _IS_ROW_ROW_COUNT_ENABLED = to_wait <= 0
+                _IS_RAW_ROW_COUNT_ENABLED = to_wait <= 0
         else:
-            _IS_ROW_ROW_COUNT_ENABLED = True
+            _IS_RAW_ROW_COUNT_ENABLED = True
 
 
 def _write_last_call_epoc(project: str) -> None:
@@ -401,10 +401,10 @@ def raw_row_count(client: ToolkitClient, raw_table_id: RawTable, max_count: int 
         ToolkitThrottledError: If the row count is limited to once every MAX_RUN_QUERY_FREQUENCY_MIN minutes.
         ValueError: If max_count is not between 0 and MAX_ROW_ITERATION_RUN_QUERY (inclusive).
     """
-    if _IS_ROW_ROW_COUNT_ENABLED is None:
+    if _IS_RAW_ROW_COUNT_ENABLED is None:
         _set_row_count_enabled(client.config.project)
 
-    if not _IS_ROW_ROW_COUNT_ENABLED:
+    if not _IS_RAW_ROW_COUNT_ENABLED:
         to_wait = (MAX_RUN_QUERY_FREQUENCY_MIN * 60) - (time.time() - _LAST_CALL_EPOC)
         raise ToolkitThrottledError(
             f"Row count is limited to once every {MAX_RUN_QUERY_FREQUENCY_MIN} minutes. Please wait {to_wait:.2f} seconds before calling again.",
