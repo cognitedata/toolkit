@@ -84,7 +84,9 @@ class _BooleanConverter(_ValueConverter):
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
         if isinstance(value, bool):
             return value
-        if isinstance(value, str):
+        elif isinstance(value, int):
+            return bool(value)
+        elif isinstance(value, str):
             if value.lower() in ("true", "1"):
                 return True
             elif value.lower() in ("false", "0"):
@@ -123,7 +125,7 @@ class _Int64Converter(_ValueConverter):
                 raise ValueError(f"Cannot convert {value} to int64.")
         else:
             raise ValueError(f"Cannot convert {value} to int64.")
-        if not (INT64_MIN <= output < INT64_MAX):
+        if not (INT64_MIN <= output <= INT64_MAX):
             raise ValueError(f"Value {value} is out of range for int64.")
         return output
 
