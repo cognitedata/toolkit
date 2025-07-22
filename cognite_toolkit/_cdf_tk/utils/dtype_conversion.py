@@ -7,6 +7,7 @@ from typing import ClassVar, cast
 from cognite.client.data_classes.data_modeling.data_types import Enum, ListablePropertyType
 from cognite.client.data_classes.data_modeling.instances import PropertyValueWrite
 from cognite.client.data_classes.data_modeling.views import PropertyType
+from cognite.client.utils import ms_to_datetime
 from dateutil import parser
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
@@ -178,7 +179,9 @@ class _JsonConverter(_ValueConverter):
     type_str = "json"
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
-        if isinstance(value, dict):
+        if isinstance(value, bool | int | float):
+            return value
+        elif isinstance(value, dict):
             if non_string_keys := [k for k in value if not isinstance(k, str)]:
                 raise ValueError(
                     f"JSON keys must be strings. Found non-string keys: {humanize_collection(non_string_keys)}"
@@ -196,7 +199,12 @@ class _TimestampConverter(_ValueConverter):
     type_str = "timestamp"
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
-        if isinstance(value, str):
+        if isinstance(value, int | float):
+            try:
+                return ms_to_datetime(value)
+            except (ValueError, OSError) as e:
+                raise ValueError(f"Cannot convert numeric value {value} to timestamp: {e}") from e
+        elif isinstance(value, str):
             try:
                 return parser.isoparse(value)
             except ValueError as e:
