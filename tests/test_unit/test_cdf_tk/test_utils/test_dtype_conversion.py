@@ -1,8 +1,8 @@
 from abc import ABC
-from collections.abc import Mapping
+from datetime import datetime, timezone
 
 import pytest
-from cognite.client.data_classes.data_modeling import ContainerId, MappedProperty, PropertyType
+from cognite.client.data_classes.data_modeling import PropertyType
 from cognite.client.data_classes.data_modeling.data_types import (
     Boolean,
     Enum,
@@ -22,138 +22,231 @@ from cognite_toolkit._cdf_tk.utils.dtype_conversion import CONVERTER_BY_DTYPE, c
 
 
 class TestConvertToContainerProperty:
-    default_properties: Mapping = dict(
-        container=ContainerId("some_space", "some_container"),
-        container_property_identifier="does_not_matter",
-        immutable=False,
-        auto_increment=True,
-    )
-
     @pytest.mark.parametrize(
-        "value, prop, expected_value",
+        "value, type_, nullable, expected_value",
         [
             pytest.param(
                 "string_value",
-                MappedProperty(type=Text(), nullable=True, **default_properties),
+                Text(),
+                True,
                 "string_value",
                 id="String to text",
             ),
             pytest.param(
-                True, MappedProperty(type=Boolean(), nullable=True, **default_properties), True, id="Bool to boolean"
+                True,
+                Boolean(),
+                True,
+                True,
+                id="Bool to boolean",
             ),
-            pytest.param(42, MappedProperty(type=Int32(), nullable=True, **default_properties), 42, id="Int to Int32"),
+            pytest.param(
+                42,
+                Int32(),
+                True,
+                42,
+                id="Int to Int32",
+            ),
             pytest.param(
                 1234567890123,
-                MappedProperty(type=Int64(), nullable=True, **default_properties),
+                Int64(),
+                True,
                 1234567890123,
                 id="Int to Int64",
             ),
             pytest.param(
-                3.14, MappedProperty(type=Float32(), nullable=True, **default_properties), 3.14, id="Float to Float32"
+                3.14,
+                Float32(),
+                True,
+                3.14,
+                id="Float to Float32",
             ),
             pytest.param(
                 2.7182818284,
-                MappedProperty(type=Float64(), nullable=True, **default_properties),
+                Float64(),
+                True,
                 2.7182818284,
                 id="Float to Float64",
             ),
             pytest.param(
                 {"key": "value"},
-                MappedProperty(type=Json(), nullable=True, **default_properties),
+                Json(),
+                True,
                 {"key": "value"},
                 id="Dict to Json",
             ),
             pytest.param(
                 "2025-07-22T12:34:56Z",
-                MappedProperty(type=Timestamp(), nullable=True, **default_properties),
-                "2025-07-22T12:34:56Z",
+                Timestamp(),
+                True,
+                datetime(2025, 7, 22, 12, 34, 56, tzinfo=timezone.utc),
                 id="String to Timestamp",
             ),
             pytest.param(
                 "ENUM_A",
-                MappedProperty(
-                    type=Enum(values={"ENUM_A": EnumValue(), "ENUM_B": EnumValue()}),
-                    nullable=True,
-                    **default_properties,
-                ),
+                Enum(values={"ENUM_A": EnumValue(), "ENUM_B": EnumValue()}),
+                True,
                 "ENUM_A",
                 id="String to Enum",
             ),
             pytest.param(
                 "1",
-                MappedProperty(type=Boolean(), nullable=True, **default_properties),
+                Boolean(),
+                True,
                 True,
                 id="String '1' to boolean True",
             ),
             pytest.param(
                 "0",
-                MappedProperty(type=Boolean(), nullable=True, **default_properties),
+                Boolean(),
+                True,
                 False,
                 id="String '0' to boolean False",
             ),
             pytest.param(
                 "-42",
-                MappedProperty(type=Int32(), nullable=True, **default_properties),
+                Int32(),
+                True,
                 -42,
                 id="String '-42' to Int32",
             ),
             pytest.param(
-                "0", MappedProperty(type=Int64(), nullable=True, **default_properties), 0, id="String '0' to Int64"
+                "0",
+                Int64(),
+                True,
+                0,
+                id="String '0' to Int64",
             ),
             pytest.param(
                 "-3.14",
-                MappedProperty(type=Float32(), nullable=True, **default_properties),
+                Float32(),
+                True,
                 -3.14,
                 id="String '-3.14' to Float32",
             ),
             pytest.param(
                 "0.0",
-                MappedProperty(type=Float64(), nullable=True, **default_properties),
+                Float64(),
+                True,
                 0.0,
                 id="String '0.0' to Float64",
             ),
             pytest.param(
                 "[1, 2, 3]",
-                MappedProperty(type=Json(), nullable=True, **default_properties),
+                Json(),
+                True,
                 [1, 2, 3],
                 id="Stringified list to Json",
             ),
             pytest.param(
                 '{"a": 1, "b": 2}',
-                MappedProperty(type=Json(), nullable=True, **default_properties),
+                Json(),
+                True,
                 {"a": 1, "b": 2},
                 id="Stringified dict with ints to Json",
             ),
             pytest.param(
                 "2025-01-01T00:00:00Z",
-                MappedProperty(type=Timestamp(), nullable=True, **default_properties),
-                "2025-01-01T00:00:00Z",
+                Timestamp(),
+                True,
+                datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
                 id="String to Timestamp (start of year)",
             ),
             pytest.param(
                 "ENUM_B",
-                MappedProperty(
-                    type=Enum(values={"ENUM_A": EnumValue(), "ENUM_B": EnumValue()}),
-                    nullable=True,
-                    **default_properties,
-                ),
+                Enum(values={"ENUM_A": EnumValue(), "ENUM_B": EnumValue()}),
+                True,
                 "ENUM_B",
                 id="String to Enum (B)",
             ),
         ],
     )
     def test_valid_conversion(
-        self, value: str | int | float | bool | dict | list, prop: MappedProperty, expected_value: PropertyValueWrite
+        self,
+        value: str | int | float | bool | dict | list,
+        type_: PropertyType,
+        nullable: bool,
+        expected_value: PropertyValueWrite,
     ):
-        actual = convert_to_primary_property(value, prop)
+        actual = convert_to_primary_property(value, type_, nullable)
 
-        assert actual == expected_value, f"Expected {expected_value}, but got {actual}"
+        if isinstance(expected_value, float):
+            assert actual == pytest.approx(expected_value), f"Expected {expected_value}, but got {actual}"
+        else:
+            assert actual == expected_value, f"Expected {expected_value}, but got {actual}"
 
+    @pytest.mark.parametrize(
+        "value, type_, nullable, error_message",
+        [
+            pytest.param(
+                None,
+                Text(),
+                False,
+                "Cannot convert None to a non-nullable property.",
+                id="None to non-nullable Text",
+            ),
+            pytest.param(
+                "invalid_enum_value",
+                Enum(values={"ENUM_A": EnumValue(), "ENUM_B": EnumValue()}),
+                True,
+                "Value 'invalid_enum_value' is not a valid enum value. Available values: ENUM_A and ENUM_B",
+                id="Invalid string to Enum",
+            ),
+            pytest.param(
+                "not_a_number",
+                Int32(),
+                True,
+                "Cannot convert not_a_number to int32.",
+                id="Invalid string to Int32",
+            ),
+            pytest.param(
+                "not_a_float",
+                Float32(),
+                True,
+                "Cannot convert not_a_float to float32.",
+                id="Invalid string to Float32",
+            ),
+            pytest.param(
+                {"key": "value"},
+                Boolean(),
+                True,
+                "Cannot convert {'key': 'value'} to boolean.",
+                id="Dict to Boolean",
+            ),
+            pytest.param(
+                str(2**31),
+                Int32(),
+                True,
+                "Value 2147483648 is out of range for int32.",
+                id="Int32 overflow (too large)",
+            ),
+            pytest.param(
+                str(-(2**31) - 1),
+                Int32(),
+                True,
+                "Value -2147483649 is out of range for int32.",
+                id="Int32 underflow (too small)",
+            ),
+            pytest.param(
+                str(3.5e38),
+                Float32(),
+                True,
+                "Value 3.5e+38 is out of range for float32.",
+                id="Float32 overflow (too large)",
+            ),
+            pytest.param(
+                str(-3.5e38),
+                Float32(),
+                True,
+                "Value -3.5e+38 is out of range for float32.",
+                id="Float32 underflow (too small)",
+            ),
+        ],
+    )
     def test_invalid_conversion(
-        self, value: str | int | float | bool | dict | list, prop: MappedProperty, error_message: str
+        self, value: str | int | float | bool | dict | list, type_: PropertyType, nullable: bool, error_message: str
     ):
         with pytest.raises(ValueError) as exc_info:
-            convert_to_primary_property(value, prop)
+            convert_to_primary_property(value, type_, nullable)
 
         assert str(exc_info.value) == error_message, (
             f"Expected error message '{error_message}', but got '{exc_info.value}'"
