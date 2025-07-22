@@ -58,7 +58,7 @@ T_Index = TypeVar("T_Index", bound=Hashable)
 
 
 class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
-    spreadsheet_max_column_with = 70.0
+    spreadsheet_max_column_width = 70.0
 
     def __init__(
         self,
@@ -292,7 +292,7 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
             column_letter = safe_cell.column_letter
             current = sheet.column_dimensions[column_letter].width or (max_length + 0.5)
             sheet.column_dimensions[column_letter].width = min(
-                max(current, max_length + 0.5), self.spreadsheet_max_column_with
+                max(current, max_length + 0.5), self.spreadsheet_max_column_width
             )
 
 
