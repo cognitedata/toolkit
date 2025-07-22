@@ -279,7 +279,7 @@ def use_raw_row_count(toolkit_client: ToolkitClient, populated_raw_table: RawTab
         pass
 
     with (
-        patch(f"{raw_row_count.__module__}._IS_ROW_ROW_COUNT_ENABLED", True),
+        patch(f"{raw_row_count.__module__}._IS_RAW_ROW_COUNT_ENABLED", True),
         patch(f"{raw_row_count.__module__}._write_last_call_epoc", no_op),
     ):
         yield
