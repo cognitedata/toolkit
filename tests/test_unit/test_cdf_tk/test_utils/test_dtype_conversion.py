@@ -240,6 +240,41 @@ class TestConvertToContainerProperty:
                 "Value -3.5e+38 is out of range for float32.",
                 id="Float32 underflow (too small)",
             ),
+            pytest.param(
+                "3.14",
+                Int32(),
+                True,
+                "Cannot convert 3.14 to int32.",
+                id="Float string to Int32 (invalid)",
+            ),
+            pytest.param(
+                "true",
+                Int32(),
+                True,
+                "Cannot convert true to int32.",
+                id="Boolean string to Int32 (invalid)",
+            ),
+            pytest.param(
+                "ENUM_C",
+                Enum(values={"ENUM_A": EnumValue(), "ENUM_B": EnumValue()}),
+                True,
+                "Value 'enum_c' is not a valid enum value. Available values: ENUM_A and ENUM_B",
+                id="Invalid enum value (not in list)",
+            ),
+            pytest.param(
+                '{"key": "value"}',
+                Int32(),
+                True,
+                'Cannot convert {"key": "value"} to int32.',
+                id="JSON dict string to Int32 (invalid)",
+            ),
+            pytest.param(
+                "1e100",
+                Float32(),
+                True,
+                "Value 1e100 is out of range for float32.",
+                id="Scientific notation overflow for Float32",
+            ),
         ],
     )
     def test_invalid_conversion(
