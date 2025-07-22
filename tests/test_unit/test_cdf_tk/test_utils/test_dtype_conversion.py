@@ -275,6 +275,20 @@ class TestConvertToContainerProperty:
                 "Value 1e100 is out of range for float32.",
                 id="Scientific notation overflow for Float32",
             ),
+            pytest.param(
+                "9223372036854775808",  # 2**63
+                Int64(),
+                True,
+                "Value 9223372036854775808 is out of range for int64.",
+                id="Int64 overflow (too large)",
+            ),
+            pytest.param(
+                "-9223372036854775809",  # -(2**63) - 1
+                Int64(),
+                True,
+                "Value -9223372036854775809 is out of range for int64.",
+                id="Int64 underflow (too small)",
+            ),
         ],
     )
     def test_invalid_conversion(
