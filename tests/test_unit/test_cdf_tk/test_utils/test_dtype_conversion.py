@@ -158,6 +158,13 @@ class TestConvertToContainerProperty:
                 "ENUM_B",
                 id="String to Enum (B)",
             ),
+            pytest.param(
+                1753193696789,
+                Timestamp(),
+                True,
+                datetime(2025, 7, 22, 14, 14, 56, 789000, tzinfo=timezone.utc),
+                id="Epoch float with milliseconds to Timestamp",
+            ),
         ],
     )
     def test_valid_conversion(
