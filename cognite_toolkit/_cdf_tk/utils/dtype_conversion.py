@@ -6,44 +6,36 @@ from typing import ClassVar, cast
 from cognite.client.data_classes.data_modeling.containers import ContainerId
 from cognite.client.data_classes.data_modeling.data_types import Enum, ListablePropertyType
 from cognite.client.data_classes.data_modeling.instances import PropertyValueWrite
-from cognite.client.data_classes.data_modeling.views import MappedProperty
+from cognite.client.data_classes.data_modeling.views import PropertyType
 from dateutil import parser
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
 
-_SPECIAL_CASES = {
-    (ContainerId("cdf_cdm", "CogniteTimeSeries"), "type"),
-}
-
 
 def convert_to_primary_property(
-    value: str | int | float | bool | dict | list | None, prop: MappedProperty
+    value: str | int | float | bool | dict | list | None, type_: PropertyType, nullable: bool
 ) -> PropertyValueWrite:
     """Convert a string value to the appropriate type based on the provided property type.
 
     Args:
         value (str | int | float | bool): The value to convert.
-        prop (MappedProperty): The property definition that specifies the type to convert to.
+        type_ (PropertyType): The type of the property to convert to.
+        nullable (bool): Whether the property can be null.
 
     Returns:
         PropertyValueWrite: The converted value as a PropertyValue, or None if is_nullable is True and the value is empty.
     """
-    converter: type[_Converter]
-    if (prop.container, prop.container_property_identifier) in CONVERTER_BY_CONTAINER_PROPERTY:
-        converter = CONVERTER_BY_CONTAINER_PROPERTY[(prop.container, prop.container_property_identifier)]
-    elif prop.type._type in CONVERTER_BY_TYPE:
-        converter = CONVERTER_BY_TYPE[prop.type._type]
+    dtype = type_._type
+    if dtype in CONVERTER_BY_DTYPE:
+        converter = CONVERTER_BY_DTYPE[dtype]
     else:
-        raise TypeError(f"Unsupported property type {prop.type}")
-    if isinstance(prop.type, ListablePropertyType) and prop.type.is_list:
-        raise NotImplementedError(f"Listable property type {prop.type} is not supported")
-    return converter(prop).convert(value)
+        raise TypeError(f"Unsupported property type {dtype}")
+    if isinstance(type_, ListablePropertyType) and type_.is_list:
+        raise NotImplementedError(f"Listable property type {dtype} is not supported")
+    return converter(type_, nullable).convert(value)
 
 
 class _Converter(ABC):
-    def __init__(self, property: MappedProperty):
-        self.property = property
-
     @abstractmethod
     def convert(self, value: str | int | float | bool | dict | list | None) -> PropertyValueWrite:
         """Convert a value to the appropriate type."""
@@ -57,10 +49,14 @@ class _SpecialCaseConverter(_Converter, ABC):
 
 
 class _ValueConverter(_Converter, ABC):
-    type: ClassVar[str]
+    type_str: ClassVar[str]
+
+    def __init__(self, type_: PropertyType, nullable: bool):
+        self.type = type_
+        self.nullable = nullable
 
     def convert(self, value: str | int | float | bool | dict | list | None) -> PropertyValueWrite:
-        if value is None and self.property.nullable is False:
+        if value is None and self.nullable is False:
             raise ValueError("Cannot convert None to a non-nullable property.")
         elif value is None:
             return None
@@ -75,14 +71,14 @@ class _ValueConverter(_Converter, ABC):
 
 
 class _TextConverter(_ValueConverter):
-    type = "text"
+    type_str = "text"
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
         return str(value) if value is not None else None
 
 
 class _BooleanConverter(_ValueConverter):
-    type = "boolean"
+    type_str = "boolean"
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
         if isinstance(value, bool):
@@ -96,7 +92,7 @@ class _BooleanConverter(_ValueConverter):
 
 
 class _Int32Converter(_ValueConverter):
-    type = "int32"
+    type_str = "int32"
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
         if isinstance(value, int):
@@ -116,7 +112,7 @@ class _Int32Converter(_ValueConverter):
 
 
 class _Int64Converter(_ValueConverter):
-    type = "int64"
+    type_str = "int64"
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
         if isinstance(value, int):
@@ -136,7 +132,7 @@ class _Int64Converter(_ValueConverter):
 
 
 class _Float32Converter(_ValueConverter):
-    type = "float32"
+    type_str = "float32"
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
         if isinstance(value, float):
@@ -156,7 +152,7 @@ class _Float32Converter(_ValueConverter):
 
 
 class _Float64Converter(_ValueConverter):
-    type = "float64"
+    type_str = "float64"
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
         if isinstance(value, float):
@@ -176,7 +172,7 @@ class _Float64Converter(_ValueConverter):
 
 
 class _JsonConverter(_ValueConverter):
-    type = "json"
+    type_str = "json"
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
         if value is None:
@@ -194,7 +190,7 @@ class _JsonConverter(_ValueConverter):
 
 
 class _TimestampConverter(_ValueConverter):
-    type = "timestamp"
+    type_str = "timestamp"
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
         if isinstance(value, str):
@@ -206,7 +202,7 @@ class _TimestampConverter(_ValueConverter):
 
 
 class _DateConverter(_ValueConverter):
-    type = "date"
+    type_str = "date"
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
         if isinstance(value, str):
@@ -218,10 +214,10 @@ class _DateConverter(_ValueConverter):
 
 
 class _EnumConverter(_ValueConverter):
-    type = "enum"
+    type_str = "enum"
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
-        type_ = cast(Enum, self.property.type)
+        type_ = cast(Enum, self.type)
         available_types = {enum_value.casefold(): enum_value for enum_value in type_.values.keys()}
         value = str(value).casefold()
         if value in available_types:
@@ -230,34 +226,38 @@ class _EnumConverter(_ValueConverter):
 
 
 class _DirectRelationshipConverter(_ValueConverter):
-    type = "direct"
+    type_str = "direct"
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
         raise ToolkitNotSupported("Direct relationship conversion is not supported.")
 
 
 class _TimeSeriesReferenceConverter(_ValueConverter):
-    type = "timeseries"
+    type_str = "timeseries"
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
         raise ToolkitNotSupported("Timeseries reference conversion is not supported.")
 
 
 class _FileReferenceConverter(_ValueConverter):
-    type = "file"
+    type_str = "file"
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
         raise ToolkitNotSupported("File reference conversion is not supported.")
 
 
 class _SequenceReferenceConverter(_ValueConverter):
-    type = "sequence"
+    type_str = "sequence"
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
         raise ToolkitNotSupported("Sequence reference conversion is not supported.")
 
 
-CONVERTER_BY_TYPE: Mapping[str, type[_ValueConverter]] = {cls_.type: cls_ for cls_ in _ValueConverter.__subclasses__()}  # type: ignore[type-abstract]
+CONVERTER_BY_DTYPE: Mapping[str, type[_ValueConverter]] = {
+    cls_.type_str: cls_  # type: ignore[type-abstract]
+    for cls_ in _ValueConverter.__subclasses__()
+}
+
 CONVERTER_BY_CONTAINER_PROPERTY: Mapping[tuple[ContainerId, str], type[_SpecialCaseConverter]] = {
     cls_.container_property: cls_  # type: ignore[type-abstract]
     for cls_ in _SpecialCaseConverter.__subclasses__()
