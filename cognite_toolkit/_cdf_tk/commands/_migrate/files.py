@@ -83,7 +83,7 @@ class MigrateFilesCommand(BaseMigrateCommand):
 
             missing_count = len(files) - len(mappings)
             if missing_count > 0:
-                raise ToolkitValueError(f"Missing {missing_count} Files does not exist in CDF.")
+                raise ToolkitValueError(f"{missing_count} Files are missing in CDF.")
 
             missing_file_content = [file for file in files if file.uploaded is not True]
             if missing_file_content:
