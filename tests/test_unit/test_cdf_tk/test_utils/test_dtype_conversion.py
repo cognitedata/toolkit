@@ -18,7 +18,7 @@ from cognite.client.data_classes.data_modeling.data_types import (
 from cognite.client.data_classes.data_modeling.instances import PropertyValueWrite
 
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.dtype_conversion import CONVERTER_BY_TYPE, convert_to_primary_property
+from cognite_toolkit._cdf_tk.utils.dtype_conversion import CONVERTER_BY_DTYPE, convert_to_primary_property
 
 
 class TestConvertToContainerProperty:
@@ -171,7 +171,7 @@ class TestConvertToContainerProperty:
                 if ABC in subclass.__bases__:
                     to_check.append(subclass)
 
-        missing_converters = existing_types - set(CONVERTER_BY_TYPE.keys())
+        missing_converters = existing_types - set(CONVERTER_BY_DTYPE.keys())
 
         assert not missing_converters, (
             f"Missing converters for types: {humanize_collection(missing_converters)}. "
