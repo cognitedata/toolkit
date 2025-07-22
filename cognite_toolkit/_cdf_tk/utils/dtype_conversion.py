@@ -1,4 +1,5 @@
 import ctypes
+import json
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from typing import ClassVar, cast
@@ -100,7 +101,7 @@ class _Int32Converter(_ValueConverter):
         else:
             raise ValueError(f"Cannot convert {value} to int32.")
         if output < -2_147_483_648 or output > 2_147_483_647:
-            raise ValueError(f"Value {output} is out of range for int32.")
+            raise ValueError(f"Value {value} is out of range for int32.")
         return output
 
 
@@ -120,7 +121,7 @@ class _Int64Converter(_ValueConverter):
         try:
             output = ctypes.c_int64(output).value
         except OverflowError:
-            raise ValueError(f"Value {output} is out of range for int64.")
+            raise ValueError(f"Value {value} is out of range for int64.")
         return output
 
 
@@ -162,7 +163,9 @@ class _Float64Converter(_ValueConverter):
         try:
             output = ctypes.c_double(output).value
         except OverflowError:
-            raise ValueError(f"Value {output} is out of range for float64.")
+            raise ValueError(f"Value {value} is out of range for float64.")
+        if output == float("inf") or output == float("-inf"):
+            raise ValueError(f"Value {value} is out of range for float64.")
         return output
 
 
@@ -176,8 +179,6 @@ class _JsonConverter(_ValueConverter):
             return value  # type: ignore[return-value]
         if isinstance(value, str):
             try:
-                import json
-
                 return json.loads(value)
             except ValueError as e:
                 raise ValueError(f"Cannot convert {value} to JSON: {e}")
