@@ -165,6 +165,55 @@ class TestConvertToContainerProperty:
                 datetime(2025, 7, 22, 14, 14, 56, 789000, tzinfo=timezone.utc),
                 id="Epoch float with milliseconds to Timestamp",
             ),
+            pytest.param(
+                [1, 2, 3],
+                Int32(is_list=True),
+                True,
+                [1, 2, 3],
+                id="List of int32 to Int32 list property",
+            ),
+            pytest.param(
+                ["2025-07-22T12:34:56Z", "2025-01-01T00:00:00Z"],
+                Timestamp(is_list=True),
+                True,
+                [
+                    datetime(2025, 7, 22, 12, 34, 56, tzinfo=timezone.utc),
+                    datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
+                ],
+                id="List of ISO timestamps to Timestamp list property",
+            ),
+            # List property type valid cases (additional)
+            pytest.param(
+                "[1, 2, 3]",
+                Int32(is_list=True),
+                True,
+                [1, 2, 3],
+                id="JSON string list to Int32 list property",
+            ),
+            pytest.param(
+                '["2025-07-22T12:34:56Z", "2025-01-01T00:00:00Z"]',
+                Timestamp(is_list=True),
+                True,
+                [
+                    datetime(2025, 7, 22, 12, 34, 56, tzinfo=timezone.utc),
+                    datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
+                ],
+                id="JSON string list to Timestamp list property",
+            ),
+            pytest.param(
+                42,
+                Int32(is_list=True),
+                True,
+                [42],
+                id="Single int to Int32 list property",
+            ),
+            pytest.param(
+                "2025-07-22T12:34:56Z",
+                Timestamp(is_list=True),
+                True,
+                [datetime(2025, 7, 22, 12, 34, 56, tzinfo=timezone.utc)],
+                id="Single ISO timestamp to Timestamp list property",
+            ),
         ],
     )
     def test_valid_conversion(
