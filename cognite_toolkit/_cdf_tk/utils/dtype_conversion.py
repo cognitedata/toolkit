@@ -3,7 +3,6 @@ from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from typing import ClassVar, cast
 
-from cognite.client.data_classes.data_modeling.containers import ContainerId
 from cognite.client.data_classes.data_modeling.data_types import Enum, ListablePropertyType
 from cognite.client.data_classes.data_modeling.instances import PropertyValueWrite
 from cognite.client.data_classes.data_modeling.views import PropertyType
@@ -42,12 +41,6 @@ class _Converter(ABC):
     def convert(self, value: str | int | float | bool | dict | list | None) -> PropertyValueWrite:
         """Convert a value to the appropriate type."""
         raise NotImplementedError("This method should be implemented by subclasses.")
-
-
-class _SpecialCaseConverter(_Converter, ABC):
-    """Abstract base class for converters handling special cases."""
-
-    container_property: ClassVar[tuple[ContainerId, str]]
 
 
 class _ValueConverter(_Converter, ABC):
@@ -260,9 +253,4 @@ class _SequenceReferenceConverter(_ValueConverter):
 CONVERTER_BY_DTYPE: Mapping[str, type[_ValueConverter]] = {
     cls_.type_str: cls_  # type: ignore[type-abstract]
     for cls_ in _ValueConverter.__subclasses__()
-}
-
-CONVERTER_BY_CONTAINER_PROPERTY: Mapping[tuple[ContainerId, str], type[_SpecialCaseConverter]] = {
-    cls_.container_property: cls_  # type: ignore[type-abstract]
-    for cls_ in _SpecialCaseConverter.__subclasses__()
 }
