@@ -166,10 +166,6 @@ class _Float64Converter(_ValueConverter):
                 raise ValueError(f"Cannot convert {value} to float64.")
         else:
             raise ValueError(f"Cannot convert {value} to float64.")
-        try:
-            output = ctypes.c_double(output).value
-        except OverflowError:
-            raise ValueError(f"Value {value} is out of range for float64.")
         if output == float("inf") or output == float("-inf"):
             raise ValueError(f"Value {value} is out of range for float64.")
         return output
@@ -191,7 +187,7 @@ class _JsonConverter(_ValueConverter):
             try:
                 return json.loads(value)
             except json.JSONDecodeError as e:
-                raise ValueError(f"Cannot convert {value} to JSON: {e}")
+                raise ValueError(f"Cannot convert {value} to JSON: {e}") from e
         raise ValueError(f"Cannot convert {value} to JSON.")
 
 
@@ -208,7 +204,7 @@ class _TimestampConverter(_ValueConverter):
             try:
                 return parser.isoparse(value)
             except ValueError as e:
-                raise ValueError(f"Cannot convert {value} to timestamp: {e}")
+                raise ValueError(f"Cannot convert {value} to timestamp: {e}") from e
         raise ValueError(f"Cannot convert {value} to timestamp.")
 
 
@@ -220,7 +216,7 @@ class _DateConverter(_ValueConverter):
             try:
                 return parser.parse(value).date()
             except ValueError as e:
-                raise ValueError(f"Cannot convert {value} to date: {e}")
+                raise ValueError(f"Cannot convert {value} to date: {e}") from e
         raise ValueError(f"Cannot convert {value} to date.")
 
 
