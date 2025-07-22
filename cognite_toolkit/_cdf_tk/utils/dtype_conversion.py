@@ -83,9 +83,7 @@ class _BooleanConverter(_ValueConverter):
     type_str = "boolean"
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
-        if isinstance(value, bool):
-            return value
-        elif isinstance(value, int):
+        if isinstance(value, bool | int | float):
             return bool(value)
         elif isinstance(value, str):
             if value.lower() in ("true", "1"):
