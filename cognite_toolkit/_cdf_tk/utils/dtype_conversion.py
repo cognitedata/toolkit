@@ -13,6 +13,9 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
 
 from .collection import humanize_collection
 
+INT32_MIN = -2_147_483_648
+INT32_MAX = 2_147_483_647
+
 
 def convert_to_primary_property(
     value: str | int | float | bool | dict | list | None, type_: PropertyType, nullable: bool
@@ -70,7 +73,7 @@ class _TextConverter(_ValueConverter):
     type_str = "text"
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
-        return str(value) if value is not None else None
+        return str(value)
 
 
 class _BooleanConverter(_ValueConverter):
@@ -100,7 +103,7 @@ class _Int32Converter(_ValueConverter):
                 raise ValueError(f"Cannot convert {value} to int32.")
         else:
             raise ValueError(f"Cannot convert {value} to int32.")
-        if output < -2_147_483_648 or output > 2_147_483_647:
+        if output < INT32_MIN or output > INT32_MAX:
             raise ValueError(f"Value {value} is out of range for int32.")
         return output
 
@@ -173,14 +176,12 @@ class _JsonConverter(_ValueConverter):
     type_str = "json"
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
-        if value is None:
-            return None
-        if isinstance(value, dict | list):
+        if isinstance(value, dict):
             return value  # type: ignore[return-value]
-        if isinstance(value, str):
+        elif isinstance(value, str):
             try:
                 return json.loads(value)
-            except ValueError as e:
+            except json.JSONDecodeError as e:
                 raise ValueError(f"Cannot convert {value} to JSON: {e}")
         raise ValueError(f"Cannot convert {value} to JSON.")
 
