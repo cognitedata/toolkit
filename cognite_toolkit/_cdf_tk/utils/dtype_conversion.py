@@ -11,6 +11,8 @@ from dateutil import parser
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
 
+from .collection import humanize_collection
+
 
 def convert_to_primary_property(
     value: str | int | float | bool | dict | list | None, type_: PropertyType, nullable: bool
@@ -104,9 +106,7 @@ class _Int32Converter(_ValueConverter):
                 raise ValueError(f"Cannot convert {value} to int32.")
         else:
             raise ValueError(f"Cannot convert {value} to int32.")
-        try:
-            output = ctypes.c_int32(output).value
-        except OverflowError:
+        if output < -2_147_483_648 or output > 2_147_483_647:
             raise ValueError(f"Value {output} is out of range for int32.")
         return output
 
@@ -147,7 +147,9 @@ class _Float32Converter(_ValueConverter):
         try:
             output = ctypes.c_float(output).value
         except OverflowError:
-            raise ValueError(f"Value {output} is out of range for float32.")
+            raise ValueError(f"Value {value} is out of range for float32.")
+        if output == float("inf") or output == float("-inf"):
+            raise ValueError(f"Value {value} is out of range for float32.")
         return output
 
 
@@ -222,7 +224,9 @@ class _EnumConverter(_ValueConverter):
         value = str(value).casefold()
         if value in available_types:
             return available_types[value]
-        raise ValueError(f"Value {value} is not a valid enum value. Available values: {available_types}")
+        raise ValueError(
+            f"Value {value!r} is not a valid enum value. Available values: {humanize_collection(available_types.values())}"
+        )
 
 
 class _DirectRelationshipConverter(_ValueConverter):
