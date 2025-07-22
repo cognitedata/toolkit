@@ -88,7 +88,7 @@ class _ValueConverter(_Converter, ABC):
         elif value is None:
             return None
         elif isinstance(value, list):
-            raise ValueError(f"Cannot covert a list directly to {self.type_str}.")
+            raise ValueError(f"Expected a single value for {self.type_str}, but got a list.")
         return self._convert(value)
 
     @abstractmethod
