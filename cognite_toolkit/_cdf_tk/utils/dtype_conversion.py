@@ -132,8 +132,8 @@ class _Float32Converter(_ValueConverter):
     type_str = "float32"
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
-        if isinstance(value, float):
-            output = value
+        if isinstance(value, float | int):
+            output = float(value)
         elif isinstance(value, str):
             try:
                 output = float(value)
@@ -154,8 +154,8 @@ class _Float64Converter(_ValueConverter):
     type_str = "float64"
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
-        if isinstance(value, float):
-            output = value
+        if isinstance(value, float | int):
+            output = float(value)
         elif isinstance(value, str):
             try:
                 output = float(value)
