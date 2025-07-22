@@ -345,6 +345,13 @@ class TestConvertToContainerProperty:
                 "Value -9223372036854775809 is out of range for int64.",
                 id="Int64 underflow (too small)",
             ),
+            pytest.param(
+                [123, 456],
+                Int64(is_list=False),
+                True,
+                "Expected a single value for int64, but got a list.",
+                id="List to Int64 (invalid, not a list type)",
+            ),
         ],
     )
     def test_invalid_conversion(
