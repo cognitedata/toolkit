@@ -288,7 +288,7 @@ def use_raw_row_count(toolkit_client: ToolkitClient, populated_raw_table: RawTab
         last_call_epoch=0,
     )
     with (
-        patch(f"{raw_row_count.__module__}._STATE_BY_FILENAME", always_enabled),
+        patch(f"{raw_row_count.__module__}._STATE_BY_PATH", always_enabled),
         patch(f"{raw_row_count.__module__}._write_last_call_epoc", no_op),
     ):
         yield
