@@ -60,7 +60,8 @@ def _as_list(value: str | int | float | bool | dict | list[Any] | None) -> list[
         return []
     elif isinstance(value, str):
         try:
-            return json.loads(value)
+            data = json.loads(value)
+            return data if isinstance(data, list) else [data]
         except json.JSONDecodeError:
             return [value]
     elif isinstance(value, int | float | bool | dict):
@@ -210,7 +211,7 @@ class _JsonConverter(_ValueConverter):
                 )
             return value  # type: ignore[return-value]
         elif isinstance(value, list):
-            if not all(isinstance(item, str | int | float | bool | dict) for item in value):
+            if not all(isinstance(item, str | int | float | bool | dict | list) for item in value):
                 raise ValueError("All items in the list must be of type str, int, float, bool, or dict.")
             return value
         elif isinstance(value, str):
