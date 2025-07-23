@@ -2,6 +2,8 @@ from abc import ABC
 from datetime import datetime, timezone
 
 import pytest
+from cognite.client.data_classes import Label
+from cognite.client.data_classes.data_modeling import ContainerId, PropertyType
 from cognite.client.data_classes.data_modeling.data_types import (
     Boolean,
     Enum,
@@ -18,7 +20,12 @@ from cognite.client.data_classes.data_modeling.data_types import (
 from cognite.client.data_classes.data_modeling.instances import PropertyValueWrite
 
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.dtype_conversion import CONVERTER_BY_DTYPE, convert_to_primary_property
+from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
+    CONVERTER_BY_DTYPE,
+    AssetCentric,
+    asset_centric_convert_to_primary_property,
+    convert_to_primary_property,
+)
 
 
 class TestConvertToContainerProperty:
@@ -382,3 +389,46 @@ class TestConvertToContainerProperty:
             f"Missing converters for types: {humanize_collection(missing_converters)}. "
             "Please ensure all property types have a corresponding converter."
         )
+
+    @pytest.mark.parametrize(
+        "value, type_, destination_container_property, source_property, expected",
+        [
+            pytest.param(
+                True,
+                Enum(values={"numeric": EnumValue(), "string": EnumValue()}),
+                (ContainerId("cdf_cdm", "CogniteTimeSeries"), "type"),
+                ("timeseries", "isString"),
+                "string",
+                id="TimeSeries.isString to Enum conversion",
+            ),
+            pytest.param(
+                False,
+                Enum(values={"numeric": EnumValue(), "string": EnumValue()}),
+                (ContainerId("cdf_cdm", "CogniteTimeSeries"), "type"),
+                ("timeseries", "isString"),
+                "numeric",
+                id="TimeSeries.isString to Enum conversion (False case)",
+            ),
+            pytest.param(
+                [Label("pump"), Label("mechanical")],
+                Text(is_list=True),
+                (ContainerId("cdf_cdm", "CogniteDescribable"), "tags"),
+                ("asset", "labels"),
+                ["pump", "mechanical"],
+                id="Asset labels to tags list conversion",
+            ),
+        ],
+    )
+    def test_asset_centric_conversion(
+        self,
+        value: str | int | float | bool | dict | list,
+        type_: PropertyType,
+        destination_container_property: tuple[ContainerId, str],
+        source_property: tuple[AssetCentric, str],
+        expected: PropertyValueWrite,
+    ):
+        actual = asset_centric_convert_to_primary_property(
+            value, type_, True, destination_container_property, source_property
+        )
+
+        assert actual == expected
