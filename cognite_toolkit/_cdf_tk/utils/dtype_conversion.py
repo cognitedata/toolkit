@@ -2,8 +2,10 @@ import ctypes
 import json
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
-from typing import ClassVar, cast
+from typing import ClassVar, Literal, cast
 
+from cognite.client.data_classes import Label, LabelDefinition
+from cognite.client.data_classes.data_modeling import ContainerId
 from cognite.client.data_classes.data_modeling.data_types import Enum, ListablePropertyType, PropertyType
 from cognite.client.data_classes.data_modeling.instances import PropertyValueWrite
 from cognite.client.utils import ms_to_datetime
@@ -100,6 +102,54 @@ class _ValueConverter(_Converter, ABC):
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
         """Convert the value to the appropriate type."""
         raise NotImplementedError("This method should be implemented by subclasses.")
+
+
+class _SpecialCaseConverter(_Converter, ABC):
+    """Abstract base class for converters handling special cases."""
+
+    source_property: ClassVar[tuple[Literal["asset", "file", "event", "timeseries", "sequence"], str]]
+    destination_container_property: ClassVar[tuple[ContainerId, str]]
+
+
+class _TimeSeriesTypeConverter(_SpecialCaseConverter):
+    source_property = ("timeseries", "isString")
+    destination_container_property = (ContainerId("cdf_cdm", "CogniteTimeSeries"), "type")
+
+    def convert(self, value: str | int | float | bool | dict | list | None) -> str:
+        if isinstance(value, bool):
+            return "string" if value else "numeric"
+        raise ValueError(f"Cannot convert {value} to TimeSeries type. Expected a boolean value.")
+
+
+class _LabelConverter(_SpecialCaseConverter, ABC):
+    destination_container_property = (ContainerId("cdf_cdm", "CogniteDescribable"), "tags")
+
+    def convert(self, value: str | int | float | bool | dict | list | None) -> list[str]:
+        if not isinstance(value, list):
+            raise ValueError(
+                f"Cannot convert {value} to labels. Expected a list of Labels, objects, or LabelDefinitions."
+            )
+        tags: list[str] = []
+        for item in value:
+            if isinstance(item, str):
+                tags.append(item)
+            elif isinstance(item, dict) and "externalId" in item:
+                tags.append(item["externalId"])
+            elif isinstance(item, Label | LabelDefinition) and item.external_id:
+                tags.append(item.external_id)
+            else:
+                raise ValueError(
+                    f"Invalid label item: {item}. Expected a string, dict with 'externalId', or Label/LabelDefinition."
+                )
+        return tags
+
+
+class _AssetLabelConverter(_LabelConverter):
+    source_property = ("asset", "labels")
+
+
+class _FileLabelConverter(_LabelConverter):
+    source_property = ("file", "labels")
 
 
 class _TextConverter(_ValueConverter):
