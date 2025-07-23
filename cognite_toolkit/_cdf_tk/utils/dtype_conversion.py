@@ -34,20 +34,21 @@ def convert_to_primary_property(
     """
     dtype = type_._type
     if dtype in CONVERTER_BY_DTYPE:
-        converter = CONVERTER_BY_DTYPE[dtype]
+        converter_cls = CONVERTER_BY_DTYPE[dtype]
     else:
         raise TypeError(f"Unsupported property type {dtype}")
+    converter = converter_cls(type_, nullable)
     if isinstance(type_, ListablePropertyType) and type_.is_list:
         values = _as_list(value)
         output: list[PropertyValueWrite] = []
         for item in values:
-            converted = converter(type_, nullable).convert(item)
+            converted = converter.convert(item)
             if converted is not None:
                 output.append(converted)
         # MyPy gets confused by the SequenceNotStr used in the PropertyValueWrite
         return output  # type: ignore[return-value]
     else:
-        return converter(type_, nullable).convert(value)
+        return converter.convert(value)
 
 
 def _as_list(value: str | int | float | bool | dict[str, Any] | list[Any] | None) -> list[Any]:
@@ -79,6 +80,7 @@ class _Converter(ABC):
 
 class _ValueConverter(_Converter, ABC):
     type_str: ClassVar[str]
+    _handles_list: ClassVar[bool] = False
 
     def __init__(self, type_: PropertyType, nullable: bool):
         self.type = type_
@@ -89,11 +91,10 @@ class _ValueConverter(_Converter, ABC):
             raise ValueError("Cannot convert None to a non-nullable property.")
         elif value is None:
             return None
-        elif isinstance(self, _JsonConverter):
-            return self._convert(value)
-        elif isinstance(value, list):
+        elif isinstance(value, list) and not self._handles_list:
             raise ValueError(f"Expected a single value for {self.type_str}, but got a list.")
-        return self._convert(value)
+        # If the value is a list, we handle it in the subclass if it supports lists.
+        return self._convert(value)  # type: ignore[arg-type]
 
     @abstractmethod
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
@@ -200,6 +201,7 @@ class _Float64Converter(_ValueConverter):
 
 class _JsonConverter(_ValueConverter):
     type_str = "json"
+    _handles_list = True
 
     def _convert(self, value: str | int | float | bool | dict[str, Any] | list) -> PropertyValueWrite:
         if isinstance(value, bool | int | float):
