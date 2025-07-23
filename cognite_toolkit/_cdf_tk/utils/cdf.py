@@ -377,12 +377,14 @@ class ThrottlerState:
                     is_raw_row_count_enabled = to_wait <= 0
             else:
                 is_raw_row_count_enabled = True
-        return cls(
+        state = cls(
             lock=lock,
             project=project,
             is_raw_row_count_enabled=is_raw_row_count_enabled,
             last_call_epoch=last_call_epoch,
         )
+        _STATE_BY_PATH[filepath] = state
+        return state
 
     @classmethod
     def _filepath(cls, project: str) -> Path:
