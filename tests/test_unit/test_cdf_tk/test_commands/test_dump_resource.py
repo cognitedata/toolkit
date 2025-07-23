@@ -179,7 +179,7 @@ def three_agents() -> AgentList:
                 model="gpt-3.5-turbo",
                 tools=[
                     AskDocumentAgentTool(
-                        name="toolA",
+                        name="tool{character}",
                         description=f"This is tool {character}",
                     )
                 ],
