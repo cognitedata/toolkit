@@ -280,16 +280,16 @@ def use_raw_row_count(toolkit_client: ToolkitClient, populated_raw_table: RawTab
         """No operation function to replace the write_last_call_epoc function."""
         pass
 
-    always_enabled = MagicMock(spec=dict)
-    always_enabled.get.return_value = ThrottlerState(
-        project=toolkit_client.config.project,
-        lock=FileLock("test.lock"),
-        is_raw_row_count_enabled=True,
-        last_call_epoch=0,
-    )
+    always_enabled = MagicMock(spec=ThrottlerState)
+    # We mock the TrottlerState to avoid .update() being called.
+    state = MagicMock(spec=ThrottlerState)
+    state.project = toolkit_client.config.project
+    state.lock = FileLock("test.lock")
+    state.is_raw_row_count_enabled = True
+    state.last_call_epoch = 0
+    always_enabled.get.return_value = state
     with (
-        patch(f"{raw_row_count.__module__}._STATE_BY_PATH", always_enabled),
-        patch(f"{raw_row_count.__module__}._write_last_call_epoc", no_op),
+        patch(f"{raw_row_count.__module__}.ThrottlerState", always_enabled),
     ):
         yield
 
