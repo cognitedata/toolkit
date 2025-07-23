@@ -2,7 +2,7 @@ import ctypes
 import json
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
-from typing import Any, ClassVar, cast
+from typing import ClassVar, cast
 
 from cognite.client.data_classes.data_modeling.data_types import Enum, ListablePropertyType
 from cognite.client.data_classes.data_modeling.instances import PropertyValueWrite
@@ -43,7 +43,7 @@ def convert_to_primary_property(
         values = _as_list(value)
         output: list[PropertyValueWrite] = []
         for item in values:
-            converted = converter.convert(item)
+            converted = converter.convert(item)  # type: ignore[arg-type]
             if converted is not None:
                 output.append(converted)
         # MyPy gets confused by the SequenceNotStr used in the PropertyValueWrite
@@ -52,7 +52,7 @@ def convert_to_primary_property(
         return converter.convert(value)
 
 
-def _as_list(value: str | int | float | bool | dict[str, Any] | list[Any] | None) -> list[Any]:
+def _as_list(value: str | int | float | bool | dict[str, object] | list[object] | None) -> list[object]:
     """Convert a value to a list, ensuring that it is iterable."""
     if value is None:
         return []
@@ -204,7 +204,7 @@ class _JsonConverter(_ValueConverter):
     type_str = "json"
     _handles_list = True
 
-    def _convert(self, value: str | int | float | bool | dict[str, Any] | list) -> PropertyValueWrite:
+    def _convert(self, value: str | int | float | bool | dict[str, object] | list) -> PropertyValueWrite:
         if isinstance(value, bool | int | float):
             return value
         elif isinstance(value, dict):
