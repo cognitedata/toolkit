@@ -1,3 +1,12 @@
+Agent:
+- description: This agent is designed to demonstrate that Toolkit can deploy agents
+  externalId: toolkit_demo_agent
+  model: azure/gpt-4o
+  name: The Toolkit Demo Agent
+  tools:
+  - description: This tool allows you to perform operations on query time series datapoints.
+    name: Operations on datapoints tool
+    type: queryTimeSeriesDatapoints
 Asset:
 - dataSetId: 9434864499692429728
   description: This is the root asset on Drammen

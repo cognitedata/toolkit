@@ -100,6 +100,7 @@ from cognite.client.data_classes import (
     WorkflowVersionUpsert,
     WorkflowVersionUpsertList,
 )
+from cognite.client.data_classes.agents import Agent, AgentList, AgentUpsert, AgentUpsertList
 from cognite.client.data_classes.data_modeling import (
     Container,
     ContainerApply,
@@ -759,6 +760,22 @@ API_RESOURCES = [
             "create": [Method(api_class_method="create", mock_class_method="create_multiple")],
             "retrieve": [
                 Method(api_class_method="retrieve_multiple", mock_class_method="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="agents",
+        resource_cls=Agent,
+        list_cls=AgentList,
+        _write_cls=AgentUpsert,
+        _write_list_cls=AgentUpsertList,
+        methods={
+            "create": [Method(api_class_method="upsert", mock_class_method="create_multiple")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
+            ],
+            "delete": [
+                Method(api_class_method="delete", mock_class_method="delete_id_external_id"),
             ],
         },
     ),
