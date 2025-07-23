@@ -1,6 +1,6 @@
 import itertools
 from collections import Counter, defaultdict
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from cognite.client.data_classes import (
@@ -18,10 +18,12 @@ from cognite.client.data_classes import (
     RowWriteList,
 )
 from cognite.client.data_classes.labels import LabelDefinitionWriteList
+from filelock import FileLock
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.utils.cdf import (
+    ThrottlerState,
     label_aggregate_count,
     metadata_key_counts,
     raw_row_count,
@@ -278,8 +280,12 @@ def use_raw_row_count(toolkit_client: ToolkitClient, populated_raw_table: RawTab
         """No operation function to replace the write_last_call_epoc function."""
         pass
 
+    always_enabled = MagicMock(spec=dict)
+    always_enabled.get.return_value = ThrottlerState(
+        FileLock("test.lock"), is_raw_row_count_enabled=True, last_call_epoch=0
+    )
     with (
-        patch(f"{raw_row_count.__module__}._IS_RAW_ROW_COUNT_ENABLED", True),
+        patch(f"{raw_row_count.__module__}._STATE_BY_FILENAME", always_enabled),
         patch(f"{raw_row_count.__module__}._write_last_call_epoc", no_op),
     ):
         yield

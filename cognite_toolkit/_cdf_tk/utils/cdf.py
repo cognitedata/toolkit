@@ -16,7 +16,7 @@ from cognite.client.data_classes.data_modeling import Edge, Node, ViewId
 from cognite.client.data_classes.filters import SpaceFilter
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
-from filelock import FileLock, SoftFileLock
+from filelock import BaseFileLock, FileLock
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
@@ -350,40 +350,52 @@ FROM
     return 0
 
 
-_FILENAME = "tk-last-raw_count-{project}.bin"
-_LOCK_BY_FILENAME: dict[str, SoftFileLock] = {}
-_IS_RAW_ROW_COUNT_ENABLED: bool | None = None
-_LAST_CALL_EPOC: float = 0
+@dataclass
+class ThrottlerState:
+    _FILENAME = "tk-last-raw_count-{project}.bin"
 
+    lock: BaseFileLock
+    project: str
+    is_raw_row_count_enabled: bool
+    last_call_epoch: float = 0
 
-def _set_row_count_enabled(project: str) -> None:
-    global _IS_RAW_ROW_COUNT_ENABLED, _LAST_CALL_EPOC
-    filename = _FILENAME.format(project=project)
-    filepath = Path(tempfile.gettempdir()).resolve(strict=True) / filename
-    if filename not in _LOCK_BY_FILENAME:
-        _LOCK_BY_FILENAME[filename] = FileLock(filepath)
-    lock = _LOCK_BY_FILENAME[filename]
-    with lock:
-        if filepath.exists():
-            try:
-                _LAST_CALL_EPOC = float(filepath.read_text())
-            except ValueError:
-                _IS_RAW_ROW_COUNT_ENABLED = True
+    @classmethod
+    def get(cls, project: str) -> "ThrottlerState":
+        filepath = cls._filepath(project)
+        if filepath in _STATE_BY_PATH:
+            return _STATE_BY_PATH[filepath]
+        lock = FileLock(filepath)
+        last_call_epoch = 0.0
+        with lock:
+            if filepath.exists():
+                try:
+                    last_call_epoch = float(filepath.read_text())
+                except ValueError:
+                    is_raw_row_count_enabled = True
+                else:
+                    to_wait = (MAX_RUN_QUERY_FREQUENCY_MIN * 60) - (time.time() - last_call_epoch)
+                    is_raw_row_count_enabled = to_wait <= 0
             else:
-                to_wait = (MAX_RUN_QUERY_FREQUENCY_MIN * 60) - (time.time() - _LAST_CALL_EPOC)
-                _IS_RAW_ROW_COUNT_ENABLED = to_wait <= 0
-        else:
-            _IS_RAW_ROW_COUNT_ENABLED = True
+                is_raw_row_count_enabled = True
+        return cls(
+            lock=lock,
+            project=project,
+            is_raw_row_count_enabled=is_raw_row_count_enabled,
+            last_call_epoch=last_call_epoch,
+        )
+
+    @classmethod
+    def _filepath(cls, project: str) -> Path:
+        filename = cls._FILENAME.format(project=project)
+        return Path(tempfile.gettempdir()).resolve(strict=True) / filename
+
+    def update(self) -> None:
+        filepath = self._filepath(self.project)
+        with self.lock:
+            filepath.write_text(str(time.time()), encoding="utf-8")
 
 
-def _write_last_call_epoc(project: str) -> None:
-    filename = _FILENAME.format(project=project)
-    filepath = Path(tempfile.gettempdir()).resolve(strict=True) / filename
-    if filename not in _LOCK_BY_FILENAME:
-        _LOCK_BY_FILENAME[filename] = FileLock(filepath)
-    lock = _LOCK_BY_FILENAME[filename]
-    with lock:
-        filepath.write_text(str(time.time()), encoding="utf-8")
+_STATE_BY_PATH: dict[Path, ThrottlerState] = {}
 
 
 def raw_row_count(client: ToolkitClient, raw_table_id: RawTable, max_count: int = MAX_ROW_ITERATION_RUN_QUERY) -> int:
@@ -401,11 +413,9 @@ def raw_row_count(client: ToolkitClient, raw_table_id: RawTable, max_count: int 
         ToolkitThrottledError: If the row count is limited to once every MAX_RUN_QUERY_FREQUENCY_MIN minutes.
         ValueError: If max_count is not between 0 and MAX_ROW_ITERATION_RUN_QUERY (inclusive).
     """
-    if _IS_RAW_ROW_COUNT_ENABLED is None:
-        _set_row_count_enabled(client.config.project)
-
-    if not _IS_RAW_ROW_COUNT_ENABLED:
-        to_wait = (MAX_RUN_QUERY_FREQUENCY_MIN * 60) - (time.time() - _LAST_CALL_EPOC)
+    state = ThrottlerState.get(client.config.project)
+    if not state.is_raw_row_count_enabled:
+        to_wait = (MAX_RUN_QUERY_FREQUENCY_MIN * 60) - (time.time() - state.last_call_epoch)
         raise ToolkitThrottledError(
             f"Row count is limited to once every {MAX_RUN_QUERY_FREQUENCY_MIN} minutes. Please wait {to_wait:.2f} seconds before calling again.",
             to_wait,
@@ -421,7 +431,7 @@ FROM (
     LIMIT {max_count}
 ) AS limited_keys"""
 
-    _write_last_call_epoc(client.config.project)
+    state.update()
 
     results = client.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
     if results.results:
