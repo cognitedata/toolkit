@@ -2,7 +2,7 @@ import ctypes
 import json
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
-from typing import ClassVar, cast
+from typing import Any, ClassVar, cast
 
 from cognite.client.data_classes.data_modeling.data_types import Enum, ListablePropertyType, PropertyType
 from cognite.client.data_classes.data_modeling.instances import PropertyValueWrite
@@ -39,17 +39,18 @@ def convert_to_primary_property(
         raise TypeError(f"Unsupported property type {dtype}")
     if isinstance(type_, ListablePropertyType) and type_.is_list:
         values = _as_list(value)
-        output: list = []
+        output: list[PropertyValueWrite] = []
         for item in values:
             converted = converter(type_, nullable).convert(item)
             if converted is not None:
                 output.append(converted)
-        return output
+        # MyPy gets confused by the SequenceNotStr used in the PropertyValueWrite
+        return output  # type: ignore[return-value]
     else:
         return converter(type_, nullable).convert(value)
 
 
-def _as_list(value: str | int | float | bool | dict | list | None) -> list:
+def _as_list(value: str | int | float | bool | dict | list[Any] | None) -> list[Any]:
     """Convert a value to a list, ensuring that it is iterable."""
     if value is None:
         return []
@@ -87,6 +88,8 @@ class _ValueConverter(_Converter, ABC):
             raise ValueError("Cannot convert None to a non-nullable property.")
         elif value is None:
             return None
+        elif isinstance(self, _JsonConverter):
+            return self._convert(value)
         elif isinstance(value, list):
             raise ValueError(f"Expected a single value for {self.type_str}, but got a list.")
         return self._convert(value)
@@ -197,7 +200,7 @@ class _Float64Converter(_ValueConverter):
 class _JsonConverter(_ValueConverter):
     type_str = "json"
 
-    def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
+    def _convert(self, value: str | int | float | bool | dict | list) -> PropertyValueWrite:
         if isinstance(value, bool | int | float):
             return value
         elif isinstance(value, dict):
@@ -206,6 +209,10 @@ class _JsonConverter(_ValueConverter):
                     f"JSON keys must be strings. Found non-string keys: {humanize_collection(non_string_keys)}"
                 )
             return value  # type: ignore[return-value]
+        elif isinstance(value, list):
+            if not all(isinstance(item, str | int | float | bool | dict) for item in value):
+                raise ValueError("All items in the list must be of type str, int, float, bool, or dict.")
+            return value
         elif isinstance(value, str):
             try:
                 return json.loads(value)
