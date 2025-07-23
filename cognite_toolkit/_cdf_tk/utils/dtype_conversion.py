@@ -21,6 +21,21 @@ INT64_MIN = -9_223_372_036_854_775_808
 INT64_MAX = 9_223_372_036_854_775_807
 
 
+def asset_centric_convert_to_primary_property(
+    value: str | int | float | bool | dict | list | None,
+    type_: PropertyType,
+    nullable: bool,
+    destination_container_property: tuple[ContainerId, str],
+    source_property: tuple[Literal["asset", "file", "event", "timeseries", "sequence"], str],
+) -> PropertyValueWrite:
+    if (source_property, destination_container_property) in SPECIAL_CONVERTER_BY_SOURCE_DESTINATION:
+        converter_cls = SPECIAL_CONVERTER_BY_SOURCE_DESTINATION[(source_property, destination_container_property)]
+        return converter_cls().convert(value)
+    else:
+        # Fallback to the standard conversion
+        return convert_to_primary_property(value, type_, nullable)
+
+
 def convert_to_primary_property(
     value: str | int | float | bool | dict | list | None, type_: PropertyType, nullable: bool
 ) -> PropertyValueWrite:
@@ -349,3 +364,20 @@ CONVERTER_BY_DTYPE: Mapping[str, type[_ValueConverter]] = {
     cls_.type_str: cls_  # type: ignore[type-abstract]
     for cls_ in _ValueConverter.__subclasses__()
 }
+SPECIAL_CONVERTER_BY_SOURCE_DESTINATION: Mapping[
+    tuple[tuple[Literal["asset", "file", "event", "timeseries", "sequence"], str], tuple[ContainerId, str]],
+    type[_SpecialCaseConverter],
+] = {}
+_to_check = [_SpecialCaseConverter]
+while _to_check:
+    _cls_ = _to_check.pop()
+    for _subclass in _cls_.__subclasses__():
+        if ABC in _subclass.__bases__:
+            _to_check.append(_subclass)
+        else:
+            # We now that this is a mutable mapping, but we do not want to expose that outside this module.
+            SPECIAL_CONVERTER_BY_SOURCE_DESTINATION[  # type: ignore[index]
+                (_subclass.source_property, _subclass.destination_container_property)
+            ] = _subclass
+# Cleanup
+del _to_check, _cls_, _subclass
