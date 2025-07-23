@@ -2,7 +2,7 @@ import ctypes
 import json
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
-from typing import ClassVar, Literal, cast
+from typing import ClassVar, Literal, TypeAlias, cast
 
 from cognite.client.data_classes import Label, LabelDefinition
 from cognite.client.data_classes.data_modeling import ContainerId
@@ -20,13 +20,15 @@ INT32_MAX = 2_147_483_647
 INT64_MIN = -9_223_372_036_854_775_808
 INT64_MAX = 9_223_372_036_854_775_807
 
+AssetCentric: TypeAlias = Literal["asset", "file", "event", "timeseries", "sequence"]
+
 
 def asset_centric_convert_to_primary_property(
     value: str | int | float | bool | dict | list | None,
     type_: PropertyType,
     nullable: bool,
     destination_container_property: tuple[ContainerId, str],
-    source_property: tuple[Literal["asset", "file", "event", "timeseries", "sequence"], str],
+    source_property: tuple[AssetCentric, str],
 ) -> PropertyValueWrite:
     if (source_property, destination_container_property) in SPECIAL_CONVERTER_BY_SOURCE_DESTINATION:
         converter_cls = SPECIAL_CONVERTER_BY_SOURCE_DESTINATION[(source_property, destination_container_property)]
@@ -122,7 +124,7 @@ class _ValueConverter(_Converter, ABC):
 class _SpecialCaseConverter(_Converter, ABC):
     """Abstract base class for converters handling special cases."""
 
-    source_property: ClassVar[tuple[Literal["asset", "file", "event", "timeseries", "sequence"], str]]
+    source_property: ClassVar[tuple[AssetCentric, str]]
     destination_container_property: ClassVar[tuple[ContainerId, str]]
 
 
@@ -365,7 +367,7 @@ CONVERTER_BY_DTYPE: Mapping[str, type[_ValueConverter]] = {
     for cls_ in _ValueConverter.__subclasses__()
 }
 SPECIAL_CONVERTER_BY_SOURCE_DESTINATION: Mapping[
-    tuple[tuple[Literal["asset", "file", "event", "timeseries", "sequence"], str], tuple[ContainerId, str]],
+    tuple[tuple[AssetCentric, str], tuple[ContainerId, str]],
     type[_SpecialCaseConverter],
 ] = {}
 _to_check = [_SpecialCaseConverter]
