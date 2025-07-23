@@ -282,7 +282,10 @@ def use_raw_row_count(toolkit_client: ToolkitClient, populated_raw_table: RawTab
 
     always_enabled = MagicMock(spec=dict)
     always_enabled.get.return_value = ThrottlerState(
-        FileLock("test.lock"), is_raw_row_count_enabled=True, last_call_epoch=0
+        project=toolkit_client.config.project,
+        lock=FileLock("test.lock"),
+        is_raw_row_count_enabled=True,
+        last_call_epoch=0,
     )
     with (
         patch(f"{raw_row_count.__module__}._STATE_BY_FILENAME", always_enabled),
