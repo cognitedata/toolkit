@@ -3,8 +3,6 @@ from pathlib import Path
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client import data_modeling as dm
-from cognite.client.data_classes import Transformation, TransformationList, TransformationScheduleList
-from cognite.client.data_classes.agents import Agent, AgentList, AskDocumentAgentTool
 from cognite.client.data_classes import (
     ExtractionPipeline,
     ExtractionPipelineList,
@@ -12,6 +10,7 @@ from cognite.client.data_classes import (
     TransformationList,
     TransformationScheduleList,
 )
+from cognite.client.data_classes.agents import Agent, AgentList, AskDocumentAgentTool
 from cognite.client.exceptions import CogniteAPIError
 from questionary import Choice
 
@@ -25,8 +24,12 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
     LocationFilterFinder,
     TransformationFinder,
 )
-from cognite_toolkit._cdf_tk.loaders import ExtractionPipelineLoader, LocationFilterLoader, TransformationLoader
-from cognite_toolkit._cdf_tk.loaders import AgentLoader, LocationFilterLoader, TransformationLoader
+from cognite_toolkit._cdf_tk.loaders import (
+    AgentLoader,
+    ExtractionPipelineLoader,
+    LocationFilterLoader,
+    TransformationLoader,
+)
 from cognite_toolkit._cdf_tk.utils import read_yaml_file
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import MockQuestionary
