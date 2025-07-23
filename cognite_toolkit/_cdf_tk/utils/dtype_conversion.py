@@ -150,7 +150,7 @@ class _LabelConverter(_SpecialCaseConverter, ABC):
         for item in value:
             if isinstance(item, str):
                 tags.append(item)
-            elif isinstance(item, dict) and "externalId" in item:
+            elif isinstance(item, dict) and "externalId" in item and isinstance(item["externalId"], str):
                 tags.append(item["externalId"])
             elif isinstance(item, Label | LabelDefinition) and item.external_id:
                 tags.append(item.external_id)
