@@ -50,7 +50,7 @@ def convert_to_primary_property(
         return converter(type_, nullable).convert(value)
 
 
-def _as_list(value: str | int | float | bool | dict | list[Any] | None) -> list[Any]:
+def _as_list(value: str | int | float | bool | dict[str, Any] | list[Any] | None) -> list[Any]:
     """Convert a value to a list, ensuring that it is iterable."""
     if value is None:
         return []
@@ -201,7 +201,7 @@ class _Float64Converter(_ValueConverter):
 class _JsonConverter(_ValueConverter):
     type_str = "json"
 
-    def _convert(self, value: str | int | float | bool | dict | list) -> PropertyValueWrite:
+    def _convert(self, value: str | int | float | bool | dict[str, Any] | list) -> PropertyValueWrite:
         if isinstance(value, bool | int | float):
             return value
         elif isinstance(value, dict):
@@ -212,7 +212,7 @@ class _JsonConverter(_ValueConverter):
             return value  # type: ignore[return-value]
         elif isinstance(value, list):
             if not all(isinstance(item, str | int | float | bool | dict | list) for item in value):
-                raise ValueError("All items in the list must be of type str, int, float, bool, or dict.")
+                raise ValueError("All items in the list must be of type str, int, float, bool, dict, or list.")
             return value
         elif isinstance(value, str):
             try:
