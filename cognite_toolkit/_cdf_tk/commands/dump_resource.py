@@ -17,6 +17,9 @@ from cognite.client.data_classes import (
 from cognite.client.data_classes._base import (
     CogniteResourceList,
 )
+from cognite.client.data_classes.agents import (
+    AgentList,
+)
 from cognite.client.data_classes.data_modeling import DataModelId
 from cognite.client.data_classes.workflows import (
     Workflow,
@@ -40,6 +43,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.loaders import (
+    AgentLoader,
     ContainerLoader,
     DataModelLoader,
     GroupLoader,
@@ -325,6 +329,44 @@ class GroupFinder(ResourceFinder[str]):
             yield [], GroupList([self.group]), GroupLoader.create_loader(self.client), None
         else:
             yield [self.identifier], None, GroupLoader.create_loader(self.client), None
+
+
+class AgentFinder(ResourceFinder[tuple[str, ...]]):
+    def __init__(self, client: ToolkitClient, identifier: tuple[str, ...] | None = None):
+        super().__init__(client, identifier)
+        self.agents: AgentList | None = None
+
+    def _interactive_select(self) -> tuple[str, ...]:
+        self.agents = self.client.agents.list()
+        if not self.agents:
+            raise ToolkitMissingResourceError("No agents found")
+
+        choices = [
+            Choice(f"{agent.name} ({agent.external_id}) with {len(agent.tools)} tools", value=agent.external_id)
+            for agent in sorted(self.agents, key=lambda a: a.name or a.external_id)
+            if agent.external_id
+        ]
+
+        selected_agent_ids: list[str] | None = questionary.checkbox(
+            "Which agent(s) would you like to dump?",
+            choices=choices,
+        ).ask()
+        if selected_agent_ids is None:
+            raise ToolkitValueError("No agents selected for dumping.")
+        return tuple(selected_agent_ids)
+
+    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
+        self.identifier = self._selected()
+        loader = AgentLoader.create_loader(self.client)
+        if self.agents:
+            yield (
+                [],
+                AgentList([agent for agent in self.agents if agent.external_id in self.identifier]),
+                loader,
+                None,
+            )
+        else:
+            yield list(self.identifier), None, loader, None
 
 
 class NodeFinder(ResourceFinder[dm.ViewId]):
