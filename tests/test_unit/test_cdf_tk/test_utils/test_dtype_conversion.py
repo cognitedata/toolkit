@@ -2,7 +2,7 @@ from abc import ABC
 from datetime import datetime, timezone
 
 import pytest
-from cognite.client.data_classes import Label
+from cognite.client.data_classes import Label, LabelDefinition
 from cognite.client.data_classes.data_modeling import ContainerId, PropertyType
 from cognite.client.data_classes.data_modeling.data_types import (
     Boolean,
@@ -417,6 +417,22 @@ class TestConvertToContainerProperty:
                 ["pump", "mechanical"],
                 id="Asset labels to tags list conversion",
             ),
+            pytest.param(
+                [Label("pump"), {"externalId": "mechanical"}, LabelDefinition("equipment")],
+                Text(is_list=True),
+                (ContainerId("cdf_cdm", "CogniteDescribable"), "tags"),
+                ("file", "labels"),
+                ["pump", "mechanical", "equipment"],
+                id="Asset label to tags list conversion",
+            ),
+            pytest.param(
+                False,
+                Boolean(),
+                (ContainerId("some_other_space", "SomeOtherView"), "type"),
+                ("timeseries", "isString"),
+                False,
+                id="Non-asset-centric boolean to primary property conversion",
+            ),
         ],
     )
     def test_asset_centric_conversion(
@@ -432,3 +448,39 @@ class TestConvertToContainerProperty:
         )
 
         assert actual == expected
+
+    @pytest.mark.parametrize(
+        "value, type_, destination_container_property, source_property, error_message",
+        [
+            pytest.param(
+                "invalid_value",
+                Enum(values={"numeric": EnumValue(), "string": EnumValue()}),
+                (ContainerId("cdf_cdm", "CogniteTimeSeries"), "type"),
+                ("timeseries", "isString"),
+                "Cannot convert invalid_value to TimeSeries type. Expected a boolean value.",
+                id="Invalid TimeSeries type input value conversion error",
+            ),
+            pytest.param(
+                "not_a_list",
+                Text(is_list=True),
+                (ContainerId("cdf_cdm", "CogniteDescribable"), "tags"),
+                ("asset", "labels"),
+                "Cannot convert not_a_list to labels. Expected a list of Labels, objects, or LabelDefinitions.",
+                id="List to Text conversion error",
+            ),
+        ],
+    )
+    def test_asset_centric_failed_conversion(
+        self,
+        value: str | int | float | bool | dict | list,
+        type_: PropertyType,
+        destination_container_property: tuple[ContainerId, str],
+        source_property: tuple[AssetCentric, str],
+        error_message: str,
+    ):
+        with pytest.raises(ValueError) as exc_info:
+            asset_centric_convert_to_primary_property(
+                value, type_, True, destination_container_property, source_property
+            )
+
+        assert str(exc_info.value) == error_message
