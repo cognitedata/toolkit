@@ -353,7 +353,7 @@ FROM
 
 @dataclass
 class ThrottlerState:
-    _FILENAME = "tk-last-raw_count-{project}.bin"
+    _FILENAME = "tk-last-raw_count-{project}.txt"
 
     lock: BaseFileLock
     project: str
@@ -384,6 +384,7 @@ class ThrottlerState:
         """
         try:
             with self.lock:
+                now = time.time()
                 filepath = self._filepath(self.project)
                 last_call_epoch = 0.0
                 if filepath.exists():
@@ -393,7 +394,7 @@ class ThrottlerState:
                         # File is corrupt or was deleted after check. Allow to run and overwrite.
                         pass
 
-                to_wait = (MAX_RUN_QUERY_FREQUENCY_MIN * 60) - (time.time() - last_call_epoch)
+                to_wait = (MAX_RUN_QUERY_FREQUENCY_MIN * 60) - (now - last_call_epoch)
                 if to_wait > 0:
                     raise ToolkitThrottledError(
                         f"Row count is limited to once every {MAX_RUN_QUERY_FREQUENCY_MIN} minutes. "
@@ -402,7 +403,7 @@ class ThrottlerState:
                     )
 
                 # We are allowed to run, so we update the timestamp.
-                filepath.write_text(str(time.time()), encoding="utf-8")
+                filepath.write_text(str(now), encoding="utf-8")
         except Timeout:
             raise ToolkitError(
                 "Could not acquire lock for throttling raw row count. "

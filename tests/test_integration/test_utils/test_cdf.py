@@ -341,14 +341,16 @@ class TestRawTableRowCount:
         filepath.write_text("corrupt data", encoding="latin-1")
 
         ThrottlerState.get(project).throttle()
-        assert True
+        new_timestamp = float(filepath.read_text(encoding="utf-8"))
+        assert new_timestamp > 0, "The timestamp should be reset to a valid value after corruption."
 
     def test_throttler_state_updated(
         self, populated_raw_table: RawTable, raw_data: RowWriteList, mocked_tempfile: Path
     ) -> None:
         project = "test_throttler_state_updated"
         filepath = ThrottlerState._filepath(project)
-        before_last_call_epoch = float(filepath.write_text("0", encoding="utf-8"))
+        filepath.write_text("0", encoding="utf-8")
+        before_last_call_epoch = 0.0
         with monkeypatch_toolkit_client() as client:
             client.config.project = project
             client.transformations.preview.return_value = TransformationPreviewResult(
