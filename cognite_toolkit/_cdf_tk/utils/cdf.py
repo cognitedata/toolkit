@@ -361,15 +361,15 @@ class ThrottlerState:
 
     @classmethod
     def get(cls, project: str) -> "ThrottlerState":
+        if project in _STATE_BY_PROJECT:
+            return _STATE_BY_PROJECT[project]
         filepath = cls._filepath(project)
-        if filepath in _STATE_BY_PATH:
-            return _STATE_BY_PATH[filepath]
-        lock = FileLock(filepath)
+        lock = FileLock(filepath.with_suffix(".lock"), timeout=10.0)
         last_call_epoch = 0.0
         with lock:
             if filepath.exists():
                 try:
-                    last_call_epoch = float(filepath.read_text())
+                    last_call_epoch = float(filepath.read_text(encoding="utf-8"))
                 except ValueError:
                     is_raw_row_count_enabled = True
                 else:
@@ -383,7 +383,7 @@ class ThrottlerState:
             is_raw_row_count_enabled=is_raw_row_count_enabled,
             last_call_epoch=last_call_epoch,
         )
-        _STATE_BY_PATH[filepath] = state
+        _STATE_BY_PROJECT[project] = state
         return state
 
     @classmethod
@@ -391,13 +391,14 @@ class ThrottlerState:
         filename = cls._FILENAME.format(project=project)
         return Path(tempfile.gettempdir()).resolve(strict=True) / filename
 
-    def update(self) -> None:
+    def update_last_call(self) -> None:
         filepath = self._filepath(self.project)
         with self.lock:
-            filepath.write_text(str(time.time()), encoding="utf-8")
+            self.last_call_epoch = time.time()
+            filepath.write_text(str(self.last_call_epoch), encoding="utf-8")
 
 
-_STATE_BY_PATH: dict[Path, ThrottlerState] = {}
+_STATE_BY_PROJECT: dict[str, ThrottlerState] = {}
 
 
 def raw_row_count(client: ToolkitClient, raw_table_id: RawTable, max_count: int = MAX_ROW_ITERATION_RUN_QUERY) -> int:
@@ -433,7 +434,7 @@ FROM (
     LIMIT {max_count}
 ) AS limited_keys"""
 
-    state.update()
+    state.update_last_call()
 
     results = client.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
     if results.results:
