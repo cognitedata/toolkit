@@ -1,6 +1,7 @@
 import gzip
 import random
 import socket
+import sys
 import threading
 import time
 from collections import Counter
@@ -8,7 +9,7 @@ from collections.abc import Callable, Hashable, Iterable, MutableMapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from queue import Queue
-from typing import Generic, Literal, Self, TypeVar
+from typing import Generic, Literal, TypeVar
 
 import requests
 import urllib3
@@ -25,6 +26,12 @@ from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.utils.auxiliary import get_current_toolkit_version
 
 from .useful_types import JsonVal
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
+
 
 T_ID = TypeVar("T_ID", bound=Hashable)
 
