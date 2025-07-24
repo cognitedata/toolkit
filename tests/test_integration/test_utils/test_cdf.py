@@ -22,7 +22,6 @@ from cognite.client.data_classes import (
     TransformationPreviewResult,
 )
 from cognite.client.data_classes.labels import LabelDefinitionWriteList
-from filelock import FileLock
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
@@ -290,13 +289,8 @@ def disable_throttler(
         pass
 
     always_enabled = MagicMock(spec=ThrottlerState)
-    # We mock the TrottlerState to avoid .update() being called.
-    state = MagicMock(spec=ThrottlerState)
-    state.project = toolkit_client.config.project
-    state.lock = FileLock("test.lock")
-    state.is_raw_row_count_enabled = True
-    state.last_call_epoch = 0
-    always_enabled.get.return_value = state
+    # We mock the TrottlerState the mock object will always pass the throttling check.
+    always_enabled.get.return_value = MagicMock(spec=ThrottlerState)
     with (
         patch(f"{raw_row_count.__module__}.ThrottlerState", always_enabled),
     ):
@@ -345,16 +339,16 @@ class TestRawTableRowCount:
         project = "test_throttler_state_corrupt_file_project"
         filepath = ThrottlerState._filepath(project)
         filepath.write_text("corrupt data", encoding="latin-1")
-        state = ThrottlerState.get(project)
 
-        assert state.is_raw_row_count_enabled
+        ThrottlerState.get(project).throttle()
+        assert True
 
     def test_throttler_state_updated(
         self, populated_raw_table: RawTable, raw_data: RowWriteList, mocked_tempfile: Path
     ) -> None:
         project = "test_throttler_state_updated"
-        state = ThrottlerState.get(project)
-        before_last_call_epoch = state.last_call_epoch
+        filepath = ThrottlerState._filepath(project)
+        before_last_call_epoch = float(filepath.write_text("0", encoding="utf-8"))
         with monkeypatch_toolkit_client() as client:
             client.config.project = project
             client.transformations.preview.return_value = TransformationPreviewResult(
@@ -362,8 +356,7 @@ class TestRawTableRowCount:
             )
             raw_row_count(client, populated_raw_table)
 
-        state = ThrottlerState.get(project)
-        after_last_call_epoch = state.last_call_epoch
+        after_last_call_epoch = float(filepath.read_text(encoding="utf-8"))
         assert after_last_call_epoch > before_last_call_epoch, (
             "The last call epoch should be updated after a successful row count."
         )
