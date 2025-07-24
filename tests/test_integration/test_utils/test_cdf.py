@@ -1,5 +1,8 @@
 import itertools
+import time
 from collections import Counter, defaultdict
+from collections.abc import Iterable
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -16,12 +19,16 @@ from cognite.client.data_classes import (
     RelationshipWrite,
     RelationshipWriteList,
     RowWriteList,
+    TransformationPreviewResult,
 )
 from cognite.client.data_classes.labels import LabelDefinitionWriteList
 from filelock import FileLock
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
+from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.constants import MAX_RUN_QUERY_FREQUENCY_MIN
+from cognite_toolkit._cdf_tk.exceptions import ToolkitThrottledError
 from cognite_toolkit._cdf_tk.utils.cdf import (
     ThrottlerState,
     label_aggregate_count,
@@ -275,7 +282,9 @@ class TestLabelAggregateCount:
 
 
 @pytest.fixture()
-def use_raw_row_count(toolkit_client: ToolkitClient, populated_raw_table: RawTable) -> None:
+def disable_throttler(
+    toolkit_client: ToolkitClient,
+) -> None:
     def no_op(*args, **kwargs) -> None:
         """No operation function to replace the write_last_call_epoc function."""
         pass
@@ -294,11 +303,67 @@ def use_raw_row_count(toolkit_client: ToolkitClient, populated_raw_table: RawTab
         yield
 
 
+@pytest.fixture()
+def mocked_tempfile(tmp_path: Path) -> Iterable[Path]:
+    """Mock tempfile.gettempdir to return a specific temporary directory."""
+    fake_tempdir = MagicMock()
+    fake_tempdir.return_value = tmp_path
+    with patch(f"{raw_row_count.__module__}.tempfile.gettempdir", fake_tempdir):
+        yield tmp_path
+
+
 class TestRawTableRowCount:
-    @pytest.mark.usefixtures("use_raw_row_count")
+    @pytest.mark.usefixtures("disable_throttler")
     def test_raw_table_row_count(
         self, toolkit_client: ToolkitClient, populated_raw_table: RawTable, raw_data: RowWriteList
     ) -> None:
         count = raw_row_count(toolkit_client, populated_raw_table, max_count=len(raw_data) - 1)
 
         assert count == len(raw_data) - 1
+
+    def test_raw_table_row_count_raises_throttle_error(
+        self, populated_raw_table: RawTable, raw_data: RowWriteList, mocked_tempfile: Path
+    ) -> None:
+        sleep_time = 0.1
+        project = "test_raw_table_row_count_raises_throttle_error_project"
+        client = MagicMock(spec=ToolkitClient)
+        client.config.project = project
+        filepath = ThrottlerState._filepath(project)
+        filepath.write_text(str(time.time()), encoding="utf-8")
+        time.sleep(sleep_time)
+
+        with pytest.raises(ToolkitThrottledError) as exc_info:
+            raw_row_count(client, populated_raw_table)
+
+        assert f"Row count is limited to once every {MAX_RUN_QUERY_FREQUENCY_MIN} minutes. Please wait" in str(
+            exc_info.value
+        )
+        wait_time = exc_info.value.wait_time_seconds
+        assert wait_time < (MAX_RUN_QUERY_FREQUENCY_MIN * 60) - sleep_time
+
+    def test_throttler_state_corrupt_file(self, toolkit_client: ToolkitClient, mocked_tempfile: Path) -> None:
+        project = "test_throttler_state_corrupt_file_project"
+        filepath = ThrottlerState._filepath(project)
+        filepath.write_text("corrupt data", encoding="latin-1")
+        state = ThrottlerState.get(project)
+
+        assert state.is_raw_row_count_enabled
+
+    def test_throttler_state_updated(
+        self, populated_raw_table: RawTable, raw_data: RowWriteList, mocked_tempfile: Path
+    ) -> None:
+        project = "test_throttler_state_updated"
+        state = ThrottlerState.get(project)
+        before_last_call_epoch = state.last_call_epoch
+        with monkeypatch_toolkit_client() as client:
+            client.config.project = project
+            client.transformations.preview.return_value = TransformationPreviewResult(
+                None, results=[{"row_count": len(raw_data)}]
+            )
+            raw_row_count(client, populated_raw_table)
+
+        state = ThrottlerState.get(project)
+        after_last_call_epoch = state.last_call_epoch
+        assert after_last_call_epoch > before_last_call_epoch, (
+            "The last call epoch should be updated after a successful row count."
+        )
