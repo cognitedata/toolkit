@@ -357,6 +357,7 @@ class ThrottlerState:
 
     lock: BaseFileLock
     project: str
+    _allowed_this_run: bool | None = None
 
     @classmethod
     def get(cls, project: str) -> "ThrottlerState":
@@ -386,21 +387,23 @@ class ThrottlerState:
             with self.lock:
                 now = time.time()
                 filepath = self._filepath(self.project)
-                last_call_epoch = 0.0
-                if filepath.exists():
-                    try:
-                        last_call_epoch = float(filepath.read_text(encoding="utf-8"))
-                    except (ValueError, FileNotFoundError):
-                        # File is corrupt or was deleted after check. Allow to run and overwrite.
-                        pass
+                if self._allowed_this_run is None:
+                    last_call_epoch = 0.0
+                    if filepath.exists():
+                        try:
+                            last_call_epoch = float(filepath.read_text(encoding="utf-8"))
+                        except (ValueError, FileNotFoundError):
+                            # File is corrupt or was deleted after check. Allow to run and overwrite.
+                            pass
 
-                to_wait = (MAX_RUN_QUERY_FREQUENCY_MIN * 60) - (now - last_call_epoch)
-                if to_wait > 0:
-                    raise ToolkitThrottledError(
-                        f"Row count is limited to once every {MAX_RUN_QUERY_FREQUENCY_MIN} minutes. "
-                        f"Please wait {to_wait:.2f} seconds before calling again.",
-                        to_wait,
-                    )
+                    to_wait = (MAX_RUN_QUERY_FREQUENCY_MIN * 60) - (now - last_call_epoch)
+                    if to_wait > 0:
+                        raise ToolkitThrottledError(
+                            f"Row count is limited to once every {MAX_RUN_QUERY_FREQUENCY_MIN} minutes. "
+                            f"Please wait {to_wait:.2f} seconds before calling again.",
+                            to_wait,
+                        )
+                    self._allowed_this_run = True
 
                 # We are allowed to run, so we update the timestamp.
                 filepath.write_text(str(now), encoding="utf-8")
