@@ -8,7 +8,7 @@ from collections.abc import Callable, Hashable, Iterable, MutableMapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from queue import Queue
-from typing import Generic, Literal, TypeVar, Self
+from typing import Generic, Literal, Self, TypeVar
 
 import requests
 import urllib3
