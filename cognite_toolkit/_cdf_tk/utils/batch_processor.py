@@ -8,7 +8,7 @@ from collections.abc import Callable, Hashable, Iterable, MutableMapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from queue import Queue
-from typing import Generic, Literal, TypeVar
+from typing import Generic, Literal, TypeVar, Self
 
 import requests
 import urllib3
@@ -91,10 +91,10 @@ class WorkItem:
         return self.connect_attempt + self.read_attempt + self.status_attempt
 
 
-class HTTPBatchProcessor(Generic[T_ID]):
-    """A generic HTTP batch processor for sending items to a specified endpoint in batches.
+class HTTPProcessor(Generic[T_ID]):
+    """A generic HTTP processor for sending items to a specified endpoint in batches.
 
-    This class handles batching, rate limiting, retries, and error handling for HTTP requests.
+    This class handles rate limiting, retries, and error handling for HTTP requests.
 
     Args:
         endpoint_url (str): The URL of the endpoint to send requests to.
@@ -145,7 +145,7 @@ class HTTPBatchProcessor(Generic[T_ID]):
         self._rate_limit_until = 0.0
         self._token_expiry = 0.0
 
-    def __enter__(self) -> "HTTPBatchProcessor[T_ID]":
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(
@@ -214,67 +214,6 @@ class HTTPBatchProcessor(Generic[T_ID]):
             backoff = 1.0 + random.uniform(0, 1)
             self.console.print(f"[yellow]Rate limit hit (429). Backing off for {backoff:.2f}s.[/yellow]")
             self._rate_limit_until = now + backoff
-
-    def _producer(self, items_iterator: Iterable[dict[str, JsonVal]], work_queue: Queue) -> None:
-        batch: list[dict] = []
-        try:
-            for item in items_iterator:
-                batch.append(item)
-                if len(batch) >= self.batch_size:
-                    while work_queue.qsize() >= self.max_workers * 2:
-                        # Wait for space in the queue
-                        time.sleep(0.1)
-                    work_queue.put(WorkItem(items=batch))
-                    self._produced_count += len(batch)
-                    batch = []
-            if batch:
-                work_queue.put(WorkItem(items=batch))
-                self._produced_count += len(batch)
-        except Exception as e:
-            self.console.print(f"[red]Error in producer thread: {e!s}[/red]")
-            # If an error occurs, we still want to put the items in the queue to avoid losing them
-            if batch:
-                work_queue.put(WorkItem(items=batch))
-                self._produced_count += len(batch)
-            self._process_exception = e
-
-    def process(self, items: Iterable[dict[str, JsonVal]], total_items: int | None = None) -> ProcessorResult[T_ID]:
-        work_queue: Queue[WorkItem | None] = Queue()
-        results_queue: Queue[BatchResult[T_ID]] = Queue()
-
-        self._produced_count = 0
-        self._process_exception = None
-        producer_thread = threading.Thread(target=self._producer, args=(items, work_queue), daemon=True)
-        producer_thread.start()
-        batch_results: list[BatchResult[T_ID]] = []
-        with Progress(
-            TextColumn("[bold blue]{task.description}"),
-            BarColumn(),
-            TaskProgressColumn(),
-            TextColumn("{task.fields[processed_items]} items processed"),
-            TimeRemainingColumn(),
-            console=self.console,
-        ) as progress:
-            task = progress.add_task(self.description, total=total_items, processed_items=0)
-            with ThreadPoolExecutor(max_workers=self.max_workers, thread_name_prefix="batch_worker") as executor:
-                # Start workers
-                for _ in range(self.max_workers):
-                    executor.submit(self._worker, work_queue, results_queue)
-
-                producer_thread.join()
-                if self._produced_count == 0:
-                    self.console.print("[yellow]No items to process.[/yellow]")
-                else:
-                    work_queue.join()
-                    processed_count = 0
-                    while processed_count < self._produced_count:
-                        result = results_queue.get()
-                        batch_results.append(result)
-                        processed_count += result.total_items
-                        progress.update(task, processed_items=processed_count)
-                for _ in range(self.max_workers):
-                    work_queue.put(None)
-        return self._aggregate_results(batch_results, self._process_exception)
 
     def _worker(
         self,
@@ -474,3 +413,95 @@ class HTTPBatchProcessor(Generic[T_ID]):
         if exc.__context__ is None:
             return False
         return cls._any_exception_in_context_isinstance(exc.__context__, exc_types)
+
+
+class HTTPBatchProcessor(HTTPProcessor[T_ID]):
+    """A generic HTTP batch processor for sending items to a specified endpoint in batches.
+
+    This class handles batching, rate limiting, retries, and error handling for HTTP requests.
+
+    Args:
+        endpoint_url (str): The URL of the endpoint to send requests to.
+        config (ToolkitClientConfig): Configuration for the Toolkit client.
+        as_id (Callable[[dict], T_ID]): A function to convert an item to its ID.
+        method (Literal["POST", "GET"]): HTTP method to use for requests, default is "POST".
+        body_parameters (dict[str, object] | None): Additional parameters to include in the request body.
+        batch_size (int): Number of items per batch, default is 1000.
+        max_workers (int): Maximum number of worker threads, default is 8.
+        max_retries (int): Maximum number of retries for failed requests, default is 10.
+        console (Console | None): Optional console for output, defaults to a new Console instance.
+        description (str): Description for the progress bar, default is "Processing items".
+
+    """
+
+    def _producer(self, items_iterator: Iterable[dict[str, JsonVal]], work_queue: Queue) -> None:
+        batch: list[dict] = []
+        try:
+            for item in items_iterator:
+                batch.append(item)
+                if len(batch) >= self.batch_size:
+                    while work_queue.qsize() >= self.max_workers * 2:
+                        # Wait for space in the queue
+                        time.sleep(0.1)
+                    work_queue.put(WorkItem(items=batch))
+                    self._produced_count += len(batch)
+                    batch = []
+            if batch:
+                work_queue.put(WorkItem(items=batch))
+                self._produced_count += len(batch)
+        except Exception as e:
+            self.console.print(f"[red]Error in producer thread: {e!s}[/red]")
+            # If an error occurs, we still want to put the items in the queue to avoid losing them
+            if batch:
+                work_queue.put(WorkItem(items=batch))
+                self._produced_count += len(batch)
+            self._process_exception = e
+
+    def process(self, items: Iterable[dict[str, JsonVal]], total_items: int | None = None) -> ProcessorResult[T_ID]:
+        """Process items in batches using multiple worker threads.
+
+        Args:
+            items (Iterable[dict[str, JsonVal]]): An iterable of items to process.
+            total_items (int | None): Total number of items to process, used for progress tracking. The tracking
+                will only show number of items processed, not the number of items in the queue.
+
+        Returns:
+            ProcessorResult[T_ID]: The result of processing the items, including successful and failed items.
+
+        """
+        work_queue: Queue[WorkItem | None] = Queue()
+        results_queue: Queue[BatchResult[T_ID]] = Queue()
+
+        self._produced_count = 0
+        self._process_exception = None
+        producer_thread = threading.Thread(target=self._producer, args=(items, work_queue), daemon=True)
+        producer_thread.start()
+        batch_results: list[BatchResult[T_ID]] = []
+        with Progress(
+            TextColumn("[bold blue]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            TextColumn("{task.fields[processed_items]} items processed"),
+            TimeRemainingColumn(),
+            console=self.console,
+        ) as progress:
+            task = progress.add_task(self.description, total=total_items, processed_items=0)
+            with ThreadPoolExecutor(max_workers=self.max_workers, thread_name_prefix="batch_worker") as executor:
+                # Start workers
+                for _ in range(self.max_workers):
+                    executor.submit(self._worker, work_queue, results_queue)
+
+                producer_thread.join()
+                if self._produced_count == 0:
+                    self.console.print("[yellow]No items to process.[/yellow]")
+                else:
+                    work_queue.join()
+                    processed_count = 0
+                    while processed_count < self._produced_count:
+                        result = results_queue.get()
+                        batch_results.append(result)
+                        processed_count += result.total_items
+                        progress.update(task, processed_items=processed_count)
+                for _ in range(self.max_workers):
+                    work_queue.put(None)
+        return self._aggregate_results(batch_results, self._process_exception)
