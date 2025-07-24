@@ -8,6 +8,7 @@ import questionary
 import typer
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
+    ExtractionPipelineList,
     Group,
     GroupList,
     TransformationList,
@@ -21,6 +22,7 @@ from cognite.client.data_classes.agents import (
     AgentList,
 )
 from cognite.client.data_classes.data_modeling import DataModelId
+from cognite.client.data_classes.extractionpipelines import ExtractionPipelineConfigList
 from cognite.client.data_classes.workflows import (
     Workflow,
     WorkflowList,
@@ -46,6 +48,8 @@ from cognite_toolkit._cdf_tk.loaders import (
     AgentLoader,
     ContainerLoader,
     DataModelLoader,
+    ExtractionPipelineConfigLoader,
+    ExtractionPipelineLoader,
     GroupLoader,
     LocationFilterLoader,
     NodeLoader,
@@ -442,6 +446,43 @@ class LocationFilterFinder(ResourceFinder[tuple[str, ...]]):
         self.identifier = self.identifier or self._interactive_select()
         filters = self._get_filters(self.identifier)
         yield [], filters, LocationFilterLoader.create_loader(self.client), None
+
+
+class ExtractionPipelineFinder(ResourceFinder[tuple[str, ...]]):
+    def __init__(self, client: ToolkitClient, identifier: tuple[str, ...] | None = None):
+        super().__init__(client, identifier)
+        self.extraction_pipelines: ExtractionPipelineList | None = None
+
+    def _interactive_select(self) -> tuple[str, ...]:
+        self.extraction_pipelines = self.client.extraction_pipelines.list(limit=-1)
+        if not self.extraction_pipelines:
+            raise ToolkitMissingResourceError("No extraction pipelines found")
+        choices = [
+            Choice(f"{pipeline.name} ({pipeline.external_id})", value=pipeline.external_id)
+            for pipeline in sorted(self.extraction_pipelines, key=lambda p: p.name or "")
+            if pipeline.external_id
+        ]
+        selected_pipeline_ids: tuple[str, ...] | None = questionary.checkbox(
+            "Which extraction pipeline(s) would you like to dump?",
+            choices=choices,
+        ).ask()
+        if selected_pipeline_ids is None:
+            raise ToolkitValueError("No extraction pipelines selected for dumping.")
+        return tuple(selected_pipeline_ids)
+
+    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
+        self.identifier = self._selected()
+        pipeline_loader = ExtractionPipelineLoader.create_loader(self.client)
+        if self.extraction_pipelines:
+            selected_pipelines = ExtractionPipelineList(
+                [p for p in self.extraction_pipelines if p.external_id in self.identifier]
+            )
+            yield [], selected_pipelines, pipeline_loader, None
+        else:
+            yield list(self.identifier), None, pipeline_loader, None
+        config_loader = ExtractionPipelineConfigLoader.create_loader(self.client)
+        configs = ExtractionPipelineConfigList(list(config_loader.iterate(parent_ids=list(self.identifier))))
+        yield [], configs, config_loader, None
 
 
 class DumpResourceCommand(ToolkitCommand):
