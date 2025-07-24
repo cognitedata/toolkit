@@ -16,13 +16,14 @@ from cognite.client.data_classes.data_modeling import Edge, Node, ViewId
 from cognite.client.data_classes.filters import SpaceFilter
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
-from filelock import BaseFileLock, FileLock
+from filelock import BaseFileLock, FileLock, Timeout
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN, MAX_ROW_ITERATION_RUN_QUERY, MAX_RUN_QUERY_FREQUENCY_MIN
 from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitError,
     ToolkitRequiredValueError,
     ToolkitThrottledError,
     ToolkitTypeError,
@@ -371,7 +372,7 @@ class ThrottlerState:
     @classmethod
     def _filepath(cls, project: str) -> Path:
         filename = cls._FILENAME.format(project=project)
-        return Path(tempfile.gettempdir()).resolve(strict=True) / filename
+        return Path(tempfile.gettempdir()) / filename
 
     def throttle(self) -> None:
         """Checks if the function can be run, and if so, updates the last call timestamp.
@@ -381,26 +382,32 @@ class ThrottlerState:
         Raises:
             ToolkitThrottledError: If the function has been called too recently.
         """
-        with self.lock:
-            filepath = self._filepath(self.project)
-            last_call_epoch = 0.0
-            if filepath.exists():
-                try:
-                    last_call_epoch = float(filepath.read_text(encoding="utf-8"))
-                except (ValueError, FileNotFoundError):
-                    # File is corrupt or was deleted after check. Allow to run and overwrite.
-                    pass
+        try:
+            with self.lock:
+                filepath = self._filepath(self.project)
+                last_call_epoch = 0.0
+                if filepath.exists():
+                    try:
+                        last_call_epoch = float(filepath.read_text(encoding="utf-8"))
+                    except (ValueError, FileNotFoundError):
+                        # File is corrupt or was deleted after check. Allow to run and overwrite.
+                        pass
 
-            to_wait = (MAX_RUN_QUERY_FREQUENCY_MIN * 60) - (time.time() - last_call_epoch)
-            if to_wait > 0:
-                raise ToolkitThrottledError(
-                    f"Row count is limited to once every {MAX_RUN_QUERY_FREQUENCY_MIN} minutes. "
-                    f"Please wait {to_wait:.2f} seconds before calling again.",
-                    to_wait,
-                )
+                to_wait = (MAX_RUN_QUERY_FREQUENCY_MIN * 60) - (time.time() - last_call_epoch)
+                if to_wait > 0:
+                    raise ToolkitThrottledError(
+                        f"Row count is limited to once every {MAX_RUN_QUERY_FREQUENCY_MIN} minutes. "
+                        f"Please wait {to_wait:.2f} seconds before calling again.",
+                        to_wait,
+                    )
 
-            # We are allowed to run, so we update the timestamp.
-            filepath.write_text(str(time.time()), encoding="utf-8")
+                # We are allowed to run, so we update the timestamp.
+                filepath.write_text(str(time.time()), encoding="utf-8")
+        except Timeout:
+            raise ToolkitError(
+                "Could not acquire lock for throttling raw row count. "
+                "Another toolkit process might be running. Please try again."
+            )
 
 
 _STATE_BY_PROJECT: dict[str, ThrottlerState] = {}
