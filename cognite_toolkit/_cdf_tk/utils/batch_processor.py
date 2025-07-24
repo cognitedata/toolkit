@@ -106,7 +106,6 @@ class HTTPProcessor(Generic[T_ID]):
         max_workers (int): Maximum number of worker threads, default is 8.
         max_retries (int): Maximum number of retries for failed requests, default is 10.
         console (Console | None): Optional console for output, defaults to a new Console instance.
-        description (str): Description for the progress bar, default is "Processing items".
 
     """
 
@@ -121,7 +120,6 @@ class HTTPProcessor(Generic[T_ID]):
         max_workers: int = 8,
         max_retries: int = 10,
         console: Console | None = None,
-        description: str = "Processing items",
     ):
         self.endpoint_url = endpoint_url
         self.method = method.upper()
@@ -131,10 +129,7 @@ class HTTPProcessor(Generic[T_ID]):
         self.max_retries = max_retries
         self.console = console or Console()
         self.as_id = as_id
-        self.description = description
 
-        self._produced_count = 0
-        self._process_exception: Exception | None = None
         self._config = config
 
         # Thread-safe session for connection pooling
@@ -433,6 +428,34 @@ class HTTPBatchProcessor(HTTPProcessor[T_ID]):
         description (str): Description for the progress bar, default is "Processing items".
 
     """
+
+    def __init__(
+        self,
+        endpoint_url: str,
+        config: ToolkitClientConfig,
+        as_id: Callable[[dict], T_ID],
+        method: Literal["POST", "GET"] = "POST",
+        body_parameters: dict[str, object] | None = None,
+        batch_size: int = 1_000,
+        max_workers: int = 8,
+        max_retries: int = 10,
+        console: Console | None = None,
+        description: str = "Processing items",
+    ):
+        super().__init__(
+            endpoint_url=endpoint_url,
+            config=config,
+            as_id=as_id,
+            method=method,
+            body_parameters=body_parameters,
+            batch_size=batch_size,
+            max_workers=max_workers,
+            max_retries=max_retries,
+            console=console,
+        )
+        self._produced_count = 0
+        self._process_exception: Exception | None = None
+        self.description = description
 
     def _producer(self, items_iterator: Iterable[dict[str, JsonVal]], work_queue: Queue) -> None:
         batch: list[dict] = []
