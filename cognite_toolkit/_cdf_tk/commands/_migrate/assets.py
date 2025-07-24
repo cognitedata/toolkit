@@ -7,7 +7,7 @@ from cognite.client.data_classes.capabilities import (
     Capability,
     DataSetScope,
 )
-from cognite.client.data_classes.data_modeling import NodeApply, NodeOrEdgeData, ViewId
+from cognite.client.data_classes.data_modeling import NodeApply, NodeOrEdgeData, ViewId, NodeId
 from cognite.client.exceptions import CogniteException
 from rich import print
 
@@ -19,7 +19,8 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
-
+from cognite_toolkit._cdf_tk.utils.batch_processor import HTTPBatchProcessor, ProcessorResult
+from rich.console import Console
 from .base import BaseMigrateCommand
 from .data_classes import MigrationMapping, MigrationMappingList
 from .data_model import INSTANCE_SOURCE_VIEW_ID
@@ -31,6 +32,10 @@ class MigrateAssetsCommand(BaseMigrateCommand):
 
     # This is the number of timeseries that can be written in parallel.
     chunk_size = 1000 * DATA_MODELING_MAX_WRITE_WORKERS
+
+    def __inti__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
+        super().__init__(print_warning=print_warning, skip_tracking=skip_tracking, silent=silent)
+        self._results: ProcessorResult[NodeId] = ProcessorResult()
 
     @property
     def schema_spaces(self) -> list[str]:
@@ -51,20 +56,32 @@ class MigrateAssetsCommand(BaseMigrateCommand):
         self.validate_access(client, list(mappings.spaces()), list(mappings.get_data_set_ids()))
         self.validate_instance_source_exists(client)
         self.validate_available_capacity(client, len(mappings))
-        iteration_count = len(mappings) // self.chunk_size + 1
-        executor = ProducerWorkerExecutor[list[tuple[Asset, MigrationMapping]], list[NodeApply]](
-            download_iterable=self._download_assets(client, mappings),
-            process=self._as_cognite_assets,
-            write=self._upload_assets(client, dry_run=dry_run, verbose=verbose),
-            iteration_count=iteration_count,
-            max_queue_size=10,
-            download_description="Downloading assets",
-            process_description="Converting assets to CogniteAssets",
-            write_description="Uploading CogniteAssets",
+        console = Console()
+        processor = HTTPBatchProcessor[NodeId](
+            endpoint_url="", # Todo: Set the correct endpoint URL for the migration
+            config=client.config,
+            as_id=lambda node: node.as_id(),
+            body_parameters={}, #Todo: Set the correct body parameters for the migration
+            console=console,
         )
-        executor.run()
-        if executor.error_occurred:
-            raise ResourceCreationError(executor.error_message)
+        with HTTPBatchProcessor() as processor:
+            processor.start()
+            iteration_count = len(mappings) // self.chunk_size + 1
+            executor = ProducerWorkerExecutor[list[tuple[Asset, MigrationMapping]], list[tuple[NodeApply, ConversionReport]]](
+                download_iterable=self._download_assets(client, mappings),
+                process=self._as_cognite_assets,
+                write=processor.add_items if not dry_run else self._no_op,
+                iteration_count=iteration_count,
+                max_queue_size=10,
+                download_description="Downloading assets",
+                process_description="Converting assets to CogniteAssets",
+                write_description="Uploading CogniteAssets",
+                console=console,
+            )
+            executor.run()
+            if executor.error_occurred:
+                raise ResourceCreationError(executor.error_message)
+            results = processor.results()
 
         prefix = "Would have" if dry_run else "Successfully"
         self.console(f"{prefix} migrated {executor.total_items:,} assets to CogniteAssets.")
@@ -91,6 +108,22 @@ class MigrateAssetsCommand(BaseMigrateCommand):
     def _as_cognite_assets(self, assets: list[tuple[Asset, MigrationMapping]]) -> list[NodeApply]:
         """Convert Asset objects to CogniteAssetApply objects."""
         return [self.as_cognite_asset(asset, mapping) for asset, mapping in assets]
+
+    def upload_items(self, processor: HTTPBatchProcessor[NodeId], dry_run: bool, verbose: bool) -> Callable[[list[NodeApply]], None]:
+        class ResourceIterator:
+            ...
+        iterator = ResourceIterator()
+        processor.process(iterator)
+
+        def upload_items(items: list[NodeApply]) -> None:
+            if dry_run:
+                if verbose:
+                    print(f"Would have created {len(items):,} CogniteAssets.")
+                return
+            iterator.append(items)
+
+        return upload_items
+
 
     @classmethod
     def _upload_assets(cls, client: ToolkitClient, dry_run: bool, verbose: bool) -> Callable[[list[NodeApply]], None]:
