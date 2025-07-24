@@ -219,3 +219,14 @@ class ToolkitMissingDependencyError(ToolkitError):
 
     def __init__(self, message: str) -> None:
         super().__init__(message)
+
+
+class ToolkitThrottledError(ToolkitError):
+    """Error raised when a toolkit operation is throttled to respect frequency limits."""
+
+    def __init__(self, message: str, wait_time_seconds: float) -> None:
+        super().__init__(message)
+        self.wait_time_seconds = wait_time_seconds
+
+    def __str__(self) -> str:
+        return f"ToolkitThrottledError: {self.args[0]}"
