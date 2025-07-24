@@ -196,6 +196,7 @@ version = "0.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "cognite-sdk" },
+    { name = "filelock" },
     { name = "mixpanel" },
     { name = "packaging" },
     { name = "pandas" },
@@ -247,6 +248,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "cognite-sdk", specifier = ">=7.77.0,<8.0.0" },
+    { name = "filelock", specifier = ">=3.18.0" },
     { name = "mixpanel", specifier = ">=4.10.1" },
     { name = "openpyxl", marker = "extra == 'table'", specifier = ">=3.1.5" },
     { name = "packaging", specifier = ">=25,<25.1" },
