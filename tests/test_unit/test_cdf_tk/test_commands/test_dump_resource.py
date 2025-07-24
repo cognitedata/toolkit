@@ -3,8 +3,15 @@ from pathlib import Path
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client import data_modeling as dm
-from cognite.client.data_classes import Transformation, TransformationList, TransformationScheduleList
+from cognite.client.data_classes import (
+    ExtractionPipeline,
+    ExtractionPipelineList,
+    Transformation,
+    TransformationList,
+    TransformationScheduleList,
+)
 from cognite.client.data_classes.agents import Agent, AgentList, AskDocumentAgentTool
+from cognite.client.exceptions import CogniteAPIError
 from questionary import Choice
 
 from cognite_toolkit._cdf_tk.client.data_classes.location_filters import LocationFilter, LocationFilterList
@@ -13,10 +20,16 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
     AgentFinder,
     DataModelFinder,
     DumpResourceCommand,
+    ExtractionPipelineFinder,
     LocationFilterFinder,
     TransformationFinder,
 )
-from cognite_toolkit._cdf_tk.loaders import AgentLoader, LocationFilterLoader, TransformationLoader
+from cognite_toolkit._cdf_tk.loaders import (
+    AgentLoader,
+    ExtractionPipelineLoader,
+    LocationFilterLoader,
+    TransformationLoader,
+)
 from cognite_toolkit._cdf_tk.utils import read_yaml_file
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import MockQuestionary
@@ -223,3 +236,74 @@ class TestDumpAgents:
             selected = finder._interactive_select()
 
         assert selected == ("agentB", "agentC")
+
+
+@pytest.fixture()
+def three_extraction_pipelines() -> ExtractionPipelineList:
+    return ExtractionPipelineList(
+        [
+            ExtractionPipeline(
+                1, external_id="pipelineA", name="Pipeline A", data_set_id=123, created_time=1, last_updated_time=1
+            ),
+            ExtractionPipeline(
+                2, external_id="pipelineB", name="Pipeline B", data_set_id=123, created_time=1, last_updated_time=1
+            ),
+            ExtractionPipeline(
+                3, external_id="pipelineC", name="Pipeline C", data_set_id=123, created_time=1, last_updated_time=1
+            ),
+        ]
+    )
+
+
+class TestExtractionPipelineFinder:
+    def test_select_extraction_pipelines(
+        self, three_extraction_pipelines: ExtractionPipelineList, monkeypatch: MonkeyPatch
+    ) -> None:
+        def select_pipelines(choices: list[Choice]) -> list[str]:
+            assert len(choices) == len(three_extraction_pipelines)
+            return [choices[1].value, choices[2].value]
+
+        answers = [select_pipelines]
+
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(ExtractionPipelineFinder.__module__, monkeypatch, answers),
+        ):
+            client.extraction_pipelines.list.return_value = three_extraction_pipelines
+            finder = ExtractionPipelineFinder(client, None)
+            selected = finder._interactive_select()
+
+        assert selected == ("pipelineB", "pipelineC")
+
+
+class TestDumpExtractionPipeline:
+    def test_dump_extraction_pipelines(
+        self, three_extraction_pipelines: ExtractionPipelineList, tmp_path: Path
+    ) -> None:
+        with monkeypatch_toolkit_client() as toolkit_client:
+            approval_client = ApprovalToolkitClient(toolkit_client, allow_reverse_lookup=True)
+            approval_client.append(ExtractionPipeline, three_extraction_pipelines[1:])
+            toolkit_client.extraction_pipelines.config.retrieve.side_effect = CogniteAPIError(
+                "There is no config stored for pipeline", code=404
+            )
+
+            client = approval_client.mock_client
+            cmd = DumpResourceCommand(silent=True)
+            cmd.dump_to_yamls(
+                ExtractionPipelineFinder(client, ("pipelineB", "pipelineC")),
+                output_dir=tmp_path,
+                clean=False,
+                verbose=False,
+            )
+            loader = ExtractionPipelineLoader(client, None, None)
+
+            filepaths = list(loader.find_files(tmp_path))
+            items = sorted(
+                [read_yaml_file(filepath) for filepath in filepaths],
+                key=lambda d: d.get("external_id", d.get("externalId")),
+            )
+            expected = sorted(
+                [loader.dump_resource(ep) for ep in three_extraction_pipelines[1:]],
+                key=lambda d: d.get("external_id", d.get("externalId")),
+            )
+            assert items == expected
