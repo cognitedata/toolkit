@@ -4,6 +4,7 @@ import time
 from collections.abc import Hashable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
+from threading import RLock
 from typing import Any, Literal, overload
 from urllib.parse import urlparse
 
@@ -363,12 +364,17 @@ class ThrottlerState:
     def get(cls, project: str) -> "ThrottlerState":
         if project in _STATE_BY_PROJECT:
             return _STATE_BY_PROJECT[project]
-        filepath = cls._filepath(project)
-        # filelock needs a string path
-        lock = FileLock(str(filepath.with_suffix(".lock")), timeout=10.0)
-        state = cls(lock=lock, project=project)
-        _STATE_BY_PROJECT[project] = state
-        return state
+
+        with _STATE_LOCK:
+            # Re-check after acquiring the lock to handle the race condition.
+            if project in _STATE_BY_PROJECT:
+                return _STATE_BY_PROJECT[project]
+            filepath = cls._filepath(project)
+            # filelock needs a string path
+            lock = FileLock(str(filepath.with_suffix(".lock")), timeout=10.0)
+            state = cls(lock=lock, project=project)
+            _STATE_BY_PROJECT[project] = state
+            return state
 
     @classmethod
     def _filepath(cls, project: str) -> Path:
@@ -414,6 +420,7 @@ class ThrottlerState:
             )
 
 
+_STATE_LOCK = RLock()
 _STATE_BY_PROJECT: dict[str, ThrottlerState] = {}
 
 
