@@ -6,11 +6,10 @@ from collections.abc import Callable, Hashable, Iterable, Mapping
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from functools import cached_property, partial
+from itertools import zip_longest
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, Generic, Literal, TypeAlias, TypeVar, overload
 from zipfile import BadZipFile
-from itertools import zip_longest
-from typing import ClassVar, Generic, Literal, TypeAlias, TypeVar, overload
 
 from cognite.client.data_classes import Transformation
 from cognite.client.exceptions import CogniteException
