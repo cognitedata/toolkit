@@ -356,33 +356,15 @@ class ThrottlerState:
 
     lock: BaseFileLock
     project: str
-    is_raw_row_count_enabled: bool
-    last_call_epoch: float = 0
 
     @classmethod
     def get(cls, project: str) -> "ThrottlerState":
         if project in _STATE_BY_PROJECT:
             return _STATE_BY_PROJECT[project]
         filepath = cls._filepath(project)
-        lock = FileLock(filepath.with_suffix(".lock"), timeout=10.0)
-        last_call_epoch = 0.0
-        with lock:
-            if filepath.exists():
-                try:
-                    last_call_epoch = float(filepath.read_text(encoding="utf-8"))
-                except ValueError:
-                    is_raw_row_count_enabled = True
-                else:
-                    to_wait = (MAX_RUN_QUERY_FREQUENCY_MIN * 60) - (time.time() - last_call_epoch)
-                    is_raw_row_count_enabled = to_wait <= 0
-            else:
-                is_raw_row_count_enabled = True
-        state = cls(
-            lock=lock,
-            project=project,
-            is_raw_row_count_enabled=is_raw_row_count_enabled,
-            last_call_epoch=last_call_epoch,
-        )
+        # filelock needs a string path
+        lock = FileLock(str(filepath.with_suffix(".lock")), timeout=10.0)
+        state = cls(lock=lock, project=project)
         _STATE_BY_PROJECT[project] = state
         return state
 
@@ -391,11 +373,34 @@ class ThrottlerState:
         filename = cls._FILENAME.format(project=project)
         return Path(tempfile.gettempdir()).resolve(strict=True) / filename
 
-    def update_last_call(self) -> None:
-        filepath = self._filepath(self.project)
+    def throttle(self) -> None:
+        """Checks if the function can be run, and if so, updates the last call timestamp.
+
+        This is an atomic operation protected by a file lock.
+
+        Raises:
+            ToolkitThrottledError: If the function has been called too recently.
+        """
         with self.lock:
-            self.last_call_epoch = time.time()
-            filepath.write_text(str(self.last_call_epoch), encoding="utf-8")
+            filepath = self._filepath(self.project)
+            last_call_epoch = 0.0
+            if filepath.exists():
+                try:
+                    last_call_epoch = float(filepath.read_text(encoding="utf-8"))
+                except (ValueError, FileNotFoundError):
+                    # File is corrupt or was deleted after check. Allow to run and overwrite.
+                    pass
+
+            to_wait = (MAX_RUN_QUERY_FREQUENCY_MIN * 60) - (time.time() - last_call_epoch)
+            if to_wait > 0:
+                raise ToolkitThrottledError(
+                    f"Row count is limited to once every {MAX_RUN_QUERY_FREQUENCY_MIN} minutes. "
+                    f"Please wait {to_wait:.2f} seconds before calling again.",
+                    to_wait,
+                )
+
+            # We are allowed to run, so we update the timestamp.
+            filepath.write_text(str(time.time()), encoding="utf-8")
 
 
 _STATE_BY_PROJECT: dict[str, ThrottlerState] = {}
@@ -416,13 +421,7 @@ def raw_row_count(client: ToolkitClient, raw_table_id: RawTable, max_count: int 
         ToolkitThrottledError: If the row count is limited to once every MAX_RUN_QUERY_FREQUENCY_MIN minutes.
         ValueError: If max_count is not between 0 and MAX_ROW_ITERATION_RUN_QUERY (inclusive).
     """
-    state = ThrottlerState.get(client.config.project)
-    if not state.is_raw_row_count_enabled:
-        to_wait = (MAX_RUN_QUERY_FREQUENCY_MIN * 60) - (time.time() - state.last_call_epoch)
-        raise ToolkitThrottledError(
-            f"Row count is limited to once every {MAX_RUN_QUERY_FREQUENCY_MIN} minutes. Please wait {to_wait:.2f} seconds before calling again.",
-            to_wait,
-        )
+    ThrottlerState.get(client.config.project).throttle()
 
     if not 0 <= max_count <= MAX_ROW_ITERATION_RUN_QUERY:
         raise ValueError(f"max_count must be between 0 and {MAX_ROW_ITERATION_RUN_QUERY} (inclusive).")
@@ -433,8 +432,6 @@ FROM (
     FROM `{raw_table_id.db_name}`.`{raw_table_id.table_name}`
     LIMIT {max_count}
 ) AS limited_keys"""
-
-    state.update_last_call()
 
     results = client.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
     if results.results:
