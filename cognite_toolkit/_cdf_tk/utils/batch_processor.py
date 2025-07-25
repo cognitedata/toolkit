@@ -418,7 +418,7 @@ class HTTPProcessor(Generic[T_ID]):
 
 
 class HTTPIterableProcessor(HTTPProcessor[T_ID]):
-    """A generic HTTP batch processor for sending items to a specified endpoint in batches.
+    """A generic HTTP batch processor for sending items to a specified endpoint from an iterable source.
 
     This class handles batching, rate limiting, retries, and error handling for HTTP requests.
 

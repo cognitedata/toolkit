@@ -42,7 +42,7 @@ def processor(toolkit_config: ToolkitClientConfig) -> Iterator[HTTPIterableProce
         yield processor
 
 
-class TestHTTPBatchProcessor:
+class TestHTTPIterableProcessor:
     def test_happy_path(self, toolkit_config: ToolkitClientConfig) -> None:
         url = "http://example.com/api"
         with (
