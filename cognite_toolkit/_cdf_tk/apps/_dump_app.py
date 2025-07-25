@@ -597,7 +597,7 @@ class DumpDataApp(typer.Typer):
         cmd = DumpDataCommand()
         client = EnvironmentVariables.create_from_environment().get_client()
         if hierarchy is None and data_set is None:
-            hierarchy, data_set = AssetInteractiveSelect(client, "dump").interactive_select_hierarchy_datasets()
+            hierarchy, data_set = AssetInteractiveSelect(client, "dump").select_hierarchies_and_data_sets()
 
         cmd.run(
             lambda: cmd.dump_table(
@@ -676,7 +676,7 @@ class DumpDataApp(typer.Typer):
         cmd.validate_directory(output_dir, clean)
         client = EnvironmentVariables.create_from_environment().get_client()
         if hierarchy is None and data_set is None:
-            hierarchy, data_set = FileMetadataInteractiveSelect(client, "dump").interactive_select_hierarchy_datasets()
+            hierarchy, data_set = FileMetadataInteractiveSelect(client, "dump").select_hierarchies_and_data_sets()
         cmd.run(
             lambda: cmd.dump_table(
                 FileMetadataFinder(client, hierarchy or [], data_set or []),
@@ -753,7 +753,7 @@ class DumpDataApp(typer.Typer):
         cmd = DumpDataCommand()
         client = EnvironmentVariables.create_from_environment().get_client()
         if hierarchy is None and data_set is None:
-            hierarchy, data_set = TimeSeriesInteractiveSelect(client, "dump").interactive_select_hierarchy_datasets()
+            hierarchy, data_set = TimeSeriesInteractiveSelect(client, "dump").select_hierarchies_and_data_sets()
         cmd.run(
             lambda: cmd.dump_table(
                 TimeSeriesFinder(client, hierarchy or [], data_set or []),
@@ -831,7 +831,7 @@ class DumpDataApp(typer.Typer):
         cmd.validate_directory(output_dir, clean)
         client = EnvironmentVariables.create_from_environment().get_client()
         if hierarchy is None and data_set is None:
-            hierarchy, data_set = EventInteractiveSelect(client, "dump").interactive_select_hierarchy_datasets()
+            hierarchy, data_set = EventInteractiveSelect(client, "dump").select_hierarchies_and_data_sets()
         cmd.run(
             lambda: cmd.dump_table(
                 EventFinder(client, hierarchy or [], data_set or []),
