@@ -16,9 +16,9 @@ def invalid_event_test_cases() -> Iterable:
     yield pytest.param(
         {"externalId": "1230098u-12907903", "assetExternalIds": [123, 456], "startTime": "2023-10-01T00:00:00Z"},
         {
-            "In assetExternalIds input should be a valid string. Got 123 of type int. "
+            "In assetExternalIds[1] input should be a valid string. Got 123 of type int. "
             "Hint: Use double quotes to force string.",
-            "In assetExternalIds input should be a valid string. Got 456 of type int. "
+            "In assetExternalIds[2] input should be a valid string. Got 456 of type int. "
             "Hint: Use double quotes to force string.",
             "In field startTime input should be a valid integer. Got '2023-10-01T00:00:00Z' of type str.",
         },

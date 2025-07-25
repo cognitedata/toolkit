@@ -111,7 +111,7 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
             raise ToolkitFileNotFoundError(f"Mapping file {mapping_file} does not exist.")
         if mapping_file.suffix != ".csv":
             raise ToolkitValueError(f"Mapping file {mapping_file} must be a CSV file.")
-        with mapping_file.open(mode="r") as f:
+        with mapping_file.open(mode="r", encoding="utf-8-sig") as f:
             csv_file = csv.reader(f)
             header = next(csv_file, None)
             header = cls._validate_csv_header(header)
@@ -126,15 +126,20 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
             raise ToolkitValueError("Mapping file is empty")
         errors: list[str] = []
         if len(header) < 3:
-            errors.append("Mapping file must have at least 3 columns: id/externalId, space, externalId.")
+            errors.append(
+                f"Mapping file must have at least 3 columns: id/externalId, space, externalId. Got {len(header)} columns."
+            )
         if len(header) >= 5:
-            errors.append("Mapping file must have at most 4 columns: id/externalId, dataSetId, space, externalId.")
-        if header[0] not in {"id", "externalId"}:
-            errors.append("First column must be 'id' or 'externalId'.")
+            errors.append(
+                "Mapping file must have at most 4 columns: "
+                f"id/externalId, dataSetId, space, externalId. Got {len(header)} columns."
+            )
+        if len(header) >= 1 and header[0] not in {"id", "externalId"}:
+            errors.append(f"First column must be 'id' or 'externalId'. Got {header[0]!r}.")
         if len(header) == 4 and header[1] != "dataSetId":
-            errors.append("If there are 4 columns, the second column must be 'dataSetId'.")
-        if header[-2:] != ["space", "externalId"]:
-            errors.append("Last two columns must be 'space' and 'externalId'.")
+            errors.append(f"If there are 4 columns, the second column must be 'dataSetId'. Got {header[1]!r}.")
+        if len(header) >= 2 and header[-2:] != ["space", "externalId"]:
+            errors.append(f"Last two columns must be 'space' and 'externalId'. Got {header[-2]!r} and {header[-1]!r}.")
         if errors:
             error_str = "\n - ".join(errors)
             raise ToolkitValueError(f"Invalid mapping file header:\n - {error_str}")
