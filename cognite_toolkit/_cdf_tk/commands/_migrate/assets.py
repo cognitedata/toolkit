@@ -1,4 +1,5 @@
 from collections.abc import Callable, Iterable
+from functools import partial
 from pathlib import Path
 
 from cognite.client.data_classes import Asset, Label, LabelDefinition
@@ -7,18 +8,21 @@ from cognite.client.data_classes.capabilities import (
     Capability,
     DataSetScope,
 )
-from cognite.client.data_classes.data_modeling import NodeApply, NodeOrEdgeData, ViewId
+from cognite.client.data_classes.data_modeling import NodeApply, NodeId, NodeOrEdgeData, ViewId
 from cognite.client.exceptions import CogniteException
 from rich import print
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client._constants import DATA_MODELING_MAX_WRITE_WORKERS
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ResourceRetrievalError,
 )
+from cognite_toolkit._cdf_tk.utils.batch_processor import BatchResult, HTTPBatchProcessor
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
+from cognite_toolkit._cdf_tk.utils.table_writers import CSVWriter, Rows, Schema, SchemaColumn, SchemaColumnList
+from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from .base import BaseMigrateCommand
 from .data_classes import MigrationMapping, MigrationMappingList
@@ -29,8 +33,7 @@ class MigrateAssetsCommand(BaseMigrateCommand):
     cdf_cdm = "cdf_cdm"
     asset_id = ViewId(cdf_cdm, "CogniteAsset", "v1")
 
-    # This is the number of timeseries that can be written in parallel.
-    chunk_size = 1000 * DATA_MODELING_MAX_WRITE_WORKERS
+    chunk_size = 1000  # Number of assets to process in each batch
 
     @property
     def schema_spaces(self) -> list[str]:
@@ -44,6 +47,8 @@ class MigrateAssetsCommand(BaseMigrateCommand):
         client: ToolkitClient,
         mapping_file: Path,
         dry_run: bool = False,
+        max_workers: int = 2,
+        output_dir: Path | None = None,
         verbose: bool = False,
     ) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
@@ -51,20 +56,38 @@ class MigrateAssetsCommand(BaseMigrateCommand):
         self.validate_access(client, list(mappings.spaces()), list(mappings.get_data_set_ids()))
         self.validate_instance_source_exists(client)
         self.validate_available_capacity(client, len(mappings))
-        iteration_count = len(mappings) // self.chunk_size + 1
-        executor = ProducerWorkerExecutor[list[tuple[Asset, MigrationMapping]], list[NodeApply]](
-            download_iterable=self._download_assets(client, mappings),
-            process=self._as_cognite_assets,
-            write=self._upload_assets(client, dry_run=dry_run, verbose=verbose),
-            iteration_count=iteration_count,
-            max_queue_size=10,
-            download_description="Downloading assets",
-            process_description="Converting assets to CogniteAssets",
-            write_description="Uploading CogniteAssets",
-        )
-        executor.run()
-        if executor.error_occurred:
-            raise ResourceCreationError(executor.error_message)
+
+        output_dir = output_dir or Path.cwd()
+        console = Console()
+        iteration_count = len(mappings) // self.chunk_size + (1 if len(mappings) % self.chunk_size > 0 else 0)
+        with (
+            CSVWriter(self._csv_schema(), output_dir=output_dir) as writer,
+            HTTPBatchProcessor[NodeId](
+                endpoint_url=client.config.create_api_url("/models/instances"),
+                config=client.config,
+                as_id=lambda node: NodeId.load(node),  # type: ignore[arg-type]
+                result_processor=self._write_results_to_csv(writer, verbose),  # type: ignore[arg-type]
+                method="POST",
+                body_parameters={"autoCreateDirectRelations": True},
+                console=console,
+                max_workers=max_workers,
+                batch_size=self.chunk_size,
+            ) as processor,
+        ):
+            executor = ProducerWorkerExecutor[list[tuple[Asset, MigrationMapping]], list[dict[str, JsonVal]]](
+                download_iterable=self._download_assets(client, mappings),
+                process=self._as_cognite_assets,
+                write=processor.add_items if not dry_run else partial(self._no_op, verbose=verbose),
+                iteration_count=iteration_count,
+                max_queue_size=10,
+                download_description="Downloading assets",
+                process_description="Converting assets to CogniteAssets",
+                write_description="Uploading CogniteAssets",
+                console=console,
+            )
+            executor.run()
+            if executor.error_occurred:
+                raise ResourceCreationError(executor.error_message)
 
         prefix = "Would have" if dry_run else "Successfully"
         self.console(f"{prefix} migrated {executor.total_items:,} assets to CogniteAssets.")
@@ -88,25 +111,9 @@ class MigrateAssetsCommand(BaseMigrateCommand):
                     chunk_list.append((asset, mapping_by_id[asset.external_id]))
             yield chunk_list
 
-    def _as_cognite_assets(self, assets: list[tuple[Asset, MigrationMapping]]) -> list[NodeApply]:
+    def _as_cognite_assets(self, assets: list[tuple[Asset, MigrationMapping]]) -> list[dict[str, JsonVal]]:
         """Convert Asset objects to CogniteAssetApply objects."""
-        return [self.as_cognite_asset(asset, mapping) for asset, mapping in assets]
-
-    @classmethod
-    def _upload_assets(cls, client: ToolkitClient, dry_run: bool, verbose: bool) -> Callable[[list[NodeApply]], None]:
-        def upload_assets(assets: list[NodeApply]) -> None:
-            if dry_run:
-                if verbose:
-                    print(f"Would have created {len(assets):,} CogniteAssets.")
-                return
-            try:
-                created = client.data_modeling.instances.apply_fast(assets)
-            except CogniteException as e:
-                raise ResourceCreationError(f"Failed to upsert CogniteAssets {len(assets):,}: {e!s}") from e
-            if verbose:
-                print(f"Created {len(created):,} CogniteAssets.")
-
-        return upload_assets
+        return [self.as_cognite_asset(asset, mapping).dump(camel_case=True) for asset, mapping in assets]
 
     @classmethod
     def as_cognite_asset(cls, asset: Asset, mapping: MigrationMapping) -> NodeApply:
@@ -142,3 +149,71 @@ class MigrateAssetsCommand(BaseMigrateCommand):
                 ),
             ],
         )
+
+    @staticmethod
+    def _no_op(items: Iterable[dict[str, JsonVal]], verbose: bool) -> None:
+        """No operation function for dry runs."""
+        if verbose:
+            print(f"Would have written {len(list(items)):,} items")
+
+    @staticmethod
+    def _csv_schema() -> Schema:
+        return Schema(
+            "AssetMigration",
+            folder_name="assets",
+            kind="MigrationResults",
+            format_="csv",
+            columns=SchemaColumnList(
+                [
+                    SchemaColumn("ResourceType", "string"),
+                    SchemaColumn("NodeSpace", "string"),
+                    SchemaColumn("NodeExternalId", "string"),
+                    SchemaColumn("ResponseStatus", "integer"),
+                    SchemaColumn("ResponseMessage", "string"),
+                ]
+            ),
+        )
+
+    @staticmethod
+    def _write_results_to_csv(writer: CSVWriter, verbose: bool) -> Callable[[BatchResult[NodeId]], None]:
+        """Write results to CSV file."""
+
+        def _write_results(batch: BatchResult[NodeId]) -> None:
+            rows: Rows = (
+                [  # type: ignore[assignment]
+                    {
+                        "ResourceType": "asset",
+                        "NodeSpace": item.item.space,
+                        "NodeExternalId": item.item.external_id,
+                        "ResponseStatus": item.status_code,
+                        "ResponseMessage": item.message or "",
+                    }
+                    for item in batch.successful_items
+                ]
+                + [
+                    {
+                        "ResourceType": "asset",
+                        "NodeSpace": item.item.space,
+                        "NodeExternalId": item.item.external_id,
+                        "ResponseStatus": item.status_code,
+                        "ResponseMessage": item.error_message,
+                    }
+                    for item in batch.failed_items
+                ]
+                + [
+                    {
+                        "ResourceType": "asset",
+                        "NodeSpace": "<UNKNOWN>",
+                        "NodeExternalId": item.item,
+                        "ResponseStatus": item.status_code,
+                        "ResponseMessage": item.error_message,
+                    }
+                    for item in batch.unknown_ids
+                ]
+            )
+
+            writer.write_rows([("AssetMigration", rows)])
+            if verbose and batch.total_items:
+                print(f"Wrote {batch.total_items:,} results to CSV file")
+
+        return _write_results
