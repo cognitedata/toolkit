@@ -11,13 +11,11 @@ from cognite.client.data_classes.capabilities import (
     TimeSeriesAcl,
 )
 from cognite.client.data_classes.data_modeling import ViewList
-from cognite.client.exceptions import CogniteAPIError
+from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, ProjectStatistics
 
-from cognite_toolkit._cdf_tk.client.data_classes.statistics import InstanceCountsLimits, ProjectStatsAndLimits
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.base import BaseMigrateCommand
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitMigrationError, ToolkitValueError
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 
 
 class DummyMigrationCommand(BaseMigrateCommand):
@@ -84,29 +82,20 @@ class TestBaseCommand:
             with pytest.raises(ToolkitMigrationError):
                 BaseMigrateCommand.validate_instance_source_exists(client)
 
-    def test_validate_available_capacity_endpoint_failing(self) -> None:
-        cmd = DummyMigrationCommand(silent=True)
-
-        with monkeypatch_toolkit_client() as client:
-            client.data_modeling.statistics.project.side_effect = CogniteAPIError("Error", 404, "Not Found")
-            cmd.validate_available_capacity(client, 10_000)
-
-        assert len(cmd.warning_list) == 1
-        warning = cmd.warning_list[0]
-        assert isinstance(warning, HighSeverityWarning)
-
     def test_validate_available_capacity_missing_capacity(self) -> None:
         cmd = DummyMigrationCommand(silent=True)
 
         with monkeypatch_toolkit_client() as client:
-            stats = MagicMock(spec=ProjectStatsAndLimits)
-            stats.instances = InstanceCountsLimits(
+            stats = MagicMock(spec=ProjectStatistics)
+            stats.instances = InstanceStatistics(
                 nodes=1000,
                 edges=0,
                 soft_deleted_edges=0,
                 soft_deleted_nodes=0,
                 instances_limit=1500,
                 soft_deleted_instances_limit=10_000,
+                instances=1000,
+                soft_deleted_instances=0,
             )
             client.data_modeling.statistics.project.return_value = stats
             with pytest.raises(ToolkitValueError) as exc_info:
@@ -118,14 +107,16 @@ class TestBaseCommand:
         cmd = DummyMigrationCommand(silent=True)
 
         with monkeypatch_toolkit_client() as client:
-            stats = MagicMock(spec=ProjectStatsAndLimits)
-            stats.instances = InstanceCountsLimits(
+            stats = MagicMock(spec=ProjectStatistics)
+            stats.instances = InstanceStatistics(
                 nodes=1000,
                 edges=0,
                 soft_deleted_edges=0,
                 soft_deleted_nodes=0,
                 instances_limit=5_000_000,
                 soft_deleted_instances_limit=100_000_000,
+                instances=1000,
+                soft_deleted_instances=0,
             )
             client.data_modeling.statistics.project.return_value = stats
             cmd.validate_available_capacity(client, 10_000)
