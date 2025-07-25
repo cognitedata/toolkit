@@ -162,20 +162,29 @@ class MetadataAggregator(AssetCentricAggregator, ABC, Generic[T_CogniteFilter]):
         cls, hierarchy: str | list[str] | None = None, data_set_external_id: str | list[str] | None = None
     ) -> T_CogniteFilter | None:
         """Creates a filter for the resource based on hierarchy and data set external ID."""
-        if hierarchy is None and data_set_external_id is None:
+        if cls._is_empty(hierarchy) and cls._is_empty(data_set_external_id):
             return None
         asset_subtree_ids: list[dict[str, str]] | None = None
         if isinstance(hierarchy, str):
             asset_subtree_ids = [{"externalId": hierarchy}]
-        elif isinstance(hierarchy, list):
+        elif isinstance(hierarchy, list) and hierarchy:
             asset_subtree_ids = [{"externalId": item} for item in hierarchy]
         data_set_ids: list[dict[str, str]] | None = None
         if isinstance(data_set_external_id, str):
             data_set_ids = [{"externalId": data_set_external_id}]
-        elif isinstance(data_set_external_id, list):
+        elif isinstance(data_set_external_id, list) and data_set_external_id:
             data_set_ids = [{"externalId": item} for item in data_set_external_id]
 
         return cls.filter_cls(asset_subtree_ids=asset_subtree_ids, data_set_ids=data_set_ids)
+
+    @classmethod
+    def _is_empty(cls, items: str | list[str] | None) -> bool:
+        """Checks if the provided items are empty."""
+        if items is None:
+            return True
+        if isinstance(items, list):
+            return not items
+        return False
 
 
 class LabelAggregator(MetadataAggregator, ABC, Generic[T_CogniteFilter]):
