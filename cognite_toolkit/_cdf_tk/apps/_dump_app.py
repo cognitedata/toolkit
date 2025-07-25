@@ -14,7 +14,9 @@ from cognite_toolkit._cdf_tk.commands.dump_data import (
     TimeSeriesFinder,
 )
 from cognite_toolkit._cdf_tk.commands.dump_resource import (
+    AgentFinder,
     DataModelFinder,
+    ExtractionPipelineFinder,
     GroupFinder,
     LocationFilterFinder,
     NodeFinder,
@@ -50,6 +52,13 @@ class DumpApp(typer.Typer):
             self.command("group")(DumpConfigApp.dump_group)
             self.command("node")(DumpConfigApp.dump_node)
 
+            if Flags.DUMP_EXTENDED.is_enabled():
+                self.command("location-filter")(DumpConfigApp.dump_location_filters)
+                self.command("extraction-pipeline")(DumpConfigApp.dump_extraction_pipeline)
+
+            if Flags.AGENTS.is_enabled() and Flags.DUMP_EXTENDED.is_enabled():
+                self.command("agents")(DumpConfigApp.dump_agents)
+
     @staticmethod
     def dump_main(ctx: typer.Context) -> None:
         """Commands to dump resource configurations from CDF into a temporary directory."""
@@ -70,6 +79,9 @@ class DumpConfigApp(typer.Typer):
         self.command("node")(self.dump_node)
         if Flags.DUMP_EXTENDED.is_enabled():
             self.command("location-filters")(self.dump_location_filters)
+            self.command("extraction-pipeline")(self.dump_extraction_pipeline)
+        if Flags.DUMP_EXTENDED.is_enabled() and Flags.AGENTS.is_enabled():
+            self.command("agents")(self.dump_agents)
 
     @staticmethod
     def dump_config_main(ctx: typer.Context) -> None:
@@ -299,6 +311,55 @@ class DumpConfigApp(typer.Typer):
         )
 
     @staticmethod
+    def dump_agents(
+        ctx: typer.Context,
+        external_id: Annotated[
+            list[str] | None,
+            typer.Argument(
+                help="The external IDs of the agents you want to dump. You can provide multiple external IDs separated by spaces. "
+                "If nothing is provided, an interactive prompt will be shown to select the agents.",
+            ),
+        ] = None,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to dump the agent files.",
+                allow_dash=True,
+            ),
+        ] = Path("tmp"),
+        clean: Annotated[
+            bool,
+            typer.Option(
+                "--clean",
+                "-c",
+                help="Delete the output directory before dumping the agents.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """Dump on or more agents as yaml to the specified folder, defaults to /tmp."""
+
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = DumpResourceCommand()
+        cmd.run(
+            lambda: cmd.dump_to_yamls(
+                AgentFinder(client, tuple(external_id) if external_id else None),
+                output_dir=output_dir,
+                clean=clean,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
     def dump_node(
         ctx: typer.Context,
         view_id: Annotated[
@@ -399,6 +460,54 @@ class DumpConfigApp(typer.Typer):
         cmd.run(
             lambda: cmd.dump_to_yamls(
                 LocationFilterFinder(client, tuple(external_id) if external_id else None),
+                output_dir=output_dir,
+                clean=clean,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def dump_extraction_pipeline(
+        ctx: typer.Context,
+        external_id: Annotated[
+            list[str] | None,
+            typer.Argument(
+                help="The external ID(s) of the extraction pipeline you want to dump. "
+                "If nothing is provided, an interactive prompt will be shown to select the extraction pipeline.",
+            ),
+        ] = None,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to dump the extraction pipeline files.",
+                allow_dash=True,
+            ),
+        ] = Path("tmp"),
+        clean: Annotated[
+            bool,
+            typer.Option(
+                "--clean",
+                "-c",
+                help="Delete the output directory before dumping the extraction pipeline.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will dump the selected extraction pipeline as yaml to the folder specified, defaults to /tmp."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = DumpResourceCommand()
+        cmd.run(
+            lambda: cmd.dump_to_yamls(
+                ExtractionPipelineFinder(client, tuple(external_id) if external_id else None),
                 output_dir=output_dir,
                 clean=clean,
                 verbose=verbose,

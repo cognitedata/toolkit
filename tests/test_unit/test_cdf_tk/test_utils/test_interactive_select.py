@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils.aggregators import AssetCentricAggregator
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
+    AssetCentricDestinationSelect,
     AssetInteractiveSelect,
     EventInteractiveSelect,
     FileMetadataInteractiveSelect,
@@ -170,6 +171,23 @@ class TestInteractiveSelect:
 
         assert selected_hierarchy == ["Root2"]
         assert selected_dataset == ["dataset3"]
+
+    def test_asset_centric_destination_select(self, monkeypatch) -> None:
+        def select_destination(choices: list[Choice]) -> str:
+            assert len(choices) == len(AssetCentricDestinationSelect.valid_destinations)
+            return choices[2].value
+
+        answers = [select_destination]
+        with MockQuestionary(AssetCentricDestinationSelect.__module__, monkeypatch, answers):
+            selected = AssetCentricDestinationSelect.select()
+
+        assert selected == AssetCentricDestinationSelect.valid_destinations[2]
+
+    def test_asset_centric_destination_invalid_destination(self) -> None:
+        with pytest.raises(ValueError) as exc_info:
+            AssetCentricDestinationSelect.validate("invalid_destination")
+
+        assert "Invalid destination type: 'invalid_destination'." in str(exc_info.value)
 
     def test_select_data_set(self, monkeypatch):
         def select_data_set(choices) -> str:

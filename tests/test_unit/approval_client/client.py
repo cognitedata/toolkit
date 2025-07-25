@@ -3,8 +3,6 @@ from __future__ import annotations
 import hashlib
 import itertools
 import json as JSON
-import random
-import string
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
@@ -90,7 +88,7 @@ del cap, scopes, names, action, scope
 class LookUpAPIMock:
     def __init__(self, allow_reverse_lookup: bool = False):
         self._reverse_cache: dict[int, str] = {}
-        self._generate_random_external_id_on_lookup_failure = allow_reverse_lookup
+        self._allow_reverse_lookup = allow_reverse_lookup
 
     @staticmethod
     def _create_id(string: str, allow_empty: bool = False) -> int:
@@ -120,6 +118,13 @@ class LookUpAPIMock:
             output.append(id_)
         return output
 
+    @staticmethod
+    def create_external_id(id: int | Sequence[int]) -> str | list[str]:
+        """Creates an external ID from an ID."""
+        if isinstance(id, int):
+            return f"external_{id}"
+        return [f"external_{i}" for i in id]
+
     def external_id(
         self,
         id: int | Sequence[int],
@@ -127,8 +132,8 @@ class LookUpAPIMock:
         try:
             return self._reverse_cache[id] if isinstance(id, int) else [self._reverse_cache[i] for i in id]
         except KeyError:
-            if self._generate_random_external_id_on_lookup_failure:
-                return "".join(random.choices(string.ascii_letters + string.digits, k=10))
+            if self._allow_reverse_lookup:
+                return self.create_external_id(id) if isinstance(id, int) else [self.create_external_id(i) for i in id]
             else:
                 raise RuntimeError(f"{type(self).__name__} does not support reverse lookup before lookup")
 
@@ -507,8 +512,10 @@ class ApprovalToolkitClient:
                 "nan_count": int(dataframe.isna().sum().sum()),
                 "null_count": int(dataframe.isnull().sum().sum()),
                 "empty_count": int(dataframe[dataframe == ""].count().sum()),
-                "first_row": dataframe.iloc[0].round(4).to_dict(),
-                "last_row": dataframe.iloc[-1].round(4).to_dict(),
+                # We round float to 4 decimals places to avoid issues with floating point precision on different systems
+                # as this is stored a snapshot.
+                "first_row": dataframe.iloc[0].apply(lambda x: round(x, 4) if isinstance(x, float) else x).to_dict(),
+                "last_row": dataframe.iloc[-1].apply(lambda x: round(x, 4) if isinstance(x, float) else x).to_dict(),
                 "index_name": dataframe.index.name if dataframe.index.name else "missing",
             }
 

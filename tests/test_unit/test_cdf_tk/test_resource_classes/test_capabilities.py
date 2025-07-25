@@ -190,13 +190,13 @@ class TestCapabilities:
                 },
                 [
                     "In field scope invalid scope name 'idscope'. Expected all, datasetScope or idScope",
-                    "In actions input should be 'READ' or 'WRITE'. Got 'OWNER'.",
+                    "In actions[1] input should be 'READ' or 'WRITE'. Got 'OWNER'.",
                 ],
                 id="Wrong case for extractionPipelinesAcl idScope",
             ),
             pytest.param(
                 {"appConfigAcl": {"actions": ["READ", "WRITE"], "scope": {"appScope": {"apps": ["UNKNOWN_APP"]}}}},
-                ["In scope.apps input should be 'SEARCH'. Got 'UNKNOWN_APP'."],
+                ["In scope.apps[1] input should be 'SEARCH'. Got 'UNKNOWN_APP'."],
                 id="Invalid app name in appConfigAcl",
             ),
         ],
