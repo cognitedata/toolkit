@@ -28,6 +28,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
     ToolkitThrottledError,
     ToolkitTypeError,
+    ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
@@ -222,13 +223,11 @@ def metadata_key_counts(
     Returns:
         A dictionary with the metadata keys as keys and the counts as values.
     """
-    where_clause = ""
-    if data_sets is not None and hierarchies is not None:
-        where_clause = f"\n         WHERE dataSetId IN ({','.join(map(str, data_sets))}) AND rootId IN ({','.join(map(str, hierarchies))})"
-    elif data_sets is not None:
-        where_clause = f"\n         WHERE dataSetId IN ({','.join(map(str, data_sets))})"
-    elif hierarchies is not None:
-        where_clause = f"\n         WHERE rootId IN ({','.join(map(str, hierarchies))})"
+    if hierarchies and resource != "assets":
+        raise ToolkitValueError(
+            f"Hierarchies filtering for metadata keys are only supported for assets, but {resource} was provided."
+        )
+    where_clause = _create_where_clause(data_sets, hierarchies)
 
     query = f"""WITH meta AS (
          SELECT cast_to_strings(metadata) AS metadata_array
@@ -259,29 +258,56 @@ def metadata_key_counts(
     return [(item["key"], item["key_count"]) for item in results.results or []]
 
 
+def _create_where_clause(data_sets: list[int] | None, hierarchies: list[int] | None) -> str:
+    conditions = []
+    if data_sets:
+        if not all(isinstance(item, int) for item in data_sets):
+            raise ToolkitValueError("All items in data_sets must be integers for SQL filtering.")
+        conditions.append(f"dataSetId IN ({','.join(map(str, data_sets))})")
+    if hierarchies:
+        if not all(isinstance(item, int) for item in hierarchies):
+            raise ToolkitValueError("All items in hierarchies must be integers for SQL filtering.")
+        conditions.append(f"rootId IN ({','.join(map(str, hierarchies))})")
+
+    if not conditions:
+        return ""
+    return f"\n         WHERE {' AND '.join(conditions)}"
+
+
 def label_count(
-    client: ToolkitClient, resource: Literal["assets", "events", "files", "timeseries", "sequences"]
-) -> list[dict[str, int | str]]:
+    client: ToolkitClient,
+    resource: Literal["assets", "events", "files", "timeseries", "sequences"],
+    data_sets: list[int] | None = None,
+    hierarchies: list[int] | None = None,
+) -> list[tuple[str, int]]:
     """Get the label counts for a given resource.
 
     Args:
         client: ToolkitClient instance
         resource: The resource to get the label counts for. Can be one of "assets", "events", "files", "timeseries", or "sequences".
+        data_sets: A list of data set IDs to filter by. If None, no filtering is applied.
+        hierarchies: A list of hierarchy IDs to filter by. If None, no filtering is applied.
 
     Returns:
-        A dictionary with the labels as keys and the counts as values.
+        A list of tuples with the label and its count.
     """
+    if hierarchies and resource != "assets":
+        raise ToolkitValueError(
+            f"Hierarchies filtering for labels are only supported for assets, but {resource} was provided."
+        )
+    where_clause = _create_where_clause(data_sets, hierarchies)
+
     query = f"""WITH labels as (SELECT explode(labels) AS label
-	FROM _cdf.{resource}
+	FROM _cdf.{resource}{where_clause}
   )
 SELECT label, COUNT(label) as label_count
 FROM labels
 GROUP BY label
 ORDER BY label_count DESC;
 """
-    results = client.transformations.preview(query, convert_to_string=False, limit=1000)
+    results = client.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
     # We know from the SQL that the result is a list of dictionaries with string keys and int values.
-    return results.results or []
+    return [(item["label"], item["label_count"]) for item in results.results or []]
 
 
 @dataclass

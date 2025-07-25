@@ -31,6 +31,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitThrottledError
 from cognite_toolkit._cdf_tk.utils.cdf import (
     ThrottlerState,
     label_aggregate_count,
+    label_count,
     metadata_key_counts,
     raw_row_count,
     relationship_aggregate_count,
@@ -63,7 +64,37 @@ def two_datasets(toolkit_client: ToolkitClient) -> DataSetList:
 
 
 @pytest.fixture(scope="session")
-def two_hierarchies(toolkit_client: ToolkitClient, two_datasets: DataSetList) -> tuple[AssetList, AssetList]:
+def two_labels(toolkit_client: ToolkitClient, two_datasets: DataSetList) -> LabelDefinitionList:
+    data_set_id = two_datasets[0].id  # Using the first dataset for labels
+    labels = LabelDefinitionWriteList(
+        [
+            LabelDefinitionWrite(
+                external_id="toolkit_test_label_aggregate_count_1",
+                name="Test Label 1",
+                description="This is a test label 1",
+                data_set_id=data_set_id,
+            ),
+            LabelDefinitionWrite(
+                external_id="toolkit_test_label_aggregate_count_2",
+                name="Test Label 2",
+                description="This is a test label 2",
+                data_set_id=data_set_id,
+            ),
+        ]
+    )
+    existing = toolkit_client.labels.retrieve(external_id=labels.as_external_ids(), ignore_unknown_ids=True)
+    if missing := [label for label in labels if label.external_id not in set(existing.as_external_ids())]:
+        created = toolkit_client.labels.create(missing)
+        existing.extend(created)
+    return existing
+
+
+@pytest.fixture(scope="session")
+def two_hierarchies(
+    toolkit_client: ToolkitClient, two_datasets: DataSetList, two_labels: LabelDefinitionList
+) -> tuple[AssetList, AssetList]:
+    all_labels = [label.external_id for label in two_labels]
+    single_label = [two_labels[0].external_id]
     hierarchies = [
         AssetWriteList(
             [
@@ -82,6 +113,7 @@ def two_hierarchies(toolkit_client: ToolkitClient, two_datasets: DataSetList) ->
                         f"metadata_key_{i}": "does not matter either",
                         f"metadata_key_extra_{i}": "does not matter either",
                     },
+                    labels=all_labels if i == 0 else single_label,
                 ),
                 AssetWrite(
                     name=f"Child Asset extra {i}",
@@ -91,6 +123,7 @@ def two_hierarchies(toolkit_client: ToolkitClient, two_datasets: DataSetList) ->
                         f"extra_key{i}": "does not matter either",
                         f"another_extra_key{i}": "does not matter either",
                     },
+                    labels=single_label,
                 ),
             ]
         )
@@ -138,32 +171,6 @@ def asset_relationships(
     )
     if missing := [rel for rel in relationships if rel.external_id not in set(existing.as_external_ids())]:
         created = toolkit_client.relationships.create(missing)
-        existing.extend(created)
-    return existing
-
-
-@pytest.fixture(scope="session")
-def two_labels(toolkit_client: ToolkitClient, two_datasets: DataSetList) -> LabelDefinitionList:
-    data_set_id = two_datasets[0].id  # Using the first dataset for labels
-    labels = LabelDefinitionWriteList(
-        [
-            LabelDefinitionWrite(
-                external_id="toolkit_test_label_aggregate_count_1",
-                name="Test Label 1",
-                description="This is a test label 1",
-                data_set_id=data_set_id,
-            ),
-            LabelDefinitionWrite(
-                external_id="toolkit_test_label_aggregate_count_2",
-                name="Test Label 2",
-                description="This is a test label 2",
-                data_set_id=data_set_id,
-            ),
-        ]
-    )
-    existing = toolkit_client.labels.retrieve(external_id=labels.as_external_ids(), ignore_unknown_ids=True)
-    if missing := [label for label in labels if label.external_id not in set(existing.as_external_ids())]:
-        created = toolkit_client.labels.create(missing)
         existing.extend(created)
     return existing
 
@@ -278,6 +285,73 @@ class TestLabelAggregateCount:
         count = label_aggregate_count(toolkit_client, [data_set_id])
 
         assert count == len(two_labels)
+
+
+class TestLabelCount:
+    def test_label_count(self, toolkit_client: ToolkitClient, two_labels: LabelDefinitionList) -> None:
+        counts = label_count(toolkit_client, "assets")
+
+        ill_formed = [
+            (label, count)
+            for label, count in counts
+            if not isinstance(label, str) or not isinstance(count, int) or count < 0
+        ]
+        assert len(counts) > 0, "There should be some label counts."
+        assert len(ill_formed) == 0, f"Ill-formed label counts: {ill_formed}"
+
+    @pytest.mark.parametrize(
+        "hierarchies, datasets",
+        (
+            (hierarchies, datasets)
+            for hierarchies, datasets in itertools.product(
+                [
+                    None,
+                    ["toolkit_test_metadata_key_counts_root_asset_0"],
+                    ["toolkit_test_metadata_key_counts_root_asset_0", "toolkit_test_metadata_key_counts_root_asset_1"],
+                ],
+                [
+                    None,
+                    ["toolkit_test_metadata_key_counts_1"],
+                    ["toolkit_test_metadata_key_counts_1", "toolkit_test_metadata_key_counts_2"],
+                ],
+            )
+            if not (not hierarchies and not datasets)
+        ),
+        ids=(
+            f"{hierarchy_str} and {dataset_str}"
+            for hierarchy_str, dataset_str in itertools.product(
+                ["no hierarchies", "one hierarchy", "two hierarchies"],
+                ["no datasets", "one dataset", "two datasets"],
+                # We filter out this case as it will return all assets in the project as it has no filtering.
+            )
+            if not (hierarchy_str == "no hierarchies" and dataset_str == "no datasets")
+        ),
+    )
+    def test_label_count_filtering_datasets_hierarchies(
+        self,
+        hierarchies: list[str] | None,
+        datasets: list[str] | None,
+        toolkit_client: ToolkitClient,
+        two_hierarchies: tuple[AssetList, AssetList],
+        two_datasets: DataSetList,
+    ) -> None:
+        hierarchy_external_to_internal = {assets[0].external_id: assets[0].id for assets in two_hierarchies}
+        datasets_external_to_internal = {dataset.external_id: dataset.id for dataset in two_datasets}
+        hierarchy_ids = (
+            [hierarchy_external_to_internal[external_id] for external_id in hierarchies] if hierarchies else None
+        )
+        dataset_ids = [datasets_external_to_internal[external_id] for external_id in datasets] if datasets else None
+        label_counts = label_count(toolkit_client, "assets", hierarchies=hierarchy_ids, data_sets=dataset_ids)
+
+        expected_keys = Counter()
+        for hierarchy in two_hierarchies:
+            for asset in hierarchy:
+                if (hierarchy_ids is None or asset.root_id in hierarchy_ids) and (
+                    dataset_ids is None or asset.data_set_id in dataset_ids
+                ):
+                    expected_keys.update([label.external_id for label in asset.labels or []])
+
+        assert {key: count for key, count in label_counts} == dict(expected_keys.items())
 
 
 @pytest.fixture()
