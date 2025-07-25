@@ -48,6 +48,7 @@ class MigrateAssetsCommand(BaseMigrateCommand):
         mapping_file: Path,
         dry_run: bool = False,
         max_workers: int = 2,
+        output_dir: Path | None = None,
         verbose: bool = False,
     ) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
@@ -56,10 +57,11 @@ class MigrateAssetsCommand(BaseMigrateCommand):
         self.validate_instance_source_exists(client)
         self.validate_available_capacity(client, len(mappings))
 
+        output_dir = output_dir or Path.cwd()
         console = Console()
         iteration_count = len(mappings) // self.chunk_size + (1 if len(mappings) % self.chunk_size > 0 else 0)
         with (
-            CSVWriter(self._csv_schema(), output_dir=Path.cwd()) as writer,
+            CSVWriter(self._csv_schema(), output_dir=output_dir) as writer,
             HTTPBatchProcessor[NodeId](
                 endpoint_url=client.config.create_api_url("/models/instances"),
                 config=client.config,
