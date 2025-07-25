@@ -109,7 +109,7 @@ class HTTPProcessor(Generic[T_ID]):
         config (ToolkitClientConfig): Configuration for the Toolkit client.
         as_id (Callable[[dict], T_ID]): A function to convert an item to its ID.
         method (Literal["POST", "GET"]): HTTP method to use for requests, default is "POST".
-        body_parameters (dict[str, object] | None): Additional parameters to include in the request body.
+        body_parameters (dict[str, JsonVal] | None): Additional parameters to include in the request body.
         batch_size (int): Number of items per batch, default is 1000.
         max_workers (int): Maximum number of worker threads, default is 8.
         max_retries (int): Maximum number of retries for failed requests, default is 10.
@@ -121,9 +121,9 @@ class HTTPProcessor(Generic[T_ID]):
         self,
         endpoint_url: str,
         config: ToolkitClientConfig,
-        as_id: Callable[[dict], T_ID],
+        as_id: Callable[[dict[str, JsonVal]], T_ID],
         method: Literal["POST", "GET"] = "POST",
-        body_parameters: dict[str, object] | None = None,
+        body_parameters: dict[str, JsonVal] | None = None,
         batch_size: int = 1_000,
         max_workers: int = 8,
         max_retries: int = 10,
@@ -428,7 +428,7 @@ class HTTPIterableProcessor(HTTPProcessor[T_ID]):
         config (ToolkitClientConfig): Configuration for the Toolkit client.
         as_id (Callable[[dict], T_ID]): A function to convert an item to its ID.
         method (Literal["POST", "GET"]): HTTP method to use for requests, default is "POST".
-        body_parameters (dict[str, object] | None): Additional parameters to include in the request body.
+        body_parameters (dict[str, JsonVal] | None): Additional parameters to include in the request body.
         batch_size (int): Number of items per batch, default is 1000.
         max_workers (int): Maximum number of worker threads, default is 8.
         max_retries (int): Maximum number of retries for failed requests, default is 10.
@@ -441,9 +441,9 @@ class HTTPIterableProcessor(HTTPProcessor[T_ID]):
         self,
         endpoint_url: str,
         config: ToolkitClientConfig,
-        as_id: Callable[[dict], T_ID],
+        as_id: Callable[[dict[str, JsonVal]], T_ID],
         method: Literal["POST", "GET"] = "POST",
-        body_parameters: dict[str, object] | None = None,
+        body_parameters: dict[str, JsonVal] | None = None,
         batch_size: int = 1_000,
         max_workers: int = 8,
         max_retries: int = 10,
@@ -548,7 +548,7 @@ class HTTPBatchProcessor(HTTPProcessor[T_ID]):
         config (ToolkitClientConfig): Configuration for the Toolkit client.
         as_id (Callable[[dict], T_ID]): A function to convert an item to its ID.
         method (Literal["POST", "GET"]): HTTP method to use for requests, default is "POST".
-        body_parameters (dict[str, object] | None): Additional parameters to include in the request body.
+        body_parameters (dict[str, JsonVal] | None): Additional parameters to include in the request body.
         batch_size (int): Number of items per batch, default is 1000.
         max_workers (int): Maximum number of worker threads, default is 8.
         max_retries (int): Maximum number of retries for failed requests, default is 10.
@@ -560,10 +560,10 @@ class HTTPBatchProcessor(HTTPProcessor[T_ID]):
         self,
         endpoint_url: str,
         config: ToolkitClientConfig,
-        as_id: Callable[[dict], T_ID],
+        as_id: Callable[[dict[str, JsonVal]], T_ID],
         result_processor: Callable[[BatchResult[T_ID]], None],
         method: Literal["POST", "GET"] = "POST",
-        body_parameters: dict[str, object] | None = None,
+        body_parameters: dict[str, JsonVal] | None = None,
         batch_size: int = 1_000,
         max_workers: int = 8,
         max_retries: int = 10,
@@ -647,6 +647,7 @@ class HTTPBatchProcessor(HTTPProcessor[T_ID]):
                 self.result_processor(result)
             except Exception as e:
                 self.console.print(f"[red]Error processing result: {e!s}[/red]")
+                self.console.print_exception()
             finally:
                 self._result_queue.task_done()
         self._result_queue.task_done()
