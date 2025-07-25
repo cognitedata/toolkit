@@ -1,4 +1,5 @@
 import gzip
+import json
 import random
 import socket
 import sys
@@ -8,6 +9,7 @@ from collections import Counter
 from collections.abc import Callable, Hashable, Iterable, MutableMapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
+from itertools import zip_longest
 from queue import Queue
 from typing import Generic, Literal, TypeVar
 
@@ -256,7 +258,7 @@ class HTTPProcessor(Generic[T_ID]):
         self, response: requests.Response, work_item: WorkItem, work_queue: Queue, results_queue: Queue
     ) -> None:
         if 200 <= response.status_code < 300:
-            results_queue.put(self._create_success_batch_result(work_item.items, status_code=response.status_code))
+            results_queue.put(self._create_success_batch_result(work_item.items, response=response))
         elif response.status_code in {401, 403}:
             self.console.print("[red]Unauthorized request. Please check your credentials.[/red]")
             results_queue.put(self._create_failed_batch_result(work_item.items, response.status_code, response.text))
@@ -361,18 +363,38 @@ class HTTPProcessor(Generic[T_ID]):
         return BatchResult(failed_items=failed_items, unknown_ids=unknown_items)
 
     def _create_success_batch_result(
-        self, items: list[dict[str, JsonVal]], status_code: int, message: str | None = None
+        self, items: list[dict[str, JsonVal]], response: requests.Response, message: str | None = None
     ) -> BatchResult[T_ID]:
+        status_code = response.status_code
+        response_items = self._parse_response_items(response)
+        has_printed_warning = False
         success_items: list[SuccessItem[T_ID]] = []
         unknown_items: list[FailedItem[str]] = []
-        for item in items:
+        for item, response_item in zip_longest(items, response_items, fillvalue=None):
+            if item is None:
+                if not has_printed_warning:
+                    self.console.print("[red]Got more response 'items' than request items.[/red]")
+                continue
             try:
                 item_id = self.as_id(item)
             except Exception as e:
                 unknown_items.append(self._create_unknown_item(item, status_code, message, e))
             else:
-                success_items.append(SuccessItem(item=item_id, status_code=status_code, message=message))
+                success_items.append(
+                    SuccessItem(item=item_id, response=response_item, status_code=status_code, message=message)
+                )
         return BatchResult(successful_items=success_items, unknown_ids=unknown_items)
+
+    def _parse_response_items(self, response: requests.Response) -> list[dict[str, JsonVal]]:
+        try:
+            response_items = response.json().get("items", [])
+        except (json.JSONDecodeError, TypeError) as e:
+            self.console.print(f"[red]Failed to decode JSON response: {e!s}[/red]")
+            response_items = []
+        if not isinstance(response_items, list):
+            self.console.print("[red]Response 'items' is not a list. Skipping response.[/red]")
+            response_items = []
+        return response_items
 
     @staticmethod
     def _create_unknown_item(
