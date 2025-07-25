@@ -159,3 +159,64 @@ class ExtendedFileMetadataAPI(FilesAPI):
             ignore_unknown_ids=ignore_unknown_ids,
             api_subversion="alpha",
         )
+
+    @overload
+    def unlink_instance_ids(
+        self,
+        id: int | None = None,
+        external_id: str | None = None,
+    ) -> ExtendedFileMetadata | None: ...
+
+    @overload
+    def unlink_instance_ids(
+        self,
+        id: Sequence[int] | None = None,
+        external_id: SequenceNotStr[str] | None = None,
+    ) -> ExtendedFileMetadataList: ...
+
+    def unlink_instance_ids(
+        self,
+        id: int | Sequence[int] | None = None,
+        external_id: str | SequenceNotStr[str] | None = None,
+    ) -> ExtendedFileMetadata | ExtendedFileMetadataList | None:
+        """Unlink pending instance IDs from files.
+
+        Args:
+            id (int | Sequence[int] | None): The ID(s) of the files.
+            external_id (str | SequenceNotStr[str] | None): The external ID(s) of the files.
+        """
+        if id is None and external_id is None:
+            return None
+        if isinstance(id, int) and isinstance(external_id, str):
+            raise ValueError("Cannot specify both id and external_id as single values. Use one or the other.")
+        is_single = isinstance(id, int) or isinstance(external_id, str)
+        identifiers = IdentifierSequence.load(id, external_id)
+
+        tasks = [
+            {
+                "url_path": f"{self._RESOURCE_PATH}/unlink-instance-ids",
+                "json": {"items": id_chunk},
+                "api_subversion": "alpha",
+            }
+            for id_chunk in split_into_chunks(identifiers.as_dicts(), 1000)
+        ]
+        tasks_summary = execute_tasks(
+            self._post,
+            tasks,
+            max_workers=self._config.max_workers,
+            fail_fast=True,
+        )
+        tasks_summary.raise_compound_exception_if_failed_tasks(
+            task_unwrap_fn=unpack_items_in_payload,
+        )
+
+        retrieved_items = tasks_summary.joined_results(lambda res: res.json()["items"])
+
+        result = ExtendedFileMetadataList._load(retrieved_items, cognite_client=self._cognite_client)
+        if is_single:
+            if len(result) == 0:
+                return None
+            if len(result) > 1:
+                raise ValueError("Expected a single file, but multiple were returned.")
+            return result[0]  # type: ignore[return-value]
+        return result
