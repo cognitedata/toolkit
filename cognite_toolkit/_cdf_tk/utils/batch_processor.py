@@ -538,10 +538,10 @@ class HTTPIterableProcessor(HTTPProcessor[T_ID]):
         return self._aggregate_results(batch_results, self._process_exception)
 
 
-class HTTPIterableProcessor(HTTPBatchProcessor[T_ID]):
-    """A processor that handles items in an iterable fashion, processing them in batches.
+class HTTPBatchProcessor(HTTPProcessor[T_ID]):
+    """An HTTP processor for processing items in batches.
 
-    This class extends HTTPBatchProcessor to allow for processing items from an iterable source.
+    This class handles batching, rate limiting, retries, and error handling for HTTP requests.
 
     Args:
         endpoint_url (str): The URL of the endpoint to send requests to.

@@ -369,7 +369,7 @@ class TestHTTPIterableProcessor:
 
         with (
             responses.RequestsMock() as rsps,
-            HTTPIterableProcessor[str](
+            HTTPBatchProcessor[str](
                 endpoint_url=url,
                 config=toolkit_config,
                 as_id=lambda item: item["id"],
@@ -404,7 +404,7 @@ class TestHTTPIterableProcessor:
 
         with (
             responses.RequestsMock() as _,
-            HTTPIterableProcessor[str](
+            HTTPBatchProcessor[str](
                 endpoint_url=url,
                 config=toolkit_config,
                 as_id=lambda item: item["id"],
@@ -430,7 +430,7 @@ class TestHTTPIterableProcessor:
 
         with (
             responses.RequestsMock() as rsps,
-            HTTPIterableProcessor[str](
+            HTTPBatchProcessor[str](
                 endpoint_url=url,
                 config=toolkit_config,
                 as_id=lambda item: item["id"],
@@ -456,7 +456,7 @@ class TestHTTPIterableProcessor:
         def processor(batch: BatchResult[str]) -> None:
             batches.append(batch)
 
-        with HTTPIterableProcessor[str](
+        with HTTPBatchProcessor[str](
             endpoint_url=url,
             config=toolkit_config,
             as_id=lambda item: item["id"],
@@ -479,7 +479,7 @@ class TestHTTPIterableProcessor:
 
         with (
             responses.RequestsMock() as rsps,
-            HTTPIterableProcessor[str](
+            HTTPBatchProcessor[str](
                 endpoint_url=url,
                 config=toolkit_config,
                 as_id=lambda item: item["id"],
