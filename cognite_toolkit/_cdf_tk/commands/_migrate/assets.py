@@ -161,7 +161,7 @@ class MigrateAssetsCommand(BaseMigrateCommand):
         return Schema(
             "AssetMigration",
             folder_name="assets",
-            kind="Migration",
+            kind="MigrationResults",
             format_="csv",
             columns=SchemaColumnList(
                 [
