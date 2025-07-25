@@ -547,6 +547,7 @@ class HTTPBatchProcessor(HTTPProcessor[T_ID]):
         endpoint_url (str): The URL of the endpoint to send requests to.
         config (ToolkitClientConfig): Configuration for the Toolkit client.
         as_id (Callable[[dict[str, JsonVal]], T_ID]): A function to convert an item to its ID.
+        result_processor (Callable[[BatchResult[T_ID]], None]): A callable that processes the result of each batch.
         method (Literal["POST", "GET"]): HTTP method to use for requests, default is "POST".
         body_parameters (dict[str, JsonVal] | None): Additional parameters to include in the request body.
         batch_size (int): Number of items per batch, default is 1000.
@@ -588,16 +589,21 @@ class HTTPBatchProcessor(HTTPProcessor[T_ID]):
 
     def __enter__(self) -> Self:
         """Enter the context manager, initializing the work and result queues."""
-        self._work_queue = Queue(self.max_workers * 2)
-        self._result_queue = Queue()
-        self._worker_threads = [
-            threading.Thread(target=self._worker, args=(self._work_queue, self._result_queue), daemon=True)
-            for _ in range(self.max_workers)
-        ]
-        self._result_thread = threading.Thread(target=self._result_processor, daemon=True)
-        self._result_thread.start()
-        for thread in self._worker_threads:
-            thread.start()
+        try:
+            self._work_queue = Queue(self.max_workers * 2)
+            self._result_queue = Queue()
+            self._worker_threads = [
+                threading.Thread(target=self._worker, args=(self._work_queue, self._result_queue), daemon=True)
+                for _ in range(self.max_workers)
+            ]
+            self._result_thread = threading.Thread(target=self._result_processor, daemon=True)
+            self._result_thread.start()
+            for thread in self._worker_threads:
+                thread.start()
+        except Exception as e:
+            self.console.print(f"[red]Error initializing processor: {e!s}[/red]")
+            self._stop()
+            raise RuntimeError("Failed to initialize the processor.") from e
         return self
 
     def __exit__(
@@ -623,15 +629,16 @@ class HTTPBatchProcessor(HTTPProcessor[T_ID]):
         if self._work_queue is not None:
             for _ in self._worker_threads:
                 self._work_queue.put(None)
-            self._work_queue.join()
+            if any(t.is_alive() for t in self._worker_threads):
+                self._work_queue.join()
             for thread in self._worker_threads:
-                thread.join()
+                if thread.is_alive():
+                    thread.join()
             self._work_queue = None
-
         if self._result_queue is not None:
             self._result_queue.put(None)
-            self._result_queue.join()
-            if self._result_thread is not None:
+            if self._result_thread and self._result_thread.is_alive():
+                self._result_queue.join()
                 self._result_thread.join()
             self._result_queue = None
 

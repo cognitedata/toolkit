@@ -396,7 +396,7 @@ class TestHTTPBatchProcessor:
         assert len(batches) == 2
 
     def test_iterable_processor_empty_input(self, toolkit_config: ToolkitClientConfig) -> None:
-        """Test that HTTPIterableProcessor does not call result_processor for empty input"""
+        """Test that TestHTTPBatchProcessor does not call result_processor for empty input"""
         url = "https://test.com/api"
         batches: list[BatchResult[str]] = []
 
