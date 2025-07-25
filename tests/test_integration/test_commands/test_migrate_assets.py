@@ -81,9 +81,9 @@ class TestMigrateAssetsCommand:
         content = csv_file.read_text(encoding="utf-8")
         assert (
             content
-            == """ResourceType,NodeSpace,NodeExternalId,ResponseStatus,ResponseMessage
-asset,toolkit_test_space,toolkit_asset_test_migration_0_Windows_3_13_10,200,
-asset,toolkit_test_space,toolkit_asset_test_migration_1_Windows_3_13_10,200,
-asset,toolkit_test_space,toolkit_asset_test_migration_2_Windows_3_13_10,200,
+            == f"""ResourceType,NodeSpace,NodeExternalId,ResponseStatus,ResponseMessage
+asset,toolkit_test_space,toolkit_asset_test_migration_0_{RUN_UNIQUE_ID},200,
+asset,toolkit_test_space,toolkit_asset_test_migration_1_{RUN_UNIQUE_ID},200,
+asset,toolkit_test_space,toolkit_asset_test_migration_2_{RUN_UNIQUE_ID},200,
 """
         )
