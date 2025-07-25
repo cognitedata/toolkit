@@ -4,6 +4,7 @@ import time
 from collections.abc import Hashable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
+from threading import RLock
 from typing import Any, Literal, overload
 from urllib.parse import urlparse
 
@@ -16,16 +17,18 @@ from cognite.client.data_classes.data_modeling import Edge, Node, ViewId
 from cognite.client.data_classes.filters import SpaceFilter
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
-from filelock import FileLock, SoftFileLock
+from filelock import BaseFileLock, FileLock, Timeout
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN, MAX_ROW_ITERATION_RUN_QUERY, MAX_RUN_QUERY_FREQUENCY_MIN
 from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitError,
     ToolkitRequiredValueError,
     ToolkitThrottledError,
     ToolkitTypeError,
+    ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
@@ -33,6 +36,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
+from .file import to_directory_compatible
 from .sql_parser import SQLParser
 
 if sys.version_info < (3, 11):
@@ -219,13 +223,11 @@ def metadata_key_counts(
     Returns:
         A dictionary with the metadata keys as keys and the counts as values.
     """
-    where_clause = ""
-    if data_sets is not None and hierarchies is not None:
-        where_clause = f"\n         WHERE dataSetId IN ({','.join(map(str, data_sets))}) AND rootId IN ({','.join(map(str, hierarchies))})"
-    elif data_sets is not None:
-        where_clause = f"\n         WHERE dataSetId IN ({','.join(map(str, data_sets))})"
-    elif hierarchies is not None:
-        where_clause = f"\n         WHERE rootId IN ({','.join(map(str, hierarchies))})"
+    if hierarchies and resource != "assets":
+        raise ToolkitValueError(
+            f"Hierarchies filtering for metadata keys are only supported for assets, but {resource} was provided."
+        )
+    where_clause = _create_where_clause(data_sets, hierarchies)
 
     query = f"""WITH meta AS (
          SELECT cast_to_strings(metadata) AS metadata_array
@@ -256,29 +258,56 @@ def metadata_key_counts(
     return [(item["key"], item["key_count"]) for item in results.results or []]
 
 
+def _create_where_clause(data_sets: list[int] | None, hierarchies: list[int] | None) -> str:
+    conditions = []
+    if data_sets:
+        if not all(isinstance(item, int) for item in data_sets):
+            raise ToolkitValueError("All items in data_sets must be integers for SQL filtering.")
+        conditions.append(f"dataSetId IN ({','.join(map(str, data_sets))})")
+    if hierarchies:
+        if not all(isinstance(item, int) for item in hierarchies):
+            raise ToolkitValueError("All items in hierarchies must be integers for SQL filtering.")
+        conditions.append(f"rootId IN ({','.join(map(str, hierarchies))})")
+
+    if not conditions:
+        return ""
+    return f"\n         WHERE {' AND '.join(conditions)}"
+
+
 def label_count(
-    client: ToolkitClient, resource: Literal["assets", "events", "files", "timeseries", "sequences"]
-) -> list[dict[str, int | str]]:
+    client: ToolkitClient,
+    resource: Literal["assets", "events", "files", "timeseries", "sequences"],
+    data_sets: list[int] | None = None,
+    hierarchies: list[int] | None = None,
+) -> list[tuple[str, int]]:
     """Get the label counts for a given resource.
 
     Args:
         client: ToolkitClient instance
         resource: The resource to get the label counts for. Can be one of "assets", "events", "files", "timeseries", or "sequences".
+        data_sets: A list of data set IDs to filter by. If None, no filtering is applied.
+        hierarchies: A list of hierarchy IDs to filter by. If None, no filtering is applied.
 
     Returns:
-        A dictionary with the labels as keys and the counts as values.
+        A list of tuples with the label and its count.
     """
+    if hierarchies and resource != "assets":
+        raise ToolkitValueError(
+            f"Hierarchies filtering for labels are only supported for assets, but {resource} was provided."
+        )
+    where_clause = _create_where_clause(data_sets, hierarchies)
+
     query = f"""WITH labels as (SELECT explode(labels) AS label
-	FROM _cdf.{resource}
+	FROM _cdf.{resource}{where_clause}
   )
 SELECT label, COUNT(label) as label_count
 FROM labels
 GROUP BY label
 ORDER BY label_count DESC;
 """
-    results = client.transformations.preview(query, convert_to_string=False, limit=1000)
+    results = client.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
     # We know from the SQL that the result is a list of dictionaries with string keys and int values.
-    return results.results or []
+    return [(item["label"], item["label_count"]) for item in results.results or []]
 
 
 @dataclass
@@ -350,40 +379,78 @@ FROM
     return 0
 
 
-_FILENAME = "tk-last-raw_count-{project}.bin"
-_LOCK_BY_FILENAME: dict[str, SoftFileLock] = {}
-_IS_RAW_ROW_COUNT_ENABLED: bool | None = None
-_LAST_CALL_EPOC: float = 0
+@dataclass
+class ThrottlerState:
+    _FILENAME = "tk-last-raw_count-{project}.txt"
+
+    lock: BaseFileLock
+    project: str
+    _allowed_this_run: bool | None = None
+
+    @classmethod
+    def get(cls, project: str) -> "ThrottlerState":
+        if project in _STATE_BY_PROJECT:
+            return _STATE_BY_PROJECT[project]
+
+        with _STATE_LOCK:
+            # Re-check after acquiring the lock to handle the race condition.
+            if project in _STATE_BY_PROJECT:
+                return _STATE_BY_PROJECT[project]
+            filepath = cls._filepath(project)
+            # filelock needs a string path
+            lock = FileLock(str(filepath.with_suffix(".lock")), timeout=10.0)
+            state = cls(lock=lock, project=project)
+            _STATE_BY_PROJECT[project] = state
+            return state
+
+    @classmethod
+    def _filepath(cls, project: str) -> Path:
+        # Enure the project name is a valid string for hashing.
+        project = to_directory_compatible(project)
+        filename = cls._FILENAME.format(project=project)
+        return Path(tempfile.gettempdir()) / filename
+
+    def throttle(self) -> None:
+        """Checks if the function can be run, and if so, updates the last call timestamp.
+
+        This is an atomic operation protected by a file lock.
+
+        Raises:
+            ToolkitThrottledError: If the function has been called too recently.
+        """
+        try:
+            with self.lock:
+                now = time.time()
+                filepath = self._filepath(self.project)
+                if self._allowed_this_run is None:
+                    last_call_epoch = 0.0
+                    if filepath.exists():
+                        try:
+                            last_call_epoch = float(filepath.read_text(encoding="utf-8"))
+                        except (ValueError, FileNotFoundError):
+                            # File is corrupt or was deleted after check. Allow to run and overwrite.
+                            pass
+
+                    to_wait = (MAX_RUN_QUERY_FREQUENCY_MIN * 60) - (now - last_call_epoch)
+                    if to_wait > 0:
+                        raise ToolkitThrottledError(
+                            f"Row count is limited to once every {MAX_RUN_QUERY_FREQUENCY_MIN} minutes. "
+                            f"Please wait {to_wait:.2f} seconds before calling again.",
+                            to_wait,
+                        )
+                    self._allowed_this_run = True
+
+                # We are allowed to run, so we update the timestamp.
+                filepath.write_text(str(now), encoding="utf-8")
+        except Timeout:
+            raise ToolkitError(
+                "Could not acquire lock for throttling raw row count. "
+                "Another toolkit process might be running. Please try again."
+            )
 
 
-def _set_row_count_enabled(project: str) -> None:
-    global _IS_RAW_ROW_COUNT_ENABLED, _LAST_CALL_EPOC
-    filename = _FILENAME.format(project=project)
-    filepath = Path(tempfile.gettempdir()).resolve(strict=True) / filename
-    if filename not in _LOCK_BY_FILENAME:
-        _LOCK_BY_FILENAME[filename] = FileLock(filepath)
-    lock = _LOCK_BY_FILENAME[filename]
-    with lock:
-        if filepath.exists():
-            try:
-                _LAST_CALL_EPOC = float(filepath.read_text())
-            except ValueError:
-                _IS_RAW_ROW_COUNT_ENABLED = True
-            else:
-                to_wait = (MAX_RUN_QUERY_FREQUENCY_MIN * 60) - (time.time() - _LAST_CALL_EPOC)
-                _IS_RAW_ROW_COUNT_ENABLED = to_wait <= 0
-        else:
-            _IS_RAW_ROW_COUNT_ENABLED = True
-
-
-def _write_last_call_epoc(project: str) -> None:
-    filename = _FILENAME.format(project=project)
-    filepath = Path(tempfile.gettempdir()).resolve(strict=True) / filename
-    if filename not in _LOCK_BY_FILENAME:
-        _LOCK_BY_FILENAME[filename] = FileLock(filepath)
-    lock = _LOCK_BY_FILENAME[filename]
-    with lock:
-        filepath.write_text(str(time.time()), encoding="utf-8")
+_STATE_LOCK = RLock()
+_STATE_BY_PROJECT: dict[str, ThrottlerState] = {}
 
 
 def raw_row_count(client: ToolkitClient, raw_table_id: RawTable, max_count: int = MAX_ROW_ITERATION_RUN_QUERY) -> int:
@@ -401,15 +468,7 @@ def raw_row_count(client: ToolkitClient, raw_table_id: RawTable, max_count: int 
         ToolkitThrottledError: If the row count is limited to once every MAX_RUN_QUERY_FREQUENCY_MIN minutes.
         ValueError: If max_count is not between 0 and MAX_ROW_ITERATION_RUN_QUERY (inclusive).
     """
-    if _IS_RAW_ROW_COUNT_ENABLED is None:
-        _set_row_count_enabled(client.config.project)
-
-    if not _IS_RAW_ROW_COUNT_ENABLED:
-        to_wait = (MAX_RUN_QUERY_FREQUENCY_MIN * 60) - (time.time() - _LAST_CALL_EPOC)
-        raise ToolkitThrottledError(
-            f"Row count is limited to once every {MAX_RUN_QUERY_FREQUENCY_MIN} minutes. Please wait {to_wait:.2f} seconds before calling again.",
-            to_wait,
-        )
+    ThrottlerState.get(client.config.project).throttle()
 
     if not 0 <= max_count <= MAX_ROW_ITERATION_RUN_QUERY:
         raise ValueError(f"max_count must be between 0 and {MAX_ROW_ITERATION_RUN_QUERY} (inclusive).")
@@ -420,8 +479,6 @@ FROM (
     FROM `{raw_table_id.db_name}`.`{raw_table_id.table_name}`
     LIMIT {max_count}
 ) AS limited_keys"""
-
-    _write_last_call_epoc(client.config.project)
 
     results = client.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
     if results.results:

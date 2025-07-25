@@ -30,7 +30,6 @@ from .api.robotics.locations import LocationsAPI as RoboticsLocationsAPI
 from .api.robotics.maps import MapsAPI
 from .api.search import SearchAPI
 from .api.search_config import SearchConfigurationsAPI
-from .api.statistics import StatisticsAPI
 from .api.token import TokenAPI
 from .api.verify import VerifyAPI
 
@@ -78,8 +77,6 @@ class ToolkitClientMock(CogniteClientMock):
         self.robotics.frames = MagicMock(spec_set=FramesAPI)
         self.robotics.maps = MagicMock(spec_set=MapsAPI)
         self.robotics.capabilities = MagicMock(spec_set=CapabilitiesAPI)
-
-        self.data_modeling.statistics = MagicMock(spec_set=StatisticsAPI)
 
         # This is a helper API, not a real API.
         self.token = TokenAPI(self)
