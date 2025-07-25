@@ -28,10 +28,8 @@ from dotenv import load_dotenv
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawDatabaseList, RawTable, RawTableList
 from cognite_toolkit._cdf_tk.commands import CollectCommand
-from cognite_toolkit._cdf_tk.exceptions import ToolkitThrottledError
 from cognite_toolkit._cdf_tk.loaders import RawDatabaseLoader, RawTableLoader
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
-from cognite_toolkit._cdf_tk.utils.cdf import raw_row_count
 from tests.constants import REPO_ROOT
 from tests.test_integration.constants import (
     ASSET_COUNT,
@@ -551,14 +549,3 @@ FROM `{aggregator_raw_db}`.`{table_name}`""",
     )
     created = upsert_transformation_with_run(toolkit_client, transformation)
     return created
-
-
-@pytest.fixture()
-def use_raw_row_count(toolkit_client: ToolkitClient, populated_raw_table: RawTable) -> None:
-    try:
-        raw_row_count(toolkit_client, populated_raw_table, max_count=-1)
-    except ToolkitThrottledError:
-        pytest.skip("Skipping raw row count test")
-    except ValueError:
-        # A ValueError means this is available.
-        pass
