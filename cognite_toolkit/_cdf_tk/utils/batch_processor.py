@@ -417,7 +417,7 @@ class HTTPProcessor(Generic[T_ID]):
         return cls._any_exception_in_context_isinstance(exc.__context__, exc_types)
 
 
-class HTTPBatchProcessor(HTTPProcessor[T_ID]):
+class HTTPIterableProcessor(HTTPProcessor[T_ID]):
     """A generic HTTP batch processor for sending items to a specified endpoint in batches.
 
     This class handles batching, rate limiting, retries, and error handling for HTTP requests.
