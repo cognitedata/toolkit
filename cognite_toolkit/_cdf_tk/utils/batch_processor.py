@@ -600,7 +600,7 @@ class HTTPBatchProcessor(HTTPProcessor[T_ID]):
             self._result_thread.start()
             for thread in self._worker_threads:
                 thread.start()
-        except Exception as e:
+        except (RuntimeError, OSError) as e:
             self.console.print(f"[red]Error initializing processor: {e!s}[/red]")
             self._stop()
             raise RuntimeError("Failed to initialize the processor.") from e
@@ -629,16 +629,12 @@ class HTTPBatchProcessor(HTTPProcessor[T_ID]):
         if self._work_queue is not None:
             for _ in self._worker_threads:
                 self._work_queue.put(None)
-            if any(t.is_alive() for t in self._worker_threads):
-                self._work_queue.join()
             for thread in self._worker_threads:
-                if thread.is_alive():
-                    thread.join()
+                thread.join()
             self._work_queue = None
         if self._result_queue is not None:
             self._result_queue.put(None)
             if self._result_thread and self._result_thread.is_alive():
-                self._result_queue.join()
                 self._result_thread.join()
             self._result_queue = None
 
