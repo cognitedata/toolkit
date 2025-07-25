@@ -356,7 +356,7 @@ class TestHTTPIterableProcessor:
         assert str(result.producer_error) == "Raising an error during iteration"
 
 
-class TestHTTPIterableProcessor:
+class TestHTTPBatchProcessor:
     def test_happy_path(self, toolkit_config: ToolkitClientConfig) -> None:
         """Test that HTTPIterableProcessor processes items correctly"""
         url = "https://test.com/api"
