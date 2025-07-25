@@ -49,6 +49,7 @@ class SuccessItem(Generic[T_ID]):
     item: T_ID
     status_code: int
     message: str | None = None
+    response: dict[str, JsonVal] | None = None  # Optional response data from the server
 
 
 @dataclass(frozen=True)
