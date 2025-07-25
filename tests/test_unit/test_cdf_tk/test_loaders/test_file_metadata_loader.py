@@ -26,7 +26,7 @@ source: sharepointABC
                     external_id="sharepointABC",
                     source="sharepointABC",
                     name="A file.txt",
-                    data_set_id=LookUpAPIMock._create_id("ds_files"),
+                    data_set_id=LookUpAPIMock.create_id("ds_files"),
                 )
             ]
         ),
@@ -49,13 +49,13 @@ source: sharepointABC
                     external_id="sharepointABC",
                     source="sharepointABC",
                     name="A file.txt",
-                    data_set_id=LookUpAPIMock._create_id("ds_files"),
+                    data_set_id=LookUpAPIMock.create_id("ds_files"),
                 ),
                 FileMetadataWrite(
                     external_id="sharepointABC2",
                     source="sharepointABC",
                     name="Another file.txt",
-                    data_set_id=LookUpAPIMock._create_id("ds_files"),
+                    data_set_id=LookUpAPIMock.create_id("ds_files"),
                 ),
             ]
         ),

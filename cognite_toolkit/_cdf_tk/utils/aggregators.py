@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from functools import lru_cache
 from typing import ClassVar, Generic, Literal, TypeVar
 
 from cognite.client.data_classes import (
@@ -114,8 +115,47 @@ class MetadataAggregator(AssetCentricAggregator, ABC, Generic[T_CogniteFilter]):
         super().__init__(client)
         self.resource_name = resource_name
 
-    def metadata_key_count(self) -> int:
-        return len(metadata_key_counts(self.client, self.resource_name))
+    def metadata_key_count(
+        self, hierarchy: str | list[str] | None = None, data_sets: str | list[str] | None = None
+    ) -> int:
+        """Returns the number of metadata keys used by the resource."""
+        return len(self.used_metadata_keys(hierarchy=hierarchy, data_sets=data_sets))
+
+    def used_metadata_keys(
+        self, hierarchy: str | list[str] | None = None, data_sets: str | list[str] | None = None
+    ) -> list[tuple[str, int]]:
+        """Returns a list of metadata keys and their counts."""
+        hierarchy_ids, data_set_ids = self._lookup_hierarchy_data_set_pair(hierarchy, data_sets)
+        return self._used_metadata_keys(hierarchy=hierarchy_ids, data_sets=data_set_ids)
+
+    @lru_cache
+    def _used_metadata_keys(
+        self, hierarchy: tuple[int, ...] | None = None, data_sets: tuple[int, ...] | None = None
+    ) -> list[tuple[str, int]]:
+        return metadata_key_counts(
+            self.client,
+            self.resource_name,
+            hierarchies=list(hierarchy) if hierarchy else None,
+            data_sets=list(data_sets) if data_sets else None,
+        )
+
+    def _lookup_hierarchy_data_set_pair(
+        self, hierarchy: str | list[str] | None = None, data_sets: str | list[str] | None = None
+    ) -> tuple[tuple[int, ...] | None, tuple[int, ...] | None]:
+        """Returns a tuple of hierarchy and data sets."""
+        hierarchy_ids: tuple[int, ...] | None = None
+        if isinstance(hierarchy, str):
+            hierarchy_ids = (self.client.lookup.assets.id(external_id=hierarchy, allow_empty=False),)
+        elif isinstance(hierarchy, list) and all(isinstance(item, str) for item in hierarchy):
+            hierarchy_ids = tuple(sorted(self.client.lookup.assets.id(external_id=hierarchy, allow_empty=False)))
+
+        data_set_ids: tuple[int, ...] | None = None
+        if isinstance(data_sets, str):
+            data_set_ids = (self.client.lookup.data_sets.id(external_id=data_sets, allow_empty=False),)
+        elif isinstance(data_sets, list) and all(isinstance(item, str) for item in data_sets):
+            data_set_ids = tuple(sorted(self.client.lookup.data_sets.id(external_id=data_sets, allow_empty=False)))
+
+        return hierarchy_ids, data_set_ids
 
     @classmethod
     def create_filter(
@@ -148,8 +188,28 @@ class MetadataAggregator(AssetCentricAggregator, ABC, Generic[T_CogniteFilter]):
 
 
 class LabelAggregator(MetadataAggregator, ABC, Generic[T_CogniteFilter]):
-    def label_count(self) -> int:
-        return len(label_count(self.client, self.resource_name))
+    def label_count(self, hierarchy: str | list[str] | None = None, data_sets: str | list[str] | None = None) -> int:
+        """Returns the number of labels used by the resource."""
+        return len(self.used_labels(hierarchy=hierarchy, data_sets=data_sets))
+
+    def used_labels(
+        self, hierarchy: str | list[str] | None = None, data_sets: str | list[str] | None = None
+    ) -> list[tuple[str, int]]:
+        """Returns a list of labels and their counts."""
+        hierarchy_ids, data_set_ids = self._lookup_hierarchy_data_set_pair(hierarchy, data_sets)
+        return self._used_labels(hierarchy=hierarchy_ids, data_sets=data_set_ids)
+
+    @lru_cache
+    def _used_labels(
+        self, hierarchy: tuple[int, ...] | None = None, data_sets: tuple[int, ...] | None = None
+    ) -> list[tuple[str, int]]:
+        """Returns a list of labels and their counts."""
+        return label_count(
+            self.client,
+            self.resource_name,
+            hierarchies=list(hierarchy) if hierarchy else None,
+            data_sets=list(data_sets) if data_sets else None,
+        )
 
 
 class AssetAggregator(LabelAggregator[AssetFilter]):
