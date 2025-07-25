@@ -607,7 +607,7 @@ class HTTPBatchProcessor(HTTPProcessor[T_ID]):
         self._stop()
         return False
 
-    def add_items(self, items: list[dict[str, JsonVal]]) -> None:
+    def add_items(self, items: Iterable[dict[str, JsonVal]]) -> None:
         """Add items to the processor for processing.
 
         Args:

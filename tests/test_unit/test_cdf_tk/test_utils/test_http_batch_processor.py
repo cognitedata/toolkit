@@ -1,3 +1,4 @@
+import threading
 import time
 from collections.abc import Iterator
 from unittest.mock import MagicMock, patch
@@ -468,8 +469,6 @@ class TestHTTPBatchProcessor:
 
     def test_iterable_processor_thread_safety(self, toolkit_config: ToolkitClientConfig) -> None:
         """Test adding items from multiple threads is processed correctly"""
-        import threading
-
         url = "https://test.com/api"
         items = [{"id": i} for i in range(10)]
         batches: list[BatchResult[str]] = []
