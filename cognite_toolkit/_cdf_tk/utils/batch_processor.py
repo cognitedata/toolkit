@@ -107,7 +107,7 @@ class HTTPProcessor(Generic[T_ID]):
     Args:
         endpoint_url (str): The URL of the endpoint to send requests to.
         config (ToolkitClientConfig): Configuration for the Toolkit client.
-        as_id (Callable[[dict], T_ID]): A function to convert an item to its ID.
+        as_id (Callable[[dict[str, JsonVal]], T_ID]): A function to convert an item to its ID.
         method (Literal["POST", "GET"]): HTTP method to use for requests, default is "POST".
         body_parameters (dict[str, JsonVal] | None): Additional parameters to include in the request body.
         batch_size (int): Number of items per batch, default is 1000.
@@ -426,7 +426,7 @@ class HTTPIterableProcessor(HTTPProcessor[T_ID]):
     Args:
         endpoint_url (str): The URL of the endpoint to send requests to.
         config (ToolkitClientConfig): Configuration for the Toolkit client.
-        as_id (Callable[[dict], T_ID]): A function to convert an item to its ID.
+        as_id (Callable[[dict[str, JsonVal]], T_ID]): A function to convert an item to its ID.
         method (Literal["POST", "GET"]): HTTP method to use for requests, default is "POST".
         body_parameters (dict[str, JsonVal] | None): Additional parameters to include in the request body.
         batch_size (int): Number of items per batch, default is 1000.
@@ -546,7 +546,7 @@ class HTTPBatchProcessor(HTTPProcessor[T_ID]):
     Args:
         endpoint_url (str): The URL of the endpoint to send requests to.
         config (ToolkitClientConfig): Configuration for the Toolkit client.
-        as_id (Callable[[dict], T_ID]): A function to convert an item to its ID.
+        as_id (Callable[[dict[str, JsonVal]], T_ID]): A function to convert an item to its ID.
         method (Literal["POST", "GET"]): HTTP method to use for requests, default is "POST".
         body_parameters (dict[str, JsonVal] | None): Additional parameters to include in the request body.
         batch_size (int): Number of items per batch, default is 1000.
@@ -588,7 +588,7 @@ class HTTPBatchProcessor(HTTPProcessor[T_ID]):
 
     def __enter__(self) -> Self:
         """Enter the context manager, initializing the work and result queues."""
-        self._work_queue = Queue()
+        self._work_queue = Queue(self.max_workers * 2)
         self._result_queue = Queue()
         self._worker_threads = [
             threading.Thread(target=self._worker, args=(self._work_queue, self._result_queue), daemon=True)
@@ -616,9 +616,6 @@ class HTTPBatchProcessor(HTTPProcessor[T_ID]):
         if self._work_queue is None:
             raise RuntimeError("Processor is not initialized. Please use the context manager to initialize it.")
         for chunk in chunker(items, self.batch_size):
-            while self._work_queue.qsize() >= self.max_workers * 2:
-                # Wait for space in the queue
-                time.sleep(0.1)
             self._work_queue.put(WorkItem(items=chunk))
 
     def _stop(self) -> None:
@@ -646,6 +643,7 @@ class HTTPBatchProcessor(HTTPProcessor[T_ID]):
             try:
                 self.result_processor(result)
             except Exception as e:
+                # The result processor is user-defined, so we need to catch any exceptions
                 self.console.print(f"[red]Error processing result: {e!s}[/red]")
                 self.console.print_exception()
             finally:

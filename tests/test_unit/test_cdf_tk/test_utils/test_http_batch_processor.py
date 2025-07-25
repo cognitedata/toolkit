@@ -359,7 +359,7 @@ class TestHTTPIterableProcessor:
 
 class TestHTTPBatchProcessor:
     def test_happy_path(self, toolkit_config: ToolkitClientConfig) -> None:
-        """Test that HTTPIterableProcessor processes items correctly"""
+        """Test that TestHTTPBatchProcessor processes items correctly"""
         url = "https://test.com/api"
         items = [{"id": i} for i in range(5)]
 
