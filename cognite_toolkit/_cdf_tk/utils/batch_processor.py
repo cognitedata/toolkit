@@ -25,6 +25,7 @@ from urllib3.util.retry import Retry
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.utils.auxiliary import get_current_toolkit_version
 
+from .collection import chunker
 from .useful_types import JsonVal
 
 if sys.version_info >= (3, 11):
@@ -535,3 +536,117 @@ class HTTPIterableProcessor(HTTPProcessor[T_ID]):
                 for _ in range(self.max_workers):
                     work_queue.put(None)
         return self._aggregate_results(batch_results, self._process_exception)
+
+
+class HTTPIterableProcessor(HTTPBatchProcessor[T_ID]):
+    """A processor that handles items in an iterable fashion, processing them in batches.
+
+    This class extends HTTPBatchProcessor to allow for processing items from an iterable source.
+
+    Args:
+        endpoint_url (str): The URL of the endpoint to send requests to.
+        config (ToolkitClientConfig): Configuration for the Toolkit client.
+        as_id (Callable[[dict], T_ID]): A function to convert an item to its ID.
+        method (Literal["POST", "GET"]): HTTP method to use for requests, default is "POST".
+        body_parameters (dict[str, object] | None): Additional parameters to include in the request body.
+        batch_size (int): Number of items per batch, default is 1000.
+        max_workers (int): Maximum number of worker threads, default is 8.
+        max_retries (int): Maximum number of retries for failed requests, default is 10.
+        console (Console | None): Optional console for output, defaults to a new Console instance.
+
+    """
+
+    def __init__(
+        self,
+        endpoint_url: str,
+        config: ToolkitClientConfig,
+        as_id: Callable[[dict], T_ID],
+        result_processor: Callable[[BatchResult[T_ID]], None],
+        method: Literal["POST", "GET"] = "POST",
+        body_parameters: dict[str, object] | None = None,
+        batch_size: int = 1_000,
+        max_workers: int = 8,
+        max_retries: int = 10,
+        console: Console | None = None,
+    ):
+        super().__init__(
+            endpoint_url=endpoint_url,
+            config=config,
+            as_id=as_id,
+            method=method,
+            body_parameters=body_parameters,
+            batch_size=batch_size,
+            max_workers=max_workers,
+            max_retries=max_retries,
+            console=console,
+        )
+        self.result_processor = result_processor
+        self._work_queue: Queue[WorkItem | None] | None = None
+        self._result_queue: Queue[BatchResult[T_ID] | None] | None = None
+        self._worker_threads: list[threading.Thread] = []
+        self._result_thread: threading.Thread | None = None
+
+    def __enter__(self) -> Self:
+        """Enter the context manager, initializing the work and result queues."""
+        self._work_queue = Queue()
+        self._result_queue = Queue()
+        self._worker_threads = [
+            threading.Thread(target=self._worker, args=(self._work_queue, self._result_queue), daemon=True)
+            for _ in range(self.max_workers)
+        ]
+        self._result_thread = threading.Thread(target=self._result_processor, daemon=True)
+        self._result_thread.start()
+        for thread in self._worker_threads:
+            thread.start()
+        return self
+
+    def __exit__(
+        self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: object | None
+    ) -> Literal[False]:
+        """Exit the context manager, stopping the worker threads and closing the queues."""
+        self._stop()
+        return False
+
+    def add_items(self, items: list[dict[str, JsonVal]]) -> None:
+        """Add items to the processor for processing.
+
+        Args:
+            items (Iterable[dict[str, JsonVal]]): An iterable of items to process.
+        """
+        if self._work_queue is None:
+            raise RuntimeError("Processor is not initialized. Please use the context manager to initialize it.")
+        for chunk in chunker(items, self.batch_size):
+            while self._work_queue.qsize() >= self.max_workers * 2:
+                # Wait for space in the queue
+                time.sleep(0.1)
+            self._work_queue.put(WorkItem(items=chunk))
+
+    def _stop(self) -> None:
+        """Stop the processor, joining all worker threads and closing the queues."""
+        if self._work_queue is not None:
+            for _ in self._worker_threads:
+                self._work_queue.put(None)
+            self._work_queue.join()
+            for thread in self._worker_threads:
+                thread.join()
+            self._work_queue = None
+
+        if self._result_queue is not None:
+            self._result_queue.put(None)
+            self._result_queue.join()
+            if self._result_thread is not None:
+                self._result_thread.join()
+            self._result_queue = None
+
+    def _result_processor(self) -> None:
+        """Process results from the result queue and aggregate them."""
+        if self._result_queue is None:
+            raise RuntimeError("Result queue is not initialized. Please use the context manager to initialize it.")
+        while (result := self._result_queue.get()) is not None:
+            try:
+                self.result_processor(result)
+            except Exception as e:
+                self.console.print(f"[red]Error processing result: {e!s}[/red]")
+            finally:
+                self._result_queue.task_done()
+        self._result_queue.task_done()
