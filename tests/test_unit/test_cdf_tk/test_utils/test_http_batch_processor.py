@@ -10,7 +10,12 @@ from cognite.client.credentials import OAuthClientCredentials
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.utils.auth import CLIENT_NAME
-from cognite_toolkit._cdf_tk.utils.batch_processor import BatchResult, HTTPIterableProcessor, SuccessItem
+from cognite_toolkit._cdf_tk.utils.batch_processor import (
+    BatchResult,
+    HTTPBatchProcessor,
+    HTTPIterableProcessor,
+    SuccessItem,
+)
 
 
 @pytest.fixture
@@ -349,3 +354,42 @@ class TestHTTPIterableProcessor:
             result = processor.process(items_generator())
 
         assert str(result.producer_error) == "Raising an error during iteration"
+
+
+class TestHTTPIterableProcessor:
+    def test_iterable_processor(self, toolkit_config: ToolkitClientConfig) -> None:
+        """Test that HTTPIterableProcessor processes items correctly"""
+        url = "https://test.com/api"
+        items = [{"id": i} for i in range(5)]
+
+        batches: list[BatchResult[str]] = []
+
+        def processor(batch: BatchResult[str]) -> None:
+            batches.append(batch)
+
+        with (
+            responses.RequestsMock() as rsps,
+            HTTPIterableProcessor[str](
+                endpoint_url=url,
+                config=toolkit_config,
+                as_id=lambda item: item["id"],
+                result_processor=processor,
+                max_workers=2,
+            ) as processor,
+        ):
+            rsps.add(
+                responses.POST,
+                url,
+                status=200,
+                json={"items": [{"id": 1}, {"id": 2}, {"id": 3}]},
+            )
+            rsps.add(
+                responses.POST,
+                url,
+                status=200,
+                json={"items": [{"id": 4}, {"id": 5}]},
+            )
+            processor.add_items(items[:3])
+            processor.add_items(items[3:])
+
+        assert len(batches) == 2
