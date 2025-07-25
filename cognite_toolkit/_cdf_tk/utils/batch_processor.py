@@ -295,6 +295,7 @@ class HTTPBatchProcessor(Generic[T_ID]):
                 self._handle_error(e, work_item, work_queue, results_queue)
             finally:
                 work_queue.task_done()
+        work_queue.task_done()
 
     def _make_request(self, work_item: WorkItem) -> requests.Response:
         headers = self._create_headers()
