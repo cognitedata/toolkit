@@ -9,9 +9,11 @@ from cognite.client.data_classes import (
     UserProfileList,
 )
 from cognite.client.data_classes.data_modeling import NodeList
+from cognite.client.data_classes.raw import Database, DatabaseList, Table, TableList
 from questionary import Choice
 
 from cognite_toolkit._cdf_tk.client.data_classes.canvas import CANVAS_INSTANCE_SPACE, Canvas
+from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
@@ -20,6 +22,7 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
     EventInteractiveSelect,
     FileMetadataInteractiveSelect,
     InteractiveCanvasSelect,
+    RawTableInteractiveSelect,
     TimeSeriesInteractiveSelect,
 )
 from tests.test_unit.utils import MockQuestionary
@@ -183,6 +186,29 @@ class TestInteractiveSelect:
             AssetCentricDestinationSelect.validate("invalid_destination")
 
         assert "Invalid destination type: 'invalid_destination'." in str(exc_info.value)
+
+
+class TestRawTableSelect:
+    def test_interactive_select_raw_table(self, monkeypatch) -> None:
+        def select_database(choices: list[Choice]) -> str:
+            assert len(choices) == 3
+            return choices[2].value
+
+        def select_tables(choices: list[Choice]) -> list[str]:
+            assert len(choices) == 23
+            return [choices[i].value for i in range(0, 24, 2)]
+
+        answers = [select_database, select_tables]
+
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(RawTableInteractiveSelect.__module__, monkeypatch, answers),
+        ):
+            client.raw.databases.list.return_value = DatabaseList([Database(name=f"Database{i}") for i in range(1, 4)])
+            client.raw.tables.list.return_value = TableList([Table(name=f"Table{i}") for i in range(1, 24)])
+            selected = RawTableInteractiveSelect(client, "test_operation").select_tables()
+
+        assert selected == [RawTable("Database3", f"Table{i}") for i in range(1, 24, 2)]
 
 
 class TestInteractiveCanvasSelect:
