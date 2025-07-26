@@ -16,6 +16,7 @@ from cognite.client.data_classes.data_modeling import NodeList
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.canvas import Canvas
+from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 
 from . import humanize_collection
@@ -150,6 +151,44 @@ class TimeSeriesInteractiveSelect(AssetCentricInteractiveSelect):
 class EventInteractiveSelect(AssetCentricInteractiveSelect):
     def _get_aggregator(self, client: ToolkitClient) -> AssetCentricAggregator:
         return EventAggregator(self.client)
+
+
+class RawTableInteractiveSelect:
+    def __init__(self, client: ToolkitClient) -> None:
+        self.client = client
+
+    def _available_databases(self) -> list[str]:
+        databases = self.client.raw.databases.list(limit=-1)
+        return [db.name for db in databases if db.name is not None]
+
+    def _available_tables(self, database: str) -> list[RawTable]:
+        tables = self.client.raw.tables.list(db_name=database, limit=-1)
+        return [RawTable(database, table.name) for table in tables if table.name is not None]
+
+    def select_tables(self) -> list[RawTable]:
+        """Interactively select raw tables."""
+        databases = self._available_databases()
+        if not databases:
+            raise ToolkitValueError("No raw databases available. Aborting.")
+
+        selected_database = questionary.select(
+            "Select a Raw Database",
+            choices=[questionary.Choice(title=db, value=db) for db in databases],
+        ).ask()
+        if selected_database is None:
+            raise ToolkitValueError("No database selected. Aborting.")
+        available_tables = self._available_tables(selected_database)
+        if not available_tables:
+            raise ToolkitValueError(f"No raw tables available in database '{selected_database}'. Aborting.")
+
+        selected_tables = questionary.checkbox(
+            "Select Raw Tables",
+            choices=[questionary.Choice(title=f"{table.table_name}", value=table) for table in available_tables],
+        ).ask()
+
+        if selected_tables is None:
+            raise ToolkitValueError("No tables selected. Aborting.")
+        return selected_tables
 
 
 @dataclass
