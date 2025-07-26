@@ -486,3 +486,17 @@ class DownloadCommand(ToolkitCommand):
             raise ToolkitFileExistsError(f"Output directory {output_dir!s} already exists. Use --clean to remove it.")
         elif output_dir.suffix:
             raise ToolkitIsADirectoryError(f"Output directory {output_dir!s} is not a directory.")
+
+    def download_raw_records(
+        self,
+        client: ToolkitClient,
+        database: str | None = None,
+        tables: list[str] | None = None,
+        output_dir: Path | None = None,
+        format_: str = "ndjson",
+        compression: str = "gzip",
+        clean: bool = False,
+        limit: int = 10_000,
+        verbose: bool = False,
+    ) -> None:
+        raise NotImplementedError()
