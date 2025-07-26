@@ -20,7 +20,7 @@ from cognite.client.data_classes import (
 )
 
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.commands import DumpDataCommand
+from cognite_toolkit._cdf_tk.commands import DownloadCommand
 from cognite_toolkit._cdf_tk.commands.dump_data import AssetFinder, EventFinder, FileMetadataFinder, TimeSeriesFinder
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
 
@@ -44,7 +44,7 @@ class TestDumpData:
                 properties={},
             ),
         )
-        cmd = DumpDataCommand(skip_tracking=False, print_warning=False)
+        cmd = DownloadCommand(skip_tracking=False, print_warning=False)
         output_dir = tmp_path / "asset_dump"
         csv_dir = output_dir / "csv"
         parquet_dir = output_dir / "parquet"
@@ -60,7 +60,7 @@ class TestDumpData:
                 None, [{"key": "key", "key_count": 1}]
             )
 
-            cmd.dump_table(
+            cmd.download_table(
                 AssetFinder(client, ["rootAsset"], []),
                 csv_dir,
                 clean=True,
@@ -68,7 +68,7 @@ class TestDumpData:
                 format_="csv",
                 verbose=False,
             )
-            cmd.dump_table(
+            cmd.download_table(
                 AssetFinder(client, [], [dataset.external_id]),
                 parquet_dir,
                 clean=True,
@@ -124,7 +124,7 @@ class TestDumpData:
             "my_other_file_タシ",
             name="My Other File",
         )
-        cmd = DumpDataCommand(skip_tracking=False, print_warning=False)
+        cmd = DownloadCommand(skip_tracking=False, print_warning=False)
         output_dir = tmp_path / "file_dump"
         with monkeypatch_toolkit_client() as client:
             client.files.return_value = [FileMetadataList([my_file, my_other_file])]
@@ -137,7 +137,7 @@ class TestDumpData:
                 None, [{"key": "key", "key_count": 1}]
             )
 
-            cmd.dump_table(
+            cmd.download_table(
                 FileMetadataFinder(client, [], ["my_dataset"]),
                 output_dir,
                 clean=True,
@@ -180,7 +180,7 @@ class TestDumpData:
             is_step=False,
             data_set_id=dataset.id,
         )
-        cmd = DumpDataCommand(skip_tracking=False, print_warning=False)
+        cmd = DownloadCommand(skip_tracking=False, print_warning=False)
         output_dir = tmp_path / "timeseries_dump"
         with monkeypatch_toolkit_client() as client:
             client.time_series.return_value = [TimeSeriesList([my_timeseries])]
@@ -191,7 +191,7 @@ class TestDumpData:
                 None, [{"key": "key", "key_count": 1}]
             )
 
-            cmd.dump_table(
+            cmd.download_table(
                 TimeSeriesFinder(client, [], [dataset.external_id]),
                 output_dir,
                 clean=True,
@@ -219,7 +219,7 @@ class TestDumpData:
             )
             for i in range(10)
         ]
-        cmd = DumpDataCommand(skip_tracking=False, print_warning=False)
+        cmd = DownloadCommand(skip_tracking=False, print_warning=False)
         output_dir = tmp_path / "timeseries_dump"
         with monkeypatch_toolkit_client() as client:
             client.time_series.return_value = [TimeSeriesList([ts]) for ts in my_timeseries_list]
@@ -227,7 +227,7 @@ class TestDumpData:
             client.time_series.aggregate_count.return_value = 100_000
             client.transformations.preview.return_value = TransformationPreviewResult(None, [])
 
-            cmd.dump_table(
+            cmd.download_table(
                 TimeSeriesFinder(client, [], ["doesn't matter"]),
                 output_dir,
                 clean=True,
@@ -258,7 +258,7 @@ class TestDumpData:
             data_set_id=dataset.id,
             source="my_source",
         )
-        cmd = DumpDataCommand(skip_tracking=False, print_warning=False)
+        cmd = DownloadCommand(skip_tracking=False, print_warning=False)
         output_dir = tmp_path / "event_dump"
         with monkeypatch_toolkit_client() as client:
             client.events.return_value = [EventList([my_event])]
@@ -269,7 +269,7 @@ class TestDumpData:
                 None, [{"key": "key", "key_count": 1}, {"key": "key2", "key_count": 1}]
             )
 
-            cmd.dump_table(
+            cmd.download_table(
                 EventFinder(client, [], [dataset.external_id]),
                 output_dir,
                 clean=True,

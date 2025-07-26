@@ -4,7 +4,7 @@ from typing import Annotated, Any
 import typer
 from rich import print
 
-from cognite_toolkit._cdf_tk.commands import DumpDataCommand
+from cognite_toolkit._cdf_tk.commands import DownloadCommand
 from cognite_toolkit._cdf_tk.commands.dump_data import (
     AssetFinder,
     EventFinder,
@@ -23,28 +23,28 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
 class DownloadApp(typer.Typer):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self.callback(invoke_without_command=True)(self.dump_data_main)
-        self.command("asset")(self.dump_asset_cmd)
-        self.command("files-metadata")(self.dump_files_cmd)
-        self.command("timeseries")(self.dump_timeseries_cmd)
-        self.command("event")(self.dump_event_cmd)
+        self.callback(invoke_without_command=True)(self.download_main)
+        self.command("asset")(self.download_asset_cmd)
+        self.command("files-metadata")(self.download_files_cmd)
+        self.command("timeseries")(self.download_timeseries_cmd)
+        self.command("event")(self.download_event_cmd)
 
     @staticmethod
-    def dump_data_main(ctx: typer.Context) -> None:
+    def download_main(ctx: typer.Context) -> None:
         """ "Commands to download data from CDF into a temporary directory."""
         if ctx.invoked_subcommand is None:
             print("Use [bold yellow]cdf download --help[/] for more information.")
         return None
 
     @staticmethod
-    def dump_asset_cmd(
+    def download_asset_cmd(
         ctx: typer.Context,
         hierarchy: Annotated[
             list[str] | None,
             typer.Option(
                 "--hierarchy",
                 "-h",
-                help="Hierarchy to dump.",
+                help="Hierarchy to download.",
             ),
         ] = None,
         data_set: Annotated[
@@ -52,8 +52,8 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--data-set",
                 "-d",
-                help="Data set to dump. If neither hierarchy nor data set is provided, the user will be prompted"
-                "to select which assets to dump",
+                help="Data set to download. If neither hierarchy nor data set is provided, the user will be prompted"
+                "to select which assets to download",
             ),
         ] = None,
         format_: Annotated[
@@ -61,7 +61,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--format",
                 "-f",
-                help="Format to dump the assets in. Supported formats: csv, and parquet.",
+                help="Format to download the assets in. Supported formats: csv, and parquet.",
             ),
         ] = "csv",
         limit: Annotated[
@@ -69,7 +69,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--limit",
                 "-l",
-                help="Limit the number of assets to dump.",
+                help="Limit the number of assets to download.",
             ),
         ] = None,
         output_dir: Annotated[
@@ -77,7 +77,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--output-dir",
                 "-o",
-                help="Where to dump the asset files.",
+                help="Where to download the asset files.",
                 allow_dash=True,
             ),
         ] = Path("tmp"),
@@ -86,7 +86,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--clean",
                 "-c",
-                help="Delete the output directory before dumping the asset.",
+                help="Delete the output directory before downloading the asset.",
             ),
         ] = False,
         verbose: Annotated[
@@ -98,14 +98,14 @@ class DownloadApp(typer.Typer):
             ),
         ] = False,
     ) -> None:
-        """This command will dump the selected assets in the selected format to the folder specified, defaults to /tmp."""
-        cmd = DumpDataCommand()
+        """This command will download the selected assets in the selected format to the folder specified, defaults to /tmp."""
+        cmd = DownloadCommand()
         client = EnvironmentVariables.create_from_environment().get_client()
         if hierarchy is None and data_set is None:
-            hierarchy, data_set = AssetInteractiveSelect(client, "dump").interactive_select_hierarchy_datasets()
+            hierarchy, data_set = AssetInteractiveSelect(client, "download").interactive_select_hierarchy_datasets()
 
         cmd.run(
-            lambda: cmd.dump_table(
+            lambda: cmd.download_table(
                 AssetFinder(client, hierarchy or [], data_set or []),
                 output_dir,
                 clean,
@@ -116,14 +116,14 @@ class DownloadApp(typer.Typer):
         )
 
     @staticmethod
-    def dump_files_cmd(
+    def download_files_cmd(
         ctx: typer.Context,
         hierarchy: Annotated[
             list[str] | None,
             typer.Option(
                 "--hierarchy",
                 "-h",
-                help="Asset hierarchy (sub-trees) to dump filemetadata from.",
+                help="Asset hierarchy (sub-trees) to download filemetadata from.",
             ),
         ] = None,
         data_set: Annotated[
@@ -131,7 +131,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--data-set",
                 "-d",
-                help="Data set to dump. If neither hierarchy nor data set is provided, the user will be prompted.",
+                help="Data set to download. If neither hierarchy nor data set is provided, the user will be prompted.",
             ),
         ] = None,
         format_: Annotated[
@@ -139,7 +139,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--format",
                 "-f",
-                help="Format to dump the filemetadata in. Supported formats: csv, and parquet.",
+                help="Format to download the filemetadata in. Supported formats: csv, and parquet.",
             ),
         ] = "csv",
         limit: Annotated[
@@ -147,7 +147,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--limit",
                 "-l",
-                help="Limit the number of filemetadata to dump.",
+                help="Limit the number of filemetadata to download.",
             ),
         ] = None,
         output_dir: Annotated[
@@ -155,7 +155,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--output-dir",
                 "-o",
-                help="Where to dump the filemetadata files.",
+                help="Where to download the filemetadata files.",
                 allow_dash=True,
             ),
         ] = Path("tmp"),
@@ -164,7 +164,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--clean",
                 "-c",
-                help="Delete the output directory before dumping the filemetadata.",
+                help="Delete the output directory before downloading the filemetadata.",
             ),
         ] = False,
         verbose: Annotated[
@@ -176,14 +176,16 @@ class DownloadApp(typer.Typer):
             ),
         ] = False,
     ) -> None:
-        """This command will dump the selected file-metadata in the selected format in the folder specified, defaults to /tmp."""
-        cmd = DumpDataCommand()
+        """This command will download the selected file-metadata in the selected format in the folder specified, defaults to /tmp."""
+        cmd = DownloadCommand()
         cmd.validate_directory(output_dir, clean)
         client = EnvironmentVariables.create_from_environment().get_client()
         if hierarchy is None and data_set is None:
-            hierarchy, data_set = FileMetadataInteractiveSelect(client, "dump").interactive_select_hierarchy_datasets()
+            hierarchy, data_set = FileMetadataInteractiveSelect(
+                client, "download"
+            ).interactive_select_hierarchy_datasets()
         cmd.run(
-            lambda: cmd.dump_table(
+            lambda: cmd.download_table(
                 FileMetadataFinder(client, hierarchy or [], data_set or []),
                 output_dir,
                 clean,
@@ -194,14 +196,14 @@ class DownloadApp(typer.Typer):
         )
 
     @staticmethod
-    def dump_timeseries_cmd(
+    def download_timeseries_cmd(
         ctx: typer.Context,
         hierarchy: Annotated[
             list[str] | None,
             typer.Option(
                 "--hierarchy",
                 "-h",
-                help="Asset hierarchy (sub-trees) to dump timeseries from.",
+                help="Asset hierarchy (sub-trees) to download timeseries from.",
             ),
         ] = None,
         data_set: Annotated[
@@ -209,7 +211,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--data-set",
                 "-d",
-                help="Data set to dump. If neither hierarchy nor data set is provided, the user will be prompted.",
+                help="Data set to download. If neither hierarchy nor data set is provided, the user will be prompted.",
             ),
         ] = None,
         format_: Annotated[
@@ -217,7 +219,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--format",
                 "-f",
-                help="Format to dump the timeseries in. Supported formats: csv, and parquet.",
+                help="Format to download the timeseries in. Supported formats: csv, and parquet.",
             ),
         ] = "csv",
         limit: Annotated[
@@ -225,7 +227,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--limit",
                 "-l",
-                help="Limit the number of timeseries to dump.",
+                help="Limit the number of timeseries to download.",
             ),
         ] = None,
         output_dir: Annotated[
@@ -233,7 +235,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--output-dir",
                 "-o",
-                help="Where to dump the timeseries files.",
+                help="Where to download the timeseries files.",
                 allow_dash=True,
             ),
         ] = Path("tmp"),
@@ -242,7 +244,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--clean",
                 "-c",
-                help="Delete the output directory before dumping the timeseries.",
+                help="Delete the output directory before downloading the timeseries.",
             ),
         ] = False,
         verbose: Annotated[
@@ -254,13 +256,15 @@ class DownloadApp(typer.Typer):
             ),
         ] = False,
     ) -> None:
-        """This command will dump the selected timeseries to the selected format in the folder specified, defaults to /tmp."""
-        cmd = DumpDataCommand()
+        """This command will download the selected timeseries to the selected format in the folder specified, defaults to /tmp."""
+        cmd = DownloadCommand()
         client = EnvironmentVariables.create_from_environment().get_client()
         if hierarchy is None and data_set is None:
-            hierarchy, data_set = TimeSeriesInteractiveSelect(client, "dump").interactive_select_hierarchy_datasets()
+            hierarchy, data_set = TimeSeriesInteractiveSelect(
+                client, "download"
+            ).interactive_select_hierarchy_datasets()
         cmd.run(
-            lambda: cmd.dump_table(
+            lambda: cmd.download_table(
                 TimeSeriesFinder(client, hierarchy or [], data_set or []),
                 output_dir,
                 clean,
@@ -271,14 +275,14 @@ class DownloadApp(typer.Typer):
         )
 
     @staticmethod
-    def dump_event_cmd(
+    def download_event_cmd(
         ctx: typer.Context,
         hierarchy: Annotated[
             list[str] | None,
             typer.Option(
                 "--hierarchy",
                 "-h",
-                help="Asset hierarchy (sub-trees) to dump event from.",
+                help="Asset hierarchy (sub-trees) to download event from.",
             ),
         ] = None,
         data_set: Annotated[
@@ -286,7 +290,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--data-set",
                 "-d",
-                help="Data set to dump. If neither hierarchy nor data set is provided, the user will be prompted.",
+                help="Data set to download. If neither hierarchy nor data set is provided, the user will be prompted.",
             ),
         ] = None,
         format_: Annotated[
@@ -294,7 +298,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--format",
                 "-f",
-                help="Format to dump the event in. Supported formats: csv, and parquet.",
+                help="Format to download the event in. Supported formats: csv, and parquet.",
             ),
         ] = "csv",
         limit: Annotated[
@@ -302,7 +306,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--limit",
                 "-l",
-                help="Limit the number of events to dump.",
+                help="Limit the number of events to download.",
             ),
         ] = None,
         output_dir: Annotated[
@@ -310,7 +314,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--output-dir",
                 "-o",
-                help="Where to dump the events files.",
+                help="Where to download the events files.",
                 allow_dash=True,
             ),
         ] = Path("tmp"),
@@ -319,7 +323,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--clean",
                 "-c",
-                help="Delete the output directory before dumping the events.",
+                help="Delete the output directory before downloading the events.",
             ),
         ] = False,
         verbose: Annotated[
@@ -331,14 +335,14 @@ class DownloadApp(typer.Typer):
             ),
         ] = False,
     ) -> None:
-        """This command will dump the selected events to the selected format in the folder specified, defaults to /tmp."""
-        cmd = DumpDataCommand()
+        """This command will download the selected events to the selected format in the folder specified, defaults to /tmp."""
+        cmd = DownloadCommand()
         cmd.validate_directory(output_dir, clean)
         client = EnvironmentVariables.create_from_environment().get_client()
         if hierarchy is None and data_set is None:
-            hierarchy, data_set = EventInteractiveSelect(client, "dump").interactive_select_hierarchy_datasets()
+            hierarchy, data_set = EventInteractiveSelect(client, "download").interactive_select_hierarchy_datasets()
         cmd.run(
-            lambda: cmd.dump_table(
+            lambda: cmd.download_table(
                 EventFinder(client, hierarchy or [], data_set or []),
                 output_dir,
                 clean,

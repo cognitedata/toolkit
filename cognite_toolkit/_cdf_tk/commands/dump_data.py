@@ -417,8 +417,8 @@ class EventFinder(AssetCentricFinder[Event]):
         return [("", self._to_write(items))]
 
 
-class DumpDataCommand(ToolkitCommand):
-    def dump_table(
+class DownloadCommand(ToolkitCommand):
+    def download_table(
         self,
         finder: DataFinder,
         output_dir: Path,
