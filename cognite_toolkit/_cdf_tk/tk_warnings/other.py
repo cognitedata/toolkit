@@ -132,6 +132,7 @@ class MissingCapabilityWarning(GeneralWarning):
 
 @dataclass(frozen=True)
 class ToolkitDeprecationWarning(ToolkitWarning, DeprecationWarning):
+    severity = SeverityLevel.HIGH
     message: ClassVar[str] = "The '{feature}' is deprecated and will be removed in a future version."
 
     feature: str
