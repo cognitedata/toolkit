@@ -31,7 +31,7 @@ class DownloadApp(typer.Typer):
 
     @staticmethod
     def download_main(ctx: typer.Context) -> None:
-        """ "Commands to download data from CDF into a temporary directory."""
+        """Commands to download data from CDF into a temporary directory."""
         if ctx.invoked_subcommand is None:
             print("Use [bold yellow]cdf download --help[/] for more information.")
         return None
