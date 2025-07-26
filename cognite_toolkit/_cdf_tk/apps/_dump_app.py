@@ -39,8 +39,8 @@ class DumpApp(typer.Typer):
         if not Flags.DOWNLOAD.is_enabled():
             # In the 0.6.0 release, the dump command will be split into two commands: cdf dump and cdf download.
             # These two subcommand will be moved permanently under the cdf download command.
-            self.command("asset")(DownloadApp.dump_asset_cmd)
-            self.command("timeseries")(DownloadApp.dump_timeseries_cmd)
+            self.command("asset")(DownloadApp.download_asset_cmd)
+            self.command("timeseries")(DownloadApp.download_timeseries_cmd)
 
         self.command("workflow")(self.dump_workflow)
         self.command("transformation")(self.dump_transformation)
