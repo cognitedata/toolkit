@@ -31,9 +31,9 @@ class DownloadApp(typer.Typer):
 
     @staticmethod
     def dump_data_main(ctx: typer.Context) -> None:
-        """Commands to dump data from CDF into a temporary directory."""
+        """ "Commands to download data from CDF into a temporary directory."""
         if ctx.invoked_subcommand is None:
-            print("Use [bold yellow]cdf dump data --help[/] for more information.")
+            print("Use [bold yellow]cdf download --help[/] for more information.")
         return None
 
     @staticmethod
@@ -176,7 +176,7 @@ class DownloadApp(typer.Typer):
             ),
         ] = False,
     ) -> None:
-        """This command will dump the selected events to the selected format in the folder specified, defaults to /tmp."""
+        """This command will dump the selected file-metadata in the selected format in the folder specified, defaults to /tmp."""
         cmd = DumpDataCommand()
         cmd.validate_directory(output_dir, clean)
         client = EnvironmentVariables.create_from_environment().get_client()
