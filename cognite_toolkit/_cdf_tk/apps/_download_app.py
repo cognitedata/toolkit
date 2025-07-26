@@ -26,6 +26,15 @@ class DownloadFormat(str, Enum):
     parquet = "parquet"
 
 
+class RecordFormat(str, Enum):
+    ndjson = "ndjson"
+
+
+class CompressionFormat(str, Enum):
+    gzip = "gzip"
+    none = "none"
+
+
 class DownloadApp(typer.Typer):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -34,6 +43,7 @@ class DownloadApp(typer.Typer):
         self.command("files-metadata")(self.download_files_cmd)
         self.command("timeseries")(self.download_timeseries_cmd)
         self.command("event")(self.download_event_cmd)
+        self.command("raw")(self.download_raw_cmd)
 
     @staticmethod
     def download_main(ctx: typer.Context) -> None:
@@ -354,5 +364,90 @@ class DownloadApp(typer.Typer):
                 limit,
                 format_.value,
                 verbose,
+            )
+        )
+
+    @staticmethod
+    def download_raw_cmd(
+        ctx: typer.Context,
+        tables: Annotated[
+            list[str] | None,
+            typer.Argument(
+                help="List of tables to download. If not provided, an interactive selection will be made.",
+            ),
+        ] = None,
+        database: Annotated[
+            str | None,
+            typer.Option(
+                "--database",
+                "-d",
+                help="Database to download from. If not provided, the user will be prompted to select a database.",
+            ),
+        ] = None,
+        format_: Annotated[
+            RecordFormat,
+            typer.Option(
+                "--format",
+                "-f",
+                help="Format to download the raw tables in. Supported formats: json",
+            ),
+        ] = RecordFormat.ndjson,
+        compression: Annotated[
+            CompressionFormat,
+            typer.Option(
+                "--compression",
+                "-z",
+                help="Compression format to use when downloading the raw tables. Supported formats: gzip, none.",
+            ),
+        ] = CompressionFormat.gzip,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to download the raw tables.",
+                allow_dash=True,
+            ),
+        ] = Path("tmp"),
+        clean: Annotated[
+            bool,
+            typer.Option(
+                "--clean",
+                "-c",
+                help="Delete the output directory before downloading the raw tables.",
+            ),
+        ] = False,
+        limit: Annotated[
+            int,
+            typer.Option(
+                "--limit",
+                "-l",
+                help="The maximum the number of records to download from each table.",
+            ),
+        ] = 10_000,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will download RAW tables from CDF into a temporary directory."""
+        cmd = DownloadCommand()
+
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd.run(
+            lambda: cmd.download_raw_records(
+                client=client,
+                database=database,
+                tables=tables,
+                output_dir=output_dir,
+                format_=format_,
+                compression=compression,
+                clean=clean,
+                limit=limit,
+                verbose=verbose,
             )
         )
