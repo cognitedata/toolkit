@@ -5,7 +5,7 @@ import typer
 from rich import print
 
 from cognite_toolkit._cdf_tk.commands import DownloadCommand
-from cognite_toolkit._cdf_tk.commands.dump_data import (
+from cognite_toolkit._cdf_tk.commands.download import (
     AssetFinder,
     EventFinder,
     FileMetadataFinder,
@@ -110,7 +110,7 @@ class DownloadApp(typer.Typer):
                 output_dir,
                 clean,
                 limit,
-                format_,  # type: ignore [arg-type]
+                format_,
                 verbose,
             )
         )
@@ -178,7 +178,6 @@ class DownloadApp(typer.Typer):
     ) -> None:
         """This command will download the selected file-metadata in the selected format in the folder specified, defaults to /tmp."""
         cmd = DownloadCommand()
-        cmd.validate_directory(output_dir, clean)
         client = EnvironmentVariables.create_from_environment().get_client()
         if hierarchy is None and data_set is None:
             hierarchy, data_set = FileMetadataInteractiveSelect(
@@ -190,7 +189,7 @@ class DownloadApp(typer.Typer):
                 output_dir,
                 clean,
                 limit,
-                format_,  # type: ignore [arg-type]
+                format_,
                 verbose,
             )
         )
@@ -269,7 +268,7 @@ class DownloadApp(typer.Typer):
                 output_dir,
                 clean,
                 limit,
-                format_,  # type: ignore [arg-type]
+                format_,
                 verbose,
             )
         )
@@ -337,7 +336,7 @@ class DownloadApp(typer.Typer):
     ) -> None:
         """This command will download the selected events to the selected format in the folder specified, defaults to /tmp."""
         cmd = DownloadCommand()
-        cmd.validate_directory(output_dir, clean)
+
         client = EnvironmentVariables.create_from_environment().get_client()
         if hierarchy is None and data_set is None:
             hierarchy, data_set = EventInteractiveSelect(client, "download").interactive_select_hierarchy_datasets()
