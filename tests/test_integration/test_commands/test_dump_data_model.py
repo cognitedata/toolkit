@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from cognite.client.data_classes.data_modeling import DataModelId, SpaceApply
 
-from cognite_toolkit._cdf_tk.apps._dump_app import DumpConfigApp
+from cognite_toolkit._cdf_tk.apps import DumpApp
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import DumpResourceCommand
 from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder
@@ -30,7 +30,7 @@ def deployed_misbehaving_grandparent(toolkit_client: ToolkitClient) -> DataModel
 
 class TestDumpResource:
     def test_dump_model_without_version(self, toolkit_client: ToolkitClient, tmp_path: Path) -> None:
-        DumpConfigApp().dump_datamodel_cmd(
+        DumpApp().dump_datamodel_cmd(
             None,
             ["cdf_cdm", "CogniteCore"],
             tmp_path,
