@@ -13,7 +13,7 @@ from .build_cmd import BuildCommand
 from .clean import CleanCommand
 from .collect import CollectCommand
 from .deploy import DeployCommand
-from .dump_data import DownloadCommand
+from .download import DownloadCommand
 from .dump_resource import DumpResourceCommand
 from .featureflag import FeatureFlagCommand
 from .init import InitCommand
