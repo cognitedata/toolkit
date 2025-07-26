@@ -446,8 +446,6 @@ class DownloadCommand(ToolkitCommand):
         self.validate_directory(output_dir, clean)
 
         console = Console()
-        # The ignore is used as MyPy does not understand that is_supported_format
-        # above guarantees that the format is valid.
         for schema, iteration_count, resource_iterator, resource_processor in finder.create_iterators(
             valid_format, limit
         ):
