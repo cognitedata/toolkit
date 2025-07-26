@@ -194,7 +194,7 @@ class TestRawTableSelect:
             assert len(choices) == 3
             return choices[2].value
 
-        def select_tables(choices: list[Choice]) -> list[str]:
+        def select_tables(choices: list[Choice]) -> list[RawTable]:
             assert len(choices) == 23
             return [choices[i].value for i in range(0, 24, 2)]
 
