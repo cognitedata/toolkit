@@ -154,8 +154,9 @@ class EventInteractiveSelect(AssetCentricInteractiveSelect):
 
 
 class RawTableInteractiveSelect:
-    def __init__(self, client: ToolkitClient) -> None:
+    def __init__(self, client: ToolkitClient, operation: str) -> None:
         self.client = client
+        self.operation = operation
 
     def _available_databases(self) -> list[str]:
         databases = self.client.raw.databases.list(limit=-1)
@@ -172,7 +173,7 @@ class RawTableInteractiveSelect:
             raise ToolkitValueError("No raw databases available. Aborting.")
 
         selected_database = questionary.select(
-            "Select a Raw Database",
+            f"Select a Raw Database to {self.operation}",
             choices=[questionary.Choice(title=db, value=db) for db in databases],
         ).ask()
         if selected_database is None:
@@ -182,7 +183,7 @@ class RawTableInteractiveSelect:
             raise ToolkitValueError(f"No raw tables available in database '{selected_database}'. Aborting.")
 
         selected_tables = questionary.checkbox(
-            "Select Raw Tables",
+            f"Select Raw Tables in {selected_database} to {self.operation}",
             choices=[questionary.Choice(title=f"{table.table_name}", value=table) for table in available_tables],
         ).ask()
 
