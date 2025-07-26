@@ -1,3 +1,4 @@
+from enum import Enum
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -18,6 +19,11 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
     FileMetadataInteractiveSelect,
     TimeSeriesInteractiveSelect,
 )
+
+
+class DownloadFormat(str, Enum):
+    csv = "csv"
+    parquet = "parquet"
 
 
 class DownloadApp(typer.Typer):
@@ -57,13 +63,13 @@ class DownloadApp(typer.Typer):
             ),
         ] = None,
         format_: Annotated[
-            str,
+            DownloadFormat,
             typer.Option(
                 "--format",
                 "-f",
                 help="Format to download the assets in. Supported formats: csv, and parquet.",
             ),
-        ] = "csv",
+        ] = DownloadFormat.csv,
         limit: Annotated[
             int | None,
             typer.Option(
@@ -135,13 +141,13 @@ class DownloadApp(typer.Typer):
             ),
         ] = None,
         format_: Annotated[
-            str,
+            DownloadFormat,
             typer.Option(
                 "--format",
                 "-f",
                 help="Format to download the filemetadata in. Supported formats: csv, and parquet.",
             ),
-        ] = "csv",
+        ] = DownloadFormat.csv,
         limit: Annotated[
             int | None,
             typer.Option(
@@ -214,13 +220,13 @@ class DownloadApp(typer.Typer):
             ),
         ] = None,
         format_: Annotated[
-            str,
+            DownloadFormat,
             typer.Option(
                 "--format",
                 "-f",
                 help="Format to download the timeseries in. Supported formats: csv, and parquet.",
             ),
-        ] = "csv",
+        ] = DownloadFormat.csv,
         limit: Annotated[
             int | None,
             typer.Option(
@@ -293,13 +299,13 @@ class DownloadApp(typer.Typer):
             ),
         ] = None,
         format_: Annotated[
-            str,
+            DownloadFormat,
             typer.Option(
                 "--format",
                 "-f",
                 help="Format to download the event in. Supported formats: csv, and parquet.",
             ),
-        ] = "csv",
+        ] = DownloadFormat.csv,
         limit: Annotated[
             int | None,
             typer.Option(
