@@ -3,6 +3,7 @@ from typing import Literal
 
 import pytest
 
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils.record import RecordReader, RecordWriter
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
@@ -30,3 +31,76 @@ class TestRecords:
                 read_records.append(record)
 
         assert read_records == first_batch + second_batch, "Read records do not match written records."
+
+    @pytest.mark.parametrize(
+        "filename, compression, error_message",
+        [
+            pytest.param(
+                "test_records.ndjson.gz",
+                "none",
+                "Invalid compression for file: 'test_records.ndjson.gz'. Expected no suffix for no compression.",
+                id="none with .gz suffix",
+            ),
+            pytest.param(
+                "test_records.ndjson",
+                "gzip",
+                "Invalid compression for file: 'test_records.ndjson'. Expected '.gz' suffix for gzip compression.",
+                id="gzip with no .gz suffix",
+            ),
+            pytest.param(
+                "test_records.ndjson.txt",
+                "infer",
+                "Cannot infer compression from filename: 'test_records.ndjson.txt'",
+                id="infer with double suffix",
+            ),
+            pytest.param(
+                "test_records.ndjson.txt",
+                "gzip",
+                "Invalid compression for file: 'test_records.ndjson.txt'. Expected '.gz' suffix for gzip compression.",
+                id="gzip with wrong suffix",
+            ),
+            pytest.param(
+                "test_records.ndjson.txt",
+                "none",
+                "Invalid compression for file: 'test_records.ndjson.txt'. Expected no suffix for no compression.",
+                id="none with wrong suffix",
+            ),
+            pytest.param(
+                "test_records.ndjson",
+                "unsupported",
+                "Unsupported compression type: unsupported",
+                id="unsupported compression",
+            ),
+        ],
+    )
+    def test_invalid_compression(self, filename: str, compression: str, error_message: str) -> None:
+        filepath = Path(filename)
+        with pytest.raises(ToolkitValueError) as exc_info:
+            RecordWriter.validate_compression(compression, filepath)
+        assert str(exc_info.value) == error_message, f"Expected error message: {error_message}, got: {exc_info.value}"
+
+    @pytest.mark.parametrize(
+        "filename, format, error_message",
+        [
+            pytest.param(
+                "test_records.txt",
+                "infer",
+                "Cannot infer format from file extension: .txt. Only '.ndjson' is supported.",
+                id="infer with .txt",
+            ),
+            pytest.param(
+                "test_records.txt",
+                "ndjson",
+                "Invalid format for file: test_records.txt. Expected '.ndjson' suffix.",
+                id="ndjson with .txt",
+            ),
+            pytest.param(
+                "test_records.ndjson", "unsupported", "Unsupported format: unsupported", id="unsupported format"
+            ),
+        ],
+    )
+    def test_invalid_format(self, filename: str, format: str, error_message: str) -> None:
+        filepath = Path(filename)
+        with pytest.raises(ToolkitValueError) as exc_info:
+            RecordReader.validate_format(format, filepath)
+        assert str(exc_info.value) == error_message, f"Expected error message: {error_message}, got: {exc_info.value}"
