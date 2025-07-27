@@ -16,7 +16,7 @@ else:
     from typing_extensions import Self
 
 
-class RecordIO(ABC):
+class _RecordIO(ABC):
     encoding = "utf-8"
     newline = "\n"
     _file_mode: ClassVar[str]
@@ -91,7 +91,7 @@ class RecordIO(ABC):
             self.file = None
 
 
-class RecordWriter(RecordIO):
+class RecordWriter(_RecordIO):
     _file_mode = "w"
 
     def __init__(
@@ -113,7 +113,7 @@ class RecordWriter(RecordIO):
         )
 
 
-class RecordReader(RecordIO):
+class RecordReader(_RecordIO):
     _file_mode = "r"
     """A class to read records from a file."""
 
