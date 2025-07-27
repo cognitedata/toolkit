@@ -58,7 +58,7 @@ class _RecordIO(ABC):
         if compression == "infer":
             if filepath.suffix == ".gz":
                 return "gzip"
-            elif len(filepath.suffixes) == 1:
+            elif filepath.suffix == ".ndjson":
                 return "none"
             else:
                 raise ToolkitValueError(f"Cannot infer compression from filename: {filepath.name!r}")
