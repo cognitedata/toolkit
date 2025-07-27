@@ -107,6 +107,9 @@ class TestRecords:
                 "my_schema.my_table.ndjson.gz", "ndjson", "gzip", id="Use period in filename gzip compression"
             ),
             pytest.param("my_schema.my_table.ndjson.gz", "infer", "infer", id="Use period in filename infer both"),
+            pytest.param(
+                "my_db.my_table.ndjson", "infer", "infer", id="Use underscore in filename infer both no compression"
+            ),
             pytest.param("test_records.ndjson", "infer", "infer", id="Infer both"),
             pytest.param("test_records.ndjson.gz", "ndjson", "gzip", id="Valid gzip"),
             pytest.param("test_records.ndjson", "ndjson", "none", id="Valid no compression"),
