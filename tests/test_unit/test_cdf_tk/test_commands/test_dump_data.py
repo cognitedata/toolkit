@@ -316,4 +316,4 @@ class TestDumpData:
         with RecordReader(output_record) as reader:
             read_records = list(reader.read_records())
 
-        assert read_records == raw_table.as_write().dump()
+        assert read_records == raw_rows.as_write().dump()
