@@ -12,8 +12,8 @@ agents = true
 profile = true
 dump-extended = true
 infield = true
-dump-data = true
 migrate = true
+download = true
 
 exit-on-warning = true
 
