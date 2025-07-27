@@ -487,10 +487,10 @@ class DownloadCommand(ToolkitCommand):
             console.print(f"Dumped {row_counts:,} rows to {output_dir} in {elapsed:,.2f} seconds.")
 
     @staticmethod
-    def validate_directory(output_dir: Path, clean: bool) -> None:
+    def validate_directory(output_dir: Path, clean: bool, exist_ok: bool = False) -> None:
         if output_dir.exists() and clean:
             safe_rmtree(output_dir)
-        elif output_dir.exists():
+        elif output_dir.exists() and not exist_ok:
             raise ToolkitFileExistsError(f"Output directory {output_dir!s} already exists. Use --clean to remove it.")
         elif output_dir.suffix:
             raise ToolkitIsADirectoryError(f"Output directory {output_dir!s} is not a directory.")
@@ -508,7 +508,7 @@ class DownloadCommand(ToolkitCommand):
         verbose: bool = False,
     ) -> None:
         output_dir = output_dir or Path.cwd()
-        self.validate_directory(output_dir, clean)
+        self.validate_directory(output_dir, clean, exist_ok=True)
         loader = RawTableLoader.create_loader(client)
         if database is None or tables is None:
             selected_tables = RawTableInteractiveSelect(client, "download").select_tables()
