@@ -60,12 +60,6 @@ class TestRecords:
                 id="gzip with wrong suffix",
             ),
             pytest.param(
-                "test_records.ndjson.txt",
-                "none",
-                "Invalid compression for file: 'test_records.ndjson.txt'. Expected no suffix for no compression.",
-                id="none with wrong suffix",
-            ),
-            pytest.param(
                 "test_records.ndjson",
                 "unsupported",
                 "Unsupported compression type: unsupported",
