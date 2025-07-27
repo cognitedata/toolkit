@@ -104,3 +104,23 @@ class TestRecords:
         with pytest.raises(ToolkitValueError) as exc_info:
             RecordReader.validate_format(format, filepath)
         assert str(exc_info.value) == error_message, f"Expected error message: {error_message}, got: {exc_info.value}"
+
+    @pytest.mark.parametrize(
+        "filename, format, compression",
+        [
+            pytest.param("my_schema.my_table.ndjson", "ndjson", "none", id="Use period in filename no compression"),
+            pytest.param(
+                "my_schema.my_table.ndjson.gz", "ndjson", "gzip", id="Use period in filename gzip compression"
+            ),
+            pytest.param("my_schema.my_table.ndjson.gz", "infer", "infer", id="Use period in filename infer both"),
+            pytest.param("test_records.ndjson", "infer", "infer", id="Infer both"),
+            pytest.param("test_records.ndjson.gz", "ndjson", "gzip", id="Valid gzip"),
+            pytest.param("test_records.ndjson", "ndjson", "none", id="Valid no compression"),
+        ],
+    )
+    def test_valid_compression_and_format(
+        self, filename: str, format: Literal["infer", "ndjson"], compression: Literal["infer", "gzip", "none"]
+    ) -> None:
+        filepath = Path(filename)
+        RecordWriter.validate_compression(compression, filepath)
+        RecordReader.validate_format(format, filepath)
