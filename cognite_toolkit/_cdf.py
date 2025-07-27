@@ -33,6 +33,7 @@ from cognite_toolkit._cdf_tk.apps import (
     PurgeApp,
     RepoApp,
     RunApp,
+    UploadApp,
 )
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import (
@@ -101,6 +102,9 @@ if Plugins.purge.value.is_enabled():
 
 if Flags.POPULATE.is_enabled():
     _app.add_typer(PopulateApp(**default_typer_kws), name="populate")
+
+if Flags.UPLOAD.is_enabled():
+    _app.add_typer(UploadApp(**default_typer_kws), name="upload")
 
 if Flags.PROFILE.is_enabled():
     _app.add_typer(ProfileApp(**default_typer_kws), name="profile")

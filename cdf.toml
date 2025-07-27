@@ -13,8 +13,8 @@ profile = true
 dump-extended = true
 infield = true
 dump-data = true
+upload = true
 migrate = true
-
 exit-on-warning = true
 
 [plugins]
