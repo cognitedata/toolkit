@@ -116,7 +116,7 @@ class DownloadApp(typer.Typer):
                 output_dir,
                 clean,
                 limit,
-                format_,
+                format_.value,
                 verbose,
             )
         )
@@ -195,7 +195,7 @@ class DownloadApp(typer.Typer):
                 output_dir,
                 clean,
                 limit,
-                format_,
+                format_.value,
                 verbose,
             )
         )
@@ -274,7 +274,7 @@ class DownloadApp(typer.Typer):
                 output_dir,
                 clean,
                 limit,
-                format_,
+                format_.value,
                 verbose,
             )
         )
@@ -352,7 +352,7 @@ class DownloadApp(typer.Typer):
                 output_dir,
                 clean,
                 limit,
-                format_,
+                format_.value,
                 verbose,
             )
         )
