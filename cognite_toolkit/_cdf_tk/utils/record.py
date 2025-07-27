@@ -63,13 +63,13 @@ class _RecordIO(ABC):
             else:
                 raise ToolkitValueError(f"Cannot infer compression from filename: {filepath.name!r}")
         elif compression == "gzip" and filepath.suffix == ".gz":
-            return compression  # type: ignore[return-value]
+            return "gzip"
         elif compression == "gzip":
             raise ToolkitValueError(
                 f"Invalid compression for file: {filepath.name!r}. Expected '.gz' suffix for gzip compression."
             )
         elif compression == "none" and filepath.suffix != ".gz":
-            return compression  # type: ignore[return-value]
+            return "none"
         elif compression == "none":
             raise ToolkitValueError(
                 f"Invalid compression for file: {filepath.name!r}. Expected no suffix for no compression."
