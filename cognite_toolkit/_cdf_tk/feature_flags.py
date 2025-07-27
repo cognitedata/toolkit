@@ -50,6 +50,10 @@ class Flags(Enum):
         "visible": True,
         "description": "Enables the migrate command",
     }
+    UPLOAD: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
+        "visible": True,
+        "description": "Enables the upload command",
+    }
     EXTERNAL_LIBRARIES: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
         "visible": True,
         "description": "Enables the support for external libraries in the config file",

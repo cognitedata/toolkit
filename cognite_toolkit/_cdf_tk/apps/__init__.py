@@ -9,6 +9,7 @@ from ._profile_app import ProfileApp
 from ._purge import PurgeApp
 from ._repo_app import RepoApp
 from ._run import RunApp
+from ._upload_app import UploadApp
 
 __all__ = [
     "AuthApp",
@@ -22,4 +23,5 @@ __all__ = [
     "PurgeApp",
     "RepoApp",
     "RunApp",
+    "UploadApp",
 ]
