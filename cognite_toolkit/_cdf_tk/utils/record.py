@@ -36,13 +36,16 @@ class _RecordIO(ABC):
     def validate_format(cls, format: str, filepath: Path) -> Literal["ndjson"]:
         """Validate the format based on the file extension."""
         if format == "infer":
-            if len(filepath.suffixes) > 0 and filepath.suffixes[0] == ".ndjson":
+            # Is uncompressed ndjson or a compressed ndjson file.
+            if filepath.suffix == ".ndjson" or (len(filepath.suffixes) > 1 and filepath.suffixes[-2] == ".ndjson"):
                 return "ndjson"
             else:
                 raise ToolkitValueError(
                     f"Cannot infer format from file extension: {filepath.suffix}. Only '.ndjson' is supported."
                 )
-        elif format == "ndjson" and (len(filepath.suffixes) > 0 and filepath.suffixes[0] == ".ndjson"):
+        elif format == "ndjson" and (
+            filepath.suffix == ".ndjson" or (len(filepath.suffixes) > 1 and filepath.suffixes[-2] == ".ndjson")
+        ):
             return "ndjson"
         elif format == "ndjson":
             raise ToolkitValueError(f"Invalid format for file: {filepath}. Expected '.ndjson' suffix.")
@@ -65,7 +68,7 @@ class _RecordIO(ABC):
             raise ToolkitValueError(
                 f"Invalid compression for file: {filepath.name!r}. Expected '.gz' suffix for gzip compression."
             )
-        elif compression == "none" and len(filepath.suffixes) == 1:
+        elif compression == "none" and filepath.suffix != ".gz":
             return compression  # type: ignore[return-value]
         elif compression == "none":
             raise ToolkitValueError(
@@ -80,7 +83,7 @@ class _RecordIO(ABC):
         elif self.compression == "none":
             self.file = self.filepath.open(self._file_mode, encoding=self.encoding, newline=self.newline)  # type: ignore[assignment]
         else:
-            raise ValueError(f"Unsupported compression type: {self.compression}")
+            raise ToolkitValueError(f"Unsupported compression type: {self.compression}")
         return self
 
     def __exit__(
@@ -92,6 +95,8 @@ class _RecordIO(ABC):
 
 
 class RecordWriter(_RecordIO):
+    """A class to write records to a file."""
+
     _file_mode = "w"
 
     def __init__(
@@ -109,13 +114,14 @@ class RecordWriter(_RecordIO):
 
         self.file.writelines(
             # MyPY fails to understand list[str] is valid here.
-            [f"{json.dumps(record)}{self.newline}" for record in records],  # type: ignore[misc]
+            (f"{json.dumps(record)}{self.newline}" for record in records),  # type: ignore[misc]
         )
 
 
 class RecordReader(_RecordIO):
-    _file_mode = "r"
     """A class to read records from a file."""
+
+    _file_mode = "r"
 
     def __init__(self, filepath: Path) -> None:
         super().__init__(filepath, "infer", "infer")
