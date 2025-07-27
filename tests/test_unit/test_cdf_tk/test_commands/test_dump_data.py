@@ -14,15 +14,21 @@ from cognite.client.data_classes import (
     Label,
     LabelDefinition,
     LabelDefinitionList,
+    Row,
+    RowList,
+    Table,
+    TableList,
     TimeSeries,
     TimeSeriesList,
     TransformationPreviewResult,
 )
 
+from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DownloadCommand
 from cognite_toolkit._cdf_tk.commands.download import AssetFinder, EventFinder, FileMetadataFinder, TimeSeriesFinder
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
+from cognite_toolkit._cdf_tk.utils.record import RecordReader
 
 
 class TestDumpData:
@@ -290,3 +296,24 @@ class TestDumpData:
         assert len(dataset_yamls) == 1
         dataset_yaml = dataset_yamls[0]
         assert read_yaml_file(dataset_yaml) == [dataset.as_write().dump()]
+
+    def test_dump_raw_tables(self, tmp_path: Path) -> None:
+        cmd = DownloadCommand(skip_tracking=False, print_warning=False)
+        output_dir = tmp_path / "raw_dump"
+        raw_table = RawTable("my_db", "my_table")
+        raw_rows = RowList([Row(f"key_{i}", {"column1": f"value_{i}"}) for i in range(5)])
+
+        with monkeypatch_toolkit_client() as client:
+            client.raw.tables.list.return_value = TableList([Table(raw_table.table_name, 1)])
+            client.raw.rows.return_value = [raw_rows]
+            cmd.download_raw_records(
+                client, raw_table.db_name, [raw_table.table_name], output_dir, limit=100_000, compression="none"
+            )
+
+        output_records = list(output_dir.rglob("*.ndjson"))
+        assert len(output_records) == 1
+        output_record = output_records[0]
+        with RecordReader(output_record) as reader:
+            read_records = list(reader.read_records())
+
+        assert read_records == raw_table.as_write().dump()
