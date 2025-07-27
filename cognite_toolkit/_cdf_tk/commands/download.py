@@ -15,6 +15,7 @@ from cognite.client.data_classes import (
     FileMetadata,
     FileMetadataFilter,
     LabelDefinitionList,
+    RowList,
     TimeSeries,
     TimeSeriesFilter,
 )
@@ -23,8 +24,10 @@ from rich.console import Console
 from rich.progress import track
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitDownloadError,
     ToolkitFileExistsError,
     ToolkitIsADirectoryError,
     ToolkitValueError,
@@ -35,13 +38,17 @@ from cognite_toolkit._cdf_tk.loaders import (
     EventLoader,
     FileMetadataLoader,
     LabelLoader,
+    RawTableLoader,
     ResourceLoader,
     TimeSeriesLoader,
 )
+from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
-from cognite_toolkit._cdf_tk.utils.file import safe_rmtree
+from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, safe_write, to_directory_compatible, yaml_safe_dump
+from cognite_toolkit._cdf_tk.utils.interactive_select import RawTableInteractiveSelect
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
+from cognite_toolkit._cdf_tk.utils.record import RecordWriter
 from cognite_toolkit._cdf_tk.utils.table_writers import (
     FileFormat,
     Schema,
@@ -49,6 +56,7 @@ from cognite_toolkit._cdf_tk.utils.table_writers import (
     SchemaColumnList,
     TableFileWriter,
 )
+from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 
 class DataFinder:
@@ -466,7 +474,7 @@ class DownloadCommand(ToolkitCommand):
                     )
                     executor.run()
                     if executor.error_occurred:
-                        raise ToolkitValueError(executor.error_message)
+                        raise ToolkitDownloadError(executor.error_message)
                     row_counts = executor.total_items
                 else:
                     for resources in track(
@@ -499,4 +507,69 @@ class DownloadCommand(ToolkitCommand):
         limit: int = 10_000,
         verbose: bool = False,
     ) -> None:
-        raise NotImplementedError()
+        output_dir = output_dir or Path.cwd()
+        self.validate_directory(output_dir, clean)
+        loader = RawTableLoader.create_loader(client)
+        if database is None or tables is None:
+            selected_tables = RawTableInteractiveSelect(client, "download").select_tables()
+        else:
+            selected_tables = [RawTable(database, table) for table in tables]
+            self._validate_tables_exist(loader, selected_tables)
+
+        raw_directory = output_dir / loader.folder_name
+        raw_directory.mkdir(parents=True, exist_ok=True)
+
+        console = Console()
+        for table in selected_tables:
+            if verbose:
+                console.print(f"Downloading table '{table!s}' to {output_dir.as_posix()!r}")
+            config_filepath, data_filepath = self._create_filepaths(
+                table, format_, compression, loader.kind, raw_directory
+            )
+            if data_filepath.exists():
+                self.warn(LowSeverityWarning(f"File {data_filepath.as_posix()!r} already exists, skipping download."))
+                continue
+            safe_write(config_filepath, yaml_safe_dump(loader.dump_resource(table)), encoding="utf-8")
+
+            with RecordWriter(data_filepath, str(format_), str(compression)) as writer:  # type: ignore[arg-type]
+                executor = ProducerWorkerExecutor[RowList, list[dict[str, JsonVal]]](
+                    download_iterable=client.raw.rows(
+                        db_name=table.db_name, table_name=table.table_name, chunk_size=10_000, limit=limit, partitions=8
+                    ),
+                    process=lambda row_list: row_list.as_write().dump(),
+                    write=writer.write_records,
+                    iteration_count=limit // 10_000 + (1 if limit % 10_000 > 0 else 0),
+                    max_queue_size=8 * 5,
+                    download_description=f"Downloading {table!s}",
+                    process_description=f"Processing {table!s}",
+                    write_description=f"Writing {table!s} to {data_filepath.name!r}",
+                    console=console,
+                )
+                executor.run()
+
+                if executor.error_occurred:
+                    raise ToolkitDownloadError(
+                        "An error occurred during the download process: " + executor.error_message
+                    )
+
+            console.print(
+                f"Downloaded {table!s} to {data_filepath.as_posix()!r} and config to {config_filepath.as_posix()!r}"
+            )
+
+    @staticmethod
+    def _create_filepaths(
+        table: RawTable, format_: str, compression: str, kind: str, directory: Path
+    ) -> tuple[Path, Path]:
+        file_stem = to_directory_compatible(str(table))
+        data_filename = f"{file_stem}.{format_}"
+        if compression == "gzip":
+            data_filename += ".gz"
+        data_filepath = directory / data_filename
+        config_filepath = directory / f"{file_stem}.{kind}.yaml"
+        return config_filepath, data_filepath
+
+    @classmethod
+    def _validate_tables_exist(cls, loader: RawTableLoader, tables: list[RawTable]) -> None:
+        existing_tables = loader.retrieve(tables)
+        if missing_tables := [table for table in tables if table not in set(existing_tables)]:
+            raise ToolkitValueError(f"The following tables do not exist in CDF: {humanize_collection(missing_tables)}")

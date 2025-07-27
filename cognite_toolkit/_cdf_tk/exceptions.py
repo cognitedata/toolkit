@@ -230,3 +230,9 @@ class ToolkitThrottledError(ToolkitError):
 
     def __str__(self) -> str:
         return f"ToolkitThrottledError: {self.args[0]}"
+
+
+class ToolkitDownloadError(ToolkitError, RuntimeError):
+    """Error raised when a download operation fails."""
+
+    ...
