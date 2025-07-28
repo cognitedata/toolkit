@@ -28,20 +28,19 @@ class LineReader(FileReader):
 class DummyWriter(FileWriter[FileIO]):
     format = ".dummy"
 
-    def __init__(self, output_dir: Path = Path("dummy")) -> None:
+    def __init__(self, output_dir: Path) -> None:
         super().__init__(output_dir=output_dir, kind="DummyKind", compression=NoneCompression)
         self.written_chunks: list[Chunk] = []
         self.opened_files: list[Path] = []
 
     def _create_writer(self, filepath: Path) -> TextIOWrapper:
-        writer = self.compression_cls(filepath).open(mode="w")
         self.opened_files.append(filepath)
+        writer = self.compression_cls(filepath).open(mode="w")
         return writer
 
     def _write(self, writer: TextIOWrapper, chunks: Iterable[Chunk]) -> None:
         self.written_chunks.extend(chunks)
-        if self.output_dir != Path("dummy"):
-            writer.write("Writing chunks\n")
+        writer.write("Writing chunks\n")
 
 
 class TestCompression:
@@ -116,22 +115,23 @@ class TestFileWriter:
         chunk1 = [{"a": 1}]
         chunk2 = [{"b": 2}]
         with dummy_writer:
-            dummy_writer.write_chunks(chunk1, filename="splitfile")
-            dummy_writer.write_chunks(chunk2, filename="splitfile")
+            dummy_writer.write_chunks(chunk1, filestem="splitfile")
+            dummy_writer.write_chunks(chunk2, filestem="splitfile")
         assert [file.relative_to(tmp_path) for file in dummy_writer.opened_files] == [
             Path("dummy/splitfile-part-0000.DummyKind.dummy"),
             Path("dummy/splitfile-part-0001.DummyKind.dummy"),
         ]
         assert dummy_writer.written_chunks == chunk1 + chunk2
 
-    def test_multiple_filenames(self):
-        dummy_writer = DummyWriter()
+    def test_multiple_filenames(self, tmp_path: Path) -> None:
+        output_dir = tmp_path / "dummy"
+        dummy_writer = DummyWriter(output_dir)
         chunk1 = [{"x": 1}]
         chunk2 = [{"y": 2}]
         with dummy_writer:
-            dummy_writer.write_chunks(chunk1, filename="file1")
-            dummy_writer.write_chunks(chunk2, filename="file2")
-        assert dummy_writer.opened_files == [
+            dummy_writer.write_chunks(chunk1, filestem="file1")
+            dummy_writer.write_chunks(chunk2, filestem="file2")
+        assert [file.relative_to(tmp_path) for file in dummy_writer.opened_files] == [
             Path("dummy/file1-part-0000.DummyKind.dummy"),
             Path("dummy/file2-part-0000.DummyKind.dummy"),
         ]
