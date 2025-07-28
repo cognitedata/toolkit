@@ -1,5 +1,5 @@
-from collections.abc import Iterator
-from io import TextIOWrapper
+from collections.abc import Iterable, Iterator
+from io import FileIO, TextIOWrapper
 from pathlib import Path
 
 import pytest
@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import (
     Compression,
     NoneCompression,
     FileReader,
+    FileWriter,
 )
 from cognite_toolkit._cdf_tk.utils.fileio import COMPRESSION_BY_NAME, COMPRESSION_BY_SUFFIX, Compression, FileReader
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
@@ -22,6 +23,25 @@ class LineReader(FileReader):
         for line in file:
             if line.strip():
                 yield {"line": line.strip()}
+
+
+class DummyWriter(FileWriter[FileIO]):
+    format = ".dummy"
+
+    def __init__(self, output_dir: Path = Path("dummy")) -> None:
+        super().__init__(output_dir=output_dir, kind="DummyKind", compression=NoneCompression)
+        self.written_chunks: list[Chunk] = []
+        self.opened_files: list[Path] = []
+
+    def _create_writer(self, filepath: Path) -> TextIOWrapper:
+        writer = self.compression_cls(filepath).open(mode="w")
+        self.opened_files.append(filepath)
+        return writer
+
+    def _write(self, writer: TextIOWrapper, chunks: Iterable[Chunk]) -> None:
+        self.written_chunks.extend(chunks)
+        if self.output_dir != Path("dummy"):
+            writer.write("Writing chunks\n")
 
 
 class TestCompression:
@@ -86,4 +106,32 @@ class TestFileReader:
             {"line": "line1"},
             {"line": "line2"},
             {"line": "line3"},
+        ]
+
+
+class TestFileWriter:
+    def test_file_split_on_limit(self, tmp_path: Path) -> None:
+        dummy_writer = DummyWriter(tmp_path / "dummy")
+        dummy_writer.max_file_size_bytes = 1  # Set a small limit for testing
+        chunk1 = [{"a": 1}]
+        chunk2 = [{"b": 2}]
+        with dummy_writer:
+            dummy_writer.write_chunks(chunk1, filename="splitfile")
+            dummy_writer.write_chunks(chunk2, filename="splitfile")
+        assert [file.relative_to(tmp_path) for file in dummy_writer.opened_files] == [
+            Path("dummy/splitfile-part-0000.DummyKind.dummy"),
+            Path("dummy/splitfile-part-0001.DummyKind.dummy"),
+        ]
+        assert dummy_writer.written_chunks == chunk1 + chunk2
+
+    def test_multiple_filenames(self):
+        dummy_writer = DummyWriter()
+        chunk1 = [{"x": 1}]
+        chunk2 = [{"y": 2}]
+        with dummy_writer:
+            dummy_writer.write_chunks(chunk1, filename="file1")
+            dummy_writer.write_chunks(chunk2, filename="file2")
+        assert dummy_writer.opened_files == [
+            Path("dummy/file1-part-0000.DummyKind.dummy"),
+            Path("dummy/file2-part-0000.DummyKind.dummy"),
         ]
