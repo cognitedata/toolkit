@@ -1,6 +1,5 @@
 import io
 from collections.abc import Iterable, Iterator
-from io import TextIOWrapper
 from pathlib import Path
 
 from cognite_toolkit._cdf_tk.utils.fileio import Chunk, FileReader, FileWriter, NoneCompression
@@ -51,10 +50,10 @@ class DummyWriter(FileWriter[SimpleTextIO]):
         self.written_chunks.extend(chunks)
 
 
-class DummyReader(FileReader[SimpleTextIO]):
+class DummyReader(FileReader):
     format = "dummy"
 
-    def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[JsonVal]:
+    def _read_chunks_from_file(self, file: io.IOBase) -> Iterator[JsonVal]:
         content = file.read()
         for line in content.splitlines():
             if line.strip():
