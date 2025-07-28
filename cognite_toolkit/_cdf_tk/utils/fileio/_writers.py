@@ -40,7 +40,7 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
         file_count = self._file_count_by_filename[filename]
         file_path = (
             self.output_dir
-            / f"{clean_name}part-{file_count:04}.{self.kind}.{self.format}{self.compression_cls.file_suffix}"
+            / f"{clean_name}part-{file_count:04}.{self.kind}{self.format}{self.compression_cls.file_suffix}"
         )
         file_path.parent.mkdir(parents=True, exist_ok=True)
         return file_path
