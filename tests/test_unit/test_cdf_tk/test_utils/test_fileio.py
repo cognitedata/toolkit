@@ -1,3 +1,5 @@
+from collections.abc import Iterator
+from io import TextIOWrapper
 from pathlib import Path
 
 import pytest
@@ -8,6 +10,17 @@ from cognite_toolkit._cdf_tk.utils.fileio import (
     Compression,
     NoneCompression,
 )
+from cognite_toolkit._cdf_tk.utils.fileio import COMPRESSION_BY_NAME, COMPRESSION_BY_SUFFIX, Compression, FileReader
+from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
+
+
+class LineReader(FileReader):
+    format = ".DummyFormat"
+
+    def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[JsonVal]:
+        for line in file:
+            if line.strip():
+                yield {"line": line.strip()}
 
 
 class TestCompression:
@@ -39,3 +52,37 @@ class TestCompression:
             content = file.read()
 
         assert content == "Test content"
+
+
+class TestFileReader:
+    def test_read_multiple_lines(self, tmp_path: Path) -> None:
+        # Create a dummy file with multiple lines
+        file_content = "line1\nline2\nline3\n"
+        file_path = tmp_path / "dummy.txt"
+        file_path.write_text(file_content, encoding="utf-8")
+        reader = LineReader(file_path)
+        chunks = list(reader.read_chunks())
+        assert chunks == [
+            {"line": "line1"},
+            {"line": "line2"},
+            {"line": "line3"},
+        ]
+
+    def test_read_empty_file(self, tmp_path: Path) -> None:
+        file_path = tmp_path / "empty.txt"
+        file_path.touch()
+        reader = LineReader(file_path)
+        chunks = list(reader.read_chunks())
+        assert chunks == []
+
+    def test_read_lines_with_whitespace(self, tmp_path: Path) -> None:
+        file_content = "  line1  \n\n  line2\n   \nline3   \n"
+        file_path = tmp_path / "whitespace.txt"
+        file_path.write_text(file_content, encoding="utf-8")
+        reader = LineReader(file_path)
+        chunks = list(reader.read_chunks())
+        assert chunks == [
+            {"line": "line1"},
+            {"line": "line2"},
+            {"line": "line3"},
+        ]
