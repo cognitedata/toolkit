@@ -4,12 +4,12 @@ import json
 import sys
 from abc import ABC, abstractmethod
 from collections import Counter
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import date, datetime, timezone
 from functools import lru_cache
 from io import IOBase, TextIOWrapper
 from pathlib import Path
-from typing import Any, Generic
+from typing import TYPE_CHECKING, Any, Generic
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingDependencyError, ToolkitTypeError, ToolkitValueError
 from cognite_toolkit._cdf_tk.utils._auxillery import get_get_concrete_subclasses
@@ -17,13 +17,18 @@ from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import to_directory_compatible, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.table_writers import DataType, SchemaColumnList
 
-from ._base import T_IO, CellValue, Chunk, FileIO
+from ._base import T_IO, CellValue, Chunk, FileIO, SchemaColumn
 from ._compression import Compression
 
 if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self
+
+
+if TYPE_CHECKING:
+    import pyarrow as pa
+    import pyarrow.parquet as pq
 
 
 class FileWriter(FileIO, ABC, Generic[T_IO]):
@@ -77,12 +82,15 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
 
     def _is_above_file_size_limit(self, filepath: Path, writer: T_IO) -> bool:
         """Check if the file size is above the limit."""
-        current_position = writer.tell()
-        writer.seek(0, 2)
-        if writer.tell() > self.max_file_size_bytes:
-            return True
-        writer.seek(current_position)
-        return False
+        try:
+            current_position = writer.tell()
+            writer.seek(0, 2)
+            if writer.tell() > self.max_file_size_bytes:
+                return True
+            writer.seek(current_position)
+            return False
+        except (AttributeError, ValueError):
+            return filepath.exists() and filepath.stat().st_size > self.max_file_size_bytes
 
     @abstractmethod
     def _create_writer(self, filepath: Path) -> T_IO:
@@ -122,14 +130,14 @@ class TableWriter(FileWriter[T_IO], ABC):
         output_dir: Path,
         kind: str,
         compression: type[Compression],
-        columns: SchemaColumnList,
+        columns: Sequence[SchemaColumn],
         max_file_size_bytes: int = 128 * 1024 * 1024,
     ) -> None:
         super().__init__(output_dir, kind, compression, max_file_size_bytes)
         self.columns = columns
 
 
-class NDJsonWriter(FileWriter[IOBase]):
+class NDJsonWriter(FileWriter[TextIOWrapper]):
     format = ".ndjson"
 
     class _DateTimeEncoder(json.JSONEncoder):
@@ -138,30 +146,66 @@ class NDJsonWriter(FileWriter[IOBase]):
                 return obj.isoformat()
             return super().default(obj)
 
-    def _create_writer(self, filepath: Path) -> IOBase:
+    def _create_writer(self, filepath: Path) -> TextIOWrapper:
         """Create a writer for the given file path."""
         return self.compression_cls(filepath).open("w")
 
-    def _write(self, writer: IOBase, chunks: Iterable[Chunk]) -> None:
+    def _write(self, writer: TextIOWrapper, chunks: Iterable[Chunk]) -> None:
         writer.writelines(
             f"{json.dumps(chunk, cls=self._DateTimeEncoder)}{self.compression_cls.newline}" for chunk in chunks
         )
 
 
-class CSVWriter(TableWriter[csv.DictWriter]):
+class CSVWriter(TableWriter[TextIOWrapper]):
     format = ".csv"
 
-    def _create_writer(self, filepath: Path) -> csv.DictWriter:
+    def __init__(
+        self,
+        output_dir: Path,
+        kind: str,
+        compression: type[Compression],
+        columns: Sequence[SchemaColumn],
+        max_file_size_bytes: int = 128 * 1024 * 1024,
+    ) -> None:
+        super().__init__(output_dir, kind, compression, columns, max_file_size_bytes)
+        self._csvwriter_by_file: dict[TextIOWrapper, csv.DictWriter] = {}
+
+    def _create_writer(self, filepath: Path) -> TextIOWrapper:
         file = self.compression_cls(filepath).open("w")
         writer = csv.DictWriter(file, fieldnames=[col.name for col in self.columns], extrasaction="ignore")
         if filepath.stat().st_size == 0:
             writer.writeheader()
-        return writer
+        self._csvwriter_by_file[file] = writer
+        return file
 
-    def _write(self, writer: csv.DictWriter, chunks: Iterable[Chunk]) -> None:
-        writer.writerows(chunks)
+    def _write(self, writer: TextIOWrapper, chunks: Iterable[Chunk]) -> None:
+        try:
+            csv_writer = self._csvwriter_by_file[writer]
+        except KeyError:
+            csv_writer = self._create_dict_writer(writer)
+            self._csvwriter_by_file[writer] = csv_writer
+        csv_writer.writerows(self._prepare_row(row) for row in chunks)
 
-    def _create_dict_writer(self, writer: TextIOWrapper) -> csv.DictWriter:
+    @staticmethod
+    def _prepare_row(row: Chunk) -> dict[str, str | int | float | bool]:
+        """Prepare a row for writing to CSV."""
+        prepared_row = {}
+        value: str | int | float | bool
+        for col, cell in row.items():
+            if isinstance(cell, list | dict):
+                value = json.dumps(cell, cls=NDJsonWriter._DateTimeEncoder)
+            elif isinstance(cell, date | datetime):
+                value = cell.isoformat()
+            elif cell is None:
+                value = ""
+            elif isinstance(cell, int | float | bool):
+                value = cell
+            else:
+                value = str(cell)
+            prepared_row[col] = value
+        return prepared_row
+
+    def _create_dict_writer(self, writer: IOBase) -> csv.DictWriter:
         return csv.DictWriter(writer, fieldnames=[col.name for col in self.columns], extrasaction="ignore")
 
 
@@ -173,9 +217,6 @@ class ParquetWriter(TableWriter["pq.ParquetWriter"]):
 
         schema = self._create_schema()
         return pq.ParquetWriter(filepath, schema)
-
-    def _is_above_file_size_limit(self, filepath: Path, writer: "pq.ParquetWriter") -> bool:
-        return filepath.exists() and filepath.stat().st_size > self.max_file_size_bytes
 
     def _write(self, writer: "pq.ParquetWriter", chunks: Iterable[Chunk]) -> None:
         import pyarrow as pa
@@ -289,7 +330,7 @@ class ParquetWriter(TableWriter["pq.ParquetWriter"]):
         import pyarrow as pa
 
         fields: list[pa.Field] = []
-        for prop in self.schema.columns:
+        for prop in self.columns:
             pa_type = self._as_pa_type(prop.type, prop.is_array)
             fields.append(pa.field(prop.name, pa_type, nullable=True))
         return pa.schema(fields)
@@ -330,11 +371,11 @@ class ParquetWriter(TableWriter["pq.ParquetWriter"]):
         return pa_type
 
 
-class YAMLBaseWriter(FileWriter[IOBase], ABC):
-    def _create_writer(self, filepath: Path) -> IOBase:
+class YAMLBaseWriter(FileWriter[TextIOWrapper], ABC):
+    def _create_writer(self, filepath: Path) -> TextIOWrapper:
         return self.compression_cls(filepath).open("w")
 
-    def _write(self, writer: IOBase, chunks: Iterable[Chunk]) -> None:
+    def _write(self, writer: TextIOWrapper, chunks: Iterable[Chunk]) -> None:
         writer.write(yaml_safe_dump(chunks))
 
 
@@ -347,5 +388,6 @@ class YMLWriter(YAMLBaseWriter):
 
 
 FILE_WRITE_CLS_BY_FORMAT: Mapping[str, type[FileWriter]] = {
-    subclass.format: subclass for subclass in get_get_concrete_subclasses(FileWriter)
+    subclass.format: subclass
+    for subclass in get_get_concrete_subclasses(FileWriter)  # type: ignore[type-abstract]
 }

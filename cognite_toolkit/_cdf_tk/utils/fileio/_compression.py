@@ -1,7 +1,7 @@
 import gzip
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
-from io import IOBase
+from io import TextIOWrapper
 from pathlib import Path
 from typing import ClassVar, Literal
 
@@ -20,7 +20,7 @@ class Compression(ABC):
         self.filepath = filepath
 
     @abstractmethod
-    def open(self, mode: Literal["r", "w"]) -> IOBase:
+    def open(self, mode: Literal["r", "w"]) -> TextIOWrapper:
         """Open the compressed file and return a file-like object."""
         raise NotImplementedError("This method should be implemented in subclasses.")
 
@@ -43,7 +43,7 @@ class NoneCompression(Compression):
     name = "none"
     file_suffix = ""
 
-    def open(self, mode: Literal["r", "w"]) -> IOBase:
+    def open(self, mode: Literal["r", "w"]) -> TextIOWrapper:
         """Open the file without compression."""
         return self.filepath.open(mode=mode, encoding=self.encoding, newline=self.newline)
 
@@ -52,16 +52,18 @@ class GzipCompression(Compression):
     name = "gzip"
     file_suffix = ".gz"
 
-    def open(self, mode: Literal["r", "w"]) -> IOBase:
+    def open(self, mode: Literal["r", "w"]) -> TextIOWrapper:
         """Open the gzip compressed file."""
-        return gzip.open(self.filepath, mode=f"{mode}t", encoding=self.encoding, newline=self.newline)
+        # MyPy (or gzip) fails to recognize that gzip.open returns a TextIOWrapper
+        return gzip.open(self.filepath, mode=f"{mode}t", encoding=self.encoding, newline=self.newline)  # type: ignore[return-value]
 
 
 COMPRESSION_BY_SUFFIX: Mapping[str, type[Compression]] = {
-    subclass.file_suffix: subclass for subclass in get_get_concrete_subclasses(Compression)
+    subclass.file_suffix: subclass
+    for subclass in get_get_concrete_subclasses(Compression)  # type: ignore[type-abstract]
 }
 
 COMPRESSION_BY_NAME: Mapping[str, type[Compression]] = {
-    subclass.name: subclass  # type: ignore[type-abstract]
-    for subclass in get_get_concrete_subclasses(Compression)
+    subclass.name: subclass
+    for subclass in get_get_concrete_subclasses(Compression)  # type: ignore[type-abstract]
 }

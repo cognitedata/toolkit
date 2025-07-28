@@ -1,11 +1,11 @@
 import csv
 import json
-import sys
 from abc import ABC, abstractmethod
 from collections.abc import Iterator, Mapping
-from datetime import date, datetime
-from io import IOBase
+from io import IOBase, TextIOWrapper
 from pathlib import Path
+
+import yaml
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils._auxillery import get_get_concrete_subclasses
@@ -14,11 +14,6 @@ from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import FileIO
 from ._compression import COMPRESSION_BY_SUFFIX, Compression
-
-if sys.version_info >= (3, 11):
-    pass
-else:
-    pass
 
 
 class FileReader(FileIO, ABC):
@@ -31,7 +26,7 @@ class FileReader(FileIO, ABC):
             yield from self._read_chunks_from_file(file)
 
     @abstractmethod
-    def _read_chunks_from_file(self, file: IOBase) -> Iterator[JsonVal]:
+    def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[JsonVal]:
         """Read chunks from the file."""
         raise NotImplementedError("This method should be implemented in subclasses.")
 
@@ -51,45 +46,59 @@ class FileReader(FileIO, ABC):
 class NDJsonReader(FileReader):
     format = ".ndjson"
 
-    def _read_chunks_from_file(self, file: IOBase) -> Iterator[JsonVal]:
+    def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[JsonVal]:
         for line in file:
-            yield json.loads(line.strip(), object_hook=self._parse_datetime)
-
-    @staticmethod
-    def _parse_datetime(obj: dict) -> object:
-        for key, value in obj.items():
-            if isinstance(value, str):
-                try:
-                    # Try parsing as datetime
-                    obj[key] = date.fromisoformat(value)
-                except ValueError:
-                    try:
-                        # Try parsing as date
-                        obj[key] = datetime.fromisoformat(value)
-                    except ValueError:
-                        pass
-        return obj
+            yield json.loads(line.strip())
 
 
 class CSVReader(FileReader):
     format = ".csv"
 
-    def _read_chunks_from_file(self, file: IOBase) -> Iterator[JsonVal]:
-        reader = csv.DictReader()
-        for row in reader:
-            yield row
+    def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[JsonVal]:
+        for row in csv.DictReader(file):
+            yield {key: self._parse_value(value) for key, value in row.items() if value.strip()}
+
+    @staticmethod
+    def _parse_value(value: str) -> JsonVal:
+        """Parse a string value into its appropriate type."""
+        if value == "":
+            return None
+        try:
+            # Try parsing as JSON (for lists, dicts, true, false, null, numbers)
+            return json.loads(value)
+        except (json.JSONDecodeError, TypeError):
+            pass
+        if value.isdigit():
+            return int(value)
+        try:
+            return float(value)
+        except ValueError:
+            pass
+        if value.lower() in ("true", "false"):
+            return value.lower() == "true"
+        return value
 
 
 class ParquetReader(FileReader):
     format = ".parquet"
 
-    def _read_chunks_from_file(self, file: IOBase) -> Iterator[JsonVal]:
-        raise NotImplementedError()
+    def read_chunks(self) -> Iterator[JsonVal]:
+        import pyarrow.parquet as pq
+
+        with pq.ParquetFile(self.input_file) as parquet_file:
+            for batch in parquet_file.iter_batches():
+                for chunk in batch.to_pylist():
+                    yield {key: value for key, value in chunk.items() if value is not None}
+
+    def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[JsonVal]:
+        raise NotImplementedError(
+            "This is not used by ParquetReader, as it reads directly from the file using pyarrow."
+        )
 
 
 class YAMLBaseReader(FileReader, ABC):
     def _read_chunks_from_file(self, file: IOBase) -> Iterator[JsonVal]:
-        raise NotImplementedError("This method should be implemented in subclasses.")
+        return yaml.safe_load(file)
 
 
 class YAMLReader(YAMLBaseReader):
@@ -101,5 +110,6 @@ class YMLReader(YAMLBaseReader):
 
 
 FILE_READ_CLS_BY_FORMAT: Mapping[str, type[FileReader]] = {
-    subclass.format: subclass for subclass in get_get_concrete_subclasses(FileReader)
+    subclass.format: subclass
+    for subclass in get_get_concrete_subclasses(FileReader)  # type: ignore[type-abstract]
 }

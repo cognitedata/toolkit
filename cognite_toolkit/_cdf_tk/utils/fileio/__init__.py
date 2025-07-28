@@ -1,4 +1,4 @@
-from ._base import CellValue, Chunk, PrimaryCellValue
+from ._base import CellValue, Chunk, DataType, PrimaryCellValue, SchemaColumn
 from ._compression import COMPRESSION_BY_NAME, COMPRESSION_BY_SUFFIX, Compression, GzipCompression, NoneCompression
 from ._readers import FILE_READ_CLS_BY_FORMAT, CSVReader, FileReader, NDJsonReader, ParquetReader
 from ._writers import FILE_WRITE_CLS_BY_FORMAT, CSVWriter, FileWriter, NDJsonWriter, ParquetWriter
@@ -13,6 +13,7 @@ __all__ = [
     "CellValue",
     "Chunk",
     "Compression",
+    "DataType",
     "FileReader",
     "FileWriter",
     "GzipCompression",
@@ -22,4 +23,5 @@ __all__ = [
     "ParquetReader",
     "ParquetWriter",
     "PrimaryCellValue",
+    "SchemaColumn",
 ]

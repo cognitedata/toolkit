@@ -1,6 +1,5 @@
 import io
 from collections.abc import Iterable, Iterator
-from datetime import date, datetime
 from itertools import product
 from pathlib import Path
 
@@ -13,21 +12,31 @@ from cognite_toolkit._cdf_tk.utils.fileio import (
     FileReader,
     FileWriter,
     NoneCompression,
+    SchemaColumn,
 )
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 
 @pytest.fixture(scope="module")
-def json_chunks() -> list[Chunk]:
-    return [
+def json_chunks() -> tuple[list[Chunk], list[SchemaColumn]]:
+    chunks = [
         {"text": "value1", "integer": 123},
-        {"text": "value2", "date": date(2023, 10, 1)},
-        {"text": "value3", "datetime": datetime(2023, 10, 1, 12, 0, 0)},
         {"text": "value4", "list": [1, 2, 3], "nested": {"key": "value"}},
         {"text": "value5", "boolean": True},
-        {"text": "value6", "null_value": None},
+        {"text": "value6"},
         {"text": "value7", "float": 3.14, "empty_list": []},
     ]
+    schema = [
+        SchemaColumn(name="text", type="string"),
+        SchemaColumn(name="integer", type="integer"),
+        SchemaColumn(name="list", type="integer", is_array=True),
+        SchemaColumn(name="nested", type="json"),
+        SchemaColumn(name="boolean", type="boolean"),
+        SchemaColumn(name="null_value", type="string"),
+        SchemaColumn(name="float", type="float"),
+        SchemaColumn(name="empty_list", type="integer", is_array=True),
+    ]
+    return chunks, schema
 
 
 class SimpleTextIO(io.TextIOBase):
@@ -151,11 +160,19 @@ class TestFileIO:
         "format, compression_name",
         list(product(FILE_WRITE_CLS_BY_FORMAT.keys(), COMPRESSION_BY_NAME.keys())),
     )
-    def test_write_read(self, format: str, compression_name: str, json_chunks: list[Chunk], tmp_path: Path) -> None:
+    def test_write_read(
+        self, format: str, compression_name: str, json_chunks: tuple[list[Chunk], list[SchemaColumn]], tmp_path: Path
+    ) -> None:
+        chunks, columns = json_chunks
+        chunk_len = len(chunks)
         compression_cls = COMPRESSION_BY_NAME[compression_name]
         output_dir = tmp_path / "output"
-        with FileWriter.create_from_format(format, output_dir, "Test", compression=compression_cls) as writer:
-            writer.write_chunks(json_chunks)
+        with FileWriter.create_from_format(
+            format, output_dir, "Test", compression=compression_cls, columns=columns
+        ) as writer:
+            mid = chunk_len // 2
+            writer.write_chunks(chunks[:mid])
+            writer.write_chunks(chunks[mid:])
 
         file_path = list(output_dir.rglob(f"*{format}{compression_cls.file_suffix}"))
         assert len(file_path) == 1
@@ -163,4 +180,4 @@ class TestFileIO:
         reader = FileReader.from_filepath(file_path[0])
         read_chunks = list(reader.read_chunks())
 
-        assert read_chunks == json_chunks
+        assert read_chunks == chunks
