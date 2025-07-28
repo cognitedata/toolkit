@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 
 from cognite_toolkit._cdf_tk.utils.fileio import (
-    _COMPRESSION_BY_NAME,
-    _FILE_WRITE_CLS_BY_FORMAT,
+    COMPRESSION_BY_NAME,
+    FILE_WRITE_CLS_BY_FORMAT,
     Chunk,
     FileReader,
     FileWriter,
@@ -149,10 +149,10 @@ class TestFileReader:
 class TestFileIO:
     @pytest.mark.parametrize(
         "format, compression_name",
-        list(product(_FILE_WRITE_CLS_BY_FORMAT.keys(), _COMPRESSION_BY_NAME.keys())),
+        list(product(FILE_WRITE_CLS_BY_FORMAT.keys(), COMPRESSION_BY_NAME.keys())),
     )
     def test_write_read(self, format: str, compression_name: str, json_chunks: list[Chunk], tmp_path: Path) -> None:
-        compression_cls = _COMPRESSION_BY_NAME[compression_name]
+        compression_cls = COMPRESSION_BY_NAME[compression_name]
         output_dir = tmp_path / "output"
         with FileWriter.create_from_format(format, output_dir, "Test", compression=compression_cls) as writer:
             writer.write_chunks(json_chunks)

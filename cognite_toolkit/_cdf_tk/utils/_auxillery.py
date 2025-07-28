@@ -1,7 +1,7 @@
 from abc import ABC
 from typing import TypeVar
 
-T_Cls = TypeVar('T_Cls')
+T_Cls = TypeVar("T_Cls")
 
 
 def get_get_concrete_subclasses(base_cls: type[T_Cls]) -> list[type[T_Cls]]:
@@ -24,4 +24,3 @@ def get_get_concrete_subclasses(base_cls: type[T_Cls]) -> list[type[T_Cls]]:
             else:
                 subclasses.append(subclass)
     return subclasses
-

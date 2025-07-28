@@ -1,26 +1,23 @@
 import csv
-import gzip
 import importlib.util
 import json
 import sys
 from abc import ABC, abstractmethod
 from collections import Counter
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Iterable, Mapping
 from datetime import date, datetime, timezone
 from functools import lru_cache
 from io import IOBase, TextIOWrapper
 from pathlib import Path
-from typing import IO, Any, ClassVar, Literal, TypeAlias, TypeVar, Generic
+from typing import Any, Generic
 
-from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError, ToolkitMissingDependencyError, ToolkitTypeError
-
-from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
-from cognite_toolkit._cdf_tk.utils.file import to_directory_compatible
-from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
-from cognite_toolkit._cdf_tk.utils.table_writers import SchemaColumnList, DataType
-from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingDependencyError, ToolkitTypeError, ToolkitValueError
 from cognite_toolkit._cdf_tk.utils._auxillery import get_get_concrete_subclasses
-from ._base import FileIO, T_IO, Chunk, CellValue
+from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
+from cognite_toolkit._cdf_tk.utils.file import to_directory_compatible, yaml_safe_dump
+from cognite_toolkit._cdf_tk.utils.table_writers import DataType, SchemaColumnList
+
+from ._base import T_IO, CellValue, Chunk, FileIO
 from ._compression import Compression
 
 if sys.version_info >= (3, 11):
@@ -78,14 +75,18 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
         self._file_count_by_filename.clear()
         return None
 
+    def _is_above_file_size_limit(self, filepath: Path, writer: T_IO) -> bool:
+        """Check if the file size is above the limit."""
+        current_position = writer.tell()
+        writer.seek(0, 2)
+        if writer.tell() > self.max_file_size_bytes:
+            return True
+        writer.seek(current_position)
+        return False
+
     @abstractmethod
     def _create_writer(self, filepath: Path) -> T_IO:
         """Create a writer for the given file path."""
-        raise NotImplementedError("This method should be implemented in subclasses.")
-
-    @abstractmethod
-    def _is_above_file_size_limit(self, filepath: Path, writer: T_IO) -> bool:
-        """Check if the file size is above the limit."""
         raise NotImplementedError("This method should be implemented in subclasses.")
 
     @abstractmethod
@@ -95,24 +96,27 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
 
     @classmethod
     def create_from_format(
-        cls, format: str, output_dir: Path, kind: str, compression: type[Compression], columns: SchemaColumnList | None = None
+        cls,
+        format: str,
+        output_dir: Path,
+        kind: str,
+        compression: type[Compression],
+        columns: SchemaColumnList | None = None,
     ) -> "FileWriter":
-        if format in _FILE_WRITE_CLS_BY_FORMAT:
-            file_writs_cls = _FILE_WRITE_CLS_BY_FORMAT[format]
+        if format in FILE_WRITE_CLS_BY_FORMAT:
+            file_writs_cls = FILE_WRITE_CLS_BY_FORMAT[format]
             if issubclass(file_writs_cls, TableWriter) and columns is not None:
                 return file_writs_cls(output_dir=output_dir, kind=kind, compression=compression, columns=columns)
             elif issubclass(file_writs_cls, TableWriter):
-                raise ToolkitValueError(
-                    f"File format {format} requires columns to be provided for table writers."
-                )
+                raise ToolkitValueError(f"File format {format} requires columns to be provided for table writers.")
             else:
                 return file_writs_cls(output_dir=output_dir, kind=kind, compression=compression)
         raise ToolkitValueError(
-            f"Unknown file format: {format}. Available formats: {humanize_collection(_FILE_WRITE_CLS_BY_FORMAT.keys())}."
+            f"Unknown file format: {format}. Available formats: {humanize_collection(FILE_WRITE_CLS_BY_FORMAT.keys())}."
         )
 
 
-class TableWriter(FileWriter, ABC):
+class TableWriter(FileWriter[T_IO], ABC):
     def __init__(
         self,
         output_dir: Path,
@@ -125,7 +129,7 @@ class TableWriter(FileWriter, ABC):
         self.columns = columns
 
 
-class NDJsonWriter(FileWriter):
+class NDJsonWriter(FileWriter[IOBase]):
     format = ".ndjson"
 
     class _DateTimeEncoder(json.JSONEncoder):
@@ -135,16 +139,12 @@ class NDJsonWriter(FileWriter):
             return super().default(obj)
 
     def _create_writer(self, filepath: Path) -> IOBase:
-        compression = self.compression_cls(filepath)
-        return compression.open("w")
-
-    def _is_above_file_size_limit(self, filepath: Path, writer: IOBase) -> bool:
-        return filepath.stat().st_size > self.max_file_size_bytes
+        """Create a writer for the given file path."""
+        return self.compression_cls(filepath).open("w")
 
     def _write(self, writer: IOBase, chunks: Iterable[Chunk]) -> None:
         writer.writelines(
-            f"{json.dumps(chunk, cls=self._DateTimeEncoder)}{self.compression_cls.newline}"  # type: ignore[misc]
-            for chunk in chunks
+            f"{json.dumps(chunk, cls=self._DateTimeEncoder)}{self.compression_cls.newline}" for chunk in chunks
         )
 
 
@@ -158,20 +158,11 @@ class CSVWriter(TableWriter[csv.DictWriter]):
             writer.writeheader()
         return writer
 
-    def _is_above_file_size_limit(self, filepath: Path, writer: csv.DictWriter) -> bool:
-        current_position = writer.writer.tell()
-        writer.writer.seek(0, 2)
-        if writer.writer.tell() > self.max_file_size_bytes:
-            return True
-        writer.writer.seek(current_position)
-        return False
-
     def _write(self, writer: csv.DictWriter, chunks: Iterable[Chunk]) -> None:
         writer.writerows(chunks)
 
     def _create_dict_writer(self, writer: TextIOWrapper) -> csv.DictWriter:
         return csv.DictWriter(writer, fieldnames=[col.name for col in self.columns], extrasaction="ignore")
-
 
 
 class ParquetWriter(TableWriter["pq.ParquetWriter"]):
@@ -338,28 +329,23 @@ class ParquetWriter(TableWriter["pq.ParquetWriter"]):
             pa_type = pa.list_(pa_type)
         return pa_type
 
-class YAMLWriter(FileWriter[IOBase]):
+
+class YAMLBaseWriter(FileWriter[IOBase], ABC):
     def _create_writer(self, filepath: Path) -> IOBase:
         return self.compression_cls(filepath).open("w")
-
-    def _is_above_file_size_limit(self, filepath: Path, writer: IOBase) -> bool:
-        current_position = writer.tell()
-        writer.seek(0, 2)
-        if writer.tell() > self.max_file_size_bytes:
-            return True
-        writer.seek(current_position)
-        return False
 
     def _write(self, writer: IOBase, chunks: Iterable[Chunk]) -> None:
         writer.write(yaml_safe_dump(chunks))
 
 
-
-class YAML1Writer(YAMLWriter):
+class YAMLWriter(YAMLBaseWriter):
     format = ".yaml"
 
-class YAML2Writer(YAMLWriter):
+
+class YMLWriter(YAMLBaseWriter):
     format = ".yml"
 
 
-_FILE_WRITE_CLS_BY_FORMAT: Mapping[str, type[FileWriter]] = {subclass.format: subclass for subclass in get_get_concrete_subclasses(FileWriter)}
+FILE_WRITE_CLS_BY_FORMAT: Mapping[str, type[FileWriter]] = {
+    subclass.format: subclass for subclass in get_get_concrete_subclasses(FileWriter)
+}

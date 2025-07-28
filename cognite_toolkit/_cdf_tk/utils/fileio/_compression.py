@@ -1,4 +1,3 @@
-
 import gzip
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
@@ -57,9 +56,9 @@ class GzipCompression(Compression):
         """Open the gzip compressed file."""
         return gzip.open(self.filepath, mode=f"{mode}t", encoding=self.encoding, newline=self.newline)
 
+
 COMPRESSION_BY_SUFFIX: Mapping[str, type[Compression]] = {
-    subclass.file_suffix: subclass
-    for subclass in get_get_concrete_subclasses(Compression)
+    subclass.file_suffix: subclass for subclass in get_get_concrete_subclasses(Compression)
 }
 
 COMPRESSION_BY_NAME: Mapping[str, type[Compression]] = {

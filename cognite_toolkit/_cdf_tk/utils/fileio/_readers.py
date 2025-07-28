@@ -1,32 +1,24 @@
 import csv
-import gzip
-import importlib.util
 import json
 import sys
 from abc import ABC, abstractmethod
-from collections import Counter
-from collections.abc import Iterable, Iterator, Mapping
-from datetime import date, datetime, timezone
-from functools import lru_cache
-from io import IOBase, TextIOWrapper
+from collections.abc import Iterator, Mapping
+from datetime import date, datetime
+from io import IOBase
 from pathlib import Path
-from typing import IO, Any, ClassVar, Literal, TypeAlias, TypeVar, Generic
 
-from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError, ToolkitMissingDependencyError, ToolkitTypeError
-from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
-from cognite_toolkit._cdf_tk.utils.file import to_directory_compatible
-from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
-from cognite_toolkit._cdf_tk.utils.table_writers import SchemaColumnList, DataType
-from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils._auxillery import get_get_concrete_subclasses
-from ._base import FileIO
-from ._compression import Compression, NoneCompression, GzipCompression, COMPRESSION_BY_SUFFIX, COMPRESSION_BY_NAME
+from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
+from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
+from ._base import FileIO
+from ._compression import COMPRESSION_BY_SUFFIX, Compression
 
 if sys.version_info >= (3, 11):
-    from typing import Self
+    pass
 else:
-    from typing_extensions import Self
+    pass
 
 
 class FileReader(FileIO, ABC):
@@ -49,10 +41,10 @@ class FileReader(FileIO, ABC):
         if suffix in COMPRESSION_BY_SUFFIX and len(filepath.suffixes) > 1:
             suffix = filepath.suffixes[-2]
 
-        if suffix in _FILE_READ_CLS_BY_FORMAT:
-            return _FILE_READ_CLS_BY_FORMAT[suffix](input_file=filepath)
+        if suffix in FILE_READ_CLS_BY_FORMAT:
+            return FILE_READ_CLS_BY_FORMAT[suffix](input_file=filepath)
         raise ToolkitValueError(
-            f"Unknown file format: {filepath.suffix}. Available formats: {humanize_collection(_FILE_READ_CLS_BY_FORMAT.keys())}."
+            f"Unknown file format: {filepath.suffix}. Available formats: {humanize_collection(FILE_READ_CLS_BY_FORMAT.keys())}."
         )
 
 
@@ -89,14 +81,25 @@ class CSVReader(FileReader):
 
 
 class ParquetReader(FileReader):
-    ...
+    format = ".parquet"
+
+    def _read_chunks_from_file(self, file: IOBase) -> Iterator[JsonVal]:
+        raise NotImplementedError()
 
 
-
-class YAMLReader(FileReader):
-    ...
-
-
-_FILE_READ_CLS_BY_FORMAT: Mapping[str, type[FileReader]] = {subclass.format: subclass for subclass in get_get_concrete_subclasses(FileReader)}
+class YAMLBaseReader(FileReader, ABC):
+    def _read_chunks_from_file(self, file: IOBase) -> Iterator[JsonVal]:
+        raise NotImplementedError("This method should be implemented in subclasses.")
 
 
+class YAMLReader(YAMLBaseReader):
+    format = ".yaml"
+
+
+class YMLReader(YAMLBaseReader):
+    format = ".yml"
+
+
+FILE_READ_CLS_BY_FORMAT: Mapping[str, type[FileReader]] = {
+    subclass.format: subclass for subclass in get_get_concrete_subclasses(FileReader)
+}
