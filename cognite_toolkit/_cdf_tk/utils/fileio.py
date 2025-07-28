@@ -2,13 +2,15 @@ import gzip
 import sys
 from abc import ABC, abstractmethod
 from collections import Counter
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Mapping
 from datetime import date, datetime
-from io import TextIOWrapper
+from io import IOBase
 from pathlib import Path
 from typing import IO, Any, ClassVar, Generic, Literal, TypeAlias, TypeVar
 
-from . import to_directory_compatible
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+
+from . import humanize_collection, to_directory_compatible
 from .useful_types import JsonVal
 
 if sys.version_info >= (3, 11):
@@ -26,62 +28,68 @@ T_IO = TypeVar("T_IO", bound=IO)
 
 
 class Compression(ABC):
-    compression: ClassVar[str]
+    encoding = "utf-8"
+    newline = "\n"
+    name: ClassVar[str]
     file_suffix: ClassVar[str]
 
     def __init__(self, filepath: Path) -> None:
         self.filepath = filepath
 
     @abstractmethod
-    def open(self, mode: Literal["r", "w"]) -> TextIOWrapper:
+    def open(self, mode: Literal["r", "w"]) -> IOBase:
         """Open the compressed file and return a file-like object."""
         raise NotImplementedError("This method should be implemented in subclasses.")
 
     @classmethod
     def from_filepath(cls, filepath: Path) -> "Compression":
-        raise NotImplementedError()
+        if filepath.suffix in _COMPRESSION_BY_SUFFIX:
+            return _COMPRESSION_BY_SUFFIX[filepath.suffix](filepath=filepath)
+        return NoneCompression(filepath=filepath)
 
     @classmethod
-    def from_compression(cls, compression: str, filepath: Path) -> "Compression":
-        raise NotImplementedError("This method should be implemented in subclasses.")
+    def from_name(cls, compression: str) -> "Compression":
+        if compression in _COMPRESSION_BY_NAME:
+            return _COMPRESSION_BY_NAME[compression](filepath=Path("dummy"))
+        raise ToolkitValueError(
+            f"Unknown compression type: {compression}. Available types: {humanize_collection(_COMPRESSION_BY_NAME.keys())}."
+        )
 
 
 class NoneCompression(Compression):
-    compression = "none"
+    name = "none"
     file_suffix = ""
 
-    def open(self, mode: Literal["r", "w"]) -> TextIOWrapper:
+    def open(self, mode: Literal["r", "w"]) -> IOBase:
         """Open the file without compression."""
-        return self.filepath.open(mode=mode, encoding=FileIO.encoding, newline=FileIO.newline)
+        return self.filepath.open(mode=mode, encoding=self.encoding, newline=self.newline)
 
 
 class GzipCompression(Compression):
-    compression = "gzip"
+    name = "gzip"
     file_suffix = ".gz"
 
-    def open(self, mode: Literal["r", "w"]) -> TextIOWrapper:
+    def open(self, mode: Literal["r", "w"]) -> IOBase:
         """Open the gzip compressed file."""
-        return gzip.open(self.filepath, mode=f"{mode}t", encoding=FileIO.encoding, newline=FileIO.newline)  # type: ignore[return-value]
+        return gzip.open(self.filepath, mode=f"{mode}t", encoding=self.encoding, newline=self.newline)
 
 
-class FileIO(ABC, Generic[T_IO]):
-    encoding = "utf-8"
-    newline = "\n"
+class FileIO(ABC):
     format: ClassVar[str]
 
 
-class FileWriter(FileIO[T_IO], ABC):
+class FileWriter(FileIO, ABC, Generic[T_IO]):
     def __init__(
-        self, output_dir: Path, kind: str, compression: Compression, max_file_size_bytes: int = 128 * 1024 * 1024
+        self, output_dir: Path, kind: str, compression: type[Compression], max_file_size_bytes: int = 128 * 1024 * 1024
     ) -> None:
         self.output_dir = output_dir
         self.kind = kind
-        self.compression = compression
+        self.compression_cls = compression
         self.max_file_size_bytes = max_file_size_bytes
         self._file_count_by_filename: dict[str, int] = Counter()
         self._writer_by_filepath: dict[Path, T_IO] = {}
 
-    def write_chunk(self, chunk: Iterable[Chunk], filename: str = "") -> None:
+    def write_chunks(self, chunk: Iterable[Chunk], filename: str = "") -> None:
         filepath = self._get_filepath(filename)
         writer = self._get_writer(filepath, filename)
         self._write(writer, chunk)
@@ -91,7 +99,7 @@ class FileWriter(FileIO[T_IO], ABC):
         file_count = self._file_count_by_filename[filename]
         file_path = (
             self.output_dir
-            / f"{clean_name}part-{file_count:04}.{self.kind}.{self.format}{self.compression.file_suffix}"
+            / f"{clean_name}part-{file_count:04}.{self.kind}.{self.format}{self.compression_cls.file_suffix}"
         )
         file_path.parent.mkdir(parents=True, exist_ok=True)
         return file_path
@@ -130,40 +138,31 @@ class FileWriter(FileIO[T_IO], ABC):
         raise NotImplementedError("This method should be implemented in subclasses.")
 
     @abstractmethod
-    def _write(self, writer: T_IO, chunk: Iterable[Chunk]) -> None:
+    def _write(self, writer: T_IO, chunks: Iterable[Chunk]) -> None:
         """Write the chunk to the file."""
         raise NotImplementedError("This method should be implemented in subclasses.")
 
 
 class FileReader(FileIO, ABC):
-    def __init__(self, input_path: Path, kind: str | None = None) -> None:
-        self.input_path = input_path
-        self.kind = kind
-        self.validate_input(input_path, kind)
-
-    @staticmethod
-    def validate_input(input_path: Path, kind: str | None) -> None:
-        if not input_path.exists():
-            raise FileNotFoundError(f"The input path {input_path} does not exist.")
-        if kind is not None and not isinstance(kind, str):
-            raise ValueError("The 'kind' parameter must be a string or None.")
-
-    def _input_files(self) -> Iterable[Path]:
-        """Return an iterable of input files."""
-        if self.input_path.is_dir():
-            return self.input_path.glob(f"*.{self.kind}.{self.format}*")
-        elif self.input_path.is_file():
-            return [self.input_path]
-        else:
-            raise ValueError(f"The input path {self.input_path} is neither a file nor a directory.")
+    def __init__(self, input_file: Path) -> None:
+        self.input_file = input_file
 
     def read_chunks(self) -> Iterator[JsonVal]:
-        for input_file in self._input_files():
-            compression = Compression.from_filepath(input_file)
-            with compression.open("r") as file:
-                yield from self._read_chunks_from_file(file)
+        compression = Compression.from_filepath(self.input_file)
+        with compression.open("r") as file:
+            yield from self._read_chunks_from_file(file)
 
     @abstractmethod
-    def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[JsonVal]:
+    def _read_chunks_from_file(self, file: IOBase) -> Iterator[JsonVal]:
         """Read chunks from the file."""
         raise NotImplementedError("This method should be implemented in subclasses.")
+
+
+_COMPRESSION_BY_SUFFIX: Mapping[str, type[Compression]] = {
+    subclass.file_suffix: subclass  # type: ignore[type-abstract]
+    for subclass in Compression.__subclasses__()
+}
+_COMPRESSION_BY_NAME: Mapping[str, type[Compression]] = {
+    subclass.name: subclass  # type: ignore[type-abstract]
+    for subclass in Compression.__subclasses__()
+}
