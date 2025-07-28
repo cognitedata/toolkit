@@ -9,6 +9,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import (
     COMPRESSION_BY_SUFFIX,
     Compression,
     NoneCompression,
+    FileReader,
 )
 from cognite_toolkit._cdf_tk.utils.fileio import COMPRESSION_BY_NAME, COMPRESSION_BY_SUFFIX, Compression, FileReader
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
