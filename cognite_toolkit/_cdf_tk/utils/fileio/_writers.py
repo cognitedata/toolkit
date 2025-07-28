@@ -30,9 +30,9 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
         self._file_count_by_filename: dict[str, int] = Counter()
         self._writer_by_filepath: dict[Path, T_IO] = {}
 
-    def write_chunks(self, chunk: Iterable[Chunk], filename: str = "") -> None:
-        filepath = self._get_filepath(filename)
-        writer = self._get_writer(filepath, filename)
+    def write_chunks(self, chunk: Iterable[Chunk], filestem: str = "") -> None:
+        filepath = self._get_filepath(filestem)
+        writer = self._get_writer(filepath, filestem)
         self._write(writer, chunk)
 
     def _get_filepath(self, filename: str) -> Path:
