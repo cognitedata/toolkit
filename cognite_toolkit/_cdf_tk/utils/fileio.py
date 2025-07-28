@@ -1,4 +1,5 @@
 import gzip
+import json
 import sys
 from abc import ABC, abstractmethod
 from collections import Counter
@@ -6,7 +7,7 @@ from collections.abc import Iterable, Iterator, Mapping
 from datetime import date, datetime
 from io import IOBase
 from pathlib import Path
-from typing import IO, Any, ClassVar, Generic, Literal, TypeAlias, TypeVar
+from typing import IO, Any, ClassVar, Literal, TypeAlias, TypeVar
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 
@@ -78,7 +79,7 @@ class FileIO(ABC):
     format: ClassVar[str]
 
 
-class FileWriter(FileIO, ABC, Generic[T_IO]):
+class FileWriter(FileIO, ABC):
     def __init__(
         self, output_dir: Path, kind: str, compression: type[Compression], max_file_size_bytes: int = 128 * 1024 * 1024
     ) -> None:
@@ -87,7 +88,7 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
         self.compression_cls = compression
         self.max_file_size_bytes = max_file_size_bytes
         self._file_count_by_filename: dict[str, int] = Counter()
-        self._writer_by_filepath: dict[Path, T_IO] = {}
+        self._writer_by_filepath: dict[Path, IOBase] = {}
 
     def write_chunks(self, chunk: Iterable[Chunk], filename: str = "") -> None:
         filepath = self._get_filepath(filename)
@@ -104,7 +105,7 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
         file_path.parent.mkdir(parents=True, exist_ok=True)
         return file_path
 
-    def _get_writer(self, filepath: Path, filename_base: str) -> T_IO:
+    def _get_writer(self, filepath: Path, filename_base: str) -> IOBase:
         if filepath not in self._writer_by_filepath:
             self._writer_by_filepath[filepath] = self._create_writer(filepath)
         elif self._is_above_file_size_limit(filepath, self._writer_by_filepath[filepath]):
@@ -128,17 +129,17 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
         return None
 
     @abstractmethod
-    def _create_writer(self, filepath: Path) -> T_IO:
+    def _create_writer(self, filepath: Path) -> IOBase:
         """Create a writer for the given file path."""
         raise NotImplementedError("This method should be implemented in subclasses.")
 
     @abstractmethod
-    def _is_above_file_size_limit(self, filepath: Path, writer: T_IO) -> bool:
+    def _is_above_file_size_limit(self, filepath: Path, writer: IOBase) -> bool:
         """Check if the file size is above the limit."""
         raise NotImplementedError("This method should be implemented in subclasses.")
 
     @abstractmethod
-    def _write(self, writer: T_IO, chunks: Iterable[Chunk]) -> None:
+    def _write(self, writer: IOBase, chunks: Iterable[Chunk]) -> None:
         """Write the chunk to the file."""
         raise NotImplementedError("This method should be implemented in subclasses.")
 
@@ -170,14 +171,60 @@ class FileReader(FileIO, ABC):
     @classmethod
     def from_filepath(cls, filepath: Path) -> "FileReader":
         suffix = filepath.suffix
-        if suffix in _COMPRESSION_BY_SUFFIX and len(filepath.suffix) > 1:
-            suffix = filepath.suffix[-2]
+        if suffix in _COMPRESSION_BY_SUFFIX and len(filepath.suffixes) > 1:
+            suffix = filepath.suffixes[-2]
 
         if suffix in _FILE_READ_CLS_BY_FORMAT:
-            return _FILE_READ_CLS_BY_FORMAT[filepath.suffix](input_file=filepath)
+            return _FILE_READ_CLS_BY_FORMAT[suffix](input_file=filepath)
         raise ToolkitValueError(
             f"Unknown file format: {filepath.suffix}. Available formats: {humanize_collection(_FILE_READ_CLS_BY_FORMAT.keys())}."
         )
+
+
+class NDJsonWriter(FileWriter):
+    format = ".ndjson"
+
+    class _DateTimeEncoder(json.JSONEncoder):
+        def default(self, obj: object) -> object:
+            if isinstance(obj, date | datetime):
+                return obj.isoformat()
+            return super().default(obj)
+
+    def _create_writer(self, filepath: Path) -> IOBase:
+        compression = self.compression_cls(filepath)
+        return compression.open("w")
+
+    def _is_above_file_size_limit(self, filepath: Path, writer: IOBase) -> bool:
+        return filepath.stat().st_size > self.max_file_size_bytes
+
+    def _write(self, writer: IOBase, chunks: Iterable[Chunk]) -> None:
+        writer.writelines(
+            f"{json.dumps(chunk, cls=self._DateTimeEncoder)}{self.compression_cls.newline}"  # type: ignore[misc]
+            for chunk in chunks
+        )
+
+
+class NDJsonReader(FileReader):
+    format = ".ndjson"
+
+    def _read_chunks_from_file(self, file: IOBase) -> Iterator[JsonVal]:
+        for line in file:
+            yield json.loads(line.strip(), object_hook=self._parse_datetime)
+
+    @staticmethod
+    def _parse_datetime(obj: dict) -> object:
+        for key, value in obj.items():
+            if isinstance(value, str):
+                try:
+                    # Try parsing as datetime
+                    obj[key] = date.fromisoformat(value)
+                except ValueError:
+                    try:
+                        # Try parsing as date
+                        obj[key] = datetime.fromisoformat(value)
+                    except ValueError:
+                        pass
+        return obj
 
 
 _COMPRESSION_BY_SUFFIX: Mapping[str, type[Compression]] = {
