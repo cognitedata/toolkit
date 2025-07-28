@@ -31,9 +31,9 @@ class Compression(ABC):
         return NoneCompression(filepath=filepath)
 
     @classmethod
-    def from_name(cls, compression: str) -> "Compression":
+    def from_name(cls, compression: str) -> "type[Compression]":
         if compression in COMPRESSION_BY_NAME:
-            return COMPRESSION_BY_NAME[compression](filepath=Path("dummy"))
+            return COMPRESSION_BY_NAME[compression]
         raise ToolkitValueError(
             f"Unknown compression type: {compression}. Available types: {humanize_collection(COMPRESSION_BY_NAME.keys())}."
         )
