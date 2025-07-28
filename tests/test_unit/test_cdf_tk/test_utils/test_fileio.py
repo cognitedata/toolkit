@@ -1,9 +1,33 @@
 import io
 from collections.abc import Iterable, Iterator
+from datetime import date, datetime
+from itertools import product
 from pathlib import Path
 
-from cognite_toolkit._cdf_tk.utils.fileio import Chunk, FileReader, FileWriter, NoneCompression
+import pytest
+
+from cognite_toolkit._cdf_tk.utils.fileio import (
+    _COMPRESSION_BY_NAME,
+    _FILE_WRITE_CLS_BY_FORMAT,
+    Chunk,
+    FileReader,
+    FileWriter,
+    NoneCompression,
+)
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
+
+
+@pytest.fixture(scope="module")
+def json_chunks() -> list[Chunk]:
+    return [
+        {"text": "value1", "integer": 123},
+        {"text": "value2", "date": date(2023, 10, 1)},
+        {"text": "value3", "datetime": datetime(2023, 10, 1, 12, 0, 0)},
+        {"text": "value4", "list": [1, 2, 3], "nested": {"key": "value"}},
+        {"text": "value5", "boolean": True},
+        {"text": "value6", "null_value": None},
+        {"text": "value7", "float": 3.14, "empty_list": []},
+    ]
 
 
 class SimpleTextIO(io.TextIOBase):
@@ -120,3 +144,23 @@ class TestFileReader:
             {"line": "line2"},
             {"line": "line3"},
         ]
+
+
+class TestFileIO:
+    @pytest.mark.parametrize(
+        "format, compression_name",
+        list(product(_FILE_WRITE_CLS_BY_FORMAT.keys(), _COMPRESSION_BY_NAME.keys())),
+    )
+    def test_write_read(self, format: str, compression_name: str, json_chunks: list[Chunk], tmp_path: Path) -> None:
+        compression_cls = _COMPRESSION_BY_NAME[compression_name]
+        output_dir = tmp_path / "output"
+        with FileWriter.create_from_format(format, output_dir, "Test", compression=compression_cls) as writer:
+            writer.write_chunks(json_chunks)
+
+        file_path = list(output_dir.rglob(f"*{format}{compression_cls.file_suffix}"))
+        assert len(file_path) == 1
+
+        reader = FileReader.from_filepath(file_path[0])
+        read_chunks = list(reader.read_chunks())
+
+        assert read_chunks == json_chunks
