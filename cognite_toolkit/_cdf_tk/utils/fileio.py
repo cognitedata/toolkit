@@ -142,6 +142,16 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
         """Write the chunk to the file."""
         raise NotImplementedError("This method should be implemented in subclasses.")
 
+    @classmethod
+    def create_from_format(
+        cls, format: str, output_dir: Path, kind: str, compression: type[Compression]
+    ) -> "FileWriter":
+        if format in _FILE_WRITE_CLS_BY_FORMAT:
+            return _FILE_WRITE_CLS_BY_FORMAT[format](output_dir=output_dir, kind=kind, compression=compression)
+        raise ToolkitValueError(
+            f"Unknown file format: {format}. Available formats: {humanize_collection(_FILE_WRITE_CLS_BY_FORMAT.keys())}."
+        )
+
 
 class FileReader(FileIO, ABC):
     def __init__(self, input_file: Path) -> None:
@@ -157,6 +167,18 @@ class FileReader(FileIO, ABC):
         """Read chunks from the file."""
         raise NotImplementedError("This method should be implemented in subclasses.")
 
+    @classmethod
+    def from_filepath(cls, filepath: Path) -> "FileReader":
+        suffix = filepath.suffix
+        if suffix in _COMPRESSION_BY_SUFFIX and len(filepath.suffix) > 1:
+            suffix = filepath.suffix[-2]
+
+        if suffix in _FILE_READ_CLS_BY_FORMAT:
+            return _FILE_READ_CLS_BY_FORMAT[filepath.suffix](input_file=filepath)
+        raise ToolkitValueError(
+            f"Unknown file format: {filepath.suffix}. Available formats: {humanize_collection(_FILE_READ_CLS_BY_FORMAT.keys())}."
+        )
+
 
 _COMPRESSION_BY_SUFFIX: Mapping[str, type[Compression]] = {
     subclass.file_suffix: subclass  # type: ignore[type-abstract]
@@ -165,4 +187,14 @@ _COMPRESSION_BY_SUFFIX: Mapping[str, type[Compression]] = {
 _COMPRESSION_BY_NAME: Mapping[str, type[Compression]] = {
     subclass.name: subclass  # type: ignore[type-abstract]
     for subclass in Compression.__subclasses__()
+}
+
+_FILE_READ_CLS_BY_FORMAT: Mapping[str, type[FileReader]] = {
+    subclass.format: subclass  # type: ignore[type-abstract]
+    for subclass in FileReader.__subclasses__()
+}
+
+_FILE_WRITE_CLS_BY_FORMAT: Mapping[str, type[FileWriter]] = {
+    subclass.format: subclass  # type: ignore[type-abstract]
+    for subclass in FileWriter.__subclasses__()
 }
