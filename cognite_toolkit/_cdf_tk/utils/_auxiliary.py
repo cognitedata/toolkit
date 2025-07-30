@@ -1,4 +1,5 @@
 import inspect
+from abc import ABC
 from typing import TypeVar
 
 T_Cls = TypeVar("T_Cls")
@@ -20,7 +21,7 @@ def get_concrete_subclasses(base_cls: type[T_Cls]) -> list[type[T_Cls]]:
         for subclass in current_cls.__subclasses__():
             if subclass in seen:
                 continue
-            if not inspect.isabstract(subclass):
+            if not inspect.isabstract(subclass) and ABC not in subclass.__bases__:
                 subclasses.append(subclass)
             seen.add(subclass)
             to_check.append(subclass)
