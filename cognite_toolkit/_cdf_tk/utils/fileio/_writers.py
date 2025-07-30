@@ -3,7 +3,8 @@ from abc import ABC, abstractmethod
 from collections import Counter
 from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import Any, Generic
+from types import TracebackType
+from typing import Generic
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
@@ -30,10 +31,10 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
         self._file_count_by_filename: dict[str, int] = Counter()
         self._writer_by_filepath: dict[Path, T_IO] = {}
 
-    def write_chunks(self, chunk: Iterable[Chunk], filestem: str = "") -> None:
+    def write_chunks(self, chunks: Iterable[Chunk], filestem: str = "") -> None:
         filepath = self._get_filepath(filestem)
         writer = self._get_writer(filepath, filestem)
-        self._write(writer, chunk)
+        self._write(writer, chunks)
 
     def _get_filepath(self, filename: str) -> Path:
         sanitized_name = f"{to_directory_compatible(filename)}-" if filename else ""
@@ -61,7 +62,9 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
         self._writer_by_filepath.clear()
         return self
 
-    def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: Any | None) -> None:
+    def __exit__(
+        self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None
+    ) -> None:
         for writer in self._writer_by_filepath.values():
             writer.close()
         self._writer_by_filepath.clear()
@@ -71,14 +74,12 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
     def _is_above_file_size_limit(self, filepath: Path, writer: T_IO) -> bool:
         """Check if the file size is above the limit."""
         try:
-            current_position = writer.tell()
-            writer.seek(0, 2)
-            if writer.tell() > self.max_file_size_bytes:
-                return True
-            writer.seek(current_position)
-            return False
+            writer.flush()
         except (AttributeError, ValueError):
-            return filepath.exists() and filepath.stat().st_size > self.max_file_size_bytes
+            # Some writers might not support flush (e.g. already closed).
+            # We can ignore this and proceed to check the file size on disk.
+            pass
+        return filepath.exists() and filepath.stat().st_size > self.max_file_size_bytes
 
     @abstractmethod
     def _create_writer(self, filepath: Path) -> T_IO:

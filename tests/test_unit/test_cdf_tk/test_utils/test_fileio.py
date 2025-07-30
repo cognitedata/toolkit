@@ -1,5 +1,5 @@
 from collections.abc import Iterable, Iterator
-from io import FileIO, TextIOWrapper
+from io import TextIOWrapper
 from pathlib import Path
 
 import pytest
@@ -7,12 +7,12 @@ import pytest
 from cognite_toolkit._cdf_tk.utils.fileio import (
     COMPRESSION_BY_NAME,
     COMPRESSION_BY_SUFFIX,
+    Chunk,
     Compression,
-    NoneCompression,
     FileReader,
     FileWriter,
+    NoneCompression,
 )
-from cognite_toolkit._cdf_tk.utils.fileio import COMPRESSION_BY_NAME, COMPRESSION_BY_SUFFIX, Compression, FileReader
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 
@@ -25,7 +25,7 @@ class LineReader(FileReader):
                 yield {"line": line.strip()}
 
 
-class DummyWriter(FileWriter[FileIO]):
+class DummyWriter(FileWriter[TextIOWrapper]):
     format = ".dummy"
 
     def __init__(self, output_dir: Path) -> None:
