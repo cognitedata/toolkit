@@ -2,7 +2,7 @@ import json
 import sys
 from abc import ABC, abstractmethod
 from collections import Counter
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import date, datetime
 from io import TextIOWrapper
 from pathlib import Path
@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import to_directory_compatible
 
-from ._base import T_IO, Chunk, FileIO
+from ._base import T_IO, Chunk, FileIO, SchemaColumn
 from ._compression import Compression
 
 if sys.version_info >= (3, 11):
@@ -103,13 +103,32 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
         output_dir: Path,
         kind: str,
         compression: type[Compression],
+        columns: Sequence[SchemaColumn] | None = None,
     ) -> "FileWriter":
-        if format in FILE_WRITE_CLS_BY_FORMAT:
-            file_writs_cls = FILE_WRITE_CLS_BY_FORMAT[format]
+        if format not in FILE_WRITE_CLS_BY_FORMAT:
+            raise ToolkitValueError(
+                f"Unknown file format: {format}. Available formats: {humanize_collection(FILE_WRITE_CLS_BY_FORMAT.keys())}."
+            )
+        file_writs_cls = FILE_WRITE_CLS_BY_FORMAT[format]
+        if issubclass(file_writs_cls, TableWriter) and columns is not None:
+            return file_writs_cls(output_dir=output_dir, kind=kind, compression=compression, columns=columns)
+        elif issubclass(file_writs_cls, TableWriter):
+            raise ToolkitValueError(f"File format {format} requires columns to be provided for table writers.")
+        else:
             return file_writs_cls(output_dir=output_dir, kind=kind, compression=compression)
-        raise ToolkitValueError(
-            f"Unknown file format: {format}. Available formats: {humanize_collection(FILE_WRITE_CLS_BY_FORMAT.keys())}."
-        )
+
+
+class TableWriter(FileWriter[T_IO], ABC):
+    def __init__(
+        self,
+        output_dir: Path,
+        kind: str,
+        compression: type[Compression],
+        columns: Sequence[SchemaColumn],
+        max_file_size_bytes: int = 128 * 1024 * 1024,
+    ) -> None:
+        super().__init__(output_dir, kind, compression, max_file_size_bytes)
+        self.columns = columns
 
 
 class NDJsonWriter(FileWriter[TextIOWrapper]):
