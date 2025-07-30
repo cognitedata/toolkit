@@ -29,8 +29,13 @@ class FileReader(FileIO, ABC):
     @classmethod
     def from_filepath(cls, filepath: Path) -> "FileReader":
         suffix = filepath.suffix
-        if suffix in COMPRESSION_BY_SUFFIX and len(filepath.suffixes) > 1:
-            suffix = filepath.suffixes[-2]
+        if suffix in COMPRESSION_BY_SUFFIX:
+            if len(filepath.suffixes) > 1:
+                suffix = filepath.suffixes[-2]
+            else:
+                raise ToolkitValueError(
+                    f"File has a compression suffix, but no file format suffix found. Available formats: {humanize_collection(COMPRESSION_BY_SUFFIX.keys())}."
+                )
 
         if suffix in FILE_READ_CLS_BY_FORMAT:
             return FILE_READ_CLS_BY_FORMAT[suffix](input_file=filepath)
