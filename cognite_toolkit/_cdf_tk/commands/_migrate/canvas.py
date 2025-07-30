@@ -106,13 +106,13 @@ class MigrationCanvasCommand(BaseMigrateCommand):
         try:
             client.canvas.industrial.create(backup)
         except CogniteException as e:
-            raise ToolkitMigrationError(f"Failed to create backup for canvas '{canvas.canvas.name}': {e!s}. ")
+            raise ToolkitMigrationError(f"Failed to create backup for canvas '{canvas.canvas.name}': {e!s}. ") from e
         try:
             client.canvas.industrial.update(update)
         except CogniteException as e:
             raise ToolkitMigrationError(
                 f"Failed to migrate canvas '{canvas.canvas.name}': {e!s}. A backup was created with external ID '{backup.canvas.external_id}'."
-            )
+            ) from e
         else:
             self.console(
                 f'Canvas "{canvas.canvas.name}" migrated successfully with {len(to_migrate)} references to data model instances.'
