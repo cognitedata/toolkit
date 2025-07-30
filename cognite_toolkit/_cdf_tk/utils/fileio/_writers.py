@@ -148,6 +148,8 @@ class YMLWriter(YAMLBaseWriter):
 FILE_WRITE_CLS_BY_FORMAT: Mapping[str, type[FileWriter]] = {}
 
 for subclass in get_concrete_subclasses(FileWriter):  # type: ignore[type-abstract]
+    if not getattr(subclass, "format", None):
+        continue
     if subclass.format in FILE_WRITE_CLS_BY_FORMAT:
         raise TypeError(
             f"Duplicate file format {subclass.format!r} found for classes "
