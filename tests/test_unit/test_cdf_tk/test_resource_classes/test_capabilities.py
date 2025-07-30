@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
 
 def all_acls() -> Iterable:
     acl_list = [
+        {"agentsAcl": {"actions": ["READ", "WRITE", "RUN"], "scope": {"all": {}}}},
         {"annotationsAcl": {"actions": ["WRITE", "READ", "SUGGEST", "REVIEW"], "scope": {"all": {}}}},
         {"appConfigAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"appConfigAcl": {"actions": ["READ", "WRITE"], "scope": {"appScope": {"apps": ["SEARCH"]}}}},
@@ -198,6 +199,14 @@ class TestCapabilities:
                 {"appConfigAcl": {"actions": ["READ", "WRITE"], "scope": {"appScope": {"apps": ["UNKNOWN_APP"]}}}},
                 ["In scope.apps[1] input should be 'SEARCH'. Got 'UNKNOWN_APP'."],
                 id="Invalid app name in appConfigAcl",
+            ),
+            pytest.param(
+                {"agentsAcl": {"actions": ["READ", "LIST"], "scope": {"idScope": {"ids": ["my_agent"]}}}},
+                [
+                    "In field scope invalid scope name 'idScope'. Expected all",
+                    "In actions[2] input should be 'READ', 'WRITE' or 'RUN'. Got 'LIST'.",
+                ],
+                id="AgentsAcl with invalid scope and action",
             ),
         ],
     )
