@@ -1,3 +1,4 @@
+import re
 from collections.abc import Iterable, Iterator
 from datetime import date, datetime, timezone
 from io import TextIOWrapper
@@ -229,10 +230,14 @@ class TestFileIO:
             writer.write_chunks(chunks[:mid])
             writer.write_chunks(chunks[mid:])
 
-        file_path = list(output_dir.rglob(f"*{format}{compression_cls.file_suffix}"))
+        def part_number(filepath: Path) -> int:
+            match = re.match(r"part-(\d{4}).*", filepath.name)
+            return int(match.group(1)) if match else -1
+
+        file_path = sorted(output_dir.rglob(f"*{format}{compression_cls.file_suffix}"), key=part_number)
         assert len(file_path) == 2
 
         reader = FileReader.from_filepath(file_path[0])
-        read_chunks = list(reader.read_chunks())
-
-        assert read_chunks == chunks[:mid]
+        assert list(reader.read_chunks()) == chunks[:mid]
+        reader = FileReader.from_filepath(file_path[1])
+        assert list(reader.read_chunks()) == chunks[mid:]
