@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from cognite_toolkit._cdf_tk.utils._auxillary import get_concrete_subclasses
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
 
 class GrandParent(ABC):
@@ -27,7 +27,7 @@ class Child2(Parent):
         print("Child2 method implementation")
 
 
-class Child3(Parent2):
+class Child3(Child, Parent2):
     def method(self) -> None:
         print("Child3 method implementation")
 
