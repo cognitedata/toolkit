@@ -53,5 +53,3 @@ for subclass in get_concrete_subclasses(FileReader):  # type: ignore[type-abstra
         )
     # We know we have a dict, but we want to expose FILE_READ_CLS_BY_FORMAT as a Mapping
     FILE_READ_CLS_BY_FORMAT[subclass.format] = subclass  # type: ignore[index]
-
-del subclass
