@@ -35,7 +35,7 @@ class FileReader(FileIO, ABC):
         if suffix in FILE_READ_CLS_BY_FORMAT:
             return FILE_READ_CLS_BY_FORMAT[suffix](input_file=filepath)
         raise ToolkitValueError(
-            f"Unknown file format: {filepath.suffix}. Available formats: {humanize_collection(FILE_READ_CLS_BY_FORMAT.keys())}."
+            f"Unknown file format: {suffix}. Available formats: {humanize_collection(FILE_READ_CLS_BY_FORMAT.keys())}."
         )
 
 
