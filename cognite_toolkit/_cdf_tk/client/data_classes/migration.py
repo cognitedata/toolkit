@@ -137,6 +137,20 @@ class InstanceSource(_InstanceSourceProperties, TypedNode):
             id_=self.id_,
         )
 
+    def consumer_view(self) -> ViewId:
+        if self.preferred_consumer_view_id:
+            return self.preferred_consumer_view_id
+        if self.resource_type == "sequence":
+            raise ValueError(f"Missing consumer view for sequence {self.external_id}.")
+        # Default consumer view for asset-centric resources
+        external_id = {
+            "asset": "CogniteAsset",
+            "event": "CogniteActivity",
+            "file": "CogniteFile",
+            "timeseries": "CogniteTimeSeries",
+        }[self.resource_type]
+        return ViewId("cdf_cdm", external_id, "v1")
+
 
 @dataclass
 class AssetCentricToViewMapping(CogniteObject):
