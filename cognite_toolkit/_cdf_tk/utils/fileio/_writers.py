@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Generic
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.utils._auxillary import get_get_concrete_subclasses
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import to_directory_compatible
 
@@ -106,7 +106,13 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
         )
 
 
-FILE_WRITE_CLS_BY_FORMAT: Mapping[str, type[FileWriter]] = {
-    subclass.format: subclass
-    for subclass in get_get_concrete_subclasses(FileWriter)  # type: ignore[type-abstract]
-}
+FILE_WRITE_CLS_BY_FORMAT: Mapping[str, type[FileWriter]] = {}
+
+for subclass in get_concrete_subclasses(FileWriter):  # type: ignore[type-abstract]
+    if subclass.format in FILE_WRITE_CLS_BY_FORMAT:
+        raise TypeError(
+            f"Duplicate file format {subclass.format!r} found for classes "
+            f"{FILE_WRITE_CLS_BY_FORMAT[subclass.format].__name__!r} and {subclass.__name__!r}."
+        )
+    # We know we have a dict, but we want to expose FILE_WRITE_CLS_BY_FORMAT as a Mapping
+    FILE_WRITE_CLS_BY_FORMAT[subclass.format] = subclass  # type: ignore[index]
