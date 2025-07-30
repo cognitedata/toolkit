@@ -4,7 +4,7 @@ from io import TextIOWrapper
 from pathlib import Path
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.utils._auxillary import get_get_concrete_subclasses
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
@@ -41,5 +41,5 @@ class FileReader(FileIO, ABC):
 
 FILE_READ_CLS_BY_FORMAT: Mapping[str, type[FileReader]] = {
     subclass.format: subclass
-    for subclass in get_get_concrete_subclasses(FileReader)  # type: ignore[type-abstract]
+    for subclass in get_concrete_subclasses(FileReader)  # type: ignore[type-abstract]
 }
