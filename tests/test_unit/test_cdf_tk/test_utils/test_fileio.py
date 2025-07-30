@@ -32,13 +32,9 @@ def json_chunks() -> list[dict[str, JsonVal]]:
 
 
 @pytest.fixture()
-def cell_chunks() -> list[Chunk]:
+def cell_chunks(json_chunks: list[dict[str, JsonVal]]) -> list[Chunk]:
     chunks = [
-        {"text": "value1", "integer": 123},
-        {"text": "value4", "list": [1, 2, 3], "nested": {"key": "value"}},
-        {"text": "value5", "boolean": True},
-        {"text": "value6"},
-        {"text": "value7", "float": 3.14, "empty_list": []},
+        *json_chunks,
         {"date": date(2023, 10, 1), "timestamp": datetime(2023, 10, 1, 12, 0, 0, tzinfo=timezone.utc)},
     ]
     return chunks
