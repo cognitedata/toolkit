@@ -15,11 +15,12 @@ def get_concrete_subclasses(base_cls: type[T_Cls]) -> list[type[T_Cls]]:
     """
     to_check = [base_cls]
     subclasses: list[type[T_Cls]] = []
+    seen: set[type[T_Cls]] = {base_cls}
     while to_check:
         current_cls = to_check.pop()
         for subclass in current_cls.__subclasses__():
-            if inspect.isabstract(subclass) or ABC in subclass.__bases__:
-                to_check.append(subclass)
-            else:
+            if not inspect.isabstract(subclass) and ABC not in subclass.__bases__:
                 subclasses.append(subclass)
+            if subclass not in seen:
+                to_check.append(subclass)
     return subclasses
