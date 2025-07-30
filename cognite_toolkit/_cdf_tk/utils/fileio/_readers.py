@@ -1,3 +1,4 @@
+import csv
 import json
 from abc import ABC, abstractmethod
 from collections.abc import Iterator, Mapping
@@ -67,6 +68,51 @@ class YAMLReader(YAMLBaseReader):
 
 class YMLReader(YAMLBaseReader):
     format = ".yml"
+
+
+class CSVReader(FileReader):
+    format = ".csv"
+
+    def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[JsonVal]:
+        for row in csv.DictReader(file):
+            yield {key: self._parse_value(value) for key, value in row.items() if value.strip()}
+
+    @staticmethod
+    def _parse_value(value: str) -> JsonVal:
+        """Parse a string value into its appropriate type."""
+        if value == "":
+            return None
+        try:
+            # Try parsing as JSON (for lists, dicts, true, false, null, numbers)
+            return json.loads(value)
+        except (json.JSONDecodeError, TypeError):
+            pass
+        if value.isdigit():
+            return int(value)
+        try:
+            return float(value)
+        except ValueError:
+            pass
+        if value.lower() in ("true", "false"):
+            return value.lower() == "true"
+        return value
+
+
+class ParquetReader(FileReader):
+    format = ".parquet"
+
+    def read_chunks(self) -> Iterator[JsonVal]:
+        import pyarrow.parquet as pq
+
+        with pq.ParquetFile(self.input_file) as parquet_file:
+            for batch in parquet_file.iter_batches():
+                for chunk in batch.to_pylist():
+                    yield {key: value for key, value in chunk.items() if value is not None}
+
+    def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[JsonVal]:
+        raise NotImplementedError(
+            "This is not used by ParquetReader, as it reads directly from the file using pyarrow."
+        )
 
 
 FILE_READ_CLS_BY_FORMAT: Mapping[str, type[FileReader]] = {}
