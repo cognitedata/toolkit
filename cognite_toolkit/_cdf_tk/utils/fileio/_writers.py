@@ -1,7 +1,10 @@
+import json
 import sys
 from abc import ABC, abstractmethod
 from collections import Counter
 from collections.abc import Iterable, Mapping
+from datetime import date, datetime
+from io import TextIOWrapper
 from pathlib import Path
 from types import TracebackType
 from typing import Generic
@@ -9,7 +12,7 @@ from typing import Generic
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
-from cognite_toolkit._cdf_tk.utils.file import to_directory_compatible
+from cognite_toolkit._cdf_tk.utils.file import to_directory_compatible, yaml_safe_dump
 
 from ._base import T_IO, Chunk, FileIO
 from ._compression import Compression
@@ -105,6 +108,41 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
         raise ToolkitValueError(
             f"Unknown file format: {format}. Available formats: {humanize_collection(FILE_WRITE_CLS_BY_FORMAT.keys())}."
         )
+
+
+class NDJsonWriter(FileWriter[TextIOWrapper]):
+    format = ".ndjson"
+
+    class _DateTimeEncoder(json.JSONEncoder):
+        def default(self, obj: object) -> object:
+            if isinstance(obj, date | datetime):
+                return obj.isoformat()
+            return super().default(obj)
+
+    def _create_writer(self, filepath: Path) -> TextIOWrapper:
+        """Create a writer for the given file path."""
+        return self.compression_cls(filepath).open("w")
+
+    def _write(self, writer: TextIOWrapper, chunks: Iterable[Chunk]) -> None:
+        writer.writelines(
+            f"{json.dumps(chunk, cls=self._DateTimeEncoder)}{self.compression_cls.newline}" for chunk in chunks
+        )
+
+
+class YAMLBaseWriter(FileWriter[TextIOWrapper], ABC):
+    def _create_writer(self, filepath: Path) -> TextIOWrapper:
+        return self.compression_cls(filepath).open("w")
+
+    def _write(self, writer: TextIOWrapper, chunks: Iterable[Chunk]) -> None:
+        writer.write(yaml_safe_dump(chunks))
+
+
+class YAMLWriter(YAMLBaseWriter):
+    format = ".yaml"
+
+
+class YMLWriter(YAMLBaseWriter):
+    format = ".yml"
 
 
 FILE_WRITE_CLS_BY_FORMAT: Mapping[str, type[FileWriter]] = {}

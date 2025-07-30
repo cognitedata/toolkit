@@ -1,5 +1,7 @@
 from collections.abc import Iterable, Iterator
+from datetime import date, datetime, timezone
 from io import TextIOWrapper
+from itertools import product
 from pathlib import Path
 
 import pytest
@@ -7,6 +9,7 @@ import pytest
 from cognite_toolkit._cdf_tk.utils.fileio import (
     COMPRESSION_BY_NAME,
     COMPRESSION_BY_SUFFIX,
+    FILE_WRITE_CLS_BY_FORMAT,
     Chunk,
     Compression,
     FileReader,
@@ -14,6 +17,31 @@ from cognite_toolkit._cdf_tk.utils.fileio import (
     NoneCompression,
 )
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
+
+
+@pytest.fixture()
+def json_chunks() -> list[dict[str, JsonVal]]:
+    chunks = [
+        {"text": "value1", "integer": 123},
+        {"text": "value4", "list": [1, 2, 3], "nested": {"key": "value"}},
+        {"text": "value5", "boolean": True},
+        {"text": "value6"},
+        {"text": "value7", "float": 3.14, "empty_list": []},
+    ]
+    return chunks
+
+
+@pytest.fixture()
+def cell_chunks() -> list[Chunk]:
+    chunks = [
+        {"text": "value1", "integer": 123},
+        {"text": "value4", "list": [1, 2, 3], "nested": {"key": "value"}},
+        {"text": "value5", "boolean": True},
+        {"text": "value6"},
+        {"text": "value7", "float": 3.14, "empty_list": []},
+        {"date": date(2023, 10, 1), "timestamp": datetime(2023, 10, 1, 12, 0, 0, tzinfo=timezone.utc)},
+    ]
+    return chunks
 
 
 class LineReader(FileReader):
@@ -135,3 +163,80 @@ class TestFileWriter:
             Path("dummy/file1-part-0000.DummyKind.dummy"),
             Path("dummy/file2-part-0000.DummyKind.dummy"),
         ]
+
+
+class TestFileIO:
+    @pytest.mark.parametrize(
+        "format, compression_name",
+        list(product(FILE_WRITE_CLS_BY_FORMAT.keys(), COMPRESSION_BY_NAME.keys())),
+    )
+    def test_write_read(
+        self,
+        format: str,
+        compression_name: str,
+        json_chunks: list[dict[str, JsonVal]],
+        tmp_path: Path,
+    ) -> None:
+        chunks = json_chunks
+        chunk_len = len(chunks)
+        compression_cls = COMPRESSION_BY_NAME[compression_name]
+        output_dir = tmp_path / "output"
+        with FileWriter.create_from_format(format, output_dir, "Test", compression=compression_cls) as writer:
+            mid = chunk_len // 2
+            writer.write_chunks(chunks[:mid])
+            writer.write_chunks(chunks[mid:])
+
+        file_path = list(output_dir.rglob(f"*{format}{compression_cls.file_suffix}"))
+        assert len(file_path) == 1
+
+        reader = FileReader.from_filepath(file_path[0])
+        read_chunks = list(reader.read_chunks())
+
+        assert read_chunks == chunks
+
+    @pytest.mark.parametrize(
+        "format, compression_name",
+        list(product(FILE_WRITE_CLS_BY_FORMAT.keys(), COMPRESSION_BY_NAME.keys())),
+    )
+    def test_write_cell_chunks(
+        self, format: str, compression_name: str, cell_chunks: list[Chunk], tmp_path: Path
+    ) -> None:
+        chunks = cell_chunks
+        compression_cls = COMPRESSION_BY_NAME[compression_name]
+        output_dir = tmp_path / "output"
+        with FileWriter.create_from_format(format, output_dir, "Test", compression=compression_cls) as writer:
+            writer.write_chunks(chunks)
+
+        file_path = list(output_dir.rglob(f"*{format}{compression_cls.file_suffix}"))
+        assert len(file_path) == 1
+        # We cannot read cell chunks directly, as these contain non-JSON values like dates and timestamps.
+
+    @pytest.mark.parametrize(
+        "format, compression_name",
+        list(product(FILE_WRITE_CLS_BY_FORMAT.keys(), COMPRESSION_BY_NAME.keys())),
+    )
+    def test_write_split_files(
+        self,
+        format: str,
+        compression_name: str,
+        json_chunks: list[dict[str, JsonVal]],
+        tmp_path: Path,
+    ) -> None:
+        chunks = json_chunks
+        chunk_len = len(chunks)
+        compression_cls = COMPRESSION_BY_NAME[compression_name]
+        output_dir = tmp_path / "output"
+        writer_inst = FileWriter.create_from_format(format, output_dir, "Test", compression=compression_cls)
+        writer_inst.max_file_size_bytes = 1  # Small size to force splitting
+        with writer_inst as writer:
+            mid = chunk_len // 2
+            writer.write_chunks(chunks[:mid])
+            writer.write_chunks(chunks[mid:])
+
+        file_path = list(output_dir.rglob(f"*{format}{compression_cls.file_suffix}"))
+        assert len(file_path) == 2
+
+        reader = FileReader.from_filepath(file_path[0])
+        read_chunks = list(reader.read_chunks())
+
+        assert read_chunks == chunks[:mid]
