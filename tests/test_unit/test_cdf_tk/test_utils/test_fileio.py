@@ -43,8 +43,10 @@ def json_chunks() -> tuple[list[dict[str, JsonVal]], list[SchemaColumn]]:
 
 
 @pytest.fixture()
-def cell_chunks(json_chunks: tuple[list[dict[str, JsonVal]], list[SchemaColumn]]) -> tuple[list[Chunk], list[SchemaColumn]]:
-    chunks, schema json_chunks
+def cell_chunks(
+    json_chunks: tuple[list[dict[str, JsonVal]], list[SchemaColumn]],
+) -> tuple[list[Chunk], list[SchemaColumn]]:
+    chunks, schema = json_chunks
     chunks = [
         *chunks,
         {"date": date(2023, 10, 1), "timestamp": datetime(2023, 10, 1, 12, 0, 0, tzinfo=timezone.utc)},
