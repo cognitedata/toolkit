@@ -249,6 +249,7 @@ class ExtractionPipelineConfigLoader(
     kind = "Config"
     dependencies = frozenset({ExtractionPipelineLoader})
     _doc_url = "Extraction-Pipelines-Config/operation/createExtPipeConfig"
+    parent_resource = frozenset({ExtractionPipelineLoader})
 
     @property
     def display_name(self) -> str:
@@ -337,6 +338,28 @@ class ExtractionPipelineConfigLoader(
                     ).get_message()
                 )
         return ExtractionPipelineConfigWrite._load(resource)
+
+    def dump_resource(self, resource: ExtractionPipelineConfig, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        local = local or {}
+        if (
+            "config" in dumped
+            and isinstance(dumped["config"], str)
+            and ("config" not in local or isinstance(local["config"], dict))
+        ):
+            # When we dump a config from CDF, i.e., running `cdf dump extraction-pipeline`, we want to parse the config
+            # as YAML to make it easier to read and edit.
+            if dumped["config"].strip() == "":
+                dumped["config"] = {}
+            else:
+                try:
+                    dumped["config"] = read_yaml_content(dumped["config"])
+                except yaml.YAMLError as e:
+                    HighSeverityWarning(
+                        f"Configuration for {dumped.get('externalId', 'missing')} could not be parsed "
+                        f"as valid YAML, which is the recommended format. Error: {e!s}"
+                    ).print_warning(console=self.console)
+        return dumped
 
     def diff_list(
         self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]

@@ -149,3 +149,6 @@ DMS_INSTANCE_LIMIT_MARGIN = 1_000_000
 # agreed upon with the transformations team.
 MAX_ROW_ITERATION_RUN_QUERY = 500_000
 MAX_RUN_QUERY_FREQUENCY_MIN = 10
+
+
+COGNITE_MIGRATION_SPACE = "cognite_migration"

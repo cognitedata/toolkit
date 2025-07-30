@@ -6,7 +6,6 @@ from cognite.client.data_classes.capabilities import (
     DataModelsAcl,
     SpaceIDScope,
 )
-from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
@@ -16,7 +15,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMigrationError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 from .data_model import INSTANCE_SOURCE_VIEW_ID
@@ -71,12 +69,9 @@ class BaseMigrateCommand(ToolkitCommand, ABC):
 
     def validate_available_capacity(self, client: ToolkitClient, instance_count: int) -> None:
         """Validate that the project has enough capacity to accommodate the migration."""
-        try:
-            stats = client.data_modeling.statistics.project()
-        except CogniteAPIError:
-            # This endpoint is not yet in alpha, it may change or not be available.
-            self.warn(HighSeverityWarning("Cannot check the instances capacity proceeding with migration anyway."))
-            return
+
+        stats = client.data_modeling.statistics.project()
+
         available_capacity = stats.instances.instances_limit - stats.instances.instances
         available_capacity_after = available_capacity - instance_count
 

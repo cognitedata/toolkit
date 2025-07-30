@@ -21,13 +21,10 @@ from cognite_toolkit._cdf_tk.client.data_classes.instances import InstancesApply
 from cognite_toolkit._cdf_tk.client.utils._concurrency import ToolkitConcurrencySettings
 from cognite_toolkit._cdf_tk.client.utils._http_client import ToolkitRetryTracker
 
-from .statistics import StatisticsAPI
-
 
 class ExtendedDataModelingAPI(DataModelingAPI):
     def __init__(self, config: ClientConfig, api_version: str | None, cognite_client: CogniteClient) -> None:
         super().__init__(config, api_version, cognite_client)
-        self.statistics = StatisticsAPI(config, api_version, cognite_client)
         self.instances: ExtendedInstancesAPI = ExtendedInstancesAPI(config, api_version, cognite_client)
 
 
