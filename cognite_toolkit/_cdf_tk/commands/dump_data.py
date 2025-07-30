@@ -462,6 +462,9 @@ class DumpDataCommand(ToolkitCommand):
                         write=writer.write_rows,
                         iteration_count=iteration_count,
                         max_queue_size=max_queue_size,
+                        download_description=f"Downloading {schema.display_name}",
+                        process_description=f"Processing {schema.display_name}",
+                        write_description=f"Writing {schema.display_name} to file",
                     )
                     executor.run()
                     if executor.error_occurred:
