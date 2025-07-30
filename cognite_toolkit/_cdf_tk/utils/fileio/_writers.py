@@ -10,18 +10,15 @@ from functools import lru_cache
 from io import IOBase, TextIOWrapper
 from pathlib import Path
 from types import TracebackType
-from typing import Generic
-from typing import TYPE_CHECKING, Any, Generic
+from typing import TYPE_CHECKING, Generic
 
 import yaml
 
-from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingDependencyError, ToolkitTypeError, ToolkitValueError
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
-from cognite_toolkit._cdf_tk.utils.file import to_directory_compatible, yaml_safe_dump
-from cognite_toolkit._cdf_tk.utils.table_writers import DataType
 from cognite_toolkit._cdf_tk.utils.file import to_directory_compatible
+from cognite_toolkit._cdf_tk.utils.table_writers import DataType
 
 from ._base import T_IO, CellValue, Chunk, FileIO, SchemaColumn
 from ._compression import Compression
@@ -243,33 +240,39 @@ class ParquetWriter(TableWriter["pq.ParquetWriter"]):
     def _write(self, writer: "pq.ParquetWriter", chunks: Iterable[Chunk]) -> None:
         import pyarrow as pa
 
-        if json_columns := self._json_columns():
-            for row in chunks:
-                json_values = set(row.keys()) & json_columns
-                for col in json_values:
-                    row[col] = json.dumps(row[col])
-        if timestamp_columns := self._timestamp_columns():
-            for row in chunks:
-                for col in set(row.keys()) & timestamp_columns:
-                    cell_value = row[col]
-                    if isinstance(cell_value, list):
-                        # MyPy does not understand that a list of PrimaryCellValue is valid here
-                        # It expects a union of PrimaryCellValue and list[PrimaryCellValue].
-                        row[col] = [self._to_datetime(value) for value in cell_value]  # type: ignore[assignment]
-                    else:
-                        row[col] = self._to_datetime(cell_value)
-        if date_columns := self._date_columns():
-            for row in chunks:
-                for col in set(row.keys()) & date_columns:
-                    cell_value = row[col]
-                    if isinstance(cell_value, list):
-                        # MyPy does not understand that a list of PrimaryCellValue is valid here.
-                        # It expects a union of PrimaryCellValue and list[PrimaryCellValue].
-                        row[col] = [self._to_date(value) for value in cell_value]  # type: ignore[assignment]
-                    else:
-                        row[col] = self._to_date(cell_value)
+        json_columns = self._json_columns()
+        timestamp_columns = self._timestamp_columns()
+        date_columns = self._date_columns()
+        if not json_columns and not timestamp_columns and not date_columns:
+            # If no special columns, we can write directly without processing
+            table = pa.Table.from_pylist(chunks, schema=self._create_schema())
+            writer.write_table(table)
+            return
 
-        table = pa.Table.from_pylist(chunks, schema=self._create_schema())
+        processed_chunks: list[Chunk] = []
+        for chunk in chunks:
+            # Create a copy to avoid mutating the input, which is an unexpected side-effect.
+            processed_chunk = chunk.copy()
+            for col, cell_value in processed_chunk.items():
+                if col in json_columns:
+                    processed_chunk[col] = json.dumps(cell_value)
+                elif col in timestamp_columns:
+                    if isinstance(cell_value, list):
+                        # MyPy fails to recognize that list of datetime and date are valid CellValues.
+                        processed_chunk[col] = [self._to_datetime(value) for value in cell_value]  # type: ignore[assignment]
+                    else:
+                        processed_chunk[col] = self._to_datetime(cell_value)
+                elif col in date_columns:
+                    if isinstance(cell_value, list):
+                        processed_chunk[col] = [self._to_date(value) for value in cell_value]  # type: ignore[assignment]
+                    else:
+                        processed_chunk[col] = self._to_date(cell_value)
+            processed_chunks.append(processed_chunk)
+
+        if not processed_chunks:
+            return
+
+        table = pa.Table.from_pylist(processed_chunks, schema=self._create_schema())
         writer.write_table(table)
 
     @lru_cache(maxsize=1)

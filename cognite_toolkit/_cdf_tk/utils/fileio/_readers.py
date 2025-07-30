@@ -75,7 +75,7 @@ class CSVReader(FileReader):
 
     def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[JsonVal]:
         for row in csv.DictReader(file):
-            yield {key: self._parse_value(value) for key, value in row.items() if value.strip()}
+            yield {key: self._parse_value(value) for key, value in row.items()}
 
     @staticmethod
     def _parse_value(value: str) -> JsonVal:
@@ -107,7 +107,7 @@ class ParquetReader(FileReader):
         with pq.ParquetFile(self.input_file) as parquet_file:
             for batch in parquet_file.iter_batches():
                 for chunk in batch.to_pylist():
-                    yield {key: value for key, value in chunk.items() if value is not None}
+                    yield {key: value for key, value in chunk.items()}
 
     def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[JsonVal]:
         raise NotImplementedError(
