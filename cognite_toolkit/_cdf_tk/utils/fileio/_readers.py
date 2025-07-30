@@ -87,8 +87,10 @@ class CSVReader(FileReader):
             return json.loads(value)
         except (json.JSONDecodeError, TypeError):
             pass
-        if value.isdigit():
+        try:
             return int(value)
+        except ValueError:
+            pass
         try:
             return float(value)
         except ValueError:
