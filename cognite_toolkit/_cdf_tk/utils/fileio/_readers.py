@@ -107,12 +107,22 @@ class ParquetReader(FileReader):
         with pq.ParquetFile(self.input_file) as parquet_file:
             for batch in parquet_file.iter_batches():
                 for chunk in batch.to_pylist():
-                    yield {key: value for key, value in chunk.items()}
+                    yield {key: self._parse_value(value) for key, value in chunk.items()}
 
     def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[JsonVal]:
         raise NotImplementedError(
             "This is not used by ParquetReader, as it reads directly from the file using pyarrow."
         )
+
+    @staticmethod
+    def _parse_value(value: JsonVal) -> JsonVal:
+        """Parse a string value into its appropriate type."""
+        if isinstance(value, str) and value:
+            try:
+                return json.loads(value)
+            except json.JSONDecodeError:
+                return value
+        return value
 
 
 FILE_READ_CLS_BY_FORMAT: Mapping[str, type[FileReader]] = {}
