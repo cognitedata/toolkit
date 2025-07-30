@@ -46,11 +46,11 @@ class MultiChild(Mixin1, Mixin2, GrandParent):
 
 
 class TestGetConcreteSubclasses:
-    def test_get_concrete_subclasses(self):
+    def test_get_concrete_subclasses(self) -> None:
         subclasses = get_concrete_subclasses(GrandParent)
 
         assert set(subclasses) == {Parent2, Child, Child2, Child3, MultiChild}
 
-    def test_multiple_inheritance(self):
+    def test_multiple_inheritance(self) -> None:
         subclasses = get_concrete_subclasses(GrandParent)
         assert len(subclasses) == len(set(subclasses)), "Subclasses should be unique"
