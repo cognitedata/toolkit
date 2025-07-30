@@ -191,10 +191,7 @@ class CSVWriter(TableWriter[TextIOWrapper]):
 
     def _create_writer(self, filepath: Path) -> TextIOWrapper:
         file = self.compression_cls(filepath).open("w")
-        writer = csv.DictWriter(file, fieldnames=[col.name for col in self.columns], extrasaction="ignore")
-        if filepath.stat().st_size == 0:
-            writer.writeheader()
-        self._csvwriter_by_file[file] = writer
+        self._csvwriter_by_file[file] = self._create_dict_writer(file)
         return file
 
     def _write(self, writer: TextIOWrapper, chunks: Iterable[Chunk]) -> None:
@@ -225,7 +222,9 @@ class CSVWriter(TableWriter[TextIOWrapper]):
         return prepared_row
 
     def _create_dict_writer(self, writer: IOBase) -> csv.DictWriter:
-        return csv.DictWriter(writer, fieldnames=[col.name for col in self.columns], extrasaction="ignore")
+        csv_writer = csv.DictWriter(writer, fieldnames=[col.name for col in self.columns], extrasaction="ignore")
+        csv_writer.writeheader()
+        return csv_writer
 
 
 class ParquetWriter(TableWriter["pq.ParquetWriter"]):
