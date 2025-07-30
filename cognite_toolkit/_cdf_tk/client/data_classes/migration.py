@@ -298,6 +298,17 @@ class ViewSourceApply(_ViewSourceProperties, TypedNodeApply):
             output.update(properties)
         return output
 
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        base_props = cls._load_base_properties(resource)
+        properties = cls._load_properties(resource)
+        if "viewId" in resource:
+            properties["view_id"] = ViewId.load(resource["viewId"])
+        if "mapping" in resource:
+            properties["mapping"] = AssetCentricToViewMapping._load(resource["mapping"], cognite_client=cognite_client)
+
+        return cls(**base_props, **properties)
+
 
 class ViewSource(_ViewSourceProperties, TypedNode):
     """This represents the reading format of view source.
