@@ -1,6 +1,5 @@
 import gzip
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
 from io import TextIOWrapper
 from pathlib import Path
 from typing import ClassVar, Literal
@@ -26,9 +25,7 @@ class Compression(ABC):
 
     @classmethod
     def from_filepath(cls, filepath: Path) -> "Compression":
-        if filepath.suffix in COMPRESSION_BY_SUFFIX:
-            return COMPRESSION_BY_SUFFIX[filepath.suffix](filepath=filepath)
-        return NoneCompression(filepath=filepath)
+        return COMPRESSION_BY_SUFFIX.get(filepath.suffix, NoneCompression)(filepath=filepath)
 
     @classmethod
     def from_name(cls, compression: str) -> "type[Compression]":
@@ -58,12 +55,25 @@ class GzipCompression(Compression):
         return gzip.open(self.filepath, mode=f"{mode}t", encoding=self.encoding, newline=self.newline)  # type: ignore[return-value]
 
 
-COMPRESSION_BY_SUFFIX: Mapping[str, type[Compression]] = {
-    subclass.file_suffix: subclass
-    for subclass in get_concrete_subclasses(Compression)  # type: ignore[type-abstract]
-}
+COMPRESSION_BY_SUFFIX: dict[str, type[Compression]] = {}
+for subclass in get_concrete_subclasses(Compression):  # type: ignore[type-abstract]
+    if not subclass.file_suffix:
+        continue
+    if subclass.file_suffix in COMPRESSION_BY_SUFFIX:
+        raise TypeError(
+            f"Duplicate compression file suffix {subclass.file_suffix!r} found for classes "
+            f"{COMPRESSION_BY_SUFFIX[subclass.file_suffix].__name__!r} and {subclass.__name__!r}."
+        )
+    COMPRESSION_BY_SUFFIX[subclass.file_suffix] = subclass
 
-COMPRESSION_BY_NAME: Mapping[str, type[Compression]] = {
-    subclass.name: subclass
-    for subclass in get_concrete_subclasses(Compression)  # type: ignore[type-abstract]
-}
+
+COMPRESSION_BY_NAME: dict[str, type[Compression]] = {}
+for subclass in get_concrete_subclasses(Compression):  # type: ignore[type-abstract]
+    if subclass.name in COMPRESSION_BY_NAME:
+        raise TypeError(
+            f"Duplicate compression name {subclass.name!r} found for classes "
+            f"{COMPRESSION_BY_NAME[subclass.name].__name__!r} and {subclass.__name__!r}."
+        )
+    COMPRESSION_BY_NAME[subclass.name] = subclass
+
+del subclass  # Clean up the namespace
