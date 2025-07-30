@@ -7,7 +7,7 @@ from typing import ClassVar, Literal
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils._auxillary import get_get_concrete_subclasses
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
 
 class Compression(ABC):
@@ -60,10 +60,10 @@ class GzipCompression(Compression):
 
 COMPRESSION_BY_SUFFIX: Mapping[str, type[Compression]] = {
     subclass.file_suffix: subclass
-    for subclass in get_get_concrete_subclasses(Compression)  # type: ignore[type-abstract]
+    for subclass in get_concrete_subclasses(Compression)  # type: ignore[type-abstract]
 }
 
 COMPRESSION_BY_NAME: Mapping[str, type[Compression]] = {
     subclass.name: subclass
-    for subclass in get_get_concrete_subclasses(Compression)  # type: ignore[type-abstract]
+    for subclass in get_concrete_subclasses(Compression)  # type: ignore[type-abstract]
 }
