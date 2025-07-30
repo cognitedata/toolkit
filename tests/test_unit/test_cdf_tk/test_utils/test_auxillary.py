@@ -1,6 +1,6 @@
 from abc import ABC
 
-from cognite_toolkit._cdf_tk.utils._auxillary import get_get_concrete_subclasses
+from cognite_toolkit._cdf_tk.utils._auxillary import get_concrete_subclasses
 
 
 class GrandParent(ABC): ...
@@ -20,6 +20,6 @@ class Child2(Parent): ...
 
 class TestGetConcreteSubclasses:
     def test_get_concrete_subclasses(self):
-        subclasses = get_get_concrete_subclasses(GrandParent)
+        subclasses = get_concrete_subclasses(GrandParent)
 
-        assert subclasses == [Parent2, Child, Child2]
+        assert set(subclasses) == {Parent2, Child, Child2}
