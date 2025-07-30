@@ -230,3 +230,14 @@ class ToolkitThrottledError(ToolkitError):
 
     def __str__(self) -> str:
         return f"ToolkitThrottledError: {self.args[0]}"
+
+
+class ToolkitNotImplementedError(NotImplementedError, ToolkitError):
+    """Error raised when a feature is not implemented."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+        self.message = message
+
+    def __str__(self) -> str:
+        return f"ToolkitNotImplementedError: {self.message}"
