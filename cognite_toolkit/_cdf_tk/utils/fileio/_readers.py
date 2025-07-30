@@ -58,11 +58,7 @@ class NDJsonReader(FileReader):
 
 class YAMLBaseReader(FileReader, ABC):
     def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[JsonVal]:
-        data = yaml.safe_load(file)
-        if isinstance(data, list):
-            yield from data
-        elif isinstance(data, dict):
-            yield data
+        yield from yaml.safe_load_all(file)
 
 
 class YAMLReader(YAMLBaseReader):
