@@ -2,7 +2,12 @@ from pathlib import Path
 
 import pytest
 
-from cognite_toolkit._cdf_tk.utils.fileio import COMPRESSION_BY_NAME, COMPRESSION_BY_SUFFIX, Compression
+from cognite_toolkit._cdf_tk.utils.fileio import (
+    COMPRESSION_BY_NAME,
+    COMPRESSION_BY_SUFFIX,
+    Compression,
+    NoneCompression,
+)
 
 
 class TestCompression:
@@ -23,7 +28,7 @@ class TestCompression:
 
     @pytest.mark.parametrize(
         "compression_suffix",
-        list(COMPRESSION_BY_SUFFIX.keys()),
+        [*COMPRESSION_BY_SUFFIX.keys(), NoneCompression.file_suffix],
     )
     def test_read_write_compression_by_suffix(self, compression_suffix: str, tmp_path: Path) -> None:
         tmp_path = tmp_path / f"test_file.txt{compression_suffix}"
