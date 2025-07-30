@@ -7,7 +7,7 @@ from cognite.client.testing import CogniteClientMock
 
 from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
 
-from .api.canvas import CanvasAPI
+from .api.canvas import CanvasAPI, IndustrialCanvasAPI
 from .api.dml import DMLAPI
 from .api.location_filters import LocationFiltersAPI
 from .api.lookup import (
@@ -28,7 +28,6 @@ from .api.robotics.locations import LocationsAPI as RoboticsLocationsAPI
 from .api.robotics.maps import MapsAPI
 from .api.search import SearchAPI
 from .api.search_config import SearchConfigurationsAPI
-from .api.statistics import StatisticsAPI
 from .api.token import TokenAPI
 from .api.verify import VerifyAPI
 
@@ -50,10 +49,11 @@ class ToolkitClientMock(CogniteClientMock):
         #   - Add spacing above and below
         #   - Use `spec=MyAPI` only for "top level"
         #   - Use `spec_set=MyNestedAPI` for all nested APIs
+        self.canvas = MagicMock(spec=CanvasAPI)
+        self.canvas.industrial = MagicMock(spec_set=IndustrialCanvasAPI)
         self.search = MagicMock(spec=SearchAPI)
         self.search.locations = MagicMock(spec_set=LocationFiltersAPI)
         self.search.configurations = MagicMock(spec_set=SearchConfigurationsAPI)
-        self.canvas = MagicMock(spec_set=CanvasAPI)
         self.dml = MagicMock(spec_set=DMLAPI)
         self.lookup = MagicMock(spec=LookUpGroup)
         self.lookup.data_sets = MagicMock(spec_set=DataSetLookUpAPI)
@@ -73,8 +73,6 @@ class ToolkitClientMock(CogniteClientMock):
         self.robotics.frames = MagicMock(spec_set=FramesAPI)
         self.robotics.maps = MagicMock(spec_set=MapsAPI)
         self.robotics.capabilities = MagicMock(spec_set=CapabilitiesAPI)
-
-        self.data_modeling.statistics = MagicMock(spec_set=StatisticsAPI)
 
         # This is a helper API, not a real API.
         self.token = TokenAPI(self)
