@@ -163,6 +163,12 @@ class TestValidateAccess:
                 "You have no permission to read time series in dataset 2. This is required to test the operation.",
                 id="Dataset mismatch",
             ),
+            pytest.param(
+                [TimeSeriesAcl([TimeSeriesAcl.Action.Read], TimeSeriesAcl.Scope.AssetRootID([10]))],
+                1,
+                "You have no permission to read time series in dataset 1. This is required to test the operation.",
+                id="Access by other scope type",
+            ),
         ],
     )
     def test_timeseries_access_raise(

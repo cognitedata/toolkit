@@ -114,17 +114,17 @@ class ValidateAccess:
 
         if isinstance(timeseries_scopes[0], TimeSeriesAcl.Scope.All):
             return None
+        if dataset_id is not None:
+            for scope in timeseries_scopes:
+                if isinstance(scope, TimeSeriesAcl.Scope.DataSet) and dataset_id in scope.ids:
+                    return None
+            raise AuthorizationError(
+                f"You have no permission to {actions_str} time series in dataset {dataset_id}. This is required to {operation}."
+            )
         output: dict[str, list[str]] = {}
         for scope in timeseries_scopes:
             if isinstance(scope, TimeSeriesAcl.Scope.DataSet):
-                if dataset_id is not None and dataset_id not in scope.ids:
-                    raise AuthorizationError(
-                        f"You have no permission to {actions_str} time series in dataset {dataset_id}. This is required to {operation}."
-                    )
-                elif dataset_id is not None and dataset_id in scope.ids:
-                    return None
-                else:
-                    output["dataset"] = self.client.lookup.data_sets.external_id(scope.ids)
+                output["dataset"] = self.client.lookup.data_sets.external_id(scope.ids)
             elif isinstance(scope, TimeSeriesAcl.Scope.AssetRootID):
                 output["asset root"] = self.client.lookup.assets.external_id(scope.root_ids)
             elif isinstance(scope, TimeSeriesAcl.Scope.ID):
