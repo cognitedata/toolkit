@@ -136,7 +136,7 @@ class YAMLBaseWriter(FileWriter[TextIOWrapper], ABC):
         return self.compression_cls(filepath).open("w")
 
     def _write(self, writer: TextIOWrapper, chunks: Iterable[Chunk]) -> None:
-        yaml.safe_dump_all(chunks, writer)
+        yaml.safe_dump_all(chunks, writer, sort_keys=False, explicit_start=True)
 
 
 class YAMLWriter(YAMLBaseWriter):
