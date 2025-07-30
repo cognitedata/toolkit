@@ -39,7 +39,14 @@ class FileReader(FileIO, ABC):
         )
 
 
-FILE_READ_CLS_BY_FORMAT: Mapping[str, type[FileReader]] = {
-    subclass.format: subclass
-    for subclass in get_concrete_subclasses(FileReader)  # type: ignore[type-abstract]
-}
+FILE_READ_CLS_BY_FORMAT: Mapping[str, type[FileReader]] = {}
+for subclass in get_concrete_subclasses(FileReader):  # type: ignore[type-abstract]
+    if subclass.format in FILE_READ_CLS_BY_FORMAT:
+        raise TypeError(
+            f"Duplicate file format {subclass.format!r} found for classes "
+            f"{FILE_READ_CLS_BY_FORMAT[subclass.format].__name__!r} and {subclass.__name__!r}."
+        )
+    # We know we have a dict, but we want to expose FILE_READ_CLS_BY_FORMAT as a Mapping
+    FILE_READ_CLS_BY_FORMAT[subclass.format] = subclass  # type: ignore[index]
+
+del subclass
