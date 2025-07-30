@@ -74,7 +74,7 @@ class InstanceSourceAPI:
 
 
 class ViewSourceAPI:
-    """API for retrieving instance sources from the data model."""
+    """API for retrieving view sources from the data model."""
 
     def __init__(self, instance_api: ExtendedInstancesAPI) -> None:
         self._instance_api = instance_api
