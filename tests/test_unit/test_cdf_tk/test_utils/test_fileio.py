@@ -207,7 +207,10 @@ class TestFileIO:
         assert len(file_path) == 1
 
         reader = FileReader.from_filepath(file_path[0])
-        read_chunks = list(reader.read_chunks())
+        # The Table reader returns all columns, even if they are None, so we filter them out for comparison.
+        read_chunks = [
+            {key: value for key, value in chunk.items() if value is not None} for chunk in reader.read_chunks()
+        ]
 
         assert read_chunks == chunks
 
@@ -262,6 +265,13 @@ class TestFileIO:
         assert len(file_path) == 2
 
         reader = FileReader.from_filepath(file_path[0])
-        assert list(reader.read_chunks()) == chunks[:mid]
+        # The Table reader returns all columns, even if they are None, so we filter them out for comparison.
+        read_chunks = [
+            {key: value for key, value in chunk.items() if value is not None} for chunk in reader.read_chunks()
+        ]
+        assert read_chunks == chunks[:mid]
         reader = FileReader.from_filepath(file_path[1])
-        assert list(reader.read_chunks()) == chunks[mid:]
+        read_chunks = [
+            {key: value for key, value in chunk.items() if value is not None} for chunk in reader.read_chunks()
+        ]
+        assert read_chunks == chunks[mid:]
