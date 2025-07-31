@@ -168,6 +168,12 @@ class Capability(BaseModelResource):
         return {self._capability_name: serialized_data}
 
 
+class AgentsAcl(Capability):
+    _capability_name = "agentsAcl"
+    actions: list[Literal["READ", "WRITE", "RUN"]]
+    scope: AllScope
+
+
 class AnalyticsAcl(Capability):
     _capability_name = "analyticsAcl"
     actions: list[Literal["READ", "EXECUTE", "LIST"]]

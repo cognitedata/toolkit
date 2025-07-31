@@ -1,6 +1,10 @@
 import sys
+import tempfile
+import time
 from collections.abc import Hashable, Iterator
 from dataclasses import dataclass
+from pathlib import Path
+from threading import RLock
 from typing import Any, Literal, overload
 from urllib.parse import urlparse
 
@@ -13,13 +17,16 @@ from cognite.client.data_classes.data_modeling import Edge, Node, ViewId
 from cognite.client.data_classes.filters import SpaceFilter
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
+from filelock import BaseFileLock, FileLock, Timeout
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
-from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN, MAX_ROW_ITERATION_RUN_QUERY
+from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN, MAX_ROW_ITERATION_RUN_QUERY, MAX_RUN_QUERY_FREQUENCY_MIN
 from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitError,
     ToolkitRequiredValueError,
+    ToolkitThrottledError,
     ToolkitTypeError,
     ToolkitValueError,
 )
@@ -29,6 +36,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
+from .file import to_directory_compatible
 from .sql_parser import SQLParser
 
 if sys.version_info < (3, 11):
@@ -371,6 +379,80 @@ FROM
     return 0
 
 
+@dataclass
+class ThrottlerState:
+    _FILENAME = "tk-last-raw_count-{project}.txt"
+
+    lock: BaseFileLock
+    project: str
+    _allowed_this_run: bool | None = None
+
+    @classmethod
+    def get(cls, project: str) -> "ThrottlerState":
+        if project in _STATE_BY_PROJECT:
+            return _STATE_BY_PROJECT[project]
+
+        with _STATE_LOCK:
+            # Re-check after acquiring the lock to handle the race condition.
+            if project in _STATE_BY_PROJECT:
+                return _STATE_BY_PROJECT[project]
+            filepath = cls._filepath(project)
+            # filelock needs a string path
+            lock = FileLock(str(filepath.with_suffix(".lock")), timeout=10.0)
+            state = cls(lock=lock, project=project)
+            _STATE_BY_PROJECT[project] = state
+            return state
+
+    @classmethod
+    def _filepath(cls, project: str) -> Path:
+        # Enure the project name is a valid string for hashing.
+        project = to_directory_compatible(project)
+        filename = cls._FILENAME.format(project=project)
+        return Path(tempfile.gettempdir()) / filename
+
+    def throttle(self) -> None:
+        """Checks if the function can be run, and if so, updates the last call timestamp.
+
+        This is an atomic operation protected by a file lock.
+
+        Raises:
+            ToolkitThrottledError: If the function has been called too recently.
+        """
+        try:
+            with self.lock:
+                now = time.time()
+                filepath = self._filepath(self.project)
+                if self._allowed_this_run is None:
+                    last_call_epoch = 0.0
+                    if filepath.exists():
+                        try:
+                            last_call_epoch = float(filepath.read_text(encoding="utf-8"))
+                        except (ValueError, FileNotFoundError):
+                            # File is corrupt or was deleted after check. Allow to run and overwrite.
+                            pass
+
+                    to_wait = (MAX_RUN_QUERY_FREQUENCY_MIN * 60) - (now - last_call_epoch)
+                    if to_wait > 0:
+                        raise ToolkitThrottledError(
+                            f"Row count is limited to once every {MAX_RUN_QUERY_FREQUENCY_MIN} minutes. "
+                            f"Please wait {to_wait:.2f} seconds before calling again.",
+                            to_wait,
+                        )
+                    self._allowed_this_run = True
+
+                # We are allowed to run, so we update the timestamp.
+                filepath.write_text(str(now), encoding="utf-8")
+        except Timeout:
+            raise ToolkitError(
+                "Could not acquire lock for throttling raw row count. "
+                "Another toolkit process might be running. Please try again."
+            )
+
+
+_STATE_LOCK = RLock()
+_STATE_BY_PROJECT: dict[str, ThrottlerState] = {}
+
+
 def raw_row_count(client: ToolkitClient, raw_table_id: RawTable, max_count: int = MAX_ROW_ITERATION_RUN_QUERY) -> int:
     """Get the number of rows in a raw table.
 
@@ -381,7 +463,13 @@ def raw_row_count(client: ToolkitClient, raw_table_id: RawTable, max_count: int 
 
     Returns:
         The number of rows in the raw table.
+
+    Raises:
+        ToolkitThrottledError: If the row count is limited to once every MAX_RUN_QUERY_FREQUENCY_MIN minutes.
+        ValueError: If max_count is not between 0 and MAX_ROW_ITERATION_RUN_QUERY (inclusive).
     """
+    ThrottlerState.get(client.config.project).throttle()
+
     if not 0 <= max_count <= MAX_ROW_ITERATION_RUN_QUERY:
         raise ValueError(f"max_count must be between 0 and {MAX_ROW_ITERATION_RUN_QUERY} (inclusive).")
 
@@ -391,6 +479,7 @@ FROM (
     FROM `{raw_table_id.db_name}`.`{raw_table_id.table_name}`
     LIMIT {max_count}
 ) AS limited_keys"""
+
     results = client.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
     if results.results:
         return int(results.results[0]["row_count"])

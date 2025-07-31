@@ -138,9 +138,10 @@ class GraphQLParser:
 
             elif token in ("type", "interface") and not parentheses:
                 # Next token starts a new entity definition
-                # Notet hat we cannot be inside a paranthesis as that could be a
+                # Note that we cannot be inside a parenthesis as that could be a
                 # property of the entity
-                last_class = token
+                # MyPy fails to recognize that token is checked above
+                last_class = token  # type: ignore[assignment]
             elif last_class is not None and token != "\n":
                 # Start of a new entity definition
                 entity = _Entity(identifier=token, class_=last_class)
