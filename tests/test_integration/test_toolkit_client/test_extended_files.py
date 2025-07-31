@@ -1,3 +1,5 @@
+import time
+
 from cognite.client.data_classes import FileMetadata, FileMetadataWrite
 from cognite.client.data_classes.data_modeling import NodeApplyResultList
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply
@@ -46,4 +48,51 @@ class TestExtendedFilesAPI:
                 client.files.delete(external_id=metadata.external_id)
             if created_dm is not None:
                 # This will delete the CogniteFile and the asset-centric file
+                client.data_modeling.instances.delete(cognite_file.as_id())
+
+    def test_unlink_instance_ids(self, dev_cluster_client: ToolkitClient, dev_space: str) -> None:
+        client = dev_cluster_client
+        space = dev_space
+        metadata = FileMetadataWrite(
+            external_id="file_toolkit_integration_test_unlink",
+            name="Toolkit Integration Test Unlink",
+            mime_type="text/plain",
+        )
+        cognite_file = CogniteFileApply(
+            space=space,
+            external_id=metadata.external_id,
+            name="Toolkit Integration Test Unlink",
+        )
+        content = b"Hello, this is a test file's content."
+        created: FileMetadata | None = None
+        created_dm: NodeApplyResultList | None = None
+        try:
+            created, _ = client.files.create(metadata)
+            client.files.upload_content_bytes(content, external_id=created.external_id)
+
+            updated = client.files.set_pending_ids(cognite_file.as_id(), id=created.id)
+
+            assert updated.pending_instance_id == cognite_file.as_id()
+
+            created_dm = client.data_modeling.instances.apply(cognite_file).nodes
+            time.sleep(1)  # Wait for the syncer to update the file metadata
+
+            retrieved_ts = client.files.retrieve(instance_id=cognite_file.as_id())
+            assert retrieved_ts is not None
+            assert retrieved_ts.id == created.id
+
+            unlinked = client.files.unlink_instance_ids(id=created.id)
+            assert unlinked.id == created.id
+
+            client.data_modeling.instances.delete(cognite_file.as_id())
+            created_dm = None
+
+            # Still existing asset-centric file.
+            retrieved_ts = client.files.retrieve(external_id=metadata.external_id)
+            assert retrieved_ts is not None
+            assert retrieved_ts.id == created.id
+        finally:
+            if created is not None and created_dm is None:
+                client.time_series.delete(external_id=metadata.external_id)
+            if created_dm is not None:
                 client.data_modeling.instances.delete(cognite_file.as_id())
