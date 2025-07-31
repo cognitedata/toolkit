@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
     LocationFilterWriteList,
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
-from cognite_toolkit._cdf_tk.exceptions import ResourceRetrievalError, ToolkitCycleError
+from cognite_toolkit._cdf_tk.exceptions import ResourceRetrievalError, ToolkitCycleError, ToolkitNotSupported
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.resource_classes import LocationYAML
 from cognite_toolkit._cdf_tk.utils import in_dict, quote_int_value_by_key_in_yaml, safe_read
@@ -103,6 +103,9 @@ class LocationFilterLoader(
         return quote_int_value_by_key_in_yaml(safe_read(filepath, encoding=BUILD_FOLDER_ENCODING), key="version")
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> LocationFilterWrite:
+        if "parentId" in resource:
+            raise ToolkitNotSupported("The property 'parentId' is not supported. Use 'parentExternalId' instead.")
+
         if parent_external_id := resource.pop("parentExternalId", None):
             # This is a workaround: when the parentExternalId cannot be resolved because the parent
             # hasn't been created yet, we save it so that we can try again "later"
