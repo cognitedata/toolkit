@@ -1,16 +1,15 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from functools import lru_cache, partial
-from typing import ClassVar, Literal, get_args
+from typing import ClassVar, Literal, TypeVar, get_args, overload
 
 import questionary
 from cognite.client.data_classes import (
     Asset,
-    AssetList,
     DataSet,
-    DataSetList,
     filters,
 )
 from cognite.client.data_classes.aggregations import Count
@@ -33,6 +32,8 @@ from .aggregators import (
 )
 from .useful_types import AssetCentricDestinationType
 
+T_Type = TypeVar("T_Type", bound=Asset | DataSet)
+
 
 class AssetCentricInteractiveSelect(ABC):
     def __init__(self, client: ToolkitClient, operation: str) -> None:
@@ -51,27 +52,29 @@ class AssetCentricInteractiveSelect(ABC):
     def _aggregate_count(self, hierarchies: list[str], data_sets: list[str]) -> int:
         return self._aggregator.count(hierarchies, data_sets)
 
-    @lru_cache(maxsize=1)
-    def _get_available_data_sets(self) -> DataSetList:
-        return self.client.data_sets.list(limit=-1)
+    @lru_cache
+    def _get_available_data_sets(self, hierarchy: str | None = None) -> list[DataSet]:
+        if hierarchy is not None:
+            datasets = self._aggregator.used_data_sets(hierarchy)
+            return list(self.client.data_sets.retrieve_multiple(external_ids=datasets))
+        else:
+            return list(self.client.data_sets.list(limit=-1))
 
-    @lru_cache(maxsize=1)
-    def _get_available_hierarchies(self) -> AssetList:
-        return self.client.assets.list(root=True, limit=-1)
+    @lru_cache
+    def _get_available_hierarchies(self, data_set: str | None = None) -> list[Asset]:
+        data_set_external_ids = [data_set] if data_set else None
+        return list(self.client.assets.list(root=True, limit=-1, data_set_external_ids=data_set_external_ids))
 
     def _create_choice(self, item: Asset | DataSet) -> tuple[questionary.Choice, int]:
         """Create a questionary choice for the given item."""
-
-        if isinstance(item, DataSet):
-            if item.external_id is None:
-                raise ValueError(f"Missing external ID for DataSet {item.id}")
+        if item.external_id is None:
+            item_count = -1  # No count available for DataSet/Assets without external_id
+        elif isinstance(item, DataSet):
             item_count = self.aggregate_count(tuple(), (item.external_id,))
         elif isinstance(item, Asset):
-            if item.external_id is None:
-                raise ValueError(f"Missing external ID for Asset {item.id}")
             item_count = self.aggregate_count((item.external_id,), tuple())
         else:
-            raise TypeError(f"Unsupported item type: {type(item)}")
+            raise ToolkitValueError(f"Unexpected item type: {type(item)}. Expected Asset or DataSet.")
 
         return questionary.Choice(
             title=f"{item.name} ({item.external_id}) [{item_count:,}]"
@@ -80,61 +83,130 @@ class AssetCentricInteractiveSelect(ABC):
             value=item.external_id,
         ), item_count
 
-    def interactive_select_hierarchy_datasets(self) -> tuple[list[str], list[str]]:
-        """Interactively select hierarchies and data sets."""
-        hierarchies: set[str] = set()
-        data_sets: set[str] = set()
-        while True:
-            selected: list[str] = []
-            if hierarchies:
-                selected.append(f"Selected hierarchies: {sorted(hierarchies)}")
-            else:
-                selected.append("No hierarchy selected.")
-            if data_sets:
-                selected.append(f"Selected data sets: {sorted(data_sets)}")
-            else:
-                selected.append("No data set selected.")
-            selected_str = "\n".join(selected)
-            what = questionary.select(
-                f"\n{selected_str}\nSelect a hierarchy or data set to {self.operation}",
-                choices=["Hierarchy", "Data Set", "Done", "Abort"],
-            ).ask()
+    @overload
+    def select_hierarchy(self, allow_empty: Literal[False] = False) -> str: ...
 
-            if what == "Done":
-                break
-            elif what == "Abort":
-                return [], []
-            elif what == "Hierarchy":
-                options = [asset for asset in self._get_available_hierarchies() if asset.external_id not in hierarchies]
-                selected_hierarchy = self._select(what, options)
-                if selected_hierarchy:
-                    hierarchies.update(selected_hierarchy)
-                else:
-                    print("No hierarchy selected.")
-            elif what == "Data Set":
-                available_data_sets = [
-                    data_set for data_set in self._get_available_data_sets() if data_set.external_id not in data_sets
-                ]
-                selected_data_set = self._select(what, available_data_sets)
-                if selected_data_set:
-                    data_sets.update(selected_data_set)
-                else:
-                    print("No data set selected.")
-        return list(hierarchies), list(data_sets)
+    @overload
+    def select_hierarchy(self, allow_empty: Literal[True]) -> str | None: ...
 
-    def _select(self, what: str, options: list[Asset] | list[DataSet]) -> str | None:
-        return questionary.checkbox(
-            f"Select a {what} listed as 'name (external_id) [count]'",
-            choices=[
-                choice
-                for choice, count in (
-                    # MyPy does not seem to understand that item is Asset | DataSet
-                    self._create_choice(item)  # type: ignore[arg-type]
-                    for item in sorted(options, key=lambda x: x.name or x.external_id)
-                )
-                if count > 0
-            ],
+    def select_hierarchy(self, allow_empty: Literal[False, True] = False) -> str | None:
+        """Select a hierarchy interactively."""
+        options = self._get_available_hierarchies()
+        return self._select("hierarchy", options, allow_empty, "single")
+
+    def select_hierarchies(self) -> list[str]:
+        options = self._get_available_hierarchies()
+        return self._select("hierarchies", options, False, "multiple")
+
+    @overload
+    def select_data_set(self, allow_empty: Literal[False] = False) -> str: ...
+
+    @overload
+    def select_data_set(self, allow_empty: Literal[True]) -> str | None: ...
+
+    def select_data_set(self, allow_empty: Literal[False, True] = False) -> str | None:
+        """Select a data set interactively."""
+        options = self._get_available_data_sets()
+        return self._select("data set", options, allow_empty, "single")
+
+    def select_data_sets(self) -> list[str]:
+        """Select multiple data sets interactively."""
+        options = self._get_available_data_sets()
+        return self._select("data sets", options, False, "multiple")
+
+    def select_hierarchies_and_data_sets(self) -> tuple[list[str], list[str]]:
+        what = questionary.select(
+            f"Do you want to {self.operation} a hierarchy or a data set?", choices=["Hierarchy", "Data Set"]
         ).ask()
+        if what is None:
+            raise ToolkitValueError("No selection made. Aborting.")
+        if what == "Hierarchy":
+            hierarchy = self._select("hierarchy", self._get_available_hierarchies(), False, "single")
+            data_sets = self._get_available_data_sets(hierarchy=hierarchy)
+            if not data_sets:
+                return [hierarchy], []
+            selected_data_sets = self._select(f"data sets in hierarchy {hierarchy!r}", data_sets, True, "multiple")
+            return [hierarchy], selected_data_sets or []
+        elif what == "Data Set":
+            data_set = self._select("data Set", self._get_available_data_sets(), False, "single")
+            hierarchies = self._get_available_hierarchies(data_set=data_set)
+            if not hierarchies:
+                return [], [data_set]
+            selected_hierarchies = self._select(f"hierarchies in data set {data_set!r} ", hierarchies, True, "multiple")
+            return selected_hierarchies or [], [data_set]
+        else:
+            raise ToolkitValueError(f"Unexpected selection: {what}. Aborting.")
+
+    @overload
+    def _select(
+        self,
+        what: str,
+        options: Sequence[T_Type],
+        allow_empty: Literal[False],
+        plurality: Literal["single"],
+    ) -> str: ...
+
+    @overload
+    def _select(
+        self,
+        what: str,
+        options: Sequence[T_Type],
+        allow_empty: Literal[True],
+        plurality: Literal["single"],
+    ) -> str | None: ...
+
+    @overload
+    def _select(
+        self,
+        what: str,
+        options: Sequence[T_Type],
+        allow_empty: Literal[False],
+        plurality: Literal["multiple"],
+    ) -> list[str]: ...
+
+    @overload
+    def _select(
+        self,
+        what: str,
+        options: Sequence[T_Type],
+        allow_empty: Literal[True],
+        plurality: Literal["multiple"],
+    ) -> list[str] | None: ...
+
+    def _select(
+        self,
+        what: str,
+        options: Sequence[Asset | DataSet],
+        allow_empty: Literal[True, False],
+        plurality: Literal["single", "multiple"],
+    ) -> str | list[str] | None:
+        """Select a single item interactively."""
+        if not options and not allow_empty:
+            raise ToolkitValueError(f"No {what} available to select.")
+
+        choices: list[questionary.Choice] = []
+        none_sentinel = object()
+        if allow_empty:
+            choices.append(questionary.Choice(title=f"All {what}", value=none_sentinel))
+
+        for choice, count in sorted(
+            (self._create_choice(item) for item in options), key=lambda x: (-x[1], x[0].title)
+        ):  # cont, choice.title
+            if count > 0:
+                choices.append(choice)
+        if not choices and not allow_empty:
+            raise ToolkitValueError(f"No {what} available with data to select.")
+
+        message = f"Select a {what} to {self.operation} listed as 'name (external_id) [count]'"
+        if plurality == "multiple":
+            selected = questionary.checkbox(message, choices=choices).ask()
+        else:
+            selected = questionary.select(message, choices=choices).ask()
+        if selected is None:
+            raise ToolkitValueError(f"No {what} selected. Aborting.")
+        elif selected is none_sentinel or (isinstance(selected, list) and none_sentinel in selected):
+            return None
+        return selected
 
 
 class AssetInteractiveSelect(AssetCentricInteractiveSelect):
