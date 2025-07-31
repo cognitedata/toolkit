@@ -37,7 +37,8 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         write (Callable[[T_Processed], None]): A function that writes the processed items. This is typically to
             a file, CDF, or another storage format.
         iteration_count (int): The total number of iterations expected. Note this is not the total number of items,
-            but rather the number of chunks of items that will be processed.
+            but rather the number of chunks of items that will be processed. Set to `None` if the total number of
+            iterations is unknown.
         max_queue_size (int): The maximum size of the queues used for processing and writing. Note that the queue
             holds chunks of items, not individual items, so this should be set based on the expected size of the
             chunks being processed.
