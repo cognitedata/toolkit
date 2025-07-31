@@ -108,7 +108,7 @@ class TestProfileAssetCentric:
     def test_profile_assent_centric(self, toolkit_client: ToolkitClient, monkeypatch, tmp_path: Path) -> None:
         output_spreadsheet = tmp_path / "asset_centric_profile.xlsx"
         cmd = ProfileAssetCentricCommand(output_spreadsheet)
-        results = cmd.asset_centric(toolkit_client, verbose=False)
+        results = cmd.asset_centric(toolkit_client, select_all=True, verbose=False)
 
         assert len(results) == 7
         assert {item["Resource"] for item in results} == {
