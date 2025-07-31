@@ -120,7 +120,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
             for t in [download_thread, process_thread, write_thread]:
                 t.join()
 
-            self._stop_event.set()  # Ensure all threads stop if any thread finishes
+            self._stop_event.set()
 
     def _download_worker(self, progress: Progress, download_task: TaskID) -> None:
         """Worker thread for downloading data."""
