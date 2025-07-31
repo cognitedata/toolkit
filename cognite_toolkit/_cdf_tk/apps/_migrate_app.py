@@ -22,8 +22,7 @@ class MigrateApp(typer.Typer):
         # self.command("assets")(self.assets)
         self.command("timeseries")(self.timeseries)
         self.command("files")(self.files)
-        # Uncomment when the Canvas migration command is ready
-        # self.command("canvas")(self.canvas)
+        self.command("canvas")(self.canvas)
 
     def main(self, ctx: typer.Context) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
