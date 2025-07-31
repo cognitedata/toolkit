@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, Generic, Literal, TypeAlias, TypeVar, overload
 from zipfile import BadZipFile
 
+import questionary
 from cognite.client.data_classes import Transformation
 from cognite.client.exceptions import CogniteException
 from rich import box
@@ -128,7 +129,7 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
                     live.update(self.draw_table(table))
         result = self.as_record_format(table, allow_waiting_api_call=False)
         if self.output_spreadsheet is not None:
-            self._write_to_spreadsheet(result, self.output_spreadsheet, sheet=sheet)
+            self._write_to_spreadsheet(result, list(self.columns), self.output_spreadsheet, sheet=sheet)
         return result
 
     @abstractmethod
@@ -246,7 +247,7 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
         return str(value)
 
     def _write_to_spreadsheet(
-        self, data: list[dict[str, CellValue]], output_spreadsheet: Path, sheet: str | None = None
+        self, data: list[dict[str, CellValue]], columns: list[str], output_spreadsheet: Path, sheet: str | None = None
     ) -> None:
         """Write the profile data to a spreadsheet."""
         # Local import as this is an optional dependency
@@ -269,12 +270,12 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
             worksheet = workbook.active
             worksheet.title = sheet_name
 
-        worksheet.append(self.columns)
+        worksheet.append(columns)
 
         for row in data:
             worksheet.append(list(row.values()))
 
-        self._style_sheet(worksheet)
+        self._style_sheet(worksheet, columns)
 
         try:
             workbook.save(output_spreadsheet)
@@ -285,7 +286,7 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
             ) from e
         self.console(f"Profile data written to sheet {sheet!r} in {output_spreadsheet.as_posix()!r}")
 
-    def _style_sheet(self, sheet: "Worksheet") -> None:
+    def _style_sheet(self, sheet: "Worksheet", columns: list[str]) -> None:
         """Styles the sheet with the given headers.
 
         Args:
@@ -300,7 +301,7 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
         sheet.freeze_panes = "A2"
 
         # Make the header row bold, larger, and colored
-        for cell, *_ in sheet.iter_cols(min_row=1, max_row=1, min_col=1, max_col=len(self.columns)):
+        for cell, *_ in sheet.iter_cols(min_row=1, max_row=1, min_col=1, max_col=len(columns)):
             cell.font = Font(bold=True, size=15)
             cell.fill = PatternFill(fgColor="A9DFBF", patternType="solid")
         # Adjust columns width based on widest cell in each column
@@ -320,6 +321,10 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
             sheet.column_dimensions[column_letter].width = min(
                 max(current, max_length + 0.5), self.spreadsheet_max_column_width
             )
+
+    def _ask_store_file(self) -> None:
+        if file_path := questionary.path("Where do you want to save the profile?").ask():
+            self.output_spreadsheet = Path(file_path)
 
 
 @dataclass(frozen=True)
@@ -368,6 +373,7 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
         """
         if hierarchy is None:
             self.hierarchy = AssetInteractiveSelect(client, "profile").select_hierarchy(allow_empty=False)
+            self._ask_store_file()
         else:
             self.hierarchy = hierarchy
         self.table_title = f"Asset Profile for Hierarchy: {self.hierarchy}"
@@ -614,6 +620,7 @@ class ProfileAssetCentricCommand(ProfileCommand[str]):
     ) -> list[dict[str, CellValue]]:
         if hierarchy is None and not select_all:
             self.hierarchy = AssetInteractiveSelect(client, "profile").select_hierarchy(allow_empty=True)
+            self._ask_store_file()
         else:
             self.hierarchy = hierarchy
         if self.hierarchy is not None:
@@ -641,7 +648,18 @@ class ProfileAssetCentricCommand(ProfileCommand[str]):
                     ]
                 }
             )
-        return self.create_profile_table(client)
+        result = self.create_profile_table(client, sheet=self.table_title)
+        if self.output_spreadsheet:
+            for aggregator in self.aggregators.values():
+                if isinstance(aggregator, MetadataAggregator):
+                    used_metadata_keys = aggregator.used_metadata_keys(hierarchy=self.hierarchy)
+                    self._write_to_spreadsheet(
+                        [{"Metadata Key": key, "Count": count} for key, count in used_metadata_keys],
+                        ["Metadata Key", "Count"],
+                        self.output_spreadsheet,
+                        sheet=aggregator.display_name,
+                    )
+        return result
 
     def create_initial_table(self, client: ToolkitClient) -> dict[tuple[str, str], PendingCellValue]:
         table: dict[tuple[str, str], str | int | float | bool | None | WaitingAPICallClass] = {}
