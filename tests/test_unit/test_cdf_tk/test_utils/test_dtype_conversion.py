@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 import pytest
 from cognite.client.data_classes import Label, LabelDefinition
-from cognite.client.data_classes.data_modeling import ContainerId, PropertyType
+from cognite.client.data_classes.data_modeling import ContainerId
 from cognite.client.data_classes.data_modeling.data_types import (
     Boolean,
     Enum,
