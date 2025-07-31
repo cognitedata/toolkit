@@ -1,3 +1,4 @@
 from ._base import StorageIO, TableStorageIO
+from ._raw import RawIO
 
-__all__ = ["StorageIO", "TableStorageIO"]
+__all__ = ["RawIO", "StorageIO", "TableStorageIO"]
