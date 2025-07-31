@@ -4,9 +4,8 @@ from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from typing import ClassVar, cast
 
-from cognite.client.data_classes.data_modeling.data_types import Enum, ListablePropertyType
+from cognite.client.data_classes.data_modeling.data_types import Enum, ListablePropertyType, PropertyType
 from cognite.client.data_classes.data_modeling.instances import PropertyValueWrite
-from cognite.client.data_classes.data_modeling.views import PropertyType
 from cognite.client.utils import ms_to_datetime
 from dateutil import parser
 

@@ -2,7 +2,6 @@ from abc import ABC
 from datetime import datetime, timezone
 
 import pytest
-from cognite.client.data_classes.data_modeling import PropertyType
 from cognite.client.data_classes.data_modeling.data_types import (
     Boolean,
     Enum,
@@ -12,6 +11,7 @@ from cognite.client.data_classes.data_modeling.data_types import (
     Int32,
     Int64,
     Json,
+    PropertyType,
     Text,
     Timestamp,
 )
