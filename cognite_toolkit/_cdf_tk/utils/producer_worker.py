@@ -132,7 +132,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         columns = self._get_progress_columns()
         with Progress(*columns, console=self.console) as progress:
             task_args: dict[str, Any] = (
-                {"item_count": 0} if self.iteration_count is None else {"total": self.iteration_count}
+                {"item_count": 0, "total": None} if self.iteration_count is None else {"total": self.iteration_count}
             )
             download_task = progress.add_task(self.download_description.title(), **task_args)
             process_task = progress.add_task(self.process_description.title(), **task_args)
@@ -178,10 +178,10 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 while not self.error_occurred:
                     try:
                         self.process_queue.put(items, timeout=0.5)
-                        if self.iteration_count is None:
-                            progress.update(download_task, advance=1, item_count=item_count)
-                        else:
-                            progress.update(download_task, advance=1)
+                        update_kwargs: dict[str, Any] = (
+                            {"item_count": item_count} if self.iteration_count is None else {}
+                        )
+                        progress.update(download_task, advance=1, **update_kwargs)
                         break  # Exit the loop once the item is successfully added
                     except queue.Full:
                         # Retry until the queue has space
@@ -206,10 +206,8 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 processed_items = self._process(items)
                 self.write_queue.put(processed_items)
                 item_count += len(items)
-                if self.iteration_count is None:
-                    progress.update(process_task, advance=1, item_count=item_count)
-                else:
-                    progress.update(process_task, advance=1)
+                update_kwargs: dict[str, Any] = {"item_count": item_count} if self.iteration_count is None else {}
+                progress.update(process_task, advance=1, **update_kwargs)
                 self.process_queue.task_done()
             except queue.Empty:
                 continue
@@ -235,10 +233,8 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 items = self.write_queue.get(timeout=0.5)
                 self._write(items)
                 item_count += len(items)
-                if self.iteration_count is None:
-                    progress.update(write_task, advance=1, item_count=item_count)
-                else:
-                    progress.update(write_task, advance=1)
+                update_kwargs: dict[str, Any] = {"item_count": item_count} if self.iteration_count is None else {}
+                progress.update(write_task, advance=1, **update_kwargs)
                 self.write_queue.task_done()
             except queue.Empty:
                 continue
