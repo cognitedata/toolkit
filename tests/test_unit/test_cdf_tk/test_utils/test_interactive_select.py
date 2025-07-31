@@ -1,5 +1,6 @@
 from collections.abc import Mapping
 from datetime import datetime
+from unittest.mock import MagicMock
 
 import pytest
 from cognite.client.data_classes import (
@@ -16,6 +17,7 @@ from questionary import Choice
 from cognite_toolkit._cdf_tk.client.data_classes.canvas import CANVAS_INSTANCE_SPACE, Canvas
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
+from cognite_toolkit._cdf_tk.utils.aggregators import AssetCentricAggregator
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
     AssetCentricDestinationSelect,
     AssetInteractiveSelect,
@@ -30,43 +32,46 @@ from tests.test_unit.utils import MockQuestionary
 
 class TestInteractiveSelect:
     def test_interactive_select_assets(self, monkeypatch) -> None:
-        def select_hierarchy(choices: list[Choice]) -> list[str]:
+        def select_hierarchy(choices: list[Choice]) -> str:
             assert len(choices) == 2
-            return [choices[1].value]
+            return choices[1].value
 
         def select_data_set(choices: list[Choice]) -> list[str]:
-            assert len(choices) == 3
-            return [choices[2].value]
+            assert len(choices) == 3 + 1  # +1 for "All Data Sets" option
+            return [choices[3].value]
 
-        answers = ["Hierarchy", select_hierarchy, "Data Set", select_data_set, "Done"]
+        answers = ["Hierarchy", select_hierarchy, select_data_set]
         with (
             monkeypatch_toolkit_client() as client,
             MockQuestionary(AssetInteractiveSelect.__module__, monkeypatch, answers),
         ):
+            selector = AssetInteractiveSelect(client, "test_operation")
             client.assets.list.return_value = [Asset(id=1, external_id="Root1"), Asset(id=2, external_id="Root2")]
-            client.assets.aggregate_count.return_value = 100
-            client.data_sets.list.return_value = [
+            aggregator = MagicMock(spec=AssetCentricAggregator)
+            aggregator.count.return_value = 1000
+            aggregator.used_data_sets.return_value = ["dataset1", "dataset2", "dataset3"]
+            selector._aggregator = aggregator
+            client.data_sets.retrieve_multiple.return_value = [
                 DataSet(id=1, external_id="dataset1"),
                 DataSet(id=2, external_id="dataset2"),
                 DataSet(id=3, external_id="dataset3"),
             ]
 
-            selector = AssetInteractiveSelect(client, "test_operation")
-            selected_hierarchy, selected_dataset = selector.interactive_select_hierarchy_datasets()
+            selected_hierarchy, selected_dataset = selector.select_hierarchies_and_data_sets()
 
         assert selected_hierarchy == ["Root2"]
         assert selected_dataset == ["dataset3"]
 
     def test_interactive_select_filemetadata(self, monkeypatch) -> None:
-        def select_data_set(choices: list[Choice]) -> list[str]:
+        def select_data_set(choices: list[Choice]) -> str:
             assert len(choices) == 3
-            return [choices[2].value]
+            return choices[2].value
 
         def select_hierarchy(choices: list[Choice]) -> list[str]:
-            assert len(choices) == 2
-            return [choices[1].value]
+            assert len(choices) == 2 + 1  # +1 for "All Hierarchies" option
+            return [choices[2].value]
 
-        answers = ["Data Set", select_data_set, "Hierarchy", select_hierarchy, "Done"]
+        answers = ["Data Set", select_data_set, select_hierarchy]
         with (
             monkeypatch_toolkit_client() as client,
             MockQuestionary(FileMetadataInteractiveSelect.__module__, monkeypatch, answers),
@@ -82,21 +87,21 @@ class TestInteractiveSelect:
             ]
             client.files.aggregate.return_value = [CountAggregate(100)]
             selector = FileMetadataInteractiveSelect(client, "test_operation")
-            selected_hierarchy, selected_dataset = selector.interactive_select_hierarchy_datasets()
+            selected_hierarchy, selected_dataset = selector.select_hierarchies_and_data_sets()
 
         assert selected_hierarchy == ["Root2"]
         assert selected_dataset == ["dataset3"]
 
     def test_interactive_select_filemetadata_empty_cdf(self, monkeypatch) -> None:
-        def select_data_set(choices: list[Choice]) -> list[str]:
+        def select_data_set(choices: list[Choice]) -> None:
             assert len(choices) == 0
-            return []
+            return None
 
         def select_hierarchy(choices: list[Choice]) -> list[str]:
             assert len(choices) == 0
             return []
 
-        answers = ["Data Set", select_data_set, "Hierarchy", select_hierarchy, "Done"]
+        answers = ["Data Set", select_data_set, select_hierarchy]
         with (
             monkeypatch_toolkit_client() as client,
             MockQuestionary(FileMetadataInteractiveSelect.__module__, monkeypatch, answers),
@@ -105,21 +110,21 @@ class TestInteractiveSelect:
             client.assets.list.return_value = []
             client.files.aggregate.return_value = [CountAggregate(100)]
             selector = FileMetadataInteractiveSelect(client, "test_operation")
-            selected_hierarchy, selected_dataset = selector.interactive_select_hierarchy_datasets()
+            with pytest.raises(ToolkitValueError) as exc_info:
+                _ = selector.select_hierarchies_and_data_sets()
 
-        assert selected_hierarchy == []
-        assert selected_dataset == []
+        assert str(exc_info.value) == "No data Set available to select."
 
     def test_interactive_select_timeseries(self, monkeypatch) -> None:
-        def select_data_set(choices: list[Choice]) -> list[str]:
+        def select_data_set(choices: list[Choice]) -> str:
             assert len(choices) == 3
-            return [choices[2].value]
+            return choices[2].value
 
         def select_hierarchy(choices: list[Choice]) -> list[str]:
-            assert len(choices) == 2
-            return [choices[1].value]
+            assert len(choices) == 2 + 1  # +1 for "All Hierarchies" option
+            return [choices[2].value]
 
-        answers = ["Data Set", select_data_set, "Hierarchy", select_hierarchy, "Done"]
+        answers = ["Data Set", select_data_set, select_hierarchy]
         with (
             monkeypatch_toolkit_client() as client,
             MockQuestionary(TimeSeriesInteractiveSelect.__module__, monkeypatch, answers),
@@ -135,21 +140,21 @@ class TestInteractiveSelect:
             ]
             client.time_series.aggregate_count.return_value = 100
             selector = TimeSeriesInteractiveSelect(client, "test_operation")
-            selected_hierarchy, selected_dataset = selector.interactive_select_hierarchy_datasets()
+            selected_hierarchy, selected_dataset = selector.select_hierarchies_and_data_sets()
 
         assert selected_hierarchy == ["Root2"]
         assert selected_dataset == ["dataset3"]
 
     def test_interactive_select_events(self, monkeypatch) -> None:
-        def select_data_set(choices: list[Choice]) -> list[str]:
+        def select_data_set(choices: list[Choice]) -> str:
             assert len(choices) == 3
-            return [choices[2].value]
+            return choices[2].value
 
         def select_hierarchy(choices: list[Choice]) -> list[str]:
-            assert len(choices) == 2
-            return [choices[1].value]
+            assert len(choices) == 2 + 1  # +1 for "All Hierarchies" option
+            return [choices[2].value]
 
-        answers = ["Data Set", select_data_set, "Hierarchy", select_hierarchy, "Done"]
+        answers = ["Data Set", select_data_set, select_hierarchy]
         with (
             monkeypatch_toolkit_client() as client,
             MockQuestionary(EventInteractiveSelect.__module__, monkeypatch, answers),
@@ -165,7 +170,7 @@ class TestInteractiveSelect:
             ]
             client.events.aggregate_count.return_value = 100
             selector = EventInteractiveSelect(client, "test_operation")
-            selected_hierarchy, selected_dataset = selector.interactive_select_hierarchy_datasets()
+            selected_hierarchy, selected_dataset = selector.select_hierarchies_and_data_sets()
 
         assert selected_hierarchy == ["Root2"]
         assert selected_dataset == ["dataset3"]
@@ -186,6 +191,150 @@ class TestInteractiveSelect:
             AssetCentricDestinationSelect.validate("invalid_destination")
 
         assert "Invalid destination type: 'invalid_destination'." in str(exc_info.value)
+
+    def test_select_data_set(self, monkeypatch):
+        def select_data_set(choices) -> str:
+            assert len(choices) == 2
+            selection = choices[1].value
+            assert isinstance(selection, str)
+            return selection
+
+        answers = [select_data_set]
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(AssetInteractiveSelect.__module__, monkeypatch, answers),
+        ):
+            selector = AssetInteractiveSelect(client, "test")
+            aggregator = MagicMock(spec=AssetCentricAggregator)
+            aggregator.count.return_value = 1000
+            selector._aggregator = aggregator
+
+            client.data_sets.list.return_value = [
+                DataSet(id=1, external_id="ds1", name="DataSet 1"),
+                DataSet(id=2, external_id="ds2", name="DataSet 2"),
+            ]
+            result = selector.select_data_set()
+        assert result == "ds2"
+
+    def test_select_data_sets_allow_empty(self, monkeypatch) -> None:
+        def select_data_sets(choices) -> str | None:
+            assert len(choices) == 2 + 1  # +1 for "All Data Sets" option
+            assert choices[0].title.startswith("All")
+            return choices[0].value
+
+        answers = [select_data_sets]
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(AssetInteractiveSelect.__module__, monkeypatch, answers),
+        ):
+            selector = AssetInteractiveSelect(client, "test")
+            aggregator = MagicMock(spec=AssetCentricAggregator)
+            aggregator.count.return_value = 1000
+            selector._aggregator = aggregator
+
+            client.data_sets.list.return_value = [
+                DataSet(id=1, external_id="ds1", name="DataSet 1"),
+                DataSet(id=2, external_id="ds2", name="DataSet 2"),
+            ]
+
+            result = selector.select_data_set(allow_empty=True)
+        assert result is None
+
+    def test_select_data_sets(self, monkeypatch):
+        def select_data_sets(choices) -> str:
+            assert len(choices) == 2
+            selection = choices[0].value
+            assert isinstance(selection, str)
+            return selection
+
+        answers = [select_data_sets]
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(AssetInteractiveSelect.__module__, monkeypatch, answers),
+        ):
+            selector = AssetInteractiveSelect(client, "test")
+            aggregator = MagicMock(spec=AssetCentricAggregator)
+            aggregator.count.return_value = 1000
+            selector._aggregator = aggregator
+
+            client.data_sets.list.return_value = [
+                DataSet(id=1, external_id="ds1", name="DataSet 1"),
+                DataSet(id=2, external_id="ds2", name="DataSet 2"),
+            ]
+
+            result = selector.select_data_sets()
+        assert result == "ds1"
+
+    def test_select_hierarchy(self, monkeypatch):
+        def select_hierarchy(choices) -> str:
+            assert len(choices) == 2
+            selection = choices[0].value
+            assert isinstance(selection, str)
+            return selection
+
+        answers = [select_hierarchy]
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(AssetInteractiveSelect.__module__, monkeypatch, answers),
+        ):
+            selector = AssetInteractiveSelect(client, "test")
+            aggregator = MagicMock(spec=AssetCentricAggregator)
+            aggregator.count.return_value = 1000
+            selector._aggregator = aggregator
+
+            client.assets.list.return_value = [
+                Asset(id=1, external_id="root1", name="Root 1"),
+                Asset(id=2, external_id="root2", name="Root 2"),
+            ]
+
+            result = selector.select_hierarchy()
+        assert result == "root1"
+
+    def test_select_hierarchy_allow_empty(self, monkeypatch) -> None:
+        def select_hierarchy(choices) -> str | None:
+            assert len(choices) == 2 + 1
+            # +1 for "All Hierarchies" option
+            assert choices[0].title.startswith("All")
+            return choices[0].value
+
+        answers = [select_hierarchy]
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(AssetInteractiveSelect.__module__, monkeypatch, answers),
+        ):
+            selector = AssetInteractiveSelect(client, "test")
+            aggregator = MagicMock(spec=AssetCentricAggregator)
+            aggregator.count.return_value = 1000
+            selector._aggregator = aggregator
+
+            client.assets.list.return_value = [
+                Asset(id=1, external_id="root1", name="Root 1"),
+                Asset(id=2, external_id="root2", name="Root 2"),
+            ]
+
+            result = selector.select_hierarchy(allow_empty=True)
+        assert result is None
+
+    def test_select_hierarchies(self, monkeypatch):
+        def select_hierarchies(choices) -> list[str]:
+            assert len(choices) == 2
+            return [choices[1].value]
+
+        answers = [select_hierarchies]
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(AssetInteractiveSelect.__module__, monkeypatch, answers),
+        ):
+            selector = AssetInteractiveSelect(client, "test")
+            aggregator = MagicMock(spec=AssetCentricAggregator)
+            aggregator.count.return_value = 1000
+            selector._aggregator = aggregator
+            client.assets.list.return_value = [
+                Asset(id=1, external_id="root1", name="Root 1"),
+                Asset(id=2, external_id="root2", name="Root 2"),
+            ]
+            result = selector.select_hierarchies()
+        assert result == ["root2"]
 
 
 class TestInteractiveCanvasSelect:
