@@ -323,8 +323,8 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
             )
 
     def _ask_store_file(self) -> None:
-        if questionary.confirm("Do you want to save the profile to a spreadsheet?").ask():
-            self.output_spreadsheet = Path(questionary.path("Where do you want to save the profile?").ask())
+        if file_path := questionary.path("Where do you want to save the profile?").ask():
+            self.output_spreadsheet = Path(file_path)
 
 
 @dataclass(frozen=True)
