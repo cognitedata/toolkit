@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from datetime import datetime
 from unittest.mock import MagicMock
 
@@ -9,15 +10,18 @@ from cognite.client.data_classes import (
     UserProfile,
     UserProfileList,
 )
-from cognite.client.data_classes.data_modeling import NodeList
+from cognite.client.data_classes.aggregations import CountValue
+from cognite.client.data_classes.data_modeling import NodeList, Space, SpaceList, View, ViewId, ViewList
 from questionary import Choice
 
 from cognite_toolkit._cdf_tk.client.data_classes.canvas import CANVAS_INSTANCE_SPACE, Canvas
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
 from cognite_toolkit._cdf_tk.utils.aggregators import AssetCentricAggregator
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
+    AssetCentricDestinationSelect,
     AssetInteractiveSelect,
+    DataModelingSelect,
     EventInteractiveSelect,
     FileMetadataInteractiveSelect,
     InteractiveCanvasSelect,
@@ -170,6 +174,23 @@ class TestInteractiveSelect:
 
         assert selected_hierarchy == ["Root2"]
         assert selected_dataset == ["dataset3"]
+
+    def test_asset_centric_destination_select(self, monkeypatch) -> None:
+        def select_destination(choices: list[Choice]) -> str:
+            assert len(choices) == len(AssetCentricDestinationSelect.valid_destinations)
+            return choices[2].value
+
+        answers = [select_destination]
+        with MockQuestionary(AssetCentricDestinationSelect.__module__, monkeypatch, answers):
+            selected = AssetCentricDestinationSelect.select()
+
+        assert selected == AssetCentricDestinationSelect.valid_destinations[2]
+
+    def test_asset_centric_destination_invalid_destination(self) -> None:
+        with pytest.raises(ValueError) as exc_info:
+            AssetCentricDestinationSelect.validate("invalid_destination")
+
+        assert "Invalid destination type: 'invalid_destination'." in str(exc_info.value)
 
     def test_select_data_set(self, monkeypatch):
         def select_data_set(choices) -> str:
@@ -435,3 +456,156 @@ class TestInteractiveCanvasSelect:
             with pytest.raises(ToolkitValueError) as exc_info:
                 selector.select_external_ids()
         assert str(exc_info.value) == "No Canvas selection made. Aborting."
+
+
+class TestDataModelingInteractiveSelect:
+    DEFAULT_SPACE_ARGS: Mapping = dict(
+        description="Test Space",
+        name="Test Space",
+        created_time=1,
+        last_updated_time=1,
+        is_global=False,
+    )
+    DEFAULT_VIEW_ARGS: Mapping = dict(
+        properties={},
+        last_updated_time=1,
+        created_time=1,
+        description=None,
+        name=None,
+        filter=None,
+        implements=None,
+        writable=True,
+        used_for="node",
+        is_global=False,
+    )
+
+    def test_select_view(self, monkeypatch) -> None:
+        spaces = [
+            Space(space="space1", **self.DEFAULT_SPACE_ARGS),
+            Space(space="space2", **self.DEFAULT_SPACE_ARGS),
+        ]
+        views = [
+            View(space="space1", external_id="view1", version="1", **self.DEFAULT_VIEW_ARGS),
+            View(space="space1", external_id="view2", version="1", **self.DEFAULT_VIEW_ARGS),
+        ]
+
+        answers = [spaces[0], views[1]]
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(DataModelingSelect.__module__, monkeypatch, answers),
+        ):
+            client.data_modeling.spaces.list.return_value = SpaceList(spaces)
+            client.data_modeling.views.list.return_value = ViewList(views)
+            selector = DataModelingSelect(client, "test_operation")
+            selected_view = selector.select_view()
+
+        assert selected_view.external_id == "view2"
+
+    def test_select_view_no_views_found(self, monkeypatch) -> None:
+        space = Space(space="space1", **self.DEFAULT_SPACE_ARGS)
+        answers = [space]  # Direct string answer
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(DataModelingSelect.__module__, monkeypatch, answers),
+        ):
+            client.data_modeling.spaces.list.return_value = SpaceList([space])
+            client.data_modeling.views.list.return_value = []
+            selector = DataModelingSelect(client, "test_operation")
+            with pytest.raises(ToolkitMissingResourceError) as exc_info:
+                selector.select_view()
+            assert str(exc_info.value) == "No views found in space 'space1'."
+
+    def test_select_instance_type(self, monkeypatch) -> None:
+        answers = ["node"]  # Direct string answer
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(DataModelingSelect.__module__, monkeypatch, answers),
+        ):
+            selector = DataModelingSelect(client, "test_operation")
+            instance_type = selector.select_instance_type("all")
+
+        assert instance_type == "node"
+
+    def test_select_single_space(self, monkeypatch) -> None:
+        spaces = [
+            Space(space="space1", **self.DEFAULT_SPACE_ARGS),
+            Space(space="space2", **self.DEFAULT_SPACE_ARGS),
+        ]
+        answers = [spaces[1]]
+
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(DataModelingSelect.__module__, monkeypatch, answers),
+        ):
+            client.data_modeling.spaces.list.return_value = SpaceList(spaces)
+            selector = DataModelingSelect(client, "test_operation")
+            selected_space = selector.select_space(include_global=True)
+
+        assert selected_space.space == "space2"
+
+    def test_select_instance_spaces_one_space_with_instances(self, monkeypatch) -> None:
+        def mock_aggregate(view_id, count, instance_type, space):
+            if space == "space1":
+                return CountValue("externalId", 5)
+            return CountValue("externalId", 0)
+
+        with monkeypatch_toolkit_client() as client:
+            client.data_modeling.spaces.list.return_value = SpaceList(
+                [
+                    Space(space="space1", **self.DEFAULT_SPACE_ARGS),
+                    Space(space="space2", **self.DEFAULT_SPACE_ARGS),
+                ]
+            )
+            client.data_modeling.instances.aggregate.side_effect = mock_aggregate
+            client.data_modeling.statistics.project().concurrent_read_limit = 2
+
+            selector = DataModelingSelect(client, "test_operation")
+            selected_spaces = selector.select_instance_spaces(ViewId("space1", "view1", "1"), "node")
+
+        assert selected_spaces == ["space1"]
+
+    def test_select_instance_spaces_multiple_spaces(self, monkeypatch) -> None:
+        spaces = [
+            Space(space="space1", **self.DEFAULT_SPACE_ARGS),
+            Space(space="space2", **self.DEFAULT_SPACE_ARGS),
+            Space(space="space3", **self.DEFAULT_SPACE_ARGS),
+        ]
+
+        def select_space(choices: list[Choice]) -> list[str]:
+            assert len(choices) == 3
+            return [choices[0].value, choices[2].value]
+
+        answers = [select_space]
+
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(DataModelingSelect.__module__, monkeypatch, answers),
+        ):
+            client.data_modeling.spaces.list.return_value = SpaceList(spaces)
+            client.data_modeling.instances.aggregate.return_value = CountValue("externalId", 5)
+            client.data_modeling.statistics.project().concurrent_read_limit = 6
+
+            selector = DataModelingSelect(client, "test_operation")
+            selected_spaces = selector.select_instance_spaces(ViewId("space1", "view1", "1"), "node")
+
+        assert selected_spaces == ["space1", "space3"]
+
+    def test_select_instance_spaces_no_instances(self, monkeypatch) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.data_modeling.spaces.list.return_value = SpaceList(
+                [
+                    Space(space="space1", **self.DEFAULT_SPACE_ARGS),
+                    Space(space="space2", **self.DEFAULT_SPACE_ARGS),
+                ]
+            )
+            client.data_modeling.instances.aggregate.return_value = CountValue("externalId", 0)
+            client.data_modeling.statistics.project().concurrent_read_limit = 2
+
+            selector = DataModelingSelect(client, "test_operation")
+            with pytest.raises(ToolkitMissingResourceError) as exc_info:
+                selector.select_instance_spaces(ViewId("space1", "view1", "1"), "node")
+
+            assert str(exc_info.value) == (
+                "No instances found in any space for the view "
+                "ViewId(space='space1', external_id='view1', version='1') with instance type 'node'."
+            )

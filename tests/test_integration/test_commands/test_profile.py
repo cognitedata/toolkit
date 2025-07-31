@@ -1,4 +1,7 @@
+from pathlib import Path
+
 from cognite.client.data_classes import Asset, Transformation
+from openpyxl import load_workbook
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import (
@@ -101,9 +104,11 @@ class TestProfileAssetCommand:
         ]
 
 
-class TestProfileAssentCentric:
-    def test_profile_assent_centric(self, toolkit_client: ToolkitClient, monkeypatch) -> None:
-        results = ProfileAssetCentricCommand().asset_centric(toolkit_client, select_all=True, verbose=False)
+class TestProfileAssetCentric:
+    def test_profile_assent_centric(self, toolkit_client: ToolkitClient, monkeypatch, tmp_path: Path) -> None:
+        output_spreadsheet = tmp_path / "asset_centric_profile.xlsx"
+        cmd = ProfileAssetCentricCommand(output_spreadsheet)
+        results = cmd.asset_centric(toolkit_client, select_all=True, verbose=False)
 
         assert len(results) == 7
         assert {item["Resource"] for item in results} == {
@@ -124,6 +129,11 @@ class TestProfileAssentCentric:
                 continue
             total_metadata_count += metadata_count
         assert total_metadata_count > 0
+
+        workbook = load_workbook(output_spreadsheet)
+        assert cmd.table_title in workbook.sheetnames
+        sheet = workbook[cmd.table_title]
+        assert sheet.max_row == len(results) + 1  # +1 for header row
 
 
 class TestProfileTransformationCommand:

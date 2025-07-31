@@ -6,7 +6,6 @@ from cognite.client.data_classes.capabilities import (
     DataModelsAcl,
     SpaceIDScope,
 )
-from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
@@ -16,7 +15,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMigrationError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 from .data_model import INSTANCE_SOURCE_VIEW_ID
@@ -29,9 +27,11 @@ class BaseMigrateCommand(ToolkitCommand, ABC):
         """Return the schema spaces used by this migration command."""
         raise NotImplementedError()
 
-    @abstractmethod
-    def source_acl(self, data_set_id: list[int]) -> Capability:
-        raise NotImplementedError()
+    def source_acl(self, data_set_id: list[int]) -> Capability | None:
+        """Return the source ACL for the given data set IDs."""
+        # This method should be implemented in subclasses that needs access to a specific source ACL.
+        # such as TimeSeries, Files, Assets, and so on.
+        return None
 
     def validate_access(
         self, client: ToolkitClient, instance_spaces: list[str], data_set_ids: list[int] | None = None
@@ -48,7 +48,13 @@ class BaseMigrateCommand(ToolkitCommand, ABC):
             ),
         ]
         if data_set_ids is not None:
-            required_capabilities.append(self.source_acl(data_set_ids))
+            source_acl = self.source_acl(data_set_ids)
+            if source_acl is None:
+                raise ValueError(
+                    "Bug in Toolkit: the source ACL is not defined for this migration command. "
+                    "Please implement the source_acl method."
+                )
+            required_capabilities.append(source_acl)
         if missing := client.iam.verify_capabilities(required_capabilities):
             raise AuthenticationError(f"Missing required capabilities: {humanize_collection(missing)}.", missing)
 
@@ -63,12 +69,9 @@ class BaseMigrateCommand(ToolkitCommand, ABC):
 
     def validate_available_capacity(self, client: ToolkitClient, instance_count: int) -> None:
         """Validate that the project has enough capacity to accommodate the migration."""
-        try:
-            stats = client.data_modeling.statistics.project()
-        except CogniteAPIError:
-            # This endpoint is not yet in alpha, it may change or not be available.
-            self.warn(HighSeverityWarning("Cannot check the instances capacity proceeding with migration anyway."))
-            return
+
+        stats = client.data_modeling.statistics.project()
+
         available_capacity = stats.instances.instances_limit - stats.instances.instances
         available_capacity_after = available_capacity - instance_count
 

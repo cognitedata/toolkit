@@ -62,7 +62,7 @@ def group_yaml_test_cases() -> Iterable:
             "members": "allUserAccounts",
         },
         {
-            "In capabilities[1].actions input should be 'READ', 'WRITE' or 'WRITE_PROPERTIES'. Got 'INVALID_ACTION'.",
+            "In capabilities[1].actions[1] input should be 'READ', 'WRITE' or 'WRITE_PROPERTIES'. Got 'INVALID_ACTION'.",
             "In capabilities[1] missing required field: 'scope'",
         },
         id="Invalid action and missing scope",
@@ -79,7 +79,7 @@ def group_yaml_test_cases() -> Iterable:
             }
         ],
         {
-            "In item [1].capabilities[1] invalid scope name 'notExisting'. Expected all or spaceIdScope",
+            "In item [1].capabilities[1].scope invalid scope name 'notExisting'. Expected all or spaceIdScope",
         },
         id="Invalid scope name",
     )
