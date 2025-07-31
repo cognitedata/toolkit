@@ -71,6 +71,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         self.process_description = process_description
         self.write_description = write_description
         self.console = console or Console()
+        self._stop_event = threading.Event()
 
         self.download_complete = False
         self.is_processing = False
@@ -84,7 +85,16 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         self.error_occurred = False
         self.error_message = ""
 
+        self.stopped_by_user = False
+
     def run(self) -> None:
+        def user_input_listener() -> None:
+            input()
+            self._stop_event.set()
+            self.stopped_by_user = True
+            self.console.print("[yellow]Execution stopped by user.[/yellow]")
+
+        self.console.print(f"[blue]Starting {self.download_description} (Press enter to stop)...[/blue]")
         with Progress(
             TextColumn("[bold blue]{task.description}"),
             BarColumn(),
@@ -104,10 +114,13 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
             process_thread.start()
             write_thread.start()
 
-            # Wait for all threads to finish
-            download_thread.join()
-            process_thread.join()
-            write_thread.join()
+            input_thread = threading.Thread(target=user_input_listener, daemon=True)
+            input_thread.start()
+
+            for t in [download_thread, process_thread, write_thread]:
+                t.join()
+
+            self._stop_event.set()  # Ensure all threads stop if any thread finishes
 
     def _download_worker(self, progress: Progress, download_task: TaskID) -> None:
         """Worker thread for downloading data."""
@@ -118,7 +131,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
             self.error_message = str(e)
             self.console.print(f"[red]Error[/red] occurred while {self.download_description}: {self.error_message}")
             return
-        while not self.error_occurred:
+        while not self.error_occurred and not self._stop_event.is_set():
             try:
                 items = next(iterator)
                 self.total_items += len(items)
@@ -142,7 +155,11 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
     def _process_worker(self, progress: Progress, process_task: TaskID) -> None:
         """Worker thread for processing data."""
         self.is_processing = True
-        while (not self.download_complete or not self.process_queue.empty()) and not self.error_occurred:
+        while (
+            (not self.download_complete or not self.process_queue.empty())
+            and not self.error_occurred
+            and not self._stop_event.is_set()
+        ):
             try:
                 items = self.process_queue.get(timeout=0.5)
                 processed_items = self._process(items)
@@ -163,11 +180,15 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
     def _write_worker(self, progress: Progress, write_task: TaskID) -> None:
         """Worker thread for writing data to file."""
         while (
-            not self.download_complete
-            or self.is_processing
-            or not self.write_queue.empty()
-            or not self.process_queue.empty()
-        ) and not self.error_occurred:
+            (
+                not self.download_complete
+                or self.is_processing
+                or not self.write_queue.empty()
+                or not self.process_queue.empty()
+            )
+            and not self.error_occurred
+            and not self._stop_event.is_set()
+        ):
             try:
                 items = self.write_queue.get(timeout=0.5)
                 self._write(items)
