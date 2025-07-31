@@ -118,7 +118,13 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
             input_thread.start()
 
             for t in [download_thread, process_thread, write_thread]:
-                t.join()
+                try:
+                    t.join()
+                except KeyboardInterrupt:
+                    self.console.print("[red]Execution interrupted by user.[/red]")
+                    self.stopped_by_user = True
+                    self._stop_event.set()
+                    break
 
             self._stop_event.set()
 
