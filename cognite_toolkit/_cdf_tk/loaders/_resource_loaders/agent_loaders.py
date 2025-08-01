@@ -10,7 +10,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from cognite_toolkit._cdf_tk._parameters.constants import ANY_INT, ANYTHING
 from cognite_toolkit._cdf_tk._parameters.data_classes import ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
-from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable
+from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 
 
 class AgentLoader(ResourceLoader[str, AgentUpsert, Agent, AgentUpsertList, AgentList]):
@@ -115,4 +115,8 @@ class AgentLoader(ResourceLoader[str, AgentUpsert, Agent, AgentUpsertList, Agent
             return diff_list_identifiable(
                 local, cdf, get_identifier=lambda t: (t.get("name", ""), t.get("description", ""))
             )
+        elif json_path == ("labels",):
+            return diff_list_hashable(local, cdf)
+        elif json_path == ("exampleQuestions",):
+            return diff_list_identifiable(local, cdf, get_identifier=lambda q: q.get("question", ""))
         return super().diff_list(local, cdf, json_path)
