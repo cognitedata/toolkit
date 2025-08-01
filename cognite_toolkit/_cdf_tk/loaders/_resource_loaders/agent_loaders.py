@@ -102,6 +102,11 @@ class AgentLoader(ResourceLoader[str, AgentUpsert, Agent, AgentUpsertList, Agent
             # Instructions are optional, if not set the server set them to an empty string.
             # We remove them from the dumped resource to ensure it will be equal to the local resource.
             dumped.pop("instructions", None)
+        for key in ["labels", "exampleQuestions"]:
+            if key not in local and not dumped.get(key):
+                # If the local resource does not have the key and the server set Agent has it set to an empty list,
+                # we remove it from the dumped resource to ensure it will be equal to the local resource.
+                dumped.pop(key, None)
         return dumped
 
     def diff_list(
