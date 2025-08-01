@@ -93,6 +93,6 @@ class TestExtendedFilesAPI:
             assert retrieved_ts.id == created.id
         finally:
             if created is not None and created_dm is None:
-                client.time_series.delete(external_id=metadata.external_id)
+                client.files.delete(external_id=metadata.external_id, ignore_unknown_ids=True)
             if created_dm is not None:
                 client.data_modeling.instances.delete(cognite_file.as_id())
