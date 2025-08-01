@@ -770,7 +770,7 @@ class ProfileRawCommand(ProfileCommand[RawProfileIndex]):
         Destination = "Destination"
         ConflictMode = "ConflictMode"
 
-    marx_profile_raw_count = 10_000  # The number of rows to profile to get the number of columns.
+    max_profile_raw_count = 10_000  # The number of rows to profile to get the number of columns.
     # The actual limit is 256 MB of data.
     # Ref https://github.com/cognitedata/profiler-api/blob/main/src/main/scala/com/cognite/raw_profiler/Profile.scala#L37
     profile_timeout_seconds = 60 * 4  # Timeout for the profiling operation in seconds,
@@ -835,7 +835,7 @@ class ProfileRawCommand(ProfileCommand[RawProfileIndex]):
                 client.raw.profile,
                 database=row.raw_table.db_name,
                 table=row.raw_table.table_name,
-                limit=self.marx_profile_raw_count,
+                limit=self.max_profile_raw_count,
                 timeout_seconds=self.profile_timeout_seconds,
             )
         elif col == self.Columns.Rows:
@@ -871,7 +871,7 @@ class ProfileRawCommand(ProfileCommand[RawProfileIndex]):
     ) -> dict[tuple[RawProfileIndex, str], PendingCellValue]:
         if not isinstance(result, RawProfileResults) or selected_col != self.Columns.Columns:
             return current_table
-        is_complete = result.is_complete and result.row_count < self.marx_profile_raw_count
+        is_complete = result.is_complete and result.row_count < self.max_profile_raw_count
         new_table: dict[tuple[RawProfileIndex, str], PendingCellValue] = {}
         for (row, col), value in current_table.items():
             if row == selected_row and col == self.Columns.Rows:
