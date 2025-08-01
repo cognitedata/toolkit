@@ -686,7 +686,7 @@ class PurgeCommand(ToolkitCommand):
 
         prefix = "Would have purged" if dry_run else "Purged"
         console.print(
-            f"{prefix} {executor.total_items:,} {instance_type} with properties in the {selected_view.as_id()!r} view."
+            f"{prefix} {executor.total_items:,} {selected_instance_type} with properties in the {selected_view.as_id()!r} view."
         )
 
     def validate_model_access(self, validator: ValidateAccess, view: list[str] | None) -> None:
