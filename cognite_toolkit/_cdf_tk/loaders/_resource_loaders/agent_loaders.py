@@ -123,5 +123,7 @@ class AgentLoader(ResourceLoader[str, AgentUpsert, Agent, AgentUpsertList, Agent
         elif json_path == ("labels",):
             return diff_list_hashable(local, cdf)
         elif json_path == ("exampleQuestions",):
-            return diff_list_identifiable(local, cdf, get_identifier=lambda q: q.get("question", ""))
+            return diff_list_identifiable(
+                local, cdf, get_identifier=lambda q: q.get("question", "") if isinstance(q, dict) else str(q)
+            )
         return super().diff_list(local, cdf, json_path)
