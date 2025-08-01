@@ -1,8 +1,11 @@
+import re
 from collections.abc import Hashable
 
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
+
+INVALID_TITLE_REGEX = re.compile(r"[\\*?:/\[\]]")
 
 
 def suffix_description(
@@ -40,3 +43,18 @@ def suffix_description(
         )
         truncation = description_character_limit - len(suffix) - 3
         return f"{description[:truncation]}...{suffix}"
+
+
+def sanitize_spreadsheet_title(title: str) -> str:
+    """Sanitizes a title for use in a spreadsheet by removing invalid characters.
+
+    Args:
+        title: The original title to sanitize.
+
+    Returns:
+        str: The sanitized title with invalid characters removed.
+    """
+    if not title:
+        return "Sheet"
+    sanitized_title = INVALID_TITLE_REGEX.sub("", title)
+    return sanitized_title if sanitized_title else "Sheet"
