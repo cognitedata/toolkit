@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from cognite.client import global_config
 from cognite.client.data_classes import CreatedSession
 from pytest import MonkeyPatch
 
@@ -131,3 +132,11 @@ def capture_print(monkeypatch: MonkeyPatch) -> PrintCapture:
                 raise
 
     return capture
+
+
+@pytest.fixture
+def disable_gzip():
+    old = global_config.disable_gzip
+    global_config.disable_gzip = True
+    yield
+    global_config.disable_gzip = old
