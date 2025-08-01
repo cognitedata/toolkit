@@ -592,12 +592,15 @@ class WorkflowTriggerLoader(
         )
 
     def create(self, items: WorkflowTriggerUpsertList) -> WorkflowTriggerList:
+        return self._upsert(items)
+
+    def _upsert(self, items: WorkflowTriggerUpsertList) -> WorkflowTriggerList:
         created = WorkflowTriggerList([])
         for item in items:
-            created.append(self._create_item(item))
+            created.append(self._upsert_item(item))
         return created
 
-    def _create_item(self, item: WorkflowTriggerUpsert) -> WorkflowTrigger:
+    def _upsert_item(self, item: WorkflowTriggerUpsert) -> WorkflowTrigger:
         credentials = self._authentication_by_id.get(item.external_id)
         try:
             return self.client.workflows.triggers.upsert(item, credentials)
@@ -612,16 +615,7 @@ class WorkflowTriggerLoader(
         return WorkflowTriggerList([trigger for trigger in all_triggers if trigger.external_id in lookup])
 
     def update(self, items: WorkflowTriggerUpsertList) -> WorkflowTriggerList:
-        exising = self.client.workflows.triggers.list(limit=-1)
-        existing_lookup = {trigger.external_id: trigger for trigger in exising}
-        updated = WorkflowTriggerList([])
-        for item in items:
-            if item.external_id in existing_lookup:
-                self.client.workflows.triggers.delete(external_id=item.external_id)
-
-            created = self._create_item(item)
-            updated.append(created)
-        return updated
+        return self._upsert(items)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         successes = 0
