@@ -36,8 +36,9 @@ from cognite_toolkit._cdf_tk.utils.aggregators import (
     TimeSeriesAggregator,
 )
 from cognite_toolkit._cdf_tk.utils.cdf import get_transformation_sources, raw_row_count
-from cognite_toolkit._cdf_tk.utils.interactive_select import AssetCentricDestinationSelect
+from cognite_toolkit._cdf_tk.utils.interactive_select import AssetCentricDestinationSelect, AssetInteractiveSelect
 from cognite_toolkit._cdf_tk.utils.sql_parser import SQLParser, SQLTable
+from cognite_toolkit._cdf_tk.utils.text import sanitize_spreadsheet_title
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricDestinationType
 
 from ._base import ToolkitCommand
@@ -255,7 +256,9 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
         # Local import as this is an optional dependency
         from openpyxl import Workbook, load_workbook
 
-        sheet_name = (sheet or self.table_title)[:31]  # Limit title to 31 characters for Excel compatibility
+        sheet_name = sanitize_spreadsheet_title(sheet or self.table_title)[
+            :31
+        ]  # Limit title to 31 characters for Excel compatibility
         if output_spreadsheet.exists():
             try:
                 workbook = load_workbook(output_spreadsheet)
@@ -375,13 +378,15 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
         relationships, and labels in the specified hierarchy.
         """
         if hierarchy is None:
-            raise NotImplementedError("Interactive mode is not implemented yet. Please provide a hierarchy.")
+            self.hierarchy = AssetInteractiveSelect(client, "profile").select_hierarchy(allow_empty=False)
+        else:
+            self.hierarchy = hierarchy
         if profile_row_limit <= 0 or profile_row_limit > self.max_profile_row_limit:
             raise ToolkitValueError(
                 f"Profile row limit must be between 1 and {self.max_profile_row_limit}, got {profile_row_limit}."
             )
         self.hierarchy = hierarchy
-        self.table_title = f"Asset Profile for Hierarchy: {hierarchy}"
+        self.table_title = f"Asset Profile for Hierarchy: {self.hierarchy}"
         self.profile_row_limit = profile_row_limit
         self.aggregators = {
             agg.display_name: agg
