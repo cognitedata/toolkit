@@ -409,6 +409,8 @@ class WorkflowVersionLoader(
         return warnings
 
     def retrieve(self, ids: SequenceNotStr[WorkflowVersionId]) -> WorkflowVersionList:
+        if not ids:
+            return WorkflowVersionList([])
         return self.client.workflows.versions.retrieve(workflow_external_id=list(ids), ignore_unknown_ids=True)
 
     def _upsert(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
