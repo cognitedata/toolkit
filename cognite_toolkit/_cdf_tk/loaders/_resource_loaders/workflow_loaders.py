@@ -417,7 +417,7 @@ class WorkflowVersionLoader(
         return self.client.workflows.versions.retrieve(workflow_external_id=list(ids), ignore_unknown_ids=True)
 
     def _upsert(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
-        return WorkflowVersionList([self.client.workflows.versions.upsert(item) for item in items])
+        return self.client.workflows.versions.upsert(items)
 
     def create(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
         upserted: list[WorkflowVersion] = []
@@ -426,10 +426,7 @@ class WorkflowVersionLoader(
         return WorkflowVersionList(upserted)
 
     def update(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
-        updated = []
-        for item in items:
-            updated.append(self.client.workflows.versions.upsert(item))
-        return WorkflowVersionList(updated)
+        return self._upsert(items)
 
     def delete(self, ids: SequenceNotStr[WorkflowVersionId]) -> int:
         successes = 0
