@@ -361,8 +361,8 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
 
     is_dynamic_table = True
     max_profile_row_limit = 10_000  # The number of rows to profile to get the number of columns.
-    # The actual limit is 1 million, we typically run this against 30 tables and that high limit
-    # will cause 504 errors.
+    # The actual limit is 256 MB of data.
+    # Ref https://github.com/cognitedata/profiler-api/blob/main/src/main/scala/com/cognite/raw_profiler/Profile.scala#L37
     profile_timeout_seconds = 60 * 4  # Timeout for the profiling operation in seconds,
 
     def assets(
