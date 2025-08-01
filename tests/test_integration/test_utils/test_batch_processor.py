@@ -2,7 +2,7 @@ from cognite.client.data_classes.data_modeling import NodeId, Space
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteActivityApply
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
-from cognite_toolkit._cdf_tk.utils.batch_processor import HTTPBatchProcessor
+from cognite_toolkit._cdf_tk.utils.batch_processor import HTTPIterableProcessor
 
 
 class TestBatchProcessor:
@@ -19,7 +19,7 @@ class TestBatchProcessor:
             ).dump()
             for i in range(10)
         )
-        with HTTPBatchProcessor[NodeId](
+        with HTTPIterableProcessor[NodeId](
             endpoint_url=url,
             config=config,
             as_id=lambda item: NodeId(item["space"], item["externalId"]),
