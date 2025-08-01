@@ -50,8 +50,10 @@ def cognite_timeseries_2000_list() -> NodeList[CogniteTimeSeries]:
 
 
 @pytest.fixture()
-def purge_client(cognite_timeseries_2000_list: NodeList[CogniteTimeSeries]) -> Iterator[ToolkitClient]:
-    timeseries_by_node_id = {
+def timeseries_by_node_id(
+    cognite_timeseries_2000_list: NodeList[CogniteTimeSeries],
+) -> dict[NodeId, ExtendedTimeSeries]:
+    return {
         ts.as_id(): ExtendedTimeSeries(
             id=i,
             external_id=ts.external_id,
@@ -62,6 +64,12 @@ def purge_client(cognite_timeseries_2000_list: NodeList[CogniteTimeSeries]) -> I
         )
         for i, ts in enumerate(cognite_timeseries_2000_list)
     }
+
+
+@pytest.fixture()
+def purge_client(
+    cognite_timeseries_2000_list: NodeList[CogniteTimeSeries], timeseries_by_node_id: dict[NodeId, ExtendedTimeSeries]
+) -> Iterator[ToolkitClient]:
     timeseries_by_id = {ts.id: ts for ts in timeseries_by_node_id.values()}
 
     def retrieve_timeseries_mock(
@@ -144,7 +152,10 @@ def purge_client(cognite_timeseries_2000_list: NodeList[CogniteTimeSeries]) -> I
 
 
 class TestPurgeInstances:
-    def test_purge_dry_run_unlink(self, purge_client: ToolkitClient) -> None:
+    def test_purge_dry_run_unlink(
+        self, purge_client: ToolkitClient, timeseries_by_node_id: dict[NodeId, ExtendedTimeSeries]
+    ) -> None:
+        expected_node_ids = set(timeseries_by_node_id.keys())
         cmd = PurgeCommand(silent=True)
         cmd.instances(
             client=purge_client,
@@ -156,6 +167,12 @@ class TestPurgeInstances:
         )
 
         assert purge_client.time_series.retrieve_multiple.call_count == 2
+        actual_node_ids = {
+            node_id
+            for call in purge_client.time_series.retrieve_multiple.call_args_list
+            for node_id in call[1]["instance_ids"]
+        }
+        assert actual_node_ids == expected_node_ids
         assert purge_client.data_modeling.instances.delete_fast.call_count == 0
 
     def test_purge_dry_run(self, purge_client: ToolkitClient) -> None:
@@ -172,7 +189,11 @@ class TestPurgeInstances:
         assert purge_client.time_series.unlink_instance_ids.call_count == 0
         assert purge_client.data_modeling.instances.delete_fast.call_count == 0
 
-    def test_purge_unlink(self, purge_client: ToolkitClient) -> None:
+    def test_purge_unlink(
+        self, purge_client: ToolkitClient, timeseries_by_node_id: dict[NodeId, ExtendedTimeSeries]
+    ) -> None:
+        expected_node_ids = set(timeseries_by_node_id.keys())
+        expected_ids = {ts.id for ts in timeseries_by_node_id.values()}
         cmd = PurgeCommand(silent=True)
         cmd.instances(
             client=purge_client,
@@ -184,9 +205,21 @@ class TestPurgeInstances:
         )
 
         assert purge_client.time_series.unlink_instance_ids.call_count == 2
+        actual_ids = {
+            node_id for call in purge_client.time_series.unlink_instance_ids.call_args_list for node_id in call[1]["id"]
+        }
+        assert actual_ids == expected_ids
         assert purge_client.data_modeling.instances.delete_fast.call_count == 2
+        actual_node_ids = {
+            node_id
+            for call in purge_client.data_modeling.instances.delete_fast.call_args_list
+            for node_id in call[0][0]
+        }
+        assert actual_node_ids == expected_node_ids
 
-    def test_purge(self, purge_client: ToolkitClient) -> None:
+    def test_purge(self, purge_client: ToolkitClient, timeseries_by_node_id: dict[NodeId, ExtendedTimeSeries]) -> None:
+        expected_node_ids = set(timeseries_by_node_id.keys())
+
         cmd = PurgeCommand(silent=True)
         cmd.instances(
             client=purge_client,
@@ -198,4 +231,10 @@ class TestPurgeInstances:
         )
 
         assert purge_client.time_series.unlink_instance_ids.call_count == 0
+        actual_node_ids = {
+            node_id
+            for call in purge_client.data_modeling.instances.delete_fast.call_args_list
+            for node_id in call[0][0]
+        }
         assert purge_client.data_modeling.instances.delete_fast.call_count == 2
+        assert actual_node_ids == expected_node_ids
