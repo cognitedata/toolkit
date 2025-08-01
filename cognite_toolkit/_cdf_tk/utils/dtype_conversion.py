@@ -34,12 +34,41 @@ def convert_to_primary_property(
     """
     dtype = type_._type
     if dtype in CONVERTER_BY_DTYPE:
-        converter = CONVERTER_BY_DTYPE[dtype]
+        converter_cls = CONVERTER_BY_DTYPE[dtype]
     else:
         raise TypeError(f"Unsupported property type {dtype}")
+    converter = converter_cls(type_, nullable)
     if isinstance(type_, ListablePropertyType) and type_.is_list:
-        raise NotImplementedError(f"Listable property type {dtype} is not supported")
-    return converter(type_, nullable).convert(value)
+        values = _as_list(value)
+        output: list[PropertyValueWrite] = []
+        for item in values:
+            converted = converter.convert(item)  # type: ignore[arg-type]
+            if converted is not None:
+                output.append(converted)
+        # MyPy gets confused by the SequenceNotStr used in the PropertyValueWrite
+        return output  # type: ignore[return-value]
+    else:
+        return converter.convert(value)
+
+
+def _as_list(value: str | int | float | bool | dict[str, object] | list[object] | None) -> list[object]:
+    """Convert a value to a list, ensuring that it is iterable."""
+    if value is None:
+        return []
+    elif isinstance(value, list):
+        return value
+    elif isinstance(value, str) and value.strip() == "":
+        return []
+    elif isinstance(value, str):
+        try:
+            data = json.loads(value)
+            return data if isinstance(data, list) else [data]
+        except json.JSONDecodeError:
+            return [value]
+    elif isinstance(value, int | float | bool | dict):
+        return [value]
+    else:
+        raise TypeError(f"Cannot convert {value} of type {type(value)} to a list.")
 
 
 class _Converter(ABC):
@@ -51,6 +80,7 @@ class _Converter(ABC):
 
 class _ValueConverter(_Converter, ABC):
     type_str: ClassVar[str]
+    _handles_list: ClassVar[bool] = False
 
     def __init__(self, type_: PropertyType, nullable: bool):
         self.type = type_
@@ -61,9 +91,10 @@ class _ValueConverter(_Converter, ABC):
             raise ValueError("Cannot convert None to a non-nullable property.")
         elif value is None:
             return None
-        elif isinstance(value, list):
-            raise ToolkitNotSupported("List values are not supported for this property type.")
-        return self._convert(value)
+        elif isinstance(value, list) and not self._handles_list:
+            raise ValueError(f"Expected a single value for {self.type_str}, but got a list.")
+        # If the value is a list, we handle it in the subclass if it supports lists.
+        return self._convert(value)  # type: ignore[arg-type]
 
     @abstractmethod
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
@@ -170,8 +201,9 @@ class _Float64Converter(_ValueConverter):
 
 class _JsonConverter(_ValueConverter):
     type_str = "json"
+    _handles_list = True
 
-    def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
+    def _convert(self, value: str | int | float | bool | dict[str, object] | list) -> PropertyValueWrite:
         if isinstance(value, bool | int | float):
             return value
         elif isinstance(value, dict):
@@ -180,6 +212,10 @@ class _JsonConverter(_ValueConverter):
                     f"JSON keys must be strings. Found non-string keys: {humanize_collection(non_string_keys)}"
                 )
             return value  # type: ignore[return-value]
+        elif isinstance(value, list):
+            if not all(isinstance(item, str | int | float | bool | dict | list) for item in value):
+                raise ValueError("All items in the list must be of type str, int, float, bool, dict, or list.")
+            return value
         elif isinstance(value, str):
             try:
                 return json.loads(value)
