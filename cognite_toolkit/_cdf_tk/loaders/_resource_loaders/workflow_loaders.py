@@ -142,7 +142,7 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
 
     def retrieve(self, ids: SequenceNotStr[str]) -> WorkflowList:
         # The method has ignore_unknown_ids=True, but there is a bug in the cognite-SDK overload of the retrieve method
-        return self.client.workflows.retrieve(external_id=ids, ignore_unknown_ids=False)  # type: ignore[call-overload]
+        return self.client.workflows.retrieve(external_id=ids, ignore_unknown_ids=True)  # type: ignore[call-overload]
 
     def _upsert(self, items: WorkflowUpsert | WorkflowUpsertList) -> WorkflowList:
         upserts = [items] if isinstance(items, WorkflowUpsert) else items
