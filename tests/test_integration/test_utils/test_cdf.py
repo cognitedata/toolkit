@@ -355,23 +355,6 @@ class TestLabelCount:
 
 
 @pytest.fixture()
-def disable_throttler(
-    toolkit_client: ToolkitClient,
-) -> None:
-    def no_op(*args, **kwargs) -> None:
-        """No operation function to replace the write_last_call_epoc function."""
-        pass
-
-    always_enabled = MagicMock(spec=ThrottlerState)
-    # We mock the TrottlerState the mock object will always pass the throttling check.
-    always_enabled.get.return_value = MagicMock(spec=ThrottlerState)
-    with (
-        patch(f"{raw_row_count.__module__}.ThrottlerState", always_enabled),
-    ):
-        yield
-
-
-@pytest.fixture()
 def mocked_tempfile(tmp_path: Path) -> Iterable[Path]:
     """Mock tempfile.gettempdir to return a specific temporary directory."""
     fake_tempdir = MagicMock()

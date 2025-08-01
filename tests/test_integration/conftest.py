@@ -1,6 +1,7 @@
 import os
 import shutil
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 from cognite.client import CogniteClient, global_config
@@ -30,6 +31,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawData
 from cognite_toolkit._cdf_tk.commands import CollectCommand
 from cognite_toolkit._cdf_tk.loaders import RawDatabaseLoader, RawTableLoader
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.cdf import ThrottlerState, raw_row_count
 from tests.constants import REPO_ROOT
 from tests.test_integration.constants import (
     ASSET_COUNT,
@@ -549,3 +551,20 @@ FROM `{aggregator_raw_db}`.`{table_name}`""",
     )
     created = upsert_transformation_with_run(toolkit_client, transformation)
     return created
+
+
+@pytest.fixture()
+def disable_throttler(
+    toolkit_client: ToolkitClient,
+) -> None:
+    def no_op(*args, **kwargs) -> None:
+        """No operation function to replace the write_last_call_epoc function."""
+        pass
+
+    always_enabled = MagicMock(spec=ThrottlerState)
+    # We mock the TrottlerState the mock object will always pass the throttling check.
+    always_enabled.get.return_value = MagicMock(spec=ThrottlerState)
+    with (
+        patch(f"{raw_row_count.__module__}.ThrottlerState", always_enabled),
+    ):
+        yield
