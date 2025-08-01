@@ -66,7 +66,6 @@ from cognite_toolkit._cdf_tk.utils import (
     to_directory_compatible,
 )
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
-from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 
 from .auth_loaders import GroupAllScopedLoader
@@ -415,13 +414,7 @@ class WorkflowVersionLoader(
         return warnings
 
     def retrieve(self, ids: SequenceNotStr[WorkflowVersionId]) -> WorkflowVersionList:
-        retrieved = WorkflowVersionList([])
-        if not ids:
-            return retrieved
-        for chunk in chunker(ids, self._list_workflow_filter_limit):
-            retrieved_chunk = self.client.workflows.versions.list(chunk)
-            retrieved.extend(retrieved_chunk)
-        return retrieved
+        return self.client.workflows.versions.retrieve(workflow_external_id=list(ids), ignore_unknown_ids=True)
 
     def _upsert(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
         return WorkflowVersionList([self.client.workflows.versions.upsert(item) for item in items])
