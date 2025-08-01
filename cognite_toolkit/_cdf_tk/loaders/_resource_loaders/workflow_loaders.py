@@ -417,7 +417,7 @@ class WorkflowVersionLoader(
     def create(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
         upserted: list[WorkflowVersion] = []
         for item in self.topological_sort(items):
-            upserted.append(self.client.workflows.versions.upsert(item))
+            upserted.extend(self.client.workflows.versions.upsert([item]))
         return WorkflowVersionList(upserted)
 
     def update(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
