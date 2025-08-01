@@ -93,7 +93,7 @@ class AgentLoader(ResourceLoader[str, AgentUpsert, Agent, AgentUpsertList, Agent
         # not part of the official API. For example, as of 31.July 2025, `labels` is not part of the API, however,
         # this is necessary to ensure that the agents are shown as published in the UI, so we cannot ignore it.
         # The below logic ensures that we keep the unknown properties returned by the API, such that when we run
-        # cdf dump agents, we will not lose any properties that are not part of the official API.
+        # `cdf dump agents` we will not lose any properties that are not part of the official API.
         if hasattr(resource, "_unknown_properties") and resource._unknown_properties:
             dumped.update(resource._unknown_properties)
         if local is None:
