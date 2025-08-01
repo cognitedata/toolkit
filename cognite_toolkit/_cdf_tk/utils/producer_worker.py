@@ -71,8 +71,9 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         self.process_description = process_description
         self.write_description = write_description
         self.console = console or Console()
+        self._stop_event = threading.Event()
 
-        self.download_complete = False
+        self.download_terminated = False
         self.is_processing = False
 
         # Queues for managing the flow of data between threads
@@ -84,7 +85,16 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         self.error_occurred = False
         self.error_message = ""
 
+        self.stopped_by_user = False
+
     def run(self) -> None:
+        def user_input_listener() -> None:
+            input()
+            self._stop_event.set()
+            self.stopped_by_user = True
+            self.console.print("[yellow]Execution stopped by user.[/yellow]")
+
+        self.console.print(f"[blue]Starting {self.download_description} (Press enter to stop)...[/blue]")
         with Progress(
             TextColumn("[bold blue]{task.description}"),
             BarColumn(),
@@ -104,10 +114,19 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
             process_thread.start()
             write_thread.start()
 
-            # Wait for all threads to finish
-            download_thread.join()
-            process_thread.join()
-            write_thread.join()
+            input_thread = threading.Thread(target=user_input_listener, daemon=True)
+            input_thread.start()
+
+            for t in [download_thread, process_thread, write_thread]:
+                try:
+                    t.join()
+                except KeyboardInterrupt:
+                    self.console.print("[red]Execution interrupted by user.[/red]")
+                    self.stopped_by_user = True
+                    self._stop_event.set()
+                    break
+
+            self._stop_event.set()
 
     def _download_worker(self, progress: Progress, download_task: TaskID) -> None:
         """Worker thread for downloading data."""
@@ -118,7 +137,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
             self.error_message = str(e)
             self.console.print(f"[red]Error[/red] occurred while {self.download_description}: {self.error_message}")
             return
-        while not self.error_occurred:
+        while not self.error_occurred and not self._stop_event.is_set():
             try:
                 items = next(iterator)
                 self.total_items += len(items)
@@ -131,18 +150,20 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                         # Retry until the queue has space
                         continue
             except StopIteration:
-                self.download_complete = True
+                self.download_terminated = True
                 break
             except Exception as e:
                 self.error_occurred = True
                 self.error_message = str(e)
                 self.console.print(f"[red]Error[/red] occurred while {self.download_description}: {self.error_message}")
                 break
+        if self._stop_event.is_set():
+            self.download_terminated = True
 
     def _process_worker(self, progress: Progress, process_task: TaskID) -> None:
         """Worker thread for processing data."""
         self.is_processing = True
-        while (not self.download_complete or not self.process_queue.empty()) and not self.error_occurred:
+        while (not self.download_terminated or not self.process_queue.empty()) and not self.error_occurred:
             try:
                 items = self.process_queue.get(timeout=0.5)
                 processed_items = self._process(items)
@@ -163,7 +184,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
     def _write_worker(self, progress: Progress, write_task: TaskID) -> None:
         """Worker thread for writing data to file."""
         while (
-            not self.download_complete
+            not self.download_terminated
             or self.is_processing
             or not self.write_queue.empty()
             or not self.process_queue.empty()
