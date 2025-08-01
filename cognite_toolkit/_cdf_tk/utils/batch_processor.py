@@ -8,7 +8,7 @@ from collections.abc import Callable, Hashable, Iterable, MutableMapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from queue import Queue
-from typing import Generic, Literal, TypeVar
+from typing import Generic, Literal, TypeAlias, TypeVar
 
 import requests
 import urllib3
@@ -27,6 +27,8 @@ from cognite_toolkit._cdf_tk.utils.auxiliary import get_current_toolkit_version
 from .useful_types import JsonVal
 
 T_ID = TypeVar("T_ID", bound=Hashable)
+StatusCode: TypeAlias = int
+Count: TypeAlias = int
 
 
 @dataclass(frozen=True)
@@ -59,7 +61,7 @@ class ProcessorResult(Generic[T_ID]):
     successful_items: list[SuccessItem[T_ID]] = field(default_factory=list)
     failed_items: list[FailedItem[T_ID]] = field(default_factory=list)
     unknown_items: list[FailedItem[str]] = field(default_factory=list)
-    error_summary: dict[int, int] = field(default_factory=dict)  # status_code -> count
+    error_summary: dict[StatusCode, Count] = field(default_factory=dict)
     producer_error: Exception | None = None
 
     @property
