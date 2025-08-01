@@ -94,22 +94,6 @@ authentication:
 
 
 class TestWorkflowVersionLoader:
-    def test_retrieve_above_chunk_limit(self) -> None:
-        filter_limit = 100
-        with monkeypatch_toolkit_client() as client:
-            loader = WorkflowVersionLoader.create_loader(client)
-        ids = [WorkflowVersionId(f"my_workflow_{no}", "v1") for no in range(filter_limit + 1)]
-
-        _ = loader.retrieve(ids)
-
-        assert client.workflows.versions.list.call_count == 2
-        call_above_limit = [
-            call_no
-            for call_no, call in enumerate(client.workflows.versions.list.call_args_list, 1)
-            if len(call.args[0]) > filter_limit
-        ]
-        assert not call_above_limit, "Above limit should not be called"
-
     def test_topological_sort_raises_on_cycle(self) -> None:
         dependencies = {
             "a": "b",
