@@ -73,7 +73,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         self.console = console or Console()
         self._stop_event = threading.Event()
 
-        self.download_complete = False
+        self.download_terminated = False
         self.is_processing = False
 
         # Queues for managing the flow of data between threads
@@ -150,7 +150,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                         # Retry until the queue has space
                         continue
             except StopIteration:
-                self.download_complete = True
+                self.download_terminated = True
                 break
             except Exception as e:
                 self.error_occurred = True
@@ -158,12 +158,12 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 self.console.print(f"[red]Error[/red] occurred while {self.download_description}: {self.error_message}")
                 break
         if self._stop_event.is_set():
-            self.download_complete = True
+            self.download_terminated = True
 
     def _process_worker(self, progress: Progress, process_task: TaskID) -> None:
         """Worker thread for processing data."""
         self.is_processing = True
-        while (not self.download_complete or not self.process_queue.empty()) and not self.error_occurred:
+        while (not self.download_terminated or not self.process_queue.empty()) and not self.error_occurred:
             try:
                 items = self.process_queue.get(timeout=0.5)
                 processed_items = self._process(items)
@@ -184,7 +184,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
     def _write_worker(self, progress: Progress, write_task: TaskID) -> None:
         """Worker thread for writing data to file."""
         while (
-            not self.download_complete
+            not self.download_terminated
             or self.is_processing
             or not self.write_queue.empty()
             or not self.process_queue.empty()
