@@ -1,7 +1,7 @@
 import time
 
 from cognite.client.data_classes import FileMetadata, FileMetadataWrite
-from cognite.client.data_classes.data_modeling import NodeApplyResultList
+from cognite.client.data_classes.data_modeling import NodeApplyResultList, Space
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -50,9 +50,9 @@ class TestExtendedFilesAPI:
                 # This will delete the CogniteFile and the asset-centric file
                 client.data_modeling.instances.delete(cognite_file.as_id())
 
-    def test_unlink_instance_ids(self, dev_cluster_client: ToolkitClient, dev_space: str) -> None:
-        client = dev_cluster_client
-        space = dev_space
+    def test_unlink_instance_ids(self, toolkit_client_with_pending_ids: ToolkitClient, toolkit_space: Space) -> None:
+        client = toolkit_client_with_pending_ids
+        space = toolkit_space.space
         metadata = FileMetadataWrite(
             external_id="file_toolkit_integration_test_unlink",
             name="Toolkit Integration Test Unlink",
