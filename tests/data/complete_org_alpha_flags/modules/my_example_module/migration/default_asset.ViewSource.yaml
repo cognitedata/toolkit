@@ -1,0 +1,12 @@
+externalId: testing_default_asset_mapping
+resourceType: asset
+viewId:
+  space: cdf_cdm
+  externalId: CogniteAsset
+  version: v1
+mapping:
+  toPropertyId:
+    name: name
+    description: description
+  metadataToPropertyId:
+    altName: alias
