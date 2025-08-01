@@ -141,16 +141,11 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
         return dumped
 
     def retrieve(self, ids: SequenceNotStr[str]) -> WorkflowList:
-        workflows = []
-        for ext_id in ids:
-            workflow = self.client.workflows.retrieve(external_id=ext_id)
-            if workflow:
-                workflows.append(workflow)
-        return WorkflowList(workflows)
+        return self.client.workflows.retrieve(external_id=ids)
 
     def _upsert(self, items: WorkflowUpsert | WorkflowUpsertList) -> WorkflowList:
         upserts = [items] if isinstance(items, WorkflowUpsert) else items
-        return WorkflowList([self.client.workflows.upsert(upsert) for upsert in upserts])
+        return self.client.workflows.upsert(upserts)
 
     def create(self, items: WorkflowUpsert | WorkflowUpsertList) -> WorkflowList:
         return self._upsert(items)
