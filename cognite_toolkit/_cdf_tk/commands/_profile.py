@@ -591,6 +591,9 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
                     if col == self.Columns.RawTable:
                         new_table[(new_index, col)] = str(source)
                     elif col == self.Columns.RowCount:
+                        # This will be updated by the ColumnCount API call which equals the /profiler/raw endpoint.
+                        # If the profiles is not complete, we set it to WaitingAPICall to get the
+                        # row count from the transformation preview.
                         new_table[(new_index, col)] = None
                     elif col == self.Columns.ColumnCount:
                         new_table[(new_index, col)] = WaitingAPICall
@@ -615,6 +618,8 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
                 continue
             is_complete = result.is_complete and result.row_count < self.profile_row_limit
             if col == self.Columns.RowCount:
+                # If the profile is complete, we can use the row count directly.
+                # If not we set it to WaitingAPICall to get the row count from the transformation preview.
                 new_table[(row, col)] = result.row_count if is_complete else WaitingAPICall
             elif col == self.Columns.ColumnCount:
                 new_table[(row, col)] = result.column_count if is_complete else f"≥{result.column_count:,}"
