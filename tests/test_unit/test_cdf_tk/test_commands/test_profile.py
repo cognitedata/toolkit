@@ -22,12 +22,12 @@ from tests.test_unit.approval_client import ApprovalToolkitClient
 @pytest.fixture()
 def raw_profile_results_single_column() -> RawProfileResults:
     return RawProfileResults(
-        row_count=ProfileRawCommand.profile_row_limit,
+        row_count=ProfileRawCommand.marx_profile_raw_count,
         columns=RawProfileColumns(
             {
                 "externalId": StringProfileColumn(
                     count=500,
-                    null_count=ProfileRawCommand.profile_row_limit - 500,
+                    null_count=ProfileRawCommand.marx_profile_raw_count - 500,
                     string=StringProfile(
                         length_range=(1, 10),
                         distinct_count=500,

@@ -385,7 +385,6 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
             raise ToolkitValueError(
                 f"Profile row limit must be between 1 and {self.max_profile_row_limit}, got {profile_row_limit}."
             )
-        self.hierarchy = hierarchy
         self.table_title = f"Asset Profile for Hierarchy: {self.hierarchy}"
         self.profile_row_limit = profile_row_limit
         self.aggregators = {
@@ -766,9 +765,9 @@ class ProfileRawCommand(ProfileCommand[RawProfileIndex]):
         Destination = "Destination"
         ConflictMode = "ConflictMode"
 
-    profile_row_limit = 10_000  # The number of rows to profile to get the number of columns.
-    # The actual limit is 1 million, we typically run this against 30 tables and that high limit
-    # will cause 504 errors.
+    marx_profile_raw_count = 10_000  # The number of rows to profile to get the number of columns.
+    # The actual limit is 256 MB of data.
+    # Ref https://github.com/cognitedata/profiler-api/blob/main/src/main/scala/com/cognite/raw_profiler/Profile.scala#L37
     profile_timeout_seconds = 60 * 4  # Timeout for the profiling operation in seconds,
     # This is the same ase the run/query maximum timeout.
 
@@ -812,6 +811,10 @@ class ProfileRawCommand(ProfileCommand[RawProfileIndex]):
                     table[(index, self.Columns.Rows)] = "N/A"
                     table[(index, self.Columns.Columns)] = "N/A"
                 else:
+                    # First, we request the API to get the column count. This uses the /profiler/raw endpoint,
+                    # and if that is a complete profile, it will update the row count as well. If it is not complete,
+                    # the raw count will be obtained from the transformation/preview endpoint by setting the
+                    # table[(index, self.Columns.Rows)] to WaitingAPICall.
                     table[(index, self.Columns.Rows)] = None
                     table[(index, self.Columns.Columns)] = WaitingAPICall
                 table[(index, self.Columns.Transformation)] = f"{transformation.name} ({transformation.external_id})"
@@ -827,7 +830,7 @@ class ProfileRawCommand(ProfileCommand[RawProfileIndex]):
                 client.raw.profile,
                 database=row.raw_table.db_name,
                 table=row.raw_table.table_name,
-                limit=self.profile_row_limit,
+                limit=self.marx_profile_raw_count,
                 timeout_seconds=self.profile_timeout_seconds,
             )
         elif col == self.Columns.Rows:
@@ -850,7 +853,7 @@ class ProfileRawCommand(ProfileCommand[RawProfileIndex]):
             return None
         if isinstance(result, int | float | bool | str) or result is None:
             return result
-        elif isinstance(result, RawProfileResults):
+        elif isinstance(result, RawProfileResults) and col == self.Columns.Columns:
             return result.column_count
         raise ValueError(f"Unknown result type: {type(result)} for {row!s} in column {col}.")
 
@@ -863,7 +866,7 @@ class ProfileRawCommand(ProfileCommand[RawProfileIndex]):
     ) -> dict[tuple[RawProfileIndex, str], PendingCellValue]:
         if not isinstance(result, RawProfileResults) or selected_col != self.Columns.Columns:
             return current_table
-        is_complete = result.is_complete and result.row_count < self.profile_row_limit
+        is_complete = result.is_complete and result.row_count < self.marx_profile_raw_count
         new_table: dict[tuple[RawProfileIndex, str], PendingCellValue] = {}
         for (row, col), value in current_table.items():
             if row == selected_row and col == self.Columns.Rows:
