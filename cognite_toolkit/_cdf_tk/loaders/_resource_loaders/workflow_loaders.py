@@ -350,7 +350,7 @@ class WorkflowVersionLoader(
                 elif (
                     key in local_task
                     and local_task[key] is None
-                    and (cdf_task.get(key) == default_value or cdf_task.get(key) is None)
+                    and cdf_task.get(key) == default_value
                 ):
                     cdf_task[key] = None
 
