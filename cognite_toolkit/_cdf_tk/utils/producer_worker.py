@@ -197,6 +197,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
     def _process_worker(self, progress: Progress, process_task: TaskID) -> None:
         """Worker thread for processing data."""
         self.is_processing = True
+        item_count = 0
         while (not self.download_terminated or not self.process_queue.empty()) and not self.error_occurred:
             try:
                 items = self.process_queue.get(timeout=0.5)
