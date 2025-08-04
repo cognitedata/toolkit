@@ -66,7 +66,6 @@ from cognite_toolkit._cdf_tk.utils import (
     to_directory_compatible,
 )
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
-from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 
 from .auth_loaders import GroupAllScopedLoader
@@ -142,16 +141,12 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
         return dumped
 
     def retrieve(self, ids: SequenceNotStr[str]) -> WorkflowList:
-        workflows = []
-        for ext_id in ids:
-            workflow = self.client.workflows.retrieve(external_id=ext_id)
-            if workflow:
-                workflows.append(workflow)
-        return WorkflowList(workflows)
+        # The method has ignore_unknown_ids=True, but there is a bug in the cognite-SDK overload of the retrieve method
+        return self.client.workflows.retrieve(external_id=ids, ignore_unknown_ids=True)  # type: ignore[call-overload]
 
     def _upsert(self, items: WorkflowUpsert | WorkflowUpsertList) -> WorkflowList:
         upserts = [items] if isinstance(items, WorkflowUpsert) else items
-        return WorkflowList([self.client.workflows.upsert(upsert) for upsert in upserts])
+        return self.client.workflows.upsert(upserts)
 
     def create(self, items: WorkflowUpsert | WorkflowUpsertList) -> WorkflowList:
         return self._upsert(items)
@@ -421,28 +416,21 @@ class WorkflowVersionLoader(
         return warnings
 
     def retrieve(self, ids: SequenceNotStr[WorkflowVersionId]) -> WorkflowVersionList:
-        retrieved = WorkflowVersionList([])
         if not ids:
-            return retrieved
-        for chunk in chunker(ids, self._list_workflow_filter_limit):
-            retrieved_chunk = self.client.workflows.versions.list(chunk)
-            retrieved.extend(retrieved_chunk)
-        return retrieved
+            return WorkflowVersionList([])
+        return self.client.workflows.versions.retrieve(workflow_external_id=list(ids), ignore_unknown_ids=True)
 
     def _upsert(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
-        return WorkflowVersionList([self.client.workflows.versions.upsert(item) for item in items])
+        return self.client.workflows.versions.upsert(items)
 
     def create(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
         upserted: list[WorkflowVersion] = []
         for item in self.topological_sort(items):
-            upserted.append(self.client.workflows.versions.upsert(item))
+            upserted.extend(self.client.workflows.versions.upsert([item]))
         return WorkflowVersionList(upserted)
 
     def update(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
-        updated = []
-        for item in items:
-            updated.append(self.client.workflows.versions.upsert(item))
-        return WorkflowVersionList(updated)
+        return self._upsert(items)
 
     def delete(self, ids: SequenceNotStr[WorkflowVersionId]) -> int:
         successes = 0
