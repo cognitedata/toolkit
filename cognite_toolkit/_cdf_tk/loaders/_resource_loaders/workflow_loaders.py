@@ -342,7 +342,11 @@ class WorkflowVersionLoader(
             for key, default_value in [("retries", 3), ("timeout", 3600), ("onFailure", "abortWorkflow")]:
                 if key not in local_task and cdf_task.get(key) == default_value:
                     del cdf_task[key]
-                elif key in local_task and local_task[key] is None and cdf_task.get(key) == default_value:
+                elif (
+                    key in local_task
+                    and local_task[key] is None
+                    and (cdf_task.get(key) == default_value or key not in cdf_task)
+                ):
                     cdf_task[key] = None
 
             if local_task["type"] == "function" and cdf_task["type"] == "function":
