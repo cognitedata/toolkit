@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.fileio import (
     COMPRESSION_BY_NAME,
     COMPRESSION_BY_SUFFIX,
@@ -39,3 +40,9 @@ class TestCompression:
             content = file.read()
 
         assert content == "Test content"
+
+    def test_all_compression_classes_registered(self) -> None:
+        expected_compressions = get_concrete_subclasses(Compression)
+
+        assert set(COMPRESSION_BY_NAME.values()) == set(expected_compressions)
+        assert set(COMPRESSION_BY_SUFFIX.values()) == set(expected_compressions)
