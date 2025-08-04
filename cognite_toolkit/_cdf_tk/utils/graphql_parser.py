@@ -196,7 +196,7 @@ class _Directive:
                 continue
             elif current == "\n":
                 standardized.append(",")
-            elif current in ")}]" and next_ != "\n)}]":
+            elif current in ")}]" and next_ not in "\n)}]":
                 # If we are at the end of a parenthesis, we need to add a comma
                 # to separate the next item
                 standardized.append(current + ",")
