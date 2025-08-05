@@ -376,5 +376,6 @@ class TestDumpGroups:
 
         filepaths = list(loader.find_files(tmp_path))
         assert len(filepaths) == 2
-        items = [read_yaml_file(filepath) for filepath in filepaths]
-        assert items == [loader.dump_resource(group) for group in three_groups[1:]]
+        items = sorted([read_yaml_file(filepath) for filepath in filepaths], key=lambda d: d.get("name"))
+        expected = sorted([loader.dump_resource(group) for group in three_groups[1:]], key=lambda d: d.get("name"))
+        assert items == expected
