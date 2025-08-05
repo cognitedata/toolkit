@@ -311,7 +311,7 @@ class TransformationFinder(ResourceFinder[tuple[str, ...]]):
 class GroupFinder(ResourceFinder[tuple[str, ...]]):
     def __init__(self, client: ToolkitClient, identifier: tuple[str, ...] | None = None):
         super().__init__(client, identifier)
-        self.groups: GroupList | None = None
+        self.groups: list[Group] | None = None
 
     def _interactive_select(self) -> tuple[str, ...]:
         groups = self.client.iam.groups.list(all=True)
