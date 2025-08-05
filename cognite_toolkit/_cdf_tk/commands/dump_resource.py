@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from collections import defaultdict
 from collections.abc import Hashable, Iterable, Iterator
 from functools import cached_property
 from pathlib import Path
@@ -307,32 +308,36 @@ class TransformationFinder(ResourceFinder[tuple[str, ...]]):
         yield [], notification_list, notification_loader, None
 
 
-class GroupFinder(ResourceFinder[str]):
-    def __init__(self, client: ToolkitClient, identifier: str | None = None):
+class GroupFinder(ResourceFinder[tuple[str, ...]]):
+    def __init__(self, client: ToolkitClient, identifier: tuple[str, ...] | None = None):
         super().__init__(client, identifier)
-        self.group: Group | None = None
+        self.groups: GroupList | None = None
 
-    def _interactive_select(self) -> str:
+    def _interactive_select(self) -> tuple[str, ...]:
         groups = self.client.iam.groups.list(all=True)
         if not groups:
             raise ToolkitMissingResourceError("No groups found")
-        group_names = [group.name for group in groups]
-        selected_group_name: str = questionary.select(
-            "Which group would you like to dump?",
-            [Choice(group, value=group) for group in group_names],
-        ).ask()
+        groups_by_name: dict[str, list[Group]] = defaultdict(list)
         for group in groups:
-            if group.name == selected_group_name:
-                self.group = group
-                break
-        return selected_group_name
+            groups_by_name[group.name].append(group)
+        selected_groups: list[list[Group]] | None = questionary.checkbox(
+            "Which group(s) would you like to dump?",
+            choices=[
+                Choice(f"{group_name} ({len(groups)} group{'s' if len(groups) > 1 else ''})", value=groups)
+                for group_name, groups in groups_by_name.items()
+            ],
+        ).ask()
+        if selected_groups is None:
+            raise ToolkitValueError("No group selected for dumping. Aborting...")
+        self.groups = [group for group_list in selected_groups for group in group_list]
+        return tuple(group_list[0].name for group_list in selected_groups)
 
     def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
         self.identifier = self._selected()
-        if self.group:
-            yield [], GroupList([self.group]), GroupLoader.create_loader(self.client), None
+        if self.groups:
+            yield [], GroupList(self.groups), GroupLoader.create_loader(self.client), None
         else:
-            yield [self.identifier], None, GroupLoader.create_loader(self.client), None
+            yield list(self.identifier), None, GroupLoader.create_loader(self.client), None
 
 
 class AgentFinder(ResourceFinder[tuple[str, ...]]):
