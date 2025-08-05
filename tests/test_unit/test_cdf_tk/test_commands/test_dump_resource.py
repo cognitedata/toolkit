@@ -6,11 +6,16 @@ from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
     ExtractionPipeline,
     ExtractionPipelineList,
+    Group,
+    GroupList,
     Transformation,
     TransformationList,
     TransformationScheduleList,
 )
 from cognite.client.data_classes.agents import Agent, AgentList, AskDocumentAgentTool
+from cognite.client.data_classes.capabilities import (
+    TimeSeriesAcl,
+)
 from cognite.client.exceptions import CogniteAPIError
 from questionary import Choice
 
@@ -21,12 +26,14 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
     DataModelFinder,
     DumpResourceCommand,
     ExtractionPipelineFinder,
+    GroupFinder,
     LocationFilterFinder,
     TransformationFinder,
 )
 from cognite_toolkit._cdf_tk.loaders import (
     AgentLoader,
     ExtractionPipelineLoader,
+    GroupAllScopedLoader,
     LocationFilterLoader,
     TransformationLoader,
 )
@@ -307,3 +314,67 @@ class TestDumpExtractionPipeline:
                 key=lambda d: d.get("external_id", d.get("externalId")),
             )
             assert items == expected
+
+
+@pytest.fixture()
+def three_groups() -> GroupList:
+    return GroupList(
+        [
+            Group(
+                "Group A",
+                source_id="123",
+                capabilities=[TimeSeriesAcl([TimeSeriesAcl.Action.Read], TimeSeriesAcl.Scope.All())],
+            ),
+            Group(
+                "Group B",
+                source_id="456",
+                capabilities=[TimeSeriesAcl([TimeSeriesAcl.Action.Write], TimeSeriesAcl.Scope.All())],
+            ),
+            Group(
+                "Group C",
+                source_id="789",
+                capabilities=[
+                    TimeSeriesAcl([TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write], TimeSeriesAcl.Scope.All())
+                ],
+            ),
+        ]
+    )
+
+
+class TestGroupFinder:
+    def test_select_groups(self, three_groups: GroupList, monkeypatch: MonkeyPatch) -> None:
+        def select_groups(choices: list[Choice]) -> list[str]:
+            assert len(choices) == len(three_groups)
+            return [choices[1].value, choices[2].value]
+
+        answers = [select_groups]
+
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(GroupFinder.__module__, monkeypatch, answers),
+        ):
+            client.iam.groups.list.return_value = three_groups
+            finder = GroupFinder(client, None)
+            selected = finder._interactive_select()
+
+        assert selected == ("Group B", "Group C")
+
+
+class TestDumpGroups:
+    def test_dump_groups(self, three_groups: GroupList, tmp_path: Path) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.iam.groups.list.return_value = three_groups
+
+            cmd = DumpResourceCommand(silent=True)
+            cmd.dump_to_yamls(
+                GroupFinder(client, ("Group B", "Group C")),
+                output_dir=tmp_path,
+                clean=False,
+                verbose=False,
+            )
+            loader = GroupAllScopedLoader(client, None, None)
+
+        filepaths = list(loader.find_files(tmp_path))
+        assert len(filepaths) == 2
+        items = [read_yaml_file(filepath) for filepath in filepaths]
+        assert items == [loader.dump_resource(group) for group in three_groups[1:]]
