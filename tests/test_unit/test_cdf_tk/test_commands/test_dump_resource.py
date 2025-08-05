@@ -343,7 +343,7 @@ def three_groups() -> GroupList:
 
 class TestGroupFinder:
     def test_select_groups(self, three_groups: GroupList, monkeypatch: MonkeyPatch) -> None:
-        def select_groups(choices: list[Choice]) -> list[str]:
+        def select_groups(choices: list[Choice]) -> list[list[Group]]:
             assert len(choices) == len(three_groups)
             return [choices[1].value, choices[2].value]
 
