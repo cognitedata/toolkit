@@ -323,8 +323,8 @@ class GroupFinder(ResourceFinder[tuple[str, ...]]):
         selected_groups: list[list[Group]] | None = questionary.checkbox(
             "Which group(s) would you like to dump?",
             choices=[
-                Choice(f"{group_name} ({len(groups)} group{'s' if len(groups) > 1 else ''})", value=groups)
-                for group_name, groups in sorted(groups_by_name.items())
+                Choice(f"{group_name} ({len(group_list)} group{'s' if len(group_list) > 1 else ''})", value=group_list)
+                for group_name, group_list in sorted(groups_by_name.items())
             ],
         ).ask()
         if not selected_groups:
