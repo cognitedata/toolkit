@@ -339,9 +339,15 @@ class WorkflowVersionLoader(
             if task_id not in local_task_by_id:
                 continue
             local_task = local_task_by_id[task_id]
-            for default_key, default_value in [("retries", 3), ("timeout", 3600), ("onFailure", "abortWorkflow")]:
-                if default_key not in local_task and cdf_task.get(default_key) == default_value:
-                    del cdf_task[default_key]
+            for key, default_value in [("retries", 3), ("timeout", 3600), ("onFailure", "abortWorkflow")]:
+                if key not in local_task and cdf_task.get(key) == default_value:
+                    del cdf_task[key]
+                elif (
+                    key in local_task
+                    and local_task[key] is None
+                    and (cdf_task.get(key) == default_value or key not in cdf_task)
+                ):
+                    cdf_task[key] = None
 
             if local_task["type"] == "function" and cdf_task["type"] == "function":
                 cdf_parameters = cdf_task["parameters"]
@@ -355,15 +361,15 @@ class WorkflowVersionLoader(
                 cdf_parameters = cdf_task["parameters"]
                 local_parameters = local_task["parameters"]
                 if "transformation" in cdf_parameters and "transformation" in local_parameters:
-                    for default_key, default_transformation_value in [
+                    for key, default_transformation_value in [
                         ("concurrencyPolicy", "fail"),
                         ("useTransformationCredentials", False),
                     ]:
                         if (
-                            default_key not in local_parameters["transformation"]
-                            and cdf_parameters["transformation"].get(default_key) == default_transformation_value
+                            key not in local_parameters["transformation"]
+                            and cdf_parameters["transformation"].get(key) == default_transformation_value
                         ):
-                            del cdf_parameters["transformation"][default_key]
+                            del cdf_parameters["transformation"][key]
         return dumped
 
     def diff_list(
