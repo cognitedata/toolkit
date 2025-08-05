@@ -327,7 +327,7 @@ class GroupFinder(ResourceFinder[tuple[str, ...]]):
                 for group_name, groups in groups_by_name.items()
             ],
         ).ask()
-        if selected_groups is None:
+        if not selected_groups:
             raise ToolkitValueError("No group selected for dumping. Aborting...")
         self.groups = [group for group_list in selected_groups for group in group_list]
         return tuple(group_list[0].name for group_list in selected_groups)
