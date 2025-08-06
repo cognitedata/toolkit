@@ -143,6 +143,19 @@ class TestProfileAssetCentric:
         sheet = workbook[cmd.table_title]
         assert sheet.max_row == len(results) + 1  # +1 for header row
 
+    def test_profile_asset_centric_hierarchy(self, toolkit_client: ToolkitClient, aggregator_root_asset: Asset) -> None:
+        cmd = ProfileAssetCentricCommand(silent=True)
+        results = cmd.asset_centric(toolkit_client, hierarchy=aggregator_root_asset.external_id, verbose=False)
+        actual = [{"Resource": row["Resource"], "Count": row["Count"]} for row in results]
+        expected = [
+            {"Resource": "Assets", "Count": ASSET_COUNT},
+            {"Resource": "Events", "Count": EVENT_COUNT},
+            {"Resource": "Files", "Count": FILE_COUNT},
+            {"Resource": "TimeSeries", "Count": TIMESERIES_COUNT},
+            {"Resource": "Sequences", "Count": SEQUENCE_COUNT},
+        ]
+        assert actual == expected, f"Expected {expected}, but got {actual}"
+
 
 class TestProfileTransformationCommand:
     def test_profile_transformation(
