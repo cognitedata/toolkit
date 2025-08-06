@@ -377,7 +377,7 @@ while _to_check:
         if ABC in _subclass.__bases__:
             _to_check.append(_subclass)
         else:
-            # We now that this is a mutable mapping, but we do not want to expose that outside this module.
+            # We know that this is a mutable mapping, but we do not want to expose that outside this module.
             SPECIAL_CONVERTER_BY_SOURCE_DESTINATION[  # type: ignore[index]
                 (_subclass.source_property, _subclass.destination_container_property)
             ] = _subclass
