@@ -690,7 +690,7 @@ class ProfileAssetCentricCommand(ProfileCommand[str]):
         result = self.create_profile_table(client, sheet=self.table_title)
         if self.output_spreadsheet:
             for aggregator in self.aggregators.values():
-                if isinstance(aggregator, MetadataAggregator):
+                if isinstance(aggregator, AssetAggregator):
                     used_metadata_keys = aggregator.used_metadata_keys(hierarchy=self.hierarchy)
                     self._write_to_spreadsheet(
                         [{"Metadata Key": key, "Count": count} for key, count in used_metadata_keys],
