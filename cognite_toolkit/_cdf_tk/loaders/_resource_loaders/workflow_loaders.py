@@ -66,7 +66,6 @@ from cognite_toolkit._cdf_tk.utils import (
     to_directory_compatible,
 )
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
-from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 
 from .auth_loaders import GroupAllScopedLoader
@@ -142,16 +141,12 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
         return dumped
 
     def retrieve(self, ids: SequenceNotStr[str]) -> WorkflowList:
-        workflows = []
-        for ext_id in ids:
-            workflow = self.client.workflows.retrieve(external_id=ext_id)
-            if workflow:
-                workflows.append(workflow)
-        return WorkflowList(workflows)
+        # The method has ignore_unknown_ids=True, but there is a bug in the cognite-SDK overload of the retrieve method
+        return self.client.workflows.retrieve(external_id=ids, ignore_unknown_ids=True)  # type: ignore[call-overload]
 
     def _upsert(self, items: WorkflowUpsert | WorkflowUpsertList) -> WorkflowList:
         upserts = [items] if isinstance(items, WorkflowUpsert) else items
-        return WorkflowList([self.client.workflows.upsert(upsert) for upsert in upserts])
+        return self.client.workflows.upsert(upserts)
 
     def create(self, items: WorkflowUpsert | WorkflowUpsertList) -> WorkflowList:
         return self._upsert(items)
@@ -344,9 +339,15 @@ class WorkflowVersionLoader(
             if task_id not in local_task_by_id:
                 continue
             local_task = local_task_by_id[task_id]
-            for default_key, default_value in [("retries", 3), ("timeout", 3600), ("onFailure", "abortWorkflow")]:
-                if default_key not in local_task and cdf_task.get(default_key) == default_value:
-                    del cdf_task[default_key]
+            for key, default_value in [("retries", 3), ("timeout", 3600), ("onFailure", "abortWorkflow")]:
+                if key not in local_task and cdf_task.get(key) == default_value:
+                    del cdf_task[key]
+                elif (
+                    key in local_task
+                    and local_task[key] is None
+                    and (cdf_task.get(key) == default_value or key not in cdf_task)
+                ):
+                    cdf_task[key] = None
 
             if local_task["type"] == "function" and cdf_task["type"] == "function":
                 cdf_parameters = cdf_task["parameters"]
@@ -360,15 +361,15 @@ class WorkflowVersionLoader(
                 cdf_parameters = cdf_task["parameters"]
                 local_parameters = local_task["parameters"]
                 if "transformation" in cdf_parameters and "transformation" in local_parameters:
-                    for default_key, default_transformation_value in [
+                    for key, default_transformation_value in [
                         ("concurrencyPolicy", "fail"),
                         ("useTransformationCredentials", False),
                     ]:
                         if (
-                            default_key not in local_parameters["transformation"]
-                            and cdf_parameters["transformation"].get(default_key) == default_transformation_value
+                            key not in local_parameters["transformation"]
+                            and cdf_parameters["transformation"].get(key) == default_transformation_value
                         ):
-                            del cdf_parameters["transformation"][default_key]
+                            del cdf_parameters["transformation"][key]
         return dumped
 
     def diff_list(
@@ -415,28 +416,21 @@ class WorkflowVersionLoader(
         return warnings
 
     def retrieve(self, ids: SequenceNotStr[WorkflowVersionId]) -> WorkflowVersionList:
-        retrieved = WorkflowVersionList([])
         if not ids:
-            return retrieved
-        for chunk in chunker(ids, self._list_workflow_filter_limit):
-            retrieved_chunk = self.client.workflows.versions.list(chunk)
-            retrieved.extend(retrieved_chunk)
-        return retrieved
+            return WorkflowVersionList([])
+        return self.client.workflows.versions.retrieve(workflow_external_id=list(ids), ignore_unknown_ids=True)
 
     def _upsert(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
-        return WorkflowVersionList([self.client.workflows.versions.upsert(item) for item in items])
+        return self.client.workflows.versions.upsert(items)
 
     def create(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
         upserted: list[WorkflowVersion] = []
         for item in self.topological_sort(items):
-            upserted.append(self.client.workflows.versions.upsert(item))
+            upserted.extend(self.client.workflows.versions.upsert([item]))
         return WorkflowVersionList(upserted)
 
     def update(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
-        updated = []
-        for item in items:
-            updated.append(self.client.workflows.versions.upsert(item))
-        return WorkflowVersionList(updated)
+        return self._upsert(items)
 
     def delete(self, ids: SequenceNotStr[WorkflowVersionId]) -> int:
         successes = 0
@@ -592,12 +586,15 @@ class WorkflowTriggerLoader(
         )
 
     def create(self, items: WorkflowTriggerUpsertList) -> WorkflowTriggerList:
+        return self._upsert(items)
+
+    def _upsert(self, items: WorkflowTriggerUpsertList) -> WorkflowTriggerList:
         created = WorkflowTriggerList([])
         for item in items:
-            created.append(self._create_item(item))
+            created.append(self._upsert_item(item))
         return created
 
-    def _create_item(self, item: WorkflowTriggerUpsert) -> WorkflowTrigger:
+    def _upsert_item(self, item: WorkflowTriggerUpsert) -> WorkflowTrigger:
         credentials = self._authentication_by_id.get(item.external_id)
         try:
             return self.client.workflows.triggers.upsert(item, credentials)
@@ -612,16 +609,7 @@ class WorkflowTriggerLoader(
         return WorkflowTriggerList([trigger for trigger in all_triggers if trigger.external_id in lookup])
 
     def update(self, items: WorkflowTriggerUpsertList) -> WorkflowTriggerList:
-        exising = self.client.workflows.triggers.list(limit=-1)
-        existing_lookup = {trigger.external_id: trigger for trigger in exising}
-        updated = WorkflowTriggerList([])
-        for item in items:
-            if item.external_id in existing_lookup:
-                self.client.workflows.triggers.delete(external_id=item.external_id)
-
-            created = self._create_item(item)
-            updated.append(created)
-        return updated
+        return self._upsert(items)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         successes = 0

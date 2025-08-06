@@ -128,7 +128,7 @@ class MetadataAggregator(AssetCentricAggregator, ABC, Generic[T_CogniteFilter]):
         hierarchy_ids, data_set_ids = self._lookup_hierarchy_data_set_pair(hierarchy, data_sets)
         return self._used_metadata_keys(hierarchy=hierarchy_ids, data_sets=data_set_ids)
 
-    @lru_cache
+    @lru_cache(maxsize=1)
     def _used_metadata_keys(
         self, hierarchy: tuple[int, ...] | None = None, data_sets: tuple[int, ...] | None = None
     ) -> list[tuple[str, int]]:
@@ -145,13 +145,15 @@ class MetadataAggregator(AssetCentricAggregator, ABC, Generic[T_CogniteFilter]):
         """Returns a tuple of hierarchy and data sets."""
         hierarchy_ids: tuple[int, ...] | None = None
         if isinstance(hierarchy, str):
-            hierarchy_ids = (self.client.lookup.assets.id(external_id=hierarchy, allow_empty=False),)
+            asset_id = self.client.lookup.assets.id(external_id=hierarchy, allow_empty=False)
+            hierarchy_ids = (asset_id,)
         elif isinstance(hierarchy, list) and all(isinstance(item, str) for item in hierarchy):
             hierarchy_ids = tuple(sorted(self.client.lookup.assets.id(external_id=hierarchy, allow_empty=False)))
 
         data_set_ids: tuple[int, ...] | None = None
         if isinstance(data_sets, str):
-            data_set_ids = (self.client.lookup.data_sets.id(external_id=data_sets, allow_empty=False),)
+            data_set_id = self.client.lookup.data_sets.id(external_id=data_sets, allow_empty=False)
+            data_set_ids = (data_set_id,)
         elif isinstance(data_sets, list) and all(isinstance(item, str) for item in data_sets):
             data_set_ids = tuple(sorted(self.client.lookup.data_sets.id(external_id=data_sets, allow_empty=False)))
 
@@ -199,7 +201,7 @@ class LabelAggregator(MetadataAggregator, ABC, Generic[T_CogniteFilter]):
         hierarchy_ids, data_set_ids = self._lookup_hierarchy_data_set_pair(hierarchy, data_sets)
         return self._used_labels(hierarchy=hierarchy_ids, data_sets=data_set_ids)
 
-    @lru_cache
+    @lru_cache(maxsize=1)
     def _used_labels(
         self, hierarchy: tuple[int, ...] | None = None, data_sets: tuple[int, ...] | None = None
     ) -> list[tuple[str, int]]:
