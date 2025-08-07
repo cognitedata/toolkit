@@ -265,10 +265,10 @@ class DumpConfigApp(typer.Typer):
     def dump_group(
         ctx: typer.Context,
         group_name: Annotated[
-            str | None,
+            list[str] | None,
             typer.Argument(
-                help="Group name to dump. Format: name. Example: 'my_group'. "
-                "If nothing is provided, an interactive prompt will be shown to select the group.",
+                help="Group name(s) to dump. Format: name. Example: 'my_group'. "
+                "If nothing is provided, an interactive prompt will be shown to select the group(s).",
             ),
         ] = None,
         output_dir: Annotated[
@@ -303,7 +303,7 @@ class DumpConfigApp(typer.Typer):
         cmd = DumpResourceCommand()
         cmd.run(
             lambda: cmd.dump_to_yamls(
-                GroupFinder(client, group_name),
+                GroupFinder(client, tuple(group_name) if group_name else None),
                 output_dir=output_dir,
                 clean=clean,
                 verbose=verbose,
