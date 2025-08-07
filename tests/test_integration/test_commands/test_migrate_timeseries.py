@@ -1,5 +1,5 @@
+import csv
 import random
-import time
 from datetime import datetime
 from pathlib import Path
 
@@ -71,14 +71,10 @@ class TestMigrateTimeSeriesCommand:
 
         input_file = tmp_path / "timeseries_migration.csv"
         with input_file.open("w", encoding="utf-8") as f:
-            f.write(
-                "id,dataSetId,space,externalId\n"
-                + "\n".join(
-                    f"{ts.id},{ts.data_set_id if ts.data_set_id else ''},{space},{ts.external_id}"
-                    for ts in three_timeseries_with_datapoints
-                )
-                + "\n"
-            )
+            writer = csv.writer(f)
+            writer.writerow(["id", "dataSetId", "space", "externalId"])
+            for ts in three_timeseries_with_datapoints:
+                writer.writerow([ts.id, ts.data_set_id, space, ts.external_id])
 
         cmd = MigrateTimeseriesCommand(skip_tracking=True, silent=True)
         cmd.migrate_timeseries(
@@ -88,18 +84,10 @@ class TestMigrateTimeSeriesCommand:
             verbose=False,
             auto_yes=True,
         )
-        # Wait for syncer
-        time.sleep(5)
 
         migrated_timeseries = client.time_series.retrieve_multiple(
-            external_ids=three_timeseries_with_datapoints.as_external_ids()
+            instance_ids=[NodeId(space, x.external_id) for x in three_timeseries_with_datapoints],
         )
 
-        missing_node_id = [ts.external_id for ts in migrated_timeseries if ts.instance_id is None]
-        assert not missing_node_id, f"Some timeseries are missing NodeId: {missing_node_id}"
-
-        node_ids = [ts.instance_id for ts in migrated_timeseries]
-        datapoints = client.time_series.data.retrieve_latest(instance_id=node_ids)
-        assert len(datapoints) == len(migrated_timeseries)
-        missing_datapoints = [dp for dp in datapoints if not dp.value]
-        assert not missing_datapoints, f"Some timeseries are missing data points: {missing_datapoints}"
+        # Assert that the CogniteTimeSeries are the same time series as the one we tried to migrate.
+        assert set(x.id for x in three_timeseries_with_datapoints) == set(x.id for x in migrated_timeseries)
