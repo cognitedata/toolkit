@@ -85,9 +85,14 @@ class TestMigrateTimeSeriesCommand:
             auto_yes=True,
         )
 
-        migrated_timeseries = client.time_series.retrieve_multiple(
-            instance_ids=[NodeId(space, x.external_id) for x in three_timeseries_with_datapoints],
-        )
+        instance_ids = [NodeId(space, x.external_id) for x in three_timeseries_with_datapoints]
+        migrated_timeseries = client.time_series.retrieve_multiple(instance_ids=instance_ids)
 
         # Assert that the CogniteTimeSeries are the same time series as the one we tried to migrate.
         assert set(x.id for x in three_timeseries_with_datapoints) == set(x.id for x in migrated_timeseries)
+
+        # Check that we still have data points
+        datapoints = client.time_series.data.retrieve_latest(instance_id=instance_ids)
+        assert len(datapoints) == len(migrated_timeseries)
+        missing_datapoints = [dp for dp in datapoints if len(dp.value) == 0]
+        assert not missing_datapoints, f"Some timeseries are missing data points: {missing_datapoints}"
