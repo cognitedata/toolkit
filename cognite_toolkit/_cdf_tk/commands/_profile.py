@@ -637,6 +637,7 @@ class ProfileAssetCentricCommand(ProfileCommand[str]):
         silent: bool = False,
     ) -> None:
         super().__init__(output_spreadsheet, print_warning, skip_tracking, silent)
+        self.hierarchy: str | None = None
         self.table_title = "Asset Centric Profile"
         self.aggregators: dict[str, AssetCentricAggregator] = {}
 
@@ -647,7 +648,15 @@ class ProfileAssetCentricCommand(ProfileCommand[str]):
         LabelCount = "Label Count"
         Transformation = "Transformations"
 
-    def asset_centric(self, client: ToolkitClient, verbose: bool = False) -> list[dict[str, CellValue]]:
+    def asset_centric(
+        self, client: ToolkitClient, hierarchy: str | None = None, select_all: bool = False, verbose: bool = False
+    ) -> list[dict[str, CellValue]]:
+        if hierarchy is None and not select_all:
+            self.hierarchy = AssetInteractiveSelect(client, "profile").select_hierarchy(allow_empty=True)
+        else:
+            self.hierarchy = hierarchy
+        if self.hierarchy is not None:
+            self.table_title = f"Asset Centric Profile: {self.hierarchy}"
         self.aggregators.update(
             {
                 agg.display_name: agg
@@ -657,11 +666,20 @@ class ProfileAssetCentricCommand(ProfileCommand[str]):
                     FileAggregator(client),
                     TimeSeriesAggregator(client),
                     SequenceAggregator(client),
-                    RelationshipAggregator(client),
-                    LabelCountAggregator(client),
                 ]
             }
         )
+        if self.hierarchy is None:
+            # Relationship and Labels does not belong to a specific hierarchy
+            self.aggregators.update(
+                {
+                    agg.display_name: agg
+                    for agg in [
+                        RelationshipAggregator(client),
+                        LabelCountAggregator(client),
+                    ]
+                }
+            )
         return self.create_profile_table(client)
 
     def create_initial_table(self, client: ToolkitClient) -> dict[tuple[str, str], PendingCellValue]:
@@ -669,21 +687,27 @@ class ProfileAssetCentricCommand(ProfileCommand[str]):
         for index, aggregator in self.aggregators.items():
             table[(index, self.Columns.Resource)] = aggregator.display_name
             table[(index, self.Columns.Count)] = WaitingAPICall
-            if isinstance(aggregator, MetadataAggregator):
+            # Metadata Key count is only valid if we aggregate for all resources or assets.
+            # Events/Files/TimeSeries/Sequences do not have a rootId to filter on.
+            if isinstance(aggregator, MetadataAggregator) and (
+                isinstance(aggregator, AssetAggregator) or self.hierarchy is None
+            ):
                 table[(index, self.Columns.MetadataKeyCount)] = WaitingAPICall
             else:
                 table[(index, self.Columns.MetadataKeyCount)] = None
-            if isinstance(aggregator, LabelAggregator):
+            if isinstance(aggregator, LabelAggregator) and (
+                isinstance(aggregator, AssetAggregator) or self.hierarchy is None
+            ):
                 table[(index, self.Columns.LabelCount)] = WaitingAPICall
             else:
                 table[(index, self.Columns.LabelCount)] = None
-            table[(index, self.Columns.Transformation)] = WaitingAPICall
+            table[(index, self.Columns.Transformation)] = WaitingAPICall if self.hierarchy is None else None
         return table
 
     def create_api_callable(self, row: str, col: str, client: ToolkitClient) -> Callable:
         aggregator = self.aggregators[row]
         if col == self.Columns.Count:
-            return aggregator.count
+            return partial(aggregator.count, hierarchy=self.hierarchy)
         elif col == self.Columns.MetadataKeyCount and isinstance(aggregator, MetadataAggregator):
             return aggregator.metadata_key_count
         elif col == self.Columns.LabelCount and isinstance(aggregator, LabelAggregator):
