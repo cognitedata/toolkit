@@ -14,7 +14,6 @@ import requests
 import urllib3
 from cognite.client import global_config
 from cognite.client.utils import _json
-from cognite.client.utils._auxiliary import get_user_agent
 from requests.adapters import HTTPAdapter
 from requests.structures import CaseInsensitiveDict
 from rich.console import Console
@@ -22,7 +21,7 @@ from rich.progress import BarColumn, Progress, TaskProgressColumn, TextColumn, T
 from urllib3.util.retry import Retry
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
-from cognite_toolkit._cdf_tk.utils.auxiliary import get_current_toolkit_version
+from cognite_toolkit._cdf_tk.utils.auxiliary import get_current_toolkit_version, get_user_agent
 
 from .useful_types import JsonVal
 
