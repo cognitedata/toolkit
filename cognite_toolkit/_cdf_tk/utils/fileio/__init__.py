@@ -1,4 +1,4 @@
-from ._base import CellValue, Chunk, DataType, PrimaryCellValue
+from ._base import CellValue, Chunk, DataType, PrimaryCellValue, SchemaColumn
 from ._compression import (
     COMPRESSION_BY_NAME,
     COMPRESSION_BY_SUFFIX,
@@ -37,6 +37,7 @@ __all__ = [
     "NDJsonWriter",
     "NoneCompression",
     "PrimaryCellValue",
+    "SchemaColumn",
     "YAMLReader",
     "YAMLWriter",
     "YMLReader",
