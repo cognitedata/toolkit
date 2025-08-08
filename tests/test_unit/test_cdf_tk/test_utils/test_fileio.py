@@ -20,6 +20,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import (
     FileWriter,
     NoneCompression,
 )
+from cognite_toolkit._cdf_tk.utils.fileio._readers import YAMLBaseReader
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 
@@ -136,7 +137,8 @@ class TestFileReader:
         ]
 
     def test_all_file_readers_registered(self) -> None:
-        expected_readers = set(get_concrete_subclasses(FileReader)) - {LineReader}
+        # YAMLBaseReader is an abstract class, so we exclude it from the expected readers
+        expected_readers = set(get_concrete_subclasses(FileReader)) - {LineReader, YAMLBaseReader}
 
         assert set(expected_readers) == set(FILE_READ_CLS_BY_FORMAT.values())
 
