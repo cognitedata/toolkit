@@ -75,10 +75,15 @@ class TestExtendedFilesAPI:
             assert updated.pending_instance_id == cognite_file.as_id()
 
             created_dm = client.data_modeling.instances.apply(cognite_file).nodes
-            time.sleep(1)  # Wait for the syncer to update the file metadata
 
-            retrieved_ts = client.files.retrieve(instance_id=cognite_file.as_id())
-            assert retrieved_ts is not None
+            retrieved_ts: FileMetadata | None = None
+            for _ in range(10):
+                retrieved_ts = client.files.retrieve(instance_id=cognite_file.as_id())
+                if retrieved_ts is not None:
+                    break
+                time.sleep(1)  # Wait for the syncer to update the file metadata
+
+            assert retrieved_ts is not None, "File was not linked to instance within timeout"
             assert retrieved_ts.id == created.id
 
             unlinked = client.files.unlink_instance_ids(id=created.id)

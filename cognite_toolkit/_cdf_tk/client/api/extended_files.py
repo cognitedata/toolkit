@@ -186,10 +186,10 @@ class ExtendedFileMetadataAPI(FilesAPI):
             external_id (str | SequenceNotStr[str] | None): The external ID(s) of the files.
         """
         if id is None and external_id is None:
-            return None
+            raise ValueError("At least one of id or external_id must be provided.")
         if isinstance(id, int) and isinstance(external_id, str):
             raise ValueError("Cannot specify both id and external_id as single values. Use one or the other.")
-        is_single = isinstance(id, int) or isinstance(external_id, str)
+        is_list = not (isinstance(id, int) or isinstance(external_id, str))
         identifiers = IdentifierSequence.load(id, external_id)
 
         tasks = [
@@ -213,10 +213,10 @@ class ExtendedFileMetadataAPI(FilesAPI):
         retrieved_items = tasks_summary.joined_results(lambda res: res.json()["items"])
 
         result = ExtendedFileMetadataList._load(retrieved_items, cognite_client=self._cognite_client)
-        if is_single:
-            if len(result) == 0:
-                return None
-            if len(result) > 1:
-                raise ValueError("Expected a single file, but multiple were returned.")
-            return result[0]  # type: ignore[return-value]
-        return result
+        if is_list:
+            return result
+        if len(result) == 0:
+            return None
+        if len(result) > 1:
+            raise ValueError("Expected a single file, but multiple were returned.")
+        return result[0]  # type: ignore[return-value]
