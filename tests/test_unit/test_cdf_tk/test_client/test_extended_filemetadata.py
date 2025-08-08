@@ -88,10 +88,10 @@ class TestExtendedFileMetadataAPI:
         is_list = isinstance(result, ExtendedFileMetadataList)
         assert is_list == expected_list, f"Expected result to be a list: {expected_list}, got {is_list}"
 
-    def test_unlink_instance_ids_none_return_none(self, toolkit_config: ToolkitClientConfig) -> None:
+    def test_unlink_instance_ids_no_identifiers_raises(self, toolkit_config: ToolkitClientConfig) -> None:
         client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
-        result = client.files.unlink_instance_ids(id=None, external_id=None)
-        assert result is None
+        with pytest.raises(ValueError, match="At least one of id or external_id must be provided."):
+            client.files.unlink_instance_ids(id=None, external_id=None)
 
     def test_unlink_instance_ids_invalid(self, toolkit_config: ToolkitClientConfig) -> None:
         client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
