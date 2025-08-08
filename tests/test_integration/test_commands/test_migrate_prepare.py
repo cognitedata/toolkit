@@ -1,6 +1,7 @@
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import MigrationPrepareCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import CONTAINERS, VIEWS
+from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import create_default_mappings
 from cognite_toolkit._cdf_tk.data_classes import ResourceDeployResult
 
 
@@ -10,7 +11,13 @@ class TestMigrateTimeSeriesCommand:
         toolkit_client: ToolkitClient,
     ) -> None:
         cmd = MigrationPrepareCommand(silent=True, skip_tracking=True)
-        expected_resources = {"spaces": 1, "containers": len(CONTAINERS), "views": len(VIEWS), "data models": 1}
+        expected_resources = {
+            "spaces": 1,
+            "containers": len(CONTAINERS),
+            "views": len(VIEWS),
+            "data models": 1,
+            "view sources": len(create_default_mappings()),
+        }
 
         dry_run_result = cmd.deploy_cognite_migration(toolkit_client, True, verbose=False)
         actual_dry_run = {
