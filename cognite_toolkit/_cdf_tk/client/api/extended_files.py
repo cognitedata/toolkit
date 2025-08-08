@@ -194,7 +194,7 @@ class ExtendedFileMetadataAPI(FilesAPI):
             raise ValueError("At least one of id or external_id must be provided.")
         if isinstance(id, int) and isinstance(external_id, str):
             raise ValueError("Cannot specify both id and external_id as single values. Use one or the other.")
-        is_list = not (isinstance(id, int) or isinstance(external_id, str))
+        is_list = isinstance(id, Sequence) or (isinstance(external_id, Sequence) and not isinstance(external_id, str))
         identifiers = IdentifierSequence.load(id, external_id)
 
         tasks = [
