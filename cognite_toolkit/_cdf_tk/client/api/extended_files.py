@@ -179,11 +179,16 @@ class ExtendedFileMetadataAPI(FilesAPI):
         id: int | Sequence[int] | None = None,
         external_id: str | SequenceNotStr[str] | None = None,
     ) -> ExtendedFileMetadata | ExtendedFileMetadataList | None:
-        """Unlink pending instance IDs from files.
+        """Unlink instance IDs from files.
+
+        This allows a CogniteFile node in Data Modeling to be deleted without deleting the underlying file content.
 
         Args:
             id (int | Sequence[int] | None): The ID(s) of the files.
             external_id (str | SequenceNotStr[str] | None): The external ID(s) of the files.
+
+        Returns:
+            ExtendedFileMetadata | ExtendedFileMetadataList | None: The updated file metadata object(s). For single item requests, returns `None` if the file is not found.
         """
         if id is None and external_id is None:
             raise ValueError("At least one of id or external_id must be provided.")
