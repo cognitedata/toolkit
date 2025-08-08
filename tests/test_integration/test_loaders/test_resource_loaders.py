@@ -719,6 +719,7 @@ workflowDefinition:
     parameters:
       transformation:
         externalId: some_transformation
+    retries: null
 """
         loader = WorkflowVersionLoader.create_loader(toolkit_client)
 
