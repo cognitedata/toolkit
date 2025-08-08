@@ -12,6 +12,7 @@ from cognite.client.utils import ms_to_datetime
 from dateutil import parser
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
 from .collection import humanize_collection
 
@@ -148,16 +149,19 @@ class _LabelConverter(_SpecialCaseConverter, ABC):
             )
         tags: list[str] = []
         for item in value:
-            if isinstance(item, str):
-                tags.append(item)
-            elif isinstance(item, dict) and "externalId" in item and isinstance(item["externalId"], str):
-                tags.append(item["externalId"])
-            elif isinstance(item, Label | LabelDefinition) and item.external_id:
-                tags.append(item.external_id)
-            else:
-                raise ValueError(
-                    f"Invalid label item: {item}. Expected a string, dict with 'externalId', or Label/LabelDefinition."
-                )
+            match item:
+                case str() as tag:
+                    tags.append(tag)
+                # Matches a dict with the key "externalId" whose value is a string
+                case {"externalId": str() as tag}:
+                    tags.append(tag)
+                # Matches Label or LabelDefinition objects with a truthy external_id
+                case Label(external_id=tag) | LabelDefinition(external_id=tag) if tag:
+                    tags.append(tag)
+                case _:
+                    raise ValueError(
+                        f"Invalid label item: {item}. Expected a string, dict with 'externalId', or Label/LabelDefinition."
+                    )
         return tags
 
 
@@ -369,17 +373,7 @@ CONVERTER_BY_DTYPE: Mapping[str, type[_ValueConverter]] = {
 SPECIAL_CONVERTER_BY_SOURCE_DESTINATION: Mapping[
     tuple[tuple[AssetCentric, str], tuple[ContainerId, str]],
     type[_SpecialCaseConverter],
-] = {}
-_to_check = [_SpecialCaseConverter]
-while _to_check:
-    _cls_ = _to_check.pop()
-    for _subclass in _cls_.__subclasses__():
-        if ABC in _subclass.__bases__:
-            _to_check.append(_subclass)
-        else:
-            # We know that this is a mutable mapping, but we do not want to expose that outside this module.
-            SPECIAL_CONVERTER_BY_SOURCE_DESTINATION[  # type: ignore[index]
-                (_subclass.source_property, _subclass.destination_container_property)
-            ] = _subclass
-# Cleanup
-del _to_check, _cls_, _subclass
+] = {
+    (subclass.source_property, subclass.destination_container_property): subclass
+    for subclass in get_concrete_subclasses(_SpecialCaseConverter)  # type: ignore[type-abstract]
+}
