@@ -10,6 +10,122 @@ SPACE = "sp_my_space"
 DATA_MODEL = DataModelId(SPACE, "MyDataModel", "v1")
 GraphQLTestCases = [
     pytest.param(
+        '''"Log File"
+type LogFile
+  @view(
+    rawFilter: {
+      hasData: [
+        {
+          type: "container"
+          space: "onse_logfile"
+          externalId: "LogFile"
+        }
+      ]
+    }  version: "1"
+  ) {
+  """
+  Name of the CSV which delivers result/logs from ONSE
+  @name CSV LogFile Name
+  """
+  csv_logfile_name: String
+  """
+  CDF address of the posted CSV log file from ONSE
+  @name CSV LogFile Unique ID
+  """
+  csv_logfile_uniqueId: Float
+  """
+  General result from ONSE such as Success or Partial or Failure (Status)
+  @name Status
+  """
+  status: String
+  """
+  Cryptic id from IX representing the Transmittal/transaction (key)
+  @name Transaction id
+  """
+  transaction_id: String
+  """
+  Transmittal Number (Referemce/Identifier)
+  @name Transmittal Number
+  """
+  transmittalNumber: String
+  """
+  Date and time when xml LogFile has been posted to CDF
+  @name Uploaded to CDF  Time
+  """
+  uploaded_to_cdf: String
+  """
+  Name of the XML which delivers result/logs from ONSE
+  @name XML LogFile Name
+  """
+  xml_logfile_name: String
+  """
+  CDF address of the posted XML log file from ONSE
+  @name XML LogFile Unique ID
+  """
+  xml_logfile_uniqueId: Float
+}
+
+"Log File From ONSE"
+type LogFile_DryRun
+  @view(
+    rawFilter: {
+      hasData: [
+        {
+          type: "container"
+          space: "onse_logfile"
+          externalId: "LogFile_DryRun"
+        }
+      ]
+    }  version: "1"
+  ) {
+  """
+  Name of the CSV which delivers result/logs from ONSE
+  @name CSV LogFile Name
+  """
+  csv_logfile_name: String
+  """
+  CDF address of the posted CSV log file from ONSE
+  @name CSV LogFile Unique ID
+  """
+  csv_logfile_uniqueId: Float
+  """
+  General result from ONSE
+  @name Status
+  """
+  status: String
+  """
+  Cryptic id from IX
+  @name Transaction id
+  """
+  transaction_id: String
+  """
+  Transmittal Number (Referemce/Identifier)
+  @name Transmittal Number
+  """
+  transmittalNumber: String
+  """
+  Date and time when xml LogFile has been posted to CDF
+  @name Uploaded to CDF  Time
+  """
+  uploaded_to_cdf: String
+  """
+  Name of the XML which delivers result/logs from ONSE
+  @name XML LogFile Name
+  """
+  xml_logfile_name: String
+  """
+  CDF address of the posted XML log file from ONSE
+  @name XML LogFile Unique ID
+  """
+  xml_logfile_uniqueId: Float
+}
+''',
+        DATA_MODEL,
+        {ViewId(SPACE, "LogFile", "1"), ViewId(SPACE, "LogFile_DryRun", "1")},
+        set(),
+        id="Simple type with view and raw filter",
+    ),
+    pytest.param(
         """interface Creatable @view(space: "cdf_apps_shared", version: "v1") @import {
   visibility: String
   createdBy: CDF_User
@@ -258,6 +374,22 @@ type TagBeta @view (version: "7#") {
 ]
 
 DirectiveTestCases = [
+    pytest.param(
+        """view(
+    rawFilter: {
+      hasData: [
+        {
+          type: "container"
+          space: "onse_logfile"
+          externalId: "LogFile"
+        }
+      ]
+    }
+    version: "1"
+  )""",
+        _ViewDirective(version="1"),
+        id="View directive with raw filter and version",
+    ),
     pytest.param(
         """view(
     space: "cdf_cdm"

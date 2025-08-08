@@ -478,7 +478,7 @@ API_RESOURCES = [
             # "update": [Method(api_class_method="upsert", mock_name="upsert")],
             # "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
             "retrieve": [
-                Method(api_class_method="retrieve", mock_class_method="return_value"),
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
             ],
         },
     ),
@@ -493,7 +493,7 @@ API_RESOURCES = [
             # "update": [Method(api_class_method="upsert", mock_name="upsert")],
             # "delete": [Method(api_class_method="delete", mock_name="delete")],
             "retrieve": [
-                Method(api_class_method="retrieve", mock_class_method="return_value"),
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
                 Method(api_class_method="list", mock_class_method="return_values"),
             ],
         },
