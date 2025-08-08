@@ -31,6 +31,10 @@ class FileReader(FileIO, ABC):
 
     @classmethod
     def from_filepath(cls, filepath: Path) -> "FileReader":
+        if len(filepath.suffixes) == 0:
+            raise ToolkitValueError(
+                f"File has no suffix. Available formats: {humanize_collection(FILE_READ_CLS_BY_FORMAT.keys())}."
+            )
         suffix = filepath.suffix
         if suffix in COMPRESSION_BY_SUFFIX:
             if len(filepath.suffixes) > 1:
@@ -42,6 +46,7 @@ class FileReader(FileIO, ABC):
 
         if suffix in FILE_READ_CLS_BY_FORMAT:
             return FILE_READ_CLS_BY_FORMAT[suffix](input_file=filepath)
+
         raise ToolkitValueError(
             f"Unknown file format: {suffix}. Available formats: {humanize_collection(FILE_READ_CLS_BY_FORMAT.keys())}."
         )

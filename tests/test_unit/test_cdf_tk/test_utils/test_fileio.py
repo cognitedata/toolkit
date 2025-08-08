@@ -7,9 +7,12 @@ from pathlib import Path
 
 import pytest
 
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.fileio import (
     COMPRESSION_BY_NAME,
     COMPRESSION_BY_SUFFIX,
+    FILE_READ_CLS_BY_FORMAT,
     FILE_WRITE_CLS_BY_FORMAT,
     Chunk,
     Compression,
@@ -131,6 +134,26 @@ class TestFileReader:
             {"line": "line2"},
             {"line": "line3"},
         ]
+
+    def test_all_file_readers_registered(self) -> None:
+        expected_readers = set(get_concrete_subclasses(FileReader)) - {LineReader}
+
+        assert set(expected_readers) == set(FILE_READ_CLS_BY_FORMAT.values())
+
+    @pytest.mark.parametrize(
+        "filepath, expected_error",
+        [
+            (Path("non_existent_file.txt"), "Unknown file format: .txt. Available formats:"),
+            (Path("file_without_format"), "File has no suffix. Available formats:"),
+            (Path("file_with_multiple_suffixes.txt.gz"), "Unknown file format: .txt."),
+            (Path("file_with_only_compression.gz"), "File has a compression suffix, but no file format suffix found."),
+        ],
+    )
+    def test_from_filepath_raise(self, filepath: Path, expected_error: str) -> None:
+        with pytest.raises(ToolkitValueError) as excinfo:
+            FileReader.from_filepath(filepath)
+
+        assert str(excinfo.value).startswith(expected_error)
 
 
 class TestFileWriter:

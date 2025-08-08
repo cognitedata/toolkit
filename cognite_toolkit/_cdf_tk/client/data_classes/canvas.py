@@ -22,6 +22,8 @@ from cognite.client.data_classes.data_modeling.instances import (
     TypedNodeApply,
 )
 
+from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId
+
 CANVAS_INSTANCE_SPACE = "IndustrialCanvasInstanceSpace"
 SOLUTION_TAG_SPACE = "SolutionTagsInstanceSpace"
 CANVAS_SCHEMA_SPACE = "cdf_industrial_canvas"
@@ -508,6 +510,17 @@ class ContainerReferenceApply(_ContainerReferenceProperties, ExtendedTypedNodeAp
         self.max_width = max_width
         self.max_height = max_height
 
+    def as_asset_centric_id(self) -> AssetCentricId:
+        """Returns the asset-centric ID of the container reference."""
+        if self.container_reference_type not in {"file", "timeseries", "asset", "event"}:
+            raise ValueError(
+                f"Container reference type '{self.container_reference_type}' is not supported for asset-centric ID."
+            )
+        return AssetCentricId(
+            self.container_reference_type,
+            self.resource_id,
+        )
+
 
 class ContainerReference(_ContainerReferenceProperties, TypedNode):
     """This represents the reading format of container reference.
@@ -599,6 +612,17 @@ class ContainerReference(_ContainerReferenceProperties, TypedNode):
             max_height=self.max_height,
             existing_version=self.version,
             type=self.type,
+        )
+
+    def as_asset_centric_id(self) -> AssetCentricId:
+        """Returns the asset-centric ID of the container reference."""
+        if self.container_reference_type not in {"file", "timeseries", "asset", "event"}:
+            raise ValueError(
+                f"Container reference type '{self.container_reference_type}' is not supported for asset-centric ID."
+            )
+        return AssetCentricId(
+            self.container_reference_type,
+            self.resource_id,
         )
 
 
