@@ -175,7 +175,7 @@ wheels = [
 
 [[package]]
 name = "cognite-sdk"
-version = "7.77.0"
+version = "7.78.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "msal" },
@@ -185,9 +185,9 @@ dependencies = [
     { name = "requests-oauthlib" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/60/7e/d62497f236bbb4f394acd6899297a88b36c54297bd84d5fd13130791bbe5/cognite_sdk-7.77.0.tar.gz", hash = "sha256:199efa1d58a66cfd5f55a13ea93f4bfa6e86c574a06d60b061ac88b8789c77f9", size = 511344, upload-time = "2025-07-23T09:02:42.731Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/63/af/093168e2714e7e3df345a0296f9751d769dc2a2bc3aeeefc59d3ab3c7323/cognite_sdk-7.78.0.tar.gz", hash = "sha256:52d33afc0e9f2e7a723de0e585170deaed3e3810f0dd6ab39cb69ba389a6e621", size = 512579, upload-time = "2025-07-30T13:24:06.912Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2a/ac/8f45ff582933e5ab72e224b7e5fbf98aa2b021647dfe52280255ead15d6f/cognite_sdk-7.77.0-py3-none-any.whl", hash = "sha256:99198b93cf2b62398c0584cc1a0812978666e3ca5123a55e47592602924e1d9d", size = 638431, upload-time = "2025-07-23T09:02:40.255Z" },
+    { url = "https://files.pythonhosted.org/packages/a3/b6/2168020ea9d83d655304bb4ee04fee8734f56fba20d91b27975ba43ae7c0/cognite_sdk-7.78.0-py3-none-any.whl", hash = "sha256:e2a9a454deedd20016ca727a98a8237f8bb2f53357d01e03804028676372833d", size = 639634, upload-time = "2025-07-30T13:24:04.849Z" },
 ]
 
 [[package]]
@@ -202,6 +202,7 @@ dependencies = [
     { name = "pandas" },
     { name = "pip" },
     { name = "pydantic" },
+    { name = "python-dateutil" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
     { name = "questionary" },
@@ -240,6 +241,7 @@ dev = [
     { name = "setuptools" },
     { name = "toml", marker = "python_full_version >= '3.11'" },
     { name = "twine" },
+    { name = "types-python-dateutil" },
     { name = "types-pyyaml" },
     { name = "types-requests" },
     { name = "types-toml" },
@@ -247,7 +249,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cognite-sdk", specifier = ">=7.77.0,<8.0.0" },
+    { name = "cognite-sdk", specifier = ">=7.78.0,<8.0.0" },
     { name = "filelock", specifier = ">=3.18.0" },
     { name = "mixpanel", specifier = ">=4.10.1" },
     { name = "openpyxl", marker = "extra == 'table'", specifier = ">=3.1.5" },
@@ -256,6 +258,7 @@ requires-dist = [
     { name = "pip", specifier = ">=25.0.1" },
     { name = "pyarrow", marker = "extra == 'table'", specifier = ">=20.0.0" },
     { name = "pydantic", specifier = ">=2.11.0" },
+    { name = "python-dateutil", specifier = ">=2.9.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "pyyaml", specifier = ">=6.0.1" },
     { name = "questionary", specifier = ">=2.0.1" },
@@ -287,6 +290,7 @@ dev = [
     { name = "setuptools", specifier = ">=75.0.0" },
     { name = "toml", marker = "python_full_version >= '3.11'", specifier = ">=0.10.2" },
     { name = "twine", specifier = ">=6.0.0" },
+    { name = "types-python-dateutil", specifier = ">=2.9.0.20250708" },
     { name = "types-pyyaml", specifier = ">=6" },
     { name = "types-requests", specifier = ">=2.32.0.20241016" },
     { name = "types-toml", specifier = ">=0.10.8.20240310" },
@@ -1819,6 +1823,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/c5/8c/7d682431efca5fd290017663ea4588bf6f2c6aad085c7f108c5dbc316e70/typer-0.16.0.tar.gz", hash = "sha256:af377ffaee1dbe37ae9440cb4e8f11686ea5ce4e9bae01b84ae7c63b87f1dd3b", size = 102625, upload-time = "2025-05-26T14:30:31.824Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/76/42/3efaf858001d2c2913de7f354563e3a3a2f0decae3efe98427125a8f441e/typer-0.16.0-py3-none-any.whl", hash = "sha256:1f79bed11d4d02d4310e3c1b7ba594183bcedb0ac73b27a9e5f28f6fb5b98855", size = 46317, upload-time = "2025-05-26T14:30:30.523Z" },
+]
+
+[[package]]
+name = "types-python-dateutil"
+version = "2.9.0.20250708"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/c9/95/6bdde7607da2e1e99ec1c1672a759d42f26644bbacf939916e086db34870/types_python_dateutil-2.9.0.20250708.tar.gz", hash = "sha256:ccdbd75dab2d6c9696c350579f34cffe2c281e4c5f27a585b2a2438dd1d5c8ab", size = 15834, upload-time = "2025-07-08T03:14:03.382Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/72/52/43e70a8e57fefb172c22a21000b03ebcc15e47e97f5cb8495b9c2832efb4/types_python_dateutil-2.9.0.20250708-py3-none-any.whl", hash = "sha256:4d6d0cc1cc4d24a2dc3816024e502564094497b713f7befda4d5bc7a8e3fd21f", size = 17724, upload-time = "2025-07-08T03:14:02.593Z" },
 ]
 
 [[package]]

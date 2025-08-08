@@ -265,10 +265,10 @@ class DumpConfigApp(typer.Typer):
     def dump_group(
         ctx: typer.Context,
         group_name: Annotated[
-            str | None,
+            list[str] | None,
             typer.Argument(
-                help="Group name to dump. Format: name. Example: 'my_group'. "
-                "If nothing is provided, an interactive prompt will be shown to select the group.",
+                help="Group name(s) to dump. Format: name. Example: 'my_group'. "
+                "If nothing is provided, an interactive prompt will be shown to select the group(s).",
             ),
         ] = None,
         output_dir: Annotated[
@@ -303,7 +303,7 @@ class DumpConfigApp(typer.Typer):
         cmd = DumpResourceCommand()
         cmd.run(
             lambda: cmd.dump_to_yamls(
-                GroupFinder(client, group_name),
+                GroupFinder(client, tuple(group_name) if group_name else None),
                 output_dir=output_dir,
                 clean=clean,
                 verbose=verbose,
@@ -597,7 +597,7 @@ class DumpDataApp(typer.Typer):
         cmd = DumpDataCommand()
         client = EnvironmentVariables.create_from_environment().get_client()
         if hierarchy is None and data_set is None:
-            hierarchy, data_set = AssetInteractiveSelect(client, "dump").interactive_select_hierarchy_datasets()
+            hierarchy, data_set = AssetInteractiveSelect(client, "dump").select_hierarchies_and_data_sets()
 
         cmd.run(
             lambda: cmd.dump_table(
@@ -676,7 +676,7 @@ class DumpDataApp(typer.Typer):
         cmd.validate_directory(output_dir, clean)
         client = EnvironmentVariables.create_from_environment().get_client()
         if hierarchy is None and data_set is None:
-            hierarchy, data_set = FileMetadataInteractiveSelect(client, "dump").interactive_select_hierarchy_datasets()
+            hierarchy, data_set = FileMetadataInteractiveSelect(client, "dump").select_hierarchies_and_data_sets()
         cmd.run(
             lambda: cmd.dump_table(
                 FileMetadataFinder(client, hierarchy or [], data_set or []),
@@ -753,7 +753,7 @@ class DumpDataApp(typer.Typer):
         cmd = DumpDataCommand()
         client = EnvironmentVariables.create_from_environment().get_client()
         if hierarchy is None and data_set is None:
-            hierarchy, data_set = TimeSeriesInteractiveSelect(client, "dump").interactive_select_hierarchy_datasets()
+            hierarchy, data_set = TimeSeriesInteractiveSelect(client, "dump").select_hierarchies_and_data_sets()
         cmd.run(
             lambda: cmd.dump_table(
                 TimeSeriesFinder(client, hierarchy or [], data_set or []),
@@ -831,7 +831,7 @@ class DumpDataApp(typer.Typer):
         cmd.validate_directory(output_dir, clean)
         client = EnvironmentVariables.create_from_environment().get_client()
         if hierarchy is None and data_set is None:
-            hierarchy, data_set = EventInteractiveSelect(client, "dump").interactive_select_hierarchy_datasets()
+            hierarchy, data_set = EventInteractiveSelect(client, "dump").select_hierarchies_and_data_sets()
         cmd.run(
             lambda: cmd.dump_table(
                 EventFinder(client, hierarchy or [], data_set or []),

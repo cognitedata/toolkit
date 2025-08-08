@@ -27,7 +27,6 @@ from cognite.client.data_classes import (
     Table,
     TableList,
     ThreeDModel,
-    Workflow,
     WorkflowVersion,
     capabilities,
 )
@@ -91,7 +90,7 @@ class LookUpAPIMock:
         self._allow_reverse_lookup = allow_reverse_lookup
 
     @staticmethod
-    def _create_id(string: str, allow_empty: bool = False) -> int:
+    def create_id(string: str, allow_empty: bool = False) -> int:
         if allow_empty and string == "":
             return 0
         # This simulates CDF setting the internal ID.
@@ -106,13 +105,13 @@ class LookUpAPIMock:
         self, external_id: str | SequenceNotStr[str], is_dry_run: bool = False, allow_empty: bool = False
     ) -> int | list[int]:
         if isinstance(external_id, str):
-            id_ = self._create_id(external_id, allow_empty)
+            id_ = self.create_id(external_id, allow_empty)
             if id_ not in self._reverse_cache:
                 self._reverse_cache[id_] = external_id
             return id_
         output: list[int] = []
         for ext_id in external_id:
-            id_ = self._create_id(ext_id, allow_empty)
+            id_ = self.create_id(ext_id, allow_empty)
             if id_ not in self._reverse_cache:
                 self._reverse_cache[id_] = ext_id
             output.append(id_)
@@ -481,30 +480,26 @@ class ApprovalToolkitClient:
                     upserted.extend(value)
             created_resources[resource_cls.__name__].extend(upserted)
 
-            if resource_cls is Workflow:
-                return resource_cls.load(
-                    {"lastUpdatedTime": 0, "createdTime": 0, **upserted[0].dump(camel_case=True)}, cognite_client=client
-                )
-
+            read_resource_objects: list[dict[str, object]] = [
+                {
+                    "isGlobal": False,
+                    "lastUpdatedTime": 0,
+                    "createdTime": 0,
+                    **c.dump(camel_case=True),
+                }
+                for c in upserted
+            ]
             if resource_cls is WorkflowVersion:
-                resource = {"lastUpdatedTime": 0, "createdTime": 0, **upserted[0].dump(camel_case=True)}
+                for item in read_resource_objects:
+                    if "workflowDefinition" not in item:
+                        item["workflowDefinition"] = {}
+                    if not isinstance(item["workflowDefinition"], dict):
+                        raise TypeError(
+                            f"Expected 'workflowDefinition' to be a dict, got {type(item['workflowDefinition'])}"
+                        )
+                    item["workflowDefinition"]["hash"] = "123"
 
-                resource.get("workflowDefinition")["hash"] = "123"
-
-                return resource_cls.load(resource, cognite_client=client)
-
-            return resource_list_cls.load(
-                [
-                    {
-                        "isGlobal": False,
-                        "lastUpdatedTime": 0,
-                        "createdTime": 0,
-                        **c.dump(camel_case=True),
-                    }
-                    for c in upserted
-                ],
-                cognite_client=client,
-            )
+            return resource_list_cls.load(read_resource_objects, cognite_client=client)
 
         def _create_dataframe_info(dataframe: pd.DataFrame) -> dict[str, Any]:
             return {
