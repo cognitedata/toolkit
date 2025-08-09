@@ -1,10 +1,14 @@
+import gzip
 import time
 from collections import defaultdict
-from collections.abc import Hashable, Iterable, Sequence
+from collections.abc import Hashable, Iterable, MutableMapping, Sequence
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, cast, final
 
+import requests
+from cognite.client import global_config
+from cognite.client._http_client import HTTPClient, HTTPClientConfig, get_global_requests_session
 from cognite.client.data_classes import (
     ClientCredentials,
     Function,
@@ -26,7 +30,10 @@ from cognite.client.data_classes.capabilities import (
 )
 from cognite.client.data_classes.functions import HANDLER_FILE_NAME
 from cognite.client.exceptions import CogniteAuthError
+from cognite.client.utils import _json
+from cognite.client.utils._auxiliary import get_user_agent
 from cognite.client.utils.useful_types import SequenceNotStr
+from requests.structures import CaseInsensitiveDict
 from rich import print
 from rich.console import Console
 
@@ -45,8 +52,10 @@ from cognite_toolkit._cdf_tk.utils import (
     calculate_hash,
     calculate_secure_hash,
 )
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_current_toolkit_version
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.text import suffix_description
+from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from .auth_loaders import GroupAllScopedLoader
 from .data_organization_loaders import DataSetsLoader
@@ -79,6 +88,20 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         super().__init__(client, build_path, console)
         self.data_set_id_by_external_id: dict[str, int] = {}
         self.function_dir_by_external_id: dict[str, Path] = {}
+        session = get_global_requests_session()
+        self._http_client = HTTPClient(
+            config=HTTPClientConfig(
+                status_codes_to_retry={0},
+                backoff_factor=0.5,
+                max_backoff_seconds=global_config.max_retry_backoff,
+                max_retries_total=global_config.max_retries,
+                max_retries_read=0,
+                max_retries_connect=global_config.max_retries_connect,
+                max_retries_status=0,
+            ),
+            session=session,
+            refresh_auth_header=self.client.functions._refresh_auth_header,
+        )
 
     @property
     def display_name(self) -> str:
@@ -312,7 +335,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
                     " problem persists, please contact Cognite support."
                 )
             item.file_id = file_id
-            created_item = self.client.functions.create(item)
+            created_item = self._stop_gap_create_function(item)
             self._warn_if_cpu_or_memory_changed(created_item, item)
             created.append(created_item)
         return created
@@ -374,6 +397,78 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         # Replaced by the toolkit
         spec.discard(ParameterSpec(("fileId",), frozenset({"int"}), is_required=True, _is_nullable=False))
         return spec
+
+    def _stop_gap_create_function(self, function: FunctionWrite, retry_count: int = 0) -> Function:
+        url_path = "/functions"
+        headers = self._create_headers()
+        payload = self._prepare_payload({"items": function.dump(camel_case=True)})
+        _, full_url = self.client.functions._resolve_url("POST", url_path)
+
+        response = self._http_client.request(
+            method="POST",
+            url=full_url,
+            headers=headers,
+            data=payload,
+            timeout=self.client.config.timeout,
+            allow_redirects=False,
+        )
+
+        match response.status_code:
+            case 200 | 201 | 202 | 204:
+                pass
+            case 401:
+                self.client.functions._raise_no_project_access_error(response)
+            case 429 if retry_count < global_config.max_retries:
+                retry_after = response.headers.get("Retry-After", 60)
+                HighSeverityWarning(f"Rate limit exceeded. Retrying after {retry_after} seconds.").print_warning(
+                    console=self.console
+                )
+                time.sleep(int(retry_after))
+                return self._stop_gap_create_function(function, retry_count + 1)
+            case _:
+                self.client.functions._raise_api_error(response, {"items": function.dump(camel_case=True)})
+
+        return Function._load(response.json()[0], cognite_client=self.client)
+
+    def _create_headers(self) -> MutableMapping[str, str]:
+        headers: MutableMapping[str, str] = CaseInsensitiveDict()
+        headers.update(requests.utils.default_headers())
+        auth_name, auth_value = self.client._config.credentials.authorization_header()
+        headers[auth_name] = auth_value
+        headers["content-type"] = "application/json"
+        headers["accept"] = "application/json"
+        headers["x-cdp-sdk"] = f"CogniteToolkit:{get_current_toolkit_version()}"
+        headers["x-cdp-app"] = self.client._config.client_name
+        headers["cdf-version"] = self.client._config.api_subversion
+        if "User-Agent" in headers:
+            headers["User-Agent"] += f" {get_user_agent()}"
+        else:
+            headers["User-Agent"] = get_user_agent()
+        if not global_config.disable_gzip:
+            headers["Content-Encoding"] = "gzip"
+        return headers
+
+    @staticmethod
+    def _prepare_payload(body: JsonVal) -> str | bytes:
+        """
+        Prepare the payload for the HTTP request.
+        This method should be overridden in subclasses to customize the payload format.
+        """
+        data: str | bytes
+        try:
+            data = _json.dumps(body, allow_nan=False)
+        except ValueError as e:
+            # A lot of work to give a more human friendly error message when nans and infs are present:
+            msg = "Out of range float values are not JSON compliant"
+            if msg in str(e):  # exc. might e.g. contain an extra ": nan", depending on build (_json.make_encoder)
+                raise ValueError(f"{msg}. Make sure your data does not contain NaN(s) or +/- Inf!").with_traceback(
+                    e.__traceback__
+                ) from None
+            raise
+
+        if not global_config.disable_gzip:
+            data = gzip.compress(data.encode())
+        return data
 
 
 @final
