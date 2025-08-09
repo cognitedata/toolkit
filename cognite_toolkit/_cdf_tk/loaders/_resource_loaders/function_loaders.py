@@ -419,11 +419,14 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             case 401:
                 self.client.functions._raise_no_project_access_error(response)
             case 429 if retry_count < global_config.max_retries:
-                retry_after = response.headers.get("Retry-After", 60)
+                try:
+                    retry_after = int(response.headers.get("Retry-After", 60))
+                except ValueError:
+                    retry_after = 60
                 HighSeverityWarning(f"Rate limit exceeded. Retrying after {retry_after} seconds.").print_warning(
                     console=self.console
                 )
-                time.sleep(int(retry_after))
+                time.sleep(retry_after)
                 return self._stop_gap_create_function(function, retry_count + 1)
             case _:
                 self.client.functions._raise_api_error(response, {"items": function.dump(camel_case=True)})
