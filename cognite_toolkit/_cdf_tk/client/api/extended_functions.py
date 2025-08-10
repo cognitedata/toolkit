@@ -49,7 +49,7 @@ class ExtendedFunctionsAPI(FunctionsAPI):
         self, function: FunctionWrite, retry_count: int = 0, console: Console | None = None
     ) -> Function:
         headers = self._create_headers()
-        payload = self._prepare_payload({"items": function.dump(camel_case=True)})
+        payload = self._prepare_payload({"items": [function.dump(camel_case=True)]})
         _, full_url = self._resolve_url("POST", self._RESOURCE_PATH)
 
         response = self._http_client_no_retry.request(
