@@ -113,7 +113,7 @@ class MissingDependencyWarning(GeneralWarning):
     required_by: set[tuple[Hashable, Path]]
 
     def get_message(self) -> str:
-        msg = f"{self.dependency_type} {self.identifier!r} is missing and is required by:"
+        msg = f"{self.dependency_type} {self.identifier!r} is missing in CDF and locally and is required by:"
         for identifier, path in self.required_by:
             msg += f"\n- {identifier!r} in {path}"
         return msg
