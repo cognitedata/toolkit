@@ -53,7 +53,7 @@ class DownloadCommand(ToolkitCommand):
 
                 if executor.error_occurred:
                     raise ValueError(f"An error occurred during the download process: {executor.error_message}")
-                file_count = len(writer._writer_by_filepath)
+                file_count = writer.file_count
 
             console.print(f"Downloaded {identifier!s} to {file_count} file(s) in {target_directory.as_posix()!r}.")
 

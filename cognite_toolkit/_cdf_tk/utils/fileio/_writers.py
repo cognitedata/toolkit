@@ -36,6 +36,11 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
         self._file_count_by_filename: dict[str, int] = Counter()
         self._writer_by_filepath: dict[Path, T_IO] = {}
 
+    @property
+    def file_count(self) -> int:
+        """Get the total number of files written."""
+        return len(self._writer_by_filepath)
+
     def write_chunks(self, chunks: Iterable[Chunk], filestem: str = "") -> None:
         filepath = self._get_filepath(filestem)
         writer = self._get_writer(filepath, filestem)
