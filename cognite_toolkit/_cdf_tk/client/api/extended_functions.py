@@ -29,6 +29,7 @@ class ExtendedFunctionsAPI(FunctionsAPI):
         """
         super().__init__(config, api_version, cognite_client)
         session = get_global_requests_session()
+        # The HTTPClient in the parent class always retries 429 responses, but we want to handle that manually.
         self._http_client_no_retry = HTTPClient(
             config=HTTPClientConfig(
                 status_codes_to_retry={0},
@@ -50,7 +51,7 @@ class ExtendedFunctionsAPI(FunctionsAPI):
         payload = self._prepare_payload({"items": function.dump(camel_case=True)})
         _, full_url = self._resolve_url("POST", self._RESOURCE_PATH)
 
-        response = self._http_client.request(
+        response = self._http_client_no_retry.request(
             method="POST",
             url=full_url,
             headers=headers,
