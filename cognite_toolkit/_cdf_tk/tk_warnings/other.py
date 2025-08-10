@@ -111,9 +111,13 @@ class MissingDependencyWarning(GeneralWarning):
     dependency_type: str
     identifier: Hashable
     required_by: set[tuple[Hashable, Path]]
+    has_checked_cdf: bool = False
 
     def get_message(self) -> str:
-        msg = f"{self.dependency_type} {self.identifier!r} is missing in CDF and locally and is required by:"
+        location = "local configuration"
+        if self.has_checked_cdf:
+            location = "in CDF and local configuration"
+        msg = f"{self.dependency_type} {self.identifier!r} is missing {location} and is required by:"
         for identifier, path in self.required_by:
             msg += f"\n- {identifier!r} in {path}"
         return msg
