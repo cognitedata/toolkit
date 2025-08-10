@@ -77,7 +77,7 @@ class ExtendedFunctionsAPI(FunctionsAPI):
             case _:
                 self._raise_api_error(response, {"items": function.dump(camel_case=True)})
 
-        return Function._load(response.json()[0], cognite_client=self._cognite_client)
+        return Function._load(response.json()["items"][0], cognite_client=self._cognite_client)
 
     def _create_headers(self) -> MutableMapping[str, str]:
         headers: MutableMapping[str, str] = CaseInsensitiveDict()
