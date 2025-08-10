@@ -42,7 +42,7 @@ class AssetIO(TableStorageIO[AssetCentricData, AssetWriteList, AssetList]):
         return aggregator.count(identifier.hierarchy, identifier.data_set_id)
 
     def download_iterable(self, identifier: AssetCentricData, limit: int | None = None) -> Iterable[AssetList]:
-        yield from self.client.assets(chunk_size=self.chunk_size, limit=limit, **identifier.as_filter())
+        yield from self.client.assets(chunk_size=self.chunk_size, limit=limit, **identifier.as_filter(self.client))
 
     def upload_items(self, data_chunk: AssetWriteList, identifier: AssetCentricData) -> None:
         if not data_chunk:
