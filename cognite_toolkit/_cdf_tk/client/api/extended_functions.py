@@ -1,4 +1,5 @@
 import gzip
+import json
 import time
 from collections.abc import MutableMapping
 
@@ -107,7 +108,7 @@ class ExtendedFunctionsAPI(FunctionsAPI):
         data: str | bytes
         try:
             data = _json.dumps(body, allow_nan=False)
-        except ValueError as e:
+        except json.JSONDecodeError as e:
             # A lot of work to give a more human friendly error message when nans and infs are present:
             msg = "Out of range float values are not JSON compliant"
             if msg in str(e):  # exc. might e.g. contain an extra ": nan", depending on build (_json.make_encoder)
