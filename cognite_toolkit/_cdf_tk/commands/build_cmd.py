@@ -588,7 +588,7 @@ class BuildCommand(ToolkitCommand):
             retrieved = loader.retrieve([id_])
             if retrieved:
                 self.existing_resources_by_loader[loader_cls].add(id_)
-            return True
+                return True
         return False
 
     def check_built_resource(
