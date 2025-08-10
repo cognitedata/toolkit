@@ -76,6 +76,12 @@ class TestCompression:
 
         assert content == "Test content"
 
+    def test_all_compression_classes_registered(self) -> None:
+        expected_compressions = get_concrete_subclasses(Compression)
+
+        assert set(COMPRESSION_BY_NAME.values()) == set(expected_compressions)
+        assert set(COMPRESSION_BY_SUFFIX.values()) == set(expected_compressions)
+
 
 class TestFileWriter:
     def test_file_split_on_limit(self, tmp_path: Path) -> None:
