@@ -67,7 +67,7 @@ class TestExtendedFunctionsAPI:
         assert exc_info.value.message == "Too many requests"
         assert exc_info.value.code == 429
 
-    def test_create_function_429_invali_retry_after(self, toolkit_config: ToolkitClientConfig) -> None:
+    def test_create_function_429_invalid_retry_after(self, toolkit_config: ToolkitClientConfig) -> None:
         client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
         url = f"{toolkit_config.base_url}/api/v1/projects/test-project/functions"
         fun = FunctionWrite(name="test_function", file_id=123, external_id="test_function")
@@ -77,8 +77,8 @@ class TestExtendedFunctionsAPI:
                 responses.POST, url, status=429, json={"error": "Too many requests"}, headers={"Retry-After": "invalid"}
             )
             with pytest.raises(CogniteAPIError) as exc_info:
-                client.functions.create_with_429_retry(fun, retry_count=global_config.max_retries - 1, console=console)
-        assert console.print.call_count == 1
+                client.functions.create_with_429_retry(fun, console=console)
+        assert console.print.call_count == global_config.max_retries
         assert "Rate limit exceeded. Retrying after 60 seconds." in console.print.call_args.args[1]
         assert exc_info.value.message == "Too many requests"
 
