@@ -111,6 +111,16 @@ class TestFileWriter:
             Path("dummy/file2-part-0000.DummyKind.dummy"),
         ]
 
+    def test_all_file_writers_registered(self) -> None:
+        expected_writers = set(get_concrete_subclasses(FileWriter)) - {DummyWriter}
+
+        assert set(FILE_READ_CLS_BY_FORMAT.values()) == expected_writers
+
+    def test_create_from_format_raises(self) -> None:
+        with pytest.raises(ToolkitValueError) as excinfo:
+            FileWriter.create_from_format("unknown_format", Path("."), "DummyKind", NoneCompression)
+        assert str(excinfo.value).startswith("Unknown file format: unknown_format. Available formats: ")
+
 
 class TestFileReader:
     def test_read_multiple_lines(self, tmp_path: Path) -> None:
