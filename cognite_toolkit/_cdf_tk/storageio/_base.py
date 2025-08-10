@@ -24,6 +24,7 @@ class StorageIO(ABC, Generic[T_StorageID, T_CogniteResourceList, T_WritableCogni
     supported_download_formats: frozenset[str]
     supported_compressions: frozenset[str]
     supported_read_formats: frozenset[str]
+    chunk_size: int
 
     def __init__(self, client: ToolkitClient) -> None:
         self.client = client
