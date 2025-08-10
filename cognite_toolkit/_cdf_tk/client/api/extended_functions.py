@@ -44,9 +44,7 @@ class ExtendedFunctionsAPI(FunctionsAPI):
             refresh_auth_header=self._refresh_auth_header,
         )
 
-    def create_with_429_retry(
-        self, function: FunctionWrite, retry_count: int = 0, console: Console | None = None
-    ) -> Function:
+    def create_with_429_retry(self, function: FunctionWrite, console: Console | None = None) -> Function:
         """Create a function with manual retry handling for 429 Too Many Requests responses.
 
         This method is a workaround for scenarios where the function creation API is temporarily unavailable
@@ -54,7 +52,6 @@ class ExtendedFunctionsAPI(FunctionsAPI):
 
         Args:
             function (FunctionWrite): The function to create.
-            retry_count (int): The current retry attempt count.
             console (Console | None): The rich console to use for printing warnings.
 
         Returns:
@@ -63,35 +60,39 @@ class ExtendedFunctionsAPI(FunctionsAPI):
         headers = self._create_headers()
         payload = self._prepare_payload({"items": [function.dump(camel_case=True)]})
         _, full_url = self._resolve_url("POST", self._RESOURCE_PATH)
+        retry_count = 0
+        while True:
+            response = self._http_client_no_retry.request(
+                method="POST",
+                url=full_url,
+                headers=headers,
+                data=payload,
+                timeout=self._config.timeout,
+                allow_redirects=False,
+            )
 
-        response = self._http_client_no_retry.request(
-            method="POST",
-            url=full_url,
-            headers=headers,
-            data=payload,
-            timeout=self._config.timeout,
-            allow_redirects=False,
+            match response.status_code:
+                case 200 | 201 | 202 | 204:
+                    return Function._load(response.json()["items"][0], cognite_client=self._cognite_client)
+                case 401:
+                    self._raise_no_project_access_error(response)
+                case 429 if retry_count < global_config.max_retries:
+                    try:
+                        retry_after = int(response.headers.get("Retry-After", 60))
+                    except ValueError:
+                        retry_after = 60
+                    HighSeverityWarning(f"Rate limit exceeded. Retrying after {retry_after} seconds.").print_warning(
+                        console=console
+                    )
+                    time.sleep(retry_after)
+                    retry_count += 1
+                    continue
+                case _:
+                    self._raise_api_error(response, {"items": function.dump(camel_case=True)})
+
+        raise ValueError(
+            f"Failed to create function after {global_config.max_retries} retries. Please try again later."
         )
-
-        match response.status_code:
-            case 200 | 201 | 202 | 204:
-                pass
-            case 401:
-                self._raise_no_project_access_error(response)
-            case 429 if retry_count < global_config.max_retries:
-                try:
-                    retry_after = int(response.headers.get("Retry-After", 60))
-                except ValueError:
-                    retry_after = 60
-                HighSeverityWarning(f"Rate limit exceeded. Retrying after {retry_after} seconds.").print_warning(
-                    console=console
-                )
-                time.sleep(retry_after)
-                return self.create_with_429_retry(function, retry_count + 1, console=console)
-            case _:
-                self._raise_api_error(response, {"items": function.dump(camel_case=True)})
-
-        return Function._load(response.json()["items"][0], cognite_client=self._cognite_client)
 
     def _create_headers(self) -> MutableMapping[str, str]:
         headers: MutableMapping[str, str] = CaseInsensitiveDict()
