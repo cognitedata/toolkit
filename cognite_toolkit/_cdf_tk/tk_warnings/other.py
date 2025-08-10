@@ -114,9 +114,9 @@ class MissingDependencyWarning(GeneralWarning):
     has_checked_cdf: bool = False
 
     def get_message(self) -> str:
-        location = "local configuration"
+        location = "local configurations"
         if self.has_checked_cdf:
-            location = "in CDF and local configuration"
+            location = "in CDF and local configurations"
         msg = f"{self.dependency_type} {self.identifier!r} is missing {location} and is required by:"
         for identifier, path in self.required_by:
             msg += f"\n- {identifier!r} in {path}"
