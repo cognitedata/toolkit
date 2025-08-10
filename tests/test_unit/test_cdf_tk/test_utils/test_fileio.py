@@ -21,6 +21,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import (
     NoneCompression,
 )
 from cognite_toolkit._cdf_tk.utils.fileio._readers import YAMLBaseReader
+from cognite_toolkit._cdf_tk.utils.fileio._writers import YAMLBaseWriter
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 
@@ -138,9 +139,10 @@ class TestFileWriter:
         ]
 
     def test_all_file_writers_registered(self) -> None:
-        expected_writers = set(get_concrete_subclasses(FileWriter)) - {DummyWriter}
+        # YAMLBaseWriter is an abstract class, so we exclude it from the expected readers
+        expected_writers = set(get_concrete_subclasses(FileWriter)) - {DummyWriter, YAMLBaseWriter}
 
-        assert set(FILE_READ_CLS_BY_FORMAT.values()) == expected_writers
+        assert set(FILE_WRITE_CLS_BY_FORMAT.values()) == expected_writers
 
     def test_create_from_format_raises(self) -> None:
         with pytest.raises(ToolkitValueError) as excinfo:
