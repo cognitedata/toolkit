@@ -18,7 +18,7 @@ class AssetIO(TableStorageIO[AssetCentricData, AssetWriteList, AssetList]):
     display_name = "Assets"
     supported_download_formats = frozenset({".parquet", ".csv", ".ndjson"})
     supported_compressions = frozenset({".gz"})
-    supported_read_formats = frozenset({".parquet", ".csv", ".ndjson"})
+    supported_read_formats = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
     chunk_size = 1000
 
     def __init__(self, client: ToolkitClient) -> None:
