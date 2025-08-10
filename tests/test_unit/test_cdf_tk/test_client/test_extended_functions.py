@@ -4,7 +4,7 @@ import pytest
 import responses
 from cognite.client import global_config
 from cognite.client.data_classes import FunctionWrite
-from cognite.client.exceptions import CogniteAPIError
+from cognite.client.exceptions import CogniteAPIError, CogniteProjectAccessError
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
@@ -66,3 +66,48 @@ class TestExtendedFunctionsAPI:
         assert console.print.call_count == global_config.max_retries
         assert exc_info.value.message == "Too many requests"
         assert exc_info.value.code == 429
+
+    def test_create_function_429_invali_retry_after(self, toolkit_config: ToolkitClientConfig) -> None:
+        client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
+        url = f"{toolkit_config.base_url}/api/v1/projects/test-project/functions"
+        fun = FunctionWrite(name="test_function", file_id=123, external_id="test_function")
+        console = MagicMock(spec=Console)
+        with responses.RequestsMock() as rsps, patch(f"{ExtendedFunctionsAPI.__module__}.time.sleep"):
+            rsps.add(
+                responses.POST, url, status=429, json={"error": "Too many requests"}, headers={"Retry-After": "invalid"}
+            )
+            with pytest.raises(CogniteAPIError) as exc_info:
+                client.functions.create_with_429_retry(fun, retry_count=global_config.max_retries - 1, console=console)
+        assert console.print.call_count == 1
+        assert "Rate limit exceeded. Retrying after 60 seconds." in console.print.call_args.args[1]
+        assert exc_info.value.message == "Too many requests"
+
+    def test_create_function_401(self, toolkit_config: ToolkitClientConfig) -> None:
+        client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
+        url = f"{toolkit_config.base_url}/api/v1/projects/test-project/functions"
+        fun = FunctionWrite(name="test_function", file_id=123, external_id="test_function")
+        with responses.RequestsMock() as rsps:
+            rsps.add(responses.POST, url, status=401, json={"error": "Unauthorized"})
+            with pytest.raises(CogniteProjectAccessError):
+                client.functions.create_with_429_retry(fun)
+
+    def test_create_function_invalid_json_float(self, toolkit_config: ToolkitClientConfig) -> None:
+        client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
+        fun = FunctionWrite(name="test_function", file_id=123, external_id="test_function", cpu=float("inf"))
+        with pytest.raises(ValueError) as exc_info:
+            client.functions.create_with_429_retry(fun)
+
+        assert "Out of range float values are not JSON compliant" in str(exc_info.value)
+
+    def test_create_function_invalid_json(self, toolkit_config: ToolkitClientConfig) -> None:
+        client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
+        fun = FunctionWrite(
+            name="test_function",
+            file_id=123,
+            external_id="test_function",
+            cpu=43j,  # Complex number, which is not JSON serializable
+        )
+        with pytest.raises(TypeError) as exc_info:
+            client.functions.create_with_429_retry(fun)
+
+        assert "Object 43j of type <class 'complex'> can't be serialized by the JSON encoder" in str(exc_info.value)
