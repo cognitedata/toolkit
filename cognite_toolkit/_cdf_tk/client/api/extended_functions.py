@@ -90,10 +90,6 @@ class ExtendedFunctionsAPI(FunctionsAPI):
                 case _:
                     self._raise_api_error(response, {"items": function.dump(camel_case=True)})
 
-        raise ValueError(
-            f"Failed to create function after {global_config.max_retries} retries. Please try again later."
-        )
-
     def _create_headers(self) -> MutableMapping[str, str]:
         headers: MutableMapping[str, str] = CaseInsensitiveDict()
         headers.update(requests.utils.default_headers())
