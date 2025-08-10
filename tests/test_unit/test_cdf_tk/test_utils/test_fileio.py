@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import (
     COMPRESSION_BY_NAME,
     COMPRESSION_BY_SUFFIX,
     FILE_READ_CLS_BY_FORMAT,
+    FILE_WRITE_CLS_BY_FORMAT,
     Chunk,
     Compression,
     FileReader,
@@ -114,7 +115,7 @@ class TestFileWriter:
     def test_all_file_writers_registered(self) -> None:
         expected_writers = set(get_concrete_subclasses(FileWriter)) - {DummyWriter}
 
-        assert set(FILE_READ_CLS_BY_FORMAT.values()) == expected_writers
+        assert set(FILE_WRITE_CLS_BY_FORMAT.values()) == expected_writers
 
     def test_create_from_format_raises(self) -> None:
         with pytest.raises(ToolkitValueError) as excinfo:
