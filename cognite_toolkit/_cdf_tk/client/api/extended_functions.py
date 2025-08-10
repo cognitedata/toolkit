@@ -1,5 +1,4 @@
 import gzip
-import json
 import time
 from collections.abc import MutableMapping
 
@@ -48,6 +47,19 @@ class ExtendedFunctionsAPI(FunctionsAPI):
     def create_with_429_retry(
         self, function: FunctionWrite, retry_count: int = 0, console: Console | None = None
     ) -> Function:
+        """Create a function with manual retry handling for 429 Too Many Requests responses.
+
+        This method is a workaround for scenarios where the function creation API is temporarily unavailable
+        due to a full queue on the server side.
+
+        Args:
+            function (FunctionWrite): The function to create.
+            retry_count (int): The current retry attempt count.
+            console (Console | None): The rich console to use for printing warnings.
+
+        Returns:
+            Function: The created function object.
+        """
         headers = self._create_headers()
         payload = self._prepare_payload({"items": [function.dump(camel_case=True)]})
         _, full_url = self._resolve_url("POST", self._RESOURCE_PATH)
@@ -108,7 +120,7 @@ class ExtendedFunctionsAPI(FunctionsAPI):
         data: str | bytes
         try:
             data = _json.dumps(body, allow_nan=False)
-        except json.JSONDecodeError as e:
+        except ValueError as e:
             # A lot of work to give a more human friendly error message when nans and infs are present:
             msg = "Out of range float values are not JSON compliant"
             if msg in str(e):  # exc. might e.g. contain an extra ": nan", depending on build (_json.make_encoder)
