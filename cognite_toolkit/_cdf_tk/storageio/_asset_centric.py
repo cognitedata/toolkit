@@ -51,13 +51,7 @@ class AssetIO(TableStorageIO[AssetCentricData, AssetWriteList, AssetList]):
         self.client.assets.create(data_chunk)
 
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> AssetWriteList:
-        output = AssetWriteList([])
-        for item in data_chunk:
-            output.append(self._loader.load_resource(item))
-        return output
+        return AssetWriteList([self._loader.load_resource(item) for item in data_chunk])
 
     def data_to_json_chunk(self, data_chunk: AssetList) -> list[dict[str, JsonVal]]:
-        output: list[dict[str, JsonVal]] = []
-        for item in data_chunk:
-            output.append(self._loader.dump_resource(item))
-        return output
+        return [self._loader.dump_resource(item) for item in data_chunk]

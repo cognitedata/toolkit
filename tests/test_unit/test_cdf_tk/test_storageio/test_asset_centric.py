@@ -13,16 +13,13 @@ def some_asset_data() -> AssetList:
     """Fixture to provide a sample AssetList for testing."""
     return AssetList(
         [
-            Asset._load(
-                {
-                    "externalId": f"asset_{i}",
-                    "name": f"Asset {i}",
-                    "parentExternalId": None,
-                    "description": f"Description for asset {i}",
-                    "root": 123,
-                    "source": "test_source",
-                    "labels": ["my_label"],
-                }
+            Asset(
+                external_id=f"asset_{i}",
+                name=f"Asset {i}",
+                description=f"Description for asset {i}",
+                root_id=123,
+                source="test_source",
+                labels=["my_label"],
             )
             for i in range(100)
         ]
