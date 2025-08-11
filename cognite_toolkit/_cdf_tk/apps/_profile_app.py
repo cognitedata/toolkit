@@ -36,7 +36,7 @@ class ProfileApp(typer.Typer):
                 "--hierarchy",
                 "-h",
                 help="The asset hierarchy to profile. This should be the externalId of the root asset. If not provided,"
-                " ",
+                " an interactive prompt will be used to select the hierarchy.",
             ),
         ] = None,
         output_spreadsheet: Annotated[
@@ -52,7 +52,7 @@ class ProfileApp(typer.Typer):
         """This command gives an overview over the assets in the given hierarchy.
         It works by listing all assets, events, files, timeseries, and sequences related to the given hierarchy.
         In addition, it lists the data sets that is used for each of the resources, the transformations that writes to
-        these data sets, and the RAW tables that is used in these transformations..
+        these data sets, and the RAW tables that is used in these transformations.
         """
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = ProfileAssetCommand(output_spreadsheet)
@@ -67,6 +67,15 @@ class ProfileApp(typer.Typer):
     @staticmethod
     def asset_centric(
         ctx: typer.Context,
+        hierarchy: Annotated[
+            str | None,
+            typer.Option(
+                "--hierarchy",
+                "-h",
+                help="The asset hierarchy to profile. This should be the externalId of the root asset. If not provided,"
+                " an interactive prompt will be used to select the hierarchy (or select all assets-centric assets).",
+            ),
+        ] = None,
         output_spreadsheet: Annotated[
             Path | None,
             typer.Option(
@@ -85,6 +94,7 @@ class ProfileApp(typer.Typer):
         cmd.run(
             lambda: cmd.asset_centric(
                 client,
+                hierarchy,
                 verbose,
             )
         )
