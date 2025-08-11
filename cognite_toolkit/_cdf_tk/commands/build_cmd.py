@@ -571,7 +571,8 @@ class BuildCommand(ToolkitCommand):
                 (required, path.relative_to(project_config_dir))
                 for required, path in self._dependencies_by_required[(loader_cls, id_)]
             }
-            self.warn(MissingDependencyWarning(loader_cls.resource_cls.__name__, id_, required_by))
+            has_checked_cdf = client is not None
+            self.warn(MissingDependencyWarning(loader_cls.resource_cls.__name__, id_, required_by, has_checked_cdf))
 
     def _check_resource_exists_in_cdf(
         self, client: ToolkitClient, loader_cls: type[ResourceLoader], id_: Hashable
@@ -587,7 +588,7 @@ class BuildCommand(ToolkitCommand):
             retrieved = loader.retrieve([id_])
             if retrieved:
                 self.existing_resources_by_loader[loader_cls].add(id_)
-            return True
+                return True
         return False
 
     def check_built_resource(

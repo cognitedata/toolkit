@@ -67,6 +67,15 @@ class ProfileApp(typer.Typer):
     @staticmethod
     def asset_centric(
         ctx: typer.Context,
+        hierarchy: Annotated[
+            str | None,
+            typer.Option(
+                "--hierarchy",
+                "-h",
+                help="The asset hierarchy to profile. This should be the externalId of the root asset. If not provided,"
+                " an interactive prompt will be used to select the hierarchy (or select all assets-centric assets).",
+            ),
+        ] = None,
         output_spreadsheet: Annotated[
             Path | None,
             typer.Option(
@@ -85,6 +94,7 @@ class ProfileApp(typer.Typer):
         cmd.run(
             lambda: cmd.asset_centric(
                 client,
+                hierarchy,
                 verbose,
             )
         )

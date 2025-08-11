@@ -22,6 +22,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import (
     SchemaColumn,
 )
 from cognite_toolkit._cdf_tk.utils.fileio._readers import YAMLBaseReader
+from cognite_toolkit._cdf_tk.utils.fileio._writers import YAMLBaseWriter
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 
@@ -120,6 +121,52 @@ class TestCompression:
 
         assert content == "Test content"
 
+    def test_all_compression_classes_registered(self) -> None:
+        expected_compressions = get_concrete_subclasses(Compression)
+
+        assert set(COMPRESSION_BY_NAME.values()) == set(expected_compressions)
+        assert set(COMPRESSION_BY_SUFFIX.values()) == set(expected_compressions)
+
+
+class TestFileWriter:
+    def test_file_split_on_limit(self, tmp_path: Path) -> None:
+        dummy_writer = DummyWriter(tmp_path / "dummy")
+        dummy_writer.max_file_size_bytes = 1  # Set a small limit for testing
+        chunk1 = [{"a": 1}]
+        chunk2 = [{"b": 2}]
+        with dummy_writer:
+            dummy_writer.write_chunks(chunk1, filestem="splitfile")
+            dummy_writer.write_chunks(chunk2, filestem="splitfile")
+        assert [file.relative_to(tmp_path) for file in dummy_writer.opened_files] == [
+            Path("dummy/splitfile-part-0000.DummyKind.dummy"),
+            Path("dummy/splitfile-part-0001.DummyKind.dummy"),
+        ]
+        assert dummy_writer.written_chunks == chunk1 + chunk2
+
+    def test_multiple_filenames(self, tmp_path: Path) -> None:
+        output_dir = tmp_path / "dummy"
+        dummy_writer = DummyWriter(output_dir)
+        chunk1 = [{"x": 1}]
+        chunk2 = [{"y": 2}]
+        with dummy_writer:
+            dummy_writer.write_chunks(chunk1, filestem="file1")
+            dummy_writer.write_chunks(chunk2, filestem="file2")
+        assert [file.relative_to(tmp_path) for file in dummy_writer.opened_files] == [
+            Path("dummy/file1-part-0000.DummyKind.dummy"),
+            Path("dummy/file2-part-0000.DummyKind.dummy"),
+        ]
+
+    def test_all_file_writers_registered(self) -> None:
+        # YAMLBaseWriter is an abstract class, so we exclude it from the expected readers
+        expected_writers = set(get_concrete_subclasses(FileWriter)) - {DummyWriter, YAMLBaseWriter}
+
+        assert set(FILE_WRITE_CLS_BY_FORMAT.values()) == expected_writers
+
+    def test_create_from_format_raises(self) -> None:
+        with pytest.raises(ToolkitValueError) as excinfo:
+            FileWriter.create_from_format("unknown_format", Path("."), "DummyKind", NoneCompression)
+        assert str(excinfo.value).startswith("Unknown file format: unknown_format. Available formats: ")
+
 
 class TestFileReader:
     def test_read_multiple_lines(self, tmp_path: Path) -> None:
@@ -174,35 +221,6 @@ class TestFileReader:
             FileReader.from_filepath(filepath)
 
         assert str(excinfo.value).startswith(expected_error)
-
-
-class TestFileWriter:
-    def test_file_split_on_limit(self, tmp_path: Path) -> None:
-        dummy_writer = DummyWriter(tmp_path / "dummy")
-        dummy_writer.max_file_size_bytes = 1  # Set a small limit for testing
-        chunk1 = [{"a": 1}]
-        chunk2 = [{"b": 2}]
-        with dummy_writer:
-            dummy_writer.write_chunks(chunk1, filestem="splitfile")
-            dummy_writer.write_chunks(chunk2, filestem="splitfile")
-        assert [file.relative_to(tmp_path) for file in dummy_writer.opened_files] == [
-            Path("dummy/splitfile-part-0000.DummyKind.dummy"),
-            Path("dummy/splitfile-part-0001.DummyKind.dummy"),
-        ]
-        assert dummy_writer.written_chunks == chunk1 + chunk2
-
-    def test_multiple_filenames(self, tmp_path: Path) -> None:
-        output_dir = tmp_path / "dummy"
-        dummy_writer = DummyWriter(output_dir)
-        chunk1 = [{"x": 1}]
-        chunk2 = [{"y": 2}]
-        with dummy_writer:
-            dummy_writer.write_chunks(chunk1, filestem="file1")
-            dummy_writer.write_chunks(chunk2, filestem="file2")
-        assert [file.relative_to(tmp_path) for file in dummy_writer.opened_files] == [
-            Path("dummy/file1-part-0000.DummyKind.dummy"),
-            Path("dummy/file2-part-0000.DummyKind.dummy"),
-        ]
 
 
 class TestFileIO:
