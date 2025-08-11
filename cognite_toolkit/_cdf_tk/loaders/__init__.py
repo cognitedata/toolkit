@@ -64,6 +64,7 @@ from ._resource_loaders import (
     TransformationNotificationLoader,
     TransformationScheduleLoader,
     ViewLoader,
+    ViewSourceLoader,
     WorkflowLoader,
     WorkflowTriggerLoader,
     WorkflowVersionLoader,
@@ -77,6 +78,9 @@ if not FeatureFlag.is_enabled(Flags.AGENTS):
     _EXCLUDED_LOADERS.add(AgentLoader)
 if not FeatureFlag.is_enabled(Flags.INFIELD):
     _EXCLUDED_LOADERS.add(InfieldV1Loader)
+if not FeatureFlag.is_enabled(Flags.MIGRATE):
+    _EXCLUDED_LOADERS.add(ViewSourceLoader)
+
 
 LOADER_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}
 for _loader in itertools.chain(
@@ -115,6 +119,7 @@ ResourceTypes: TypeAlias = Literal[  # type: ignore[no-redef, misc]
     "data_sets",
     "hosted_extractors",
     "locations",
+    "migration",
     "transformations",
     "files",
     "timeseries",
