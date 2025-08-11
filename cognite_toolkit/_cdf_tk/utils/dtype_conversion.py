@@ -2,14 +2,17 @@ import ctypes
 import json
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
-from typing import ClassVar, cast
+from typing import ClassVar, Literal, TypeAlias, cast
 
+from cognite.client.data_classes import Label, LabelDefinition
+from cognite.client.data_classes.data_modeling import ContainerId
 from cognite.client.data_classes.data_modeling.data_types import Enum, ListablePropertyType, PropertyType
 from cognite.client.data_classes.data_modeling.instances import PropertyValueWrite
 from cognite.client.utils import ms_to_datetime
 from dateutil import parser
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
 from .collection import humanize_collection
 
@@ -17,6 +20,23 @@ INT32_MIN = -2_147_483_648
 INT32_MAX = 2_147_483_647
 INT64_MIN = -9_223_372_036_854_775_808
 INT64_MAX = 9_223_372_036_854_775_807
+
+AssetCentric: TypeAlias = Literal["asset", "file", "event", "timeseries", "sequence"]
+
+
+def asset_centric_convert_to_primary_property(
+    value: str | int | float | bool | dict | list | None,
+    type_: PropertyType,
+    nullable: bool,
+    destination_container_property: tuple[ContainerId, str],
+    source_property: tuple[AssetCentric, str],
+) -> PropertyValueWrite:
+    if (source_property, destination_container_property) in SPECIAL_CONVERTER_BY_SOURCE_DESTINATION:
+        converter_cls = SPECIAL_CONVERTER_BY_SOURCE_DESTINATION[(source_property, destination_container_property)]
+        return converter_cls().convert(value)
+    else:
+        # Fallback to the standard conversion
+        return convert_to_primary_property(value, type_, nullable)
 
 
 def convert_to_primary_property(
@@ -100,6 +120,57 @@ class _ValueConverter(_Converter, ABC):
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
         """Convert the value to the appropriate type."""
         raise NotImplementedError("This method should be implemented by subclasses.")
+
+
+class _SpecialCaseConverter(_Converter, ABC):
+    """Abstract base class for converters handling special cases."""
+
+    source_property: ClassVar[tuple[AssetCentric, str]]
+    destination_container_property: ClassVar[tuple[ContainerId, str]]
+
+
+class _TimeSeriesTypeConverter(_SpecialCaseConverter):
+    source_property = ("timeseries", "isString")
+    destination_container_property = (ContainerId("cdf_cdm", "CogniteTimeSeries"), "type")
+
+    def convert(self, value: str | int | float | bool | dict | list | None) -> str:
+        if isinstance(value, bool):
+            return "string" if value else "numeric"
+        raise ValueError(f"Cannot convert {value} to TimeSeries type. Expected a boolean value.")
+
+
+class _LabelConverter(_SpecialCaseConverter, ABC):
+    destination_container_property = (ContainerId("cdf_cdm", "CogniteDescribable"), "tags")
+
+    def convert(self, value: str | int | float | bool | dict | list | None) -> list[str]:
+        if not isinstance(value, list):
+            raise ValueError(
+                f"Cannot convert {value} to labels. Expected a list of Labels, objects, or LabelDefinitions."
+            )
+        tags: list[str] = []
+        for item in value:
+            match item:
+                case str() as tag:
+                    tags.append(tag)
+                # Matches a dict with the key "externalId" whose value is a string
+                case {"externalId": str() as tag}:
+                    tags.append(tag)
+                # Matches Label or LabelDefinition objects with a truthy external_id
+                case Label(external_id=tag) | LabelDefinition(external_id=tag) if tag:
+                    tags.append(tag)
+                case _:
+                    raise ValueError(
+                        f"Invalid label item: {item}. Expected a string, dict with 'externalId', or Label/LabelDefinition."
+                    )
+        return tags
+
+
+class _AssetLabelConverter(_LabelConverter):
+    source_property = ("asset", "labels")
+
+
+class _FileLabelConverter(_LabelConverter):
+    source_property = ("file", "labels")
 
 
 class _TextConverter(_ValueConverter):
@@ -298,4 +369,11 @@ class _SequenceReferenceConverter(_ValueConverter):
 CONVERTER_BY_DTYPE: Mapping[str, type[_ValueConverter]] = {
     cls_.type_str: cls_  # type: ignore[type-abstract]
     for cls_ in _ValueConverter.__subclasses__()
+}
+SPECIAL_CONVERTER_BY_SOURCE_DESTINATION: Mapping[
+    tuple[tuple[AssetCentric, str], tuple[ContainerId, str]],
+    type[_SpecialCaseConverter],
+] = {
+    (subclass.source_property, subclass.destination_container_property): subclass
+    for subclass in get_concrete_subclasses(_SpecialCaseConverter)  # type: ignore[type-abstract]
 }
