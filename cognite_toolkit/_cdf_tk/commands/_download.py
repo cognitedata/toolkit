@@ -6,7 +6,7 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.storageio import StorageIO
 from cognite_toolkit._cdf_tk.storageio._base import T_CogniteResourceList, T_StorageID, T_WritableCogniteResourceList
-from cognite_toolkit._cdf_tk.utils.file import to_directory_compatible
+from cognite_toolkit._cdf_tk.utils.file import safe_write, to_directory_compatible, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import Compression, FileWriter
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
@@ -54,6 +54,11 @@ class DownloadCommand(ToolkitCommand):
                 if executor.error_occurred:
                     raise ValueError(f"An error occurred during the download process: {executor.error_message}")
                 file_count = writer.file_count
+
+            for config in io.configurations(identifier):
+                config_file = output_dir / config.folder_name / f"{filestem}.{config.kind}.yaml"
+                config_file.parent.mkdir(parents=True, exist_ok=True)
+                safe_write(config_file, yaml_safe_dump(config.value))
 
             console.print(f"Downloaded {identifier!s} to {file_count} file(s) in {target_directory.as_posix()!r}.")
 
