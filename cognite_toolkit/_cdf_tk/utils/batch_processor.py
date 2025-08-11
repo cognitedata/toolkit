@@ -141,11 +141,6 @@ class HTTPBatchProcessor(Generic[T_ID]):
         # Thread-safe session for connection pooling
         self.session = self._create_thread_safe_session()
 
-        # Shared state for rate limiting and backoff
-        self._rate_limit_lock = threading.Lock()
-        self._rate_limit_until = 0.0
-        self._token_expiry = 0.0
-
     def __enter__(self) -> "HTTPBatchProcessor[T_ID]":
         return self
 
@@ -205,16 +200,6 @@ class HTTPBatchProcessor(Generic[T_ID]):
         if not global_config.disable_gzip:
             data = gzip.compress(data.encode())
         return data
-
-    def _handle_rate_limit(self) -> None:
-        with self._rate_limit_lock:
-            now = time.time()
-            if self._rate_limit_until > now:
-                # Another thread has already set a backoff. No need to set a new one.
-                return
-            backoff = 1.0 + random.uniform(0, 1)
-            self.console.print(f"[yellow]Rate limit hit (429). Backing off for {backoff:.2f}s.[/yellow]")
-            self._rate_limit_until = now + backoff
 
     def _producer(self, items_iterator: Iterable[dict[str, JsonVal]], work_queue: Queue) -> None:
         batch: list[dict] = []
@@ -284,12 +269,6 @@ class HTTPBatchProcessor(Generic[T_ID]):
     ) -> None:
         while (work_item := work_queue.get()) is not None:
             try:
-                with self._rate_limit_lock:
-                    backoff_time = self._rate_limit_until - time.time()
-                if backoff_time > 0:
-                    jitter = random.uniform(0, 0.2)
-                    time.sleep(backoff_time + jitter)
-
                 response = self._make_request(work_item)
                 self._handle_response(response, work_item, work_queue, results_queue)
             except Exception as e:
@@ -342,8 +321,6 @@ class HTTPBatchProcessor(Generic[T_ID]):
                 )
             )
         elif work_item.status_attempt < self.max_retries and response.status_code in {429, 502, 503, 504}:
-            if response.status_code == 429:
-                self._handle_rate_limit()
             work_item.status_attempt += 1
             time.sleep(self._backoff_time(work_item.total_attempts))
             work_queue.put(work_item)
