@@ -79,9 +79,9 @@ class ExtendedFunctionsAPI(FunctionsAPI):
                     self._raise_no_project_access_error(response)
                 case 429 if retry_count < global_config.max_retries:
                     try:
-                        retry_after = int(response.headers.get("Retry-After", 60))
+                        retry_after = float(response.headers.get("Retry-After", 60))
                     except ValueError:
-                        retry_after = 60 + random.uniform(-5, 5)
+                        retry_after = 60.0 + random.uniform(-5, 5)
                     HighSeverityWarning(f"Rate limit exceeded. Retrying after {retry_after} seconds.").print_warning(
                         console=console
                     )
