@@ -1,4 +1,5 @@
 import gzip
+import random
 import time
 from collections.abc import MutableMapping
 
@@ -32,7 +33,7 @@ class ExtendedFunctionsAPI(FunctionsAPI):
         # The HTTPClient in the parent class always retries 429 responses, but we want to handle that manually.
         self._http_client_no_retry = HTTPClient(
             config=HTTPClientConfig(
-                status_codes_to_retry={0},
+                status_codes_to_retry=set(),
                 backoff_factor=0.5,
                 max_backoff_seconds=global_config.max_retry_backoff,
                 max_retries_total=global_config.max_retries,
@@ -80,7 +81,7 @@ class ExtendedFunctionsAPI(FunctionsAPI):
                     try:
                         retry_after = int(response.headers.get("Retry-After", 60))
                     except ValueError:
-                        retry_after = 60
+                        retry_after = 60 + random.uniform(-5, 5)
                     HighSeverityWarning(f"Rate limit exceeded. Retrying after {retry_after} seconds.").print_warning(
                         console=console
                     )

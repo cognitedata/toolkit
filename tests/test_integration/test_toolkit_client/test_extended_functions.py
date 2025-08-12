@@ -28,12 +28,13 @@ def function_code_file_id(toolkit_client: ToolkitClient) -> int:
             "project": client.config.project,
         }
 
-    file = FileMetadataWrite(name="test_create_function_429", external_id="test_create_function_429")
+    name = "test_create_function_429"
+    file = FileMetadataWrite(name=name, external_id="test_create_function_429")
     retrieved = toolkit_client.files.retrieve(external_id=file.external_id)
     if retrieved:
         return retrieved.id
 
-    file_id = toolkit_client.functions._zip_and_upload_handle(handle, **file.dump(camel_case=False))
+    file_id = toolkit_client.functions._zip_and_upload_handle(handle, name=name, external_id=file.external_id)
     # Wait for the file to be available
     time.sleep(10)
     return file_id

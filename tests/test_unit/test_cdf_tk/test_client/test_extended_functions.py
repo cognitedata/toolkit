@@ -66,6 +66,7 @@ class TestExtendedFunctionsAPI:
         assert console.print.call_count == global_config.max_retries
         assert exc_info.value.message == "Too many requests"
         assert exc_info.value.code == 429
+        assert "Rate limit exceeded. Retrying after 42 seconds." in console.print.call_args.args[1]
 
     def test_create_function_429_invalid_retry_after(self, toolkit_config: ToolkitClientConfig) -> None:
         client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
@@ -90,6 +91,9 @@ class TestExtendedFunctionsAPI:
             rsps.add(responses.POST, url, status=401, json={"error": "Unauthorized"})
             with pytest.raises(CogniteProjectAccessError):
                 client.functions.create_with_429_retry(fun)
+
+            post_requests = [call for call in rsps.calls if call.request.url == url and call.request.method == "POST"]
+            assert len(post_requests) == 1
 
     def test_create_function_invalid_json_float(self, toolkit_config: ToolkitClientConfig) -> None:
         client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
