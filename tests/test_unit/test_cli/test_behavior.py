@@ -1,7 +1,8 @@
+import os
 import sys
 from pathlib import Path
 from typing import cast
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 import yaml
@@ -37,6 +38,7 @@ from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
 from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
 from cognite_toolkit._cdf_tk.loaders import RESOURCE_LOADER_LIST, LocationFilterLoader, WorkflowVersionLoader
+from cognite_toolkit._cdf_tk.tk_warnings import MissingDependencyWarning
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.constants import chdir
 from tests.data import (
@@ -908,3 +910,47 @@ def test_workflow_deployment_order(
         subworkflow.workflow_external_id,
         main_workflow.workflow_external_id,
     ]
+
+
+def test_warning_missing_dependency(
+    build_tmp_path: Path,
+    toolkit_client_approval: ApprovalToolkitClient,
+    env_vars_with_client: EnvironmentVariables,
+    tmp_path: Path,
+) -> None:
+    group_yaml = """name: scoped_group
+sourceId: '1234567890123456789'
+metadata:
+  origin: cognite-toolkit
+capabilities:
+- dataModelsAcl:
+    actions:
+    - READ
+    scope:
+      spaceIdScope:
+        spaceIds:
+        - my_non_existent_space
+"""
+
+    my_org = tmp_path / "my_org"
+    yaml_filepath = my_org / "modules" / "my_module" / "auth" / "scoped_group.Group.yaml"
+    yaml_filepath.parent.mkdir(parents=True, exist_ok=True)
+    yaml_filepath.write_text(group_yaml, encoding="utf-8")
+
+    cmd = BuildCommand(silent=True, skip_tracking=True)
+    with patch.dict(os.environ, {"CDF_PROJECT": "test_project"}):
+        cmd.execute(
+            verbose=False,
+            organization_dir=my_org,
+            build_dir=build_tmp_path,
+            selected=None,
+            build_env_name="dev",
+            no_clean=False,
+            client=env_vars_with_client.get_client(),
+            on_error="raise",
+        )
+    assert len(cmd.warning_list) == 1
+    warning = cmd.warning_list[0]
+    assert isinstance(warning, MissingDependencyWarning)
+    assert warning.identifier == "my_non_existent_space"
+    assert warning.required_by == {("scoped_group", yaml_filepath.relative_to(my_org))}
