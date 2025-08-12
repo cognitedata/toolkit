@@ -73,7 +73,15 @@ class TestExtendedFunctionsAPI:
         url = f"{toolkit_config.base_url}/api/v1/projects/test-project/functions"
         fun = FunctionWrite(name="test_function", file_id=123, external_id="test_function")
         console = MagicMock(spec=Console)
-        with responses.RequestsMock() as rsps, patch(f"{ExtendedFunctionsAPI.__module__}.time.sleep"):
+
+        def mock_uniform(*args, **kwargs):
+            return 0
+
+        with (
+            responses.RequestsMock() as rsps,
+            patch(f"{ExtendedFunctionsAPI.__module__}.time.sleep"),
+            patch(f"{ExtendedFunctionsAPI.__module__}.random.uniform", new=mock_uniform),
+        ):
             rsps.add(
                 responses.POST, url, status=429, json={"error": "Too many requests"}, headers={"Retry-After": "invalid"}
             )
