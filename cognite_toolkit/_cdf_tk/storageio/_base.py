@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from collections.abc import Hashable, Iterable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Generic, TypeVar
 
 from cognite.client.data_classes._base import (
@@ -62,6 +63,11 @@ class StorageIO(ABC, Generic[T_StorageID, T_CogniteResourceList, T_WritableCogni
     @abstractmethod
     def configurations(self, identifier: T_StorageID) -> Iterable[StorageIOConfig]:
         """Return configurations for the storage item."""
+        raise NotImplementedError()
+
+    @abstractmethod
+    def load_identifier(self, datafile: Path) -> T_StorageID:
+        """Load the identifier from the storage."""
         raise NotImplementedError()
 
 

@@ -51,6 +51,6 @@ class UploadCommand(ToolkitCommand):
 
     @staticmethod
     def _get_identifier(
-        io: StorageIO[T_StorageID, T_CogniteResourceList, T_WritableCogniteResourceList], file: Path
+        io: StorageIO[T_StorageID, T_CogniteResourceList, T_WritableCogniteResourceList], datafile: Path
     ) -> T_StorageID:
         raise NotImplementedError()
