@@ -257,6 +257,8 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         if dumped.get("functionPath") == HANDLER_FILE_NAME and "functionPath" not in local:
             # Remove the default value of the functionPath
             dumped.pop("functionPath", None)
+        if local.get("owner", "not-in-local") in {None, ""} and "owner" not in dumped:
+            dumped["owner"] = local["owner"]
 
         return dumped
 
