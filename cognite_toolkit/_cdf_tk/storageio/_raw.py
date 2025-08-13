@@ -48,7 +48,7 @@ class RawIO(StorageIO[RawTable, RowWriteList, RowList]):
         yield StorageIOConfig(kind=RawTableLoader.kind, folder_name=RawTableLoader.folder_name, value=identifier.dump())
 
     def load_identifier(self, datafile: Path) -> RawTable:
-        config_files = find_adjacent_files(datafile, suffix=f"{RawTableLoader.kind}.yaml")
+        config_files = find_adjacent_files(datafile, suffix=f".{RawTableLoader.kind}.yaml")
         if not config_files:
             raise ToolkitValueError(f"No configuration file found for {datafile.as_posix()!r}")
         if len(config_files) > 1:
