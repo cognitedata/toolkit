@@ -887,6 +887,7 @@ def handle(data: dict, client: CogniteClient, secrets: dict, function_call_info:
 name: Toolkit Test Function No Redeploy
 owner: ""
 dataSetExternalId: {toolkit_dataset.external_id}
+description: ""
         """
         build_dir = tmp_path / "build"
         function_code_path = build_dir / FunctionLoader.folder_name / external_id / "handler.py"
