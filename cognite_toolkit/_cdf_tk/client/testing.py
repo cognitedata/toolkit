@@ -82,6 +82,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.raw.databases = MagicMock(spec_set=RawDatabasesAPI)
         self.raw.rows = MagicMock(spec_set=RawRowsAPI)
         self.raw.tables = MagicMock(spec_set=RawTablesAPI)
+        self.migration.view_source = MagicMock(spec_set=ViewSourceAPI)
 
         self.robotics = MagicMock()
         self.robotics.robots = MagicMock(spec=RoboticsAPI)
