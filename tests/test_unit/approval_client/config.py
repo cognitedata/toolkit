@@ -280,7 +280,10 @@ API_RESOURCES = [
         list_cls=FunctionList,
         _write_list_cls=FunctionWriteList,
         methods={
-            "create": [Method(api_class_method="create", mock_class_method="create_single")],
+            "create": [
+                Method(api_class_method="create", mock_class_method="create_single"),
+                Method(api_class_method="create_with_429_retry", mock_class_method="create_single"),
+            ],
             "delete": [Method(api_class_method="delete", mock_class_method="delete_id_external_id")],
             "retrieve": [
                 Method(api_class_method="list", mock_class_method="return_values"),
