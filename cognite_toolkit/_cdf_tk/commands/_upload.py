@@ -30,7 +30,7 @@ class UploadCommand(ToolkitCommand):
             if verbose:
                 console.print(f"Uploading {io.display_name} from {file.as_posix()!r}")
 
-            identifier = self._get_identifier(io, file)
+            identifier = io.load_identifier(file)
 
             reader = FileReader.from_filepath(file)
             executor = ProducerWorkerExecutor[list[dict[str, JsonVal]], T_CogniteResourceList](
@@ -48,9 +48,3 @@ class UploadCommand(ToolkitCommand):
             if executor.error_occurred:
                 raise ValueError("An error occurred during the upload process: " + executor.error_message)
             console.print(f"Uploaded {file.as_posix()!r} successfully.")
-
-    @staticmethod
-    def _get_identifier(
-        io: StorageIO[T_StorageID, T_CogniteResourceList, T_WritableCogniteResourceList], datafile: Path
-    ) -> T_StorageID:
-        raise NotImplementedError()
