@@ -776,6 +776,47 @@ authentication:
         finally:
             toolkit_client.transformations.delete(external_id="transformation_without_scope", ignore_unknown_ids=True)
 
+    def test_create_transformation_reusing_source_destination_auth(self, toolkit_client: ToolkitClient) -> None:
+        transformation_text = """externalId: transformation_reusing_source_destination_auth
+name: This is a test transformation from the Toolkit
+destination:
+  type: assets
+ignoreNullFields: true
+isPublic: true
+conflictMode: upsert
+query: Select * from assets
+# Reusing the credentials from the Toolkit principal
+authentication:
+  read:
+    clientId: ${IDP_CLIENT_ID}
+    clientSecret: ${IDP_CLIENT_SECRET}
+  write:
+    clientId: ${IDP_CLIENT_ID}
+    clientSecret: ${IDP_CLIENT_SECRET}
+        """
+        loader = TransformationLoader.create_loader(toolkit_client)
+        filepath = MagicMock(spec=Path)
+        filepath.read_text.return_value = transformation_text
+
+        loaded = loader.load_resource_file(filepath, dict(os.environ))
+        assert len(loaded) == 1
+        transformation = loader.load_resource(loaded[0])
+
+        try:
+            created_list = loader.create([transformation])
+            assert len(created_list) == 1
+            created = created_list[0]
+            assert created.source_session is not None
+            assert created.destination_session is not None
+            assert created.source_session.session_id != created.destination_session.session_id, (
+                "There should be different sessions for source and destination authentication even"
+                " if they reuse the same credentials"
+            )
+        finally:
+            toolkit_client.transformations.delete(
+                external_id="transformation_reusing_source_destination_auth", ignore_unknown_ids=True
+            )
+
 
 class TestNodeLoader:
     def test_update_existing_node(self, toolkit_client: ToolkitClient, instance_space: dm.Space) -> None:

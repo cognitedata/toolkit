@@ -321,7 +321,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
                     " problem persists, please contact Cognite support."
                 )
             item.file_id = file_id
-            created_item = self.client.functions.create(item)
+            created_item = self.client.functions.create_with_429_retry(item, console=self.console)
             self._warn_if_cpu_or_memory_changed(created_item, item)
             created.append(created_item)
         return created
