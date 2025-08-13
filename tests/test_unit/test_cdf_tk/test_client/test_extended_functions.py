@@ -49,7 +49,7 @@ class TestExtendedFunctionsAPI:
             result = client.functions.create_with_429_retry(fun, console=console)
         assert result.external_id == "test_function"
         assert console.print.call_count == global_config.max_retries - 1
-        assert console.print.call_args.args[1] == "Rate limit exceeded. Retrying after 42 seconds."
+        assert console.print.call_args.args[1] == "Rate limit exceeded. Retrying after 42.0 seconds."
 
     def test_create_function_429_exceed_max_retries(self, toolkit_config: ToolkitClientConfig) -> None:
         client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
@@ -66,7 +66,7 @@ class TestExtendedFunctionsAPI:
         assert console.print.call_count == global_config.max_retries
         assert exc_info.value.message == "Too many requests"
         assert exc_info.value.code == 429
-        assert "Rate limit exceeded. Retrying after 42 seconds." in console.print.call_args.args[1]
+        assert "Rate limit exceeded. Retrying after 42.0 seconds." in console.print.call_args.args[1]
 
     def test_create_function_429_invalid_retry_after(self, toolkit_config: ToolkitClientConfig) -> None:
         client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
@@ -88,7 +88,7 @@ class TestExtendedFunctionsAPI:
             with pytest.raises(CogniteAPIError) as exc_info:
                 client.functions.create_with_429_retry(fun, console=console)
         assert console.print.call_count == global_config.max_retries
-        assert "Rate limit exceeded. Retrying after 60 seconds." in console.print.call_args.args[1]
+        assert "Rate limit exceeded. Retrying after 60.0 seconds." in console.print.call_args.args[1]
         assert exc_info.value.message == "Too many requests"
 
     def test_create_function_401(self, toolkit_config: ToolkitClientConfig) -> None:
