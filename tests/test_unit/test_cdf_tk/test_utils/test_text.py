@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 import pytest
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk.utils.text import suffix_description
+from cognite_toolkit._cdf_tk.utils.text import sanitize_spreadsheet_title, suffix_description
 
 
 class TestSuffixDescription:
@@ -32,3 +32,18 @@ class TestSuffixDescription:
             assert console.print.call_count == 1
             message = "".join(console.print.call_args[0])
             assert "Description is too long for my_resource_type 'identifier'." in message
+
+
+class TestSanitizeSpreadsheetTitle:
+    @pytest.mark.parametrize(
+        "title, expected",
+        [
+            ("Valid Title", "Valid Title"),
+            ("Invalid/Title", "InvalidTitle"),
+            ("Another*Invalid:Title", "AnotherInvalidTitle"),
+            ("", "Sheet"),
+            (None, "Sheet"),
+        ],
+    )
+    def test_sanitize_spreadsheet_title(self, title: str | None, expected: str) -> None:
+        assert sanitize_spreadsheet_title(title) == expected

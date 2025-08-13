@@ -1,7 +1,7 @@
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from typing import Any, Literal, NoReturn
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -115,3 +115,28 @@ def test_error_handling_in_write_worker(
     # Verify error occurred
     assert executor.error_occurred
     assert "Write error" in executor.error_message
+
+
+def test_kill_switch_stops_execution() -> None:
+    downloaded: list[list[int]] = []
+    to_download = [[1], [2], [3], [4], [5]]
+
+    def slow_download() -> Iterable[list[int]]:
+        for item in to_download:
+            time.sleep(0.1)
+            yield item
+            downloaded.append(item)
+
+    def user_input() -> None:
+        # Simulate user input to trigger kill switch
+        time.sleep(0.2)
+        return None
+
+    with patch(f"{ProducerWorkerExecutor.__module__}.input", user_input):
+        executor = ProducerWorkerExecutor[list[list[int]], list[list[int]]](
+            slow_download(), lambda x: x, lambda x: x, len(to_download), max_queue_size=2
+        )
+        executor.run()
+        assert executor.stopped_by_user is True
+
+    assert len(downloaded) < len(to_download)

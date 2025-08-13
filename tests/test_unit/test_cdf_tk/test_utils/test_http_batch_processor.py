@@ -10,7 +10,11 @@ from cognite.client.credentials import OAuthClientCredentials
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.utils.auth import CLIENT_NAME
-from cognite_toolkit._cdf_tk.utils.batch_processor import BatchResult, HTTPIterableProcessor, SuccessItem
+from cognite_toolkit._cdf_tk.utils.batch_processor import (
+    BatchResult,
+    HTTPIterableProcessor,
+    SuccessItem,
+)
 
 
 @pytest.fixture

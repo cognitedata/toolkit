@@ -164,6 +164,10 @@ from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
     LocationFilterWrite,
     LocationFilterWriteList,
 )
+from cognite_toolkit._cdf_tk.client.data_classes.migration import (
+    ViewSource,
+    ViewSourceApply,
+)
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawDatabaseList
 
 from .data_classes import APIResource, Method
@@ -478,7 +482,7 @@ API_RESOURCES = [
             # "update": [Method(api_class_method="upsert", mock_name="upsert")],
             # "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
             "retrieve": [
-                Method(api_class_method="retrieve", mock_class_method="return_value"),
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
             ],
         },
     ),
@@ -493,7 +497,7 @@ API_RESOURCES = [
             # "update": [Method(api_class_method="upsert", mock_name="upsert")],
             # "delete": [Method(api_class_method="delete", mock_name="delete")],
             "retrieve": [
-                Method(api_class_method="retrieve", mock_class_method="return_value"),
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
                 Method(api_class_method="list", mock_class_method="return_values"),
             ],
         },
@@ -789,6 +793,21 @@ API_RESOURCES = [
             "create": [Method(api_class_method="create", mock_class_method="create_multiple")],
             "retrieve": [
                 Method(api_class_method="retrieve_multiple", mock_class_method="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="migration.view_source",
+        resource_cls=ViewSource,
+        list_cls=NodeList[ViewSource],
+        _write_cls=ViewSourceApply,
+        _write_list_cls=NodeApplyList,
+        methods={
+            "create": [Method(api_class_method="upsert", mock_class_method="create_nodes")],
+            "delete": [Method(api_class_method="delete", mock_class_method="delete_id_external_id")],
+            "retrieve": [
+                Method(api_class_method="list", mock_class_method="return_values"),
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
             ],
         },
     ),

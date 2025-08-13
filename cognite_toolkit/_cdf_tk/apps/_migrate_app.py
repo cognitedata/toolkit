@@ -5,6 +5,7 @@ import typer
 
 from cognite_toolkit._cdf_tk.commands import (
     MigrateAssetsCommand,
+    MigrateFilesCommand,
     MigrateTimeseriesCommand,
     MigrationCanvasCommand,
     MigrationPrepareCommand,
@@ -20,8 +21,8 @@ class MigrateApp(typer.Typer):
         # Uncomment when command is ready.
         # self.command("assets")(self.assets)
         self.command("timeseries")(self.timeseries)
-        # Uncomment when the Canvas migration command is ready
-        # self.command("canvas")(self.canvas)
+        self.command("files")(self.files)
+        self.command("canvas")(self.canvas)
 
     def main(self, ctx: typer.Context) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
@@ -144,6 +145,49 @@ class MigrateApp(typer.Typer):
         cmd = MigrateTimeseriesCommand()
         cmd.run(
             lambda: cmd.migrate_timeseries(
+                client,
+                mapping_file=mapping_file,
+                dry_run=dry_run,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def files(
+        ctx: typer.Context,
+        mapping_file: Annotated[
+            Path,
+            typer.Option(
+                "--mapping-file",
+                "-m",
+                help="Path to the mapping file that contains the mapping from Files to CogniteFiles. "
+                "This file is expected to have the following columns: [id/externalId, dataSetId, space, externalId]."
+                "The dataSetId is optional, and can be skipped. If it is set, it is used to check the access to the dataset.",
+            ),
+        ],
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-d",
+                help="If set, the migration will not be executed, but only a report of what would be done is printed.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """Migrate Files to CogniteFiles."""
+
+        client = EnvironmentVariables.create_from_environment().get_client(enable_set_pending_ids=True)
+        cmd = MigrateFilesCommand()
+        cmd.run(
+            lambda: cmd.migrate_files(
                 client,
                 mapping_file=mapping_file,
                 dry_run=dry_run,

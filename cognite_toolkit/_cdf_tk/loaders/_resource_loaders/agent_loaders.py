@@ -10,7 +10,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from cognite_toolkit._cdf_tk._parameters.constants import ANY_INT, ANYTHING
 from cognite_toolkit._cdf_tk._parameters.data_classes import ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
-from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable
+from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 
 
 class AgentLoader(ResourceLoader[str, AgentUpsert, Agent, AgentUpsertList, AgentList]):
@@ -89,12 +89,24 @@ class AgentLoader(ResourceLoader[str, AgentUpsert, Agent, AgentUpsertList, Agent
 
     def dump_resource(self, resource: Agent, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
+        # The atlas endpoints are not yet full implemented. There are properties being added and removed that are
+        # not part of the official API. For example, as of 31.July 2025, `labels` is not part of the API, however,
+        # this is necessary to ensure that the agents are shown as published in the UI, so we cannot ignore it.
+        # The below logic ensures that we keep the unknown properties returned by the API, such that when we run
+        # `cdf dump agents` we will not lose any properties that are not part of the official API.
+        if (unknown_props := getattr(resource, "_unknown_properties", None)) and isinstance(unknown_props, dict):
+            dumped.update(unknown_props)
         if local is None:
             return dumped
         if resource.instructions == "" and "instructions" not in local:
             # Instructions are optional, if not set the server set them to an empty string.
             # We remove them from the dumped resource to ensure it will be equal to the local resource.
             dumped.pop("instructions", None)
+        for key in ["labels", "exampleQuestions"]:
+            if key not in local and not dumped.get(key):
+                # If the local resource does not have the key and the server set Agent has it set to an empty list,
+                # we remove it from the dumped resource to ensure it will be equal to the local resource.
+                dumped.pop(key, None)
         return dumped
 
     def diff_list(
@@ -107,5 +119,11 @@ class AgentLoader(ResourceLoader[str, AgentUpsert, Agent, AgentUpsertList, Agent
         if json_path == ("tools",):
             return diff_list_identifiable(
                 local, cdf, get_identifier=lambda t: (t.get("name", ""), t.get("description", ""))
+            )
+        elif json_path == ("labels",):
+            return diff_list_hashable(local, cdf)
+        elif json_path == ("exampleQuestions",):
+            return diff_list_identifiable(
+                local, cdf, get_identifier=lambda q: q.get("question", "") if isinstance(q, dict) else str(q)
             )
         return super().diff_list(local, cdf, json_path)
