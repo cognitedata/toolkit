@@ -352,6 +352,7 @@ class HTTPProcessor(Generic[T_ID]):
             if item is None:
                 if not has_printed_warning:
                     self.console.print("[red]Got more response 'items' than request items.[/red]")
+                    has_printed_warning = True
                 continue
             try:
                 item_id = self.as_id(item)
