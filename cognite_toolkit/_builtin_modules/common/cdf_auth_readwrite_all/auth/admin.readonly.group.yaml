@@ -9,6 +9,11 @@ capabilities:
         - READ
       scope:
         all: {}
+  - agentsAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
   - analyticsAcl:
       actions:
       - READ

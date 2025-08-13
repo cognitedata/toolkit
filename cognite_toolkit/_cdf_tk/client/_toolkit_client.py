@@ -7,6 +7,7 @@ from .api.canvas import CanvasAPI
 from .api.dml import DMLAPI
 from .api.extended_data_modeling import ExtendedDataModelingAPI
 from .api.extended_files import ExtendedFileMetadataAPI
+from .api.extended_functions import ExtendedFunctionsAPI
 from .api.extended_raw import ExtendedRawAPI
 from .api.extended_timeseries import ExtendedTimeSeriesAPI
 from .api.lookup import LookUpGroup
@@ -81,6 +82,7 @@ class ToolkitClient(CogniteClient):
         self.dml = DMLAPI(self._config, self._API_VERSION, self)
         self.verify = VerifyAPI(self._config, self._API_VERSION, self)
         self.lookup = LookUpGroup(self._config, self._API_VERSION, self)
+        self.functions: ExtendedFunctionsAPI = ExtendedFunctionsAPI(self._config, self._API_VERSION, self)
         self.data_modeling: ExtendedDataModelingAPI = ExtendedDataModelingAPI(self._config, self._API_VERSION, self)
         if enable_set_pending_ids:
             self.time_series: ExtendedTimeSeriesAPI = ExtendedTimeSeriesAPI(self._config, self._API_VERSION, self)
