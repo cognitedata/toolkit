@@ -568,6 +568,7 @@ class HTTPBatchProcessor(HTTPProcessor[T_ID]):
     def __enter__(self) -> Self:
         """Enter the context manager, initializing the work and result queues."""
         try:
+            # Limiting the queue size to avoid excessive memory usage
             self._work_queue = Queue(self.max_workers * 2)
             self._result_queue = Queue()
             self._worker_threads = [
