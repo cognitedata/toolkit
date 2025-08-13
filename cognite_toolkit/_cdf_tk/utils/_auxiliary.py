@@ -2,6 +2,8 @@ import inspect
 from abc import ABC
 from typing import TypeVar
 
+from cognite_toolkit import _version
+
 T_Cls = TypeVar("T_Cls")
 
 
@@ -28,3 +30,7 @@ def get_concrete_subclasses(base_cls: type[T_Cls], exclude_ABC_base: bool = True
             seen.add(subclass)
             to_check.append(subclass)
     return subclasses
+
+
+def get_current_toolkit_version() -> str:
+    return _version.__version__
