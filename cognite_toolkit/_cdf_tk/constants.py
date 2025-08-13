@@ -4,6 +4,8 @@ import sys
 from pathlib import Path
 from typing import Literal, TypeAlias
 
+from cognite.client.data_classes.data_modeling import ContainerId
+
 try:
     from pyodide.ffi import IN_BROWSER  # type: ignore [import-not-found]
 except ModuleNotFoundError:
@@ -149,3 +151,9 @@ DMS_INSTANCE_LIMIT_MARGIN = 1_000_000
 # agreed upon with the transformations team.
 MAX_ROW_ITERATION_RUN_QUERY = 500_000
 MAX_RUN_QUERY_FREQUENCY_MIN = 10
+
+
+COGNITE_MIGRATION_SPACE = "cognite_migration"
+
+COGNITE_TIME_SERIES_CONTAINER = ContainerId("cdf_cdm", "CogniteTimeSeries")
+COGNITE_FILE_CONTAINER = ContainerId("cdf_cdm", "CogniteFile")

@@ -9,13 +9,12 @@ from collections.abc import Callable, Hashable, Iterable, MutableMapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from queue import Queue
-from typing import Generic, Literal, TypeVar
+from typing import Generic, Literal, TypeAlias, TypeVar
 
 import requests
 import urllib3
 from cognite.client import global_config
 from cognite.client.utils import _json
-from cognite.client.utils._auxiliary import get_user_agent
 from requests.adapters import HTTPAdapter
 from requests.structures import CaseInsensitiveDict
 from rich.console import Console
@@ -23,7 +22,7 @@ from rich.progress import BarColumn, Progress, TaskProgressColumn, TextColumn, T
 from urllib3.util.retry import Retry
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
-from cognite_toolkit._cdf_tk.utils.auxiliary import get_current_toolkit_version
+from cognite_toolkit._cdf_tk.utils.auxiliary import get_current_toolkit_version, get_user_agent
 
 from .collection import chunker
 from .useful_types import JsonVal
@@ -35,6 +34,8 @@ else:
 
 
 T_ID = TypeVar("T_ID", bound=Hashable)
+StatusCode: TypeAlias = int
+Count: TypeAlias = int
 
 
 @dataclass(frozen=True)
@@ -67,7 +68,7 @@ class ProcessorResult(Generic[T_ID]):
     successful_items: list[SuccessItem[T_ID]] = field(default_factory=list)
     failed_items: list[FailedItem[T_ID]] = field(default_factory=list)
     unknown_items: list[FailedItem[str]] = field(default_factory=list)
-    error_summary: dict[int, int] = field(default_factory=dict)  # status_code -> count
+    error_summary: dict[StatusCode, Count] = field(default_factory=dict)
     producer_error: Exception | None = None
 
     @property
@@ -143,11 +144,6 @@ class HTTPProcessor(Generic[T_ID]):
         # Thread-safe session for connection pooling
         self.session = self._create_thread_safe_session()
 
-        # Shared state for rate limiting and backoff
-        self._rate_limit_lock = threading.Lock()
-        self._rate_limit_until = 0.0
-        self._token_expiry = 0.0
-
     def __enter__(self) -> Self:
         return self
 
@@ -208,16 +204,6 @@ class HTTPProcessor(Generic[T_ID]):
             data = gzip.compress(data.encode())
         return data
 
-    def _handle_rate_limit(self) -> None:
-        with self._rate_limit_lock:
-            now = time.time()
-            if self._rate_limit_until > now:
-                # Another thread has already set a backoff. No need to set a new one.
-                return
-            backoff = 1.0 + random.uniform(0, 1)
-            self.console.print(f"[yellow]Rate limit hit (429). Backing off for {backoff:.2f}s.[/yellow]")
-            self._rate_limit_until = now + backoff
-
     def _worker(
         self,
         work_queue: Queue,
@@ -225,12 +211,6 @@ class HTTPProcessor(Generic[T_ID]):
     ) -> None:
         while (work_item := work_queue.get()) is not None:
             try:
-                with self._rate_limit_lock:
-                    backoff_time = self._rate_limit_until - time.time()
-                if backoff_time > 0:
-                    jitter = random.uniform(0, 0.2)
-                    time.sleep(backoff_time + jitter)
-
                 response = self._make_request(work_item)
                 self._handle_response(response, work_item, work_queue, results_queue)
             except Exception as e:
@@ -283,8 +263,6 @@ class HTTPProcessor(Generic[T_ID]):
                 )
             )
         elif work_item.status_attempt < self.max_retries and response.status_code in {429, 502, 503, 504}:
-            if response.status_code == 429:
-                self._handle_rate_limit()
             work_item.status_attempt += 1
             time.sleep(self._backoff_time(work_item.total_attempts))
             work_queue.put(work_item)
