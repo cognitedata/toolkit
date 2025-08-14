@@ -729,8 +729,15 @@ default_organization_dir = "{organization_dir.name}"''',
         if Flags.EXTERNAL_LIBRARIES.is_enabled() and cdf_toml.libraries:
             for library_name, library in cdf_toml.libraries.items():
                 try:
-                    print(f"[green]Adding library {library_name}[/]")
-                    file_path = self._temp_download_dir / f"{library_name}.zip"
+                    print(f"[green]Adding library {library_name} from {library.url}[/]")
+                    # Extract filename from URL, fallback to library_name.zip if no filename found
+                    from urllib.parse import urlparse
+
+                    url_path = urlparse(library.url).path
+                    filename = (
+                        url_path.split("/")[-1] if url_path and url_path.split("/")[-1] else f"{library_name}.zip"
+                    )
+                    file_path = self._temp_download_dir / filename
                     self._download(library.url, file_path)
                     self._validate_checksum(library.checksum, file_path)
                     self._unpack(file_path)
@@ -841,11 +848,11 @@ default_organization_dir = "{organization_dir.name}"''',
 
         if calculated != checksum:
             raise ToolkitError(
-                f"Provided checksum sha256:{checksum} does not match downloaded file hash sha256:{calculated}.\n"
+                f"[red]✗[/red] The provided checksum sha256:{checksum} does not match downloaded file hash sha256:{calculated}.\n"
                 "Please verify the checksum with the source and update cdf.toml if needed."
             )
         else:
-            print("Checksum verified")
+            print("[green]✓ Checksum verified[/green]")
 
     def _unpack(self, file_path: Path) -> None:
         """
