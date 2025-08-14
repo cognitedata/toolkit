@@ -834,12 +834,18 @@ default_organization_dir = "{organization_dir.name}"''',
                 for chunk in iter(lambda: f.read(chunk_size), b""):
                     sha256_hash.update(chunk)
             calculated = sha256_hash.hexdigest()
-            if calculated != checksum:
-                raise ToolkitError(f"Checksum mismatch. Expected {checksum}, got {calculated}.")
-            else:
-                print("Checksum verified")
-        except Exception as e:
+        except OSError as e:
             raise ToolkitError(f"Failed to calculate checksum for {file_path}: {e}") from e
+        except Exception as e:
+            raise ToolkitError(f"Unexpected error during checksum calculation for {file_path}: {e}") from e
+
+        if calculated != checksum:
+            raise ToolkitError(
+                f"Provided checksum sha256:{checksum} does not match downloaded file hash sha256:{calculated}.\n"
+                "Please verify the checksum with the source and update cdf.toml if needed."
+            )
+        else:
+            print("Checksum verified")
 
     def _unpack(self, file_path: Path) -> None:
         """
