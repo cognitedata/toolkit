@@ -321,3 +321,46 @@ class TestModulesCommand:
 
         # Verify the HTTP request was made
         requests.get.assert_called_once_with("http://example.com/test.zip", stream=True)
+
+    def test_iterate_modules_finds_modules_in_temp_download_dir(self, tmp_path: Path) -> None:
+        """Test that iterate_modules can find modules in the _temp_download_dir.
+
+        This test verifies that when modules are downloaded to the temporary directory,
+        the iterate_modules function can properly discover and iterate over them.
+        The test creates a mock module structure with the required resource directories
+        (like 'data_models') that the module discovery logic recognizes.
+        """
+        from cognite_toolkit._cdf_tk.utils.modules import iterate_modules
+
+        cmd = ModulesCommand(print_warning=True, skip_tracking=True)
+
+        # Create a mock module structure in the temp download directory
+        # This simulates what would happen when modules are downloaded
+        mock_module_dir = cmd._temp_download_dir / "test_module"
+        mock_module_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create a resource directory (e.g., 'data_models') that LOADER_BY_FOLDER_NAME recognizes
+        # This is required for the module to be identified as a valid module
+        resource_dir = mock_module_dir / "data_models"
+        resource_dir.mkdir()
+
+        # Create a sample file in the resource directory
+        sample_file = resource_dir / "sample.yaml"
+        sample_file.write_text("test content")
+
+        # Now test that iterate_modules can find this module
+        modules_found = list(iterate_modules(cmd._temp_download_dir))
+
+        # Should find at least one module
+        assert len(modules_found) > 0, f"Expected to find modules in {cmd._temp_download_dir}"
+
+        # Verify the module structure
+        module_dir, files = modules_found[0]
+        assert module_dir == mock_module_dir
+        assert len(files) > 0
+        assert any(file.name == "sample.yaml" for file in files)
+
+        # Clean up
+        import shutil
+
+        shutil.rmtree(mock_module_dir)

@@ -94,7 +94,7 @@ class ModulesCommand(ToolkitCommand):
     def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False):
         super().__init__(print_warning, skip_tracking, silent)
         self._builtin_modules_path = Path(resources.files(cognite_toolkit.__name__)) / BUILTIN_MODULES  # type: ignore [arg-type]
-        self._temp_download_dir = Path(tempfile.gettempdir()) / "modules"
+        self._temp_download_dir = Path(tempfile.gettempdir()) / MODULES
         if not self._temp_download_dir.exists():
             self._temp_download_dir.mkdir(parents=True, exist_ok=True)
 
