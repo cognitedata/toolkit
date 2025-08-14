@@ -427,7 +427,7 @@ default_organization_dir = "{organization_dir.name}"''',
         choices = sorted(
             [
                 questionary.Choice(
-                    title=module.title,
+                    title=module.title if module.title else module.name,
                     value=module,
                     checked=module.name in dependencies or module.is_selected_by_default,
                     disabled="required" if module.name in dependencies else None,
