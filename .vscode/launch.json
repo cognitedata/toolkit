@@ -48,8 +48,7 @@
       "args": [
         "--override-env",
         "modules",
-        "init",
-        "cognite_toolkit"
+        "init"
       ],
       "console": "integratedTerminal",
       "justMyCode": false
@@ -215,22 +214,23 @@
       "justMyCode": false
     },
     {
-      "name": "Python: modules init",
+      "name": "Python: modules init . --clean",
       "type": "debugpy",
       "request": "launch",
       "program": "./cdf-tk-dev.py",
-      "args": ["modules", "init"],
+      "args": ["modules", "init", ".", "--clean"],
       "console": "integratedTerminal",
       "justMyCode": false
     },
     {
-      "name": "Python: modules init --all",
+      "name": "Python: modules init . --clean --all",
       "type": "debugpy",
       "request": "launch",
       "program": "./cdf-tk-dev.py",
       "args": [
         "modules", 
       "init", 
+      ".",
       "--all",
       "--clean"],
       "console": "integratedTerminal",

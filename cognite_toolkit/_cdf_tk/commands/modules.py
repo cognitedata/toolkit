@@ -301,14 +301,29 @@ default_organization_dir = "{organization_dir.name}"''',
         user_environments: list[str] | None = None,
         user_download_data: bool | None = None,
     ) -> None:
-        if not organization_dir:
-            new_line = "\n    "
-            message = (
-                f"Which directory would you like to create templates in? (default: current directory){new_line}"
-                f"HINT Use an organization directory if you use the repository for more than Toolkit. "
-                f"If not, use the current (repository root) directory '.':"
+        # Welcome message
+        print("\n")
+        print(
+            Panel(
+                "\n".join([f"  Cognite Toolkit version {__version__}"]),
+                style="blue",
+                padding=(1, 2),
+                title="[bold white]Initial setup[/bold white]",
             )
-            organization_dir_raw = questionary.text(message=message, default="").ask()
+        )
+
+        if not organization_dir:
+            message = "\n".join(
+                [
+                    "[bold]Which directory should we create the configuration in?[/]",
+                    "",
+                    "Hint:",
+                    "- Press [bold]enter[/bold] to use the current location (default)",
+                    "- Enter a subdirectory (typically the organization name) if the repository is used for more than the Toolkit",
+                ]
+            )
+            print(Panel(message, style="blue", padding=(1, 2)))
+            organization_dir_raw = questionary.text(message="directory:", default="").ask()
             organization_dir = Path(organization_dir_raw.strip())
 
         modules_root_dir = organization_dir / MODULES
@@ -327,13 +342,7 @@ default_organization_dir = "{organization_dir.name}"''',
             print("\n")
             print(
                 Panel(
-                    "\n".join(
-                        [
-                            "Wizard for selecting initial modules"
-                            "The modules are thematically bundled in packages you can choose between. You can add more by repeating the process.",
-                            "You can use the arrow keys ⬆ ⬇  on your keyboard to select modules, and press enter ⮐  to continue with your selection.",
-                        ]
-                    ),
+                    "Use the arrow keys ⬆ ⬇  on your keyboard to select and press enter ⮐  to continue",
                     title="Select initial modules",
                     style="green",
                     padding=(1, 2),
@@ -729,7 +738,13 @@ default_organization_dir = "{organization_dir.name}"''',
         if Flags.EXTERNAL_LIBRARIES.is_enabled() and cdf_toml.libraries:
             for library_name, library in cdf_toml.libraries.items():
                 try:
-                    print(f"[green]Adding library {library_name} from {library.url}[/]")
+                    print(
+                        Panel(
+                            f"Adding library [bold]{library_name}[/] from {library.url}",
+                            style="green",
+                            title="Loading library",
+                        )
+                    )
                     # Extract filename from URL, fallback to library_name.zip if no filename found
                     from urllib.parse import urlparse
 
