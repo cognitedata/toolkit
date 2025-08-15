@@ -59,7 +59,7 @@ class DownloadCommand(ToolkitCommand):
                     max_queue_size=8 * 10,  # 8 workers, 10 items per worker
                     download_description=f"Downloading {identifier!s}",
                     process_description="Processing",
-                    write_description=f"Writing to {target_directory.as_posix()!r} in files with stem {filestem!r}",
+                    write_description=f"Writing to '{target_directory.as_posix()}' in files with stem '{filestem}'",
                     console=console,
                 )
                 executor.run()

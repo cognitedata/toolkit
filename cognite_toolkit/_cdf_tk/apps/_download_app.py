@@ -107,7 +107,7 @@ class DownloadApp(typer.Typer):
                 identifiers=identifiers,
                 io=RawIO(client),
                 output_dir=output_dir,
-                file_format=file_format.value,
+                file_format=f".{file_format.value}",
                 compression=compression.value,
                 limit=limit,
                 verbose=verbose,
