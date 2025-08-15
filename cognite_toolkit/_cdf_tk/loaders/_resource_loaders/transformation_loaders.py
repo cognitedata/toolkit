@@ -135,7 +135,6 @@ class TransformationLoader(
         self._authentication_by_id_operation: dict[
             tuple[str, Literal["read", "write"]], OidcCredentials | ClientCredentials
         ] = {}
-        self._nonce_cache: dict[str, NonceCredentials] = {}
 
     @property
     def display_name(self) -> str:
@@ -434,9 +433,6 @@ class TransformationLoader(
                 item.destination_nonce = self._create_nonce(write_credentials)
 
     def _create_nonce(self, credentials: OidcCredentials | ClientCredentials) -> NonceCredentials:
-        key = calculate_secure_hash(credentials.dump(), shorten=True)
-        if key in self._nonce_cache:
-            return self._nonce_cache[key]
         if isinstance(credentials, ClientCredentials):
             session = self.client.iam.sessions.create(credentials)
             nonce = NonceCredentials(session.id, session.nonce, self.client.config.project)
@@ -449,7 +445,6 @@ class TransformationLoader(
             nonce = NonceCredentials(session.id, session.nonce, credentials.cdf_project_name)
         else:
             raise ValueError(f"Error in TransformationLoader: {type(credentials)} is not a valid credentials type")
-        self._nonce_cache[key] = nonce
         return nonce
 
     def _iterate(
