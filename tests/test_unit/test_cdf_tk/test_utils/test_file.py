@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.utils.file import find_adjacent_files
 
 
@@ -71,5 +72,5 @@ class TestFindAdjacentFiles:
         filepath = MagicMock(spec=Path)
         filepath.is_file.return_value = False
         filepath.name = "my_table-part0001.RawRows.ndjson"
-        with pytest.raises(Exception):
+        with pytest.raises(ToolkitFileNotFoundError):
             find_adjacent_files(filepath, suffix=".Table.yaml")

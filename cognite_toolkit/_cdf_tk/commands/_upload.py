@@ -3,6 +3,7 @@ from pathlib import Path
 
 from rich.console import Console
 
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio import StorageIO
 from cognite_toolkit._cdf_tk.storageio._base import T_CogniteResourceList, T_StorageID, T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.utils.collection import chunker
@@ -21,9 +22,9 @@ class UploadCommand(ToolkitCommand):
         verbose: bool,
     ) -> None:
         console = Console()
-        files = input_dir.glob(f"*.{io.kind}.*")
+        files = list(input_dir.glob(f"*.{io.kind}.*"))
         if verbose:
-            console.print(f"Found {len(list(files))} files to upload in {input_dir.as_posix()!r}.")
+            console.print(f"Found {len(files)} files to upload in {input_dir.as_posix()!r}.")
 
         console = Console()
         for file in files:
@@ -46,5 +47,5 @@ class UploadCommand(ToolkitCommand):
             )
             executor.run()
             if executor.error_occurred:
-                raise ValueError("An error occurred during the upload process: " + executor.error_message)
+                raise ToolkitValueError("An error occurred during the upload process: " + executor.error_message)
             console.print(f"Uploaded {file.as_posix()!r} successfully.")
