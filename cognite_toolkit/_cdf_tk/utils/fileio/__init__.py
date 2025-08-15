@@ -9,10 +9,16 @@ from ._compression import (
 from ._readers import (
     FILE_READ_CLS_BY_FORMAT,
     FileReader,
+    NDJsonReader,
+    YAMLReader,
+    YMLReader,
 )
 from ._writers import (
     FILE_WRITE_CLS_BY_FORMAT,
     FileWriter,
+    NDJsonWriter,
+    YAMLWriter,
+    YMLWriter,
 )
 
 __all__ = [
@@ -27,6 +33,12 @@ __all__ = [
     "FileReader",
     "FileWriter",
     "GzipCompression",
+    "NDJsonReader",
+    "NDJsonWriter",
     "NoneCompression",
     "PrimaryCellValue",
+    "YAMLReader",
+    "YAMLWriter",
+    "YMLReader",
+    "YMLWriter",
 ]
