@@ -1,12 +1,13 @@
+from dataclasses import dataclass
 from enum import Enum
 from functools import lru_cache
-from typing import TypedDict
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.constants import clean_name
 
 
-class FlagMetadata(TypedDict):
+@dataclass(frozen=True)
+class FlagMetadata:
     visible: bool
     description: str
 
