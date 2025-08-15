@@ -1,10 +1,15 @@
+import json
 import sys
 from abc import ABC, abstractmethod
 from collections import Counter
 from collections.abc import Iterable, Mapping
+from datetime import date, datetime
+from io import TextIOWrapper
 from pathlib import Path
 from types import TracebackType
 from typing import Generic
+
+import yaml
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
@@ -107,9 +112,46 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
         )
 
 
+class NDJsonWriter(FileWriter[TextIOWrapper]):
+    format = ".ndjson"
+
+    class _DateTimeEncoder(json.JSONEncoder):
+        def default(self, obj: object) -> object:
+            if isinstance(obj, date | datetime):
+                return obj.isoformat()
+            return super().default(obj)
+
+    def _create_writer(self, filepath: Path) -> TextIOWrapper:
+        """Create a writer for the given file path."""
+        return self.compression_cls(filepath).open("w")
+
+    def _write(self, writer: TextIOWrapper, chunks: Iterable[Chunk]) -> None:
+        writer.writelines(
+            f"{json.dumps(chunk, cls=self._DateTimeEncoder)}{self.compression_cls.newline}" for chunk in chunks
+        )
+
+
+class YAMLBaseWriter(FileWriter[TextIOWrapper], ABC):
+    def _create_writer(self, filepath: Path) -> TextIOWrapper:
+        return self.compression_cls(filepath).open("w")
+
+    def _write(self, writer: TextIOWrapper, chunks: Iterable[Chunk]) -> None:
+        yaml.safe_dump_all(chunks, writer, sort_keys=False, explicit_start=True)
+
+
+class YAMLWriter(YAMLBaseWriter):
+    format = ".yaml"
+
+
+class YMLWriter(YAMLBaseWriter):
+    format = ".yml"
+
+
 FILE_WRITE_CLS_BY_FORMAT: Mapping[str, type[FileWriter]] = {}
 
 for subclass in get_concrete_subclasses(FileWriter):  # type: ignore[type-abstract]
+    if not getattr(subclass, "format", None):
+        continue
     if subclass.format in FILE_WRITE_CLS_BY_FORMAT:
         raise TypeError(
             f"Duplicate file format {subclass.format!r} found for classes "
