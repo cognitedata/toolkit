@@ -51,6 +51,7 @@ def processor(toolkit_config: ToolkitClientConfig) -> Iterator[HTTPIterableProce
 class TestHTTPIterableProcessor:
     def test_happy_path(self, toolkit_config: ToolkitClientConfig) -> None:
         url = "http://example.com/api"
+        processor: HTTPIterableProcessor[str]
         with (
             HTTPIterableProcessor[str](
                 url,
@@ -63,14 +64,30 @@ class TestHTTPIterableProcessor:
                 responses.POST,
                 url,
                 status=200,
-                json={"items": [{"externalId": "item1"}, {"externalId": "item2"}]},
+                json={
+                    "items": [
+                        {"externalId": "item1", "server": "property1"},
+                        {"externalId": "item2", "server": "property2"},
+                    ]
+                },
             )
-            result = processor.process(({"externalId": "item1"}, {"externalId": "item2"}))
+            result = processor.process(
+                (
+                    {
+                        "externalId": "item1",
+                    },
+                    {"externalId": "item2"},
+                )
+            )
 
             assert len(rsps.calls) == 1
             assert result.total_successful == 2
             assert result.total_processed == 2
             assert result.success_rate == 1.0
+            assert [item.response for item in result.successful_items if item.response] == [
+                {"externalId": "item1", "server": "property1"},
+                {"externalId": "item2", "server": "property2"},
+            ]
 
     def test_concurrent_processing(self, processor: HTTPIterableProcessor) -> None:
         """Test that items are processed concurrently using multiple workers"""
