@@ -78,13 +78,13 @@ class DownloadApp(typer.Typer):
             ),
         ] = Path("tmp"),
         limit: Annotated[
-            int | None,
+            int,
             typer.Option(
                 "--limit",
                 "-l",
-                help="The maximum the number of records to download from each table.",
+                help="The maximum the number of records to download from each table. Use -1 to download all records.",
             ),
-        ] = None,
+        ] = 100_000,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -109,7 +109,7 @@ class DownloadApp(typer.Typer):
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,
-                limit=limit,
+                limit=limit if limit != -1 else None,
                 verbose=verbose,
             )
         )
