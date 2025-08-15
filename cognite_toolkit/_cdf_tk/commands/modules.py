@@ -94,7 +94,7 @@ class ModulesCommand(ToolkitCommand):
     def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False):
         super().__init__(print_warning, skip_tracking, silent)
         self._builtin_modules_path = Path(resources.files(cognite_toolkit.__name__)) / BUILTIN_MODULES  # type: ignore [arg-type]
-        self._temp_download_dir = Path(tempfile.gettempdir()) / "library_downloads"
+        self._temp_download_dir = Path(tempfile.gettempdir()) / MODULES
         if not self._temp_download_dir.exists():
             self._temp_download_dir.mkdir(parents=True, exist_ok=True)
 
@@ -427,7 +427,7 @@ default_organization_dir = "{organization_dir.name}"''',
         choices = sorted(
             [
                 questionary.Choice(
-                    title=module.title,
+                    title=module.title or module.name,
                     value=module,
                     checked=module.name in dependencies or module.is_selected_by_default,
                     disabled="required" if module.name in dependencies else None,
@@ -729,8 +729,15 @@ default_organization_dir = "{organization_dir.name}"''',
         if Flags.EXTERNAL_LIBRARIES.is_enabled() and cdf_toml.libraries:
             for library_name, library in cdf_toml.libraries.items():
                 try:
-                    print(f"[green]Adding library {library_name}[/]")
-                    file_path = self._temp_download_dir / f"{library_name}.zip"
+                    print(f"[green]Adding library {library_name} from {library.url}[/]")
+                    # Extract filename from URL, fallback to library_name.zip if no filename found
+                    from urllib.parse import urlparse
+
+                    url_path = urlparse(library.url).path
+                    filename = (
+                        url_path.split("/")[-1] if url_path and url_path.split("/")[-1] else f"{library_name}.zip"
+                    )
+                    file_path = self._temp_download_dir / filename
                     self._download(library.url, file_path)
                     self._validate_checksum(library.checksum, file_path)
                     self._unpack(file_path)
@@ -834,12 +841,18 @@ default_organization_dir = "{organization_dir.name}"''',
                 for chunk in iter(lambda: f.read(chunk_size), b""):
                     sha256_hash.update(chunk)
             calculated = sha256_hash.hexdigest()
-            if calculated != checksum:
-                raise ToolkitError(f"Checksum mismatch. Expected {checksum}, got {calculated}.")
-            else:
-                print("Checksum verified")
-        except Exception as e:
+        except OSError as e:
             raise ToolkitError(f"Failed to calculate checksum for {file_path}: {e}") from e
+        except Exception as e:
+            raise ToolkitError(f"Unexpected error during checksum calculation for {file_path}: {e}") from e
+
+        if calculated != checksum:
+            raise ToolkitError(
+                f"[red]✗[/red] The provided checksum sha256:{checksum} does not match downloaded file hash sha256:{calculated}.\n"
+                "Please verify the checksum with the source and update cdf.toml if needed."
+            )
+        else:
+            print("[green]✓ Checksum verified[/green]")
 
     def _unpack(self, file_path: Path) -> None:
         """
