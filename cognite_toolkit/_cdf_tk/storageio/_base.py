@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import Hashable, Iterable
+from dataclasses import dataclass
 from typing import Generic, TypeVar
 
 from cognite.client.data_classes._base import (
@@ -15,6 +16,13 @@ T_StorageID = TypeVar("T_StorageID", bound=Hashable)
 T_WritableCogniteResourceList = TypeVar("T_WritableCogniteResourceList", bound=WriteableCogniteResourceList)
 
 
+@dataclass
+class StorageIOConfig:
+    kind: str
+    folder_name: str
+    value: JsonVal
+
+
 class StorageIO(ABC, Generic[T_StorageID, T_CogniteResourceList, T_WritableCogniteResourceList]):
     """This is a base class for all storage classes in Cognite Toolkit"""
 
@@ -24,6 +32,7 @@ class StorageIO(ABC, Generic[T_StorageID, T_CogniteResourceList, T_WritableCogni
     supported_download_formats: frozenset[str]
     supported_compressions: frozenset[str]
     supported_read_formats: frozenset[str]
+    chunk_size: int
 
     def __init__(self, client: ToolkitClient) -> None:
         self.client = client
@@ -48,6 +57,11 @@ class StorageIO(ABC, Generic[T_StorageID, T_CogniteResourceList, T_WritableCogni
 
     @abstractmethod
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> T_CogniteResourceList:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def configurations(self, identifier: T_StorageID) -> Iterable[StorageIOConfig]:
+        """Return configurations for the storage item."""
         raise NotImplementedError()
 
 

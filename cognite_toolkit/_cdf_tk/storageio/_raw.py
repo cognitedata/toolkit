@@ -3,9 +3,10 @@ from collections.abc import Iterable
 from cognite.client.data_classes import RowList, RowWrite, RowWriteList
 
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
+from cognite_toolkit._cdf_tk.loaders import RawTableLoader
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import StorageIO
+from ._base import StorageIO, StorageIOConfig
 
 
 class RawIO(StorageIO[RawTable, RowWriteList, RowList]):
@@ -39,3 +40,6 @@ class RawIO(StorageIO[RawTable, RowWriteList, RowList]):
 
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> RowWriteList:
         return RowWriteList([RowWrite._load(row) for row in data_chunk])
+
+    def configurations(self, identifier: RawTable) -> Iterable[StorageIOConfig]:
+        yield StorageIOConfig(kind=RawTableLoader.kind, folder_name=RawTableLoader.folder_name, value=identifier.dump())

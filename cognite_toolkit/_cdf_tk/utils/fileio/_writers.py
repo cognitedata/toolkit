@@ -17,7 +17,7 @@ from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import to_directory_compatible
 
 from ._base import T_IO, Chunk, FileIO
-from ._compression import Compression
+from ._compression import Compression, NoneCompression
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -35,6 +35,11 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
         self.max_file_size_bytes = max_file_size_bytes
         self._file_count_by_filename: dict[str, int] = Counter()
         self._writer_by_filepath: dict[Path, T_IO] = {}
+
+    @property
+    def file_count(self) -> int:
+        """Get the total number of files written."""
+        return len(self._writer_by_filepath)
 
     def write_chunks(self, chunks: Iterable[Chunk], filestem: str = "") -> None:
         filepath = self._get_filepath(filestem)
@@ -102,7 +107,7 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
         format: str,
         output_dir: Path,
         kind: str,
-        compression: type[Compression],
+        compression: type[Compression] = NoneCompression,
     ) -> "FileWriter":
         if format in FILE_WRITE_CLS_BY_FORMAT:
             file_writs_cls = FILE_WRITE_CLS_BY_FORMAT[format]
