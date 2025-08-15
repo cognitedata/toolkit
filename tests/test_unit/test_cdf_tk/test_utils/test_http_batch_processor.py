@@ -10,7 +10,11 @@ from cognite.client.credentials import OAuthClientCredentials
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.utils.auth import CLIENT_NAME
-from cognite_toolkit._cdf_tk.utils.batch_processor import BatchResult, HTTPBatchProcessor, SuccessItem
+from cognite_toolkit._cdf_tk.utils.batch_processor import (
+    BatchResult,
+    HTTPIterableProcessor,
+    SuccessItem,
+)
 
 
 @pytest.fixture
@@ -31,8 +35,8 @@ def toolkit_config() -> ToolkitClientConfig:
 
 
 @pytest.fixture
-def processor(toolkit_config: ToolkitClientConfig) -> Iterator[HTTPBatchProcessor]:
-    with HTTPBatchProcessor(
+def processor(toolkit_config: ToolkitClientConfig) -> Iterator[HTTPIterableProcessor]:
+    with HTTPIterableProcessor(
         endpoint_url="https://test.com/api",
         config=toolkit_config,
         as_id=lambda item: item["id"],
@@ -42,11 +46,11 @@ def processor(toolkit_config: ToolkitClientConfig) -> Iterator[HTTPBatchProcesso
         yield processor
 
 
-class TestHTTPBatchProcessor:
+class TestHTTPIterableProcessor:
     def test_happy_path(self, toolkit_config: ToolkitClientConfig) -> None:
         url = "http://example.com/api"
         with (
-            HTTPBatchProcessor[str](
+            HTTPIterableProcessor[str](
                 url,
                 toolkit_config,
                 lambda item: item["externalId"],
@@ -66,7 +70,7 @@ class TestHTTPBatchProcessor:
             assert result.total_processed == 2
             assert result.success_rate == 1.0
 
-    def test_concurrent_processing(self, processor: HTTPBatchProcessor) -> None:
+    def test_concurrent_processing(self, processor: HTTPIterableProcessor) -> None:
         """Test that items are processed concurrently using multiple workers"""
         with responses.RequestsMock() as rsps:
             # Add a callback to simulate delay and track request times
@@ -98,7 +102,7 @@ class TestHTTPBatchProcessor:
             assert result.total_successful == 400
 
     @pytest.mark.usefixtures("disable_gzip")
-    def test_split_batch_concurrency(self, processor: HTTPBatchProcessor) -> None:
+    def test_split_batch_concurrency(self, processor: HTTPIterableProcessor) -> None:
         """Test batch splitting under concurrent load"""
         processed_batch_counts = []
 
@@ -139,7 +143,7 @@ class TestHTTPBatchProcessor:
                 raise requests.exceptions.ConnectionError("Connection error")
 
         with (
-            HTTPBatchProcessor(
+            HTTPIterableProcessor(
                 endpoint_url=url,
                 config=toolkit_config,
                 as_id=lambda item: item["id"],
@@ -184,7 +188,7 @@ class TestHTTPBatchProcessor:
                 work_queue.task_done()
 
         with (
-            HTTPBatchProcessor(
+            HTTPIterableProcessor(
                 endpoint_url=url,
                 config=toolkit_config,
                 as_id=lambda item: item["id"],
@@ -199,7 +203,7 @@ class TestHTTPBatchProcessor:
             # Verify each worker received a shutdown signal
             assert shutdown_signal_count == processor.max_workers
 
-    def test_no_access(self, processor: HTTPBatchProcessor) -> None:
+    def test_no_access(self, processor: HTTPIterableProcessor) -> None:
         """Test handling of 401 Unauthorized responses"""
         with responses.RequestsMock() as rsps:
             rsps.add(
@@ -219,7 +223,7 @@ class TestHTTPBatchProcessor:
             # Verify there was only one request attempt (no retries for 401)
             assert len(rsps.calls) == 1
 
-    def test_rate_limit_handling(self, processor: HTTPBatchProcessor) -> None:
+    def test_rate_limit_handling(self, processor: HTTPIterableProcessor) -> None:
         """Test handling of 429 rate limit responses with eventual success"""
         responses_sequence = [
             # First attempt gets rate limited
@@ -266,7 +270,7 @@ class TestHTTPBatchProcessor:
                 return 200, {}, '{"items": []}'
 
         with (
-            HTTPBatchProcessor(
+            HTTPIterableProcessor(
                 endpoint_url=url,
                 config=toolkit_config,
                 as_id=lambda item: item["id"],
@@ -305,7 +309,7 @@ class TestHTTPBatchProcessor:
 
         with (
             responses.RequestsMock() as rsps,
-            HTTPBatchProcessor[str](
+            HTTPIterableProcessor[str](
                 endpoint_url="https://test.com/api",
                 config=toolkit_config,
                 as_id=invalid_as_id,
@@ -323,7 +327,7 @@ class TestHTTPBatchProcessor:
 
             assert len(result.unknown_items) == 3
 
-    def test_empty_batch(self, processor: HTTPBatchProcessor) -> None:
+    def test_empty_batch(self, processor: HTTPIterableProcessor) -> None:
         """Test that processing an empty batch returns an empty result"""
         result = processor.process([])
 
@@ -331,7 +335,7 @@ class TestHTTPBatchProcessor:
         assert result.total_failed == 0
         assert result.total_processed == 0
 
-    def test_raise_in_iteration(self, processor: HTTPBatchProcessor) -> None:
+    def test_raise_in_iteration(self, processor: HTTPIterableProcessor) -> None:
         """Test that an exception raised during iteration is handled correctly"""
 
         def items_generator():
