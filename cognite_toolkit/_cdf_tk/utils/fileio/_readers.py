@@ -1,7 +1,10 @@
+import json
 from abc import ABC, abstractmethod
 from collections.abc import Iterator, Mapping
 from io import TextIOWrapper
 from pathlib import Path
+
+import yaml
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
@@ -49,8 +52,32 @@ class FileReader(FileIO, ABC):
         )
 
 
+class NDJsonReader(FileReader):
+    format = ".ndjson"
+
+    def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[JsonVal]:
+        for line in file:
+            if stripped := line.strip():
+                yield json.loads(stripped)
+
+
+class YAMLBaseReader(FileReader, ABC):
+    def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[JsonVal]:
+        yield from yaml.safe_load_all(file)
+
+
+class YAMLReader(YAMLBaseReader):
+    format = ".yaml"
+
+
+class YMLReader(YAMLBaseReader):
+    format = ".yml"
+
+
 FILE_READ_CLS_BY_FORMAT: Mapping[str, type[FileReader]] = {}
 for subclass in get_concrete_subclasses(FileReader):  # type: ignore[type-abstract]
+    if not getattr(subclass, "format", None):
+        continue
     if subclass.format in FILE_READ_CLS_BY_FORMAT:
         raise TypeError(
             f"Duplicate file format {subclass.format!r} found for classes "
