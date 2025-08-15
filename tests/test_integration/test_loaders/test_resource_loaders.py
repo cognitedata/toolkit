@@ -20,6 +20,8 @@ from cognite.client.data_classes import (
     FunctionScheduleWrite,
     FunctionScheduleWriteList,
     FunctionTaskParameters,
+    FunctionWrite,
+    FunctionWriteList,
     GroupWrite,
     LabelDefinitionWrite,
     TimeSeriesList,
@@ -57,6 +59,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     CogniteFileLoader,
     DataModelLoader,
     DatapointSubscriptionLoader,
+    FunctionLoader,
     FunctionScheduleLoader,
     GroupLoader,
     LabelLoader,
@@ -773,6 +776,47 @@ authentication:
         finally:
             toolkit_client.transformations.delete(external_id="transformation_without_scope", ignore_unknown_ids=True)
 
+    def test_create_transformation_reusing_source_destination_auth(self, toolkit_client: ToolkitClient) -> None:
+        transformation_text = """externalId: transformation_reusing_source_destination_auth
+name: This is a test transformation from the Toolkit
+destination:
+  type: assets
+ignoreNullFields: true
+isPublic: true
+conflictMode: upsert
+query: Select * from assets
+# Reusing the credentials from the Toolkit principal
+authentication:
+  read:
+    clientId: ${IDP_CLIENT_ID}
+    clientSecret: ${IDP_CLIENT_SECRET}
+  write:
+    clientId: ${IDP_CLIENT_ID}
+    clientSecret: ${IDP_CLIENT_SECRET}
+        """
+        loader = TransformationLoader.create_loader(toolkit_client)
+        filepath = MagicMock(spec=Path)
+        filepath.read_text.return_value = transformation_text
+
+        loaded = loader.load_resource_file(filepath, dict(os.environ))
+        assert len(loaded) == 1
+        transformation = loader.load_resource(loaded[0])
+
+        try:
+            created_list = loader.create([transformation])
+            assert len(created_list) == 1
+            created = created_list[0]
+            assert created.source_session is not None
+            assert created.destination_session is not None
+            assert created.source_session.session_id != created.destination_session.session_id, (
+                "There should be different sessions for source and destination authentication even"
+                " if they reuse the same credentials"
+            )
+        finally:
+            toolkit_client.transformations.delete(
+                external_id="transformation_reusing_source_destination_auth", ignore_unknown_ids=True
+            )
+
 
 class TestNodeLoader:
     def test_update_existing_node(self, toolkit_client: ToolkitClient, instance_space: dm.Space) -> None:
@@ -854,6 +898,55 @@ properties:
         worker = ResourceWorker(loader, "deploy")
         resources = worker.prepare_resources([filepath])
 
+        assert {
+            "create": len(resources.to_create),
+            "change": len(resources.to_update),
+            "delete": len(resources.to_delete),
+            "unchanged": len(resources.unchanged),
+        } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
+
+
+class TestFunctionLoader:
+    def test_avoid_redeploying_function_with_no_changes(
+        self, toolkit_client: ToolkitClient, toolkit_dataset: DataSet, tmp_path: Path
+    ) -> None:
+        function_code = """from cognite.client import CogniteClient
+
+
+def handle(data: dict, client: CogniteClient, secrets: dict, function_call_info: dict) -> dict:
+    # This will fail unless the function has the specified capabilities.
+    print("Print statements will be shown in the logs.")
+    print("Running with the following configuration:\n")
+    return {
+        "data": data,
+        "functionInfo": function_call_info,
+    }
+
+"""
+        external_id = "toolkit_test_function_no_redeploy"
+        definition_yaml = f"""externalId: {external_id}
+name: Toolkit Test Function No Redeploy
+owner: ""
+dataSetExternalId: {toolkit_dataset.external_id}
+description: ""
+        """
+        build_dir = tmp_path / "build"
+        function_code_path = build_dir / FunctionLoader.folder_name / external_id / "handler.py"
+        function_code_path.parent.mkdir(parents=True, exist_ok=True)
+        function_code_path.write_text(function_code, encoding="utf-8")
+
+        loader = FunctionLoader.create_loader(toolkit_client, build_dir)
+        filepath = MagicMock(spec=Path)
+        filepath.read_text.return_value = definition_yaml
+        filepath.parent.name = FunctionLoader.folder_name
+        resource_dict = loader.load_resource_file(filepath, {})
+        assert len(resource_dict) == 1
+        resource = loader.load_resource(resource_dict[0])
+        assert isinstance(resource, FunctionWrite)
+        if not loader.retrieve([resource.external_id]):
+            _ = loader.create(FunctionWriteList([resource]))
+        worker = ResourceWorker(loader, "deploy")
+        resources = worker.prepare_resources([filepath])
         assert {
             "create": len(resources.to_create),
             "change": len(resources.to_update),

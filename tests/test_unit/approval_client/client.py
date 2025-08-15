@@ -625,6 +625,16 @@ class ApprovalToolkitClient:
                 ),
             )
 
+        def create_nodes(
+            nodes: NodeApply | Sequence[NodeApply] | None = None,
+            **_,
+        ) -> NodeApplyResult | NodeApplyResultList:
+            """Create nodes in the mock client."""
+            output = create_instances(nodes=nodes, edges=None)
+            if isinstance(nodes, NodeApply):
+                return output.nodes[0]
+            return output.nodes
+
         def create_extraction_pipeline_config(config: ExtractionPipelineConfigWrite) -> ExtractionPipelineConfig:
             created_resources[resource_cls.__name__].append(config)
             return ExtractionPipelineConfig.load(config.dump(camel_case=True))
@@ -729,6 +739,7 @@ class ApprovalToolkitClient:
                 create_3dmodel,
                 apply_dml,
                 create_raw_table,
+                create_nodes,
             ]
         }
         if mock_method not in available_create_methods:
