@@ -15,18 +15,37 @@ from ._base import ToolkitCommand
 
 
 class UploadCommand(ToolkitCommand):
+    """Command for uploading data to CDF from files in a specified directory.
+
+    This command reads files matching a specific pattern in the input directory,
+    processes them using a StorageIO instance, and uploads the data to CDF.
+
+    Attributes:
+        _MAX_QUEUE_SIZE (int): The maximum size of the queue for processing items.
+            Set to 80 to balance memory usage and processing speed.
+    """
+
+    _MAX_QUEUE_SIZE = 80
+
     def upload(
         self,
         io: StorageIO[T_StorageID, T_CogniteResourceList, T_WritableCogniteResourceList],
         input_dir: Path,
         verbose: bool,
     ) -> None:
+        """Uploads data from files in the specified input directory to CDF.
+
+        Args:
+            io: The StorageIO instance that defines how to upload the data.
+            input_dir: The directory containing the files to upload.
+            verbose: If True, prints detailed information about the upload process.
+
+        """
         console = Console()
         files = list(input_dir.glob(f"*.{io.kind}.*"))
         if verbose:
             console.print(f"Found {len(files)} files to upload in {input_dir.as_posix()!r}.")
 
-        console = Console()
         for file in files:
             if verbose:
                 console.print(f"Uploading {io.display_name} from {file.as_posix()!r}")
@@ -39,7 +58,7 @@ class UploadCommand(ToolkitCommand):
                 process=io.json_chunk_to_data,
                 write=partial(io.upload_items, identifier=identifier),
                 iteration_count=None,
-                max_queue_size=8 * 10,
+                max_queue_size=self._MAX_QUEUE_SIZE,
                 download_description=f"Reading {file.as_posix()!s}",
                 process_description="Processing",
                 write_description=f"Uploading {io.display_name!r}",
