@@ -1,9 +1,14 @@
 from enum import Enum
 from functools import lru_cache
-from typing import Any, ClassVar
+from typing import Any, ClassVar, TypedDict
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.constants import clean_name
+
+
+class FlagMetadata(TypedDict):
+    visible: bool
+    description: str
 
 
 class Flags(Enum):
@@ -58,10 +63,10 @@ class Flags(Enum):
         "visible": True,
         "description": "Enables the cdf purge instances command",
     }
-    DOWNLOAD: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
-        "visible": True,
-        "description": "Enables the support for the download command",
-    }
+    DOWNLOAD = FlagMetadata(
+        visible=True,
+        description="Enables the support for the download command",
+    )
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)

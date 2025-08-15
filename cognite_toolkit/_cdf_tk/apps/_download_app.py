@@ -57,7 +57,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--format",
                 "-f",
-                help="Format to download the raw tables in. Supported formats: json",
+                help="Format to download the raw tables in. Supported formats: ndjson, yaml",
             ),
         ] = RawFormats.ndjson,
         compression: Annotated[
