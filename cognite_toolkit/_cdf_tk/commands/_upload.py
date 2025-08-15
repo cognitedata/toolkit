@@ -67,4 +67,7 @@ class UploadCommand(ToolkitCommand):
             executor.run()
             if executor.error_occurred:
                 raise ToolkitValueError("An error occurred during the upload process: " + executor.error_message)
-            console.print(f"Uploaded {file.as_posix()!r} successfully.")
+            elif executor.stopped_by_user:
+                raise ToolkitValueError("The upload process was stopped by the user.")
+            else:
+                console.print(f"Uploaded {file.as_posix()!r} successfully.")
