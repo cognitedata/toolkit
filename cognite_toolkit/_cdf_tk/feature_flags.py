@@ -58,6 +58,10 @@ class Flags(Enum):
         "visible": True,
         "description": "Enables the cdf purge instances command",
     }
+    DOWNLOAD: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
+        "visible": True,
+        "description": "Enables the support for the download command",
+    }
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)
