@@ -243,16 +243,22 @@ class RawTableInteractiveSelect:
         tables = self.client.raw.tables.list(db_name=database, limit=-1)
         return [RawTable(database, table.name) for table in tables if table.name is not None]
 
-    def select_tables(self) -> list[RawTable]:
+    def select_tables(self, database: str | None = None) -> list[RawTable]:
         """Interactively select raw tables."""
         databases = self._available_databases()
         if not databases:
             raise ToolkitValueError("No raw databases available. Aborting.")
-
-        selected_database = questionary.select(
-            f"Select a Raw Database to {self.operation}",
-            choices=[questionary.Choice(title=db, value=db) for db in databases],
-        ).ask()
+        if database and database not in databases:
+            raise ToolkitValueError(
+                f"Database '{database}' not found in available raw databases: {databases}. Aborting."
+            )
+        elif database:
+            selected_database = database
+        else:
+            selected_database = questionary.select(
+                f"Select a Raw Database to {self.operation}",
+                choices=[questionary.Choice(title=db, value=db) for db in databases],
+            ).ask()
         if selected_database is None:
             raise ToolkitValueError("No database selected. Aborting.")
         available_tables = self._available_tables(selected_database)

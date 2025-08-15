@@ -15,7 +15,7 @@ infield = true
 dump-data = true
 migrate = true
 purge_instances = true
-
+download = true
 exit-on-warning = true
 
 [plugins]
