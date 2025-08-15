@@ -24,7 +24,7 @@ class DownloadCommand(ToolkitCommand):
         verbose: bool,
         file_format: str,
         compression: str,
-        limit: int | None = 100_000,
+        limit: int | None,
     ) -> None:
         """Downloads data from CDF to the specified output directory.
 
