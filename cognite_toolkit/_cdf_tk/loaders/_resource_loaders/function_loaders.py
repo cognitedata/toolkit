@@ -258,6 +258,15 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             # Remove the default value of the functionPath
             dumped.pop("functionPath", None)
 
+        # The Function API removes none-like values when processing the request.
+        # Ref https://github.com/cognitedata/infrastructure/blob/7459a8f6959af89240c3250f9133c079a19d57c5/services/context/context_api/utils/schema_helpers.py#L8
+        # This ensures that if the user sets owner or description to None or empty string,
+        # it will not cause the comparison with the server side to evaluate as different,
+        # even though the function is unchanged.
+        for key in ["owner", "description"]:
+            if key in local and local[key] in {None, ""} and key not in dumped:
+                dumped[key] = local[key]
+
         return dumped
 
     def _is_activated(self, action: str) -> bool:
