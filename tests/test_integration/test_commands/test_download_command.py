@@ -18,7 +18,7 @@ class TestDownloadCommand:
             RawIO(toolkit_client),
             output_dir=tmp_path,
             verbose=False,
-            format=".ndjson",
+            file_format=".ndjson",
             compression="none",
             limit=None,
         )
