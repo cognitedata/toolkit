@@ -161,6 +161,31 @@ def three_timeseries(cognite_client: CogniteClient) -> TimeSeriesList:
     return retrieved
 
 
+@pytest.fixture(scope="session")
+def one_hundred_and_one_timeseries(cognite_client: CogniteClient, toolkit_dataset: DataSet) -> TimeSeriesList:
+    ts_list = TimeSeriesWriteList(
+        [
+            TimeSeriesWrite(
+                external_id=f"toolkit_101_timeseries_{i}",
+                name=f"Toolkit Test 101 TimeSeries {i}",
+                is_step=False,
+                is_string=False,
+                data_set_id=toolkit_dataset.id,
+            )
+            for i in range(1, 102)
+        ]
+    )
+    retrieved = cognite_client.time_series.retrieve_multiple(
+        external_ids=ts_list.as_external_ids(), ignore_unknown_ids=True
+    )
+    existing = set(retrieved.as_external_ids())
+    to_create = [ts for ts in ts_list if ts.external_id not in existing]
+    if to_create:
+        created = cognite_client.time_series.create(to_create)
+        retrieved.extend(created)
+    return retrieved
+
+
 class TestDatapointSubscriptionLoader:
     def test_delete_non_existing(self, cognite_client: CogniteClient) -> None:
         loader = DatapointSubscriptionLoader(cognite_client, None)
@@ -193,6 +218,43 @@ class TestDatapointSubscriptionLoader:
         finally:
             loader.delete([sub.external_id])
 
+    def test_create_update_delete_subscription_with_ids(
+        self,
+        toolkit_client: ToolkitClient,
+        one_hundred_and_one_timeseries: TimeSeriesList,
+        three_timeseries: TimeSeriesList,
+    ) -> None:
+        ts_ids = "\n- ".join(one_hundred_and_one_timeseries.as_external_ids())
+        sub_yaml = f"""externalId: tmp_test_create_update_delete_101_subscription_{RUN_UNIQUE_ID}
+partitionCount: 1
+name: The subscription name
+timeSeriesIds:{ts_ids}
+"""
+        ts_update_ds = "\n- ".join(
+            one_hundred_and_one_timeseries.as_external_ids() + three_timeseries.as_external_ids()
+        )
+        update_yaml = f"""externalId: tmp_test_create_update_delete_101_subscription_{RUN_UNIQUE_ID}
+partitionCount: 1
+name: The subscription name
+timeSeriesIds:{ts_update_ds}
+"""
+        loader = DatapointSubscriptionLoader(toolkit_client, None)
+        sub = self._load_subscription_from_yaml(self._create_mock_file(sub_yaml), loader)
+        try:
+            created = loader.create(DatapointSubscriptionWriteList([sub]))
+            assert len(created) == 1
+            initial_description = created[0].description
+
+            update = self._load_subscription_from_yaml(self._create_mock_file(update_yaml), loader)
+            updated = loader.update(DatapointSubscriptionWriteList([update]))
+            assert len(updated) == 1
+            updated_description = updated[0].description
+            assert updated_description != initial_description, (
+                "The description should have changed after the update with a hash fo the timeseries IDs"
+            )
+        finally:
+            loader.delete([sub.external_id])
+
     def test_no_redeploy_ids_defined(
         self, toolkit_client: ToolkitClient, toolkit_dataset: DataSet, three_timeseries: TimeSeriesList
     ) -> None:
@@ -207,12 +269,8 @@ timeSeriesIds:
 """
         loader = DatapointSubscriptionLoader.create_loader(toolkit_client)
 
-        filepath = MagicMock(spec=Path)
-        filepath.read_text.return_value = definition_yaml
-
-        resource_dict = loader.load_resource_file(filepath, {})
-        assert len(resource_dict) == 1
-        resource = loader.load_resource(resource_dict[0])
+        filepath = self._create_mock_file(definition_yaml)
+        resource = self._load_subscription_from_yaml(filepath, loader)
         assert isinstance(resource, DataPointSubscriptionWrite)
         if not loader.retrieve([resource.external_id]):
             _ = loader.create(DatapointSubscriptionWriteList([resource]))
@@ -226,6 +284,18 @@ timeSeriesIds:
             "delete": len(resources.to_delete),
             "unchanged": len(resources.unchanged),
         } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
+
+    @staticmethod
+    def _create_mock_file(yaml_content: str) -> Path:
+        mock_file = MagicMock(spec=Path)
+        mock_file.read_text.return_value = yaml_content
+        return mock_file
+
+    @staticmethod
+    def _load_subscription_from_yaml(filepath: Path, loader: DatapointSubscriptionLoader) -> DataPointSubscriptionWrite:
+        resource_dict = loader.load_resource_file(filepath, {})
+        assert len(resource_dict) == 1
+        return loader.load_resource(resource_dict[0])
 
 
 class TestLabelLoader:
