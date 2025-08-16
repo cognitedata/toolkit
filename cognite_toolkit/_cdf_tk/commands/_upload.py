@@ -1,5 +1,6 @@
 from functools import partial
 from pathlib import Path
+from typing import Any
 
 from rich.console import Console
 
@@ -31,6 +32,8 @@ class UploadCommand(ToolkitCommand):
         self,
         io: StorageIO[T_StorageID, T_CogniteResourceList, T_WritableCogniteResourceList],
         input_dir: Path,
+        ensure_configurations: bool,
+        dry_run: bool,
         verbose: bool,
     ) -> None:
         """Uploads data from files in the specified input directory to CDF.
@@ -38,6 +41,10 @@ class UploadCommand(ToolkitCommand):
         Args:
             io: The StorageIO instance that defines how to upload the data.
             input_dir: The directory containing the files to upload.
+            ensure_configurations: If True, creates a configuration for the upload. For example,
+                in the case of uploading RAW tables, this will create the RAW database and table.
+                For asset-centric, this will create labels and data sets.
+            dry_run: If True, performs a dry run without actually uploading the data.
             verbose: If True, prints detailed information about the upload process.
 
         """
@@ -46,22 +53,25 @@ class UploadCommand(ToolkitCommand):
         if verbose:
             console.print(f"Found {len(files)} files to upload in {input_dir.as_posix()!r}.")
 
+        action = "Would upload" if dry_run else "Uploading"
         for file in files:
             if verbose:
-                console.print(f"Uploading {io.display_name} from {file.as_posix()!r}")
+                console.print(f"{action} {io.display_name} from {file.as_posix()!r}")
 
             identifier = io.load_identifier(file)
+            if ensure_configurations and not dry_run:
+                io.ensure_configurations(identifier, console)
 
             reader = FileReader.from_filepath(file)
             executor = ProducerWorkerExecutor[list[dict[str, JsonVal]], T_CogniteResourceList](
                 download_iterable=chunker(reader.read_chunks(), io.chunk_size),
                 process=io.json_chunk_to_data,
-                write=partial(io.upload_items, identifier=identifier),
+                write=partial(io.upload_items, identifier=identifier) if not dry_run else self._no_op,
                 iteration_count=None,
                 max_queue_size=self._MAX_QUEUE_SIZE,
                 download_description=f"Reading {file.as_posix()!s}",
                 process_description="Processing",
-                write_description=f"Uploading {io.display_name!r}",
+                write_description=f"{action} {io.display_name!r}",
                 console=console,
             )
             executor.run()
@@ -71,3 +81,8 @@ class UploadCommand(ToolkitCommand):
                 raise ToolkitValueError("The upload process was stopped by the user.")
             else:
                 console.print(f"Uploaded {file.as_posix()!r} successfully.")
+
+    @staticmethod
+    def _no_op(*_: Any, **__: Any) -> None:
+        """A no-operation function used when dry_run is True."""
+        pass
