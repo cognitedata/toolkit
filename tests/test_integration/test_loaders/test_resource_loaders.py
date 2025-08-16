@@ -228,7 +228,8 @@ class TestDatapointSubscriptionLoader:
         sub_yaml = f"""externalId: tmp_test_create_update_delete_101_subscription_{RUN_UNIQUE_ID}
 partitionCount: 1
 name: The subscription name
-timeSeriesIds:{ts_ids}
+timeSeriesIds:
+- {ts_ids}
 """
         ts_update_ds = "\n- ".join(
             one_hundred_and_one_timeseries.as_external_ids() + three_timeseries.as_external_ids()
@@ -236,7 +237,8 @@ timeSeriesIds:{ts_ids}
         update_yaml = f"""externalId: tmp_test_create_update_delete_101_subscription_{RUN_UNIQUE_ID}
 partitionCount: 1
 name: The subscription name
-timeSeriesIds:{ts_update_ds}
+timeSeriesIds:
+- {ts_update_ds}
 """
         loader = DatapointSubscriptionLoader(toolkit_client, None)
         sub = self._load_subscription_from_yaml(self._create_mock_file(sub_yaml), loader)
