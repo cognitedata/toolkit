@@ -2,10 +2,11 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from cognite.client.data_classes import RowList, RowWrite, RowWriteList
+from rich.console import Console
 
-from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
+from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawDatabaseList, RawTable, RawTableList
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.loaders import RawTableLoader
+from cognite_toolkit._cdf_tk.loaders import RawDatabaseLoader, RawTableLoader
 from cognite_toolkit._cdf_tk.utils.file import find_adjacent_files, read_yaml_file
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
@@ -56,3 +57,18 @@ class RawIO(StorageIO[RawTable, RowWriteList, RowList]):
         config_file = config_files[0]
         loader = RawTableLoader.create_loader(self.client)
         return loader.load_resource(read_yaml_file(config_file, expected_output="dict"))
+
+    def ensure_configurations(self, identifier: RawTable, console: Console | None = None) -> None:
+        """Ensure that the Raw table exists in CDF."""
+        db_loader = RawDatabaseLoader.create_loader(self.client, console=console)
+        db = RawDatabase(db_name=identifier.db_name)
+        if not db_loader.retrieve([db]):
+            db_loader.create(RawDatabaseList([db]))
+            if console:
+                console.print(f"Created raw database: [bold]{db.db_name}[/bold]")
+
+        table_loader = RawTableLoader.create_loader(self.client, console=console)
+        if not table_loader.retrieve([identifier]):
+            table_loader.create(RawTableList([identifier]))
+            if console:
+                console.print(f"Created raw table: [bold]{identifier.db_name}.{identifier.table_name}[/bold]")

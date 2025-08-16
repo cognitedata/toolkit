@@ -8,6 +8,7 @@ from cognite.client.data_classes._base import (
     T_CogniteResourceList,
     WriteableCogniteResourceList,
 )
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.utils.table_writers import SchemaColumn
@@ -68,6 +69,22 @@ class StorageIO(ABC, Generic[T_StorageID, T_CogniteResourceList, T_WritableCogni
     @abstractmethod
     def load_identifier(self, datafile: Path) -> T_StorageID:
         """Load the identifier from the storage."""
+        raise NotImplementedError()
+
+    @abstractmethod
+    def ensure_configurations(self, identifier: T_StorageID, console: Console | None = None) -> None:
+        """Ensure that the necessary configurations for the storage item are in place.
+
+        This method should create the necessary configurations in CDF if they do not exist.
+        For example, for RAW tables, this will create the RAW database and table.
+
+        For asset-centric storage, this will create labels and data sets.
+
+        Args:
+            identifier: The identifier of the storage item.
+            console: An optional console for outputting messages during the configuration process.
+
+        """
         raise NotImplementedError()
 
 
