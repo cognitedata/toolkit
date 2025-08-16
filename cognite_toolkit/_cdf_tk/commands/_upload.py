@@ -49,14 +49,21 @@ class UploadCommand(ToolkitCommand):
 
         """
         console = Console()
+        cwd = Path.cwd()
         files = list(input_dir.glob(f"*.{io.kind}.*"))
         if verbose:
-            console.print(f"Found {len(files)} files to upload in {input_dir.as_posix()!r}.")
+            input_dir_display = input_dir
+            if input_dir.is_relative_to(cwd):
+                input_dir_display = input_dir.relative_to(cwd)
+            console.print(f"Found {len(files)} files to upload in {input_dir_display.as_posix()!r}.")
 
         action = "Would upload" if dry_run else "Uploading"
         for file in files:
+            file_display = file
+            if file_display.is_relative_to(cwd):
+                file_display = file_display.relative_to(cwd)
             if verbose:
-                console.print(f"{action} {io.display_name} from {file.as_posix()!r}")
+                console.print(f"{action} {io.display_name} from {file_display.as_posix()!r}")
 
             identifier = io.load_identifier(file)
             if ensure_configurations and not dry_run:
@@ -69,7 +76,7 @@ class UploadCommand(ToolkitCommand):
                 write=partial(io.upload_items, identifier=identifier) if not dry_run else self._no_op,
                 iteration_count=None,
                 max_queue_size=self._MAX_QUEUE_SIZE,
-                download_description=f"Reading {file.as_posix()!s}",
+                download_description=f"Reading {file_display.as_posix()!s}",
                 process_description="Processing",
                 write_description=f"{action} {io.display_name!r}",
                 console=console,
@@ -80,7 +87,7 @@ class UploadCommand(ToolkitCommand):
             elif executor.stopped_by_user:
                 raise ToolkitValueError("The upload process was stopped by the user.")
             else:
-                console.print(f"Uploaded {file.as_posix()!r} successfully.")
+                console.print(f"Uploaded {file_display.as_posix()!r} successfully.")
 
     @staticmethod
     def _no_op(_: Any) -> None:
