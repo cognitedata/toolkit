@@ -45,7 +45,7 @@ class UploadApp(typer.Typer):
             ),
         ] = False,
     ) -> None:
-        """This command will download RAW tables from CDF into a temporary directory."""
+        """This command will upload data from the input directory to CDF."""
         cmd = UploadCommand()
 
         client = EnvironmentVariables.create_from_environment().get_client()
