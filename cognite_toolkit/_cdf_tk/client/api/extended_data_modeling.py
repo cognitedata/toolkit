@@ -13,7 +13,6 @@ from cognite.client.data_classes.data_modeling import EdgeId, InstanceApply, Nod
 from cognite.client.exceptions import CogniteConnectionError, CogniteReadTimeout
 from cognite.client.utils import _json
 from cognite.client.utils._concurrency import execute_tasks
-from cognite.client.utils._identifier import InstanceId
 from requests import Response
 
 from cognite_toolkit._cdf_tk.client._constants import DATA_MODELING_MAX_DELETE_WORKERS, DATA_MODELING_MAX_WRITE_WORKERS
@@ -107,15 +106,9 @@ class ExtendedInstancesAPI(InstancesAPI):
             else:
                 return el
 
-        def str_format_element(el: T) -> str | T:
-            if isinstance(el, InstanceApply):
-                return f"{el.space}:{el.external_id}"
-            return el
-
         summary.raise_compound_exception_if_failed_tasks(
             task_unwrap_fn=lambda task: task[1]["items"],
             task_list_element_unwrap_fn=unwrap_element,
-            str_format_element_fn=str_format_element,
         )
         created_resources = summary.joined_results(lambda res: res.json()["items"])
 
@@ -162,15 +155,9 @@ class ExtendedInstancesAPI(InstancesAPI):
             else:
                 return el
 
-        def str_format_element(el: T) -> str | T:
-            if isinstance(el, InstanceId):
-                return f"{el.space}:{el.external_id}"
-            return el
-
         summary.raise_compound_exception_if_failed_tasks(
             task_unwrap_fn=lambda task: task[1]["items"],
             task_list_element_unwrap_fn=unwrap_element,
-            str_format_element_fn=str_format_element,
         )
         deleted_resources = summary.joined_results(lambda res: res.json()["items"])
         result: list[NodeId | EdgeId] = []

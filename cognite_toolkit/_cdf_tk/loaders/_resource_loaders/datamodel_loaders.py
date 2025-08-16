@@ -732,8 +732,8 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
             try:
                 created = self.client.data_modeling.views.apply(item)
             except CogniteAPIError as e2:
-                e2.failed.extend(items[no + 1 :])
-                e2.successful.extend(created_list)
+                e2.failed = list(e2.failed) + list(items[no + 1 :])
+                e2.successful = list(e2.successful) + created_list
                 raise e2 from e1
             else:
                 created_list.append(created)
