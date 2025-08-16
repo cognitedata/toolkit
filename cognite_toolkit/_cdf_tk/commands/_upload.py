@@ -83,6 +83,6 @@ class UploadCommand(ToolkitCommand):
                 console.print(f"Uploaded {file.as_posix()!r} successfully.")
 
     @staticmethod
-    def _no_op(*_: Any, **__: Any) -> None:
+    def _no_op(_: Any) -> None:
         """A no-operation function used when dry_run is True."""
         pass
