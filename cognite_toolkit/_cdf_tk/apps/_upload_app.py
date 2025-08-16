@@ -36,6 +36,22 @@ class UploadApp(typer.Typer):
                 resolve_path=True,
             ),
         ],
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-d",
+                help="If set, the command will not actually upload the data, but will print what would be uploaded.",
+            ),
+        ] = False,
+        ensure_tables: Annotated[
+            bool,
+            typer.Option(
+                "--ensure-tables",
+                "-e",
+                help="If set, the command will ensure that the RAW database and table exist in CDF before uploading.",
+            ),
+        ] = True,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -53,6 +69,8 @@ class UploadApp(typer.Typer):
             lambda: cmd.upload(
                 io=RawIO(client=client),
                 input_dir=input_dir,
+                ensure_configurations=ensure_tables,
+                dry_run=dry_run,
                 verbose=verbose,
             )
         )
