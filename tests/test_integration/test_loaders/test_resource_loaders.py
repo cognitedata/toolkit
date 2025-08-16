@@ -161,6 +161,31 @@ def three_timeseries(cognite_client: CogniteClient) -> TimeSeriesList:
     return retrieved
 
 
+@pytest.fixture(scope="session")
+def one_hundred_and_one_timeseries(cognite_client: CogniteClient, toolkit_dataset: DataSet) -> TimeSeriesList:
+    ts_list = TimeSeriesWriteList(
+        [
+            TimeSeriesWrite(
+                external_id=f"toolkit_101_timeseries_{i}",
+                name=f"Toolkit Test 101 TimeSeries {i}",
+                is_step=False,
+                is_string=False,
+                data_set_id=toolkit_dataset.id,
+            )
+            for i in range(1, 102)
+        ]
+    )
+    retrieved = cognite_client.time_series.retrieve_multiple(
+        external_ids=ts_list.as_external_ids(), ignore_unknown_ids=True
+    )
+    existing = set(retrieved.as_external_ids())
+    to_create = [ts for ts in ts_list if ts.external_id not in existing]
+    if to_create:
+        created = cognite_client.time_series.create(to_create)
+        retrieved.extend(created)
+    return retrieved
+
+
 class TestDatapointSubscriptionLoader:
     def test_delete_non_existing(self, cognite_client: CogniteClient) -> None:
         loader = DatapointSubscriptionLoader(cognite_client, None)
@@ -190,6 +215,41 @@ class TestDatapointSubscriptionLoader:
             updated = loader.update(DatapointSubscriptionWriteList([update]))
             assert len(updated) == 1
             assert updated[0].name == "Updated name"
+        finally:
+            loader.delete([sub.external_id])
+
+    def test_create_update_delete_subscription_with_ids(
+        self,
+        toolkit_client: ToolkitClient,
+        one_hundred_and_one_timeseries: TimeSeriesList,
+        three_timeseries: TimeSeriesList,
+    ) -> None:
+        sub = DataPointSubscriptionWrite(
+            external_id=f"tmp_test_create_update_delete_101_subscription_{RUN_UNIQUE_ID}",
+            partition_count=1,
+            name="The subscription name",
+            time_series_ids=one_hundred_and_one_timeseries.as_external_ids(),
+        )
+        update = DataPointSubscriptionWrite(
+            external_id=f"tmp_test_create_update_delete_101_subscription_{RUN_UNIQUE_ID}",
+            partition_count=1,
+            name="The subscription name",
+            time_series_ids=one_hundred_and_one_timeseries.as_external_ids() + three_timeseries.as_external_ids(),
+        )
+
+        loader = DatapointSubscriptionLoader(toolkit_client, None)
+
+        try:
+            created = loader.create(DatapointSubscriptionWriteList([sub]))
+            assert len(created) == 1
+            initial_description = created[0].description
+
+            updated = loader.update(DatapointSubscriptionWriteList([update]))
+            assert len(updated) == 1
+            updated_description = updated[0].description
+            assert updated_description != initial_description, (
+                "The description should have changed after the update with a hash fo the timeseries IDs"
+            )
         finally:
             loader.delete([sub.external_id])
 
