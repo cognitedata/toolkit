@@ -187,12 +187,12 @@ def one_hundred_and_one_timeseries(cognite_client: CogniteClient, toolkit_datase
 
 
 class TestDatapointSubscriptionLoader:
-    def test_delete_non_existing(self, cognite_client: CogniteClient) -> None:
-        loader = DatapointSubscriptionLoader(cognite_client, None)
+    def test_delete_non_existing(self, toolkit_client: ToolkitClient) -> None:
+        loader = DatapointSubscriptionLoader(toolkit_client, None)
         delete_count = loader.delete(["non_existing"])
         assert delete_count == 0
 
-    def test_create_update_delete_subscription(self, cognite_client: CogniteClient) -> None:
+    def test_create_update_delete_subscription(self, toolkit_client: ToolkitClient) -> None:
         sub = DataPointSubscriptionWrite(
             external_id=f"tmp_test_create_update_delete_subscription_{RUN_UNIQUE_ID}",
             partition_count=1,
@@ -206,7 +206,7 @@ class TestDatapointSubscriptionLoader:
             filter=filters.Prefix(DatapointSubscriptionProperty.external_id, "ts_value"),
         )
 
-        loader = DatapointSubscriptionLoader(cognite_client, None)
+        loader = DatapointSubscriptionLoader(toolkit_client, None)
 
         try:
             created = loader.create(DatapointSubscriptionWriteList([sub]))
