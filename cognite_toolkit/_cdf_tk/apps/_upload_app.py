@@ -19,7 +19,7 @@ class UploadApp(typer.Typer):
     def upload_main(ctx: typer.Context) -> None:
         """Commands to upload data to CDF."""
         if ctx.invoked_subcommand is None:
-            print("Use [bold yellow]cdf download --help[/] for more information.")
+            print("Use [bold yellow]cdf upload --help[/] for more information.")
         return None
 
     @staticmethod
