@@ -59,3 +59,12 @@ class TestUploadCommand:
             _, table_kwargs = client.raw.tables.create.call_args
             assert table_kwargs["db_name"] == "test_db"
             assert table_kwargs["name"] == ["test_table"]
+
+    def test_upload_raw_rows_dry_run(self, raw_directory: Path) -> None:
+        cmd = UploadCommand(silent=True, skip_tracking=True)
+        with monkeypatch_toolkit_client() as client:
+            cmd.upload(RawIO(client), raw_directory, ensure_configurations=True, dry_run=True, verbose=False)
+
+            client.raw.rows.insert.assert_not_called()
+            client.raw.databases.create.assert_not_called()
+            client.raw.tables.create.assert_not_called()
