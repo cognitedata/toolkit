@@ -1,7 +1,6 @@
 import json
 from collections.abc import Hashable, Iterable, Sequence
 from functools import lru_cache
-from pathlib import Path
 from typing import Any, cast, final
 
 from cognite.client.data_classes import (
@@ -294,6 +293,7 @@ class DatapointSubscriptionLoader(
     def create(self, items: DatapointSubscriptionWriteList) -> DatapointSubscriptionList:
         created = DatapointSubscriptionList([])
         for item in items:
+            self._hash_timeseries_ids(item)
             created.append(self.client.time_series.subscriptions.create(item))
         return created
 
@@ -308,6 +308,7 @@ class DatapointSubscriptionLoader(
     def update(self, items: DatapointSubscriptionWriteList) -> DatapointSubscriptionList:
         updated = DatapointSubscriptionList([])
         for item in items:
+            self._hash_timeseries_ids(item)
             # There are two versions of a TimeSeries Subscription, one selects timeseries based filter
             # and the other selects timeseries based on timeSeriesIds. If we use mode='replace', we try
             # to set timeSeriesIds to an empty list, while the filter is set. This will result in an error.
@@ -335,33 +336,6 @@ class DatapointSubscriptionLoader(
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[DatapointSubscription]:
         return iter(self.client.time_series.subscriptions)
-
-    def load_resource_file(
-        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
-    ) -> list[dict[str, Any]]:
-        resources = super().load_resource_file(filepath, environment_variables)
-        for resource in resources:
-            if "timeSeriesIds" not in resource and "instanceIds" not in resource:
-                continue
-            # If the timeSeriesIds or instanceIds is set, we need to add the auth hash to the description.
-            # such that we can detect if the subscription has changed.
-            content: dict[str, object] = {}
-            if "timeSeriesIds" in resource:
-                content["timeSeriesIds"] = resource["timeSeriesIds"]
-            if "instanceIds" in resource:
-                content["instanceIds"] = resource["instanceIds"]
-            timeseries_hash = calculate_hash(json.dumps(content), shorten=True)
-            extra_str = f"{self._hash_key}: {timeseries_hash}"
-            resource["description"] = suffix_description(
-                extra_str,
-                resource.get("description"),
-                self._description_character_limit,
-                self.get_id(resource),
-                self.display_name,
-                self.console,
-            )
-
-        return resources
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> DataPointSubscriptionWrite:
         if ds_external_id := resource.pop("dataSetExternalId", None):
@@ -398,3 +372,25 @@ class DatapointSubscriptionLoader(
         elif json_path == ("instanceIds",):
             return diff_list_identifiable(local, cdf, get_identifier=dm_identifier)
         return super().diff_list(local, cdf, json_path)
+
+    def _hash_timeseries_ids(self, subscription: DataPointSubscriptionWrite) -> None:
+        """Update the subscription with the hash of the time series IDs.
+        This is used to detect changes in the subscription when the time series IDs are changed.
+        """
+        if not subscription.time_series_ids and not subscription.instance_ids:
+            return None
+        content: dict[str, object] = {}
+        if subscription.time_series_ids:
+            content["timeSeriesIds"] = subscription.time_series_ids
+        if subscription.instance_ids:
+            content["instanceIds"] = [instance_id.dump() for instance_id in subscription.instance_ids]
+        timeseries_hash = calculate_hash(json.dumps(content), shorten=True)
+        extra_str = f"{self._hash_key}: {timeseries_hash}"
+        subscription.description = suffix_description(
+            extra_str,
+            subscription.description,
+            self._description_character_limit,
+            subscription.external_id,
+            self.display_name,
+            self.console,
+        )
