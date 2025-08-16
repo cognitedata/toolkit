@@ -32,8 +32,8 @@ from cognite.client.data_classes import (
     filters,
 )
 from cognite.client.data_classes.capabilities import IDScopeLowerCase, TimeSeriesAcl
-from cognite.client.data_classes.data_modeling import ViewApply, ViewApplyList
-from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply
+from cognite.client.data_classes.data_modeling import NodeApplyList, NodeList, Space, ViewApply, ViewApplyList
+from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply, CogniteTimeSeries, CogniteTimeSeriesApply
 from cognite.client.data_classes.datapoints_subscriptions import (
     DatapointSubscriptionProperty,
     DatapointSubscriptionWriteList,
@@ -186,6 +186,32 @@ def one_hundred_and_one_timeseries(cognite_client: CogniteClient, toolkit_datase
     return retrieved
 
 
+@pytest.fixture(scope="session")
+def three_hundred_and_three_cognite_timeseries(
+    toolkit_client: ToolkitClient, toolkit_space: Space
+) -> NodeList[CogniteTimeSeries]:
+    ts_list = NodeApplyList(
+        [
+            CogniteTimeSeriesApply(
+                space=toolkit_space.space,
+                external_id=f"toolkit_303_test_timeseries_{i}",
+                is_step=False,
+                time_series_type="numeric",
+            )
+            for i in range(1, 304)
+        ]
+    )
+    retrieved = toolkit_client.data_modeling.instances.retrieve_nodes(ts_list.as_ids(), node_cls=CogniteTimeSeries)
+    if len(retrieved) == len(ts_list):
+        # All timeseries already exist, return the retrieved ones
+        return retrieved
+    existing = set(retrieved.as_ids())
+    to_create = [ts for ts in ts_list if ts.as_id() not in existing]
+    if to_create:
+        _ = toolkit_client.data_modeling.instances.apply(to_create)
+    return toolkit_client.data_modeling.instances.retrieve_nodes(ts_list.as_ids(), node_cls=CogniteTimeSeries)
+
+
 class TestDatapointSubscriptionLoader:
     def test_delete_non_existing(self, toolkit_client: ToolkitClient) -> None:
         loader = DatapointSubscriptionLoader(toolkit_client, None)
@@ -223,13 +249,22 @@ class TestDatapointSubscriptionLoader:
         toolkit_client: ToolkitClient,
         one_hundred_and_one_timeseries: TimeSeriesList,
         three_timeseries: TimeSeriesList,
+        three_hundred_and_three_cognite_timeseries: NodeList[CogniteTimeSeries],
     ) -> None:
         ts_ids = "\n- ".join(one_hundred_and_one_timeseries.as_external_ids())
+        cognite_ts_ids = "\n".join(
+            [
+                f"- space: {node.space}\n  externalId: {node.external_id}"
+                for node in three_hundred_and_three_cognite_timeseries
+            ]
+        )
         sub_yaml = f"""externalId: tmp_test_create_update_delete_101_subscription_{RUN_UNIQUE_ID}
 partitionCount: 1
 name: The subscription name
 timeSeriesIds:
 - {ts_ids}
+instanceIds:
+{cognite_ts_ids}
 """
         ts_update_ds = "\n- ".join(
             one_hundred_and_one_timeseries.as_external_ids() + three_timeseries.as_external_ids()
@@ -239,6 +274,8 @@ partitionCount: 1
 name: The subscription name
 timeSeriesIds:
 - {ts_update_ds}
+instanceIds:
+{cognite_ts_ids}
 """
         loader = DatapointSubscriptionLoader(toolkit_client, None)
         sub = self._load_subscription_from_yaml(self._create_mock_file(sub_yaml), loader)
