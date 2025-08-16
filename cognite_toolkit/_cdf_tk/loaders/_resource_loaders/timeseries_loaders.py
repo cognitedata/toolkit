@@ -222,6 +222,10 @@ class DatapointSubscriptionLoader(
 
     _hash_key = "cdf-hash"
     _description_character_limit = 1000
+    # A datapoint subscription can hold 10,000 timeseries, but the API
+    # only supports 100 timeseries per request. Thus, if a subscription
+    # has more than 100 timeseries, we need to split it into multiple requests.
+    _timeseries_id_request_limit = 100
 
     @property
     def display_name(self) -> str:
