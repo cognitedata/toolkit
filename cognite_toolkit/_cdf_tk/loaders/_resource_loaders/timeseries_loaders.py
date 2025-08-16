@@ -228,6 +228,7 @@ class DatapointSubscriptionLoader(
     # only supports 100 timeseries per request. Thus, if a subscription
     # has more than 100 timeseries, we need to split it into multiple requests.
     _timeseries_id_request_limit = 100
+    _max_timeseries_ids = 10_000
 
     @property
     def display_name(self) -> str:
@@ -412,6 +413,13 @@ class DatapointSubscriptionLoader(
         """Split the time series IDs into batches of 100.
         This is needed because the API only supports 100 time series IDs per request.
         """
+        total_timeseries = len(subscription.time_series_ids or []) + len(subscription.instance_ids or [])
+        if total_timeseries > self._max_timeseries_ids:
+            raise ToolkitRequiredValueError(
+                f'Subscription "{subscription.external_id}" has {total_timeseries} time series, '
+                f"which is more than the limit of {self._max_timeseries_ids:,}."
+            )
+
         if len(subscription.time_series_ids or []) <= self._timeseries_id_request_limit and (
             len(subscription.instance_ids or []) <= self._timeseries_id_request_limit
         ):
