@@ -1,13 +1,14 @@
 import json
 from collections.abc import Hashable, Iterable, Sequence
 from functools import lru_cache
-from pathlib import Path
+from itertools import zip_longest
 from typing import Any, cast, final
 
 from cognite.client.data_classes import (
     DatapointsList,
     DatapointSubscription,
     DatapointSubscriptionList,
+    DataPointSubscriptionUpdate,
     DataPointSubscriptionWrite,
     DatapointSubscriptionWriteList,
     TimeSeries,
@@ -31,6 +32,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
 from cognite_toolkit._cdf_tk.resource_classes import TimeSeriesYAML
 from cognite_toolkit._cdf_tk.utils import calculate_hash
+from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
 from cognite_toolkit._cdf_tk.utils.text import suffix_description
 
@@ -222,6 +224,10 @@ class DatapointSubscriptionLoader(
 
     _hash_key = "cdf-hash"
     _description_character_limit = 1000
+    # A datapoint subscription can hold 10,000 timeseries, but the API
+    # only supports 100 timeseries per request. Thus, if a subscription
+    # has more than 100 timeseries, we need to split it into multiple requests.
+    _timeseries_id_request_limit = 100
 
     @property
     def display_name(self) -> str:
@@ -288,10 +294,16 @@ class DatapointSubscriptionLoader(
         )
 
     def create(self, items: DatapointSubscriptionWriteList) -> DatapointSubscriptionList:
-        created = DatapointSubscriptionList([])
+        created_list = DatapointSubscriptionList([])
         for item in items:
-            created.append(self.client.time_series.subscriptions.create(item))
-        return created
+            self._hash_timeseries_ids(item)
+            to_create, batches = self._split_timeseries_ids(item)
+            created = self.client.time_series.subscriptions.create(to_create)
+            for batch_item in batches:
+                self.client.time_series.subscriptions.update(batch_item)
+            created_list.append(created)
+
+        return created_list
 
     def retrieve(self, ids: SequenceNotStr[str]) -> DatapointSubscriptionList:
         items = DatapointSubscriptionList([])
@@ -304,10 +316,14 @@ class DatapointSubscriptionLoader(
     def update(self, items: DatapointSubscriptionWriteList) -> DatapointSubscriptionList:
         updated = DatapointSubscriptionList([])
         for item in items:
+            self._hash_timeseries_ids(item)
+            to_update, batches = self._split_timeseries_ids(item)
             # There are two versions of a TimeSeries Subscription, one selects timeseries based filter
             # and the other selects timeseries based on timeSeriesIds. If we use mode='replace', we try
             # to set timeSeriesIds to an empty list, while the filter is set. This will result in an error.
-            update = self.client.time_series.subscriptions.update(item, mode="replace_ignore_null")
+            update = self.client.time_series.subscriptions.update(to_update, mode="replace_ignore_null")
+            for batch_item in batches:
+                self.client.time_series.subscriptions.update(batch_item)
             updated.append(update)
 
         return updated
@@ -331,33 +347,6 @@ class DatapointSubscriptionLoader(
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[DatapointSubscription]:
         return iter(self.client.time_series.subscriptions)
-
-    def load_resource_file(
-        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
-    ) -> list[dict[str, Any]]:
-        resources = super().load_resource_file(filepath, environment_variables)
-        for resource in resources:
-            if "timeSeriesIds" not in resource and "instanceIds" not in resource:
-                continue
-            # If the timeSeriesIds or instanceIds is set, we need to add the auth hash to the description.
-            # such that we can detect if the subscription has changed.
-            content: dict[str, object] = {}
-            if "timeSeriesIds" in resource:
-                content["timeSeriesIds"] = resource["timeSeriesIds"]
-            if "instanceIds" in resource:
-                content["instanceIds"] = resource["instanceIds"]
-            timeseries_hash = calculate_hash(json.dumps(content), shorten=True)
-            extra_str = f"{self._hash_key}: {timeseries_hash}"
-            resource["description"] = suffix_description(
-                extra_str,
-                resource.get("description"),
-                self._description_character_limit,
-                self.get_id(resource),
-                self.display_name,
-                self.console,
-            )
-
-        return resources
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> DataPointSubscriptionWrite:
         if ds_external_id := resource.pop("dataSetExternalId", None):
@@ -394,3 +383,58 @@ class DatapointSubscriptionLoader(
         elif json_path == ("instanceIds",):
             return diff_list_identifiable(local, cdf, get_identifier=dm_identifier)
         return super().diff_list(local, cdf, json_path)
+
+    def _hash_timeseries_ids(self, subscription: DataPointSubscriptionWrite) -> None:
+        """Update the subscription with the hash of the time series IDs.
+        This is used to detect changes in the subscription when the time series IDs are changed.
+        """
+        if not subscription.time_series_ids and not subscription.instance_ids:
+            return None
+        content: dict[str, object] = {}
+        if subscription.time_series_ids:
+            content["timeSeriesIds"] = subscription.time_series_ids
+        if subscription.instance_ids:
+            content["instanceIds"] = [instance_id.dump() for instance_id in subscription.instance_ids]
+        timeseries_hash = calculate_hash(json.dumps(content), shorten=True)
+        extra_str = f"{self._hash_key}: {timeseries_hash}"
+        subscription.description = suffix_description(
+            extra_str,
+            subscription.description,
+            self._description_character_limit,
+            subscription.external_id,
+            self.display_name,
+            self.console,
+        )
+
+    def _split_timeseries_ids(
+        self, subscription: DataPointSubscriptionWrite
+    ) -> tuple[DataPointSubscriptionWrite, list[DataPointSubscriptionUpdate]]:
+        """Split the time series IDs into batches of 100.
+        This is needed because the API only supports 100 time series IDs per request.
+        """
+        if len(subscription.time_series_ids or []) <= self._timeseries_id_request_limit and (
+            len(subscription.instance_ids or []) <= self._timeseries_id_request_limit
+        ):
+            return subscription, []
+
+        # Serialization to create a copy of the subscription
+        # to avoid mutating the original subscription
+        to_create = DataPointSubscriptionWrite.load(subscription.dump())
+
+        timeseries_ids = to_create.time_series_ids or []
+        instance_ids = to_create.instance_ids or []
+        to_create.time_series_ids = timeseries_ids[: self._timeseries_id_request_limit] or None
+        to_create.instance_ids = instance_ids[: self._timeseries_id_request_limit] or None
+
+        batches: list[DataPointSubscriptionUpdate] = []
+        for timeseries_ids_chunk, instance_ids_chunk in zip_longest(
+            chunker(timeseries_ids[self._timeseries_id_request_limit :], self._timeseries_id_request_limit),
+            chunker(instance_ids[self._timeseries_id_request_limit :], self._timeseries_id_request_limit),
+        ):
+            update = DataPointSubscriptionUpdate(external_id=subscription.external_id)
+            if timeseries_ids_chunk:
+                update.time_series_ids.add(timeseries_ids_chunk)
+            if instance_ids_chunk:
+                update.instance_ids.add(instance_ids_chunk)
+            batches.append(update)
+        return to_create, batches
