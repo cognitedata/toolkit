@@ -28,6 +28,7 @@ from cognite_toolkit._cdf_tk._parameters import ANY_STR, ANYTHING, ParameterSpec
 from cognite_toolkit._cdf_tk.constants import MAX_TIMESTAMP_MS, MIN_TIMESTAMP_MS
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
+    ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
 from cognite_toolkit._cdf_tk.resource_classes import TimeSeriesYAML
@@ -420,8 +421,8 @@ class DatapointSubscriptionLoader(
         """
         total_timeseries = len(subscription.time_series_ids or []) + len(subscription.instance_ids or [])
         if total_timeseries > cls._max_timeseries_ids:
-            raise ToolkitRequiredValueError(
-                f'Subscription "{subscription.external_id}" has {total_timeseries} time series, '
+            raise ToolkitValueError(
+                f'Subscription "{subscription.external_id}" has {total_timeseries:,} time series, '
                 f"which is more than the limit of {cls._max_timeseries_ids:,}."
             )
         elif total_timeseries <= cls._timeseries_id_request_limit:
@@ -461,4 +462,5 @@ class DatapointSubscriptionLoader(
         for instance_ids_chunk in chunker(instance_ids[instance_id_start:], cls._timeseries_id_request_limit):
             update = DataPointSubscriptionUpdate(external_id=subscription.external_id)
             update.instance_ids.add(instance_ids_chunk)
+            batches.append(update)
         return to_upsert, batches
