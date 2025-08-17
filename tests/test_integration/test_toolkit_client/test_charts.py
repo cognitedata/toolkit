@@ -37,7 +37,7 @@ class TestChartsAPI:
             retrieved = toolkit_client.charts.retrieve(external_id=chart_id)
             assert retrieved.external_id == chart_id
 
-            listed = toolkit_client.charts.list(is_owned=True)
+            listed = toolkit_client.charts.list(is_owned=True, visibility="PUBLIC")
             assert any(c.external_id == chart_id for c in listed)
 
             toolkit_client.charts.delete(external_id=chart_id)
