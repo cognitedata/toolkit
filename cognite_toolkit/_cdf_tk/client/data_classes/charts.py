@@ -8,7 +8,7 @@ from cognite.client.data_classes._base import (
     WriteableCogniteResourceList,
 )
 
-Visibility: TypeAlias = Literal["public", "private"]
+Visibility: TypeAlias = Literal["PUBLIC", "PRIVATE"]
 
 
 class ChartCore(WriteableCogniteResource["ChartWrite"], ABC):
