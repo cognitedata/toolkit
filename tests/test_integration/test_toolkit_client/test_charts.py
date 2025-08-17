@@ -32,7 +32,7 @@ class TestChartsAPI:
 
         created: Chart | None = None
         try:
-            created = toolkit_client.charts.create(chart)
+            created = toolkit_client.charts.upsert(chart)
 
             retrieved = toolkit_client.charts.retrieve(external_id=chart_id)
             assert retrieved.external_id == chart_id
