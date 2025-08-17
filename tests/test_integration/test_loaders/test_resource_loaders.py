@@ -817,7 +817,11 @@ authentication:
                 external_id="transformation_reusing_source_destination_auth", ignore_unknown_ids=True
             )
 
-    @pytest.mark.skip(reason="This is a load test that takes a long time to run ~5 minutes. It is not run by default.")
+    @pytest.mark.skip(
+        reason="This is a load test that takes a long time to run ~5 minutes, "
+        "and puts a high load on the transformation service. "
+        "It is used to verify that a fix works, but not run regularly."
+    )
     def test_load_test_transformation_creation(self, toolkit_client: ToolkitClient) -> None:
         credentials = toolkit_client.config.credentials
         if not isinstance(credentials, OAuthClientCredentials):
