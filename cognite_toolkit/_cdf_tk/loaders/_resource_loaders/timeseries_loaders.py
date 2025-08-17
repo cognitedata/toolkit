@@ -301,7 +301,7 @@ class DatapointSubscriptionLoader(
             to_create, batches = self.split_timeseries_ids(item)
             created = self.client.time_series.subscriptions.create(to_create)
             for batch_item in batches:
-                self.client.time_series.subscriptions.update(batch_item)
+                created = self.client.time_series.subscriptions.update(batch_item)
             created_list.append(created)
         return created_list
 
@@ -314,18 +314,18 @@ class DatapointSubscriptionLoader(
         return items
 
     def update(self, items: DatapointSubscriptionWriteList) -> DatapointSubscriptionList:
-        updated = DatapointSubscriptionList([])
+        updated_list = DatapointSubscriptionList([])
         for item in items:
             to_update, batches = self.split_timeseries_ids(item)
             # There are two versions of a TimeSeries Subscription, one selects timeseries based filter
             # and the other selects timeseries based on timeSeriesIds. If we use mode='replace', we try
             # to set timeSeriesIds to an empty list, while the filter is set. This will result in an error.
-            update = self.client.time_series.subscriptions.update(to_update, mode="replace_ignore_null")
+            updated = self.client.time_series.subscriptions.update(to_update, mode="replace_ignore_null")
             for batch_item in batches:
-                self.client.time_series.subscriptions.update(batch_item)
-            updated.append(update)
+                updated = self.client.time_series.subscriptions.update(batch_item)
+            updated_list.append(updated)
 
-        return updated
+        return updated_list
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         try:
@@ -432,34 +432,31 @@ class DatapointSubscriptionLoader(
 
         # Serialization to create a copy of the subscription
         to_upsert = DataPointSubscriptionWrite.load(subscription.dump())
+        all_timeseries_ids = to_upsert.time_series_ids or []
+        all_instance_ids = to_upsert.instance_ids or []
 
-        timeseries_ids = to_upsert.time_series_ids or []
-        instance_ids = to_upsert.instance_ids or []
-        to_upsert.time_series_ids = timeseries_ids[: cls._TIMESERIES_ID_REQUEST_LIMIT]
-        available_space = cls._TIMESERIES_ID_REQUEST_LIMIT - len(to_upsert.time_series_ids)
-        if available_space > 0:
-            to_upsert.instance_ids = instance_ids[:available_space]
-        else:
-            to_upsert.instance_ids = []
-        instance_id_start = available_space
+        # Create the first batch for the create/update call, prioritizing time_series_ids
+        to_upsert.time_series_ids = all_timeseries_ids[: cls._TIMESERIES_ID_REQUEST_LIMIT]
+        space_in_first_batch = cls._TIMESERIES_ID_REQUEST_LIMIT - len(to_upsert.time_series_ids)
+        to_upsert.instance_ids = all_instance_ids[:space_in_first_batch]
+
+        # Prepare remaining IDs for update batches
+        remaining_timeseries_ids = all_timeseries_ids[len(to_upsert.time_series_ids) :]
+        remaining_instance_ids = all_instance_ids[len(to_upsert.instance_ids) :]
+
+        # Using a list of tuples to preserve the type of ID
+        all_remaining_ids = [("ts", id) for id in remaining_timeseries_ids] + [
+            ("instance", id) for id in remaining_instance_ids
+        ]
 
         batches: list[DataPointSubscriptionUpdate] = []
-        last_timeseries_id_count = 0
-        for timeseries_ids_chunk in chunker(
-            timeseries_ids[cls._TIMESERIES_ID_REQUEST_LIMIT :], cls._TIMESERIES_ID_REQUEST_LIMIT
-        ):
+        for chunk in chunker(all_remaining_ids, cls._TIMESERIES_ID_REQUEST_LIMIT):
             update = DataPointSubscriptionUpdate(external_id=subscription.external_id)
-            update.time_series_ids.add(timeseries_ids_chunk)
-            batches.append(update)
-            last_timeseries_id_count = len(timeseries_ids_chunk)
-
-        if batches and (available_space := cls._TIMESERIES_ID_REQUEST_LIMIT - last_timeseries_id_count):
-            last_update = batches[-1]
-            last_update.instance_ids.add(instance_ids[instance_id_start : instance_id_start + available_space])
-            instance_id_start += available_space
-
-        for instance_ids_chunk in chunker(instance_ids[instance_id_start:], cls._TIMESERIES_ID_REQUEST_LIMIT):
-            update = DataPointSubscriptionUpdate(external_id=subscription.external_id)
-            update.instance_ids.add(instance_ids_chunk)
+            ts_ids_in_chunk = [id for type, id in chunk if type == "ts"]
+            instance_ids_in_chunk = [id for type, id in chunk if type == "instance"]
+            if ts_ids_in_chunk:
+                update.time_series_ids.add(ts_ids_in_chunk)
+            if instance_ids_in_chunk:
+                update.instance_ids.add(instance_ids_in_chunk)
             batches.append(update)
         return to_upsert, batches
