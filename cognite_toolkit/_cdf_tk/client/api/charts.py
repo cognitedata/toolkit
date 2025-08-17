@@ -1,5 +1,6 @@
 from collections.abc import Sequence
 from typing import overload
+from urllib.parse import urljoin
 
 from cognite.client import ClientConfig, CogniteClient
 from cognite.client._api_client import APIClient
@@ -15,7 +16,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.charts import (
 
 
 class ChartsAPI(APIClient):
-    _RESOURCE_PATH = "/storage/charts/charts/"
+    _RESOURCE_PATH = "/storage/charts/charts"
 
     def __init__(self, config: ClientConfig, api_version: str | None, cognite_client: CogniteClient) -> None:
         super().__init__(config, api_version, cognite_client)
@@ -23,6 +24,17 @@ class ChartsAPI(APIClient):
         self._RETRIEVE_LIMIT = 1000
         self._DELETE_LIMIT = 1000
         self._LIST_LIMIT = 1000
+
+    def _get_base_url_with_base_path(self) -> str:
+        """
+        This method is overridden to provide the correct base path for the Search Configurations API.
+        This method in base class APIClient appends /api/{api_version}/ to the base URL,
+        but for Charts API, we need a different path structure.
+        """
+        base_path = ""
+        if self._api_version:
+            base_path = f"/apps/{self._api_version}/projects/{self._config.project}"
+        return urljoin(self._config.base_url, base_path)
 
     @overload
     def create(self, items: ChartWrite) -> Chart: ...
@@ -87,7 +99,7 @@ class ChartsAPI(APIClient):
             wrap_ids=True,
         )
 
-    def list(self, visibility: Visibility | None = None, is_owned: bool = True, limit: int = 25) -> ChartList:
+    def list(self, visibility: Visibility | None = None, is_owned: bool | None = None) -> ChartList:
         """List charts based on visibility and ownership.
 
         Args:
@@ -98,14 +110,14 @@ class ChartsAPI(APIClient):
         Returns:
             ChartList: List of charts matching the criteria.
         """
-        filter_: dict[str, object] = {"isOwned": is_owned}
+        filter_: dict[str, object] = {}
         if visibility is not None:
             filter_["visibility"] = visibility.upper()
+        if is_owned is not None:
+            filter_["isOwned"] = is_owned
 
-        return self._list(
-            method="POST",
-            list_cls=ChartList,
-            resource_cls=Chart,
-            filter=filter_,
-            limit=limit,
+        response = self._post(
+            url_path=self._RESOURCE_PATH + "/list",
+            json={"filter": filter_} if filter_ else {},
         )
+        return ChartList._load(response.json()["items"], cognite_client=self._cognite_client)
