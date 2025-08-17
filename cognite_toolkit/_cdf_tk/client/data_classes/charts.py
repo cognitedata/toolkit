@@ -1,6 +1,7 @@
 from abc import ABC
-from typing import Literal, TypeAlias
+from typing import Any, Literal, Self, TypeAlias
 
+from cognite.client import CogniteClient
 from cognite.client.data_classes._base import (
     CogniteResourceList,
     WriteableCogniteResource,
@@ -38,6 +39,14 @@ class ChartWrite(ChartCore):
     def as_write(self) -> "ChartWrite":
         return self
 
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        return cls(
+            external_id=resource["externalId"],
+            visibility=resource["visibility"],
+            data=resource["data"],
+        )
+
 
 class Chart(ChartCore):
     """A chart that can be read from the CDF.
@@ -66,6 +75,17 @@ class Chart(ChartCore):
 
     def as_write(self) -> ChartWrite:
         return ChartWrite(external_id=self.external_id, visibility=self.visibility, data=self.data)
+
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        return cls(
+            external_id=resource["externalId"],
+            created_time=resource["createdTime"],
+            last_updated_time=resource["lastUpdatedTime"],
+            visibility=resource["visibility"],
+            data=resource["data"],
+            owner_id=resource["ownerId"],
+        )
 
 
 class ChartWriteList(CogniteResourceList):
