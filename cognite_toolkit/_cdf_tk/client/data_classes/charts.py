@@ -1,5 +1,6 @@
+import sys
 from abc import ABC
-from typing import Any, Literal, Self, TypeAlias
+from typing import Any, Literal, TypeAlias
 
 from cognite.client import CogniteClient
 from cognite.client.data_classes._base import (
@@ -7,6 +8,11 @@ from cognite.client.data_classes._base import (
     WriteableCogniteResource,
     WriteableCogniteResourceList,
 )
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 Visibility: TypeAlias = Literal["PUBLIC", "PRIVATE"]
 
