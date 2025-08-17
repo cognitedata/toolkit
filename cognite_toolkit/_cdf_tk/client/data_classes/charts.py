@@ -16,7 +16,7 @@ class ChartCore(WriteableCogniteResource["ChartWrite"], ABC):
     Args:
         external_id (str): Unique identifier for the chart.
         visibility (Visibility): Visibility of the chart, either 'public' or 'private'.
-        data (object): The data associated with the chars.
+        data (ChartData): The data associated with the chars.
     """
 
     def __init__(self, external_id: str, visibility: Visibility, data: object) -> None:
@@ -31,7 +31,7 @@ class ChartWrite(ChartCore):
     Args:
         external_id (str): Unique identifier for the chart.
         visibility (Visibility): Visibility of the chart, either 'public' or 'private'.
-        data (object): The data associated with the chart.
+        data (ChartData): The data associated with the chart.
 
     """
 
@@ -47,7 +47,7 @@ class Chart(ChartCore):
         created_time (int): Timestamp when the chart was created.
         last_updated_time (int): Timestamp when the chart was last updated.
         visibility (Visibility): Visibility of the chart, either 'public' or 'private'.
-        data (object): The data associated with the chart.
+        data (ChartData): The data associated with the chart.
     """
 
     def __init__(
@@ -57,10 +57,12 @@ class Chart(ChartCore):
         last_updated_time: int,
         visibility: Visibility,
         data: object,
+        owner_id: str,
     ) -> None:
         super().__init__(external_id, visibility, data)
         self.created_time = created_time
         self.last_updated_time = last_updated_time
+        self.owner_id = owner_id
 
     def as_write(self) -> ChartWrite:
         return ChartWrite(external_id=self.external_id, visibility=self.visibility, data=self.data)
