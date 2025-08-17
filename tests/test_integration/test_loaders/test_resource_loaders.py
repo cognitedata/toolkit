@@ -817,6 +817,43 @@ authentication:
                 external_id="transformation_reusing_source_destination_auth", ignore_unknown_ids=True
             )
 
+    def test_load_test_transformation_creation(self, toolkit_client: ToolkitClient) -> None:
+        credentials = toolkit_client.config.credentials
+        if not isinstance(credentials, OAuthClientCredentials):
+            pytest.skip("This test requires OAuthClientCredentials to run")
+        secret = credentials.client_secret
+        client_id = credentials.client_id
+        N = 500
+        definition_yaml = [
+            f"""- externalId: test_load_transformation_creation_{RUN_UNIQUE_ID}_{i}
+  name: Load Test Transformation Creation {i}
+  destination:
+    type: assets
+  ignoreNullFields: true
+  isPublic: true
+  conflictMode: upsert
+  query: Select * from assets
+  authentication:
+    clientId: {client_id}
+    clientSecret: {secret}
+"""
+            for i in range(1, N + 1)
+        ]
+
+        loader = TransformationLoader.create_loader(toolkit_client)
+        filepath = MagicMock(spec=Path)
+        filepath.read_text.return_value = "\n".join(definition_yaml)
+
+        loaded = loader.load_resource_file(filepath, {})
+        assert len(loaded) == N
+        transformations = [loader.load_resource(resource) for resource in loaded]
+
+        try:
+            created_list = loader.create(transformations)
+            assert len(created_list) == N
+        finally:
+            loader.delete([transformation.external_id for transformation in transformations])
+
 
 class TestNodeLoader:
     def test_update_existing_node(self, toolkit_client: ToolkitClient, instance_space: dm.Space) -> None:
