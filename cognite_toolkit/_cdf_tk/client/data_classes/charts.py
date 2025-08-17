@@ -11,6 +11,14 @@ Visibility: TypeAlias = Literal["public", "private"]
 
 
 class ChartCore(WriteableCogniteResource["ChartWrite"], ABC):
+    """Base class for the Chart data model.
+
+    Args:
+        external_id (str): Unique identifier for the chart.
+        visibility (Visibility): Visibility of the chart, either 'public' or 'private'.
+        data (object): The data associated with the chars.
+    """
+
     def __init__(self, external_id: str, visibility: Visibility, data: object) -> None:
         self.external_id = external_id
         self.visibility = visibility
@@ -18,11 +26,30 @@ class ChartCore(WriteableCogniteResource["ChartWrite"], ABC):
 
 
 class ChartWrite(ChartCore):
+    """A chart that can be written to the CDF.
+
+    Args:
+        external_id (str): Unique identifier for the chart.
+        visibility (Visibility): Visibility of the chart, either 'public' or 'private'.
+        data (object): The data associated with the chart.
+
+    """
+
     def as_write(self) -> "ChartWrite":
         return self
 
 
 class Chart(ChartCore):
+    """A chart that can be read from the CDF.
+
+    Args:
+        external_id (str): Unique identifier for the chart.
+        created_time (int): Timestamp when the chart was created.
+        last_updated_time (int): Timestamp when the chart was last updated.
+        visibility (Visibility): Visibility of the chart, either 'public' or 'private'.
+        data (object): The data associated with the chart.
+    """
+
     def __init__(
         self,
         external_id: str,
