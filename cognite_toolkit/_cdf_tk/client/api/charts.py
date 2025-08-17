@@ -2,7 +2,6 @@ from collections.abc import Sequence
 from typing import overload
 from urllib.parse import urljoin
 
-from cognite.client import ClientConfig, CogniteClient
 from cognite.client._api_client import APIClient
 from cognite.client.utils._identifier import IdentifierSequence
 from cognite.client.utils.useful_types import SequenceNotStr
@@ -13,17 +12,11 @@ from cognite_toolkit._cdf_tk.client.data_classes.charts import (
     ChartWrite,
     Visibility,
 )
+from cognite_toolkit._cdf_tk.utils.collection import chunker
 
 
 class ChartsAPI(APIClient):
     _RESOURCE_PATH = "/storage/charts/charts"
-
-    def __init__(self, config: ClientConfig, api_version: str | None, cognite_client: CogniteClient) -> None:
-        super().__init__(config, api_version, cognite_client)
-        self._CREATE_LIMIT = 1000
-        self._RETRIEVE_LIMIT = 1000
-        self._DELETE_LIMIT = 1000
-        self._LIST_LIMIT = 1000
 
     def _get_base_url_with_base_path(self) -> str:
         """
@@ -37,37 +30,33 @@ class ChartsAPI(APIClient):
         return urljoin(self._config.base_url, base_path)
 
     @overload
-    def create(self, items: ChartWrite) -> Chart: ...
+    def upsert(self, items: ChartWrite) -> Chart: ...
 
     @overload
-    def create(self, items: Sequence[ChartWrite]) -> ChartList: ...
+    def upsert(self, items: Sequence[ChartWrite]) -> ChartList: ...
 
-    def create(self, items: ChartWrite | Sequence[ChartWrite]) -> Chart | ChartList:
-        """Create one or more charts in CDF.
+    def upsert(self, items: ChartWrite | Sequence[ChartWrite]) -> Chart | ChartList:
+        """Upsert one or more charts in CDF.
 
         Args:
-            items (ChartWrite | Sequence[ChartWrite]): Chart(s) to create.
+            items (ChartWrite | Sequence[ChartWrite]): Chart(s) to upsert. Can be a single ChartWrite or a sequence of ChartWrite.
 
         Returns:
-            ChartList: List of created charts.
+            ChartList: List of upserted charts if multiple items are provided, otherwise a single Chart.
         """
-        if isinstance(items, Sequence) and len(items) > self._CREATE_LIMIT:
-            raise ValueError(f"Cannot create more than {self._CREATE_LIMIT} charts at a time.")
-        body = {
-            "items": [item.as_write().dump() for item in items]
-            if isinstance(items, Sequence)
-            else [items.as_write().dump()]
-        }
-        response = self._put(
-            url_path=self._RESOURCE_PATH,
-            json=body,
-        )
-        if isinstance(items, Sequence):
-            return ChartList._load(response.json()["items"], cognite_client=self._cognite_client)
-        elif isinstance(items, ChartWrite):
-            return Chart._load(response.json()["items"][0], cognite_client=self._cognite_client)
-        else:
-            raise ValueError("Invalid type for items. Must be ChartWrite or Sequence[ChartWrite].")
+        items = items if isinstance(items, Sequence) else [items]
+        result = ChartList([])
+        # We are avoiding concurrency here as the Charts backend it not necessarily designed for it.
+        for chunk in chunker(items, self._CREATE_LIMIT):
+            body = {"items": [item.as_write().dump() for item in chunk]}
+            response = self._put(
+                url_path=self._RESOURCE_PATH,
+                json=body,
+            )
+            result.extend([Chart._load(item, cognite_client=self._cognite_client) for item in response.json()["items"]])
+        if isinstance(items, ChartWrite):
+            return result[0]
+        return result
 
     @overload
     def retrieve(self, external_id: str) -> Chart: ...
