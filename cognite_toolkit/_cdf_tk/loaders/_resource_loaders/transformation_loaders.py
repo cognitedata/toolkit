@@ -30,7 +30,7 @@ import warnings
 from collections import defaultdict
 from collections.abc import Callable, Hashable, Iterable, Sequence
 from copy import deepcopy
-from functools import lru_cache, partial
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal, cast, final
 
@@ -382,10 +382,9 @@ class TransformationLoader(
         )
 
     def update(self, items: Sequence[TransformationWrite]) -> TransformationList:
-        update = cast(
-            Callable[[Sequence[TransformationWrite]], TransformationList],
-            partial(self.client.transformations.update, mode="replace"),
-        )
+        def update(transformations: Sequence[TransformationWrite]) -> TransformationList:
+            return self.client.transformations.update(transformations, mode="replace")
+
         return self._execute_in_batches(items, update)
 
     @staticmethod
