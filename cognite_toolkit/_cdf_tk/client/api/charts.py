@@ -44,11 +44,11 @@ class ChartsAPI(APIClient):
         Returns:
             ChartList: List of upserted charts if multiple items are provided, otherwise a single Chart.
         """
-        items = items if isinstance(items, Sequence) else [items]
+        item_sequence = items if isinstance(items, Sequence) else [items]
         result = ChartList([])
         # We are avoiding concurrency here as the Charts backend it not necessarily designed for it.
-        for chunk in chunker(items, self._CREATE_LIMIT):
-            body = {"items": [item.as_write().dump() for item in chunk]}
+        for chunk in chunker(item_sequence, self._CREATE_LIMIT):
+            body = {"items": [chunk_item.as_write().dump() for chunk_item in chunk]}
             response = self._put(
                 url_path=self._RESOURCE_PATH,
                 json=body,
