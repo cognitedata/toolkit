@@ -1,7 +1,6 @@
 import json
 from collections.abc import Hashable, Iterable, Sequence
 from functools import lru_cache
-from itertools import zip_longest
 from pathlib import Path
 from typing import Any, cast, final
 
@@ -298,7 +297,7 @@ class DatapointSubscriptionLoader(
     def create(self, items: DatapointSubscriptionWriteList) -> DatapointSubscriptionList:
         created_list = DatapointSubscriptionList([])
         for item in items:
-            to_create, batches = self._split_timeseries_ids(item)
+            to_create, batches = self.split_timeseries_ids(item)
             created = self.client.time_series.subscriptions.create(to_create)
             for batch_item in batches:
                 self.client.time_series.subscriptions.update(batch_item)
@@ -316,7 +315,7 @@ class DatapointSubscriptionLoader(
     def update(self, items: DatapointSubscriptionWriteList) -> DatapointSubscriptionList:
         updated = DatapointSubscriptionList([])
         for item in items:
-            to_update, batches = self._split_timeseries_ids(item)
+            to_update, batches = self.split_timeseries_ids(item)
             # There are two versions of a TimeSeries Subscription, one selects timeseries based filter
             # and the other selects timeseries based on timeSeriesIds. If we use mode='replace', we try
             # to set timeSeriesIds to an empty list, while the filter is set. This will result in an error.
@@ -410,22 +409,24 @@ class DatapointSubscriptionLoader(
             return diff_list_identifiable(local, cdf, get_identifier=dm_identifier)
         return super().diff_list(local, cdf, json_path)
 
-    def _split_timeseries_ids(
-        self, subscription: DataPointSubscriptionWrite
+    @classmethod
+    def split_timeseries_ids(
+        cls, subscription: DataPointSubscriptionWrite
     ) -> tuple[DataPointSubscriptionWrite, list[DataPointSubscriptionUpdate]]:
         """Split the time series IDs into batches of 100.
         This is needed because the API only supports 100 time series IDs per request.
+
+        Note this is the total of time series IDs and instance IDs.
         """
         total_timeseries = len(subscription.time_series_ids or []) + len(subscription.instance_ids or [])
-        if total_timeseries > self._max_timeseries_ids:
+        if total_timeseries > cls._max_timeseries_ids:
             raise ToolkitRequiredValueError(
                 f'Subscription "{subscription.external_id}" has {total_timeseries} time series, '
-                f"which is more than the limit of {self._max_timeseries_ids:,}."
+                f"which is more than the limit of {cls._max_timeseries_ids:,}."
             )
-
-        if len(subscription.time_series_ids or []) <= self._timeseries_id_request_limit and (
-            len(subscription.instance_ids or []) <= self._timeseries_id_request_limit
-        ):
+        elif total_timeseries <= cls._timeseries_id_request_limit:
+            # If the subscription has less than or equal to 100 time series IDs, we can return it as is.
+            # No need to split into batches.
             return subscription, []
 
         # Serialization to create a copy of the subscription
@@ -434,18 +435,30 @@ class DatapointSubscriptionLoader(
 
         timeseries_ids = to_upsert.time_series_ids or []
         instance_ids = to_upsert.instance_ids or []
-        to_upsert.time_series_ids = timeseries_ids[: self._timeseries_id_request_limit] or None
-        to_upsert.instance_ids = instance_ids[: self._timeseries_id_request_limit] or None
+        to_upsert.time_series_ids = timeseries_ids[: cls._timeseries_id_request_limit]
+        available_space = cls._timeseries_id_request_limit - len(to_upsert.time_series_ids)
+        if available_space > 0:
+            to_upsert.instance_ids = instance_ids[:available_space]
+        else:
+            to_upsert.instance_ids = None
+        instance_id_start = available_space
 
         batches: list[DataPointSubscriptionUpdate] = []
-        for timeseries_ids_chunk, instance_ids_chunk in zip_longest(
-            chunker(timeseries_ids[self._timeseries_id_request_limit :], self._timeseries_id_request_limit),
-            chunker(instance_ids[self._timeseries_id_request_limit :], self._timeseries_id_request_limit),
+        last_timeseries_id_count = 0
+        for timeseries_ids_chunk in chunker(
+            timeseries_ids[cls._timeseries_id_request_limit :], cls._timeseries_id_request_limit
         ):
             update = DataPointSubscriptionUpdate(external_id=subscription.external_id)
-            if timeseries_ids_chunk:
-                update.time_series_ids.add(timeseries_ids_chunk)
-            if instance_ids_chunk:
-                update.instance_ids.add(instance_ids_chunk)
+            update.time_series_ids.add(timeseries_ids_chunk)
             batches.append(update)
+            last_timeseries_id_count = len(timeseries_ids_chunk)
+
+        if batches and (available_space := cls._timeseries_id_request_limit - last_timeseries_id_count):
+            last_update = batches[-1]
+            last_update.instance_ids.add(instance_ids[instance_id_start : instance_id_start + available_space])
+            instance_id_start += available_space
+
+        for instance_ids_chunk in chunker(instance_ids[instance_id_start:], cls._timeseries_id_request_limit):
+            update = DataPointSubscriptionUpdate(external_id=subscription.external_id)
+            update.instance_ids.add(instance_ids_chunk)
         return to_upsert, batches
