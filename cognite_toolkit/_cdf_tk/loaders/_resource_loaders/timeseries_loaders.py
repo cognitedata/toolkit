@@ -431,7 +431,6 @@ class DatapointSubscriptionLoader(
             return subscription, []
 
         # Serialization to create a copy of the subscription
-        # to avoid mutating the original subscription
         to_upsert = DataPointSubscriptionWrite.load(subscription.dump())
 
         timeseries_ids = to_upsert.time_series_ids or []
