@@ -281,6 +281,9 @@ timeSeriesIds:
             created = loader.create(DatapointSubscriptionWriteList([sub]))
             assert len(created) == 1
             initial_description = created[0].description
+            assert created[0].time_series_count == len(one_hundred_and_one_timeseries) + len(
+                three_hundred_and_three_cognite_timeseries
+            ), "The subscription should have the correct number of time series"
 
             update = self._load_subscription_from_yaml(self._create_mock_file(update_yaml), loader)
             updated = loader.update(DatapointSubscriptionWriteList([update]))
@@ -288,6 +291,9 @@ timeSeriesIds:
             updated_description = updated[0].description
             assert updated_description != initial_description, (
                 "The description should have changed after the update with a hash fo the timeseries IDs"
+            )
+            assert updated[0].time_series_count == len(one_hundred_and_one_timeseries) + len(three_timeseries), (
+                "The subscription should have the correct number of time series after the update"
             )
         finally:
             loader.delete([sub.external_id])
