@@ -26,7 +26,7 @@ class TestDatapointSubscriptionLoader:
             external_id="mySub",
             partition_count=1,
             time_series_ids=[f"timeseries_{i}" for i in range(ts_count)] or None,
-            instance_ids=[NodeId("my_space", "node_{i}") for i in range(node_count)] or None,
+            instance_ids=[NodeId("my_space", f"node_{i}") for i in range(node_count)] or None,
         )
 
         to_upsert, batches = DatapointSubscriptionLoader.split_timeseries_ids(sub)

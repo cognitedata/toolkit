@@ -452,11 +452,12 @@ class DatapointSubscriptionLoader(
         batches: list[DataPointSubscriptionUpdate] = []
         for chunk in chunker(all_remaining_ids, cls._TIMESERIES_ID_REQUEST_LIMIT):
             update = DataPointSubscriptionUpdate(external_id=subscription.external_id)
-            ts_ids_in_chunk = [id for type, id in chunk if type == "ts"]
-            instance_ids_in_chunk = [id for type, id in chunk if type == "instance"]
-            if ts_ids_in_chunk:
-                update.time_series_ids.add(ts_ids_in_chunk)
-            if instance_ids_in_chunk:
-                update.instance_ids.add(instance_ids_in_chunk)
+            ts_ids_in_chunk = []
+            instance_ids_in_chunk = []
+            for id_type, identifier in chunk:
+                if id_type == "ts":
+                    ts_ids_in_chunk.append(identifier)
+                else:
+                    instance_ids_in_chunk.append(identifier)
             batches.append(update)
         return to_upsert, batches
