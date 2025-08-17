@@ -274,8 +274,6 @@ partitionCount: 1
 name: The subscription name
 timeSeriesIds:
 - {ts_update_ds}
-instanceIds:
-{cognite_ts_ids}
 """
         loader = DatapointSubscriptionLoader(toolkit_client, None)
         sub = self._load_subscription_from_yaml(self._create_mock_file(sub_yaml), loader)
