@@ -459,5 +459,9 @@ class DatapointSubscriptionLoader(
                     ts_ids_in_chunk.append(identifier)
                 else:
                     instance_ids_in_chunk.append(identifier)
+            if ts_ids_in_chunk:
+                update.time_series_ids.add(ts_ids_in_chunk)
+            if instance_ids_in_chunk:
+                update.instance_ids.add(instance_ids_in_chunk)
             batches.append(update)
         return to_upsert, batches
