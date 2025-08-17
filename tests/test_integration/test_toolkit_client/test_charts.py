@@ -25,7 +25,7 @@ def timeseries(toolkit_client: ToolkitClient) -> TimeSeries:
 
 
 class TestChartsAPI:
-    def test_create_retrieve_list_delete(self, toolkit_client: ToolkitClient, timeseries: TimeSeries) -> None:
+    def test_upsert_retrieve_list_delete(self, toolkit_client: ToolkitClient, timeseries: TimeSeries) -> None:
         me = toolkit_client.iam.user_profiles.me()
         chart_id = str(uuid4())
         chart = self.create_chart(chart_id, me, timeseries)
