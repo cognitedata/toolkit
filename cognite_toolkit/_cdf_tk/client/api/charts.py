@@ -56,16 +56,16 @@ class ChartsAPI(APIClient):
         body = {
             "items": [item.as_write().dump() for item in items]
             if isinstance(items, Sequence)
-            else items.as_write().dump()
+            else [items.as_write().dump()]
         }
         response = self._put(
             url_path=self._RESOURCE_PATH,
             json=body,
         )
         if isinstance(items, Sequence):
-            return ChartList._load(response.json(), cognite_client=self._cognite_client)
+            return ChartList._load(response.json()["items"], cognite_client=self._cognite_client)
         elif isinstance(items, ChartWrite):
-            return Chart._load(response.json(), cognite_client=self._cognite_client)
+            return Chart._load(response.json()["items"][0], cognite_client=self._cognite_client)
         else:
             raise ValueError("Invalid type for items. Must be ChartWrite or Sequence[ChartWrite].")
 
@@ -105,7 +105,6 @@ class ChartsAPI(APIClient):
         Args:
             visibility (Visibility): Visibility of the charts to list.
             is_owned (bool): Whether to list only owned charts.
-            limit (int, optional): Maximum number of charts to return. Defaults to 25.
 
         Returns:
             ChartList: List of charts matching the criteria.
