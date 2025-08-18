@@ -3,7 +3,7 @@ from cognite.client.data_classes import Asset, AssetList, AssetWriteList
 
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.storageio import AssetIO
-from cognite_toolkit._cdf_tk.storageio._identifiers import AssetCentricData
+from cognite_toolkit._cdf_tk.storageio._selectors import AssetCentricData
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
@@ -28,7 +28,7 @@ def some_asset_data() -> AssetList:
 
 class TestAssetIO:
     def test_download_upload(self, some_asset_data: AssetList) -> None:
-        identifier = AssetCentricData(data_set_id=None, hierarchy=("test_hierarchy",))
+        identifier = AssetCentricData(data_set_external_id=None, hierarchy=("test_hierarchy",))
         with monkeypatch_toolkit_client() as client:
             client.assets.return_value = chunker(some_asset_data, 10)
             client.assets.aggregate_count.return_value = 100
