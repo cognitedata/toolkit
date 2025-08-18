@@ -18,7 +18,7 @@ from ._base import ToolkitCommand
 class DownloadCommand(ToolkitCommand):
     def download(
         self,
-        identifiers: Iterable[T_Selector],
+        selectors: Iterable[T_Selector],
         io: StorageIO[T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
         output_dir: Path,
         verbose: bool,
@@ -29,7 +29,7 @@ class DownloadCommand(ToolkitCommand):
         """Downloads data from CDF to the specified output directory.
 
         Args:
-            identifiers: The identifiers of the resources to download.
+            selectors: The selectors of the resources to download.
             io: The StorageIO instance that defines how to download and process the data.
             output_dir: The directory where the downloaded files will be saved.
             verbose: If True, prints detailed information about the download process.
@@ -42,22 +42,22 @@ class DownloadCommand(ToolkitCommand):
         compression_cls = Compression.from_name(compression)
 
         console = Console()
-        for identifier in identifiers:
+        for selector in selectors:
             if verbose:
-                console.print(f"Downloading {io.display_name} '{identifier!s}' to {target_directory.as_posix()!r}")
+                console.print(f"Downloading {io.display_name} '{selector!s}' to {target_directory.as_posix()!r}")
 
-            filestem = to_directory_compatible(str(identifier))
-            iteration_count = self._get_iteration_count(io, identifier, limit)
+            filestem = to_directory_compatible(str(selector))
+            iteration_count = self._get_iteration_count(io, selector, limit)
 
             with FileWriter.create_from_format(file_format, target_directory, io.kind, compression_cls) as writer:
                 executor = ProducerWorkerExecutor[T_WritableCogniteResourceList, list[dict[str, JsonVal]]](
-                    download_iterable=io.download_iterable(identifier, limit),
+                    download_iterable=io.download_iterable(selector, limit),
                     process=io.data_to_json_chunk,
                     write=partial(writer.write_chunks, filestem=filestem),
                     iteration_count=iteration_count,
                     # Limit queue size to avoid filling up memory before the workers can write to disk.
                     max_queue_size=8 * 10,  # 8 workers, 10 items per worker
-                    download_description=f"Downloading {identifier!s}",
+                    download_description=f"Downloading {selector!s}",
                     process_description="Processing",
                     write_description=f"Writing to {target_directory.as_posix()!r} in files with stem {filestem!r}",
                     console=console,
@@ -68,12 +68,12 @@ class DownloadCommand(ToolkitCommand):
                     raise ToolkitValueError(f"An error occurred during the download process: {executor.error_message}")
                 file_count = writer.file_count
 
-            for config in io.configurations(identifier):
+            for config in io.configurations(selector):
                 config_file = output_dir / config.folder_name / f"{filestem}.{config.kind}.yaml"
                 config_file.parent.mkdir(parents=True, exist_ok=True)
                 safe_write(config_file, yaml_safe_dump(config.value))
 
-            console.print(f"Downloaded {identifier!s} to {file_count} file(s) in {target_directory.as_posix()!r}.")
+            console.print(f"Downloaded {selector!s} to {file_count} file(s) in {target_directory.as_posix()!r}.")
 
     @staticmethod
     def _get_iteration_count(
