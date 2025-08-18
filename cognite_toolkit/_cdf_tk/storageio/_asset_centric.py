@@ -2,13 +2,13 @@ from collections import defaultdict
 from collections.abc import Iterable
 from pathlib import Path
 
-from cognite.client.data_classes import AssetList, AssetWriteList
+from cognite.client.data_classes import AssetList, AssetWriteList, Label, LabelDefinition
 from cognite.client.data_classes._base import (
     T_CogniteResourceList,
     T_WritableCogniteResource,
     T_WriteClass,
 )
-from rich import Console
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.loaders import AssetLoader, DataSetsLoader, LabelLoader, ResourceLoader
@@ -79,8 +79,13 @@ class AssetIO(TableStorageIO[AssetCentricData, AssetWriteList, AssetList]):
                 if asset.data_set_id:
                     self._downloaded_data_sets_by_selector[selector].add(asset.data_set_id)
                 for label in asset.labels or []:
-                    if label.external_id:
+                    if isinstance(label, str):
+                        self._downloaded_labels_by_selector[selector].add(label)
+                    elif isinstance(label, Label | LabelDefinition) and label.external_id:
                         self._downloaded_labels_by_selector[selector].add(label.external_id)
+                    elif isinstance(label, dict) and "externalId" in label:
+                        self._downloaded_labels_by_selector[selector].add(label["externalId"])
+
             yield asset_list
 
     def upload_items(self, data_chunk: AssetWriteList, selector: AssetCentricData) -> None:
