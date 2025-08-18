@@ -1,3 +1,5 @@
+import io
+import zipfile
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Iterator
@@ -25,6 +27,7 @@ from cognite.client.data_classes.agents import (
 from cognite.client.data_classes.data_modeling import DataModelId
 from cognite.client.data_classes.extractionpipelines import ExtractionPipelineConfigList
 from cognite.client.data_classes.functions import (
+    Function,
     FunctionList,
     FunctionSchedulesList,
 )
@@ -71,9 +74,9 @@ from cognite_toolkit._cdf_tk.loaders import (
     WorkflowVersionLoader,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID
-from cognite_toolkit._cdf_tk.tk_warnings import FileExistsWarning, MediumSeverityWarning
+from cognite_toolkit._cdf_tk.tk_warnings import FileExistsWarning, HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, safe_write, yaml_safe_dump
+from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, safe_write, to_directory_compatible, yaml_safe_dump
 
 from ._base import ToolkitCommand
 
@@ -531,6 +534,28 @@ class FunctionFinder(ResourceFinder[tuple[str, ...]]):
         schedules = schedule_loader.iterate(parent_ids=list(self.identifier))
         yield [], FunctionSchedulesList(list(schedules)), schedule_loader, None
 
+    def dump_function_code(self, function: Function, folder: Path) -> None:
+        try:
+            zip_bytes = self.client.files.download_bytes(id=function.file_id)
+        except CogniteAPIError as e:
+            if e.code == 400 and "File ids not found" in e.message:
+                HighSeverityWarning(
+                    f"The function {function.external_id!r} does not have code to dump. It is not available in CDF."
+                ).print_warning()
+                return
+            raise
+        try:
+            top_level = f"{to_directory_compatible(function.external_id or 'unknown_external_id')}/"
+            with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+                if all(name.startswith(top_level) for name in zf.namelist()):
+                    zf.extractall(folder)
+                else:
+                    zf.extractall(folder / top_level)
+        except zipfile.BadZipFile as e:
+            HighSeverityWarning(
+                f"The function {function.external_id!r} has a corrupted code zip file. Unable to extract code: {e!s}"
+            ).print_warning()
+
 
 class DumpResourceCommand(ToolkitCommand):
     def dump_to_yamls(
@@ -581,5 +606,7 @@ class DumpResourceCommand(ToolkitCommand):
                     safe_write(filepath, content, encoding="utf-8")
                     if verbose:
                         self.console(f"Dumped {loader.kind} {name} to {filepath!s}")
+                if isinstance(finder, FunctionFinder) and isinstance(resource, Function):
+                    finder.dump_function_code(resource, resource_folder)
 
         print(Panel(f"Dumped {finder.identifier}", title="Success", style="green", expand=False))
