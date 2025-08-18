@@ -72,12 +72,12 @@ class TestChartAPI:
             pytest.param(
                 CHART.external_id,
                 Chart,
-                id="Single ChartWrite",
+                id="Single Chart",
             ),
             pytest.param(
                 [CHART.external_id],
                 ChartList,
-                id="List of ChartWrite",
+                id="List of Chart",
             ),
         ],
     )
@@ -91,7 +91,7 @@ class TestChartAPI:
                 responses.POST,
                 url,
                 status=200,
-                json={"items": self.CHART.dump()},
+                json={"items": [self.CHART.dump()]},
             )
             result = client.charts.retrieve(external_id=external_id)
 
