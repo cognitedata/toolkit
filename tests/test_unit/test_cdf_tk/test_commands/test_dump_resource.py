@@ -6,6 +6,8 @@ from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
     ExtractionPipeline,
     ExtractionPipelineList,
+    Function,
+    FunctionList,
     Group,
     GroupList,
     Transformation,
@@ -16,6 +18,7 @@ from cognite.client.data_classes.agents import Agent, AgentList, AskDocumentAgen
 from cognite.client.data_classes.capabilities import (
     TimeSeriesAcl,
 )
+from cognite.client.data_classes.functions import FunctionsStatus
 from cognite.client.exceptions import CogniteAPIError
 from questionary import Choice
 
@@ -26,6 +29,7 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
     DataModelFinder,
     DumpResourceCommand,
     ExtractionPipelineFinder,
+    FunctionFinder,
     GroupFinder,
     LocationFilterFinder,
     TransformationFinder,
@@ -33,6 +37,7 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
 from cognite_toolkit._cdf_tk.loaders import (
     AgentLoader,
     ExtractionPipelineLoader,
+    FunctionLoader,
     GroupAllScopedLoader,
     LocationFilterLoader,
     TransformationLoader,
@@ -379,3 +384,75 @@ class TestDumpGroups:
         items = sorted([read_yaml_file(filepath) for filepath in filepaths], key=lambda d: d.get("name"))
         expected = sorted([loader.dump_resource(group) for group in three_groups[1:]], key=lambda d: d.get("name"))
         assert items == expected
+
+
+@pytest.fixture()
+def three_functions() -> FunctionList:
+    return FunctionList(
+        [
+            Function(
+                external_id="functionA",
+                name="Function A",
+                description="This is Function A",
+                created_time=1,
+                file_id=123,
+            ),
+            Function(
+                external_id="functionB",
+                name="Function B",
+                description="This is Function B",
+                created_time=1,
+                file_id=456,
+            ),
+            Function(
+                external_id="functionC",
+                name="Function C",
+                description="This is Function C",
+                created_time=1,
+                file_id=789,
+            ),
+        ]
+    )
+
+
+class TestDumpFunctions:
+    def test_dump_functions(self, three_functions: FunctionList, tmp_path: Path) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.functions.retrieve_multiple.return_value = three_functions[1:]
+            client.functions.status.return_value = FunctionsStatus("activated")
+            client.files.retrieve.return_value = None
+            client.files.download_bytes.side_effect = CogniteAPIError(
+                "File ids not found",
+                code=400,
+            )
+
+            cmd = DumpResourceCommand(silent=True)
+            cmd.dump_to_yamls(
+                FunctionFinder(client, ("functionB", "functionC")),
+                output_dir=tmp_path,
+                clean=False,
+                verbose=False,
+            )
+            loader = FunctionLoader(client, None, None)
+
+        filepaths = list(loader.find_files(tmp_path))
+        assert len(filepaths) == 2
+        items = [read_yaml_file(filepath) for filepath in filepaths]
+        assert items == [loader.dump_resource(func) for func in three_functions[1:]]
+
+    def test_interactive_select_functions(self, three_functions: FunctionList, monkeypatch: MonkeyPatch) -> None:
+        def select_functions(choices: list[Choice]) -> list[str]:
+            assert len(choices) == len(three_functions)
+            return [choices[1].value, choices[2].value]
+
+        answers = [select_functions]
+
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(FunctionFinder.__module__, monkeypatch, answers),
+        ):
+            client.functions.list.return_value = three_functions
+            finder = FunctionFinder(client, None)
+            selected = finder._interactive_select()
+
+        assert selected == ("functionB", "functionC")
