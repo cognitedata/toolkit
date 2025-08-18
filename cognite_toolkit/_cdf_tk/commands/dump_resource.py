@@ -24,6 +24,10 @@ from cognite.client.data_classes.agents import (
 )
 from cognite.client.data_classes.data_modeling import DataModelId
 from cognite.client.data_classes.extractionpipelines import ExtractionPipelineConfigList
+from cognite.client.data_classes.functions import (
+    FunctionList,
+    FunctionSchedulesList,
+)
 from cognite.client.data_classes.workflows import (
     Workflow,
     WorkflowList,
@@ -51,6 +55,8 @@ from cognite_toolkit._cdf_tk.loaders import (
     DataModelLoader,
     ExtractionPipelineConfigLoader,
     ExtractionPipelineLoader,
+    FunctionLoader,
+    FunctionScheduleLoader,
     GroupLoader,
     LocationFilterLoader,
     NodeLoader,
@@ -488,6 +494,42 @@ class ExtractionPipelineFinder(ResourceFinder[tuple[str, ...]]):
         config_loader = ExtractionPipelineConfigLoader.create_loader(self.client)
         configs = ExtractionPipelineConfigList(list(config_loader.iterate(parent_ids=list(self.identifier))))
         yield [], configs, config_loader, None
+
+
+class FunctionFinder(ResourceFinder[tuple[str, ...]]):
+    def __init__(self, client: ToolkitClient, identifier: tuple[str, ...] | None = None):
+        super().__init__(client, identifier)
+        self.functions: FunctionList | None = None
+
+    def _interactive_select(self) -> tuple[str, ...]:
+        self.functions = self.client.functions.list(limit=-1)
+        if not self.functions:
+            raise ToolkitMissingResourceError("No functions found")
+        choices = [
+            Choice(f"{function.name} ({function.external_id})", value=function.external_id)
+            for function in sorted(self.functions, key=lambda f: f.name or "")
+            if function.name and function.external_id
+        ]
+        selected_function_ids: tuple[str, ...] | None = questionary.checkbox(
+            "Which function(s) would you like to dump?",
+            choices=choices,
+        ).ask()
+        if selected_function_ids is None:
+            raise ToolkitValueError("No functions selected for dumping.")
+        return tuple(selected_function_ids)
+
+    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
+        self.identifier = self._selected()
+        loader = FunctionLoader.create_loader(self.client)
+        if self.functions:
+            selected_functions = FunctionList([f for f in self.functions if f.external_id in self.identifier])
+            yield [], selected_functions, loader, None
+        else:
+            yield list(self.identifier), None, loader, None
+
+        schedule_loader = FunctionScheduleLoader.create_loader(self.client)
+        schedules = schedule_loader.iterate(parent_ids=list(self.identifier))
+        yield [], FunctionSchedulesList(list(schedules)), schedule_loader, None
 
 
 class DumpResourceCommand(ToolkitCommand):
