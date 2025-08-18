@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.12'",
@@ -178,7 +178,7 @@ wheels = [
 
 [[package]]
 name = "cognite-sdk"
-version = "7.78.0"
+version = "7.80.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "msal" },
@@ -188,9 +188,9 @@ dependencies = [
     { name = "requests-oauthlib" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/63/af/093168e2714e7e3df345a0296f9751d769dc2a2bc3aeeefc59d3ab3c7323/cognite_sdk-7.78.0.tar.gz", hash = "sha256:52d33afc0e9f2e7a723de0e585170deaed3e3810f0dd6ab39cb69ba389a6e621", size = 512579, upload-time = "2025-07-30T13:24:06.912Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/8e/b4/ec4d9f501ede8cfb470978cecb8b97a5f2494a2fa97c5cb84e6d85db84bb/cognite_sdk-7.80.2.tar.gz", hash = "sha256:63a2588a6951ea52bb269f1e71aea0cb7c654c4985a57fbe7dcffc5112290eb0", size = 512512, upload-time = "2025-08-16T12:13:55.192Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a3/b6/2168020ea9d83d655304bb4ee04fee8734f56fba20d91b27975ba43ae7c0/cognite_sdk-7.78.0-py3-none-any.whl", hash = "sha256:e2a9a454deedd20016ca727a98a8237f8bb2f53357d01e03804028676372833d", size = 639634, upload-time = "2025-07-30T13:24:04.849Z" },
+    { url = "https://files.pythonhosted.org/packages/20/fa/d521b30c7db632ee138ff47395f6df6d2cb3bd13fb60c13d656e0fb3c11d/cognite_sdk-7.80.2-py3-none-any.whl", hash = "sha256:549b86aa67f3f6ed30a64d26895db67be7658c40881989d872bc418d79a34d7f", size = 639375, upload-time = "2025-08-16T12:13:52.659Z" },
 ]
 
 [[package]]
@@ -252,7 +252,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cognite-sdk", specifier = ">=7.78.0,<8.0.0" },
+    { name = "cognite-sdk", specifier = ">=7.80.2,<8.0.0" },
     { name = "filelock", specifier = ">=3.18.0" },
     { name = "mixpanel", specifier = ">=4.10.1" },
     { name = "openpyxl", marker = "extra == 'table'", specifier = ">=3.1.5" },
