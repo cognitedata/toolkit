@@ -50,7 +50,7 @@ class AssetIO(TableStorageIO[AssetCentricData, AssetWriteList, AssetList]):
             self.client, "assets", data_sets=data_set_ids or None, hierarchies=hierarchy or None
         )
         metadata_schema: list[SchemaColumn] = []
-        if metadata_schema:
+        if metadata_keys:
             metadata_schema.extend(
                 [SchemaColumn(name=f"metadata.{key}", type="string", is_array=False) for key, _ in metadata_keys]
             )

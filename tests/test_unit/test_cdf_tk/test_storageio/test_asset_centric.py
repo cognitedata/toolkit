@@ -87,7 +87,7 @@ class TestAssetIO:
                 [DataSet(id=1234, external_id="test_data_set")]
             )
             client.labels.retrieve.return_value = LabelDefinitionList(
-                [LabelDefinition(external_id="test_label", name="test_label")]
+                [LabelDefinition(external_id="my_label", name="my_label")]
             )
 
             io = AssetIO(client)
