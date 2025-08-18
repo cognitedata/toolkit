@@ -28,7 +28,7 @@ def some_asset_data() -> AssetList:
 
 class TestAssetIO:
     def test_download_upload(self, some_asset_data: AssetList) -> None:
-        identifier = AssetCentricData(data_set_external_id=None, hierarchy=("test_hierarchy",))
+        identifier = AssetCentricData(data_set_external_id=None, hierarchy="test_hierarchy")
         with monkeypatch_toolkit_client() as client:
             client.assets.return_value = chunker(some_asset_data, 10)
             client.assets.aggregate_count.return_value = 100
