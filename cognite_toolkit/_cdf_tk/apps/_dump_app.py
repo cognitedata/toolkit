@@ -532,7 +532,7 @@ class DumpConfigApp(typer.Typer):
             typer.Option(
                 "--output-dir",
                 "-o",
-                help="Where to dump the extraction pipeline files.",
+                help="Where to dump the function files.",
                 allow_dash=True,
             ),
         ] = Path("tmp"),
@@ -541,7 +541,7 @@ class DumpConfigApp(typer.Typer):
             typer.Option(
                 "--clean",
                 "-c",
-                help="Delete the output directory before dumping the extraction pipeline.",
+                help="Delete the output directory before dumping the functions.",
             ),
         ] = False,
         verbose: Annotated[
