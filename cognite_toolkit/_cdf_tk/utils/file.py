@@ -21,7 +21,12 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN, HINT_LEAD_TEXT, URL
-from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitValueError, ToolkitYAMLFormatError
+from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitFileNotFoundError,
+    ToolkitNotADirectoryError,
+    ToolkitValueError,
+    ToolkitYAMLFormatError,
+)
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, MediumSeverityWarning
 
 
@@ -452,7 +457,7 @@ def find_files_with_suffix_and_prefix(dirpath: Path, name: str, suffix: str) -> 
         list[Path]: A list of Paths to the files that match the criteria.
     """
     if not dirpath.is_dir():
-        raise ToolkitFileNotFoundError(f"The provided path {dirpath} is not a directory.")
+        raise ToolkitNotADirectoryError(f"The provided path {dirpath} is not a directory.")
     found_files: list[Path] = []
     for file in dirpath.glob(f"*{suffix}"):
         filestem = file.name.removesuffix(suffix)
