@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.loaders import AssetLoader, DataSetsLoader, LabelLo
 from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.utils.aggregators import AssetAggregator
 from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
+from cognite_toolkit._cdf_tk.utils.file import find_files_with_suffix_and_prefix
 from cognite_toolkit._cdf_tk.utils.table_writers import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
@@ -73,7 +74,14 @@ class AssetIO(TableStorageIO[AssetCentricData, AssetWriteList, AssetList]):
         )
 
     def download_iterable(self, selector: AssetCentricData, limit: int | None = None) -> Iterable[AssetList]:
-        yield from self.client.assets(chunk_size=self.chunk_size, limit=limit, **selector.as_filter())
+        for asset_list in self.client.assets(chunk_size=self.chunk_size, limit=limit, **selector.as_filter()):
+            for asset in asset_list:
+                if asset.data_set_id:
+                    self._downloaded_data_sets_by_selector[selector].add(asset.data_set_id)
+                for label in asset.labels or []:
+                    if label.external_id:
+                        self._downloaded_labels_by_selector[selector].add(label.external_id)
+            yield asset_list
 
     def upload_items(self, data_chunk: AssetWriteList, selector: AssetCentricData) -> None:
         if not data_chunk:
@@ -114,7 +122,44 @@ class AssetIO(TableStorageIO[AssetCentricData, AssetWriteList, AssetList]):
         )
 
     def load_selector(self, datafile: Path) -> AssetCentricData:
-        raise NotImplementedError()
+        return AssetCentricData(datafile=datafile)
 
     def ensure_configurations(self, selector: AssetCentricData, console: Console | None = None) -> None:
-        raise NotImplementedError()
+        """Ensures that all data sets and labels referenced by the asset selection exist in CDF."""
+        datafile = selector.datafile
+        if not datafile:
+            return None
+        filepaths = find_files_with_suffix_and_prefix(
+            datafile.parent / DataSetsLoader.folder_name, datafile.name, suffix=f".{DataSetsLoader.kind}.yaml"
+        )
+        self._create_if_not_exists(filepaths, DataSetsLoader.create_loader(self.client), console)
+
+        filepaths = find_files_with_suffix_and_prefix(
+            datafile.parent / LabelLoader.folder_name, datafile.name, suffix=f".{LabelLoader.kind}.yaml"
+        )
+        self._create_if_not_exists(filepaths, LabelLoader.create_loader(self.client), console)
+        return None
+
+    @classmethod
+    def _create_if_not_exists(
+        cls,
+        filepaths: list[Path],
+        loader: ResourceLoader[
+            T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
+        ],
+        console: Console | None = None,
+    ) -> None:
+        items: T_CogniteResourceList = loader.list_write_cls([])
+        for filepath in filepaths:
+            if not filepath.exists():
+                continue
+            for loaded in loader.load_resource_file(filepath):
+                items.append(loader.load_resource(loaded))
+        existing = loader.retrieve(loader.get_ids(items))
+        existing_ids = set(loader.get_ids(existing))
+        if missing := [item for item in items if loader.get_id(item) not in existing_ids]:
+            loader.create(loader.list_write_cls(missing))
+            if console:
+                console.print(
+                    f"Created {loader.kind} for {len(missing)} items: {', '.join(str(item) for item in loader.get_ids(missing))}"
+                )
