@@ -1,0 +1,145 @@
+import csv
+import json
+from abc import ABC, abstractmethod
+from collections.abc import Iterator, Mapping
+from io import TextIOWrapper
+from pathlib import Path
+
+import yaml
+
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
+from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
+from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
+
+from ._base import FileIO
+from ._compression import COMPRESSION_BY_SUFFIX, Compression
+
+
+class FileReader(FileIO, ABC):
+    def __init__(self, input_file: Path) -> None:
+        self.input_file = input_file
+
+    def read_chunks(self) -> Iterator[JsonVal]:
+        compression = Compression.from_filepath(self.input_file)
+        with compression.open("r") as file:
+            yield from self._read_chunks_from_file(file)
+
+    @abstractmethod
+    def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[JsonVal]:
+        """Read chunks from the file."""
+        raise NotImplementedError("This method should be implemented in subclasses.")
+
+    @classmethod
+    def from_filepath(cls, filepath: Path) -> "FileReader":
+        if len(filepath.suffixes) == 0:
+            raise ToolkitValueError(
+                f"File has no suffix. Available formats: {humanize_collection(FILE_READ_CLS_BY_FORMAT.keys())}."
+            )
+        suffix = filepath.suffix
+        if suffix in COMPRESSION_BY_SUFFIX:
+            if len(filepath.suffixes) > 1:
+                suffix = filepath.suffixes[-2]
+            else:
+                raise ToolkitValueError(
+                    f"File has a compression suffix, but no file format suffix found. Available formats: {humanize_collection(COMPRESSION_BY_SUFFIX.keys())}."
+                )
+
+        if suffix in FILE_READ_CLS_BY_FORMAT:
+            return FILE_READ_CLS_BY_FORMAT[suffix](input_file=filepath)
+
+        raise ToolkitValueError(
+            f"Unknown file format: {suffix}. Available formats: {humanize_collection(FILE_READ_CLS_BY_FORMAT.keys())}."
+        )
+
+
+class NDJsonReader(FileReader):
+    format = ".ndjson"
+
+    def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[JsonVal]:
+        for line in file:
+            if stripped := line.strip():
+                yield json.loads(stripped)
+
+
+class YAMLBaseReader(FileReader, ABC):
+    def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[JsonVal]:
+        yield from yaml.safe_load_all(file)
+
+
+class YAMLReader(YAMLBaseReader):
+    format = ".yaml"
+
+
+class YMLReader(YAMLBaseReader):
+    format = ".yml"
+
+
+class CSVReader(FileReader):
+    format = ".csv"
+
+    def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[JsonVal]:
+        for row in csv.DictReader(file):
+            yield {key: self._parse_value(value) for key, value in row.items()}
+
+    @staticmethod
+    def _parse_value(value: str) -> JsonVal:
+        """Parse a string value into its appropriate type."""
+        if value == "":
+            return None
+        try:
+            # Try parsing as JSON (for lists, dicts, true, false, null, numbers)
+            return json.loads(value)
+        except (json.JSONDecodeError, TypeError):
+            pass
+        try:
+            return int(value)
+        except ValueError:
+            pass
+        try:
+            return float(value)
+        except ValueError:
+            pass
+        if value.lower() in ("true", "false"):
+            return value.lower() == "true"
+        return value
+
+
+class ParquetReader(FileReader):
+    format = ".parquet"
+
+    def read_chunks(self) -> Iterator[JsonVal]:
+        import pyarrow.parquet as pq
+
+        with pq.ParquetFile(self.input_file) as parquet_file:
+            for batch in parquet_file.iter_batches():
+                for chunk in batch.to_pylist():
+                    yield {key: self._parse_value(value) for key, value in chunk.items()}
+
+    def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[JsonVal]:
+        raise NotImplementedError(
+            "This is not used by ParquetReader, as it reads directly from the file using pyarrow."
+        )
+
+    @staticmethod
+    def _parse_value(value: JsonVal) -> JsonVal:
+        """Parse a string value into its appropriate type."""
+        if isinstance(value, str) and value:
+            try:
+                return json.loads(value)
+            except json.JSONDecodeError:
+                return value
+        return value
+
+
+FILE_READ_CLS_BY_FORMAT: Mapping[str, type[FileReader]] = {}
+for subclass in get_concrete_subclasses(FileReader):  # type: ignore[type-abstract]
+    if not getattr(subclass, "format", None):
+        continue
+    if subclass.format in FILE_READ_CLS_BY_FORMAT:
+        raise TypeError(
+            f"Duplicate file format {subclass.format!r} found for classes "
+            f"{FILE_READ_CLS_BY_FORMAT[subclass.format].__name__!r} and {subclass.__name__!r}."
+        )
+    # We know we have a dict, but we want to expose FILE_READ_CLS_BY_FORMAT as a Mapping
+    FILE_READ_CLS_BY_FORMAT[subclass.format] = subclass  # type: ignore[index]

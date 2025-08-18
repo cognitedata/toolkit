@@ -28,7 +28,7 @@ description: PH 1stStgSuctCool Gas Out
         loader = TimeSeriesLoader(toolkit_client_approval.mock_client, None)
         ts_dict = yaml.safe_load(self.timeseries_yaml)
         data_set_external_id = ts_dict["dataSetExternalId"]
-        expected_id = LookUpAPIMock._create_id(data_set_external_id)
+        expected_id = LookUpAPIMock.create_id(data_set_external_id)
 
         loaded = loader.load_resource(ts_dict, is_dry_run=False)
 
