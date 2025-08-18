@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, T_WritableCognit
 from cognite_toolkit._cdf_tk.utils.aggregators import AssetAggregator
 from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
 from cognite_toolkit._cdf_tk.utils.file import find_files_with_suffix_and_prefix
-from cognite_toolkit._cdf_tk.utils.table_writers import SchemaColumn
+from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import StorageIOConfig, TableStorageIO
