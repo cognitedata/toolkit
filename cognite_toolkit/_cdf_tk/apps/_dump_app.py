@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
     AgentFinder,
     DataModelFinder,
     ExtractionPipelineFinder,
+    FunctionFinder,
     GroupFinder,
     LocationFilterFinder,
     NodeFinder,
@@ -508,6 +509,54 @@ class DumpConfigApp(typer.Typer):
         cmd.run(
             lambda: cmd.dump_to_yamls(
                 ExtractionPipelineFinder(client, tuple(external_id) if external_id else None),
+                output_dir=output_dir,
+                clean=clean,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def dump_functions(
+        ctx: typer.Context,
+        external_id: Annotated[
+            list[str] | None,
+            typer.Argument(
+                help="The external ID(s) of the functions you want to dump. "
+                "If nothing is provided, an interactive prompt will be shown to select the functions.",
+            ),
+        ] = None,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to dump the extraction pipeline files.",
+                allow_dash=True,
+            ),
+        ] = Path("tmp"),
+        clean: Annotated[
+            bool,
+            typer.Option(
+                "--clean",
+                "-c",
+                help="Delete the output directory before dumping the extraction pipeline.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will dump the selected functions as yaml to the folder specified, defaults to /tmp."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = DumpResourceCommand()
+        cmd.run(
+            lambda: cmd.dump_to_yamls(
+                FunctionFinder(client, tuple(external_id) if external_id else None),
                 output_dir=output_dir,
                 clean=clean,
                 verbose=verbose,
