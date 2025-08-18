@@ -35,7 +35,7 @@ class DownloadCommand(ToolkitCommand):
             verbose: If True, prints detailed information about the download process.
             file_format: The format of the files to be written (e.g., ".ndjson").
             compression: The compression method to use for the downloaded files (e.g., "none", "gzip").
-            limit: The maximum number of items to download for each identifier. If None, all items will be downloaded.
+            limit: The maximum number of items to download for each selected set. If None, all items will be downloaded.
         """
         target_directory = output_dir / io.folder_name
         target_directory.mkdir(parents=True, exist_ok=True)

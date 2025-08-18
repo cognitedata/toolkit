@@ -135,7 +135,7 @@ class StorageIO(ABC, Generic[T_Selector, T_CogniteResourceList, T_WritableCognit
         For asset-centric storage, this will create labels and data sets.
 
         Args:
-            selector: The selection criteria to identify the storage item.
+            selector: The selection criteria to find the data.
             console: An optional console for outputting messages during the configuration process.
 
         """
@@ -148,7 +148,7 @@ class TableStorageIO(StorageIO[T_Selector, T_CogniteResourceList, T_WritableCogn
         """Get the schema of the table associated with the given selector.
 
         Args:
-            selector: The selection criteria to identify the table.
+            selector: The selection criteria to identify the data.
 
         Returns:
             A list of SchemaColumn objects representing the schema of the table.
