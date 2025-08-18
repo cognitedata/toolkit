@@ -20,6 +20,8 @@ from cognite.client.data_classes import (
     FunctionScheduleWrite,
     FunctionScheduleWriteList,
     FunctionTaskParameters,
+    FunctionWrite,
+    FunctionWriteList,
     GroupWrite,
     LabelDefinitionWrite,
     TimeSeriesList,
@@ -57,6 +59,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     CogniteFileLoader,
     DataModelLoader,
     DatapointSubscriptionLoader,
+    FunctionLoader,
     FunctionScheduleLoader,
     GroupLoader,
     LabelLoader,
@@ -895,6 +898,55 @@ properties:
         worker = ResourceWorker(loader, "deploy")
         resources = worker.prepare_resources([filepath])
 
+        assert {
+            "create": len(resources.to_create),
+            "change": len(resources.to_update),
+            "delete": len(resources.to_delete),
+            "unchanged": len(resources.unchanged),
+        } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
+
+
+class TestFunctionLoader:
+    def test_avoid_redeploying_function_with_no_changes(
+        self, toolkit_client: ToolkitClient, toolkit_dataset: DataSet, tmp_path: Path
+    ) -> None:
+        function_code = """from cognite.client import CogniteClient
+
+
+def handle(data: dict, client: CogniteClient, secrets: dict, function_call_info: dict) -> dict:
+    # This will fail unless the function has the specified capabilities.
+    print("Print statements will be shown in the logs.")
+    print("Running with the following configuration:\n")
+    return {
+        "data": data,
+        "functionInfo": function_call_info,
+    }
+
+"""
+        external_id = "toolkit_test_function_no_redeploy"
+        definition_yaml = f"""externalId: {external_id}
+name: Toolkit Test Function No Redeploy
+owner: ""
+dataSetExternalId: {toolkit_dataset.external_id}
+description: ""
+        """
+        build_dir = tmp_path / "build"
+        function_code_path = build_dir / FunctionLoader.folder_name / external_id / "handler.py"
+        function_code_path.parent.mkdir(parents=True, exist_ok=True)
+        function_code_path.write_text(function_code, encoding="utf-8")
+
+        loader = FunctionLoader.create_loader(toolkit_client, build_dir)
+        filepath = MagicMock(spec=Path)
+        filepath.read_text.return_value = definition_yaml
+        filepath.parent.name = FunctionLoader.folder_name
+        resource_dict = loader.load_resource_file(filepath, {})
+        assert len(resource_dict) == 1
+        resource = loader.load_resource(resource_dict[0])
+        assert isinstance(resource, FunctionWrite)
+        if not loader.retrieve([resource.external_id]):
+            _ = loader.create(FunctionWriteList([resource]))
+        worker = ResourceWorker(loader, "deploy")
+        resources = worker.prepare_resources([filepath])
         assert {
             "create": len(resources.to_create),
             "change": len(resources.to_update),
