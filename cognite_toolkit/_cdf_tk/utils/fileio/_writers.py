@@ -401,6 +401,7 @@ class ParquetWriter(TableWriter["pq.ParquetWriter"]):
 
 
 FILE_WRITE_CLS_BY_FORMAT: Mapping[str, type[FileWriter]] = {}
+TABLE_WRITE_CLS_BY_FORMAT: Mapping[str, type[TableWriter]] = {}
 for subclass in get_concrete_subclasses(FileWriter):  # type: ignore[type-abstract]
     if not getattr(subclass, "format", None):
         continue
@@ -411,3 +412,10 @@ for subclass in get_concrete_subclasses(FileWriter):  # type: ignore[type-abstra
         )
     # We know we have a dict, but we want to expose FILE_WRITE_CLS_BY_FORMAT as a Mapping
     FILE_WRITE_CLS_BY_FORMAT[subclass.format] = subclass  # type: ignore[index]
+    if issubclass(subclass, TableWriter):
+        if subclass.format in TABLE_WRITE_CLS_BY_FORMAT:
+            raise TypeError(
+                f"Duplicate table file format {subclass.format!r} found for classes "
+                f"{TABLE_WRITE_CLS_BY_FORMAT[subclass.format].__name__!r} and {subclass.__name__!r}."
+            )
+        TABLE_WRITE_CLS_BY_FORMAT[subclass.format] = subclass  # type: ignore[index]
