@@ -437,8 +437,9 @@ class TestDumpFunctions:
 
         filepaths = list(loader.find_files(tmp_path))
         assert len(filepaths) == 2
-        items = [read_yaml_file(filepath) for filepath in filepaths]
-        assert items == [loader.dump_resource(func) for func in three_functions[1:]]
+        items = sorted([read_yaml_file(filepath) for filepath in filepaths], key=lambda d: d["externalId"])
+        expected = sorted([loader.dump_resource(func) for func in three_functions[1:]], key=lambda d: d["externalId"])
+        assert items == expected
 
     def test_interactive_select_functions(self, three_functions: FunctionList, monkeypatch: MonkeyPatch) -> None:
         def select_functions(choices: list[Choice]) -> list[str]:
