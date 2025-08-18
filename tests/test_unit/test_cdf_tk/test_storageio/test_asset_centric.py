@@ -20,6 +20,7 @@ def some_asset_data() -> AssetList:
                 root_id=123,
                 source="test_source",
                 labels=["my_label"],
+                data_set_id=123,
             )
             for i in range(100)
         ]
@@ -28,15 +29,18 @@ def some_asset_data() -> AssetList:
 
 class TestAssetIO:
     def test_download_upload(self, some_asset_data: AssetList) -> None:
-        identifier = AssetCentricData(data_set_external_id=None, hierarchy="test_hierarchy")
+        selector = AssetCentricData(data_set_external_id=None, hierarchy="test_hierarchy")
         with monkeypatch_toolkit_client() as client:
             client.assets.return_value = chunker(some_asset_data, 10)
             client.assets.aggregate_count.return_value = 100
+            client.lookup.data_sets.external_id.return_value = "test_data_set"
+            client.lookup.data_sets.id.return_value = 123
+
             io = AssetIO(client)
 
-            assert io.count(identifier) == 100
+            assert io.count(selector) == 100
 
-            source = io.download_iterable(identifier)
+            source = io.download_iterable(selector)
             json_chunks: list[list[dict[str, JsonVal]]] = []
             for chunk in source:
                 json_chunk = io.data_to_json_chunk(chunk)
@@ -44,11 +48,13 @@ class TestAssetIO:
                 assert len(json_chunk) == 10
                 for item in json_chunk:
                     assert isinstance(item, dict)
+                    assert "dataSetExternalId" in item
+                    assert item["dataSetExternalId"] == "test_data_set"
                 json_chunks.append(json_chunk)
 
             data_chunks = (io.json_chunk_to_data(chunk) for chunk in json_chunks)
             for data_chunk in data_chunks:
-                io.upload_items(data_chunk, identifier)
+                io.upload_items(data_chunk, selector)
 
             assert client.assets.create.call_count == 10
             uploaded_assets = AssetWriteList([])
