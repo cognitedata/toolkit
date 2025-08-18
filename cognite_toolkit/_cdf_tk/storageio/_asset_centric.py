@@ -135,12 +135,12 @@ class AssetIO(TableStorageIO[AssetCentricData, AssetWriteList, AssetList]):
         if not datafile:
             return None
         filepaths = find_files_with_suffix_and_prefix(
-            datafile.parent / DataSetsLoader.folder_name, datafile.name, suffix=f".{DataSetsLoader.kind}.yaml"
+            datafile.parent.parent / DataSetsLoader.folder_name, datafile.name, suffix=f".{DataSetsLoader.kind}.yaml"
         )
         self._create_if_not_exists(filepaths, DataSetsLoader.create_loader(self.client), console)
 
         filepaths = find_files_with_suffix_and_prefix(
-            datafile.parent / LabelLoader.folder_name, datafile.name, suffix=f".{LabelLoader.kind}.yaml"
+            datafile.parent.parent / LabelLoader.folder_name, datafile.name, suffix=f".{LabelLoader.kind}.yaml"
         )
         self._create_if_not_exists(filepaths, LabelLoader.create_loader(self.client), console)
         return None
