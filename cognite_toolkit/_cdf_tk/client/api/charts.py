@@ -55,6 +55,11 @@ class ChartsAPI(APIClient):
             )
             result.extend([Chart._load(item, cognite_client=self._cognite_client) for item in response.json()["items"]])
         if isinstance(items, ChartWrite):
+            if len(result) != 1:
+                raise ValueError(
+                    "Expected a single chart to be returned, but multiple charts were returned. "
+                    "This may indicate an issue with the upsert operation."
+                )
             return result[0]
         return result
 
@@ -98,7 +103,7 @@ class ChartsAPI(APIClient):
         Returns:
             ChartList: List of charts matching the criteria.
         """
-        filter_: dict[str, object] = {}
+        filter_: dict[str, str | bool] = {}
         if visibility is not None:
             filter_["visibility"] = visibility.upper()
         if is_owned is not None:
