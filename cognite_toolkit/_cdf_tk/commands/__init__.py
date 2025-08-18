@@ -1,3 +1,4 @@
+from ._download import DownloadCommand
 from ._migrate import (
     MigrateAssetsCommand,
     MigrateFilesCommand,
@@ -8,6 +9,7 @@ from ._migrate import (
 from ._populate import PopulateCommand
 from ._profile import ProfileAssetCentricCommand, ProfileAssetCommand, ProfileRawCommand, ProfileTransformationCommand
 from ._purge import PurgeCommand
+from ._upload import UploadCommand
 from .auth import AuthCommand
 from .build_cmd import BuildCommand
 from .clean import CleanCommand
@@ -28,6 +30,7 @@ __all__ = [
     "CleanCommand",
     "CollectCommand",
     "DeployCommand",
+    "DownloadCommand",
     "DumpDataCommand",
     "DumpResourceCommand",
     "FeatureFlagCommand",
@@ -49,4 +52,5 @@ __all__ = [
     "RunFunctionCommand",
     "RunTransformationCommand",
     "RunWorkflowCommand",
+    "UploadCommand",
 ]

@@ -143,8 +143,11 @@ class TestProfileAssetCentric:
         sheet = workbook[cmd.table_title]
         assert sheet.max_row == len(results) + 1  # +1 for header row
 
-    def test_profile_asset_centric_hierarchy(self, toolkit_client: ToolkitClient, aggregator_root_asset: Asset) -> None:
-        cmd = ProfileAssetCentricCommand(silent=True)
+    def test_profile_asset_centric_hierarchy(
+        self, toolkit_client: ToolkitClient, aggregator_root_asset: Asset, tmp_path: Path
+    ) -> None:
+        output_spreadsheet = tmp_path / "asset_centric_hierarchy_profile.xlsx"
+        cmd = ProfileAssetCentricCommand(silent=True, output_spreadsheet=output_spreadsheet)
         results = cmd.asset_centric(toolkit_client, hierarchy=aggregator_root_asset.external_id, verbose=False)
         actual = [{"Resource": row["Resource"], "Count": row["Count"]} for row in results]
         expected = [
@@ -155,6 +158,11 @@ class TestProfileAssetCentric:
             {"Resource": "Sequences", "Count": SEQUENCE_COUNT},
         ]
         assert actual == expected, f"Expected {expected}, but got {actual}"
+
+        workbook = load_workbook(output_spreadsheet)
+        assert "Assets" in workbook.sheetnames
+        sheet = workbook["Assets"]
+        assert [col.value for (col, *_) in sheet.columns] == ["Metadata Key", "Count"]
 
 
 class TestProfileTransformationCommand:
