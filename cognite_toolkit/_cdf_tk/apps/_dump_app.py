@@ -56,6 +56,7 @@ class DumpApp(typer.Typer):
             if Flags.DUMP_EXTENDED.is_enabled():
                 self.command("location-filter")(DumpConfigApp.dump_location_filters)
                 self.command("extraction-pipeline")(DumpConfigApp.dump_extraction_pipeline)
+                self.command("functions")(DumpConfigApp.dump_functions)
 
             if Flags.AGENTS.is_enabled() and Flags.DUMP_EXTENDED.is_enabled():
                 self.command("agents")(DumpConfigApp.dump_agents)
@@ -81,6 +82,7 @@ class DumpConfigApp(typer.Typer):
         if Flags.DUMP_EXTENDED.is_enabled():
             self.command("location-filters")(self.dump_location_filters)
             self.command("extraction-pipeline")(self.dump_extraction_pipeline)
+            self.command("functions")(self.dump_functions)
         if Flags.DUMP_EXTENDED.is_enabled() and Flags.AGENTS.is_enabled():
             self.command("agents")(self.dump_agents)
 
