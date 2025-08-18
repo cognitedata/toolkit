@@ -37,8 +37,6 @@ class AssetIO(TableStorageIO[AssetCentricData, AssetWriteList, AssetList]):
         self._loader = AssetLoader.create_loader(client)
         self._downloaded_data_sets_by_selector: dict[AssetCentricData, set[int]] = defaultdict(set)
         self._downloaded_labels_by_selector: dict[AssetCentricData, set[str]] = defaultdict(set)
-        self._loaded_data_sets_by_selector: dict[AssetCentricData, set[int]] = defaultdict(set)
-        self._loaded_labels_by_selector: dict[AssetCentricData, set[str]] = defaultdict(set)
 
     def get_schema(self, selector: AssetCentricData) -> list[SchemaColumn]:
         data_set_ids: list[int] = []
