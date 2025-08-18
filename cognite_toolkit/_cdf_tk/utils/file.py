@@ -437,10 +437,25 @@ def find_adjacent_files(filepath: Path, suffix: str) -> list[Path]:
     """
     if not filepath.is_file():
         raise ToolkitFileNotFoundError(f"The provided path {filepath} is not a file.")
-    parent = filepath.parent
+    return find_files_with_suffix_and_prefix(filepath.parent, filepath.name, suffix=suffix)
+
+
+def find_files_with_suffix_and_prefix(dirpath: Path, name: str, suffix: str) -> list[Path]:
+    """Find files in a directory that have the same prefix as the given name
+
+    Args:
+        dirpath: The directory in which to search for files.
+        name: The name of the file to match against, which should include the prefix.
+        suffix: The suffix to match for the files.
+
+    Returns:
+        list[Path]: A list of Paths to the files that match the criteria.
+    """
+    if not dirpath.is_dir():
+        raise ToolkitFileNotFoundError(f"The provided path {dirpath} is not a directory.")
     found_files: list[Path] = []
-    for file in parent.glob(f"*{suffix}"):
+    for file in dirpath.glob(f"*{suffix}"):
         filestem = file.name.removesuffix(suffix)
-        if file.is_file() and filepath.name.startswith(filestem):
+        if file.is_file() and name.startswith(filestem):
             found_files.append(file)
     return found_files
