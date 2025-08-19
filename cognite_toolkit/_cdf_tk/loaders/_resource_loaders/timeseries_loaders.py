@@ -1,8 +1,9 @@
 import json
 from collections.abc import Hashable, Iterable, Sequence
 from functools import lru_cache
+from itertools import zip_longest
 from pathlib import Path
-from typing import Any, cast, final
+from typing import Any, Literal, cast, final
 
 from cognite.client.data_classes import (
     DatapointsList,
@@ -21,6 +22,7 @@ from cognite.client.data_classes.capabilities import (
     TimeSeriesAcl,
     TimeSeriesSubscriptionsAcl,
 )
+from cognite.client.data_classes.data_modeling import NodeId
 from cognite.client.data_classes.datapoints_subscriptions import TimeSeriesIDList
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
@@ -454,19 +456,27 @@ class DatapointSubscriptionLoader(
         batches: list[DataPointSubscriptionUpdate] = []
         for chunk in chunker(all_remaining_ids, cls._TIMESERIES_ID_REQUEST_LIMIT):
             update = DataPointSubscriptionUpdate(external_id=subscription.external_id)
-            ts_ids_in_chunk = []
-            instance_ids_in_chunk = []
-            for id_type, identifier in chunk:
-                if id_type == "ts":
-                    ts_ids_in_chunk.append(identifier)
-                else:
-                    instance_ids_in_chunk.append(identifier)
+            ts_ids_in_chunk, instance_ids_in_chunk = cls._split_ts_instance_ids(chunk)
             if ts_ids_in_chunk:
                 update.time_series_ids.add(ts_ids_in_chunk)
             if instance_ids_in_chunk:
                 update.instance_ids.add(instance_ids_in_chunk)
             batches.append(update)
         return to_create, batches
+
+    @classmethod
+    def _split_ts_instance_ids(
+        cls, ids: list[tuple[Literal["ts"], str] | tuple[Literal["instance"], NodeId]]
+    ) -> tuple[list[str], list[NodeId]]:
+        ts_ids, instance_ids = [], []
+        for id_type, identifier in ids:
+            if id_type == "ts":
+                ts_ids.append(identifier)
+            else:
+                instance_ids.append(identifier)
+        # MyPy fails to understand the logic above ensures that ts_ids is a list of str
+        # and instance_ids is a list of NodeId.
+        return ts_ids, instance_ids  # type: ignore[return-value]
 
     @classmethod
     def update_split_timeseries_ids(
@@ -480,15 +490,15 @@ class DatapointSubscriptionLoader(
         In addition, this method will compare to the current times series IDs and
         update the subscription with adding and removing time series IDs as needed.
         """
+        if subscription.time_series_ids is None and subscription.instance_ids is None:
+            # The subscription is using a filter, so we can return it as is.
+            return subscription, []
         total_timeseries = len(subscription.time_series_ids or []) + len(subscription.instance_ids or [])
         if total_timeseries > cls._MAX_TIMESERIES_IDS:
             raise ToolkitValueError(
                 f'Subscription "{subscription.external_id}" has {total_timeseries:,} time series, '
                 f"which is more than the limit of {cls._MAX_TIMESERIES_IDS:,}."
             )
-        elif subscription.time_series_ids is None and subscription.instance_ids is None:
-            # The subscription is using a filter, so we can return it as is.
-            return subscription, []
 
         # Serialization to create a copy of the subscription
         to_update = DataPointSubscriptionWrite.load(subscription.dump())
@@ -508,40 +518,27 @@ class DatapointSubscriptionLoader(
         instance_to_remove = current_instance_ids - desired_instance_ids
 
         # Clear the time series IDs from the main update to avoid conflicts
+        # The to_update object is used to update all other properties of the subscription.
         to_update.time_series_ids = None
         to_update.instance_ids = None
 
         # Create update batches for changes
         batches: list[DataPointSubscriptionUpdate] = []
-
-        # Handle removals first (in batches)
-        all_removals = [("ts", id) for id in ts_to_remove] + [("instance", id) for id in instance_to_remove]
-        for chunk in chunker(all_removals, cls._TIMESERIES_ID_REQUEST_LIMIT):
+        all_removals = [("ts", id_) for id_ in ts_to_remove] + [("instance", id_) for id_ in instance_to_remove]
+        all_additions = [("ts", id_) for id_ in ts_to_add] + [("instance", id_) for id_ in instance_to_add]
+        for removals, additions in zip_longest(
+            chunker(all_removals, cls._TIMESERIES_ID_REQUEST_LIMIT),
+            chunker(all_additions, cls._TIMESERIES_ID_REQUEST_LIMIT),
+            fillvalue=None,
+        ):
             update = DataPointSubscriptionUpdate(external_id=subscription.external_id)
-            ts_ids_to_remove = []
-            instance_ids_to_remove = []
-            for id_type, identifier in chunk:
-                if id_type == "ts":
-                    ts_ids_to_remove.append(identifier)
-                else:
-                    instance_ids_to_remove.append(identifier)
+            ts_ids_to_remove, instance_ids_to_remove = cls._split_ts_instance_ids(removals or [])
             if ts_ids_to_remove:
                 update.time_series_ids.remove(ts_ids_to_remove)
             if instance_ids_to_remove:
                 update.instance_ids.remove(instance_ids_to_remove)
-            batches.append(update)
 
-        # Handle additions (in batches)
-        all_additions = [("ts", id) for id in ts_to_add] + [("instance", id) for id in instance_to_add]
-        for chunk in chunker(all_additions, cls._TIMESERIES_ID_REQUEST_LIMIT):
-            update = DataPointSubscriptionUpdate(external_id=subscription.external_id)
-            ts_ids_to_add = []
-            instance_ids_to_add = []
-            for id_type, identifier in chunk:
-                if id_type == "ts":
-                    ts_ids_to_add.append(identifier)
-                else:
-                    instance_ids_to_add.append(identifier)
+            ts_ids_to_add, instance_ids_to_add = cls._split_ts_instance_ids(additions or [])
             if ts_ids_to_add:
                 update.time_series_ids.add(ts_ids_to_add)
             if instance_ids_to_add:
