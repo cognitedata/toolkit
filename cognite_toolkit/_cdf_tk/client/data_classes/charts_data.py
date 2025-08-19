@@ -64,6 +64,12 @@ class Flow(ChartObject):
     elements: list[FlowElement] | None = None
     position: tuple[float | None, float | None] | None = None
 
+    def dump(self, camel_case: bool = True) -> dict:
+        data = super().dump(camel_case=camel_case)
+        if self.elements:
+            data["elements"] = [el.dump(camel_case=camel_case) for el in self.elements]
+        return data
+
 
 @dataclass
 class ChartSource(ChartObject):
@@ -107,9 +113,19 @@ class ChartTimeseries(BaseChartElement):
 @dataclass
 class ChartWorkflow(BaseChartElement):
     version: str | None = None
-    settings: "SubSetting | None" = None
-    flow: "Flow | None" = None
+    settings: SubSetting | None = None
+    flow: Flow | None = None
     calls: list[ChartCall] | None = None
+
+    def dump(self, camel_case: bool = True) -> dict:
+        data = super().dump(camel_case=camel_case)
+        if self.settings:
+            data["settings"] = self.settings.dump(camel_case=camel_case)
+        if self.flow:
+            data["flow"] = self.flow.dump(camel_case=camel_case)
+        if self.calls:
+            data["calls"] = [c.dump(camel_case=camel_case) for c in self.calls]
+        return data
 
 
 @dataclass
@@ -117,16 +133,32 @@ class ChartThreshold(BaseChartElement):
     visible: bool | None = None
     source_id: str | None = None
     upper_limit: float | None = None
-    filter: "ThresholdFilter | None" = None
+    filter: ThresholdFilter | None = None
     calls: list["ChartCall"] | None = None
+
+    def dump(self, camel_case: bool = True) -> dict:
+        data = super().dump(camel_case=camel_case)
+        if self.filter:
+            data["filter"] = self.filter.dump(camel_case=camel_case)
+        if self.calls:
+            data["calls"] = [c.dump(camel_case=camel_case) for c in self.calls]
+        return data
 
 
 @dataclass
 class ChartScheduledCalculation(BaseChartElement):
     version: str | None = None
-    settings: "SubSetting | None" = None
+    settings: SubSetting | None = None
     flow: Flow | None = None
     enabled: bool | None = None
+
+    def dump(self, camel_case: bool = True) -> dict:
+        data = super().dump(camel_case=camel_case)
+        if self.settings:
+            data["settings"] = self.settings.dump(camel_case=camel_case)
+        if self.flow:
+            data["flow"] = self.flow.dump(camel_case=camel_case)
+        return data
 
 
 @dataclass
