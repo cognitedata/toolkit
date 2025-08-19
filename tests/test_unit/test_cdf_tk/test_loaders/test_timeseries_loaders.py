@@ -99,7 +99,10 @@ class TestDatapointSubscriptionLoader:
 
     def test_update_split_timeseries_migrated_timeseries(self) -> None:
         current = TimeSeriesIDList(
-            [TimeSeriesID(id=1, external_id="timeseries_1", instance_id=NodeId("my_space", "node_1"))]
+            [
+                TimeSeriesID(id=1, external_id="timeseries_1", instance_id=NodeId("my_space", "node_1")),
+                TimeSeriesID(id=1, external_id="timeseries_2", instance_id=NodeId("my_space", "node_2")),
+            ]
         )
         sub = DataPointSubscriptionWrite(
             external_id="mySub",
@@ -108,4 +111,12 @@ class TestDatapointSubscriptionLoader:
         )
         _, batches = DatapointSubscriptionLoader.update_split_timeseries_ids(sub, current)
 
-        assert len(batches) == 0
+        assert len(batches) == 1
+        assert batches[0].dump() == {
+            "externalId": "mySub",
+            "update": {
+                "instanceIds": {
+                    "remove": [{"space": "my_space", "externalId": "node_2"}],
+                }
+            },
+        }
