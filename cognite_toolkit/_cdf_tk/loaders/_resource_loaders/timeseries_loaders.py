@@ -21,6 +21,7 @@ from cognite.client.data_classes.capabilities import (
     TimeSeriesAcl,
     TimeSeriesSubscriptionsAcl,
 )
+from cognite.client.data_classes.datapoints_subscriptions import TimeSeriesIDList
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 
@@ -316,7 +317,8 @@ class DatapointSubscriptionLoader(
     def update(self, items: DatapointSubscriptionWriteList) -> DatapointSubscriptionList:
         updated_list = DatapointSubscriptionList([])
         for item in items:
-            to_update, batches = self.create_split_timeseries_ids(item)
+            current = self.client.time_series.subscriptions.list_member_time_series(item.external_id, limit=-1)
+            to_update, batches = self.update_split_timeseries_ids(item, current)
             # There are two versions of a TimeSeries Subscription, one selects timeseries based filter
             # and the other selects timeseries based on timeSeriesIds. If we use mode='replace', we try
             # to set timeSeriesIds to an empty list, while the filter is set. This will result in an error.
@@ -465,3 +467,85 @@ class DatapointSubscriptionLoader(
                 update.instance_ids.add(instance_ids_in_chunk)
             batches.append(update)
         return to_create, batches
+
+    @classmethod
+    def update_split_timeseries_ids(
+        cls, subscription: DataPointSubscriptionWrite, current_ts: TimeSeriesIDList
+    ) -> tuple[DataPointSubscriptionWrite, list[DataPointSubscriptionUpdate]]:
+        """Split the time series IDs into batches of 100.
+        This is needed because the API only supports 100 time series IDs per request.
+
+        Note this is the total of time series IDs and instance IDs.
+
+        In addition, this method will compare to the current times series IDs and
+        update the subscription with adding and removing time series IDs as needed.
+        """
+        total_timeseries = len(subscription.time_series_ids or []) + len(subscription.instance_ids or [])
+        if total_timeseries > cls._MAX_TIMESERIES_IDS:
+            raise ToolkitValueError(
+                f'Subscription "{subscription.external_id}" has {total_timeseries:,} time series, '
+                f"which is more than the limit of {cls._MAX_TIMESERIES_IDS:,}."
+            )
+        elif subscription.time_series_ids is None and subscription.instance_ids is None:
+            # The subscription is using a filter, so we can return it as is.
+            return subscription, []
+
+        # Serialization to create a copy of the subscription
+        to_update = DataPointSubscriptionWrite.load(subscription.dump())
+
+        # Get desired time series IDs
+        desired_timeseries_ids = set(to_update.time_series_ids or [])
+        desired_instance_ids = set(to_update.instance_ids or [])
+
+        # Get current time series IDs from the subscription
+        current_timeseries_ids = {ts.external_id for ts in current_ts if ts.external_id}
+        current_instance_ids = {ts.instance_id for ts in current_ts if ts.instance_id}
+
+        # Calculate what needs to be added and removed
+        ts_to_add = desired_timeseries_ids - current_timeseries_ids
+        ts_to_remove = current_timeseries_ids - desired_timeseries_ids
+        instance_to_add = desired_instance_ids - current_instance_ids
+        instance_to_remove = current_instance_ids - desired_instance_ids
+
+        # Clear the time series IDs from the main update to avoid conflicts
+        to_update.time_series_ids = None
+        to_update.instance_ids = None
+
+        # Create update batches for changes
+        batches: list[DataPointSubscriptionUpdate] = []
+
+        # Handle removals first (in batches)
+        all_removals = [("ts", id) for id in ts_to_remove] + [("instance", id) for id in instance_to_remove]
+        for chunk in chunker(all_removals, cls._TIMESERIES_ID_REQUEST_LIMIT):
+            update = DataPointSubscriptionUpdate(external_id=subscription.external_id)
+            ts_ids_to_remove = []
+            instance_ids_to_remove = []
+            for id_type, identifier in chunk:
+                if id_type == "ts":
+                    ts_ids_to_remove.append(identifier)
+                else:
+                    instance_ids_to_remove.append(identifier)
+            if ts_ids_to_remove:
+                update.time_series_ids.remove(ts_ids_to_remove)
+            if instance_ids_to_remove:
+                update.instance_ids.remove(instance_ids_to_remove)
+            batches.append(update)
+
+        # Handle additions (in batches)
+        all_additions = [("ts", id) for id in ts_to_add] + [("instance", id) for id in instance_to_add]
+        for chunk in chunker(all_additions, cls._TIMESERIES_ID_REQUEST_LIMIT):
+            update = DataPointSubscriptionUpdate(external_id=subscription.external_id)
+            ts_ids_to_add = []
+            instance_ids_to_add = []
+            for id_type, identifier in chunk:
+                if id_type == "ts":
+                    ts_ids_to_add.append(identifier)
+                else:
+                    instance_ids_to_add.append(identifier)
+            if ts_ids_to_add:
+                update.time_series_ids.add(ts_ids_to_add)
+            if instance_ids_to_add:
+                update.instance_ids.add(instance_ids_to_add)
+            batches.append(update)
+
+        return to_update, batches
