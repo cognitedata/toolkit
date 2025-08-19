@@ -1,18 +1,29 @@
-import sys
-from dataclasses import dataclass
-from typing import Any
+from dataclasses import dataclass, field, fields
+from typing import Any, Self
 
+from cognite.client import CogniteClient
 from cognite.client.data_classes._base import CogniteObject
 from cognite.client.data_classes.data_modeling import NodeId, ViewId
 
-if sys.version_info >= (3, 11):
-    pass
-else:
-    pass
-
 
 @dataclass
-class ChartObject(CogniteObject): ...
+class ChartObject(CogniteObject):
+    _unknown_fields: dict[str, object] | None = field(default=None, init=False, repr=False)
+
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        """Load a ChartObject from a dictionary."""
+        instance = super()._load(resource, cognite_client=cognite_client)
+        property_names = {f.name for f in fields(cls)}
+        instance._unknown_fields = {k: v for k, v in resource.items() if k not in property_names}
+        return instance
+
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        """Dump the ChartObject to a dictionary."""
+        data = super().dump(camel_case=camel_case)
+        if self._unknown_fields:
+            data.update(self._unknown_fields)
+        return data
 
 
 @dataclass
