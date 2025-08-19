@@ -22,7 +22,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     CDFAPIError,
     ResourceDeleteError,
     ToolkitMissingResourceError,
-    ToolkitNotImplementedError,
     ToolkitRequiredValueError,
     ToolkitValueError,
 )
@@ -644,7 +643,7 @@ class PurgeCommand(ToolkitCommand):
             process = partial(self._unlink_timeseries, client=client, dry_run=dry_run, verbose=verbose)
 
         if self._is_files(selected_view) and unlink:
-            raise ToolkitNotImplementedError("Purging files and unlinking them is not yet implemented.")
+            process = partial(self._unlink_files, client=client, dry_run=dry_run, verbose=verbose)
 
         total = client.data_modeling.instances.aggregate(
             view=selected_view.as_id(),
@@ -784,6 +783,19 @@ class PurgeCommand(ToolkitCommand):
                 client.time_series.unlink_instance_ids(id=migrated_timeseries_ids)
                 if verbose:
                     self.console(f"Unlinked {len(migrated_timeseries_ids)} timeseries from datapoints.")
+        return instances
+
+    def _unlink_files(
+        self, instances: list[InstanceId], client: ToolkitClient, dry_run: bool, verbose: bool
+    ) -> list[InstanceId]:
+        file_ids = [instance for instance in instances if isinstance(instance, NodeId)]
+        if file_ids:
+            files = client.files.retrieve_multiple(instance_ids=file_ids, ignore_unknown_ids=True)
+            if not dry_run and files:
+                migrated_file_ids = [file.id for file in files if file.instance_id and file.pending_instance_id]  # type: ignore[attr-defined]
+                client.files.unlink_instance_ids(id=migrated_file_ids)
+                if verbose:
+                    self.console(f"Unlinked {len(migrated_file_ids)} files from nodes.")
         return instances
 
     @staticmethod
