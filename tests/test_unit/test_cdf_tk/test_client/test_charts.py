@@ -3,25 +3,26 @@ import responses
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList, ChartWrite
+from cognite_toolkit._cdf_tk.client.data_classes.charts_data import ChartData, ChartSettings, UserInfo
 
 CHART = Chart(
     external_id="chart",
     created_time=1,
     last_updated_time=2,
     visibility="PUBLIC",
-    data={
-        "version": 1,
-        "name": "TestNew",
-        "dateFrom": "2025-04-26T22:00:00.000Z",
-        "dateTo": "2025-05-27T21:59:59.999Z",
-        "userInfo": {"id": "toolkit_test_user", "email": "support@cognite.com", "displayName": "Toolkit Test User"},
-        "timeSeriesCollection": [],
-        "workflowCollection": [],
-        "sourceCollection": [],
-        "thresholdCollection": [],
-        "scheduledCalculationCollection": [],
-        "settings": {"showYAxis": True, "showMinMax": True, "showGridlines": True, "mergeUnits": True},
-    },
+    data=ChartData(
+        version=1,
+        name="TestNew",
+        date_from="2025-04-26T22:00:00.000Z",
+        date_to="2025-05-27T21:59:59.999Z",
+        user_info=UserInfo(id="toolkit_test_user", email="support@cognite.com", display_name="Toolkit Test User"),
+        settings=ChartSettings(
+            show_y_axis=True,
+            show_min_max=True,
+            show_gridlines=True,
+            merge_units=True,
+        ),
+    ),
     owner_id="toolkit_test_user",
 )
 
