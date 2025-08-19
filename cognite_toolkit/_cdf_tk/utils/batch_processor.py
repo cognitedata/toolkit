@@ -348,6 +348,7 @@ class HTTPProcessor(Generic[T_ID]):
         has_printed_warning = False
         success_items: list[SuccessItem[T_ID]] = []
         unknown_items: list[FailedItem[str]] = []
+        failed_items: list[FailedItem[T_ID]] = []
         for item, response_item in zip_longest(items, response_items, fillvalue=None):
             if item is None:
                 if not has_printed_warning:
@@ -359,10 +360,13 @@ class HTTPProcessor(Generic[T_ID]):
             except Exception as e:
                 unknown_items.append(self._create_unknown_item(item, status_code, message, e))
             else:
-                success_items.append(
-                    SuccessItem(item=item_id, response=response_item, status_code=status_code, message=message)
-                )
-        return BatchResult(successful_items=success_items, unknown_ids=unknown_items)
+                if response_item is None:
+                    FailedItem(item=item_id, status_code=status_code, error_message="Response item is None")
+                else:
+                    success_items.append(
+                        SuccessItem(item=item_id, response=response_item, status_code=status_code, message=message)
+                    )
+        return BatchResult(successful_items=success_items, unknown_ids=unknown_items, failed_items=failed_items)
 
     def _parse_response_items(self, response: requests.Response) -> list[dict[str, JsonVal]]:
         try:
