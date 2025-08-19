@@ -298,7 +298,7 @@ class DatapointSubscriptionLoader(
     def create(self, items: DatapointSubscriptionWriteList) -> DatapointSubscriptionList:
         created_list = DatapointSubscriptionList([])
         for item in items:
-            to_create, batches = self.split_timeseries_ids(item)
+            to_create, batches = self.create_split_timeseries_ids(item)
             created = self.client.time_series.subscriptions.create(to_create)
             for batch_item in batches:
                 created = self.client.time_series.subscriptions.update(batch_item)
@@ -316,7 +316,7 @@ class DatapointSubscriptionLoader(
     def update(self, items: DatapointSubscriptionWriteList) -> DatapointSubscriptionList:
         updated_list = DatapointSubscriptionList([])
         for item in items:
-            to_update, batches = self.split_timeseries_ids(item)
+            to_update, batches = self.create_split_timeseries_ids(item)
             # There are two versions of a TimeSeries Subscription, one selects timeseries based filter
             # and the other selects timeseries based on timeSeriesIds. If we use mode='replace', we try
             # to set timeSeriesIds to an empty list, while the filter is set. This will result in an error.
@@ -411,7 +411,7 @@ class DatapointSubscriptionLoader(
         return super().diff_list(local, cdf, json_path)
 
     @classmethod
-    def split_timeseries_ids(
+    def create_split_timeseries_ids(
         cls, subscription: DataPointSubscriptionWrite
     ) -> tuple[DataPointSubscriptionWrite, list[DataPointSubscriptionUpdate]]:
         """Split the time series IDs into batches of 100.
@@ -431,18 +431,18 @@ class DatapointSubscriptionLoader(
             return subscription, []
 
         # Serialization to create a copy of the subscription
-        to_upsert = DataPointSubscriptionWrite.load(subscription.dump())
-        all_timeseries_ids = to_upsert.time_series_ids or []
-        all_instance_ids = to_upsert.instance_ids or []
+        to_create = DataPointSubscriptionWrite.load(subscription.dump())
+        all_timeseries_ids = to_create.time_series_ids or []
+        all_instance_ids = to_create.instance_ids or []
 
         # Create the first batch for the create/update call, prioritizing time_series_ids
-        to_upsert.time_series_ids = all_timeseries_ids[: cls._TIMESERIES_ID_REQUEST_LIMIT]
-        space_in_first_batch = cls._TIMESERIES_ID_REQUEST_LIMIT - len(to_upsert.time_series_ids)
-        to_upsert.instance_ids = all_instance_ids[:space_in_first_batch]
+        to_create.time_series_ids = all_timeseries_ids[: cls._TIMESERIES_ID_REQUEST_LIMIT]
+        space_in_first_batch = cls._TIMESERIES_ID_REQUEST_LIMIT - len(to_create.time_series_ids)
+        to_create.instance_ids = all_instance_ids[:space_in_first_batch]
 
         # Prepare remaining IDs for update batches
-        remaining_timeseries_ids = all_timeseries_ids[len(to_upsert.time_series_ids) :]
-        remaining_instance_ids = all_instance_ids[len(to_upsert.instance_ids) :]
+        remaining_timeseries_ids = all_timeseries_ids[len(to_create.time_series_ids) :]
+        remaining_instance_ids = all_instance_ids[len(to_create.instance_ids) :]
 
         # Using a list of tuples to preserve the type of ID
         all_remaining_ids = [("ts", id) for id in remaining_timeseries_ids] + [
@@ -464,4 +464,4 @@ class DatapointSubscriptionLoader(
             if instance_ids_in_chunk:
                 update.instance_ids.add(instance_ids_in_chunk)
             batches.append(update)
-        return to_upsert, batches
+        return to_create, batches

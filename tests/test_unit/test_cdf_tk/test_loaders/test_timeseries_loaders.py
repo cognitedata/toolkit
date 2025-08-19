@@ -29,7 +29,7 @@ class TestDatapointSubscriptionLoader:
             instance_ids=[NodeId("my_space", f"node_{i}") for i in range(node_count)] or None,
         )
 
-        to_upsert, batches = DatapointSubscriptionLoader.split_timeseries_ids(sub)
+        to_upsert, batches = DatapointSubscriptionLoader.create_split_timeseries_ids(sub)
 
         assert len(to_upsert.time_series_ids or []) == expected_ts_count
         assert len(to_upsert.instance_ids or []) == expected_node_count
@@ -44,6 +44,6 @@ class TestDatapointSubscriptionLoader:
         )
 
         with pytest.raises(ToolkitValueError) as exc:
-            DatapointSubscriptionLoader.split_timeseries_ids(sub)
+            DatapointSubscriptionLoader.create_split_timeseries_ids(sub)
 
         assert str(exc.value) == 'Subscription "mySub" has 12,000 time series, which is more than the limit of 10,000.'
