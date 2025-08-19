@@ -8,6 +8,10 @@ from cognite.client.data_classes.data_modeling import NodeId, ViewId
 
 @dataclass
 class ChartObject(CogniteObject):
+    # ChartObjects are used in the frontend and the backend does not do any validation of these fields.
+    # Therefore, to ensure that we do not lose any data, we store unknown fields in a separate dictionary.
+    # This allows unknown fields to be preserved when loading and dumping ChartObjects
+    # (serialization and deserialization).
     _unknown_fields: dict[str, object] | None = field(default=None, init=False, repr=False)
 
     @classmethod
