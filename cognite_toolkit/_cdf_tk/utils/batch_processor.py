@@ -355,13 +355,16 @@ class HTTPProcessor(Generic[T_ID]):
                     self.console.print("[red]Got more response 'items' than request items.[/red]")
                     has_printed_warning = True
                 continue
+
             try:
                 item_id = self.as_id(item)
             except Exception as e:
                 unknown_items.append(self._create_unknown_item(item, status_code, message, e))
             else:
                 if response_item is None:
-                    FailedItem(item=item_id, status_code=status_code, error_message="Response item is None")
+                    failed_items.append(
+                        FailedItem(item=item_id, status_code=status_code, error_message="Response item is None")
+                    )
                 else:
                     success_items.append(
                         SuccessItem(item=item_id, response=response_item, status_code=status_code, message=message)
