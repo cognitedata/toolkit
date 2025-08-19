@@ -4,33 +4,29 @@ import responses
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList, ChartWrite
 
-
-class ToolkitConfig:
-    pass
+CHART = Chart(
+    external_id="chart",
+    created_time=1,
+    last_updated_time=2,
+    visibility="PUBLIC",
+    data={
+        "version": 1,
+        "name": "TestNew",
+        "dateFrom": "2025-04-26T22:00:00.000Z",
+        "dateTo": "2025-05-27T21:59:59.999Z",
+        "userInfo": {"id": "toolkit_test_user", "email": "support@cognite.com", "displayName": "Toolkit Test User"},
+        "timeSeriesCollection": [],
+        "workflowCollection": [],
+        "sourceCollection": [],
+        "thresholdCollection": [],
+        "scheduledCalculationCollection": [],
+        "settings": {"showYAxis": True, "showMinMax": True, "showGridlines": True, "mergeUnits": True},
+    },
+    owner_id="toolkit_test_user",
+)
 
 
 class TestChartAPI:
-    CHART = Chart(
-        external_id="chart",
-        created_time=1,
-        last_updated_time=2,
-        visibility="PUBLIC",
-        data={
-            "version": 1,
-            "name": "TestNew",
-            "dateFrom": "2025-04-26T22:00:00.000Z",
-            "dateTo": "2025-05-27T21:59:59.999Z",
-            "userInfo": {"id": "toolkit_test_user", "email": "support@cognite.com", "displayName": "Toolkit Test User"},
-            "timeSeriesCollection": [],
-            "workflowCollection": [],
-            "sourceCollection": [],
-            "thresholdCollection": [],
-            "scheduledCalculationCollection": [],
-            "settings": {"showYAxis": True, "showMinMax": True, "showGridlines": True, "mergeUnits": True},
-        },
-        owner_id="toolkit_test_user",
-    )
-
     @pytest.mark.parametrize(
         "items, expected_return_cls",
         [
@@ -60,7 +56,7 @@ class TestChartAPI:
                 responses.PUT,
                 url,
                 status=200,
-                json={"items": [self.CHART.dump()]},
+                json={"items": [CHART.dump()]},
             )
             result = client.charts.upsert(items)
 
@@ -91,7 +87,7 @@ class TestChartAPI:
                 responses.POST,
                 url,
                 status=200,
-                json={"items": [self.CHART.dump()]},
+                json={"items": [CHART.dump()]},
             )
             result = client.charts.retrieve(external_id=external_id)
 
