@@ -795,7 +795,7 @@ class PurgeCommand(ToolkitCommand):
                 migrated_file_ids = [
                     file.id
                     for file in files
-                    if file.instance_id and file.pending_instance_id and file.id  # type: ignore[attr-defined]
+                    if file.instance_id and file.pending_instance_id and file.id is not None  # type: ignore[attr-defined]
                 ]
                 client.files.unlink_instance_ids(id=migrated_file_ids)
                 if verbose:
