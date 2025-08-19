@@ -792,7 +792,11 @@ class PurgeCommand(ToolkitCommand):
         if file_ids:
             files = client.files.retrieve_multiple(instance_ids=file_ids, ignore_unknown_ids=True)
             if not dry_run and files:
-                migrated_file_ids = [file.id for file in files if file.instance_id and file.pending_instance_id]  # type: ignore[attr-defined]
+                migrated_file_ids = [
+                    file.id
+                    for file in files
+                    if file.instance_id and file.pending_instance_id and file.id  # type: ignore[attr-defined]
+                ]
                 client.files.unlink_instance_ids(id=migrated_file_ids)
                 if verbose:
                     self.console(f"Unlinked {len(migrated_file_ids)} files from nodes.")
