@@ -424,12 +424,8 @@ class DatapointSubscriptionLoader(
         Note this is the total of time series IDs and instance IDs.
         """
         total_timeseries = len(subscription.time_series_ids or []) + len(subscription.instance_ids or [])
-        if total_timeseries > cls._MAX_TIMESERIES_IDS:
-            raise ToolkitValueError(
-                f'Subscription "{subscription.external_id}" has {total_timeseries:,} time series, '
-                f"which is more than the limit of {cls._MAX_TIMESERIES_IDS:,}."
-            )
-        elif total_timeseries <= cls._TIMESERIES_ID_REQUEST_LIMIT:
+        cls._validate_total_below_limit(subscription, total_timeseries)
+        if total_timeseries <= cls._TIMESERIES_ID_REQUEST_LIMIT:
             # If the subscription has less than or equal to 100 time series IDs, we can return it as is.
             # No need to split into batches.
             return subscription, []
@@ -465,6 +461,14 @@ class DatapointSubscriptionLoader(
         return to_create, batches
 
     @classmethod
+    def _validate_total_below_limit(cls, subscription: DataPointSubscriptionWrite, total_timeseries: int) -> None:
+        if total_timeseries > cls._MAX_TIMESERIES_IDS:
+            raise ToolkitValueError(
+                f'Subscription "{subscription.external_id}" has {total_timeseries:,} time series, '
+                f"which is more than the limit of {cls._MAX_TIMESERIES_IDS:,}."
+            )
+
+    @classmethod
     def _split_ts_instance_ids(
         cls, ids: list[tuple[Literal["ts"], str] | tuple[Literal["instance"], NodeId]]
     ) -> tuple[list[str], list[NodeId]]:
@@ -494,11 +498,7 @@ class DatapointSubscriptionLoader(
             # The subscription is using a filter, so we can return it as is.
             return subscription, []
         total_timeseries = len(subscription.time_series_ids or []) + len(subscription.instance_ids or [])
-        if total_timeseries > cls._MAX_TIMESERIES_IDS:
-            raise ToolkitValueError(
-                f'Subscription "{subscription.external_id}" has {total_timeseries:,} time series, '
-                f"which is more than the limit of {cls._MAX_TIMESERIES_IDS:,}."
-            )
+        cls._validate_total_below_limit(subscription, total_timeseries)
 
         # Serialization to create a copy of the subscription
         to_update = DataPointSubscriptionWrite.load(subscription.dump())
