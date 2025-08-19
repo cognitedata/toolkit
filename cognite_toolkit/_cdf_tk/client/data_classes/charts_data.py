@@ -40,7 +40,7 @@ class UserInfo(ChartObject):
 @dataclass
 class ChartSettings(ChartObject):
     show_y_axis: bool = True
-    show_x_axis: bool = True
+    show_min_max: bool = True
     show_gridlines: bool = True
     merge_units: bool = False
 
