@@ -184,7 +184,7 @@ class ChartData(ChartObject):
     date_to: str
     user_info: UserInfo
     live_model: bool
-    time_series_collection: list[ChartCoreTimeseries]
+    time_series_collection: list[ChartTimeseries]
     core_timeseries_collection: list[ChartCoreTimeseries]
     workflow_collection: list[ChartWorkflow]
     source_collection: list[ChartSource]
