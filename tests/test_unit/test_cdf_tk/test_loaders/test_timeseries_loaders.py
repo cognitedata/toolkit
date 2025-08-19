@@ -102,12 +102,15 @@ class TestDatapointSubscriptionLoader:
             [
                 TimeSeriesID(id=1, external_id="timeseries_1", instance_id=NodeId("my_space", "node_1")),
                 TimeSeriesID(id=1, external_id="timeseries_2", instance_id=NodeId("my_space", "node_2")),
+                TimeSeriesID(id=1, external_id="timeseries_3", instance_id=NodeId("my_space", "node_3")),
+                TimeSeriesID(id=1, external_id="timeseries_4", instance_id=NodeId("my_space", "node_4")),
             ]
         )
         sub = DataPointSubscriptionWrite(
             external_id="mySub",
             partition_count=1,
-            instance_ids=[NodeId("my_space", "node_1")],
+            instance_ids=[NodeId("my_space", "node_1"), NodeId("my_space", "node_4")],
+            time_series_ids=["timeseries_3", "timeseries_4"],
         )
         _, batches = DatapointSubscriptionLoader.update_split_timeseries_ids(sub, current)
 
