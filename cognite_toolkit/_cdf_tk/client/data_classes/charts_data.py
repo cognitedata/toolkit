@@ -46,6 +46,41 @@ class ChartSettings(ChartObject):
 
 
 @dataclass
+class ThresholdFilter(ChartObject):
+    min_unit: str
+    max_unit: str
+
+
+@dataclass
+class ChartCall(ChartObject):
+    id: str
+    hash: int
+    call_id: str
+    call_date: int
+    status: str
+
+
+@dataclass
+class SubSetting(ChartObject):
+    auto_align: bool
+
+
+@dataclass
+class FlowElement(ChartObject):
+    id: str
+    type: str
+    position: tuple[float, float]
+    data: dict[str, object]
+
+
+@dataclass
+class Flow(ChartObject):
+    zoom: float
+    elements: list[FlowElement]
+    position: tuple[float, float]
+
+
+@dataclass
 class ChartSource(ChartObject):
     type: str
     id: str
@@ -70,6 +105,78 @@ class ChartCoreTimeseries(ChartObject):
 
 
 @dataclass
+class ChartTimeseries(ChartObject):
+    type: str
+    id: str
+    name: str
+    color: str
+    tsId: int
+    tsExternalId: str
+    line_weight: int
+    line_style: str
+    interpolation: str
+    display_mode: str
+    enabled: bool
+    unit: str
+    original_unit: str
+    preferred_unit: str
+    description: str
+    created_at: int
+    range: tuple[float | None, float | None] = (None, None)
+
+
+@dataclass
+class ChartWorkflow(ChartObject):
+    type: str
+    version: str
+    id: str
+    name: str
+    color: str
+    enabled: bool
+    settings: SubSetting
+    line_weight: int
+    line_style: str
+    interpolation: str
+    unit: str
+    preferred_unit: str
+    created_at: int
+    flow: Flow
+    calls: list[ChartCall]
+
+
+@dataclass
+class ChartThreshold(ChartObject):
+    id: str
+    name: str
+    visible: bool
+    source_id: str
+    upper_limit: float
+    type: str
+    filter: ThresholdFilter
+    calls: list[ChartCall]
+
+
+@dataclass
+class ChartScheduledCalculation(ChartObject):
+    version: str
+    type: str
+    id: str
+    name: str
+    color: str
+    settings: SubSetting
+    enabled: bool
+    description: str
+    line_weight: int
+    line_style: str
+    interpolation: str
+    unit: str
+    preferred_unit: str
+    created_at: int
+    flow: Flow
+    range: tuple[float | None, float | None] = (None, None)
+
+
+@dataclass
 class ChartData(ChartObject):
     version: int
     name: str
@@ -77,10 +184,10 @@ class ChartData(ChartObject):
     date_to: str
     user_info: UserInfo
     live_model: bool
-    time_series_collection: list[object]
+    time_series_collection: list[ChartCoreTimeseries]
     core_timeseries_collection: list[ChartCoreTimeseries]
-    workflow_collection: list[object]
+    workflow_collection: list[ChartWorkflow]
     source_collection: list[ChartSource]
-    threshold_collection: list[object]
-    scheduled_calculation_collection: list[object]
+    threshold_collection: list[ChartThreshold]
+    scheduled_calculation_collection: list[ChartScheduledCalculation]
     settings: ChartSettings
