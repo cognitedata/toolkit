@@ -3,7 +3,7 @@ import json
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from datetime import date, datetime
-from typing import ClassVar
+from typing import ClassVar, Literal, overload
 
 from cognite.client.data_classes import Label, LabelDefinition
 from cognite.client.data_classes.data_modeling import ContainerId
@@ -14,7 +14,7 @@ from dateutil import parser
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
-from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentric, DataType
+from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentric, DataType, JsonVal, PrimaryPythonTypes
 
 from .collection import humanize_collection
 
@@ -114,8 +114,29 @@ def convert_str_to_data_type(
         return converter.convert(value)  # type: ignore[return-value]
 
 
-def infer_data_type_from_value(value: str) -> tuple[DataType, str | int | float | bool | datetime | date | dict | list]:
-    for converter_cls in [
+@overload
+def infer_data_type_from_value(value: str, dtype: Literal["Json"]) -> tuple[DataType, JsonVal]: ...
+
+
+@overload
+def infer_data_type_from_value(value: str, dtype: Literal["Python"]) -> tuple[DataType, PrimaryPythonTypes]: ...
+
+
+def infer_data_type_from_value(
+    value: str, dtype: Literal["Json", "Python"]
+) -> tuple[DataType, JsonVal | PrimaryPythonTypes]:
+    """Infer the data type from a given value.
+
+    Args:
+        value: The value to infer the data type from, which can be a string, int, float, bool, dict, or list.
+        dtype: The data type to infer. Can be "JsonVal" or "Python". Python type will infer datetime and date types
+            as well.
+
+    Returns:
+        A tuple containing the inferred data type and the converted value.
+
+    """
+    converter_classes = [
         _Int64Converter,
         _Float64Converter,
         _TimestampConverter,
@@ -123,7 +144,11 @@ def infer_data_type_from_value(value: str) -> tuple[DataType, str | int | float 
         _BooleanConverter,
         _JsonConverter,
         _TextConverter,
-    ]:
+    ]
+    if dtype == "Json":
+        converter_classes.remove(_TimestampConverter)
+        converter_classes.remove(_DateConverter)
+    for converter_cls in converter_classes:
         # MyPy thinks that converter_cls can be abstract, but it is not
         converter = converter_cls(nullable=False)  # type: ignore[abstract]
         try:
