@@ -114,8 +114,28 @@ def convert_str_to_data_type(
         return converter.convert(value)  # type: ignore[return-value]
 
 
-def infer_data_type_from_value(value: str | None) -> str:
-    raise NotImplementedError()
+def infer_data_type_from_value(value: str) -> tuple[DataType, str | int | float | bool | datetime | date | dict | list]:
+    for converter_cls in [
+        _Int64Converter,
+        _Float64Converter,
+        _DateConverter,
+        _TimestampConverter,
+        _BooleanConverter,
+        _JsonConverter,
+        _TextConverter,
+    ]:
+        # MyPy thinks that converter_cls can be abstract, but it is not
+        converter = converter_cls(nullable=False)  # type: ignore[abstract]
+        try:
+            converted_value = converter.convert(value)
+        except ValueError:
+            continue
+        return converter_cls.schema_type, converted_value  # type: ignore[return-value]
+
+    raise ValueError(
+        f"Failed to infer data type from value: {value!r}. Supported types are: "
+        f"{humanize_collection(DATATYPE_CONVERTER_BY_DATA_TYPE.keys())}."
+    )
 
 
 def _as_list(value: str | int | float | bool | dict[str, object] | list[object] | None) -> list[object]:
