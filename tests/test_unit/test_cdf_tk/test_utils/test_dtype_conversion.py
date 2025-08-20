@@ -20,8 +20,11 @@ from cognite.client.data_classes.data_modeling.data_types import (
 from cognite.client.data_classes.data_modeling.instances import PropertyValueWrite
 
 from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     CONVERTER_BY_DTYPE,
+    DATATYPE_CONVERTER_BY_DATA_TYPE,
+    _ValueConverter,
     asset_centric_convert_to_primary_property,
     convert_str_to_data_type,
     convert_to_primary_property,
@@ -488,24 +491,23 @@ class TestConvertToContainerProperty:
 
 
 class TestConvertStringToDataType:
-    @pytest.mark.parametrize(
-        "value, data_type, expected_value",
-        [
-            pytest.param("string_value", "string", "string_value", id="String to Text"),
-            pytest.param("42", "integer", 42, id="String to integer"),
-            pytest.param("3.14", "float", 3.14, id="String to float"),
-            pytest.param("true", "boolean", True, id="String 'true' to Boolean"),
-            pytest.param("false", "boolean", False, id="String 'false' to Boolean"),
-            pytest.param('{"key": "value"}', "json", {"key": "value"}, id="Stringified dict to Json"),
-            pytest.param(
-                "2025-07-22T12:34:56Z",
-                "timestamp",
-                datetime(2025, 7, 22, 12, 34, 56, tzinfo=timezone.utc),
-                id="ISO timestamp to Timestamp",
-            ),
-            pytest.param("2025-07-22", "date", date(2025, 7, 22), id="ISO date to Date"),
-        ],
+    TEST_CASES = (
+        pytest.param("string_value", "string", "string_value", id="String to Text"),
+        pytest.param("42", "integer", 42, id="String to integer"),
+        pytest.param("3.14", "float", 3.14, id="String to float"),
+        pytest.param("true", "boolean", True, id="String 'true' to Boolean"),
+        pytest.param("false", "boolean", False, id="String 'false' to Boolean"),
+        pytest.param('{"key": "value"}', "json", {"key": "value"}, id="Stringified dict to Json"),
+        pytest.param(
+            "2025-07-22T12:34:56Z",
+            "timestamp",
+            datetime(2025, 7, 22, 12, 34, 56, tzinfo=timezone.utc),
+            id="ISO timestamp to Timestamp",
+        ),
+        pytest.param("2025-07-22", "date", date(2025, 7, 22), id="ISO date to Date"),
     )
+
+    @pytest.mark.parametrize("value, data_type, expected_value", TEST_CASES)
     def test_convert(
         self,
         value: str | None,
@@ -517,3 +519,29 @@ class TestConvertStringToDataType:
             assert result == pytest.approx(expected_value), f"Expected {expected_value}, but got {result}"
         else:
             assert result == expected_value, f"Expected {expected_value}, but got {result}"
+
+    @pytest.mark.parametrize("value, data_type, expected_value", TEST_CASES)
+    def test_convert_array(
+        self,
+        value: str | None,
+        data_type: DataType,
+        expected_value: str | int | float | bool | dict | list | datetime | date | None,
+    ) -> None:
+        result = convert_str_to_data_type(value, data_type, is_array=True)
+        if isinstance(expected_value, float):
+            assert result == pytest.approx([expected_value]), f"Expected [{expected_value}], but got {result}"
+        else:
+            assert result == [expected_value], f"Expected [{expected_value}], but got {result}"
+
+    def test_all_data_type_converters_registered(self) -> None:
+        """Checks that all property types that are in the cognite-sdk have a corresponding converter."""
+        existing_converters = {
+            cls_.schema_type for cls_ in get_concrete_subclasses(_ValueConverter) if cls_.schema_type is not None
+        }
+
+        missing_converters = existing_converters - set(DATATYPE_CONVERTER_BY_DATA_TYPE.keys())
+
+        assert not missing_converters, (
+            f"Missing converters for types: {humanize_collection(missing_converters)}. "
+            "Please ensure all property types have a corresponding converter."
+        )
