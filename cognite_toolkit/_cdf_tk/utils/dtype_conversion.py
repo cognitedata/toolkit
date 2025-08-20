@@ -2,7 +2,8 @@ import ctypes
 import json
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
-from typing import ClassVar, Literal, TypeAlias, cast
+from datetime import datetime
+from typing import ClassVar, Literal, overload
 
 from cognite.client.data_classes import Label, LabelDefinition
 from cognite.client.data_classes.data_modeling import ContainerId
@@ -13,6 +14,7 @@ from dateutil import parser
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
+from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentric, DataType, JsonVal, PythonTypes
 
 from .collection import humanize_collection
 
@@ -20,8 +22,6 @@ INT32_MIN = -2_147_483_648
 INT32_MAX = 2_147_483_647
 INT64_MIN = -9_223_372_036_854_775_808
 INT64_MAX = 9_223_372_036_854_775_807
-
-AssetCentric: TypeAlias = Literal["asset", "file", "event", "timeseries", "sequence"]
 
 
 def asset_centric_convert_to_primary_property(
@@ -57,7 +57,13 @@ def convert_to_primary_property(
         converter_cls = CONVERTER_BY_DTYPE[dtype]
     else:
         raise TypeError(f"Unsupported property type {dtype}")
-    converter = converter_cls(type_, nullable)
+    if issubclass(converter_cls, _EnumConverter) and isinstance(type_, Enum):
+        converter: _ValueConverter = _EnumConverter(type_=type_, nullable=nullable)
+    elif issubclass(converter_cls, _EnumConverter):
+        raise TypeError(f"Unsupported property type {type_} for enum conversion")
+    else:
+        converter = converter_cls(nullable)
+
     if isinstance(type_, ListablePropertyType) and type_.is_list:
         values = _as_list(value)
         output: list[PropertyValueWrite] = []
@@ -69,6 +75,110 @@ def convert_to_primary_property(
         return output  # type: ignore[return-value]
     else:
         return converter.convert(value)
+
+
+def convert_str_to_data_type(
+    value: str | None,
+    type_: DataType,
+    nullable: bool = True,
+    is_array: bool = False,
+) -> PythonTypes | None:
+    """Convert a string value to the appropriate data type based on the provided type.
+
+    Args:
+        value: The value to convert, which can be a string or None.
+        type_: The target data type.
+        nullable: Whether data type can be null.
+        is_array: Whether the data type is an array.
+
+    Returns:
+        The converted value as a string, int, float, bool, datetime, date, dict, list, or None.
+
+    """
+    if type_ not in DATATYPE_CONVERTER_BY_DATA_TYPE:
+        raise ValueError(
+            f"Unsupported data type {type_}. Available types: {humanize_collection(DATATYPE_CONVERTER_BY_DATA_TYPE.keys())}."
+        )
+    converter_cls = DATATYPE_CONVERTER_BY_DATA_TYPE[type_]
+    converter = converter_cls(nullable)
+    if is_array:
+        values = _as_list(value)
+        output: list[PythonTypes] = []
+        for item in values:
+            converted = converter.convert(item)  # type: ignore[arg-type]
+            if converted is not None:
+                output.append(converted)  # type: ignore[arg-type]
+        # MyPy gets confused by the SequenceNotStr used in the PropertyValueWrite
+        return output  # type: ignore[return-value]
+    else:
+        return converter.convert(value)  # type: ignore[return-value]
+
+
+@overload
+def infer_data_type_from_value(value: str, dtype: Literal["Json"]) -> tuple[DataType, JsonVal]: ...
+
+
+@overload
+def infer_data_type_from_value(value: str, dtype: Literal["Python"]) -> tuple[DataType, PythonTypes]: ...
+
+
+def infer_data_type_from_value(value: str, dtype: Literal["Json", "Python"]) -> tuple[DataType, JsonVal | PythonTypes]:
+    """Infer the data type from a given value.
+
+    Args:
+        value: The value to infer the data type from, which can be a string.
+        dtype: The data type to infer. Can be "JsonVal" or "Python". Python type will infer datetime and date types
+            as well.
+
+    Returns:
+        A tuple containing the inferred data type and the converted value.
+
+    """
+    converter_classes = (
+        _Int64Converter,
+        _Float64Converter,
+        _TimestampConverter,
+        _DateConverter,
+        _BooleanConverter,
+        _JsonConverter,
+        _TextConverter,
+    )
+    converters_to_use = (
+        tuple(
+            converter_cls
+            for converter_cls in converter_classes
+            if converter_cls not in {_TimestampConverter, _DateConverter}
+        )
+        if dtype == "Json"
+        else converter_classes
+    )
+    for converter_cls in converters_to_use:
+        # MyPy thinks that converter_cls can be abstract, but it is not
+        converter = converter_cls(nullable=False)  # type: ignore[abstract]
+        try:
+            converted_value = converter.convert(value)
+        except ValueError:
+            continue
+
+        if (
+            converter_cls is _TimestampConverter
+            and isinstance(converted_value, datetime)
+            and _is_midnight_and_naive(converted_value)
+        ):
+            # If the converted value is a datetime with no time component, return it as a date
+            return _DateConverter.schema_type, converted_value.date()  # type: ignore[return-value]
+        else:
+            return converter_cls.schema_type, converted_value  # type: ignore[return-value]
+
+    raise ValueError(
+        f"Failed to infer data type from value: {value!r}. Supported types are: "
+        f"{humanize_collection(DATATYPE_CONVERTER_BY_DATA_TYPE.keys())}."
+    )
+
+
+def _is_midnight_and_naive(dt: datetime) -> bool:
+    """Checks if a datetime object is at midnight and is naive (has no timezone)."""
+    return not (dt.hour or dt.minute or dt.second or dt.microsecond or dt.tzinfo)
 
 
 def _as_list(value: str | int | float | bool | dict[str, object] | list[object] | None) -> list[object]:
@@ -100,10 +210,10 @@ class _Converter(ABC):
 
 class _ValueConverter(_Converter, ABC):
     type_str: ClassVar[str]
+    schema_type: ClassVar[DataType | None] = None
     _handles_list: ClassVar[bool] = False
 
-    def __init__(self, type_: PropertyType, nullable: bool):
-        self.type = type_
+    def __init__(self, nullable: bool):
         self.nullable = nullable
 
     def convert(self, value: str | int | float | bool | dict | list | None) -> PropertyValueWrite:
@@ -175,6 +285,7 @@ class _FileLabelConverter(_LabelConverter):
 
 class _TextConverter(_ValueConverter):
     type_str = "text"
+    schema_type = "string"
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
         return str(value)
@@ -182,6 +293,7 @@ class _TextConverter(_ValueConverter):
 
 class _BooleanConverter(_ValueConverter):
     type_str = "boolean"
+    schema_type = "boolean"
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
         if isinstance(value, bool | int | float):
@@ -214,6 +326,7 @@ class _Int32Converter(_ValueConverter):
 
 class _Int64Converter(_ValueConverter):
     type_str = "int64"
+    schema_type = "integer"
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
         if isinstance(value, int):
@@ -254,6 +367,7 @@ class _Float32Converter(_ValueConverter):
 
 class _Float64Converter(_ValueConverter):
     type_str = "float64"
+    schema_type = "float"
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
         if isinstance(value, float | int):
@@ -272,6 +386,7 @@ class _Float64Converter(_ValueConverter):
 
 class _JsonConverter(_ValueConverter):
     type_str = "json"
+    schema_type = "json"
     _handles_list = True
 
     def _convert(self, value: str | int | float | bool | dict[str, object] | list) -> PropertyValueWrite:
@@ -297,6 +412,7 @@ class _JsonConverter(_ValueConverter):
 
 class _TimestampConverter(_ValueConverter):
     type_str = "timestamp"
+    schema_type = "timestamp"
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
         if isinstance(value, int | float):
@@ -314,6 +430,7 @@ class _TimestampConverter(_ValueConverter):
 
 class _DateConverter(_ValueConverter):
     type_str = "date"
+    schema_type = "date"
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
         if isinstance(value, str):
@@ -327,14 +444,16 @@ class _DateConverter(_ValueConverter):
 class _EnumConverter(_ValueConverter):
     type_str = "enum"
 
+    def __init__(self, type_: Enum, nullable: bool) -> None:
+        super().__init__(nullable)
+        self.available_types = {enum_value.casefold(): enum_value for enum_value in type_.values.keys()}
+
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
-        type_ = cast(Enum, self.type)
-        available_types = {enum_value.casefold(): enum_value for enum_value in type_.values.keys()}
         value = str(value).casefold()
-        if value in available_types:
-            return available_types[value]
+        if value in self.available_types:
+            return self.available_types[value]
         raise ValueError(
-            f"Value {value!r} is not a valid enum value. Available values: {humanize_collection(available_types.values())}"
+            f"Value {value!r} is not a valid enum value. Available values: {humanize_collection(self.available_types.values())}"
         )
 
 
@@ -376,4 +495,9 @@ SPECIAL_CONVERTER_BY_SOURCE_DESTINATION: Mapping[
 ] = {
     (subclass.source_property, subclass.destination_container_property): subclass
     for subclass in get_concrete_subclasses(_SpecialCaseConverter)  # type: ignore[type-abstract]
+}
+DATATYPE_CONVERTER_BY_DATA_TYPE: Mapping[DataType, type[_ValueConverter]] = {
+    cls_.schema_type: cls_
+    for cls_ in get_concrete_subclasses(_ValueConverter)  # type: ignore[type-abstract]
+    if cls_.schema_type is not None
 }

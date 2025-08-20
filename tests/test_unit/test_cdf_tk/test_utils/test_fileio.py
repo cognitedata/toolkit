@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import (
     FILE_WRITE_CLS_BY_FORMAT,
     Chunk,
     Compression,
+    CSVReader,
     FileReader,
     FileWriter,
     NoneCompression,
@@ -318,3 +319,56 @@ class TestFileIO:
             {key: value for key, value in chunk.items() if value is not None} for chunk in reader.read_chunks()
         ]
         assert read_chunks == chunks[mid:]
+
+
+class TestCSVReader:
+    CSV_CONTENT = """text,integer,nested,boolean,float
+value1,123,"{""key"": ""value""}",true,3.14
+value2,456,"{""key"": ""value2""}",false,2.71
+,,,,
+value3,789,"{""key"": ""value3""}",true,1.41
+310,false,31.2,text,20
+"""
+    EXPECTED_SCHEMA = (
+        SchemaColumn(name="text", type="string"),
+        SchemaColumn(name="integer", type="integer"),
+        SchemaColumn(name="nested", type="json"),
+        SchemaColumn(name="boolean", type="boolean"),
+        SchemaColumn(name="float", type="float"),
+    )
+
+    def test_sniff_schema(self, tmp_path: Path) -> None:
+        csv_path = tmp_path / "test.csv"
+        csv_path.write_text(self.CSV_CONTENT, encoding="utf-8")
+
+        schema = CSVReader.sniff_schema(csv_path, sniff_rows=100)
+
+        assert schema == list(self.EXPECTED_SCHEMA)
+
+    def test_read_with_schema(self, tmp_path: Path) -> None:
+        csv_path = tmp_path / "test.csv"
+        csv_path.write_text(self.CSV_CONTENT, encoding="utf-8")
+
+        reader = CSVReader(csv_path, schema=list(self.EXPECTED_SCHEMA))
+        chunks = list(reader.read_chunks())
+
+        assert len(chunks) == 5
+        assert chunks == [
+            {
+                "text": "value1",
+                "integer": 123,
+                "nested": {"key": "value"},
+                "boolean": True,
+                "float": 3.14,
+            },
+            {
+                "text": "value2",
+                "integer": 456,
+                "nested": {"key": "value2"},
+                "boolean": False,
+                "float": 2.71,
+            },
+            {"boolean": None, "float": None, "integer": None, "nested": None, "text": None},
+            {"boolean": True, "float": 1.41, "integer": 789, "nested": {"key": "value3"}, "text": "value3"},
+            {"boolean": None, "float": 20.0, "integer": None, "nested": 31.2, "text": "310"},
+        ]
