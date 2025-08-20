@@ -2,7 +2,7 @@ import ctypes
 import json
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
-from typing import ClassVar, Literal, TypeAlias, cast
+from typing import ClassVar, cast
 
 from cognite.client.data_classes import Label, LabelDefinition
 from cognite.client.data_classes.data_modeling import ContainerId
@@ -13,6 +13,7 @@ from dateutil import parser
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
+from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentric
 
 from .collection import humanize_collection
 
@@ -20,8 +21,6 @@ INT32_MIN = -2_147_483_648
 INT32_MAX = 2_147_483_647
 INT64_MIN = -9_223_372_036_854_775_808
 INT64_MAX = 9_223_372_036_854_775_807
-
-AssetCentric: TypeAlias = Literal["asset", "file", "event", "timeseries", "sequence"]
 
 
 def asset_centric_convert_to_primary_property(
