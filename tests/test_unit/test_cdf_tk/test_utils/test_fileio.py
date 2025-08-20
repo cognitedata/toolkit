@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import (
     FILE_WRITE_CLS_BY_FORMAT,
     Chunk,
     Compression,
+    CSVReader,
     FileReader,
     FileWriter,
     NoneCompression,
@@ -318,3 +319,26 @@ class TestFileIO:
             {key: value for key, value in chunk.items() if value is not None} for chunk in reader.read_chunks()
         ]
         assert read_chunks == chunks[mid:]
+
+
+class TestCSVReader:
+    def test_sniff_schema(self, tmp_path: Path) -> None:
+        csv_content = """text,integer,nested,boolean,float
+value1,123,"{""key"": ""value""}",true,3.14
+value2,456,"{""key"": ""value2""}",false,2.71
+,,,,
+value3,789,"{""key"": ""value3""}",true,1.41
+310,false,31.2,text,20
+        """
+        csv_path = tmp_path / "test.csv"
+        csv_path.write_text(csv_content, encoding="utf-8")
+
+        schema = CSVReader.sniff_schema(csv_path, sniff_rows=100)
+
+        assert schema == [
+            SchemaColumn(name="text", type="string"),
+            SchemaColumn(name="integer", type="integer"),
+            SchemaColumn(name="nested", type="json"),
+            SchemaColumn(name="boolean", type="boolean"),
+            SchemaColumn(name="float", type="float"),
+        ]
