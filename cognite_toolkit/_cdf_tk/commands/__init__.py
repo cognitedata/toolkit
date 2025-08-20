@@ -1,3 +1,4 @@
+from ._download import DownloadCommand
 from ._migrate import (
     MigrateAssetsCommand,
     MigrateFilesCommand,
@@ -28,6 +29,7 @@ __all__ = [
     "CleanCommand",
     "CollectCommand",
     "DeployCommand",
+    "DownloadCommand",
     "DumpDataCommand",
     "DumpResourceCommand",
     "FeatureFlagCommand",
