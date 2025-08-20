@@ -551,5 +551,11 @@ class TestInferDataTypeFromValue:
 
     @pytest.mark.parametrize("value, expected_type", TEST_CASES)
     def test_infer_data_type_from_value(self, value: str, expected_type: str) -> None:
-        result, _ = infer_data_type_from_value(value)
+        result, _ = infer_data_type_from_value(value, dtype="Python")
+        assert result == expected_type, f"Expected {expected_type}, but got {result}"
+
+    @pytest.mark.parametrize("value, expected_type", TEST_CASES)
+    def test_infer_data_type_from_value_json(self, value: str, expected_type: str) -> None:
+        expected_type = {"timestamp": "string", "date": "string"}.get(expected_type, expected_type)
+        result, _ = infer_data_type_from_value(value, dtype="Json")
         assert result == expected_type, f"Expected {expected_type}, but got {result}"
