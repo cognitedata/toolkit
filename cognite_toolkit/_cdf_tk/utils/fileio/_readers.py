@@ -1,7 +1,9 @@
 import csv
 import json
 from abc import ABC, abstractmethod
-from collections.abc import Iterator, Mapping
+from collections import Counter, defaultdict
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from functools import partial
 from io import TextIOWrapper
 from pathlib import Path
 
@@ -10,9 +12,10 @@ import yaml
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
-from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
+from cognite_toolkit._cdf_tk.utils.dtype_conversion import convert_str_to_data_type, infer_data_type_from_value
+from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal, PrimaryPythonTypes
 
-from ._base import FileIO
+from ._base import FileIO, SchemaColumn
 from ._compression import COMPRESSION_BY_SUFFIX, Compression
 
 
@@ -76,33 +79,82 @@ class YMLReader(YAMLBaseReader):
 
 
 class CSVReader(FileReader):
+    """Reads CSV files and yields each row as a dictionary.
+
+    Args:
+        input_file (Path): The path to the CSV file to read.
+        sniff_rows (int | None): Optional number of rows to sniff for
+            schema detection. If None, no schema is detected. If a schema is sniffed
+            from the first `sniff_rows` rows, it will be used to parse the CSV.
+
+    """
+
     format = ".csv"
+
+    def __init__(
+        self, input_file: Path, sniff_rows: int | None = None, schema: Sequence[SchemaColumn] | None = None
+    ) -> None:
+        super().__init__(input_file)
+        if sniff_rows is not None and schema is not None:
+            raise ValueError("Cannot specify both `sniff_rows` and `schema`. Use one or the other.")
+        elif sniff_rows is not None and schema is None:
+            self.schema: Sequence[SchemaColumn] | None = self.sniff_schema(input_file, sniff_rows)
+        else:
+            self.schema = schema
+        self.sniff_rows = sniff_rows
+        self.parse_function_by_column = self._create_parse_functions(self.schema)
+
+    @classmethod
+    def _create_parse_functions(
+        cls, schema: Sequence[SchemaColumn] | None
+    ) -> dict[str, Callable[[str | None], PrimaryPythonTypes]]:
+        """Create a dictionary of parse functions for each column in the schema."""
+        parse_function_by_column: dict[str, Callable[[str | None], PrimaryPythonTypes]] = defaultdict(
+            lambda: cls._default_parse_function
+        )
+        if schema is not None:
+            for column in schema:
+                parse_function_by_column[column.name] = partial(  # type: ignore[assignment]
+                    convert_str_to_data_type, type_=column.type, nullable=True, is_array=False
+                )
+        return parse_function_by_column
+
+    @staticmethod
+    def _default_parse_function(value: str | None) -> PrimaryPythonTypes | None:
+        if value is None:
+            return None
+        return infer_data_type_from_value(value)[1]
+
+    @classmethod
+    def sniff_schema(cls, input_file: Path, sniff_rows: int) -> Sequence[SchemaColumn]:
+        """Sniff the schema from the first `sniff_rows` rows of the CSV file."""
+        if sniff_rows <= 0:
+            raise ValueError("`sniff_rows` must be a positive integer.")
+
+        with input_file.open("r", encoding="utf-8") as file:
+            reader = csv.DictReader(file)
+            sample_rows = [next(reader) for _ in range(sniff_rows)]
+            if not sample_rows:
+                raise ValueError(f"No data found in the file: {input_file}")
+
+            columns = set(sample_rows[0].keys())
+            schema = []
+            for column in columns:
+                sample_values = [row[column] for row in sample_rows if column in row]
+                if not sample_values:
+                    column = SchemaColumn(name=column, type="string")
+                else:
+                    data_types = Counter(
+                        infer_data_type_from_value(value)[0] for value in sample_values if value is not None
+                    )
+                    inferred_type = data_types.most_common()[0][0]
+                    column = SchemaColumn(name=column, type=inferred_type)
+                schema.append(column)
+        return schema
 
     def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[JsonVal]:
         for row in csv.DictReader(file):
-            yield {key: self._parse_value(value) for key, value in row.items()}
-
-    @staticmethod
-    def _parse_value(value: str) -> JsonVal:
-        """Parse a string value into its appropriate type."""
-        if value == "":
-            return None
-        try:
-            # Try parsing as JSON (for lists, dicts, true, false, null, numbers)
-            return json.loads(value)
-        except (json.JSONDecodeError, TypeError):
-            pass
-        try:
-            return int(value)
-        except ValueError:
-            pass
-        try:
-            return float(value)
-        except ValueError:
-            pass
-        if value.lower() in ("true", "false"):
-            return value.lower() == "true"
-        return value
+            yield {key: self.parse_function_by_column[key] for key, value in row.items()}
 
 
 class ParquetReader(FileReader):
