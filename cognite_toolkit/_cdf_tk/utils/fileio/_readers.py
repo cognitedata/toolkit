@@ -168,6 +168,9 @@ class CSVReader(FileReader):
         for row in csv.DictReader(file):
             parsed: JsonVal = {}
             for key, value in row.items():
+                if value == "":
+                    parsed[key] = None  # type: ignore[index]
+                    continue
                 try:
                     parsed[key] = self.parse_function_by_column[key](value)  # type: ignore[index]
                 except ValueError:
