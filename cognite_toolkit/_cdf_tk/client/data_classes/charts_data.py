@@ -1,9 +1,15 @@
+import sys
 from dataclasses import dataclass, field, fields
-from typing import Any, Self
+from typing import Any
 
 from cognite.client import CogniteClient
 from cognite.client.data_classes._base import CogniteObject
 from cognite.client.data_classes.data_modeling import NodeId, ViewId
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 
 @dataclass
