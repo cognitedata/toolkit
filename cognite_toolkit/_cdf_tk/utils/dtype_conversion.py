@@ -118,8 +118,8 @@ def infer_data_type_from_value(value: str) -> tuple[DataType, str | int | float 
     for converter_cls in [
         _Int64Converter,
         _Float64Converter,
-        _DateConverter,
         _TimestampConverter,
+        _DateConverter,
         _BooleanConverter,
         _JsonConverter,
         _TextConverter,
@@ -130,7 +130,23 @@ def infer_data_type_from_value(value: str) -> tuple[DataType, str | int | float 
             converted_value = converter.convert(value)
         except ValueError:
             continue
-        return converter_cls.schema_type, converted_value  # type: ignore[return-value]
+        if (
+            converter_cls is _TimestampConverter
+            and isinstance(converted_value, datetime)
+            and not any(
+                [
+                    converted_value.hour,
+                    converted_value.minute,
+                    converted_value.second,
+                    converted_value.microsecond,
+                    converted_value.tzinfo,
+                ]
+            )
+        ):
+            # If the converted value is a datetime with no time component, return it as a date
+            return _DateConverter.schema_type, converted_value.date()  # type: ignore[return-value]
+        else:
+            return converter_cls.schema_type, converted_value  # type: ignore[return-value]
 
     raise ValueError(
         f"Failed to infer data type from value: {value!r}. Supported types are: "
