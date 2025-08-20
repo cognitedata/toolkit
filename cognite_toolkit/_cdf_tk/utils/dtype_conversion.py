@@ -14,7 +14,6 @@ from dateutil import parser
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
-from cognite_toolkit._cdf_tk.utils.fileio._base import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentric, DataType
 
 from .collection import humanize_collection
@@ -115,7 +114,7 @@ def convert_str_to_data_type(
         return converter.convert(value)  # type: ignore[return-value]
 
 
-def infer_data_type_from_value(value: str | None) -> SchemaColumn:
+def infer_data_type_from_value(value: str | None) -> str:
     raise NotImplementedError()
 
 
