@@ -117,7 +117,7 @@ class TestChartDTOs:
         """Test that Chart can be serialized and deserialized correctly."""
         instance = FakeCogniteResourceGenerator(seed=42).create_instance(ChartData)
 
-        dumped = instance.dump(camel_case=False)
+        dumped = instance.dump(camel_case=True)
 
         loaded = ChartData._load(dumped)
 
