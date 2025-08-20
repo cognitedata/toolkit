@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import SupportsIndex, overload
 
-from cognite.client.data_classes.data_modeling import NodeId
+from cognite.client.data_classes.data_modeling import NodeId, ViewId
 
 from cognite_toolkit._cdf_tk.client.data_classes.pending_instances_ids import PendingInstanceId
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -21,10 +21,25 @@ else:
 
 @dataclass
 class MigrationMapping:
+    """The mapping between an asset-centric ID and a data modeling instance ID.
+
+    Args
+        resource_type (str): The asset-centric type of the resource (e.g., "asset", "event", "timeseries").
+        instance_id (NodeId): The target NodeId in data modeling.
+        id (int): The asset-centric ID of the resource.
+        data_set_id (int | None): The data set ID of the resource. This is used to validate access to the resource.
+        ingestion_view (str | None): The ingestion view name. This is the view mapping that will be used to
+            ingest the resource into data modeling.
+        preferred_consumer_view (ViewId | None): The preferred consumer view for the resource. This is used in
+           for example, the Canvas migration to determine which view to use for the resource.
+    """
+
     resource_type: str
     instance_id: NodeId
     id: int
     data_set_id: int | None = None
+    ingestion_view: str | None = None
+    preferred_consumer_view: ViewId | None = None
 
 
 class MigrationMappingList(list, Sequence[MigrationMapping]):
@@ -78,8 +93,8 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
         with mapping_file.open(mode="r", encoding="utf-8-sig") as f:
             csv_file = csv.reader(f)
             header = next(csv_file, None)
-            cls._validate_csv_header(header)
-            return cls._read_migration_mapping(csv_file, resource_type)
+            header = cls._validate_csv_header(header)
+            return cls._read_migration_mapping(csv_file, resource_type, header)
 
     @classmethod
     def _validate_csv_header(cls, header: list[str] | None) -> list[str]:
@@ -90,15 +105,22 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
             errors.append(
                 f"Mapping file must have at least 3 columns: id, space, externalId. Got {len(header)} columns."
             )
-        if len(header) >= 5:
+        if len(header) >= 6:
             errors.append(
-                "Mapping file must have at most 4 columns: "
-                f"id, dataSetId, space, externalId. Got {len(header)} columns."
+                "Mapping file must have at most 5 columns: "
+                f"id, dataSetId, ingestionView, space, externalId. Got {len(header)} columns."
             )
         if len(header) >= 1 and header[0] != "id":
             errors.append(f"First column must be 'id'. Got {header[0]!r}.")
-        if len(header) == 4 and header[1] != "dataSetId":
-            errors.append(f"If there are 4 columns, the second column must be 'dataSetId'. Got {header[1]!r}.")
+        if len(header) == 4 and header[2] not in ("ingestionView", "dataSetId"):
+            errors.append(
+                f"If there are 4 columns, the third column must be 'ingestionView' or 'dataSetId'. Got {header[2]!r}."
+            )
+        if len(header) == 5 and header[1:3] != ["dataSetId", "ingestionView"]:
+            errors.append(
+                f"If there are 5 columns, the second and third columns must be 'dataSetId' and 'ingestionView'. "
+                f"Got {header[1]!r} and {header[2]!r}."
+            )
         if len(header) >= 2 and header[-2:] != ["space", "externalId"]:
             errors.append(f"Last two columns must be 'space' and 'externalId'. Got {header[-2]!r} and {header[-1]!r}.")
         if errors:
@@ -107,19 +129,30 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
         return header
 
     @classmethod
-    def _read_migration_mapping(cls, csv_file: Iterator[list[str]], resource_type: str) -> Self:
+    def _read_migration_mapping(cls, csv_file: Iterator[list[str]], resource_type: str, header: list[str]) -> Self:
         """Read a CSV file with ID mappings."""
         mappings = cls()
+        ingestion_view_index = header.index("ingestionView") if "ingestionView" in header else None
         for no, row in enumerate(csv_file, 1):
             try:
                 id_ = int(row[0])
-                data_set_id = int(row[1]) if len(row) == 4 and row[1] else None
+                data_set_id = int(row[1]) if header[1] == "dataSetId" else None
             except ValueError as e:
                 raise ToolkitValueError(
                     f"Invalid ID or dataSetId in row {no}: {row}. ID and dataSetId must be integers."
                 ) from e
+            ingestion_view: str | None = None
+            if ingestion_view_index is not None and len(row) > ingestion_view_index:
+                ingestion_view = row[ingestion_view_index] if row[ingestion_view_index] else None
             instance_id = NodeId(*row[-2:])
+
             mappings.append(
-                MigrationMapping(resource_type=resource_type, id=id_, instance_id=instance_id, data_set_id=data_set_id)
+                MigrationMapping(
+                    resource_type=resource_type,
+                    id=id_,
+                    instance_id=instance_id,
+                    data_set_id=data_set_id,
+                    ingestion_view=ingestion_view,
+                )
             )
         return mappings
