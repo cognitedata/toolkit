@@ -547,10 +547,9 @@ class TestInferDataTypeFromValue:
         pytest.param('{"key": "value"}', "json", id="Stringified dict to json"),
         pytest.param("2025-07-22T12:34:56Z", "timestamp", id="ISO timestamp to timestamp"),
         pytest.param("2025-07-22", "date", id="ISO date to date"),
-        pytest.param(None, "string", id="None to string (default)"),
     )
 
     @pytest.mark.parametrize("value, expected_type", TEST_CASES)
-    def test_infer_data_type_from_value(self, value: str | None, expected_type: str) -> None:
-        result = infer_data_type_from_value(value)
+    def test_infer_data_type_from_value(self, value: str, expected_type: str) -> None:
+        result, _ = infer_data_type_from_value(value)
         assert result == expected_type, f"Expected {expected_type}, but got {result}"
