@@ -159,8 +159,12 @@ class CSVReader(FileReader):
                         for value in sample_values
                         if value is not None
                     )
-                    inferred_type = data_types.most_common()[0][0]
-                    column = SchemaColumn(name=column_name, type=inferred_type)
+                    if not data_types:
+                        inferred_type = "string"
+                    else:
+                        inferred_type = data_types.most_common()[0][0]
+                    # Json dtype is a subset of Datatype that SchemaColumn accepts
+                    column = SchemaColumn(name=column_name, type=inferred_type)  # type: ignore[arg-type]
                 schema.append(column)
         return schema
 
