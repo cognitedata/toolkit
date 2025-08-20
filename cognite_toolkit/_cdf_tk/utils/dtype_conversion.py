@@ -130,18 +130,11 @@ def infer_data_type_from_value(value: str) -> tuple[DataType, str | int | float 
             converted_value = converter.convert(value)
         except ValueError:
             continue
+
         if (
             converter_cls is _TimestampConverter
             and isinstance(converted_value, datetime)
-            and not any(
-                [
-                    converted_value.hour,
-                    converted_value.minute,
-                    converted_value.second,
-                    converted_value.microsecond,
-                    converted_value.tzinfo,
-                ]
-            )
+            and _is_midnight_and_naive(converted_value)
         ):
             # If the converted value is a datetime with no time component, return it as a date
             return _DateConverter.schema_type, converted_value.date()  # type: ignore[return-value]
@@ -152,6 +145,11 @@ def infer_data_type_from_value(value: str) -> tuple[DataType, str | int | float 
         f"Failed to infer data type from value: {value!r}. Supported types are: "
         f"{humanize_collection(DATATYPE_CONVERTER_BY_DATA_TYPE.keys())}."
     )
+
+
+def _is_midnight_and_naive(dt: datetime) -> bool:
+    """Checks if a datetime object is at midnight and is naive (has no timezone)."""
+    return not (dt.hour or dt.minute or dt.second or dt.microsecond or dt.tzinfo)
 
 
 def _as_list(value: str | int | float | bool | dict[str, object] | list[object] | None) -> list[object]:
