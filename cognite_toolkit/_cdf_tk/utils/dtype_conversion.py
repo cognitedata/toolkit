@@ -103,7 +103,7 @@ def convert_str_to_data_type(
     converter = converter_cls(nullable)
     if is_array:
         values = _as_list(value)
-        output: list[str | int | float | bool | dict | list | None] = []
+        output: list[str | int | float | bool | datetime | date | dict | list] = []
         for item in values:
             converted = converter.convert(item)  # type: ignore[arg-type]
             if converted is not None:
