@@ -126,23 +126,33 @@ class CSVReader(FileReader):
         return infer_data_type_from_value(value, "Json")[1]
 
     @classmethod
-    def sniff_schema(cls, input_file: Path, sniff_rows: int) -> Sequence[SchemaColumn]:
+    def sniff_schema(cls, input_file: Path, sniff_rows: int) -> list[SchemaColumn]:
         """Sniff the schema from the first `sniff_rows` rows of the CSV file."""
         if sniff_rows <= 0:
             raise ValueError("`sniff_rows` must be a positive integer.")
 
         with input_file.open("r", encoding="utf-8") as file:
             reader = csv.DictReader(file)
-            sample_rows = [next(reader) for _ in range(sniff_rows)]
+            sample_rows: list[dict[str, str]] = []
+            for no, row in enumerate(reader):
+                if no >= sniff_rows:
+                    break
+                sample_rows.append(row)
+
             if not sample_rows:
                 raise ValueError(f"No data found in the file: {input_file}")
 
-            columns = set(sample_rows[0].keys())
+            columns = list(sample_rows[0].keys())
+            if len(columns) != len(set(columns)):
+                raise ToolkitValueError(
+                    f"Duplicate column names found in the first {sniff_rows} rows of the file: {input_file.as_posix()!r}. "
+                    "Please ensure that all column names are unique."
+                )
             schema = []
-            for column in columns:
-                sample_values = [row[column] for row in sample_rows if column in row]
+            for column_name in columns:
+                sample_values = [row[column_name] for row in sample_rows if column_name in row]
                 if not sample_values:
-                    column = SchemaColumn(name=column, type="string")
+                    column = SchemaColumn(name=column_name, type="string")
                 else:
                     data_types = Counter(
                         infer_data_type_from_value(value, dtype="Json")[0]
@@ -150,7 +160,7 @@ class CSVReader(FileReader):
                         if value is not None
                     )
                     inferred_type = data_types.most_common()[0][0]
-                    column = SchemaColumn(name=column, type=inferred_type)
+                    column = SchemaColumn(name=column_name, type=inferred_type)
                 schema.append(column)
         return schema
 
