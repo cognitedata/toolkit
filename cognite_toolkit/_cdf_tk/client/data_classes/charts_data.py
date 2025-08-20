@@ -91,6 +91,14 @@ class Flow(ChartObject):
             data["elements"] = [el.dump(camel_case=camel_case) for el in self.elements]
         return data
 
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        """Load a Flow object from a dictionary."""
+        instance = super()._load(resource, cognite_client=cognite_client)
+        if "elements" in resource:
+            instance.elements = [FlowElement._load(el, cognite_client=cognite_client) for el in resource["elements"]]
+        return instance
+
 
 @dataclass
 class ChartSource(ChartObject):
@@ -148,6 +156,18 @@ class ChartWorkflow(BaseChartElement):
             data["calls"] = [c.dump(camel_case=camel_case) for c in self.calls]
         return data
 
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        """Load a ChartWorkflow object from a dictionary."""
+        instance = super()._load(resource, cognite_client=cognite_client)
+        if "settings" in resource:
+            instance.settings = SubSetting._load(resource["settings"], cognite_client=cognite_client)
+        if "flow" in resource:
+            instance.flow = Flow._load(resource["flow"], cognite_client=cognite_client)
+        if "calls" in resource:
+            instance.calls = [ChartCall._load(call, cognite_client=cognite_client) for call in resource["calls"]]
+        return instance
+
 
 @dataclass
 class ChartThreshold(BaseChartElement):
@@ -155,7 +175,7 @@ class ChartThreshold(BaseChartElement):
     source_id: str | None = None
     upper_limit: float | None = None
     filter: ThresholdFilter | None = None
-    calls: list["ChartCall"] | None = None
+    calls: list[ChartCall] | None = None
 
     def dump(self, camel_case: bool = True) -> dict:
         data = super().dump(camel_case=camel_case)
@@ -164,6 +184,16 @@ class ChartThreshold(BaseChartElement):
         if self.calls:
             data["calls"] = [c.dump(camel_case=camel_case) for c in self.calls]
         return data
+
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        """Load a ChartThreshold object from a dictionary."""
+        instance = super()._load(resource, cognite_client=cognite_client)
+        if "filter" in resource:
+            instance.filter = ThresholdFilter._load(resource["filter"], cognite_client=cognite_client)
+        if "calls" in resource:
+            instance.calls = [ChartCall._load(call, cognite_client=cognite_client) for call in resource["calls"]]
+        return instance
 
 
 @dataclass
@@ -180,6 +210,16 @@ class ChartScheduledCalculation(BaseChartElement):
         if self.flow:
             data["flow"] = self.flow.dump(camel_case=camel_case)
         return data
+
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        """Load a ChartScheduledCalculation object from a dictionary."""
+        instance = super()._load(resource, cognite_client=cognite_client)
+        if "settings" in resource:
+            instance.settings = SubSetting._load(resource["settings"], cognite_client=cognite_client)
+        if "flow" in resource:
+            instance.flow = Flow._load(resource["flow"], cognite_client=cognite_client)
+        return instance
 
 
 @dataclass
@@ -230,3 +270,39 @@ class ChartData(ChartObject):
         if self.settings:
             data["settings"] = self.settings.dump(camel_case=camel_case)
         return data
+
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        """Load a ChartData object from a dictionary."""
+        instance = super()._load(resource, cognite_client=cognite_client)
+        if "timeSeriesCollection" in resource:
+            instance.time_series_collection = [
+                ChartTimeseries._load(ts, cognite_client=cognite_client) for ts in resource["timeSeriesCollection"]
+            ]
+        if "coreTimeseriesCollection" in resource:
+            instance.core_timeseries_collection = [
+                ChartCoreTimeseries._load(cts, cognite_client=cognite_client)
+                for cts in resource["coreTimeseriesCollection"]
+            ]
+        if "workflowCollection" in resource:
+            instance.workflow_collection = [
+                ChartWorkflow._load(wf, cognite_client=cognite_client) for wf in resource["workflowCollection"]
+            ]
+        if "sourceCollection" in resource:
+            instance.source_collection = [
+                ChartSource._load(src, cognite_client=cognite_client) for src in resource["sourceCollection"]
+            ]
+        if "thresholdCollection" in resource:
+            instance.threshold_collection = [
+                ChartThreshold._load(th, cognite_client=cognite_client) for th in resource["thresholdCollection"]
+            ]
+        if "scheduledCalculationCollection" in resource:
+            instance.scheduled_calculation_collection = [
+                ChartScheduledCalculation._load(sc, cognite_client=cognite_client)
+                for sc in resource["scheduledCalculationCollection"]
+            ]
+        if "userInfo" in resource:
+            instance.user_info = UserInfo._load(resource["userInfo"], cognite_client=cognite_client)
+        if "settings" in resource:
+            instance.settings = ChartSettings._load(resource["settings"], cognite_client=cognite_client)
+        return instance
