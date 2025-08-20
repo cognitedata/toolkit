@@ -21,7 +21,7 @@ from cognite_toolkit._cdf_tk.utils.file import to_directory_compatible
 from cognite_toolkit._cdf_tk.utils.table_writers import DataType
 
 from ._base import T_IO, CellValue, Chunk, FileIO, SchemaColumn
-from ._compression import Compression, UnCompressed
+from ._compression import Compression, Uncompressed
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -116,7 +116,7 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
         format: str,
         output_dir: Path,
         kind: str,
-        compression: type[Compression] = UnCompressed,
+        compression: type[Compression] = Uncompressed,
         columns: Sequence[SchemaColumn] | None = None,
     ) -> "FileWriter":
         if format not in FILE_WRITE_CLS_BY_FORMAT:
