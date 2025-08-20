@@ -11,7 +11,7 @@ from cognite.client.data_classes.data_modeling.instances import PropertyValueWri
 from cognite.client.utils import ms_to_datetime
 from dateutil import parser
 
-from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
+from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported, ToolkitValueError
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentric, DataType
 
@@ -88,6 +88,10 @@ def convert_str_to_data_type(
         The converted value as a string, int, float, bool, dict, list, or None.
 
     """
+    if type_ not in DATATYPE_CONVERTER_BY_DATA_TYPE:
+        raise ToolkitValueError(
+            f"Unsupported data type {type_}. Available types: {humanize_collection(DATATYPE_CONVERTER_BY_DATA_TYPE.keys())}."
+        )
     raise NotImplementedError()
 
 
@@ -120,6 +124,7 @@ class _Converter(ABC):
 
 class _ValueConverter(_Converter, ABC):
     type_str: ClassVar[str]
+    schema_type: ClassVar[DataType | None] = None
     _handles_list: ClassVar[bool] = False
 
     def __init__(self, type_: PropertyType, nullable: bool):
@@ -195,6 +200,7 @@ class _FileLabelConverter(_LabelConverter):
 
 class _TextConverter(_ValueConverter):
     type_str = "text"
+    schema_type = "string"
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
         return str(value)
@@ -202,6 +208,7 @@ class _TextConverter(_ValueConverter):
 
 class _BooleanConverter(_ValueConverter):
     type_str = "boolean"
+    schema_type = "boolean"
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
         if isinstance(value, bool | int | float):
@@ -396,4 +403,9 @@ SPECIAL_CONVERTER_BY_SOURCE_DESTINATION: Mapping[
 ] = {
     (subclass.source_property, subclass.destination_container_property): subclass
     for subclass in get_concrete_subclasses(_SpecialCaseConverter)  # type: ignore[type-abstract]
+}
+DATATYPE_CONVERTER_BY_DATA_TYPE: Mapping[DataType, type[_ValueConverter]] = {
+    cls_.schema_type: cls_
+    for cls_ in get_concrete_subclasses(_ValueConverter)  # type: ignore[type-abstract]
+    if cls_.schema_type is not None
 }
