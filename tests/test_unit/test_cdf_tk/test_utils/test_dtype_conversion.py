@@ -20,16 +20,14 @@ from cognite.client.data_classes.data_modeling.data_types import (
 from cognite.client.data_classes.data_modeling.instances import PropertyValueWrite
 
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     CONVERTER_BY_DTYPE,
     DATATYPE_CONVERTER_BY_DATA_TYPE,
-    _ValueConverter,
     asset_centric_convert_to_primary_property,
     convert_str_to_data_type,
     convert_to_primary_property,
 )
-from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentric, DataType
+from cognite_toolkit._cdf_tk.utils.useful_types import AVAILABLE_DATA_TYPES, AssetCentric, DataType
 
 
 class TestConvertToContainerProperty:
@@ -534,14 +532,5 @@ class TestConvertStringToDataType:
             assert result == [expected_value], f"Expected [{expected_value}], but got {result}"
 
     def test_all_data_type_converters_registered(self) -> None:
-        """Checks that all property types that are in the cognite-sdk have a corresponding converter."""
-        existing_converters = {
-            cls_.schema_type for cls_ in get_concrete_subclasses(_ValueConverter) if cls_.schema_type is not None
-        }
-
-        missing_converters = existing_converters - set(DATATYPE_CONVERTER_BY_DATA_TYPE.keys())
-
-        assert not missing_converters, (
-            f"Missing converters for types: {humanize_collection(missing_converters)}. "
-            "Please ensure all property types have a corresponding converter."
-        )
+        """Checks that all data types that are in the toolkit have a corresponding converter."""
+        assert AVAILABLE_DATA_TYPES == set(DATATYPE_CONVERTER_BY_DATA_TYPE.keys())
