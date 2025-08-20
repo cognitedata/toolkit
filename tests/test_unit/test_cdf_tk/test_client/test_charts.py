@@ -4,6 +4,7 @@ import responses
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList, ChartWrite
 from cognite_toolkit._cdf_tk.client.data_classes.charts_data import ChartData, ChartSettings, UserInfo
+from tests.test_unit.utils import FakeCogniteResourceGenerator
 
 CHART = Chart(
     external_id="chart",
@@ -93,3 +94,31 @@ class TestChartAPI:
             result = client.charts.retrieve(external_id=external_id)
 
         assert isinstance(result, expected_return_cls)
+
+
+class TestChartDTOs:
+    def test_chart_data_changed(self) -> None:
+        """The ChartData is frontend of the Chart object, and it is not enforced in any way by the backend API.
+        Thus, it can change completely without any notice. This tests ensures that whatever the ChartData is,
+        the serialization and deserialization works correctly.
+        """
+        chart_data = {
+            "this": "is",
+            "completely": {
+                "changed": ["compared", "to", "the", "previous", "version"],
+            },
+        }
+        loaded = ChartData._load(chart_data)
+        dumped = loaded.dump(camel_case=False)
+
+        assert dumped == chart_data, f"Expected {chart_data}, but got {dumped}"
+
+    def test_serialize_deserialize_chart(self) -> None:
+        """Test that Chart can be serialized and deserialized correctly."""
+        instance = FakeCogniteResourceGenerator(seed=42).create_instance(ChartData)
+
+        dumped = instance.dump(camel_case=False)
+
+        loaded = ChartData._load(dumped)
+
+        assert loaded.dump() == instance.dump(), f"Expected {instance}, but got {loaded}"
