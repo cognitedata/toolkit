@@ -133,7 +133,7 @@ class CSVReader(FileReader):
         if sniff_rows <= 0:
             raise ValueError("`sniff_rows` must be a positive integer.")
 
-        with input_file.open("r", encoding="utf-8") as file:
+        with input_file.open("r", encoding="utf-8-sig") as file:
             reader = csv.DictReader(file)
             sample_rows: list[dict[str, str]] = []
             for no, row in enumerate(reader):
