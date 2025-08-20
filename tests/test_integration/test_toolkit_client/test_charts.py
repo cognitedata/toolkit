@@ -7,6 +7,12 @@ from cognite.client.exceptions import CogniteNotFoundError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartWrite
+from cognite_toolkit._cdf_tk.client.data_classes.charts_data import (
+    ChartData,
+    ChartSource,
+    ChartTimeseries,
+    UserInfo,
+)
 
 
 @pytest.fixture(scope="session")
@@ -55,35 +61,34 @@ class TestChartsAPI:
         return ChartWrite(
             external_id=chart_id,
             visibility="PUBLIC",
-            data={
-                "version": 1,
-                "name": "Toolkit Test Chart",
-                "dateFrom": "1916-06-15T12:35:46.880Z",
-                "dateTo": "2279-04-14T07:10:41.670Z",
-                "userInfo": {"id": me.user_identifier, "email": me.email, "displayName": me.display_name},
-                "liveMode": False,
-                "timeSeriesCollection": [
-                    {
-                        "type": "timeseries",
-                        "id": ts_chart_id,
-                        "name": ts.name,
-                        "color": "#1192e8",
-                        "tsId": ts.id,
-                        "tsExternalId": ts.external_id,
-                        "lineWeight": 1.0,
-                        "lineStyle": "solid",
-                        "interpolation": "linear",
-                        "displayMode": "lines",
-                        "enabled": True,
-                        "unit": "",
-                        "originalUnit": "",
-                        "preferredUnit": "",
-                        "description": "-",
-                        "range": [None, None],
-                        "createdAt": 1755456114956,
-                    },
+            data=ChartData(
+                version=1,
+                name="Toolkit Test Chart",
+                date_from="1916-06-15T12:35:46.880Z",
+                date_to="2279-04-14T07:10:41.670Z",
+                user_info=UserInfo(id=me.user_identifier, email=me.email, display_name=me.display_name),
+                live_mode=False,
+                time_series_collection=[
+                    ChartTimeseries(
+                        type="timeseries",
+                        id=ts_chart_id,
+                        name=ts.name,
+                        color="#1192e8",
+                        ts_id=ts.id,
+                        ts_external_id=ts.external_id,
+                        line_weight=1.0,
+                        line_style="solid",
+                        interpolation="linear",
+                        display_mode="lines",
+                        enabled=True,
+                        unit="",
+                        original_unit="",
+                        preferred_unit="",
+                        description="-",
+                        range=(None, None),
+                    )
                 ],
-                "workflowCollection": [],
-                "sourceCollection": [{"type": "timeseries", "id": ts_chart_id}],
-            },
+                workflow_collection=[],
+                source_collection=[ChartSource(type="timeseries", id=ts_chart_id)],
+            ),
         )
