@@ -11,7 +11,7 @@ from cognite.client.data_classes.data_modeling.instances import PropertyValueWri
 from cognite.client.utils import ms_to_datetime
 from dateutil import parser
 
-from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported, ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentric, DataType
 
@@ -95,10 +95,22 @@ def convert_str_to_data_type(
 
     """
     if type_ not in DATATYPE_CONVERTER_BY_DATA_TYPE:
-        raise ToolkitValueError(
+        raise ValueError(
             f"Unsupported data type {type_}. Available types: {humanize_collection(DATATYPE_CONVERTER_BY_DATA_TYPE.keys())}."
         )
-    raise NotImplementedError()
+    converter_cls = DATATYPE_CONVERTER_BY_DATA_TYPE[type_]
+    converter = converter_cls(nullable)
+    if is_array:
+        values = _as_list(value)
+        output: list[str | int | float | bool | dict | list | None] = []
+        for item in values:
+            converted = converter.convert(item)  # type: ignore[arg-type]
+            if converted is not None:
+                output.append(converted)  # type: ignore[arg-type]
+        # MyPy gets confused by the SequenceNotStr used in the PropertyValueWrite
+        return output  # type: ignore[return-value]
+    else:
+        return converter.convert(value)  # type: ignore[return-value]
 
 
 def _as_list(value: str | int | float | bool | dict[str, object] | list[object] | None) -> list[object]:
@@ -246,6 +258,7 @@ class _Int32Converter(_ValueConverter):
 
 class _Int64Converter(_ValueConverter):
     type_str = "int64"
+    schema_type = "integer"
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
         if isinstance(value, int):
@@ -286,6 +299,7 @@ class _Float32Converter(_ValueConverter):
 
 class _Float64Converter(_ValueConverter):
     type_str = "float64"
+    schema_type = "float"
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
         if isinstance(value, float | int):
@@ -304,6 +318,7 @@ class _Float64Converter(_ValueConverter):
 
 class _JsonConverter(_ValueConverter):
     type_str = "json"
+    schema_type = "json"
     _handles_list = True
 
     def _convert(self, value: str | int | float | bool | dict[str, object] | list) -> PropertyValueWrite:
@@ -329,6 +344,7 @@ class _JsonConverter(_ValueConverter):
 
 class _TimestampConverter(_ValueConverter):
     type_str = "timestamp"
+    schema_type = "timestamp"
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
         if isinstance(value, int | float):
@@ -346,6 +362,7 @@ class _TimestampConverter(_ValueConverter):
 
 class _DateConverter(_ValueConverter):
     type_str = "date"
+    schema_type = "date"
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
         if isinstance(value, str):
