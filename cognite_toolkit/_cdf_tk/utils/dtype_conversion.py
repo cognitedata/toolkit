@@ -2,7 +2,7 @@ import ctypes
 import json
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
-from typing import ClassVar, cast
+from typing import ClassVar
 
 from cognite.client.data_classes import Label, LabelDefinition
 from cognite.client.data_classes.data_modeling import ContainerId
@@ -56,7 +56,13 @@ def convert_to_primary_property(
         converter_cls = CONVERTER_BY_DTYPE[dtype]
     else:
         raise TypeError(f"Unsupported property type {dtype}")
-    converter = converter_cls(type_, nullable)
+    if issubclass(converter_cls, _EnumConverter) and isinstance(type_, Enum):
+        converter: _ValueConverter = _EnumConverter(type_=type_, nullable=nullable)
+    elif issubclass(converter_cls, _EnumConverter):
+        raise TypeError(f"Unsupported property type {type_} for enum conversion")
+    else:
+        converter = converter_cls(nullable)
+
     if isinstance(type_, ListablePropertyType) and type_.is_list:
         values = _as_list(value)
         output: list[PropertyValueWrite] = []
@@ -127,8 +133,7 @@ class _ValueConverter(_Converter, ABC):
     schema_type: ClassVar[DataType | None] = None
     _handles_list: ClassVar[bool] = False
 
-    def __init__(self, type_: PropertyType, nullable: bool):
-        self.type = type_
+    def __init__(self, nullable: bool):
         self.nullable = nullable
 
     def convert(self, value: str | int | float | bool | dict | list | None) -> PropertyValueWrite:
@@ -354,14 +359,16 @@ class _DateConverter(_ValueConverter):
 class _EnumConverter(_ValueConverter):
     type_str = "enum"
 
+    def __init__(self, type_: Enum, nullable: bool) -> None:
+        super().__init__(nullable)
+        self.available_types = {enum_value.casefold(): enum_value for enum_value in type_.values.keys()}
+
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
-        type_ = cast(Enum, self.type)
-        available_types = {enum_value.casefold(): enum_value for enum_value in type_.values.keys()}
         value = str(value).casefold()
-        if value in available_types:
-            return available_types[value]
+        if value in self.available_types:
+            return self.available_types[value]
         raise ValueError(
-            f"Value {value!r} is not a valid enum value. Available values: {humanize_collection(available_types.values())}"
+            f"Value {value!r} is not a valid enum value. Available values: {humanize_collection(self.available_types.values())}"
         )
 
 
