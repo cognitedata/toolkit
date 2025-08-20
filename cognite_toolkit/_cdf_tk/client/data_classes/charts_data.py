@@ -5,6 +5,7 @@ from typing import Any
 from cognite.client import CogniteClient
 from cognite.client.data_classes._base import CogniteObject
 from cognite.client.data_classes.data_modeling import NodeId, ViewId
+from cognite.client.utils._auxiliary import to_camel_case
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -24,8 +25,8 @@ class ChartObject(CogniteObject):
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
         """Load a ChartObject from a dictionary."""
         instance = super()._load(resource, cognite_client=cognite_client)
-        property_names = {f.name for f in fields(cls)}
-        instance._unknown_fields = {k: v for k, v in resource.items() if k not in property_names}
+        known_camel_case_props = {to_camel_case(f.name) for f in fields(cls)}
+        instance._unknown_fields = {k: v for k, v in resource.items() if k not in known_camel_case_props}
         return instance
 
     def dump(self, camel_case: bool = True) -> dict[str, Any]:
@@ -85,7 +86,7 @@ class Flow(ChartObject):
     elements: list[FlowElement] | None = None
     position: tuple[float | None, float | None] | None = None
 
-    def dump(self, camel_case: bool = True) -> dict:
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
         data = super().dump(camel_case=camel_case)
         if self.elements:
             data["elements"] = [el.dump(camel_case=camel_case) for el in self.elements]
@@ -113,7 +114,7 @@ class BaseChartElement(ChartObject):
     name: str | None = None
     color: str | None = None
     enabled: bool | None = None
-    line_weight: int | None = None
+    line_weight: float | None = None
     line_style: str | None = None
     interpolation: str | None = None
     unit: str | None = None
@@ -133,8 +134,8 @@ class ChartCoreTimeseries(BaseChartElement):
 
 @dataclass
 class ChartTimeseries(BaseChartElement):
-    tsId: int | None = None
-    tsExternalId: str | None = None
+    ts_id: int | None = None
+    ts_external_id: str | None = None
     display_mode: str | None = None
     original_unit: str | None = None
 
@@ -146,7 +147,7 @@ class ChartWorkflow(BaseChartElement):
     flow: Flow | None = None
     calls: list[ChartCall] | None = None
 
-    def dump(self, camel_case: bool = True) -> dict:
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
         data = super().dump(camel_case=camel_case)
         if self.settings:
             data["settings"] = self.settings.dump(camel_case=camel_case)
@@ -177,7 +178,7 @@ class ChartThreshold(BaseChartElement):
     filter: ThresholdFilter | None = None
     calls: list[ChartCall] | None = None
 
-    def dump(self, camel_case: bool = True) -> dict:
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
         data = super().dump(camel_case=camel_case)
         if self.filter:
             data["filter"] = self.filter.dump(camel_case=camel_case)
@@ -203,7 +204,7 @@ class ChartScheduledCalculation(BaseChartElement):
     flow: Flow | None = None
     enabled: bool | None = None
 
-    def dump(self, camel_case: bool = True) -> dict:
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
         data = super().dump(camel_case=camel_case)
         if self.settings:
             data["settings"] = self.settings.dump(camel_case=camel_case)
@@ -229,7 +230,7 @@ class ChartData(ChartObject):
     date_from: str | None = None
     date_to: str | None = None
     user_info: UserInfo | None = None
-    live_model: bool | None = None
+    live_mode: bool | None = None
     time_series_collection: list[ChartTimeseries] | None = None
     core_timeseries_collection: list[ChartCoreTimeseries] | None = None
     workflow_collection: list[ChartWorkflow] | None = None
