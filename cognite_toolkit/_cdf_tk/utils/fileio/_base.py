@@ -22,6 +22,7 @@ class SchemaColumn:
     name: str
     type: DataType
     is_array: bool = False
+    is_nullable: bool = True
 
     def __post_init__(self) -> None:
         if self.type == "json" and self.is_array:
