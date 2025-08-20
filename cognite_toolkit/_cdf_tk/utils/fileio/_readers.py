@@ -114,6 +114,8 @@ class CSVReader(FileReader):
         )
         if schema is not None:
             for column in schema:
+                if column.type in {"date", "timestamp"}:
+                    raise ToolkitValueError("CSVReader does not support 'date' or 'timestamp' types.")
                 parse_function_by_column[column.name] = partial(  # type: ignore[assignment]
                     convert_str_to_data_type, type_=column.type, nullable=True, is_array=False
                 )
