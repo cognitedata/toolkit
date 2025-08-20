@@ -14,7 +14,7 @@ from dateutil import parser
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
-from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentric, DataType, JsonVal, PrimaryPythonTypes
+from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentric, DataType, JsonVal, PythonTypes
 
 from .collection import humanize_collection
 
@@ -119,16 +119,14 @@ def infer_data_type_from_value(value: str, dtype: Literal["Json"]) -> tuple[Data
 
 
 @overload
-def infer_data_type_from_value(value: str, dtype: Literal["Python"]) -> tuple[DataType, PrimaryPythonTypes]: ...
+def infer_data_type_from_value(value: str, dtype: Literal["Python"]) -> tuple[DataType, PythonTypes]: ...
 
 
-def infer_data_type_from_value(
-    value: str, dtype: Literal["Json", "Python"]
-) -> tuple[DataType, JsonVal | PrimaryPythonTypes]:
+def infer_data_type_from_value(value: str, dtype: Literal["Json", "Python"]) -> tuple[DataType, JsonVal | PythonTypes]:
     """Infer the data type from a given value.
 
     Args:
-        value: The value to infer the data type from, which can be a string, int, float, bool, dict, or list.
+        value: The value to infer the data type from, which can be a string.
         dtype: The data type to infer. Can be "JsonVal" or "Python". Python type will infer datetime and date types
             as well.
 
@@ -136,7 +134,7 @@ def infer_data_type_from_value(
         A tuple containing the inferred data type and the converted value.
 
     """
-    converter_classes = [
+    converter_classes = (
         _Int64Converter,
         _Float64Converter,
         _TimestampConverter,
@@ -144,11 +142,17 @@ def infer_data_type_from_value(
         _BooleanConverter,
         _JsonConverter,
         _TextConverter,
-    ]
-    if dtype == "Json":
-        converter_classes.remove(_TimestampConverter)
-        converter_classes.remove(_DateConverter)
-    for converter_cls in converter_classes:
+    )
+    converters_to_use = (
+        tuple(
+            converter_cls
+            for converter_cls in converter_classes
+            if converter_cls not in {_TimestampConverter, _DateConverter}
+        )
+        if dtype == "Json"
+        else converter_classes
+    )
+    for converter_cls in converters_to_use:
         # MyPy thinks that converter_cls can be abstract, but it is not
         converter = converter_cls(nullable=False)  # type: ignore[abstract]
         try:
