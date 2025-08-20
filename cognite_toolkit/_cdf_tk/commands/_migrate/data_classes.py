@@ -51,14 +51,14 @@ class MigrationMapping:
         version = data.get("consumerViewVersion")
         preferred_consumer_view: ViewId | None = None
         if space and external_id and version:
-            preferred_consumer_view = ViewId(space=space, external_id=external_id, version=version)
+            preferred_consumer_view = ViewId(space=str(space), external_id=str(external_id), version=str(version))
 
         return cls(
             resource_type=resource_type,
-            instance_id=NodeId(data["space"], data["externalId"]),
-            id=data["id"],
-            data_set_id=data.get("dataSetId"),
-            ingestion_view=data.get("ingestionView"),
+            instance_id=NodeId(str(data["space"]), str(data["externalId"])),
+            id=int(data["id"]),
+            data_set_id=int(data["dataSetId"]) if "dataSetId" in data else None,
+            ingestion_view=str(data["ingestionView"]) if "ingestionView" in data else None,
             preferred_consumer_view=preferred_consumer_view,
         )
 
@@ -134,8 +134,13 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
                 mapping = MigrationMapping.load_row(row, resource_type)
             except KeyError:
                 HighSeverityWarning(
-                    f"Row {row_no} in mapping file {mapping_file} is missing required fields. Skipping row."
-                )
+                    f"Row {row_no} in mapping file is missing required fields. Skipping row."
+                ).print_warning()
+                continue
+            except TypeError:
+                HighSeverityWarning(
+                    f"Row {row_no} in mapping file has invalid data types. Skipping row."
+                ).print_warning()
                 continue
             mappings.append(mapping)
         return cls(mappings)
@@ -156,15 +161,15 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
                 f"Missing: {humanize_collection(missing, sort=False)}."
             )
         if wrong_types := [
-            (col, dtype_by_name[col.name])
+            (col, expected_dtype_by_name[col.name])
             for col in schema
             if col.name in expected_dtype_by_name and col.type != expected_dtype_by_name[col.name]
         ]:
             types_str = humanize_collection(
-                [f"{col.name} (got={col.type!r}, expected={expected!r})" for col, expected in wrong_types]
+                [f"{col.name} (got={col.type!r},expected={expected!r})" for col, expected in wrong_types]
             )
             errors.append(f"Mapping file has incorrect data types for columns: {types_str}.")
 
         if errors:
             error_str = "\n - ".join(errors)
-            raise ToolkitValueError(f"Invalid mapping file header:\n - {error_str}")
+            raise ToolkitValueError(f"Invalid file schema:\n - {error_str}")
