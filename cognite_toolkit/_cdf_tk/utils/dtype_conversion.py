@@ -13,7 +13,7 @@ from dateutil import parser
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
-from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentric
+from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentric, DataType
 
 from .collection import humanize_collection
 
@@ -68,6 +68,27 @@ def convert_to_primary_property(
         return output  # type: ignore[return-value]
     else:
         return converter.convert(value)
+
+
+def convert_str_to_data_type(
+    value: str | None,
+    type_: DataType,
+    nullable: bool = True,
+    is_array: bool = False,
+) -> str | int | float | bool | dict | list | None:
+    """Convert a string value to the appropriate data type based on the provided type.
+
+    Args:
+        value: The value to convert, which can be a string or None.
+        type_: The target data type.
+        nullable: Whether data type can be null.
+        is_array: Whether the data type is an array.
+
+    Returns:
+        The converted value as a string, int, float, bool, dict, list, or None.
+
+    """
+    raise NotImplementedError()
 
 
 def _as_list(value: str | int | float | bool | dict[str, object] | list[object] | None) -> list[object]:
