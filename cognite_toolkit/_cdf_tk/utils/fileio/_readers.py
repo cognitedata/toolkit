@@ -13,7 +13,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import convert_str_to_data_type, infer_data_type_from_value
-from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal, PrimaryPythonTypes
+from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import FileIO, SchemaColumn
 from ._compression import COMPRESSION_BY_SUFFIX, Compression
@@ -107,9 +107,9 @@ class CSVReader(FileReader):
     @classmethod
     def _create_parse_functions(
         cls, schema: Sequence[SchemaColumn] | None
-    ) -> dict[str, Callable[[str | None], PrimaryPythonTypes]]:
+    ) -> dict[str, Callable[[str | None], JsonVal]]:
         """Create a dictionary of parse functions for each column in the schema."""
-        parse_function_by_column: dict[str, Callable[[str | None], PrimaryPythonTypes]] = defaultdict(
+        parse_function_by_column: dict[str, Callable[[str | None], JsonVal]] = defaultdict(
             lambda: cls._default_parse_function
         )
         if schema is not None:
@@ -120,10 +120,10 @@ class CSVReader(FileReader):
         return parse_function_by_column
 
     @staticmethod
-    def _default_parse_function(value: str | None) -> PrimaryPythonTypes | None:
+    def _default_parse_function(value: str | None) -> JsonVal:
         if value is None:
             return None
-        return infer_data_type_from_value(value)[1]
+        return infer_data_type_from_value(value, "Json")[1]
 
     @classmethod
     def sniff_schema(cls, input_file: Path, sniff_rows: int) -> Sequence[SchemaColumn]:
@@ -145,7 +145,9 @@ class CSVReader(FileReader):
                     column = SchemaColumn(name=column, type="string")
                 else:
                     data_types = Counter(
-                        infer_data_type_from_value(value)[0] for value in sample_values if value is not None
+                        infer_data_type_from_value(value, dtype="Json")[0]
+                        for value in sample_values
+                        if value is not None
                     )
                     inferred_type = data_types.most_common()[0][0]
                     column = SchemaColumn(name=column, type=inferred_type)
@@ -154,7 +156,13 @@ class CSVReader(FileReader):
 
     def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[JsonVal]:
         for row in csv.DictReader(file):
-            yield {key: self.parse_function_by_column[key] for key, value in row.items()}
+            parsed: JsonVal = {}
+            for key, value in row.items():
+                try:
+                    parsed[key] = self.parse_function_by_column[key](value)  # type: ignore[index]
+                except ValueError:
+                    parsed[key] = None  # type: ignore[index]
+            yield parsed
 
 
 class ParquetReader(FileReader):

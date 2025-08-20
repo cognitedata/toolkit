@@ -2,7 +2,7 @@ import ctypes
 import json
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
-from datetime import date, datetime
+from datetime import datetime
 from typing import ClassVar, Literal, overload
 
 from cognite.client.data_classes import Label, LabelDefinition
