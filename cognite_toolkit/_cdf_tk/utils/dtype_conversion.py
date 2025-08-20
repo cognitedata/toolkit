@@ -2,6 +2,7 @@ import ctypes
 import json
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
+from datetime import date, datetime
 from typing import ClassVar
 
 from cognite.client.data_classes import Label, LabelDefinition
@@ -81,7 +82,7 @@ def convert_str_to_data_type(
     type_: DataType,
     nullable: bool = True,
     is_array: bool = False,
-) -> str | int | float | bool | dict | list | None:
+) -> str | int | float | bool | datetime | date | dict | list | None:
     """Convert a string value to the appropriate data type based on the provided type.
 
     Args:
@@ -91,7 +92,7 @@ def convert_str_to_data_type(
         is_array: Whether the data type is an array.
 
     Returns:
-        The converted value as a string, int, float, bool, dict, list, or None.
+        The converted value as a string, int, float, bool, datetime, date, dict, list, or None.
 
     """
     if type_ not in DATATYPE_CONVERTER_BY_DATA_TYPE:
