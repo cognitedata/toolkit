@@ -86,6 +86,7 @@ class TestChartsAPI:
                         preferred_unit="",
                         description="-",
                         range=(None, None),
+                        created_at=1755456114956,
                     )
                 ],
                 workflow_collection=[],

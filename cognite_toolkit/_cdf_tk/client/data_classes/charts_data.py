@@ -129,7 +129,6 @@ class ChartCoreTimeseries(BaseChartElement):
     node_reference: NodeId | None = None
     view_reference: ViewId | None = None
     display_mode: str | None = None
-    enabled: bool | None = None
 
 
 @dataclass
@@ -202,7 +201,6 @@ class ChartScheduledCalculation(BaseChartElement):
     version: str | None = None
     settings: SubSetting | None = None
     flow: Flow | None = None
-    enabled: bool | None = None
 
     def dump(self, camel_case: bool = True) -> dict[str, Any]:
         data = super().dump(camel_case=camel_case)
@@ -242,34 +240,27 @@ class ChartData(ChartObject):
     def dump(self, camel_case: bool = True) -> dict[str, Any]:
         """Dump the ChartData object to a dictionary."""
         data = super().dump(camel_case=camel_case)
-        if self.time_series_collection:
-            data["timeSeriesCollection" if camel_case else "time_series_collection"] = [
-                ts.dump(camel_case=camel_case) for ts in self.time_series_collection
-            ]
-        if self.core_timeseries_collection:
-            data["coreTimeseriesCollection" if camel_case else "core_timeseries_collection"] = [
-                cts.dump(camel_case=camel_case) for cts in self.core_timeseries_collection
-            ]
-        if self.workflow_collection:
-            data["workflowCollection" if camel_case else "workflow_collection"] = [
-                wf.dump(camel_case=camel_case) for wf in self.workflow_collection
-            ]
-        if self.source_collection:
-            data["sourceCollection" if camel_case else "source_collection"] = [
-                src.dump(camel_case=camel_case) for src in self.source_collection
-            ]
-        if self.threshold_collection:
-            data["thresholdCollection" if camel_case else "threshold_collection"] = [
-                th.dump(camel_case=camel_case) for th in self.threshold_collection
-            ]
-        if self.scheduled_calculation_collection:
-            data["scheduledCalculationCollection" if camel_case else "scheduled_calculation_collection"] = [
-                sc.dump(camel_case=camel_case) for sc in self.scheduled_calculation_collection
-            ]
-        if self.user_info:
-            data["userInfo" if camel_case else "user_info"] = self.user_info.dump(camel_case=camel_case)
-        if self.settings:
-            data["settings"] = self.settings.dump(camel_case=camel_case)
+        list_attrs = [
+            "time_series_collection",
+            "core_timeseries_collection",
+            "workflow_collection",
+            "source_collection",
+            "threshold_collection",
+            "scheduled_calculation_collection",
+        ]
+        for attr_name in list_attrs:
+            if collection := getattr(self, attr_name):
+                key = to_camel_case(attr_name) if camel_case else attr_name
+                data[key] = [item.dump(camel_case=camel_case) for item in collection]
+
+        single_attrs_map = {
+            "user_info": "userInfo",
+            "settings": "settings",
+        }
+        for attr_name, camel_key in single_attrs_map.items():
+            if item := getattr(self, attr_name):
+                key = camel_key if camel_case else attr_name
+                data[key] = item.dump(camel_case=camel_case)
         return data
 
     @classmethod
