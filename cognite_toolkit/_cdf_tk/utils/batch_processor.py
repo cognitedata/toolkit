@@ -1,4 +1,5 @@
 import gzip
+import json
 import random
 import socket
 import sys
@@ -8,6 +9,7 @@ from collections import Counter
 from collections.abc import Callable, Hashable, Iterable, MutableMapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
+from itertools import zip_longest
 from queue import Queue
 from typing import Generic, Literal, TypeAlias, TypeVar
 
@@ -24,6 +26,7 @@ from urllib3.util.retry import Retry
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.utils.auxiliary import get_current_toolkit_version, get_user_agent
 
+from .collection import chunker
 from .useful_types import JsonVal
 
 if sys.version_info >= (3, 11):
@@ -49,6 +52,7 @@ class SuccessItem(Generic[T_ID]):
     item: T_ID
     status_code: int
     message: str | None = None
+    response: dict[str, JsonVal] | None = None  # Optional response data from the server
 
 
 @dataclass(frozen=True)
@@ -107,9 +111,9 @@ class HTTPProcessor(Generic[T_ID]):
     Args:
         endpoint_url (str): The URL of the endpoint to send requests to.
         config (ToolkitClientConfig): Configuration for the Toolkit client.
-        as_id (Callable[[dict], T_ID]): A function to convert an item to its ID.
+        as_id (Callable[[dict[str, JsonVal]], T_ID]): A function to convert an item to its ID.
         method (Literal["POST", "GET"]): HTTP method to use for requests, default is "POST".
-        body_parameters (dict[str, object] | None): Additional parameters to include in the request body.
+        body_parameters (dict[str, JsonVal] | None): Additional parameters to include in the request body.
         batch_size (int): Number of items per batch, default is 1000.
         max_workers (int): Maximum number of worker threads, default is 8.
         max_retries (int): Maximum number of retries for failed requests, default is 10.
@@ -121,9 +125,9 @@ class HTTPProcessor(Generic[T_ID]):
         self,
         endpoint_url: str,
         config: ToolkitClientConfig,
-        as_id: Callable[[dict], T_ID],
+        as_id: Callable[[dict[str, JsonVal]], T_ID],
         method: Literal["POST", "GET"] = "POST",
-        body_parameters: dict[str, object] | None = None,
+        body_parameters: dict[str, JsonVal] | None = None,
         batch_size: int = 1_000,
         max_workers: int = 8,
         max_retries: int = 10,
@@ -234,7 +238,7 @@ class HTTPProcessor(Generic[T_ID]):
         self, response: requests.Response, work_item: WorkItem, work_queue: Queue, results_queue: Queue
     ) -> None:
         if 200 <= response.status_code < 300:
-            results_queue.put(self._create_success_batch_result(work_item.items, status_code=response.status_code))
+            results_queue.put(self._create_success_batch_result(work_item.items, response=response))
         elif response.status_code in {401, 403}:
             self.console.print("[red]Unauthorized request. Please check your credentials.[/red]")
             results_queue.put(self._create_failed_batch_result(work_item.items, response.status_code, response.text))
@@ -337,18 +341,46 @@ class HTTPProcessor(Generic[T_ID]):
         return BatchResult(failed_items=failed_items, unknown_ids=unknown_items)
 
     def _create_success_batch_result(
-        self, items: list[dict[str, JsonVal]], status_code: int, message: str | None = None
+        self, items: list[dict[str, JsonVal]], response: requests.Response, message: str | None = None
     ) -> BatchResult[T_ID]:
+        status_code = response.status_code
+        response_items = self._parse_response_items(response)
+        has_printed_warning = False
         success_items: list[SuccessItem[T_ID]] = []
         unknown_items: list[FailedItem[str]] = []
-        for item in items:
+        failed_items: list[FailedItem[T_ID]] = []
+        for item, response_item in zip_longest(items, response_items, fillvalue=None):
+            if item is None:
+                if not has_printed_warning:
+                    self.console.print("[red]Got more response 'items' than request items.[/red]")
+                    has_printed_warning = True
+                continue
+
             try:
                 item_id = self.as_id(item)
             except Exception as e:
                 unknown_items.append(self._create_unknown_item(item, status_code, message, e))
             else:
-                success_items.append(SuccessItem(item=item_id, status_code=status_code, message=message))
-        return BatchResult(successful_items=success_items, unknown_ids=unknown_items)
+                if response_item is None:
+                    failed_items.append(
+                        FailedItem(item=item_id, status_code=status_code, error_message="Response item is None")
+                    )
+                else:
+                    success_items.append(
+                        SuccessItem(item=item_id, response=response_item, status_code=status_code, message=message)
+                    )
+        return BatchResult(successful_items=success_items, unknown_ids=unknown_items, failed_items=failed_items)
+
+    def _parse_response_items(self, response: requests.Response) -> list[dict[str, JsonVal]]:
+        try:
+            response_items = response.json().get("items", [])
+        except (json.JSONDecodeError, TypeError) as e:
+            self.console.print(f"[red]Failed to decode JSON response: {e!s}[/red]")
+            response_items = []
+        if not isinstance(response_items, list):
+            self.console.print("[red]Response 'items' is not a list. Skipping response.[/red]")
+            response_items = []
+        return response_items
 
     @staticmethod
     def _create_unknown_item(
@@ -403,9 +435,9 @@ class HTTPIterableProcessor(HTTPProcessor[T_ID]):
     Args:
         endpoint_url (str): The URL of the endpoint to send requests to.
         config (ToolkitClientConfig): Configuration for the Toolkit client.
-        as_id (Callable[[dict], T_ID]): A function to convert an item to its ID.
+        as_id (Callable[[dict[str, JsonVal]], T_ID]): A function to convert an item to its ID.
         method (Literal["POST", "GET"]): HTTP method to use for requests, default is "POST".
-        body_parameters (dict[str, object] | None): Additional parameters to include in the request body.
+        body_parameters (dict[str, JsonVal] | None): Additional parameters to include in the request body.
         batch_size (int): Number of items per batch, default is 1000.
         max_workers (int): Maximum number of worker threads, default is 8.
         max_retries (int): Maximum number of retries for failed requests, default is 10.
@@ -418,9 +450,9 @@ class HTTPIterableProcessor(HTTPProcessor[T_ID]):
         self,
         endpoint_url: str,
         config: ToolkitClientConfig,
-        as_id: Callable[[dict], T_ID],
+        as_id: Callable[[dict[str, JsonVal]], T_ID],
         method: Literal["POST", "GET"] = "POST",
-        body_parameters: dict[str, object] | None = None,
+        body_parameters: dict[str, JsonVal] | None = None,
         batch_size: int = 1_000,
         max_workers: int = 8,
         max_retries: int = 10,
@@ -513,3 +545,120 @@ class HTTPIterableProcessor(HTTPProcessor[T_ID]):
                 for _ in range(self.max_workers):
                     work_queue.put(None)
         return self._aggregate_results(batch_results, self._process_exception)
+
+
+class HTTPBatchProcessor(HTTPProcessor[T_ID]):
+    """An HTTP processor for processing items in batches.
+
+    This class handles batching, rate limiting, retries, and error handling for HTTP requests.
+
+    Args:
+        endpoint_url (str): The URL of the endpoint to send requests to.
+        config (ToolkitClientConfig): Configuration for the Toolkit client.
+        as_id (Callable[[dict[str, JsonVal]], T_ID]): A function to convert an item to its ID.
+        result_processor (Callable[[BatchResult[T_ID]], None]): A callable that processes the result of each batch.
+        method (Literal["POST", "GET"]): HTTP method to use for requests, default is "POST".
+        body_parameters (dict[str, JsonVal] | None): Additional parameters to include in the request body.
+        batch_size (int): Number of items per batch, default is 1000.
+        max_workers (int): Maximum number of worker threads, default is 8.
+        max_retries (int): Maximum number of retries for failed requests, default is 10.
+        console (Console | None): Optional console for output, defaults to a new Console instance.
+
+    """
+
+    def __init__(
+        self,
+        endpoint_url: str,
+        config: ToolkitClientConfig,
+        as_id: Callable[[dict[str, JsonVal]], T_ID],
+        result_processor: Callable[[BatchResult[T_ID]], None],
+        method: Literal["POST", "GET"] = "POST",
+        body_parameters: dict[str, JsonVal] | None = None,
+        batch_size: int = 1_000,
+        max_workers: int = 8,
+        max_retries: int = 10,
+        console: Console | None = None,
+    ):
+        super().__init__(
+            endpoint_url=endpoint_url,
+            config=config,
+            as_id=as_id,
+            method=method,
+            body_parameters=body_parameters,
+            batch_size=batch_size,
+            max_workers=max_workers,
+            max_retries=max_retries,
+            console=console,
+        )
+        self.result_processor = result_processor
+        self._work_queue: Queue[WorkItem | None] | None = None
+        self._result_queue: Queue[BatchResult[T_ID] | None] | None = None
+        self._worker_threads: list[threading.Thread] = []
+        self._result_thread: threading.Thread | None = None
+
+    def __enter__(self) -> Self:
+        """Enter the context manager, initializing the work and result queues."""
+        try:
+            # Limiting the queue size to avoid excessive memory usage
+            self._work_queue = Queue(self.max_workers * 2)
+            self._result_queue = Queue()
+            self._worker_threads = [
+                threading.Thread(target=self._worker, args=(self._work_queue, self._result_queue), daemon=True)
+                for _ in range(self.max_workers)
+            ]
+            self._result_thread = threading.Thread(target=self._result_processor, daemon=True)
+            self._result_thread.start()
+            for thread in self._worker_threads:
+                thread.start()
+        except (RuntimeError, OSError) as e:
+            self.console.print(f"[red]Error initializing processor: {e!s}[/red]")
+            self._stop()
+            raise RuntimeError("Failed to initialize the processor.") from e
+        return self
+
+    def __exit__(
+        self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: object | None
+    ) -> Literal[False]:
+        """Exit the context manager, stopping the worker threads and closing the queues."""
+        self._stop()
+        return False
+
+    def add_items(self, items: Iterable[dict[str, JsonVal]]) -> None:
+        """Add items to the processor for processing.
+
+        Args:
+            items (Iterable[dict[str, JsonVal]]): An iterable of items to process.
+        """
+        if self._work_queue is None:
+            raise RuntimeError("Processor is not initialized. Please use the context manager to initialize it.")
+        for chunk in chunker(items, self.batch_size):
+            self._work_queue.put(WorkItem(items=chunk))
+
+    def _stop(self) -> None:
+        """Stop the processor, joining all worker threads and closing the queues."""
+        if self._work_queue is not None:
+            for _ in self._worker_threads:
+                self._work_queue.put(None)
+            for thread in self._worker_threads:
+                thread.join()
+            self._work_queue = None
+        if self._result_queue is not None:
+            self._result_queue.put(None)
+            if self._result_thread and self._result_thread.is_alive():
+                self._result_thread.join()
+            self._result_queue = None
+
+    def _result_processor(self) -> None:
+        """Process results from the result queue and aggregate them."""
+        if self._result_queue is None:
+            raise RuntimeError("Result queue is not initialized. Please use the context manager to initialize it.")
+        while (result := self._result_queue.get()) is not None:
+            try:
+                self.result_processor(result)
+            except Exception as e:
+                # The result processor is user-defined, so we need to catch any exceptions
+                self.console.print(f"[red]Error processing result: {e!s}[/red]")
+                self.console.print_exception()
+            finally:
+                self._result_queue.task_done()
+        self._result_queue.task_done()

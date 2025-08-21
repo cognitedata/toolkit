@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import UploadCommand
 from cognite_toolkit._cdf_tk.loaders import RawTableLoader
 from cognite_toolkit._cdf_tk.storageio import RawIO
-from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, NoneCompression
+from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
 
 
 @pytest.fixture
@@ -19,7 +19,7 @@ def raw_directory(tmp_path: Path) -> Path:
     configfile = folder / f"test_table.{RawTableLoader.kind}.yaml"
     table = RawTable(db_name="test_db", table_name="test_table")
     configfile.write_text(table.dump_yaml())
-    with NDJsonWriter(folder, RawIO.kind, NoneCompression) as writer:
+    with NDJsonWriter(folder, RawIO.kind, Uncompressed) as writer:
         writer.write_chunks(
             [
                 RowWrite(
