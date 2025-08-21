@@ -76,13 +76,13 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
         SchemaColumn("consumerViewVersion", "string"),
     )
 
-    # Implemented to get correct type hints
     def __init__(
         self, collection: Collection[MigrationMapping] | None = None, failed_rows: dict[int, str] | None = None
     ) -> None:
         super().__init__(collection or [])
         self.failed_rows: dict[int, str] = failed_rows or {}
 
+    # Implemented to get correct type hints
     def __iter__(self) -> Iterator[MigrationMapping]:
         return super().__iter__()
 
@@ -128,6 +128,7 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
             raise ToolkitValueError(f"Mapping file {mapping_file} must be a CSV file.")
 
         schema = CSVReader.sniff_schema(mapping_file, sniff_rows=1000)
+        schema = cls._ensure_version_column_is_string(schema)
         cls._validate_header(schema)
 
         mappings: list[MigrationMapping] = []
@@ -172,3 +173,14 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
         if errors:
             error_str = "\n - ".join(errors)
             raise ToolkitValueError(f"Invalid file schema:\n - {error_str}")
+
+    @classmethod
+    def _ensure_version_column_is_string(cls, schema: list[SchemaColumn]) -> list[SchemaColumn]:
+        """Versions are often given as integers, but we want to treat them as strings."""
+        output: list[SchemaColumn] = []
+        for col in schema:
+            if col.name == "consumerViewVersion" and col.type != "string":
+                output.append(SchemaColumn(name=col.name, type="string"))
+            else:
+                output.append(col)
+        return output
