@@ -18,13 +18,13 @@ def invalid_search_config_test_cases() -> Iterable:
     yield pytest.param(
         {
             "view": {"space": "my_space", "externalId": "my_view"},
-            "columnLayout": [{"property": 123}],  # property should be str
+            "columnsLayout": [{"property": 123}],  # property should be str
         },
         {
-            "In columnLayout[1].property input should be a valid string. Got 123 of type int. "
+            "In columnsLayout[1].property input should be a valid string. Got 123 of type int. "
             "Hint: Use double quotes to force string.",
         },
-        id="Invalid type in column_layout property",
+        id="Invalid type in columns_layout property",
     )
     yield pytest.param(
         {

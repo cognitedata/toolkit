@@ -58,6 +58,10 @@ class Flags(Enum):
         "visible": True,
         "description": "Enables the cdf purge instances command",
     }
+    SEARCH_CONFIG: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
+        "visible": True,
+        "description": "Enables support for search configuration deployment",
+    }
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)
