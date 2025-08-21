@@ -53,6 +53,7 @@ from ._resource_loaders import (
     RoboticLocationLoader,
     RoboticMapLoader,
     RoboticsDataPostProcessingLoader,
+    SearchConfigLoader,
     SecurityCategoryLoader,
     SequenceLoader,
     SequenceRowLoader,
@@ -80,7 +81,8 @@ if not FeatureFlag.is_enabled(Flags.INFIELD):
     _EXCLUDED_LOADERS.add(InfieldV1Loader)
 if not FeatureFlag.is_enabled(Flags.MIGRATE):
     _EXCLUDED_LOADERS.add(ViewSourceLoader)
-
+if not FeatureFlag.is_enabled(Flags.SEARCH_CONFIG):
+    _EXCLUDED_LOADERS.add(SearchConfigLoader)
 
 LOADER_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}
 for _loader in itertools.chain(
@@ -129,6 +131,7 @@ ResourceTypes: TypeAlias = Literal[  # type: ignore[no-redef, misc]
     "robotics",
     "streamlit",
     "workflows",
+    "search_configs",
 ]
 
 

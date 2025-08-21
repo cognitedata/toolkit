@@ -118,7 +118,7 @@ class TestSearchConfigWrite:
         assert dumped["id"] == 123
         assert dumped["useAsName"] == "name-prop"
         assert dumped["view"] == {"externalId": "test-view", "space": "test-space"}
-        assert dumped["columLayout"] == [{"property": "prop1", "selected": True}]
+        assert dumped["columnLayout"] == [{"property": "prop1", "selected": True}]
 
 
 class TestSearchConfig:

@@ -229,6 +229,8 @@ def test_resource_types_is_up_to_date() -> None:
         extra.discard("cdf_applications")
     if not FeatureFlag.is_enabled(Flags.MIGRATE):
         extra.discard("migration")
+    if not FeatureFlag.is_enabled(Flags.SEARCH_CONFIG):
+        extra.discard("search_configs")
 
     assert not missing, f"Missing {missing=}"
     assert not extra, f"Extra {extra=}"

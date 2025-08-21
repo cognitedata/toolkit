@@ -88,7 +88,7 @@ class SearchConfigCore(WriteableCogniteResource["SearchConfigWrite"], ABC):
     def dump(self, camel_case: bool = True) -> dict[str, Any]:
         output = super().dump(camel_case)
         if self.column_layout:
-            output["columLayout" if camel_case else "column_layout"] = [
+            output["columnLayout" if camel_case else "column_layout"] = [
                 _data.dump(camel_case) for _data in self.column_layout
             ]
         if self.filter_layout:
