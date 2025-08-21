@@ -28,7 +28,7 @@ class Compression(ABC):
 
     @classmethod
     def from_filepath(cls, filepath: Path) -> "Compression":
-        return COMPRESSION_BY_SUFFIX.get(filepath.suffix, NoneCompression)(filepath=filepath)
+        return COMPRESSION_BY_SUFFIX.get(filepath.suffix, Uncompressed)(filepath=filepath)
 
     @classmethod
     def from_name(cls, compression: str) -> "type[Compression]":
@@ -39,7 +39,7 @@ class Compression(ABC):
         )
 
 
-class NoneCompression(Compression):
+class Uncompressed(Compression):
     name = "none"
     file_suffix = ""
 

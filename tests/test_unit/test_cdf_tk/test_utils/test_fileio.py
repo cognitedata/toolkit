@@ -19,8 +19,8 @@ from cognite_toolkit._cdf_tk.utils.fileio import (
     CSVReader,
     FileReader,
     FileWriter,
-    NoneCompression,
     SchemaColumn,
+    Uncompressed,
 )
 from cognite_toolkit._cdf_tk.utils.fileio._readers import YAMLBaseReader
 from cognite_toolkit._cdf_tk.utils.fileio._writers import YAMLBaseWriter
@@ -78,7 +78,7 @@ class DummyWriter(FileWriter[TextIOWrapper]):
     format = ".dummy"
 
     def __init__(self, output_dir: Path) -> None:
-        super().__init__(output_dir=output_dir, kind="DummyKind", compression=NoneCompression)
+        super().__init__(output_dir=output_dir, kind="DummyKind", compression=Uncompressed)
         self.written_chunks: list[Chunk] = []
         self.opened_files: list[Path] = []
 
@@ -110,7 +110,7 @@ class TestCompression:
 
     @pytest.mark.parametrize(
         "compression_suffix",
-        [*COMPRESSION_BY_SUFFIX.keys(), NoneCompression.file_suffix],
+        [*COMPRESSION_BY_SUFFIX.keys(), Uncompressed.file_suffix],
     )
     def test_read_write_compression_by_suffix(self, compression_suffix: str, tmp_path: Path) -> None:
         tmp_path = tmp_path / f"test_file.txt{compression_suffix}"
@@ -165,7 +165,7 @@ class TestFileWriter:
 
     def test_create_from_format_raises(self) -> None:
         with pytest.raises(ToolkitValueError) as excinfo:
-            FileWriter.create_from_format("unknown_format", Path("."), "DummyKind", NoneCompression)
+            FileWriter.create_from_format("unknown_format", Path("."), "DummyKind", Uncompressed)
         assert str(excinfo.value).startswith("Unknown file format: unknown_format. Available formats: ")
 
 

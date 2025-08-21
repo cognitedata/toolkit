@@ -4,6 +4,7 @@ from cognite.client import ClientConfig, CogniteClient
 from cognite.client.credentials import CredentialProvider
 
 from .api.canvas import CanvasAPI
+from .api.charts import ChartsAPI
 from .api.dml import DMLAPI
 from .api.extended_data_modeling import ExtendedDataModelingAPI
 from .api.extended_files import ExtendedFileMetadataAPI
@@ -73,6 +74,24 @@ class ToolkitClientConfig(ClientConfig):
         subdomain = self.base_url.split("cognitedata.com", maxsplit=1)[0]
         return "plink" in subdomain
 
+    def create_api_url(self, endpoint: str) -> str:
+        """Create a full API URL for the given endpoint.
+
+        Args:
+            endpoint (str): The API endpoint to append to the base URL.
+
+        Returns:
+            str: The full API URL.
+
+        Examples:
+            >>> config = ToolkitClientConfig(cluster="bluefield", project="my_project", ...)
+            >>> config.create_api_url("/models/instances")
+            "https://bluefield.cognitedata.com/api/v1/my_project/models/instances"
+        """
+        if not endpoint.startswith("/"):
+            endpoint = f"/{endpoint}"
+        return f"{self.base_url}/api/v1/projects/{self.project}{endpoint}"
+
 
 class ToolkitClient(CogniteClient):
     def __init__(self, config: ToolkitClientConfig | None = None, enable_set_pending_ids: bool = False) -> None:
@@ -91,6 +110,7 @@ class ToolkitClient(CogniteClient):
         self.canvas = CanvasAPI(self.data_modeling.instances)
         self.migration = MigrationAPI(self.data_modeling.instances)
         self.token = TokenAPI(self)
+        self.charts = ChartsAPI(self._config, self._API_VERSION, self)
 
     @property
     def config(self) -> ToolkitClientConfig:

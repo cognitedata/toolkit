@@ -39,6 +39,7 @@ class MigrationMapping:
     instance_id: NodeId
     id: int
     data_set_id: int | None = None
+
     ingestion_view: str | None = None
     preferred_consumer_view: ViewId | None = None
 
