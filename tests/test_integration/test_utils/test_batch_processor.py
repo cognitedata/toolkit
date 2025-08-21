@@ -10,7 +10,6 @@ class TestBatchProcessor:
         self, toolkit_client_config: ToolkitClientConfig, toolkit_space: Space
     ) -> None:
         config = toolkit_client_config
-        url = f"{config.base_url}/api/v1/projects/{config.project}/models/instances"
         some_nodes = (
             CogniteActivityApply(
                 space=toolkit_space.space if i < 9 else "non_existent_space",
@@ -20,7 +19,7 @@ class TestBatchProcessor:
             for i in range(10)
         )
         with HTTPIterableProcessor[NodeId](
-            endpoint_url=url,
+            endpoint_url=config.create_api_url("/models/instances"),
             config=config,
             as_id=lambda item: NodeId(item["space"], item["externalId"]),
             body_parameters={"autoCreateDirectRelations": True},
