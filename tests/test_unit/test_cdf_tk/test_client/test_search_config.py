@@ -63,7 +63,7 @@ class TestSearchConfigWrite:
             id=123,
             use_as_name="name-prop",
             use_as_description="desc-prop",
-            column_layout=[property_1],
+            columns_layout=[property_1],
             filter_layout=[property_2],
             properties_layout=[property_1, property_2],
         )
@@ -72,7 +72,7 @@ class TestSearchConfigWrite:
         assert config.id == 123
         assert config.use_as_name == "name-prop"
         assert config.use_as_description == "desc-prop"
-        assert config.column_layout == [property_1]
+        assert config.columns_layout == [property_1]
         assert config.filter_layout == [property_2]
         assert config.properties_layout == [property_1, property_2]
 
@@ -82,7 +82,7 @@ class TestSearchConfigWrite:
             "view": {"externalId": "test-view", "space": "test-space"},
             "useAsName": "name-prop",
             "useAsDescription": "desc-prop",
-            "columnLayout": [{"property": "prop1", "selected": True}],
+            "columnsLayout": [{"property": "prop1", "selected": True}],
             "filterLayout": [{"property": "prop2", "disabled": True}],
             "propertiesLayout": [{"property": "prop1", "selected": True}, {"property": "prop2", "disabled": True}],
         }
@@ -94,9 +94,9 @@ class TestSearchConfigWrite:
         assert config.view.space == "test-space"
         assert config.use_as_name == "name-prop"
         assert config.use_as_description == "desc-prop"
-        assert len(config.column_layout) == 1
-        assert config.column_layout[0].property == "prop1"
-        assert config.column_layout[0].selected is True
+        assert len(config.columns_layout) == 1
+        assert config.columns_layout[0].property == "prop1"
+        assert config.columns_layout[0].selected is True
         assert len(config.filter_layout) == 1
         assert config.filter_layout[0].property == "prop2"
         assert config.filter_layout[0].disabled is True
@@ -110,7 +110,7 @@ class TestSearchConfigWrite:
             view=view,
             id=123,
             use_as_name="name-prop",
-            column_layout=[property_1],
+            columns_layout=[property_1],
         )
 
         dumped = config.dump()
@@ -118,7 +118,7 @@ class TestSearchConfigWrite:
         assert dumped["id"] == 123
         assert dumped["useAsName"] == "name-prop"
         assert dumped["view"] == {"externalId": "test-view", "space": "test-space"}
-        assert dumped["columnLayout"] == [{"property": "prop1", "selected": True}]
+        assert dumped["columnsLayout"] == [{"property": "prop1", "selected": True}]
 
 
 class TestSearchConfig:

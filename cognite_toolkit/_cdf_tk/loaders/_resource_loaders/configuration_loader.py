@@ -35,8 +35,6 @@ class SearchConfigLoader(ResourceLoader[str, SearchConfigWrite, SearchConfig, Se
     _doc_base_url = "https://api-docs.cogheim.net/redoc/#tag/"
     _doc_url = "Search-Config/operation/upsertSearchConfigViews"
 
-    subfilter_names = ("assets", "events", "files", "timeseries", "sequences")
-
     @property
     def display_name(self) -> str:
         return "search config"
@@ -81,7 +79,7 @@ class SearchConfigLoader(ResourceLoader[str, SearchConfigWrite, SearchConfig, Se
     def diff_list(
         self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
     ) -> tuple[dict[int, int], list[int]]:
-        if json_path in [("columnLayout",), ("filterLayout",), ("propertiesLayout",)]:
+        if json_path in [("columnsLayout",), ("filterLayout",), ("propertiesLayout",)]:
             return diff_list_identifiable(local, cdf, get_identifier=lambda x: x.get("property"))
         elif json_path == ("view",):
             return diff_list_identifiable(local, cdf, get_identifier=dm_identifier)
@@ -92,9 +90,14 @@ class SearchConfigLoader(ResourceLoader[str, SearchConfigWrite, SearchConfig, Se
         if isinstance(items, SearchConfigWrite):
             items = SearchConfigWriteList([items])
 
-        created = []
+        created: list[SearchConfig] = []
         for item in items:
-            created.append(self.client.search.configurations.upsert(item))
+            response = self.client.search.configurations.upsert(item)
+            if isinstance(response, SearchConfigList):
+                created.extend(response)
+            else:
+                created.append(response)
+
         return SearchConfigList(created)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> SearchConfigList:
