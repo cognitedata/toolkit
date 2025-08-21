@@ -32,8 +32,8 @@ from cognite.client.data_classes import (
     filters,
 )
 from cognite.client.data_classes.capabilities import IDScopeLowerCase, TimeSeriesAcl
-from cognite.client.data_classes.data_modeling import ViewApply, ViewApplyList
-from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply
+from cognite.client.data_classes.data_modeling import NodeApplyList, NodeList, Space, ViewApply, ViewApplyList
+from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply, CogniteTimeSeries, CogniteTimeSeriesApply
 from cognite.client.data_classes.datapoints_subscriptions import (
     DatapointSubscriptionProperty,
     DatapointSubscriptionWriteList,
@@ -161,13 +161,64 @@ def three_timeseries(cognite_client: CogniteClient) -> TimeSeriesList:
     return retrieved
 
 
+@pytest.fixture(scope="session")
+def one_hundred_and_one_timeseries(cognite_client: CogniteClient, toolkit_dataset: DataSet) -> TimeSeriesList:
+    ts_list = TimeSeriesWriteList(
+        [
+            TimeSeriesWrite(
+                external_id=f"toolkit_101_timeseries_{i}",
+                name=f"Toolkit Test 101 TimeSeries {i}",
+                is_step=False,
+                is_string=False,
+                data_set_id=toolkit_dataset.id,
+            )
+            for i in range(1, 102)
+        ]
+    )
+    retrieved = cognite_client.time_series.retrieve_multiple(
+        external_ids=ts_list.as_external_ids(), ignore_unknown_ids=True
+    )
+    existing = set(retrieved.as_external_ids())
+    to_create = [ts for ts in ts_list if ts.external_id not in existing]
+    if to_create:
+        created = cognite_client.time_series.create(to_create)
+        retrieved.extend(created)
+    return retrieved
+
+
+@pytest.fixture(scope="session")
+def three_hundred_and_three_cognite_timeseries(
+    toolkit_client: ToolkitClient, toolkit_space: Space
+) -> NodeList[CogniteTimeSeries]:
+    ts_list = NodeApplyList(
+        [
+            CogniteTimeSeriesApply(
+                space=toolkit_space.space,
+                external_id=f"toolkit_303_test_timeseries_{i}",
+                is_step=False,
+                time_series_type="numeric",
+            )
+            for i in range(1, 304)
+        ]
+    )
+    retrieved = toolkit_client.data_modeling.instances.retrieve_nodes(ts_list.as_ids(), node_cls=CogniteTimeSeries)
+    if len(retrieved) == len(ts_list):
+        # All timeseries already exist, return the retrieved ones
+        return retrieved
+    existing = set(retrieved.as_ids())
+    to_create = [ts for ts in ts_list if ts.as_id() not in existing]
+    if to_create:
+        _ = toolkit_client.data_modeling.instances.apply(to_create)
+    return toolkit_client.data_modeling.instances.retrieve_nodes(ts_list.as_ids(), node_cls=CogniteTimeSeries)
+
+
 class TestDatapointSubscriptionLoader:
-    def test_delete_non_existing(self, cognite_client: CogniteClient) -> None:
-        loader = DatapointSubscriptionLoader(cognite_client, None)
+    def test_delete_non_existing(self, toolkit_client: ToolkitClient) -> None:
+        loader = DatapointSubscriptionLoader(toolkit_client, None)
         delete_count = loader.delete(["non_existing"])
         assert delete_count == 0
 
-    def test_create_update_delete_subscription(self, cognite_client: CogniteClient) -> None:
+    def test_create_update_delete_subscription(self, toolkit_client: ToolkitClient) -> None:
         sub = DataPointSubscriptionWrite(
             external_id=f"tmp_test_create_update_delete_subscription_{RUN_UNIQUE_ID}",
             partition_count=1,
@@ -181,7 +232,7 @@ class TestDatapointSubscriptionLoader:
             filter=filters.Prefix(DatapointSubscriptionProperty.external_id, "ts_value"),
         )
 
-        loader = DatapointSubscriptionLoader(cognite_client, None)
+        loader = DatapointSubscriptionLoader(toolkit_client, None)
 
         try:
             created = loader.create(DatapointSubscriptionWriteList([sub]))
@@ -190,6 +241,60 @@ class TestDatapointSubscriptionLoader:
             updated = loader.update(DatapointSubscriptionWriteList([update]))
             assert len(updated) == 1
             assert updated[0].name == "Updated name"
+        finally:
+            loader.delete([sub.external_id])
+
+    def test_create_update_delete_subscription_with_ids(
+        self,
+        toolkit_client: ToolkitClient,
+        one_hundred_and_one_timeseries: TimeSeriesList,
+        three_timeseries: TimeSeriesList,
+        three_hundred_and_three_cognite_timeseries: NodeList[CogniteTimeSeries],
+    ) -> None:
+        ts_ids = "\n- ".join(one_hundred_and_one_timeseries.as_external_ids())
+        cognite_ts_ids = "\n".join(
+            [
+                f"- space: {node.space}\n  externalId: {node.external_id}"
+                for node in three_hundred_and_three_cognite_timeseries
+            ]
+        )
+        sub_yaml = f"""externalId: tmp_test_create_update_delete_101_subscription_{RUN_UNIQUE_ID}
+partitionCount: 1
+name: The subscription name
+timeSeriesIds:
+- {ts_ids}
+instanceIds:
+{cognite_ts_ids}
+"""
+        ts_update_ds = "\n- ".join(
+            one_hundred_and_one_timeseries.as_external_ids() + three_timeseries.as_external_ids()
+        )
+        update_yaml = f"""externalId: tmp_test_create_update_delete_101_subscription_{RUN_UNIQUE_ID}
+partitionCount: 1
+name: The subscription name
+timeSeriesIds:
+- {ts_update_ds}
+"""
+        loader = DatapointSubscriptionLoader(toolkit_client, None)
+        sub = self._load_subscription_from_yaml(self._create_mock_file(sub_yaml), loader)
+        try:
+            created = loader.create(DatapointSubscriptionWriteList([sub]))
+            assert len(created) == 1
+            initial_description = created[0].description
+            assert created[0].time_series_count == len(one_hundred_and_one_timeseries) + len(
+                three_hundred_and_three_cognite_timeseries
+            ), "The subscription should have the correct number of time series"
+
+            update = self._load_subscription_from_yaml(self._create_mock_file(update_yaml), loader)
+            updated = loader.update(DatapointSubscriptionWriteList([update]))
+            assert len(updated) == 1
+            updated_description = updated[0].description
+            assert updated_description != initial_description, (
+                "The description should have changed after the update with a hash fo the timeseries IDs"
+            )
+            assert updated[0].time_series_count == len(one_hundred_and_one_timeseries) + len(three_timeseries), (
+                "The subscription should have the correct number of time series after the update"
+            )
         finally:
             loader.delete([sub.external_id])
 
@@ -207,12 +312,8 @@ timeSeriesIds:
 """
         loader = DatapointSubscriptionLoader.create_loader(toolkit_client)
 
-        filepath = MagicMock(spec=Path)
-        filepath.read_text.return_value = definition_yaml
-
-        resource_dict = loader.load_resource_file(filepath, {})
-        assert len(resource_dict) == 1
-        resource = loader.load_resource(resource_dict[0])
+        filepath = self._create_mock_file(definition_yaml)
+        resource = self._load_subscription_from_yaml(filepath, loader)
         assert isinstance(resource, DataPointSubscriptionWrite)
         if not loader.retrieve([resource.external_id]):
             _ = loader.create(DatapointSubscriptionWriteList([resource]))
@@ -226,6 +327,18 @@ timeSeriesIds:
             "delete": len(resources.to_delete),
             "unchanged": len(resources.unchanged),
         } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
+
+    @staticmethod
+    def _create_mock_file(yaml_content: str) -> Path:
+        mock_file = MagicMock(spec=Path)
+        mock_file.read_text.return_value = yaml_content
+        return mock_file
+
+    @staticmethod
+    def _load_subscription_from_yaml(filepath: Path, loader: DatapointSubscriptionLoader) -> DataPointSubscriptionWrite:
+        resource_dict = loader.load_resource_file(filepath, {})
+        assert len(resource_dict) == 1
+        return loader.load_resource(resource_dict[0])
 
 
 class TestLabelLoader:
@@ -816,6 +929,48 @@ authentication:
             toolkit_client.transformations.delete(
                 external_id="transformation_reusing_source_destination_auth", ignore_unknown_ids=True
             )
+
+    @pytest.mark.skip(
+        reason="This is a load test that takes a long time to run ~5 minutes, "
+        "and puts a high load on the transformation service. "
+        "It is used to verify that a fix works, but not run regularly."
+    )
+    def test_load_test_transformation_creation(self, toolkit_client: ToolkitClient) -> None:
+        credentials = toolkit_client.config.credentials
+        if not isinstance(credentials, OAuthClientCredentials):
+            pytest.skip("This test requires OAuthClientCredentials to run")
+        secret = credentials.client_secret
+        client_id = credentials.client_id
+        N = 500
+        definition_yaml = [
+            f"""- externalId: test_load_transformation_creation_{RUN_UNIQUE_ID}_{i}
+  name: Load Test Transformation Creation {i}
+  destination:
+    type: assets
+  ignoreNullFields: true
+  isPublic: true
+  conflictMode: upsert
+  query: Select * from assets
+  authentication:
+    clientId: {client_id}
+    clientSecret: {secret}
+"""
+            for i in range(1, N + 1)
+        ]
+
+        loader = TransformationLoader.create_loader(toolkit_client)
+        filepath = MagicMock(spec=Path)
+        filepath.read_text.return_value = "\n".join(definition_yaml)
+
+        loaded = loader.load_resource_file(filepath, {})
+        assert len(loaded) == N
+        transformations = [loader.load_resource(resource) for resource in loaded]
+
+        try:
+            created_list = loader.create(transformations)
+            assert len(created_list) == N
+        finally:
+            loader.delete([transformation.external_id for transformation in transformations])
 
 
 class TestNodeLoader:

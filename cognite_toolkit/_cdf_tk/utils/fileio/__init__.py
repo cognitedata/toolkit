@@ -4,7 +4,7 @@ from ._compression import (
     COMPRESSION_BY_SUFFIX,
     Compression,
     GzipCompression,
-    NoneCompression,
+    Uncompressed,
 )
 from ._readers import (
     FILE_READ_CLS_BY_FORMAT,
@@ -35,9 +35,9 @@ __all__ = [
     "GzipCompression",
     "NDJsonReader",
     "NDJsonWriter",
-    "NoneCompression",
     "PrimaryCellValue",
     "SchemaColumn",
+    "Uncompressed",
     "YAMLReader",
     "YAMLWriter",
     "YMLReader",
