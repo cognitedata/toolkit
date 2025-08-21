@@ -70,7 +70,7 @@ class TestMigrateTimeSeriesCommand:
         space = toolkit_space.space
 
         input_file = tmp_path / "timeseries_migration.csv"
-        with input_file.open("w", encoding="utf-8") as f:
+        with input_file.open("w", encoding="utf-8", newline="") as f:
             writer = csv.writer(f)
             writer.writerow(["id", "dataSetId", "space", "externalId"])
             for ts in three_timeseries_with_datapoints:
