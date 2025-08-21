@@ -119,6 +119,7 @@ class TestMigrationMappingList:
         input_file = tmp_path / "mapping_file.csv"
         input_file.write_text(content, encoding="utf-8")
         actual = MigrationMappingList.read_mapping_file(input_file, resource_type="timeseries")
+        assert actual.failed_rows == {}
         assert actual == expected
 
     @pytest.mark.parametrize(
@@ -140,7 +141,7 @@ class TestMigrationMappingList:
             ),
             pytest.param(
                 "\n",
-                ("No data found in the file"),
+                "No data found in the file",
                 id="Empty header row",
             ),
         ],
@@ -154,18 +155,18 @@ class TestMigrationMappingList:
         assert str(exc_info.value) == expected_msg
 
     @pytest.mark.parametrize(
-        "content, expected_msg",
+        "content, failed_rows",
         [
             pytest.param(
                 "id,dataSetId,space,externalId\n123,123,sp_full_ts,full_ts_id\ninvalid_id,,sp_step_ts,step_ts_id\n",
-                "Invalid ID or dataSetId in row 2: ['invalid_id', '', 'sp_step_ts', "
-                "'step_ts_id']. ID and dataSetId must be integers.",
+                {2: "Row 2 in mapping file has invalid data types."},
                 id="Invalid id value",
             ),
         ],
     )
-    def test_raise_warning(self, content: str, expected_msg: str, tmp_path: Path) -> None:
+    def test_raise_warning(self, content: str, failed_rows: dict[int, str], tmp_path: Path) -> None:
         input_file = tmp_path / "mapping_file.csv"
         input_file.write_text(content, encoding="utf-8")
 
-        _ = MigrationMappingList.read_mapping_file(input_file, resource_type="timeseries")
+        mappings = MigrationMappingList.read_mapping_file(input_file, resource_type="timeseries")
+        assert mappings.failed_rows == failed_rows
