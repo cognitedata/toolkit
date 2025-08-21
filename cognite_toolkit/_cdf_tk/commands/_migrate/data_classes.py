@@ -130,6 +130,7 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
 
         schema = CSVReader.sniff_schema(mapping_file, sniff_rows=1000)
         schema = cls._ensure_version_column_is_string(schema)
+        schema = cls._ensure_data_set_id_column_is_integer(schema)
         cls._validate_header(schema)
 
         mappings: list[MigrationMapping] = []
@@ -182,6 +183,19 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
         for col in schema:
             if col.name == "consumerViewVersion" and col.type != "string":
                 output.append(SchemaColumn(name=col.name, type="string"))
+            else:
+                output.append(col)
+        return output
+
+    @classmethod
+    def _ensure_data_set_id_column_is_integer(cls, schema: list[SchemaColumn]) -> list[SchemaColumn]:
+        """Data set IDs are often empty, and they then default to string,
+        we want to ensure they are integers for consistency and instead fail if they are not.
+        """
+        output: list[SchemaColumn] = []
+        for col in schema:
+            if col.name == "dataSetId" and col.type != "integer":
+                output.append(SchemaColumn(name=col.name, type="integer"))
             else:
                 output.append(col)
         return output
