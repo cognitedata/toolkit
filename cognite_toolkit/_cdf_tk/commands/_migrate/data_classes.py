@@ -56,8 +56,8 @@ class MigrationMapping:
             resource_type=resource_type,
             instance_id=NodeId(str(data["space"]), str(data["externalId"])),
             id=int(data["id"]),
-            data_set_id=int(data["dataSetId"]) if "dataSetId" in data else None,
-            ingestion_view=str(data["ingestionView"]) if "ingestionView" in data else None,
+            data_set_id=int(data["dataSetId"]) if data.get("dataSetId") is not None else None,
+            ingestion_view=str(data["ingestionView"]) if data.get("ingestionView") is not None else None,
             preferred_consumer_view=preferred_consumer_view,
         )
 
