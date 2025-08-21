@@ -11,7 +11,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.fileio import CSVReader, SchemaColumn
 
@@ -78,8 +77,11 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
     )
 
     # Implemented to get correct type hints
-    def __init__(self, collection: Collection[MigrationMapping] | None = None) -> None:
+    def __init__(
+        self, collection: Collection[MigrationMapping] | None = None, failed_rows: dict[int, str] | None = None
+    ) -> None:
         super().__init__(collection or [])
+        self.failed_rows: dict[int, str] = failed_rows or {}
 
     def __iter__(self) -> Iterator[MigrationMapping]:
         return super().__iter__()
@@ -129,21 +131,18 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
         cls._validate_header(schema)
 
         mappings: list[MigrationMapping] = []
+        failed_rows: dict[int, str] = {}
         for row_no, row in enumerate(CSVReader(mapping_file, schema=schema).read_chunks(), start=1):
             try:
                 mapping = MigrationMapping.load_row(row, resource_type)
-            except KeyError:
-                HighSeverityWarning(
-                    f"Row {row_no} in mapping file is missing required fields. Skipping row."
-                ).print_warning()
+            except KeyError as e:
+                failed_rows[row_no] = f"Row {row_no} in mapping file is missing required fields: {e.args[0]}"
                 continue
             except TypeError:
-                HighSeverityWarning(
-                    f"Row {row_no} in mapping file has invalid data types. Skipping row."
-                ).print_warning()
+                failed_rows[row_no] = f"Row {row_no} in mapping file has invalid data types."
                 continue
             mappings.append(mapping)
-        return cls(mappings)
+        return cls(mappings, failed_rows=failed_rows)
 
     @classmethod
     def _validate_header(cls, schema: list[SchemaColumn]) -> None:
