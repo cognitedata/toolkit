@@ -18,7 +18,8 @@ from cognite_toolkit._cdf_tk.utils.fileio import (
     Compression,
     FileReader,
     FileWriter,
-    NoneCompression,
+    SchemaColumn,
+    Uncompressed,
 )
 from cognite_toolkit._cdf_tk.utils.fileio._readers import YAMLBaseReader
 from cognite_toolkit._cdf_tk.utils.fileio._writers import YAMLBaseWriter
@@ -26,7 +27,7 @@ from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 
 @pytest.fixture()
-def json_chunks() -> list[dict[str, JsonVal]]:
+def json_chunks() -> tuple[list[dict[str, JsonVal]], list[SchemaColumn]]:
     chunks = [
         {"text": "value1", "integer": 123},
         {"text": "value4", "list": [1, 2, 3], "nested": {"key": "value"}},
@@ -34,16 +35,33 @@ def json_chunks() -> list[dict[str, JsonVal]]:
         {"text": "value6"},
         {"text": "value7", "float": 3.14, "empty_list": []},
     ]
-    return chunks
+    schema = [
+        SchemaColumn(name="text", type="string"),
+        SchemaColumn(name="integer", type="integer"),
+        SchemaColumn(name="list", type="integer", is_array=True),
+        SchemaColumn(name="nested", type="json"),
+        SchemaColumn(name="boolean", type="boolean"),
+        SchemaColumn(name="float", type="float"),
+        SchemaColumn(name="empty_list", type="float", is_array=True),
+    ]
+    return chunks, schema
 
 
 @pytest.fixture()
-def cell_chunks(json_chunks: list[dict[str, JsonVal]]) -> list[Chunk]:
+def cell_chunks(
+    json_chunks: tuple[list[dict[str, JsonVal]], list[SchemaColumn]],
+) -> tuple[list[Chunk], list[SchemaColumn]]:
+    chunks, schema = json_chunks
     chunks = [
-        *json_chunks,
+        *chunks,
         {"date": date(2023, 10, 1), "timestamp": datetime(2023, 10, 1, 12, 0, 0, tzinfo=timezone.utc)},
     ]
-    return chunks
+    schema = [
+        *schema,
+        SchemaColumn(name="date", type="date"),
+        SchemaColumn(name="timestamp", type="timestamp"),
+    ]
+    return chunks, schema
 
 
 class LineReader(FileReader):
@@ -59,7 +77,7 @@ class DummyWriter(FileWriter[TextIOWrapper]):
     format = ".dummy"
 
     def __init__(self, output_dir: Path) -> None:
-        super().__init__(output_dir=output_dir, kind="DummyKind", compression=NoneCompression)
+        super().__init__(output_dir=output_dir, kind="DummyKind", compression=Uncompressed)
         self.written_chunks: list[Chunk] = []
         self.opened_files: list[Path] = []
 
@@ -91,7 +109,7 @@ class TestCompression:
 
     @pytest.mark.parametrize(
         "compression_suffix",
-        [*COMPRESSION_BY_SUFFIX.keys(), NoneCompression.file_suffix],
+        [*COMPRESSION_BY_SUFFIX.keys(), Uncompressed.file_suffix],
     )
     def test_read_write_compression_by_suffix(self, compression_suffix: str, tmp_path: Path) -> None:
         tmp_path = tmp_path / f"test_file.txt{compression_suffix}"
@@ -146,7 +164,7 @@ class TestFileWriter:
 
     def test_create_from_format_raises(self) -> None:
         with pytest.raises(ToolkitValueError) as excinfo:
-            FileWriter.create_from_format("unknown_format", Path("."), "DummyKind", NoneCompression)
+            FileWriter.create_from_format("unknown_format", Path("."), "DummyKind", Uncompressed)
         assert str(excinfo.value).startswith("Unknown file format: unknown_format. Available formats: ")
 
 
@@ -214,14 +232,16 @@ class TestFileIO:
         self,
         format: str,
         compression_name: str,
-        json_chunks: list[dict[str, JsonVal]],
+        json_chunks: tuple[list[dict[str, JsonVal]], list[SchemaColumn]],
         tmp_path: Path,
     ) -> None:
-        chunks = json_chunks
+        chunks, columns = json_chunks
         chunk_len = len(chunks)
         compression_cls = COMPRESSION_BY_NAME[compression_name]
         output_dir = tmp_path / "output"
-        with FileWriter.create_from_format(format, output_dir, "Test", compression=compression_cls) as writer:
+        with FileWriter.create_from_format(
+            format, output_dir, "Test", compression=compression_cls, columns=columns
+        ) as writer:
             mid = chunk_len // 2
             writer.write_chunks(chunks[:mid])
             writer.write_chunks(chunks[mid:])
@@ -230,7 +250,10 @@ class TestFileIO:
         assert len(file_path) == 1
 
         reader = FileReader.from_filepath(file_path[0])
-        read_chunks = list(reader.read_chunks())
+        # The Table reader returns all columns, even if they are None, so we filter them out for comparison.
+        read_chunks = [
+            {key: value for key, value in chunk.items() if value is not None} for chunk in reader.read_chunks()
+        ]
 
         assert read_chunks == chunks
 
@@ -239,12 +262,14 @@ class TestFileIO:
         list(product(FILE_WRITE_CLS_BY_FORMAT.keys(), COMPRESSION_BY_NAME.keys())),
     )
     def test_write_cell_chunks(
-        self, format: str, compression_name: str, cell_chunks: list[Chunk], tmp_path: Path
+        self, format: str, compression_name: str, cell_chunks: tuple[list[Chunk], list[SchemaColumn]], tmp_path: Path
     ) -> None:
-        chunks = cell_chunks
+        chunks, columns = cell_chunks
         compression_cls = COMPRESSION_BY_NAME[compression_name]
         output_dir = tmp_path / "output"
-        with FileWriter.create_from_format(format, output_dir, "Test", compression=compression_cls) as writer:
+        with FileWriter.create_from_format(
+            format, output_dir, "Test", compression=compression_cls, columns=columns
+        ) as writer:
             writer.write_chunks(chunks)
 
         file_path = list(output_dir.rglob(f"*{format}{compression_cls.file_suffix}"))
@@ -259,14 +284,16 @@ class TestFileIO:
         self,
         format: str,
         compression_name: str,
-        json_chunks: list[dict[str, JsonVal]],
+        json_chunks: tuple[list[dict[str, JsonVal]], list[SchemaColumn]],
         tmp_path: Path,
     ) -> None:
-        chunks = json_chunks
+        chunks, columns = json_chunks
         chunk_len = len(chunks)
         compression_cls = COMPRESSION_BY_NAME[compression_name]
         output_dir = tmp_path / "output"
-        writer_inst = FileWriter.create_from_format(format, output_dir, "Test", compression=compression_cls)
+        writer_inst = FileWriter.create_from_format(
+            format, output_dir, "Test", compression=compression_cls, columns=columns
+        )
         writer_inst.max_file_size_bytes = 1  # Small size to force splitting
         with writer_inst as writer:
             mid = chunk_len // 2
@@ -281,6 +308,13 @@ class TestFileIO:
         assert len(file_path) == 2
 
         reader = FileReader.from_filepath(file_path[0])
-        assert list(reader.read_chunks()) == chunks[:mid]
+        # The Table reader returns all columns, even if they are None, so we filter them out for comparison.
+        read_chunks = [
+            {key: value for key, value in chunk.items() if value is not None} for chunk in reader.read_chunks()
+        ]
+        assert read_chunks == chunks[:mid]
         reader = FileReader.from_filepath(file_path[1])
-        assert list(reader.read_chunks()) == chunks[mid:]
+        read_chunks = [
+            {key: value for key, value in chunk.items() if value is not None} for chunk in reader.read_chunks()
+        ]
+        assert read_chunks == chunks[mid:]

@@ -1,10 +1,10 @@
+from collections import Counter
 from collections.abc import Iterable
 from functools import partial
 from pathlib import Path
 
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio import StorageIO
 from cognite_toolkit._cdf_tk.storageio._base import T_CogniteResourceList, T_StorageID, T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.utils.file import safe_write, to_directory_compatible, yaml_safe_dump
@@ -24,7 +24,7 @@ class DownloadCommand(ToolkitCommand):
         verbose: bool,
         file_format: str,
         compression: str,
-        limit: int | None,
+        limit: int | None = 100_000,
     ) -> None:
         """Downloads data from CDF to the specified output directory.
 
@@ -42,11 +42,15 @@ class DownloadCommand(ToolkitCommand):
         compression_cls = Compression.from_name(compression)
 
         console = Console()
+        filestem_counter: dict[str, int] = Counter()
         for identifier in identifiers:
             if verbose:
                 console.print(f"Downloading {io.display_name} '{identifier!s}' to {target_directory.as_posix()!r}")
 
             filestem = to_directory_compatible(str(identifier))
+            if filestem_counter[filestem] > 0:
+                filestem = f"{filestem}_{filestem_counter[filestem]}"
+            filestem_counter[filestem] += 1
             iteration_count = self._get_iteration_count(io, identifier, limit)
 
             with FileWriter.create_from_format(file_format, target_directory, io.kind, compression_cls) as writer:
@@ -59,13 +63,11 @@ class DownloadCommand(ToolkitCommand):
                     max_queue_size=8 * 10,  # 8 workers, 10 items per worker
                     download_description=f"Downloading {identifier!s}",
                     process_description="Processing",
-                    write_description=f"Writing to '{target_directory.as_posix()}' in files with stem '{filestem}'",
+                    write_description=f"Writing to {target_directory.as_posix()!r} in files with stem {filestem!r}",
                     console=console,
                 )
                 executor.run()
-
-                if executor.error_occurred:
-                    raise ToolkitValueError(f"An error occurred during the download process: {executor.error_message}")
+                executor.raise_on_error()
                 file_count = writer.file_count
 
             for config in io.configurations(identifier):
