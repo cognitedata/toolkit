@@ -42,10 +42,6 @@ def three_assets(toolkit_client: ToolkitClient, toolkit_space: Space) -> Iterato
 
 
 class TestMigrateAssetsCommand:
-    # This tests uses instances.apply_fast() which uses up to 4 workers for writing instances,
-    # when this is used in parallel with other tests that uses instances.apply() then we get 5 workers in total,
-    # which will trigger a 429 error.
-    @pytest.mark.usefixtures("max_two_workers")
     def test_migrate_assets_command(
         self,
         toolkit_client: ToolkitClient,
@@ -72,7 +68,22 @@ class TestMigrateAssetsCommand:
             mapping_file=input_file,
             dry_run=False,
             verbose=False,
+            max_workers=2,
+            output_dir=tmp_path,
         )
         node_ids = [NodeId(space, a.external_id) for a in three_assets]
         migrated_assets = client.data_modeling.instances.retrieve_nodes(node_ids, CogniteAsset)
         assert len(migrated_assets) == len(three_assets), "Not all assets were migrated successfully."
+
+        csv_files = list(tmp_path.rglob("*MigrationResults.csv"))
+        assert len(csv_files) == 1, "Expected one CSV file to be created."
+        csv_file = csv_files[0]
+        content = csv_file.read_text(encoding="utf-8")
+        assert (
+            content
+            == f"""ResourceType,NodeSpace,NodeExternalId,ResponseStatus,ResponseMessage
+asset,toolkit_test_space,toolkit_asset_test_migration_0_{RUN_UNIQUE_ID},200,
+asset,toolkit_test_space,toolkit_asset_test_migration_1_{RUN_UNIQUE_ID},200,
+asset,toolkit_test_space,toolkit_asset_test_migration_2_{RUN_UNIQUE_ID},200,
+"""
+        )
