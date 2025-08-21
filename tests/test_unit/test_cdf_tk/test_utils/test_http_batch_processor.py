@@ -51,6 +51,7 @@ def processor(toolkit_config: ToolkitClientConfig) -> Iterator[HTTPIterableProce
 class TestHTTPIterableProcessor:
     def test_happy_path(self, toolkit_config: ToolkitClientConfig) -> None:
         url = "http://example.com/api"
+        processor: HTTPIterableProcessor[str]
         with (
             HTTPIterableProcessor[str](
                 url,
@@ -63,14 +64,30 @@ class TestHTTPIterableProcessor:
                 responses.POST,
                 url,
                 status=200,
-                json={"items": [{"externalId": "item1"}, {"externalId": "item2"}]},
+                json={
+                    "items": [
+                        {"externalId": "item1", "server": "property1"},
+                        {"externalId": "item2", "server": "property2"},
+                    ]
+                },
             )
-            result = processor.process(({"externalId": "item1"}, {"externalId": "item2"}))
+            result = processor.process(
+                (
+                    {
+                        "externalId": "item1",
+                    },
+                    {"externalId": "item2"},
+                )
+            )
 
             assert len(rsps.calls) == 1
             assert result.total_successful == 2
             assert result.total_processed == 2
             assert result.success_rate == 1.0
+            assert [item.response for item in result.successful_items if item.response] == [
+                {"externalId": "item1", "server": "property1"},
+                {"externalId": "item2", "server": "property2"},
+            ]
 
     def test_concurrent_processing(self, processor: HTTPIterableProcessor) -> None:
         """Test that items are processed concurrently using multiple workers"""
@@ -101,7 +118,7 @@ class TestHTTPIterableProcessor:
 
             # Verify the total time is less than if it were sequential
             assert end_time - start_time < processor.max_workers * 0.1
-            assert result.total_successful == 400
+            assert result.total_processed == 400
 
     @pytest.mark.usefixtures("disable_gzip")
     def test_split_batch_concurrency(self, processor: HTTPIterableProcessor) -> None:
@@ -117,7 +134,7 @@ class TestHTTPIterableProcessor:
             if batch_count == 100:
                 return 502, {}, '{"error": {"message": "Server Error"}}'
             else:
-                return 200, {}, '{"items": []}'
+                return 200, {}, request.body
 
         with responses.RequestsMock() as rsps:
             rsps.add_callback(
@@ -227,11 +244,12 @@ class TestHTTPIterableProcessor:
 
     def test_rate_limit_handling(self, processor: HTTPIterableProcessor) -> None:
         """Test handling of 429 rate limit responses with eventual success"""
+        items = [{"id": i} for i in range(10)]
         responses_sequence = [
             # First attempt gets rate limited
             {"status": 429, "json": {"error": {"message": "Too many requests"}}},
             # Second attempt succeeds
-            {"status": 200, "json": {"items": []}},
+            {"status": 200, "json": {"items": items}},
         ]
 
         with responses.RequestsMock() as rsps:
@@ -244,7 +262,6 @@ class TestHTTPIterableProcessor:
                 )
 
             with patch("time.sleep"):  # Skip actual waiting
-                items = [{"id": i} for i in range(10)]
                 result = processor.process(items, total_items=len(items))
 
                 assert result.total_successful == 10
@@ -269,7 +286,8 @@ class TestHTTPIterableProcessor:
                 return 400, {}, '{"error": {"message": "Invalid format for item"}}'
             else:
                 request_items.append(payload)
-                return 200, {}, '{"items": []}'
+                # Return payload for successful items
+                return 200, {}, payload
 
         with (
             HTTPIterableProcessor(

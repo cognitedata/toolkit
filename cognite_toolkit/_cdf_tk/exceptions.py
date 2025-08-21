@@ -241,3 +241,9 @@ class ToolkitNotImplementedError(NotImplementedError, ToolkitError):
 
     def __str__(self) -> str:
         return f"ToolkitNotImplementedError: {self.message}"
+
+
+class ToolkitRuntimeError(RuntimeError, ToolkitError):
+    """General runtime error for toolkit operations."""
+
+    ...
