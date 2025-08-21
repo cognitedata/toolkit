@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pytest
-from cognite.client.data_classes.data_modeling import DirectRelationReference, NodeId
+from cognite.client.data_classes.data_modeling import DirectRelationReference, NodeId, ViewId
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteTimeSeriesApply
 
 from cognite_toolkit._cdf_tk.client.data_classes.extended_timeseries import ExtendedTimeSeries
@@ -112,6 +112,36 @@ class TestMigrationMappingList:
                     ]
                 ),
                 id="Mapping with BOM",
+            ),
+            pytest.param(
+                """id,space,externalId,dataSetId,ingestionView,consumerViewSpace,consumerViewExternalId,consumerViewVersion\n
+123,sp_full_ts,full_ts_id,123,ingestion_view_id,consumer_view_space,consumer_view_external_id,1.0\n
+3231,sp_step_ts,step_ts_id,,ingestion_view_id_2,consumer_view_space_2,consumer_view_external_id_2,2.0\n""",
+                MigrationMappingList(
+                    [
+                        MigrationMapping(
+                            resource_type="timeseries",
+                            id=123,
+                            data_set_id=123,
+                            instance_id=NodeId("sp_full_ts", "full_ts_id"),
+                            ingestion_view="ingestion_view_id",
+                            preferred_consumer_view=ViewId(
+                                space="consumer_view_space", external_id="consumer_view_external_id", version="1.0"
+                            ),
+                        ),
+                        MigrationMapping(
+                            resource_type="timeseries",
+                            id=3231,
+                            data_set_id=None,
+                            instance_id=NodeId("sp_step_ts", "step_ts_id"),
+                            ingestion_view="ingestion_view_id_2",
+                            preferred_consumer_view=ViewId(
+                                space="consumer_view_space_2", external_id="consumer_view_external_id_2", version="2.0"
+                            ),
+                        ),
+                    ]
+                ),
+                id="Mapping with all columns including optional ones",
             ),
         ],
     )
