@@ -1,3 +1,4 @@
+import threading
 import time
 from collections.abc import Iterator
 from unittest.mock import MagicMock, patch
@@ -12,6 +13,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.utils.auth import CLIENT_NAME
 from cognite_toolkit._cdf_tk.utils.batch_processor import (
     BatchResult,
+    HTTPBatchProcessor,
     HTTPIterableProcessor,
     SuccessItem,
 )
@@ -49,6 +51,7 @@ def processor(toolkit_config: ToolkitClientConfig) -> Iterator[HTTPIterableProce
 class TestHTTPIterableProcessor:
     def test_happy_path(self, toolkit_config: ToolkitClientConfig) -> None:
         url = "http://example.com/api"
+        processor: HTTPIterableProcessor[str]
         with (
             HTTPIterableProcessor[str](
                 url,
@@ -61,14 +64,30 @@ class TestHTTPIterableProcessor:
                 responses.POST,
                 url,
                 status=200,
-                json={"items": [{"externalId": "item1"}, {"externalId": "item2"}]},
+                json={
+                    "items": [
+                        {"externalId": "item1", "server": "property1"},
+                        {"externalId": "item2", "server": "property2"},
+                    ]
+                },
             )
-            result = processor.process(({"externalId": "item1"}, {"externalId": "item2"}))
+            result = processor.process(
+                (
+                    {
+                        "externalId": "item1",
+                    },
+                    {"externalId": "item2"},
+                )
+            )
 
             assert len(rsps.calls) == 1
             assert result.total_successful == 2
             assert result.total_processed == 2
             assert result.success_rate == 1.0
+            assert [item.response for item in result.successful_items if item.response] == [
+                {"externalId": "item1", "server": "property1"},
+                {"externalId": "item2", "server": "property2"},
+            ]
 
     def test_concurrent_processing(self, processor: HTTPIterableProcessor) -> None:
         """Test that items are processed concurrently using multiple workers"""
@@ -99,7 +118,7 @@ class TestHTTPIterableProcessor:
 
             # Verify the total time is less than if it were sequential
             assert end_time - start_time < processor.max_workers * 0.1
-            assert result.total_successful == 400
+            assert result.total_processed == 400
 
     @pytest.mark.usefixtures("disable_gzip")
     def test_split_batch_concurrency(self, processor: HTTPIterableProcessor) -> None:
@@ -115,7 +134,7 @@ class TestHTTPIterableProcessor:
             if batch_count == 100:
                 return 502, {}, '{"error": {"message": "Server Error"}}'
             else:
-                return 200, {}, '{"items": []}'
+                return 200, {}, request.body
 
         with responses.RequestsMock() as rsps:
             rsps.add_callback(
@@ -225,11 +244,12 @@ class TestHTTPIterableProcessor:
 
     def test_rate_limit_handling(self, processor: HTTPIterableProcessor) -> None:
         """Test handling of 429 rate limit responses with eventual success"""
+        items = [{"id": i} for i in range(10)]
         responses_sequence = [
             # First attempt gets rate limited
             {"status": 429, "json": {"error": {"message": "Too many requests"}}},
             # Second attempt succeeds
-            {"status": 200, "json": {"items": []}},
+            {"status": 200, "json": {"items": items}},
         ]
 
         with responses.RequestsMock() as rsps:
@@ -242,7 +262,6 @@ class TestHTTPIterableProcessor:
                 )
 
             with patch("time.sleep"):  # Skip actual waiting
-                items = [{"id": i} for i in range(10)]
                 result = processor.process(items, total_items=len(items))
 
                 assert result.total_successful == 10
@@ -267,7 +286,8 @@ class TestHTTPIterableProcessor:
                 return 400, {}, '{"error": {"message": "Invalid format for item"}}'
             else:
                 request_items.append(payload)
-                return 200, {}, '{"items": []}'
+                # Return payload for successful items
+                return 200, {}, payload
 
         with (
             HTTPIterableProcessor(
@@ -353,3 +373,175 @@ class TestHTTPIterableProcessor:
             result = processor.process(items_generator())
 
         assert str(result.producer_error) == "Raising an error during iteration"
+
+
+class TestHTTPBatchProcessor:
+    def test_happy_path(self, toolkit_config: ToolkitClientConfig) -> None:
+        """Test that TestHTTPBatchProcessor processes items correctly"""
+        url = "https://test.com/api"
+        items = [{"id": i} for i in range(5)]
+
+        batches: list[BatchResult[str]] = []
+
+        def processor(batch: BatchResult[str]) -> None:
+            batches.append(batch)
+
+        with (
+            responses.RequestsMock() as rsps,
+            HTTPBatchProcessor[str](
+                endpoint_url=url,
+                config=toolkit_config,
+                as_id=lambda item: item["id"],
+                result_processor=processor,
+                max_workers=2,
+            ) as processor,
+        ):
+            rsps.add(
+                responses.POST,
+                url,
+                status=200,
+                json={"items": [{"id": 1}, {"id": 2}, {"id": 3}]},
+            )
+            rsps.add(
+                responses.POST,
+                url,
+                status=200,
+                json={"items": [{"id": 4}, {"id": 5}]},
+            )
+            processor.add_items(items[:3])
+            processor.add_items(items[3:])
+
+        assert len(batches) == 2
+
+    def test_iterable_processor_empty_input(self, toolkit_config: ToolkitClientConfig) -> None:
+        """Test that TestHTTPBatchProcessor does not call result_processor for empty input"""
+        url = "https://test.com/api"
+        batches: list[BatchResult[str]] = []
+
+        def processor(batch: BatchResult[str]) -> None:
+            batches.append(batch)
+
+        with (
+            responses.RequestsMock() as _,
+            HTTPBatchProcessor[str](
+                endpoint_url=url,
+                config=toolkit_config,
+                as_id=lambda item: item["id"],
+                result_processor=processor,
+                max_workers=2,
+            ) as processor,
+        ):
+            processor.add_items([])
+        assert len(batches) == 0
+
+    def test_iterable_processor_result_processor_error(self, toolkit_config: ToolkitClientConfig) -> None:
+        """Test that exceptions in result_processor are handled and logged"""
+        url = "https://test.com/api"
+        items = [{"id": i} for i in range(2)]
+        error_logged = []
+
+        def processor(batch: BatchResult[str]) -> None:
+            raise RuntimeError("Test error in result processor")
+
+        class DummyConsole:
+            def print(self, msg):
+                error_logged.append(msg)
+
+        with (
+            responses.RequestsMock() as rsps,
+            HTTPBatchProcessor[str](
+                endpoint_url=url,
+                config=toolkit_config,
+                as_id=lambda item: item["id"],
+                result_processor=processor,
+                max_workers=1,
+                console=DummyConsole(),
+            ) as processor,
+        ):
+            rsps.add(
+                responses.POST,
+                url,
+                status=200,
+                json={"items": [{"id": 1}, {"id": 2}]},
+            )
+            processor.add_items(items)
+        assert any("Error processing result" in str(msg) for msg in error_logged)
+
+    def test_iterable_processor_shutdown_no_items(self, toolkit_config: ToolkitClientConfig) -> None:
+        """Test that threads shut down cleanly when no items are added"""
+        url = "https://test.com/api"
+        batches: list[BatchResult[str]] = []
+
+        def processor(batch: BatchResult[str]) -> None:
+            batches.append(batch)
+
+        with HTTPBatchProcessor[str](
+            endpoint_url=url,
+            config=toolkit_config,
+            as_id=lambda item: item["id"],
+            result_processor=processor,
+            max_workers=2,
+        ) as processor:
+            pass  # No items added
+        assert len(batches) == 0
+
+    def test_iterable_processor_thread_safety(self, toolkit_config: ToolkitClientConfig) -> None:
+        """Test adding items from multiple threads is processed correctly"""
+        url = "https://test.com/api"
+        items = [{"id": i} for i in range(10)]
+        batches: list[BatchResult[str]] = []
+
+        def processor(batch: BatchResult[str]) -> None:
+            batches.append(batch)
+
+        with (
+            responses.RequestsMock() as rsps,
+            HTTPBatchProcessor[str](
+                endpoint_url=url,
+                config=toolkit_config,
+                as_id=lambda item: item["id"],
+                result_processor=processor,
+                max_workers=2,
+                batch_size=2,
+            ) as processor,
+        ):
+            rsps.add(
+                responses.POST,
+                url,
+                status=200,
+                json={"items": [{"id": 1}, {"id": 2}]},
+            )
+            rsps.add(
+                responses.POST,
+                url,
+                status=200,
+                json={"items": [{"id": 3}, {"id": 4}]},
+            )
+            rsps.add(
+                responses.POST,
+                url,
+                status=200,
+                json={"items": [{"id": 5}, {"id": 6}]},
+            )
+            rsps.add(
+                responses.POST,
+                url,
+                status=200,
+                json={"items": [{"id": 7}, {"id": 8}]},
+            )
+            rsps.add(
+                responses.POST,
+                url,
+                status=200,
+                json={"items": [{"id": 9}, {"id": 10}]},
+            )
+
+            def add_items_thread(start, end):
+                processor.add_items(items[start:end])
+
+            threads = [threading.Thread(target=add_items_thread, args=(i, i + 2)) for i in range(0, 10, 2)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+        assert len(batches) == 5
