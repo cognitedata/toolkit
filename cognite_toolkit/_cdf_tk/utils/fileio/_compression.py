@@ -11,7 +11,9 @@ from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
 
 class Compression(ABC):
-    encoding = "utf-8"
+    # This encoding ensures that the BOM (Byte Order Mark) is handled correctly for UTF-8 files.
+    # This happens typically when csv-files are created in Excel and saved as UTF-8.
+    encoding = "utf-8-sig"
     newline = "\n"
     name: ClassVar[str]
     file_suffix: ClassVar[str]

@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pytest
-from cognite.client.data_classes.data_modeling import DirectRelationReference, NodeId
+from cognite.client.data_classes.data_modeling import DirectRelationReference, NodeId, ViewId
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteTimeSeriesApply
 
 from cognite_toolkit._cdf_tk.client.data_classes.extended_timeseries import ExtendedTimeSeries
@@ -113,72 +113,65 @@ class TestMigrationMappingList:
                 ),
                 id="Mapping with BOM",
             ),
+            pytest.param(
+                """id,space,externalId,dataSetId,ingestionView,consumerViewSpace,consumerViewExternalId,consumerViewVersion\n
+123,sp_full_ts,full_ts_id,123,ingestion_view_id,consumer_view_space,consumer_view_external_id,1.0\n
+3231,sp_step_ts,step_ts_id,,ingestion_view_id_2,consumer_view_space_2,consumer_view_external_id_2,2.0\n""",
+                MigrationMappingList(
+                    [
+                        MigrationMapping(
+                            resource_type="timeseries",
+                            id=123,
+                            data_set_id=123,
+                            instance_id=NodeId("sp_full_ts", "full_ts_id"),
+                            ingestion_view="ingestion_view_id",
+                            preferred_consumer_view=ViewId(
+                                space="consumer_view_space", external_id="consumer_view_external_id", version="1.0"
+                            ),
+                        ),
+                        MigrationMapping(
+                            resource_type="timeseries",
+                            id=3231,
+                            data_set_id=None,
+                            instance_id=NodeId("sp_step_ts", "step_ts_id"),
+                            ingestion_view="ingestion_view_id_2",
+                            preferred_consumer_view=ViewId(
+                                space="consumer_view_space_2", external_id="consumer_view_external_id_2", version="2.0"
+                            ),
+                        ),
+                    ]
+                ),
+                id="Mapping with all columns including optional ones",
+            ),
         ],
     )
     def test_read_mapping_file(self, content: str, expected: MigrationMappingList, tmp_path: Path) -> None:
         input_file = tmp_path / "mapping_file.csv"
         input_file.write_text(content, encoding="utf-8")
         actual = MigrationMappingList.read_mapping_file(input_file, resource_type="timeseries")
+        assert actual.failed_rows == {}
         assert actual == expected
 
     @pytest.mark.parametrize(
         "content, expected_msg",
         [
-            pytest.param("", "Mapping file is empty", id="empty_file"),
+            pytest.param("", "No data found in the file", id="empty_file"),
             pytest.param(
-                "space,externalId,id,dataSetId\n",
-                (
-                    "Invalid mapping file header:\n"
-                    " - First column must be 'id'. Got 'space'.\n"
-                    " - If there are 4 columns, the second column must be 'dataSetId'. Got 'externalId'.\n"
-                    " - Last two columns must be 'space' and 'externalId'. Got 'id' and 'dataSetId'."
-                ),
-                id="invalid header",
-            ),
-            pytest.param(
-                "id,data_set_id,space,externalId\n",
-                (
-                    "Invalid mapping file header:\n - If there are 4 columns, "
-                    "the second column must be 'dataSetId'. Got 'data_set_id'."
-                ),
-                id="invalid header with data_set_id",
-            ),
-            pytest.param(
-                "id,externalId\n",
-                "Invalid mapping file header:\n"
-                " - Mapping file must have at least 3 columns: id, space, "
-                "externalId. Got 2 columns.\n"
-                " - Last two columns must be 'space' and 'externalId'. Got 'id' and 'externalId'.",
+                "id,externalId\nnot_int,my_node_id",
+                "Invalid file schema:\n"
+                " - Mapping file must have the following columns: id, space and externalId. Missing: space.\n"
+                " - Mapping file has incorrect data types for columns: id (got='string',expected='integer').",
                 id="Too few columns",
             ),
             pytest.param(
-                "externalId,dataSetId,space,externalId,myExtra\n",
-                "Invalid mapping file header:\n"
-                " - Mapping file must have at most 4 columns: id, dataSetId, "
-                "space, externalId. Got 5 columns.\n"
-                " - First column must be 'id'. Got 'externalId'.\n"
-                " - Last two columns must be 'space' and 'externalId'. Got 'externalId' and 'myExtra'.",
-                id="Too many columns",
-            ),
-            pytest.param(
-                "id,dataSetId,space,externalId\n123,123,sp_full_ts,full_ts_id\ninvalid_id,,sp_step_ts,step_ts_id\n",
-                "Invalid ID or dataSetId in row 2: ['invalid_id', '', 'sp_step_ts', "
-                "'step_ts_id']. ID and dataSetId must be integers.",
-                id="Invalid id value",
-            ),
-            pytest.param(
                 "id,dataSetId,space,externalId\n123,invalid_dataset_id,sp_full_ts,full_ts_id\n",
-                "Invalid ID or dataSetId in row 1: ['123', 'invalid_dataset_id', "
-                "'sp_full_ts', 'full_ts_id']. ID and dataSetId must be integers.",
+                "Invalid file schema:\n"
+                " - Mapping file has incorrect data types for columns: dataSetId (got='string',expected='integer').",
                 id="Invalid external_id value",
             ),
             pytest.param(
                 "\n",
-                (
-                    "Invalid mapping file header:\n"
-                    " - Mapping file must have at least 3 columns: id, space, "
-                    "externalId. Got 0 columns."
-                ),
+                "No data found in the file",
                 id="Empty header row",
             ),
         ],
@@ -190,3 +183,20 @@ class TestMigrationMappingList:
         with pytest.raises(ValueError) as exc_info:
             MigrationMappingList.read_mapping_file(input_file, resource_type="timeseries")
         assert str(exc_info.value) == expected_msg
+
+    @pytest.mark.parametrize(
+        "content, failed_rows",
+        [
+            pytest.param(
+                "id,dataSetId,space,externalId\n123,123,sp_full_ts,full_ts_id\ninvalid_id,,sp_step_ts,step_ts_id\n",
+                {2: "Row 2 in mapping file has invalid data types."},
+                id="Invalid id value",
+            ),
+        ],
+    )
+    def test_raise_warning(self, content: str, failed_rows: dict[int, str], tmp_path: Path) -> None:
+        input_file = tmp_path / "mapping_file.csv"
+        input_file.write_text(content, encoding="utf-8")
+
+        mappings = MigrationMappingList.read_mapping_file(input_file, resource_type="timeseries")
+        assert mappings.failed_rows == failed_rows
