@@ -681,7 +681,7 @@ Row:
     table_name: asset
   name: db_complete_org_asset_False
 SearchConfig:
-- columnLayout:
+- columnsLayout:
   - property: name
     selected: true
   - property: description
@@ -692,7 +692,7 @@ SearchConfig:
   view:
     externalId: test-view
     space: test-space
-- columnLayout:
+- columnsLayout:
   - property: title
     selected: true
   - property: summary

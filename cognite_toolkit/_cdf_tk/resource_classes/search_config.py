@@ -26,6 +26,6 @@ class SearchConfigYAML(ToolkitResource):
     id: int | None = None
     use_as_name: str | None = None
     use_as_description: str | None = None
-    column_layout: list[PropertyConfig] | None = None
+    columns_layout: list[PropertyConfig] | None = None
     filter_layout: list[PropertyConfig] | None = None
     properties_layout: list[PropertyConfig] | None = None
