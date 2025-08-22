@@ -3,6 +3,7 @@ import json
 from abc import ABC, abstractmethod
 from collections import Counter, defaultdict
 from collections.abc import Callable, Iterator, Mapping, Sequence
+from dataclasses import dataclass
 from functools import partial
 from io import TextIOWrapper
 from pathlib import Path
@@ -78,6 +79,14 @@ class YMLReader(YAMLBaseReader):
     format = ".yml"
 
 
+@dataclass
+class FailedParsing:
+    row: int
+    column: str
+    value: str
+    error: str
+
+
 class CSVReader(FileReader):
     """Reads CSV files and yields each row as a dictionary.
 
@@ -86,13 +95,21 @@ class CSVReader(FileReader):
         sniff_rows (int | None): Optional number of rows to sniff for
             schema detection. If None, no schema is detected. If a schema is sniffed
             from the first `sniff_rows` rows, it will be used to parse the CSV.
+        schema (Sequence[SchemaColumn] | None): Optional schema to use for parsing.
+            You can either provide a schema or use `sniff_rows` to detect it.
+        keep_failed_cells (bool): If True, failed cells will be kept in the
+            `failed_cell` attribute. If False, they will be ignored.
 
     """
 
     format = ".csv"
 
     def __init__(
-        self, input_file: Path, sniff_rows: int | None = None, schema: Sequence[SchemaColumn] | None = None
+        self,
+        input_file: Path,
+        sniff_rows: int | None = None,
+        schema: Sequence[SchemaColumn] | None = None,
+        keep_failed_cells: bool = False,
     ) -> None:
         super().__init__(input_file)
         if sniff_rows is not None and schema is not None:
@@ -102,7 +119,9 @@ class CSVReader(FileReader):
         else:
             self.schema = schema
         self.sniff_rows = sniff_rows
+        self.keep_failed_cells = keep_failed_cells
         self.parse_function_by_column = self._create_parse_functions(self.schema)
+        self.failed_cell: list[FailedParsing] = []
 
     @classmethod
     def _create_parse_functions(
@@ -173,14 +192,16 @@ class CSVReader(FileReader):
     def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[dict[str, JsonVal]]:
         for row in csv.DictReader(file):
             parsed: dict[str, JsonVal] = {}
-            for key, value in row.items():
+            for row_no, (key, value) in enumerate(row.items(), start=1):
                 if value == "":
-                    parsed[key] = None  # type: ignore[index]
+                    parsed[key] = None
                     continue
                 try:
-                    parsed[key] = self.parse_function_by_column[key](value)  # type: ignore[index]
-                except ValueError:
-                    parsed[key] = None  # type: ignore[index]
+                    parsed[key] = self.parse_function_by_column[key](value)
+                except ValueError as e:
+                    parsed[key] = None
+                    if self.keep_failed_cells:
+                        self.failed_cell.append(FailedParsing(row=row_no, column=key, value=value, error=str(e)))
             yield parsed
 
 
