@@ -23,13 +23,13 @@ class FileReader(FileIO, ABC):
     def __init__(self, input_file: Path) -> None:
         self.input_file = input_file
 
-    def read_chunks(self) -> Iterator[JsonVal]:
+    def read_chunks(self) -> Iterator[dict[str, JsonVal]]:
         compression = Compression.from_filepath(self.input_file)
         with compression.open("r") as file:
             yield from self._read_chunks_from_file(file)
 
     @abstractmethod
-    def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[JsonVal]:
+    def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[dict[str, JsonVal]]:
         """Read chunks from the file."""
         raise NotImplementedError("This method should be implemented in subclasses.")
 
@@ -59,14 +59,14 @@ class FileReader(FileIO, ABC):
 class NDJsonReader(FileReader):
     format = ".ndjson"
 
-    def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[JsonVal]:
+    def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[dict[str, JsonVal]]:
         for line in file:
             if stripped := line.strip():
                 yield json.loads(stripped)
 
 
 class YAMLBaseReader(FileReader, ABC):
-    def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[JsonVal]:
+    def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[dict[str, JsonVal]]:
         yield from yaml.safe_load_all(file)
 
 
@@ -170,9 +170,9 @@ class CSVReader(FileReader):
                 schema.append(column)
         return schema
 
-    def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[JsonVal]:
+    def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[dict[str, JsonVal]]:
         for row in csv.DictReader(file):
-            parsed: JsonVal = {}
+            parsed: dict[str, JsonVal] = {}
             for key, value in row.items():
                 if value == "":
                     parsed[key] = None  # type: ignore[index]
@@ -187,7 +187,7 @@ class CSVReader(FileReader):
 class ParquetReader(FileReader):
     format = ".parquet"
 
-    def read_chunks(self) -> Iterator[JsonVal]:
+    def read_chunks(self) -> Iterator[dict[str, JsonVal]]:
         import pyarrow.parquet as pq
 
         with pq.ParquetFile(self.input_file) as parquet_file:
@@ -195,7 +195,7 @@ class ParquetReader(FileReader):
                 for chunk in batch.to_pylist():
                     yield {key: self._parse_value(value) for key, value in chunk.items()}
 
-    def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[JsonVal]:
+    def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[dict[str, JsonVal]]:
         raise NotImplementedError(
             "This is not used by ParquetReader, as it reads directly from the file using pyarrow."
         )
