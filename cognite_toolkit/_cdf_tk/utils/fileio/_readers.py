@@ -190,18 +190,18 @@ class CSVReader(FileReader):
         return schema
 
     def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[dict[str, JsonVal]]:
-        for row in csv.DictReader(file):
+        for row_no, row in enumerate(csv.DictReader(file), start=1):
             parsed: dict[str, JsonVal] = {}
-            for row_no, (key, value) in enumerate(row.items(), start=1):
+            for col, value in row.items():
                 if value == "":
-                    parsed[key] = None
+                    parsed[col] = None
                     continue
                 try:
-                    parsed[key] = self.parse_function_by_column[key](value)
+                    parsed[col] = self.parse_function_by_column[col](value)
                 except ValueError as e:
-                    parsed[key] = None
+                    parsed[col] = None
                     if self.keep_failed_cells:
-                        self.failed_cell.append(FailedParsing(row=row_no, column=key, value=value, error=str(e)))
+                        self.failed_cell.append(FailedParsing(row=row_no, column=col, value=value, error=str(e)))
             yield parsed
 
 
