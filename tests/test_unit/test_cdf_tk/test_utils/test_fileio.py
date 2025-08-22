@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import (
     Chunk,
     Compression,
     CSVReader,
+    FailedParsing,
     FileReader,
     FileWriter,
     SchemaColumn,
@@ -349,7 +350,7 @@ value3,789,"{""key"": ""value3""}",true,1.41
         csv_path = tmp_path / "test.csv"
         csv_path.write_text(self.CSV_CONTENT, encoding="utf-8")
 
-        reader = CSVReader(csv_path, schema=list(self.EXPECTED_SCHEMA))
+        reader = CSVReader(csv_path, schema=self.EXPECTED_SCHEMA, keep_failed_cells=True)
         chunks = list(reader.read_chunks())
 
         assert len(chunks) == 5
@@ -372,3 +373,10 @@ value3,789,"{""key"": ""value3""}",true,1.41
             {"boolean": True, "float": 1.41, "integer": 789, "nested": {"key": "value3"}, "text": "value3"},
             {"boolean": None, "float": 20.0, "integer": None, "nested": 31.2, "text": "310"},
         ]
+        assert len(reader.failed_cell) == 2
+        assert reader.failed_cell == {
+            [
+                FailedParsing(row=5, column="integer", value="false", error="'annot convert false to int64."),
+                FailedParsing(row=5, column="boolean", value="text", error="Cannot convert text to boolean."),
+            ]
+        }
