@@ -505,7 +505,10 @@ class TestConvertStringToDataType:
         pytest.param("2025-07-22", "date", date(2025, 7, 22), id="ISO date to Date"),
     )
 
-    @pytest.mark.parametrize("value, data_type, expected_value", TEST_CASES)
+    @pytest.mark.parametrize(
+        "value, data_type, expected_value",
+        (*TEST_CASES, pytest.param(None, "string", None, id="None to string (nullable)")),
+    )
     def test_convert(
         self,
         value: str | None,
@@ -518,7 +521,10 @@ class TestConvertStringToDataType:
         else:
             assert result == expected_value, f"Expected {expected_value}, but got {result}"
 
-    @pytest.mark.parametrize("value, data_type, expected_value", TEST_CASES)
+    @pytest.mark.parametrize(
+        "value, data_type, expected_value",
+        (*TEST_CASES, pytest.param(None, "string", [], id="None to string (nullable)")),
+    )
     def test_convert_array(
         self,
         value: str | None,
@@ -528,6 +534,8 @@ class TestConvertStringToDataType:
         result = convert_str_to_data_type(value, data_type, is_array=True)
         if isinstance(expected_value, float):
             assert result == pytest.approx([expected_value]), f"Expected [{expected_value}], but got {result}"
+        elif isinstance(expected_value, list):
+            assert result == expected_value, f"Expected {expected_value}, but got {result}"
         else:
             assert result == [expected_value], f"Expected [{expected_value}], but got {result}"
 
