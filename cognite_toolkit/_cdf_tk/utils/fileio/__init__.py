@@ -9,6 +9,7 @@ from ._compression import (
 from ._readers import (
     FILE_READ_CLS_BY_FORMAT,
     CSVReader,
+    FailedParsing,
     FileReader,
     NDJsonReader,
     ParquetReader,
@@ -36,6 +37,7 @@ __all__ = [
     "Chunk",
     "Compression",
     "DataType",
+    "FailedParsing",
     "FileReader",
     "FileWriter",
     "GzipCompression",
