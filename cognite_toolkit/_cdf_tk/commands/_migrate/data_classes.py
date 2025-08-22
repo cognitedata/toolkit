@@ -1,11 +1,11 @@
 import csv
 import sys
 from collections.abc import Collection, Iterator, Sequence
-from dataclasses import dataclass
 from pathlib import Path
 from typing import SupportsIndex, overload
 
-from cognite.client.data_classes.data_modeling import NodeId
+from cognite.client.data_classes.data_modeling import NodeId, ViewId
+from pydantic import BaseModel
 
 from cognite_toolkit._cdf_tk.client.data_classes.pending_instances_ids import PendingInstanceId
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -19,12 +19,25 @@ else:
     from typing_extensions import Self
 
 
-@dataclass
-class MigrationMapping:
+class MigrationMapping(BaseModel):
+    """The mapping between an asset-centric ID and a data modeling instance ID.
+    Args
+        resource_type (str): The asset-centric type of the resource (e.g., "asset", "event", "timeseries").
+        instance_id (NodeId): The target NodeId in data modeling.
+        id (int): The asset-centric ID of the resource.
+        data_set_id (int | None): The data set ID of the resource. This is used to validate access to the resource.
+        ingestion_view (str | None): The ingestion view name. This is the view mapping that will be used to
+            ingest the resource into data modeling.
+        preferred_consumer_view (ViewId | None): The preferred consumer view for the resource. This is used in
+           for example, the Canvas migration to determine which view to use for the resource.
+    """
+
     resource_type: str
     instance_id: NodeId
     id: int
     data_set_id: int | None = None
+    ingestion_view: str | None = None
+    preferred_consumer_view: ViewId | None = None
 
 
 class MigrationMappingList(list, Sequence[MigrationMapping]):
