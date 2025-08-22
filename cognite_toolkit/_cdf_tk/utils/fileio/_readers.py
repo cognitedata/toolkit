@@ -192,16 +192,16 @@ class CSVReader(FileReader):
     def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[dict[str, JsonVal]]:
         for row_no, row in enumerate(csv.DictReader(file), start=1):
             parsed: dict[str, JsonVal] = {}
-            for col, value in row.items():
+            for key, value in row.items():
                 if value == "":
-                    parsed[col] = None
+                    parsed[key] = None
                     continue
                 try:
-                    parsed[col] = self.parse_function_by_column[col](value)
+                    parsed[key] = self.parse_function_by_column[key](value)
                 except ValueError as e:
-                    parsed[col] = None
+                    parsed[key] = None
                     if self.keep_failed_cells:
-                        self.failed_cell.append(FailedParsing(row=row_no, column=col, value=value, error=str(e)))
+                        self.failed_cell.append(FailedParsing(row=row_no, column=key, value=value, error=str(e)))
             yield parsed
 
 
