@@ -376,7 +376,7 @@ value3,789,"{""key"": ""value3""}",true,1.41
         assert len(reader.failed_cell) == 2
         assert reader.failed_cell == {
             [
-                FailedParsing(row=5, column="integer", value="false", error="'annot convert false to int64."),
+                FailedParsing(row=5, column="integer", value="false", error="Cannot convert false to int64."),
                 FailedParsing(row=5, column="boolean", value="text", error="Cannot convert text to boolean."),
             ]
         }
