@@ -157,7 +157,7 @@ class TestMigrationMappingList:
     @pytest.mark.parametrize(
         "content, expected_msg",
         [
-            pytest.param("", "No data found in the file: {filepath}", id="empty_file"),
+            pytest.param("", "No data found in the file: '{filepath}'.", id="empty_file"),
             pytest.param(
                 "id,externalId\n123,full_ts_id\n",
                 "Missing required columns in mapping file: space.",
@@ -169,7 +169,7 @@ class TestMigrationMappingList:
         input_file = tmp_path / "mapping_file.csv"
         input_file.write_text(content, encoding="utf-8")
         if "{filepath}" in expected_msg:
-            expected_msg = expected_msg.format(filepath=input_file)
+            expected_msg = expected_msg.format(filepath=input_file.as_posix())
 
         with pytest.raises(ValueError) as exc_info:
             MigrationMappingList.read_mapping_file(input_file, resource_type="timeseries")
