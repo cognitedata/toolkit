@@ -161,21 +161,18 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
         chunk: dict[str, Any]
         for row_no, chunk in enumerate(CSVReader(csv_file).read_chunks_unprocessed(), 1):
             # Prepare for parsing
-            instance_id: dict[str, str] = {}
-            for key in ["space", "externalId"]:
-                if key in chunk:
-                    instance_id[key] = chunk.pop(key)
-            if instance_id:
+            def _extract_and_pop(key_mapping: dict[str, str]) -> dict[str, str]:
+                """Pops keys from chunk and returns a new dict with mapped keys."""
+                return {dest: chunk.pop(src) for src, dest in key_mapping.items() if src in chunk}
+
+            if instance_id := _extract_and_pop({"space": "space", "externalId": "externalId"}):
                 chunk["instanceId"] = instance_id  # type: ignore[assignment]
-            consumer_view: dict[str, str] = {}
-            for key, view_key in [
-                ("consumerViewSpace", "space"),
-                ("consumerViewExternalId", "externalId"),
-                ("consumerViewVersion", "version"),
-            ]:
-                if key in chunk:
-                    consumer_view[view_key] = chunk.pop(key)
-            if consumer_view:
+            consumer_view_mapping = {
+                "consumerViewSpace": "space",
+                "consumerViewExternalId": "externalId",
+                "consumerViewVersion": "version",
+            }
+            if consumer_view := _extract_and_pop(consumer_view_mapping):
                 chunk["preferredConsumerView"] = consumer_view  # type: ignore[assignment]
             chunk["resourceType"] = resource_type
             try:
