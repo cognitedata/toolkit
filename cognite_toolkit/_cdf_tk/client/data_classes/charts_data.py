@@ -1,5 +1,6 @@
 import sys
 from dataclasses import dataclass, field, fields
+from functools import lru_cache
 from typing import Any
 
 from cognite.client import CogniteClient
@@ -25,9 +26,14 @@ class ChartObject(CogniteObject):
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
         """Load a ChartObject from a dictionary."""
         instance = super()._load(resource, cognite_client=cognite_client)
-        known_camel_case_props = {to_camel_case(f.name) for f in fields(cls)}
+        known_camel_case_props = cls._known_camel_case_props()
         instance._unknown_fields = {k: v for k, v in resource.items() if k not in known_camel_case_props}
         return instance
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def _known_camel_case_props(cls) -> set[str]:
+        return {to_camel_case(f.name) for f in fields(cls)}
 
     def dump(self, camel_case: bool = True) -> dict[str, Any]:
         """Dump the ChartObject to a dictionary."""
@@ -267,34 +273,31 @@ class ChartData(ChartObject):
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
         """Load a ChartData object from a dictionary."""
         instance = super()._load(resource, cognite_client=cognite_client)
-        if "timeSeriesCollection" in resource:
-            instance.time_series_collection = [
-                ChartTimeseries._load(ts, cognite_client=cognite_client) for ts in resource["timeSeriesCollection"]
-            ]
-        if "coreTimeseriesCollection" in resource:
-            instance.core_timeseries_collection = [
-                ChartCoreTimeseries._load(cts, cognite_client=cognite_client)
-                for cts in resource["coreTimeseriesCollection"]
-            ]
-        if "workflowCollection" in resource:
-            instance.workflow_collection = [
-                ChartWorkflow._load(wf, cognite_client=cognite_client) for wf in resource["workflowCollection"]
-            ]
-        if "sourceCollection" in resource:
-            instance.source_collection = [
-                ChartSource._load(src, cognite_client=cognite_client) for src in resource["sourceCollection"]
-            ]
-        if "thresholdCollection" in resource:
-            instance.threshold_collection = [
-                ChartThreshold._load(th, cognite_client=cognite_client) for th in resource["thresholdCollection"]
-            ]
-        if "scheduledCalculationCollection" in resource:
-            instance.scheduled_calculation_collection = [
-                ChartScheduledCalculation._load(sc, cognite_client=cognite_client)
-                for sc in resource["scheduledCalculationCollection"]
-            ]
-        if "userInfo" in resource:
-            instance.user_info = UserInfo._load(resource["userInfo"], cognite_client=cognite_client)
-        if "settings" in resource:
-            instance.settings = ChartSettings._load(resource["settings"], cognite_client=cognite_client)
+        collections_map = [
+            ("timeSeriesCollection", "time_series_collection", ChartTimeseries),
+            ("coreTimeseriesCollection", "core_timeseries_collection", ChartCoreTimeseries),
+            ("workflowCollection", "workflow_collection", ChartWorkflow),
+            ("sourceCollection", "source_collection", ChartSource),
+            ("thresholdCollection", "threshold_collection", ChartThreshold),
+            ("scheduledCalculationCollection", "scheduled_calculation_collection", ChartScheduledCalculation),
+        ]
+        for resource_key, attr_name, subclass in collections_map:
+            if resource_key in resource:
+                setattr(
+                    instance,
+                    attr_name,
+                    [subclass._load(item, cognite_client=cognite_client) for item in resource[resource_key]],  # type: ignore[attr-defined]
+                )
+        attribute_map = [
+            ("userInfo", "user_info", UserInfo),
+            ("settings", "settings", ChartSettings),
+        ]
+        for resource_key, attr_name, subclass in attribute_map:
+            if resource_key in resource:
+                setattr(
+                    instance,
+                    attr_name,
+                    [subclass._load(item, cognite_client=cognite_client) for item in resource[resource_key]],  # type: ignore[attr-defined]
+                )
+
         return instance
