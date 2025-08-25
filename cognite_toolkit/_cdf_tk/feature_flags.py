@@ -13,7 +13,6 @@ class FlagMetadata:
 
 
 class Flags(Enum):
-    # Ruff requires annotations while mypy requires no annotations
     INTERNAL = FlagMetadata(
         visible=False,
         description="Does nothing",
