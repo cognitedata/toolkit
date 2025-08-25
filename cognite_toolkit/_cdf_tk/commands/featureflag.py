@@ -20,7 +20,7 @@ class FeatureFlagCommand(ToolkitCommand):
             if is_enabled or flag.value.visible:
                 table.add_row(
                     flag.name,
-                    str(flag.value.description),
+                    flag.value.description,
                     "enabled" if is_enabled else "disabled",
                     style="yellow" if is_enabled else "",
                 )

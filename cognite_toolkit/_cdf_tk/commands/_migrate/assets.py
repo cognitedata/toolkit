@@ -52,7 +52,7 @@ class MigrateAssetsCommand(BaseMigrateCommand):
         verbose: bool = False,
     ) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
-        mappings = MigrationMappingList.read_mapping_file(mapping_file)
+        mappings = MigrationMappingList.read_mapping_file(mapping_file, "asset")
         self.validate_access(client, list(mappings.spaces()), list(mappings.get_data_set_ids()))
         self.validate_instance_source_exists(client)
         self.validate_available_capacity(client, len(mappings))
@@ -97,9 +97,7 @@ class MigrateAssetsCommand(BaseMigrateCommand):
     ) -> Iterable[list[tuple[Asset, MigrationMapping]]]:
         for chunk in chunker_sequence(mappings, self.chunk_size):
             try:
-                asset_list = client.assets.retrieve_multiple(
-                    chunk.get_ids(), chunk.get_external_ids(), ignore_unknown_ids=True
-                )
+                asset_list = client.assets.retrieve_multiple(ids=chunk.get_ids(), ignore_unknown_ids=True)
             except CogniteException as e:
                 raise ResourceRetrievalError(f"Failed to retrieve {len(chunk):,} assets: {e!s}") from e
             mapping_by_id = chunk.as_mapping_by_id()
@@ -107,8 +105,6 @@ class MigrateAssetsCommand(BaseMigrateCommand):
             for asset in asset_list:
                 if asset.id in mapping_by_id:
                     chunk_list.append((asset, mapping_by_id[asset.id]))
-                elif asset.external_id in mapping_by_id:
-                    chunk_list.append((asset, mapping_by_id[asset.external_id]))
             yield chunk_list
 
     def _as_cognite_assets(self, assets: list[tuple[Asset, MigrationMapping]]) -> list[dict[str, JsonVal]]:

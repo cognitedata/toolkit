@@ -24,6 +24,7 @@ from rich import print
 from cognite_toolkit._cdf_tk.apps import (
     AuthApp,
     CoreApp,
+    DownloadApp,
     DumpApp,
     LandingApp,
     MigrateApp,
@@ -108,6 +109,9 @@ if Flags.PROFILE.is_enabled():
 
 if Flags.MIGRATE.is_enabled():
     _app.add_typer(MigrateApp(**default_typer_kws), name="migrate")
+
+if Flags.DOWNLOAD.is_enabled():
+    _app.add_typer(DownloadApp(**default_typer_kws), name="download")
 
 if Flags.UPLOAD.is_enabled():
     _app.add_typer(UploadApp(**default_typer_kws), name="upload")
