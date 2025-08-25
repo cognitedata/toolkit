@@ -171,6 +171,17 @@ class PurgeApp(typer.Typer):
                 help="Whether to do a dry-run, do dry-run if present.",
             ),
         ] = False,
+        unlink: Annotated[
+            bool,
+            typer.Option(
+                "--skip-unlink",
+                "-u",
+                help="This only applies to CogniteTimeSeries and CogniteFile nodes. By default, the purge command will unlink the "
+                "node from the datapoints/file content before deleting the node. If you want to delete the nodes with their datapoints/file content, "
+                "you can skip the unlinking. Note that this will delete the datapoints/file content "
+                "themselves, not the links to their parent nodes.",
+            ),
+        ] = True,
         auto_yes: Annotated[
             bool,
             typer.Option(
@@ -198,6 +209,7 @@ class PurgeApp(typer.Typer):
                 view,
                 instance_space,
                 instance_type,
+                unlink=unlink,
                 dry_run=dry_run,
                 auto_yes=auto_yes,
                 verbose=verbose,
