@@ -7,6 +7,7 @@ from cognite.client.data_classes.data_modeling import NodeId, ViewId
 from cognite.client.utils._text import to_camel_case
 from pydantic import BaseModel, field_validator
 from pydantic_core import ValidationError
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.data_classes.pending_instances_ids import PendingInstanceId
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -122,7 +123,7 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
         return {mapping.id: mapping for mapping in self}
 
     @classmethod
-    def read_mapping_file(cls, mapping_file: Path, resource_type: str) -> Self:
+    def read_mapping_file(cls, mapping_file: Path, resource_type: str, console: Console | None = None) -> Self:
         if not mapping_file.exists():
             raise ToolkitFileNotFoundError(f"Mapping file {mapping_file} does not exist.")
         if mapping_file.suffix != ".csv":
@@ -130,25 +131,25 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
 
         # We only validate the schema heading here
         schema = CSVReader.sniff_schema(mapping_file, sniff_rows=1)
-        cls._validate_csv_header(schema)
+        cls._validate_csv_header(schema, console)
         mappings, errors = cls._read_migration_mapping(mapping_file, resource_type)
         return cls(mappings, errors)
 
     @classmethod
-    def _validate_csv_header(cls, schema: list[SchemaColumn]) -> None:
+    def _validate_csv_header(cls, schema: list[SchemaColumn], console: Console | None) -> None:
         """Validate the CSV header against the required and optional columns."""
         column_names = {col.name for col in schema}
-        missing_required = [col for col in cls.REQUIRED_HEADER if col.name not in column_names]
+        missing_required = [col.name for col in cls.REQUIRED_HEADER if col.name not in column_names]
         if missing_required:
             raise ToolkitValueError(
-                f"Missing required columns in mapping file: {humanize_collection(missing_required)}"
+                f"Missing required columns in mapping file: {humanize_collection(missing_required)}."
             )
         expected_names = {col.name for col in cls.REQUIRED_HEADER + cls.OPTIONAL_HEADER}
         ignored = [col.name for col in schema if col.name not in expected_names]
         if ignored:
             LowSeverityWarning(
                 f"Ignoring unexpected columns in mapping file: {humanize_collection(ignored)}"
-            ).print_warning()
+            ).print_warning(console=console)
 
     @classmethod
     def _read_migration_mapping(
