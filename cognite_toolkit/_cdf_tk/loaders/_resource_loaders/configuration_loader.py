@@ -1,3 +1,4 @@
+from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
 from typing import Any, final
@@ -8,6 +9,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from cognite_toolkit._cdf_tk.client.data_classes.search_config import (
     SearchConfig,
     SearchConfigList,
+    SearchConfigViewProperty,
     SearchConfigWrite,
     SearchConfigWriteList,
 )
@@ -84,20 +86,42 @@ class SearchConfigLoader(ResourceLoader[str, SearchConfigWrite, SearchConfig, Se
             return diff_list_identifiable(local, cdf, get_identifier=dm_identifier)
         return super().diff_list(local, cdf, json_path)
 
+    def _update_config_layout(
+        self, existing_layout: list[SearchConfigViewProperty], new_layout: list[SearchConfigViewProperty]
+    ) -> None:
+        """
+        Update the existing Coulmn/Filter/Property layout with the new layout for the given view.
+        """
+        present_properties = {p.property for p in existing_layout}
+        for prop in new_layout:
+            if prop.property not in present_properties:
+                existing_layout.append(prop)
+                present_properties.add(prop.property)
+
     def create(self, items: SearchConfigWrite | SearchConfigWriteList) -> SearchConfigList:
         """Create new search configurations using the upsert method"""
         if isinstance(items, SearchConfigWrite):
             items = SearchConfigWriteList([items])
 
-        created: list[SearchConfig] = []
-        for item in items:
-            response = self.client.search.configurations.upsert(item)
-            if isinstance(response, SearchConfigList):
-                created.extend(response)
-            else:
-                created.append(response)
+        result: list[SearchConfig] = []
+        all_configs = self.client.search.configurations.list()
+        existing_views_with_configs = {(config.view.space, config.view.external_id) for config in all_configs}
+        config_to_update: list[SearchConfigWrite] = []
 
-        return SearchConfigList(created)
+        for item in items:
+            if (item.view.space, item.view.external_id) in existing_views_with_configs:
+                config_to_update.append(item)
+            else:
+                item.id = None
+                response = self.client.search.configurations.upsert(item)
+                result.extend(response if isinstance(response, SearchConfigList) else [response])
+
+        if config_to_update:
+            self._cached_configs: SearchConfigList | None = all_configs
+            result.extend(self.update(SearchConfigWriteList(config_to_update)))
+            self._cached_configs = None
+
+        return SearchConfigList(result)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> SearchConfigList:
         """Retrieve search configurations by their IDs"""
@@ -113,9 +137,42 @@ class SearchConfigLoader(ResourceLoader[str, SearchConfigWrite, SearchConfig, Se
         if isinstance(items, SearchConfigWrite):
             items = SearchConfigWriteList([items])
 
-        if any([item for item in items if not item.id]):
-            raise KeyError("Search Configuration Update Requires Id!")
-        return self.create(items)
+        result: list[SearchConfig] = []
+        # Use cached configs if available, otherwise fetch
+        all_configs = getattr(self, "_cached_configs", None) or self.client.search.configurations.list()
+
+        config_to_update: defaultdict[tuple[str, str], list[SearchConfigWrite]] = defaultdict(list)
+        view_to_config = {(config.view.space, config.view.external_id): config for config in all_configs}
+
+        for item in items:
+            if (item.view.space, item.view.external_id) in view_to_config:
+                config_to_update[(item.view.space, item.view.external_id)].append(item)
+
+        for view_id, configs in config_to_update.items():
+            existing_config = view_to_config[view_id]
+            columns = list(existing_config.columns_layout or [])
+            filters = list(existing_config.filter_layout or [])
+            props = list(existing_config.properties_layout or [])
+
+            for _config in configs:
+                self._update_config_layout(columns, _config.columns_layout or [])
+                self._update_config_layout(filters, _config.filter_layout or [])
+                self._update_config_layout(props, _config.properties_layout or [])
+
+            config = SearchConfigWrite(
+                id=existing_config.id,
+                view=existing_config.view,
+                use_as_name=existing_config.use_as_name,
+                use_as_description=existing_config.use_as_description,
+                columns_layout=columns if columns else None,
+                filter_layout=filters if filters else None,
+                properties_layout=props if props else None,
+            )
+
+            response = self.client.search.configurations.upsert(config)
+            result.extend(response if isinstance(response, SearchConfigList) else [response])
+
+        return SearchConfigList(result)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         """
