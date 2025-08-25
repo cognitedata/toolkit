@@ -49,6 +49,18 @@ class MigrationMapping(BaseModel, alias_generator=to_camel_case, extra="ignore")
             return None
         return v
 
+    @field_validator("preferred_consumer_view", mode="before")
+    def _validate_preferred_consumer_view(cls, v: Any) -> Any:
+        if isinstance(v, dict):
+            return ViewId.load(v)
+        return v
+
+    @field_validator("instance_id", mode="before")
+    def _validate_instance_id(cls, v: Any) -> Any:
+        if isinstance(v, dict):
+            return NodeId.load(v)
+        return v
+
 
 class MigrationMappingList(list, Sequence[MigrationMapping]):
     REQUIRED_HEADER = (
@@ -155,9 +167,13 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
             if instance_id:
                 chunk["instanceId"] = instance_id  # type: ignore[assignment]
             consumer_view: dict[str, str] = {}
-            for key in ["consumerViewSpace", "consumerViewExternalId", "consumerViewVersion"]:
+            for key, view_key in [
+                ("consumerViewSpace", "space"),
+                ("consumerViewExternalId", "externalId"),
+                ("consumerViewVersion", "version"),
+            ]:
                 if key in chunk:
-                    consumer_view[key] = chunk.pop(key)
+                    consumer_view[view_key] = chunk.pop(key)
             if consumer_view:
                 chunk["preferredConsumerView"] = consumer_view  # type: ignore[assignment]
             chunk["resourceType"] = resource_type
