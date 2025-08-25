@@ -998,7 +998,6 @@ class ApprovalToolkitClient:
                             "space",
                             "name",
                             "workflowExternalId",
-                            "id",
                         ]:
                             if identifier_name in v:
                                 return v[identifier_name]
@@ -1006,6 +1005,8 @@ class ApprovalToolkitClient:
                             return v["dbName"] + "/" + v["name"][0]
                         if "transformationExternalId" in v and "destination" in v:
                             return v["transformationExternalId"] + v["destination"]
+                        if "view" in v and "space" in v["view"] and "externalId" in v["view"]:
+                            return v["view"]["space"] + "/" + v["view"]["externalId"]
                         raise ValueError(f"Could not find identifier in {v}")
 
                     dumped[key] = sorted(dumped_resource, key=sort_key)
