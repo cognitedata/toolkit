@@ -4,6 +4,7 @@ from cognite.client import ClientConfig, CogniteClient
 from cognite.client.credentials import CredentialProvider
 
 from .api.canvas import CanvasAPI
+from .api.charts import ChartsAPI
 from .api.dml import DMLAPI
 from .api.extended_data_modeling import ExtendedDataModelingAPI
 from .api.extended_files import ExtendedFileMetadataAPI
@@ -109,6 +110,7 @@ class ToolkitClient(CogniteClient):
         self.canvas = CanvasAPI(self.data_modeling.instances)
         self.migration = MigrationAPI(self.data_modeling.instances)
         self.token = TokenAPI(self)
+        self.charts = ChartsAPI(self._config, self._API_VERSION, self)
 
     @property
     def config(self) -> ToolkitClientConfig:
