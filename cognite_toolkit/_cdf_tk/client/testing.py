@@ -16,6 +16,7 @@ from .api.canvas import CanvasAPI, IndustrialCanvasAPI
 from .api.charts import ChartsAPI
 from .api.dml import DMLAPI
 from .api.extended_data_modeling import ExtendedInstancesAPI
+from .api.extended_files import ExtendedFileMetadataAPI
 from .api.extended_functions import ExtendedFunctionsAPI
 from .api.extended_raw import ExtendedRawAPI
 from .api.extended_timeseries import ExtendedTimeSeriesAPI
@@ -62,6 +63,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.canvas = MagicMock(spec=CanvasAPI)
         self.canvas.industrial = MagicMock(spec_set=IndustrialCanvasAPI)
         self.charts = MagicMock(spec_set=ChartsAPI)
+        self.files = MagicMock(spec_set=ExtendedFileMetadataAPI)
         self.functions = MagicMock(spec=ExtendedFunctionsAPI)
         self.functions.calls = MagicMock(spec_set=FunctionCallsAPI)
         self.functions.schedules = MagicMock(spec_set=FunctionSchedulesAPI)
