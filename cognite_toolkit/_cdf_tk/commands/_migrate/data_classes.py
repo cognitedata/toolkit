@@ -154,6 +154,7 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
                     consumer_view[key] = chunk.pop(key)
             if consumer_view:
                 chunk["preferredConsumerView"] = consumer_view  # type: ignore[assignment]
+            chunk["resourceType"] = resource_type
             try:
                 mapping = MigrationMapping.model_validate(chunk)
             except ValidationError as e:
