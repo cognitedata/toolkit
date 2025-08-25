@@ -22,15 +22,12 @@ class SearchConfigurationsAPI(APIClient):
             base_path = f"/apps/{self._api_version}/projects/{self._config.project}/storage/config/apps/search/views"
         return urljoin(self._config.base_url, base_path)
 
-    def upsert(self, configuration_update: SearchConfigWrite) -> SearchConfig:
+    def upsert(self, configuration_update: SearchConfigWrite) -> SearchConfig | SearchConfigList:
         """Update/Create a Configuration.
-
         Args:
             configuration_update: The content of the configuration to update
-
         Returns:
             SearchConfig
-
         """
         res = self._post(
             url_path="/upsert",

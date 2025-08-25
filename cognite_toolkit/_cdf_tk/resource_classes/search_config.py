@@ -23,6 +23,7 @@ class SearchConfigYAML(ToolkitResource):
     _cdf_resource: ClassVar[type[SearchConfigWrite]] = SearchConfigWrite
 
     view: ViewId
+    id: int | None = None
     use_as_name: str | None = None
     use_as_description: str | None = None
     columns_layout: list[PropertyConfig] | None = None
