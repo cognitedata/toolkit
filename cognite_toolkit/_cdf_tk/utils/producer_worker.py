@@ -17,6 +17,8 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 
+from cognite_toolkit._cdf_tk.exceptions import ToolkitRuntimeError
+
 T_Download = TypeVar("T_Download", bound=Sized)
 T_Processed = TypeVar("T_Processed", bound=Sized)
 
@@ -159,6 +161,13 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                     break
 
             self._stop_event.set()
+
+    def raise_on_error(self) -> None:
+        """Raises an exception if an error occurred during execution."""
+        if self.error_occurred:
+            raise ToolkitRuntimeError(f"An error occurred during execution: {self.error_message}")
+        if self.stopped_by_user:
+            raise ToolkitRuntimeError("Execution was stopped by the user.")
 
     def _download_worker(self, progress: Progress, download_task: TaskID) -> None:
         """Worker thread for downloading data."""

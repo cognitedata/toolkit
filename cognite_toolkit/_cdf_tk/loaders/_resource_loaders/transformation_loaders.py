@@ -28,7 +28,7 @@
 
 import warnings
 from collections import defaultdict
-from collections.abc import Hashable, Iterable, Sequence
+from collections.abc import Callable, Hashable, Iterable, Sequence
 from copy import deepcopy
 from functools import lru_cache
 from pathlib import Path
@@ -90,6 +90,7 @@ from cognite_toolkit._cdf_tk.utils import (
     safe_read,
 )
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
+from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
 
 from .auth_loaders import GroupAllScopedLoader
@@ -129,6 +130,11 @@ class TransformationLoader(
     )
     _doc_url = "Transformations/operation/createTransformations"
     _hash_key = "-- cdf-auth"
+
+    # The API supports creating/updating 1000 transformations in a single request,
+    # however, when the transformation has credentials, the session API times out on
+    # larger number of transformations. Thus, we use a conservative batch size.
+    _BATCH_SIZE = 20  # The maximum number of transformations to create in a single batch
 
     def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None = None):
         super().__init__(client, build_dir, console)
@@ -367,17 +373,7 @@ class TransformationLoader(
         return super().diff_list(local, cdf, json_path)
 
     def create(self, items: Sequence[TransformationWrite]) -> TransformationList:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            # Ignoring warnings from SDK about session unauthorized. Motivation is CDF is not fast enough to
-            # handle first a group that authorizes the session and then the transformation.
-            self._update_nonce(items)
-        try:
-            return self.client.transformations.create(items)
-        except CogniteAuthError as e:
-            if error := self._create_auth_creation_error(items):
-                raise error from e
-            raise e
+        return self._execute_in_batches(items, self.client.transformations.create)
 
     def retrieve(self, ids: SequenceNotStr[str | int]) -> TransformationList:
         internal_ids, external_ids = self._split_ids(ids)
@@ -386,17 +382,10 @@ class TransformationLoader(
         )
 
     def update(self, items: Sequence[TransformationWrite]) -> TransformationList:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            # Ignoring warnings from SDK about session unauthorized. Motivation is CDF is not fast enough to
-            # handle first a group that authorizes the session and then the transformation.
-            self._update_nonce(items)
-            try:
-                return self.client.transformations.update(items, mode="replace")
-            except CogniteAuthError as e:
-                if error := self._create_auth_creation_error(items):
-                    raise error from e
-                raise e
+        def update(transformations: Sequence[TransformationWrite]) -> TransformationList:
+            return self.client.transformations.update(transformations, mode="replace")
+
+        return self._execute_in_batches(items, update)
 
     @staticmethod
     def _create_auth_creation_error(items: Sequence[TransformationWrite]) -> ResourceCreationError | None:
@@ -422,6 +411,25 @@ class TransformationLoader(
         if existing:
             self.client.transformations.delete(id=existing, ignore_unknown_ids=True)
         return len(existing)
+
+    def _execute_in_batches(
+        self,
+        items: Sequence[TransformationWrite],
+        api_call: Callable[[Sequence[TransformationWrite]], TransformationList],
+    ) -> TransformationList:
+        results = TransformationList([])
+        for chunk in chunker(items, self._BATCH_SIZE):
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                self._update_nonce(chunk)
+            try:
+                chunk_results = api_call(chunk)
+            except CogniteAuthError as e:
+                if error := self._create_auth_creation_error(chunk):
+                    raise error from e
+                raise e
+            results.extend(chunk_results)
+        return results
 
     def _update_nonce(self, items: Sequence[TransformationWrite]) -> None:
         for item in items:
