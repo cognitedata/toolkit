@@ -70,16 +70,16 @@ class TestMigrationMappingList:
                 MigrationMappingList(
                     [
                         MigrationMapping(
-                            resource_type="timeseries",
+                            resourceType="timeseries",
                             id=123,
-                            data_set_id=123,
-                            instance_id=NodeId("sp_full_ts", "full_ts_id"),
+                            dataSetId=123,
+                            instanceId=NodeId("sp_full_ts", "full_ts_id"),
                         ),
                         MigrationMapping(
-                            resource_type="timeseries",
+                            resourceType="timeseries",
                             id=3231,
-                            data_set_id=None,
-                            instance_id=NodeId("sp_step_ts", "step_ts_id"),
+                            dataSetId=None,
+                            instanceId=NodeId("sp_step_ts", "step_ts_id"),
                         ),
                     ]
                 ),
@@ -90,10 +90,10 @@ class TestMigrationMappingList:
                 MigrationMappingList(
                     [
                         MigrationMapping(
-                            resource_type="timeseries",
+                            resourceType="timeseries",
                             id=230,
-                            data_set_id=None,
-                            instance_id=NodeId("my_space", "target_external_id"),
+                            dataSetId=None,
+                            instanceId=NodeId("my_space", "target_external_id"),
                         )
                     ]
                 ),
@@ -104,10 +104,10 @@ class TestMigrationMappingList:
                 MigrationMappingList(
                     [
                         MigrationMapping(
-                            resource_type="timeseries",
+                            resourceType="timeseries",
                             id=42,
-                            data_set_id=123,
-                            instance_id=NodeId("sp_full_ts", "full_ts_id"),
+                            dataSetId=123,
+                            instanceId=NodeId("sp_full_ts", "full_ts_id"),
                         )
                     ]
                 ),
