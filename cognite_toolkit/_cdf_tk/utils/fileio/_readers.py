@@ -152,7 +152,7 @@ class CSVReader(FileReader):
         if sniff_rows <= 0:
             raise ValueError("`sniff_rows` must be a positive integer.")
 
-        with input_file.open("r", encoding="utf-8") as file:
+        with input_file.open("r", encoding="utf-8-sig") as file:
             reader = csv.DictReader(file)
             sample_rows: list[dict[str, str]] = []
             for no, row in enumerate(reader):
@@ -161,7 +161,7 @@ class CSVReader(FileReader):
                 sample_rows.append(row)
 
             if not sample_rows:
-                raise ValueError(f"No data found in the file: {input_file}")
+                raise ToolkitValueError(f"No data found in the file: {input_file.as_posix()!r}.")
 
             columns = list(sample_rows[0].keys())
             if len(columns) != len(set(columns)):

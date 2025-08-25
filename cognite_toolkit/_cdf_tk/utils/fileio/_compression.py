@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
 
 class Compression(ABC):
-    encoding = "utf-8"
+    encoding = "utf-8-sig"
     newline = "\n"
     name: ClassVar[str]
     file_suffix: ClassVar[str]
