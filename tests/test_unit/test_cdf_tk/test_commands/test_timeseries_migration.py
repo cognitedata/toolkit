@@ -119,6 +119,7 @@ class TestMigrationMappingList:
         input_file = tmp_path / "mapping_file.csv"
         input_file.write_text(content, encoding="utf-8")
         actual = MigrationMappingList.read_mapping_file(input_file, resource_type="timeseries")
+        assert not actual.error_by_row_no
         assert actual == expected
 
     @pytest.mark.parametrize(
