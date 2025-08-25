@@ -16,6 +16,7 @@ from ._readers import (
 )
 from ._writers import (
     FILE_WRITE_CLS_BY_FORMAT,
+    TABLE_WRITE_CLS_BY_FORMAT,
     FileWriter,
     NDJsonWriter,
     YAMLWriter,
@@ -27,6 +28,7 @@ __all__ = [
     "COMPRESSION_BY_SUFFIX",
     "FILE_READ_CLS_BY_FORMAT",
     "FILE_WRITE_CLS_BY_FORMAT",
+    "TABLE_WRITE_CLS_BY_FORMAT",
     "CSVReader",
     "CellValue",
     "Chunk",

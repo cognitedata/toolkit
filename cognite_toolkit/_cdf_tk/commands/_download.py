@@ -5,10 +5,11 @@ from pathlib import Path
 
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk.storageio import StorageIO
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.storageio import StorageIO, TableStorageIO
 from cognite_toolkit._cdf_tk.storageio._base import T_CogniteResourceList, T_Selector, T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.utils.file import safe_write, to_directory_compatible, yaml_safe_dump
-from cognite_toolkit._cdf_tk.utils.fileio import Compression, FileWriter
+from cognite_toolkit._cdf_tk.utils.fileio import TABLE_WRITE_CLS_BY_FORMAT, Compression, FileWriter, SchemaColumn
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
@@ -53,7 +54,17 @@ class DownloadCommand(ToolkitCommand):
             filestem_counter[filestem] += 1
             iteration_count = self._get_iteration_count(io, selector, limit)
 
-            with FileWriter.create_from_format(file_format, target_directory, io.kind, compression_cls) as writer:
+            columns: list[SchemaColumn] | None = None
+            if file_format in TABLE_WRITE_CLS_BY_FORMAT and isinstance(io, TableStorageIO):
+                columns = io.get_schema(selector)
+            elif file_format in TABLE_WRITE_CLS_BY_FORMAT:
+                raise ToolkitValueError(
+                    f"Cannot download {io.kind} in {file_format!r} format. The {io.kind!r} storage type does not support table schemas."
+                )
+
+            with FileWriter.create_from_format(
+                file_format, target_directory, io.kind, compression_cls, columns=columns
+            ) as writer:
                 executor = ProducerWorkerExecutor[T_WritableCogniteResourceList, list[dict[str, JsonVal]]](
                     download_iterable=io.download_iterable(selector, limit),
                     process=io.data_to_json_chunk,
