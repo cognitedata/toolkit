@@ -17,10 +17,10 @@ class FeatureFlagCommand(ToolkitCommand):
 
         for flag in Flags:
             is_enabled = user_settings.get(flag.name, False)
-            if is_enabled or flag.value.get("visible", False):
+            if is_enabled or flag.value.visible:
                 table.add_row(
                     flag.name,
-                    str(flag.value.get("description", "")),
+                    flag.value.description,
                     "enabled" if is_enabled else "disabled",
                     style="yellow" if is_enabled else "",
                 )
