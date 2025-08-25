@@ -204,6 +204,12 @@ class CSVReader(FileReader):
                         self.failed_cell.append(FailedParsing(row=row_no, column=key, value=value, error=str(e)))
             yield parsed
 
+    def read_chunks_unprocessed(self) -> Iterator[dict[str, str]]:
+        """Read chunks from the CSV file without parsing values."""
+        compression = Compression.from_filepath(self.input_file)
+        with compression.open("r") as file:
+            yield from csv.DictReader(file)
+
 
 class ParquetReader(FileReader):
     format = ".parquet"

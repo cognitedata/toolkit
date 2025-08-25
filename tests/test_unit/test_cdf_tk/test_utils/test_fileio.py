@@ -378,3 +378,15 @@ value3,789,"{""key"": ""value3""}",true,1.41
             FailedParsing(row=5, column="integer", value="false", error="Cannot convert false to int64."),
             FailedParsing(row=5, column="boolean", value="text", error="Cannot convert text to boolean."),
         ]
+
+    def test_read_unprocessed_csv(self, tmp_path: Path) -> None:
+        csv_content = "id,space,externalId,number\n1,space1,id1,1.30\n2,space2,id2,42.0\n"
+        csv_file = tmp_path / "test.csv"
+        csv_file.write_text(csv_content, encoding="utf-8")
+
+        chunks = list(CSVReader(csv_file).read_chunks_unprocessed())
+
+        assert chunks == [
+            {"id": "1", "space": "space1", "externalId": "id1", "number": "1.30"},
+            {"id": "2", "space": "space2", "externalId": "id2", "number": "42.0"},
+        ]
