@@ -5,7 +5,7 @@ from typing import Any, SupportsIndex, overload
 
 from cognite.client.data_classes.data_modeling import NodeId, ViewId
 from cognite.client.utils._text import to_camel_case
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from pydantic_core import ValidationError
 
 from cognite_toolkit._cdf_tk.client.data_classes.pending_instances_ids import PendingInstanceId
@@ -42,6 +42,12 @@ class MigrationMapping(BaseModel, alias_generator=to_camel_case, extra="ignore")
     data_set_id: int | None = None
     ingestion_view: str | None = None
     preferred_consumer_view: ViewId | None = None
+
+    @field_validator("data_set_id", "ingestion_view", mode="before")
+    def _empty_string_to_none(cls, v: Any) -> Any:
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
 
 
 class MigrationMappingList(list, Sequence[MigrationMapping]):
