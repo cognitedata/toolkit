@@ -16,10 +16,11 @@ from cognite_toolkit._cdf_tk.utils.fileio import (
     FILE_WRITE_CLS_BY_FORMAT,
     Chunk,
     Compression,
+    CSVReader,
     FileReader,
     FileWriter,
-    NoneCompression,
     SchemaColumn,
+    Uncompressed,
 )
 from cognite_toolkit._cdf_tk.utils.fileio._readers import YAMLBaseReader
 from cognite_toolkit._cdf_tk.utils.fileio._writers import YAMLBaseWriter
@@ -77,7 +78,7 @@ class DummyWriter(FileWriter[TextIOWrapper]):
     format = ".dummy"
 
     def __init__(self, output_dir: Path) -> None:
-        super().__init__(output_dir=output_dir, kind="DummyKind", compression=NoneCompression)
+        super().__init__(output_dir=output_dir, kind="DummyKind", compression=Uncompressed)
         self.written_chunks: list[Chunk] = []
         self.opened_files: list[Path] = []
 
@@ -109,7 +110,7 @@ class TestCompression:
 
     @pytest.mark.parametrize(
         "compression_suffix",
-        [*COMPRESSION_BY_SUFFIX.keys(), NoneCompression.file_suffix],
+        [*COMPRESSION_BY_SUFFIX.keys(), Uncompressed.file_suffix],
     )
     def test_read_write_compression_by_suffix(self, compression_suffix: str, tmp_path: Path) -> None:
         tmp_path = tmp_path / f"test_file.txt{compression_suffix}"
@@ -164,7 +165,7 @@ class TestFileWriter:
 
     def test_create_from_format_raises(self) -> None:
         with pytest.raises(ToolkitValueError) as excinfo:
-            FileWriter.create_from_format("unknown_format", Path("."), "DummyKind", NoneCompression)
+            FileWriter.create_from_format("unknown_format", Path("."), "DummyKind", Uncompressed)
         assert str(excinfo.value).startswith("Unknown file format: unknown_format. Available formats: ")
 
 
@@ -318,3 +319,17 @@ class TestFileIO:
             {key: value for key, value in chunk.items() if value is not None} for chunk in reader.read_chunks()
         ]
         assert read_chunks == chunks[mid:]
+
+
+class TestCSVReader:
+    def test_read_unprocessed_csv(self, tmp_path: Path) -> None:
+        csv_content = "id,space,externalId,number\n1,space1,id1,1.30\n2,space2,id2,42.0\n"
+        csv_file = tmp_path / "test.csv"
+        csv_file.write_text(csv_content, encoding="utf-8")
+
+        chunks = list(CSVReader(csv_file).read_chunks_unprocessed())
+
+        assert chunks == [
+            {"id": "1", "space": "space1", "externalId": "id1", "number": "1.30"},
+            {"id": "2", "space": "space2", "externalId": "id2", "number": "42.0"},
+        ]

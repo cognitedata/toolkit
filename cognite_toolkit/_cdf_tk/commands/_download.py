@@ -1,3 +1,4 @@
+from collections import Counter
 from collections.abc import Iterable
 from functools import partial
 from pathlib import Path
@@ -42,11 +43,15 @@ class DownloadCommand(ToolkitCommand):
         compression_cls = Compression.from_name(compression)
 
         console = Console()
+        filestem_counter: dict[str, int] = Counter()
         for selector in selectors:
             if verbose:
                 console.print(f"Downloading {io.display_name} '{selector!s}' to {target_directory.as_posix()!r}")
 
             filestem = to_directory_compatible(str(selector))
+            if filestem_counter[filestem] > 0:
+                filestem = f"{filestem}_{filestem_counter[filestem]}"
+            filestem_counter[filestem] += 1
             iteration_count = self._get_iteration_count(io, selector, limit)
 
             columns: list[SchemaColumn] | None = None
@@ -73,9 +78,7 @@ class DownloadCommand(ToolkitCommand):
                     console=console,
                 )
                 executor.run()
-
-                if executor.error_occurred:
-                    raise ToolkitValueError(f"An error occurred during the download process: {executor.error_message}")
+                executor.raise_on_error()
                 file_count = writer.file_count
 
             for config in io.configurations(selector):
