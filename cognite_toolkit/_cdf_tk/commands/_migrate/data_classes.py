@@ -13,6 +13,8 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
     ToolkitValueError,
 )
+from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
+from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 from cognite_toolkit._cdf_tk.utils.fileio import CSVReader, SchemaColumn
 
 if sys.version_info >= (3, 11):
@@ -109,13 +111,26 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
             raise ToolkitValueError(f"Mapping file {mapping_file} must be a CSV file.")
 
         # We only validate the schema heading here
-        # schema = CSVReader.sniff_schema(mapping_file, sniff_rows=1)
-        # cls._validate_csv_header(schema)
+        schema = CSVReader.sniff_schema(mapping_file, sniff_rows=1)
+        cls._validate_csv_header(schema)
         mappings, errors = cls._read_migration_mapping(mapping_file, resource_type)
         return cls(mappings, errors)
 
     @classmethod
-    def _validate_csv_header(cls, schema: list[SchemaColumn]) -> None: ...
+    def _validate_csv_header(cls, schema: list[SchemaColumn]) -> None:
+        """Validate the CSV header against the required and optional columns."""
+        column_names = {col.name for col in schema}
+        missing_required = [col for col in cls.REQUIRED_HEADER if col.name not in column_names]
+        if missing_required:
+            raise ToolkitValueError(
+                f"Missing required columns in mapping file: {humanize_collection(missing_required)}"
+            )
+        expected_names = {col.name for col in cls.REQUIRED_HEADER + cls.OPTIONAL_HEADER}
+        ignored = [col.name for col in schema if col.name not in expected_names]
+        if ignored:
+            LowSeverityWarning(
+                f"Ignoring unexpected columns in mapping file: {humanize_collection(ignored)}"
+            ).print_warning()
 
     @classmethod
     def _read_migration_mapping(
