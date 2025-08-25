@@ -21,10 +21,7 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN, HINT_LEAD_TEXT, URL
-from cognite_toolkit._cdf_tk.exceptions import (
-    ToolkitValueError,
-    ToolkitYAMLFormatError,
-)
+from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitValueError, ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, MediumSeverityWarning
 
 
@@ -425,3 +422,25 @@ def get_table_columns(table: Path) -> list[str]:
         return pd.read_parquet(table).columns.tolist()
     else:
         raise ToolkitValueError(f"The file {table.name} is not a supported table format (csv, parquet)")
+
+
+def find_adjacent_files(filepath: Path, suffix: str) -> list[Path]:
+    """Find files in the same directory as the given file that have the same
+    prefix and a specific suffix.
+
+    Args:
+        filepath (Path): The path to the file for which to find adjacent files.
+        suffix (str): The suffix to match for the adjacent files.
+
+    Returns:
+        list[Path]: A list of Paths to the adjacent files that match the criteria.
+    """
+    if not filepath.is_file():
+        raise ToolkitFileNotFoundError(f"The provided path {filepath} is not a file.")
+    parent = filepath.parent
+    found_files: list[Path] = []
+    for file in parent.glob(f"*{suffix}"):
+        filestem = file.name.removesuffix(suffix)
+        if file.is_file() and filepath.name.startswith(filestem):
+            found_files.append(file)
+    return found_files

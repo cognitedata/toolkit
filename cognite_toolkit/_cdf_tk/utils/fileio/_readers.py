@@ -104,6 +104,12 @@ class CSVReader(FileReader):
             return value.lower() == "true"
         return value
 
+    def read_chunks_unprocessed(self) -> Iterator[dict[str, str]]:
+        """Read chunks from the CSV file without parsing values."""
+        compression = Compression.from_filepath(self.input_file)
+        with compression.open("r") as file:
+            yield from csv.DictReader(file)
+
 
 class ParquetReader(FileReader):
     format = ".parquet"

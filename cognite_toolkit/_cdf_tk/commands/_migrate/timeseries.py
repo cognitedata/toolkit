@@ -51,7 +51,7 @@ class MigrateTimeseriesCommand(BaseMigrateCommand):
         auto_yes: bool = False,
     ) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
-        mappings = MigrationMappingList.read_mapping_file(mapping_file)
+        mappings = MigrationMappingList.read_mapping_file(mapping_file, "timeseries")
         self.validate_access(client, list(mappings.spaces()), list(mappings.get_data_set_ids()))
         self._validate_timeseries_existence(client, mappings)
         self.validate_available_capacity(client, len(mappings))
@@ -74,7 +74,6 @@ class MigrateTimeseriesCommand(BaseMigrateCommand):
             try:
                 timeseries = client.time_series.retrieve_multiple(
                     ids=chunk.get_ids(),
-                    external_ids=chunk.get_external_ids(),
                     ignore_unknown_ids=True,
                 )
             except CogniteAPIError as e:

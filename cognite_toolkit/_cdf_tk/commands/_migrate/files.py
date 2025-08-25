@@ -50,7 +50,7 @@ class MigrateFilesCommand(BaseMigrateCommand):
         auto_yes: bool = False,
     ) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
-        mappings = MigrationMappingList.read_mapping_file(mapping_file)
+        mappings = MigrationMappingList.read_mapping_file(mapping_file, "file")
         self.validate_access(client, list(mappings.spaces()), list(mappings.get_data_set_ids()))
         self._validate_files(client, mappings)
         self.validate_available_capacity(client, len(mappings))
@@ -73,7 +73,6 @@ class MigrateFilesCommand(BaseMigrateCommand):
             try:
                 files = client.files.retrieve_multiple(
                     ids=chunk.get_ids(),
-                    external_ids=chunk.get_external_ids(),
                     ignore_unknown_ids=True,
                 )
             except CogniteAPIError as e:

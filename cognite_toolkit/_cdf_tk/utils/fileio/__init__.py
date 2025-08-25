@@ -8,6 +8,7 @@ from ._compression import (
 )
 from ._readers import (
     FILE_READ_CLS_BY_FORMAT,
+    CSVReader,
     FileReader,
     NDJsonReader,
     YAMLReader,
@@ -26,6 +27,7 @@ __all__ = [
     "COMPRESSION_BY_SUFFIX",
     "FILE_READ_CLS_BY_FORMAT",
     "FILE_WRITE_CLS_BY_FORMAT",
+    "CSVReader",
     "CellValue",
     "Chunk",
     "Compression",

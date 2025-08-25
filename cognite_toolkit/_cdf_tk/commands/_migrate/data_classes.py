@@ -1,6 +1,5 @@
 import csv
 import sys
-from abc import abstractmethod
 from collections.abc import Collection, Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -24,28 +23,8 @@ else:
 class MigrationMapping:
     resource_type: str
     instance_id: NodeId
-
-    @abstractmethod
-    def get_id(self) -> int | str:
-        raise NotImplementedError()
-
-
-@dataclass
-class IdMigrationMapping(MigrationMapping):
     id: int
     data_set_id: int | None = None
-
-    def get_id(self) -> int:
-        return self.id
-
-
-@dataclass
-class ExternalIdMigrationMapping(MigrationMapping):
-    external_id: str
-    data_set_id: int | None = None
-
-    def get_id(self) -> str:
-        return self.external_id
 
 
 class MigrationMappingList(list, Sequence[MigrationMapping]):
@@ -69,11 +48,7 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
 
     def get_ids(self) -> list[int]:
         """Return a list of IDs from the migration mappings."""
-        return [mapping.id for mapping in self if isinstance(mapping, IdMigrationMapping)]
-
-    def get_external_ids(self) -> list[str]:
-        """Return a list of external IDs from the migration mappings."""
-        return [mapping.external_id for mapping in self if isinstance(mapping, ExternalIdMigrationMapping)]
+        return [mapping.id for mapping in self]
 
     def as_node_ids(self) -> list[NodeId]:
         """Return a list of NodeIds from the migration mappings."""
@@ -84,29 +59,18 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
         return {mapping.instance_id.space for mapping in self}
 
     def as_pending_ids(self) -> list[PendingInstanceId]:
-        return [
-            PendingInstanceId(
-                pending_instance_id=mapping.instance_id,
-                id=mapping.id if isinstance(mapping, IdMigrationMapping) else None,
-                external_id=mapping.external_id if isinstance(mapping, ExternalIdMigrationMapping) else None,
-            )
-            for mapping in self
-        ]
+        return [PendingInstanceId(pending_instance_id=mapping.instance_id, id=mapping.id) for mapping in self]
 
     def get_data_set_ids(self) -> set[int]:
         """Return a list of data set IDs from the migration mappings."""
-        return {
-            mapping.data_set_id
-            for mapping in self
-            if isinstance(mapping, IdMigrationMapping | ExternalIdMigrationMapping) and mapping.data_set_id is not None
-        }
+        return {mapping.data_set_id for mapping in self if mapping.data_set_id is not None}
 
-    def as_mapping_by_id(self) -> dict[int | str, MigrationMapping]:
+    def as_mapping_by_id(self) -> dict[int, MigrationMapping]:
         """Return a mapping of IDs to MigrationMapping objects."""
-        return {mapping.get_id(): mapping for mapping in self}
+        return {mapping.id: mapping for mapping in self}
 
     @classmethod
-    def read_mapping_file(cls, mapping_file: Path) -> Self:
+    def read_mapping_file(cls, mapping_file: Path, resource_type: str) -> Self:
         if not mapping_file.exists():
             raise ToolkitFileNotFoundError(f"Mapping file {mapping_file} does not exist.")
         if mapping_file.suffix != ".csv":
@@ -114,11 +78,8 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
         with mapping_file.open(mode="r", encoding="utf-8-sig") as f:
             csv_file = csv.reader(f)
             header = next(csv_file, None)
-            header = cls._validate_csv_header(header)
-            if header[0] == "id":
-                return cls._read_id_mapping(csv_file)
-            else:  # header[0] == "externalId":
-                return cls._read_external_id_mapping(csv_file)
+            cls._validate_csv_header(header)
+            return cls._read_migration_mapping(csv_file, resource_type)
 
     @classmethod
     def _validate_csv_header(cls, header: list[str] | None) -> list[str]:
@@ -127,15 +88,15 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
         errors: list[str] = []
         if len(header) < 3:
             errors.append(
-                f"Mapping file must have at least 3 columns: id/externalId, space, externalId. Got {len(header)} columns."
+                f"Mapping file must have at least 3 columns: id, space, externalId. Got {len(header)} columns."
             )
         if len(header) >= 5:
             errors.append(
                 "Mapping file must have at most 4 columns: "
-                f"id/externalId, dataSetId, space, externalId. Got {len(header)} columns."
+                f"id, dataSetId, space, externalId. Got {len(header)} columns."
             )
-        if len(header) >= 1 and header[0] not in {"id", "externalId"}:
-            errors.append(f"First column must be 'id' or 'externalId'. Got {header[0]!r}.")
+        if len(header) >= 1 and header[0] != "id":
+            errors.append(f"First column must be 'id'. Got {header[0]!r}.")
         if len(header) == 4 and header[1] != "dataSetId":
             errors.append(f"If there are 4 columns, the second column must be 'dataSetId'. Got {header[1]!r}.")
         if len(header) >= 2 and header[-2:] != ["space", "externalId"]:
@@ -146,7 +107,7 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
         return header
 
     @classmethod
-    def _read_id_mapping(cls, csv_file: Iterator[list[str]]) -> Self:
+    def _read_migration_mapping(cls, csv_file: Iterator[list[str]], resource_type: str) -> Self:
         """Read a CSV file with ID mappings."""
         mappings = cls()
         for no, row in enumerate(csv_file, 1):
@@ -159,24 +120,6 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
                 ) from e
             instance_id = NodeId(*row[-2:])
             mappings.append(
-                IdMigrationMapping(resource_type="timeseries", id=id_, instance_id=instance_id, data_set_id=data_set_id)
-            )
-        return mappings
-
-    @classmethod
-    def _read_external_id_mapping(cls, csv_file: Iterator[list[str]]) -> Self:
-        """Read a CSV file with external ID mappings."""
-        mappings = cls()
-        for row in csv_file:
-            external_id = row[0]
-            data_set_id = int(row[1]) if len(row) == 4 and row[1] else None
-            instance_id = NodeId(*row[-2:])
-            mappings.append(
-                ExternalIdMigrationMapping(
-                    resource_type="timeseries",
-                    external_id=external_id,
-                    instance_id=instance_id,
-                    data_set_id=data_set_id,
-                )
+                MigrationMapping(resource_type=resource_type, id=id_, instance_id=instance_id, data_set_id=data_set_id)
             )
         return mappings

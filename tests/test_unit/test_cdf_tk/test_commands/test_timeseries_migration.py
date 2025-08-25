@@ -7,8 +7,7 @@ from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteTimeSeriesAp
 from cognite_toolkit._cdf_tk.client.data_classes.extended_timeseries import ExtendedTimeSeries
 from cognite_toolkit._cdf_tk.commands import MigrateTimeseriesCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
-    ExternalIdMigrationMapping,
-    IdMigrationMapping,
+    MigrationMapping,
     MigrationMappingList,
 )
 
@@ -70,13 +69,13 @@ class TestMigrationMappingList:
                 "id,dataSetId,space,externalId\n123,123,sp_full_ts,full_ts_id\n3231,,sp_step_ts,step_ts_id\n",
                 MigrationMappingList(
                     [
-                        IdMigrationMapping(
+                        MigrationMapping(
                             resource_type="timeseries",
                             id=123,
                             data_set_id=123,
                             instance_id=NodeId("sp_full_ts", "full_ts_id"),
                         ),
-                        IdMigrationMapping(
+                        MigrationMapping(
                             resource_type="timeseries",
                             id=3231,
                             data_set_id=None,
@@ -84,13 +83,13 @@ class TestMigrationMappingList:
                         ),
                     ]
                 ),
-                id="Internal IDs with dataSetId",
+                id="Mapping IDs with dataSetId",
             ),
             pytest.param(
                 "id,space,externalId\n230,my_space,target_external_id\n",
                 MigrationMappingList(
                     [
-                        IdMigrationMapping(
+                        MigrationMapping(
                             resource_type="timeseries",
                             id=230,
                             data_set_id=None,
@@ -98,70 +97,28 @@ class TestMigrationMappingList:
                         )
                     ]
                 ),
-                id="Internal IDs without dataSetId",
+                id="Mapping IDs without dataSetId",
             ),
             pytest.param(
-                "externalId,dataSetId,space,externalId\n"
-                "full_ts,123,sp_full_ts,full_ts_id\n"
-                "minimum_ts,,sp_step_ts,step_ts_id\n",
+                """\ufeffid,dataSetId,space,externalId\n42,123,sp_full_ts,full_ts_id\n""",
                 MigrationMappingList(
                     [
-                        ExternalIdMigrationMapping(
+                        MigrationMapping(
                             resource_type="timeseries",
-                            external_id="full_ts",
-                            data_set_id=123,
-                            instance_id=NodeId("sp_full_ts", "full_ts_id"),
-                        ),
-                        ExternalIdMigrationMapping(
-                            resource_type="timeseries",
-                            external_id="minimum_ts",
-                            data_set_id=None,
-                            instance_id=NodeId("sp_step_ts", "step_ts_id"),
-                        ),
-                    ]
-                ),
-                id="External IDs with dataSetId",
-            ),
-            pytest.param(
-                "externalId,space,externalId\nfull_ts,sp_full_ts,full_ts_id\nminimum_ts,sp_step_ts,step_ts_id\n",
-                MigrationMappingList(
-                    [
-                        ExternalIdMigrationMapping(
-                            resource_type="timeseries",
-                            external_id="full_ts",
-                            data_set_id=None,
-                            instance_id=NodeId("sp_full_ts", "full_ts_id"),
-                        ),
-                        ExternalIdMigrationMapping(
-                            resource_type="timeseries",
-                            external_id="minimum_ts",
-                            data_set_id=None,
-                            instance_id=NodeId("sp_step_ts", "step_ts_id"),
-                        ),
-                    ]
-                ),
-                id="External IDs without dataSetId",
-            ),
-            pytest.param(
-                """\ufeffexternalId,dataSetId,space,externalId\nmy_external_id,123,sp_full_ts,full_ts_id\n""",
-                MigrationMappingList(
-                    [
-                        ExternalIdMigrationMapping(
-                            resource_type="timeseries",
-                            external_id="my_external_id",
+                            id=42,
                             data_set_id=123,
                             instance_id=NodeId("sp_full_ts", "full_ts_id"),
                         )
                     ]
                 ),
-                id="External IDs with BOM",
+                id="Mapping with BOM",
             ),
         ],
     )
     def test_read_mapping_file(self, content: str, expected: MigrationMappingList, tmp_path: Path) -> None:
         input_file = tmp_path / "mapping_file.csv"
         input_file.write_text(content, encoding="utf-8")
-        actual = MigrationMappingList.read_mapping_file(input_file)
+        actual = MigrationMappingList.read_mapping_file(input_file, resource_type="timeseries")
         assert actual == expected
 
     @pytest.mark.parametrize(
@@ -172,7 +129,7 @@ class TestMigrationMappingList:
                 "space,externalId,id,dataSetId\n",
                 (
                     "Invalid mapping file header:\n"
-                    " - First column must be 'id' or 'externalId'. Got 'space'.\n"
+                    " - First column must be 'id'. Got 'space'.\n"
                     " - If there are 4 columns, the second column must be 'dataSetId'. Got 'externalId'.\n"
                     " - Last two columns must be 'space' and 'externalId'. Got 'id' and 'dataSetId'."
                 ),
@@ -189,7 +146,7 @@ class TestMigrationMappingList:
             pytest.param(
                 "id,externalId\n",
                 "Invalid mapping file header:\n"
-                " - Mapping file must have at least 3 columns: id/externalId, space, "
+                " - Mapping file must have at least 3 columns: id, space, "
                 "externalId. Got 2 columns.\n"
                 " - Last two columns must be 'space' and 'externalId'. Got 'id' and 'externalId'.",
                 id="Too few columns",
@@ -197,8 +154,9 @@ class TestMigrationMappingList:
             pytest.param(
                 "externalId,dataSetId,space,externalId,myExtra\n",
                 "Invalid mapping file header:\n"
-                " - Mapping file must have at most 4 columns: id/externalId, dataSetId, "
+                " - Mapping file must have at most 4 columns: id, dataSetId, "
                 "space, externalId. Got 5 columns.\n"
+                " - First column must be 'id'. Got 'externalId'.\n"
                 " - Last two columns must be 'space' and 'externalId'. Got 'externalId' and 'myExtra'.",
                 id="Too many columns",
             ),
@@ -218,7 +176,7 @@ class TestMigrationMappingList:
                 "\n",
                 (
                     "Invalid mapping file header:\n"
-                    " - Mapping file must have at least 3 columns: id/externalId, space, "
+                    " - Mapping file must have at least 3 columns: id, space, "
                     "externalId. Got 0 columns."
                 ),
                 id="Empty header row",
@@ -230,5 +188,5 @@ class TestMigrationMappingList:
         input_file.write_text(content, encoding="utf-8")
 
         with pytest.raises(ValueError) as exc_info:
-            MigrationMappingList.read_mapping_file(input_file)
+            MigrationMappingList.read_mapping_file(input_file, resource_type="timeseries")
         assert str(exc_info.value) == expected_msg

@@ -5,6 +5,7 @@ from cognite.client.data_classes.data_modeling import NodeApplyResultList, Space
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from tests.test_integration.constants import RUN_UNIQUE_ID
 
 
 class TestExtendedFilesAPI:
@@ -18,7 +19,7 @@ class TestExtendedFilesAPI:
         """
         client = dev_cluster_client
         metadata = FileMetadataWrite(
-            external_id="ts_toolkit_integration_test_happy_path_files",
+            external_id=f"ts_toolkit_integration_test_happy_path_files_{RUN_UNIQUE_ID}",
             name="Toolkit Integration Test Happy Path Files",
             mime_type="text/plain",
         )
@@ -54,7 +55,7 @@ class TestExtendedFilesAPI:
         client = toolkit_client_with_pending_ids
         space = toolkit_space.space
         metadata = FileMetadataWrite(
-            external_id="file_toolkit_integration_test_unlink",
+            external_id=f"file_toolkit_integration_test_unlink_{RUN_UNIQUE_ID}",
             name="Toolkit Integration Test Unlink",
             mime_type="text/plain",
         )

@@ -1,6 +1,6 @@
 from cognite.client.data_classes.data_modeling import NodeId
 
-from cognite_toolkit._cdf_tk.commands._migrate.data_classes import IdMigrationMapping, MigrationMappingList
+from cognite_toolkit._cdf_tk.commands._migrate.data_classes import MigrationMapping, MigrationMappingList
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 
 
@@ -31,10 +31,10 @@ class TestChunkSequence:
         """Test that chunker_sequence maintains the type of the source sequence."""
         sequence = MigrationMappingList(
             [
-                IdMigrationMapping(
+                MigrationMapping(
                     resource_type="timeseries", id=1, data_set_id=123, instance_id=NodeId("sp_full_ts", "full_ts_id")
                 ),
-                IdMigrationMapping(
+                MigrationMapping(
                     resource_type="timeseries", id=2, data_set_id=None, instance_id=NodeId("sp_step_ts", "step_ts_id")
                 ),
             ]
