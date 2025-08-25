@@ -17,6 +17,7 @@ migrate = true
 purge_instances = true
 download = true
 exit-on-warning = true
+upload = true
 
 [plugins]
 run = true
