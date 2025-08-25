@@ -22,22 +22,22 @@ class RawIO(StorageIO[RawTable, RowWriteList, RowList]):
     supported_read_formats = frozenset({".parquet", ".csv", ".ndjson", ".yaml"})
     chunk_size = 10_000
 
-    def count(self, identifier: RawTable) -> int | None:
+    def count(self, selector: RawTable) -> int | None:
         # Raw tables do not support aggregation queries, so we do not know the count
         # up front.
         return None
 
-    def download_iterable(self, identifier: RawTable, limit: int | None = None) -> Iterable[RowList]:
+    def download_iterable(self, selector: RawTable, limit: int | None = None) -> Iterable[RowList]:
         yield from self.client.raw.rows(
-            db_name=identifier.db_name,
-            table_name=identifier.table_name,
+            db_name=selector.db_name,
+            table_name=selector.table_name,
             limit=limit,
             partitions=8,
             chunk_size=self.chunk_size,
         )
 
-    def upload_items(self, data_chunk: RowWriteList, identifier: RawTable) -> None:
-        self.client.raw.rows.insert(db_name=identifier.db_name, table_name=identifier.table_name, row=data_chunk)
+    def upload_items(self, data_chunk: RowWriteList, selector: RawTable) -> None:
+        self.client.raw.rows.insert(db_name=selector.db_name, table_name=selector.table_name, row=data_chunk)
 
     def data_to_json_chunk(self, data_chunk: RowList) -> list[dict[str, JsonVal]]:
         return [row.as_write().dump() for row in data_chunk]
@@ -45,10 +45,10 @@ class RawIO(StorageIO[RawTable, RowWriteList, RowList]):
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> RowWriteList:
         return RowWriteList([RowWrite._load(row) for row in data_chunk])
 
-    def configurations(self, identifier: RawTable) -> Iterable[StorageIOConfig]:
-        yield StorageIOConfig(kind=RawTableLoader.kind, folder_name=RawTableLoader.folder_name, value=identifier.dump())
+    def configurations(self, selector: RawTable) -> Iterable[StorageIOConfig]:
+        yield StorageIOConfig(kind=RawTableLoader.kind, folder_name=RawTableLoader.folder_name, value=selector.dump())
 
-    def load_identifier(self, datafile: Path) -> RawTable:
+    def load_selector(self, datafile: Path) -> RawTable:
         config_files = find_adjacent_files(datafile, suffix=f".{RawTableLoader.kind}.yaml")
         if not config_files:
             raise ToolkitValueError(f"No configuration file found for {datafile.as_posix()!r}")
@@ -58,17 +58,17 @@ class RawIO(StorageIO[RawTable, RowWriteList, RowList]):
         loader = RawTableLoader.create_loader(self.client)
         return loader.load_resource(read_yaml_file(config_file, expected_output="dict"))
 
-    def ensure_configurations(self, identifier: RawTable, console: Console | None = None) -> None:
+    def ensure_configurations(self, selector: RawTable, console: Console | None = None) -> None:
         """Ensure that the Raw table exists in CDF."""
         db_loader = RawDatabaseLoader.create_loader(self.client, console=console)
-        db = RawDatabase(db_name=identifier.db_name)
+        db = RawDatabase(db_name=selector.db_name)
         if not db_loader.retrieve([db]):
             db_loader.create(RawDatabaseList([db]))
             if console:
                 console.print(f"Created raw database: [bold]{db.db_name}[/bold]")
 
         table_loader = RawTableLoader.create_loader(self.client, console=console)
-        if not table_loader.retrieve([identifier]):
-            table_loader.create(RawTableList([identifier]))
+        if not table_loader.retrieve([selector]):
+            table_loader.create(RawTableList([selector]))
             if console:
-                console.print(f"Created raw table: [bold]{identifier.db_name}.{identifier.table_name}[/bold]")
+                console.print(f"Created raw table: [bold]{selector.db_name}.{selector.table_name}[/bold]")
