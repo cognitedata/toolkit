@@ -681,41 +681,6 @@ Row:
     ensure_parent: false
     table_name: asset
   name: db_complete_org_asset_False
-SearchConfig:
-- columnsLayout:
-  - property: title
-    selected: true
-  - property: summary
-    selected: true
-  - property: status
-    selected: false
-  filterLayout:
-  - disabled: false
-    property: status
-  - disabled: false
-    property: category
-  propertiesLayout:
-  - hidden: false
-    property: title
-  - hidden: false
-    property: summary
-  - hidden: true
-    property: description
-  useAsDescription: summary
-  useAsName: title
-  view:
-    externalId: complex-view
-    space: complex-space
-- columnsLayout:
-  - property: name
-    selected: true
-  - property: description
-    selected: true
-  useAsDescription: description
-  useAsName: name
-  view:
-    externalId: test-view
-    space: test-space
 SecurityCategory:
 - name: sc_demo_category
 Sequence:
