@@ -162,17 +162,23 @@ class SearchConfigLoader(ResourceLoader[str, SearchConfigWrite, SearchConfig, Se
             columns = list(existing_config.columns_layout or [])
             filters = list(existing_config.filter_layout or [])
             props = list(existing_config.properties_layout or [])
+            use_as_name = existing_config.use_as_name
+            use_as_description = existing_config.use_as_description
 
             for _config in configs:
                 self._update_config_layout(columns, _config.columns_layout or [])
                 self._update_config_layout(filters, _config.filter_layout or [])
                 self._update_config_layout(props, _config.properties_layout or [])
+                if use_as_name is None and _config.use_as_name is not None:
+                    use_as_name = _config.use_as_name
+                if use_as_description is None and _config.use_as_description is not None:
+                    use_as_description = _config.use_as_description
 
             config = SearchConfigWrite(
                 id=existing_config.id,
                 view=existing_config.view,
-                use_as_name=existing_config.use_as_name,
-                use_as_description=existing_config.use_as_description,
+                use_as_name=use_as_name,
+                use_as_description=use_as_description,
                 columns_layout=columns if columns else None,
                 filter_layout=filters if filters else None,
                 properties_layout=props if props else None,
