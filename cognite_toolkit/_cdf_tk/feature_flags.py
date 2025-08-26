@@ -73,6 +73,10 @@ class Flags(Enum):
         visible=True,
         description="Enables the support for the download command",
     )
+    UPLOAD = FlagMetadata(
+        visible=True,
+        description="Enables the cdf upload command",
+    )
     SEARCH_CONFIG = FlagMetadata(
         visible=True,
         description="Enables the support for search config",
