@@ -388,7 +388,7 @@ class FakeCogniteResourceGenerator:
         elif container_type is tuple:
             if any(arg is ... for arg in args):
                 return tuple(self.create_value(first_not_none) for _ in range(self._random.randint(1, 3)))
-            raise NotImplementedError(f"Tuple with multiple types is not supported. {self._error_msg}")
+            return tuple(self.create_value(arg) for arg in args)
         elif container_type is NodeListWithCursor:
             return NodeListWithCursor(
                 [self.create_value(first_not_none) for _ in range(self._random.randint(1, 3))],

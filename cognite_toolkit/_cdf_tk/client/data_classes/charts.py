@@ -9,6 +9,8 @@ from cognite.client.data_classes._base import (
     WriteableCogniteResourceList,
 )
 
+from cognite_toolkit._cdf_tk.client.data_classes.charts_data import ChartData
+
 if sys.version_info >= (3, 11):
     from typing import Self
 else:
@@ -22,14 +24,20 @@ class ChartCore(WriteableCogniteResource["ChartWrite"], ABC):
 
     Args:
         external_id (str): Unique identifier for the chart.
-        visibility (Visibility): Visibility of the chart, either 'public' or 'private'.
-        data (object): The data associated with the chars.
+        visibility (Visibility): Visibility of the chart, either 'PUBLIC' or 'PRIVATE'.
+        data (ChartData): The data associated with the chart.
     """
 
-    def __init__(self, external_id: str, visibility: Visibility, data: object) -> None:
+    def __init__(self, external_id: str, visibility: Visibility, data: ChartData) -> None:
         self.external_id = external_id
         self.visibility = visibility
         self.data = data
+
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        """Convert the chart to a dictionary representation."""
+        output = super().dump(camel_case=camel_case)
+        output["data"] = self.data.dump(camel_case=camel_case)
+        return output
 
 
 class ChartWrite(ChartCore):
@@ -37,8 +45,8 @@ class ChartWrite(ChartCore):
 
     Args:
         external_id (str): Unique identifier for the chart.
-        visibility (Visibility): Visibility of the chart, either 'public' or 'private'.
-        data (object): The data associated with the chart.
+        visibility (Visibility): Visibility of the chart, either 'PUBLIC' or 'PRIVATE'.
+        data (ChartData): The data associated with the chart.
 
     """
 
@@ -50,7 +58,7 @@ class ChartWrite(ChartCore):
         return cls(
             external_id=resource["externalId"],
             visibility=resource["visibility"],
-            data=resource["data"],
+            data=ChartData._load(resource["data"], cognite_client=cognite_client),
         )
 
 
@@ -61,8 +69,9 @@ class Chart(ChartCore):
         external_id (str): Unique identifier for the chart.
         created_time (int): Timestamp when the chart was created.
         last_updated_time (int): Timestamp when the chart was last updated.
-        visibility (Visibility): Visibility of the chart, either 'public' or 'private'.
-        data (object): The data associated with the chart.
+        visibility (Visibility): Visibility of the chart, either 'PUBLIC' or 'PRIVATE'.
+        data (ChartData): The data associated with the chart.
+        owner_id (str): The ID of the user who owns the chart.
     """
 
     def __init__(
@@ -71,7 +80,7 @@ class Chart(ChartCore):
         created_time: int,
         last_updated_time: int,
         visibility: Visibility,
-        data: object,
+        data: ChartData,
         owner_id: str,
     ) -> None:
         super().__init__(external_id, visibility, data)
@@ -89,7 +98,7 @@ class Chart(ChartCore):
             created_time=resource["createdTime"],
             last_updated_time=resource["lastUpdatedTime"],
             visibility=resource["visibility"],
-            data=resource["data"],
+            data=ChartData._load(resource["data"], cognite_client=cognite_client),
             owner_id=resource["ownerId"],
         )
 
