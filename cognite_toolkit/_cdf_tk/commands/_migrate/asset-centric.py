@@ -1,9 +1,11 @@
 from collections.abc import Callable
 from functools import partial
 from pathlib import Path
+from typing import TypeVar, Generic
 
+from cognite.client.data_classes import Asset, Event, FileMetadata, TimeSeries
 from cognite.client.data_classes._base import CogniteResource
-from cognite.client.data_classes.data_modeling import NodeId
+from cognite.client.data_classes.data_modeling import NodeId, NodeApply, NodeOrEdgeData
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -15,10 +17,11 @@ from cognite_toolkit._cdf_tk.utils.fileio import Chunk, CSVWriter, SchemaColumn,
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from .data_model import SPACE
+from .data_model import SPACE, INSTANCE_SOURCE_VIEW_ID
 
+T_AssetCentricResource = TypeVar("T_AssetCentricResource", bound=Asset | Event | FileMetadata | TimeSeries)
 
-class MigrateAssetCentricCommand(BaseMigrateCommand):
+class MigrateAssetCentricCommand(BaseMigrateCommand, Generic[T_AssetCentricResource]):
     def migrate_resource(
         self,
         client: ToolkitClient,
@@ -49,7 +52,7 @@ class MigrateAssetCentricCommand(BaseMigrateCommand):
         with (
             CSVWriter(
                 Path.cwd(),
-                kind=mappings.display_name.capitalize(),
+                kind=f"{mappings.display_name.capitalize()}Migration",
                 compression=Uncompressed,
                 columns=self._csv_schema(),
             ) as writer,
@@ -88,7 +91,37 @@ class MigrateAssetCentricCommand(BaseMigrateCommand):
         items: list[tuple[CogniteResource, MigrationMapping]], view_mapping_by_id: dict[str, ViewSource]
     ) -> list[dict[str, JsonVal]]:
         """Convert CogniteResource and MigrationMapping to NodeApply instances."""
-        raise NotImplementedError()
+        results: list[dict[str, JsonVal]] = []
+        for resource, mapping in items:
+            try:
+                view_source = view_mapping_by_id[mapping.mapping]
+            except KeyError as e:
+                # This should never happen, as we validate this before starting the migration.
+                raise ValueError(f"Bug in Toolkit. View source with id '{mapping.mapping}' not found") from e
+            properties = {}
+            node = NodeApply(
+                space=mapping.instance_id.space,
+                external_id=mapping.instance_id.external_id,
+                sources=[
+                    NodeOrEdgeData(
+                        source=view_source.view_id,
+                        properties=properties,
+                    ),
+                    NodeOrEdgeData(
+                        source=INSTANCE_SOURCE_VIEW_ID,
+                        properties={
+                            "resourceType": "asset",
+                            "id": resource.id,
+                            "dataSetId": resource.data_set_id,
+                            "classicExternalId": resource.external_id,
+
+                        },
+                    ),
+                ],
+            ).dump()
+            results.append(node)
+        return results
+
 
     @staticmethod
     def _upload_nodes(
