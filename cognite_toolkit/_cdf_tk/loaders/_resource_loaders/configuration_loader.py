@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.search_config import (
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.resource_classes import SearchConfigYAML
+from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import quote_int_value_by_key_in_yaml, safe_read
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
 
@@ -92,11 +93,13 @@ class SearchConfigLoader(ResourceLoader[str, SearchConfigWrite, SearchConfig, Se
         """
         Update the existing Coulmn/Filter/Property layout with the new layout for the given view.
         """
-        present_properties = {p.property for p in existing_layout}
+        index_by_property = {p.property: i for i, p in enumerate(existing_layout)}
         for prop in new_layout:
-            if prop.property not in present_properties:
+            if prop.property in index_by_property:
+                existing_layout[index_by_property[prop.property]] = prop
+            else:
                 existing_layout.append(prop)
-                present_properties.add(prop.property)
+                index_by_property[prop.property] = len(existing_layout) - 1
 
     def create(self, items: SearchConfigWrite | SearchConfigWriteList) -> SearchConfigList:
         """Create new search configurations using the upsert method"""
@@ -125,8 +128,14 @@ class SearchConfigLoader(ResourceLoader[str, SearchConfigWrite, SearchConfig, Se
 
     def retrieve(self, ids: SequenceNotStr[str]) -> SearchConfigList:
         """Retrieve search configurations by their IDs"""
-        # TODO: Raise warning if ids are not numeric
-        numeric_ids = [int(id_str) for id_str in ids if id_str.isdigit()]
+        numeric_ids: list[int] = []
+        for id_str in ids:
+            if id_str.isdigit():
+                numeric_ids.append(int(id_str))
+            else:
+                LowSeverityWarning(
+                    f"Skipping non-numeric SearchConfig id {id_str!r}. Only numeric ids are supported."
+                ).print_warning()
 
         all_configs = self.client.search.configurations.list()
         # The API does not support server-side filtering, so we filter in memory.
