@@ -56,7 +56,7 @@ class ChartsAPI(APIClient):
             result.extend([Chart._load(item, cognite_client=self._cognite_client) for item in response.json()["items"]])
 
         if not result:
-            raise ValueError("No charts were upserted. This may indicate an issue with the upsert operation.")
+            raise ValueError("No charts were upserted. This may indicate an issue with the upsert endpoint.")
 
         if isinstance(items, ChartWrite):
             if len(result) != 1:
@@ -65,6 +65,11 @@ class ChartsAPI(APIClient):
                     "This may indicate an issue with the upsert operation."
                 )
             return result[0]
+        elif len(result) != len(items):
+            raise ValueError(
+                "The number of upserted charts does not match the number of input charts. "
+                "This may indicate an issue with the upsert endpoint."
+            )
         return result
 
     @overload

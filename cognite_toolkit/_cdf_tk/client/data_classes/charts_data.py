@@ -26,8 +26,7 @@ class ChartObject(CogniteObject):
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
         """Load a ChartObject from a dictionary."""
         instance = super()._load(resource, cognite_client=cognite_client)
-        known_camel_case_props = cls._known_camel_case_props()
-        instance._unknown_fields = {k: v for k, v in resource.items() if k not in known_camel_case_props}
+        instance._unknown_fields = {k: v for k, v in resource.items() if k not in cls._known_camel_case_props()}
         return instance
 
     @classmethod
