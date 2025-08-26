@@ -73,6 +73,10 @@ class Flags(Enum):
         visible=True,
         description="Enables the support for the download command",
     )
+    UPLOAD = FlagMetadata(
+        visible=True,
+        description="Enables the cdf upload command",
+    )
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)
