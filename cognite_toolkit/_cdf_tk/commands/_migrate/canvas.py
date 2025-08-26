@@ -36,7 +36,7 @@ class MigrationCanvasCommand(BaseMigrateCommand):
         verbose: bool = False,
     ) -> None:
         self.validate_access(client, [CANVAS_INSTANCE_SPACE])
-        self.validate_instance_source_exists(client)
+        self.validate_migration_model_available(client)
         external_ids = external_ids or InteractiveCanvasSelect(client).select_external_ids()
         if external_ids is None or not external_ids:
             self.console("No canvases selected for migration.")

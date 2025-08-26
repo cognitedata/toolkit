@@ -54,7 +54,7 @@ class MigrateAssetsCommand(BaseMigrateCommand):
         """Migrate resources from Asset-Centric to data modeling in CDF."""
         mappings = MigrationMappingList.read_mapping_file(mapping_file, "asset")
         self.validate_access(client, list(mappings.spaces()), list(mappings.get_data_set_ids()))
-        self.validate_instance_source_exists(client)
+        self.validate_migration_model_available(client)
         self.validate_available_capacity(client, len(mappings))
 
         output_dir = output_dir or Path.cwd()

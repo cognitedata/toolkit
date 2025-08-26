@@ -21,9 +21,7 @@ class MigrateAssetCentricCommand(BaseMigrateCommand):
         verbose: bool = False,
     ) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
-        self.validate_instance_source_exists(
-            client
-        )  # Todo: Validate ViewSource exists as well (entire migration data model)
+        self.validate_migration_model_available(client)
         schema_spaces = mappings.get_schema_spaces()
         instance_spaces = mappings.spaces()
         data_set_ids = mappings.get_data_set_ids()

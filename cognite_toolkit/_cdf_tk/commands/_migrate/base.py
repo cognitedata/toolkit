@@ -17,7 +17,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
-from .data_model import INSTANCE_SOURCE_VIEW_ID
+from .data_model import INSTANCE_SOURCE_VIEW_ID, MODEL_ID, VIEW_SOURCE_VIEW
 
 
 class BaseMigrateCommand(ToolkitCommand, ABC):
@@ -59,11 +59,23 @@ class BaseMigrateCommand(ToolkitCommand, ABC):
             raise AuthenticationError(f"Missing required capabilities: {humanize_collection(missing)}.", missing)
 
     @staticmethod
-    def validate_instance_source_exists(client: ToolkitClient) -> None:
-        view = client.data_modeling.views.retrieve(INSTANCE_SOURCE_VIEW_ID)
-        if not view:
+    def validate_migration_model_available(client: ToolkitClient) -> None:
+        models = client.data_modeling.data_models.retrieve(MODEL_ID, inline_views=False)
+        if not models:
             raise ToolkitMigrationError(
-                f"The migration mapping view {INSTANCE_SOURCE_VIEW_ID} does not exist. "
+                f"The migration data model {MODEL_ID!r} does not exist. "
+                "Please run the `cdf migrate prepare` command to deploy the migration data model."
+            )
+        elif len(models) > 1:
+            raise ToolkitMigrationError(
+                f"Multiple migration models {MODEL_ID!r}. "
+                "Please delete the duplicate models before proceeding with the migration."
+            )
+        model = models[0]
+        missing_views = set(model.views) - {INSTANCE_SOURCE_VIEW_ID, VIEW_SOURCE_VIEW}
+        if missing_views:
+            raise ToolkitMigrationError(
+                f"Invalid migration model. Missing views {humanize_collection(missing_views)}. "
                 f"Please run the `cdf migrate prepare` command to deploy the migration data model."
             )
 
