@@ -10,6 +10,8 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_classes import MigrationMapp
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 
+from .data_model import SPACE
+
 
 class MigrateAssetCentricCommand(BaseMigrateCommand):
     def migrate_resource(
@@ -22,14 +24,17 @@ class MigrateAssetCentricCommand(BaseMigrateCommand):
     ) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
         self.validate_migration_model_available(client)
-        schema_spaces = mappings.get_schema_spaces()
-        instance_spaces = mappings.spaces()
-        data_set_ids = mappings.get_data_set_ids()
+        # We use the migration space for both schema and mappings
+        schema_spaces = list(mappings.get_schema_spaces() | {SPACE.space})
+        instance_spaces = list(mappings.get_instance_spaces() | {SPACE.space})
+        data_set_ids = list(mappings.get_data_set_ids()) or None
         self.validate_access(
-            client, instance_spaces=instance_spaces, data_set_ids=data_set_ids, schema_spaces=schema_spaces
+            client, instance_spaces=instance_spaces, schema_spaces=schema_spaces, data_set_ids=data_set_ids
         )
-
         view_mappings = client.migration.view_source.retrieve([mappings.get_mappings()])
+
+        target_views = {mapping.view_id for mapping in view_mappings}
+        self.validate_access(client, schema_spaces=list(target_views), instance_spaces=None)
         view_mapping_by_id = {mapping.external_id: mapping for mapping in view_mappings}
 
         self.validate_available_capacity(client, len(mappings))

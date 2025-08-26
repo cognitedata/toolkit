@@ -18,6 +18,8 @@ from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 from cognite_toolkit._cdf_tk.utils.fileio import CSVReader, SchemaColumn
 
+from .default_mappings import DEFAULT_MAPPING_BY_RESOURCE_TYPE
+
 if sys.version_info >= (3, 11):
     from typing import Self
 else:
@@ -61,6 +63,14 @@ class MigrationMapping(BaseModel, alias_generator=to_camel_case, extra="ignore")
         if isinstance(v, dict):
             return NodeId.load(v)
         return v
+
+    @property
+    def mapping(self) -> str:
+        if self.ingestion_view:
+            return self.ingestion_view
+        if self.resource_type in DEFAULT_MAPPING_BY_RESOURCE_TYPE:
+            return DEFAULT_MAPPING_BY_RESOURCE_TYPE[self.resource_type]
+        raise ToolkitValueError(f"No default mapping found for resource type {self.resource_type!r}.")
 
 
 class MigrationMappingList(list, Sequence[MigrationMapping]):
@@ -107,9 +117,18 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
         """Return a list of NodeIds from the migration mappings."""
         return [mapping.instance_id for mapping in self]
 
-    def spaces(self) -> set[str]:
+    def get_instance_spaces(self) -> set[str]:
         """Return a set of spaces from the migration mappings."""
         return {mapping.instance_id.space for mapping in self}
+
+    def get_schema_spaces(self) -> set[str]:
+        """Return a set of schema spaces from the migration mappings."""
+        return {
+            mapping.preferred_consumer_view.space for mapping in self if mapping.preferred_consumer_view is not None
+        }
+
+    def get_mappings(self) -> set[str]:
+        return {mapping.mapping for mapping in self}
 
     def as_pending_ids(self) -> list[PendingInstanceId]:
         return [PendingInstanceId(pending_instance_id=mapping.instance_id, id=mapping.id) for mapping in self]
