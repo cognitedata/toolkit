@@ -6,7 +6,7 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio import StorageIO
-from cognite_toolkit._cdf_tk.storageio._base import T_CogniteResourceList, T_StorageID, T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.storageio._base import T_CogniteResourceList, T_Selector, T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.fileio import FileReader
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
@@ -30,7 +30,7 @@ class UploadCommand(ToolkitCommand):
 
     def upload(
         self,
-        io: StorageIO[T_StorageID, T_CogniteResourceList, T_WritableCogniteResourceList],
+        io: StorageIO[T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
         input_dir: Path,
         ensure_configurations: bool,
         dry_run: bool,
@@ -65,15 +65,15 @@ class UploadCommand(ToolkitCommand):
             if verbose:
                 console.print(f"{action} {io.display_name} from {file_display.as_posix()!r}")
 
-            identifier = io.load_identifier(file)
+            selector = io.load_selector(file)
             if ensure_configurations and not dry_run:
-                io.ensure_configurations(identifier, console)
+                io.ensure_configurations(selector, console)
 
             reader = FileReader.from_filepath(file)
             executor = ProducerWorkerExecutor[list[dict[str, JsonVal]], T_CogniteResourceList](
                 download_iterable=chunker(reader.read_chunks(), io.chunk_size),
                 process=io.json_chunk_to_data,
-                write=partial(io.upload_items, identifier=identifier) if not dry_run else self._no_op,
+                write=partial(io.upload_items, selector=selector) if not dry_run else self._no_op,
                 iteration_count=None,
                 max_queue_size=self._MAX_QUEUE_SIZE,
                 download_description=f"Reading {file_display.as_posix()!s}",
