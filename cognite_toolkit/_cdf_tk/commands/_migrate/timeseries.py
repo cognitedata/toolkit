@@ -32,10 +32,6 @@ class MigrateTimeseriesCommand(BaseMigrateCommand):
     cdf_cdm_units = "cdf_cdm_units"
     chunk_size = 1000
 
-    @property
-    def schema_spaces(self) -> list[str]:
-        return [self.cdf_cdm, self.cdf_cdm_units]
-
     def source_acl(self, data_set_ids: list[int]) -> Capability:
         return TimeSeriesAcl(
             actions=[TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write],
@@ -52,7 +48,12 @@ class MigrateTimeseriesCommand(BaseMigrateCommand):
     ) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
         mappings = MigrationMappingList.read_mapping_file(mapping_file, "timeseries")
-        self.validate_access(client, list(mappings.get_instance_spaces()), list(mappings.get_data_set_ids()))
+        self.validate_access(
+            client,
+            list(mappings.get_instance_spaces()),
+            [self.cdf_cdm, self.cdf_cdm_units],
+            list(mappings.get_data_set_ids()),
+        )
         self._validate_timeseries_existence(client, mappings)
         self.validate_available_capacity(client, len(mappings))
 
