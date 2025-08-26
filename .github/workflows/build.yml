@@ -113,6 +113,10 @@ jobs:
             coverageFile: coverage.xml
             thresholdAll: 0.6
             token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24 # v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+
   dry-run-demo:
     runs-on: ubuntu-latest
     environment: dev
