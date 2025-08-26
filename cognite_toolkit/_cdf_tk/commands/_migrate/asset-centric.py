@@ -24,7 +24,7 @@ class MigrateAssetCentricCommand(BaseMigrateCommand):
     ) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
         self.validate_migration_model_available(client)
-        # We use the migration space for both schema and mappings
+        # We use the migration space for both schema and mapping instances.
         schema_spaces = list(mappings.get_schema_spaces() | {SPACE.space})
         instance_spaces = list(mappings.get_instance_spaces() | {SPACE.space})
         data_set_ids = list(mappings.get_data_set_ids()) or None
