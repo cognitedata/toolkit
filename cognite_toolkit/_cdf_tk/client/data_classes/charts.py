@@ -71,6 +71,7 @@ class Chart(ChartCore):
         last_updated_time (int): Timestamp when the chart was last updated.
         visibility (Visibility): Visibility of the chart, either 'PUBLIC' or 'PRIVATE'.
         data (ChartData): The data associated with the chart.
+        owner_id (str): The ID of the user who owns the chart.
     """
 
     def __init__(

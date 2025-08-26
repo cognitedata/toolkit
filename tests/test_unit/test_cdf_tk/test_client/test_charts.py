@@ -107,6 +107,8 @@ class TestChartDTOs:
             "completely": {
                 "changed": ["compared", "to", "the", "previous", "version"],
             },
+            "and": 123,
+            "itAlso": {"hasSomeNumbers": [1, 2, 3, 4, 5]},
         }
         loaded = ChartData._load(chart_data)
         dumped = loaded.dump(camel_case=False)
@@ -116,6 +118,7 @@ class TestChartDTOs:
     def test_serialize_deserialize_chart(self) -> None:
         """Test that Chart can be serialized and deserialized correctly."""
         instance = FakeCogniteResourceGenerator(seed=42).create_instance(ChartData)
+        instance._unknown_fields = {"extraField": "extraValue"}
 
         dumped = instance.dump(camel_case=True)
 

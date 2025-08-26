@@ -297,7 +297,7 @@ class ChartData(ChartObject):
                 setattr(
                     instance,
                     attr_name,
-                    [subclass._load(item, cognite_client=cognite_client) for item in resource[resource_key]],  # type: ignore[attr-defined]
+                    subclass._load(resource[resource_key], cognite_client=cognite_client),  # type: ignore[attr-defined]
                 )
 
         return instance
