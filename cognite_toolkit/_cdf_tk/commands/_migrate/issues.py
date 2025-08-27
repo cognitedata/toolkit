@@ -133,6 +133,10 @@ class WriteIssue(MigrationIssue):
     """
 
     type: ClassVar[str] = "write"
-    instanceId: NodeId
+    instance_id: NodeId
     status_code: int
     message: str | None = None
+
+    @field_serializer("instance_id")
+    def serialize_instance_id(self, instance_id: NodeId) -> dict[str, str]:
+        return instance_id.dump(include_instance_type=True)
