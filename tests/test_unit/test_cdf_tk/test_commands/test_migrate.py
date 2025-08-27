@@ -10,7 +10,7 @@ from cognite.client.data_classes.capabilities import (
     ProjectCapabilityList,
     TimeSeriesAcl,
 )
-from cognite.client.data_classes.data_modeling import ViewList
+from cognite.client.data_classes.data_modeling import DataModelList
 from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, ProjectStatistics
 
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
@@ -20,10 +20,6 @@ from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitMigra
 
 class DummyMigrationCommand(BaseMigrateCommand):
     """A dummy command for testing purposes."""
-
-    @property
-    def schema_spaces(self) -> list[str]:
-        return ["dummy_space"]
 
     def source_acl(self, data_set_id: list[int]) -> TimeSeriesAcl:
         return TimeSeriesAcl(
@@ -54,7 +50,7 @@ class TestBaseCommand:
                 ],
                 scope=DataModelInstancesAcl.Scope.SpaceID(["my_instance_space"]),
             ),
-            DataModelsAcl(actions=[DataModelsAcl.Action.Read], scope=DataModelsAcl.Scope.SpaceID(cmd.schema_spaces)),
+            DataModelsAcl(actions=[DataModelsAcl.Action.Read], scope=DataModelsAcl.Scope.SpaceID(["dummy_space"])),
             TimeSeriesAcl(actions=[TimeSeriesAcl.Action.Read], scope=DataSetScope([123])),
             TimeSeriesAcl(actions=[TimeSeriesAcl.Action.Write], scope=DataSetScope([123])),
         ]
@@ -70,15 +66,15 @@ class TestBaseCommand:
 
             client.iam.verify_capabilities = verify_capabilities
             with pytest.raises(AuthenticationError) as exc_info:
-                cmd.validate_access(client, ["my_instance_space"], [123])
+                cmd.validate_access(client, ["my_instance_space"], ["dummy_space"], [123])
         error = exc_info.value
         assert isinstance(error, AuthenticationError)
         assert "Missing required capabilities" in error.args[0]
         assert error.args[1] == expected_missing
 
-    def test_validate_instance_source_exists_raise(self) -> None:
+    def test_validate_migration_model_available(self) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.data_modeling.views.retrieve.return_value = ViewList([])
+            client.data_modeling.data_models.retrieve.return_value = DataModelList([])
             with pytest.raises(ToolkitMigrationError):
                 BaseMigrateCommand.validate_migration_model_available(client)
 
