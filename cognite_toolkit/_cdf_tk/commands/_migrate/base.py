@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import ABC
 
 from cognite.client.data_classes.capabilities import (
     Capability,
@@ -21,12 +21,6 @@ from .data_model import INSTANCE_SOURCE_VIEW_ID
 
 
 class BaseMigrateCommand(ToolkitCommand, ABC):
-    @property
-    @abstractmethod
-    def schema_spaces(self) -> list[str]:
-        """Return the schema spaces used by this migration command."""
-        raise NotImplementedError()
-
     def source_acl(self, data_set_id: list[int]) -> Capability | None:
         """Return the source ACL for the given data set IDs."""
         # This method should be implemented in subclasses that needs access to a specific source ACL.
@@ -34,19 +28,29 @@ class BaseMigrateCommand(ToolkitCommand, ABC):
         return None
 
     def validate_access(
-        self, client: ToolkitClient, instance_spaces: list[str], data_set_ids: list[int] | None = None
+        self,
+        client: ToolkitClient,
+        instance_spaces: list[str] | None = None,
+        schema_spaces: list[str] | None = None,
+        data_set_ids: list[int] | None = None,
     ) -> None:
-        required_capabilities: list[Capability] = [
-            DataModelsAcl(actions=[DataModelsAcl.Action.Read], scope=SpaceIDScope(self.schema_spaces)),
-            DataModelInstancesAcl(
-                actions=[
-                    DataModelInstancesAcl.Action.Read,
-                    DataModelInstancesAcl.Action.Write,
-                    DataModelInstancesAcl.Action.Write_Properties,
-                ],
-                scope=SpaceIDScope(instance_spaces),
-            ),
-        ]
+        required_capabilities: list[Capability] = []
+        if instance_spaces is not None:
+            required_capabilities.append(
+                DataModelInstancesAcl(
+                    actions=[
+                        DataModelInstancesAcl.Action.Read,
+                        DataModelInstancesAcl.Action.Write,
+                        DataModelInstancesAcl.Action.Write_Properties,
+                    ],
+                    scope=SpaceIDScope(instance_spaces),
+                )
+            )
+        if schema_spaces is not None:
+            required_capabilities.append(
+                DataModelsAcl(actions=[DataModelsAcl.Action.Read], scope=SpaceIDScope(schema_spaces)),
+            )
+
         if data_set_ids is not None:
             source_acl = self.source_acl(data_set_ids)
             if source_acl is None:
