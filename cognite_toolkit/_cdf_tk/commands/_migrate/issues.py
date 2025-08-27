@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 
-class MigrationObject(BaseModel, alias_generator=to_camel_case, extra="ignore"): ...
+class MigrationObject(BaseModel, alias_generator=to_camel_case, extra="ignore", populate_by_name=True): ...
 
 
 class MigrationIssue(MigrationObject):
@@ -59,7 +59,10 @@ class ReadAPIIssue(ReadIssue):
 
     @field_serializer("asset_centric_id")
     def serialize_asset_centric_id(self, asset_centric_id: AssetCentricId) -> dict[str, Any]:
-        return asset_centric_id.dump(camel_case=True)
+        return {
+            "resourceType": asset_centric_id.resource_type,
+            "id": asset_centric_id.id_,
+        }
 
 
 class FailedConversion(MigrationObject):
@@ -72,7 +75,7 @@ class FailedConversion(MigrationObject):
     """
 
     property_id: str
-    value: JsonVal
+    value: str | int | float | bool | None | list | dict
     error: str
 
 
@@ -115,7 +118,10 @@ class ConversionIssue(MigrationIssue):
 
     @field_serializer("asset_centric_id")
     def serialize_asset_centric_id(self, asset_centric_id: AssetCentricId) -> dict[str, Any]:
-        return asset_centric_id.dump(camel_case=True)
+        return {
+            "resourceType": asset_centric_id.resource_type,
+            "id": asset_centric_id.id_,
+        }
 
 
 class WriteIssue(MigrationIssue):
