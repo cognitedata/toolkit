@@ -55,7 +55,7 @@ class MigrateAssetsCommand(BaseMigrateCommand):
             schema_spaces=[f"{self.cdf_cdm}", INSTANCE_SOURCE_VIEW_ID.space],
             data_set_ids=list(mappings.get_data_set_ids()),
         )
-        self.validate_instance_source_exists(client)
+        self.validate_migration_model_available(client)
         self.validate_available_capacity(client, len(mappings))
 
         output_dir = output_dir or Path.cwd()
