@@ -21,11 +21,14 @@ from .data_model import INSTANCE_SOURCE_VIEW_ID, MODEL_ID, VIEW_SOURCE_VIEW_ID
 
 
 class BaseMigrateCommand(ToolkitCommand, ABC):
-    def source_acl(self, data_set_id: list[int]) -> Capability | None:
+    def source_acl(self, data_set_id: list[int]) -> Capability:
         """Return the source ACL for the given data set IDs."""
         # This method should be implemented in subclasses that needs access to a specific source ACL.
         # such as TimeSeries, Files, Assets, and so on.
-        return None
+        raise ValueError(
+            "Bug in Toolkit: the source ACL is not defined for this migration command. "
+            "Please implement the source_acl method."
+        )
 
     def validate_access(
         self,
@@ -53,11 +56,6 @@ class BaseMigrateCommand(ToolkitCommand, ABC):
 
         if data_set_ids is not None:
             source_acl = self.source_acl(data_set_ids)
-            if source_acl is None:
-                raise ValueError(
-                    "Bug in Toolkit: the source ACL is not defined for this migration command. "
-                    "Please implement the source_acl method."
-                )
             required_capabilities.append(source_acl)
         if missing := client.iam.verify_capabilities(required_capabilities):
             raise AuthenticationError(f"Missing required capabilities: {humanize_collection(missing)}.", missing)
