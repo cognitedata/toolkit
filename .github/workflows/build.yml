@@ -113,6 +113,11 @@ jobs:
             coverageFile: coverage.xml
             thresholdAll: 0.6
             token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: codecov/codecov-action@fdcc8476540edceab3de004e990f80d881c6cc00 # v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: cognitedata/toolkit
+
   dry-run-demo:
     runs-on: ubuntu-latest
     environment: dev
