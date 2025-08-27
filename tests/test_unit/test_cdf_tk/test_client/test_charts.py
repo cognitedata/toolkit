@@ -3,34 +3,32 @@ import responses
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList, ChartWrite
+from cognite_toolkit._cdf_tk.client.data_classes.charts_data import ChartData, ChartSettings, UserInfo
+from tests.test_unit.utils import FakeCogniteResourceGenerator
 
-
-class ToolkitConfig:
-    pass
+CHART = Chart(
+    external_id="chart",
+    created_time=1,
+    last_updated_time=2,
+    visibility="PUBLIC",
+    data=ChartData(
+        version=1,
+        name="TestNew",
+        date_from="2025-04-26T22:00:00.000Z",
+        date_to="2025-05-27T21:59:59.999Z",
+        user_info=UserInfo(id="toolkit_test_user", email="support@cognite.com", display_name="Toolkit Test User"),
+        settings=ChartSettings(
+            show_y_axis=True,
+            show_min_max=True,
+            show_gridlines=True,
+            merge_units=True,
+        ),
+    ),
+    owner_id="toolkit_test_user",
+)
 
 
 class TestChartAPI:
-    CHART = Chart(
-        external_id="chart",
-        created_time=1,
-        last_updated_time=2,
-        visibility="PUBLIC",
-        data={
-            "version": 1,
-            "name": "TestNew",
-            "dateFrom": "2025-04-26T22:00:00.000Z",
-            "dateTo": "2025-05-27T21:59:59.999Z",
-            "userInfo": {"id": "toolkit_test_user", "email": "support@cognite.com", "displayName": "Toolkit Test User"},
-            "timeSeriesCollection": [],
-            "workflowCollection": [],
-            "sourceCollection": [],
-            "thresholdCollection": [],
-            "scheduledCalculationCollection": [],
-            "settings": {"showYAxis": True, "showMinMax": True, "showGridlines": True, "mergeUnits": True},
-        },
-        owner_id="toolkit_test_user",
-    )
-
     @pytest.mark.parametrize(
         "items, expected_return_cls",
         [
@@ -60,7 +58,7 @@ class TestChartAPI:
                 responses.PUT,
                 url,
                 status=200,
-                json={"items": [self.CHART.dump()]},
+                json={"items": [CHART.dump()]},
             )
             result = client.charts.upsert(items)
 
@@ -91,8 +89,39 @@ class TestChartAPI:
                 responses.POST,
                 url,
                 status=200,
-                json={"items": [self.CHART.dump()]},
+                json={"items": [CHART.dump()]},
             )
             result = client.charts.retrieve(external_id=external_id)
 
         assert isinstance(result, expected_return_cls)
+
+
+class TestChartDTOs:
+    def test_chart_data_changed(self) -> None:
+        """The ChartData is frontend of the Chart object, and it is not enforced in any way by the backend API.
+        Thus, it can change completely without any notice. This tests ensures that whatever the ChartData is,
+        the serialization and deserialization works correctly.
+        """
+        chart_data = {
+            "this": "is",
+            "completely": {
+                "changed": ["compared", "to", "the", "previous", "version"],
+            },
+            "and": 123,
+            "itAlso": {"hasSomeNumbers": [1, 2, 3, 4, 5]},
+        }
+        loaded = ChartData._load(chart_data)
+        dumped = loaded.dump(camel_case=False)
+
+        assert dumped == chart_data, f"Expected {chart_data}, but got {dumped}"
+
+    def test_serialize_deserialize_chart(self) -> None:
+        """Test that Chart can be serialized and deserialized correctly."""
+        instance = FakeCogniteResourceGenerator(seed=42).create_instance(ChartData)
+        instance._unknown_fields = {"extraField": "extraValue"}
+
+        dumped = instance.dump(camel_case=True)
+
+        loaded = ChartData._load(dumped)
+
+        assert loaded.dump() == instance.dump(), f"Expected {instance}, but got {loaded}"

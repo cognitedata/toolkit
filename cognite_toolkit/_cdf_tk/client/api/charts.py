@@ -42,7 +42,7 @@ class ChartsAPI(APIClient):
             items (ChartWrite | Sequence[ChartWrite]): Chart(s) to upsert. Can be a single ChartWrite or a sequence of ChartWrite.
 
         Returns:
-            ChartList: List of upserted charts if multiple items are provided, otherwise a single Chart.
+            Chart | ChartList: List of upserted charts if multiple items are provided, otherwise a single Chart.
         """
         item_sequence = items if isinstance(items, Sequence) else [items]
         result = ChartList([])
@@ -54,6 +54,10 @@ class ChartsAPI(APIClient):
                 json=body,
             )
             result.extend([Chart._load(item, cognite_client=self._cognite_client) for item in response.json()["items"]])
+
+        if not result:
+            raise ValueError("No charts were upserted. This may indicate an issue with the upsert endpoint.")
+
         if isinstance(items, ChartWrite):
             if len(result) != 1:
                 raise ValueError(
@@ -61,6 +65,11 @@ class ChartsAPI(APIClient):
                     "This may indicate an issue with the upsert operation."
                 )
             return result[0]
+        elif len(result) != len(items):
+            raise ValueError(
+                "The number of upserted charts does not match the number of input charts. "
+                "This may indicate an issue with the upsert endpoint."
+            )
         return result
 
     @overload
@@ -76,13 +85,13 @@ class ChartsAPI(APIClient):
             external_id (str | Sequence[str]): External ID(s) of the chart(s) to retrieve.
 
         Returns:
-            ChartList: List of retrieved charts.
+            Chart | ChartList: A single Chart if a single external ID is provided, otherwise a ChartList.
         """
         return self._retrieve_multiple(
             list_cls=ChartList, resource_cls=Chart, identifiers=IdentifierSequence.load(external_ids=external_id)
         )
 
-    def delete(self, external_id: str | Sequence[str]) -> None:
+    def delete(self, external_id: str | SequenceNotStr[str]) -> None:
         """Delete one or more charts by their external ID.
 
         Args:
@@ -97,7 +106,7 @@ class ChartsAPI(APIClient):
         """List charts based on visibility and ownership.
 
         Args:
-            visibility (Visibility): Visibility of the charts to list.
+            visibility (Visibility): Visibility of the charts to list, either 'PUBLIC' or 'PRIVATE'.
             is_owned (bool): Whether to list only owned charts.
 
         Returns:

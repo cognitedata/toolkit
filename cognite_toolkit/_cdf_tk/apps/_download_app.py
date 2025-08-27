@@ -99,20 +99,20 @@ class DownloadApp(typer.Typer):
 
         client = EnvironmentVariables.create_from_environment().get_client()
         if tables and database:
-            identifiers = [RawTable(db_name=database, table_name=table) for table in tables]
+            selectors = [RawTable(db_name=database, table_name=table) for table in tables]
         elif tables and not database:
             raise typer.BadParameter(
                 "The '--database' option is required when specifying tables as arguments.",
                 param_hint="--database",
             )
         elif not tables and database:
-            identifiers = RawTableInteractiveSelect(client, "download").select_tables(database=database)
+            selectors = RawTableInteractiveSelect(client, "download").select_tables(database=database)
         else:
-            identifiers = RawTableInteractiveSelect(client, "download").select_tables()
+            selectors = RawTableInteractiveSelect(client, "download").select_tables()
 
         cmd.run(
             lambda: cmd.download(
-                identifiers=identifiers,
+                selectors=selectors,
                 io=RawIO(client),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
