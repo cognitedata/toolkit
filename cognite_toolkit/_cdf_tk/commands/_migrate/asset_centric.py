@@ -18,12 +18,12 @@ from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     asset_centric_convert_to_primary_property,
     convert_to_primary_property,
 )
-from cognite_toolkit._cdf_tk.utils.fileio import Chunk, CSVWriter, SchemaColumn, Uncompressed
+from cognite_toolkit._cdf_tk.utils.fileio import Chunk, CSVWriter, SchemaColumn, Uncompressed, NDJsonWriter
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 import threading
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import  Dict, Optional
 
 @dataclass
 class Issue:
@@ -99,20 +99,27 @@ class MigrateAssetCentricCommand(BaseMigrateCommand, Generic[T_AssetCentricResou
                 kind=f"{mappings.display_name.capitalize()}Migration",
                 compression=Uncompressed,
                 columns=self._csv_schema(),
-            ) as writer,
+            ) as csv_writer,
+            NDJsonWriter(
+                output_dir=Path.cwd(),
+                kind=f"{mappings.display_name.capitalize()}MigrationDetailed",
+                compression=Uncompressed,
+            ) as ndjson_writer,
             HTTPBatchProcessor[NodeId](
                 endpoint_url=client.config.create_api_url("/models/instances"),
                 config=client.config,
-                as_id=lambda node: NodeId.load(node),  # type: ignore[arg-type]
+                as_id=NodeId.load,
                 body_parameters={"autoCreateDirectRelations": True},
                 method="POST",
                 max_workers=2,
                 batch_size=1000,
                 max_retries=10,
                 console=console,
-                result_processor=self._write_results_to_csv(writer, verbose, mappings.display_name),
+                result_processor=self._write_results_to_file(csv_writer, ndjson_writer, verbose, mappings.display_name),
             ) as http_client,
         ):
+
+
             executor = ProducerWorkerExecutor[
                 list[tuple[T_AssetCentricResource, MigrationMapping]], list[dict[str, JsonVal]]
             ](
@@ -242,14 +249,17 @@ class MigrateAssetCentricCommand(BaseMigrateCommand, Generic[T_AssetCentricResou
     def _csv_schema() -> list[SchemaColumn]:
         return [
             SchemaColumn("ResourceType", "string"),
-            SchemaColumn("NodeSpace", "string"),
-            SchemaColumn("NodeExternalId", "string"),
-            SchemaColumn("ResponseStatus", "integer"),
-            SchemaColumn("ResponseMessage", "string"),
+            SchemaColumn("ResourceId", "integer"),
+            SchemaColumn("InstanceSpace", "string"),
+            SchemaColumn("InstanceExternalId", "string"),
+            SchemaColumn("ReadStatus", "string"),
+            SchemaColumn("ConvertStatus", "string"),
+            SchemaColumn("UploadStatus", "string"),
+            SchemaColumn("MigrationResult", "string"),
         ]
 
     @staticmethod
-    def _write_results_to_csv(
+    def _write_results_to_file(
         writer: CSVWriter, verbose: bool, resource_type: str
     ) -> Callable[[BatchResult[NodeId]], None]:
         """Write results to CSV file."""
