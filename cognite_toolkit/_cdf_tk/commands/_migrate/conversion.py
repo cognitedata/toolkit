@@ -6,6 +6,7 @@ from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     asset_centric_convert_to_primary_property,
     convert_to_primary_property,
 )
+from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentric
 
 from .base import T_AssetCentricResource
 from .data_model import INSTANCE_SOURCE_VIEW_ID
@@ -26,7 +27,7 @@ def asset_centric_to_dm(
     Returns:
         tuple[NodeApply, ConversionIssue]: A tuple containing the converted NodeApply and any ConversionIssue encountered.
     """
-    resource_type: Literal = "asset"
+    resource_type: AssetCentric = "asset"
     issue = ConversionIssue(asset_centric_id=AssetCentricId(resource_type, id_=resource.id), instance_id=instance_id)
     dumped = resource.dump()
     properties: dict[str, PropertyValueWrite] = {}
@@ -57,7 +58,7 @@ def asset_centric_to_dm(
         properties[dm_prop_id] = value
 
     metadata = resource.metadata or {}
-    for key, dm_prop_id in view_source.mapping.metadata_to_property_id.items():
+    for key, dm_prop_id in (view_source.mapping.metadata_to_property_id or {}).items():
         if key not in metadata:
             issue.missing_asset_centric_properties.append(f"metadata.{key}")
             continue
