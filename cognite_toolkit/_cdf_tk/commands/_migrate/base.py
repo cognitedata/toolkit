@@ -76,7 +76,7 @@ class BaseMigrateCommand(ToolkitCommand, ABC):
                 "Please delete the duplicate models before proceeding with the migration."
             )
         model = models[0]
-        missing_views = set(model.views or []) - {INSTANCE_SOURCE_VIEW_ID, VIEW_SOURCE_VIEW_ID}
+        missing_views = {INSTANCE_SOURCE_VIEW_ID, VIEW_SOURCE_VIEW_ID} - set(model.views or [])
         if missing_views:
             raise ToolkitMigrationError(
                 f"Invalid migration model. Missing views {humanize_collection(missing_views)}. "
