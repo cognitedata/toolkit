@@ -1,8 +1,14 @@
 from typing import ClassVar
 
+import pytest
+from cognite.client.data_classes import Asset, Event, FileMetadata, TimeSeries
 from cognite.client.data_classes.data_modeling import NodeId
+from cognite.client.data_classes.data_modeling import data_types as dt
+from cognite.client.data_classes.data_modeling.ids import ContainerId, ViewId
+from cognite.client.data_classes.data_modeling.views import MappedProperty, ViewProperty
 
-from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId
+from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId, AssetCentricToViewMapping, ViewSource
+from cognite_toolkit._cdf_tk.commands._migrate.conversion import asset_centric_to_dm
 from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     ConversionIssue,
     FailedConversion,
@@ -108,3 +114,191 @@ class TestMigrationIssues:
             "statusCode": 500,
             "message": "Internal server error occurred",
         }
+
+
+class TestAssetCentricConversion:
+    INSTANCE_ID = NodeId(space="test_space", external_id="test_instance")
+    CONTAINER_ID = ContainerId("test_space", "test_container")
+    VIEW_ID = ViewId("test_space", "test_view", "v1")
+    INSTANCE_SOURCE_VIEW_ID = ViewId("cognite_migration", "InstanceSource", "v1")
+
+    @pytest.mark.parametrize(
+        "resource,view_source,view_properties,expected_properties,expected_issue",
+        [
+            pytest.param(
+                # Simple Asset with basic mapping
+                Asset(id=123, external_id="asset_123", name="Test Asset", description="A test asset"),
+                ViewSource(
+                    external_id="asset_mapping",
+                    version=1,
+                    last_updated_time=1000000,
+                    created_time=1000000,
+                    resource_type="asset",
+                    view_id=ViewId("test_space", "test_view", "v1"),
+                    mapping=AssetCentricToViewMapping(
+                        to_property_id={"name": "assetName", "description": "assetDescription"}
+                    ),
+                ),
+                {
+                    "assetName": MappedProperty(
+                        ContainerId("test_space", "test_container"),
+                        "assetName",
+                        dt.Text(),
+                        nullable=True,
+                        immutable=False,
+                        auto_increment=False,
+                    ),
+                    "assetDescription": MappedProperty(
+                        ContainerId("test_space", "test_container"),
+                        "assetDescription",
+                        dt.Text(),
+                        nullable=True,
+                        immutable=False,
+                        auto_increment=False,
+                    ),
+                },
+                {"assetName": "Test Asset", "assetDescription": "A test asset"},
+                ConversionIssue(
+                    asset_centric_id=AssetCentricId("asset", 123),
+                    instance_id=INSTANCE_ID,
+                    ignored_asset_centric_properties=[],
+                ),
+                id="simple_asset_mapping",
+            ),
+            pytest.param(
+                # TimeSeries with metadata mapping
+                TimeSeries(
+                    id=456,
+                    external_id="ts_456",
+                    name="Test TimeSeries",
+                    description="A test timeseries",
+                    unit="celsius",
+                    metadata={"sensor_type": "temperature", "location": "room_1"},
+                ),
+                ViewSource(
+                    external_id="timeseries_mapping",
+                    version=1,
+                    last_updated_time=1000000,
+                    created_time=1000000,
+                    resource_type="timeseries",
+                    view_id=ViewId("test_space", "test_view", "v1"),
+                    mapping=AssetCentricToViewMapping(
+                        to_property_id={"name": "timeseriesName", "unit": "measurementUnit"},
+                        metadata_to_property_id={"sensor_type": "sensorType", "location": "deviceLocation"},
+                    ),
+                ),
+                {
+                    "timeseriesName": MappedProperty(
+                        ContainerId("test_space", "test_container"),
+                        "timeseriesName",
+                        dt.Text(),
+                        nullable=True,
+                        immutable=False,
+                        auto_increment=False,
+                    ),
+                    "measurementUnit": MappedProperty(
+                        ContainerId("test_space", "test_container"),
+                        "measurementUnit",
+                        dt.Text(),
+                        nullable=True,
+                        immutable=False,
+                        auto_increment=False,
+                    ),
+                    "sensorType": MappedProperty(
+                        ContainerId("test_space", "test_container"),
+                        "sensorType",
+                        dt.Text(),
+                        nullable=True,
+                        immutable=False,
+                        auto_increment=False,
+                    ),
+                    "deviceLocation": MappedProperty(
+                        ContainerId("test_space", "test_container"),
+                        "deviceLocation",
+                        dt.Text(),
+                        nullable=True,
+                        immutable=False,
+                        auto_increment=False,
+                    ),
+                },
+                {
+                    "timeseriesName": "Test TimeSeries",
+                    "measurementUnit": "celsius",
+                    "sensorType": "temperature",
+                    "deviceLocation": "room_1",
+                },
+                [],
+                id="timeseries_with_metadata",
+            ),
+            pytest.param(
+                # Asset with missing properties (should generate issues)
+                Asset(id=789, external_id="asset_789", name="Incomplete Asset"),
+                ViewSource(
+                    external_id="incomplete_mapping",
+                    version=1,
+                    last_updated_time=1000000,
+                    created_time=1000000,
+                    resource_type="asset",
+                    view_id=ViewId("test_space", "test_view", "v1"),
+                    mapping=AssetCentricToViewMapping(
+                        to_property_id={
+                            "name": "assetName",
+                            "description": "assetDescription",
+                            "missing_prop": "targetProp",
+                        }
+                    ),
+                ),
+                {
+                    "assetName": MappedProperty(
+                        ContainerId("test_space", "test_container"),
+                        "assetName",
+                        dt.Text(),
+                        nullable=True,
+                        immutable=False,
+                        auto_increment=False,
+                    ),
+                    "assetDescription": MappedProperty(
+                        ContainerId("test_space", "test_container"),
+                        "assetDescription",
+                        dt.Text(),
+                        nullable=True,
+                        immutable=False,
+                        auto_increment=False,
+                    ),
+                },
+                {"assetName": "Incomplete Asset"},
+                ["description", "missing_prop"],  # These should be missing properties
+                id="asset_with_missing_properties",
+            ),
+        ],
+    )
+    def test_asset_centric_to_dm(
+        self,
+        resource: Asset | FileMetadata | Event | TimeSeries,
+        view_source: ViewSource,
+        view_properties: dict[str, ViewProperty],
+        expected_properties: dict[str, str],
+        expected_issue: ConversionIssue,
+    ) -> None:
+        actual, issue = asset_centric_to_dm(resource, self.INSTANCE_ID, view_source, view_properties)
+
+        # Check the structure of the returned NodeApply
+        assert actual.space == self.INSTANCE_ID.space
+        assert actual.external_id == self.INSTANCE_ID.external_id
+        assert len(actual.sources) == 2
+
+        # Check the main view source
+        main_source = actual.sources[0]
+        assert main_source.source == view_source.view_id
+        for prop_name, expected_value in expected_properties.items():
+            assert main_source.properties[prop_name] == expected_value
+
+        # Check the instance source view
+        instance_source = actual.sources[1]
+        assert instance_source.source == self.INSTANCE_SOURCE_VIEW_ID
+        assert instance_source.properties["resourceType"] == view_source.resource_type
+        assert instance_source.properties["id"] == resource.id
+        assert instance_source.properties["dataSetId"] == resource.data_set_id
+        assert instance_source.properties["classicExternalId"] == resource.external_id
+
+        assert expected_issue.dump() == issue.dump()
