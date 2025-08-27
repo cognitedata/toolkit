@@ -1,14 +1,16 @@
 import json
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from cognite.client.data_classes.data_modeling import NodeId
+from cognite.client.utils._identifier import InstanceId
 from cognite.client.utils._text import to_camel_case
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
 
+from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 
-class MigrationObject(BaseModel, alias_generator=to_camel_case): ...
+class MigrationObject(BaseModel, alias_generator=to_camel_case, extra="ignore"): ...
 
 
 class MigrationIssue(MigrationObject):
@@ -37,8 +39,27 @@ class ReadFileIssue(ReadIssue):
         error (str | None): An optional error message providing additional details about the read issue.
     """
 
+    type: ClassVar[str] = "fileRead"
+
     row_no: int
     error: str | None = None
+
+
+class ReadAPIIssue(ReadIssue):
+    """Represents a read issue encountered during migration from the API.
+
+    Attributes:
+        asset_centric_id (AssetCentricId): The identifier of the asset-centric resource that could not be read.
+        error (str | None): An optional error message providing additional details about the read issue.
+    """
+
+    type: ClassVar[str] = "apiRead"
+    asset_centric_id: AssetCentricId
+    error: str | None = None
+
+    @field_serializer("asset_centric_id")
+    def serialize_asset_centric_id(self, asset_centric_id: AssetCentricId) -> dict[str, Any]:
+        return asset_centric_id.dump(camel_case=True)
 
 
 class FailedConversion(MigrationObject):
@@ -50,15 +71,17 @@ class FailedConversion(MigrationObject):
 
     """
 
+    property_id: str
     value: JsonVal
     error: str
 
 
-class InvalidProperty(MigrationObject):
+class InvalidPropertyDataType(MigrationObject):
     """Represents a property with an invalid type during migration.
 
     Attributes:
-        property_id (str): The identifier of the property.
+        property_id (str): The identifier of the property in asset-centric.
+
         expected_type (str): The expected type of the property.
     """
 
@@ -70,21 +93,29 @@ class ConversionIssue(MigrationIssue):
     """Represents a conversion issue encountered during migration.
 
     Attributes:
-        id (int): The identifier of the asset-centric resource.
+        asset_centric_id (AssetCentricId): The identifier of the asset-centric resource.
         instance_id (NodeId): The NodeId of the data model instance.
-        missing_source_properties (list[str]): List of source properties that are missing.
-        missing_target_properties (list[str]): List of target properties that are missing.
-        invalid_target_property_types (list[InvalidProperty]): List of properties with invalid types.
+        missing_asset_centric_properties (list[str]): List of source properties that are missing.
+        missing_instance_properties (list[str]): List of target properties that are missing.
+        invalid_instance_property_types (list[InvalidPropertyDataType]): List of properties with invalid types.
         failed_conversions (list[FailedConversion]): List of properties that failed to convert with reasons.
     """
 
     type: ClassVar[str] = "conversion"
-    id: int
-    instance_id: NodeId
-    missing_source_properties: list[str] = Field(default_factory=list)
-    missing_target_properties: list[str] = Field(default_factory=list)
-    invalid_target_property_types: list[InvalidProperty] = Field(default_factory=list)
+    asset_centric_id: AssetCentricId
+    instance_id: InstanceId
+    missing_asset_centric_properties: list[str] = Field(default_factory=list)
+    missing_instance_properties: list[str] = Field(default_factory=list)
+    invalid_instance_property_types: list[InvalidPropertyDataType] = Field(default_factory=list)
     failed_conversions: list[FailedConversion] = Field(default_factory=list)
+
+    @field_serializer("instance_id")
+    def serialize_instance_id(self, instance_id: NodeId) -> dict[str, str]:
+        return instance_id.dump(include_instance_type=True)
+
+    @field_serializer("asset_centric_id")
+    def serialize_asset_centric_id(self, asset_centric_id: AssetCentricId) -> dict[str, Any]:
+        return asset_centric_id.dump(camel_case=True)
 
 
 class WriteIssue(MigrationIssue):
@@ -96,5 +127,6 @@ class WriteIssue(MigrationIssue):
     """
 
     type: ClassVar[str] = "write"
+    instanceId: NodeId
     status_code: int
     message: str | None = None
