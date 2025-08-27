@@ -1,9 +1,8 @@
 import sys
 from collections.abc import Collection, Iterator, Sequence
 from pathlib import Path
-from typing import Any, SupportsIndex, overload
+from typing import Any, Generic, SupportsIndex, overload
 
-from cognite.client.data_classes._base import CogniteResource
 from cognite.client.data_classes.data_modeling import NodeId, ViewId
 from cognite.client.utils._text import to_camel_case
 from pydantic import BaseModel, field_validator
@@ -20,6 +19,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 from cognite_toolkit._cdf_tk.utils.fileio import CSVReader, SchemaColumn
 
+from .base import T_AssetCentricResource
 from .default_mappings import DEFAULT_MAPPING_BY_RESOURCE_TYPE
 
 if sys.version_info >= (3, 11):
@@ -75,7 +75,7 @@ class MigrationMapping(BaseModel, alias_generator=to_camel_case, extra="ignore")
         raise ToolkitValueError(f"No default mapping found for resource type {self.resource_type!r}.")
 
 
-class MigrationMappingList(list, Sequence[MigrationMapping]):
+class MigrationMappingList(list, Sequence[MigrationMapping], Generic[T_AssetCentricResource]):
     REQUIRED_HEADER = (
         SchemaColumn("id", "integer"),
         SchemaColumn("space", "string"),
@@ -147,7 +147,7 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
 
     def download_iterable(
         self, client: ToolkitClient, chunk_size: int
-    ) -> Iterator[list[tuple[CogniteResource, MigrationMapping]]]:
+    ) -> Iterator[list[tuple[T_AssetCentricResource, MigrationMapping]]]:
         raise NotImplementedError()
 
     @classmethod

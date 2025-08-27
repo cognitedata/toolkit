@@ -1,25 +1,62 @@
 from collections.abc import Callable
 from functools import partial
 from pathlib import Path
-from typing import TypeVar, Generic
+from typing import Generic
 
-from cognite.client.data_classes import Asset, Event, FileMetadata, TimeSeries
-from cognite.client.data_classes._base import CogniteResource
-from cognite.client.data_classes.data_modeling import NodeId, NodeApply, NodeOrEdgeData
+from cognite.client.data_classes.data_modeling import MappedProperty, NodeApply, NodeId, NodeOrEdgeData, View, ViewId
+from cognite.client.data_classes.data_modeling.instances import PropertyValueWrite
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.migration import ViewSource
-from cognite_toolkit._cdf_tk.commands._migrate.base import BaseMigrateCommand
+from cognite_toolkit._cdf_tk.commands._migrate.base import BaseMigrateCommand, T_AssetCentricResource
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import MigrationMapping, MigrationMappingList
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.batch_processor import BatchResult, HTTPBatchProcessor
+from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
+    asset_centric_convert_to_primary_property,
+    convert_to_primary_property,
+)
 from cognite_toolkit._cdf_tk.utils.fileio import Chunk, CSVWriter, SchemaColumn, Uncompressed
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
+import threading
+from dataclasses import dataclass, field
+from typing import Any, Dict, Optional
 
-from .data_model import SPACE, INSTANCE_SOURCE_VIEW_ID
+@dataclass
+class Issue:
+    identifier: str
+    type: str
+    message: str
+    details: Optional[dict] = field(default_factory=dict)
 
-T_AssetCentricResource = TypeVar("T_AssetCentricResource", bound=Asset | Event | FileMetadata | TimeSeries)
+class ThreadSafeIssueStore:
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._issues: Dict[str, Issue] = {}
+
+    def put(self, issue: Issue) -> None:
+        with self._lock:
+            self._issues[issue.identifier] = issue
+
+    def update(self, identifier: str, **kwargs) -> None:
+        with self._lock:
+            if identifier in self._issues:
+                for key, value in kwargs.items():
+                    setattr(self._issues[identifier], key, value)
+
+    def remove(self, identifier: str) -> None:
+        with self._lock:
+            self._issues.pop(identifier, None)
+
+    def get(self, identifier: str) -> Optional[Issue]:
+        with self._lock:
+            return self._issues.get(identifier)
+
+from .data_model import INSTANCE_SOURCE_VIEW_ID, SPACE
+
 
 class MigrateAssetCentricCommand(BaseMigrateCommand, Generic[T_AssetCentricResource]):
     def migrate_resource(
@@ -40,6 +77,13 @@ class MigrateAssetCentricCommand(BaseMigrateCommand, Generic[T_AssetCentricResou
             client, instance_spaces=instance_spaces, schema_spaces=schema_spaces, data_set_ids=data_set_ids
         )
         view_mappings = client.migration.view_source.retrieve([mappings.get_mappings()])
+        referenced_views = list({view.view_id for view in view_mappings})
+        views = client.data_modeling.views.retrieve(referenced_views)
+        if missing := set(referenced_views) - {view.id for view in views}:
+            raise ToolkitValueError(
+                f"The following view IDs are missing in Data Modeling: {humanize_collection(missing)}"
+            )
+        view_by_id = {view: view.as_id() for view in views}
 
         target_views = {mapping.view_id for mapping in view_mappings}
         self.validate_access(client, schema_spaces=list(target_views), instance_spaces=None)
@@ -69,9 +113,11 @@ class MigrateAssetCentricCommand(BaseMigrateCommand, Generic[T_AssetCentricResou
                 result_processor=self._write_results_to_csv(writer, verbose, mappings.display_name),
             ) as http_client,
         ):
-            executor = ProducerWorkerExecutor[list[tuple[CogniteResource, MigrationMapping]], list[dict[str, JsonVal]]](
+            executor = ProducerWorkerExecutor[
+                list[tuple[T_AssetCentricResource, MigrationMapping]], list[dict[str, JsonVal]]
+            ](
                 download_iterable=mappings.download_iterable(client, chunk_size),
-                process=partial(self.convert, view_mapping_by_id=view_mapping_by_id),
+                process=partial(self.convert, view_mapping_by_id=view_mapping_by_id, view_by_id=view_by_id),
                 write=self._upload_nodes(http_client, dry_run=dry_run, verbose=verbose, console=console),
                 iteration_count=iteration_count,
                 max_queue_size=10,
@@ -88,7 +134,10 @@ class MigrateAssetCentricCommand(BaseMigrateCommand, Generic[T_AssetCentricResou
 
     @staticmethod
     def convert(
-        items: list[tuple[CogniteResource, MigrationMapping]], view_mapping_by_id: dict[str, ViewSource]
+        items: list[tuple[T_AssetCentricResource, MigrationMapping]],
+        view_mapping_by_id: dict[str, ViewSource],
+        view_by_id: dict[ViewId, View],
+        resource_type: str,
     ) -> list[dict[str, JsonVal]]:
         """Convert CogniteResource and MigrationMapping to NodeApply instances."""
         results: list[dict[str, JsonVal]] = []
@@ -98,7 +147,59 @@ class MigrateAssetCentricCommand(BaseMigrateCommand, Generic[T_AssetCentricResou
             except KeyError as e:
                 # This should never happen, as we validate this before starting the migration.
                 raise ValueError(f"Bug in Toolkit. View source with id '{mapping.mapping}' not found") from e
-            properties = {}
+            try:
+                view = view_by_id[view_source.view_id]
+            except KeyError as e:
+                # This should never happen, as we validate this before starting the migration.
+                raise ValueError(f"Bug in Toolkit. View with id '{view_source.view_id}' not found") from e
+            dumped = resource.dump()
+            properties: dict[str, PropertyValueWrite] = {}
+            for prop_id, dm_prop_id in view_source.mapping.to_property_id.items():
+                if prop_id not in dumped:
+                    # Todo: Log?
+                    continue
+                if dm_prop_id not in view.properties:
+                    # Todo: Warning?
+                    continue
+                dm_prop = view.properties[dm_prop_id]
+                if not isinstance(dm_prop, MappedProperty):
+                    # Todo: Warning?
+                    continue
+                try:
+                    value = asset_centric_convert_to_primary_property(
+                        dumped[prop_id],
+                        dm_prop.type,
+                        dm_prop.nullable,
+                        (dm_prop.container, dm_prop.container_property_identifier),
+                        (resource_type, prop_id),
+                    )
+                except ValueError:
+                    # Todo: Warning?
+                    continue
+                properties[dm_prop_id] = value
+            metadata = resource.metadata or {}
+            for key, dm_prop_id in view_source.mapping.metadata_to_property_id.items():
+                if key not in metadata:
+                    # Todo: Log?
+                    continue
+                if dm_prop_id not in view.properties:
+                    # Todo: Warning?
+                    continue
+                dm_prop = view.properties[dm_prop_id]
+                if not isinstance(dm_prop, MappedProperty):
+                    # Todo: Warning?
+                    continue
+                try:
+                    value = convert_to_primary_property(
+                        metadata[key],
+                        dm_prop.type,
+                        dm_prop.nullable,
+                    )
+                except ValueError:
+                    # Todo: Warning?
+                    continue
+                properties[dm_prop_id] = value
+
             node = NodeApply(
                 space=mapping.instance_id.space,
                 external_id=mapping.instance_id.external_id,
@@ -110,18 +211,16 @@ class MigrateAssetCentricCommand(BaseMigrateCommand, Generic[T_AssetCentricResou
                     NodeOrEdgeData(
                         source=INSTANCE_SOURCE_VIEW_ID,
                         properties={
-                            "resourceType": "asset",
+                            "resourceType": resource_type,
                             "id": resource.id,
                             "dataSetId": resource.data_set_id,
                             "classicExternalId": resource.external_id,
-
                         },
                     ),
                 ],
             ).dump()
             results.append(node)
         return results
-
 
     @staticmethod
     def _upload_nodes(
