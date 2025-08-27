@@ -118,8 +118,6 @@ class MigrateAssetCentricCommand(BaseMigrateCommand, Generic[T_AssetCentricResou
                 result_processor=self._write_results_to_file(csv_writer, ndjson_writer, verbose, mappings.display_name),
             ) as http_client,
         ):
-
-
             executor = ProducerWorkerExecutor[
                 list[tuple[T_AssetCentricResource, MigrationMapping]], list[dict[str, JsonVal]]
             ](
