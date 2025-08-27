@@ -97,7 +97,7 @@ class ConversionIssue(MigrationIssue):
 
     Attributes:
         asset_centric_id (AssetCentricId): The identifier of the asset-centric resource.
-        instance_id (NodeId): The NodeId of the data model instance.
+        instance_id (InstanceId): The NodeId of the data model instance.
         missing_asset_centric_properties (list[str]): List of source properties that are missing.
         missing_instance_properties (list[str]): List of target properties that are missing.
         invalid_instance_property_types (list[InvalidPropertyDataType]): List of properties with invalid types.
@@ -128,12 +128,13 @@ class WriteIssue(MigrationIssue):
     """Represents a write issue encountered during migration.
 
     Attributes:
+        instance_id (InstanceId): The InstanceId of the data model instance that could not be written.
         status_code (int): The HTTP status code returned during the write operation.
         message (str | None): An optional message providing additional details about the write issue.
     """
 
     type: ClassVar[str] = "write"
-    instance_id: NodeId
+    instance_id: InstanceId
     status_code: int
     message: str | None = None
 
