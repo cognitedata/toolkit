@@ -20,7 +20,7 @@ class MigrationIssue(MigrationObject):
 
     def dump(self) -> dict[str, JsonVal]:
         # Dump json to ensure it is serializable
-        dumped = json.loads(self.model_dump_json(by_alias=True, exclude_unset=True))
+        dumped = json.loads(self.model_dump_json(by_alias=True))
         dumped["type"] = self.type
         return dumped
 
