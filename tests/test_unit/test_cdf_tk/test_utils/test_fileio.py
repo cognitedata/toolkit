@@ -304,13 +304,16 @@ class TestFileWriterThreadSafety:
     def test_concurrent_context_manager_operations(self, tmp_path):
         """Test that context manager operations (__enter__/__exit__) are thread-safe."""
         output_dir = tmp_path
+        # Use a single, shared writer instance to test the instance-level lock.
+        writer = NDJsonWriter(output_dir, "shared_worker", Uncompressed)
 
         def context_worker(worker_id: int) -> bool:
-            """Worker that uses writer in context manager."""
+            """Worker that uses the shared writer in a context manager."""
             try:
-                writer = NDJsonWriter(output_dir, f"worker_{worker_id}", Uncompressed)
+                # The 'with' statement on the shared writer will be serialized by the lock.
                 with writer:
                     chunks = [{"worker": worker_id, "data": f"test_{i}"} for i in range(10)]
+                    # Use a unique filestem to ensure data from different workers is separated.
                     writer.write_chunks(chunks, f"context_test_{worker_id}")
                 return True
             except Exception:
@@ -321,14 +324,14 @@ class TestFileWriterThreadSafety:
             futures = [executor.submit(context_worker, i) for i in range(num_workers)]
             results = [future.result() for future in concurrent.futures.as_completed(futures)]
 
-        # All workers should complete successfully
+        # All workers should complete successfully.
         assert all(results)
 
-        # Verify files were created for each worker
-        # File pattern: context_test_{worker_id}-part-0000.worker_{worker_id}.ndjson
+        # Verify files were created for each worker.
+        # As __enter__ clears state, each 'with' block creates a new file starting from part-0000.
         for worker_id in range(num_workers):
-            worker_files = list(output_dir.glob(f"context_test_{worker_id}-*.worker_{worker_id}.ndjson"))
-            assert len(worker_files) > 0
+            worker_files = list(output_dir.glob(f"context_test_{worker_id}-part-0000.shared_worker.ndjson"))
+            assert len(worker_files) == 1, f"Expected 1 file for worker {worker_id}, found {len(worker_files)}"
 
     def test_lock_reentrancy(self, tmp_path):
         """Test that the RLock allows reentrant calls."""
