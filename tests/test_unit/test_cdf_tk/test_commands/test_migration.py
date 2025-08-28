@@ -166,7 +166,6 @@ class TestAssetCentricConversion:
                 id="simple_asset_mapping",
             ),
             pytest.param(
-                # TimeSeries with metadata mapping
                 TimeSeries(
                     id=456,
                     external_id="ts_456",
@@ -227,7 +226,11 @@ class TestAssetCentricConversion:
                     "sensorType": "temperature",
                     "deviceLocation": "room_1",
                 },
-                [],
+                ConversionIssue(
+                    asset_centric_id=AssetCentricId("timeseries", id_=456),
+                    instance_id=INSTANCE_ID,
+                    ignored_asset_centric_properties=["description"],
+                ),
                 id="timeseries_with_metadata",
             ),
             pytest.param(
@@ -267,7 +270,11 @@ class TestAssetCentricConversion:
                     ),
                 },
                 {"assetName": "Incomplete Asset"},
-                ["description", "missing_prop"],  # These should be missing properties
+                ConversionIssue(
+                    asset_centric_id=AssetCentricId("asset", id_=789),
+                    instance_id=INSTANCE_ID,
+                    ignored_asset_centric_properties=[],
+                ),
                 id="asset_with_missing_properties",
             ),
         ],
@@ -290,8 +297,7 @@ class TestAssetCentricConversion:
         # Check the main view source
         main_source = actual.sources[0]
         assert main_source.source == view_source.view_id
-        for prop_name, expected_value in expected_properties.items():
-            assert main_source.properties[prop_name] == expected_value
+        assert main_source.properties == expected_properties
 
         # Check the instance source view
         instance_source = actual.sources[1]
