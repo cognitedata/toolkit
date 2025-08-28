@@ -153,7 +153,8 @@ class PurgeApp(typer.Typer):
             typer.Argument(
                 help="Purge instances with properties in the specified view. Expected format is "
                 "'space externalId version'. For example 'cdf_cdm CogniteTimeSeries v1' will purge all nodes"
-                "that have properties in the CogniteTimeSeries view. If not provided, interactive mode will be used.",
+                "that have properties in the CogniteTimeSeries view. If not provided and no "
+                "instance list is provided, interactive mode will be used.",
             ),
         ] = None,
         instance_space: Annotated[
@@ -179,7 +180,8 @@ class PurgeApp(typer.Typer):
             typer.Option(
                 "--list",
                 "-l",
-                help="Path to a file containing a list of instance external IDs to purge. This file should be a csv file with space,externalId columns.",
+                help="Path to a file containing a list of instance external IDs to purge. This file should be a csv file with space,externalId columns."
+                "If this option is provided, the view, instance-space and instance-type options will be ignored.",
                 exists=True,
                 file_okay=True,
                 dir_okay=False,
