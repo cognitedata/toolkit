@@ -53,6 +53,10 @@ class TestMigrationIssues:
             "type": "conversion",
             "assetCentricId": {"resourceType": "asset", "id": 456},
             "instanceId": {"space": "test_space", "externalId": "test_instance", "type": "node"},
+            "failedConversions": [],
+            "invalidInstancePropertyTypes": [],
+            "missingAssetCentricProperties": [],
+            "missingInstanceProperties": [],
         }
 
     def test_conversion_issue_with_all_fields(self) -> None:
@@ -90,6 +94,7 @@ class TestMigrationIssues:
             "type": "write",
             "instanceId": {"space": "write_space", "externalId": "write_instance", "type": "node"},
             "statusCode": 400,
+            "message": None,
         }
 
     def test_write_issue_with_message(self) -> None:
