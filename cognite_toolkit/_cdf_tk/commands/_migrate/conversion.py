@@ -69,7 +69,7 @@ def asset_centric_to_dm(
     )
     if view_source.mapping.metadata_to_property_id is not None:
         metadata_properties = _create_properties(
-            dumped,
+            resource.metadata or {},
             issue,
             conversion=lambda value, prop_id, dm_prop: convert_to_primary_property(
                 value,
