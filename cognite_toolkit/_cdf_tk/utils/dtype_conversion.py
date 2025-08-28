@@ -138,17 +138,12 @@ def infer_data_type_from_value(value: str, dtype: Literal["Json", "Python"]) -> 
         _Int64Converter,
         _Float64Converter,
         _TimestampConverter,
-        _DateConverter,
         _BooleanConverter,
         _JsonConverter,
         _TextConverter,
     )
     converters_to_use = (
-        tuple(
-            converter_cls
-            for converter_cls in converter_classes
-            if converter_cls not in {_TimestampConverter, _DateConverter}
-        )
+        tuple(converter_cls for converter_cls in converter_classes if converter_cls is not _TimestampConverter)
         if dtype == "Json"
         else converter_classes
     )
