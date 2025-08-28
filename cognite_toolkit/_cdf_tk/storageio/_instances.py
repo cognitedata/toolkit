@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import StorageIOConfig, TableStorageIO
-from ._selectors import InstanceSelector, InstanceViewSelector
+from ._selectors import InstanceFileSelector, InstanceSelector, InstanceViewSelector
 
 
 class InstanceIO(TableStorageIO[InstanceSelector, InstanceApplyList, InstanceList]):
@@ -48,6 +48,8 @@ class InstanceIO(TableStorageIO[InstanceSelector, InstanceApplyList, InstanceLis
     def download_ids(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[list[InstanceId]]:
         if isinstance(selector, InstanceViewSelector):
             yield from ([instance.as_id() for instance in chunk] for chunk in self.download_iterable(selector, limit))  # type: ignore[attr-defined]
+        elif isinstance(selector, InstanceFileSelector):
+            raise NotImplementedError()
         else:
             raise NotImplementedError()
 
@@ -60,6 +62,8 @@ class InstanceIO(TableStorageIO[InstanceSelector, InstanceApplyList, InstanceLis
                 space=list(selector.instance_spaces) if selector.instance_spaces else None,
             )
             return int(result.value or 0)
+        elif isinstance(selector, InstanceFileSelector):
+            raise NotImplementedError()
         raise NotImplementedError()
 
     def upload_items(self, data_chunk: InstanceApplyList, selector: InstanceSelector) -> None:
