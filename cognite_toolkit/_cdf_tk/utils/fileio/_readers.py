@@ -161,7 +161,7 @@ class CSVReader(FileReader):
                 sample_rows.append(row)
 
             if not sample_rows:
-                raise ValueError(f"No data found in the file: {input_file}")
+                raise ToolkitValueError(f"No data found in the file: {input_file.as_posix()!r}")
 
             columns = list(sample_rows[0].keys())
             if len(columns) != len(set(columns)):
