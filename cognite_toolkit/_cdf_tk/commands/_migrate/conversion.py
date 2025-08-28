@@ -2,6 +2,7 @@ from collections.abc import Callable
 from typing import Any
 
 from cognite.client.data_classes import Asset, Event, FileMetadata, Sequence, TimeSeries
+from cognite.client.data_classes._base import CogniteResource
 from cognite.client.data_classes.data_modeling import MappedProperty, NodeApply, NodeId
 from cognite.client.data_classes.data_modeling.instances import NodeOrEdgeData, PropertyValueWrite
 from cognite.client.data_classes.data_modeling.views import ViewProperty
@@ -105,17 +106,16 @@ def asset_centric_to_dm(
 
 
 def _lookup_resource_type(resource_type: type[T_AssetCentricResource]) -> AssetCentric:
-    if resource_type is Asset:
-        return "asset"
-    elif resource_type is FileMetadata:
-        return "file"
-    elif resource_type is Event:
-        return "event"
-    elif resource_type is TimeSeries:
-        return "timeseries"
-    elif resource_type is Sequence:
-        return "sequence"
-    else:
+    resource_type_map: dict[type[CogniteResource], AssetCentric] = {
+        Asset: "asset",
+        FileMetadata: "file",
+        Event: "event",
+        TimeSeries: "timeseries",
+        Sequence: "sequence",
+    }
+    try:
+        return resource_type_map[resource_type]
+    except KeyError:
         raise ValueError(f"Unsupported resource type: {resource_type}")
 
 
