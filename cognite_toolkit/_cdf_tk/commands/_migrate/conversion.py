@@ -114,8 +114,8 @@ def _lookup_resource_type(resource_type: type[T_AssetCentricResource]) -> AssetC
     }
     try:
         return resource_type_map[resource_type]
-    except KeyError:
-        raise ValueError(f"Unsupported resource type: {resource_type}")
+    except KeyError as e:
+        raise ValueError(f"Unsupported resource type: {resource_type}") from e
 
 
 def _create_properties(

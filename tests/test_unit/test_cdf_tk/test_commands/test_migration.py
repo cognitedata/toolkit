@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from typing import ClassVar
 
 import pytest
-from cognite.client.data_classes import Asset, Event, FileMetadata, TimeSeries
+from cognite.client.data_classes import Asset, Event, FileMetadata, Sequence, TimeSeries
 from cognite.client.data_classes.data_modeling import NodeId
 from cognite.client.data_classes.data_modeling import data_types as dt
 from cognite.client.data_classes.data_modeling.data_types import DirectRelationReference, EnumValue
@@ -346,7 +346,7 @@ class TestAssetCentricConversion:
     )
     def test_asset_centric_to_dm(
         self,
-        resource: Asset | FileMetadata | Event | TimeSeries,
+        resource: Asset | FileMetadata | Event | TimeSeries | Sequence,
         view_source: ViewSource,
         view_properties: dict[str, ViewProperty],
         expected_properties: dict[str, str],
