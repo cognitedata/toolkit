@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import TypeVar
 
-from cognite.client.data_classes import Asset, Event, FileMetadata, TimeSeries
+from cognite.client.data_classes import Asset, Event, FileMetadata, Sequence, TimeSeries
 from cognite.client.data_classes.capabilities import (
     Capability,
     DataModelInstancesAcl,
@@ -21,7 +21,7 @@ from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 from .data_model import INSTANCE_SOURCE_VIEW_ID
 
-T_AssetCentricResource = TypeVar("T_AssetCentricResource", bound=Asset | Event | FileMetadata | TimeSeries)
+T_AssetCentricResource = TypeVar("T_AssetCentricResource", bound=Asset | Event | FileMetadata | TimeSeries | Sequence)
 
 
 class BaseMigrateCommand(ToolkitCommand, ABC):

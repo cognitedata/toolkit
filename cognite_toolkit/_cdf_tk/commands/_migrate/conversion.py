@@ -141,7 +141,7 @@ def _create_properties(
             continue
         try:
             value = conversion(dumped[prop_id], prop_id, dm_prop)
-        except ValueError as e:
+        except (ValueError, TypeError) as e:
             issue.failed_conversions.append(FailedConversion(property_id=prop_id, value=dumped[prop_id], error=str(e)))
             continue
         properties[dm_prop_id] = value
