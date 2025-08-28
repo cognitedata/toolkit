@@ -11,7 +11,7 @@ from cognite.client.data_classes._base import (
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.utils.table_writers import SchemaColumn
+from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 T_Selector = TypeVar("T_Selector", bound=Hashable)
