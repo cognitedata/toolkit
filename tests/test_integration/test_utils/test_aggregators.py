@@ -66,7 +66,7 @@ class TestAggregators:
             transformation_count = aggregator.transformation_count()
             used_transformations = aggregator.used_transformations(used_data_sets)
         except CogniteAPIError as e:
-            if e.code == 500 and "Internal Server Error" in e.message:
+            if e.code == 500 and "Internal server error" in e.message:
                 pytest.skip("Skipping test due to intermittent CDF 500 error.")
             raise e
 
