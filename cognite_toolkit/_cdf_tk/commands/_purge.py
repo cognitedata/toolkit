@@ -606,6 +606,7 @@ class PurgeCommand(ToolkitCommand):
     ) -> None:
         """Purge instances"""
         io = InstanceIO(client)
+        console = Console()
         validator = ValidateAccess(client, default_operation="purge")
         self.validate_instance_access(validator, selector.get_instance_spaces() or [])
         if unlink:
@@ -628,10 +629,9 @@ class PurgeCommand(ToolkitCommand):
 
         process: Callable[[list[InstanceId]], list[dict[str, JsonVal]]] = self._prepare
         if unlink:
-            process = partial(self._unlink_prepare, client=client, dry_run=dry_run, verbose=verbose)
+            process = partial(self._unlink_prepare, client=client, dry_run=dry_run, console=console, verbose=verbose)
 
         iteration_count = int(total // 1000 + (1 if total % 1000 > 0 else 0))
-        console = Console()
         with HTTPBatchProcessor(
             endpoint_url=client.config.create_api_url("/models/instances/delete"),
             config=client.config,
@@ -704,10 +704,15 @@ class PurgeCommand(ToolkitCommand):
         return [instance_id.dump() for instance_id in instance_ids]  # type: ignore[return-value, misc]
 
     def _unlink_prepare(
-        self, instance_ids: list[InstanceId], client: ToolkitClient, dry_run: bool, verbose: bool = False
+        self,
+        instance_ids: list[InstanceId],
+        client: ToolkitClient,
+        dry_run: bool,
+        console: Console,
+        verbose: bool = False,
     ) -> list[dict[str, JsonVal]]:
-        self._unlink_timeseries(instance_ids, client, dry_run, verbose)
-        self._unlink_files(instance_ids, client, dry_run, verbose)
+        self._unlink_timeseries(instance_ids, client, dry_run, console, verbose)
+        self._unlink_files(instance_ids, client, dry_run, console, verbose)
         return self._prepare(instance_ids)
 
     @staticmethod
@@ -722,8 +727,9 @@ class PurgeCommand(ToolkitCommand):
         # This is used in dry-run mode to avoid actual processing
         pass
 
+    @staticmethod
     def _unlink_timeseries(
-        self, instances: list[InstanceId], client: ToolkitClient, dry_run: bool, verbose: bool
+        instances: list[InstanceId], client: ToolkitClient, dry_run: bool, console: Console, verbose: bool
     ) -> list[InstanceId]:
         node_ids = [instance for instance in instances if isinstance(instance, NodeId)]
         if node_ids:
@@ -732,13 +738,14 @@ class PurgeCommand(ToolkitCommand):
                 migrated_timeseries_ids = [ts.id for ts in timeseries if ts.instance_id and ts.pending_instance_id]  # type: ignore[attr-defined]
                 client.time_series.unlink_instance_ids(id=migrated_timeseries_ids)
                 if verbose:
-                    self.console(f"Unlinked {len(migrated_timeseries_ids)} timeseries from datapoints.")
+                    console.print(f"Unlinked {len(migrated_timeseries_ids)} timeseries from datapoints.")
             elif verbose and timeseries:
-                self.console(f"Would have unlinked {len(timeseries)} timeseries from datapoints.")
+                console.print(f"Would have unlinked {len(timeseries)} timeseries from datapoints.")
         return instances
 
+    @staticmethod
     def _unlink_files(
-        self, instances: list[InstanceId], client: ToolkitClient, dry_run: bool, verbose: bool
+        instances: list[InstanceId], client: ToolkitClient, dry_run: bool, console: Console, verbose: bool
     ) -> list[InstanceId]:
         file_ids = [instance for instance in instances if isinstance(instance, NodeId)]
         if file_ids:
@@ -751,9 +758,9 @@ class PurgeCommand(ToolkitCommand):
                 ]
                 client.files.unlink_instance_ids(id=migrated_file_ids)
                 if verbose:
-                    self.console(f"Unlinked {len(migrated_file_ids)} files from nodes.")
+                    console.print(f"Unlinked {len(migrated_file_ids)} files from nodes.")
             elif verbose and files:
-                self.console(f"Would have unlinked {len(files)} files from their blob content.")
+                console.print(f"Would have unlinked {len(files)} files from their blob content.")
         return instances
 
     @staticmethod
