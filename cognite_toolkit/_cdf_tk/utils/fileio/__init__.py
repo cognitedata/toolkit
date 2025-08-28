@@ -17,8 +17,10 @@ from ._readers import (
 from ._writers import (
     FILE_WRITE_CLS_BY_FORMAT,
     TABLE_WRITE_CLS_BY_FORMAT,
+    CSVWriter,
     FileWriter,
     NDJsonWriter,
+    ParquetWriter,
     YAMLWriter,
     YMLWriter,
 )
@@ -30,6 +32,7 @@ __all__ = [
     "FILE_WRITE_CLS_BY_FORMAT",
     "TABLE_WRITE_CLS_BY_FORMAT",
     "CSVReader",
+    "CSVWriter",
     "CellValue",
     "Chunk",
     "Compression",
@@ -39,6 +42,7 @@ __all__ = [
     "GzipCompression",
     "NDJsonReader",
     "NDJsonWriter",
+    "ParquetWriter",
     "PrimaryCellValue",
     "SchemaColumn",
     "Uncompressed",
