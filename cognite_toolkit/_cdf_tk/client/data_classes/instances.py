@@ -2,9 +2,15 @@ from collections.abc import Iterable
 from typing import Any
 
 from cognite.client import CogniteClient
-from cognite.client.data_classes._base import CogniteResourceList
+from cognite.client.data_classes._base import CogniteResourceList, WriteableCogniteResourceList
 from cognite.client.data_classes.data_modeling import EdgeId, NodeId
-from cognite.client.data_classes.data_modeling.instances import EdgeApplyResult, InstanceApplyResult, NodeApplyResult
+from cognite.client.data_classes.data_modeling.instances import (
+    EdgeApplyResult,
+    Instance,
+    InstanceApply,
+    InstanceApplyResult,
+    NodeApplyResult,
+)
 
 
 class InstanceApplyResultAdapter(InstanceApplyResult):
@@ -40,3 +46,14 @@ class InstancesApplyResultList(CogniteResourceList[InstanceApplyResult]):
             else EdgeId(item.space, item.external_id)
             for item in self
         ]
+
+
+class InstanceApplyList(CogniteResourceList[InstanceApply]):
+    _RESOURCE = InstanceApply
+
+
+class InstanceList(WriteableCogniteResourceList[InstanceApply, Instance]):
+    _RESOURCE = Instance
+
+    def as_write(self) -> InstanceApplyList:
+        return InstanceApplyList([item.as_write() for item in self])
