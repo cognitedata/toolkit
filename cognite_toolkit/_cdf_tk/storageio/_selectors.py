@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from cognite.client.data_classes.data_modeling import ContainerId, ViewId
+from cognite.client.data_classes.data_modeling import ViewId
 
 
 @dataclass(frozen=True)
@@ -29,18 +29,15 @@ class AssetCentricData:
             asset_subtree_external_ids=[self.hierarchy] if self.hierarchy else None,
         )
 
+
 @dataclass(frozen=True)
-class InstanceSelector:
-    ...
+class InstanceSelector: ...
+
 
 @dataclass(frozen=True)
 class InstanceFileSelector(InstanceSelector):
     datafile: Path | None = None
 
-@dataclass(frozen=True)
-class InstanceContainerSelector(InstanceSelector):
-    instance_spaces: tuple[str, ...] | None = None
-    container: ContainerId | None = None
 
 @dataclass(frozen=True)
 class InstanceViewSelector(InstanceSelector):
