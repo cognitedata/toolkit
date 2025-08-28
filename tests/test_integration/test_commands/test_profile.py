@@ -47,6 +47,11 @@ class TestProfileAssetCommand:
         results = ProfileAssetCommand().assets(
             toolkit_client, aggregator_root_asset.external_id, profile_row_limit=profile_row_limit
         )
+        for row in results:
+            for cell in row.values():
+                if "CogniteAPIError" in str(cell):
+                    pytest.skip("Skipping test due to intermediate CogniteAPI error.")
+
         columns = ProfileAssetCommand.Columns
         assert (
             results
