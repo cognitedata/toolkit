@@ -131,12 +131,12 @@ def _create_properties(
             issue.missing_asset_centric_properties.append(prop_id)
             continue
         if dm_prop_id not in view_properties:
-            issue.missing_instance_properties.append(prop_id)
+            issue.missing_instance_properties.append(dm_prop_id)
             continue
         dm_prop = view_properties[dm_prop_id]
         if not isinstance(dm_prop, MappedProperty):
             issue.invalid_instance_property_types.append(
-                InvalidPropertyDataType(property_id=type(dm_prop_id).__name__, expected_type="MappedProperty")
+                InvalidPropertyDataType(property_id=dm_prop_id, expected_type=MappedProperty.__name__)
             )
             continue
         try:
