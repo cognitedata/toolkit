@@ -50,11 +50,13 @@ class InstancesApplyResultList(CogniteResourceList[InstanceApplyResult]):
 
 class InstanceApplyList(CogniteResourceList[InstanceApply]):
     """A list of instances to be applied (created or updated)."""
+
     _RESOURCE = InstanceApply
 
 
 class InstanceList(WriteableCogniteResourceList[InstanceApply, Instance]):
     """A list of instances that can be written to CDF."""
+
     _RESOURCE = Instance
 
     def as_write(self) -> InstanceApplyList:
