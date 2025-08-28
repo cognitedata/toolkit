@@ -360,7 +360,8 @@ class TestFileWriterThreadSafety:
 
                 # Record file count
                 with lock:
-                    file_counts.append(writer.file_count)
+                    count = writer._file_count_by_filename["count_test"]
+                    file_counts.append(count)
 
                 # Small delay to increase chance of race conditions
                 time.sleep(0.001)
@@ -375,8 +376,10 @@ class TestFileWriterThreadSafety:
 
         # Final file count should match actual files created
         actual_files = list(output_dir.glob("*.ndjson"))
+        expected_file_stems = [f"count_test-part-{count:04}.test" for count in sorted(set(file_counts))]
+        actual_file_stems = sorted([file.stem for file in actual_files])
         # Note: writer.file_count might be 0 after context exit as it clears state
-        assert len(actual_files) > 0
+        assert actual_file_stems == expected_file_stems
 
     @pytest.mark.parametrize(
         "num_threads,chunks_per_thread",
