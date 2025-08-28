@@ -50,7 +50,8 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
     @property
     def file_count(self) -> int:
         """Get the total number of files written."""
-        return len(self._writer_by_filepath)
+        with self._lock:
+            return len(self._writer_by_filepath)
 
     def write_chunks(self, chunks: Iterable[Chunk], filestem: str = "") -> None:
         with self._lock:
