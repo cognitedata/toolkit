@@ -1,20 +1,26 @@
 from collections.abc import Iterable
 from pathlib import Path
 
+from cognite.client.data_classes.aggregations import Count
 from cognite.client.utils._identifier import InstanceId
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList, InstanceList
-from cognite_toolkit._cdf_tk.loaders import ViewLoader
+from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ..utils.cdf import iterate_instances
 from ._base import StorageIOConfig, TableStorageIO
-from ._selectors import InstanceFileSelector, InstanceSelector, InstanceViewSelector
+from ._selectors import InstanceSelector, InstanceViewSelector
 
 
 class InstanceIO(TableStorageIO[InstanceSelector, InstanceApplyList, InstanceList]):
+    folder_name = "instances"
+    kind = "Instances"
+    display_name = "Instances"
+    supported_download_formats = frozenset({".parquet", ".csv", ".ndjson"})
+    supported_compressions = frozenset({".gz"})
+    supported_read_formats = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
     chunk_size = 1000
 
     def download_iterable(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[InstanceList]:
@@ -24,6 +30,7 @@ class InstanceIO(TableStorageIO[InstanceSelector, InstanceApplyList, InstanceLis
             for instance in iterate_instances(
                 client=self.client,
                 source=selector.view,
+                instance_type=selector.instance_type,
                 space=list(selector.instance_spaces) if selector.instance_spaces else None,
             ):
                 if limit is not None and total >= limit:
@@ -32,37 +39,43 @@ class InstanceIO(TableStorageIO[InstanceSelector, InstanceApplyList, InstanceLis
                 chunk.append(instance)
                 if len(chunk) >= self.chunk_size:
                     yield chunk
-                    chunk = []
+                    chunk = InstanceList([])
             if chunk:
                 yield chunk
+        else:
+            raise NotImplementedError()
 
     def download_ids(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[list[InstanceId]]:
         if isinstance(selector, InstanceViewSelector):
-            yield from ([instance.as_id() for instance in chunk] for chunk in self.download_iterable(selector, limit))  # type: ignore[arg-type]
+            yield from ([instance.as_id() for instance in chunk] for chunk in self.download_iterable(selector, limit))  # type: ignore[attr-defined]
+        else:
+            raise NotImplementedError()
 
     def count(self, selector: InstanceSelector) -> int | None:
-        pass
+        if isinstance(selector, InstanceViewSelector):
+            result = self.client.data_modeling.instances.aggregate(
+                view=selector.view,
+                aggregates=Count("externalId"),
+                instance_type=selector.instance_type,
+                space=list(selector.instance_spaces) if selector.instance_spaces else None,
+            )
+            return int(result.value or 0)
+        raise NotImplementedError()
 
     def upload_items(self, data_chunk: InstanceApplyList, selector: InstanceSelector) -> None:
-        pass
+        raise NotImplementedError()
 
     def data_to_json_chunk(self, data_chunk: InstanceList) -> list[dict[str, JsonVal]]:
-        pass
+        raise NotImplementedError()
 
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> InstanceApplyList:
-        pass
+        raise NotImplementedError()
 
     def configurations(self, selector: InstanceSelector) -> Iterable[StorageIOConfig]:
-        if isinstance(selector, InstanceViewSelector):
-            view_loader = ViewLoader.create_loader(self.client)
-            views = view_loader.retrieve([selector.view])
-            for view in views:
-                yield StorageIOConfig(
-                    kind=view_loader.kind, folder_name=view_loader.folder_name, value=view_loader.dump_resource(view)
-                )
+        raise NotImplementedError()
 
     def load_selector(self, datafile: Path) -> InstanceSelector:
-        return InstanceFileSelector(datafile=datafile)
+        raise NotImplementedError()
 
     def ensure_configurations(self, selector: InstanceSelector, console: Console | None = None) -> None:
         raise NotImplementedError()

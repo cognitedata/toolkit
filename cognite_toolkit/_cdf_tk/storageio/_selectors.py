@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from cognite.client.data_classes.data_modeling import ViewId
 
@@ -36,10 +36,11 @@ class InstanceSelector: ...
 
 @dataclass(frozen=True)
 class InstanceFileSelector(InstanceSelector):
-    datafile: Path | None = None
+    datafile: Path
 
 
 @dataclass(frozen=True)
 class InstanceViewSelector(InstanceSelector):
+    view: ViewId
+    instance_type: Literal["node", "edge"] = "node"
     instance_spaces: tuple[str, ...] | None = None
-    view: ViewId | None = None
