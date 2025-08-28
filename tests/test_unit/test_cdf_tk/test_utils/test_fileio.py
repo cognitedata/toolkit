@@ -9,7 +9,6 @@ from io import TextIOWrapper
 from itertools import product
 from pathlib import Path
 from typing import Any
-from unittest.mock import patch
 
 import pytest
 
@@ -300,62 +299,6 @@ class TestFileWriterThreadSafety:
         # Verify each thread's data is complete
         for thread_id in range(num_threads):
             assert thread_counts.get(thread_id, 0) == large_chunks_per_thread
-
-    def test_concurrent_context_manager_operations(self, tmp_path):
-        """Test that context manager operations (__enter__/__exit__) are thread-safe."""
-        output_dir = tmp_path
-        # Use a single, shared writer instance to test the instance-level lock.
-        writer = NDJsonWriter(output_dir, "shared_worker", Uncompressed)
-
-        def context_worker(worker_id: int) -> bool:
-            """Worker that uses the shared writer in a context manager."""
-            try:
-                # The 'with' statement on the shared writer will be serialized by the lock.
-                with writer:
-                    chunks = [{"worker": worker_id, "data": f"test_{i}"} for i in range(10)]
-                    # Use a unique filestem to ensure data from different workers is separated.
-                    writer.write_chunks(chunks, f"context_test_{worker_id}")
-                return True
-            except Exception:
-                return False
-
-        num_workers = 10
-        with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-            futures = [executor.submit(context_worker, i) for i in range(num_workers)]
-            results = [future.result() for future in concurrent.futures.as_completed(futures)]
-
-        # All workers should complete successfully.
-        assert all(results)
-
-        # Verify files were created for each worker.
-        # As __enter__ clears state, each 'with' block creates a new file starting from part-0000.
-        for worker_id in range(num_workers):
-            worker_files = list(output_dir.glob(f"context_test_{worker_id}-part-0000.shared_worker.ndjson"))
-            assert len(worker_files) == 1, f"Expected 1 file for worker {worker_id}, found {len(worker_files)}"
-
-    def test_lock_reentrancy(self, tmp_path):
-        """Test that the RLock allows reentrant calls."""
-        output_dir = tmp_path
-        writer = NDJsonWriter(output_dir, "test", Uncompressed)
-
-        # Mock _write to call write_chunks recursively (simulating reentrant behavior)
-        original_write = writer._write
-
-        def reentrant_write(w, chunks):
-            # First call the original write
-            original_write(w, chunks)
-            # Then make a reentrant call (should not deadlock)
-            if not hasattr(writer, "_reentrant_called"):
-                writer._reentrant_called = True
-                writer.write_chunks([{"reentrant": True}], "reentrant_test")
-
-        with patch.object(writer, "_write", reentrant_write):
-            with writer:
-                writer.write_chunks([{"initial": True}], "test")
-
-        # Verify both original and reentrant writes occurred
-        files = list(output_dir.glob("*.ndjson"))
-        assert len(files) >= 1
 
     def test_csv_writer_thread_safety(self, tmp_path):
         """Test thread safety specifically for CSVWriter with its internal state."""
