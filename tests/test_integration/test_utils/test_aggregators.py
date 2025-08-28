@@ -60,14 +60,12 @@ class TestAggregators:
         aggregator = aggregator_class(toolkit_client)
 
         actual_count = aggregator.count(root)
-        assert actual_count == expected_count
-
         used_data_sets = aggregator.used_data_sets(root)
-        assert used_data_sets == [expected_dataset_external_id]
-
         transformation_count = aggregator.transformation_count()
-        assert transformation_count >= 1  # We know at least one transformation is writing to the resource type.
         used_transformations = aggregator.used_transformations(used_data_sets)
 
+        assert actual_count == expected_count
+        assert used_data_sets == [expected_dataset_external_id]
+        assert transformation_count >= 1  # We know at least one transformation is writing to the resource type.
         assert len(used_transformations) == 1
         assert used_transformations[0].external_id == expected_transformation_external_id
