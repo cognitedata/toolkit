@@ -2,6 +2,7 @@ import pytest
 from cognite.client.data_classes import (
     Asset,
 )
+from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.utils.aggregators import (
@@ -59,10 +60,15 @@ class TestAggregators:
         root = aggregator_root_asset.external_id
         aggregator = aggregator_class(toolkit_client)
 
-        actual_count = aggregator.count(root)
-        used_data_sets = aggregator.used_data_sets(root)
-        transformation_count = aggregator.transformation_count()
-        used_transformations = aggregator.used_transformations(used_data_sets)
+        try:
+            actual_count = aggregator.count(root)
+            used_data_sets = aggregator.used_data_sets(root)
+            transformation_count = aggregator.transformation_count()
+            used_transformations = aggregator.used_transformations(used_data_sets)
+        except CogniteAPIError as e:
+            if e.code == 500 and "Internal Server Error" in e.message:
+                pytest.skip("Skipping test due to intermittent CDF 500 error.")
+            raise e
 
         assert actual_count == expected_count
         assert used_data_sets == [expected_dataset_external_id]
