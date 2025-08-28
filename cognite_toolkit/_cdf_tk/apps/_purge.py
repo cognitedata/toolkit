@@ -228,10 +228,8 @@ class PurgeApp(typer.Typer):
             dry_run = questionary.confirm("Dry run?", default=True).ask()
             unlink = questionary.confirm("Unlink instances connected to timeseries or files?", default=True).ask()
         elif view is not None:
-            if len(view) != 3:
-                raise ToolkitValueError("Expected view to be in the format 'space externalId version'.")
             selector = InstanceViewSelector(
-                view=ViewId(*view),
+                view=cmd.get_selected_view_id(view),
                 instance_type=instance_type.value,
                 instance_spaces=tuple(instance_space) if instance_space is not None else None,
             )
