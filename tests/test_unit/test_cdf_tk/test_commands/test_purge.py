@@ -19,6 +19,7 @@ from cognite.client.data_classes.data_modeling import (
     NodeList,
     Text,
     View,
+    ViewId,
     ViewList,
 )
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFile, CogniteTimeSeries
@@ -34,6 +35,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.extended_filemetadata import (
 from cognite_toolkit._cdf_tk.client.data_classes.extended_timeseries import ExtendedTimeSeries, ExtendedTimeSeriesList
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
+from cognite_toolkit._cdf_tk.storageio import InstanceViewSelector
 
 
 @pytest.fixture(scope="session")
@@ -274,8 +276,7 @@ class TestPurgeInstances:
         cmd = PurgeCommand(silent=True)
         cmd.instances(
             client=purge_ts_client,
-            view=["cdf_cdm", "CogniteTimeSeries", "v1"],
-            instance_space=None,
+            selector=InstanceViewSelector(view=ViewId(space="cdf_cdm", external_id="CogniteTimeSeries", version="v1")),
             dry_run=True,
             auto_yes=True,
             unlink=True,
@@ -294,8 +295,7 @@ class TestPurgeInstances:
         cmd = PurgeCommand(silent=True)
         cmd.instances(
             client=purge_ts_client,
-            view=["cdf_cdm", "CogniteTimeSeries", "v1"],
-            instance_space=None,
+            selector=InstanceViewSelector(view=ViewId(space="cdf_cdm", external_id="CogniteTimeSeries", version="v1")),
             dry_run=True,
             auto_yes=True,
             unlink=False,
@@ -312,8 +312,7 @@ class TestPurgeInstances:
         cmd = PurgeCommand(silent=True)
         cmd.instances(
             client=purge_ts_client,
-            view=["cdf_cdm", "CogniteTimeSeries", "v1"],
-            instance_space=None,
+            selector=InstanceViewSelector(view=ViewId(space="cdf_cdm", external_id="CogniteTimeSeries", version="v1")),
             dry_run=False,
             auto_yes=True,
             unlink=True,
@@ -342,8 +341,7 @@ class TestPurgeInstances:
         cmd = PurgeCommand(silent=True)
         cmd.instances(
             client=purge_ts_client,
-            view=["cdf_cdm", "CogniteTimeSeries", "v1"],
-            instance_space=None,
+            selector=InstanceViewSelector(view=ViewId(space="cdf_cdm", external_id="CogniteTimeSeries", version="v1")),
             dry_run=False,
             auto_yes=True,
             unlink=False,
@@ -365,8 +363,7 @@ class TestPurgeInstances:
         cmd = PurgeCommand(silent=True)
         cmd.instances(
             client=purge_file_client,
-            view=["cdf_cdm", "CogniteFile", "v1"],
-            instance_space=None,
+            selector=InstanceViewSelector(ViewId(space="cdf_cdm", external_id="CogniteFile", version="v1")),
             dry_run=True,
             auto_yes=True,
             unlink=True,
@@ -385,8 +382,7 @@ class TestPurgeInstances:
         cmd = PurgeCommand(silent=True)
         cmd.instances(
             client=purge_file_client,
-            view=["cdf_cdm", "CogniteFile", "v1"],
-            instance_space=None,
+            selector=InstanceViewSelector(ViewId(space="cdf_cdm", external_id="CogniteFile", version="v1")),
             dry_run=True,
             auto_yes=True,
             unlink=False,
@@ -403,8 +399,7 @@ class TestPurgeInstances:
         cmd = PurgeCommand(silent=True)
         cmd.instances(
             client=purge_file_client,
-            view=["cdf_cdm", "CogniteFile", "v1"],
-            instance_space=None,
+            selector=InstanceViewSelector(ViewId(space="cdf_cdm", external_id="CogniteFile", version="v1")),
             dry_run=False,
             auto_yes=True,
             unlink=True,
@@ -431,8 +426,7 @@ class TestPurgeInstances:
         cmd = PurgeCommand(silent=True)
         cmd.instances(
             client=purge_file_client,
-            view=["cdf_cdm", "CogniteFile", "v1"],
-            instance_space=None,
+            selector=InstanceViewSelector(ViewId(space="cdf_cdm", external_id="CogniteFile", version="v1")),
             dry_run=False,
             auto_yes=True,
             unlink=False,
