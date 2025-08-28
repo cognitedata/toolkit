@@ -42,11 +42,11 @@ def asset_centric_to_dm(
     resource_type = _lookup_resource_type(type(resource))
     dumped = resource.dump()
     available_properties = (
-        set(dumped.keys()) | set((resource.metadata or {}).keys())
+        set(dumped.keys()) | {f"metadata.{key}" for key in resource.metadata or {}}
     ) - _RESERVED_ASSET_CENTRIC_PROPERTIES
-    expected_properties = set(view_source.mapping.to_property_id.keys()) | set(
-        (view_source.mapping.metadata_to_property_id or {}).keys()
-    )
+    expected_properties = set(view_source.mapping.to_property_id.keys()) | {
+        f"metadata{key}" for key in (view_source.mapping.metadata_to_property_id or {}).keys()
+    }
 
     issue = ConversionIssue(
         asset_centric_id=AssetCentricId(resource_type, id_=resource.id),
