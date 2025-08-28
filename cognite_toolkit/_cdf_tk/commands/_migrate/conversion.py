@@ -18,6 +18,9 @@ from .base import T_AssetCentricResource
 from .data_model import INSTANCE_SOURCE_VIEW_ID
 from .issues import ConversionIssue, FailedConversion, InvalidPropertyDataType
 
+# These properties are not expected to be mapped to the instance.
+_RESERVED_ASSET_CENTRIC_PROPERTIES = frozenset({"metadata", "externalId", "dataSetId", "parentId", "id"})
+
 
 def asset_centric_to_dm(
     resource: T_AssetCentricResource,
@@ -38,13 +41,9 @@ def asset_centric_to_dm(
     """
     resource_type = _lookup_resource_type(type(resource))
     dumped = resource.dump()
-    available_properties = (set(dumped.keys()) | set((resource.metadata or {}).keys())) - {
-        "metadata",
-        "externalId",
-        "dataSetId",
-        "parentId",
-        "id",
-    }
+    available_properties = (
+        set(dumped.keys()) | set((resource.metadata or {}).keys())
+    ) - _RESERVED_ASSET_CENTRIC_PROPERTIES
     expected_properties = set(view_source.mapping.to_property_id.keys()) | set(
         (view_source.mapping.metadata_to_property_id or {}).keys()
     )
