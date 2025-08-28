@@ -1,5 +1,6 @@
 import uuid
 from collections.abc import Callable, Hashable
+from functools import partial
 from graphlib import CycleError, TopologicalSorter
 from typing import cast
 
@@ -16,6 +17,7 @@ from rich.status import Status
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.data_classes import DeployResults, ResourceDeployResult
 from cognite_toolkit._cdf_tk.exceptions import (
+    AuthorizationError,
     CDFAPIError,
     ToolkitMissingResourceError,
     ToolkitRequiredValueError,
@@ -47,7 +49,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     MediumSeverityWarning,
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.batch_processor import HTTPBatchProcessor
+from cognite_toolkit._cdf_tk.utils.batch_processor import BatchResult, HTTPBatchProcessor
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
@@ -605,8 +607,7 @@ class PurgeCommand(ToolkitCommand):
         """Purge instances"""
         io = InstanceIO(client)
         validator = ValidateAccess(client, default_operation="purge")
-        self.validate_model_access(validator, selector.get_schema_spaces())
-        self.validate_instance_access(validator, selector.get_instance_spaces())
+        self.validate_instance_access(validator, selector.get_instance_spaces() or [])
         if unlink:
             self.validate_timeseries_access(validator)
             self.validate_file_access(validator)
@@ -625,26 +626,26 @@ class PurgeCommand(ToolkitCommand):
                 if not confirm:
                     return
 
-        process: Callable[[list[InstanceId]], list[InstanceId]] = self._prepare(verbose=verbose)
+        process: Callable[[list[InstanceId]], list[dict[str, JsonVal]]] = self._prepare
         if unlink:
-            process = self._unlink_prepare(verbose=verbose)
+            process = partial(self._unlink_prepare, client=client, dry_run=dry_run, verbose=verbose)
 
         iteration_count = int(total // 1000 + (1 if total % 1000 > 0 else 0))
         console = Console()
         with HTTPBatchProcessor(
             endpoint_url=client.config.create_api_url("/models/instances/delete"),
             config=client.config,
-            as_id=InstanceId.load,
-            result_processor=lambda item: item,
+            as_id=InstanceId.load,  # type: ignore[arg-type]
+            result_processor=self._no_op_results,
             batch_size=io.chunk_size,
             max_workers=1,
-        ) as processor:
+        ) as http_client:
             process_str = "Would be unlinking" if dry_run else "Unlinking"
             write_str = "Would be deleting" if dry_run else "Deleting"
             executor = ProducerWorkerExecutor[list[InstanceId], list[dict[str, JsonVal]]](
                 download_iterable=io.download_ids(selector),
                 process=process,
-                write=self._no_delete if dry_run else processor.add_items,
+                write=self._no_delete if dry_run else http_client.add_items,
                 iteration_count=iteration_count,
                 max_queue_size=10,
                 download_description=f"Retrieving instances from {selector!s}",
@@ -659,47 +660,66 @@ class PurgeCommand(ToolkitCommand):
         prefix = "Would have purged" if dry_run else "Purged"
         console.print(f"{prefix} {executor.total_items:,} instances in {selector!s}")
 
-    def validate_model_access(self, validator: ValidateAccess, space) -> None:
-        if space_ids := validator.data_model(["read"], space=space):
-            self.warn(
-                LimitedAccessWarning(
-                    f"You can only select views in the {len(space_ids)} spaces you have access to: {humanize_collection(space_ids)}."
-                )
-            )
-
-    def validate_instance_access(self, validator: ValidateAccess, instance_spaces: list[str] | None) -> None:
+    def validate_instance_access(self, validator: ValidateAccess, instance_spaces: list[str]) -> None:
         if space_ids := validator.instances(["read", "write"]):
             if instance_spaces is not None:
                 # Ensure that the selected instance spaces are a subset of the allowed spaces
                 invalid_spaces = set(instance_spaces) - set(space_ids)
                 if invalid_spaces:
-                    raise ToolkitValueError(
+                    raise AuthorizationError(
                         f"You do not have access to the following spaces: {humanize_collection(invalid_spaces)}."
                     )
-            else:
-                self.warn(
-                    LimitedAccessWarning(
-                        f"You can only purge instances in the {len(space_ids)} spaces you have access to: {humanize_collection(space_ids)}."
-                    )
-                )
 
     def validate_timeseries_access(self, validator: ValidateAccess) -> None:
-        if ids_by_scope := validator.timeseries(["read", "write"], operation="unlink"):
-            scope_str = humanize_collection(
-                [f"{scope_name} ({humanize_collection(ids)})" for scope_name, ids in ids_by_scope.items()],
-                bind_word="and",
-            )
-            self.warn(LimitedAccessWarning(f"You can only unlink time series in the following scopes: {scope_str}."))
+        try:
+            ids_by_scope = validator.timeseries(["read", "write"], operation="unlink")
+        except AuthorizationError as e:
+            self.warn(HighSeverityWarning(f"You cannot unlink time series. You need read and write access: {e!s}"))
+            return
+        if ids_by_scope is None:
+            return
+        scope_str = humanize_collection(
+            [f"{scope_name} ({humanize_collection(ids)})" for scope_name, ids in ids_by_scope.items()],
+            bind_word="and",
+        )
+        self.warn(LimitedAccessWarning(f"You can only unlink time series in the following scopes: {scope_str}."))
+
+    def validate_file_access(self, validator: ValidateAccess) -> None:
+        try:
+            ids_by_scope = validator.files(["read", "write"], operation="unlink")
+        except AuthorizationError as e:
+            self.warn(HighSeverityWarning(f"You cannot unlink files. You need read and write access: {e!s}"))
+            return
+        if ids_by_scope is None:
+            return
+        scope_str = humanize_collection(
+            [f"{scope_name} ({humanize_collection(ids)})" for scope_name, ids in ids_by_scope.items()],
+            bind_word="and",
+        )
+        self.warn(LimitedAccessWarning(f"You can only unlink files in the following scopes: {scope_str}."))
 
     @staticmethod
-    def _no_op(instances: list[InstanceId]) -> list[InstanceId]:
-        """No operation function that returns the input instances unchanged."""
-        return instances
+    def _prepare(instance_ids: list[InstanceId]) -> list[dict[str, JsonVal]]:
+        # MyPy does not understand that InstanceId.dump() returns dict[str, JsonVal]
+        return [instance_id.dump() for instance_id in instance_ids]  # type: ignore[return-value, misc]
+
+    def _unlink_prepare(
+        self, instance_ids: list[InstanceId], client: ToolkitClient, dry_run: bool, verbose: bool = False
+    ) -> list[dict[str, JsonVal]]:
+        self._unlink_timeseries(instance_ids, client, dry_run, verbose)
+        self._unlink_files(instance_ids, client, dry_run, verbose)
+        return self._prepare(instance_ids)
 
     @staticmethod
-    def _no_delete(instances: list[InstanceId]) -> None:
+    def _no_delete(instances: list[dict[str, JsonVal]]) -> None:
         """No operation function that does not delete the instances."""
         # This is used in dry-run mode to avoid actual deletion
+        pass
+
+    @staticmethod
+    def _no_op_results(results: BatchResult[InstanceId]) -> None:
+        """No operation function that does not process results."""
+        # This is used in dry-run mode to avoid actual processing
         pass
 
     def _unlink_timeseries(
@@ -713,6 +733,8 @@ class PurgeCommand(ToolkitCommand):
                 client.time_series.unlink_instance_ids(id=migrated_timeseries_ids)
                 if verbose:
                     self.console(f"Unlinked {len(migrated_timeseries_ids)} timeseries from datapoints.")
+            elif verbose and timeseries:
+                self.console(f"Would have unlinked {len(timeseries)} timeseries from datapoints.")
         return instances
 
     def _unlink_files(
@@ -730,6 +752,8 @@ class PurgeCommand(ToolkitCommand):
                 client.files.unlink_instance_ids(id=migrated_file_ids)
                 if verbose:
                     self.console(f"Unlinked {len(migrated_file_ids)} files from nodes.")
+            elif verbose and files:
+                self.console(f"Would have unlinked {len(files)} files from their blob content.")
         return instances
 
     @staticmethod
@@ -737,4 +761,4 @@ class PurgeCommand(ToolkitCommand):
         if not (isinstance(view, list) and len(view) == 3):
             raise ToolkitValueError(f"Invalid view format: {view}. Expected format is 'space externalId version'.")
 
-        return (ViewId.load(tuple(view)),)  # type: ignore[arg-type]
+        return ViewId.load(tuple(view))  # type: ignore[arg-type]
