@@ -11,6 +11,7 @@ jobs:
     name: Upload coverage report
     runs-on: ubuntu-latest
     environment: dev
+    permissions: read-all
     env:
       CDF_CLUSTER: ${{ secrets.CDF_CLUSTER }}
       CDF_PROJECT: ${{ secrets.CDF_PROJECT }}
