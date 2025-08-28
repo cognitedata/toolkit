@@ -1,11 +1,14 @@
+import json
+from datetime import datetime, timezone
 from typing import ClassVar
 
 import pytest
 from cognite.client.data_classes import Asset, Event, FileMetadata, TimeSeries
 from cognite.client.data_classes.data_modeling import NodeId
 from cognite.client.data_classes.data_modeling import data_types as dt
+from cognite.client.data_classes.data_modeling.data_types import DirectRelationReference, EnumValue
 from cognite.client.data_classes.data_modeling.ids import ContainerId, ViewId
-from cognite.client.data_classes.data_modeling.views import MappedProperty, ViewProperty
+from cognite.client.data_classes.data_modeling.views import MappedProperty, MultiEdgeConnection, ViewProperty
 
 from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId, AssetCentricToViewMapping, ViewSource
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import asset_centric_to_dm
@@ -234,48 +237,108 @@ class TestAssetCentricConversion:
                 id="timeseries_with_metadata",
             ),
             pytest.param(
-                # Asset with missing properties (should generate issues)
-                Asset(id=789, external_id="asset_789", name="Incomplete Asset"),
+                Event(
+                    id=789,
+                    external_id="event_789",
+                    start_time=1756359489386,
+                    end_time=1756359499880,
+                    description="Not mapped",
+                    metadata={
+                        "operator": "John Doe",
+                        "severity": "HIGH",
+                        "value": "invalid_int",  # This will cause a conversion issue
+                        "aConnectionProp": json.dumps(
+                            {"externalId": "op_123", "space": "schema_space", "type": "Operation"}
+                        ),
+                    },
+                ),
                 ViewSource(
                     external_id="incomplete_mapping",
                     version=1,
                     last_updated_time=1000000,
                     created_time=1000000,
-                    resource_type="asset",
+                    resource_type="event",
                     view_id=ViewId("test_space", "test_view", "v1"),
                     mapping=AssetCentricToViewMapping(
                         to_property_id={
-                            "name": "assetName",
-                            "description": "assetDescription",
                             "missing_prop": "targetProp",
-                        }
+                            "startTime": "eventStart",
+                            "endTime": "eventEnd",
+                        },
+                        metadata_to_property_id={
+                            "operator": "missingDMProp",
+                            "severity": "eventSeverity",
+                            "value": "eventValue",
+                            "missingMetaProp": "anotherMissingDMProp",
+                            "aConnectionProp": "some_other_event",
+                        },
                     ),
                 ),
                 {
-                    "assetName": MappedProperty(
+                    "eventStart": MappedProperty(
                         ContainerId("test_space", "test_container"),
-                        "assetName",
-                        dt.Text(),
+                        "eventStart",
+                        dt.Timestamp(),
                         nullable=True,
                         immutable=False,
                         auto_increment=False,
                     ),
-                    "assetDescription": MappedProperty(
+                    "eventEnd": MappedProperty(
                         ContainerId("test_space", "test_container"),
-                        "assetDescription",
-                        dt.Text(),
+                        "eventEnd",
+                        dt.Timestamp(),
                         nullable=True,
                         immutable=False,
                         auto_increment=False,
+                    ),
+                    "eventSeverity": MappedProperty(
+                        ContainerId("test_space", "test_container"),
+                        "eventSeverity",
+                        dt.Enum({"high": EnumValue(), "low": EnumValue(), "medium": EnumValue()}),
+                        nullable=True,
+                        immutable=False,
+                        auto_increment=False,
+                    ),
+                    "eventValue": MappedProperty(
+                        ContainerId("test_space", "test_container"),
+                        "eventValue",
+                        dt.Int64(),
+                        nullable=True,
+                        immutable=False,
+                        auto_increment=False,
+                    ),
+                    "some_other_event": MultiEdgeConnection(
+                        type=DirectRelationReference("schema_space", "Operation"),
+                        source=ViewId("test_space", "test_view", "v1"),
+                        name=None,
+                        description=None,
+                        edge_source=None,
+                        direction="outwards",
                     ),
                 },
-                {"assetName": "Incomplete Asset"},
+                {
+                    "eventStart": datetime(2025, 8, 28, 5, 38, 9, 386000, tzinfo=timezone.utc),
+                    "eventEnd": datetime(2025, 8, 28, 5, 38, 19, 880000, tzinfo=timezone.utc),
+                    "eventSeverity": "high",
+                },
                 ConversionIssue(
-                    asset_centric_id=AssetCentricId("asset", id_=789),
+                    asset_centric_id=AssetCentricId("event", id_=789),
                     instance_id=INSTANCE_ID,
-                    ignored_asset_centric_properties=[],
+                    ignored_asset_centric_properties=["description"],
+                    missing_asset_centric_properties=["missing_prop", "missingMetaProp"],
+                    missing_instance_properties=["missingDMProp"],
+                    invalid_instance_property_types=[
+                        InvalidPropertyDataType(property_id="some_other_event", expected_type="MappedProperty")
+                    ],
+                    failed_conversions=[
+                        FailedConversion(
+                            property_id="value",
+                            value="invalid_int",
+                            error="Cannot convert invalid_int to int64.",
+                        )
+                    ],
                 ),
-                id="asset_with_missing_properties",
+                id="Event with conversion issues (missing properties)",
             ),
         ],
     )
