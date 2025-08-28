@@ -555,6 +555,18 @@ class TestInferDataTypeFromValue:
         pytest.param('{"key": "value"}', "json", id="Stringified dict to json"),
         pytest.param("2025-07-22T12:34:56Z", "timestamp", id="ISO timestamp to timestamp"),
         pytest.param("2025-07-22", "date", id="ISO date to date"),
+        # Numeric Edge Cases
+        pytest.param("42.0", "float", id="Float with zero decimal"),
+        pytest.param("-10", "integer", id="Negative integer"),
+        # Date/Time Ambiguity
+        pytest.param("2025-07-22T00:00:00Z", "timestamp", id="Midnight UTC timestamp should be timestamp"),
+        # JSON Variations
+        pytest.param("[]", "json", id="JSON array"),
+        # Malformed Inputs (Fallback to string)
+        pytest.param("3.14.15.16.17", "string", id="Malformed float falls back to string"),
+        pytest.param('{"key": "value', "string", id="Malformed JSON falls back to string"),
+        pytest.param("2025-99-99", "string", id="Malformed date falls back to string"),
+        pytest.param("", "string", id="Empty string is string"),
     )
 
     @pytest.mark.parametrize("value, expected_type", TEST_CASES)

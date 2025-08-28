@@ -2,6 +2,7 @@ import pytest
 from cognite.client.data_classes import (
     Asset,
 )
+from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.utils.aggregators import (
@@ -59,15 +60,18 @@ class TestAggregators:
         root = aggregator_root_asset.external_id
         aggregator = aggregator_class(toolkit_client)
 
-        actual_count = aggregator.count(root)
+        try:
+            actual_count = aggregator.count(root)
+            used_data_sets = aggregator.used_data_sets(root)
+            transformation_count = aggregator.transformation_count()
+            used_transformations = aggregator.used_transformations(used_data_sets)
+        except CogniteAPIError as e:
+            if e.code == 500 and "Internal server error" in e.message:
+                pytest.skip("Skipping test due to intermittent CDF 500 error.")
+            raise e
+
         assert actual_count == expected_count
-
-        used_data_sets = aggregator.used_data_sets(root)
         assert used_data_sets == [expected_dataset_external_id]
-
-        transformation_count = aggregator.transformation_count()
         assert transformation_count >= 1  # We know at least one transformation is writing to the resource type.
-        used_transformations = aggregator.used_transformations(used_data_sets)
-
         assert len(used_transformations) == 1
         assert used_transformations[0].external_id == expected_transformation_external_id
