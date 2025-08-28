@@ -3,7 +3,6 @@ from typing import Annotated, Any
 
 import questionary
 import typer
-from cognite.client.data_classes.data_modeling import ViewId
 from rich import print
 
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
