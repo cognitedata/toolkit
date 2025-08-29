@@ -480,6 +480,14 @@ class TestConvertToContainerProperty:
                 "Cannot convert not_a_list to labels. Expected a list of Labels, objects, or LabelDefinitions.",
                 id="List to Text conversion error",
             ),
+            pytest.param(
+                True,
+                DirectRelation(),
+                (ContainerId("cdf_cdm", "CogniteTimeSeries"), "unit"),
+                ("timeseries", "unitExternalId"),
+                "Cannot convert True to TimeSeries unit. Expected a string representing the externalId.",
+                id="TimeSeries unitExternalId to DirectRelation conversion error",
+            ),
         ],
     )
     def test_asset_centric_failed_conversion(
