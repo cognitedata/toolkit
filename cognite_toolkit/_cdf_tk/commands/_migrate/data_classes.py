@@ -11,7 +11,6 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.data_classes.pending_instances_ids import PendingInstanceId
 from cognite_toolkit._cdf_tk.exceptions import (
-    ToolkitFileNotFoundError,
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
@@ -124,11 +123,6 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
 
     @classmethod
     def read_mapping_file(cls, mapping_file: Path, resource_type: str, console: Console | None = None) -> Self:
-        if not mapping_file.exists():
-            raise ToolkitFileNotFoundError(f"Mapping file {mapping_file} does not exist.")
-        if mapping_file.suffix != ".csv":
-            raise ToolkitValueError(f"Mapping file {mapping_file} must be a CSV file.")
-
         # We only validate the schema heading here
         schema = CSVReader.sniff_schema(mapping_file, sniff_rows=1)
         cls._validate_csv_header(schema, console)
