@@ -235,10 +235,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
             except Exception as e:
                 self._error_event.set()
                 self.error_message = str(e)
-                self.console.print(
-                    f"[red]ErrorError[/red] occurred while {self.process_description}: {self.error_message}"
-                )
-                self.process_queue.shutdown()
+                self.console.print(f"[red]Error[/red] occurred while {self.process_description}: {self.error_message}")
                 break
         self.console.print(f"[blue]Finished {self.process_description}.[/blue]")
 
@@ -261,7 +258,6 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 self._error_event.set()
                 self.error_message = str(e)
                 self.console.print(f"[red]Error[/red] occurred while {self.write_description}: {self.error_message}")
-                self.write_queue.shutdown()
                 break
         self.console.print(f"[blue]Finished {self.write_description}.[/blue]")
 
