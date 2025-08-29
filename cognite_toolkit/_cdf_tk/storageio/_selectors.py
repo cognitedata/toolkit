@@ -4,7 +4,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any, Literal
 
-from cognite.client.data_classes.data_modeling import ViewId
+from cognite.client.data_classes.data_modeling import EdgeId, NodeId, ViewId
 
 from cognite_toolkit._cdf_tk.storageio._data_classes import InstanceIdList
 
@@ -53,6 +53,14 @@ class InstanceFileSelector(InstanceSelector):
     @cached_property
     def instance_ids(self) -> InstanceIdList:
         return InstanceIdList.read_csv_file(self.datafile)
+
+    @property
+    def node_ids(self) -> list[NodeId]:
+        return [instance for instance in self.instance_ids if isinstance(instance, NodeId)]
+
+    @property
+    def edge_ids(self) -> list[EdgeId]:
+        return [instance for instance in self.instance_ids if isinstance(instance, EdgeId)]
 
     def get_schema_spaces(self) -> list[str] | None:
         return None

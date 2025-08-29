@@ -7,6 +7,7 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList, InstanceList
 from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
+from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
@@ -42,16 +43,19 @@ class InstanceIO(TableStorageIO[InstanceSelector, InstanceApplyList, InstanceLis
                     chunk = InstanceList([])
             if chunk:
                 yield chunk
+        elif isinstance(selector, InstanceFileSelector):
+            for node_chunk in chunker_sequence(selector.node_ids, self.chunk_size):
+                yield InstanceList(self.client.data_modeling.instances.retrieve(nodes=node_chunk).nodes)
+            for edge_chunk in chunker_sequence(selector.edge_ids, self.chunk_size):
+                yield InstanceList(self.client.data_modeling.instances.retrieve(edges=edge_chunk).edges)
         else:
             raise NotImplementedError()
 
     def download_ids(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[list[InstanceId]]:
-        if isinstance(selector, InstanceViewSelector):
-            yield from ([instance.as_id() for instance in chunk] for chunk in self.download_iterable(selector, limit))  # type: ignore[attr-defined]
-        elif isinstance(selector, InstanceFileSelector):
-            raise NotImplementedError()
+        if isinstance(selector, InstanceFileSelector) and selector.validate is False:
+            yield from chunker_sequence(selector.instance_ids, self.chunk_size)
         else:
-            raise NotImplementedError()
+            yield from ([instance.as_id() for instance in chunk] for chunk in self.download_iterable(selector, limit))  # type: ignore[attr-defined]
 
     def count(self, selector: InstanceSelector) -> int | None:
         if isinstance(selector, InstanceViewSelector):
@@ -63,7 +67,7 @@ class InstanceIO(TableStorageIO[InstanceSelector, InstanceApplyList, InstanceLis
             )
             return int(result.value or 0)
         elif isinstance(selector, InstanceFileSelector):
-            raise NotImplementedError()
+            return len(selector.instance_ids)
         raise NotImplementedError()
 
     def upload_items(self, data_chunk: InstanceApplyList, selector: InstanceSelector) -> None:
