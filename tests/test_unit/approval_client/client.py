@@ -63,6 +63,7 @@ from requests import Response
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import GraphQLDataModelWrite
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase
+from cognite_toolkit._cdf_tk.client.data_classes.search_config import SearchConfig
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
 from cognite_toolkit._cdf_tk.loaders import FileLoader
@@ -498,6 +499,16 @@ class ApprovalToolkitClient:
                             f"Expected 'workflowDefinition' to be a dict, got {type(item['workflowDefinition'])}"
                         )
                     item["workflowDefinition"]["hash"] = "123"
+
+            if resource_cls is SearchConfig:
+                return resource_cls.load(
+                    {
+                        "createdTime": 1625097600000,
+                        "lastUpdatedTime": 1625097600000,
+                        **upserted[0].dump(camel_case=True),
+                    },
+                    cognite_client=client,
+                )
 
             return resource_list_cls.load(read_resource_objects, cognite_client=client)
 
@@ -994,6 +1005,8 @@ class ApprovalToolkitClient:
                             return v["dbName"] + "/" + v["name"][0]
                         if "transformationExternalId" in v and "destination" in v:
                             return v["transformationExternalId"] + v["destination"]
+                        if "view" in v and "space" in v["view"] and "externalId" in v["view"]:
+                            return v["view"]["space"] + "/" + v["view"]["externalId"]
                         raise ValueError(f"Could not find identifier in {v}")
 
                     dumped[key] = sorted(dumped_resource, key=sort_key)

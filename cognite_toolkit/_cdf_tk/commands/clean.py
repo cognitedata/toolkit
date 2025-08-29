@@ -35,6 +35,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     ResourceContainerLoader,
     ResourceLoader,
     ResourceWorker,
+    SearchConfigLoader,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, Loader, T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.tk_warnings import (
@@ -80,6 +81,12 @@ class CleanCommand(ToolkitCommand):
                 "requires the --drop-data flag to be set to perform cleaning..."
             )
             return ResourceContainerDeployResult(name=loader.display_name, item_name=loader.item_name)
+        elif isinstance(loader, SearchConfigLoader):
+            print(
+                f"  [bold]INFO:[/] Skipping cleaning of {loader.display_name!r}. This is a search config resource and "
+                "search config does not support cleaning."
+            )
+            return ResourceDeployResult(name=loader.display_name)
 
         worker = ResourceWorker(loader, "clean")
         files = worker.load_files(read_modules=read_modules)

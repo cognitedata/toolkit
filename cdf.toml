@@ -15,6 +15,7 @@ infield = true
 dump-data = true
 migrate = true
 purge_instances = true
+search-config = true
 download = true
 exit-on-warning = true
 upload = true
