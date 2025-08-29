@@ -105,6 +105,16 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         self.total_items = 0
         self.error_message = ""
 
+    @property
+    def error_occurred(self) -> bool:
+        """Indicates if an error occurred during execution."""
+        return self._error_event.is_set()
+
+    @property
+    def stopped_by_user(self) -> bool:
+        """Indicates if the execution was stopped by the user."""
+        return self._stop_event.is_set()
+
     def _get_progress_columns(self) -> list[ProgressColumn]:
         """Helper to set up the progress bar and tasks based on iteration_count."""
         if self.iteration_count is None:
@@ -132,6 +142,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                         f"[yellow]Execution stopped by user. Finishing:\n{self.write_description}...[/yellow]"
                     )
                     break
+            self.console.print("[yellow]Shut down user input listener...[/yellow]")
 
         self.console.print(f"[blue]Starting {self.download_description} (Press 'q' to stop)...[/blue]")
         columns = self._get_progress_columns()
@@ -201,6 +212,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 self.console.print(f"[red]Error[/red] occurred while {self.download_description}: {self.error_message}")
                 break
         self.process_queue.put(PROCESS_FINISH_SENTINEL)  # type: ignore[arg-type]
+        self.console.print(f"[blue]Finished {self.download_description}.[/blue]")
 
     def _process_worker(self, progress: Progress, process_task: TaskID) -> None:
         """Worker thread for processing data."""
@@ -212,6 +224,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                     # Signal writer to finish
                     self.write_queue.put(WRITE_FINISH_SENTINEL)  # type: ignore[arg-type]
                     self.process_queue.task_done()
+                    break
                 processed_items = self._process(items)
                 self.write_queue.put(processed_items)
                 item_count += len(items)
@@ -225,7 +238,9 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 self.console.print(
                     f"[red]ErrorError[/red] occurred while {self.process_description}: {self.error_message}"
                 )
+                self.process_queue.shutdown()
                 break
+        self.console.print(f"[blue]Finished {self.process_description}.[/blue]")
 
     def _write_worker(self, progress: Progress, write_task: TaskID) -> None:
         """Worker thread for writing data to file."""
@@ -246,7 +261,9 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 self._error_event.set()
                 self.error_message = str(e)
                 self.console.print(f"[red]Error[/red] occurred while {self.write_description}: {self.error_message}")
+                self.write_queue.shutdown()
                 break
+        self.console.print(f"[blue]Finished {self.write_description}.[/blue]")
 
 
 # MyPy fails as the imports are os specific
