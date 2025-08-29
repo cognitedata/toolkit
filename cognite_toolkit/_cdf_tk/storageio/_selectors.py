@@ -1,9 +1,12 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from functools import cached_property
 from pathlib import Path
 from typing import Any, Literal
 
 from cognite.client.data_classes.data_modeling import ViewId
+
+from cognite_toolkit._cdf_tk.storageio._data_classes import InstanceIdList
 
 
 @dataclass(frozen=True)
@@ -45,12 +48,17 @@ class InstanceSelector(ABC):
 @dataclass(frozen=True)
 class InstanceFileSelector(InstanceSelector):
     datafile: Path
+    validate: bool = True
+
+    @cached_property
+    def instance_ids(self) -> InstanceIdList:
+        return InstanceIdList.read_csv_file(self.datafile)
 
     def get_schema_spaces(self) -> list[str] | None:
-        raise NotImplementedError()
+        return None
 
     def get_instance_spaces(self) -> list[str] | None:
-        raise NotImplementedError()
+        return sorted({instance.space for instance in self.instance_ids})
 
     def __str__(self) -> str:
         return f"file {self.datafile.as_posix()}"
