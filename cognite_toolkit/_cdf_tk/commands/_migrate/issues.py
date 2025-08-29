@@ -111,6 +111,7 @@ class ConversionIssue(MigrationIssue):
     missing_instance_properties: list[str] = Field(default_factory=list)
     invalid_instance_property_types: list[InvalidPropertyDataType] = Field(default_factory=list)
     failed_conversions: list[FailedConversion] = Field(default_factory=list)
+    ignored_asset_centric_properties: list[str] = Field(default_factory=list)
 
     @field_serializer("instance_id")
     def serialize_instance_id(self, instance_id: NodeId) -> dict[str, str]:
