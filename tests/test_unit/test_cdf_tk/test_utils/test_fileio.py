@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitValueError
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.fileio import (
     COMPRESSION_BY_NAME,
@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import (
     Chunk,
     Compression,
     CSVReader,
+    FailedParsing,
     FileReader,
     FileWriter,
     SchemaColumn,
@@ -322,6 +323,98 @@ class TestFileIO:
 
 
 class TestCSVReader:
+    CSV_CONTENT = """text,integer,nested,boolean,float
+value1,123,"{""key"": ""value""}",true,3.14
+value2,456,"{""key"": ""value2""}",false,2.71
+,,,,
+value3,789,"{""key"": ""value3""}",true,1.41
+310,false,31.2,text,20
+"""
+    EXPECTED_SCHEMA = (
+        SchemaColumn(name="text", type="string"),
+        SchemaColumn(name="integer", type="integer"),
+        SchemaColumn(name="nested", type="json"),
+        SchemaColumn(name="boolean", type="boolean"),
+        SchemaColumn(name="float", type="float"),
+    )
+
+    def test_sniff_schema(self, tmp_path: Path) -> None:
+        csv_path = tmp_path / "test.csv"
+        csv_path.write_text(self.CSV_CONTENT, encoding="utf-8")
+
+        schema = CSVReader.sniff_schema(csv_path, sniff_rows=100)
+
+        assert schema == list(self.EXPECTED_SCHEMA)
+
+    @pytest.mark.parametrize(
+        "content,filename,expected_error",
+        [
+            pytest.param("", "my_file.csv", "No data found in the file: '{filepath}'.", id="empty file"),
+            pytest.param("", None, "File not found: '{filepath}'.", id="missing file"),
+            pytest.param(
+                "some random text",
+                "invalid.txt",
+                "Expected a .csv file got a '.txt' file instead.",
+                id="invalid format",
+            ),
+            pytest.param(
+                "header1,header1\nvalue1,value2",
+                "dup_headers.csv",
+                "CSV file contains duplicate headers: header1",
+                id="duplicate headers",
+            ),
+            pytest.param(
+                "header1,header2\n", "no_data.csv", "No data found in the file: '{filepath}'.", id="no data rows"
+            ),
+        ],
+    )
+    def test_sniff_schema_error_cases(
+        self, content: str, filename: str | None, expected_error: str, tmp_path: Path
+    ) -> None:
+        csv_path = tmp_path / (filename or "missing.csv")
+        if filename is not None:
+            csv_path.write_text(content, encoding="utf-8")
+        if "{filepath}" in expected_error:
+            expected_error = expected_error.format(filepath=csv_path.as_posix())
+
+        with pytest.raises(ToolkitError) as excinfo:
+            CSVReader.sniff_schema(csv_path, sniff_rows=100)
+
+        assert str(excinfo.value) == expected_error
+
+    def test_read_with_schema(self, tmp_path: Path) -> None:
+        csv_path = tmp_path / "test.csv"
+        csv_path.write_text(self.CSV_CONTENT, encoding="utf-8")
+
+        reader = CSVReader(csv_path, schema=self.EXPECTED_SCHEMA, keep_failed_cells=True)
+        chunks = list(reader.read_chunks())
+
+        assert len(chunks) == 5
+        assert chunks == [
+            {
+                "text": "value1",
+                "integer": 123,
+                "nested": {"key": "value"},
+                "boolean": True,
+                "float": 3.14,
+            },
+            {
+                "text": "value2",
+                "integer": 456,
+                "nested": {"key": "value2"},
+                "boolean": False,
+                "float": 2.71,
+            },
+            {"boolean": None, "float": None, "integer": None, "nested": None, "text": None},
+            {"boolean": True, "float": 1.41, "integer": 789, "nested": {"key": "value3"}, "text": "value3"},
+            {"boolean": None, "float": 20.0, "integer": None, "nested": 31.2, "text": "310"},
+        ]
+        assert len(reader.failed_cell) == 2
+        assert reader.failed_cell == [
+            FailedParsing(row=5, column="integer", value="false", error="Cannot convert false to int64."),
+            FailedParsing(row=5, column="boolean", value="text", error="Cannot convert text to boolean."),
+        ]
+
     def test_read_unprocessed_csv(self, tmp_path: Path) -> None:
         csv_content = "id,space,externalId,number\n1,space1,id1,1.30\n2,space2,id2,42.0\n"
         csv_file = tmp_path / "test.csv"

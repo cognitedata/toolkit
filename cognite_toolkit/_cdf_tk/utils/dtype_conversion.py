@@ -2,8 +2,8 @@ import ctypes
 import json
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
-from datetime import date, datetime
-from typing import ClassVar
+from datetime import datetime
+from typing import ClassVar, Literal, overload
 
 from cognite.client.data_classes import Label, LabelDefinition
 from cognite.client.data_classes.data_modeling import ContainerId
@@ -14,7 +14,7 @@ from dateutil import parser
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
-from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentric, DataType
+from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentric, DataType, JsonVal, PythonTypes
 
 from .collection import humanize_collection
 
@@ -82,7 +82,7 @@ def convert_str_to_data_type(
     type_: DataType,
     nullable: bool = True,
     is_array: bool = False,
-) -> str | int | float | bool | datetime | date | dict | list | None:
+) -> PythonTypes | None:
     """Convert a string value to the appropriate data type based on the provided type.
 
     Args:
@@ -103,7 +103,7 @@ def convert_str_to_data_type(
     converter = converter_cls(nullable)
     if is_array:
         values = _as_list(value)
-        output: list[str | int | float | bool | datetime | date | dict | list] = []
+        output: list[PythonTypes] = []
         for item in values:
             converted = converter.convert(item)  # type: ignore[arg-type]
             if converted is not None:
@@ -112,6 +112,68 @@ def convert_str_to_data_type(
         return output  # type: ignore[return-value]
     else:
         return converter.convert(value)  # type: ignore[return-value]
+
+
+@overload
+def infer_data_type_from_value(value: str, dtype: Literal["Json"]) -> tuple[DataType, JsonVal]: ...
+
+
+@overload
+def infer_data_type_from_value(value: str, dtype: Literal["Python"]) -> tuple[DataType, PythonTypes]: ...
+
+
+def infer_data_type_from_value(value: str, dtype: Literal["Json", "Python"]) -> tuple[DataType, JsonVal | PythonTypes]:
+    """Infer the data type from a given value.
+
+    Args:
+        value: The value to infer the data type from, which can be a string.
+        dtype: The data type to infer. Can be "JsonVal" or "Python". Python type will infer datetime and date types
+            as well.
+
+    Returns:
+        A tuple containing the inferred data type and the converted value.
+
+    """
+    converter_classes = (
+        _Int64Converter,
+        _Float64Converter,
+        _TimestampConverter,
+        _BooleanConverter,
+        _JsonConverter,
+        _TextConverter,
+    )
+    converters_to_use = (
+        tuple(converter_cls for converter_cls in converter_classes if converter_cls is not _TimestampConverter)
+        if dtype == "Json"
+        else converter_classes
+    )
+    for converter_cls in converters_to_use:
+        # MyPy thinks that converter_cls can be abstract, but it is not
+        converter = converter_cls(nullable=False)  # type: ignore[abstract]
+        try:
+            converted_value = converter.convert(value)
+        except ValueError:
+            continue
+
+        if (
+            converter_cls is _TimestampConverter
+            and isinstance(converted_value, datetime)
+            and _is_midnight_and_naive(converted_value)
+        ):
+            # If the converted value is a datetime with no time component, return it as a date
+            return _DateConverter.schema_type, converted_value.date()  # type: ignore[return-value]
+        else:
+            return converter_cls.schema_type, converted_value  # type: ignore[return-value]
+
+    raise ValueError(
+        f"Failed to infer data type from value: {value!r}. Supported types are: "
+        f"{humanize_collection(DATATYPE_CONVERTER_BY_DATA_TYPE.keys())}."
+    )
+
+
+def _is_midnight_and_naive(dt: datetime) -> bool:
+    """Checks if a datetime object is at midnight and is naive (has no timezone)."""
+    return not (dt.hour or dt.minute or dt.second or dt.microsecond or dt.tzinfo)
 
 
 def _as_list(value: str | int | float | bool | dict[str, object] | list[object] | None) -> list[object]:
