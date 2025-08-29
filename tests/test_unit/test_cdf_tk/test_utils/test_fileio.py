@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitValueError
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.fileio import (
     COMPRESSION_BY_NAME,
@@ -345,6 +345,42 @@ value3,789,"{""key"": ""value3""}",true,1.41
         schema = CSVReader.sniff_schema(csv_path, sniff_rows=100)
 
         assert schema == list(self.EXPECTED_SCHEMA)
+
+    @pytest.mark.parametrize(
+        "content,filename,expected_error",
+        [
+            pytest.param("", "my_file.csv", "No data found in the file: '{filepath}'.", id="empty file"),
+            pytest.param("", None, "File not found: '{filepath}'.", id="missing file"),
+            pytest.param(
+                "some random text",
+                "invalid.txt",
+                "Expected a .csv file got a '.txt' file instead.",
+                id="invalid format",
+            ),
+            pytest.param(
+                "header1,header1\nvalue1,value2",
+                "dup_headers.csv",
+                "CSV file contains duplicate headers: header1",
+                id="duplicate headers",
+            ),
+            pytest.param(
+                "header1,header2\n", "no_data.csv", "No data found in the file: '{filepath}'.", id="no data rows"
+            ),
+        ],
+    )
+    def test_sniff_schema_error_cases(
+        self, content: str, filename: str | None, expected_error: str, tmp_path: Path
+    ) -> None:
+        csv_path = tmp_path / (filename or "missing.csv")
+        if filename is not None:
+            csv_path.write_text(content, encoding="utf-8")
+        if "{filepath}" in expected_error:
+            expected_error = expected_error.format(filepath=csv_path.as_posix())
+
+        with pytest.raises(ToolkitError) as excinfo:
+            CSVReader.sniff_schema(csv_path, sniff_rows=100)
+
+        assert str(excinfo.value) == expected_error
 
     def test_read_with_schema(self, tmp_path: Path) -> None:
         csv_path = tmp_path / "test.csv"

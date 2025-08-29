@@ -10,7 +10,7 @@ from pathlib import Path
 
 import yaml
 
-from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitValueError
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import convert_str_to_data_type, infer_data_type_from_value
@@ -147,13 +147,35 @@ class CSVReader(FileReader):
         return infer_data_type_from_value(value, "Json")[1]
 
     @classmethod
-    def sniff_schema(cls, input_file: Path, sniff_rows: int) -> list[SchemaColumn]:
-        """Sniff the schema from the first `sniff_rows` rows of the CSV file."""
+    def sniff_schema(cls, input_file: Path, sniff_rows: int = 100) -> list[SchemaColumn]:
+        """
+        Sniff the schema from the first `sniff_rows` rows of the CSV file.
+
+        Args:
+            input_file (Path): The path to the CSV file.
+            sniff_rows (int): The number of rows to read for sniffing the schema.
+
+        Returns:
+            list[SchemaColumn]: The inferred schema as a list of SchemaColumn objects.
+        Raises:
+            ValueError: If `sniff_rows` is not a positive integer.
+            ToolkitFileNotFoundError: If the file does not exist.
+            ToolkitValueError: If the file is not a CSV file or if there are issues with the content.
+
+        """
         if sniff_rows <= 0:
             raise ValueError("`sniff_rows` must be a positive integer.")
 
+        if not input_file.exists():
+            raise ToolkitFileNotFoundError(f"File not found: {input_file.as_posix()!r}.")
+        if input_file.suffix != ".csv":
+            raise ToolkitValueError(f"Expected a .csv file got a {input_file.suffix!r} file instead.")
+
         with input_file.open("r", encoding="utf-8-sig") as file:
             reader = csv.DictReader(file)
+            column_names = Counter(reader.fieldnames)
+            if duplicated := [name for name, count in column_names.items() if count > 1]:
+                raise ToolkitValueError(f"CSV file contains duplicate headers: {humanize_collection(duplicated)}")
             sample_rows: list[dict[str, str]] = []
             for no, row in enumerate(reader):
                 if no >= sniff_rows:
@@ -163,14 +185,8 @@ class CSVReader(FileReader):
             if not sample_rows:
                 raise ToolkitValueError(f"No data found in the file: {input_file.as_posix()!r}.")
 
-            columns = list(sample_rows[0].keys())
-            if len(columns) != len(set(columns)):
-                raise ToolkitValueError(
-                    f"Duplicate column names found in the first {sniff_rows} rows of the file: {input_file.as_posix()!r}. "
-                    "Please ensure that all column names are unique."
-                )
             schema = []
-            for column_name in columns:
+            for column_name in reader.fieldnames or []:
                 sample_values = [row[column_name] for row in sample_rows if column_name in row]
                 if not sample_values:
                     column = SchemaColumn(name=column_name, type="string")
@@ -190,6 +206,8 @@ class CSVReader(FileReader):
         return schema
 
     def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[dict[str, JsonVal]]:
+        if self.keep_failed_cells and self.failed_cell:
+            self.failed_cell.clear()
         for row_no, row in enumerate(csv.DictReader(file), start=1):
             parsed: dict[str, JsonVal] = {}
             for key, value in row.items():
