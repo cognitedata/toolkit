@@ -64,7 +64,7 @@ class InstanceIdList(list, Sequence[InstanceId]):
             if errors:
                 invalid_rows[row_no] = errors
 
-            if instance_id:
+            if instance_id and not errors:
                 instance_ids.append(instance_id)
 
         return cls(instance_ids, invalid_rows)
