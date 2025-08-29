@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
+
+from cognite.client.data_classes.data_modeling import ViewId
 
 
 @dataclass(frozen=True)
@@ -26,3 +28,19 @@ class AssetCentricData:
             data_set_external_ids=[self.data_set_external_id] if self.data_set_external_id else None,
             asset_subtree_external_ids=[self.hierarchy] if self.hierarchy else None,
         )
+
+
+@dataclass(frozen=True)
+class InstanceSelector: ...
+
+
+@dataclass(frozen=True)
+class InstanceFileSelector(InstanceSelector):
+    datafile: Path
+
+
+@dataclass(frozen=True)
+class InstanceViewSelector(InstanceSelector):
+    view: ViewId
+    instance_type: Literal["node", "edge"] = "node"
+    instance_spaces: tuple[str, ...] | None = None
