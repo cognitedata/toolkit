@@ -1,5 +1,5 @@
 from abc import ABC
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 import pytest
 from cognite.client.data_classes import Label, LabelDefinition
@@ -22,10 +22,13 @@ from cognite.client.data_classes.data_modeling.instances import PropertyValueWri
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     CONVERTER_BY_DTYPE,
-    AssetCentric,
+    DATATYPE_CONVERTER_BY_DATA_TYPE,
     asset_centric_convert_to_primary_property,
+    convert_str_to_data_type,
     convert_to_primary_property,
+    infer_data_type_from_value,
 )
+from cognite_toolkit._cdf_tk.utils.useful_types import AVAILABLE_DATA_TYPES, AssetCentric, DataType
 
 
 class TestConvertToContainerProperty:
@@ -484,3 +487,95 @@ class TestConvertToContainerProperty:
             )
 
         assert str(exc_info.value) == error_message
+
+
+class TestConvertStringToDataType:
+    TEST_CASES = (
+        pytest.param("string_value", "string", "string_value", id="String to Text"),
+        pytest.param("42", "integer", 42, id="String to integer"),
+        pytest.param("3.14", "float", 3.14, id="String to float"),
+        pytest.param("true", "boolean", True, id="String 'true' to Boolean"),
+        pytest.param("false", "boolean", False, id="String 'false' to Boolean"),
+        pytest.param('{"key": "value"}', "json", {"key": "value"}, id="Stringified dict to Json"),
+        pytest.param(
+            "2025-07-22T12:34:56Z",
+            "timestamp",
+            datetime(2025, 7, 22, 12, 34, 56, tzinfo=timezone.utc),
+            id="ISO timestamp to Timestamp",
+        ),
+        pytest.param("2025-07-22", "date", date(2025, 7, 22), id="ISO date to Date"),
+    )
+
+    @pytest.mark.parametrize(
+        "value, data_type, expected_value",
+        (*TEST_CASES, pytest.param(None, "string", None, id="None to string (nullable)")),
+    )
+    def test_convert(
+        self,
+        value: str | None,
+        data_type: DataType,
+        expected_value: str | int | float | bool | dict | list | datetime | date | None,
+    ) -> None:
+        result = convert_str_to_data_type(value, data_type)
+        if isinstance(expected_value, float):
+            assert result == pytest.approx(expected_value), f"Expected {expected_value}, but got {result}"
+        else:
+            assert result == expected_value, f"Expected {expected_value}, but got {result}"
+
+    @pytest.mark.parametrize(
+        "value, data_type, expected_value",
+        (*TEST_CASES, pytest.param(None, "string", [], id="None to string (nullable)")),
+    )
+    def test_convert_array(
+        self,
+        value: str | None,
+        data_type: DataType,
+        expected_value: str | int | float | bool | dict | list | datetime | date | None,
+    ) -> None:
+        result = convert_str_to_data_type(value, data_type, is_array=True)
+        if isinstance(expected_value, float):
+            assert result == pytest.approx([expected_value]), f"Expected [{expected_value}], but got {result}"
+        elif isinstance(expected_value, list):
+            assert result == expected_value, f"Expected {expected_value}, but got {result}"
+        else:
+            assert result == [expected_value], f"Expected [{expected_value}], but got {result}"
+
+    def test_all_data_type_converters_registered(self) -> None:
+        """Checks that all data types that are in the toolkit have a corresponding converter."""
+        assert AVAILABLE_DATA_TYPES == set(DATATYPE_CONVERTER_BY_DATA_TYPE.keys())
+
+
+class TestInferDataTypeFromValue:
+    TEST_CASES = (
+        pytest.param("string_value", "string", id="String to string"),
+        pytest.param("42", "integer", id="String to integer"),
+        pytest.param("3.14", "float", id="String to float"),
+        pytest.param("true", "boolean", id="String 'true' to boolean"),
+        pytest.param("false", "boolean", id="String 'false' to boolean"),
+        pytest.param('{"key": "value"}', "json", id="Stringified dict to json"),
+        pytest.param("2025-07-22T12:34:56Z", "timestamp", id="ISO timestamp to timestamp"),
+        pytest.param("2025-07-22", "date", id="ISO date to date"),
+        # Numeric Edge Cases
+        pytest.param("42.0", "float", id="Float with zero decimal"),
+        pytest.param("-10", "integer", id="Negative integer"),
+        # Date/Time Ambiguity
+        pytest.param("2025-07-22T00:00:00Z", "timestamp", id="Midnight UTC timestamp should be timestamp"),
+        # JSON Variations
+        pytest.param("[]", "json", id="JSON array"),
+        # Malformed Inputs (Fallback to string)
+        pytest.param("3.14.15.16.17", "string", id="Malformed float falls back to string"),
+        pytest.param('{"key": "value', "string", id="Malformed JSON falls back to string"),
+        pytest.param("2025-99-99", "string", id="Malformed date falls back to string"),
+        pytest.param("", "string", id="Empty string is string"),
+    )
+
+    @pytest.mark.parametrize("value, expected_type", TEST_CASES)
+    def test_infer_data_type_from_value(self, value: str, expected_type: str) -> None:
+        result, _ = infer_data_type_from_value(value, dtype="Python")
+        assert result == expected_type, f"Expected {expected_type}, but got {result}"
+
+    @pytest.mark.parametrize("value, expected_type", TEST_CASES)
+    def test_infer_data_type_from_value_json(self, value: str, expected_type: str) -> None:
+        expected_type = {"timestamp": "string", "date": "string"}.get(expected_type, expected_type)
+        result, _ = infer_data_type_from_value(value, dtype="Json")
+        assert result == expected_type, f"Expected {expected_type}, but got {result}"
