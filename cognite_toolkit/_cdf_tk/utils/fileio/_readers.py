@@ -107,7 +107,7 @@ class CSVReader(FileReader):
     def __init__(
         self,
         input_file: Path,
-        sniff_rows: int = 100,
+        sniff_rows: int | None = None,
         schema: Sequence[SchemaColumn] | None = None,
         keep_failed_cells: bool = False,
     ) -> None:
