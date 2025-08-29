@@ -129,7 +129,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 if key.casefold() == "q":
                     self._stop_event.set()
                     self.console.print(
-                        "[yellow]Execution stopped by user. Finishing writing downloaded tables...[/yellow]"
+                        f"[yellow]Execution stopped by user. Finishing:\n{self.write_description}...[/yellow]"
                     )
                     break
 
@@ -139,9 +139,9 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
             task_args: dict[str, Any] = (
                 {"item_count": 0, "total": None} if self.iteration_count is None else {"total": self.iteration_count}
             )
-            download_task = progress.add_task(self.download_description.title(), **task_args)
-            process_task = progress.add_task(self.process_description.title(), **task_args)
-            write_task = progress.add_task(self.write_description.title(), **task_args)
+            download_task = progress.add_task(self.download_description, **task_args)
+            process_task = progress.add_task(self.process_description, **task_args)
+            write_task = progress.add_task(self.write_description, **task_args)
 
             download_thread = threading.Thread(target=self._download_worker, args=(progress, download_task))
             process_thread = threading.Thread(target=self._process_worker, args=(progress, process_task))
@@ -207,8 +207,6 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         item_count = 0
         while not self._error_event.is_set():
             try:
-                if self._stop_event.is_set() and self.process_queue.empty():
-                    break
                 items = self.process_queue.get(timeout=0.5)
                 if items is PROCESS_FINISH_SENTINEL:
                     # Signal writer to finish
