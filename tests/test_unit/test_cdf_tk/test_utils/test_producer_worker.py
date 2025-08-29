@@ -127,12 +127,10 @@ def test_kill_switch_stops_execution() -> None:
             yield item
             downloaded.append(item)
 
-    def user_input() -> None:
-        # Simulate user input to trigger kill switch
-        time.sleep(0.2)
-        return None
+    def user_input() -> str:
+        return "q"
 
-    with patch(f"{ProducerWorkerExecutor.__module__}.input", user_input):
+    with patch(f"{ProducerWorkerExecutor.__module__}.getch", user_input):
         executor = ProducerWorkerExecutor[list[list[int]], list[list[int]]](
             slow_download(), lambda x: x, lambda x: x, len(to_download), max_queue_size=2
         )
