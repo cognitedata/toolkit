@@ -254,7 +254,7 @@ class _TimeSeriesUnitConverter(_SpecialCaseConverter):
             return None
         if isinstance(value, str):
             return {"space": CDF_UNIT_SPACE, "externalId": value}
-        raise ValueError(f"Cannot convert {value!r} to TimeSeries unit. Expected a string or None.")
+        raise ValueError(f"Cannot convert {value!r} to TimeSeries unit. Expected a string representing the externalId.")
 
 
 class _LabelConverter(_SpecialCaseConverter, ABC):
