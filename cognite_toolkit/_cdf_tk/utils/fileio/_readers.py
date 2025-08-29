@@ -107,7 +107,7 @@ class CSVReader(FileReader):
     def __init__(
         self,
         input_file: Path,
-        sniff_rows: int | None = None,
+        sniff_rows: int = 100,
         schema: Sequence[SchemaColumn] | None = None,
         keep_failed_cells: bool = False,
     ) -> None:
@@ -147,7 +147,7 @@ class CSVReader(FileReader):
         return infer_data_type_from_value(value, "Json")[1]
 
     @classmethod
-    def sniff_schema(cls, input_file: Path, sniff_rows: int) -> list[SchemaColumn]:
+    def sniff_schema(cls, input_file: Path, sniff_rows: int = 100) -> list[SchemaColumn]:
         """
         Sniff the schema from the first `sniff_rows` rows of the CSV file.
 
