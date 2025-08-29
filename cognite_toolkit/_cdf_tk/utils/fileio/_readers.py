@@ -148,7 +148,21 @@ class CSVReader(FileReader):
 
     @classmethod
     def sniff_schema(cls, input_file: Path, sniff_rows: int) -> list[SchemaColumn]:
-        """Sniff the schema from the first `sniff_rows` rows of the CSV file."""
+        """
+        Sniff the schema from the first `sniff_rows` rows of the CSV file.
+
+        Args:
+            input_file (Path): The path to the CSV file.
+            sniff_rows (int): The number of rows to read for sniffing the schema.
+
+        Returns:
+            list[SchemaColumn]: The inferred schema as a list of SchemaColumn objects.
+        Raises:
+            ValueError: If `sniff_rows` is not a positive integer.
+            ToolkitFileNotFoundError: If the file does not exist.
+            ToolkitValueError: If the file is not a CSV file or if there are issues with the content.
+
+        """
         if sniff_rows <= 0:
             raise ValueError("`sniff_rows` must be a positive integer.")
 
