@@ -6,6 +6,7 @@ from cognite.client.data_classes import Label, LabelDefinition
 from cognite.client.data_classes.data_modeling import ContainerId
 from cognite.client.data_classes.data_modeling.data_types import (
     Boolean,
+    DirectRelation,
     Enum,
     EnumValue,
     Float32,
@@ -435,6 +436,14 @@ class TestConvertToContainerProperty:
                 ("timeseries", "isString"),
                 False,
                 id="Non-asset-centric boolean to primary property conversion",
+            ),
+            pytest.param(
+                "acceleration:m-per-sec2",
+                DirectRelation(),
+                (ContainerId("cdf_cdm", "CogniteTimeSeries"), "unit"),
+                ("timeseries", "unitExternalId"),
+                {"space": "cdf_cdm_units", "externalId": "acceleration:m-per-sec2"},
+                id="TimeSeries unitExternalId to DirectRelation conversion",
             ),
         ],
     )
