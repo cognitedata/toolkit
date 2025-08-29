@@ -152,11 +152,11 @@ class ValidateAccess:
             dataset_id (int | None): The dataset ID to check access for. If None, checks access for all datasets.
             operation (str | None): The operation being performed, used for error messages.
         Returns:
-            dict[str, list[str]] | None: Returns a dictionary with keys 'dataset' and 'file' if access is limited to these scopes, or None if access is granted to all files.
+            dict[str, list[str]] | None: Returns a dictionary with the key 'dataset' if access is limited to a dataset scope, or None if access is granted to all files.
         Raises:
             ValueError: If the client.token.get_scope() returns an unexpected file scope type.
             AuthorizationError: If the user does not have permission to perform the specified action on the given
-                dataset or file.
+                dataset.
         """
         operation = operation or self.default_operation
         file_scopes, actions_str = self._set_up_read_write(
