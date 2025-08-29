@@ -24,6 +24,10 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitRuntimeError
 T_Download = TypeVar("T_Download", bound=Sized)
 T_Processed = TypeVar("T_Processed", bound=Sized)
 
+# Sentinels for signaling finish
+PROCESS_FINISH_SENTINEL = object()
+WRITE_FINISH_SENTINEL = object()
+
 
 class ItemCountColumn(ProgressColumn):
     def render(self, task: Task) -> str:
@@ -93,17 +97,12 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         self.write_description = write_description
         self.console = console or Console()
         self._stop_event = threading.Event()
-
-        self.download_terminated = False
-        self.is_processing = False
-
+        self._error_event = threading.Event()
         # Queues for managing the flow of data between threads
         # Download -> [process_queue] -> Process -> [write_queue] -> Write
         self.process_queue: queue.Queue[T_Download] = queue.Queue(maxsize=max_queue_size)
         self.write_queue: queue.Queue[T_Processed] = queue.Queue(maxsize=max_queue_size)
-
         self.total_items = 0
-        self.error_occurred = False
         self.error_message = ""
 
     def _get_progress_columns(self) -> list[ProgressColumn]:
@@ -129,10 +128,12 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 key = getch()
                 if key.casefold() == "q":
                     self._stop_event.set()
-                    self.console.print("[yellow]Execution stopped by user.[/yellow]")
+                    self.console.print(
+                        "[yellow]Execution stopped by user. Finishing writing downloaded tables...[/yellow]"
+                    )
                     break
 
-        self.console.print(f"[blue]Starting {self.download_description} (Press enter to stop)...[/blue]")
+        self.console.print(f"[blue]Starting {self.download_description} (Press 'q' to stop)...[/blue]")
         columns = self._get_progress_columns()
         with Progress(*columns, console=self.console) as progress:
             task_args: dict[str, Any] = (
@@ -161,11 +162,9 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                     self._stop_event.set()
                     break
 
-            self._stop_event.set()
-
     def raise_on_error(self) -> None:
         """Raises an exception if an error occurred during execution."""
-        if self.error_occurred:
+        if self._error_event.is_set():
             raise ToolkitRuntimeError(f"An error occurred during execution: {self.error_message}")
         if self._stop_event.is_set():
             raise ToolkitRuntimeError("Execution was stopped by the user.")
@@ -175,44 +174,46 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         try:
             iterator = iter(self._download_iterable)
         except TypeError as e:
-            self.error_occurred = True
+            self._error_event.set()
             self.error_message = str(e)
             self.console.print(f"[red]Error[/red] occurred while {self.download_description}: {self.error_message}")
             return
         item_count = 0
-        while not self.error_occurred:
+        while not self._error_event.is_set():
             try:
                 if self._stop_event.is_set():
                     break
                 items = next(iterator)
                 self.total_items += len(items)
                 item_count += len(items)
-                while not self.error_occurred:
+                while not self._error_event.is_set():
                     try:
                         self.process_queue.put(items, timeout=0.5)
                         progress.update(download_task, advance=1, item_count=item_count)
-                        break  # Exit the loop once the item is successfully added
+                        break
                     except queue.Full:
-                        # Retry until the queue has space
                         continue
             except StopIteration:
                 break
             except Exception as e:
-                self.error_occurred = True
+                self._error_event.set()
                 self.error_message = str(e)
                 self.console.print(f"[red]Error[/red] occurred while {self.download_description}: {self.error_message}")
                 break
-        self.download_terminated = True
+        self.process_queue.put(PROCESS_FINISH_SENTINEL)  # type: ignore[arg-type]
 
     def _process_worker(self, progress: Progress, process_task: TaskID) -> None:
         """Worker thread for processing data."""
-        self.is_processing = True
         item_count = 0
-        while (not self.download_terminated or not self.process_queue.empty()) and not self.error_occurred:
+        while not self._error_event.is_set():
             try:
                 if self._stop_event.is_set() and self.process_queue.empty():
                     break
                 items = self.process_queue.get(timeout=0.5)
+                if items is PROCESS_FINISH_SENTINEL:
+                    # Signal writer to finish
+                    self.write_queue.put(WRITE_FINISH_SENTINEL)  # type: ignore[arg-type]
+                    self.process_queue.task_done()
                 processed_items = self._process(items)
                 self.write_queue.put(processed_items)
                 item_count += len(items)
@@ -221,27 +222,22 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
             except queue.Empty:
                 continue
             except Exception as e:
-                self.error_occurred = True
+                self._error_event.set()
                 self.error_message = str(e)
                 self.console.print(
                     f"[red]ErrorError[/red] occurred while {self.process_description}: {self.error_message}"
                 )
                 break
-        self.is_processing = False
 
     def _write_worker(self, progress: Progress, write_task: TaskID) -> None:
         """Worker thread for writing data to file."""
         item_count = 0
-        while (
-            not self.download_terminated
-            or self.is_processing
-            or not self.write_queue.empty()
-            or not self.process_queue.empty()
-        ) and not self.error_occurred:
+        while not self._error_event.is_set():
             try:
-                if self._stop_event.is_set() and self.write_queue.empty():
-                    break
                 items = self.write_queue.get(timeout=0.5)
+                if items is WRITE_FINISH_SENTINEL:
+                    self.write_queue.task_done()
+                    break
                 self._write(items)
                 item_count += len(items)
                 progress.update(write_task, advance=1, item_count=item_count)
@@ -249,7 +245,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
             except queue.Empty:
                 continue
             except Exception as e:
-                self.error_occurred = True
+                self._error_event.set()
                 self.error_message = str(e)
                 self.console.print(f"[red]Error[/red] occurred while {self.write_description}: {self.error_message}")
                 break
