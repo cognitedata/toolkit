@@ -1,5 +1,7 @@
 import queue
+import sys
 import threading
+import typing
 from collections.abc import Callable, Iterable, Sized
 from typing import Any, Generic, TypeVar
 
@@ -104,8 +106,6 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         self.error_occurred = False
         self.error_message = ""
 
-        self.stopped_by_user = False
-
     def _get_progress_columns(self) -> list[ProgressColumn]:
         """Helper to set up the progress bar and tasks based on iteration_count."""
         if self.iteration_count is None:
@@ -125,10 +125,12 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
 
     def run(self) -> None:
         def user_input_listener() -> None:
-            input()
-            self._stop_event.set()
-            self.stopped_by_user = True
-            self.console.print("[yellow]Execution stopped by user.[/yellow]")
+            while True:
+                key = getch()
+                if key.casefold() == "q":
+                    self._stop_event.set()
+                    self.console.print("[yellow]Execution stopped by user.[/yellow]")
+                    break
 
         self.console.print(f"[blue]Starting {self.download_description} (Press enter to stop)...[/blue]")
         columns = self._get_progress_columns()
@@ -156,7 +158,6 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                     t.join()
                 except KeyboardInterrupt:
                     self.console.print("[red]Execution interrupted by user.[/red]")
-                    self.stopped_by_user = True
                     self._stop_event.set()
                     break
 
@@ -166,7 +167,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         """Raises an exception if an error occurred during execution."""
         if self.error_occurred:
             raise ToolkitRuntimeError(f"An error occurred during execution: {self.error_message}")
-        if self.stopped_by_user:
+        if self._stop_event.is_set():
             raise ToolkitRuntimeError("Execution was stopped by the user.")
 
     def _download_worker(self, progress: Progress, download_task: TaskID) -> None:
@@ -179,8 +180,10 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
             self.console.print(f"[red]Error[/red] occurred while {self.download_description}: {self.error_message}")
             return
         item_count = 0
-        while not self.error_occurred and not self._stop_event.is_set():
+        while not self.error_occurred:
             try:
+                if self._stop_event.is_set():
+                    break
                 items = next(iterator)
                 self.total_items += len(items)
                 item_count += len(items)
@@ -193,15 +196,13 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                         # Retry until the queue has space
                         continue
             except StopIteration:
-                self.download_terminated = True
                 break
             except Exception as e:
                 self.error_occurred = True
                 self.error_message = str(e)
                 self.console.print(f"[red]Error[/red] occurred while {self.download_description}: {self.error_message}")
                 break
-        if self._stop_event.is_set():
-            self.download_terminated = True
+        self.download_terminated = True
 
     def _process_worker(self, progress: Progress, process_task: TaskID) -> None:
         """Worker thread for processing data."""
@@ -209,6 +210,8 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         item_count = 0
         while (not self.download_terminated or not self.process_queue.empty()) and not self.error_occurred:
             try:
+                if self._stop_event.is_set() and self.process_queue.empty():
+                    break
                 items = self.process_queue.get(timeout=0.5)
                 processed_items = self._process(items)
                 self.write_queue.put(processed_items)
@@ -236,6 +239,8 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
             or not self.process_queue.empty()
         ) and not self.error_occurred:
             try:
+                if self._stop_event.is_set() and self.write_queue.empty():
+                    break
                 items = self.write_queue.get(timeout=0.5)
                 self._write(items)
                 item_count += len(items)
@@ -248,3 +253,28 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 self.error_message = str(e)
                 self.console.print(f"[red]Error[/red] occurred while {self.write_description}: {self.error_message}")
                 break
+
+
+# MyPy fails as the imports are os specific
+# thus we disable type checking for this function
+@typing.no_type_check
+def getch() -> str:
+    """Get a single character from standard input. Does not echo to the screen."""
+    try:
+        # Windows
+        import msvcrt
+
+        return msvcrt.getwch()
+    except ImportError:
+        # Unix
+        import termios
+        import tty
+
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(fd)
+            ch = sys.stdin.read(1)
+            return ch
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
