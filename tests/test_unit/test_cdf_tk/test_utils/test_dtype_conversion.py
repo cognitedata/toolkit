@@ -445,6 +445,14 @@ class TestConvertToContainerProperty:
                 {"space": "cdf_cdm_units", "externalId": "acceleration:m-per-sec2"},
                 id="TimeSeries unitExternalId to DirectRelation conversion",
             ),
+            pytest.param(
+                None,
+                DirectRelation(),
+                (ContainerId("cdf_cdm", "CogniteTimeSeries"), "unit"),
+                ("timeseries", "unitExternalId"),
+                None,
+                id="TimeSeries unitExternalId to DirectRelation conversion with None value (nullable)",
+            ),
         ],
     )
     def test_asset_centric_conversion(
