@@ -135,7 +135,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
             ]
 
     def _user_input_listener(self, producer_thread: threading.Thread) -> None:
-        while True:
+        while not self._error_event.is_set():
             key = getch(timeout=0.1)
             if key is None and not producer_thread.is_alive():
                 break
