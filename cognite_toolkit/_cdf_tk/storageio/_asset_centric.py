@@ -110,7 +110,7 @@ class AssetIO(TableStorageIO[AssetCentricSelector, AssetWriteList, AssetList]):
     def upload_items(self, data_chunk: AssetWriteList, selector: AssetCentricSelector) -> None:
         if not data_chunk:
             return
-        self.client.assets.create(data_chunk)
+        self.client.assets.upsert(data_chunk, mode="patch")
 
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> AssetWriteList:
         return AssetWriteList([self._loader.load_resource(item) for item in data_chunk])
