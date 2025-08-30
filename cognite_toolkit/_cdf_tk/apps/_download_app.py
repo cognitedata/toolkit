@@ -204,7 +204,11 @@ class DownloadApp(typer.Typer):
         is_interactive = not data_sets and not hierarchy
         if is_interactive:
             interactive = AssetInteractiveSelect(client, "download assets")
-            hierarchy, data_sets = interactive.select_hierarchies_and_data_sets()
+            selector_type = interactive.select_hierarchies_or_data_sets()
+            if selector_type == "data_sets":
+                data_sets = interactive.select_data_sets()
+            else:
+                hierarchy = interactive.select_hierarchies()
 
         selectors: list[AssetCentricSelector] = []
         if data_sets:
