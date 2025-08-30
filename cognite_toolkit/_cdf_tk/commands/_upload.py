@@ -87,7 +87,8 @@ class UploadCommand(ToolkitCommand):
             elif executor.stopped_by_user:
                 raise ToolkitValueError("The upload process was stopped by the user.")
             else:
-                console.print(f"Uploaded {file_display.as_posix()!r} successfully.")
+                suffix = " successfully" if not dry_run else ""
+                console.print(f"{action} {executor.total_items} from {file_display.as_posix()!r}{suffix}.")
 
     @staticmethod
     def _no_op(_: Any) -> None:
