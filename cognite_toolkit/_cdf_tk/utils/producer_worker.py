@@ -143,7 +143,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
             elif key.casefold() == "q":
                 self._stop_event.set()
                 self.console.print(
-                    f"[yellow]Execution stopped by user. Finishing:\n{self.write_description}...[/yellow]"
+                    f"[yellow]Execution stopped by user. Finishing: {self.write_description}...[/yellow]"
                 )
                 break
 
@@ -216,7 +216,6 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 self.console.print(f"[red]Error[/red] occurred while {self.download_description}: {self.error_message}")
                 break
         self.process_queue.put(PROCESS_FINISH_SENTINEL)  # type: ignore[arg-type]
-        self.console.print(f"[blue]Finished {self.download_description}.[/blue]")
 
     def _process_worker(self, progress: Progress, process_task: TaskID) -> None:
         """Worker thread for processing data."""
@@ -241,7 +240,6 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 self.error_message = str(e)
                 self.console.print(f"[red]Error[/red] occurred while {self.process_description}: {self.error_message}")
                 break
-        self.console.print(f"[blue]Finished {self.process_description}.[/blue]")
 
     def _write_worker(self, progress: Progress, write_task: TaskID) -> None:
         """Worker thread for writing data to file."""
@@ -263,7 +261,6 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 self.error_message = str(e)
                 self.console.print(f"[red]Error[/red] occurred while {self.write_description}: {self.error_message}")
                 break
-        self.console.print(f"[blue]Finished {self.write_description}.[/blue]")
 
 
 # MyPy fails as the imports are os specific
