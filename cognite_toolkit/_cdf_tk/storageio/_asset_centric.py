@@ -11,6 +11,7 @@ from cognite.client.data_classes._base import (
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.loaders import AssetLoader, DataSetsLoader, LabelLoader, ResourceLoader
 from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.utils.aggregators import AssetAggregator
@@ -84,7 +85,9 @@ class AssetIO(TableStorageIO[AssetCentricSelector, AssetWriteList, AssetList]):
             data_set_external_ids = [selector.data_set_external_id]
         elif isinstance(selector, AssetSubtreeSelector):
             asset_subtree_external_ids = [selector.hierarchy]
-
+        else:
+            # This selector is for uploads, not for downloading from CDF.
+            raise ToolkitNotImplementedError(f"Selector type {type(selector)} not supported for AssetIO.")
         for asset_list in self.client.assets(
             chunk_size=self.chunk_size,
             limit=limit,
