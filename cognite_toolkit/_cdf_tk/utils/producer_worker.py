@@ -1,6 +1,7 @@
 import queue
 import sys
 import threading
+import time
 import typing
 from collections.abc import Callable, Iterable, Sized
 from typing import Any, Generic, TypeVar
@@ -132,18 +133,21 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 TimeRemainingColumn(),
             ]
 
-    def run(self) -> None:
-        def user_input_listener() -> None:
-            while True:
-                key = getch()
-                if key.casefold() == "q":
-                    self._stop_event.set()
-                    self.console.print(
-                        f"[yellow]Execution stopped by user. Finishing:\n{self.write_description}...[/yellow]"
-                    )
-                    break
-            self.console.print("[yellow]Shut down user input listener...[/yellow]")
+    def _user_input_listener(self, producer_thread: threading.Thread) -> None:
+        while True:
+            key = getch(timeout=0.1)
+            if key is None and not producer_thread.is_alive():
+                break
+            elif key is None:
+                continue
+            elif key.casefold() == "q":
+                self._stop_event.set()
+                self.console.print(
+                    f"[yellow]Execution stopped by user. Finishing:\n{self.write_description}...[/yellow]"
+                )
+                break
 
+    def run(self) -> None:
         self.console.print(f"[blue]Starting {self.download_description} (Press 'q' to stop)...[/blue]")
         columns = self._get_progress_columns()
         with Progress(*columns, console=self.console) as progress:
@@ -162,7 +166,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
             process_thread.start()
             write_thread.start()
 
-            input_thread = threading.Thread(target=user_input_listener, daemon=True)
+            input_thread = threading.Thread(target=self._user_input_listener)
             input_thread.start()
 
             for t in [download_thread, process_thread, write_thread]:
@@ -265,15 +269,21 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
 # MyPy fails as the imports are os specific
 # thus we disable type checking for this function
 @typing.no_type_check
-def getch() -> str:
+def getch(timeout: float) -> str | None:
     """Get a single character from standard input. Does not echo to the screen."""
     try:
         # Windows
         import msvcrt
 
-        return msvcrt.getwch()
+        end_time = time.time() + timeout
+        while time.time() < end_time:
+            if msvcrt.kbhit():
+                return msvcrt.getwch()
+            time.sleep(0.01)
+        return None
     except ImportError:
         # Unix
+        import select
         import termios
         import tty
 
@@ -281,7 +291,11 @@ def getch() -> str:
         old_settings = termios.tcgetattr(fd)
         try:
             tty.setraw(fd)
-            ch = sys.stdin.read(1)
-            return ch
+            rlist, _, _ = select.select([fd], [], [], timeout)
+            if rlist:
+                ch = sys.stdin.read(1)
+                return ch
+            else:
+                return None
         finally:
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
