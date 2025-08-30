@@ -82,7 +82,7 @@ class UploadApp(typer.Typer):
         input_dir: Annotated[
             Path,
             typer.Argument(
-                help="The JSON file containing the assets to upload.",
+                help="The directory containing the asset files to upload.",
                 exists=True,
                 file_okay=False,
                 dir_okay=True,
@@ -101,10 +101,9 @@ class UploadApp(typer.Typer):
             bool,
             typer.Option(
                 "--ensure-dataset-and-labels",
-                "-e",
                 help="If set, the command will look for datasets and labels in adjacent folders and create them if they do not exist.",
             ),
-        ] = False,
+        ] = True,
         verbose: Annotated[
             bool,
             typer.Option(
