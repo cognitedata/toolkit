@@ -1,11 +1,21 @@
+from enum import Enum
 from typing import Annotated, Any
 
+import questionary
 import typer
 from rich import print
 
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.storageio import InstanceViewSelector
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.interactive_select import DataModelingSelect
+
+
+class InstanceTypeEnum(str, Enum):
+    node = "node"
+    edge = "edge"
 
 
 class PurgeApp(typer.Typer):
@@ -154,7 +164,7 @@ class PurgeApp(typer.Typer):
             ),
         ] = None,
         instance_type: Annotated[
-            str,
+            InstanceTypeEnum,
             typer.Option(
                 "--instance-type",
                 "-t",
@@ -162,7 +172,7 @@ class PurgeApp(typer.Typer):
                 case_sensitive=False,
                 show_default=True,
             ),
-        ] = "node",
+        ] = InstanceTypeEnum.node,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -203,12 +213,31 @@ class PurgeApp(typer.Typer):
 
         cmd = PurgeCommand()
         client = EnvironmentVariables.create_from_environment().get_client(enable_set_pending_ids=True)
+        is_interactive = view is None
+        if is_interactive:
+            interactive = DataModelingSelect(client, operation="purge")
+            select_view = interactive.select_view(include_global=True)
+            selected_instance_type = interactive.select_instance_type(select_view.used_for)
+            instance_space = interactive.select_instance_spaces(select_view.as_id(), selected_instance_type)
+            selector = InstanceViewSelector(
+                view=select_view.as_id(),
+                instance_type=selected_instance_type,
+                instance_spaces=tuple(instance_space) if instance_space else None,
+            )
+            dry_run = questionary.confirm("Dry run?", default=True).ask()
+            unlink = questionary.confirm("Unlink instances connected to timeseries or files?", default=True).ask()
+        elif view is not None:
+            selector = InstanceViewSelector(
+                view=cmd.get_selected_view_id(view),
+                instance_type=instance_type.value,
+                instance_spaces=tuple(instance_space) if instance_space is not None else None,
+            )
+        else:
+            raise ToolkitValueError("Invalid combination of arguments.")
         cmd.run(
             lambda: cmd.instances(
-                client,
-                view,
-                instance_space,
-                instance_type,
+                client=client,
+                selector=selector,
                 unlink=unlink,
                 dry_run=dry_run,
                 auto_yes=auto_yes,
