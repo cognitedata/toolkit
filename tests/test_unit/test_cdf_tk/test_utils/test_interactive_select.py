@@ -16,6 +16,8 @@ from cognite.client.data_classes.raw import Database, DatabaseList, Table, Table
 from questionary import Choice
 
 from cognite_toolkit._cdf_tk.client.data_classes.canvas import CANVAS_INSTANCE_SPACE, Canvas
+from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList
+from cognite_toolkit._cdf_tk.client.data_classes.charts_data import ChartData
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
@@ -27,6 +29,7 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
     EventInteractiveSelect,
     FileMetadataInteractiveSelect,
     InteractiveCanvasSelect,
+    InteractiveChartSelect,
     RawTableInteractiveSelect,
     TimeSeriesInteractiveSelect,
 )
@@ -482,6 +485,117 @@ class TestInteractiveCanvasSelect:
             with pytest.raises(ToolkitValueError) as exc_info:
                 selector.select_external_ids()
         assert str(exc_info.value) == "No Canvas selection made. Aborting."
+
+
+class TestInteractiveChartSelect:
+    @pytest.mark.parametrize(
+        "selected_cdf, answers, expected_selected, expected_options",
+        [
+            pytest.param([], ["All public Charts"], [], None, id="No charts in CDF"),
+            pytest.param(
+                ["homer1", "homer2", "marge1", "marge2"],
+                ["All public Charts"],
+                ["homer1", "homer2", "marge1", "marge2"],
+                None,
+                id="All public charts selected",
+            ),
+            pytest.param(
+                ["homer1", "homer2", "marge1", "marge2"],
+                ["Selected public Charts", {"homer1"}],
+                ["homer1"],
+                4,
+                id="Selected public charts",
+            ),
+            pytest.param(
+                ["homer1", "homer2", "marge1", "marge2"],
+                ["All owned by given user", "Marge Simpson (marge)"],
+                ["marge1", "marge2"],
+                None,
+                id="All by given user",
+            ),
+            pytest.param(
+                ["homer1", "homer2", "marge1", "marge2"],
+                ["Selected owned by given user", "Marge Simpson (marge)", {"marge2"}],
+                ["marge2"],
+                2,
+                id="Selected by given user",
+            ),
+        ],
+    )
+    def test_interactive_selection(
+        self,
+        selected_cdf: list[str],
+        answers: list,
+        expected_selected: list[str],
+        expected_options: int | None,
+        monkeypatch,
+    ) -> None:
+        # Use real Chart and ChartData objects instead of DummyChart
+        default_args = dict(
+            created_time=1,
+            last_updated_time=1,
+            visibility="PUBLIC",
+        )
+        cdf_charts = [
+            Chart(external_id="homer1", data=ChartData(name="Homer 1"), owner_id="homer", **default_args),
+            Chart(external_id="homer2", data=ChartData(name="Homer 2"), owner_id="homer", **default_args),
+            Chart(external_id="marge1", data=ChartData(name="Marge 1"), owner_id="marge", **default_args),
+            Chart(external_id="marge2", data=ChartData(name="Marge 2"), owner_id="marge", **default_args),
+        ]
+        # Map answer titles to opening_choices values
+        first_answer_by_choice_title = {c.title: c.value for c in InteractiveChartSelect.opening_choices}
+        assert len(answers) >= 1, "At least one answer is required to select a chart"
+        assert answers[0] in first_answer_by_choice_title, "Bug in test data. First answer must be a choice title"
+
+        if "user" in answers[0] and len(answers) >= 2:
+            user_title = answers[1]
+
+            def select_user(choices: list[Choice]) -> str:
+                assert len(choices) == 2
+                user_choice = next((c for c in choices if c.title == user_title), None)
+                assert user_choice is not None, f"Bug in test data. User choice '{user_title}' not found in choices"
+                return user_choice.value
+
+            answers[1] = select_user
+        answers[0] = first_answer_by_choice_title[answers[0]]
+        if expected_options is not None:
+            last_selection = answers[-1]
+
+            def select_charts(choices: list[Choice]) -> list[str]:
+                assert len(choices) == expected_options, (
+                    f"Expected {expected_options} choices, but got {len(choices)} choices: {choices}"
+                )
+                return [choice.value for choice in choices if choice.value in last_selection]
+
+            answers[-1] = select_charts
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(InteractiveChartSelect.__module__, monkeypatch, answers),
+        ):
+            # Only include charts whose external_id is in selected_cdf
+            client.charts.list.return_value = ChartList(
+                [chart for chart in cdf_charts if chart.external_id in selected_cdf]
+            )
+            client.iam.user_profiles.list.return_value = UserProfileList(
+                [
+                    UserProfile(user_identifier="homer", display_name="Homer Simpson", last_updated_time=1),
+                    UserProfile(user_identifier="marge", display_name="Marge Simpson", last_updated_time=1),
+                ]
+            )
+            selector = InteractiveChartSelect(client)
+            selected_external_ids = selector.select_external_ids()
+        assert selected_external_ids == expected_selected
+
+    def test_interactive_abort_selection(self, monkeypatch) -> None:
+        answers = [None]
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(InteractiveChartSelect.__module__, monkeypatch, answers),
+        ):
+            selector = InteractiveChartSelect(client)
+            with pytest.raises(ToolkitValueError) as exc_info:
+                selector.select_external_ids()
+        assert str(exc_info.value) == "No Chart selection made. Aborting."
 
 
 class TestDataModelingInteractiveSelect:
