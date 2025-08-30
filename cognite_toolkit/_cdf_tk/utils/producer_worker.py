@@ -234,8 +234,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 items = self.process_queue.get(timeout=0.5)
                 if items is PROCESS_FINISH_SENTINEL:
                     # Signal writer to finish
-                    if not self._error_event.is_set():
-                        self.write_queue.put(WRITE_FINISH_SENTINEL)  # type: ignore[arg-type]
+                    self._put_with_error_check(WRITE_FINISH_SENTINEL, self.write_queue)  # type: ignore[misc]
                     self.process_queue.task_done()
                     break
                 processed_items = self._process(items)
