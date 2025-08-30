@@ -3,6 +3,7 @@ from cognite.client.data_classes.capabilities import (
     Capability,
     DataModelInstancesAcl,
     DataModelsAcl,
+    FilesAcl,  # Added import for FilesAcl
     ProjectCapability,
     ProjectCapabilityList,
     TimeSeriesAcl,
@@ -243,6 +244,77 @@ class TestValidateAccess:
 
             validator = ValidateAccess(client, "test the operation")
             result = validator.timeseries(["read"], dataset_id=dataset_id)
+            assert result == expected_result
+
+    @pytest.mark.parametrize(
+        "capabilities, dataset_id, expected_error",
+        [
+            pytest.param(
+                [],
+                None,
+                "You have no permission to read files. This is required to test the operation.",
+                id="No capabilities",
+            ),
+            pytest.param(
+                [FilesAcl([FilesAcl.Action.Read], FilesAcl.Scope.DataSet([1]))],
+                2,
+                "You have no permission to read files in dataset 2. This is required to test the operation.",
+                id="Dataset mismatch",
+            ),
+        ],
+    )
+    def test_files_access_raise(
+        self, capabilities: list[Capability], dataset_id: int | None, expected_error: str
+    ) -> None:
+        inspection = self._create_inspection_obj(capabilities)
+
+        def external_id_lookup(ids: list[int]) -> list[str]:
+            return [str(id_) for id_ in ids]
+
+        with monkeypatch_toolkit_client() as client:
+            client.iam.token.inspect.return_value = inspection
+            client.lookup.data_sets.external_id.side_effect = external_id_lookup
+            validator = ValidateAccess(client, "test the operation")
+            with pytest.raises(AuthorizationError) as exc:
+                validator.files(["read"], dataset_id=dataset_id)
+            assert str(exc.value) == expected_error
+
+    @pytest.mark.parametrize(
+        "capabilities, dataset_id, expected_result",
+        [
+            pytest.param(
+                [FilesAcl([FilesAcl.Action.Read], FilesAcl.Scope.DataSet([1, 2]))],
+                1,
+                None,
+                id="Dataset match",
+            ),
+            pytest.param(
+                [FilesAcl([FilesAcl.Action.Read], FilesAcl.Scope.All())],
+                None,
+                None,
+                id="All scope",
+            ),
+            pytest.param(
+                [FilesAcl([FilesAcl.Action.Read], FilesAcl.Scope.DataSet([1, 2]))],
+                None,
+                {"dataset": ["1", "2"]},
+                id="Limited list of datasets",
+            ),
+        ],
+    )
+    def test_files_access(
+        self, capabilities: list[Capability], dataset_id: int | None, expected_result: dict | None
+    ) -> None:
+        inspection = self._create_inspection_obj(capabilities)
+
+        def external_id_lookup(ids: list[int]) -> list[str]:
+            return [str(id_) for id_ in ids]
+
+        with monkeypatch_toolkit_client() as client:
+            client.iam.token.inspect.return_value = inspection
+            client.lookup.data_sets.external_id.side_effect = external_id_lookup
+            validator = ValidateAccess(client, "test the operation")
+            result = validator.files(["read"], dataset_id=dataset_id)
             assert result == expected_result
 
     @staticmethod
