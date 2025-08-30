@@ -10,16 +10,19 @@ import questionary
 from cognite.client.data_classes import (
     Asset,
     DataSet,
+    UserProfileList,
     filters,
 )
 from cognite.client.data_classes.aggregations import Count
 from cognite.client.data_classes.data_modeling import NodeList, Space, SpaceList, View, ViewId
 from cognite.client.exceptions import CogniteException
+from cognite.client.utils import ms_to_datetime
 from questionary import Choice
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.canvas import Canvas
+from cognite_toolkit._cdf_tk.client.data_classes.charts import ChartList, Visibility
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
 
@@ -360,6 +363,81 @@ class InteractiveCanvasSelect:
         ).ask()
 
         return selected_canvases or []
+
+
+@dataclass
+class ChartFilter:
+    visibility: Visibility | None = None
+    owned_by: Literal["user"] | None = None
+    select_all: bool = False
+
+
+class InteractiveChartSelect:
+    opening_choices: ClassVar[list[questionary.Choice]] = [
+        questionary.Choice(title="All public Charts", value=ChartFilter(visibility="PUBLIC", select_all=True)),
+        questionary.Choice(title="Selected public Charts", value=ChartFilter(visibility="PUBLIC", select_all=False)),
+        questionary.Choice(title="All owned by given user", value=ChartFilter(owned_by="user", select_all=True)),
+        questionary.Choice(title="Selected owned by given user", value=ChartFilter(owned_by="user", select_all=False)),
+    ]
+
+    def __init__(self, client: ToolkitClient) -> None:
+        self.client = client
+
+    def select_external_ids(self) -> list[str]:
+        select_filter = self._select_filter()
+        return self._select_external_ids(select_filter)
+
+    @classmethod
+    def _select_filter(cls) -> ChartFilter:
+        user_response = questionary.select(
+            "Which Charts do you want to select?",
+            choices=cls.opening_choices,
+        ).ask()
+        if user_response is None:
+            raise ToolkitValueError("No Chart selection made. Aborting.")
+        return user_response
+
+    def _select_external_ids(self, select_filter: ChartFilter) -> list[str]:
+        available_charts = self.client.charts.list(visibility=(select_filter.visibility or "PUBLIC"))
+        if select_filter.select_all and select_filter.owned_by is None:
+            return [chart.external_id for chart in available_charts]
+        users = self.client.iam.user_profiles.list(limit=-1)
+        display_name_by_user_identifier = {user.user_identifier: user.display_name or "missing" for user in users}
+        if select_filter.owned_by == "user":
+            available_charts = self._select_charts_by_user(available_charts, users)
+        if select_filter.select_all:
+            return [chart.external_id for chart in available_charts]
+        selected_charts = questionary.checkbox(
+            "Select Charts",
+            choices=[
+                questionary.Choice(
+                    title=f"{chart.data.name} (Created by {display_name_by_user_identifier[chart.owner_id]!r} "
+                    f"- {ms_to_datetime(chart.last_updated_time)})",
+                    value=chart.external_id,
+                )
+                for chart in available_charts
+            ],
+        ).ask()
+        return selected_charts or []
+
+    @classmethod
+    def _select_charts_by_user(cls, available_charts: ChartList, users: UserProfileList) -> ChartList:
+        chart_by_user: dict[str, list] = defaultdict(list)
+        for chart in available_charts:
+            chart_by_user[chart.owner_id].append(chart)
+        user_response = questionary.select(
+            "Which user do you want to select Charts for?",
+            choices=[
+                questionary.Choice(
+                    title=f"{user.display_name} ({user.user_identifier})",
+                    value=chart_by_user[user.user_identifier],
+                )
+                for user in users
+                if user.user_identifier in chart_by_user
+            ],
+        ).ask()
+        available_charts = ChartList(user_response)
+        return available_charts
 
 
 class AssetCentricDestinationSelect:
