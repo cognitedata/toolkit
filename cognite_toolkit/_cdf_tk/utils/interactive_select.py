@@ -22,7 +22,7 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.canvas import Canvas
-from cognite_toolkit._cdf_tk.client.data_classes.charts import ChartList, Visibility
+from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList, Visibility
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
 
@@ -411,7 +411,8 @@ class InteractiveChartSelect:
             "Select Charts",
             choices=[
                 questionary.Choice(
-                    title=f"{chart.data.name} (Created by {display_name_by_user_identifier[chart.owner_id]!r} "
+                    title=f"{chart.data.name} (Created by "
+                    f"{display_name_by_user_identifier.get(chart.owner_id, chart.owner_id)!r} "
                     f"- {ms_to_datetime(chart.last_updated_time)})",
                     value=chart.external_id,
                 )
@@ -422,7 +423,7 @@ class InteractiveChartSelect:
 
     @classmethod
     def _select_charts_by_user(cls, available_charts: ChartList, users: UserProfileList) -> ChartList:
-        chart_by_user: dict[str, list] = defaultdict(list)
+        chart_by_user: dict[str, list[Chart]] = defaultdict(list)
         for chart in available_charts:
             chart_by_user[chart.owner_id].append(chart)
         user_response = questionary.select(
