@@ -14,7 +14,7 @@ from cognite.client.data_classes import (
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
 from cognite_toolkit._cdf_tk.storageio import AssetIO
-from cognite_toolkit._cdf_tk.storageio._selectors import AssetCentricData
+from cognite_toolkit._cdf_tk.storageio._selectors import AssetCentricSelector
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
@@ -40,7 +40,7 @@ def some_asset_data() -> AssetList:
 
 class TestAssetIO:
     def test_download_upload(self, some_asset_data: AssetList) -> None:
-        selector = AssetCentricData(data_set_external_id=None, hierarchy="test_hierarchy")
+        selector = AssetCentricSelector(data_set_external_id=None, hierarchy="test_hierarchy")
         with monkeypatch_toolkit_client() as client:
             client.assets.return_value = chunker(some_asset_data, 10)
             client.assets.aggregate_count.return_value = 100
@@ -75,7 +75,7 @@ class TestAssetIO:
             assert uploaded_assets.dump() == some_asset_data.as_write().dump()
 
     def test_download_upload_command(self, some_asset_data: AssetList, tmp_path: Path) -> None:
-        selector = AssetCentricData(data_set_external_id=None, hierarchy="test_hierarchy")
+        selector = AssetCentricSelector(data_set_external_id=None, hierarchy="test_hierarchy")
         with monkeypatch_toolkit_client() as client:
             client.assets.return_value = [some_asset_data]
             client.assets.aggregate_count.return_value = 100
