@@ -213,8 +213,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 self.error_message = str(e)
                 self.console.print(f"[red]Error[/red] occurred while {self.download_description}: {self.error_message}")
                 break
-        if not self._error_event.is_set():
-            self.process_queue.put(PROCESS_FINISH_SENTINEL)  # type: ignore[arg-type]
+        self._put_with_error_check(PROCESS_FINISH_SENTINEL, self.process_queue)  # type: ignore[misc]
 
     def _put_with_error_check(self, items: T_Item, target_queue: queue.Queue[T_Item]) -> bool:
         """Helper to put items into a queue with error checking."""
