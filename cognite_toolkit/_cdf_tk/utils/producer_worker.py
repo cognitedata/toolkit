@@ -24,6 +24,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitRuntimeError
 
 T_Download = TypeVar("T_Download", bound=Sized)
 T_Processed = TypeVar("T_Processed", bound=Sized)
+T_Item = TypeVar("T_Item", bound=Sized)
 
 # Sentinels for signaling finish
 PROCESS_FINISH_SENTINEL = object()
@@ -200,14 +201,11 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                     break
                 items = next(iterator)
                 self.total_items += len(items)
-                item_count += len(items)
-                while not self._error_event.is_set():
-                    try:
-                        self.process_queue.put(items, timeout=0.5)
-                        progress.update(download_task, advance=1, item_count=item_count)
-                        break
-                    except queue.Full:
-                        continue
+                if self._put_with_error_check(items, self.process_queue):
+                    item_count += len(items)
+                    progress.update(download_task, advance=1, item_count=item_count)
+                    continue
+                break  # Exit if error event was set while waiting to put
             except StopIteration:
                 break
             except Exception as e:
@@ -216,6 +214,16 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 self.console.print(f"[red]Error[/red] occurred while {self.download_description}: {self.error_message}")
                 break
         self.process_queue.put(PROCESS_FINISH_SENTINEL)  # type: ignore[arg-type]
+
+    def _put_with_error_check(self, items: T_Item, target_queue: queue.Queue[T_Item]) -> bool:
+        """Helper to put items into a queue with error checking."""
+        while not self._error_event.is_set():
+            try:
+                target_queue.put(items, timeout=0.5)
+                return True
+            except queue.Full:
+                continue
+        return False
 
     def _process_worker(self, progress: Progress, process_task: TaskID) -> None:
         """Worker thread for processing data."""
@@ -229,10 +237,14 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                     self.process_queue.task_done()
                     break
                 processed_items = self._process(items)
-                self.write_queue.put(processed_items)
-                item_count += len(items)
-                progress.update(process_task, advance=1, item_count=item_count)
-                self.process_queue.task_done()
+                if self._put_with_error_check(processed_items, self.write_queue):
+                    item_count += len(items)
+                    progress.update(process_task, advance=1, item_count=item_count)
+                    self.process_queue.task_done()
+                    continue
+                else:
+                    self.process_queue.task_done()
+                    break  # Exit if error event was set while waiting to put
             except queue.Empty:
                 continue
             except Exception as e:
