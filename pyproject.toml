@@ -79,10 +79,10 @@ package = true
 show_missing = true
 omit = [
     # The apps module only holds CLI entrypoints, so we skip it in coverage reports'
-    "/cognite_toolkit/_cdf_tk/apps/*",
+    "cognite_toolkit/_cdf_tk/apps/*",
     # Exclude CLI entrypoints
-    "/cognite_toolkit/_cdf.py",
-    ]
+    "cognite_toolkit/_cdf.py",
+]
 
 [tool.pytest.ini_options]
 minversion = "8.0"
