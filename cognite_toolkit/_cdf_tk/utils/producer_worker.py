@@ -135,7 +135,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
             ]
 
     def _user_input_listener(self, producer_thread: threading.Thread) -> None:
-        while not self._error_event.is_set():
+        while not self._error_event.is_set() and not self._stop_event.is_set():
             key = getch(timeout=0.1)
             if key is None and not producer_thread.is_alive():
                 break
@@ -286,6 +286,8 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
 @typing.no_type_check
 def getch(timeout: float) -> str | None:
     """Get a single character from standard input. Does not echo to the screen."""
+    if not sys.stdin.isatty():
+        return None
     try:
         # Windows
         import msvcrt
