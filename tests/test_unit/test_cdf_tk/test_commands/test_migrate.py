@@ -80,7 +80,7 @@ class TestBaseCommand:
         with monkeypatch_toolkit_client() as client:
             client.data_modeling.views.retrieve.return_value = ViewList([])
             with pytest.raises(ToolkitMigrationError):
-                BaseMigrateCommand.validate_instance_source_exists(client)
+                BaseMigrateCommand.validate_migration_model_available(client)
 
     def test_validate_available_capacity_missing_capacity(self) -> None:
         cmd = DummyMigrationCommand(silent=True)

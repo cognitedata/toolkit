@@ -1,7 +1,7 @@
 import sys
 from collections.abc import Collection, Iterator, Sequence
 from pathlib import Path
-from typing import Any, SupportsIndex, overload
+from typing import Any, Generic, SupportsIndex, overload
 
 from cognite.client.data_classes.data_modeling import NodeId, ViewId
 from cognite.client.utils._text import to_camel_case
@@ -9,6 +9,7 @@ from pydantic import BaseModel, field_validator
 from pydantic_core import ValidationError
 from rich.console import Console
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.pending_instances_ids import PendingInstanceId
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValueError,
@@ -16,6 +17,9 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 from cognite_toolkit._cdf_tk.utils.fileio import CSVReader, SchemaColumn
+
+from .base import T_AssetCentricResource
+from .default_mappings import DEFAULT_MAPPING_BY_RESOURCE_TYPE
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -61,8 +65,16 @@ class MigrationMapping(BaseModel, alias_generator=to_camel_case, extra="ignore")
             return NodeId.load(v)
         return v
 
+    @property
+    def mapping(self) -> str:
+        if self.ingestion_view:
+            return self.ingestion_view
+        if self.resource_type in DEFAULT_MAPPING_BY_RESOURCE_TYPE:
+            return DEFAULT_MAPPING_BY_RESOURCE_TYPE[self.resource_type]
+        raise ToolkitValueError(f"No default mapping found for resource type {self.resource_type!r}.")
 
-class MigrationMappingList(list, Sequence[MigrationMapping]):
+
+class MigrationMappingList(list, Sequence[MigrationMapping], Generic[T_AssetCentricResource]):
     REQUIRED_HEADER = (
         SchemaColumn("id", "integer"),
         SchemaColumn("space", "string"),
@@ -80,9 +92,11 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
         self,
         collection: Collection[MigrationMapping] | None = None,
         error_by_row_no: dict[int, ValidationError] | None = None,
+        display_name: str | None = None,
     ) -> None:
         super().__init__(collection or [])
         self.error_by_row_no = error_by_row_no or {}
+        self.display_name = display_name or "resource"
 
     def __iter__(self) -> Iterator[MigrationMapping]:
         return super().__iter__()
@@ -106,9 +120,18 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
         """Return a list of NodeIds from the migration mappings."""
         return [mapping.instance_id for mapping in self]
 
-    def spaces(self) -> set[str]:
+    def get_instance_spaces(self) -> set[str]:
         """Return a set of spaces from the migration mappings."""
         return {mapping.instance_id.space for mapping in self}
+
+    def get_schema_spaces(self) -> set[str]:
+        """Return a set of schema spaces from the migration mappings."""
+        return {
+            mapping.preferred_consumer_view.space for mapping in self if mapping.preferred_consumer_view is not None
+        }
+
+    def get_mappings(self) -> set[str]:
+        return {mapping.mapping for mapping in self}
 
     def as_pending_ids(self) -> list[PendingInstanceId]:
         return [PendingInstanceId(pending_instance_id=mapping.instance_id, id=mapping.id) for mapping in self]
@@ -121,13 +144,18 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
         """Return a mapping of IDs to MigrationMapping objects."""
         return {mapping.id: mapping for mapping in self}
 
+    def download_iterable(
+        self, client: ToolkitClient, chunk_size: int
+    ) -> Iterator[list[tuple[T_AssetCentricResource, MigrationMapping]]]:
+        raise NotImplementedError()
+
     @classmethod
     def read_mapping_file(cls, mapping_file: Path, resource_type: str, console: Console | None = None) -> Self:
         # We only validate the schema heading here
         schema = CSVReader.sniff_schema(mapping_file, sniff_rows=1)
         cls._validate_csv_header(schema, console)
         mappings, errors = cls._read_migration_mapping(mapping_file, resource_type)
-        return cls(mappings, errors)
+        return cls(mappings, errors, display_name=resource_type)
 
     @classmethod
     def _validate_csv_header(cls, schema: list[SchemaColumn], console: Console | None) -> None:
