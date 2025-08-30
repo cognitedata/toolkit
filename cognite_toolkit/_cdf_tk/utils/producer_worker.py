@@ -166,7 +166,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
             process_thread.start()
             write_thread.start()
 
-            input_thread = threading.Thread(target=self._user_input_listener)
+            input_thread = threading.Thread(target=self._user_input_listener, args=(download_thread,))
             input_thread.start()
 
             for t in [download_thread, process_thread, write_thread]:
