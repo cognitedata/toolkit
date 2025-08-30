@@ -467,8 +467,7 @@ class DumpDataCommand(ToolkitCommand):
                         write_description=f"Writing {schema.display_name} to file",
                     )
                     executor.run()
-                    if executor.error_occurred:
-                        raise ToolkitValueError(executor.error_message)
+                    executor.raise_on_error()
                     row_counts = executor.total_items
                 else:
                     for resources in track(

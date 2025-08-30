@@ -32,7 +32,9 @@ class RawIO(StorageIO[RawTable, RowWriteList, RowList]):
             db_name=selector.db_name,
             table_name=selector.table_name,
             limit=limit,
-            partitions=8,
+            # We cannot use partitions here as it is not thread safe. This spawn multiple threads
+            # that are not shut down until all data is downloaded. We need to be able to abort.
+            partitions=None,
             chunk_size=self.chunk_size,
         )
 

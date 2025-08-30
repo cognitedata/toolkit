@@ -1,5 +1,8 @@
 import queue
+import sys
 import threading
+import time
+import typing
 from collections.abc import Callable, Iterable, Sized
 from typing import Any, Generic, TypeVar
 
@@ -21,6 +24,11 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitRuntimeError
 
 T_Download = TypeVar("T_Download", bound=Sized)
 T_Processed = TypeVar("T_Processed", bound=Sized)
+T_Item = TypeVar("T_Item", bound=Sized)
+
+# Sentinels for signaling finish
+PROCESS_FINISH_SENTINEL = object()
+WRITE_FINISH_SENTINEL = object()
 
 
 class ItemCountColumn(ProgressColumn):
@@ -91,20 +99,23 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         self.write_description = write_description
         self.console = console or Console()
         self._stop_event = threading.Event()
-
-        self.download_terminated = False
-        self.is_processing = False
-
+        self._error_event = threading.Event()
         # Queues for managing the flow of data between threads
         # Download -> [process_queue] -> Process -> [write_queue] -> Write
         self.process_queue: queue.Queue[T_Download] = queue.Queue(maxsize=max_queue_size)
         self.write_queue: queue.Queue[T_Processed] = queue.Queue(maxsize=max_queue_size)
-
         self.total_items = 0
-        self.error_occurred = False
         self.error_message = ""
 
-        self.stopped_by_user = False
+    @property
+    def error_occurred(self) -> bool:
+        """Indicates if an error occurred during execution."""
+        return self._error_event.is_set()
+
+    @property
+    def stopped_by_user(self) -> bool:
+        """Indicates if the execution was stopped by the user."""
+        return self._stop_event.is_set()
 
     def _get_progress_columns(self) -> list[ProgressColumn]:
         """Helper to set up the progress bar and tasks based on iteration_count."""
@@ -123,22 +134,30 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 TimeRemainingColumn(),
             ]
 
-    def run(self) -> None:
-        def user_input_listener() -> None:
-            input()
-            self._stop_event.set()
-            self.stopped_by_user = True
-            self.console.print("[yellow]Execution stopped by user.[/yellow]")
+    def _user_input_listener(self, producer_thread: threading.Thread) -> None:
+        while not self._error_event.is_set() and not self._stop_event.is_set():
+            key = getch(timeout=0.1)
+            if key is None and not producer_thread.is_alive():
+                break
+            elif key is None:
+                continue
+            elif key.casefold() == "q":
+                self._stop_event.set()
+                self.console.print(
+                    f"[yellow]Execution stopped by user. Finishing: {self.write_description}...[/yellow]"
+                )
+                break
 
-        self.console.print(f"[blue]Starting {self.download_description} (Press enter to stop)...[/blue]")
+    def run(self) -> None:
+        self.console.print(f"[blue]Starting {self.download_description} (Press 'q' to stop)...[/blue]")
         columns = self._get_progress_columns()
         with Progress(*columns, console=self.console) as progress:
             task_args: dict[str, Any] = (
                 {"item_count": 0, "total": None} if self.iteration_count is None else {"total": self.iteration_count}
             )
-            download_task = progress.add_task(self.download_description.title(), **task_args)
-            process_task = progress.add_task(self.process_description.title(), **task_args)
-            write_task = progress.add_task(self.write_description.title(), **task_args)
+            download_task = progress.add_task(self.download_description, **task_args)
+            process_task = progress.add_task(self.process_description, **task_args)
+            write_task = progress.add_task(self.write_description, **task_args)
 
             download_thread = threading.Thread(target=self._download_worker, args=(progress, download_task))
             process_thread = threading.Thread(target=self._process_worker, args=(progress, process_task))
@@ -148,7 +167,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
             process_thread.start()
             write_thread.start()
 
-            input_thread = threading.Thread(target=user_input_listener, daemon=True)
+            input_thread = threading.Thread(target=self._user_input_listener, args=(download_thread,))
             input_thread.start()
 
             for t in [download_thread, process_thread, write_thread]:
@@ -156,17 +175,20 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                     t.join()
                 except KeyboardInterrupt:
                     self.console.print("[red]Execution interrupted by user.[/red]")
-                    self.stopped_by_user = True
                     self._stop_event.set()
                     break
 
-            self._stop_event.set()
+            # After a possible interrupt, we must wait for all threads to finish their
+            # graceful shutdown. This is important to prevent data loss.
+            for t in [download_thread, process_thread, write_thread, input_thread]:
+                if t.is_alive():
+                    t.join()
 
     def raise_on_error(self) -> None:
         """Raises an exception if an error occurred during execution."""
-        if self.error_occurred:
+        if self._error_event.is_set():
             raise ToolkitRuntimeError(f"An error occurred during execution: {self.error_message}")
-        if self.stopped_by_user:
+        if self._stop_event.is_set():
             raise ToolkitRuntimeError("Execution was stopped by the user.")
 
     def _download_worker(self, progress: Progress, download_task: TaskID) -> None:
@@ -174,69 +196,78 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         try:
             iterator = iter(self._download_iterable)
         except TypeError as e:
-            self.error_occurred = True
+            self._error_event.set()
             self.error_message = str(e)
             self.console.print(f"[red]Error[/red] occurred while {self.download_description}: {self.error_message}")
             return
         item_count = 0
-        while not self.error_occurred and not self._stop_event.is_set():
+        while not self._error_event.is_set():
             try:
+                if self._stop_event.is_set():
+                    break
                 items = next(iterator)
                 self.total_items += len(items)
-                item_count += len(items)
-                while not self.error_occurred:
-                    try:
-                        self.process_queue.put(items, timeout=0.5)
-                        progress.update(download_task, advance=1, item_count=item_count)
-                        break  # Exit the loop once the item is successfully added
-                    except queue.Full:
-                        # Retry until the queue has space
-                        continue
+                if self._put_with_error_check(items, self.process_queue):
+                    item_count += len(items)
+                    progress.update(download_task, advance=1, item_count=item_count)
+                    continue
+                break  # Exit if error event was set while waiting to put
             except StopIteration:
-                self.download_terminated = True
                 break
             except Exception as e:
-                self.error_occurred = True
+                self._error_event.set()
                 self.error_message = str(e)
                 self.console.print(f"[red]Error[/red] occurred while {self.download_description}: {self.error_message}")
                 break
-        if self._stop_event.is_set():
-            self.download_terminated = True
+        self._put_with_error_check(PROCESS_FINISH_SENTINEL, self.process_queue)  # type: ignore[misc]
+
+    def _put_with_error_check(self, items: T_Item, target_queue: queue.Queue[T_Item]) -> bool:
+        """Helper to put items into a queue with error checking."""
+        while not self._error_event.is_set():
+            try:
+                target_queue.put(items, timeout=0.5)
+                return True
+            except queue.Full:
+                continue
+        return False
 
     def _process_worker(self, progress: Progress, process_task: TaskID) -> None:
         """Worker thread for processing data."""
-        self.is_processing = True
         item_count = 0
-        while (not self.download_terminated or not self.process_queue.empty()) and not self.error_occurred:
+        while not self._error_event.is_set():
             try:
                 items = self.process_queue.get(timeout=0.5)
+                if items is PROCESS_FINISH_SENTINEL:
+                    # Signal writer to finish
+                    self._put_with_error_check(WRITE_FINISH_SENTINEL, self.write_queue)  # type: ignore[misc]
+                    self.process_queue.task_done()
+                    break
                 processed_items = self._process(items)
-                self.write_queue.put(processed_items)
-                item_count += len(items)
-                progress.update(process_task, advance=1, item_count=item_count)
-                self.process_queue.task_done()
+                if self._put_with_error_check(processed_items, self.write_queue):
+                    item_count += len(items)
+                    progress.update(process_task, advance=1, item_count=item_count)
+                    self.process_queue.task_done()
+                    continue
+                else:
+                    self.process_queue.task_done()
+                    break  # Exit if error event was set while waiting to put
             except queue.Empty:
                 continue
             except Exception as e:
-                self.error_occurred = True
+                self._error_event.set()
                 self.error_message = str(e)
-                self.console.print(
-                    f"[red]ErrorError[/red] occurred while {self.process_description}: {self.error_message}"
-                )
+                self.console.print(f"[red]Error[/red] occurred while {self.process_description}: {self.error_message}")
                 break
-        self.is_processing = False
 
     def _write_worker(self, progress: Progress, write_task: TaskID) -> None:
         """Worker thread for writing data to file."""
         item_count = 0
-        while (
-            not self.download_terminated
-            or self.is_processing
-            or not self.write_queue.empty()
-            or not self.process_queue.empty()
-        ) and not self.error_occurred:
+        while not self._error_event.is_set():
             try:
                 items = self.write_queue.get(timeout=0.5)
+                if items is WRITE_FINISH_SENTINEL:
+                    self.write_queue.task_done()
+                    break
                 self._write(items)
                 item_count += len(items)
                 progress.update(write_task, advance=1, item_count=item_count)
@@ -244,7 +275,44 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
             except queue.Empty:
                 continue
             except Exception as e:
-                self.error_occurred = True
+                self._error_event.set()
                 self.error_message = str(e)
                 self.console.print(f"[red]Error[/red] occurred while {self.write_description}: {self.error_message}")
                 break
+
+
+# MyPy fails as the imports are os specific
+# thus we disable type checking for this function
+@typing.no_type_check
+def getch(timeout: float) -> str | None:
+    """Get a single character from standard input. Does not echo to the screen."""
+    if not sys.stdin.isatty():
+        return None
+    try:
+        # Windows
+        import msvcrt
+
+        end_time = time.time() + timeout
+        while time.time() < end_time:
+            if msvcrt.kbhit():
+                return msvcrt.getwch()
+            time.sleep(0.01)
+        return None
+    except ImportError:
+        # Unix
+        import select
+        import termios
+        import tty
+
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(fd)
+            rlist, _, _ = select.select([fd], [], [], timeout)
+            if rlist:
+                ch = sys.stdin.read(1)
+                return ch
+            else:
+                return None
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)

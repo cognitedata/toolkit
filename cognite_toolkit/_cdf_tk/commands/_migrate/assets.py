@@ -15,7 +15,6 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.exceptions import (
-    ResourceCreationError,
     ResourceRetrievalError,
 )
 from cognite_toolkit._cdf_tk.utils.batch_processor import BatchResult, HTTPBatchProcessor
@@ -86,8 +85,7 @@ class MigrateAssetsCommand(BaseMigrateCommand):
                 console=console,
             )
             executor.run()
-            if executor.error_occurred:
-                raise ResourceCreationError(executor.error_message)
+            executor.raise_on_error()
 
         prefix = "Would have" if dry_run else "Successfully"
         self.console(f"{prefix} migrated {executor.total_items:,} assets to CogniteAssets.")

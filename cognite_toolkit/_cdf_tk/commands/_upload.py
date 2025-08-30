@@ -4,7 +4,6 @@ from typing import Any
 
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio import StorageIO
 from cognite_toolkit._cdf_tk.storageio._base import T_CogniteResourceList, T_Selector, T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.utils.collection import chunker
@@ -82,12 +81,8 @@ class UploadCommand(ToolkitCommand):
                 console=console,
             )
             executor.run()
-            if executor.error_occurred:
-                raise ToolkitValueError("An error occurred during the upload process: " + executor.error_message)
-            elif executor.stopped_by_user:
-                raise ToolkitValueError("The upload process was stopped by the user.")
-            else:
-                console.print(f"Uploaded {file_display.as_posix()!r} successfully.")
+            executor.raise_on_error()
+            console.print(f"Uploaded {file_display.as_posix()!r} successfully.")
 
     @staticmethod
     def _no_op(_: Any) -> None:

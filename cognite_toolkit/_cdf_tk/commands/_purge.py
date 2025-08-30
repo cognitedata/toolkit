@@ -20,7 +20,6 @@ from cognite_toolkit._cdf_tk.constants import COGNITE_FILE_CONTAINER, COGNITE_TI
 from cognite_toolkit._cdf_tk.data_classes import DeployResults, ResourceDeployResult
 from cognite_toolkit._cdf_tk.exceptions import (
     CDFAPIError,
-    ResourceDeleteError,
     ToolkitMissingResourceError,
     ToolkitRequiredValueError,
     ToolkitValueError,
@@ -680,8 +679,7 @@ class PurgeCommand(ToolkitCommand):
         )
 
         executor.run()
-        if executor.error_occurred:
-            raise ResourceDeleteError(executor.error_message)
+        executor.raise_on_error()
 
         prefix = "Would have purged" if dry_run else "Purged"
         console.print(
