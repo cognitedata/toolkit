@@ -178,6 +178,12 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                     self._stop_event.set()
                     break
 
+            # After a possible interrupt, we must wait for all threads to finish their
+            # graceful shutdown. This is important to prevent data loss.
+            for t in [download_thread, process_thread, write_thread, input_thread]:
+                if t.is_alive():
+                    t.join()
+
     def raise_on_error(self) -> None:
         """Raises an exception if an error occurred during execution."""
         if self._error_event.is_set():
