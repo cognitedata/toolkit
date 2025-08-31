@@ -1,4 +1,5 @@
 from typing import Literal, cast
+from urllib.parse import urljoin
 
 from cognite.client import ClientConfig, CogniteClient
 from cognite.client.credentials import CredentialProvider
@@ -91,6 +92,26 @@ class ToolkitClientConfig(ClientConfig):
         if not endpoint.startswith("/"):
             endpoint = f"/{endpoint}"
         return f"{self.base_url}/api/v1/projects/{self.project}{endpoint}"
+
+    def create_app_url(self, endpoint: str, api_version: str = "v1") -> str:
+        """Create a full App URL for the given endpoint.
+
+        Args:
+            endpoint (str): The App endpoint to append to the base URL.
+            api_version (str): The API version to use in the URL. Defaults to "v1".
+
+        Returns:
+            str: The full App URL.
+
+        Examples:
+            >>> config = ToolkitClientConfig(cluster="bluefield", project="my_project", ...)
+            >>> config.create_app_url("/apps/some_app")
+            "https://bluefield.cognitedata.com/apps/some_app"
+        """
+        if not endpoint.startswith("/"):
+            endpoint = f"/{endpoint}"
+        base_path = f"/apps/{api_version}/projects/{self.project}{endpoint}"
+        return urljoin(self.base_url, base_path)
 
 
 class ToolkitClient(CogniteClient):
