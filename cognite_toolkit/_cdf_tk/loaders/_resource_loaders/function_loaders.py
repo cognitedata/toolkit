@@ -553,6 +553,9 @@ class FunctionScheduleLoader(
             to_create.function_external_id = None
 
             created = self.client.functions.schedules.create(to_create)
+
+            created.function_external_id = id_.function_external_id
+
             created_list.append(created)
         return created_list
 
