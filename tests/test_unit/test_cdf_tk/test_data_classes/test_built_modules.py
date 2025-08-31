@@ -24,7 +24,7 @@ class GetResourcesArgs:
 
 class TestBuiltModuleList:
     # Anchor for absolute paths in tests
-    anchor = Path.home().anchor
+    anchor = f"{Path.cwd()}/"
 
     @pytest.mark.parametrize(
         "module,args,expected",
@@ -46,7 +46,7 @@ class TestBuiltModuleList:
             ),
             pytest.param(
                 {
-                    Path(f"{anchor}module1"): [
+                    Path(f"{anchor}modules/module1"): [
                         Path(f"{anchor}modules/module1/transformations/my.Transformation.yaml"),
                         Path(f"{anchor}modules/module1/transformations/my.Schedule.yaml"),
                     ]
@@ -54,10 +54,25 @@ class TestBuiltModuleList:
                 GetResourcesArgs(
                     resource_dir="transformations",
                     kind="Transformation",
-                    selected=Path("module1"),
+                    selected=Path("modules/module1"),
                 ),
                 [Path(f"{anchor}modules/module1/transformations/my.Transformation.yaml")],
                 id="Select with relative with module in absolute",
+            ),
+            pytest.param(
+                {
+                    Path("modules/module1"): [
+                        Path("modules/module1/transformations/my.Transformation.yaml"),
+                        Path("modules/module1/transformations/my.Schedule.yaml"),
+                    ]
+                },
+                GetResourcesArgs(
+                    resource_dir="transformations",
+                    kind="Transformation",
+                    selected=Path(f"{anchor}modules/module1"),
+                ),
+                [Path("modules/module1/transformations/my.Transformation.yaml")],
+                id="Select with absolute with module in relative",
             ),
             pytest.param(
                 {
