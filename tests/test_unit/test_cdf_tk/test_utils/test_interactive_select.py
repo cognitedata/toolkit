@@ -582,7 +582,7 @@ class TestInteractiveChartSelect:
                     UserProfile(user_identifier="marge", display_name="Marge Simpson", last_updated_time=1),
                 ]
             )
-            selector = InteractiveChartSelect(client)
+            selector = InteractiveChartSelect(client, "test_operation")
             selected_external_ids = selector.select_external_ids()
         assert selected_external_ids == expected_selected
 
@@ -592,7 +592,7 @@ class TestInteractiveChartSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(InteractiveChartSelect.__module__, monkeypatch, answers),
         ):
-            selector = InteractiveChartSelect(client)
+            selector = InteractiveChartSelect(client, "test_operation")
             with pytest.raises(ToolkitValueError) as exc_info:
                 selector.select_external_ids()
         assert str(exc_info.value) == "No Chart selection made. Aborting."
