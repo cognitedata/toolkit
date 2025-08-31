@@ -7,14 +7,18 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.commands import DownloadCommand
-from cognite_toolkit._cdf_tk.storageio import RawIO
+from cognite_toolkit._cdf_tk.storageio import ChartIdSelector, ChartIO, ChartSelector, RawIO
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
-from cognite_toolkit._cdf_tk.utils.interactive_select import RawTableInteractiveSelect
+from cognite_toolkit._cdf_tk.utils.interactive_select import InteractiveChartSelect, RawTableInteractiveSelect
 
 
 class RawFormats(str, Enum):
     ndjson = "ndjson"
     yaml = "yaml"
+
+
+class ChartFormats(str, Enum):
+    ndjson = "ndjson"
 
 
 class CompressionFormat(str, Enum):
@@ -34,6 +38,72 @@ class DownloadApp(typer.Typer):
         if ctx.invoked_subcommand is None:
             print("Use [bold yellow]cdf download --help[/] for more information.")
         return None
+
+    @staticmethod
+    def download_chart_cmd(
+        ctx: typer.Context,
+        chart_ids: Annotated[
+            list[str] | None,
+            typer.Argument(
+                help="List of chart IDs to download. If not provided, an interactive selection will be made.",
+            ),
+        ] = None,
+        file_format: Annotated[
+            ChartFormats,
+            typer.Option(
+                "--format",
+                "-f",
+                help="Format to download the charts in. Supported formats: ndjson",
+            ),
+        ] = ChartFormats.ndjson,
+        compression: Annotated[
+            CompressionFormat,
+            typer.Option(
+                "--compression",
+                "-z",
+                help="Compression format to use when downloading the charts. Supported formats: gzip, none.",
+            ),
+        ] = CompressionFormat.none,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to download the charts.",
+                allow_dash=True,
+            ),
+        ] = Path("tmp"),
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will download charts from CDF into a temporary directory."""
+        cmd = DownloadCommand()
+
+        client = EnvironmentVariables.create_from_environment().get_client()
+        selectors: list[ChartSelector]
+        if chart_ids:
+            selectors = [ChartIdSelector(chart_ids=set(chart_ids))]
+        else:
+            interactive = InteractiveChartSelect(client, "download")
+            selectors = [ChartIdSelector(set(interactive.select_external_ids()))]
+
+        cmd.run(
+            lambda: cmd.download(
+                selectors=selectors,
+                io=ChartIO(client),
+                output_dir=output_dir,
+                file_format=f".{file_format.value}",
+                compression=compression.value,
+                limit=None,
+                verbose=verbose,
+            )
+        )
 
     @staticmethod
     def download_raw_cmd(

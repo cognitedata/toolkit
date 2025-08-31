@@ -380,18 +380,18 @@ class InteractiveChartSelect:
         questionary.Choice(title="Selected owned by given user", value=ChartFilter(owned_by="user", select_all=False)),
     ]
 
-    def __init__(self, client: ToolkitClient) -> None:
+    def __init__(self, client: ToolkitClient, operation: str) -> None:
         self.client = client
+        self.operation = operation
 
     def select_external_ids(self) -> list[str]:
         select_filter = self._select_filter()
         return self._select_external_ids(select_filter)
 
-    @classmethod
-    def _select_filter(cls) -> ChartFilter:
+    def _select_filter(self) -> ChartFilter:
         user_response = questionary.select(
-            "Which Charts do you want to select?",
-            choices=cls.opening_choices,
+            f"Which Charts do you want to {self.operation}?",
+            choices=self.opening_choices,
         ).ask()
         if user_response is None:
             raise ToolkitValueError("No Chart selection made. Aborting.")
@@ -421,13 +421,12 @@ class InteractiveChartSelect:
         ).ask()
         return selected_charts or []
 
-    @classmethod
-    def _select_charts_by_user(cls, available_charts: ChartList, users: UserProfileList) -> ChartList:
+    def _select_charts_by_user(self, available_charts: ChartList, users: UserProfileList) -> ChartList:
         chart_by_user: dict[str, list[Chart]] = defaultdict(list)
         for chart in available_charts:
             chart_by_user[chart.owner_id].append(chart)
         user_response = questionary.select(
-            "Which user do you want to select Charts for?",
+            f"Which user do you want to {self.operation} Charts for?",
             choices=[
                 questionary.Choice(
                     title=f"{user.display_name} ({user.user_identifier})",
