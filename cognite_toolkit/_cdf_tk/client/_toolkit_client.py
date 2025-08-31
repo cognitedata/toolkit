@@ -105,8 +105,8 @@ class ToolkitClientConfig(ClientConfig):
 
         Examples:
             >>> config = ToolkitClientConfig(cluster="bluefield", project="my_project", ...)
-            >>> config.create_app_url("/apps/some_app")
-            "https://bluefield.cognitedata.com/apps/some_app"
+            >>> config.create_app_url("/some/app/endpoint")
+            "https://bluefield.cognitedata.com/apps/v1/projects/my_project/some/app/endpoint"
         """
         if not endpoint.startswith("/"):
             endpoint = f"/{endpoint}"
