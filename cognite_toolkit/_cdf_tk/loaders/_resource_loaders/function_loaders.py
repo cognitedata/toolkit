@@ -25,7 +25,7 @@ from cognite.client.data_classes.capabilities import (
     SessionsAcl,
 )
 from cognite.client.data_classes.functions import HANDLER_FILE_NAME
-from cognite.client.exceptions import CogniteAPIError, CogniteAuthError
+from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 from rich.console import Console
@@ -541,7 +541,7 @@ class FunctionScheduleLoader(
             client_credentials = self.authentication_by_id[id_]
             try:
                 session = self.client.iam.sessions.create(client_credentials, session_type="CLIENT_CREDENTIALS")
-            except CogniteAuthError as e:
+            except CogniteAPIError as e:
                 if hint := try_find_error(client_credentials):
                     raise ResourceCreationError(f"Failed to create Function Schedule {id_}: {hint}") from e
                 raise e
