@@ -36,12 +36,23 @@ class ChartIO(StorageIO[ChartSelector, ChartWriteList, ChartList]):
             if limit is not None and total + len(chunk) > limit:
                 chunk = chunk[: limit - total]
             total += len(chunk)
-            for chart in chunk:
-                for ts_ref in chart.data.time_series_collection or []:
-                    if ts_ref.ts_external_id is None and ts_ref.ts_id is not None:
-                        # Ensure that the externalID is populated for the Chart. This is needed in-case
-                        # the chart is uploaded in another CDF project.
-                        ts_ref.ts_external_id = self.client.lookup.time_series.external_id(ts_ref.ts_id)
+            ts_ids_to_lookup = {
+                ts_ref.ts_id
+                for chart in chunk
+                for ts_ref in chart.data.time_series_collection or []
+                if ts_ref.ts_external_id is None and ts_ref.ts_id is not None
+            }
+
+            if ts_ids_to_lookup:
+                retrieved_ts = self.client.time_series.retrieve_multiple(
+                    ids=list(ts_ids_to_lookup), ignore_unknown_ids=True
+                )
+                id_to_external_id = {ts.id: ts.external_id for ts in retrieved_ts}
+
+                for chart in chunk:
+                    for ts_ref in chart.data.time_series_collection or []:
+                        if ts_ref.ts_id in id_to_external_id:
+                            ts_ref.ts_external_id = id_to_external_id[ts_ref.ts_id]
             yield chunk
 
     def count(self, selector: ChartSelector) -> int | None:
