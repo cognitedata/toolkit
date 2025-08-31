@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from itertools import groupby
 from pathlib import Path
 
@@ -14,39 +15,187 @@ from cognite_toolkit._cdf_tk.data_classes import (
 from cognite_toolkit._cdf_tk.loaders import ResourceTypes
 
 
+@dataclass
+class GetResourcesArgs:
+    resource_dir: ResourceTypes
+    kind: str | None
+    selected: str | Path | None
+
+
 class TestBuiltModuleList:
+    # Anchor for absolute paths in tests
+    anchor = Path.home().anchor
+
     @pytest.mark.parametrize(
-        "module,resource_dir,kind,selected,expected",
+        "module,args,expected",
         [
             pytest.param(
                 {
-                    Path("/module1"): [
-                        Path("/module1/transformations/my.Transformation.yaml"),
-                        Path("/module1/transformations/my.Schedule.yaml"),
+                    Path(f"{anchor}modules/module1"): [
+                        Path(f"{anchor}modules/module1/transformations/my.Transformation.yaml"),
+                        Path(f"{anchor}modules/module1/transformations/my.Schedule.yaml"),
                     ]
                 },
-                "transformations",
-                "Transformation",
-                "module1",
-                [Path("/module1/transformations/my.Transformation.yaml")],
+                GetResourcesArgs(
+                    resource_dir="transformations",
+                    kind="Transformation",
+                    selected="module1",
+                ),
+                [Path(f"{anchor}modules/module1/transformations/my.Transformation.yaml")],
                 id="Select by module name",
-            )
+            ),
+            pytest.param(
+                {
+                    Path(f"{anchor}module1"): [
+                        Path(f"{anchor}modules/module1/transformations/my.Transformation.yaml"),
+                        Path(f"{anchor}modules/module1/transformations/my.Schedule.yaml"),
+                    ]
+                },
+                GetResourcesArgs(
+                    resource_dir="transformations",
+                    kind="Transformation",
+                    selected=Path("module1"),
+                ),
+                [Path(f"{anchor}modules/module1/transformations/my.Transformation.yaml")],
+                id="Select with relative with module in absolute",
+            ),
+            pytest.param(
+                {
+                    Path("modules/module1"): [
+                        Path(f"{anchor}modules/module1/transformations/my.Transformation.yaml"),
+                        Path(f"{anchor}modules/module1/transformations/my.Schedule.yaml"),
+                    ]
+                },
+                GetResourcesArgs(
+                    resource_dir="transformations",
+                    kind="Transformation",
+                    selected=Path(f"{anchor}modules/module1/transformations/my.Transformation.yaml"),
+                ),
+                [Path(f"{anchor}modules/module1/transformations/my.Transformation.yaml")],
+                id="Select file by absolute path",
+            ),
+            pytest.param(
+                {
+                    Path("module1"): [
+                        Path("modules/module1/transformations/my.Transformation.yaml"),
+                        Path("modules/module1/transformations/my.Schedule.yaml"),
+                    ]
+                },
+                GetResourcesArgs(
+                    resource_dir="transformations",
+                    kind="Transformation",
+                    selected=Path("modules/module1/transformations/my.Transformation.yaml"),
+                ),
+                [Path("modules/module1/transformations/my.Transformation.yaml")],
+                id="Select file by relative path",
+            ),
+            pytest.param(
+                {
+                    Path("modules/module1"): [
+                        Path(f"{anchor}modules/module1/transformations/my.Transformation.yaml"),
+                        Path(f"{anchor}modules/module1/transformations/my.Schedule.yaml"),
+                    ]
+                },
+                GetResourcesArgs(
+                    resource_dir="transformations",
+                    kind="Transformation",
+                    selected=Path(f"{anchor}modules/module1/transformations"),
+                ),
+                [Path(f"{anchor}modules/module1/transformations/my.Transformation.yaml")],
+                id="Select resource dir by absolute path",
+            ),
+            pytest.param(
+                {
+                    Path("module1"): [
+                        Path("modules/module1/transformations/my.Transformation.yaml"),
+                        Path("modules/module1/transformations/my.Schedule.yaml"),
+                    ]
+                },
+                GetResourcesArgs(
+                    resource_dir="transformations",
+                    kind="Transformation",
+                    selected=Path("modules/module1/transformations/my.Transformation.yaml"),
+                ),
+                [Path("modules/module1/transformations/my.Transformation.yaml")],
+                id="Select resource dir by relative path",
+            ),
+            pytest.param(
+                {
+                    Path(f"{anchor}module1"): [
+                        Path(f"{anchor}modules/module1/transformations/my.Transformation.yaml"),
+                        Path(f"{anchor}modules/module1/transformations/my.Schedule.yaml"),
+                    ],
+                    Path(f"{anchor}module2"): [
+                        Path(f"{anchor}module2/transformations/other.Transformation.yaml"),
+                    ],
+                },
+                GetResourcesArgs(
+                    resource_dir="transformations",
+                    kind="Transformation",
+                    selected=None,
+                ),
+                [
+                    Path(f"{anchor}modules/module1/transformations/my.Transformation.yaml"),
+                    Path(f"{anchor}module2/transformations/other.Transformation.yaml"),
+                ],
+                id="Select all by kind",
+            ),
+            pytest.param(
+                {
+                    Path(f"{anchor}module1"): [
+                        Path(f"{anchor}modules/module1/transformations/my.Transformation.yaml"),
+                    ]
+                },
+                GetResourcesArgs(
+                    resource_dir="transformations",
+                    kind="NonExistentKind",
+                    selected=None,
+                ),
+                [],
+                id="Select with non-existent kind",
+            ),
+            pytest.param(
+                {
+                    Path("modules/module1"): [
+                        Path(f"{anchor}modules/module1/transformations/my.Transformation.yaml"),
+                    ]
+                },
+                GetResourcesArgs(
+                    resource_dir="transformations",
+                    kind="Transformation",
+                    selected=Path("/modules/module1/transformations/doesnotexist.yaml"),
+                ),
+                [],
+                id="Select with non-existent path",
+            ),
+            pytest.param(
+                {
+                    Path("modules/module1"): [
+                        Path(f"{anchor}modules/module1/transformations/my.Transformation.yaml"),
+                    ]
+                },
+                GetResourcesArgs(
+                    resource_dir="transformations",
+                    kind="Transformation",
+                    selected="notamodule",
+                ),
+                [],
+                id="Select with non-existent module name",
+            ),
         ],
     )
     def test_get_resources_selected(
         self,
         module: dict[Path, list[Path]],
-        resource_dir: ResourceTypes,
-        kind: str,
-        selected: str | Path | None,
+        args: GetResourcesArgs,
         expected: list[Path],
     ) -> None:
         module_list = self._create_built_resource_list(module)
         result = module_list.get_resources(
             id_type=None,
-            resource_dir=resource_dir,
-            kind=kind,
-            selected=selected,
+            resource_dir=args.resource_dir,
+            kind=args.kind,
+            selected=args.selected,
         )
         actual = [item.source.path for item in result]
         assert actual == expected
