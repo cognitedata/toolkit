@@ -33,7 +33,7 @@ class ChartSelector: ...
 
 
 @dataclass(frozen=True)
-class ChartUserSelector(ChartSelector):
+class ChartOwnerSelector(ChartSelector):
     owner_id: str
 
 
