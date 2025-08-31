@@ -100,7 +100,7 @@ class BuiltModuleList(list, MutableSequence[BuiltModule]):
             resources = (
                 resource
                 for resource in resources
-                if (resource.source.path == selected or resource.source.path.is_relative_to(selected.absolute()))
+                if (resource.source.path == selected or self._are_relative(resource.source.path, selected))
             )
         if is_supported_file:
             # This is necessary as the destination file can be created from a source file that is not supported.
@@ -115,3 +115,13 @@ class BuiltModuleList(list, MutableSequence[BuiltModule]):
             for resource_dir, resources in module.resources.items():
                 resources_by_folder.setdefault(resource_dir, BuiltResourceList()).extend(resources)
         return resources_by_folder
+
+    @staticmethod
+    def _are_relative(filepath: Path, select_path: Path) -> bool:
+        if filepath.is_absolute() and not select_path.is_absolute():
+            return filepath.is_relative_to(select_path.absolute())
+        elif not filepath.is_absolute() and select_path.is_absolute():
+            return filepath.absolute().is_relative_to(select_path)
+        else:
+            # Either both are absolute or both are relative
+            return filepath.is_relative_to(select_path)
