@@ -192,7 +192,7 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Streamlit]:
-        for file in self.client.files:
+        for file in self.client.files(directory_prefix="/streamlit-apps/", data_set_external_ids=data_set_external_id):
             if file.directory == "/streamlit-apps/":
                 yield Streamlit.from_file(file)
 
