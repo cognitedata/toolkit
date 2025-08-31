@@ -252,7 +252,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cognite-sdk", specifier = ">=7.81.3,<8.0.0" },
+    { name = "cognite-sdk", specifier = ">=7.83.0,<8.0.0" },
     { name = "filelock", specifier = ">=3.18.0" },
     { name = "mixpanel", specifier = ">=4.10.1" },
     { name = "openpyxl", marker = "extra == 'table'", specifier = ">=3.1.5" },
