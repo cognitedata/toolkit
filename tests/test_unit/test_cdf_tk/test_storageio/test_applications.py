@@ -1,21 +1,50 @@
+from pathlib import Path
+
+import pytest
 import responses
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.data_classes.charts import ChartWriteList
-from cognite_toolkit._cdf_tk.storageio import AllChartSelector, ChartIO
+from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList, ChartWriteList
+from cognite_toolkit._cdf_tk.client.data_classes.charts_data import ChartData
+from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.storageio import (
+    AllChartSelector,
+    ChartFileSelector,
+    ChartIO,
+    ChartOwnerSelector,
+    ChartSelector,
+)
+
+
+@pytest.fixture
+def twenty_charts() -> ChartList:
+    return ChartList(
+        [
+            Chart(
+                external_id=f"chart_{i}",
+                visibility="PUBLIC",
+                data=ChartData(),
+                owner_id="evenOwner" if i % 2 == 0 else "oddOwner",
+                created_time=1700000000000,
+                last_updated_time=1700000000000,
+            )
+            for i in range(20)
+        ]
+    )
 
 
 class TestChartIO:
     def test_download_chart(self, toolkit_config: ToolkitClientConfig) -> None:
         client = ToolkitClient(config=toolkit_config)
-        url = toolkit_config.create_app_url("/storage/charts/charts/list")
+        chart_url = toolkit_config.create_app_url("/storage/charts/charts/list")
+        ts_url = toolkit_config.create_api_url("/timeseries/byids")
         selector = AllChartSelector()
         io = ChartIO(client)
 
         with responses.RequestsMock() as rsps:
             rsps.add(
                 responses.POST,
-                url,
+                chart_url,
                 json={
                     "items": [
                         {
@@ -52,15 +81,18 @@ class TestChartIO:
             )
             rsps.add(
                 responses.POST,
-                toolkit_config.create_api_url("/timeseries/byids"),
+                ts_url,
                 json={"items": [{"id": 200, "externalId": "ts_1"}]},
                 status=200,
             )
             rsps.add(
                 responses.POST,
-                toolkit_config.create_api_url("/timeseries/byids"),
+                ts_url,
                 json={"items": [{"id": 201, "externalId": "ts_4"}]},
                 status=200,
+            )
+            assert io.count(selector) is None, (
+                "Count should be None since CDF does not provide a way to get the count of charts up front."
             )
             charts_iterator = io.download_iterable(selector=selector)
             json_iterator = (io.data_to_json_chunk(chunk) for chunk in charts_iterator)
@@ -76,3 +108,56 @@ class TestChartIO:
             second = chart_list[1]
             assert second.data.time_series_collection[0].ts_external_id == "ts_4"
             assert second.data.time_series_collection[1].ts_external_id == "ts_3"
+
+    def test_no_configurations(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            io = ChartIO(client)
+            selector = AllChartSelector()
+            assert list(io.configurations(selector)) == []
+            assert io.ensure_configurations(selector, None) is None
+
+    @pytest.mark.parametrize(
+        "limit,selector,expected_external_ids",
+        [
+            pytest.param(None, AllChartSelector(), [f"chart_{i}" for i in range(20)], id="all charts no limit"),
+            pytest.param(5, AllChartSelector(), [f"chart_{i}" for i in range(5)], id="all charts with limit"),
+            pytest.param(
+                10,
+                AllChartSelector(),
+                [f"chart_{i}" for i in range(10)],
+                id="all charts with limit 10 divisible by chunk size",
+            ),
+            pytest.param(
+                None,
+                ChartOwnerSelector(owner_id="evenOwner"),
+                [f"chart_{i}" for i in range(0, 20, 2)],
+                id="even owner no limit",
+            ),
+            pytest.param(
+                3,
+                ChartOwnerSelector(owner_id="evenOwner"),
+                [f"chart_{i}" for i in range(0, 6, 2)],
+                id="even owner with limit",
+            ),
+        ],
+    )
+    def test_download_iterable(
+        self, limit: int | None, selector: ChartSelector, expected_external_ids: list[str], twenty_charts: ChartList
+    ) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.charts.list.return_value = twenty_charts
+            io = ChartIO(client)
+            chunks = list(io.download_iterable(selector=selector, limit=limit))
+            all_charts = ChartList([])
+            for chunk in chunks:
+                all_charts.extend(chunk)
+            assert [chart.external_id for chart in all_charts] == expected_external_ids
+
+    def test_download_iterable_unsupported_selector(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            io = ChartIO(client)
+
+            with pytest.raises(NotImplementedError) as excinfo:
+                list(io.download_iterable(selector=ChartFileSelector(filepath=Path("some/path.Chart.ndjson"))))
+
+        assert "Unsupported selector type" in str(excinfo.value)
