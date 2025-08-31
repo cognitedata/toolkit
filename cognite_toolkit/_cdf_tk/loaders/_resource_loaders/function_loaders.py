@@ -505,16 +505,6 @@ class FunctionScheduleLoader(
             dumped["authentication"] = local["authentication"]
         return dumped
 
-    def _resolve_functions_ext_id(self, items: FunctionScheduleWriteList) -> FunctionScheduleWriteList:
-        functions = FunctionLoader(self.client, None, None).retrieve(
-            list(set([item.function_external_id for item in items]))
-        )
-        for item in items:
-            for func in functions:
-                if func.external_id == item.function_external_id:
-                    item.function_id = func.id  # type: ignore[assignment]
-        return items
-
     def retrieve(self, ids: SequenceNotStr[FunctionScheduleID]) -> FunctionSchedulesList:
         names_by_function: dict[str, set[str]] = defaultdict(set)
         for id_ in ids:
@@ -533,22 +523,33 @@ class FunctionScheduleLoader(
 
     def create(self, items: FunctionScheduleWriteList) -> FunctionSchedulesList:
         created_list = FunctionSchedulesList([], cognite_client=self.client)
+        functions_to_lookup = list({item.function_external_id for item in items if item.function_external_id})
+        function_id_by_external_id: dict[str, int] = {}
+        if functions_to_lookup:
+            function_ids = self.client.lookup.functions.id(functions_to_lookup)
+            function_id_by_external_id = dict(zip(functions_to_lookup, function_ids))
+
         for item in items:
             id_ = self.get_id(item)
+            if id_.function_external_id not in function_id_by_external_id:
+                raise ToolkitRequiredValueError(f"Function {id_.function_external_id!r} not found for schedule {id_!r}")
             if id_ not in self.authentication_by_id:
                 raise ToolkitRequiredValueError(f"Authentication is missing for schedule {id_!r}")
             client_credentials = self.authentication_by_id[id_]
             try:
-                created = self.client.functions.schedules.create(item, client_credentials=client_credentials)
+                session = self.client.iam.sessions.create(client_credentials, session_type="CLIENT_CREDENTIALS")
             except CogniteAuthError as e:
                 if hint := try_find_error(client_credentials):
                     raise ResourceCreationError(f"Failed to create Function Schedule {id_}: {hint}") from e
                 raise e
 
-            # The PySDK mutates the input object, such that function_id is set and function_external_id is None.
-            # If we call .get_id on the returned object, it will raise an error we require the function_external_id
-            # to be set.
-            created.function_external_id = id_.function_external_id
+            # Serialization to create a copy as we are mutating the object.
+            to_create = FunctionScheduleWrite._load(item.dump())
+            to_create.nonce = session.nonce
+            to_create.function_id = function_id_by_external_id[id_.function_external_id]
+            to_create.function_external_id = None
+
+            created = self.client.functions.schedules.create(to_create)
             created_list.append(created)
         return created_list
 
