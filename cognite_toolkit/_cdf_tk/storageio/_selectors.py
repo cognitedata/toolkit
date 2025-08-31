@@ -26,3 +26,21 @@ class AssetCentricData:
             data_set_external_ids=[self.data_set_external_id] if self.data_set_external_id else None,
             asset_subtree_external_ids=[self.hierarchy] if self.hierarchy else None,
         )
+
+
+@dataclass(frozen=True)
+class ChartSelector: ...
+
+
+@dataclass(frozen=True)
+class ChartUserSelector(ChartSelector):
+    owner_id: str
+
+
+@dataclass(frozen=True)
+class AllChartSelector(ChartSelector): ...
+
+
+@dataclass(frozen=True)
+class ChartFileSelector(ChartSelector):
+    filepath: Path

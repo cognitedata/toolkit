@@ -1,5 +1,4 @@
 from collections.abc import Iterable
-from dataclasses import dataclass
 from pathlib import Path
 
 from rich.console import Console
@@ -10,24 +9,7 @@ from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import StorageIO, StorageIOConfig, T_Selector
-
-
-@dataclass(frozen=True)
-class ChartSelector: ...
-
-
-@dataclass(frozen=True)
-class ChartUserSelector(ChartSelector):
-    owner_id: str
-
-
-@dataclass(frozen=True)
-class AllChartSelector(ChartSelector): ...
-
-
-@dataclass(frozen=True)
-class ChartFileSelector(ChartSelector):
-    filepath: Path
+from ._selectors import AllChartSelector, ChartFileSelector, ChartSelector, ChartUserSelector
 
 
 class ChartIO(StorageIO[ChartSelector, ChartWriteList, ChartList]):
@@ -71,7 +53,7 @@ class ChartIO(StorageIO[ChartSelector, ChartWriteList, ChartList]):
         return ChartWriteList._load(data_chunk)
 
     def configurations(self, selector: ChartSelector) -> Iterable[StorageIOConfig]:
-        # Charts dose not have any configurations.
+        # Charts does not have any configurations.
         return []
 
     def load_selector(self, datafile: Path) -> ChartSelector:
