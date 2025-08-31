@@ -13,7 +13,7 @@ from ._selectors import AllChartSelector, ChartFileSelector, ChartSelector, Char
 
 
 class ChartIO(StorageIO[ChartSelector, ChartWriteList, ChartList]):
-    folder_name = "cdf_applications"
+    folder_name = "cdf_application_data"
     kind = "Charts"
     display_name = "CDF Charts"
     supported_download_formats = frozenset({".ndjson"})
@@ -44,7 +44,7 @@ class ChartIO(StorageIO[ChartSelector, ChartWriteList, ChartList]):
 
     def upload_items(self, data_chunk: ChartWriteList, selector: ChartSelector) -> None:
         # Todo validate all references exist in CDF before uploading.
-        self.client.charts.upsert(data_chunk)
+        raise ToolkitNotImplementedError("Uploading charts is not implemented yet.")
 
     def data_to_json_chunk(self, data_chunk: ChartList) -> list[dict[str, JsonVal]]:
         return [chart.as_write().dump() for chart in data_chunk]
