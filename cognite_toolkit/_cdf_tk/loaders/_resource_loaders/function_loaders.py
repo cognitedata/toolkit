@@ -35,6 +35,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.functions import FunctionScheduleID
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
+    ResourceRetrievalError,
     ToolkitRequiredValueError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
@@ -44,6 +45,7 @@ from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
     calculate_hash,
     calculate_secure_hash,
+    humanize_collection,
 )
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.text import suffix_description
@@ -528,9 +530,14 @@ class FunctionScheduleLoader(
         if functions_to_lookup:
             try:
                 function_ids = self.client.lookup.functions.id(functions_to_lookup)
-            except CogniteAPIError as e:
+            except ResourceRetrievalError as e:
+                failed_items = self.get_ids(items)
+                missing_functions = functions_to_lookup
+                if e.resources:
+                    missing_functions = list(e.resources)
+                    failed_items = [id_ for id_ in failed_items if id_.function_external_id in set(missing_functions)]
                 raise ResourceCreationError(
-                    f"Failed to create Function Schedules. Could not lookup function IDs for {functions_to_lookup}"
+                    f"Failed to create function schedules {humanize_collection(failed_items)}. Could not lookup function IDs for {humanize_collection(missing_functions)}"
                 ) from e
             function_id_by_external_id = dict(zip(functions_to_lookup, function_ids))
 
