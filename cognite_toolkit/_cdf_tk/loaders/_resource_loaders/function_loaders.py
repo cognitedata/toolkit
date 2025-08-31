@@ -537,7 +537,8 @@ class FunctionScheduleLoader(
                     missing_functions = list(e.resources)
                     failed_items = [id_ for id_ in failed_items if id_.function_external_id in set(missing_functions)]
                 raise ResourceCreationError(
-                    f"Failed to create function schedules {humanize_collection(failed_items)}. Could not lookup function IDs for {humanize_collection(missing_functions)}"
+                    f"Failed to create function schedule(s) {humanize_collection(failed_items)}. "
+                    f"Could not find function(s) {humanize_collection(missing_functions)!r}"
                 ) from e
             function_id_by_external_id = dict(zip(functions_to_lookup, function_ids))
 
