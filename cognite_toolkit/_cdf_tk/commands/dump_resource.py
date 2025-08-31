@@ -502,6 +502,8 @@ class ExtractionPipelineFinder(ResourceFinder[tuple[str, ...]]):
 
 
 class DataSetFinder(ResourceFinder[tuple[str, ...]]):
+    """Finds data sets to dump."""
+
     def __init__(self, client: ToolkitClient, identifier: tuple[str, ...] | None = None):
         super().__init__(client, identifier)
         self.datasets: DataSetList | None = None
