@@ -533,7 +533,8 @@ class DataSetFinder(ResourceFinder[tuple[str, ...]]):
                 loader,
                 None,
             )
-        yield list(self.identifier), None, loader, None
+        else:
+            yield list(self.identifier), None, loader, None
 
 
 class FunctionFinder(ResourceFinder[tuple[str, ...]]):
