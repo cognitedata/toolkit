@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import StorageIO, StorageIOConfig, T_Selector
-from ._selectors import AllChartSelector, ChartFileSelector, ChartSelector, ChartUserSelector
+from ._selectors import AllChartSelector, ChartSelector, ChartUserSelector
 
 
 class ChartIO(StorageIO[ChartSelector, ChartWriteList, ChartList]):
@@ -28,8 +28,14 @@ class ChartIO(StorageIO[ChartSelector, ChartWriteList, ChartList]):
         elif isinstance(selector, ChartUserSelector):
             selected_charts = ChartList([chart for chart in selected_charts if chart.owner_id == selector.owner_id])
         else:
-            raise ToolkitNotImplementedError("Unsupported selector type for ChartIO")
+            raise ToolkitNotImplementedError(f"Unsupported selector type {type(selector).__name__!r} for ChartIO")
+        total = 0
         for chunk in chunker_sequence(selected_charts, self.chunk_size):
+            if limit is not None and total >= limit:
+                break
+            if limit is not None and total + len(chunk) > limit:
+                chunk = chunk[: limit - total]
+            total += len(chunk)
             for chart in chunk:
                 for ts_ref in chart.data.time_series_collection or []:
                     if ts_ref.ts_external_id is None and ts_ref.ts_id is not None:
@@ -53,11 +59,11 @@ class ChartIO(StorageIO[ChartSelector, ChartWriteList, ChartList]):
         return ChartWriteList._load(data_chunk)
 
     def configurations(self, selector: ChartSelector) -> Iterable[StorageIOConfig]:
-        # Charts does not have any configurations.
+        # Charts does not have any configurations for its data.
         return []
 
     def load_selector(self, datafile: Path) -> ChartSelector:
-        return ChartFileSelector(filepath=datafile)
+        raise ToolkitNotImplementedError("Loading charts is not implemented yet.")
 
     def ensure_configurations(self, selector: T_Selector, console: Console | None = None) -> None:
         # Charts do not have any configurations to ensure.
