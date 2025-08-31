@@ -30,7 +30,7 @@ class DownloadApp(typer.Typer):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.download_main)
-        self.command("chart")(self.download_chart_cmd)
+        self.command("charts")(self.download_chart_cmd)
         self.command("raw")(self.download_raw_cmd)
 
     @staticmethod
