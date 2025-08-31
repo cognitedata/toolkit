@@ -82,13 +82,7 @@ class TestChartIO:
             rsps.add(
                 responses.POST,
                 ts_url,
-                json={"items": [{"id": 200, "externalId": "ts_1"}]},
-                status=200,
-            )
-            rsps.add(
-                responses.POST,
-                ts_url,
-                json={"items": [{"id": 201, "externalId": "ts_4"}]},
+                json={"items": [{"id": 200, "externalId": "ts_1"}, {"id": 201, "externalId": "ts_4"}]},
                 status=200,
             )
             assert io.count(selector) is None, (
