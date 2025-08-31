@@ -25,7 +25,7 @@ from cognite.client.data_classes.capabilities import (
     SessionsAcl,
 )
 from cognite.client.data_classes.functions import HANDLER_FILE_NAME
-from cognite.client.exceptions import CogniteAuthError
+from cognite.client.exceptions import CogniteAPIError, CogniteAuthError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 from rich.console import Console
@@ -526,13 +526,16 @@ class FunctionScheduleLoader(
         functions_to_lookup = list({item.function_external_id for item in items if item.function_external_id})
         function_id_by_external_id: dict[str, int] = {}
         if functions_to_lookup:
-            function_ids = self.client.lookup.functions.id(functions_to_lookup)
+            try:
+                function_ids = self.client.lookup.functions.id(functions_to_lookup)
+            except CogniteAPIError as e:
+                raise ResourceCreationError(
+                    f"Failed to create Function Schedules. Could not lookup function IDs for {functions_to_lookup}"
+                ) from e
             function_id_by_external_id = dict(zip(functions_to_lookup, function_ids))
 
         for item in items:
             id_ = self.get_id(item)
-            if id_.function_external_id not in function_id_by_external_id:
-                raise ToolkitRequiredValueError(f"Function {id_.function_external_id!r} not found for schedule {id_!r}")
             if id_ not in self.authentication_by_id:
                 raise ToolkitRequiredValueError(f"Authentication is missing for schedule {id_!r}")
             client_credentials = self.authentication_by_id[id_]
