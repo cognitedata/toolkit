@@ -166,7 +166,7 @@ def _humanize_validation_error(error: ValidationError) -> list[str]:
     for item in error.errors(include_input=True, include_url=False):
         loc = item["loc"]
         error_type = item["type"]
-        is_metadata_key_error = error_type == "string_type" and len(loc) >= 2 and loc[-2] == "metadata"
+        is_metadata_string_value_error = error_type == "string_type" and len(loc) >= 2 and loc[-2] == "metadata"
         if error_type == "missing":
             msg = f"Missing required field: {loc[-1]!r}"
         elif error_type == "extra_forbidden":
@@ -175,9 +175,15 @@ def _humanize_validation_error(error: ValidationError) -> list[str]:
             msg = str(item["ctx"]["error"])
         elif error_type in {"literal_error", "list_type"}:
             msg = f"{item['msg']}. Got {item['input']!r}."
-        elif is_metadata_key_error:
-            key = loc[-1]
-            msg = f"The key {key!r} should be a valid string. Got {item['input']!r} of type {type(item['input']).__name__}. Hint: Use double quotes to force string."
+        elif is_metadata_string_value_error:
+            # We skip metadata string errors. There are multiple reasons for this
+            # 1. We often allow non-string metadata values, and parse them to string later. For example, in
+            #     ExtractionPipelineConfigs.
+            # 2. The user often set metadata values to int/bool/float by mistake, but the server accepts these values and
+            #     converts them to string. Thus, these are not really errors.
+            # 3. The metadata errors flood the output and obscure more important errors, and we see example of
+            #     users ignoring all errors because of this (error fatigue).
+            continue
         elif error_type == "string_type":
             msg = f"{item['msg']}. Got {item['input']!r} of type {type(item['input']).__name__}. Hint: Use double quotes to force string."
         elif error_type == "model_type":
@@ -196,7 +202,7 @@ def _humanize_validation_error(error: ValidationError) -> list[str]:
         else:
             # Default to the Pydantic error message
             msg = item["msg"]
-        if len(loc) > 1 and (error_type in {"extra_forbidden", "missing"} or is_metadata_key_error):
+        if len(loc) > 1 and (error_type in {"extra_forbidden", "missing"} or is_metadata_string_value_error):
             # We skip the last element as this is in the message already
             msg = f"In {as_json_path(loc[:-1])} {msg[:1].casefold()}{msg[1:]}"
         elif len(loc) > 1:
