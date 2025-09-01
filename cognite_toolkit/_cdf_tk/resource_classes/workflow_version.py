@@ -62,7 +62,7 @@ class WorkflowDefinition(BaseModelResource):
 
 class WorkflowVersionYAML(ToolkitResource):
     _cdf_resource = WorkflowVersionUpsert
-    workflowExternalId: str = Field(
+    workflow_external_id: str = Field(
         max_length=255,
         description="Identifier for a workflow. Must be unique for the project. No trailing or leading whitespace and no null characters allowed.",
     )
