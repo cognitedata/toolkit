@@ -582,16 +582,17 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
                 Choice(f"{item.value} ({item.count})", value=item.value)
                 for item in sorted(result, key=lambda r: (r.count, str(r.value) or ""))
             ],
-        )
-
+        ).ask()
         files = self.client.files.list(
             limit=-1, directory_prefix="/streamlit-apps/", metadata={"creator": str(selected_creator)}
         )
         self.apps = StreamlitList([Streamlit.from_file(file) for file in files if file.name and file.external_id])
         selected_ids: list[str] | None = questionary.checkbox(
-            "Which Streamlit app(s) would you like to dump?",
+            message="Which Streamlit app(s) would you like to dump?",
             choices=[
-                Choice(f"{app.name} ({app.creator} - {ms_to_datetime(app.last_updated_time)})", value=app.external_id)
+                Choice(
+                    title=f"{app.name} ({app.creator} - {ms_to_datetime(app.last_updated_time)})", value=app.external_id
+                )
                 for app in sorted(self.apps, key=lambda a: a.name)
             ],
         ).ask()
