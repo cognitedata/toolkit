@@ -35,10 +35,10 @@ class TriggerRuleYAML(BaseModelResource):
         trigger_type = data["triggerType"]
         if trigger_type not in _TRIGGER_CLS_BY_NAME:
             raise ValueError(
-                f"invalid trigger type '{trigger_type}'. Expected one of {humanize_collection(_TRIGGER_CLS_BY_NAME.keys())}"
+                f"invalid trigger type '{trigger_type}'. Expected one of {humanize_collection(_TRIGGER_CLS_BY_NAME.keys(), bind_word='or')}"
             )
         cls_ = _TRIGGER_CLS_BY_NAME[trigger_type]
-        return cast(Self, cls_.model_validate(trigger_type))
+        return cast(Self, cls_.model_validate({k: v for k, v in data.items() if k != "triggerType"}))
 
     @model_serializer(mode="wrap", when_used="always", return_type=dict)
     def include_trigger_type(self, handler: SerializerFunctionWrapHandler) -> dict:
