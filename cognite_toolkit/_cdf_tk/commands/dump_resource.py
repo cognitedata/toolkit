@@ -1,4 +1,5 @@
 import io
+import json
 import zipfile
 from abc import ABC, abstractmethod
 from collections import defaultdict
@@ -606,6 +607,57 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
         else:
             yield list(identifier), None, loader, None
 
+    def dump_code(self, app: Streamlit, folder: Path) -> None:
+        try:
+            content = self.client.files.download_bytes(external_id=app.external_id)
+        except CogniteAPIError as e:
+            if e.code == 400 and "not found" in e.message:
+                HighSeverityWarning(
+                    f"The app {app.external_id!r} does not have code to dump. It is not available in CDF."
+                ).print_warning()
+                return
+            raise
+
+        try:
+            json_content = json.loads(content)
+        except json.JSONDecodeError as e:
+            HighSeverityWarning(
+                f"The Streamlit app {app.external_id!r} has corrupted JSON content. Unable to extract code: {e!s}"
+            ).print_warning()
+            return
+
+        app_folder = to_directory_compatible(app.external_id or "unknown_external_id")
+        app_path = folder / app_folder
+        app_path.mkdir(exist_ok=True)
+        if "requirements" in json_content:
+            requirements_txt = app_path / "requirements.txt"
+            requirements_txt.write_text(json_content["requirements"], encoding="utf-8")
+        entry_point = json_content.get("entrypoint")
+        files = json_content.get("files", {})
+        if not isinstance(files, dict) or (not files):
+            HighSeverityWarning(
+                f"The Streamlit app {app.external_id!r} does not have any files to dump. It is likely corrupted."
+            ).print_warning()
+            return
+        created_files: set[str] = set()
+        for relative_filepath, content in files.items():
+            filepath = app_path / relative_filepath
+            filepath.parent.mkdir(parents=True, exist_ok=True)
+            file_content = content.get("content", {}).get("text", "")
+            if not isinstance(file_content, str) or not file_content:
+                HighSeverityWarning(
+                    f"The Streamlit app {app.external_id!r} has a file {relative_filepath} with no content. Skipping..."
+                ).print_warning()
+                continue
+            safe_write(filepath, file_content, encoding="utf-8")
+            created_files.add(relative_filepath)
+
+        if entry_point and entry_point not in created_files:
+            HighSeverityWarning(
+                f"The Streamlit app {app.external_id!r} has an entry point {entry_point} that was not found in the files. "
+                "The app may be corrupted."
+            ).print_warning()
+
 
 class DumpResourceCommand(ToolkitCommand):
     def dump_to_yamls(
@@ -658,5 +710,7 @@ class DumpResourceCommand(ToolkitCommand):
                         self.console(f"Dumped {loader.kind} {name} to {filepath!s}")
                 if isinstance(finder, FunctionFinder) and isinstance(resource, Function):
                     finder.dump_function_code(resource, resource_folder)
+                if isinstance(finder, StreamlitFinder) and isinstance(resource, Streamlit):
+                    finder.dump_code(resource, resource_folder)
 
         print(Panel(f"Dumped {finder.identifier}", title="Success", style="green", expand=False))
