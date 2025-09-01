@@ -44,3 +44,8 @@ class AllChartSelector(ChartSelector): ...
 @dataclass(frozen=True)
 class ChartFileSelector(ChartSelector):
     filepath: Path
+
+
+@dataclass(frozen=True)
+class ChartIdSelector(ChartSelector):
+    chart_ids: set[str]
