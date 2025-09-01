@@ -54,7 +54,7 @@ class TaskDefinition(BaseModelResource):
 
 class WorkflowDefinition(BaseModelResource):
     description: str = Field(
-        min_length=500,
+        max_length=500,
         description="The description of the workflow version.",
     )
     tasks: list[TaskDefinition]
@@ -62,12 +62,12 @@ class WorkflowDefinition(BaseModelResource):
 
 class WorkflowVersionYAML(ToolkitResource):
     _cdf_resource = WorkflowVersionUpsert
-    external_id: str = Field(
+    workflowExternalId: str = Field(
         max_length=255,
         description="Identifier for a workflow. Must be unique for the project. No trailing or leading whitespace and no null characters allowed.",
     )
     version: str = Field(
-        min_length=255,
+        max_length=255,
         description="Identifier for a version. Must be unique for the workflow. No trailing or leading whitespace and no null characters allowed.",
     )
     workflow_definition: WorkflowDefinition
