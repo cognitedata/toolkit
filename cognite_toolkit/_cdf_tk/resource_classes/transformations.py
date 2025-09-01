@@ -4,20 +4,9 @@ from cognite.client.data_classes import TransformationWrite
 from pydantic import Field, field_validator, model_serializer
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
-from .base import BaseModelResource, ToolkitResource
+from .authentication import AuthenticationClientIdSecret, OIDCCredential
+from .base import ToolkitResource
 from .transformation_destination import Destination
-
-
-class AuthenticationClientIdSecret(BaseModelResource):
-    client_id: str = Field(description="Client Id.")
-    client_secret: str = Field(description="Client Secret.")
-
-
-class OIDCCredential(AuthenticationClientIdSecret):
-    scopes: str | list[str] | None = Field(default=None, description="Scopes for the authentication.")
-    token_uri: str = Field(description="OAuth token url.")
-    cdf_project_name: str = Field(description="CDF project name.")
-    audience: str | None = Field(default=None, description="Audience for the authentication.")
 
 
 class TransformationYAML(ToolkitResource):
