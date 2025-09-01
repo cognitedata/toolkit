@@ -42,6 +42,7 @@ from cognite.client.data_classes.workflows import (
     WorkflowVersionList,
 )
 from cognite.client.exceptions import CogniteAPIError
+from cognite.client.utils import ms_to_datetime
 from questionary import Choice
 from rich import print
 from rich.panel import Panel
@@ -589,7 +590,8 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
         selected_ids: list[str] | None = questionary.checkbox(
             "Which Streamlit app(s) would you like to dump?",
             choices=[
-                Choice(f"{app.name} ()", value=app.external_id) for app in sorted(self.apps, key=lambda a: a.name)
+                Choice(f"{app.name} ({app.creator} - {ms_to_datetime(app.last_updated_time)})", value=app.external_id)
+                for app in sorted(self.apps, key=lambda a: a.name)
             ],
         ).ask()
         if not selected_ids:
