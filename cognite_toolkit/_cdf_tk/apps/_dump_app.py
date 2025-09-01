@@ -58,6 +58,7 @@ class DumpApp(typer.Typer):
                 self.command("location-filter")(DumpConfigApp.dump_location_filters)
                 self.command("extraction-pipeline")(DumpConfigApp.dump_extraction_pipeline)
                 self.command("functions")(DumpConfigApp.dump_functions)
+                self.command("streamlit")(DumpConfigApp.dump_streamlit)
 
             if Flags.AGENTS.is_enabled() and Flags.DUMP_EXTENDED.is_enabled():
                 self.command("agents")(DumpConfigApp.dump_agents)
@@ -84,6 +85,7 @@ class DumpConfigApp(typer.Typer):
             self.command("location-filters")(self.dump_location_filters)
             self.command("extraction-pipeline")(self.dump_extraction_pipeline)
             self.command("functions")(self.dump_functions)
+            self.command("streamlit")(DumpConfigApp.dump_streamlit)
         if Flags.DUMP_EXTENDED.is_enabled() and Flags.AGENTS.is_enabled():
             self.command("agents")(self.dump_agents)
 
@@ -567,7 +569,7 @@ class DumpConfigApp(typer.Typer):
         )
 
     @staticmethod
-    def dump_streamlit_cmd(
+    def dump_streamlit(
         ctx: typer.Context,
         external_id: Annotated[
             list[str] | None,
