@@ -178,7 +178,7 @@ def _humanize_validation_error(error: ValidationError) -> list[str]:
         elif is_metadata_string_value_error:
             # We skip metadata string errors. There are multiple reasons for this
             # 1. We often allow non-string metadata values, and parse them to string later. For example, in
-            #     ExtractionPipelineConfigs.
+            #     ExtractionPipelines.
             # 2. The user often set metadata values to int/bool/float by mistake, but the server accepts these values and
             #     converts them to string. Thus, these are not really errors.
             # 3. The metadata errors flood the output and obscure more important errors, and we see example of
