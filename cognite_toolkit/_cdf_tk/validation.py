@@ -202,7 +202,7 @@ def _humanize_validation_error(error: ValidationError) -> list[str]:
         else:
             # Default to the Pydantic error message
             msg = item["msg"]
-        if len(loc) > 1 and (error_type in {"extra_forbidden", "missing"} or is_metadata_string_value_error):
+        if len(loc) > 1 and error_type in {"extra_forbidden", "missing"}:
             # We skip the last element as this is in the message already
             msg = f"In {as_json_path(loc[:-1])} {msg[:1].casefold()}{msg[1:]}"
         elif len(loc) > 1:
