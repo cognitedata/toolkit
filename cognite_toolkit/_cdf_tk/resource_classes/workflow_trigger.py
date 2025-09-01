@@ -97,10 +97,10 @@ class WorkflowTriggerYAML(ToolkitResource):
 
     @model_serializer(mode="wrap")
     def serialize_trigger_rules(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> dict:
-        # Capabilities are serialized as empty dicts [{}, {}, ...]
+        # Trigger rules are serialized as empty dicts [{}, {}, ...]
         # This issue arises because Pydantic's serialization mechanism doesn't automatically
         # handle polymorphic serialization for subclasses of TriggerRuleYAML.
-        # To address this, we include the below to explicitly calling model dump on the capabilities
+        # To address this, we include the below to explicitly calling model dump on the trigger rule
         serialized_data = handler(self)
         serialized_data["triggerRule"] = self.trigger_rule.model_dump(**vars(info))
         return serialized_data
