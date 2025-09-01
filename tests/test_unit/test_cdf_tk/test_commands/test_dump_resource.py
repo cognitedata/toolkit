@@ -578,11 +578,50 @@ class TestDumpStreamlitApps:
                 "high",
                 id="File not found",
             ),
+            pytest.param(
+                '{"not": "json"',
+                "The Streamlit app 'appB' has corrupted JSON content. Unable to extract code:",
+                "high",
+                id="Corrupted JSON",
+            ),
+            pytest.param(
+                json.dumps({"requirements": [], "files": {}, "entrypoint": "main.py"}),
+                "The Streamlit app 'appB' does not have any files to dump. It is likely corrupted.",
+                "high",
+                id="No files in JSON",
+            ),
+            pytest.param(
+                json.dumps(
+                    {
+                        "requirements": ["foo==1.0"],
+                        "files": {
+                            "page/CDF_demo.py": {"content": {"text": ""}},
+                            "main.py": {"content": {"text": "print('hi')"}},
+                        },
+                        "entrypoint": "main.py",
+                    }
+                ),
+                "The Streamlit app 'appB' has a file page/CDF_demo.py with no content. Skipping...",
+                "high",
+                id="File with no content",
+            ),
+            pytest.param(
+                json.dumps(
+                    {
+                        "requirements": ["foo==1.0"],
+                        "files": {"main.py": {"content": {"text": "print('hi')"}}},
+                        "entrypoint": "notfound.py",
+                    }
+                ),
+                "The Streamlit app 'appB' has an entry point notfound.py that was not found in the files. The app may be corrupted.",
+                "high",
+                id="Entrypoint not found",
+            ),
         ],
     )
     def test_dump_code(
         self,
-        content: dict | None,
+        content: str | None,
         expected_warning: str,
         expected_severity: str,
         three_streamlit_apps: StreamlitList,
@@ -596,12 +635,12 @@ class TestDumpStreamlitApps:
                     message=f"Files ids not found: {app.external_id}", code=400
                 )
             else:
-                client.files.download_bytes.return_value = json.dumps(console).encode("utf-8")
+                client.files.download_bytes.return_value = content.encode("utf-8")
 
             finder = StreamlitFinder(client, (app.external_id,))
             finder.dump_code(app, tmp_path, console)
 
             assert console.print.call_count == 1
             severity, actual_message = console.print.call_args.args
-            assert actual_message == expected_warning
+            assert expected_warning in actual_message
             assert expected_severity in str(severity).casefold()
