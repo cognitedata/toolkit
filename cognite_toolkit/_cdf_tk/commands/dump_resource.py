@@ -577,7 +577,7 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
             raise ToolkitMissingResourceError("No Streamlit apps found")
 
         selected_creator = questionary.select(
-            "Who is the creator of the Streamlit app you would like to dump? name (app count)",
+            "Who is creator of the Streamlit app you would like to dump? [name (app count)]",
             choices=[
                 Choice(f"{item.value} ({item.count})", value=item.value)
                 for item in sorted(result, key=lambda r: (r.count, str(r.value) or ""))
@@ -630,9 +630,15 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
         app_folder = to_directory_compatible(app.external_id or "unknown_external_id")
         app_path = folder / app_folder
         app_path.mkdir(exist_ok=True)
-        if "requirements" in json_content:
+        if isinstance(json_content.get("requirements"), list):
             requirements_txt = app_path / "requirements.txt"
-            requirements_txt.write_text(json_content["requirements"], encoding="utf-8")
+            requirements = json_content["requirements"]
+            if not requirements:
+                HighSeverityWarning(
+                    f"The Streamlit app {app.external_id!r} has a requirements.txt file with no content. Skipping..."
+                ).print_warning()
+            else:
+                requirements_txt.write_text("\n".join(requirements), encoding="utf-8")
         entry_point = json_content.get("entrypoint")
         files = json_content.get("files", {})
         if not isinstance(files, dict) or (not files):
@@ -678,6 +684,7 @@ class DumpResourceCommand(ToolkitCommand):
         elif not output_dir.exists():
             output_dir.mkdir(exist_ok=True)
 
+        dumped_ids: list[Hashable] = []
         for identifiers, resources, loader, subfolder in finder:
             if not identifiers and not resources:
                 # No resources to dump
@@ -698,7 +705,8 @@ class DumpResourceCommand(ToolkitCommand):
                 resource_folder = resource_folder / subfolder
             resource_folder.mkdir(exist_ok=True, parents=True)
             for resource in resources:
-                name = loader.as_str(loader.get_id(resource))
+                resource_id = loader.get_id(resource)
+                name = loader.as_str(resource_id)
                 base_filepath = resource_folder / f"{name}.{loader.kind}.yaml"
                 if base_filepath.exists():
                     self.warn(FileExistsWarning(base_filepath, "Skipping... Use --clean to remove existing files."))
@@ -713,5 +721,5 @@ class DumpResourceCommand(ToolkitCommand):
                     finder.dump_function_code(resource, resource_folder)
                 if isinstance(finder, StreamlitFinder) and isinstance(resource, Streamlit):
                     finder.dump_code(resource, resource_folder)
-
-        print(Panel(f"Dumped {finder.identifier}", title="Success", style="green", expand=False))
+                dumped_ids.append(resource_id)
+        print(Panel(f"Dumped {humanize_collection(dumped_ids)}", title="Success", style="green", expand=False))
