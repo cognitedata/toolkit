@@ -1,6 +1,7 @@
 import json
 from collections import Counter
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
@@ -25,6 +26,7 @@ from cognite.client.data_classes.capabilities import (
 from cognite.client.data_classes.functions import FunctionsStatus
 from cognite.client.exceptions import CogniteAPIError
 from questionary import Choice
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.data_classes.location_filters import LocationFilter, LocationFilterList
 from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import Streamlit, StreamlitList
@@ -566,3 +568,40 @@ class TestDumpStreamlitApps:
             app_dir / "main.py",
             app_dir / "requirements.txt",
         }
+
+    @pytest.mark.parametrize(
+        "content,expected_warning,expected_severity",
+        [
+            pytest.param(
+                None,
+                "The app 'appB' does not have code to dump. It is not available in CDF.",
+                "high",
+                id="File not found",
+            ),
+        ],
+    )
+    def test_dump_code(
+        self,
+        content: dict | None,
+        expected_warning: str,
+        expected_severity: str,
+        three_streamlit_apps: StreamlitList,
+        tmp_path: Path,
+    ) -> None:
+        console = MagicMock(spec=Console)
+        app = three_streamlit_apps[1]
+        with monkeypatch_toolkit_client() as client:
+            if content is None:
+                client.files.download_bytes.side_effect = CogniteAPIError(
+                    message=f"Files ids not found: {app.external_id}", code=400
+                )
+            else:
+                client.files.download_bytes.return_value = json.dumps(console).encode("utf-8")
+
+            finder = StreamlitFinder(client, (app.external_id,))
+            finder.dump_code(app, tmp_path, console)
+
+            assert console.print.call_count == 1
+            severity, actual_message = console.print.call_args.args
+            assert actual_message == expected_warning
+            assert expected_severity in str(severity).casefold()
