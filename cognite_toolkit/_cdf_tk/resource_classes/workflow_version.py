@@ -7,7 +7,7 @@ from .base import BaseModelResource, ToolkitResource
 
 
 class TaskId(BaseModelResource):
-    external_Id: str = Field(
+    external_id: str = Field(
         max_length=255, description="The external ID provided by the client. Must be unique for the resource type."
     )
 
