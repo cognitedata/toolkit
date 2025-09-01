@@ -613,7 +613,7 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
         try:
             content = self.client.files.download_bytes(external_id=app.external_id)
         except CogniteAPIError as e:
-            if e.code == 400 and "not found" in e.message:
+            if e.code == 400 and "Files ids not found" in e.message:
                 HighSeverityWarning(
                     f"The app {app.external_id!r} does not have code to dump. It is not available in CDF."
                 ).print_warning(console=console)
