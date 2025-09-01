@@ -570,6 +570,7 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
         self.apps: StreamlitList | None = None
 
     def _interactive_select(self) -> tuple[str, ...]:
+        """Interactively select one or more Streamlit apps to dump."""
         result = self.client.documents.aggregate_unique_values(
             SourceFileProperty.metadata_key("creator"),
             filter=filters.Equals(SourceFileProperty.directory, "/streamlit-apps/"),
@@ -610,6 +611,15 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
             yield list(identifier), None, loader, None
 
     def dump_code(self, app: Streamlit, folder: Path, console: Console | None = None) -> None:
+        """Dump the code of a Streamlit app to the specified folder.
+
+        The code is extracted from the JSON content of the app file in CDF.
+
+        Args:
+            app (Streamlit): The Streamlit app whose code is to be dumped.
+            folder (Path): The directory where the app code will be saved.
+            console (Console | None): Optional Rich console for printing warnings.
+        """
         try:
             content = self.client.files.download_bytes(external_id=app.external_id)
         except CogniteAPIError as e:
@@ -652,9 +662,9 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
             filepath = app_path / relative_filepath
             filepath.parent.mkdir(parents=True, exist_ok=True)
             file_content = content.get("content", {}).get("text", "")
-            if not isinstance(file_content, str) or not file_content:
+            if not isinstance(file_content, str):
                 HighSeverityWarning(
-                    f"The Streamlit app {app.external_id!r} has a file {relative_filepath} with no content. Skipping..."
+                    f"The Streamlit app {app.external_id!r} has a file {relative_filepath} with invalid content. Skipping..."
                 ).print_warning(console=console)
                 continue
             safe_write(filepath, file_content, encoding="utf-8")

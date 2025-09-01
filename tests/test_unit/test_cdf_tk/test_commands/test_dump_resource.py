@@ -595,13 +595,13 @@ class TestDumpStreamlitApps:
                     {
                         "requirements": ["foo==1.0"],
                         "files": {
-                            "page/CDF_demo.py": {"content": {"text": ""}},
+                            "page/CDF_demo.py": {"content": {"text": True}},
                             "main.py": {"content": {"text": "print('hi')"}},
                         },
                         "entrypoint": "main.py",
                     }
                 ),
-                "The Streamlit app 'appB' has a file page/CDF_demo.py with no content. Skipping...",
+                "The Streamlit app 'appB' has a file page/CDF_demo.py with invalid content. Skipping...",
                 "high",
                 id="File with no content",
             ),
