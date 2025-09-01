@@ -29,13 +29,10 @@ class ChartIO(StorageIO[ChartSelector, ChartWriteList, ChartList]):
             selected_charts = ChartList([chart for chart in selected_charts if chart.owner_id == selector.owner_id])
         else:
             raise ToolkitNotImplementedError(f"Unsupported selector type {type(selector).__name__!r} for ChartIO")
-        total = 0
+
+        if limit is not None:
+            selected_charts = ChartList(selected_charts[:limit])
         for chunk in chunker_sequence(selected_charts, self.chunk_size):
-            if limit is not None and total >= limit:
-                break
-            if limit is not None and total + len(chunk) > limit:
-                chunk = chunk[: limit - total]
-            total += len(chunk)
             ts_ids_to_lookup = {
                 ts_ref.ts_id
                 for chart in chunk
