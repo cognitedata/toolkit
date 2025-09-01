@@ -17,6 +17,7 @@ from cognite.client.data_classes import (
     TransformationList,
     TransformationNotificationList,
     TransformationScheduleList,
+    filters,
 )
 from cognite.client.data_classes._base import (
     CogniteResourceList,
@@ -25,6 +26,7 @@ from cognite.client.data_classes.agents import (
     AgentList,
 )
 from cognite.client.data_classes.data_modeling import DataModelId
+from cognite.client.data_classes.documents import SourceFileProperty
 from cognite.client.data_classes.extractionpipelines import ExtractionPipelineConfigList
 from cognite.client.data_classes.functions import (
     Function,
@@ -46,6 +48,7 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.location_filters import LocationFilterList
+from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import Streamlit, StreamlitList
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceRetrievalError,
     ToolkitMissingResourceError,
@@ -65,6 +68,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     NodeLoader,
     ResourceLoader,
     SpaceLoader,
+    StreamlitLoader,
     TransformationLoader,
     TransformationNotificationLoader,
     TransformationScheduleLoader,
@@ -555,6 +559,50 @@ class FunctionFinder(ResourceFinder[tuple[str, ...]]):
             HighSeverityWarning(
                 f"The function {function.external_id!r} has a corrupted code zip file. Unable to extract code: {e!s}"
             ).print_warning()
+
+
+class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
+    def __init__(self, client: ToolkitClient, identifier: tuple[str, ...] | None = None):
+        super().__init__(client, identifier)
+        self.apps: StreamlitList | None = None
+
+    def _interactive_select(self) -> tuple[str, ...]:
+        result = self.client.documents.aggregate_unique_values(
+            SourceFileProperty.metadata_key("creator"),
+            filter=filters.Equals(SourceFileProperty.directory, "/streamlit-apps/"),
+        )
+        if not result:
+            raise ToolkitMissingResourceError("No Streamlit apps found")
+
+        selected_creator = questionary.select(
+            "Who is the creator of the Streamlit app you would like to dump? name (app count)",
+            choices=[
+                Choice(f"{item.value} ({item.count})", value=item.value)
+                for item in sorted(result, key=lambda r: (r.count, str(r.value) or ""))
+            ],
+        )
+
+        files = self.client.files.list(
+            limit=-1, directory_prefix="/streamlit-apps/", metadata={"creator": str(selected_creator)}
+        )
+        self.apps = StreamlitList([Streamlit.from_file(file) for file in files if file.name and file.external_id])
+        selected_ids: list[str] | None = questionary.checkbox(
+            "Which Streamlit app(s) would you like to dump?",
+            choices=[
+                Choice(f"{app.name} ()", value=app.external_id) for app in sorted(self.apps, key=lambda a: a.name)
+            ],
+        ).ask()
+        if not selected_ids:
+            raise ToolkitValueError("No Streamlit app selected for dumping. Aborting...")
+        return tuple(selected_ids)
+
+    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
+        identifier = self.identifier or self._interactive_select()
+        loader = StreamlitLoader.create_loader(self.client)
+        if self.apps:
+            yield [], StreamlitList([app for app in self.apps if app.external_id in identifier]), loader, None
+        else:
+            yield list(identifier), None, loader, None
 
 
 class DumpResourceCommand(ToolkitCommand):
