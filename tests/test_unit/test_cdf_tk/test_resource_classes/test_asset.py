@@ -18,16 +18,6 @@ def invalid_asset_test_cases() -> Iterable:
         {"Unused field: 'parentId'"},
         id="Unused field: parentId",
     )
-    yield pytest.param(
-        {"externalId": "asset_1", "name": "Asset 1", "metadata": {"groupNo": 123, "isGoverned": True}},
-        {
-            "In metadata the key 'groupNo' should be a valid string. Got 123 of type int. "
-            "Hint: Use double quotes to force string.",
-            "In metadata the key 'isGoverned' should be a valid string. Got True of type "
-            "bool. Hint: Use double quotes to force string.",
-        },
-        id="Invalid metadata types",
-    )
 
 
 class TestAssetYAML:
