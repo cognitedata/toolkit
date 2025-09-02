@@ -13,7 +13,7 @@ from typing_extensions import Self
 
 
 @dataclass
-class SearchConfigView(CogniteObject):
+class ViewId(CogniteObject):
     external_id: str
     space: str
 
@@ -51,18 +51,18 @@ class SearchConfigCore(WriteableCogniteResource["SearchConfigWrite"], ABC):
         id: A server-generated ID for the object.
         use_as_name: The name of property to use for the name column in the UI.
         use_as_description: The name of property to use for the description column in the UI.
-        column_layout: Array of column configurations per property.
+        columns_layout: Array of column configurations per property.
         filter_layout: Array of filter configurations per property.
         properties_layout: Array of property configurations per property.
     """
 
     def __init__(
         self,
-        view: SearchConfigView,
+        view: ViewId,
         id: int | None = None,
         use_as_name: str | None = None,
         use_as_description: str | None = None,
-        column_layout: list[SearchConfigViewProperty] | None = None,
+        columns_layout: list[SearchConfigViewProperty] | None = None,
         filter_layout: list[SearchConfigViewProperty] | None = None,
         properties_layout: list[SearchConfigViewProperty] | None = None,
     ) -> None:
@@ -70,7 +70,7 @@ class SearchConfigCore(WriteableCogniteResource["SearchConfigWrite"], ABC):
         self.id = id
         self.use_as_name = use_as_name
         self.use_as_description = use_as_description
-        self.column_layout = column_layout
+        self.columns_layout = columns_layout
         self.filter_layout = filter_layout
         self.properties_layout = properties_layout
 
@@ -80,16 +80,16 @@ class SearchConfigCore(WriteableCogniteResource["SearchConfigWrite"], ABC):
             id=self.id,
             use_as_name=self.use_as_name,
             use_as_description=self.use_as_description,
-            column_layout=self.column_layout,
+            columns_layout=self.columns_layout,
             filter_layout=self.filter_layout,
             properties_layout=self.properties_layout,
         )
 
     def dump(self, camel_case: bool = True) -> dict[str, Any]:
         output = super().dump(camel_case)
-        if self.column_layout:
-            output["columLayout" if camel_case else "column_layout"] = [
-                _data.dump(camel_case) for _data in self.column_layout
+        if self.columns_layout:
+            output["columnsLayout" if camel_case else "columns_layout"] = [
+                _data.dump(camel_case) for _data in self.columns_layout
             ]
         if self.filter_layout:
             output["filterLayout" if camel_case else "filter_layout"] = [
@@ -113,7 +113,7 @@ class SearchConfigWrite(SearchConfigCore):
         id: A server-generated ID for the object.
         use_as_name: The name of property to use for the name column in the UI.
         use_as_description: The name of property to use for the description column in the UI.
-        column_layout: Array of column configurations per property.
+        columns_layout: Array of column configurations per property.
         filter_layout: Array of filter configurations per property.
         properties_layout: Array of property configurations per property.
     """
@@ -122,11 +122,11 @@ class SearchConfigWrite(SearchConfigCore):
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
         return cls(
             id=resource.get("id"),
-            view=SearchConfigView.load(resource["view"]),
+            view=ViewId.load(resource["view"]),
             use_as_name=resource.get("useAsName"),
             use_as_description=resource.get("useAsDescription"),
-            column_layout=[SearchConfigViewProperty.load(item) for item in resource.get("columnLayout", [])]
-            if resource.get("columnLayout")
+            columns_layout=[SearchConfigViewProperty.load(item) for item in resource.get("columnsLayout", [])]
+            if resource.get("columnsLayout")
             else None,
             filter_layout=[SearchConfigViewProperty.load(item) for item in resource.get("filterLayout", [])]
             if resource.get("filterLayout")
@@ -148,20 +148,20 @@ class SearchConfig(SearchConfigCore):
         updated_time: The time when the search config was last updated.
         use_as_name: The name of property to use for the name column in the UI.
         use_as_description: The name of property to use for the description column in the UI.
-        column_layout: Array of column configurations per property.
+        columns_layout: Array of column configurations per property.
         filter_layout: Array of filter configurations per property.
         properties_layout: Array of property configurations per property.
     """
 
     def __init__(
         self,
-        view: SearchConfigView,
+        view: ViewId,
         id: int,
         created_time: int,
         updated_time: int,
         use_as_name: str | None = None,
         use_as_description: str | None = None,
-        column_layout: list[SearchConfigViewProperty] | None = None,
+        columns_layout: list[SearchConfigViewProperty] | None = None,
         filter_layout: list[SearchConfigViewProperty] | None = None,
         properties_layout: list[SearchConfigViewProperty] | None = None,
     ) -> None:
@@ -170,7 +170,7 @@ class SearchConfig(SearchConfigCore):
             id,
             use_as_name,
             use_as_description,
-            column_layout,
+            columns_layout,
             filter_layout,
             properties_layout,
         )
@@ -180,14 +180,14 @@ class SearchConfig(SearchConfigCore):
     @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
         return cls(
-            view=SearchConfigView.load(resource["view"]),
+            view=ViewId.load(resource["view"]),
             id=resource["id"],
             created_time=resource["createdTime"],
             updated_time=resource["lastUpdatedTime"],
             use_as_name=resource.get("useAsName"),
             use_as_description=resource.get("useAsDescription"),
-            column_layout=[SearchConfigViewProperty.load(item) for item in resource.get("columnLayout", [])]
-            if resource.get("columnLayout")
+            columns_layout=[SearchConfigViewProperty.load(item) for item in resource.get("columnsLayout", [])]
+            if resource.get("columnsLayout")
             else None,
             filter_layout=[SearchConfigViewProperty.load(item) for item in resource.get("filterLayout", [])]
             if resource.get("filterLayout")

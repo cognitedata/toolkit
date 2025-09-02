@@ -1,11 +1,11 @@
 from random import randint
 
 import pytest
+from cognite.client.data_classes.data_modeling import ViewId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.search_config import (
     SearchConfig,
-    SearchConfigView,
     SearchConfigWrite,
 )
 
@@ -14,7 +14,7 @@ SEARCH_CONFIG_NAME = "Search Config Name"
 
 @pytest.fixture(scope="session")
 def existing_search_config(toolkit_client: ToolkitClient) -> SearchConfig:
-    view = SearchConfigView(external_id="CogniteTimeSeries", space="cdf_cdm")
+    view = ViewId(external_id="CogniteTimeSeries", space="cdf_cdm")
     search_config = SearchConfigWrite(view=view, use_as_name=SEARCH_CONFIG_NAME)
 
     configs = toolkit_client.search.configurations.list()

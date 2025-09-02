@@ -22,7 +22,7 @@ class SearchConfigurationsAPI(APIClient):
             base_path = f"/apps/{self._api_version}/projects/{self._config.project}/storage/config/apps/search/views"
         return urljoin(self._config.base_url, base_path)
 
-    def upsert(self, configuration_update: SearchConfigWrite) -> SearchConfig:
+    def upsert(self, configuration_update: SearchConfigWrite) -> SearchConfig | SearchConfigList:
         """Update/Create a Configuration.
 
         Args:
@@ -36,7 +36,13 @@ class SearchConfigurationsAPI(APIClient):
             url_path="/upsert",
             json=configuration_update.dump(),
         )
-        return SearchConfig._load(res.json(), cognite_client=self._cognite_client)
+        response = res.json()
+        # This should never happen, but on testing in some cases we get a list of configs back
+        # TODO: Remove this once the backend is fixed.
+        if isinstance(response, list):
+            return SearchConfigList._load(response, cognite_client=self._cognite_client)
+
+        return SearchConfig._load(response, cognite_client=self._cognite_client)
 
     def list(self) -> SearchConfigList:
         """List all Configuration.
