@@ -51,4 +51,6 @@ class ProgressTracker(Generic[T_ID]):
             self._init_item(item_id)
             if step is None:
                 return self._progress[item_id].copy()
+            if step not in self._step_to_idx:
+                raise ValueError(f"Step '{step}' not found in steps {humanize_collection(self._steps)}")
             return self._progress[item_id][step]
