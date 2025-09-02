@@ -12,7 +12,7 @@ from cognite.client.data_classes._base import (
 from typing_extensions import Self
 
 
-@dataclass
+@dataclass(frozen=True)
 class ViewId(CogniteObject):
     external_id: str
     space: str
