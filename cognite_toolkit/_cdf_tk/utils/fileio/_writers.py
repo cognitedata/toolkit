@@ -45,7 +45,7 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
         self.max_file_size_bytes = max_file_size_bytes
         self._file_count_by_filename: dict[str, int] = Counter()
         self._writer_by_filepath: dict[Path, T_IO] = {}
-        self._lock = threading.RLock()  # Use RLock to allow recursive locking
+        self._lock = threading.Lock()
 
     @property
     def file_count(self) -> int:
