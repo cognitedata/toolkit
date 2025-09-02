@@ -206,8 +206,9 @@ FunctionSchedule:
     spill_detection_label: unprocessed_spill_detection
   description: 'Contextualizes the robot data and adds appropriate labels cdf-auth:
     acb31846'
-  functionExternalId: fn_contextualize_robot_data
+  functionId: 324049481606898496
   name: contextualize_robot_data
+  nonce: dummy-nonce
 - cronExpression: '* * * * *'
   data:
     data_set_external_id: ds_robot_1
@@ -216,8 +217,9 @@ FunctionSchedule:
     output_label: ir_finished
     success_label: SUCCESS_IR
   description: 'cdf-auth: acb31846'
-  functionExternalId: fn_get_ir_data_from_ir_raw
+  functionId: 14450606483901865881
   name: get_ir_data
+  nonce: dummy-nonce
 - cronExpression: '* * * * *'
   data:
     failed_label: FAILED
@@ -226,8 +228,9 @@ FunctionSchedule:
     output_label: gauge_reading
     success_label: SUCCESS
   description: 'Reads the dial gauge data from the robot cdf-auth: acb31846'
-  functionExternalId: fn_gauge_reading
+  functionId: 5535104973579329421
   name: read_dial_gauge
+  nonce: dummy-nonce
 - cronExpression: '* * * * *'
   data:
     failed_label: FAILED
@@ -236,8 +239,9 @@ FunctionSchedule:
     output_label: gauge_reading
     success_label: SUCCESS
   description: 'cdf-auth: acb31846'
-  functionExternalId: fn_gauge_reading
+  functionId: 5535104973579329421
   name: read_digital_gauge
+  nonce: dummy-nonce
 - cronExpression: '* * * * *'
   data:
     failed_label: FAILED
@@ -246,8 +250,9 @@ FunctionSchedule:
     output_label: gauge_reading
     success_label: SUCCESS
   description: 'Reads the level gauge data from the robot cdf-auth: acb31846'
-  functionExternalId: fn_gauge_reading
+  functionId: 5535104973579329421
   name: read_level_gauge
+  nonce: dummy-nonce
 - cronExpression: '* * * * *'
   data:
     failed_label: FAILED
@@ -256,14 +261,16 @@ FunctionSchedule:
     output_label: gauge_reading
     success_label: SUCCESS
   description: 'Reads the valve data from the robot cdf-auth: acb31846'
-  functionExternalId: fn_gauge_reading
+  functionId: 5535104973579329421
   name: read_valve
+  nonce: dummy-nonce
 - cronExpression: '* * * * *'
   data:
     data_set_external_id: ds_robot_1
   description: 'cdf-auth: acb31846'
-  functionExternalId: fn_threesixty
+  functionId: 8691083691200486555
   name: threesixty
+  nonce: dummy-nonce
 Group:
 - capabilities:
   - datasetsAcl:
