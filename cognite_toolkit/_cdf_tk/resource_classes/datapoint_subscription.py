@@ -69,3 +69,9 @@ class DatapointSubscriptionYAML(ToolkitResource):
                 f"The total number of time_series_ids and instance_ids cannot exceed {_SUBSCRIPTION_MAX_TOTAL_TIMESERIES}."
             )
         return self
+
+    @model_validator(mode="after")
+    def check_filter_and_ids_mutual_exclusivity(self) -> Self:
+        if self.filter is not None and (self.time_series_ids or self.instance_ids):
+            raise ValueError("Cannot set both filter and time_series_ids/instance_ids.")
+        return self
