@@ -27,9 +27,9 @@ class NotificationConfig(BaseModelResource):
 
 class ExtractionPipelineYAML(ToolkitResource):
     external_id: str = Field(
-        description="External Id provided by client. Should be unique within the project.", max_length=255
+        description="External Id provided by client. Should be unique within the project.", min_length=1, max_length=255
     )
-    name: str = Field(description="Name of the extraction pipeline.", max_length=140)
+    name: str = Field(description="Name of the extraction pipeline.", min_length=1, max_length=140)
     description: str | None = Field(None, description="Description of the extraction pipeline.", max_length=500)
     data_set_external_id: str = Field(description="The external id of the dataset this extraction pipeline belongs to.")
     raw_tables: list[RawTable] | None = Field(None, description="Raw tables")
