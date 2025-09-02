@@ -108,6 +108,8 @@ class ToolkitClientConfig(ClientConfig):
             >>> config.create_app_url("/some/app/endpoint")
             "https://bluefield.cognitedata.com/apps/v1/projects/my_project/some/app/endpoint"
         """
+        if not endpoint or not api_version:
+            raise RuntimeError("Endpoint and api_version cannot be empty')
         if not endpoint.startswith("/"):
             endpoint = f"/{endpoint}"
         base_path = f"/apps/{api_version}/projects/{self.project}{endpoint}"
