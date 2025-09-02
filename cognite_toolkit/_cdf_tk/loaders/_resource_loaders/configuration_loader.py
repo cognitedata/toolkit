@@ -1,4 +1,3 @@
-from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
 from typing import Any, final
@@ -12,11 +11,11 @@ from cognite_toolkit._cdf_tk.client.data_classes.search_config import (
     SearchConfigViewProperty,
     SearchConfigWrite,
     SearchConfigWriteList,
+    ViewId,
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.resource_classes import SearchConfigYAML
-from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import quote_int_value_by_key_in_yaml, safe_read
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
 
@@ -24,7 +23,10 @@ from .datamodel_loaders import ViewLoader
 
 
 @final
-class SearchConfigLoader(ResourceLoader[str, SearchConfigWrite, SearchConfig, SearchConfigWriteList, SearchConfigList]):
+class SearchConfigLoader(
+    ResourceLoader[ViewId, SearchConfigWrite, SearchConfig, SearchConfigWriteList, SearchConfigList]
+):
+    support_drop = False
     folder_name = "search_configs"
     filename_pattern = r"^.*SearchConfig$"
     resource_cls = SearchConfig
@@ -57,16 +59,14 @@ class SearchConfigLoader(ResourceLoader[str, SearchConfigWrite, SearchConfig, Se
         )
 
     @classmethod
-    def get_id(cls, item: SearchConfig | SearchConfigWrite | dict) -> str:
+    def get_id(cls, item: SearchConfig | SearchConfigWrite | dict) -> ViewId:
         if isinstance(item, dict):
-            return str(item.get("id", ""))
-        if isinstance(item, SearchConfig) and not item.id:
-            raise KeyError("SearchConfig must have id")
-        return str(item.id) if item.id is not None else ""
+            return ViewId.load(item.get("view", {}))
+        return item.view
 
     @classmethod
-    def dump_id(cls, id: int | str) -> dict[str, Any]:
-        return {"id": id}
+    def dump_id(cls, id: ViewId) -> dict[str, Any]:
+        return {"view": id.dump()}
 
     def safe_read(self, filepath: Path | str) -> str:
         # Search config Id is int type
@@ -106,77 +106,53 @@ class SearchConfigLoader(ResourceLoader[str, SearchConfigWrite, SearchConfig, Se
         if isinstance(items, SearchConfigWrite):
             items = SearchConfigWriteList([items])
 
-        result: list[SearchConfig] = []
-        all_configs = self.client.search.configurations.list()
-        existing_views_with_configs = {(config.view.space, config.view.external_id) for config in all_configs}
-        config_to_update: list[SearchConfigWrite] = []
-
+        result = SearchConfigList([])
         for item in items:
-            if (item.view.space, item.view.external_id) in existing_views_with_configs:
-                config_to_update.append(item)
-            else:
-                item.id = None
-                response = self.client.search.configurations.upsert(item)
-                result.extend(response if isinstance(response, SearchConfigList) else [response])
+            created = self.client.search.configurations.upsert(item)
+            result.append(created)
+        return result
 
-        if config_to_update:
-            self._cached_configs: SearchConfigList | None = all_configs
-            result.extend(self.update(SearchConfigWriteList(config_to_update)))
-            self._cached_configs = None
-
-        return SearchConfigList(result)
-
-    def retrieve(self, ids: SequenceNotStr[str]) -> SearchConfigList:
+    def retrieve(self, ids: SequenceNotStr[ViewId]) -> SearchConfigList:
         """Retrieve search configurations by their IDs"""
-        numeric_ids: list[int] = []
-        for id_str in ids:
-            if id_str.isdigit():
-                numeric_ids.append(int(id_str))
-            else:
-                LowSeverityWarning(
-                    f"Skipping non-numeric SearchConfig id {id_str!r}. Only numeric ids are supported."
-                ).print_warning()
-
         all_configs = self.client.search.configurations.list()
         # The API does not support server-side filtering, so we filter in memory.
-        return SearchConfigList([config for config in all_configs if config.id in numeric_ids])
+        return SearchConfigList([config for config in all_configs if config.view in ids])
 
     def update(self, items: SearchConfigWrite | SearchConfigWriteList) -> SearchConfigList:
-        """Update search configurations using the upsert method"""
+        """
+        Update search configurations using the upsert method
+        Note: Due to an API limitation where multiple configs can be created for the same view,
+        this method merges all updates for the same view into a single configuration to prevent
+        duplicate search configs per view.
+        """
         if isinstance(items, SearchConfigWrite):
             items = SearchConfigWriteList([items])
 
-        result: list[SearchConfig] = []
-        # Use cached configs if available, otherwise fetch
-        all_configs = getattr(self, "_cached_configs", None) or self.client.search.configurations.list()
-
-        config_to_update: defaultdict[tuple[str, str], list[SearchConfigWrite]] = defaultdict(list)
-        view_to_config = {(config.view.space, config.view.external_id): config for config in all_configs}
+        result = SearchConfigList([])
+        view_ids = [item.view for item in items]
+        existing_configs = self.retrieve(view_ids)
+        existing_by_view_id = {config.view: config for config in existing_configs}
 
         for item in items:
-            if (item.view.space, item.view.external_id) in view_to_config:
-                config_to_update[(item.view.space, item.view.external_id)].append(item)
+            existing_config = existing_by_view_id.get(item.view)
+            if existing_config is None:
+                result.extend(self.create(item))
+                continue
 
-        for view_id, configs in config_to_update.items():
-            existing_config = view_to_config[view_id]
             columns = list(existing_config.columns_layout or [])
             filters = list(existing_config.filter_layout or [])
             props = list(existing_config.properties_layout or [])
-            use_as_name = existing_config.use_as_name
-            use_as_description = existing_config.use_as_description
 
-            for _config in configs:
-                self._update_config_layout(columns, _config.columns_layout or [])
-                self._update_config_layout(filters, _config.filter_layout or [])
-                self._update_config_layout(props, _config.properties_layout or [])
-                if use_as_name is None and _config.use_as_name is not None:
-                    use_as_name = _config.use_as_name
-                if use_as_description is None and _config.use_as_description is not None:
-                    use_as_description = _config.use_as_description
+            self._update_config_layout(columns, item.columns_layout or [])
+            self._update_config_layout(filters, item.filter_layout or [])
+            self._update_config_layout(props, item.properties_layout or [])
 
-            config = SearchConfigWrite(
-                id=existing_config.id,
-                view=existing_config.view,
+            use_as_name = item.use_as_name or existing_config.use_as_name
+            use_as_description = item.use_as_description or existing_config.use_as_description
+
+            merged_config = SearchConfigWrite(
+                id=existing_config.id,  # Keep existing ID
+                view=existing_config.view,  # Keep existing view
                 use_as_name=use_as_name,
                 use_as_description=use_as_description,
                 columns_layout=columns if columns else None,
@@ -184,12 +160,12 @@ class SearchConfigLoader(ResourceLoader[str, SearchConfigWrite, SearchConfig, Se
                 properties_layout=props if props else None,
             )
 
-            response = self.client.search.configurations.upsert(config)
-            result.extend(response if isinstance(response, SearchConfigList) else [response])
+            updated = self.client.search.configurations.upsert(merged_config)
+            result.append(updated)
 
-        return SearchConfigList(result)
+        return result
 
-    def delete(self, ids: SequenceNotStr[str]) -> int:
+    def delete(self, ids: SequenceNotStr[ViewId]) -> int:
         """
         Delete is not implemented in the API client
         """
@@ -205,7 +181,7 @@ class SearchConfigLoader(ResourceLoader[str, SearchConfigWrite, SearchConfig, Se
         all_configs = self.client.search.configurations.list()
         if space:
             # The API does not support server-side filtering, so we filter in memory.
-            return iter([config for config in all_configs if config.view.space == space])
+            return iter([])
 
         if data_set_external_id or parent_ids:
             # These filters are not supported for SearchConfig

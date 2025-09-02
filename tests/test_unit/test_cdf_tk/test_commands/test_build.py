@@ -64,7 +64,6 @@ class TestBuildCommand:
         )
 
     @pytest.mark.skipif(not Flags.GRAPHQL.is_enabled(), reason="GraphQL schema files will give warnings")
-    @pytest.mark.skipif(not Flags.EXIT_ON_WARNING.is_enabled(), reason="Exit on warning will give AssertionError")
     def test_custom_project_no_warnings(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         cmd = BuildCommand(print_warning=False)
         monkeypatch.setenv("CDF_PROJECT", "some-project")
@@ -86,7 +85,6 @@ class TestBuildCommand:
         ]
         assert len(transformation_files) == 2
 
-    @pytest.mark.skipif(not Flags.EXIT_ON_WARNING.is_enabled(), reason="Exit on warning will give AssertionError")
     def test_build_complete_org_without_warnings(
         self,
         tmp_path: Path,
