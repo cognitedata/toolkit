@@ -63,13 +63,23 @@ class TestProgressTracker:
         assert self.tracker.get_progress(("a", 2), "extract") == "failed"
 
     def test_thread_safety(self):
-        def worker(item_id, step, status):
-            self.tracker.set_progress(item_id, step, status)
+        item_id = "item1"
 
-        threads = [threading.Thread(target=worker, args=(f"item{i}", "extract", "success")) for i in range(10)]
+        def worker(step: str, status: str):
+            # Loop to increase the chance of hitting a race condition if the lock is missing/incorrect.
+            for _ in range(50):
+                self.tracker.set_progress(item_id, step, status)
+
+        threads = [
+            threading.Thread(target=worker, args=("extract", "success")),
+            threading.Thread(target=worker, args=("transform", "success")),
+        ]
         for t in threads:
             t.start()
         for t in threads:
             t.join()
-        for i in range(10):
-            assert self.tracker.get_progress(f"item{i}", "extract") == "success"
+
+        progress = self.tracker.get_progress(item_id)
+        assert progress["extract"] == "success"
+        assert progress["transform"] == "success"
+        assert progress["load"] == "pending"
