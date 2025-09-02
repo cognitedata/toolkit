@@ -118,10 +118,4 @@ class BuiltModuleList(list, MutableSequence[BuiltModule]):
 
     @staticmethod
     def _are_relative(filepath: Path, select_path: Path) -> bool:
-        if filepath.is_absolute() and not select_path.is_absolute():
-            return filepath.is_relative_to(select_path.absolute())
-        elif not filepath.is_absolute() and select_path.is_absolute():
-            return filepath.absolute().is_relative_to(select_path)
-        else:
-            # Either both are absolute or both are relative
-            return filepath.is_relative_to(select_path)
+        return filepath.resolve().is_relative_to(select_path.resolve())
