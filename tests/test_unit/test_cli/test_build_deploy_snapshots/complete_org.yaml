@@ -403,8 +403,9 @@ FunctionSchedule:
     dinner: 'today: steak and red wine'
     lunch: 'today: greek salad and water'
   description: 'Run every day at 8am UTC cdf-auth: def5e2e0'
-  functionExternalId: fn_first_function
+  functionId: 16394514322001950830
   name: daily-8am-utc
+  nonce: dummy-nonce
 Group:
 - capabilities:
   - projectsAcl:

@@ -24,6 +24,7 @@ from tests.test_unit.utils import PrintCapture
 THIS_FOLDER = Path(__file__).resolve().parent
 TMP_FOLDER = THIS_FOLDER / "tmp"
 TMP_FOLDER.mkdir(exist_ok=True)
+BASE_URL = "http://blabla.cognitedata.com"
 
 
 @pytest.fixture

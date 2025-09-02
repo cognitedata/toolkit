@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.12'",
@@ -178,7 +178,7 @@ wheels = [
 
 [[package]]
 name = "cognite-sdk"
-version = "7.81.1"
+version = "7.83.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "msal" },
@@ -188,9 +188,9 @@ dependencies = [
     { name = "requests-oauthlib" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a6/b3/e5c73cafec5e3edb9a7d88b09512b85077ee1bdff21af775ade01a0327c4/cognite_sdk-7.81.1.tar.gz", hash = "sha256:6b2d050c49da1b887855b0e34efd74bd0f17e252ab35c1b8779547ffc96da24a", size = 515928, upload-time = "2025-08-21T11:42:22.06Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f4/98/efaf3b8b082fae038000674f01aebcd85437280c889da036a0d1a1d88a2b/cognite_sdk-7.83.1.tar.gz", hash = "sha256:bd7b81936c94ce58b3e07aa31f1e0b88dc8027c07457171c81ca0d82f5ad3e9f", size = 516805, upload-time = "2025-08-30T19:30:17.26Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/78/9b/ab50365657426b5a962051360eeafe0ad6b55cac39b52d4df0094de24136/cognite_sdk-7.81.1-py3-none-any.whl", hash = "sha256:1fcf0b3bdbffbd07957dcfc90aaed1dd375993fa315fd1c0c562f46669449845", size = 643931, upload-time = "2025-08-21T11:42:19.968Z" },
+    { url = "https://files.pythonhosted.org/packages/82/8b/81c0d6da28f98ee3b4aba873e3115085b51fb16fd3a2af42db5ea3a300bd/cognite_sdk-7.83.1-py3-none-any.whl", hash = "sha256:301c30686f8f2f945ef6239db799f62f7520e2f20b9346bd53a144cdf3a7c477", size = 644785, upload-time = "2025-08-30T19:30:14.985Z" },
 ]
 
 [[package]]
@@ -252,7 +252,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cognite-sdk", specifier = ">=7.80.2,<8.0.0" },
+    { name = "cognite-sdk", specifier = ">=7.83.0,<8.0.0" },
     { name = "filelock", specifier = ">=3.18.0" },
     { name = "mixpanel", specifier = ">=4.10.1" },
     { name = "openpyxl", marker = "extra == 'table'", specifier = ">=3.1.5" },
