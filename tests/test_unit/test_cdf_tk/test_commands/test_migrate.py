@@ -105,14 +105,15 @@ class TestBaseCommand:
 
             client.data_modeling.data_models.retrieve.return_value = DataModelList([model])
 
-            with pytest.raises(ToolkitMigrationError) as exc_info:
+            with pytest.raises(ToolkitMigrationError, match="Invalid migration model. Missing views"):
                 BaseMigrateCommand.validate_migration_model_available(client)
-
-            assert "Invalid migration model. Missing views" in str(exc_info.value)
 
     def test_validate_migration_model_available_success(self) -> None:
         """Test that a valid model with all required views succeeds."""
         with monkeypatch_toolkit_client() as client:
+            # Mocking the migration Model to get a response format of the model.
+            # An alternative would be to write a conversion of write -> read format of the model
+            # which is a significant amount of logic.
             model = MagicMock(spec=DataModel)
             model.as_id.return_value = MODEL_ID
             # Model has all required views
@@ -122,6 +123,8 @@ class TestBaseCommand:
 
             # Should not raise any exception
             BaseMigrateCommand.validate_migration_model_available(client)
+
+            client.data_modeling.data_models.retrieve.assert_called_once_with([MODEL_ID], inline_views=False)
 
     def test_validate_available_capacity_missing_capacity(self) -> None:
         cmd = DummyMigrationCommand(silent=True)
