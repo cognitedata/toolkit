@@ -574,13 +574,14 @@ class TestDumpStreamlitApps:
         [
             pytest.param(
                 None,
-                "The app 'appB' does not have code to dump. It is not available in CDF.",
+                "The source code for 'appB' could not be retrieved from CDF.",
                 "high",
                 id="File not found",
             ),
             pytest.param(
                 '{"not": "json"',
-                "The Streamlit app 'appB' has corrupted JSON content. Unable to extract code:",
+                "The JSON content for the Streamlit app 'appB' is corrupt and could not be "
+                "extracted. Download file with the same external id manually to remediate.",
                 "high",
                 id="Corrupted JSON",
             ),

@@ -579,7 +579,7 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
             raise ToolkitMissingResourceError("No Streamlit apps found")
 
         selected_creator = questionary.select(
-            "Who is creator of the Streamlit app you would like to dump? [name (app count)]",
+            "Who is the creator of the Streamlit app you would like to dump? [name (app count)]",
             choices=[
                 Choice(f"{item.value} ({item.count})", value=item.value)
                 for item in sorted(result, key=lambda r: (r.count, str(r.value) or ""))
@@ -625,7 +625,7 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
         except CogniteAPIError as e:
             if e.code == 400 and "Files ids not found" in e.message:
                 HighSeverityWarning(
-                    f"The app {app.external_id!r} does not have code to dump. It is not available in CDF."
+                    f"The source code for {app.external_id!r} could not be retrieved from CDF."
                 ).print_warning(console=console)
                 return
             raise
@@ -634,7 +634,8 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
             json_content = json.loads(content)
         except json.JSONDecodeError as e:
             HighSeverityWarning(
-                f"The Streamlit app {app.external_id!r} has corrupted JSON content. Unable to extract code: {e!s}"
+                f"The JSON content for the Streamlit app {app.external_id!r} is corrupt and could not be extracted. "
+                f"Download file with the same external id manually to remediate. {e!s}"
             ).print_warning(console=console)
             return
 
