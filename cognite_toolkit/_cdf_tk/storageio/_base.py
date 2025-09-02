@@ -51,12 +51,13 @@ class StorageIO(ABC, Generic[T_Selector, T_CogniteResourceList, T_WritableCognit
     supported_read_formats: frozenset[str]
     chunk_size: int
 
-    def __init__(self, client: ToolkitClient) -> None:
+    def __init__(self, client: ToolkitClient, http_client: HttpClient) -> None:
         self.client = client
+        self._http_client = http_client
 
     @abstractmethod
     def download_iterable(
-        self, selector: T_Selector, limit: int | None = None
+        self, selector: T_Selector, limit: int | None = None, log_writer: FileWriter | None = None, item_result_logger: Sometructure | None = None,
     ) -> Iterable[T_WritableCogniteResourceList]:
         """Download items from the storage given the selection criteria.
 
@@ -82,7 +83,7 @@ class StorageIO(ABC, Generic[T_Selector, T_CogniteResourceList, T_WritableCognit
         raise NotImplementedError()
 
     @abstractmethod
-    def upload_items(self, data_chunk: T_CogniteResourceList, selector: T_Selector) -> None:
+    def upload_items(self, data_chunk: T_CogniteResourceList, selector: T_Selector, log_writer: FileWriter | None = None, item_result_logger: Sometructure | None = None) -> None:
         """Upload a chunk of data to the storage.
 
         Args:
