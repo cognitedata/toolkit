@@ -25,6 +25,7 @@ from .api.lookup import (
     AssetLookUpAPI,
     DataSetLookUpAPI,
     ExtractionPipelineLookUpAPI,
+    FunctionLookUpAPI,
     LocationFiltersLookUpAPI,
     LookUpGroup,
     SecurityCategoriesLookUpAPI,
@@ -79,6 +80,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.lookup.security_categories = MagicMock(spec_set=SecurityCategoriesLookUpAPI)
         self.lookup.location_filters = MagicMock(spec_set=LocationFiltersLookUpAPI)
         self.lookup.extraction_pipelines = MagicMock(spec_set=ExtractionPipelineLookUpAPI)
+        self.lookup.functions = MagicMock(spec_set=FunctionLookUpAPI)
         self.migration = MagicMock(spec=MigrationAPI)
         self.migration.instance_source = MagicMock(spec_set=InstanceSourceAPI)
         self.migration.view_source = MagicMock(spec_set=ViewSourceAPI)

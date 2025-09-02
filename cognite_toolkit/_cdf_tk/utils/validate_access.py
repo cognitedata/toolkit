@@ -1,7 +1,13 @@
 from collections.abc import Sequence
 from typing import Literal
 
-from cognite.client.data_classes.capabilities import Capability, DataModelInstancesAcl, DataModelsAcl, TimeSeriesAcl
+from cognite.client.data_classes.capabilities import (
+    Capability,
+    DataModelInstancesAcl,
+    DataModelsAcl,
+    FilesAcl,
+    TimeSeriesAcl,
+)
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
@@ -134,6 +140,43 @@ class ValidateAccess:
                     f"Unexpected timeseries scope type: {type(scope)}. Expected DataSet, AssetRootID or ID."
                 )
 
+        return output
+
+    def files(
+        self, action: Sequence[Literal["read", "write"]], dataset_id: int | None = None, operation: str | None = None
+    ) -> dict[str, list[str]] | None:
+        """Validate access to files.
+
+        Args:
+            action (Sequence[Literal["read", "write"]]): The actions to validate access for
+            dataset_id (int | None): The dataset ID to check access for. If None, checks access for all datasets.
+            operation (str | None): The operation being performed, used for error messages.
+        Returns:
+            dict[str, list[str]] | None: Returns a dictionary with the key 'dataset' if access is limited to a dataset scope, or None if access is granted to all files.
+        Raises:
+            ValueError: If the client.token.get_scope() returns an unexpected file scope type.
+            AuthorizationError: If the user does not have permission to perform the specified action on the given
+                dataset.
+        """
+        operation = operation or self.default_operation
+        file_scopes, actions_str = self._set_up_read_write(
+            action, FilesAcl.Action.Read, FilesAcl.Action.Write, operation, "files"
+        )
+        if isinstance(file_scopes[0], FilesAcl.Scope.All):
+            return None
+        if dataset_id is not None:
+            for scope in file_scopes:
+                if isinstance(scope, FilesAcl.Scope.DataSet) and dataset_id in scope.ids:
+                    return None
+            raise AuthorizationError(
+                f"You have no permission to {actions_str} files in dataset {dataset_id}. This is required to {operation}."
+            )
+        output: dict[str, list[str]] = {}
+        for scope in file_scopes:
+            if isinstance(scope, FilesAcl.Scope.DataSet):
+                output["dataset"] = self.client.lookup.data_sets.external_id(scope.ids)
+            else:
+                raise ValueError(f"Unexpected file scope type: {type(scope)}. Expected DataSet or All.")
         return output
 
     def _set_up_read_write(
