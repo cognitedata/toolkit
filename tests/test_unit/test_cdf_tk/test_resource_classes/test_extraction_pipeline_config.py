@@ -10,12 +10,35 @@ from tests.test_unit.utils import find_resources
 
 
 def invalid_extraction_pipeline_config_test_cases() -> Iterable:
+    # Missing required field: config
     yield pytest.param(
         {"externalId": "myConfig"}, {"Missing required field: 'config'"}, id="Missing required field: config"
     )
+    # Missing required field: external_id
+    yield pytest.param(
+        {"config": {"key": "value"}}, {"Missing required field: 'externalId'"}, id="Missing required field: externalId"
+    )
+    # Empty external_id
+    yield pytest.param(
+        {"externalId": "", "config": {"key": "value"}},
+        {"In field externalId string should have at least 1 character"},
+        id="Empty externalId",
+    )
+    # config is not a string or dict
+    yield pytest.param(
+        {"externalId": "myConfig", "config": 123},
+        {"Field 'config' must be a string or a dictionary."},
+        id="Config not string or dict",
+    )
+    # Unknown field present
+    yield pytest.param(
+        {"externalId": "myConfig", "config": {"key": "value"}, "unknownField": 1},
+        {"Unused field: 'unknownField'"},
+        id="Unknown field present",
+    )
 
 
-class TestEventYAML:
+class TestExtractionPipelineConfigYAML:
     @pytest.mark.parametrize("data", list(find_resources("Config", resource_dir="extraction_pipelines")))
     def test_load_valid_asset(self, data: dict[str, object]) -> None:
         loaded = ExtractionPipelineConfigYAML.model_validate(data)
