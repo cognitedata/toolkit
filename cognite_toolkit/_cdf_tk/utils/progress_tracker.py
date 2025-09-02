@@ -14,6 +14,7 @@ T_ID = TypeVar("T_ID", bound=Hashable)
 class ProgressTracker(Generic[T_ID]):
     def __init__(self, steps: list[str]) -> None:
         self._steps = list(steps)
+        self._step_to_idx: dict[str, int] = {step: i for i, step in enumerate(self._steps)}
         self._progress: dict[T_ID, dict[str, Status]] = {}
         self._lock = threading.Lock()
 
@@ -22,13 +23,14 @@ class ProgressTracker(Generic[T_ID]):
             self._progress[item_id] = {step: "pending" for step in self._steps}
 
     def set_progress(self, item_id: T_ID, step: str, status: Status) -> None:
+        """Set the progress of a specific step for a given item."""
         if status not in _ALLOWED_STATUS:
             raise ValueError(f"Status must be one of {humanize_collection(_ALLOWED_STATUS)}")
         with self._lock:
             self._init_item(item_id)
             try:
-                idx = self._steps.index(step)
-            except ValueError as e:
+                idx = self._step_to_idx[step]
+            except KeyError as e:
                 raise ValueError(f"Step '{step}' not found in steps {humanize_collection(self._steps)}") from e
             self._progress[item_id][step] = status
             if status == "failed":
@@ -42,8 +44,9 @@ class ProgressTracker(Generic[T_ID]):
     def get_progress(self, item_id: T_ID, step: str) -> Status: ...
 
     def get_progress(self, item_id: T_ID, step: str | None = None) -> dict[str, Status] | Status:
+        """Get the progress of all steps or a specific step for a given item."""
         with self._lock:
             self._init_item(item_id)
             if step is None:
-                return self._progress[item_id]
+                return self._progress[item_id].copy()
             return self._progress[item_id][step]
