@@ -1,9 +1,14 @@
+import concurrent.futures
+import json
 import re
+import threading
+import time
 from collections.abc import Iterable, Iterator
 from datetime import date, datetime, timezone
 from io import TextIOWrapper
 from itertools import product
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -17,6 +22,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import (
     Chunk,
     Compression,
     CSVReader,
+    CSVWriter,
     FailedParsing,
     FileReader,
     FileWriter,
@@ -24,7 +30,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import (
     Uncompressed,
 )
 from cognite_toolkit._cdf_tk.utils.fileio._readers import YAMLBaseReader
-from cognite_toolkit._cdf_tk.utils.fileio._writers import YAMLBaseWriter
+from cognite_toolkit._cdf_tk.utils.fileio._writers import NDJsonWriter, YAMLBaseWriter
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 
@@ -168,6 +174,261 @@ class TestFileWriter:
         with pytest.raises(ToolkitValueError) as excinfo:
             FileWriter.create_from_format("unknown_format", Path("."), "DummyKind", Uncompressed)
         assert str(excinfo.value).startswith("Unknown file format: unknown_format. Available formats: ")
+
+
+class TestFileWriterThreadSafety:
+    """Test thread safety of FileWriter implementations."""
+
+    def test_concurrent_write_chunks_same_filestem(self, tmp_path: Path) -> None:
+        """Test that concurrent writes to the same filestem are thread-safe."""
+        output_dir = tmp_path
+        writer = NDJsonWriter(output_dir, "test", Uncompressed)
+
+        # Prepare test data
+        num_threads = 10
+        chunks_per_thread = 100
+        all_chunks = []
+
+        def write_worker(thread_id: int) -> list[dict[str, Any]]:
+            """Worker function that writes chunks and returns what it wrote."""
+            chunks = [
+                {"thread": thread_id, "chunk": i, "data": f"test_data_{thread_id}_{i}"}
+                for i in range(chunks_per_thread)
+            ]
+            writer.write_chunks(chunks, "test_file")
+            return chunks
+
+        # Execute concurrent writes
+        with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor, writer:
+            futures = [executor.submit(write_worker, i) for i in range(num_threads)]
+            for future in concurrent.futures.as_completed(futures):
+                all_chunks.extend(future.result())
+
+        # Verify all data was written correctly
+        written_files = list(output_dir.glob("*.ndjson"))
+        assert len(written_files) > 0
+
+        written_data = []
+        for file_path in written_files:
+            with file_path.open("r") as file:
+                for line in file:
+                    written_data.append(json.loads(line.strip()))
+
+        # Verify all chunks were written
+        assert len(written_data) == len(all_chunks)
+
+        # Verify data integrity - each chunk should appear exactly once
+        written_keys = {(chunk["thread"], chunk["chunk"]) for chunk in written_data}
+        expected_keys = {(chunk["thread"], chunk["chunk"]) for chunk in all_chunks}
+        assert written_keys == expected_keys
+
+    def test_concurrent_write_chunks_different_filestems(self, tmp_path: Path) -> None:
+        """Test concurrent writes to different filestems are properly isolated."""
+        output_dir = tmp_path
+        writer = NDJsonWriter(output_dir, "test", Uncompressed)
+
+        num_threads = 5
+        chunks_per_thread = 50
+
+        def write_worker(thread_id: int) -> str:
+            """Worker function that writes to a unique filestem."""
+            filestem = f"file_{thread_id}"
+            chunks = [{"thread": thread_id, "chunk": i} for i in range(chunks_per_thread)]
+            writer.write_chunks(chunks, filestem)
+            return filestem
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor, writer:
+            futures = [executor.submit(write_worker, i) for i in range(num_threads)]
+            _ = [future.result() for future in concurrent.futures.as_completed(futures)]
+
+        # Verify each filestem has its own files
+        for thread_id in range(num_threads):
+            thread_files = list(output_dir.glob(f"file_{thread_id}-*.ndjson"))
+            assert len(thread_files) > 0
+
+            # Verify data in thread-specific files
+            written_data = []
+            for file_path in thread_files:
+                with file_path.open("r") as file:
+                    for line in file:
+                        data = json.loads(line.strip())
+                        assert data["thread"] == thread_id
+                        written_data.append(data)
+
+            assert len(written_data) == chunks_per_thread
+
+    def test_concurrent_file_size_limit_handling(self, tmp_path):
+        """Test that file size limit handling is thread-safe."""
+        output_dir = tmp_path
+        # Use very small file size limit to force file rotation
+        writer = NDJsonWriter(output_dir, "test", Uncompressed, max_file_size_bytes=1024)
+
+        num_threads = 5
+        large_chunks_per_thread = 20
+
+        def write_worker(thread_id: int) -> None:
+            """Worker that writes large chunks to trigger file rotation."""
+            for i in range(large_chunks_per_thread):
+                # Create a large chunk to exceed file size limit
+                large_data = "x" * 200  # Make chunk large enough
+                chunk = {"thread": thread_id, "chunk": i, "large_data": large_data}
+                writer.write_chunks([chunk], "large_file")
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor, writer:
+            futures = [executor.submit(write_worker, i) for i in range(num_threads)]
+            for future in concurrent.futures.as_completed(futures):
+                future.result()  # Wait for completion
+
+        # Verify multiple files were created due to size limits
+        written_files = list(output_dir.glob("large_file-*.ndjson"))
+        assert len(written_files) > 1  # Should have multiple files due to size limit
+
+        # Verify all data is present across files
+        total_chunks = 0
+        thread_counts = {}
+        for file_path in written_files:
+            with open(file_path) as f:
+                for line in f:
+                    data = json.loads(line.strip())
+                    total_chunks += 1
+                    thread_id = data["thread"]
+                    thread_counts[thread_id] = thread_counts.get(thread_id, 0) + 1
+
+        expected_total = num_threads * large_chunks_per_thread
+        assert total_chunks == expected_total
+
+        # Verify each thread's data is complete
+        for thread_id in range(num_threads):
+            assert thread_counts.get(thread_id, 0) == large_chunks_per_thread
+
+    def test_csv_writer_thread_safety(self, tmp_path):
+        """Test thread safety specifically for CSVWriter with its internal state."""
+        output_dir = tmp_path
+        columns = [
+            SchemaColumn("id", "integer", False),
+            SchemaColumn("name", "string", False),
+            SchemaColumn("value", "float", False),
+        ]
+        writer = CSVWriter(output_dir, "test", Uncompressed, columns)
+
+        num_threads = 8
+        rows_per_thread = 25
+
+        def csv_write_worker(thread_id: int) -> None:
+            """Worker that writes CSV data."""
+            chunks = [
+                {"id": thread_id * 1000 + i, "name": f"name_{thread_id}_{i}", "value": float(i)}
+                for i in range(rows_per_thread)
+            ]
+            writer.write_chunks(chunks, f"csv_test_{thread_id}")
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor, writer:
+            futures = [executor.submit(csv_write_worker, i) for i in range(num_threads)]
+            for future in concurrent.futures.as_completed(futures):
+                future.result()
+
+        # Verify CSV files were created and have correct structure
+        csv_files = list(output_dir.glob("*.csv"))
+        assert len(csv_files) > 0
+
+        total_rows = 0
+        for csv_file in csv_files:
+            with open(csv_file) as f:
+                lines = f.readlines()
+                # First line should be header
+                assert "id,name,value" in lines[0]
+                # Count data rows (excluding header)
+                total_rows += len(lines) - 1
+
+        expected_rows = num_threads * rows_per_thread
+        assert total_rows == expected_rows
+
+    def test_race_condition_file_count_tracking(self, tmp_path):
+        """Test that file count tracking doesn't have race conditions."""
+        output_dir = tmp_path
+        writer = NDJsonWriter(output_dir, "test", Uncompressed, max_file_size_bytes=512)
+
+        # Track file counts from multiple threads
+        file_counts = []
+        lock = threading.Lock()
+
+        def count_tracking_worker(thread_id: int) -> None:
+            """Worker that tracks file counts during concurrent writes."""
+            for i in range(20):
+                # Write data that might trigger file rotation
+                chunk = {"thread": thread_id, "index": i, "data": "x" * 100}
+                writer.write_chunks([chunk], "count_test")
+
+                # Record file count
+                with lock:
+                    count = writer._file_count_by_filename["count_test"]
+                    file_counts.append(count)
+
+                # Small delay to increase chance of race conditions
+                time.sleep(0.001)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor, writer:
+            futures = [executor.submit(count_tracking_worker, i) for i in range(5)]
+            for future in concurrent.futures.as_completed(futures):
+                future.result()
+
+        # File counts should be monotonically increasing (never decrease)
+        assert file_counts == sorted(file_counts)
+
+        # Final file count should match actual files created
+        actual_files = list(output_dir.glob("*.ndjson"))
+        expected_file_stems = [f"count_test-part-{count:04}.test" for count in sorted(set(file_counts))]
+        actual_file_stems = sorted([file.stem for file in actual_files])
+        # Note: writer.file_count might be 0 after context exit as it clears state
+        assert actual_file_stems == expected_file_stems
+
+    @pytest.mark.parametrize(
+        "num_threads,chunks_per_thread",
+        [
+            (2, 10),  # Light load
+            (5, 50),  # Medium load
+            (10, 100),  # Heavy load
+        ],
+    )
+    def test_stress_concurrent_writes(self, tmp_path: Path, num_threads: int, chunks_per_thread: int):
+        """Stress test concurrent writes with varying loads."""
+        output_dir = tmp_path
+        writer = NDJsonWriter(output_dir, "stress_test", Uncompressed)
+
+        def stress_worker(thread_id: int) -> int:
+            """Worker that performs stress writes."""
+            chunks_written = 0
+            for batch in range(5):  # Multiple batches per thread
+                chunks = [
+                    {"thread": thread_id, "batch": batch, "chunk": i, "timestamp": time.time()}
+                    for i in range(chunks_per_thread // 5)
+                ]
+                writer.write_chunks(chunks, f"stress_{thread_id}")
+                chunks_written += len(chunks)
+            return chunks_written
+
+        start_time = time.time()
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor, writer:
+            futures = [executor.submit(stress_worker, i) for i in range(num_threads)]
+            total_written = sum(future.result() for future in concurrent.futures.as_completed(futures))
+
+        end_time = time.time()
+
+        # Verify performance is reasonable (should complete within reasonable time)
+        duration = end_time - start_time
+        assert duration < 30.0, f"Stress test took too long: {duration}s"
+
+        # Verify all data was written
+        files = list(output_dir.glob("*.ndjson"))
+        assert len(files) > 0
+
+        written_count = 0
+        for file_path in files:
+            with open(file_path) as f:
+                written_count += sum(1 for _ in f)
+
+        assert written_count == total_written
 
 
 class TestFileReader:
