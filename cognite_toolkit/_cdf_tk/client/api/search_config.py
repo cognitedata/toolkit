@@ -30,6 +30,7 @@ class SearchConfigurationsAPI(APIClient):
 
         Returns:
             SearchConfig
+
         """
         res = self._post(
             url_path="/upsert",
