@@ -1,12 +1,12 @@
 from random import randint
 
 import pytest
-from cognite.client.data_classes.data_modeling import ViewId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.search_config import (
     SearchConfig,
     SearchConfigWrite,
+    ViewId,
 )
 
 SEARCH_CONFIG_NAME = "Search Config Name"
