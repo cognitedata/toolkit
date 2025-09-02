@@ -29,7 +29,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.loaders import AssetLoader, DataSetsLoader, FileMetadataLoader, LabelLoader, ResourceLoader
 from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, T_WritableCogniteResourceList
-from cognite_toolkit._cdf_tk.utils.aggregators import AssetAggregator, FileAggregator
+from cognite_toolkit._cdf_tk.utils.aggregators import AssetAggregator, AssetCentricAggregator, FileAggregator
 from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
 from cognite_toolkit._cdf_tk.utils.file import find_files_with_suffix_and_prefix
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
@@ -49,6 +49,7 @@ class BaseAssetCentricIO(
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
         self._loader = self._get_loader()
+        self._aggregator = self._get_aggregator()
         self._downloaded_data_sets_by_selector: dict[AssetCentricSelector, set[int]] = defaultdict(set)
         self._downloaded_labels_by_selector: dict[AssetCentricSelector, set[str]] = defaultdict(set)
 
@@ -59,6 +60,17 @@ class BaseAssetCentricIO(
         T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
     ]:
         raise NotImplementedError()
+
+    @abstractmethod
+    def _get_aggregator(self) -> AssetCentricAggregator:
+        raise NotImplementedError()
+
+    def count(self, selector: AssetCentricSelector) -> int | None:
+        if isinstance(selector, DataSetSelector):
+            return self._aggregator.count(data_set_external_id=selector.data_set_external_id)
+        elif isinstance(selector, AssetSubtreeSelector):
+            return self._aggregator.count(hierarchy=selector.hierarchy)
+        return None
 
     def configurations(self, selector: AssetCentricSelector) -> Iterable[StorageIOConfig]:
         data_set_ids = self._downloaded_data_sets_by_selector[selector]
@@ -136,10 +148,12 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
     supported_download_formats = frozenset({".parquet", ".csv", ".ndjson"})
     supported_compressions = frozenset({".gz"})
     supported_read_formats = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
-    chunk_size = 1000
 
     def _get_loader(self) -> AssetLoader:
         return AssetLoader.create_loader(self.client)
+
+    def _get_aggregator(self) -> AssetCentricAggregator:
+        return AssetAggregator(self.client)
 
     def get_schema(self, selector: AssetCentricSelector) -> list[SchemaColumn]:
         data_set_ids: list[int] = []
@@ -171,14 +185,6 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
             SchemaColumn(name="geoLocation", type="json"),
         ]
         return asset_schema + metadata_schema
-
-    def count(self, selector: AssetCentricSelector) -> int | None:
-        aggregator = AssetAggregator(self.client)
-        if isinstance(selector, DataSetSelector):
-            return aggregator.count(data_set_external_id=selector.data_set_external_id)
-        elif isinstance(selector, AssetSubtreeSelector):
-            return aggregator.count(hierarchy=selector.hierarchy)
-        return None
 
     def download_iterable(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[AssetList]:
         asset_subtree_external_ids: list[str] | None = None
@@ -232,6 +238,9 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
     def _get_loader(self) -> FileMetadataLoader:
         return FileMetadataLoader.create_loader(self.client)
 
+    def _get_aggregator(self) -> AssetCentricAggregator:
+        return FileAggregator(self.client)
+
     def get_schema(self, selector: AssetCentricSelector) -> list[SchemaColumn]:
         data_set_ids: list[int] = []
         if isinstance(selector, DataSetSelector):
@@ -263,14 +272,6 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
             SchemaColumn(name="geoLocation", type="json"),
         ]
         return file_schema + metadata_schema
-
-    def count(self, selector: AssetCentricSelector) -> int | None:
-        aggregator = FileAggregator(self.client)
-        if isinstance(selector, DataSetSelector):
-            return aggregator.count(data_set_external_id=selector.data_set_external_id)
-        elif isinstance(selector, AssetSubtreeSelector):
-            return aggregator.count(hierarchy=selector.hierarchy)
-        return None
 
     def download_iterable(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[FileMetadataList]:
         asset_subtree_external_ids: list[str] | None = None
