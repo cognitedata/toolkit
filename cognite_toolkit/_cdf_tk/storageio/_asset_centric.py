@@ -282,7 +282,7 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
             asset_subtree_external_ids = [selector.hierarchy]
         else:
             # This selector is for uploads, not for downloading from CDF.
-            raise ToolkitNotImplementedError(f"Selector type {type(selector)} not supported for AssetIO.")
+            raise ToolkitNotImplementedError(f"Selector type {type(selector)} not supported for FileMetadataIO.")
         for file_list in self.client.files(
             chunk_size=self.chunk_size,
             limit=limit,
