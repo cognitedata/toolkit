@@ -44,7 +44,7 @@ def invalid_extraction_pipeline_test_cases() -> Iterable:
     )
 
 
-class TestEventYAML:
+class TestExtractionPipelineYAML:
     @pytest.mark.parametrize("data", list(find_resources("ExtractionPipeline")))
     def test_load_valid_extraction_pipeline(self, data: dict[str, object]) -> None:
         loaded = ExtractionPipelineYAML.model_validate(data)
