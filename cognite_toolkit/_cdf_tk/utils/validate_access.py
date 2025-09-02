@@ -176,7 +176,7 @@ class ValidateAccess:
             if isinstance(scope, FilesAcl.Scope.DataSet):
                 output["dataset"] = self.client.lookup.data_sets.external_id(scope.ids)
             else:
-                raise ValueError(f"Unexpected file scope type: {type(scope)}. Expected DataSet.")
+                raise ValueError(f"Unexpected file scope type: {type(scope)}. Expected DataSet or All.")
         return output
 
     def _set_up_read_write(
