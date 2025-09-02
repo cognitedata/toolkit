@@ -11,6 +11,7 @@ from cognite.client.data_classes._base import (
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.loaders import AssetLoader, DataSetsLoader, LabelLoader, ResourceLoader
 from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.utils.aggregators import AssetAggregator
@@ -20,10 +21,10 @@ from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import StorageIOConfig, TableStorageIO
-from ._selectors import AssetCentricData
+from ._selectors import AssetCentricFileSelector, AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 
 
-class AssetIO(TableStorageIO[AssetCentricData, AssetWriteList, AssetList]):
+class AssetIO(TableStorageIO[AssetCentricSelector, AssetWriteList, AssetList]):
     folder_name = "classic"
     kind = "Assets"
     display_name = "Assets"
@@ -35,20 +36,23 @@ class AssetIO(TableStorageIO[AssetCentricData, AssetWriteList, AssetList]):
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
         self._loader = AssetLoader.create_loader(client)
-        self._downloaded_data_sets_by_selector: dict[AssetCentricData, set[int]] = defaultdict(set)
-        self._downloaded_labels_by_selector: dict[AssetCentricData, set[str]] = defaultdict(set)
+        self._downloaded_data_sets_by_selector: dict[AssetCentricSelector, set[int]] = defaultdict(set)
+        self._downloaded_labels_by_selector: dict[AssetCentricSelector, set[str]] = defaultdict(set)
 
-    def get_schema(self, selector: AssetCentricData) -> list[SchemaColumn]:
+    def get_schema(self, selector: AssetCentricSelector) -> list[SchemaColumn]:
         data_set_ids: list[int] = []
-        if selector.data_set_external_id:
-            data_set_ids.append(self.client.lookup.data_sets.id(selector.data_set_external_id))
         hierarchy: list[int] = []
-        if selector.hierarchy:
+        if isinstance(selector, DataSetSelector):
+            data_set_ids.append(self.client.lookup.data_sets.id(selector.data_set_external_id))
+        elif isinstance(selector, AssetSubtreeSelector):
             hierarchy.append(self.client.lookup.assets.id(selector.hierarchy))
 
-        metadata_keys = metadata_key_counts(
-            self.client, "assets", data_sets=data_set_ids or None, hierarchies=hierarchy or None
-        )
+        if hierarchy or data_set_ids:
+            metadata_keys = metadata_key_counts(
+                self.client, "assets", data_sets=data_set_ids or None, hierarchies=hierarchy or None
+            )
+        else:
+            metadata_keys = []
         metadata_schema: list[SchemaColumn] = []
         if metadata_keys:
             metadata_schema.extend(
@@ -66,13 +70,30 @@ class AssetIO(TableStorageIO[AssetCentricData, AssetWriteList, AssetList]):
         ]
         return asset_schema + metadata_schema
 
-    def count(self, selector: AssetCentricData) -> int:
-        return AssetAggregator(self.client).count(
-            hierarchy=selector.hierarchy, data_set_external_id=selector.data_set_external_id
-        )
+    def count(self, selector: AssetCentricSelector) -> int | None:
+        aggregator = AssetAggregator(self.client)
+        if isinstance(selector, DataSetSelector):
+            return aggregator.count(data_set_external_id=selector.data_set_external_id)
+        elif isinstance(selector, AssetSubtreeSelector):
+            return aggregator.count(hierarchy=selector.hierarchy)
+        return None
 
-    def download_iterable(self, selector: AssetCentricData, limit: int | None = None) -> Iterable[AssetList]:
-        for asset_list in self.client.assets(chunk_size=self.chunk_size, limit=limit, **selector.as_filter()):
+    def download_iterable(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[AssetList]:
+        asset_subtree_external_ids: list[str] | None = None
+        data_set_external_ids: list[str] | None = None
+        if isinstance(selector, DataSetSelector):
+            data_set_external_ids = [selector.data_set_external_id]
+        elif isinstance(selector, AssetSubtreeSelector):
+            asset_subtree_external_ids = [selector.hierarchy]
+        else:
+            # This selector is for uploads, not for downloading from CDF.
+            raise ToolkitNotImplementedError(f"Selector type {type(selector)} not supported for AssetIO.")
+        for asset_list in self.client.assets(
+            chunk_size=self.chunk_size,
+            limit=limit,
+            asset_subtree_external_ids=asset_subtree_external_ids,
+            data_set_external_ids=data_set_external_ids,
+        ):
             for asset in asset_list:
                 if asset.data_set_id:
                     self._downloaded_data_sets_by_selector[selector].add(asset.data_set_id)
@@ -86,7 +107,7 @@ class AssetIO(TableStorageIO[AssetCentricData, AssetWriteList, AssetList]):
 
             yield asset_list
 
-    def upload_items(self, data_chunk: AssetWriteList, selector: AssetCentricData) -> None:
+    def upload_items(self, data_chunk: AssetWriteList, selector: AssetCentricSelector) -> None:
         if not data_chunk:
             return
         self.client.assets.create(data_chunk)
@@ -97,7 +118,7 @@ class AssetIO(TableStorageIO[AssetCentricData, AssetWriteList, AssetList]):
     def data_to_json_chunk(self, data_chunk: AssetList) -> list[dict[str, JsonVal]]:
         return [self._loader.dump_resource(item) for item in data_chunk]
 
-    def configurations(self, selector: AssetCentricData) -> Iterable[StorageIOConfig]:
+    def configurations(self, selector: AssetCentricSelector) -> Iterable[StorageIOConfig]:
         data_set_ids = self._downloaded_data_sets_by_selector[selector]
         if data_set_ids:
             data_set_external_ids = self.client.lookup.data_sets.external_id(list(data_set_ids))
@@ -124,14 +145,14 @@ class AssetIO(TableStorageIO[AssetCentricData, AssetWriteList, AssetList]):
             value=[loader.dump_resource(item) for item in items],
         )
 
-    def load_selector(self, datafile: Path) -> AssetCentricData:
-        return AssetCentricData(datafile=datafile)
+    def load_selector(self, datafile: Path) -> AssetCentricSelector:
+        return AssetCentricFileSelector(datafile=datafile)
 
-    def ensure_configurations(self, selector: AssetCentricData, console: Console | None = None) -> None:
+    def ensure_configurations(self, selector: AssetCentricSelector, console: Console | None = None) -> None:
         """Ensures that all data sets and labels referenced by the asset selection exist in CDF."""
-        datafile = selector.datafile
-        if not datafile:
+        if not isinstance(selector, AssetCentricFileSelector):
             return None
+        datafile = selector.datafile
         filepaths = find_files_with_suffix_and_prefix(
             datafile.parent.parent / DataSetsLoader.folder_name, datafile.name, suffix=f".{DataSetsLoader.kind}.yaml"
         )
