@@ -83,10 +83,10 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
         return self._writer_by_filepath[filepath]
 
     def __enter__(self) -> Self:
-        with self._lock:
-            self._file_count_by_filename.clear()
-            self._writer_by_filepath.clear()
-            return self
+        # Defensive check - should never trigger in normal usage
+        if self._writer_by_filepath or self._file_count_by_filename:
+            raise RuntimeError(f"{type(self).__name__} context manager should not be reused")
+        return self
 
     def __exit__(
         self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None
