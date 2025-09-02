@@ -85,6 +85,18 @@ class BaseAssetCentricIO(
             list(self._downloaded_labels_by_selector[selector]), LabelLoader.create_loader(self.client)
         )
 
+    def _collect_dependencies(self, resources: AssetList | FileMetadataList, selector: AssetCentricSelector) -> None:
+        for resource in resources:
+            if resource.data_set_id:
+                self._downloaded_data_sets_by_selector[selector].add(resource.data_set_id)
+            for label in resource.labels or []:
+                if isinstance(label, str):
+                    self._downloaded_labels_by_selector[selector].add(label)
+                elif isinstance(label, Label | LabelDefinition) and label.external_id:
+                    self._downloaded_labels_by_selector[selector].add(label.external_id)
+                elif isinstance(label, dict) and "externalId" in label:
+                    self._downloaded_labels_by_selector[selector].add(label["externalId"])
+
     @classmethod
     def _configurations(
         cls,
@@ -205,17 +217,7 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
             asset_subtree_external_ids=asset_subtree_external_ids,
             data_set_external_ids=data_set_external_ids,
         ):
-            for asset in asset_list:
-                if asset.data_set_id:
-                    self._downloaded_data_sets_by_selector[selector].add(asset.data_set_id)
-                for label in asset.labels or []:
-                    if isinstance(label, str):
-                        self._downloaded_labels_by_selector[selector].add(label)
-                    elif isinstance(label, Label | LabelDefinition) and label.external_id:
-                        self._downloaded_labels_by_selector[selector].add(label.external_id)
-                    elif isinstance(label, dict) and "externalId" in label:
-                        self._downloaded_labels_by_selector[selector].add(label["externalId"])
-
+            self._collect_dependencies(asset_list, selector)
             yield asset_list
 
     def upload_items(self, data_chunk: AssetWriteList, selector: AssetCentricSelector) -> None:
@@ -289,17 +291,7 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
             asset_subtree_external_ids=asset_subtree_external_ids,
             data_set_external_ids=data_set_external_ids,
         ):
-            for file in file_list:
-                if file.data_set_id:
-                    self._downloaded_data_sets_by_selector[selector].add(file.data_set_id)
-                for label in file.labels or []:
-                    if isinstance(label, str):
-                        self._downloaded_labels_by_selector[selector].add(label)
-                    elif isinstance(label, Label | LabelDefinition) and label.external_id:
-                        self._downloaded_labels_by_selector[selector].add(label.external_id)
-                    elif isinstance(label, dict) and "externalId" in label:
-                        self._downloaded_labels_by_selector[selector].add(label["externalId"])
-
+            self._collect_dependencies(file_list, selector)
             yield file_list
 
     def upload_items(self, data_chunk: FileMetadataWriteList, selector: AssetCentricSelector) -> None:
