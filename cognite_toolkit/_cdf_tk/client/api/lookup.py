@@ -71,7 +71,7 @@ class LookUpAPI(ToolkitAPI, ABC):
             self._reverse_cache.update({v: k for k, v in lookup.items()})
             if len(missing) != len(lookup) and not is_dry_run:
                 raise ResourceRetrievalError(
-                    f"Failed to retrieve {self.resource_name} with external_id {missing}. Have you created it?"
+                    f"Failed to retrieve {self.resource_name} with external_id {missing}. Have you created it?", missing
                 )
         return (
             self._get_id_from_cache(external_id, is_dry_run, allow_empty)
