@@ -15,6 +15,33 @@ def invalid_extraction_pipeline_test_cases() -> Iterable:
         {"Missing required field: 'name'", "Missing required field: 'dataSetExternalId'"},
         id="Missing required fields",
     )
+    # Missing externalId
+    yield pytest.param(
+        {"name": "Pipeline 2", "dataSetExternalId": "ds1"},
+        {"Missing required field: 'externalId'"},
+        id="Missing externalId",
+    )
+    # Empty name
+    yield pytest.param(
+        {"externalId": "pipeline3", "name": "", "dataSetExternalId": "ds2"},
+        {"In field name string should have at least 1 character"},
+        id="Empty name",
+    )
+    # Invalid dataSetExternalId type
+    yield pytest.param(
+        {"externalId": "pipeline4", "name": "Pipeline 4", "dataSetExternalId": 123},
+        {
+            "In field dataSetExternalId input should be a valid string. Got 123 of type "
+            "int. Hint: Use double quotes to force string."
+        },
+        id="Invalid dataSetExternalId type",
+    )
+    # All required fields present but with extra unknown field
+    yield pytest.param(
+        {"externalId": "pipeline5", "name": "Pipeline 5", "dataSetExternalId": "ds5", "unknownField": "value"},
+        {"Unused field: 'unknownField'"},
+        id="Unknown field present",
+    )
 
 
 class TestEventYAML:
