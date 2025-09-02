@@ -6,6 +6,7 @@ from cognite.client.data_classes import Label, LabelDefinition
 from cognite.client.data_classes.data_modeling import ContainerId
 from cognite.client.data_classes.data_modeling.data_types import (
     Boolean,
+    DirectRelation,
     Enum,
     EnumValue,
     Float32,
@@ -436,6 +437,22 @@ class TestConvertToContainerProperty:
                 False,
                 id="Non-asset-centric boolean to primary property conversion",
             ),
+            pytest.param(
+                "acceleration:m-per-sec2",
+                DirectRelation(),
+                (ContainerId("cdf_cdm", "CogniteTimeSeries"), "unit"),
+                ("timeseries", "unitExternalId"),
+                {"space": "cdf_cdm_units", "externalId": "acceleration:m-per-sec2"},
+                id="TimeSeries unitExternalId to DirectRelation conversion",
+            ),
+            pytest.param(
+                None,
+                DirectRelation(),
+                (ContainerId("cdf_cdm", "CogniteTimeSeries"), "unit"),
+                ("timeseries", "unitExternalId"),
+                None,
+                id="TimeSeries unitExternalId to DirectRelation conversion with None value (nullable)",
+            ),
         ],
     )
     def test_asset_centric_conversion(
@@ -470,6 +487,14 @@ class TestConvertToContainerProperty:
                 ("asset", "labels"),
                 "Cannot convert not_a_list to labels. Expected a list of Labels, objects, or LabelDefinitions.",
                 id="List to Text conversion error",
+            ),
+            pytest.param(
+                True,
+                DirectRelation(),
+                (ContainerId("cdf_cdm", "CogniteTimeSeries"), "unit"),
+                ("timeseries", "unitExternalId"),
+                "Cannot convert True to TimeSeries unit. Expected a string representing the externalId.",
+                id="TimeSeries unitExternalId to DirectRelation conversion error",
             ),
         ],
     )

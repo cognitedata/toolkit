@@ -78,7 +78,7 @@ class TestExtendedFilesAPI:
             created_dm = client.data_modeling.instances.apply(cognite_file).nodes
 
             retrieved_ts: FileMetadata | None = None
-            for _ in range(10):
+            for _ in range(30):  # Wait up to 30 seconds for the syncer to update the file metadata
                 retrieved_ts = client.files.retrieve(instance_id=cognite_file.as_id())
                 if retrieved_ts is not None:
                     break
