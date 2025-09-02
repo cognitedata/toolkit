@@ -72,6 +72,9 @@ class BaseAssetCentricIO(
             return self._aggregator.count(hierarchy=selector.hierarchy)
         return None
 
+    def data_to_json_chunk(self, data_chunk: T_WritableCogniteResourceList) -> list[dict[str, JsonVal]]:
+        return [self._loader.dump_resource(item) for item in data_chunk]
+
     def configurations(self, selector: AssetCentricSelector) -> Iterable[StorageIOConfig]:
         data_set_ids = self._downloaded_data_sets_by_selector[selector]
         if data_set_ids:
@@ -223,9 +226,6 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> AssetWriteList:
         return AssetWriteList([self._loader.load_resource(item) for item in data_chunk])
 
-    def data_to_json_chunk(self, data_chunk: AssetList) -> list[dict[str, JsonVal]]:
-        return [self._loader.dump_resource(item) for item in data_chunk]
-
 
 class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, FileMetadataWriteList, FileMetadataList]):
     folder_name = FileMetadataLoader.folder_name
@@ -309,6 +309,3 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
 
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> FileMetadataWriteList:
         return FileMetadataWriteList([self._loader.load_resource(item) for item in data_chunk])
-
-    def data_to_json_chunk(self, data_chunk: FileMetadataList) -> list[dict[str, JsonVal]]:
-        return [self._loader.dump_resource(item) for item in data_chunk]
