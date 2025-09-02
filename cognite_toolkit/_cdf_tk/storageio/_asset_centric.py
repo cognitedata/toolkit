@@ -1,11 +1,18 @@
+from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Iterable
 from pathlib import Path
+from typing import Generic
 
 from cognite.client.data_classes import (
+    Asset,
     AssetList,
+    AssetWrite,
     AssetWriteList,
+    DataSetWriteList,
+    FileMetadata,
     FileMetadataList,
+    FileMetadataWrite,
     FileMetadataWriteList,
     Label,
     LabelDefinition,
@@ -15,6 +22,7 @@ from cognite.client.data_classes._base import (
     T_WritableCogniteResource,
     T_WriteClass,
 )
+from cognite.client.data_classes.labels import LabelDefinitionWriteList
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -31,7 +39,97 @@ from ._base import StorageIOConfig, TableStorageIO
 from ._selectors import AssetCentricFileSelector, AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 
 
-class AssetIO(TableStorageIO[AssetCentricSelector, AssetWriteList, AssetList]):
+class BaseAssetCentricIO(
+    Generic[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
+    TableStorageIO[AssetCentricSelector, T_CogniteResourceList, T_WritableCogniteResourceList],
+    ABC,
+):
+    chunk_size = 1000
+
+    def __init__(self, client: ToolkitClient) -> None:
+        super().__init__(client)
+        self._loader = self._get_loader()
+        self._downloaded_data_sets_by_selector: dict[AssetCentricSelector, set[int]] = defaultdict(set)
+        self._downloaded_labels_by_selector: dict[AssetCentricSelector, set[str]] = defaultdict(set)
+
+    @abstractmethod
+    def _get_loader(
+        self,
+    ) -> ResourceLoader[
+        T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
+    ]:
+        raise NotImplementedError()
+
+    def configurations(self, selector: AssetCentricSelector) -> Iterable[StorageIOConfig]:
+        data_set_ids = self._downloaded_data_sets_by_selector[selector]
+        if data_set_ids:
+            data_set_external_ids = self.client.lookup.data_sets.external_id(list(data_set_ids))
+            yield from self._configurations(data_set_external_ids, DataSetsLoader.create_loader(self.client))
+
+        yield from self._configurations(
+            list(self._downloaded_labels_by_selector[selector]), LabelLoader.create_loader(self.client)
+        )
+
+    @classmethod
+    def _configurations(
+        cls,
+        ids: list[str],
+        loader: DataSetsLoader | LabelLoader,
+    ) -> Iterable[StorageIOConfig]:
+        if not ids:
+            return
+        items = loader.retrieve(list(ids))
+        yield StorageIOConfig(
+            kind=loader.kind,
+            folder_name=loader.folder_name,
+            # We know that the items will be labels for LabelLoader and data sets for DataSetsLoader
+            value=[loader.dump_resource(item) for item in items],  # type: ignore[arg-type]
+        )
+
+    def load_selector(self, datafile: Path) -> AssetCentricSelector:
+        return AssetCentricFileSelector(datafile=datafile)
+
+    def ensure_configurations(self, selector: AssetCentricSelector, console: Console | None = None) -> None:
+        """Ensures that all data sets and labels referenced by the asset selection exist in CDF."""
+        if not isinstance(selector, AssetCentricFileSelector):
+            return None
+        datafile = selector.datafile
+        filepaths = find_files_with_suffix_and_prefix(
+            datafile.parent.parent / DataSetsLoader.folder_name, datafile.name, suffix=f".{DataSetsLoader.kind}.yaml"
+        )
+        self._create_if_not_exists(filepaths, DataSetsLoader.create_loader(self.client), console)
+
+        filepaths = find_files_with_suffix_and_prefix(
+            datafile.parent.parent / LabelLoader.folder_name, datafile.name, suffix=f".{LabelLoader.kind}.yaml"
+        )
+        self._create_if_not_exists(filepaths, LabelLoader.create_loader(self.client), console)
+        return None
+
+    @classmethod
+    def _create_if_not_exists(
+        cls,
+        filepaths: list[Path],
+        loader: DataSetsLoader | LabelLoader,
+        console: Console | None = None,
+    ) -> None:
+        items: LabelDefinitionWriteList | DataSetWriteList = loader.list_write_cls([])
+        for filepath in filepaths:
+            if not filepath.exists():
+                continue
+            for loaded in loader.load_resource_file(filepath):
+                items.append(loader.load_resource(loaded))
+        # MyPy fails to understand that existing, existing_ids and missing will be consistent for given loader.
+        existing = loader.retrieve(loader.get_ids(items))  # type: ignore[arg-type]
+        existing_ids = set(loader.get_ids(existing))  # type: ignore[arg-type]
+        if missing := [item for item in items if loader.get_id(item) not in existing_ids]:  # type: ignore[arg-type]
+            loader.create(loader.list_write_cls(missing))  # type: ignore[arg-type]
+            if console:
+                console.print(
+                    f"Created {loader.kind} for {len(missing)} items: {', '.join(str(item) for item in loader.get_ids(missing))}"  # type: ignore[arg-type]
+                )
+
+
+class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetList]):
     folder_name = "classic"
     kind = "Assets"
     display_name = "Assets"
@@ -40,11 +138,8 @@ class AssetIO(TableStorageIO[AssetCentricSelector, AssetWriteList, AssetList]):
     supported_read_formats = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
     chunk_size = 1000
 
-    def __init__(self, client: ToolkitClient) -> None:
-        super().__init__(client)
-        self._loader = AssetLoader.create_loader(client)
-        self._downloaded_data_sets_by_selector: dict[AssetCentricSelector, set[int]] = defaultdict(set)
-        self._downloaded_labels_by_selector: dict[AssetCentricSelector, set[str]] = defaultdict(set)
+    def _get_loader(self) -> AssetLoader:
+        return AssetLoader.create_loader(self.client)
 
     def get_schema(self, selector: AssetCentricSelector) -> list[SchemaColumn]:
         data_set_ids: list[int] = []
@@ -125,91 +220,17 @@ class AssetIO(TableStorageIO[AssetCentricSelector, AssetWriteList, AssetList]):
     def data_to_json_chunk(self, data_chunk: AssetList) -> list[dict[str, JsonVal]]:
         return [self._loader.dump_resource(item) for item in data_chunk]
 
-    def configurations(self, selector: AssetCentricSelector) -> Iterable[StorageIOConfig]:
-        data_set_ids = self._downloaded_data_sets_by_selector[selector]
-        if data_set_ids:
-            data_set_external_ids = self.client.lookup.data_sets.external_id(list(data_set_ids))
-            yield from self._configurations(data_set_external_ids, DataSetsLoader.create_loader(self.client))
 
-        yield from self._configurations(
-            list(self._downloaded_labels_by_selector[selector]), LabelLoader.create_loader(self.client)
-        )
-
-    @classmethod
-    def _configurations(
-        cls,
-        ids: list[T_ID],
-        loader: ResourceLoader[
-            T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
-        ],
-    ) -> Iterable[StorageIOConfig]:
-        if not ids:
-            return
-        items = loader.retrieve(list(ids))
-        yield StorageIOConfig(
-            kind=loader.kind,
-            folder_name=loader.folder_name,
-            value=[loader.dump_resource(item) for item in items],
-        )
-
-    def load_selector(self, datafile: Path) -> AssetCentricSelector:
-        return AssetCentricFileSelector(datafile=datafile)
-
-    def ensure_configurations(self, selector: AssetCentricSelector, console: Console | None = None) -> None:
-        """Ensures that all data sets and labels referenced by the asset selection exist in CDF."""
-        if not isinstance(selector, AssetCentricFileSelector):
-            return None
-        datafile = selector.datafile
-        filepaths = find_files_with_suffix_and_prefix(
-            datafile.parent.parent / DataSetsLoader.folder_name, datafile.name, suffix=f".{DataSetsLoader.kind}.yaml"
-        )
-        self._create_if_not_exists(filepaths, DataSetsLoader.create_loader(self.client), console)
-
-        filepaths = find_files_with_suffix_and_prefix(
-            datafile.parent.parent / LabelLoader.folder_name, datafile.name, suffix=f".{LabelLoader.kind}.yaml"
-        )
-        self._create_if_not_exists(filepaths, LabelLoader.create_loader(self.client), console)
-        return None
-
-    @classmethod
-    def _create_if_not_exists(
-        cls,
-        filepaths: list[Path],
-        loader: ResourceLoader[
-            T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
-        ],
-        console: Console | None = None,
-    ) -> None:
-        items: T_CogniteResourceList = loader.list_write_cls([])
-        for filepath in filepaths:
-            if not filepath.exists():
-                continue
-            for loaded in loader.load_resource_file(filepath):
-                items.append(loader.load_resource(loaded))
-        existing = loader.retrieve(loader.get_ids(items))
-        existing_ids = set(loader.get_ids(existing))
-        if missing := [item for item in items if loader.get_id(item) not in existing_ids]:
-            loader.create(loader.list_write_cls(missing))
-            if console:
-                console.print(
-                    f"Created {loader.kind} for {len(missing)} items: {', '.join(str(item) for item in loader.get_ids(missing))}"
-                )
-
-
-class FileMetadataIO(TableStorageIO[AssetCentricSelector, FileMetadataWriteList, FileMetadataList]):
+class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, FileMetadataWriteList, FileMetadataList]):
     folder_name = FileMetadataLoader.folder_name
     kind = "FileMetadata"
     display_name = "file metadata"
     supported_download_formats = frozenset({".parquet", ".csv", ".ndjson"})
     supported_compressions = frozenset({".gz"})
     supported_read_formats = frozenset({".parquet", ".csv", ".ndjson"})
-    chunk_size = 1000
 
-    def __init__(self, client: ToolkitClient) -> None:
-        super().__init__(client)
-        self._loader = FileMetadataLoader.create_loader(client)
-        self._downloaded_data_sets_by_selector: dict[AssetCentricSelector, set[int]] = defaultdict(set)
-        self._downloaded_labels_by_selector: dict[AssetCentricSelector, set[str]] = defaultdict(set)
+    def _get_loader(self) -> FileMetadataLoader:
+        return FileMetadataLoader.create_loader(self.client)
 
     def get_schema(self, selector: AssetCentricSelector) -> list[SchemaColumn]:
         data_set_ids: list[int] = []
@@ -290,73 +311,3 @@ class FileMetadataIO(TableStorageIO[AssetCentricSelector, FileMetadataWriteList,
 
     def data_to_json_chunk(self, data_chunk: FileMetadataList) -> list[dict[str, JsonVal]]:
         return [self._loader.dump_resource(item) for item in data_chunk]
-
-    def configurations(self, selector: AssetCentricSelector) -> Iterable[StorageIOConfig]:
-        data_set_ids = self._downloaded_data_sets_by_selector[selector]
-        if data_set_ids:
-            data_set_external_ids = self.client.lookup.data_sets.external_id(list(data_set_ids))
-            yield from self._configurations(data_set_external_ids, DataSetsLoader.create_loader(self.client))
-
-        yield from self._configurations(
-            list(self._downloaded_labels_by_selector[selector]), LabelLoader.create_loader(self.client)
-        )
-
-    @classmethod
-    def _configurations(
-        cls,
-        ids: list[T_ID],
-        loader: ResourceLoader[
-            T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
-        ],
-    ) -> Iterable[StorageIOConfig]:
-        if not ids:
-            return
-        items = loader.retrieve(list(ids))
-        yield StorageIOConfig(
-            kind=loader.kind,
-            folder_name=loader.folder_name,
-            value=[loader.dump_resource(item) for item in items],
-        )
-
-    def load_selector(self, datafile: Path) -> AssetCentricSelector:
-        return AssetCentricFileSelector(datafile=datafile)
-
-    def ensure_configurations(self, selector: AssetCentricSelector, console: Console | None = None) -> None:
-        """Ensures that all data sets and labels referenced by the asset selection exist in CDF."""
-        if not isinstance(selector, AssetCentricFileSelector):
-            return None
-        datafile = selector.datafile
-        filepaths = find_files_with_suffix_and_prefix(
-            datafile.parent.parent / DataSetsLoader.folder_name, datafile.name, suffix=f".{DataSetsLoader.kind}.yaml"
-        )
-        self._create_if_not_exists(filepaths, DataSetsLoader.create_loader(self.client), console)
-
-        filepaths = find_files_with_suffix_and_prefix(
-            datafile.parent.parent / LabelLoader.folder_name, datafile.name, suffix=f".{LabelLoader.kind}.yaml"
-        )
-        self._create_if_not_exists(filepaths, LabelLoader.create_loader(self.client), console)
-        return None
-
-    @classmethod
-    def _create_if_not_exists(
-        cls,
-        filepaths: list[Path],
-        loader: ResourceLoader[
-            T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
-        ],
-        console: Console | None = None,
-    ) -> None:
-        items: T_CogniteResourceList = loader.list_write_cls([])
-        for filepath in filepaths:
-            if not filepath.exists():
-                continue
-            for loaded in loader.load_resource_file(filepath):
-                items.append(loader.load_resource(loaded))
-        existing = loader.retrieve(loader.get_ids(items))
-        existing_ids = set(loader.get_ids(existing))
-        if missing := [item for item in items if loader.get_id(item) not in existing_ids]:
-            loader.create(loader.list_write_cls(missing))
-            if console:
-                console.print(
-                    f"Created {loader.kind} for {len(missing)} items: {', '.join(str(item) for item in loader.get_ids(missing))}"
-                )
