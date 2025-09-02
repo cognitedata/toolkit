@@ -33,7 +33,6 @@ class ExtractionPipelineYAML(ToolkitResource):
     description: str | None = Field(None, description="Description of the extraction pipeline.", max_length=500)
     data_set_external_id: str = Field(description="The external id of the dataset this extraction pipeline belongs to.")
     raw_tables: list[RawTable] | None = Field(None, description="Raw tables")
-    config: dict = Field(description="Configuration of the extraction pipeline.")
     schedule: Literal["On trigger", "Continuous"] | str | None = Field(
         None,
         description="Possible values: “On trigger”, “Continuous” or cron expression. If empty then null.",
