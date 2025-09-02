@@ -2,7 +2,16 @@ import json
 
 import pytest
 import responses
-from cognite.client.data_classes.data_modeling import EdgeId, NodeApply, NodeId, NodeOrEdgeData, ViewId
+from cognite.client.data_classes.data_modeling import (
+    Edge,
+    EdgeApply,
+    EdgeId,
+    Node,
+    NodeApply,
+    NodeId,
+    NodeOrEdgeData,
+    ViewId,
+)
 from cognite.client.data_classes.data_modeling.cdm.v1 import (
     CogniteAnnotationApply,
     CogniteAssetApply,
@@ -11,6 +20,7 @@ from cognite.client.data_classes.data_modeling.cdm.v1 import (
 from cognite.client.exceptions import CogniteAPIError, CogniteConnectionError, CogniteReadTimeout
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceList
 
 
 @pytest.fixture()
@@ -233,3 +243,35 @@ class TestInstances:
             assert error.code == 400
             assert error.message == error_message
             assert error.failed == ids
+
+
+class TestInstancesDataClasses:
+    def test_instance_list_mixed_instance_types(self) -> None:
+        node = Node(
+            space="some_space",
+            external_id="test_node",
+            version=1,
+            created_time=0,
+            last_updated_time=0,
+            deleted_time=None,
+            type=None,
+            properties=None,
+        )
+        edge = Edge(
+            space="some_space",
+            external_id="test_edge",
+            version=1,
+            created_time=0,
+            last_updated_time=0,
+            deleted_time=None,
+            type=("some_space", "some_relation"),
+            properties=None,
+            start_node=("some_space", "start_node"),
+            end_node=("some_space", "end_node"),
+        )
+        my_list = InstanceList([node, edge])
+        assert len(my_list) == 2
+        my_write_list = my_list.as_write()
+        assert len(my_write_list) == 2
+        assert isinstance(my_write_list[0], NodeApply)
+        assert isinstance(my_write_list[1], EdgeApply)
