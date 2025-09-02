@@ -13,6 +13,8 @@ T_ID = TypeVar("T_ID", bound=Hashable)
 
 class ProgressTracker(Generic[T_ID]):
     def __init__(self, steps: list[str]) -> None:
+        if len(steps) != len(set(steps)):
+            raise ValueError("Input `steps` must be unique.")
         self._steps = list(steps)
         self._step_to_idx: dict[str, int] = {step: i for i, step in enumerate(self._steps)}
         self._progress: dict[T_ID, dict[str, Status]] = {}
