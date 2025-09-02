@@ -196,7 +196,7 @@ class AssetIO(TableStorageIO[AssetCentricSelector, AssetWriteList, AssetList]):
                 )
 
 
-class FileIO(TableStorageIO[AssetCentricSelector, FileMetadataWriteList, FileMetadataList]):
+class FileMetadataIO(TableStorageIO[AssetCentricSelector, FileMetadataWriteList, FileMetadataList]):
     folder_name = FileMetadataLoader.folder_name
     kind = "FileMetadata"
     display_name = "file metadata"
