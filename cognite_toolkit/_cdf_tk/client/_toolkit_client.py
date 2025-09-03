@@ -93,12 +93,11 @@ class ToolkitClientConfig(ClientConfig):
             endpoint = f"/{endpoint}"
         return f"{self.base_url}/api/v1/projects/{self.project}{endpoint}"
 
-    def create_app_url(self, endpoint: str, api_version: str = "v1") -> str:
+    def create_app_url(self, endpoint: str) -> str:
         """Create a full App URL for the given endpoint.
 
         Args:
             endpoint (str): The App endpoint to append to the base URL.
-            api_version (str): The API version to use in the URL. Defaults to "v1".
 
         Returns:
             str: The full App URL.
@@ -108,11 +107,11 @@ class ToolkitClientConfig(ClientConfig):
             >>> config.create_app_url("/some/app/endpoint")
             "https://bluefield.cognitedata.com/apps/v1/projects/my_project/some/app/endpoint"
         """
-        if not endpoint or not api_version:
+        if not endpoint:
             raise RuntimeError("Both endpoint and api_version must be provided")
         if not endpoint.startswith("/"):
             endpoint = f"/{endpoint}"
-        base_path = f"/apps/{api_version}/projects/{self.project}{endpoint}"
+        base_path = f"/apps/v1/projects/{self.project}{endpoint}"
         return urljoin(self.base_url, base_path)
 
 
