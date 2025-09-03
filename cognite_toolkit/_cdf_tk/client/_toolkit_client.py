@@ -108,7 +108,7 @@ class ToolkitClientConfig(ClientConfig):
             "https://bluefield.cognitedata.com/apps/v1/projects/my_project/some/app/endpoint"
         """
         if not endpoint:
-            raise RuntimeError("Both endpoint and api_version must be provided")
+            raise ValueError("Endpoint must be a non-empty string")
         if not endpoint.startswith("/"):
             endpoint = f"/{endpoint}"
         base_path = f"/apps/v1/projects/{self.project}{endpoint}"
