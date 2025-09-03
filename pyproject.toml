@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "python-dotenv >=1.0.0",
-    "cognite-sdk >=7.80.2, <8.0.0",
+    "cognite-sdk >=7.83.0, <8.0.0",
     "pandas >=1.5.3, <3.0.0",
     "pyyaml >=6.0.1",
     "typer >=0.12.0, <1.0.0",
@@ -77,6 +77,12 @@ package = true
 
 [tool.coverage.report]
 show_missing = true
+omit = [
+    # The apps module only holds CLI entrypoints, so we skip it in coverage reports'
+    "cognite_toolkit/_cdf_tk/apps/*",
+    # Exclude CLI entrypoints
+    "cognite_toolkit/_cdf.py",
+]
 
 [tool.pytest.ini_options]
 minversion = "8.0"

@@ -41,10 +41,10 @@ class AssetIO(TableStorageIO[AssetCentricSelector, AssetWriteList, AssetList]):
 
     def get_schema(self, selector: AssetCentricSelector) -> list[SchemaColumn]:
         data_set_ids: list[int] = []
+        hierarchy: list[int] = []
         if isinstance(selector, DataSetSelector):
             data_set_ids.append(self.client.lookup.data_sets.id(selector.data_set_external_id))
-        hierarchy: list[int] = []
-        if isinstance(selector, AssetSubtreeSelector):
+        elif isinstance(selector, AssetSubtreeSelector):
             hierarchy.append(self.client.lookup.assets.id(selector.hierarchy))
 
         if hierarchy or data_set_ids:
