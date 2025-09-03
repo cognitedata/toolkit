@@ -1,11 +1,11 @@
-from pydantic import Field
+from pydantic import Field, SecretStr
 
 from .base import BaseModelResource
 
 
 class AuthenticationClientIdSecret(BaseModelResource):
     client_id: str = Field(description="Client Id.")
-    client_secret: str = Field(description="Client Secret.")
+    client_secret: SecretStr = Field(description="Client Secret.")
 
 
 class OIDCCredential(AuthenticationClientIdSecret):

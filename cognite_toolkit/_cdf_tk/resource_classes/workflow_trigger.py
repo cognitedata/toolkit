@@ -22,16 +22,20 @@ class TriggerRuleYAML(BaseModelResource):
 
     @model_validator(mode="wrap")
     @classmethod
-    def find_trigger_type(cls, data: Any, handler: ModelWrapValidatorHandler[Self]) -> Self:
+    def find_trigger_type(
+        cls, data: "dict[str, Any] | TriggerRuleYAML", handler: ModelWrapValidatorHandler[Self]
+    ) -> Self:
         if isinstance(data, TriggerRuleYAML):
             return cast(Self, data)
         if not isinstance(data, dict):
             raise ValueError(f"Invalid trigger rule data '{type(data)}' expected dict")
 
         if cls is not TriggerRuleYAML:
+            # We are already in a subclass, so just validate as usual
             return handler(data)
+        # If not we need to find the right subclass based on the triggerType field.
         if "triggerType" not in data:
-            raise ValueError(f"Invalid trigger rule data '{data}' missing 'triggerType' key")
+            raise ValueError("Invalid trigger rule data missing 'triggerType' key")
         trigger_type = data["triggerType"]
         if trigger_type not in _TRIGGER_CLS_BY_NAME:
             raise ValueError(
