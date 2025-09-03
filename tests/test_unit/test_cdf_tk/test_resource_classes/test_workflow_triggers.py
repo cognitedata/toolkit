@@ -37,7 +37,7 @@ def invalid_workflow_trigger_test_cases() -> Iterable:
         {
             "In authentication missing required field: 'clientId'",
             "In authentication missing required field: 'clientSecret'",
-            "In field triggerRule invalid trigger rule data '{}' missing 'triggerType' key",
+            "In field triggerRule invalid trigger rule data missing 'triggerType' key",
             "Unused field: 'foo'",
         },
         id="Extra field and missing triggerType in triggerRule",
@@ -120,7 +120,11 @@ class TestWorkflowYAML:
     def test_load_valid_workflow_file(self, data: dict[str, object]) -> None:
         loaded = WorkflowTriggerYAML.model_validate(data)
 
-        assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
+        dumped = loaded.model_dump(exclude_unset=True, by_alias=True)
+        assert "authentication" in dumped
+        # Secret is not dumped as per design, so we add it back for comparison
+        dumped["authentication"]["clientSecret"] = data["authentication"]["clientSecret"]
+        assert dumped == data
 
     @pytest.mark.parametrize("data, expected_errors", list(invalid_workflow_trigger_test_cases()))
     def test_invalid_workflow_trigger_error_messages(self, data: dict | list, expected_errors: set[str]) -> None:
