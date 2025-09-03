@@ -72,6 +72,12 @@ class TestReadParameterFromTypeHints:
                         ParameterSpec(
                             ("properties", ANY_STR, "type", "max_list_size"), frozenset({"int"}), False, True
                         ),
+                        ParameterSpec(
+                            path=("properties", ANY_STR, "type", "max_text_size"),
+                            types=frozenset({"int"}),
+                            is_required=False,
+                            _is_nullable=True,
+                        ),
                         ParameterSpec(("properties", ANY_STR, "type", "unit"), frozenset({"dict"}), False, True),
                         ParameterSpec(
                             ("properties", ANY_STR, "type", "unit", "external_id"), frozenset({"str"}), True, False
