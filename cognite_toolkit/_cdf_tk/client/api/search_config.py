@@ -3,6 +3,7 @@ from urllib.parse import urljoin
 from cognite.client import CogniteClient
 from cognite.client._api_client import APIClient
 from cognite.client.config import ClientConfig
+from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client.data_classes.search_config import SearchConfig, SearchConfigList, SearchConfigWrite
 
@@ -41,7 +42,7 @@ class SearchConfigurationsAPI(APIClient):
         # TODO: Remove this once the backend is fixed.
         if isinstance(response, list):
             if not response:
-                raise ValueError("No response from upsert endpoint!")
+                raise CogniteAPIError("No response from upsert endpoint!", code=500)
             return SearchConfig._load(response[0], cognite_client=self._cognite_client)
 
         return SearchConfig._load(response, cognite_client=self._cognite_client)
