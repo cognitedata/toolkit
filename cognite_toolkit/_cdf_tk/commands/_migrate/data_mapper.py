@@ -1,7 +1,11 @@
 from abc import ABC, abstractmethod
 from typing import Generic
 
-from cognite_toolkit._cdf_tk.storageio._base import T_CogniteResourceList, T_Selector, T_WritableCogniteResourceList
+from cognite.client.data_classes._base import (
+    T_CogniteResourceList,
+)
+
+from cognite_toolkit._cdf_tk.storageio._base import T_Selector, T_WritableCogniteResourceList
 
 
 class DataMapper(Generic[T_Selector, T_WritableCogniteResourceList, T_CogniteResourceList], ABC):
