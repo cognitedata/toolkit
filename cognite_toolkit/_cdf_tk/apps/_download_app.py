@@ -187,7 +187,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--limit",
                 "-l",
-                help="The maximum the number of assets to download from each dataset/hierarchy. Use -1 to download all assets.",
+                help="The maximum number of assets to download from each dataset/hierarchy. Use -1 to download all assets.",
             ),
         ] = 100_000,
         verbose: Annotated[
