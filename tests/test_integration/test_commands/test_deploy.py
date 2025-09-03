@@ -121,8 +121,9 @@ def get_changed_resources(env_vars: EnvironmentVariables, build_dir: Path) -> di
     changed_resources: dict[str, set[Any]] = {}
     client = env_vars.get_client()
     for loader_cls in RESOURCE_LOADER_LIST:
-        if loader_cls in {HostedExtractorSourceLoader, HostedExtractorDestinationLoader}:
-            # These two we have no way of knowing if they have changed. So they are always redeployed.
+        if loader_cls in {HostedExtractorSourceLoader, HostedExtractorDestinationLoader, SearchConfigLoader}:
+            # These resources we have no way of knowing if they have changed. So they are always redeployed.
+            # SearchConfigLoader because of the way the update method works, we cannot know if it has changed.
             continue
         loader = loader_cls.create_loader(client, build_dir)
         worker = ResourceWorker(loader, "deploy")
