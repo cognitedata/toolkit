@@ -18,12 +18,12 @@ from cognite_toolkit._cdf_tk.commands import ModulesCommand, RepoCommand
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.constants import REPO_ROOT
 from tests.test_unit.approval_client import ApprovalToolkitClient
-from tests.test_unit.test_cdf_tk.test_client.conftest import BASE_URL
 from tests.test_unit.utils import PrintCapture
 
 THIS_FOLDER = Path(__file__).resolve().parent
 TMP_FOLDER = THIS_FOLDER / "tmp"
 TMP_FOLDER.mkdir(exist_ok=True)
+BASE_URL = "http://blabla.cognitedata.com"
 
 
 @pytest.fixture

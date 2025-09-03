@@ -7,6 +7,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.canvas import Canvas, Industria
 from cognite_toolkit._cdf_tk.client.data_classes.migration import InstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import MigrationCanvasCommand
+from cognite_toolkit._cdf_tk.commands._migrate.data_model import COGNITE_MIGRATION_MODEL
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, ToolkitWarning
 
 
@@ -167,6 +168,7 @@ class TestMigrationCanvasCommand:
 
         with monkeypatch_toolkit_client() as client:
             client.iam.verify_capabilities.return_value = []
+            client.data_modeling.data_models.retrieve.return_value = [COGNITE_MIGRATION_MODEL]
             client.canvas.industrial.retrieve.return_value = canvas
             client.migration.instance_source.retrieve.return_value = instance_sources
 
@@ -187,6 +189,7 @@ class TestMigrationCanvasCommand:
 
         with monkeypatch_toolkit_client() as client:
             client.iam.verify_capabilities.return_value = []
+            client.data_modeling.data_models.retrieve.return_value = [COGNITE_MIGRATION_MODEL]
             client.canvas.industrial.retrieve.return_value = None
             command.migrate_canvas(client, external_ids=["non-existing"], dry_run=False, verbose=True)
         assert len(command.warning_list) == 1
@@ -202,6 +205,7 @@ class TestMigrationCanvasCommand:
 
         with monkeypatch_toolkit_client() as client:
             client.iam.verify_capabilities.return_value = []
+            client.data_modeling.data_models.retrieve.return_value = [COGNITE_MIGRATION_MODEL]
             client.canvas.industrial.retrieve.return_value = canvas
             client.migration.instance_source.retrieve.return_value = NodeList[InstanceSource]([])
 
@@ -232,6 +236,7 @@ class TestMigrationCanvasCommand:
 
         with monkeypatch_toolkit_client() as client:
             client.iam.verify_capabilities.return_value = []
+            client.data_modeling.data_models.retrieve.return_value = [COGNITE_MIGRATION_MODEL]
             client.canvas.industrial.retrieve.return_value = canvas
 
             command.migrate_canvas(client, external_ids=[canvas.canvas.external_id], dry_run=False, verbose=True)

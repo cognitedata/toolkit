@@ -24,10 +24,6 @@ class MigrationCanvasCommand(BaseMigrateCommand):
     # Note sequences are not supported in Canvas, so we do not include them here.
     asset_centric_resource_types = frozenset({"asset", "event", "file", "timeseries"})
 
-    @property
-    def schema_spaces(self) -> list[str]:
-        return [self.canvas_schema_space, INSTANCE_SOURCE_VIEW_ID.space]
-
     def migrate_canvas(
         self,
         client: ToolkitClient,
@@ -35,8 +31,12 @@ class MigrationCanvasCommand(BaseMigrateCommand):
         dry_run: bool = False,
         verbose: bool = False,
     ) -> None:
-        self.validate_access(client, [CANVAS_INSTANCE_SPACE])
-        self.validate_instance_source_exists(client)
+        self.validate_access(
+            client,
+            instance_spaces=[CANVAS_INSTANCE_SPACE],
+            schema_spaces=[self.canvas_schema_space, INSTANCE_SOURCE_VIEW_ID.space],
+        )
+        self.validate_migration_model_available(client)
         external_ids = external_ids or InteractiveCanvasSelect(client).select_external_ids()
         if external_ids is None or not external_ids:
             self.console("No canvases selected for migration.")
