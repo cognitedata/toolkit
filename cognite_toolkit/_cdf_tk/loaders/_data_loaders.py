@@ -186,7 +186,10 @@ class RawFileLoader(DataLoader):
                 # The replacement is used to ensure that we read exactly the same file on Windows and Linux
                 file_content = datafile.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
                 data = read_csv(io.StringIO(file_content))
-                data.fillna("", inplace=True)
+                # Fill missing values only in string-like columns to avoid dtype mixing warnings
+                string_cols = data.select_dtypes(include=["object", "string"]).columns
+                if len(string_cols) > 0:
+                    data[string_cols] = data[string_cols].fillna("")
                 if not data.columns.empty and data.columns[0] == "key":
                     print(f"Setting index to 'key' for {datafile.name}")
                     data.set_index("key", inplace=True)
