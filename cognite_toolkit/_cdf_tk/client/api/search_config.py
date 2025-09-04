@@ -3,7 +3,6 @@ from urllib.parse import urljoin
 from cognite.client import CogniteClient
 from cognite.client._api_client import APIClient
 from cognite.client.config import ClientConfig
-from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client.data_classes.search_config import SearchConfig, SearchConfigList, SearchConfigWrite
 
@@ -37,15 +36,7 @@ class SearchConfigurationsAPI(APIClient):
             url_path="/upsert",
             json=configuration_update.dump(),
         )
-        response = res.json()
-        # This should never happen, but on testing in some cases we get a list of configs back
-        # TODO: Remove this once the backend is fixed.
-        if isinstance(response, list):
-            if not response:
-                raise CogniteAPIError("No response from upsert endpoint!", code=500)
-            return SearchConfig._load(response[0], cognite_client=self._cognite_client)
-
-        return SearchConfig._load(response, cognite_client=self._cognite_client)
+        return SearchConfig._load(res.json(), cognite_client=self._cognite_client)
 
     def list(self) -> SearchConfigList:
         """List all Configuration.
