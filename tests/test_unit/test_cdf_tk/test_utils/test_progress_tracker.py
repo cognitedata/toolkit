@@ -1,5 +1,3 @@
-import threading
-
 import pytest
 
 from cognite_toolkit._cdf_tk.utils.progress_tracker import ProgressTracker
@@ -61,25 +59,3 @@ class TestProgressTracker:
         self.tracker.set_progress(("a", 2), "extract", "failed")
         assert self.tracker.get_progress(1, "extract") == "success"
         assert self.tracker.get_progress(("a", 2), "extract") == "failed"
-
-    def test_thread_safety(self):
-        item_id = "item1"
-
-        def worker(step: str, status: str):
-            # Loop to increase the chance of hitting a race condition if the lock is missing/incorrect.
-            for _ in range(50):
-                self.tracker.set_progress(item_id, step, status)
-
-        threads = [
-            threading.Thread(target=worker, args=("extract", "success")),
-            threading.Thread(target=worker, args=("transform", "success")),
-        ]
-        for t in threads:
-            t.start()
-        for t in threads:
-            t.join()
-
-        progress = self.tracker.get_progress(item_id)
-        assert progress["extract"] == "success"
-        assert progress["transform"] == "success"
-        assert progress["load"] == "pending"

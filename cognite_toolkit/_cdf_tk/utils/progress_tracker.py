@@ -12,6 +12,24 @@ T_ID = TypeVar("T_ID", bound=Hashable)
 
 
 class ProgressTracker(Generic[T_ID]):
+    """A thread-safe progress tracker for multiple items and steps.
+
+    For example, when migrating asset-centric Assets to CogniteAsset, we would like to track the progress of each Asset
+    through the steps of the migration. This is such that we can report back to the user which Assets failed, where
+    they failed, or if they succeeded.
+
+    Args:
+        steps (list[str]): A list of unique step names to track progress for.
+
+    Examples:
+        >>> tracker = ProgressTracker(steps=["downloadAsset", "convert", "uploadCogniteAssset"])
+        >>> tracker.set_progress(item_id=123, step="downloadAsset", status="success")
+        >>> tracker.set_progress(item_id=123, step="convert", status="failed")
+        >>> tracker.get_progress(item_id=123)
+        {'downloadAsset': 'success', 'convert': 'failed', 'uploadCogniteAssset': 'aborted'}
+
+    """
+
     def __init__(self, steps: list[str]) -> None:
         if len(steps) != len(set(steps)):
             raise ValueError("Input `steps` must be unique.")
