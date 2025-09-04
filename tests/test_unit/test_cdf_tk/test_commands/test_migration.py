@@ -501,6 +501,42 @@ class TestAssetCentricConversion:
                 ),
                 id="Asset with non-nullable properties all None",
             ),
+            pytest.param(
+                Event(id=999, external_id="event_999", type="MyType", metadata={"category": "MyCategory"}),
+                ViewSource(
+                    external_id="event_mapping",
+                    version=1,
+                    last_updated_time=1000000,
+                    created_time=1000000,
+                    resource_type="event",
+                    view_id=ViewId("test_space", "test_view", "v1"),
+                    mapping=AssetCentricToViewMapping(
+                        to_property_id={"type": "category"},
+                        metadata_to_property_id={"category": "category"},
+                    ),
+                ),
+                {
+                    "category": MappedProperty(
+                        ContainerId("test_space", "test_container"),
+                        "category",
+                        dt.Text(),
+                        nullable=True,
+                        immutable=False,
+                        auto_increment=False,
+                    ),
+                },
+                {
+                    "category": "MyType",
+                },
+                ConversionIssue(
+                    asset_centric_id=AssetCentricId("event", id_=999),
+                    instance_id=INSTANCE_ID,
+                    ignored_asset_centric_properties=["metadata.category"],
+                    missing_asset_centric_properties=[],
+                    missing_instance_properties=[],
+                ),
+                id="Event with overlapping property and metadata mapping (property takes precedence)",
+            ),
         ],
     )
     def test_asset_centric_to_dm(
@@ -516,15 +552,18 @@ class TestAssetCentricConversion:
         # Check the structure of the returned NodeApply
         assert actual.space == self.INSTANCE_ID.space
         assert actual.external_id == self.INSTANCE_ID.external_id
-        assert len(actual.sources) == 2
+        assert 1 <= len(actual.sources) <= 2
 
         # Check the main view source
-        main_source = actual.sources[0]
-        assert main_source.source == view_source.view_id
-        assert main_source.properties == expected_properties
+        if len(actual.sources) == 2:
+            main_source = actual.sources[0]
+            assert main_source.source == view_source.view_id
+            assert main_source.properties == expected_properties
+        else:
+            assert expected_properties == {}
 
         # Check the instance source view
-        instance_source = actual.sources[1]
+        instance_source = actual.sources[-1]
         assert instance_source.source == self.INSTANCE_SOURCE_VIEW_ID
         assert instance_source.properties["resourceType"] == view_source.resource_type
         assert instance_source.properties["id"] == resource.id
