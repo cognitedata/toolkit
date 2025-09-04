@@ -86,24 +86,25 @@ def asset_centric_to_dm(
             else:
                 issue.ignored_asset_centric_properties.append(f"metadata.{key}")
 
+    sources: list[NodeOrEdgeData] = []
+    if properties:
+        sources.append(NodeOrEdgeData(source=view_source.view_id, properties=properties))
+    sources.append(
+        NodeOrEdgeData(
+            source=INSTANCE_SOURCE_VIEW_ID,
+            properties={
+                "resourceType": resource_type,
+                "id": resource.id,
+                "dataSetId": resource.data_set_id,
+                "classicExternalId": resource.external_id,
+            },
+        )
+    )
+
     node = NodeApply(
         space=instance_id.space,
         external_id=instance_id.external_id,
-        sources=[
-            NodeOrEdgeData(
-                source=view_source.view_id,
-                properties=properties,
-            ),
-            NodeOrEdgeData(
-                source=INSTANCE_SOURCE_VIEW_ID,
-                properties={
-                    "resourceType": resource_type,
-                    "id": resource.id,
-                    "dataSetId": resource.data_set_id,
-                    "classicExternalId": resource.external_id,
-                },
-            ),
-        ],
+        sources=sources,
     )
 
     return node, issue
