@@ -31,10 +31,6 @@ class MigrateFilesCommand(BaseMigrateCommand):
     view_id = ViewId(cdf_cdm, "CogniteFile", "v1")
     chunk_size = 1000
 
-    @property
-    def schema_spaces(self) -> list[str]:
-        return [self.cdf_cdm]
-
     def source_acl(self, data_set_ids: list[int]) -> Capability:
         return FilesAcl(
             actions=[FilesAcl.Action.Read, FilesAcl.Action.Write],
@@ -51,7 +47,12 @@ class MigrateFilesCommand(BaseMigrateCommand):
     ) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
         mappings = MigrationMappingList.read_mapping_file(mapping_file, "file")
-        self.validate_access(client, list(mappings.spaces()), list(mappings.get_data_set_ids()))
+        self.validate_access(
+            client,
+            instance_spaces=list(mappings.spaces()),
+            schema_spaces=[self.cdf_cdm],
+            data_set_ids=list(mappings.get_data_set_ids()),
+        )
         self._validate_files(client, mappings)
         self.validate_available_capacity(client, len(mappings))
 

@@ -119,11 +119,7 @@ class AssetCentricInteractiveSelect(ABC):
         return self._select("data sets", options, False, "multiple")
 
     def select_hierarchies_and_data_sets(self) -> tuple[list[str], list[str]]:
-        what = questionary.select(
-            f"Do you want to {self.operation} a hierarchy or a data set?", choices=["Hierarchy", "Data Set"]
-        ).ask()
-        if what is None:
-            raise ToolkitValueError("No selection made. Aborting.")
+        what = self.select_hierarchies_or_data_sets()
         if what == "Hierarchy":
             hierarchy = self._select("hierarchy", self._get_available_hierarchies(), False, "single")
             data_sets = self._get_available_data_sets(hierarchy=hierarchy)
@@ -138,8 +134,16 @@ class AssetCentricInteractiveSelect(ABC):
                 return [], [data_set]
             selected_hierarchies = self._select(f"hierarchies in data set {data_set!r} ", hierarchies, True, "multiple")
             return selected_hierarchies or [], [data_set]
-        else:
+
+    def select_hierarchies_or_data_sets(self) -> Literal["Hierarchy", "Data Set"]:
+        what = questionary.select(
+            f"Do you want to {self.operation} a hierarchy or a data set?", choices=["Hierarchy", "Data Set"]
+        ).ask()
+        if what is None:
+            raise ToolkitValueError("No selection made. Aborting.")
+        if what not in ["Hierarchy", "Data Set"]:
             raise ToolkitValueError(f"Unexpected selection: {what}. Aborting.")
+        return what
 
     @overload
     def _select(
