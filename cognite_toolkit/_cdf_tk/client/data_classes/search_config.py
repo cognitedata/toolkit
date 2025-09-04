@@ -125,15 +125,21 @@ class SearchConfigWrite(SearchConfigCore):
             view=ViewId.load(resource["view"]),
             use_as_name=resource.get("useAsName"),
             use_as_description=resource.get("useAsDescription"),
-            columns_layout=[SearchConfigViewProperty.load(item) for item in resource.get("columnsLayout", [])]
-            if resource.get("columnsLayout")
-            else None,
-            filter_layout=[SearchConfigViewProperty.load(item) for item in resource.get("filterLayout", [])]
-            if resource.get("filterLayout")
-            else None,
-            properties_layout=[SearchConfigViewProperty.load(item) for item in resource.get("propertiesLayout", [])]
-            if resource.get("propertiesLayout")
-            else None,
+            columns_layout=(
+                [SearchConfigViewProperty.load(item) for item in items]
+                if (items := resource.get("columnsLayout"))
+                else None
+            ),
+            filter_layout=(
+                [SearchConfigViewProperty.load(item) for item in items]
+                if (items := resource.get("filterLayout"))
+                else None
+            ),
+            properties_layout=(
+                [SearchConfigViewProperty.load(item) for item in items]
+                if (items := resource.get("propertiesLayout"))
+                else None
+            ),
         )
 
 
@@ -186,15 +192,21 @@ class SearchConfig(SearchConfigCore):
             updated_time=resource["lastUpdatedTime"],
             use_as_name=resource.get("useAsName"),
             use_as_description=resource.get("useAsDescription"),
-            columns_layout=[SearchConfigViewProperty.load(item) for item in resource.get("columnsLayout", [])]
-            if resource.get("columnsLayout")
-            else None,
-            filter_layout=[SearchConfigViewProperty.load(item) for item in resource.get("filterLayout", [])]
-            if resource.get("filterLayout")
-            else None,
-            properties_layout=[SearchConfigViewProperty.load(item) for item in resource.get("propertiesLayout", [])]
-            if resource.get("propertiesLayout")
-            else None,
+            columns_layout=(
+                [SearchConfigViewProperty.load(item) for item in items]
+                if (items := resource.get("columnsLayout"))
+                else None
+            ),
+            filter_layout=(
+                [SearchConfigViewProperty.load(item) for item in items]
+                if (items := resource.get("filterLayout"))
+                else None
+            ),
+            properties_layout=(
+                [SearchConfigViewProperty.load(item) for item in items]
+                if (items := resource.get("propertiesLayout"))
+                else None
+            ),
         )
 
 
