@@ -688,7 +688,7 @@ class TestDumpStreamlitApps:
         with monkeypatch_toolkit_client() as client:
             if content is None:
                 client.files.download_bytes.side_effect = CogniteAPIError(
-                    message=f"Files ids not found: {app.external_id}", code=400
+                    message=f"Files ids not found: {app.external_id}", code=400, missing=[app.external_id]
                 )
             else:
                 client.files.download_bytes.return_value = content.encode("utf-8")
