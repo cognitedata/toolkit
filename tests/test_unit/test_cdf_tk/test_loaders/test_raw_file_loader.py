@@ -88,7 +88,7 @@ class TestRawFileLoader:
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always", category=FutureWarning)
             list(loader.upload(state, dry_run=False))
-            assert not any(issubclass(w.category, FutureWarning) for w in caught)
+        assert not any(issubclass(w.category, FutureWarning) for w in caught)
 
         assert client.raw.rows.insert_dataframe.call_count == 1
         _, kwargs = client.raw.rows.insert_dataframe.call_args
