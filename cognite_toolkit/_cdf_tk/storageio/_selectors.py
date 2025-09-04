@@ -56,3 +56,21 @@ class InstanceViewSelector(InstanceSelector):
     view: ViewId
     instance_type: Literal["node", "edge"] = "node"
     instance_spaces: tuple[str, ...] | None = None
+
+
+@dataclass(frozen=True)
+class ChartSelector: ...
+
+
+@dataclass(frozen=True)
+class ChartOwnerSelector(ChartSelector):
+    owner_id: str
+
+
+@dataclass(frozen=True)
+class AllChartSelector(ChartSelector): ...
+
+
+@dataclass(frozen=True)
+class ChartFileSelector(ChartSelector):
+    filepath: Path
