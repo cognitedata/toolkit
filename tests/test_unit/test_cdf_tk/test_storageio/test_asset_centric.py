@@ -67,9 +67,9 @@ class TestAssetIO:
             for data_chunk in data_chunks:
                 io.upload_items(data_chunk, selector)
 
-            assert client.assets.create.call_count == 10
+            assert client.assets.upsert.call_count == 10
             uploaded_assets = AssetWriteList([])
-            for call in client.assets.create.call_args_list:
+            for call in client.assets.upsert.call_args_list:
                 uploaded_assets.extend(call[0][0])
 
             assert uploaded_assets.dump() == some_asset_data.as_write().dump()
@@ -113,8 +113,8 @@ class TestAssetIO:
                 verbose=False,
             )
 
-            assert client.assets.create.call_count == 1
-            args, _ = client.assets.create.call_args
+            assert client.assets.upsert.call_count == 1
+            args, _ = client.assets.upsert.call_args
             assert len(args) == 1
             uploaded_assets = args[0]
             assert isinstance(uploaded_assets, AssetWriteList)
