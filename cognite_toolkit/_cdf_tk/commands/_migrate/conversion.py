@@ -80,7 +80,11 @@ def asset_centric_to_dm(
             asset_centric_to_instance=view_source.mapping.metadata_to_property_id,
             source_prefix="metadata.",
         )
-        properties.update(metadata_properties)
+        for key, value in metadata_properties.items():
+            if key not in properties:
+                properties[key] = value
+            else:
+                issue.ignored_asset_centric_properties.append(f"metadata.{key}")
 
     node = NodeApply(
         space=instance_id.space,
