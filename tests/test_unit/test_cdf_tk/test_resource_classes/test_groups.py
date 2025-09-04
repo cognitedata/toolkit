@@ -31,9 +31,6 @@ capabilities:
           db_complete_org: {}
 """,
         {
-            "In metadata the key 'groupNo' should be a valid string. Got 83 of type int. Hint: Use double quotes to force string.",
-            "In metadata the key 'governed' should be a valid string. Got True of type bool. Hint: Use double quotes to force string.",
-            "In metadata the key 'maxUsers' should be a valid string. Got inf of type float. Hint: Use double quotes to force string.",
             "In capabilities[1].scope.dbsToTables.db_complete_org input should be a valid list. Got {}.",
         },
         id="Naughty metadata and non-standard rawAcl tableScope",

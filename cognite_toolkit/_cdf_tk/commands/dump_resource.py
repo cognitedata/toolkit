@@ -12,6 +12,7 @@ import questionary
 import typer
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
+    DataSetList,
     ExtractionPipelineList,
     Group,
     GroupList,
@@ -62,6 +63,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     AgentLoader,
     ContainerLoader,
     DataModelLoader,
+    DataSetsLoader,
     ExtractionPipelineConfigLoader,
     ExtractionPipelineLoader,
     FunctionLoader,
@@ -504,6 +506,44 @@ class ExtractionPipelineFinder(ResourceFinder[tuple[str, ...]]):
         config_loader = ExtractionPipelineConfigLoader.create_loader(self.client)
         configs = ExtractionPipelineConfigList(list(config_loader.iterate(parent_ids=list(self.identifier))))
         yield [], configs, config_loader, None
+
+
+class DataSetFinder(ResourceFinder[tuple[str, ...]]):
+    """Finds data sets to dump."""
+
+    def __init__(self, client: ToolkitClient, identifier: tuple[str, ...] | None = None):
+        super().__init__(client, identifier)
+        self.datasets: DataSetList | None = None
+
+    def _interactive_select(self) -> tuple[str, ...]:
+        self.datasets = self.client.data_sets.list(limit=-1)
+        if not self.datasets:
+            raise ToolkitMissingResourceError("No datasets found")
+        choices = [
+            Choice(f"{dataset.name} ({dataset.external_id})", value=dataset.external_id)
+            for dataset in sorted(self.datasets, key=lambda d: d.name or "")
+            if dataset.external_id
+        ]
+        selected_dataset_ids: tuple[str, ...] | None = questionary.checkbox(
+            "Which dataset(s) would you like to dump?",
+            choices=choices,
+        ).ask()
+        if selected_dataset_ids is None:
+            raise ToolkitValueError("No datasets selected for dumping.")
+        return tuple(selected_dataset_ids)
+
+    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
+        self.identifier = self._selected()
+        loader = DataSetsLoader.create_loader(self.client)
+        if self.datasets:
+            yield (
+                [],
+                DataSetList([d for d in self.datasets if d.external_id in set(self.identifier)]),
+                loader,
+                None,
+            )
+        else:
+            yield list(self.identifier), None, loader, None
 
 
 class FunctionFinder(ResourceFinder[tuple[str, ...]]):

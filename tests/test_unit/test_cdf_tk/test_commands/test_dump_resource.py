@@ -7,6 +7,8 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
+    DataSet,
+    DataSetList,
     ExtractionPipeline,
     ExtractionPipelineList,
     FileMetadataList,
@@ -34,6 +36,7 @@ from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands.dump_resource import (
     AgentFinder,
     DataModelFinder,
+    DataSetFinder,
     DumpResourceCommand,
     ExtractionPipelineFinder,
     FunctionFinder,
@@ -44,6 +47,7 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
 )
 from cognite_toolkit._cdf_tk.loaders import (
     AgentLoader,
+    DataSetsLoader,
     ExtractionPipelineLoader,
     FunctionLoader,
     GroupAllScopedLoader,
@@ -466,6 +470,57 @@ class TestDumpFunctions:
             selected = finder._interactive_select()
 
         assert selected == ("functionB", "functionC")
+
+
+@pytest.fixture()
+def three_datasets() -> DataSetList:
+    return DataSetList(
+        [
+            DataSet(external_id="datasetA", name="Dataset A", created_time=1, last_updated_time=2),
+            DataSet(external_id="datasetB", name="Dataset B", created_time=1, last_updated_time=2),
+            DataSet(external_id="datasetC", name="Dataset C", created_time=1, last_updated_time=2),
+        ]
+    )
+
+
+class TestDataSetFinder:
+    def test_select_datasets(self, three_datasets: DataSetList, monkeypatch: MonkeyPatch) -> None:
+        def select_datasets(choices: list[Choice]) -> list[str]:
+            assert len(choices) == len(three_datasets)
+            return [choices[1].value, choices[2].value]
+
+        answers = [select_datasets]
+
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(DataSetFinder.__module__, monkeypatch, answers),
+        ):
+            client.data_sets.list.return_value = three_datasets
+            finder = DataSetFinder(client, None)
+            selected = finder._interactive_select()
+
+        assert selected == ("datasetB", "datasetC")
+
+
+class TestDumpDataSets:
+    def test_dump_datasets(self, three_datasets: DataSetList, tmp_path: Path) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.data_sets.retrieve_multiple.return_value = three_datasets[1:]
+
+            cmd = DumpResourceCommand(silent=True)
+            cmd.dump_to_yamls(
+                DataSetFinder(client, ("datasetB", "datasetC")),
+                output_dir=tmp_path,
+                clean=False,
+                verbose=False,
+            )
+            loader = DataSetsLoader(client, None, None)
+
+        filepaths = list(loader.find_files(tmp_path))
+        assert len(filepaths) == 2
+        items = sorted([read_yaml_file(filepath) for filepath in filepaths], key=lambda d: d["externalId"])
+        expected = sorted([loader.dump_resource(ds) for ds in three_datasets[1:]], key=lambda d: d["externalId"])
+        assert items == expected
 
 
 @pytest.fixture()

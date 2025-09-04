@@ -12,6 +12,7 @@ from cognite.client.data_classes.data_modeling.instances import PropertyValueWri
 from cognite.client.utils import ms_to_datetime
 from dateutil import parser
 
+from cognite_toolkit._cdf_tk.constants import CDF_UNIT_SPACE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentric, DataType, JsonVal, PythonTypes
@@ -242,6 +243,18 @@ class _TimeSeriesTypeConverter(_SpecialCaseConverter):
         if isinstance(value, bool):
             return "string" if value else "numeric"
         raise ValueError(f"Cannot convert {value} to TimeSeries type. Expected a boolean value.")
+
+
+class _TimeSeriesUnitConverter(_SpecialCaseConverter):
+    source_property = ("timeseries", "unitExternalId")
+    destination_container_property = (ContainerId("cdf_cdm", "CogniteTimeSeries"), "unit")
+
+    def convert(self, value: str | int | float | bool | dict | list | None) -> dict[str, str] | None:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            return {"space": CDF_UNIT_SPACE, "externalId": value}
+        raise ValueError(f"Cannot convert {value!r} to TimeSeries unit. Expected a string representing the externalId.")
 
 
 class _LabelConverter(_SpecialCaseConverter, ABC):
