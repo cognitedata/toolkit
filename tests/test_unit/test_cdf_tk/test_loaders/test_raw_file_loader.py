@@ -91,3 +91,8 @@ class TestRawFileLoader:
             assert not any(issubclass(w.category, FutureWarning) for w in caught)
 
         assert client.raw.rows.insert_dataframe.call_count == 1
+        _, kwargs = client.raw.rows.insert_dataframe.call_args
+        df = kwargs["dataframe"]
+        # Evidence that fillna("") was executed: NaNs were turned into empty strings
+        assert df.iloc[0]["myFloat"] == ""
+        assert df.iloc[1]["myInt"] == ""
