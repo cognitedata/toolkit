@@ -191,8 +191,8 @@ class RawFileLoader(DataLoader):
                 # A quick "fix" (e.g., dtype-conditional fillna) risks coercing column dtypes
                 # (for example, converting integers to strings). Because we upload to RAW, we prefer
                 # to preserve the input types as-is. This is temporary: we plan to remove pandas as a
-                # dependency for this loader and will revisit this behavior then. Note: pandas is
-                # currently capped at < 3.0 in this project.
+                # dependency for this loader and will revisit this behavior then. Note: an additional
+                # safeguard is that pandas is capped at < 3.0 in this project.
                 with warnings.catch_warnings():
                     warnings.filterwarnings("ignore", category=FutureWarning)
                     data.fillna("", inplace=True)
