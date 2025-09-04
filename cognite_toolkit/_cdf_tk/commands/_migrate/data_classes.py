@@ -153,21 +153,25 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
         mappings: list[MigrationMapping] = []
         errors: dict[int, ValidationError] = {}
         chunk: dict[str, Any]
+
+        def _extract_and_pop(chunk_: dict[str, Any], key_mapping: dict[str, str]) -> dict[str, str]:
+            """Pops keys from chunk and returns a new dict with mapped keys."""
+            return {dest: chunk_.pop(src) for src, dest in key_mapping.items() if src in chunk_}
+
+        instance_id_mapping = {"space": "space", "externalId": "externalId"}
+        consumer_view_mapping = {
+            "consumerViewSpace": "space",
+            "consumerViewExternalId": "externalId",
+            "consumerViewVersion": "version",
+        }
+
         for row_no, chunk in enumerate(CSVReader(csv_file).read_chunks_unprocessed(), 1):
             # Prepare for parsing
-            def _extract_and_pop(key_mapping: dict[str, str]) -> dict[str, str]:
-                """Pops keys from chunk and returns a new dict with mapped keys."""
-                return {dest: chunk.pop(src) for src, dest in key_mapping.items() if src in chunk}
-
-            if instance_id := _extract_and_pop({"space": "space", "externalId": "externalId"}):
-                chunk["instanceId"] = instance_id  # type: ignore[assignment]
-            consumer_view_mapping = {
-                "consumerViewSpace": "space",
-                "consumerViewExternalId": "externalId",
-                "consumerViewVersion": "version",
-            }
-            if consumer_view := _extract_and_pop(consumer_view_mapping):
-                chunk["preferredConsumerView"] = consumer_view  # type: ignore[assignment]
+            if instance_id := _extract_and_pop(chunk, instance_id_mapping):
+                # MyPy does not respect the chunk annotation above, it uses dict[str, str] from the CSVReader.
+                chunk["instanceId"] = NodeId.load(instance_id)  # type: ignore[assignment]
+            if consumer_view := _extract_and_pop(chunk, consumer_view_mapping):
+                chunk["preferredConsumerView"] = ViewId.load(consumer_view)  # type: ignore[assignment]
             chunk["resourceType"] = resource_type
             try:
                 mapping = MigrationMapping.model_validate(chunk)
