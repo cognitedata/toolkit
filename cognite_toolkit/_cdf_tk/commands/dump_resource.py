@@ -1,4 +1,5 @@
 import io
+import json
 import zipfile
 from abc import ABC, abstractmethod
 from collections import defaultdict
@@ -18,6 +19,7 @@ from cognite.client.data_classes import (
     TransformationList,
     TransformationNotificationList,
     TransformationScheduleList,
+    filters,
 )
 from cognite.client.data_classes._base import (
     CogniteResourceList,
@@ -26,6 +28,7 @@ from cognite.client.data_classes.agents import (
     AgentList,
 )
 from cognite.client.data_classes.data_modeling import DataModelId
+from cognite.client.data_classes.documents import SourceFileProperty
 from cognite.client.data_classes.extractionpipelines import ExtractionPipelineConfigList
 from cognite.client.data_classes.functions import (
     Function,
@@ -41,12 +44,15 @@ from cognite.client.data_classes.workflows import (
     WorkflowVersionList,
 )
 from cognite.client.exceptions import CogniteAPIError
+from cognite.client.utils import ms_to_datetime
 from questionary import Choice
 from rich import print
+from rich.console import Console
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.location_filters import LocationFilterList
+from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import Streamlit, StreamlitList
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceRetrievalError,
     ToolkitMissingResourceError,
@@ -67,6 +73,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     NodeLoader,
     ResourceLoader,
     SpaceLoader,
+    StreamlitLoader,
     TransformationLoader,
     TransformationNotificationLoader,
     TransformationScheduleLoader,
@@ -597,6 +604,128 @@ class FunctionFinder(ResourceFinder[tuple[str, ...]]):
             ).print_warning()
 
 
+class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
+    def __init__(self, client: ToolkitClient, identifier: tuple[str, ...] | None = None):
+        super().__init__(client, identifier)
+        self.apps: StreamlitList | None = None
+
+    def _interactive_select(self) -> tuple[str, ...]:
+        """Interactively select one or more Streamlit apps to dump."""
+        result = self.client.documents.aggregate_unique_values(
+            SourceFileProperty.metadata_key("creator"),
+            filter=filters.Equals(SourceFileProperty.directory, "/streamlit-apps/"),
+        )
+        if not result:
+            raise ToolkitMissingResourceError("No Streamlit apps found")
+
+        selected_creator = questionary.select(
+            "Who is the creator of the Streamlit app you would like to dump? [name (app count)]",
+            choices=[
+                Choice(f"{item.value} ({item.count})", value=item.value)
+                for item in sorted(result, key=lambda r: (r.count, str(r.value) or ""))
+            ],
+        ).ask()
+        files = self.client.files.list(
+            limit=-1, directory_prefix="/streamlit-apps/", metadata={"creator": str(selected_creator)}
+        )
+        self.apps = StreamlitList([Streamlit.from_file(file) for file in files if file.name and file.external_id])
+        if missing := [file for file in files if not file.external_id or file.name]:
+            MediumSeverityWarning(
+                f"{len(missing)} file(s) in /streamlit-apps/ are missing "
+                f"either name or external ID and will be skipped. File IDs: {humanize_collection([file.id for file in missing])}",
+            ).print_warning()
+        selected_ids: list[str] | None = questionary.checkbox(
+            message="Which Streamlit app(s) would you like to dump?",
+            choices=[
+                Choice(
+                    title=f"{app.name} ({app.creator} - {ms_to_datetime(app.last_updated_time)})", value=app.external_id
+                )
+                for app in sorted(self.apps, key=lambda a: a.name)
+            ],
+        ).ask()
+        if not selected_ids:
+            raise ToolkitValueError("No Streamlit app selected for dumping. Aborting...")
+        return tuple(selected_ids)
+
+    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
+        identifier = self.identifier or self._interactive_select()
+        loader = StreamlitLoader.create_loader(self.client)
+        # If the user used interactive select, we have already downloaded the streamlit apps,
+        # Thus, we do not need to download them again. If not pass the identifier and let the main logic
+        # take care of the download.
+        if self.apps:
+            yield [], StreamlitList([app for app in self.apps if app.external_id in identifier]), loader, None
+        else:
+            yield list(identifier), None, loader, None
+
+    def dump_code(self, app: Streamlit, folder: Path, console: Console | None = None) -> None:
+        """Dump the code of a Streamlit app to the specified folder.
+
+        The code is extracted from the JSON content of the app file in CDF.
+
+        Args:
+            app (Streamlit): The Streamlit app whose code is to be dumped.
+            folder (Path): The directory where the app code will be saved.
+            console (Console | None): Optional Rich console for printing warnings.
+        """
+        try:
+            content = self.client.files.download_bytes(external_id=app.external_id)
+        except CogniteAPIError as e:
+            if e.code == 400 and e.missing:
+                HighSeverityWarning(
+                    f"The source code for {app.external_id!r} could not be retrieved from CDF."
+                ).print_warning(console=console)
+                return
+            raise
+
+        try:
+            json_content = json.loads(content)
+        except json.JSONDecodeError as e:
+            HighSeverityWarning(
+                f"The JSON content for the Streamlit app {app.external_id!r} is corrupt and could not be extracted. "
+                f"Download file with the same external id manually to remediate. {e!s}"
+            ).print_warning(console=console)
+            return
+
+        app_folder = to_directory_compatible(app.external_id)
+        app_path = folder / app_folder
+        app_path.mkdir(exist_ok=True)
+        if isinstance(json_content.get("requirements"), list):
+            requirements_txt = app_path / "requirements.txt"
+            requirements = json_content["requirements"]
+            if not requirements:
+                HighSeverityWarning(
+                    f"The Streamlit app {app.external_id!r} has a requirements.txt file with no content. Skipping..."
+                ).print_warning()
+            else:
+                requirements_txt.write_text("\n".join(requirements), encoding="utf-8")
+        files = json_content.get("files", {})
+        if not isinstance(files, dict) or (not files):
+            HighSeverityWarning(
+                f"The Streamlit app {app.external_id!r} does not have any files to dump. It is likely corrupted."
+            ).print_warning(console=console)
+            return
+        created_files: set[str] = set()
+        for relative_filepath, content in files.items():
+            filepath = app_path / relative_filepath
+            filepath.parent.mkdir(parents=True, exist_ok=True)
+            file_content = content.get("content", {}).get("text", "")
+            if not isinstance(file_content, str):
+                HighSeverityWarning(
+                    f"The Streamlit app {app.external_id!r} has a file {relative_filepath} with invalid content. Skipping..."
+                ).print_warning(console=console)
+                continue
+            safe_write(filepath, file_content, encoding="utf-8")
+            created_files.add(relative_filepath)
+
+        entry_point = json_content.get("entrypoint")
+        if entry_point and entry_point not in created_files:
+            HighSeverityWarning(
+                f"The Streamlit app {app.external_id!r} has an entry point {entry_point} that was not found in the files. "
+                "The app may be corrupted."
+            ).print_warning(console=console)
+
+
 class DumpResourceCommand(ToolkitCommand):
     def dump_to_yamls(
         self,
@@ -615,6 +744,7 @@ class DumpResourceCommand(ToolkitCommand):
         elif not output_dir.exists():
             output_dir.mkdir(exist_ok=True)
 
+        dumped_ids: list[Hashable] = []
         for identifiers, resources, loader, subfolder in finder:
             if not identifiers and not resources:
                 # No resources to dump
@@ -635,7 +765,8 @@ class DumpResourceCommand(ToolkitCommand):
                 resource_folder = resource_folder / subfolder
             resource_folder.mkdir(exist_ok=True, parents=True)
             for resource in resources:
-                name = loader.as_str(loader.get_id(resource))
+                resource_id = loader.get_id(resource)
+                name = loader.as_str(resource_id)
                 base_filepath = resource_folder / f"{name}.{loader.kind}.yaml"
                 if base_filepath.exists():
                     self.warn(FileExistsWarning(base_filepath, "Skipping... Use --clean to remove existing files."))
@@ -648,5 +779,7 @@ class DumpResourceCommand(ToolkitCommand):
                         self.console(f"Dumped {loader.kind} {name} to {filepath!s}")
                 if isinstance(finder, FunctionFinder) and isinstance(resource, Function):
                     finder.dump_function_code(resource, resource_folder)
-
-        print(Panel(f"Dumped {finder.identifier}", title="Success", style="green", expand=False))
+                if isinstance(finder, StreamlitFinder) and isinstance(resource, Streamlit):
+                    finder.dump_code(resource, resource_folder)
+                dumped_ids.append(resource_id)
+        print(Panel(f"Dumped {humanize_collection(dumped_ids)}", title="Success", style="green", expand=False))
