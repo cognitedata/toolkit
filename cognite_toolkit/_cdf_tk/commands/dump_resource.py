@@ -589,6 +589,11 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
             limit=-1, directory_prefix="/streamlit-apps/", metadata={"creator": str(selected_creator)}
         )
         self.apps = StreamlitList([Streamlit.from_file(file) for file in files if file.name and file.external_id])
+        if missing := [file for file in files if not file.external_id or file.name]:
+            MediumSeverityWarning(
+                f"{len(missing)} file(s) in /streamlit-apps/ are missing "
+                f"either name or external ID and will be skipped. File IDs: {humanize_collection([file.id for file in missing])}",
+            ).print_warning()
         selected_ids: list[str] | None = questionary.checkbox(
             message="Which Streamlit app(s) would you like to dump?",
             choices=[
