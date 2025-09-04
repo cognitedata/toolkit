@@ -10,20 +10,17 @@ from cognite.client.data_classes.capabilities import (
     ProjectCapabilityList,
     TimeSeriesAcl,
 )
-from cognite.client.data_classes.data_modeling import ViewList
+from cognite.client.data_classes.data_modeling import DataModel, DataModelList
 from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, ProjectStatistics
 
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.base import BaseMigrateCommand
+from cognite_toolkit._cdf_tk.commands._migrate.data_model import INSTANCE_SOURCE_VIEW_ID, MODEL_ID, VIEW_SOURCE_VIEW_ID
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitMigrationError, ToolkitValueError
 
 
 class DummyMigrationCommand(BaseMigrateCommand):
     """A dummy command for testing purposes."""
-
-    @property
-    def schema_spaces(self) -> list[str]:
-        return ["dummy_space"]
 
     def source_acl(self, data_set_id: list[int]) -> TimeSeriesAcl:
         return TimeSeriesAcl(
@@ -54,7 +51,7 @@ class TestBaseCommand:
                 ],
                 scope=DataModelInstancesAcl.Scope.SpaceID(["my_instance_space"]),
             ),
-            DataModelsAcl(actions=[DataModelsAcl.Action.Read], scope=DataModelsAcl.Scope.SpaceID(cmd.schema_spaces)),
+            DataModelsAcl(actions=[DataModelsAcl.Action.Read], scope=DataModelsAcl.Scope.SpaceID(["dummy_space"])),
             TimeSeriesAcl(actions=[TimeSeriesAcl.Action.Read], scope=DataSetScope([123])),
             TimeSeriesAcl(actions=[TimeSeriesAcl.Action.Write], scope=DataSetScope([123])),
         ]
@@ -70,17 +67,64 @@ class TestBaseCommand:
 
             client.iam.verify_capabilities = verify_capabilities
             with pytest.raises(AuthenticationError) as exc_info:
-                cmd.validate_access(client, ["my_instance_space"], [123])
+                cmd.validate_access(client, ["my_instance_space"], ["dummy_space"], [123])
         error = exc_info.value
         assert isinstance(error, AuthenticationError)
         assert "Missing required capabilities" in error.args[0]
         assert error.args[1] == expected_missing
 
-    def test_validate_instance_source_exists_raise(self) -> None:
+    def test_validate_migration_model_available(self) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.data_modeling.views.retrieve.return_value = ViewList([])
+            client.data_modeling.data_models.retrieve.return_value = DataModelList([])
             with pytest.raises(ToolkitMigrationError):
-                BaseMigrateCommand.validate_instance_source_exists(client)
+                BaseMigrateCommand.validate_migration_model_available(client)
+
+    def test_validate_migration_model_available_multiple_models(self) -> None:
+        """Test that multiple models raises an error."""
+        with monkeypatch_toolkit_client() as client:
+            # Create mock models with the expected MODEL_ID
+            model1 = MagicMock(spec=DataModel)
+            model1.as_id.return_value = MODEL_ID
+            model2 = MagicMock(spec=DataModel)
+            model2.as_id.return_value = MODEL_ID
+
+            client.data_modeling.data_models.retrieve.return_value = DataModelList([model1, model2])
+
+            with pytest.raises(ToolkitMigrationError) as exc_info:
+                BaseMigrateCommand.validate_migration_model_available(client)
+
+            assert "Multiple migration models" in str(exc_info.value)
+
+    def test_validate_migration_model_available_missing_views(self) -> None:
+        """Test that a model with missing views raises an error."""
+        with monkeypatch_toolkit_client() as client:
+            model = MagicMock(spec=DataModel)
+            model.as_id.return_value = MODEL_ID
+            # Model has views but missing the required ones
+            model.views = [INSTANCE_SOURCE_VIEW_ID]  # Missing VIEW_SOURCE_VIEW_ID
+
+            client.data_modeling.data_models.retrieve.return_value = DataModelList([model])
+
+            with pytest.raises(ToolkitMigrationError, match="Invalid migration model. Missing views"):
+                BaseMigrateCommand.validate_migration_model_available(client)
+
+    def test_validate_migration_model_available_success(self) -> None:
+        """Test that a valid model with all required views succeeds."""
+        with monkeypatch_toolkit_client() as client:
+            # Mocking the migration Model to get a response format of the model.
+            # An alternative would be to write a conversion of write -> read format of the model
+            # which is a significant amount of logic.
+            model = MagicMock(spec=DataModel)
+            model.as_id.return_value = MODEL_ID
+            # Model has all required views
+            model.views = [INSTANCE_SOURCE_VIEW_ID, VIEW_SOURCE_VIEW_ID]
+
+            client.data_modeling.data_models.retrieve.return_value = DataModelList([model])
+
+            # Should not raise any exception
+            BaseMigrateCommand.validate_migration_model_available(client)
+
+            client.data_modeling.data_models.retrieve.assert_called_once_with([MODEL_ID], inline_views=False)
 
     def test_validate_available_capacity_missing_capacity(self) -> None:
         cmd = DummyMigrationCommand(silent=True)

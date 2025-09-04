@@ -8,9 +8,11 @@ from typing import Any
 
 import pytest
 from cognite.client import global_config
+from cognite.client.credentials import Token
 from cognite.client.data_classes import CreatedSession
 from pytest import MonkeyPatch
 
+from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import ModulesCommand, RepoCommand
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
@@ -21,6 +23,7 @@ from tests.test_unit.utils import PrintCapture
 THIS_FOLDER = Path(__file__).resolve().parent
 TMP_FOLDER = THIS_FOLDER / "tmp"
 TMP_FOLDER.mkdir(exist_ok=True)
+BASE_URL = "http://blabla.cognitedata.com"
 
 
 @pytest.fixture
@@ -140,3 +143,15 @@ def disable_gzip():
     global_config.disable_gzip = True
     yield
     global_config.disable_gzip = old
+
+
+@pytest.fixture
+def toolkit_config():
+    return ToolkitClientConfig(
+        client_name="test-client",
+        project="test-project",
+        base_url=BASE_URL,
+        max_workers=1,
+        timeout=10,
+        credentials=Token("abc"),
+    )

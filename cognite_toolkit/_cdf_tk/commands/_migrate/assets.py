@@ -34,10 +34,6 @@ class MigrateAssetsCommand(BaseMigrateCommand):
 
     chunk_size = 1000  # Number of assets to process in each batch
 
-    @property
-    def schema_spaces(self) -> list[str]:
-        return [f"{self.cdf_cdm}", INSTANCE_SOURCE_VIEW_ID.space]
-
     def source_acl(self, data_set_id: list[int]) -> Capability:
         return AssetsAcl(actions=[AssetsAcl.Action.Read], scope=DataSetScope(data_set_id))
 
@@ -52,8 +48,13 @@ class MigrateAssetsCommand(BaseMigrateCommand):
     ) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
         mappings = MigrationMappingList.read_mapping_file(mapping_file, "asset")
-        self.validate_access(client, list(mappings.spaces()), list(mappings.get_data_set_ids()))
-        self.validate_instance_source_exists(client)
+        self.validate_access(
+            client,
+            instance_spaces=list(mappings.spaces()),
+            schema_spaces=[f"{self.cdf_cdm}", INSTANCE_SOURCE_VIEW_ID.space],
+            data_set_ids=list(mappings.get_data_set_ids()),
+        )
+        self.validate_migration_model_available(client)
         self.validate_available_capacity(client, len(mappings))
 
         output_dir = output_dir or Path.cwd()
