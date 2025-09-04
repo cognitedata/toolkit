@@ -327,7 +327,7 @@ class TestAssetCentricConversion:
                     asset_centric_id=AssetCentricId("event", id_=789),
                     instance_id=INSTANCE_ID,
                     ignored_asset_centric_properties=["description"],
-                    missing_asset_centric_properties=["missing_prop", "missingMetaProp"],
+                    missing_asset_centric_properties=["missing_prop", "metadata.missingMetaProp"],
                     missing_instance_properties=["missingDMProp"],
                     invalid_instance_property_types=[
                         InvalidPropertyDataType(property_id="some_other_event", expected_type="MappedProperty")
@@ -494,20 +494,10 @@ class TestAssetCentricConversion:
                     asset_centric_id=AssetCentricId("asset", id_=999),
                     instance_id=INSTANCE_ID,
                     ignored_asset_centric_properties=[],
-                    missing_asset_centric_properties=[],
+                    # Name and description set to None is the same as missing as we have now way of knowing
+                    # whether they were explicitly set to None or just not set at all.
+                    missing_asset_centric_properties=["name", "description"],
                     missing_instance_properties=[],
-                    failed_conversions=[
-                        FailedConversion(
-                            property_id="assetName",
-                            value=None,
-                            error="Non-nullable property 'assetName' cannot be set to None.",
-                        ),
-                        FailedConversion(
-                            property_id="assetDescription",
-                            value=None,
-                            error="Non-nullable property 'assetDescription' cannot be set to None.",
-                        ),
-                    ],
                 ),
                 id="Asset with non-nullable properties all None",
             ),
