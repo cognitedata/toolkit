@@ -1,4 +1,5 @@
 import io
+import warnings
 from collections.abc import Iterable
 from pathlib import Path
 from typing import TYPE_CHECKING, cast, final
@@ -186,10 +187,13 @@ class RawFileLoader(DataLoader):
                 # The replacement is used to ensure that we read exactly the same file on Windows and Linux
                 file_content = datafile.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
                 data = read_csv(io.StringIO(file_content))
-                # Fill missing values only in string-like columns to avoid dtype mixing warnings
-                string_cols = data.select_dtypes(include=["object", "string"]).columns
-                if len(string_cols) > 0:
-                    data[string_cols] = data[string_cols].fillna("")
+                # REVIEW: We intentionally keep fillna("") here for backwards compatibility
+                # and suppress the pandas FutureWarning about dtype-mixing. We are aware of this
+                # and plan to remove pandas as a dependency in this loader soon, at which point
+                # we will revisit this behavior.
+                with warnings.catch_warnings():
+                    warnings.filterwarnings("ignore", category=FutureWarning)
+                    data.fillna("", inplace=True)
                 if not data.columns.empty and data.columns[0] == "key":
                     print(f"Setting index to 'key' for {datafile.name}")
                     data.set_index("key", inplace=True)
