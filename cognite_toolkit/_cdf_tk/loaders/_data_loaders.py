@@ -187,12 +187,12 @@ class RawFileLoader(DataLoader):
                 # The replacement is used to ensure that we read exactly the same file on Windows and Linux
                 file_content = datafile.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
                 data = read_csv(io.StringIO(file_content))
-                # We intentionally suppress the pandas FutureWarning here rather than alter behavior now.
-                # A quick "fix" (e.g., dtype-conditional fillna) risks coercing column dtypes
-                # (for example, converting integers to strings). Because we upload to RAW, we prefer
-                # to preserve the input types as-is. This is temporary: we plan to remove pandas as a
-                # dependency for this loader and will revisit this behavior then. Note: an additional
-                # safeguard is that pandas is capped at < 3.0 in this project.
+                # We suppress the pandas FutureWarning about dtype conversion here.
+                # Filling NaNs with an empty string ('') is the desired behavior for uploading to CDF RAW,
+                # even though it converts numeric columns with NaNs to object dtype.
+                # We accept this type change and suppress the warning as it is expected.
+                # This is a temporary measure until pandas is removed as a dependency for this loader.
+                # Note: an additional safeguard is that pandas is capped at < 3.0 in this project.
                 with warnings.catch_warnings():
                     warnings.filterwarnings("ignore", category=FutureWarning)
                     data.fillna("", inplace=True)
