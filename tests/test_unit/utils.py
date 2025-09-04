@@ -14,6 +14,7 @@ from datetime import date, datetime
 from pathlib import Path
 from types import UnionType
 from typing import IO, Any, Literal, TypeVar, get_args, get_origin
+from zoneinfo import ZoneInfo
 
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
@@ -335,7 +336,9 @@ class FakeCogniteResourceGenerator:
             elif keyword_arguments["max_list_size"] > 1:
                 keyword_arguments["max_list_size"] = min(2_000, keyword_arguments["max_list_size"])
                 keyword_arguments["is_list"] = True
-
+        elif resource_cls is ZoneInfo:
+            # ZoneInfo does not allow setting any parameters
+            return ZoneInfo("UTC")
         return resource_cls(*positional_arguments, **keyword_arguments)
 
     def create_value(self, type_: Any, var_name: str | None = None) -> Any:

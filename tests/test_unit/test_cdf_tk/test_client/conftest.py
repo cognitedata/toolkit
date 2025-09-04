@@ -1,7 +1,6 @@
 import pytest
 from cognite.client import global_config
 
-BASE_URL = "http://blabla.cognitedata.com"
 TOKEN_URL = "https://test.com/token"
 
 

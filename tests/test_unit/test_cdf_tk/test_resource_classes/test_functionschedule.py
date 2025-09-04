@@ -13,7 +13,11 @@ class TestFunctionScheduleYAML:
     def test_load_valid_function_schedule(self, data: dict[str, object]) -> None:
         loaded = FunctionScheduleYAML.model_validate(data)
 
-        assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
+        dumped = loaded.model_dump(exclude_unset=True, by_alias=True)
+        assert "authentication" in dumped
+        # Secret is not dumped as per design, so we add it back for comparison
+        dumped["authentication"]["clientSecret"] = data["authentication"]["clientSecret"]
+        assert dumped == data
 
     @pytest.mark.parametrize(
         "data, expected_errors",

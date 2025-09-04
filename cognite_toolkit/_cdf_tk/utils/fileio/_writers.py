@@ -2,6 +2,7 @@ import csv
 import importlib.util
 import json
 import sys
+import threading
 from abc import ABC, abstractmethod
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
@@ -44,18 +45,22 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
         self.max_file_size_bytes = max_file_size_bytes
         self._file_count_by_filename: dict[str, int] = Counter()
         self._writer_by_filepath: dict[Path, T_IO] = {}
+        self._lock = threading.Lock()
 
     @property
     def file_count(self) -> int:
         """Get the total number of files written."""
-        return len(self._writer_by_filepath)
+        with self._lock:
+            return len(self._writer_by_filepath)
 
     def write_chunks(self, chunks: Iterable[Chunk], filestem: str = "") -> None:
-        filepath = self._get_filepath(filestem)
-        writer = self._get_writer(filepath, filestem)
-        self._write(writer, chunks)
+        with self._lock:
+            filepath = self._get_filepath(filestem)
+            writer = self._get_writer(filepath, filestem)
+            self._write(writer, chunks)
 
     def _get_filepath(self, filename: str) -> Path:
+        # This method is now called within the lock context from write_chunks
         sanitized_name = f"{to_directory_compatible(filename)}-" if filename else ""
         file_count = self._file_count_by_filename[filename]
         file_path = (
@@ -66,6 +71,7 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
         return file_path
 
     def _get_writer(self, filepath: Path, filename_base: str) -> T_IO:
+        # This method is now called within the lock context from write_chunks
         if filepath not in self._writer_by_filepath:
             self._writer_by_filepath[filepath] = self._create_writer(filepath)
         elif self._is_above_file_size_limit(filepath, self._writer_by_filepath[filepath]):
@@ -77,18 +83,20 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
         return self._writer_by_filepath[filepath]
 
     def __enter__(self) -> Self:
-        self._file_count_by_filename.clear()
-        self._writer_by_filepath.clear()
+        # Defensive check - should never trigger in normal usage
+        if self._writer_by_filepath or self._file_count_by_filename:
+            raise RuntimeError(f"{type(self).__name__} context manager should not be reused")
         return self
 
     def __exit__(
         self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None
     ) -> None:
-        for writer in self._writer_by_filepath.values():
-            writer.close()
-        self._writer_by_filepath.clear()
-        self._file_count_by_filename.clear()
-        return None
+        with self._lock:
+            for writer in self._writer_by_filepath.values():
+                writer.close()
+            self._writer_by_filepath.clear()
+            self._file_count_by_filename.clear()
+            return None
 
     def _is_above_file_size_limit(self, filepath: Path, writer: T_IO) -> bool:
         """Check if the file size is above the limit."""

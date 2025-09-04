@@ -17,6 +17,7 @@ from cognite.client.data_classes.data_modeling.instances import (
 from cognite_toolkit._cdf_tk.constants import COGNITE_MIGRATION_SPACE
 from cognite_toolkit._cdf_tk.tk_warnings import IgnoredValueWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentric
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -26,7 +27,7 @@ else:
 
 @dataclass(frozen=True)
 class AssetCentricId(CogniteObject):
-    resource_type: Literal["asset", "event", "file", "sequence", "timeseries"]
+    resource_type: AssetCentric
     id_: int
 
     @classmethod
