@@ -605,6 +605,9 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
     def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
         identifier = self.identifier or self._interactive_select()
         loader = StreamlitLoader.create_loader(self.client)
+        # If the user used interactive select, we have already downloaded the streamlit apps,
+        # Thus, we do not need to download them again. If not pass the identifier and let the main logic
+        # take care of the download.
         if self.apps:
             yield [], StreamlitList([app for app in self.apps if app.external_id in identifier]), loader, None
         else:
@@ -623,7 +626,7 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
         try:
             content = self.client.files.download_bytes(external_id=app.external_id)
         except CogniteAPIError as e:
-            if e.code == 400 and "Files ids not found" in e.message:
+            if e.code == 400 and e.missing:
                 HighSeverityWarning(
                     f"The source code for {app.external_id!r} could not be retrieved from CDF."
                 ).print_warning(console=console)
@@ -639,7 +642,7 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
             ).print_warning(console=console)
             return
 
-        app_folder = to_directory_compatible(app.external_id or "unknown_external_id")
+        app_folder = to_directory_compatible(app.external_id)
         app_path = folder / app_folder
         app_path.mkdir(exist_ok=True)
         if isinstance(json_content.get("requirements"), list):
@@ -651,7 +654,6 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
                 ).print_warning()
             else:
                 requirements_txt.write_text("\n".join(requirements), encoding="utf-8")
-        entry_point = json_content.get("entrypoint")
         files = json_content.get("files", {})
         if not isinstance(files, dict) or (not files):
             HighSeverityWarning(
@@ -671,6 +673,7 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
             safe_write(filepath, file_content, encoding="utf-8")
             created_files.add(relative_filepath)
 
+        entry_point = json_content.get("entrypoint")
         if entry_point and entry_point not in created_files:
             HighSeverityWarning(
                 f"The Streamlit app {app.external_id!r} has an entry point {entry_point} that was not found in the files. "
