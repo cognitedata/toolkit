@@ -32,10 +32,10 @@ class TestChunkSequence:
         sequence = MigrationMappingList(
             [
                 MigrationMapping(
-                    resource_type="timeseries", id=1, data_set_id=123, instance_id=NodeId("sp_full_ts", "full_ts_id")
+                    resourceType="timeseries", id=1, dataSetId=123, instanceId=NodeId("sp_full_ts", "full_ts_id")
                 ),
                 MigrationMapping(
-                    resource_type="timeseries", id=2, data_set_id=None, instance_id=NodeId("sp_step_ts", "step_ts_id")
+                    resourceType="timeseries", id=2, dataSetId=None, instanceId=NodeId("sp_step_ts", "step_ts_id")
                 ),
             ]
         )
