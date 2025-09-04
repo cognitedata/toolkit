@@ -1,6 +1,7 @@
 from ._applications import ChartIO
 from ._asset_centric import AssetIO
 from ._base import StorageIO, TableStorageIO
+from ._instances import InstanceIO
 from ._raw import RawIO
 from ._selectors import (
     AllChartSelector,
@@ -11,6 +12,8 @@ from ._selectors import (
     ChartOwnerSelector,
     ChartSelector,
     DataSetSelector,
+    InstanceSelector,
+    InstanceViewSelector,
 )
 
 __all__ = [
@@ -24,6 +27,9 @@ __all__ = [
     "ChartOwnerSelector",
     "ChartSelector",
     "DataSetSelector",
+    "InstanceIO",
+    "InstanceSelector",
+    "InstanceViewSelector",
     "RawIO",
     "StorageIO",
     "TableStorageIO",

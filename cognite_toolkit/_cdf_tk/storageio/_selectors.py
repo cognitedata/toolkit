@@ -1,5 +1,8 @@
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
+
+from cognite.client.data_classes.data_modeling import ViewId
 
 from cognite_toolkit._cdf_tk.utils.file import to_directory_compatible
 
@@ -37,6 +40,22 @@ class AssetCentricFileSelector(AssetCentricSelector):
 
     def __str__(self) -> str:
         return f"File={self.datafile.name}"
+
+
+@dataclass(frozen=True)
+class InstanceSelector: ...
+
+
+@dataclass(frozen=True)
+class InstanceFileSelector(InstanceSelector):
+    datafile: Path
+
+
+@dataclass(frozen=True)
+class InstanceViewSelector(InstanceSelector):
+    view: ViewId
+    instance_type: Literal["node", "edge"] = "node"
+    instance_spaces: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True)
