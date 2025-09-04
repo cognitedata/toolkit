@@ -631,7 +631,7 @@ class PurgeCommand(ToolkitCommand):
         if unlink:
             process = partial(self._unlink_prepare, client=client, dry_run=dry_run, console=console, verbose=verbose)
 
-        iteration_count = int(total // 1000 + (1 if total % 1000 > 0 else 0))
+        iteration_count = int(total // io.chunk_size + (1 if total % io.chunk_size > 0 else 0))
         with HTTPBatchProcessor(
             endpoint_url=client.config.create_api_url("/models/instances/delete"),
             config=client.config,
