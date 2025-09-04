@@ -78,6 +78,7 @@ def asset_centric_to_dm(
             ),
             view_properties=view_properties,
             asset_centric_to_instance=view_source.mapping.metadata_to_property_id,
+            source_prefix="metadata.",
         )
         properties.update(metadata_properties)
 
@@ -124,11 +125,12 @@ def _create_properties(
     conversion: Callable[[Any, str, MappedProperty], PropertyValueWrite],
     view_properties: dict[str, ViewProperty],
     asset_centric_to_instance: dict[str, str],
+    source_prefix: str = "",
 ) -> dict[str, PropertyValueWrite]:
     properties: dict[str, PropertyValueWrite] = {}
     for prop_id, dm_prop_id in asset_centric_to_instance.items():
         if prop_id not in dumped:
-            issue.missing_asset_centric_properties.append(prop_id)
+            issue.missing_asset_centric_properties.append(f"{source_prefix}{prop_id}")
             continue
         if dm_prop_id not in view_properties:
             issue.missing_instance_properties.append(dm_prop_id)
