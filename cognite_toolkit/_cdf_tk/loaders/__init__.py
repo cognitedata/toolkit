@@ -132,7 +132,6 @@ ResourceTypes: TypeAlias = Literal[  # type: ignore[no-redef, misc]
     "robotics",
     "streamlit",
     "workflows",
-    "search_configs",
 ]
 
 

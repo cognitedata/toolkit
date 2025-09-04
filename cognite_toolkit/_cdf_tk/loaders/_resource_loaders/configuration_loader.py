@@ -8,7 +8,6 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from cognite_toolkit._cdf_tk.client.data_classes.search_config import (
     SearchConfig,
     SearchConfigList,
-    SearchConfigViewProperty,
     SearchConfigWrite,
     SearchConfigWriteList,
     ViewId,
@@ -27,7 +26,7 @@ class SearchConfigLoader(
     ResourceLoader[ViewId, SearchConfigWrite, SearchConfig, SearchConfigWriteList, SearchConfigList]
 ):
     support_drop = False
-    folder_name = "search_configs"
+    folder_name = "cdf_applications"
     filename_pattern = r"^.*SearchConfig$"
     resource_cls = SearchConfig
     resource_write_cls = SearchConfigWrite
@@ -87,30 +86,24 @@ class SearchConfigLoader(
             return diff_list_identifiable(local, cdf, get_identifier=dm_identifier)
         return super().diff_list(local, cdf, json_path)
 
-    def _update_config_layout(
-        self, existing_layout: list[SearchConfigViewProperty], new_layout: list[SearchConfigViewProperty]
-    ) -> None:
+    def _upsert(self, items: SearchConfigWriteList) -> SearchConfigList:
         """
-        Update the existing Coulmn/Filter/Property layout with the new layout for the given view.
+        Upsert search configurations using the upsert method
         """
-        index_by_property = {p.property: i for i, p in enumerate(existing_layout)}
-        for prop in new_layout:
-            if prop.property in index_by_property:
-                existing_layout[index_by_property[prop.property]] = prop
-            else:
-                existing_layout.append(prop)
-                index_by_property[prop.property] = len(existing_layout) - 1
-
-    def create(self, items: SearchConfigWrite | SearchConfigWriteList) -> SearchConfigList:
-        """Create new search configurations using the upsert method"""
-        if isinstance(items, SearchConfigWrite):
-            items = SearchConfigWriteList([items])
-
         result = SearchConfigList([])
         for item in items:
             created = self.client.search.configurations.upsert(item)
             result.append(created)
         return result
+
+    def create(self, items: SearchConfigWrite | SearchConfigWriteList) -> SearchConfigList:
+        """
+        Create new search configurations using the upsert method
+        """
+        if isinstance(items, SearchConfigWrite):
+            items = SearchConfigWriteList([items])
+
+        return self._upsert(items)
 
     def retrieve(self, ids: SequenceNotStr[ViewId]) -> SearchConfigList:
         """Retrieve search configurations by their IDs"""
@@ -121,49 +114,19 @@ class SearchConfigLoader(
     def update(self, items: SearchConfigWrite | SearchConfigWriteList) -> SearchConfigList:
         """
         Update search configurations using the upsert method
-        Note: Due to an API limitation where multiple configs can be created for the same view,
-        this method merges all updates for the same view into a single configuration to prevent
-        duplicate search configs per view.
         """
         if isinstance(items, SearchConfigWrite):
             items = SearchConfigWriteList([items])
 
-        result = SearchConfigList([])
-        view_ids = [item.view for item in items]
-        existing_configs = self.retrieve(view_ids)
-        existing_by_view_id = {config.view: config for config in existing_configs}
+        # Update of configs only possible if Id is provided in the body
+        update_config_views: set[ViewId] = {item.view for item in items}
+        existing_configs = self.retrieve(list(update_config_views))
+        existing_by_view_id = {config.view: config.id for config in existing_configs}
 
         for item in items:
-            existing_config = existing_by_view_id.get(item.view)
-            if existing_config is None:
-                result.extend(self.create(item))
-                continue
+            item.id = existing_by_view_id[item.view]
 
-            columns = list(existing_config.columns_layout or [])
-            filters = list(existing_config.filter_layout or [])
-            props = list(existing_config.properties_layout or [])
-
-            self._update_config_layout(columns, item.columns_layout or [])
-            self._update_config_layout(filters, item.filter_layout or [])
-            self._update_config_layout(props, item.properties_layout or [])
-
-            use_as_name = item.use_as_name or existing_config.use_as_name
-            use_as_description = item.use_as_description or existing_config.use_as_description
-
-            merged_config = SearchConfigWrite(
-                id=existing_config.id,  # Keep existing ID
-                view=existing_config.view,  # Keep existing view
-                use_as_name=use_as_name,
-                use_as_description=use_as_description,
-                columns_layout=columns if columns else None,
-                filter_layout=filters if filters else None,
-                properties_layout=props if props else None,
-            )
-
-            updated = self.client.search.configurations.upsert(merged_config)
-            result.append(updated)
-
-        return result
+        return self._upsert(items)
 
     def delete(self, ids: SequenceNotStr[ViewId]) -> int:
         """
@@ -179,11 +142,7 @@ class SearchConfigLoader(
     ) -> Iterable[SearchConfig]:
         """Iterate through all search configurations"""
         all_configs = self.client.search.configurations.list()
-        if space:
-            # The API does not support server-side filtering, so we filter in memory.
-            return iter([])
-
-        if data_set_external_id or parent_ids:
+        if space or data_set_external_id or parent_ids:
             # These filters are not supported for SearchConfig
             return iter([])
 
