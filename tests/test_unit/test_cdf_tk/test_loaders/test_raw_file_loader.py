@@ -1,4 +1,3 @@
-import warnings
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
@@ -57,7 +56,7 @@ class TestRawFileLoader:
         written_to_cdf = kwargs["dataframe"].to_dict(orient="index")
         assert written_to_cdf == expected_write
 
-    def test_upload_suppresses_futurewarning_on_fillna(self) -> None:
+    def test_upload_suppresses_futurewarning_on_fillna(self, recwarn) -> None:
         with monkeypatch_toolkit_client() as client:
             loader = RawFileLoader.create_loader(client)
         csv_file = MagicMock(spec=Path)
@@ -85,10 +84,9 @@ class TestRawFileLoader:
         )
 
         # Ensure no FutureWarning leaks from fillna("") thanks to local suppression
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always", category=FutureWarning)
-            list(loader.upload(state, dry_run=False))
-            assert not any(issubclass(w.category, FutureWarning) for w in caught)
+        list(loader.upload(state, dry_run=False))
+        future_warnings = [w for w in recwarn.list if issubclass(w.category, FutureWarning)]
+        assert len(future_warnings) == 0
 
         assert client.raw.rows.insert_dataframe.call_count == 1
         _, kwargs = client.raw.rows.insert_dataframe.call_args
