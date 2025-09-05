@@ -48,7 +48,9 @@ class TestInstanceIdList:
             pytest.param(
                 "space,externalId\nmy_space,instance1\n", "Missing required columns: instanceType", id="Missing column"
             ),
-            pytest.param("space,externalId,InstanceType\n", "No data found in the file: '{filepath}'", id="Empty file"),
+            pytest.param(
+                "space,externalId,InstanceType\n", "No data found in the file: '{filepath}'.", id="Empty file"
+            ),
         ],
     )
     def test_read_csv_file_missing_column(self, csv_content: str, expected_error: str, tmp_path: Path) -> None:
