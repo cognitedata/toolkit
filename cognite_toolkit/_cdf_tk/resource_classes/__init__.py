@@ -9,8 +9,11 @@ This is means that we have three set of resource classes we use in Toolkit:
 
 from .asset import AssetYAML
 from .base import BaseModelResource, ToolkitResource
+from .datapoint_subscription import DatapointSubscriptionYAML
 from .dataset import DataSetYAML
 from .event import EventYAML
+from .extraction_pipeline import ExtractionPipelineYAML
+from .extraction_pipeline_config import ExtractionPipelineConfigYAML
 from .filemetadata import FileMetadataYAML
 from .function_schedule import FunctionScheduleYAML
 from .functions import FunctionsYAML
@@ -25,13 +28,18 @@ from .threedmodels import ThreeDModelYAML
 from .timeseries import TimeSeriesYAML
 from .transformation_schedule import TransformationScheduleYAML
 from .transformations import TransformationYAML
+from .workflow_trigger import WorkflowTriggerYAML
+from .workflow_version import WorkflowVersionYAML
 
 __all__ = [
     "AssetYAML",
     "BaseModelResource",
     "DataSetYAML",
     "DatabaseYAML",
+    "DatapointSubscriptionYAML",
     "EventYAML",
+    "ExtractionPipelineConfigYAML",
+    "ExtractionPipelineYAML",
     "FileMetadataYAML",
     "FunctionScheduleYAML",
     "FunctionsYAML",
@@ -47,4 +55,6 @@ __all__ = [
     "ToolkitResource",
     "TransformationScheduleYAML",
     "TransformationYAML",
+    "WorkflowTriggerYAML",
+    "WorkflowVersionYAML",
 ]

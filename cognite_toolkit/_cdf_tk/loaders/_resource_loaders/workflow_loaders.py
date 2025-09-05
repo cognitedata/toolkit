@@ -54,6 +54,8 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.resource_classes import WorkflowTriggerYAML, WorkflowVersionYAML
+from cognite_toolkit._cdf_tk.resource_classes.workflow import WorkflowYAML
 from cognite_toolkit._cdf_tk.tk_warnings import (
     LowSeverityWarning,
     MissingReferencedWarning,
@@ -92,6 +94,7 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
             DataSetsLoader,
         }
     )
+    yaml_cls = WorkflowYAML
     _doc_base_url = "https://api-docs.cognite.com/20230101-beta/tag/"
     _doc_url = "Workflows/operation/CreateOrUpdateWorkflow"
 
@@ -229,6 +232,7 @@ class WorkflowVersionLoader(
     kind = "WorkflowVersion"
     dependencies = frozenset({WorkflowLoader})
     parent_resource = frozenset({WorkflowLoader})
+    yaml_cls = WorkflowVersionYAML
 
     _doc_base_url = "https://api-docs.cognite.com/20230101-beta/tag/"
     _doc_url = "Workflow-versions/operation/CreateOrUpdateWorkflowVersion"
@@ -543,6 +547,7 @@ class WorkflowTriggerLoader(
     kind = "WorkflowTrigger"
     dependencies = frozenset({WorkflowLoader, WorkflowVersionLoader, GroupResourceScopedLoader, GroupAllScopedLoader})
     parent_resource = frozenset({WorkflowLoader})
+    yaml_cls = WorkflowTriggerYAML
 
     _doc_url = "Workflow-triggers/operation/CreateOrUpdateTriggers"
 
