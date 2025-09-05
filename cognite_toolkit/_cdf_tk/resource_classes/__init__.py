@@ -27,6 +27,7 @@ from .securitycategories import SecurityCategoriesYAML
 from .space import SpaceYAML
 from .threedmodels import ThreeDModelYAML
 from .timeseries import TimeSeriesYAML
+from .transformation_notification import TransformationNotificationYAML
 from .transformation_schedule import TransformationScheduleYAML
 from .transformations import TransformationYAML
 from .views import ViewYAML
@@ -57,6 +58,7 @@ __all__ = [
     "ThreeDModelYAML",
     "TimeSeriesYAML",
     "ToolkitResource",
+    "TransformationNotificationYAML",
     "TransformationScheduleYAML",
     "TransformationYAML",
     "ViewYAML",
