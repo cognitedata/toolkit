@@ -9,6 +9,7 @@ This is means that we have three set of resource classes we use in Toolkit:
 
 from .asset import AssetYAML
 from .base import BaseModelResource, ToolkitResource
+from .data_model import DataModelYAML
 from .dataset import DataSetYAML
 from .event import EventYAML
 from .filemetadata import FileMetadataYAML
@@ -29,6 +30,7 @@ from .transformations import TransformationYAML
 __all__ = [
     "AssetYAML",
     "BaseModelResource",
+    "DataModelYAML",
     "DataSetYAML",
     "DatabaseYAML",
     "EventYAML",
