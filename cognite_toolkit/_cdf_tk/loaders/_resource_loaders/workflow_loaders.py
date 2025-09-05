@@ -714,6 +714,13 @@ class WorkflowTriggerLoader(
         if isinstance(dumped.get("data"), str) and isinstance(local.get("data"), dict):
             dumped["data"] = json.loads(dumped["data"])
 
+        cdf_rule = dumped.get("triggerRule", {})
+        local_rule = local.get("triggerRule", {})
+        if cdf_rule.get("triggerType") == "schedule" and local_rule.get("triggerType") == "schedule":
+            if cdf_rule.get("timezone") == "UTC" and "timezone" not in local_rule:
+                # The server defaults to UTC if not set, so we remove it if the local does not have it set.
+                del cdf_rule["timezone"]
+
         if "authentication" in local:
             # Changes in auth will be detected by the hash. We need to do this to ensure
             # that the pull command works.

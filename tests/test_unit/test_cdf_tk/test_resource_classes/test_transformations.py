@@ -159,7 +159,11 @@ class TestTransformationYAML:
     def test_load_valid_transformation_file(self, data: dict[str, object]) -> None:
         loaded = TransformationYAML.model_validate(data)
 
-        assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
+        dumped = loaded.model_dump(exclude_unset=True, by_alias=True)
+        if "authentication" in dumped:
+            # Secret is not dumped as per design, so we add it back for comparison
+            dumped["authentication"]["clientSecret"] = data["authentication"]["clientSecret"]
+        assert dumped == data
 
     @pytest.mark.parametrize("data", transformation_destination_cases())
     def test_load_valid_transformation_destination_parameters(self, data: dict[str, object]) -> None:
