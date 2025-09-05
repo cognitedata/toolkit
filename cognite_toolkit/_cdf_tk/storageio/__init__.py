@@ -1,5 +1,5 @@
 from ._applications import ChartIO
-from ._asset_centric import AssetIO
+from ._asset_centric import AssetIO, FileMetadataIO
 from ._base import StorageIO, TableStorageIO
 from ._instances import InstanceIO
 from ._raw import RawIO
@@ -27,6 +27,7 @@ __all__ = [
     "ChartOwnerSelector",
     "ChartSelector",
     "DataSetSelector",
+    "FileMetadataIO",
     "InstanceIO",
     "InstanceSelector",
     "InstanceViewSelector",
