@@ -180,7 +180,7 @@ class PurgeApp(typer.Typer):
             typer.Option(
                 "--list",
                 "-l",
-                help="Path to a file containing a list of instance external IDs to purge. This file should be a csv file with space,externalId columns."
+                help="Path to a file containing a list of instance external IDs to purge. This file should be a csv file with space,externalId,instanceType columns."
                 "If this option is provided, the view, instance-space and instance-type options will be ignored.",
                 exists=True,
                 file_okay=True,
