@@ -668,7 +668,7 @@ class PurgeCommand(ToolkitCommand):
         if instance_spaces is None:
             self.warn(
                 LimitedAccessWarning(
-                    f"You can only purge instances in the following instances spaces: {humanize_collection(space_ids)}."
+                    f"You can only purge instances in the following instance spaces: {humanize_collection(space_ids)}."
                 )
             )
             return
