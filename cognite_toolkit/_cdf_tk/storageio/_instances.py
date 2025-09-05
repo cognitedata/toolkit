@@ -53,7 +53,10 @@ class InstanceIO(TableStorageIO[InstanceSelector, InstanceApplyList, InstanceLis
 
     def download_ids(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[list[InstanceId]]:
         if isinstance(selector, InstanceFileSelector) and selector.validate is False:
-            yield from chunker_sequence(selector.instance_ids, self.chunk_size)
+            instances_to_yield = selector.instance_ids
+            if limit is not None:
+                instances_to_yield = instances_to_yield[:limit]
+            yield from chunker_sequence(instances_to_yield, self.chunk_size)
         else:
             yield from ([instance.as_id() for instance in chunk] for chunk in self.download_iterable(selector, limit))  # type: ignore[attr-defined]
 
