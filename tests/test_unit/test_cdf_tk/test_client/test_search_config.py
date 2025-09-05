@@ -1,23 +1,23 @@
 from cognite_toolkit._cdf_tk.client.data_classes.search_config import (
     SearchConfig,
     SearchConfigList,
-    SearchConfigView,
     SearchConfigViewProperty,
     SearchConfigWrite,
     SearchConfigWriteList,
+    ViewId,
 )
 
 
 class TestSearchConfigView:
     def test_search_config_view(self):
         # Test initialization
-        view = SearchConfigView(external_id="test-view", space="test-space")
+        view = ViewId(external_id="test-view", space="test-space")
         assert view.external_id == "test-view"
         assert view.space == "test-space"
 
         # Test loading from dictionary
         data = {"externalId": "test-view", "space": "test-space"}
-        loaded_view = SearchConfigView.load(data)
+        loaded_view = ViewId.load(data)
         assert loaded_view.external_id == "test-view"
         assert loaded_view.space == "test-space"
 
@@ -54,7 +54,7 @@ class TestSearchConfigViewProperty:
 
 class TestSearchConfigWrite:
     def test_init(self):
-        view = SearchConfigView(external_id="test-view", space="test-space")
+        view = ViewId(external_id="test-view", space="test-space")
         property_1 = SearchConfigViewProperty(property="prop1", selected=True)
         property_2 = SearchConfigViewProperty(property="prop2", disabled=True)
 
@@ -63,7 +63,7 @@ class TestSearchConfigWrite:
             id=123,
             use_as_name="name-prop",
             use_as_description="desc-prop",
-            column_layout=[property_1],
+            columns_layout=[property_1],
             filter_layout=[property_2],
             properties_layout=[property_1, property_2],
         )
@@ -72,7 +72,7 @@ class TestSearchConfigWrite:
         assert config.id == 123
         assert config.use_as_name == "name-prop"
         assert config.use_as_description == "desc-prop"
-        assert config.column_layout == [property_1]
+        assert config.columns_layout == [property_1]
         assert config.filter_layout == [property_2]
         assert config.properties_layout == [property_1, property_2]
 
@@ -82,7 +82,7 @@ class TestSearchConfigWrite:
             "view": {"externalId": "test-view", "space": "test-space"},
             "useAsName": "name-prop",
             "useAsDescription": "desc-prop",
-            "columnLayout": [{"property": "prop1", "selected": True}],
+            "columnsLayout": [{"property": "prop1", "selected": True}],
             "filterLayout": [{"property": "prop2", "disabled": True}],
             "propertiesLayout": [{"property": "prop1", "selected": True}, {"property": "prop2", "disabled": True}],
         }
@@ -94,23 +94,23 @@ class TestSearchConfigWrite:
         assert config.view.space == "test-space"
         assert config.use_as_name == "name-prop"
         assert config.use_as_description == "desc-prop"
-        assert len(config.column_layout) == 1
-        assert config.column_layout[0].property == "prop1"
-        assert config.column_layout[0].selected is True
+        assert len(config.columns_layout) == 1
+        assert config.columns_layout[0].property == "prop1"
+        assert config.columns_layout[0].selected is True
         assert len(config.filter_layout) == 1
         assert config.filter_layout[0].property == "prop2"
         assert config.filter_layout[0].disabled is True
         assert len(config.properties_layout) == 2
 
     def test_dump(self):
-        view = SearchConfigView(external_id="test-view", space="test-space")
+        view = ViewId(external_id="test-view", space="test-space")
         property_1 = SearchConfigViewProperty(property="prop1", selected=True)
 
         config = SearchConfigWrite(
             view=view,
             id=123,
             use_as_name="name-prop",
-            column_layout=[property_1],
+            columns_layout=[property_1],
         )
 
         dumped = config.dump()
@@ -118,12 +118,12 @@ class TestSearchConfigWrite:
         assert dumped["id"] == 123
         assert dumped["useAsName"] == "name-prop"
         assert dumped["view"] == {"externalId": "test-view", "space": "test-space"}
-        assert dumped["columLayout"] == [{"property": "prop1", "selected": True}]
+        assert dumped["columnsLayout"] == [{"property": "prop1", "selected": True}]
 
 
 class TestSearchConfig:
     def test_as_write(self):
-        view = SearchConfigView(external_id="test-view", space="test-space")
+        view = ViewId(external_id="test-view", space="test-space")
 
         config = SearchConfig(view=view, id=123, created_time=1000, updated_time=2000, use_as_name="name-prop")
 
@@ -154,8 +154,8 @@ class TestSearchConfig:
 
 class TestSearchConfigList:
     def test_as_write(self):
-        view1 = SearchConfigView(external_id="view1", space="space1")
-        view2 = SearchConfigView(external_id="view2", space="space2")
+        view1 = ViewId(external_id="view1", space="space1")
+        view2 = ViewId(external_id="view2", space="space2")
 
         config1 = SearchConfig(view=view1, id=1, created_time=1000, updated_time=2000)
         config2 = SearchConfig(view=view2, id=2, created_time=3000, updated_time=4000)
