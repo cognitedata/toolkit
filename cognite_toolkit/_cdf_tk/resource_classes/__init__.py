@@ -30,6 +30,7 @@ from .timeseries import TimeSeriesYAML
 from .transformation_schedule import TransformationScheduleYAML
 from .transformations import TransformationYAML
 from .views import ViewYAML
+from .workflow import WorkflowYAML
 from .workflow_trigger import WorkflowTriggerYAML
 from .workflow_version import WorkflowVersionYAML
 
@@ -61,4 +62,5 @@ __all__ = [
     "ViewYAML",
     "WorkflowTriggerYAML",
     "WorkflowVersionYAML",
+    "WorkflowYAML",
 ]
