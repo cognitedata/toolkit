@@ -55,3 +55,45 @@ class TestRawFileLoader:
         _, kwargs = client.raw.rows.insert_dataframe.call_args
         written_to_cdf = kwargs["dataframe"].to_dict(orient="index")
         assert written_to_cdf == expected_write
+
+    def test_upload_suppresses_futurewarning_on_fillna(self, recwarn) -> None:
+        with monkeypatch_toolkit_client() as client:
+            loader = RawFileLoader.create_loader(client)
+        csv_file = MagicMock(spec=Path)
+        csv_content = """myFloat,myInt,myString,myBool
+,1,hello,True
+0.2,,world,False
+"""
+        csv_file.read_bytes.return_value = csv_content.encode("utf-8")
+        csv_file.exists.return_value = True
+        csv_file.suffix = ".csv"
+        source_file = MagicMock(spec=Path)
+        source_file.with_suffix.return_value = csv_file
+
+        state = BuildEnvironment()
+        state.built_resources[RawFileLoader.folder_name] = BuiltResourceList(
+            [
+                BuiltResource(
+                    RawTable("myDB", "myTable"),
+                    SourceLocationEager(source_file, "1z234"),
+                    RawTableLoader.kind,
+                    None,
+                    None,
+                )
+            ]
+        )
+
+        # Ensure no FutureWarning leaks from fillna("") thanks to local suppression
+        with pytest.warns() as record:
+            list(loader.upload(state, dry_run=False))
+
+        # Verify no FutureWarnings were raised
+        future_warnings = [w for w in record if issubclass(w.category, FutureWarning)]
+        assert len(future_warnings) == 0, f"Expected no FutureWarnings, but got: {future_warnings}"
+
+        assert client.raw.rows.insert_dataframe.call_count == 1
+        _, kwargs = client.raw.rows.insert_dataframe.call_args
+        df = kwargs["dataframe"]
+        # Evidence that fillna("") was executed: NaNs were turned into empty strings
+        assert df.iloc[0]["myFloat"] == ""
+        assert df.iloc[1]["myInt"] == ""
