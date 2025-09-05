@@ -57,7 +57,6 @@ class DirectRelationReference(BaseModelResource):
         description="External-id of the view.",
         min_length=1,
         max_length=255,
-        pattern=CONTAINER_AND_VIEW_EXTERNAL_ID_PATTERN,
     )
 
 
