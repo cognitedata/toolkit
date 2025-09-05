@@ -1,4 +1,3 @@
-import warnings
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
@@ -85,10 +84,12 @@ class TestRawFileLoader:
         )
 
         # Ensure no FutureWarning leaks from fillna("") thanks to local suppression
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always", category=FutureWarning)
+        with pytest.warns() as record:
             list(loader.upload(state, dry_run=False))
-        assert not any(issubclass(w.category, FutureWarning) for w in caught)
+
+        # Verify no FutureWarnings were raised
+        future_warnings = [w for w in record if issubclass(w.category, FutureWarning)]
+        assert len(future_warnings) == 0, f"Expected no FutureWarnings, but got: {future_warnings}"
 
         assert client.raw.rows.insert_dataframe.call_count == 1
         _, kwargs = client.raw.rows.insert_dataframe.call_args
