@@ -131,7 +131,7 @@ class Streamlit(_StreamlitCore):
             data_set_id=resource.get("dataSetId"),
         )
         # Trick to avoid specifying defaults twice
-        for key in ["theme", "app_hash"]:
+        for key in ["theme"]:
             if key in resource:
                 args[key] = resource[key]
         if "cogniteToolkitAppHash" in resource:
