@@ -5,5 +5,5 @@ triggerRule:
 workflowExternalId: baz
 workflowVersion: '1'
 authentication:
-  clientId: {{ cicd_clientId }}
-  clientSecret: {{ cicd_clientSecret }}
+  clientId: ${IDP_CLIENT_ID}
+  clientSecret: ${IDP_CLIENT_SECRET}
