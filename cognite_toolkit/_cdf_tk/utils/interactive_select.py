@@ -14,6 +14,9 @@ from cognite.client.data_classes import (
     filters,
 )
 from cognite.client.data_classes.aggregations import Count
+from cognite.client.data_classes.capabilities import (
+    UserProfilesAcl,
+)
 from cognite.client.data_classes.data_modeling import NodeList, Space, SpaceList, View, ViewId
 from cognite.client.exceptions import CogniteException
 from cognite.client.utils import ms_to_datetime
@@ -24,7 +27,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.canvas import Canvas
 from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList, Visibility
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
-from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import AuthorizationError, ToolkitMissingResourceError, ToolkitValueError
 
 from . import humanize_collection
 from .aggregators import (
@@ -402,11 +405,21 @@ class InteractiveChartSelect:
         return user_response
 
     def _select_external_ids(self, select_filter: ChartFilter) -> list[str]:
+        if not self.client.iam.verify_capabilities(
+            UserProfilesAcl([UserProfilesAcl.Action.Read], scope=UserProfilesAcl.Scope.All())
+        ):
+            raise AuthorizationError(
+                "The current user does not have permission to list user profiles, "
+                "which is required to select Charts owned by a specific user."
+            )
         available_charts = self.client.charts.list(visibility=(select_filter.visibility or "PUBLIC"))
         if select_filter.select_all and select_filter.owned_by is None:
             return [chart.external_id for chart in available_charts]
+
         users = self.client.iam.user_profiles.list(limit=-1)
-        display_name_by_user_identifier = {user.user_identifier: user.display_name or "missing" for user in users}
+        display_name_by_user_identifier = {
+            user.user_identifier: user.display_name for user in users if user.display_name
+        }
         if select_filter.owned_by == "user":
             available_charts = self._select_charts_by_user(available_charts, users)
         if select_filter.select_all:
@@ -416,7 +429,7 @@ class InteractiveChartSelect:
             choices=[
                 questionary.Choice(
                     title=f"{chart.data.name} (Created by "
-                    f"{display_name_by_user_identifier.get(chart.owner_id, chart.owner_id)!r} "
+                    f"{display_name_by_user_identifier.get(chart.owner_id, 'missing')!r} "
                     f"- {ms_to_datetime(chart.last_updated_time)})",
                     value=chart.external_id,
                 )
