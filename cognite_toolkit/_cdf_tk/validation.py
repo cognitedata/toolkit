@@ -197,11 +197,19 @@ def _humanize_validation_error(error: ValidationError) -> list[str]:
             "float_type",
             "time_type",
             "timedelta_type",
+            "dict_type",
         }:
             msg = f"{item['msg']}. Got {item['input']!r} of type {type(item['input']).__name__}."
         else:
             # Default to the Pydantic error message
             msg = item["msg"]
+
+        if error_type.endswith("dict_type") and len(loc) > 1:
+            # If this is a dict_type error for a JSON field, the location will be:
+            #  dict[str,json-or-python[json=any,python=tagged-union[list[...],dict[str,...],str,bool,int,float,none]]]
+            #  This is hard to read, so we simplify it to just the field name.
+            loc = tuple(["dict" if isinstance(x, str) and "json-or-python" in x else x for x in loc])
+
         if len(loc) > 1 and error_type in {"extra_forbidden", "missing"}:
             # We skip the last element as this is in the message already
             msg = f"In {as_json_path(loc[:-1])} {msg[:1].casefold()}{msg[1:]}"
