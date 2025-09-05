@@ -22,6 +22,7 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
     GroupFinder,
     LocationFilterFinder,
     NodeFinder,
+    StreamlitFinder,
     TransformationFinder,
     WorkflowFinder,
 )
@@ -59,6 +60,7 @@ class DumpApp(typer.Typer):
                 self.command("extraction-pipeline")(DumpConfigApp.dump_extraction_pipeline)
                 self.command("functions")(DumpConfigApp.dump_functions)
                 self.command("datasets")(DumpConfigApp.dump_datasets)
+                self.command("streamlit")(DumpConfigApp.dump_streamlit)
 
             if Flags.AGENTS.is_enabled() and Flags.DUMP_EXTENDED.is_enabled():
                 self.command("agents")(DumpConfigApp.dump_agents)
@@ -86,6 +88,7 @@ class DumpConfigApp(typer.Typer):
             self.command("extraction-pipeline")(self.dump_extraction_pipeline)
             self.command("datasets")(DumpConfigApp.dump_datasets)
             self.command("functions")(self.dump_functions)
+            self.command("streamlit")(DumpConfigApp.dump_streamlit)
         if Flags.DUMP_EXTENDED.is_enabled() and Flags.AGENTS.is_enabled():
             self.command("agents")(self.dump_agents)
 
@@ -610,6 +613,54 @@ class DumpConfigApp(typer.Typer):
         cmd.run(
             lambda: cmd.dump_to_yamls(
                 FunctionFinder(client, tuple(external_id) if external_id else None),
+                output_dir=output_dir,
+                clean=clean,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def dump_streamlit(
+        ctx: typer.Context,
+        external_id: Annotated[
+            list[str] | None,
+            typer.Argument(
+                help="The external ID(s) of the Streamlit apps you want to dump. "
+                "If nothing is provided, an interactive prompt will be shown to select the Streamlit apps.",
+            ),
+        ] = None,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to dump the Streamlit app files.",
+                allow_dash=True,
+            ),
+        ] = Path("tmp"),
+        clean: Annotated[
+            bool,
+            typer.Option(
+                "--clean",
+                "-c",
+                help="Delete the output directory before dumping the Streamlit apps.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will dump the selected Streamlit apps as yaml to the folder specified, defaults to /tmp."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = DumpResourceCommand()
+        cmd.run(
+            lambda: cmd.dump_to_yamls(
+                StreamlitFinder(client, tuple(external_id) if external_id else None),
                 output_dir=output_dir,
                 clean=clean,
                 verbose=verbose,

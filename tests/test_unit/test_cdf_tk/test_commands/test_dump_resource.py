@@ -1,4 +1,7 @@
+import json
+from collections import Counter
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
@@ -8,6 +11,7 @@ from cognite.client.data_classes import (
     DataSetList,
     ExtractionPipeline,
     ExtractionPipelineList,
+    FileMetadataList,
     Function,
     FunctionList,
     Group,
@@ -17,14 +21,17 @@ from cognite.client.data_classes import (
     TransformationScheduleList,
 )
 from cognite.client.data_classes.agents import Agent, AgentList, AskDocumentAgentTool
+from cognite.client.data_classes.aggregations import UniqueResult, UniqueResultList
 from cognite.client.data_classes.capabilities import (
     TimeSeriesAcl,
 )
 from cognite.client.data_classes.functions import FunctionsStatus
 from cognite.client.exceptions import CogniteAPIError
 from questionary import Choice
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.data_classes.location_filters import LocationFilter, LocationFilterList
+from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import Streamlit, StreamlitList
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands.dump_resource import (
     AgentFinder,
@@ -35,6 +42,7 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
     FunctionFinder,
     GroupFinder,
     LocationFilterFinder,
+    StreamlitFinder,
     TransformationFinder,
 )
 from cognite_toolkit._cdf_tk.loaders import (
@@ -44,6 +52,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     FunctionLoader,
     GroupAllScopedLoader,
     LocationFilterLoader,
+    StreamlitLoader,
     TransformationLoader,
 )
 from cognite_toolkit._cdf_tk.utils import read_yaml_file
@@ -512,3 +521,182 @@ class TestDumpDataSets:
         items = sorted([read_yaml_file(filepath) for filepath in filepaths], key=lambda d: d["externalId"])
         expected = sorted([loader.dump_resource(ds) for ds in three_datasets[1:]], key=lambda d: d["externalId"])
         assert items == expected
+
+
+@pytest.fixture()
+def three_streamlit_apps() -> StreamlitList:
+    return StreamlitList(
+        [
+            Streamlit(
+                external_id="appA",
+                name="App A",
+                description="This is App A",
+                created_time=1,
+                last_updated_time=1,
+                entrypoint="main.py",
+                creator="me",
+            ),
+            Streamlit(
+                external_id="appB",
+                name="App B",
+                description="This is App B",
+                created_time=1,
+                last_updated_time=1,
+                entrypoint="main.py",
+                creator="me",
+            ),
+            Streamlit(
+                external_id="appC",
+                name="App C",
+                description="This is App C",
+                created_time=1,
+                last_updated_time=1,
+                entrypoint="main.py",
+                creator="me",
+            ),
+        ]
+    )
+
+
+class TestDumpStreamlitApps:
+    def test_interactive_select_streamlit_apps(
+        self, three_streamlit_apps: StreamlitList, monkeypatch: MonkeyPatch
+    ) -> None:
+        def select_streamlit_apps(choices: list[Choice]) -> list[str]:
+            assert len(choices) == len(three_streamlit_apps)
+            return [choices[1].value, choices[2].value]
+
+        answers = ["me", select_streamlit_apps]
+
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(StreamlitFinder.__module__, monkeypatch, answers),
+        ):
+            client.files.list.return_value = FileMetadataList([app.as_file() for app in three_streamlit_apps])
+            counts_by_creator = Counter([app.creator for app in three_streamlit_apps])
+            client.documents.aggregate_unique_values.return_value = UniqueResultList(
+                [UniqueResult(count=count, values=[creator]) for creator, count in counts_by_creator.items()]
+            )
+            finder = StreamlitFinder(client, None)
+            selected = finder._interactive_select()
+
+        assert selected == ("appB", "appC")
+
+    def test_dump_streamlit_app(self, three_streamlit_apps: StreamlitList, tmp_path: Path) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.files.retrieve_multiple.return_value = FileMetadataList([three_streamlit_apps[1].as_file()])
+            client.files.download_bytes.return_value = json.dumps(
+                {
+                    "entrypoint": "main.py",
+                    "files": {
+                        "main.py": {
+                            "content": {
+                                "text": 'import streamlit as st\nfrom cognite.client import CogniteClient\n\nst.title("An example app in CDF")\nclient = CogniteClient()\n\n\n@st.cache_data\ndef get_assets():\n    assets = client.assets.list(limit=1000).to_pandas()\n    assets = assets.fillna(0)\n    return assets\n\n\nst.write(get_assets())\n',
+                                "$case": "text",
+                            }
+                        }
+                    },
+                    "requirements": ["pyodide-http==0.2.1", "cognite-sdk==7.51.1"],
+                }
+            ).encode("utf-8")
+
+            cmd = DumpResourceCommand(silent=True)
+            cmd.dump_to_yamls(
+                StreamlitFinder(client, ("appB",)),
+                output_dir=tmp_path,
+                clean=False,
+                verbose=False,
+            )
+            loader = StreamlitLoader(client, None, None)
+
+        filepaths = list(loader.find_files(tmp_path))
+        assert len(filepaths) == 1
+        config_file = filepaths[0]
+        loaded = read_yaml_file(config_file)
+        expected = loader.dump_resource(three_streamlit_apps[1])
+        assert loaded == expected
+
+        app_dir = config_file.parent / "appB"
+        assert app_dir.is_dir()
+        app_files = list(app_dir.iterdir())
+        assert set(app_files) == {
+            app_dir / "main.py",
+            app_dir / "requirements.txt",
+        }
+
+    @pytest.mark.parametrize(
+        "content,expected_warning,expected_severity",
+        [
+            pytest.param(
+                None,
+                "The source code for 'appB' could not be retrieved from CDF.",
+                "high",
+                id="File not found",
+            ),
+            pytest.param(
+                '{"not": "json"',
+                "The JSON content for the Streamlit app 'appB' is corrupt and could not be "
+                "extracted. Download file with the same external id manually to remediate.",
+                "high",
+                id="Corrupted JSON",
+            ),
+            pytest.param(
+                json.dumps({"requirements": [], "files": {}, "entrypoint": "main.py"}),
+                "The Streamlit app 'appB' does not have any files to dump. It is likely corrupted.",
+                "high",
+                id="No files in JSON",
+            ),
+            pytest.param(
+                json.dumps(
+                    {
+                        "requirements": ["foo==1.0"],
+                        "files": {
+                            "page/CDF_demo.py": {"content": {"text": True}},
+                            "main.py": {"content": {"text": "print('hi')"}},
+                        },
+                        "entrypoint": "main.py",
+                    }
+                ),
+                "The Streamlit app 'appB' has a file page/CDF_demo.py with invalid content. Skipping...",
+                "high",
+                id="File with no content",
+            ),
+            pytest.param(
+                json.dumps(
+                    {
+                        "requirements": ["foo==1.0"],
+                        "files": {"main.py": {"content": {"text": "print('hi')"}}},
+                        "entrypoint": "notfound.py",
+                    }
+                ),
+                "The Streamlit app 'appB' has an entry point notfound.py that was not found in the files. The app may be corrupted.",
+                "high",
+                id="Entrypoint not found",
+            ),
+        ],
+    )
+    def test_dump_code(
+        self,
+        content: str | None,
+        expected_warning: str,
+        expected_severity: str,
+        three_streamlit_apps: StreamlitList,
+        tmp_path: Path,
+    ) -> None:
+        console = MagicMock(spec=Console)
+        app = three_streamlit_apps[1]
+        with monkeypatch_toolkit_client() as client:
+            if content is None:
+                client.files.download_bytes.side_effect = CogniteAPIError(
+                    message=f"Files ids not found: {app.external_id}", code=400, missing=[app.external_id]
+                )
+            else:
+                client.files.download_bytes.return_value = content.encode("utf-8")
+
+            finder = StreamlitFinder(client, (app.external_id,))
+            finder.dump_code(app, tmp_path, console)
+
+            assert console.print.call_count == 1
+            severity, actual_message = console.print.call_args.args
+            assert expected_warning in actual_message
+            assert expected_severity in str(severity).casefold()
