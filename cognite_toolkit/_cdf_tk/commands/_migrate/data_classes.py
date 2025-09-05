@@ -1,17 +1,21 @@
-import csv
 import sys
 from collections.abc import Collection, Iterator, Sequence
-from dataclasses import dataclass
 from pathlib import Path
-from typing import SupportsIndex, overload
+from typing import Any, SupportsIndex, overload
 
-from cognite.client.data_classes.data_modeling import NodeId
+from cognite.client.data_classes.data_modeling import NodeId, ViewId
+from cognite.client.utils._text import to_camel_case
+from pydantic import BaseModel, field_validator
+from pydantic_core import ValidationError
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.data_classes.pending_instances_ids import PendingInstanceId
 from cognite_toolkit._cdf_tk.exceptions import (
-    ToolkitFileNotFoundError,
     ToolkitValueError,
 )
+from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
+from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
+from cognite_toolkit._cdf_tk.utils.fileio import CSVReader, SchemaColumn
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -19,18 +23,66 @@ else:
     from typing_extensions import Self
 
 
-@dataclass
-class MigrationMapping:
+class MigrationMapping(BaseModel, alias_generator=to_camel_case, extra="ignore"):
+    """The mapping between an asset-centric ID and a data modeling instance ID.
+    Args
+        resource_type (str): The asset-centric type of the resource (e.g., "asset", "event", "timeseries").
+        instance_id (NodeId): The target NodeId in data modeling.
+        id (int): The asset-centric ID of the resource.
+        data_set_id (int | None): The data set ID of the resource. This is used to validate access to the resource.
+        ingestion_view (str | None): The ingestion view name. This is the view mapping that will be used to
+            ingest the resource into data modeling.
+        preferred_consumer_view (ViewId | None): The preferred consumer view for the resource. This is used in
+           for example, the Canvas migration to determine which view to use for the resource.
+    """
+
     resource_type: str
     instance_id: NodeId
     id: int
     data_set_id: int | None = None
+    ingestion_view: str | None = None
+    preferred_consumer_view: ViewId | None = None
+
+    @field_validator("data_set_id", "ingestion_view", mode="before")
+    def _empty_string_to_none(cls, v: Any) -> Any:
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
+
+    @field_validator("preferred_consumer_view", mode="before")
+    def _validate_preferred_consumer_view(cls, v: Any) -> Any:
+        if isinstance(v, dict):
+            return ViewId.load(v)
+        return v
+
+    @field_validator("instance_id", mode="before")
+    def _validate_instance_id(cls, v: Any) -> Any:
+        if isinstance(v, dict):
+            return NodeId.load(v)
+        return v
 
 
 class MigrationMappingList(list, Sequence[MigrationMapping]):
-    # Implemented to get correct type hints
-    def __init__(self, collection: Collection[MigrationMapping] | None = None) -> None:
+    REQUIRED_HEADER = (
+        SchemaColumn("id", "integer"),
+        SchemaColumn("space", "string"),
+        SchemaColumn("externalId", "string"),
+    )
+    OPTIONAL_HEADER = (
+        SchemaColumn("dataSetId", "integer"),
+        SchemaColumn("ingestionView", "string"),
+        SchemaColumn("consumerViewSpace", "string"),
+        SchemaColumn("consumerViewExternalId", "string"),
+        SchemaColumn("consumerViewVersion", "string"),
+    )
+
+    def __init__(
+        self,
+        collection: Collection[MigrationMapping] | None = None,
+        error_by_row_no: dict[int, ValidationError] | None = None,
+    ) -> None:
         super().__init__(collection or [])
+        self.error_by_row_no = error_by_row_no or {}
 
     def __iter__(self) -> Iterator[MigrationMapping]:
         return super().__iter__()
@@ -70,56 +122,61 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
         return {mapping.id: mapping for mapping in self}
 
     @classmethod
-    def read_mapping_file(cls, mapping_file: Path, resource_type: str) -> Self:
-        if not mapping_file.exists():
-            raise ToolkitFileNotFoundError(f"Mapping file {mapping_file} does not exist.")
-        if mapping_file.suffix != ".csv":
-            raise ToolkitValueError(f"Mapping file {mapping_file} must be a CSV file.")
-        with mapping_file.open(mode="r", encoding="utf-8-sig") as f:
-            csv_file = csv.reader(f)
-            header = next(csv_file, None)
-            cls._validate_csv_header(header)
-            return cls._read_migration_mapping(csv_file, resource_type)
+    def read_mapping_file(cls, mapping_file: Path, resource_type: str, console: Console | None = None) -> Self:
+        # We only validate the schema heading here
+        schema = CSVReader.sniff_schema(mapping_file, sniff_rows=1)
+        cls._validate_csv_header(schema, console)
+        mappings, errors = cls._read_migration_mapping(mapping_file, resource_type)
+        return cls(mappings, errors)
 
     @classmethod
-    def _validate_csv_header(cls, header: list[str] | None) -> list[str]:
-        if header is None:
-            raise ToolkitValueError("Mapping file is empty")
-        errors: list[str] = []
-        if len(header) < 3:
-            errors.append(
-                f"Mapping file must have at least 3 columns: id, space, externalId. Got {len(header)} columns."
+    def _validate_csv_header(cls, schema: list[SchemaColumn], console: Console | None) -> None:
+        """Validate the CSV header against the required and optional columns."""
+        column_names = {col.name for col in schema}
+        missing_required = [col.name for col in cls.REQUIRED_HEADER if col.name not in column_names]
+        if missing_required:
+            raise ToolkitValueError(
+                f"Missing required columns in mapping file: {humanize_collection(missing_required)}."
             )
-        if len(header) >= 5:
-            errors.append(
-                "Mapping file must have at most 4 columns: "
-                f"id, dataSetId, space, externalId. Got {len(header)} columns."
-            )
-        if len(header) >= 1 and header[0] != "id":
-            errors.append(f"First column must be 'id'. Got {header[0]!r}.")
-        if len(header) == 4 and header[1] != "dataSetId":
-            errors.append(f"If there are 4 columns, the second column must be 'dataSetId'. Got {header[1]!r}.")
-        if len(header) >= 2 and header[-2:] != ["space", "externalId"]:
-            errors.append(f"Last two columns must be 'space' and 'externalId'. Got {header[-2]!r} and {header[-1]!r}.")
-        if errors:
-            error_str = "\n - ".join(errors)
-            raise ToolkitValueError(f"Invalid mapping file header:\n - {error_str}")
-        return header
+        expected_names = {col.name for col in cls.REQUIRED_HEADER + cls.OPTIONAL_HEADER}
+        ignored = [col.name for col in schema if col.name not in expected_names]
+        if ignored:
+            LowSeverityWarning(
+                f"Ignoring unexpected columns in mapping file: {humanize_collection(ignored)}"
+            ).print_warning(console=console)
 
     @classmethod
-    def _read_migration_mapping(cls, csv_file: Iterator[list[str]], resource_type: str) -> Self:
+    def _read_migration_mapping(
+        cls, csv_file: Path, resource_type: str
+    ) -> tuple[list[MigrationMapping], dict[int, ValidationError]]:
         """Read a CSV file with ID mappings."""
-        mappings = cls()
-        for no, row in enumerate(csv_file, 1):
+        mappings: list[MigrationMapping] = []
+        errors: dict[int, ValidationError] = {}
+        chunk: dict[str, Any]
+
+        def _extract_and_pop(chunk_: dict[str, Any], key_mapping: dict[str, str]) -> dict[str, str]:
+            """Pops keys from chunk and returns a new dict with mapped keys."""
+            return {dest: chunk_.pop(src) for src, dest in key_mapping.items() if src in chunk_}
+
+        instance_id_mapping = {"space": "space", "externalId": "externalId"}
+        consumer_view_mapping = {
+            "consumerViewSpace": "space",
+            "consumerViewExternalId": "externalId",
+            "consumerViewVersion": "version",
+        }
+
+        for row_no, chunk in enumerate(CSVReader(csv_file).read_chunks_unprocessed(), 1):
+            # Prepare for parsing
+            if instance_id := _extract_and_pop(chunk, instance_id_mapping):
+                # MyPy does not respect the chunk annotation above, it uses dict[str, str] from the CSVReader.
+                chunk["instanceId"] = NodeId.load(instance_id)  # type: ignore[assignment]
+            if consumer_view := _extract_and_pop(chunk, consumer_view_mapping):
+                chunk["preferredConsumerView"] = ViewId.load(consumer_view)  # type: ignore[assignment]
+            chunk["resourceType"] = resource_type
             try:
-                id_ = int(row[0])
-                data_set_id = int(row[1]) if len(row) == 4 and row[1] else None
-            except ValueError as e:
-                raise ToolkitValueError(
-                    f"Invalid ID or dataSetId in row {no}: {row}. ID and dataSetId must be integers."
-                ) from e
-            instance_id = NodeId(*row[-2:])
-            mappings.append(
-                MigrationMapping(resource_type=resource_type, id=id_, instance_id=instance_id, data_set_id=data_set_id)
-            )
-        return mappings
+                mapping = MigrationMapping.model_validate(chunk)
+            except ValidationError as e:
+                errors[row_no] = e
+                continue
+            mappings.append(mapping)
+        return mappings, errors
