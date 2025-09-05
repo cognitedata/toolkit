@@ -1,7 +1,7 @@
 externalId: APM_Config
 name: APM Config
 description: "Config data for APM applications"
-version: 1 # must be this exact version
+version: '1' # must be this exact version
 space: APM_Config # Must be this exact space
 properties:
   name:

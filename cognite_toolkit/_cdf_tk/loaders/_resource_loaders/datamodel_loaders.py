@@ -90,7 +90,7 @@ from cognite_toolkit._cdf_tk.loaders._base_loaders import (
     ResourceContainerLoader,
     ResourceLoader,
 )
-from cognite_toolkit._cdf_tk.resource_classes import SpaceYAML
+from cognite_toolkit._cdf_tk.resource_classes import ContainerYAML, SpaceYAML, ViewYAML
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     GraphQLParser,
@@ -254,6 +254,7 @@ class ContainerLoader(
     list_write_cls = ContainerApplyList
     kind = "Container"
     dependencies = frozenset({SpaceLoader})
+    yaml_cls = ContainerYAML
     _doc_url = "Containers/operation/ApplyContainers"
 
     @property
@@ -493,6 +494,7 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
     list_write_cls = ViewApplyList
     kind = "View"
     dependencies = frozenset({SpaceLoader, ContainerLoader})
+    yaml_cls = ViewYAML
     _doc_url = "Views/operation/ApplyViews"
 
     def __init__(

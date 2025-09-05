@@ -79,7 +79,11 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
-from cognite_toolkit._cdf_tk.resource_classes import TransformationScheduleYAML, TransformationYAML
+from cognite_toolkit._cdf_tk.resource_classes import (
+    TransformationNotificationYAML,
+    TransformationScheduleYAML,
+    TransformationYAML,
+)
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     calculate_secure_hash,
@@ -635,6 +639,7 @@ class TransformationNotificationLoader(
     _doc_url = "Transformation-Notifications/operation/createTransformationNotifications"
     _split_character = "@@@"
     parent_resource = frozenset({TransformationLoader})
+    yaml_cls = TransformationNotificationYAML
 
     @property
     def display_name(self) -> str:
