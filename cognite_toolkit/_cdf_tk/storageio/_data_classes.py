@@ -55,12 +55,15 @@ class InstanceIdList(list, Sequence[InstanceId]):
                 errors.append("External ID is empty.")
 
             instance_id: InstanceId | None = None
-            if instance_type == "node":
-                instance_id = NodeId.load(row)
-            elif instance_type == "edge":
-                instance_id = EdgeId.load(row)
-            else:
-                errors.append(f"Unknown instance type {instance_type!r}, expected 'node' or 'edge'.")
+            try:
+                if instance_type == "node":
+                    instance_id = NodeId.load(row)
+                elif instance_type == "edge":
+                    instance_id = EdgeId.load(row)
+                else:
+                    errors.append(f"Unknown instance type {instance_type!r}, expected 'node' or 'edge'.")
+            except (ValueError, TypeError) as e:
+                errors.append(f"Failed to load instance: {e}")
             if errors:
                 invalid_rows[row_no] = errors
 
