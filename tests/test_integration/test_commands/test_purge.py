@@ -73,8 +73,10 @@ def file_ts_nodes(
     finally:
         client.data_modeling.instances.delete([file.as_id(), ts.as_id()])
         if file_id is not None:
+            client.files.unlink_instance_ids(id=file_id)
             client.files.delete(id=file_id, ignore_unknown_ids=True)
         if ts_id is not None:
+            client.time_series.unlink_instance_ids(id=ts_id)
             client.time_series.delete(id=ts_id, ignore_unknown_ids=True)
 
 
