@@ -608,7 +608,7 @@ class PurgeCommand(ToolkitCommand):
         io = InstanceIO(client)
         console = Console()
         validator = ValidateAccess(client, default_operation="purge")
-        self.validate_instance_access(validator, selector.get_instance_spaces() or [])
+        self.validate_instance_access(validator, selector.get_instance_spaces())
         if unlink:
             self.validate_timeseries_access(validator)
             self.validate_file_access(validator)
@@ -660,15 +660,23 @@ class PurgeCommand(ToolkitCommand):
         prefix = "Would have purged" if dry_run else "Purged"
         console.print(f"{prefix} {executor.total_items:,} instances in {selector!s}")
 
-    def validate_instance_access(self, validator: ValidateAccess, instance_spaces: list[str]) -> None:
-        if space_ids := validator.instances(["read", "write"]):
-            if instance_spaces is not None:
-                # Ensure that the selected instance spaces are a subset of the allowed spaces
-                invalid_spaces = set(instance_spaces) - set(space_ids)
-                if invalid_spaces:
-                    raise AuthorizationError(
-                        f"You do not have access to the following spaces: {humanize_collection(invalid_spaces)}."
-                    )
+    def validate_instance_access(self, validator: ValidateAccess, instance_spaces: list[str] | None) -> None:
+        space_ids = validator.instances(["read", "write"], operation="purge")
+        if space_ids is None:
+            # Full access
+            return
+        if instance_spaces is None:
+            self.warn(
+                LimitedAccessWarning(
+                    f"You can only purge instances in the following instances spaces: {humanize_collection(space_ids)}."
+                )
+            )
+            return
+        invalid_spaces = set(instance_spaces or []) - set(space_ids)
+        if invalid_spaces:
+            raise AuthorizationError(
+                f"Cannot purge. You do not have access to the following spaces: {humanize_collection(invalid_spaces)}."
+            )
 
     def validate_timeseries_access(self, validator: ValidateAccess) -> None:
         try:
