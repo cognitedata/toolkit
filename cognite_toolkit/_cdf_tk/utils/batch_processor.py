@@ -102,10 +102,12 @@ class WorkBody(ABC):
     def total_attempts(self) -> int:
         return self.connect_attempt + self.read_attempt + self.status_attempt
 
+
 @dataclass
 class WorkItemBody(WorkBody):
     items: list[dict] = field(default_factory=list)
     extra_args: dict[str, JsonVal] | None = None
+
 
 @dataclass
 class WorkItemBody2(WorkBody):
@@ -783,17 +785,14 @@ class HTTPClient:
         body: dict[str, JsonVal] | None = None,
     ) -> requests.Response:
         """Makes a single HTTP request in the current thread."""
-        return self._make_request(
-            WorkItem(items=data), method, endpoint_url, body_parameters
-        )
+        return self._make_request(WorkItem(items=data), method, endpoint_url, body_parameters)
 
     def request_multiple(
         self,
         endpoint_url: str,
         method: Literal["POST", "GET", "PUT"],
         bodies: Iterable[dict[str, JsonVal]],
-    ) -> None:
-        ...
+    ) -> None: ...
 
     def add_items(self, items: Iterable[dict[str, JsonVal]]) -> None:
         """Add items to the processor for processing.
@@ -806,8 +805,7 @@ class HTTPClient:
         for chunk in chunker(items, self.batch_size):
             self._work_queue.put(WorkItem(items=chunk))
 
-
-    def _prepare_payload(self, work_item: WorkItem, body_args: dict[]) -> str | bytes:
+    def _prepare_payload(self, work_item: WorkItem, body_args: dict) -> str | bytes:
         """
         Prepare the payload for the HTTP request.
         This method should be overridden in subclasses to customize the payload format.
