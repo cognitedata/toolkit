@@ -8,14 +8,17 @@ import responses
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.utils.http_client import (
+    FailedItem,
     FailedRequestMessage,
     FailedResponse,
     HTTPClient,
     ItemsRequest,
+    MissingItem,
     ParamRequest,
     SimpleBodyRequest,
     SuccessItem,
     SuccessResponse,
+    UnexpectedItem,
 )
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
@@ -176,7 +179,7 @@ class TestHTTPClientItemRequests:
             status=200,
         )
         items = [{"name": "item1", "id": 1}, {"name": "item2", "id": 2}]
-        results = http_client.request(
+        results = http_client.request_with_retries(
             ItemsRequest[int](
                 endpoint_url="https://example.com/api/resource",
                 method="POST",
@@ -187,4 +190,47 @@ class TestHTTPClientItemRequests:
         assert results == [
             SuccessItem(status_code=200, id=1, item={"id": 1, "value": 42}),
             SuccessItem(status_code=200, id=2, item={"id": 2, "value": 43}),
+        ]
+
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_request_with_items_issues(self, http_client: HTTPClient, rsps: responses.RequestsMock) -> None:
+        response_items = [
+            {"externalId": "success", "data": 123},
+            {"externalId": "unexpected", "data": 999},
+        ]
+
+        def server_callback(request: requests.PreparedRequest) -> tuple[int, dict[str, str], str]:
+            # status, headers, body
+            if "fail" in request.body:
+                return 400, {}, json.dumps({"error": "Item failed"})
+            elif "success" in request.body:
+                return 200, {}, json.dumps({"items": response_items})
+            else:
+                return 200, {}, json.dumps({"items": []})
+
+        rsps.add_callback(
+            method=responses.POST,
+            url="https://example.com/api/resource",
+            callback=server_callback,
+            content_type="application/json",
+        )
+
+        request_items = [
+            {"externalId": "success"},
+            {"externalId": "missing"},
+            {"externalId": "fail"},
+        ]
+        results = http_client.request_with_retries(
+            ItemsRequest[str](
+                endpoint_url="https://example.com/api/resource",
+                method="POST",
+                items=request_items,
+                as_id=lambda item: item["externalId"],
+            )
+        )
+        assert results == [
+            SuccessItem(status_code=200, id="success", item={"externalId": "success", "data": 123}),
+            UnexpectedItem(status_code=200, id="unexpected", item={"externalId": "unexpected", "data": 999}),
+            MissingItem(status_code=200, id="missing"),
+            FailedItem(status_code=400, id="fail", error="Item failed"),
         ]
