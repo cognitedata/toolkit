@@ -11,8 +11,10 @@ from cognite_toolkit._cdf_tk.utils.http_client import (
     FailedRequestMessage,
     FailedResponse,
     HTTPClient,
+    ItemsRequest,
     ParamRequest,
     SimpleBodyRequest,
+    SuccessItem,
     SuccessResponse,
 )
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
@@ -164,3 +166,25 @@ class TestHTTPClient:
         assert len(results) == 1
         assert isinstance(response, FailedRequestMessage)
         assert "RequestException after 1 attempts (read error): Simulated read timeout" == response.error
+
+
+class TestHTTPClientItemRequests:
+    def test_request_with_items_happy_path(self, http_client: HTTPClient, rsps: responses.RequestsMock) -> None:
+        rsps.post(
+            "https://example.com/api/resource",
+            json={"items": [{"id": 1, "value": 42}, {"id": 2, "value": 43}]},
+            status=200,
+        )
+        items = [{"name": "item1", "id": 1}, {"name": "item2", "id": 2}]
+        results = http_client.request(
+            ItemsRequest[int](
+                endpoint_url="https://example.com/api/resource",
+                method="POST",
+                items=items,
+                as_id=lambda item: item["id"],
+            )
+        )
+        assert results == [
+            SuccessItem(status_code=200, id=1, item={"id": 1, "value": 42}),
+            SuccessItem(status_code=200, id=2, item={"id": 2, "value": 43}),
+        ]
