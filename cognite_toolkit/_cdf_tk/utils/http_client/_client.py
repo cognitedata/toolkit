@@ -256,7 +256,8 @@ class HTTPClient:
             time.sleep(self._backoff_time(request.total_attempts))
             return [request]
         else:
-            error_msg = f"RequestException after {request.total_attempts} attempts ({error_type} error): {e!s}"
+            # We have already incremented the attempt count, so we subtract 1 here
+            error_msg = f"RequestException after {request.total_attempts - 1} attempts ({error_type} error): {e!s}"
 
             return request.create_failed(error_msg)
 
