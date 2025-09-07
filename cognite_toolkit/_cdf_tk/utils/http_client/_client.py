@@ -3,7 +3,7 @@ import random
 import socket
 import sys
 import time
-from collections.abc import MutableMapping
+from collections.abc import MutableMapping, Sequence
 from typing import Literal
 
 import requests
@@ -49,11 +49,15 @@ class HTTPClient:
         max_retries: int = 10,
         pool_connections: int = 10,
         pool_maxsize: int = 20,
+        retry_status_codes: frozenset[int] = frozenset({408, 429, 502, 503, 504}),
+        split_status_codes: frozenset[int] = frozenset({400, 408, 409, 422, 502, 503, 504}),
     ):
         self._config = config
         self._max_retries = max_retries
         self._pool_connections = pool_connections
         self._pool_maxsize = pool_maxsize
+        self._retry_status_codes = retry_status_codes
+        self._split_status_codes = split_status_codes
 
         # Thread-safe session for connection pooling
         self.session = self._create_thread_safe_session()
@@ -119,7 +123,7 @@ class HTTPClient:
             data = gzip.compress(data.encode())
         return data
 
-    def _process_request(self, message: RequestMessage) -> list[HTTPMessage]:
+    def _process_request(self, message: RequestMessage) -> Sequence[HTTPMessage]:
         try:
             response = self._make_request(message)
             results = self._handle_response(response, message)
@@ -145,12 +149,17 @@ class HTTPClient:
         self,
         response: requests.Response,
         request: RequestMessage,
-    ) -> list[HTTPMessage]:
+    ) -> Sequence[HTTPMessage]:
+        try:
+            body = response.json()
+        except ValueError as e:
+            return request.create_responses(response, error_message=f"Invalid JSON response: {e!s}")
+
         if 200 <= response.status_code < 300:
-            return request.create_success(response)
+            return request.create_responses(response, body)
         elif response.status_code in {401, 403}:
             error_msg = f"Authentication error (status code {response.status_code}): check your API key and project"
-            return self._create_failed_responses(response, request, error_msg)
+            return request.create_responses(response, body, error_msg)
         elif response.status_code in {400, 408, 409, 422, 502, 503, 504} and isinstance(request, ItemsRequestMessage):
             # 400, 409, 422: There is at least one item that is invalid, split the batch to get all valid items processed
             # 502, 503, 504: Server errors, retry in smaller batches, count as a status_attempt.
@@ -166,14 +175,9 @@ class HTTPClient:
         else:
             # Permanent failure
             error = response.text
-            try:
-                body = response.json()
-                if "error" in body and "message" in body["error"]:
-                    error = body["error"]["message"]
-            except ValueError:
-                # If the response is not JSON, we keep the original text
-                pass
-            return self._create_failed_responses(response, request, error)
+            if "error" in body and "message" in body["error"]:
+                error = body["error"]["message"]
+            return request.create_responses(response, body, error)
 
     @staticmethod
     def _backoff_time(attempts: int) -> float:
@@ -184,7 +188,7 @@ class HTTPClient:
         self,
         e: Exception,
         request: RequestMessage,
-    ) -> list[HTTPMessage]:
+    ) -> Sequence[HTTPMessage]:
         if self._any_exception_in_context_isinstance(
             e, (socket.timeout, urllib3.exceptions.ReadTimeoutError, requests.exceptions.ReadTimeout)
         ):
@@ -205,7 +209,7 @@ class HTTPClient:
             attempts = request.connect_attempt
         else:
             error_msg = f"Unexpected exception: {e!s}"
-            return self._create_failed_requests(error_msg, request)
+            return request.create_failed(error_msg)
 
         if attempts < self._max_retries:
             time.sleep(self._backoff_time(request.total_attempts))
@@ -213,22 +217,7 @@ class HTTPClient:
         else:
             error_msg = f"RequestException after {self._max_retries} {error_type} attempts: {e!s}"
 
-            return self._create_failed_requests(error_msg, request)
-
-    def _create_failed_responses(
-        self,
-        response: requests.Response,
-        request: RequestMessage,
-        error_message: str,
-    ) -> list[HTTPMessage]:
-        raise NotImplementedError()
-
-    def _create_failed_requests(
-        self,
-        error_message: str,
-        request: RequestMessage,
-    ) -> list[HTTPMessage]:
-        raise NotImplementedError()
+            return request.create_failed(error_msg)
 
     @classmethod
     def _any_exception_in_context_isinstance(
