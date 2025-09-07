@@ -1,5 +1,6 @@
 import json
 from collections.abc import Iterator
+from unittest.mock import patch
 
 import pytest
 import requests
@@ -111,10 +112,11 @@ class TestHTTPClient:
         assert response.status_code == 200
         assert response.body == {"key": "value"}
 
-    def test_retry_exhausted(self, toolkit_config: ToolkitClientConfig, rsps: responses.RequestsMock) -> None:
+    def test_retry_exhausted(self, http_client_one_retry: HTTPClient, rsps: responses.RequestsMock) -> None:
+        client = http_client_one_retry
         for _ in range(2):
             rsps.get("https://example.com/api/resource", json={"error": {"message": "service unavailable"}}, status=503)
-        with HTTPClient(toolkit_config, max_retries=1) as client:
+        with patch("time.sleep"):  # Patch sleep to speed up the test
             results = client.request_with_retries(
                 ParamRequest(endpoint_url="https://example.com/api/resource", method="GET")
             )
@@ -141,7 +143,9 @@ class TestHTTPClient:
             "http://nonexistent.domain/api/resource",
             body=requests.ConnectionError("Simulated connection error"),
         )
-        results = http_client.request(ParamRequest(endpoint_url="http://nonexistent.domain/api/resource", method="GET"))
+        results = http_client.request_with_retries(
+            ParamRequest(endpoint_url="http://nonexistent.domain/api/resource", method="GET")
+        )
         response = results[0]
         assert len(results) == 1
         assert isinstance(response, FailedRequestMessage)
