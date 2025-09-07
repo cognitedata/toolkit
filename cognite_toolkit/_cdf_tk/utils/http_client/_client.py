@@ -256,7 +256,7 @@ class HTTPClient:
             time.sleep(self._backoff_time(request.total_attempts))
             return [request]
         else:
-            error_msg = f"RequestException after {self._max_retries} {error_type} attempts: {e!s}"
+            error_msg = f"RequestException after {request.total_attempts} attempts ({error_type} error): {e!s}"
 
             return request.create_failed(error_msg)
 
