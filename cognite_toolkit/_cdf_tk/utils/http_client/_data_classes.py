@@ -127,6 +127,13 @@ class BodyRequestMessage(RequestMessage, ABC):
 
 
 @dataclass
+class ParamRequest(RequestMessage, ABC):
+    """Base class for HTTP request messages with query parameters"""
+
+    parameters: dict[str, str] | None = None
+
+
+@dataclass
 class SimpleBodyRequest(BodyRequestMessage):
     body_content: dict[str, JsonVal] = field(default_factory=dict)
 
