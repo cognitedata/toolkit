@@ -7,7 +7,7 @@ import responses
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.utils.http_client import (
-    FailedRequest,
+    FailedRequestMessage,
     FailedResponse,
     HTTPClient,
     ParamRequest,
@@ -85,7 +85,7 @@ class TestHTTPClient:
         )
         assert len(results) == 1
         response = results[0]
-        assert isinstance(response, FailedRequest)
+        assert isinstance(response, FailedRequestMessage)
         assert error in response.error
 
     def test_failed_request(self, rsps: responses.RequestsMock, http_client: HTTPClient) -> None:
@@ -144,7 +144,7 @@ class TestHTTPClient:
         results = http_client.request(ParamRequest(endpoint_url="http://nonexistent.domain/api/resource", method="GET"))
         response = results[0]
         assert len(results) == 1
-        assert isinstance(response, FailedRequest)
+        assert isinstance(response, FailedRequestMessage)
         assert "RequestException after 1 connect attempts" in response.error
 
     def test_read_timeout_error(self, http_client_one_retry: HTTPClient, rsps: responses.RequestsMock) -> None:
@@ -158,5 +158,5 @@ class TestHTTPClient:
         results = http_client.request_with_retries(bad_request)
         response = results[0]
         assert len(results) == 1
-        assert isinstance(response, FailedRequest)
+        assert isinstance(response, FailedRequestMessage)
         assert "Simulated read timeout" in response.error

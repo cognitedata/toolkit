@@ -18,8 +18,8 @@ from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.utils.auxiliary import get_current_toolkit_version, get_user_agent
 
 from ._data_classes import (
-    BodyRequestMessage,
-    FailedRequest,
+    BodyRequest,
+    FailedRequestMessage,
     HTTPMessage,
     ParamRequest,
     RequestMessage,
@@ -92,7 +92,7 @@ class HTTPClient:
             results = self._handle_error(e, message)
         return results
 
-    def request_with_retries(self, message: RequestMessage) -> Sequence[ResponseMessage | FailedRequest]:
+    def request_with_retries(self, message: RequestMessage) -> Sequence[ResponseMessage | FailedRequestMessage]:
         """Send an HTTP request and handle retries.
 
         This method will keep retrying the request until it either succeeds or
@@ -105,11 +105,11 @@ class HTTPClient:
             message (RequestMessage): The request message to send.
 
         Returns:
-            Sequence[ResponseMessage | FailedRequest]: The final response
+            Sequence[ResponseMessage | FailedRequestMessage]: The final response
                 messages, which can be either successful responses or failed requests.
         """
         pending_requests: list[RequestMessage] = [message]
-        final_responses: list[ResponseMessage | FailedRequest] = []
+        final_responses: list[ResponseMessage | FailedRequestMessage] = []
 
         while pending_requests:
             current_request = pending_requests.pop(0)
@@ -118,7 +118,7 @@ class HTTPClient:
             for result in results:
                 if isinstance(result, RequestMessage):
                     pending_requests.append(result)
-                elif isinstance(result, ResponseMessage | FailedRequest):
+                elif isinstance(result, ResponseMessage | FailedRequestMessage):
                     final_responses.append(result)
                 else:
                     raise TypeError(f"Unexpected result type: {type(result)}")
@@ -155,7 +155,7 @@ class HTTPClient:
         return headers
 
     @staticmethod
-    def _prepare_payload(item: BodyRequestMessage) -> str | bytes:
+    def _prepare_payload(item: BodyRequest) -> str | bytes:
         """
         Prepare the payload for the HTTP request.
         This method should be overridden in subclasses to customize the payload format.
@@ -182,7 +182,7 @@ class HTTPClient:
         if isinstance(item, ParamRequest):
             params = item.parameters
         data: str | bytes | None = None
-        if isinstance(item, BodyRequestMessage):
+        if isinstance(item, BodyRequest):
             data = self._prepare_payload(item)
         return self.session.request(
             method=item.method,

@@ -18,7 +18,7 @@ class HTTPMessage(ABC):
 
 
 @dataclass
-class FailedRequest(HTTPMessage):
+class FailedRequestMessage(HTTPMessage):
     error: str
 
 
@@ -63,6 +63,7 @@ class SuccessResponse(ResponseMessage):
 @dataclass
 class FailedResponse(ResponseMessage):
     error: str
+    body: dict[str, JsonVal] | None = None
 
 
 @dataclass
@@ -80,14 +81,14 @@ class SimpleRequest(RequestMessage):
             return [SuccessResponse(status_code=response.status_code, body=response_body)]
         if error_message is None:
             error_message = f"Request failed with status code {response.status_code}"
-        return [FailedResponse(status_code=response.status_code, error=error_message)]
+        return [FailedResponse(status_code=response.status_code, error=error_message, body=response_body)]
 
     def create_failed(self, error_message: str) -> Sequence[HTTPMessage]:
-        return [FailedRequest(error=error_message)]
+        return [FailedRequestMessage(error=error_message)]
 
 
 @dataclass
-class BodyRequestMessage(RequestMessage, ABC):
+class BodyRequest(RequestMessage, ABC):
     """Base class for HTTP request messages with a body"""
 
     @abstractmethod
@@ -103,7 +104,7 @@ class ParamRequest(SimpleRequest):
 
 
 @dataclass
-class SimpleBodyRequest(SimpleRequest, BodyRequestMessage):
+class SimpleBodyRequest(SimpleRequest, BodyRequest):
     body_content: dict[str, JsonVal] = field(default_factory=dict)
 
     def body(self) -> dict[str, JsonVal]:

@@ -1,6 +1,6 @@
 from ._client import HTTPClient
 from ._data_classes import (
-    FailedRequest,
+    FailedRequestMessage,
     FailedResponse,
     HTTPMessage,
     ParamRequest,
@@ -11,7 +11,7 @@ from ._data_classes import (
 )
 
 __all__ = [
-    "FailedRequest",
+    "FailedRequestMessage",
     "FailedResponse",
     "HTTPClient",
     "HTTPMessage",
