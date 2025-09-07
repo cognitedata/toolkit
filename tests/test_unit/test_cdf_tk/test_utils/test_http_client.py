@@ -63,6 +63,18 @@ class TestHTTPClient:
         assert response.body == {"id": 123, "status": "created"}
         assert rsps.calls[-1].request.body == json.dumps({"name": "new resource"})
 
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_post_request_bad_json(self, http_client: HTTPClient) -> None:
+        results = http_client.request(
+            SimpleBodyRequest(
+                endpoint_url="https://example.com/api/resource", method="POST", body_content={"name": bytes(10)}
+            )
+        )
+        assert len(results) == 1
+        response = results[0]
+        assert isinstance(response, FailedRequest)
+        assert "can't be serialized by the JSON encoder" in response.error
+
     def test_failed_request(self, rsps: responses.RequestsMock, http_client: HTTPClient) -> None:
         rsps.get("https://example.com/api/resource", json={"error": "bad request"}, status=400)
         results = http_client.request(
@@ -126,9 +138,9 @@ class TestHTTPClient:
         config = ToolkitClientConfig(
             client_name="test_client", timeout=0.000001, project="test_project", credentials=Token("some_token")
         )
-        with HTTPClient(config, max_retries=1) as http_client:
+        with HTTPClient(config, max_retries=2) as http_client:
             bad_request = ParamRequest(endpoint_url="https://example.com/api/resource", method="GET")
-            results = http_client.request(bad_request)
+            results = http_client.request_with_retries(bad_request)
             response = results[0]
             assert len(results) == 1
             assert isinstance(response, FailedRequest)
