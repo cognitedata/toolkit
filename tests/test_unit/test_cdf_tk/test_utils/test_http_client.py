@@ -328,3 +328,23 @@ class TestHTTPClientItemRequests:
             MissingItem(status_code=200, id=1),
             MissingItem(status_code=200, id=2),
         ]
+
+    def test_timeout_error(self, http_client_one_retry: HTTPClient, rsps: responses.RequestsMock) -> None:
+        client = http_client_one_retry
+        rsps.add(
+            responses.POST,
+            "https://example.com/api/resource",
+            body=requests.ReadTimeout("Simulated timeout error"),
+        )
+        with patch("time.sleep"):
+            results = client.request_with_retries(
+                ItemsRequest[int](
+                    endpoint_url="https://example.com/api/resource",
+                    method="POST",
+                    items=[{"id": 1}],
+                    as_id=lambda item: item["id"],
+                )
+            )
+        assert results == [
+            FailedRequestItem(id=1, error="RequestException after 1 attempts (read error): Simulated timeout error")
+        ]
