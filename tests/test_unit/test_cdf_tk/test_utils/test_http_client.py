@@ -4,7 +4,6 @@ from collections.abc import Iterator
 import pytest
 import requests
 import responses
-from cognite.client.credentials import Token
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.utils.http_client import (
@@ -148,14 +147,16 @@ class TestHTTPClient:
         assert isinstance(response, FailedRequest)
         assert "RequestException after 1 connect attempts" in response.error
 
-    def test_read_timeout_error(self) -> None:
-        config = ToolkitClientConfig(
-            client_name="test_client", timeout=0.000001, project="test_project", credentials=Token("some_token")
+    def test_read_timeout_error(self, http_client_one_retry: HTTPClient, rsps: responses.RequestsMock) -> None:
+        http_client = http_client_one_retry
+        rsps.add(
+            responses.GET,
+            "https://example.com/api/resource",
+            body=requests.ReadTimeout("Simulated read timeout"),
         )
-        with HTTPClient(config, max_retries=2) as http_client:
-            bad_request = ParamRequest(endpoint_url="https://example.com/api/resource", method="GET")
-            results = http_client.request_with_retries(bad_request)
-            response = results[0]
-            assert len(results) == 1
-            assert isinstance(response, FailedRequest)
-            assert "ReadTimeout" in response.error
+        bad_request = ParamRequest(endpoint_url="https://example.com/api/resource", method="GET")
+        results = http_client.request_with_retries(bad_request)
+        response = results[0]
+        assert len(results) == 1
+        assert isinstance(response, FailedRequest)
+        assert "Simulated read timeout" in response.error
