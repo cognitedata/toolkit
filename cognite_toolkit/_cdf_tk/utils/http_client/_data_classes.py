@@ -35,12 +35,12 @@ class ResponseMessage(HTTPMessage):
 
 
 @dataclass
-class SuccessResponseMessage(ResponseMessage):
+class SuccessResponse(ResponseMessage):
     body: dict[str, JsonVal] | None = None
 
 
 @dataclass
-class FailedResponseMessage(ResponseMessage):
+class FailedResponse(ResponseMessage):
     error: str
 
 
@@ -127,7 +127,7 @@ class BodyRequestMessage(RequestMessage, ABC):
 
 
 @dataclass
-class SimpleBodyRequestMessage(BodyRequestMessage):
+class SimpleBodyRequest(BodyRequestMessage):
     body_content: dict[str, JsonVal] = field(default_factory=dict)
 
     def body(self) -> dict[str, JsonVal]:
@@ -141,10 +141,10 @@ class SimpleBodyRequestMessage(BodyRequestMessage):
         error_message: str | None = None,
     ) -> Sequence[ResponseMessage]:
         if 200 <= response.status_code < 300:
-            return [SuccessResponseMessage(status_code=response.status_code, body=response_body)]
+            return [SuccessResponse(status_code=response.status_code, body=response_body)]
         if error_message is None:
             error_message = f"Request failed with status code {response.status_code}"
-        return [FailedResponseMessage(status_code=response.status_code, error=error_message)]
+        return [FailedResponse(status_code=response.status_code, error=error_message)]
 
     def create_failed(self, error_message: str) -> Sequence[HTTPMessage]:
         return [FailedRequest(error=error_message)]
@@ -194,7 +194,7 @@ class ItemsRequestMessage(Generic[T_ID], BodyRequestMessage):
         error_message: str | None = None,
     ) -> Sequence[HTTPMessage]:
         if self.as_id is None:
-            return SimpleBodyRequestMessage.create_responses(response, response_body, error_message)
+            return SimpleBodyRequest.create_responses(response, response_body, error_message)
         responses: list[ItemResponseMessage] = []
         items_by_id: dict[T_ID, JsonVal] = {}
         for item in self.items:
