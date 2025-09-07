@@ -209,9 +209,6 @@ class HTTPClient:
 
         if 200 <= response.status_code < 300:
             return request.create_responses(response, body)
-        elif response.status_code in {401, 403}:
-            error_msg = f"Authentication error (status code {response.status_code}): check your API key and project"
-            return request.create_responses(response, body, error_msg)
         elif request.status_attempt < self._max_retries and response.status_code in self._retry_status_codes:
             request.status_attempt += 1
             time.sleep(self._backoff_time(request.total_attempts))
@@ -219,8 +216,11 @@ class HTTPClient:
         else:
             # Permanent failure
             error = response.text
-            if "error" in body and "message" in body["error"]:
-                error = body["error"]["message"]
+            if "error" in body:
+                if isinstance(body["error"], str):
+                    error = body["error"]
+                elif isinstance(body["error"], dict) and "message" in body["error"]:
+                    error = body["error"]["message"]
             return request.create_responses(response, body, error)
 
     @staticmethod
