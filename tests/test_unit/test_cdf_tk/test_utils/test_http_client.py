@@ -174,6 +174,7 @@ class TestHTTPClient:
         assert "RequestException after 1 attempts (read error): Simulated read timeout" == response.error
 
 
+@pytest.mark.usefixtures("disable_pypi_check")
 class TestHTTPClientItemRequests:
     def test_request_with_items_happy_path(self, http_client: HTTPClient, rsps: responses.RequestsMock) -> None:
         rsps.post(
@@ -257,6 +258,8 @@ class TestHTTPClientItemRequests:
             FailedItem(status_code=401, id=1, error="Unauthorized"),
             FailedItem(status_code=401, id=2, error="Unauthorized"),
         ]
+
+        assert len(rsps.calls) == 1  # Only one request made
 
     def test_bad_request_items(self, http_client: HTTPClient, rsps: responses.RequestsMock) -> None:
         # Test with non-serializable item
