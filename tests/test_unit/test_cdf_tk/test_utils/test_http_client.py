@@ -149,7 +149,7 @@ class TestHTTPClient:
         response = results[0]
         assert len(results) == 1
         assert isinstance(response, FailedRequestMessage)
-        assert "RequestException after 1 connect attempts" in response.error
+        assert "RequestException after 1 attempts (connect error): Simulated connection error" == response.error
 
     def test_read_timeout_error(self, http_client_one_retry: HTTPClient, rsps: responses.RequestsMock) -> None:
         http_client = http_client_one_retry
@@ -163,4 +163,4 @@ class TestHTTPClient:
         response = results[0]
         assert len(results) == 1
         assert isinstance(response, FailedRequestMessage)
-        assert "Simulated read timeout" in response.error
+        assert "RequestException after 1 attempts (read error): Simulated read timeout" == response.error
