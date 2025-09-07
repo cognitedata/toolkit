@@ -9,6 +9,7 @@ import responses
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.utils.http_client import (
     FailedItem,
+    FailedRequestItem,
     FailedRequestMessage,
     FailedResponse,
     HTTPClient,
@@ -19,6 +20,8 @@ from cognite_toolkit._cdf_tk.utils.http_client import (
     SuccessItem,
     SuccessResponse,
     UnexpectedItem,
+    UnknownRequestItem,
+    UnknownResponseItem,
 )
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
@@ -179,7 +182,7 @@ class TestHTTPClientItemRequests:
             status=200,
         )
         items = [{"name": "item1", "id": 1}, {"name": "item2", "id": 2}]
-        results = http_client.request_with_retries(
+        results = http_client.request(
             ItemsRequest[int](
                 endpoint_url="https://example.com/api/resource",
                 method="POST",
@@ -233,4 +236,92 @@ class TestHTTPClientItemRequests:
             UnexpectedItem(status_code=200, id="unexpected", item={"externalId": "unexpected", "data": 999}),
             MissingItem(status_code=200, id="missing"),
             FailedItem(status_code=400, id="fail", error="Item failed"),
+        ]
+
+    def test_request_all_item_fail(self, http_client: HTTPClient, rsps: responses.RequestsMock) -> None:
+        rsps.post(
+            "https://example.com/api/resource",
+            json={"error": "Unauthorized"},
+            status=401,
+        )
+        items = [{"name": "item1", "id": 1}, {"name": "item2", "id": 2}]
+        results = http_client.request(
+            ItemsRequest[int](
+                endpoint_url="https://example.com/api/resource",
+                method="POST",
+                items=items,
+                as_id=lambda item: item["id"],
+            )
+        )
+        assert results == [
+            FailedItem(status_code=401, id=1, error="Unauthorized"),
+            FailedItem(status_code=401, id=2, error="Unauthorized"),
+        ]
+
+    def test_bad_request_items(self, http_client: HTTPClient, rsps: responses.RequestsMock) -> None:
+        # Test with non-serializable item
+        bad_items = [
+            {"id": 1},
+            {"externalId": "duplicate"},
+            {"externalId": "duplicate"},
+        ]  # Duplicate externalId will cause issue
+        rsps.post(
+            "https://example.com/api/resource",
+            json={"items": [{"externalId": "duplicate", "data": 123}]},
+            status=200,
+        )
+
+        results = http_client.request(
+            ItemsRequest[str](
+                endpoint_url="https://example.com/api/resource",
+                method="POST",
+                items=bad_items,
+                as_id=lambda item: item["externalId"],  # KeyError will occur here
+            )
+        )
+        assert results == [
+            UnknownRequestItem(error="Error extracting ID: 'externalId'", item={"id": 1}),
+            FailedRequestItem(id="duplicate", error="Duplicate item ID: 'duplicate'"),
+            SuccessItem(status_code=200, id="duplicate", item={"externalId": "duplicate", "data": 123}),
+        ]
+
+    def test_request_no_items_response(self, http_client: HTTPClient, rsps: responses.RequestsMock) -> None:
+        rsps.post(
+            "https://example.com/api/resource/delete",
+            status=200,
+        )
+        items = [{"id": 1}, {"id": 2}]
+        results = http_client.request(
+            ItemsRequest[int](
+                endpoint_url="https://example.com/api/resource/delete",
+                method="POST",
+                items=items,
+                as_id=lambda item: item["id"],
+            )
+        )
+        assert results == [
+            SuccessItem(status_code=200, id=1),
+            SuccessItem(status_code=200, id=2),
+        ]
+
+    def test_response_unknown_id(self, http_client: HTTPClient, rsps: responses.RequestsMock) -> None:
+        rsps.post(
+            "https://example.com/api/resource",
+            json={"items": [{"uid": "a", "data": 1}, {"uid": "b", "data": 2}]},
+            status=200,
+        )
+        items = [{"name": "itemA", "id": 1}, {"name": "itemB", "id": 2}]
+        results = http_client.request(
+            ItemsRequest[int](
+                endpoint_url="https://example.com/api/resource",
+                method="POST",
+                items=items,
+                as_id=lambda item: item["id"],
+            )
+        )
+        assert results == [
+            UnknownResponseItem(status_code=200, item={"uid": "a", "data": 1}, error="Error extracting ID: 'id'"),
+            UnknownResponseItem(status_code=200, item={"uid": "b", "data": 2}, error="Error extracting ID: 'id'"),
+            MissingItem(status_code=200, id=1),
+            MissingItem(status_code=200, id=2),
         ]
