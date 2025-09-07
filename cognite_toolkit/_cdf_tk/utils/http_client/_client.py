@@ -19,9 +19,11 @@ from cognite_toolkit._cdf_tk.utils.auxiliary import get_current_toolkit_version,
 
 from ._data_classes import (
     BodyRequestMessage,
+    FailedRequest,
     HTTPMessage,
     ItemsRequestMessage,
     RequestMessage,
+    ResponseMessage,
 )
 
 if sys.version_info >= (3, 11):
@@ -71,6 +73,51 @@ class HTTPClient:
         """Close the session when exiting the context."""
         self.session.close()
         return False  # Do not suppress exceptions
+
+    def request(self, message: RequestMessage) -> Sequence[HTTPMessage]:
+        """Send an HTTP request and return the response.
+
+        Args:
+            message (RequestMessage): The request message to send.
+
+        Returns:
+            Sequence[HTTPMessage]: The response message(s). This can also
+                include RequestMessage(s) to be retried.
+        """
+        return self._process_request(message)
+
+    def request_with_retries(self, message: RequestMessage) -> Sequence[ResponseMessage | FailedRequest]:
+        """Send an HTTP request and handle retries.
+
+        This method will keep retrying the request until it either succeeds or
+        exhausts the maximum number of retries.
+
+        Note this method will use the current thread to process all request, thus
+        it is blocking.
+
+        Args:
+            message (RequestMessage): The request message to send.
+
+        Returns:
+            Sequence[ResponseMessage | FailedRequest]: The final response
+                messages, which can be either successful responses or failed requests.
+        """
+        pending_requests: list[RequestMessage] = [message]
+        final_responses: list[ResponseMessage | FailedRequest] = []
+
+        while pending_requests:
+            current_request = pending_requests.pop(0)
+            results = self.request(current_request)
+
+            for result in results:
+                if isinstance(result, RequestMessage):
+                    pending_requests.append(result)
+                elif isinstance(result, ResponseMessage | FailedRequest):
+                    final_responses.append(result)
+                else:
+                    raise TypeError(f"Unexpected result type: {type(result)}")
+
+        return final_responses
 
     def _create_thread_safe_session(self) -> requests.Session:
         session = requests.Session()
