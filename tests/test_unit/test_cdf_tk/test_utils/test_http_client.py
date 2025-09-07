@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.utils.http_client import (
     SimpleBodyRequest,
     SuccessResponse,
 )
+from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 
 @pytest.fixture
@@ -64,16 +65,29 @@ class TestHTTPClient:
         assert rsps.calls[-1].request.body == json.dumps({"name": "new resource"})
 
     @pytest.mark.usefixtures("disable_gzip")
-    def test_post_request_bad_json(self, http_client: HTTPClient) -> None:
+    @pytest.mark.parametrize(
+        "bad_body,error",
+        [
+            pytest.param({"name": bytes(10)}, "can't be serialized by the JSON encoder", id="bytes value"),
+            pytest.param(
+                {"values": [float("nan")], "other": float("inf")},
+                "Out of range float values are not JSON compliant",
+                id="nan and inf",
+            ),
+        ],
+    )
+    def test_post_request_bad_json(self, bad_body: dict[str, JsonVal], error: str, http_client: HTTPClient) -> None:
         results = http_client.request(
             SimpleBodyRequest(
-                endpoint_url="https://example.com/api/resource", method="POST", body_content={"name": bytes(10)}
+                endpoint_url="https://example.com/api/resource",
+                method="POST",
+                body_content=bad_body,
             )
         )
         assert len(results) == 1
         response = results[0]
         assert isinstance(response, FailedRequest)
-        assert "can't be serialized by the JSON encoder" in response.error
+        assert error in response.error
 
     def test_failed_request(self, rsps: responses.RequestsMock, http_client: HTTPClient) -> None:
         rsps.get("https://example.com/api/resource", json={"error": "bad request"}, status=400)
