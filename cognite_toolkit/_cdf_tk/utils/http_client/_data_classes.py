@@ -67,7 +67,7 @@ class FailedResponse(ResponseMessage):
 
 @dataclass
 class SimpleRequest(RequestMessage):
-    """Base class for HTTP request messages without a body"""
+    """Base class for requests with a simple success/fail response structure"""
 
     @classmethod
     def create_responses(
