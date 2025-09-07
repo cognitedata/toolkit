@@ -22,6 +22,7 @@ from ._data_classes import (
     FailedRequest,
     HTTPMessage,
     ItemsRequestMessage,
+    ParamRequest,
     RequestMessage,
     ResponseMessage,
 )
@@ -180,6 +181,9 @@ class HTTPClient:
 
     def _make_request(self, item: RequestMessage) -> requests.Response:
         headers = self._create_headers()
+        params: dict[str, str] | None = None
+        if isinstance(item, ParamRequest):
+            params = item.parameters
         data: str | bytes | None = None
         if isinstance(item, BodyRequestMessage):
             data = self._prepare_payload(item)
@@ -188,6 +192,7 @@ class HTTPClient:
             url=item.endpoint_url,
             data=data,
             headers=headers,
+            params=params,
             timeout=self._config.timeout,
             allow_redirects=False,
         )

@@ -155,7 +155,7 @@ class ParamRequest(SimpleRequest):
 
 
 @dataclass
-class SimpleBodyRequest(SimpleRequest):
+class SimpleBodyRequest(SimpleRequest, BodyRequestMessage):
     body_content: dict[str, JsonVal] = field(default_factory=dict)
 
     def body(self) -> dict[str, JsonVal]:
