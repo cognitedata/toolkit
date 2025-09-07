@@ -76,7 +76,7 @@ class SimpleRequest(RequestMessage):
         response_body: dict[str, JsonVal] | None = None,
         error_message: str | None = None,
     ) -> Sequence[ResponseMessage]:
-        if 200 <= response.status_code < 300:
+        if 200 <= response.status_code < 300 and error_message is None:
             return [SuccessResponse(status_code=response.status_code, body=response_body)]
         if error_message is None:
             error_message = f"Request failed with status code {response.status_code}"
