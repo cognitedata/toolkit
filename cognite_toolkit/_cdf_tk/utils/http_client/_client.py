@@ -252,7 +252,7 @@ class HTTPClient:
             error_msg = f"Unexpected exception: {e!s}"
             return request.create_failed(error_msg)
 
-        if attempts < self._max_retries:
+        if attempts <= self._max_retries:
             time.sleep(self._backoff_time(request.total_attempts))
             return [request]
         else:
