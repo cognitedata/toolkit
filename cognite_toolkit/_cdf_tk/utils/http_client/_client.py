@@ -85,7 +85,12 @@ class HTTPClient:
             Sequence[HTTPMessage]: The response message(s). This can also
                 include RequestMessage(s) to be retried.
         """
-        return self._process_request(message)
+        try:
+            response = self._make_request(message)
+            results = self._handle_response(response, message)
+        except Exception as e:
+            results = self._handle_error(e, message)
+        return results
 
     def request_with_retries(self, message: RequestMessage) -> Sequence[ResponseMessage | FailedRequest]:
         """Send an HTTP request and handle retries.
@@ -170,14 +175,6 @@ class HTTPClient:
         if not global_config.disable_gzip:
             data = gzip.compress(data.encode())
         return data
-
-    def _process_request(self, message: RequestMessage) -> Sequence[HTTPMessage]:
-        try:
-            response = self._make_request(message)
-            results = self._handle_response(response, message)
-        except Exception as e:
-            results = self._handle_error(e, message)
-        return results
 
     def _make_request(self, item: RequestMessage) -> requests.Response:
         headers = self._create_headers()

@@ -1,4 +1,3 @@
-import sys
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass, field
@@ -7,11 +6,6 @@ from typing import Literal, TypeAlias
 import requests
 
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
-
-if sys.version_info >= (3, 11):
-    pass
-else:
-    pass
 
 StatusCode: TypeAlias = int
 
