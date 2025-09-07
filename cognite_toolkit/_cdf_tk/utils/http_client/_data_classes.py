@@ -118,27 +118,8 @@ class RequestMessage(HTTPMessage):
 
 
 @dataclass
-class BodyRequestMessage(RequestMessage, ABC):
-    """Base class for HTTP request messages with a body"""
-
-    @abstractmethod
-    def body(self) -> dict[str, JsonVal]:
-        raise NotImplementedError()
-
-
-@dataclass
-class ParamRequest(RequestMessage, ABC):
-    """Base class for HTTP request messages with query parameters"""
-
-    parameters: dict[str, str] | None = None
-
-
-@dataclass
-class SimpleBodyRequest(BodyRequestMessage):
-    body_content: dict[str, JsonVal] = field(default_factory=dict)
-
-    def body(self) -> dict[str, JsonVal]:
-        return self.body_content
+class SimpleRequest(RequestMessage):
+    """Base class for HTTP request messages without a body"""
 
     @classmethod
     def create_responses(
@@ -155,6 +136,30 @@ class SimpleBodyRequest(BodyRequestMessage):
 
     def create_failed(self, error_message: str) -> Sequence[HTTPMessage]:
         return [FailedRequest(error=error_message)]
+
+
+@dataclass
+class BodyRequestMessage(RequestMessage, ABC):
+    """Base class for HTTP request messages with a body"""
+
+    @abstractmethod
+    def body(self) -> dict[str, JsonVal]:
+        raise NotImplementedError()
+
+
+@dataclass
+class ParamRequest(SimpleRequest):
+    """Base class for HTTP request messages with query parameters"""
+
+    parameters: dict[str, str] | None = None
+
+
+@dataclass
+class SimpleBodyRequest(SimpleRequest):
+    body_content: dict[str, JsonVal] = field(default_factory=dict)
+
+    def body(self) -> dict[str, JsonVal]:
+        return self.body_content
 
 
 @dataclass
