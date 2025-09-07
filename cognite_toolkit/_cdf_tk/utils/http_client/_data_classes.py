@@ -52,7 +52,7 @@ class RequestMessage(HTTPMessage):
         raise NotImplementedError()
 
     @abstractmethod
-    def create_failed(self, error_message: str) -> Sequence[HTTPMessage]:
+    def create_failed_request(self, error_message: str) -> Sequence[HTTPMessage]:
         raise NotImplementedError()
 
 
@@ -85,7 +85,7 @@ class SimpleRequest(RequestMessage):
         return [FailedResponse(status_code=response.status_code, error=error_message, body=response_body)]
 
     @classmethod
-    def create_failed(cls, error_message: str) -> Sequence[HTTPMessage]:
+    def create_failed_request(cls, error_message: str) -> Sequence[HTTPMessage]:
         return [FailedRequestMessage(error=error_message)]
 
 
@@ -252,9 +252,9 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
 
         return responses
 
-    def create_failed(self, error_message: str) -> Sequence[HTTPMessage]:
+    def create_failed_request(self, error_message: str) -> Sequence[HTTPMessage]:
         if self.as_id is None:
-            return SimpleBodyRequest.create_failed(error_message)
+            return SimpleBodyRequest.create_failed_request(error_message)
         items_by_id, errors = self._create_items_by_id()
         results: list[HTTPMessage] = []
         results.extend(errors)

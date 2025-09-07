@@ -266,7 +266,7 @@ class HTTPClient:
             attempts = request.connect_attempt
         else:
             error_msg = f"Unexpected exception: {e!s}"
-            return request.create_failed(error_msg)
+            return request.create_failed_request(error_msg)
 
         if attempts <= self._max_retries:
             time.sleep(self._backoff_time(request.total_attempts))
@@ -275,7 +275,7 @@ class HTTPClient:
             # We have already incremented the attempt count, so we subtract 1 here
             error_msg = f"RequestException after {request.total_attempts - 1} attempts ({error_type} error): {e!s}"
 
-            return request.create_failed(error_msg)
+            return request.create_failed_request(error_msg)
 
     @classmethod
     def _any_exception_in_context_isinstance(
