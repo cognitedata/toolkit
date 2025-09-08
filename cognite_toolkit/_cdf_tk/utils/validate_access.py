@@ -156,7 +156,7 @@ class ValidateAccess:
 
         Args:
             action (Sequence[Literal["read", "write"]]): The actions to validate access for
-            dataset_isd (Set[int] | None): The dataset IDs to check access for. If None, checks access for all datasets.
+            dataset_ids (Set[int] | None): The dataset IDs to check access for. If None, checks access for all datasets.
             operation (str | None): The operation being performed, used for error messages.
         Returns:
             dict[str, list[str]] | None: Returns a dictionary with the key 'dataset' if access is limited to a dataset scope, or None if access is granted to all files.
