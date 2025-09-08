@@ -99,7 +99,7 @@ class HostedExtractorMappingYAML(ToolkitResource):
         description="The external ID provided by the client. Must be unique for the resource type.", max_length=255
     )
     mapping: Mapping
-    input: MappingInput
+    input: MappingInput | None = Field(None, description="The input format of the data to be transformed.")
     published: bool = Field(description="Whether this mapping is published and should be available to be used in jobs.")
 
     @model_serializer(mode="wrap")
@@ -109,7 +109,8 @@ class HostedExtractorMappingYAML(ToolkitResource):
         # handle polymorphic serialization for subclasses of MappingInput.
         # To address this, we include the below to explicitly calling model dump on the input
         serialized_data = handler(self)
-        serialized_data["input"] = self.input.model_dump(**vars(info))
+        if self.input is not None:
+            serialized_data["input"] = self.input.model_dump(**vars(info))
         return serialized_data
 
 
