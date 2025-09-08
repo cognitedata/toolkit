@@ -1,19 +1,23 @@
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
+from http.client import HTTPMessage
 from pathlib import Path
+from typing import Literal
 
 from cognite.client.data_classes import RowList, RowWrite, RowWriteList
+from cognite.client.data_classes._base import T_CogniteResourceList
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawDatabaseList, RawTable, RawTableList
-from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError, ToolkitValueError
 from cognite_toolkit._cdf_tk.loaders import RawDatabaseLoader, RawTableLoader
 from cognite_toolkit._cdf_tk.utils.file import find_adjacent_files, read_yaml_file
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import StorageIO, StorageIOConfig
 
 
-class RawIO(StorageIO[RawTable, RowWriteList, RowList]):
+class RawIO(StorageIO[RawTable, RawTable, RowWriteList, RowList]):
     folder_name = "raw"
     kind = "RawRows"
     display_name = "Raw Rows"
@@ -21,6 +25,12 @@ class RawIO(StorageIO[RawTable, RowWriteList, RowList]):
     supported_compressions = frozenset({".gz"})
     supported_read_formats = frozenset({".parquet", ".csv", ".ndjson", ".yaml"})
     chunk_size = 10_000
+
+    def as_id(self, item: dict[str, JsonVal] | type) -> RawTable:
+        raise ValueError("You cannot extract an ID from a Raw Table row. Use a RawTable selector instead.")
+
+    def validate_auth(self, access: Literal["Read", "Write", "ReadWrite"], selector: RawTable) -> None:
+        raise ToolkitNotImplementedError("Authentication validation for RawIO is not implemented yet.")
 
     def count(self, selector: RawTable) -> int | None:
         # Raw tables do not support aggregation queries, so we do not know the count
@@ -40,6 +50,11 @@ class RawIO(StorageIO[RawTable, RowWriteList, RowList]):
 
     def upload_items(self, data_chunk: RowWriteList, selector: RawTable) -> None:
         self.client.raw.rows.insert(db_name=selector.db_name, table_name=selector.table_name, row=data_chunk)
+
+    def upload_items_force(
+        self, data_chunk: T_CogniteResourceList, http_client: HTTPClient, selector: RawTable | None = None
+    ) -> Sequence[HTTPMessage]:
+        raise ToolkitNotImplementedError("Upload items is not implemented yet.")
 
     def data_to_json_chunk(self, data_chunk: RowList) -> list[dict[str, JsonVal]]:
         return [row.as_write().dump() for row in data_chunk]

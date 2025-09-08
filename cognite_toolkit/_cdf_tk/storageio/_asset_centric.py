@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Generic
+from typing import Generic, Literal
 
 from cognite.client.data_classes import (
     Asset,
@@ -41,7 +41,7 @@ from ._selectors import AssetCentricFileSelector, AssetCentricSelector, AssetSub
 
 class BaseAssetCentricIO(
     Generic[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
-    TableStorageIO[AssetCentricSelector, T_CogniteResourceList, T_WritableCogniteResourceList],
+    TableStorageIO[int, AssetCentricSelector, T_CogniteResourceList, T_WritableCogniteResourceList],
     ABC,
 ):
     chunk_size = 1000
@@ -52,6 +52,15 @@ class BaseAssetCentricIO(
         self._aggregator = self._get_aggregator()
         self._downloaded_data_sets_by_selector: dict[AssetCentricSelector, set[int]] = defaultdict(set)
         self._downloaded_labels_by_selector: dict[AssetCentricSelector, set[str]] = defaultdict(set)
+
+    def as_id(self, item: dict[str, JsonVal] | type) -> int:
+        if isinstance(item, dict) and isinstance(item.get("id"), int):
+            # MyPy checked above.
+            return item["id"]  # type: ignore[return-value]
+        raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
+
+    def validate_auth(self, access: Literal["Read", "Write", "ReadWrite"], selector: AssetCentricSelector) -> None:
+        raise ToolkitNotImplementedError("Authentication validation for AssetCentricIO is not implemented yet.")
 
     @abstractmethod
     def _get_loader(
@@ -164,6 +173,11 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
     supported_compressions = frozenset({".gz"})
     supported_read_formats = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
 
+    def as_id(self, item: dict[str, JsonVal] | type) -> int:
+        if isinstance(item, Asset | AssetWrite) and item.id is not None:  # type: ignore[union-attr]
+            return item.id  # type: ignore[union-attr]
+        return super().as_id(item)
+
     def _get_loader(self) -> AssetLoader:
         return AssetLoader.create_loader(self.client)
 
@@ -236,6 +250,11 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
     supported_download_formats = frozenset({".parquet", ".csv", ".ndjson"})
     supported_compressions = frozenset({".gz"})
     supported_read_formats = frozenset({".parquet", ".csv", ".ndjson"})
+
+    def as_id(self, item: dict[str, JsonVal] | type) -> int:
+        if isinstance(item, FileMetadata | FileMetadataWrite) and item.id is not None:  # type: ignore[union-attr]
+            return item.id  # type: ignore[union-attr]
+        return super().as_id(item)
 
     def _get_loader(self) -> FileMetadataLoader:
         return FileMetadataLoader.create_loader(self.client)

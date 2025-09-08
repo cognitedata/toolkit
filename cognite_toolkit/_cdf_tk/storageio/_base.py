@@ -185,7 +185,7 @@ class StorageIO(ABC, Generic[T_ID, T_Selector, T_CogniteResourceList, T_Writable
         raise NotImplementedError()
 
 
-class TableStorageIO(StorageIO[T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList], ABC):
+class TableStorageIO(StorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList], ABC):
     @abstractmethod
     def get_schema(self, selector: T_Selector) -> list[SchemaColumn]:
         """Get the schema of the table associated with the given selector.

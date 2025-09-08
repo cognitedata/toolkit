@@ -1,20 +1,25 @@
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
+from http.client import HTTPMessage
 from pathlib import Path
+from typing import Literal
 
+from cognite.client.data_classes._base import T_CogniteResourceList
 from cognite.client.data_classes.aggregations import Count
 from cognite.client.utils._identifier import InstanceId
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList, InstanceList
+from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import StorageIOConfig, TableStorageIO
+from ._base import StorageIOConfig, T_Selector, TableStorageIO
 from ._selectors import InstanceSelector, InstanceViewSelector
 
 
-class InstanceIO(TableStorageIO[InstanceSelector, InstanceApplyList, InstanceList]):
+class InstanceIO(TableStorageIO[InstanceId, InstanceSelector, InstanceApplyList, InstanceList]):
     folder_name = "instances"
     kind = "Instances"
     display_name = "Instances"
@@ -22,6 +27,16 @@ class InstanceIO(TableStorageIO[InstanceSelector, InstanceApplyList, InstanceLis
     supported_compressions = frozenset({".gz"})
     supported_read_formats = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
     chunk_size = 1000
+
+    def as_id(self, item: dict[str, JsonVal] | type) -> InstanceId:
+        if isinstance(item, dict) and "externalId" in item and "space" in item:
+            return InstanceId(space=item["space"], external_id=item["externalId"])  # type: ignore[arg-type]
+        if isinstance(item, InstanceId):
+            return item
+        raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
+
+    def validate_auth(self, access: Literal["Read", "Write", "ReadWrite"], selector: InstanceSelector) -> None:
+        raise ToolkitNotImplementedError("Authentication validation for InstanceIO is not implemented yet.")
 
     def download_iterable(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[InstanceList]:
         if isinstance(selector, InstanceViewSelector):
@@ -63,6 +78,11 @@ class InstanceIO(TableStorageIO[InstanceSelector, InstanceApplyList, InstanceLis
         raise NotImplementedError()
 
     def upload_items(self, data_chunk: InstanceApplyList, selector: InstanceSelector) -> None:
+        raise NotImplementedError()
+
+    def upload_items_force(
+        self, data_chunk: T_CogniteResourceList, http_client: HTTPClient, selector: T_Selector | None = None
+    ) -> Sequence[HTTPMessage]:
         raise NotImplementedError()
 
     def data_to_json_chunk(self, data_chunk: InstanceList) -> list[dict[str, JsonVal]]:
