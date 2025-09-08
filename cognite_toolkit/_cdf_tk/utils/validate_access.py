@@ -218,7 +218,7 @@ class ValidateAccess:
         output: dict[str, list[str]] = {}
         for scope in asset_scopes:
             if isinstance(scope, AssetsAcl.Scope.DataSet):
-                output["dataset"] = self.client.lookup.assets.external_id(scope.ids)
+                output["dataset"] = self.client.lookup.data_sets.external_id(scope.ids)
             else:
                 raise ValueError(f"Unexpected asset scope type: {type(scope)}. Expected DataSet or All.")
         return output
