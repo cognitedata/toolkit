@@ -181,12 +181,15 @@ class ValidateAccess:
         return output
 
     def assets(
-        self, action: Sequence[Literal["read", "write"]], dataset_id: int | None = None, operation: str | None = None
+        self,
+        action: Sequence[Literal["read", "write"]],
+        dataset_ids: set[int] | None = None,
+        operation: str | None = None,
     ) -> dict[str, list[str]] | None:
         """Validate access to assets.
         Args:
             action (Sequence[Literal["read", "write"]]): The actions to validate access for
-            dataset_id (int | None): The dataset ID to check access for. If None, checks access for all datasets.
+            dataset_ids (Set[int] | None): The dataset IDs to check access for. If None, checks access for all datasets.
             operation (str | None): The operation being performed, used for error messages.
         Returns:
             dict[str, list[str]] | None: Returns a dictionary with the key 'dataset'
@@ -202,12 +205,15 @@ class ValidateAccess:
         )
         if isinstance(asset_scopes[0], AssetsAcl.Scope.All):
             return None
-        if dataset_id is not None:
+        if dataset_ids is not None:
+            missing = set(dataset_ids)
             for scope in asset_scopes:
-                if isinstance(scope, AssetsAcl.Scope.DataSet) and dataset_id in scope.ids:
-                    return None
+                if isinstance(scope, AssetsAcl.Scope.DataSet):
+                    missing = missing - set(scope.ids)
+                    if not missing:
+                        return None
             raise AuthorizationError(
-                f"You have no permission to {actions_str} assets in dataset {dataset_id}. This is required to {operation}."
+                f"You have no permission to {actions_str} assets in dataset(s) {humanize_collection(missing)}. This is required to {operation}."
             )
         output: dict[str, list[str]] = {}
         for scope in asset_scopes:
