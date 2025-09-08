@@ -171,6 +171,12 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
     supported_compressions = frozenset({".gz"})
     supported_read_formats = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
 
+    def _validate_auth(
+        self, action: Sequence[Literal["read", "write"]], selector: AssetCentricSelector, validator: ValidateAccess
+    ) -> None:
+        # Todo Need #1929 to be merged.
+        return None
+
     def as_id(self, item: dict[str, JsonVal] | object) -> int:
         if isinstance(item, Asset | AssetWrite) and item.id is not None:  # type: ignore[union-attr]
             return item.id  # type: ignore[union-attr]
@@ -248,6 +254,11 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
     supported_download_formats = frozenset({".parquet", ".csv", ".ndjson"})
     supported_compressions = frozenset({".gz"})
     supported_read_formats = frozenset({".parquet", ".csv", ".ndjson"})
+
+    def _validate_auth(
+        self, action: Sequence[Literal["read", "write"]], selector: AssetCentricSelector, validator: ValidateAccess
+    ) -> None:
+        raise ToolkitNotImplementedError("Authentication validation for FileMetadataIO is not implemented yet.")
 
     def as_id(self, item: dict[str, JsonVal] | object) -> int:
         if isinstance(item, FileMetadata | FileMetadataWrite) and item.id is not None:  # type: ignore[union-attr]

@@ -34,7 +34,9 @@ class InstanceIO(TableStorageIO[InstanceId, InstanceSelector, InstanceApplyList,
             return item
         raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
 
-    def _validate_auth(self, actions: Sequence[Literal["read", "write"]], selector: InstanceSelector, validator: ValidateAccess) -> None:
+    def _validate_auth(
+        self, actions: Sequence[Literal["read", "write"]], selector: InstanceSelector, validator: ValidateAccess
+    ) -> None:
         if schema_spaces := selector.get_schema_spaces():
             validator.data_model(actions, set(schema_spaces))
 
