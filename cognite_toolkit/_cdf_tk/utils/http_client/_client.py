@@ -16,8 +16,7 @@ from urllib3.util.retry import Retry
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.utils.auxiliary import get_current_toolkit_version, get_user_agent
-
-from ._data_classes import (
+from cognite_toolkit._cdf_tk.utils.http_client._data_classes import (
     BodyRequest,
     FailedRequestMessage,
     HTTPMessage,
@@ -132,7 +131,6 @@ class HTTPClient:
             pool_maxsize=self._pool_maxsize,
             max_retries=Retry(total=0),  # We handle retries manually
         )
-        session.mount("http://", adapter)
         session.mount("https://", adapter)
         return session
 
