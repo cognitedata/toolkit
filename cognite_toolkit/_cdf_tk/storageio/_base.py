@@ -3,7 +3,7 @@ from collections.abc import Hashable, Iterable, Sequence
 from dataclasses import dataclass
 from http.client import HTTPMessage
 from pathlib import Path
-from typing import Generic, TypeVar
+from typing import Generic, Literal, TypeVar
 
 from cognite.client.data_classes._base import (
     T_CogniteResourceList,
@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 T_Selector = TypeVar("T_Selector", bound=Hashable)
+T_ID = TypeVar("T_ID", bound=Hashable)
 T_WritableCogniteResourceList = TypeVar("T_WritableCogniteResourceList", bound=WriteableCogniteResourceList)
 
 
@@ -27,7 +28,7 @@ class StorageIOConfig:
     value: JsonVal
 
 
-class StorageIO(ABC, Generic[T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList]):
+class StorageIO(ABC, Generic[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList]):
     """This is a base class for all storage classes in Cognite Toolkit
 
     It defines the interface for interacting with storage items in CDF, such as downloading,
@@ -55,6 +56,31 @@ class StorageIO(ABC, Generic[T_Selector, T_CogniteResourceList, T_WritableCognit
 
     def __init__(self, client: ToolkitClient) -> None:
         self.client = client
+
+    @abstractmethod
+    def as_id(self, item: dict[str, JsonVal] | type) -> T_ID:
+        """Convert an item or type to its corresponding ID.
+
+        Args:
+            item: The item or type to convert.
+
+        Returns:
+            The ID corresponding to the item or type.
+        """
+        raise NotImplementedError()
+
+    @abstractmethod
+    def validate_auth(self, access: Literal["Read", "Write", "ReadWrite"], selector: T_Selector) -> None:
+        """Validate that the client has the necessary permissions for the specified access level.
+
+        Args:
+            access: The required access level ('Read', 'Write', or 'ReadWrite').
+            selector: The selection criteria to identify the data.
+
+        Raises:
+            PermissionError: If the client does not have the required permissions.
+        """
+        raise NotImplementedError()
 
     @abstractmethod
     def download_iterable(
@@ -93,9 +119,19 @@ class StorageIO(ABC, Generic[T_Selector, T_CogniteResourceList, T_WritableCognit
         """
         raise NotImplementedError()
 
-    def upload_items2(
-        self, data_chunk: T_CogniteResourceList, selector: T_Selector, http_client: HTTPClient
+    def upload_items_force(
+        self, data_chunk: T_CogniteResourceList, http_client: HTTPClient, selector: T_Selector | None = None
     ) -> Sequence[HTTPMessage]:
+        """Upload a chunk of data to the storage using a custom HTTP client.
+
+        This ensures that even if one item in the chunk fails, the rest will still be uploaded.
+
+        Args:
+            data_chunk: The chunk of data to upload, which should be a list of writable Cognite resources.
+            http_client: The custom HTTP client to use for the upload.
+            selector: Optional selection criteria to identify where to upload the data.
+
+        """
         raise NotImplementedError()
 
     @abstractmethod
