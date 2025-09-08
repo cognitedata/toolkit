@@ -60,11 +60,6 @@ class BaseAssetCentricIO(
             return item["id"]  # type: ignore[return-value]
         raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
 
-    def _validate_auth(
-        self, action: Sequence[Literal["read", "write"]], selector: AssetCentricSelector, validator: ValidateAccess
-    ) -> None:
-        raise ToolkitNotImplementedError("Authentication validation for AssetCentricIO is not implemented yet.")
-
     @abstractmethod
     def _get_loader(
         self,
