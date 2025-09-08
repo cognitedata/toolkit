@@ -688,7 +688,7 @@ class PurgeCommand(ToolkitCommand):
 
     def validate_model_access(self, validator: ValidateAccess, view: list[str] | None) -> None:
         space = view[0] if isinstance(view, list) and view and isinstance(view[0], str) else None
-        if space_ids := validator.data_model(["read"], space=space):
+        if space_ids := validator.data_model(["read"], spaces={space} if space else None):
             self.warn(
                 LimitedAccessWarning(
                     f"You can only select views in the {len(space_ids)} spaces you have access to: {humanize_collection(space_ids)}."
