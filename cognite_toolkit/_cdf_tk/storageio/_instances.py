@@ -3,16 +3,14 @@ from http.client import HTTPMessage
 from pathlib import Path
 from typing import Literal
 
-from cognite.client.data_classes._base import T_CogniteResourceList
 from cognite.client.data_classes.aggregations import Count
 from cognite.client.utils._identifier import InstanceId
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList, InstanceList
-from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ItemsRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
 
@@ -36,10 +34,12 @@ class InstanceIO(TableStorageIO[InstanceId, InstanceSelector, InstanceApplyList,
             return item
         raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
 
-    def _validate_auth(
-        self, action: Sequence[Literal["read", "write"]], selector: InstanceSelector, validator: ValidateAccess
-    ) -> None:
-        raise ToolkitNotImplementedError("Authentication validation for InstanceIO is not implemented yet.")
+    def _validate_auth(self, actions: Sequence[Literal["read", "write"]], selector: InstanceSelector, validator: ValidateAccess) -> None:
+        if schema_spaces := selector.get_schema_spaces():
+            validator.data_model(actions, set(schema_spaces))
+
+        if instance_spaces := selector.get_instance_spaces():
+            validator.data_model(actions, set(instance_spaces))
 
     def download_iterable(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[InstanceList]:
         if isinstance(selector, InstanceViewSelector):
@@ -84,9 +84,19 @@ class InstanceIO(TableStorageIO[InstanceId, InstanceSelector, InstanceApplyList,
         raise NotImplementedError()
 
     def upload_items_force(
-        self, data_chunk: T_CogniteResourceList, http_client: HTTPClient, selector: T_Selector | None = None
+        self, data_chunk: InstanceApplyList, http_client: HTTPClient, selector: T_Selector | None = None
     ) -> Sequence[HTTPMessage]:
-        raise NotImplementedError()
+        config = self.client.config
+        # MyPy fails to understand that ResponseMessage | FailedRequestMessage are both subclasses of HTTPMessage.
+        return http_client.request_with_retries(  # type: ignore[return-value]
+            ItemsRequest(
+                endpoint_url=config.create_api_url("/models/instances"),
+                method="POST",
+                items=data_chunk.dump(camel_case=True),  # type: ignore[arg-type]
+                extra_body_fields={"autoCreateDirectRelations": True},
+                as_id=self.as_id,
+            )
+        )
 
     def data_to_json_chunk(self, data_chunk: InstanceList) -> list[dict[str, JsonVal]]:
         raise NotImplementedError()

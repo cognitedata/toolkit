@@ -1,3 +1,4 @@
+from abc import abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -43,12 +44,25 @@ class AssetCentricFileSelector(AssetCentricSelector):
 
 
 @dataclass(frozen=True)
-class InstanceSelector: ...
+class InstanceSelector:
+    @abstractmethod
+    def get_schema_spaces(self) -> list[str] | None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_instance_spaces(self) -> list[str] | None:
+        raise NotImplementedError
 
 
 @dataclass(frozen=True)
 class InstanceFileSelector(InstanceSelector):
     datafile: Path
+
+    def get_schema_spaces(self) -> list[str] | None:
+        raise NotImplementedError()
+
+    def get_instance_spaces(self) -> list[str] | None:
+        raise NotImplementedError()
 
 
 @dataclass(frozen=True)
@@ -56,6 +70,12 @@ class InstanceViewSelector(InstanceSelector):
     view: ViewId
     instance_type: Literal["node", "edge"] = "node"
     instance_spaces: tuple[str, ...] | None = None
+
+    def get_schema_spaces(self) -> list[str]:
+        return [self.view.space]
+
+    def get_instance_spaces(self) -> list[str] | None:
+        return list(self.instance_spaces) if self.instance_spaces else None
 
 
 @dataclass(frozen=True)
