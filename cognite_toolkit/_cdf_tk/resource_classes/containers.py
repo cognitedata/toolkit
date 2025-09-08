@@ -6,7 +6,7 @@ from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapH
 
 from cognite_toolkit._cdf_tk.constants import (
     CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER_PATTERN,
-    EXTERNAL_ID_PATTERN,
+    DM_EXTERNAL_ID_PATTERN,
     FORBIDDEN_CONTAINER_AND_VIEW_EXTERNAL_IDS,
     FORBIDDEN_CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER,
     SPACE_FORMAT_PATTERN,
@@ -30,7 +30,7 @@ class ContainerYAML(ToolkitResource):
         description="External-id of the container.",
         min_length=1,
         max_length=255,
-        pattern=EXTERNAL_ID_PATTERN,
+        pattern=DM_EXTERNAL_ID_PATTERN,
     )
     name: str | None = Field(
         default=None,

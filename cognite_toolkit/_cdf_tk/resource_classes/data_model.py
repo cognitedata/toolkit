@@ -1,9 +1,9 @@
 from pydantic import Field
 
 from cognite_toolkit._cdf_tk.constants import (
-    EXTERNAL_ID_PATTERN,
+    DM_EXTERNAL_ID_PATTERN,
+    DM_VERSION_PATTERN,
     SPACE_FORMAT_PATTERN,
-    VERSION_PATTERN,
 )
 
 from .base import ToolkitResource
@@ -28,12 +28,12 @@ class DataModelYAML(ToolkitResource):
         description="External-id of the data model.",
         min_length=1,
         max_length=255,
-        pattern=EXTERNAL_ID_PATTERN,
+        pattern=DM_EXTERNAL_ID_PATTERN,
     )
     version: str = Field(
         description="Version of the data model.",
         max_length=43,
-        pattern=VERSION_PATTERN,
+        pattern=DM_VERSION_PATTERN,
     )
     name: str | None = Field(
         default=None,

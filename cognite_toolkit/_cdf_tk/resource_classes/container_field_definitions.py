@@ -6,7 +6,7 @@ from pydantic import Field, ModelWrapValidatorHandler, model_serializer, model_v
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
 from cognite_toolkit._cdf_tk.constants import (
-    EXTERNAL_ID_PATTERN,
+    DM_EXTERNAL_ID_PATTERN,
     SPACE_FORMAT_PATTERN,
 )
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
@@ -31,7 +31,7 @@ class ContainerReference(BaseModelResource):
         description="External-id of the container.",
         min_length=1,
         max_length=255,
-        pattern=EXTERNAL_ID_PATTERN,
+        pattern=DM_EXTERNAL_ID_PATTERN,
     )
 
 
