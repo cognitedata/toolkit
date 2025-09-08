@@ -26,16 +26,16 @@ class MappingInput(BaseModelResource):
 
     @model_validator(mode="wrap")
     @classmethod
-    def find_trigger_type(cls, data: "dict[str, Any] | MappingInput", handler: ModelWrapValidatorHandler[Self]) -> Self:
+    def find_type(cls, data: "dict[str, Any] | MappingInput", handler: ModelWrapValidatorHandler[Self]) -> Self:
         if isinstance(data, MappingInput):
             return cast(Self, data)
         if not isinstance(data, dict):
-            raise ValueError(f"Invalid trigger rule data '{type(data)}' expected dict")
+            raise ValueError(f"Invalid input type data '{type(data)}' expected dict")
 
         if cls is not MappingInput:
             # We are already in a subclass, so just validate as usual
             return handler(data)
-        # If not we need to find the right subclass based on the triggerType field.
+        # If not we need to find the right subclass based on the type field.
         if "type" not in data:
             raise ValueError("Invalid input data missing 'type' key")
         type_ = data["type"]
@@ -48,8 +48,6 @@ class MappingInput(BaseModelResource):
 
     @model_serializer(mode="wrap", when_used="always", return_type=dict)
     def include_type(self, handler: SerializerFunctionWrapHandler) -> dict:
-        if self.type is None:
-            raise ValueError("InputMapping type is not set")
         serialized_data = handler(self)
         serialized_data["type"] = self.type
         return serialized_data
