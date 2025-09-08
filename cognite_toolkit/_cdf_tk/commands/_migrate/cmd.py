@@ -19,13 +19,13 @@ from cognite_toolkit._cdf_tk.utils.fileio import Chunk, NDJsonWriter, Uncompress
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemIDMessage, SuccessItem
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.progress_tracker import ProgressTracker
-
+from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 T_SelectorTarget = TypeVar("T_SelectorTarget", bound=Hashable)
 T_CogniteResourceListTarget = TypeVar("T_CogniteResourceListTarget", bound=CogniteResourceList)
 T_WritableCogniteResourceListTarget = TypeVar("T_WritableCogniteResourceListTarget", bound=WriteableCogniteResourceList)
 
 
-class MigrationCommand:
+class MigrationCommand(ToolkitCommand):
     class Steps(str, Enum):
         DOWNLOAD = "download"
         CONVERT = "convert"

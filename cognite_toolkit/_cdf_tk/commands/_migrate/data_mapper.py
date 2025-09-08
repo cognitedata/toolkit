@@ -31,3 +31,6 @@ class DataMapper(Generic[T_Selector, T_WritableCogniteResourceList, T_CogniteRes
 
         """
         raise NotImplementedError("Subclasses must implement this method.")
+
+class AssetMapper(DataMapper):
+    ...
