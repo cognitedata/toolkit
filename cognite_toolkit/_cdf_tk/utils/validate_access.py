@@ -20,13 +20,13 @@ class ValidateAccess:
         self.default_operation = default_operation
 
     def data_model(
-        self, action: Sequence[Literal["read", "write"]], space: str | None = None, operation: str | None = None
+        self, action: Sequence[Literal["read", "write"]], spaces: set[str] | None = None, operation: str | None = None
     ) -> list[str] | None:
         """Validate access to data models.
 
         Args:
             action (Sequence[Literal["read", "write"]]): The actions to validate access for.
-            space (str | None): The space ID to check access for. If None, checks access for all spaces.
+            spaces (Set[str] | None): The space IDs to check access for. If None, checks access for all spaces.
             operation (str | None): The operation being performed, used for error messages.
 
         Returns:
@@ -46,25 +46,24 @@ class ValidateAccess:
         if isinstance(model_scope, DataModelsAcl.Scope.All):
             return None
         elif isinstance(model_scope, DataModelsAcl.Scope.SpaceID):
-            if space is not None and space not in model_scope.space_ids:
-                raise AuthorizationError(
-                    f"You have no permission to {actions_str} the {space!r} space. This is required to {operation}."
-                )
-            elif space is not None and space in model_scope.space_ids:
-                return None
-            else:
+            if spaces is None:
                 return model_scope.space_ids
+            if missing := spaces - set(model_scope.space_ids):
+                raise AuthorizationError(
+                    f"You have no permission to {actions_str} the {humanize_collection(missing)!r} space(s). This is required to {operation}."
+                )
+            return None
         else:
             raise ValueError(f"Unexpected data model scope type: {type(model_scope)}. Expected SpaceID or All.")
 
     def instances(
-        self, action: Sequence[Literal["read", "write"]], space: str | None = None, operation: str | None = None
+        self, action: Sequence[Literal["read", "write"]], spaces: set[str] | None = None, operation: str | None = None
     ) -> list[str] | None:
         """Validate access to data model instances.
 
         Args:
             action (Sequence[Literal["read", "write"]]): The actions to validate access for.
-            space (str | None): The space ID to check access for. If None, checks access for all spaces.
+            spaces (Set[str] | None): The space IDs to check access for. If None, checks access for all spaces.
             operation (str | None): The operation being performed, used for error messages.
 
         Returns:
@@ -84,14 +83,13 @@ class ValidateAccess:
             )
         instance_scope = instance_scopes[0]
         if isinstance(instance_scope, DataModelInstancesAcl.Scope.SpaceID):
-            if space is not None and space not in instance_scope.space_ids:
-                raise AuthorizationError(
-                    f"You have no permission to {action_str} instances in space {space!r}. This is required to {operation} instances."
-                )
-            elif space is not None and space in instance_scope.space_ids:
-                return None
-            else:
+            if spaces is None:
                 return instance_scope.space_ids
+            if missing := spaces - set(instance_scope.space_ids):
+                raise AuthorizationError(
+                    f"You have no permission to {action_str} instances in the {humanize_collection(missing)!r} space(s). This is required to {operation} instances."
+                )
+            return None
         elif isinstance(instance_scope, DataModelInstancesAcl.Scope.All):
             return None
         else:
@@ -100,12 +98,15 @@ class ValidateAccess:
             )
 
     def timeseries(
-        self, action: Sequence[Literal["read", "write"]], dataset_id: int | None = None, operation: str | None = None
+        self,
+        action: Sequence[Literal["read", "write"]],
+        dataset_ids: set[int] | None = None,
+        operation: str | None = None,
     ) -> dict[str, list[str]] | None:
         """Validate access to time series.
         Args:
             action (Sequence[Literal["read", "write"]]): The actions to validate access for.
-            dataset_id (int | None): The dataset ID to check access for. If None, checks access for all datasets.
+            dataset_ids (Set[int] | None): The dataset IDs to check access for. If None, checks access for all datasets.
             operation (str | None): The operation being performed, used for error messages.
         Returns:
             dict[str, list[str]] | None: Returns a dictionary with keys 'dataset', 'asset root', and 'time series' if access is limited to these scopes, or None if access is granted to all time series.
@@ -120,12 +121,15 @@ class ValidateAccess:
 
         if isinstance(timeseries_scopes[0], TimeSeriesAcl.Scope.All):
             return None
-        if dataset_id is not None:
+        if dataset_ids is not None:
+            missing = set(dataset_ids)
             for scope in timeseries_scopes:
-                if isinstance(scope, TimeSeriesAcl.Scope.DataSet) and dataset_id in scope.ids:
-                    return None
+                if isinstance(scope, TimeSeriesAcl.Scope.DataSet):
+                    missing = missing - set(scope.ids)
+                    if not missing:
+                        return None
             raise AuthorizationError(
-                f"You have no permission to {actions_str} time series in dataset {dataset_id}. This is required to {operation}."
+                f"You have no permission to {actions_str} time series in dataset {humanize_collection(missing)}. This is required to {operation}."
             )
         output: dict[str, list[str]] = {}
         for scope in timeseries_scopes:
@@ -143,13 +147,16 @@ class ValidateAccess:
         return output
 
     def files(
-        self, action: Sequence[Literal["read", "write"]], dataset_id: int | None = None, operation: str | None = None
+        self,
+        action: Sequence[Literal["read", "write"]],
+        dataset_ids: set[int] | None = None,
+        operation: str | None = None,
     ) -> dict[str, list[str]] | None:
         """Validate access to files.
 
         Args:
             action (Sequence[Literal["read", "write"]]): The actions to validate access for
-            dataset_id (int | None): The dataset ID to check access for. If None, checks access for all datasets.
+            dataset_isd (Set[int] | None): The dataset IDs to check access for. If None, checks access for all datasets.
             operation (str | None): The operation being performed, used for error messages.
         Returns:
             dict[str, list[str]] | None: Returns a dictionary with the key 'dataset' if access is limited to a dataset scope, or None if access is granted to all files.
@@ -164,12 +171,15 @@ class ValidateAccess:
         )
         if isinstance(file_scopes[0], FilesAcl.Scope.All):
             return None
-        if dataset_id is not None:
+        if dataset_ids is not None:
+            missing = set(dataset_ids)
             for scope in file_scopes:
-                if isinstance(scope, FilesAcl.Scope.DataSet) and dataset_id in scope.ids:
-                    return None
+                if isinstance(scope, FilesAcl.Scope.DataSet):
+                    missing = missing - set(scope.ids)
+                    if not missing:
+                        return None
             raise AuthorizationError(
-                f"You have no permission to {actions_str} files in dataset {dataset_id}. This is required to {operation}."
+                f"You have no permission to {actions_str} files in dataset {humanize_collection(missing)}. This is required to {operation}."
             )
         output: dict[str, list[str]] = {}
         for scope in file_scopes:
