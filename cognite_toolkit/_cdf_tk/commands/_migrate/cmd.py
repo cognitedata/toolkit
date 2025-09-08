@@ -35,10 +35,8 @@ class MigrationCommand:
         selected: T_Selector,
         source: StorageIO[T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
         mapper: DataMapper[T_Selector, T_WritableCogniteResourceList, T_CogniteResourceListTarget],
+        target_selected: T_SelectorTarget,
         target: StorageIO[T_SelectorTarget, T_CogniteResourceListTarget, T_WritableCogniteResourceListTarget],
-        # source: StorageIO[T_Selector, AssetWriteList, AssetList],
-        # mapper: DataMapper[T_Selector, AssetList, NodeApplyList],
-        # target: StorageIO[T_SelectorTarget, NodeApplyList, NodeList],
         log_dir: Path,
         dry_run: bool = False,
         verbose: bool = False,
@@ -48,8 +46,8 @@ class MigrationCommand:
                 f"Log directory {log_dir} already exists. Please remove it or choose another directory."
             )
         log_dir.mkdir(parents=True, exist_ok=False)
-        # source.validate_access("READ")
-        # target.validate_access("WRITE")
+        # source.validate_access("READ", selected)
+        # target.validate_access("WRITE", target_selected)
         mapper.prepare(selected)
 
         iteration_count: int | None = None
@@ -79,7 +77,8 @@ class MigrationCommand:
             total = executor.total_items
 
         executor.raise_on_error()
-        # self.print_table(tracker, console=console)
+        # self.print_table_to_terminal(tracker, console=console)
+        # self.print_table_to_csv(tracker)
         action = "Would migrate" if dry_run else "Migrating"
         console.print(f"{action} {total:,} {source.display_name} to {target.display_name}.")
 
@@ -97,11 +96,22 @@ class MigrationCommand:
 
     def _convert(
         self,
-        conversion: DataMapper[T_Selector, T_WritableCogniteResourceList, T_CogniteResourceListTarget],
+        mapper: DataMapper[T_Selector, T_WritableCogniteResourceList, T_CogniteResourceListTarget],
         tracker: ProgressTracker,
         log_file: NDJsonWriter,
     ) -> Callable[[T_WritableCogniteResourceList], T_CogniteResourceListTarget]:
-        raise NotImplementedError()
+        def track_mapping(source: T_WritableCogniteResourceList) -> T_CogniteResourceListTarget:
+            try:
+                target, issues = mapper.map_chunk(source)
+                for item in source:
+                    tracker.set_progress(tracker_id=item.id, step=self.Steps.CONVERT, status="success")
+                return target
+            except Exception as e:
+                for item in source:
+                    tracker.set_progress(tracker_id=item.id, step=self.Steps.CONVERT, status="failed")
+                    log_file.write({"id": item.id, "error": str(e)})
+                raise
+        return track_mapping
 
     def _upload(
         self,
@@ -110,4 +120,17 @@ class MigrationCommand:
         log_file: NDJsonWriter,
         dry_run: bool,
     ) -> Callable[[T_CogniteResourceListTarget], None]:
-        raise NotImplementedError()
+        def upload_items(data_chunk: T_CogniteResourceListTarget) -> None:
+            try:
+                if not dry_run:
+                    target.client = write_client
+                    target.upload_items(data_chunk, selector=target.load_selector(Path()))
+                for item in data_chunk:
+                    # tracker.set_progress(tracker_id=item.id, step=self.Steps.UPLOAD, status="success")
+                    pass
+            except Exception as e:
+                for item in data_chunk:
+                    # tracker.set_progress(tracker_id=item.id, step=self.Steps.UPLOAD, status="failed")
+                    log_file.write({"id": item.id, "error": str(e)})
+                raise
+        return target.upload_items
