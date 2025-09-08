@@ -1,11 +1,7 @@
 from pydantic import Field
 
+from .authentication import AuthenticationClientIdSecret
 from .base import ToolkitResource
-
-
-class AuthenticationClientIdSecret(ToolkitResource):
-    client_id: str = Field(description="Client Id.")
-    client_secret: str = Field(description="Client Secret.")
 
 
 class FunctionScheduleYAML(ToolkitResource):

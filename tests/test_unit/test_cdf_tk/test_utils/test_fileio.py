@@ -210,7 +210,7 @@ class TestFileWriterThreadSafety:
 
         written_data = []
         for file_path in written_files:
-            with file_path.open("r") as file:
+            with file_path.open("r", encoding=Compression.encoding) as file:
                 for line in file:
                     written_data.append(json.loads(line.strip()))
 
@@ -249,7 +249,7 @@ class TestFileWriterThreadSafety:
             # Verify data in thread-specific files
             written_data = []
             for file_path in thread_files:
-                with file_path.open("r") as file:
+                with file_path.open("r", encoding=Compression.encoding) as file:
                     for line in file:
                         data = json.loads(line.strip())
                         assert data["thread"] == thread_id
@@ -287,7 +287,7 @@ class TestFileWriterThreadSafety:
         total_chunks = 0
         thread_counts = {}
         for file_path in written_files:
-            with open(file_path) as f:
+            with open(file_path, encoding=Compression.encoding) as f:
                 for line in f:
                     data = json.loads(line.strip())
                     total_chunks += 1
