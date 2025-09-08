@@ -1,5 +1,4 @@
 from collections.abc import Hashable, Iterable, Sequence
-from pathlib import Path
 from typing import Any, final
 
 from cognite.client.data_classes.capabilities import AppConfigAcl, Capability
@@ -12,10 +11,9 @@ from cognite_toolkit._cdf_tk.client.data_classes.search_config import (
     SearchConfigWriteList,
     ViewId,
 )
-from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.resource_classes import SearchConfigYAML
-from cognite_toolkit._cdf_tk.utils import quote_int_value_by_key_in_yaml, safe_read
+from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
 
 from .datamodel_loaders import ViewLoader
@@ -53,7 +51,7 @@ class SearchConfigLoader(
 
         return AppConfigAcl(
             actions=actions,
-            scope=AppConfigAcl.Scope.All(),
+            scope=AppConfigAcl.Scope.AppConfig(apps=["SEARCH"]),
             allow_unknown=True,
         )
 
@@ -67,15 +65,15 @@ class SearchConfigLoader(
     def dump_id(cls, id: ViewId) -> dict[str, Any]:
         return {"view": id.dump()}
 
-    def safe_read(self, filepath: Path | str) -> str:
-        # Search config Id is int type
-        return quote_int_value_by_key_in_yaml(safe_read(filepath, encoding=BUILD_FOLDER_ENCODING), key="id")
-
-    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> SearchConfigWrite:
-        if "id" in resource and isinstance(resource["id"], str) and resource["id"].isdigit():
-            resource["id"] = int(resource["id"])
-
-        return self.resource_write_cls._load(resource)
+    def dump_resource(self, resource: SearchConfig, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        local = local or {}
+        if "id" in dumped and "id" not in local:
+            dumped.pop("id", None)
+        for key in ["columnsLayout", "filterLayout", "propertiesLayout"]:
+            if not dumped.get(key) and key not in local:
+                dumped.pop(key, None)
+        return dumped
 
     def diff_list(
         self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
@@ -132,7 +130,8 @@ class SearchConfigLoader(
         """
         Delete is not implemented in the API client
         """
-        raise NotImplementedError("Delete operation is not supported for SearchConfig")
+        MediumSeverityWarning("Delete operation is not supported for Search Config").print_warning()
+        return 0
 
     def _iterate(
         self,
@@ -141,9 +140,9 @@ class SearchConfigLoader(
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[SearchConfig]:
         """Iterate through all search configurations"""
-        all_configs = self.client.search.configurations.list()
         if space or data_set_external_id or parent_ids:
             # These filters are not supported for SearchConfig
             return iter([])
 
+        all_configs = self.client.search.configurations.list()
         return iter(all_configs)
