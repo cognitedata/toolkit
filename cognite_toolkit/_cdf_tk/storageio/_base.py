@@ -58,14 +58,14 @@ class StorageIO(ABC, Generic[T_ID, T_Selector, T_CogniteResourceList, T_Writable
         self.client = client
 
     @abstractmethod
-    def as_id(self, item: dict[str, JsonVal] | type) -> T_ID:
-        """Convert an item or type to its corresponding ID.
+    def as_id(self, item: dict[str, JsonVal] | object) -> T_ID:
+        """Convert an item to its corresponding ID.
 
         Args:
-            item: The item or type to convert.
+            item: The item to convert.
 
         Returns:
-            The ID corresponding to the item or type.
+            The ID corresponding to the item.
         """
         raise NotImplementedError()
 
