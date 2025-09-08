@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Generic, Literal
 
@@ -34,6 +34,7 @@ from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
 from cognite_toolkit._cdf_tk.utils.file import find_files_with_suffix_and_prefix
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
+from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
 
 from ._base import StorageIOConfig, TableStorageIO
 from ._selectors import AssetCentricFileSelector, AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
@@ -59,7 +60,9 @@ class BaseAssetCentricIO(
             return item["id"]  # type: ignore[return-value]
         raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
 
-    def validate_auth(self, access: Literal["Read", "Write", "ReadWrite"], selector: AssetCentricSelector) -> None:
+    def _validate_auth(
+        self, action: Sequence[Literal["read", "write"]], selector: AssetCentricSelector, validator: ValidateAccess
+    ) -> None:
         raise ToolkitNotImplementedError("Authentication validation for AssetCentricIO is not implemented yet.")
 
     @abstractmethod

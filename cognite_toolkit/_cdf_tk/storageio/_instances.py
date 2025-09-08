@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
+from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
 
 from ._base import StorageIOConfig, T_Selector, TableStorageIO
 from ._selectors import InstanceSelector, InstanceViewSelector
@@ -35,7 +36,9 @@ class InstanceIO(TableStorageIO[InstanceId, InstanceSelector, InstanceApplyList,
             return item
         raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
 
-    def validate_auth(self, access: Literal["Read", "Write", "ReadWrite"], selector: InstanceSelector) -> None:
+    def _validate_auth(
+        self, action: Sequence[Literal["read", "write"]], selector: InstanceSelector, validator: ValidateAccess
+    ) -> None:
         raise ToolkitNotImplementedError("Authentication validation for InstanceIO is not implemented yet.")
 
     def download_iterable(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[InstanceList]:

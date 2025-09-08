@@ -13,6 +13,7 @@ from cognite_toolkit._cdf_tk.loaders import RawDatabaseLoader, RawTableLoader
 from cognite_toolkit._cdf_tk.utils.file import find_adjacent_files, read_yaml_file
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
+from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
 
 from ._base import StorageIO, StorageIOConfig
 
@@ -29,7 +30,9 @@ class RawIO(StorageIO[RawTable, RawTable, RowWriteList, RowList]):
     def as_id(self, item: dict[str, JsonVal] | object) -> RawTable:
         raise ValueError("You cannot extract an ID from a Raw Table row. Use a RawTable selector instead.")
 
-    def validate_auth(self, access: Literal["Read", "Write", "ReadWrite"], selector: RawTable) -> None:
+    def _validate_auth(
+        self, action: Sequence[Literal["read", "write"]], selector: RawTable, validator: ValidateAccess
+    ) -> None:
         raise ToolkitNotImplementedError("Authentication validation for RawIO is not implemented yet.")
 
     def count(self, selector: RawTable) -> int | None:

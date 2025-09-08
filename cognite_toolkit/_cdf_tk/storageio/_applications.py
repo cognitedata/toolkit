@@ -11,6 +11,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
+from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
 
 from ._base import StorageIO, StorageIOConfig, T_Selector
 from ._selectors import AllChartSelector, ChartOwnerSelector, ChartSelector
@@ -33,7 +34,9 @@ class ChartIO(StorageIO[str, ChartSelector, ChartWriteList, ChartList]):
             return item.external_id
         raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
 
-    def validate_auth(self, access: Literal["Read", "Write", "ReadWrite"], selector: ChartSelector) -> None:
+    def _validate_auth(
+        self, action: Sequence[Literal["read", "write"]], selector: ChartSelector, validator: ValidateAccess
+    ) -> None:
         raise ToolkitNotImplementedError("Authentication validation for ChartIO is not implemented yet.")
 
     def download_iterable(self, selector: ChartSelector, limit: int | None = None) -> Iterable[ChartList]:

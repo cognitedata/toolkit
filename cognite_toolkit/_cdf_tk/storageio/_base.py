@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
+from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
 
 T_Selector = TypeVar("T_Selector", bound=Hashable)
 T_ID = TypeVar("T_ID", bound=Hashable)
@@ -69,13 +70,30 @@ class StorageIO(ABC, Generic[T_ID, T_Selector, T_CogniteResourceList, T_Writable
         """
         raise NotImplementedError()
 
-    @abstractmethod
-    def validate_auth(self, access: Literal["Read", "Write", "ReadWrite"], selector: T_Selector) -> None:
+    def validate_auth(self, actions: Sequence[Literal["read", "write"]], selector: T_Selector) -> None:
         """Validate that the client has the necessary permissions for the specified access level.
 
         Args:
-            access: The required access level ('Read', 'Write', or 'ReadWrite').
+            actions: The access level to validate, either "read" or "write".
             selector: The selection criteria to identify the data.
+
+        Raises:
+            PermissionError: If the client does not have the required permissions.
+        """
+        operation = "/".join({"read": "download", "write": "upload"}[action] for action in actions)
+        validator = ValidateAccess(self.client, operation)
+        self._validate_auth(actions, selector, validator)
+
+    @abstractmethod
+    def _validate_auth(
+        self, action: Sequence[Literal["read", "write"]], selector: T_Selector, validator: ValidateAccess
+    ) -> None:
+        """Internal method to validate that the client has the necessary permissions for the specified access level.
+
+        Args:
+            action: The access level to validate, either "read" or "write".
+            selector: The selection criteria to identify the data.
+            validator: An instance of ValidateAccess to perform the validation.
 
         Raises:
             PermissionError: If the client does not have the required permissions.
