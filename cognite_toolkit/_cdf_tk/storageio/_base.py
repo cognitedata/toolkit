@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import Hashable, Iterable, Sequence
 from dataclasses import dataclass
-from http.client import HTTPMessage
 from pathlib import Path
 from typing import Generic, Literal, TypeVar
 
@@ -13,7 +12,7 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
 

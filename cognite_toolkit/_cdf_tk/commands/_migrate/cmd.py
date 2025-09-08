@@ -1,6 +1,5 @@
 from collections.abc import Callable, Hashable, Iterable, Sequence
 from enum import Enum
-from http.client import HTTPMessage
 from pathlib import Path
 from typing import TypeVar
 
@@ -17,7 +16,7 @@ from cognite_toolkit._cdf_tk.storageio._base import (
     T_WritableCogniteResourceList,
 )
 from cognite_toolkit._cdf_tk.utils.fileio import Chunk, NDJsonWriter, Uncompressed
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ItemIDMessage, SuccessItem
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemIDMessage, SuccessItem
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.progress_tracker import ProgressTracker
 
@@ -126,7 +125,7 @@ class MigrationCommand:
                 return None
             results: Sequence[HTTPMessage]
             if dry_run:
-                results = [SuccessItem(200, target.as_id(item)) for item in data_chunk]  # type: ignore[misc]
+                results = [SuccessItem(200, target.as_id(item)) for item in data_chunk]
             else:
                 results = target.upload_items_force(data_chunk=data_chunk, http_client=write_client, selector=None)
 

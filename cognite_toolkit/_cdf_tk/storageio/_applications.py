@@ -1,5 +1,4 @@
 from collections.abc import Iterable, Sequence
-from http.client import HTTPMessage
 from pathlib import Path
 from typing import Literal
 
@@ -9,7 +8,7 @@ from rich.console import Console
 from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList, ChartWrite, ChartWriteList
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
 

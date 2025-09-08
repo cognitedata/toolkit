@@ -1,5 +1,4 @@
 from collections.abc import Iterable, Sequence
-from http.client import HTTPMessage
 from pathlib import Path
 from typing import Literal
 
@@ -11,7 +10,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawData
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError, ToolkitValueError
 from cognite_toolkit._cdf_tk.loaders import RawDatabaseLoader, RawTableLoader
 from cognite_toolkit._cdf_tk.utils.file import find_adjacent_files, read_yaml_file
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
 
