@@ -26,7 +26,7 @@ class RawIO(StorageIO[RawTable, RawTable, RowWriteList, RowList]):
     supported_read_formats = frozenset({".parquet", ".csv", ".ndjson", ".yaml"})
     chunk_size = 10_000
 
-    def as_id(self, item: dict[str, JsonVal] | type) -> RawTable:
+    def as_id(self, item: dict[str, JsonVal] | object) -> RawTable:
         raise ValueError("You cannot extract an ID from a Raw Table row. Use a RawTable selector instead.")
 
     def validate_auth(self, access: Literal["Read", "Write", "ReadWrite"], selector: RawTable) -> None:

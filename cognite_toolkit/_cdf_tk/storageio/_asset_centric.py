@@ -53,7 +53,7 @@ class BaseAssetCentricIO(
         self._downloaded_data_sets_by_selector: dict[AssetCentricSelector, set[int]] = defaultdict(set)
         self._downloaded_labels_by_selector: dict[AssetCentricSelector, set[str]] = defaultdict(set)
 
-    def as_id(self, item: dict[str, JsonVal] | type) -> int:
+    def as_id(self, item: dict[str, JsonVal] | object) -> int:
         if isinstance(item, dict) and isinstance(item.get("id"), int):
             # MyPy checked above.
             return item["id"]  # type: ignore[return-value]
@@ -173,7 +173,7 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
     supported_compressions = frozenset({".gz"})
     supported_read_formats = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
 
-    def as_id(self, item: dict[str, JsonVal] | type) -> int:
+    def as_id(self, item: dict[str, JsonVal] | object) -> int:
         if isinstance(item, Asset | AssetWrite) and item.id is not None:  # type: ignore[union-attr]
             return item.id  # type: ignore[union-attr]
         return super().as_id(item)
@@ -251,7 +251,7 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
     supported_compressions = frozenset({".gz"})
     supported_read_formats = frozenset({".parquet", ".csv", ".ndjson"})
 
-    def as_id(self, item: dict[str, JsonVal] | type) -> int:
+    def as_id(self, item: dict[str, JsonVal] | object) -> int:
         if isinstance(item, FileMetadata | FileMetadataWrite) and item.id is not None:  # type: ignore[union-attr]
             return item.id  # type: ignore[union-attr]
         return super().as_id(item)

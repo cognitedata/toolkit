@@ -28,7 +28,7 @@ class InstanceIO(TableStorageIO[InstanceId, InstanceSelector, InstanceApplyList,
     supported_read_formats = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
     chunk_size = 1000
 
-    def as_id(self, item: dict[str, JsonVal] | type) -> InstanceId:
+    def as_id(self, item: dict[str, JsonVal] | object) -> InstanceId:
         if isinstance(item, dict) and "externalId" in item and "space" in item:
             return InstanceId(space=item["space"], external_id=item["externalId"])  # type: ignore[arg-type]
         if isinstance(item, InstanceId):

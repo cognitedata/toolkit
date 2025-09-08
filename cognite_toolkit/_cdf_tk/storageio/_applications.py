@@ -25,7 +25,7 @@ class ChartIO(StorageIO[str, ChartSelector, ChartWriteList, ChartList]):
     supported_read_formats = frozenset({".ndjson"})
     chunk_size = 10
 
-    def as_id(self, item: dict[str, JsonVal] | type) -> str:
+    def as_id(self, item: dict[str, JsonVal] | object) -> str:
         if isinstance(item, dict) and isinstance(item.get("externalId"), str):
             # MyPy checked above.
             return item["externalId"]  # type: ignore[return-value]
