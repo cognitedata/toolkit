@@ -1,10 +1,31 @@
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from functools import cached_property
 from pathlib import Path
-from typing import Literal
+from typing import Generic, Literal
 
 from cognite.client.data_classes.data_modeling import ViewId
 
+from cognite_toolkit._cdf_tk.storageio._data_classes import T_ModelList
 from cognite_toolkit._cdf_tk.utils.file import to_directory_compatible
+
+
+@dataclass(frozen=True)
+class FileSelector(Generic[T_ModelList], ABC):
+    """Data class for file-based data selection."""
+
+    datafile: Path
+
+    @abstractmethod
+    def list_cls(self) -> type[T_ModelList]:
+        raise NotImplementedError()
+
+    @cached_property
+    def items(self) -> T_ModelList:
+        return self.list_cls().read_csv_file(self.datafile)
+
+    def __str__(self) -> str:
+        return f"{type(self).__name__}={self.datafile.name}"
 
 
 @dataclass(frozen=True)
