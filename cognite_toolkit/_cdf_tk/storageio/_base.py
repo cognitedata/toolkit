@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
+T_ID = TypeVar("T_ID", bound=Hashable)
 T_Selector = TypeVar("T_Selector", bound=Hashable)
 T_WritableCogniteResourceList = TypeVar("T_WritableCogniteResourceList", bound=WriteableCogniteResourceList)
 
@@ -25,7 +26,7 @@ class StorageIOConfig:
     value: JsonVal
 
 
-class StorageIO(ABC, Generic[T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList]):
+class StorageIO(ABC, Generic[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList]):
     """This is a base class for all storage classes in Cognite Toolkit
 
     It defines the interface for interacting with storage items in CDF, such as downloading,
@@ -53,6 +54,16 @@ class StorageIO(ABC, Generic[T_Selector, T_CogniteResourceList, T_WritableCognit
 
     def __init__(self, client: ToolkitClient) -> None:
         self.client = client
+
+    @abstractmethod
+    def as_id(self, item: dict[str, JsonVal] | object) -> T_ID:
+        """Convert an item to its corresponding ID.
+        Args:
+            item: The item to convert.
+        Returns:
+            The ID corresponding to the item.
+        """
+        raise NotImplementedError()
 
     @abstractmethod
     def download_iterable(
@@ -142,7 +153,7 @@ class StorageIO(ABC, Generic[T_Selector, T_CogniteResourceList, T_WritableCognit
         raise NotImplementedError()
 
 
-class TableStorageIO(StorageIO[T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList], ABC):
+class TableStorageIO(StorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList], ABC):
     @abstractmethod
     def get_schema(self, selector: T_Selector) -> list[SchemaColumn]:
         """Get the schema of the table associated with the given selector.

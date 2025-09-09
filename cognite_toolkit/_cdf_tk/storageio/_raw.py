@@ -13,7 +13,7 @@ from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from ._base import StorageIO, StorageIOConfig
 
 
-class RawIO(StorageIO[RawTable, RowWriteList, RowList]):
+class RawIO(StorageIO[RawTable, RawTable, RowWriteList, RowList]):
     folder_name = "raw"
     kind = "RawRows"
     display_name = "Raw Rows"
@@ -21,6 +21,9 @@ class RawIO(StorageIO[RawTable, RowWriteList, RowList]):
     supported_compressions = frozenset({".gz"})
     supported_read_formats = frozenset({".parquet", ".csv", ".ndjson", ".yaml"})
     chunk_size = 10_000
+
+    def as_id(self, item: dict[str, JsonVal] | object) -> RawTable:
+        raise ValueError("You cannot extract an ID from a Raw Table row. Use a RawTable selector instead.")
 
     def count(self, selector: RawTable) -> int | None:
         # Raw tables do not support aggregation queries, so we do not know the count

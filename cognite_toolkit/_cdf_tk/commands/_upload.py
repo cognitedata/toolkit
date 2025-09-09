@@ -5,7 +5,12 @@ from typing import Any
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.storageio import StorageIO
-from cognite_toolkit._cdf_tk.storageio._base import T_CogniteResourceList, T_Selector, T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.storageio._base import (
+    T_ID,
+    T_CogniteResourceList,
+    T_Selector,
+    T_WritableCogniteResourceList,
+)
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.fileio import FileReader
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
@@ -29,7 +34,7 @@ class UploadCommand(ToolkitCommand):
 
     def upload(
         self,
-        io: StorageIO[T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
+        io: StorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
         input_dir: Path,
         ensure_configurations: bool,
         dry_run: bool,

@@ -3,7 +3,7 @@ from pathlib import Path
 
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk.client.data_classes.charts import ChartList, ChartWriteList
+from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList, ChartWrite, ChartWriteList
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
@@ -12,7 +12,7 @@ from ._base import StorageIO, StorageIOConfig, T_Selector
 from ._selectors import AllChartSelector, ChartOwnerSelector, ChartSelector
 
 
-class ChartIO(StorageIO[ChartSelector, ChartWriteList, ChartList]):
+class ChartIO(StorageIO[str, ChartSelector, ChartWriteList, ChartList]):
     folder_name = "cdf_application_data"
     kind = "Charts"
     display_name = "CDF Charts"
@@ -20,6 +20,14 @@ class ChartIO(StorageIO[ChartSelector, ChartWriteList, ChartList]):
     supported_compressions = frozenset({".gz"})
     supported_read_formats = frozenset({".ndjson"})
     chunk_size = 10
+
+    def as_id(self, item: dict[str, JsonVal] | object) -> str:
+        if isinstance(item, dict) and isinstance(item.get("externalId"), str):
+            # MyPy checked above.
+            return item["externalId"]  # type: ignore[return-value]
+        if isinstance(item, ChartWrite | Chart):
+            return item.external_id
+        raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
 
     def download_iterable(self, selector: ChartSelector, limit: int | None = None) -> Iterable[ChartList]:
         selected_charts = self.client.charts.list(visibility="PUBLIC")
