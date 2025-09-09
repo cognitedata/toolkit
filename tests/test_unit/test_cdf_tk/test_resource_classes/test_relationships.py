@@ -1,5 +1,6 @@
 from collections.abc import Iterable
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -30,13 +31,13 @@ def invalid_relationship_test_cases() -> Iterable:
 
 class TestRelationshipYAML:
     @pytest.mark.parametrize("data", list(find_resources("Relationship")))
-    def test_load_valid_relationship(self, data: dict[str, object]) -> None:
+    def test_load_valid_relationship(self, data: dict[str, Any]) -> None:
         loaded = RelationshipYAML.model_validate(data)
 
         assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
 
     @pytest.mark.parametrize("data, expected_errors", list(invalid_relationship_test_cases()))
-    def test_invalid_relationship_error_messages(self, data: dict | list, expected_errors: set[str]) -> None:
+    def test_invalid_relationship_error_messages(self, data: dict[str, Any], expected_errors: set[str]) -> None:
         warning_list = validate_resource_yaml_pydantic(data, RelationshipYAML, Path("some_file.yaml"))
         assert len(warning_list) == 1
         format_warning = warning_list[0]

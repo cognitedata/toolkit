@@ -2,7 +2,14 @@ from typing import Literal
 
 from pydantic import Field
 
-from .base import ToolkitResource
+from .base import BaseModelResource, ToolkitResource
+
+
+class LabelRefYAML(BaseModelResource):
+    externalId: str = Field(
+        description="The external ID of the label.",
+        max_length=255,
+    )
 
 
 class RelationshipYAML(ToolkitResource):
@@ -38,6 +45,6 @@ class RelationshipYAML(ToolkitResource):
     data_set_external_id: str | None = Field(
         None, description="The external ID of the data set that the relationship belongs to.", max_length=255
     )
-    labels: list[dict[Literal["externalId"], str]] | None = Field(
+    labels: list[LabelRefYAML] | None = Field(
         None, description="A list of labels that the relationship belongs to.", max_length=10
     )
