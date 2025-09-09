@@ -3,7 +3,10 @@ from abc import ABC, abstractmethod
 from collections import UserList
 from collections.abc import Collection
 from pathlib import Path
-from typing import TypeVar
+from typing import Literal, TypeVar
+
+from cognite.client.utils._text import to_camel_case
+from pydantic import BaseModel
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
@@ -64,3 +67,15 @@ class ModelList(UserList[T_BaseModel], ABC):
 
 
 T_ModelList = TypeVar("T_ModelList", bound=ModelList)
+
+
+class InstanceCSV(BaseModel, alias_generator=to_camel_case):
+    space: str
+    external_id: str
+    instance_type: Literal["node", "edge"] = "node"
+
+
+class InstanceCSVList(ModelList[InstanceCSV]):
+    @classmethod
+    def _get_base_model_cls(cls) -> type[InstanceCSV]:
+        return InstanceCSV
