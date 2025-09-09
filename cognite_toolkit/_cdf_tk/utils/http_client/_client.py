@@ -108,6 +108,8 @@ class HTTPClient:
             Sequence[ResponseMessage | FailedRequestMessage]: The final response
                 messages, which can be either successful responses or failed requests.
         """
+        if message.total_attempts > 0:
+            raise RuntimeError(f"RequestMessage has already been attempted {message.total_attempts} times.")
         pending_requests: deque[RequestMessage] = deque()
         pending_requests.append(message)
         final_responses: list[ResponseMessage | FailedRequestMessage] = []
