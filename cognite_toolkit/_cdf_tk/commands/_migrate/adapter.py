@@ -19,8 +19,9 @@ from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyL
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitNotImplementedError,
 )
+from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID
 from cognite_toolkit._cdf_tk.storageio import AssetCentricSelector, BaseAssetCentricIO, InstanceIO, TableStorageIO
-from cognite_toolkit._cdf_tk.storageio._base import T_ID, StorageIOConfig, T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.storageio._base import StorageIOConfig, T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
@@ -52,7 +53,7 @@ class AssetCentricMappingList(
 
 class AssetCentricMigrationIOAdapter(
     Generic[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
-    TableStorageIO[int, MigrationSelector, InstanceApplyList, AssetCentricMappingList],
+    TableStorageIO[MigrationSelector, InstanceApplyList, AssetCentricMappingList],
 ):
     folder_name = "migration"
     kind = "AssetCentricMigration"
