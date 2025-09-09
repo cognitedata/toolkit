@@ -345,7 +345,7 @@ class TestValidateAccess:
 
         with monkeypatch_toolkit_client() as client:
             client.iam.token.inspect.return_value = inspection
-            client.lookup.assets.external_id.side_effect = external_id_lookup
+            client.lookup.data_sets.external_id.side_effect = external_id_lookup
             validator = ValidateAccess(client, "test the operation")
             with pytest.raises(AuthorizationError) as exc:
                 validator.assets(["read"], dataset_ids=dataset_ids)
