@@ -1,8 +1,8 @@
 import sys
 from abc import ABC, abstractmethod
-from collections.abc import Collection, Iterator, Sequence
+from collections import UserList
+from collections.abc import Collection
 from pathlib import Path
-from typing import Generic, SupportsIndex, overload
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
@@ -16,8 +16,7 @@ else:
     from typing_extensions import Self
 
 
-class ModelList(Generic[T_BaseModel], list, Sequence[T_BaseModel], ABC):
-    # Implemented to get correct type hints
+class ModelList(UserList[T_BaseModel], ABC):
     def __init__(
         self,
         collection: Collection[T_BaseModel] | None = None,
@@ -30,20 +29,6 @@ class ModelList(Generic[T_BaseModel], list, Sequence[T_BaseModel], ABC):
     @abstractmethod
     def _get_base_model_cls(cls) -> type[T_BaseModel]:
         raise NotImplementedError()
-
-    def __iter__(self) -> Iterator[T_BaseModel]:
-        return super().__iter__()
-
-    @overload
-    def __getitem__(self, index: SupportsIndex) -> T_BaseModel: ...
-
-    @overload
-    def __getitem__(self, index: slice) -> "ModelList[T_BaseModel]": ...
-
-    def __getitem__(self, index: SupportsIndex | slice, /) -> "T_BaseModel | Self":
-        if isinstance(index, slice):
-            return type(self)(super().__getitem__(index))
-        return super().__getitem__(index)
 
     @classmethod
     def _required_header_names(cls) -> set[str]:
