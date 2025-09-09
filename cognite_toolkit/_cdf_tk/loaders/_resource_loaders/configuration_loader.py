@@ -13,7 +13,6 @@ from cognite_toolkit._cdf_tk.client.data_classes.search_config import (
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.resource_classes import SearchConfigYAML
-from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
 
 from .datamodel_loaders import ViewLoader
@@ -130,8 +129,7 @@ class SearchConfigLoader(
         """
         Delete is not implemented in the API client
         """
-        MediumSeverityWarning("Delete operation is not supported for Search Config").print_warning()
-        return 0
+        raise NotImplementedError("Delete operation is not supported for search config")
 
     def _iterate(
         self,
