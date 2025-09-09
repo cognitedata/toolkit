@@ -69,13 +69,13 @@ class ModelList(UserList[T_BaseModel], ABC):
 T_ModelList = TypeVar("T_ModelList", bound=ModelList)
 
 
-class InstanceCSV(BaseModel, alias_generator=to_camel_case):
+class InstanceIdRow(BaseModel, alias_generator=to_camel_case):
     space: str
     external_id: str
     instance_type: Literal["node", "edge"] = "node"
 
 
-class InstanceCSVList(ModelList[InstanceCSV]):
+class InstanceIdCSVList(ModelList[InstanceIdRow]):
     @classmethod
-    def _get_base_model_cls(cls) -> type[InstanceCSV]:
-        return InstanceCSV
+    def _get_base_model_cls(cls) -> type[InstanceIdRow]:
+        return InstanceIdRow
