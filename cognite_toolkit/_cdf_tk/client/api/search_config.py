@@ -22,19 +22,22 @@ class SearchConfigurationsAPI(APIClient):
             base_path = f"/apps/{self._api_version}/projects/{self._config.project}/storage/config/apps/search/views"
         return urljoin(self._config.base_url, base_path)
 
-    def upsert(self, configuration_update: SearchConfigWrite) -> SearchConfig:
+    def upsert(self, configuration_update: SearchConfigWrite, id: int | None = None) -> SearchConfig:
         """Update/Create a Configuration.
 
         Args:
             configuration_update: The content of the configuration to update
-
+            id: The id of the configuration to update (required for update)
         Returns:
             SearchConfig
 
         """
+        data: dict = configuration_update.dump()
+        if id:
+            data["id"] = id
         res = self._post(
             url_path="/upsert",
-            json=configuration_update.dump(),
+            json=data,
         )
         return SearchConfig._load(res.json(), cognite_client=self._cognite_client)
 

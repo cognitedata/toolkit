@@ -35,13 +35,12 @@ class TestSearchConfigAPI:
         test_description = f"Test description Update {randint(1000, 9999)}"
         test_name = SEARCH_CONFIG_NAME
         search_config = SearchConfigWrite(
-            id=existing_search_config.id,
             view=view,
             use_as_description=test_description,
             use_as_name=test_name,
         )
 
-        updated = toolkit_client.search.configurations.upsert(search_config)
+        updated = toolkit_client.search.configurations.upsert(search_config, id=existing_search_config.id)
         assert isinstance(updated, SearchConfig)
         assert updated.id == existing_search_config.id
         assert updated.view.external_id == view.external_id

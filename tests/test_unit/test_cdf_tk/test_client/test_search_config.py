@@ -60,7 +60,6 @@ class TestSearchConfigWrite:
 
         config = SearchConfigWrite(
             view=view,
-            id=123,
             use_as_name="name-prop",
             use_as_description="desc-prop",
             columns_layout=[property_1],
@@ -69,7 +68,6 @@ class TestSearchConfigWrite:
         )
 
         assert config.view == view
-        assert config.id == 123
         assert config.use_as_name == "name-prop"
         assert config.use_as_description == "desc-prop"
         assert config.columns_layout == [property_1]
@@ -78,7 +76,6 @@ class TestSearchConfigWrite:
 
     def test_load(self):
         data = {
-            "id": 123,
             "view": {"externalId": "test-view", "space": "test-space"},
             "useAsName": "name-prop",
             "useAsDescription": "desc-prop",
@@ -89,7 +86,6 @@ class TestSearchConfigWrite:
 
         config = SearchConfigWrite.load(data)
 
-        assert config.id == 123
         assert config.view.external_id == "test-view"
         assert config.view.space == "test-space"
         assert config.use_as_name == "name-prop"
@@ -108,14 +104,12 @@ class TestSearchConfigWrite:
 
         config = SearchConfigWrite(
             view=view,
-            id=123,
             use_as_name="name-prop",
             columns_layout=[property_1],
         )
 
         dumped = config.dump()
 
-        assert dumped["id"] == 123
         assert dumped["useAsName"] == "name-prop"
         assert dumped["view"] == {"externalId": "test-view", "space": "test-space"}
         assert dumped["columnsLayout"] == [{"property": "prop1", "selected": True}]
@@ -130,9 +124,11 @@ class TestSearchConfig:
         write_config = config.as_write()
 
         assert isinstance(write_config, SearchConfigWrite)
-        assert write_config.id == config.id
         assert write_config.view == config.view
         assert write_config.use_as_name == config.use_as_name
+        assert not hasattr(write_config, "id")
+        assert not hasattr(write_config, "created_time")
+        assert not hasattr(write_config, "updated_time")
 
     def test_load(self):
         data = {
@@ -166,5 +162,9 @@ class TestSearchConfigList:
         assert isinstance(write_list, SearchConfigWriteList)
         assert len(write_list) == 2
         assert all(isinstance(item, SearchConfigWrite) for item in write_list)
-        assert write_list[0].id == 1
-        assert write_list[1].id == 2
+        assert not hasattr(write_list[0], "id")
+        assert not hasattr(write_list[1], "id")
+        assert not hasattr(write_list[0], "created_time")
+        assert not hasattr(write_list[1], "created_time")
+        assert not hasattr(write_list[0], "updated_time")
+        assert not hasattr(write_list[1], "updated_time")

@@ -48,7 +48,6 @@ class SearchConfigCore(WriteableCogniteResource["SearchConfigWrite"], ABC):
 
     Args:
         view: The configuration for one specific view.
-        id: A server-generated ID for the object.
         use_as_name: The name of property to use for the name column in the UI.
         use_as_description: The name of property to use for the description column in the UI.
         columns_layout: Array of column configurations per property.
@@ -59,7 +58,6 @@ class SearchConfigCore(WriteableCogniteResource["SearchConfigWrite"], ABC):
     def __init__(
         self,
         view: ViewId,
-        id: int | None = None,
         use_as_name: str | None = None,
         use_as_description: str | None = None,
         columns_layout: list[SearchConfigViewProperty] | None = None,
@@ -67,7 +65,6 @@ class SearchConfigCore(WriteableCogniteResource["SearchConfigWrite"], ABC):
         properties_layout: list[SearchConfigViewProperty] | None = None,
     ) -> None:
         self.view = view
-        self.id = id
         self.use_as_name = use_as_name
         self.use_as_description = use_as_description
         self.columns_layout = columns_layout
@@ -77,7 +74,6 @@ class SearchConfigCore(WriteableCogniteResource["SearchConfigWrite"], ABC):
     def as_write(self) -> "SearchConfigWrite":
         return SearchConfigWrite(
             view=self.view,
-            id=self.id,
             use_as_name=self.use_as_name,
             use_as_description=self.use_as_description,
             columns_layout=self.columns_layout,
@@ -110,7 +106,6 @@ class SearchConfigWrite(SearchConfigCore):
 
     Args:
         view: The configuration for one specific view.
-        id: A server-generated ID for the object.
         use_as_name: The name of property to use for the name column in the UI.
         use_as_description: The name of property to use for the description column in the UI.
         columns_layout: Array of column configurations per property.
@@ -121,7 +116,6 @@ class SearchConfigWrite(SearchConfigCore):
     @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
         return cls(
-            id=resource.get("id"),
             view=ViewId.load(resource["view"]),
             use_as_name=resource.get("useAsName"),
             use_as_description=resource.get("useAsDescription"),
@@ -173,13 +167,13 @@ class SearchConfig(SearchConfigCore):
     ) -> None:
         super().__init__(
             view,
-            id,
             use_as_name,
             use_as_description,
             columns_layout,
             filter_layout,
             properties_layout,
         )
+        self.id = id
         self.created_time = created_time
         self.updated_time = updated_time
 
