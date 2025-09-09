@@ -6,7 +6,7 @@ from typing import Generic, Literal
 
 from cognite.client.data_classes.data_modeling import ViewId
 
-from cognite_toolkit._cdf_tk.storageio._data_classes import T_ModelList
+from cognite_toolkit._cdf_tk.storageio._data_classes import InstanceCSVList, T_ModelList
 from cognite_toolkit._cdf_tk.utils.file import to_directory_compatible
 
 
@@ -68,8 +68,9 @@ class InstanceSelector: ...
 
 
 @dataclass(frozen=True)
-class InstanceFileSelector(InstanceSelector):
-    datafile: Path
+class InstanceFileSelector(FileSelector[InstanceCSVList], InstanceSelector):
+    def list_cls(self) -> type[InstanceCSVList]:
+        return InstanceCSVList
 
 
 @dataclass(frozen=True)
