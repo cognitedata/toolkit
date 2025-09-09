@@ -1,4 +1,3 @@
-import sys
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
@@ -12,7 +11,7 @@ from cognite.client.data_classes._base import (
     WriteableCogniteResource,
     WriteableCogniteResourceList,
 )
-from cognite.client.data_classes.data_modeling import EdgeApply, InstanceApply, NodeApply
+from cognite.client.data_classes.data_modeling import InstanceApply
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -28,10 +27,9 @@ from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from .data_classes import MigrationMapping
 from .data_model import INSTANCE_SOURCE_VIEW_ID
 
-if sys.version_info >= (3, 11):
-    pass
-else:
-    pass
+
+@dataclass(frozen=True)
+class MigrationSelector(AssetCentricSelector): ...
 
 
 @dataclass
@@ -49,12 +47,12 @@ class AssetCentricMappingList(
     _RESOURCE: type = AssetCentricMapping
 
     def as_write(self) -> InstanceApplyList:  # type: ignore[override]
-        raise NotImplementedError()
+        return InstanceApplyList([item.as_write() for item in self])
 
 
 class AssetCentricMigrationIOAdapter(
     Generic[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
-    TableStorageIO[int, AssetCentricSelector, InstanceApplyList, AssetCentricMappingList],
+    TableStorageIO[int, MigrationSelector, InstanceApplyList, AssetCentricMappingList],
 ):
     folder_name = "migration"
     kind = "AssetCentricMigration"
@@ -76,11 +74,11 @@ class AssetCentricMigrationIOAdapter(
         self.base = base
         self.instance = instance
 
-    def get_schema(self, selector: AssetCentricSelector) -> list[SchemaColumn]:
+    def get_schema(self, selector: MigrationSelector) -> list[SchemaColumn]:
         raise ToolkitNotImplementedError("get_schema is not implemented for AssetCentricMigrationIOAdapter")
 
     def as_id(self, item: dict[str, JsonVal] | object) -> int:
-        if isinstance(item, NodeApply | EdgeApply):
+        if isinstance(item, InstanceApply):
             sources = item.sources
 
             mapping = next((source for source in sources if source.source == INSTANCE_SOURCE_VIEW_ID), None)
@@ -98,27 +96,27 @@ class AssetCentricMigrationIOAdapter(
         raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
 
     def download_iterable(
-        self, selector: AssetCentricSelector, limit: int | None = None
+        self, selector: MigrationSelector, limit: int | None = None
     ) -> Iterable[AssetCentricMappingList]:
         raise NotImplementedError()
 
     def count(self, selector: AssetCentricSelector) -> int | None:
         return self.base.count(selector)
 
-    def upload_items(self, data_chunk: InstanceApplyList, selector: AssetCentricSelector) -> None:
+    def upload_items(self, data_chunk: InstanceApplyList, selector: MigrationSelector) -> None:
         raise NotImplementedError()
 
     def data_to_json_chunk(self, data_chunk: AssetCentricMappingList) -> list[dict[str, JsonVal]]:
         return data_chunk.dump()
 
-    def load_selector(self, datafile: Path) -> AssetCentricSelector:
+    def load_selector(self, datafile: Path) -> MigrationSelector:
         raise ToolkitNotImplementedError("load_selector is not implemented for AssetCentricMigrationIOAdapter")
 
-    def configurations(self, selector: AssetCentricSelector) -> Iterable[StorageIOConfig]:
+    def configurations(self, selector: MigrationSelector) -> Iterable[StorageIOConfig]:
         raise ToolkitNotImplementedError("configurations is not implemented for AssetCentricMigrationIOAdapter")
 
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> InstanceApplyList:
         return self.instance.json_chunk_to_data(data_chunk)
 
-    def ensure_configurations(self, selector: AssetCentricSelector, console: Console | None = None) -> None:
+    def ensure_configurations(self, selector: MigrationSelector, console: Console | None = None) -> None:
         raise ToolkitNotImplementedError("ensure_configurations is not implemented for AssetCentricMappingList")
