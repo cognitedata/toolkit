@@ -24,8 +24,8 @@ class InstanceIO(TableStorageIO[InstanceId, InstanceSelector, InstanceApplyList,
     chunk_size = 1000
 
     def as_id(self, item: dict[str, JsonVal] | object) -> InstanceId:
-        if isinstance(item, dict) and "externalId" in item and "space" in item:
-            return InstanceId(space=item["space"], external_id=item["externalId"])  # type: ignore[arg-type]
+        if isinstance(item, dict) and isinstance(item.get("space"), str) and isinstance(item.get("externalId"), str):
+            return InstanceId(space=item["space"], external_id=item["externalId"])
         if isinstance(item, InstanceId):
             return item
         raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
