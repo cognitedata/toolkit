@@ -1,5 +1,4 @@
 from collections.abc import Iterable, Sequence
-from http.client import HTTPMessage
 from pathlib import Path
 from typing import Literal
 
@@ -10,7 +9,7 @@ from rich.console import Console
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList, InstanceList
 from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ItemsRequest
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
 
