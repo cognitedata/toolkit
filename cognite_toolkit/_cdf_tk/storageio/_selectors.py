@@ -68,7 +68,7 @@ class InstanceSelector: ...
 
 
 @dataclass(frozen=True)
-class InstanceFileSelector(FileSelector[InstanceCSVList], InstanceSelector):
+class InstanceFileSelector(CSVFileSelector[InstanceCSVList], InstanceSelector):
     def list_cls(self) -> type[InstanceCSVList]:
         return InstanceCSVList
 
