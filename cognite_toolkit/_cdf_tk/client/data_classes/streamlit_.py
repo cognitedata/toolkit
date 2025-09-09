@@ -17,13 +17,13 @@ class _StreamlitCore(WriteableCogniteResource["StreamlitWrite"], ABC):
         external_id: str,
         name: str,
         creator: str,
-        entrypoint: str,
+        entrypoint: str | None = None,
         description: str | None = None,
         published: bool = False,
         theme: Literal["Light", "Dark"] = "Light",
         thumbnail: str | None = None,
         data_set_id: int | None = None,
-        cognite_toolkit_app_hash: str = "MISSING",
+        cognite_toolkit_app_hash: str | None = None,
     ) -> None:
         self.external_id = external_id
         self.name = name
@@ -43,11 +43,13 @@ class _StreamlitCore(WriteableCogniteResource["StreamlitWrite"], ABC):
             "name": self.name,
             "published": self.published,
             "theme": self.theme,
-            "entrypoint": self.entrypoint,
-            "cdf-toolkit-app-hash": self.cognite_toolkit_app_hash,
         }
         if self.thumbnail:
             metadata["thumbnail"] = self.thumbnail
+        if self.cognite_toolkit_app_hash:
+            metadata["cdf-toolkit-app-hash"] = self.cognite_toolkit_app_hash
+        if self.entrypoint:
+            metadata["entrypoint"] = self.entrypoint
         return {
             "external_id": self.external_id,
             "name": f"{self.name}-source.json",
@@ -64,7 +66,7 @@ class StreamlitWrite(_StreamlitCore):
             external_id=resource["externalId"],
             name=resource["name"],
             creator=resource["creator"],
-            entrypoint=resource["entrypoint"],
+            entrypoint=resource.get("entrypoint"),
             description=resource.get("description"),
             thumbnail=resource.get("thumbnail"),
             data_set_id=resource.get("dataSetId"),
@@ -90,15 +92,15 @@ class Streamlit(_StreamlitCore):
         external_id: str,
         name: str,
         creator: str,
-        entrypoint: str,
         created_time: int,
         last_updated_time: int,
+        entrypoint: str | None = None,
         description: str | None = None,
         published: bool = False,
         theme: Literal["Light", "Dark"] = "Light",
         thumbnail: str | None = None,
         data_set_id: int | None = None,
-        cognite_toolkit_app_hash: str = "MISSING",
+        cognite_toolkit_app_hash: str | None = None,
     ) -> None:
         super().__init__(
             external_id,
@@ -121,7 +123,7 @@ class Streamlit(_StreamlitCore):
             external_id=resource["externalId"],
             name=resource["name"],
             creator=resource["creator"],
-            entrypoint=resource["entrypoint"],
+            entrypoint=resource.get("entrypoint"),
             created_time=resource["createdTime"],
             last_updated_time=resource["lastUpdatedTime"],
             description=resource.get("description"),
@@ -129,7 +131,7 @@ class Streamlit(_StreamlitCore):
             data_set_id=resource.get("dataSetId"),
         )
         # Trick to avoid specifying defaults twice
-        for key in ["theme", "app_hash"]:
+        for key in ["theme"]:
             if key in resource:
                 args[key] = resource[key]
         if "cogniteToolkitAppHash" in resource:
@@ -148,8 +150,6 @@ class Streamlit(_StreamlitCore):
             dumped.update(dumped.pop("metadata"))
         if "cdf-toolkit-app-hash" in dumped:
             dumped["cogniteToolkitAppHash"] = dumped.pop("cdf-toolkit-app-hash")
-        if "entrypoint" not in dumped:
-            dumped["entrypoint"] = "MISSING"
         return cls._load(dumped)
 
     def as_write(self) -> StreamlitWrite:

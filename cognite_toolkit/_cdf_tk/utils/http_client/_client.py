@@ -3,6 +3,7 @@ import random
 import socket
 import sys
 import time
+from collections import deque
 from collections.abc import MutableMapping, Sequence, Set
 from typing import Literal
 
@@ -16,8 +17,7 @@ from urllib3.util.retry import Retry
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.utils.auxiliary import get_current_toolkit_version, get_user_agent
-
-from ._data_classes import (
+from cognite_toolkit._cdf_tk.utils.http_client._data_classes import (
     BodyRequest,
     FailedRequestMessage,
     HTTPMessage,
@@ -113,11 +113,12 @@ class HTTPClient:
             Sequence[ResponseMessage | FailedRequestMessage]: The final response
                 messages, which can be either successful responses or failed requests.
         """
-        pending_requests: list[RequestMessage] = [message]
+        pending_requests: deque[RequestMessage] = deque()
+        pending_requests.append(message)
         final_responses: list[ResponseMessage | FailedRequestMessage] = []
 
         while pending_requests:
-            current_request = pending_requests.pop(0)
+            current_request = pending_requests.popleft()
             results = self.request(current_request)
 
             for result in results:
@@ -137,7 +138,6 @@ class HTTPClient:
             pool_maxsize=self._pool_maxsize,
             max_retries=Retry(total=0),  # We handle retries manually
         )
-        session.mount("http://", adapter)
         session.mount("https://", adapter)
         return session
 

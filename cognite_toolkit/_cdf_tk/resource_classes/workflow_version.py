@@ -53,7 +53,8 @@ class TaskDefinition(BaseModelResource):
 
 
 class WorkflowDefinition(BaseModelResource):
-    description: str = Field(
+    description: str | None = Field(
+        default=None,
         max_length=500,
         description="The description of the workflow version.",
     )

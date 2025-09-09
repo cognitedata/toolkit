@@ -173,6 +173,28 @@ class TestHTTPClient:
         assert isinstance(response, FailedRequestMessage)
         assert "RequestException after 1 attempts (read error): Simulated read timeout" == response.error
 
+    def test_zero_retries(self, toolkit_config: ToolkitClientConfig, rsps: responses.RequestsMock) -> None:
+        client = HTTPClient(toolkit_config, max_retries=0)
+        rsps.get("https://example.com/api/resource", json={"error": "service unavailable"}, status=503)
+        results = client.request_with_retries(
+            ParamRequest(endpoint_url="https://example.com/api/resource", method="GET")
+        )
+        assert len(results) == 1
+        response = results[0]
+        assert isinstance(response, FailedResponse)
+        assert response.status_code == 503
+        assert response.error == "service unavailable"
+        assert len(rsps.calls) == 1
+
+    def test_error_text(self, http_client: HTTPClient, rsps: responses.RequestsMock) -> None:
+        rsps.get("https://example.com/api/resource", json={"message": "plain_text"}, status=401)
+        results = http_client.request(ParamRequest(endpoint_url="https://example.com/api/resource", method="GET"))
+        assert len(results) == 1
+        response = results[0]
+        assert isinstance(response, FailedResponse)
+        assert response.status_code == 401
+        assert response.error == '{"message": "plain_text"}'
+
 
 @pytest.mark.usefixtures("disable_pypi_check")
 class TestHTTPClientItemRequests:
