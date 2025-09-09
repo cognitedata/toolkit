@@ -1,5 +1,6 @@
 from collections.abc import Iterable
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -24,7 +25,7 @@ def invalid_hosted_extractor_destination_test_cases() -> Iterable:
 
 class TestHostedExtractorDestinationYAML:
     @pytest.mark.parametrize("data", list(find_resources("Destination", resource_dir="hosted_extractors")))
-    def test_load_valid_destination(self, data: dict[str, object]) -> None:
+    def test_load_valid_destination(self, data: dict[str, Any]) -> None:
         loaded = HostedExtractorDestinationYAML.model_validate(data)
 
         dumped = loaded.model_dump(exclude_unset=True, by_alias=True)
@@ -34,7 +35,7 @@ class TestHostedExtractorDestinationYAML:
         assert dumped == data
 
     @pytest.mark.parametrize("data, expected_errors", list(invalid_hosted_extractor_destination_test_cases()))
-    def test_invalid_destination_error_messages(self, data: dict | list, expected_errors: set[str]) -> None:
+    def test_invalid_destination_error_messages(self, data: dict[str, Any], expected_errors: set[str]) -> None:
         warning_list = validate_resource_yaml_pydantic(data, HostedExtractorDestinationYAML, Path("some_file.yaml"))
         assert len(warning_list) == 1
         format_warning = warning_list[0]
