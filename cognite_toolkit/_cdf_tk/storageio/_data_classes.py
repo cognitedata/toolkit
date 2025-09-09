@@ -2,8 +2,7 @@ import sys
 from abc import ABC, abstractmethod
 from collections.abc import Collection, Iterator, Sequence
 from pathlib import Path
-from typing import Generic
-from typing import SupportsIndex, overload
+from typing import Generic, SupportsIndex, overload
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
@@ -20,7 +19,9 @@ else:
 class ModelList(Generic[T_BaseModel], list, Sequence[T_BaseModel], ABC):
     # Implemented to get correct type hints
     def __init__(
-        self, collection: Collection[T_BaseModel] | None = None, invalid_rows: dict[int, ResourceFormatWarning] | None = None
+        self,
+        collection: Collection[T_BaseModel] | None = None,
+        invalid_rows: dict[int, ResourceFormatWarning] | None = None,
     ) -> None:
         super().__init__(collection or [])
         self.invalid_rows = invalid_rows or {}
@@ -47,7 +48,7 @@ class ModelList(Generic[T_BaseModel], list, Sequence[T_BaseModel], ABC):
     @classmethod
     def _required_header_names(cls) -> set[str]:
         model_cls = cls._get_base_model_cls()
-        return {field_.alias or field_id for field_id, field_ in model_cls.model_fields.items() if field_.is_required}
+        return {field_.alias or field_id for field_id, field_ in model_cls.model_fields.items() if field_.is_required()}
 
     @classmethod
     def read_csv_file(cls, filepath: Path) -> "Self":
