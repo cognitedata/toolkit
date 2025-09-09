@@ -1,5 +1,6 @@
 from collections.abc import Iterable
 from dataclasses import dataclass
+from functools import cached_property
 from pathlib import Path
 from typing import Generic
 
@@ -25,12 +26,22 @@ from cognite_toolkit._cdf_tk.storageio._base import StorageIOConfig, T_WritableC
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from .data_classes import MigrationMapping
+from .data_classes import MigrationMapping, MigrationMappingList
 from .data_model import INSTANCE_SOURCE_VIEW_ID
 
 
 @dataclass(frozen=True)
 class MigrationSelector(AssetCentricSelector): ...
+
+
+@dataclass(frozen=True)
+class MigrationCSVFileSelector(MigrationSelector):
+    datafile: Path
+    resource_type: str
+
+    @cached_property
+    def items(self) -> MigrationMappingList:
+        return MigrationMappingList.read_mapping_file(self.datafile, resource_type=self.resource_type)
 
 
 @dataclass
