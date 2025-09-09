@@ -152,7 +152,7 @@ def validate_resource_yaml_pydantic(
 
 
 def instantiate_class(
-    data: dict[str, Any], validation_cls: type[T_BaseModel], source_file: Path
+    data: dict[str, Any], validation_cls: type[T_BaseModel], source_file: Path, strict: bool = False
 ) -> T_BaseModel | ResourceFormatWarning:
     """Instantiates a class from a dictionary using the given pydantic model.
 
@@ -160,12 +160,13 @@ def instantiate_class(
         data: The data to instantiate the class from.
         validation_cls: The pydantic model to use for instantiation.
         source_file: The source file of the resource.
+        strict: Whether to enforce types strictly.
 
     Returns:
         The instantiated class or a ResourceFormatWarning if validation failed.
     """
     try:
-        return validation_cls.model_validate(data, strict=True)
+        return validation_cls.model_validate(data, strict=strict)
     except ValidationError as e:
         return ResourceFormatWarning(source_file, tuple(_humanize_validation_error(e)))
 
