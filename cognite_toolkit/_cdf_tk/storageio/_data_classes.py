@@ -1,20 +1,16 @@
-from abc import ABC, abstractmethod
-
-from pydantic import BaseModel, ValidationError
-from typing import Generic, TypeVar
 import sys
+from abc import ABC, abstractmethod
 from collections.abc import Collection, Iterator, Sequence
 from pathlib import Path
+from typing import Generic
 from typing import SupportsIndex, overload
-
-from cognite.client.data_classes.data_modeling import EdgeId, NodeId
-from cognite.client.utils._identifier import InstanceId
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.fileio import CSVReader, SchemaColumn
-from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic, T_BaseModel, instantiate_class
+from cognite_toolkit._cdf_tk.validation import T_BaseModel, instantiate_class
+
 if sys.version_info >= (3, 11):
     from typing import Self
 else:
