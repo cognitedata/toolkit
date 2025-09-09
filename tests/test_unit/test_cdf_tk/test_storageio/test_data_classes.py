@@ -26,6 +26,17 @@ class MyList(ModelList[MyRow]):
         return MyRow
 
 
+@pytest.fixture()
+def a_list() -> MyList:
+    return MyList(
+        [
+            MyRow(id=1, name="Alice", displayName="Aly"),
+            MyRow(id=2, name="Bob"),
+            MyRow(id=3, name="Charlie"),
+        ]
+    )
+
+
 class TestModelList:
     def test_read_csv(self, tmp_path: Path) -> None:
         csv_content = "id,name,displayName\n1,Alice,Aly\n2,Bob,\ninvalid_row\n3,Charlie,\n"
@@ -48,3 +59,11 @@ class TestModelList:
 
         with pytest.raises(ToolkitValueError, match="Missing required columns: name"):
             MyList.read_csv_file(csv_file)
+
+    def test_iterate(self, a_list: MyList) -> None:
+        names = [row.name for row in a_list]
+        assert names == ["Alice", "Bob", "Charlie"]
+
+    def test_get_item(self, a_list: MyList) -> None:
+        assert a_list[0] == MyRow(id=1, name="Alice", displayName="Aly")
+        assert a_list[1:3] == MyList([MyRow(id=2, name="Bob"), MyRow(id=3, name="Charlie")])
