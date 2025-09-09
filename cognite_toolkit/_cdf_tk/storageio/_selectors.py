@@ -11,8 +11,8 @@ from cognite_toolkit._cdf_tk.utils.file import to_directory_compatible
 
 
 @dataclass(frozen=True)
-class FileSelector(Generic[T_ModelList], ABC):
-    """Data class for file-based data selection."""
+class CSVFileSelector(Generic[T_ModelList], ABC):
+    """Data class for file-based data selection from CSV files."""
 
     datafile: Path
 
