@@ -3,6 +3,7 @@ import random
 import socket
 import sys
 import time
+from collections import deque
 from collections.abc import MutableMapping, Sequence, Set
 from typing import Literal
 
@@ -107,11 +108,12 @@ class HTTPClient:
             Sequence[ResponseMessage | FailedRequestMessage]: The final response
                 messages, which can be either successful responses or failed requests.
         """
-        pending_requests: list[RequestMessage] = [message]
+        pending_requests: deque[RequestMessage] = deque()
+        pending_requests.append(message)
         final_responses: list[ResponseMessage | FailedRequestMessage] = []
 
         while pending_requests:
-            current_request = pending_requests.pop(0)
+            current_request = pending_requests.popleft()
             results = self.request(current_request)
 
             for result in results:
