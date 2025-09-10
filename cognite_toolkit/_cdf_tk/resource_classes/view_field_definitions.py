@@ -57,7 +57,6 @@ class DirectRelationReference(BaseModelResource):
         description="External-id of the instance.",
         min_length=1,
         max_length=255,
-        pattern=DM_EXTERNAL_ID_PATTERN,
     )
 
 
