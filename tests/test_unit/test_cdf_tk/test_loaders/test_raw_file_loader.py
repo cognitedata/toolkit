@@ -51,9 +51,11 @@ class TestRawFileLoader:
 
         list(loader.upload(state, dry_run=False))
 
+        # Verify one upload call was made
         assert client.raw.rows.insert_dataframe.call_count == 1
         _, kwargs = client.raw.rows.insert_dataframe.call_args
         written_to_cdf = kwargs["dataframe"].to_dict(orient="index")
+        # All values and types should match the expected ingestion payload
         assert written_to_cdf == expected_write
 
     def test_upload_suppresses_futurewarning_on_fillna(self, recwarn) -> None:
@@ -84,16 +86,65 @@ class TestRawFileLoader:
         )
 
         # Ensure no FutureWarning leaks from fillna("") thanks to local suppression
-        with pytest.warns() as record:
+        import warnings as _warnings
+
+        with _warnings.catch_warnings(record=True) as record:
+            _warnings.simplefilter("always")
             list(loader.upload(state, dry_run=False))
 
         # Verify no FutureWarnings were raised
         future_warnings = [w for w in record if issubclass(w.category, FutureWarning)]
         assert len(future_warnings) == 0, f"Expected no FutureWarnings, but got: {future_warnings}"
+        # Capture the DataFrame uploaded to RAW and verify dtypes are object
+        _, kwargs = client.raw.rows.insert_dataframe.call_args
+        df = kwargs["dataframe"]
+        assert str(df.dtypes["myFloat"]) == "object"
+        assert str(df.dtypes["myInt"]) == "object"
 
+    def test_upload_preserves_numeric_types_and_sets_empty_strings_for_nulls(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            loader = RawFileLoader.create_loader(client)
+        csv_file = MagicMock(spec=Path)
+        csv_content = """myFloat,myInt,myString,myBool
+,1,hello,True
+0.2,,world,False
+"""
+        csv_file.read_bytes.return_value = csv_content.encode("utf-8")
+        csv_file.exists.return_value = True
+        csv_file.suffix = ".csv"
+        source_file = MagicMock(spec=Path)
+        source_file.with_suffix.return_value = csv_file
+
+        state = BuildEnvironment()
+        state.built_resources[RawFileLoader.folder_name] = BuiltResourceList(
+            [
+                BuiltResource(
+                    RawTable("myDB", "myTable"),
+                    SourceLocationEager(source_file, "1z234"),
+                    RawTableLoader.kind,
+                    None,
+                    None,
+                )
+            ]
+        )
+
+        list(loader.upload(state, dry_run=False))
+
+        # Capture the DataFrame uploaded to RAW
+
+        # Verify one upload call was made
         assert client.raw.rows.insert_dataframe.call_count == 1
         _, kwargs = client.raw.rows.insert_dataframe.call_args
         df = kwargs["dataframe"]
-        # Evidence that fillna("") was executed: NaNs were turned into empty strings
-        assert df.iloc[0]["myFloat"] == ""
-        assert df.iloc[1]["myInt"] == ""
+        # Verify dtypes are object after astype(object).fillna("")
+        assert str(df.dtypes["myFloat"]) == "object"
+        assert str(df.dtypes["myInt"]) == "object"
+
+        # Non-null float value remains numeric
+        assert isinstance(df.iloc[1]["myFloat"], float)
+        # CSV with nulls coerces an integer-like column to floats; value becomes 1.0
+        assert isinstance(df.iloc[0]["myInt"], float)
+        # Null in float column becomes empty string
+        assert df.iloc[0]["myFloat"] == "" and isinstance(df.iloc[0]["myFloat"], str)
+        # Null in int column becomes empty string
+        assert df.iloc[1]["myInt"] == "" and isinstance(df.iloc[1]["myInt"], str)
