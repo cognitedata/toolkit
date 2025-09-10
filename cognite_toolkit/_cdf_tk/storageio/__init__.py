@@ -12,6 +12,7 @@ from ._selectors import (
     ChartOwnerSelector,
     ChartSelector,
     DataSetSelector,
+    InstanceFileSelector,
     InstanceSelector,
     InstanceViewSelector,
 )
@@ -28,6 +29,7 @@ __all__ = [
     "ChartSelector",
     "DataSetSelector",
     "FileMetadataIO",
+    "InstanceFileSelector",
     "InstanceIO",
     "InstanceSelector",
     "InstanceViewSelector",
