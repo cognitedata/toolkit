@@ -76,7 +76,7 @@ class MigrateApp(typer.Typer):
                 "--mapping-file",
                 "-m",
                 help="Path to the mapping file that contains the mapping from Assets to CogniteAssets. "
-                "This file is expected to have the following columns: [id/externalId, dataSetId, space, externalId]."
+                "This file is expected to have the following columns: [id, dataSetId, space, externalId]."
                 "The dataSetId is optional, and can be skipped. If it is set, it is used to check the access to the dataset.",
             ),
         ],
@@ -118,7 +118,7 @@ class MigrateApp(typer.Typer):
                 "--mapping-file",
                 "-m",
                 help="Path to the mapping file that contains the mapping from TimeSeries to CogniteTimeSeries. "
-                "This file is expected to have the following columns: [id/externalId, dataSetId, space, externalId]."
+                "This file is expected to have the following columns: [id, dataSetId, space, externalId]."
                 "The dataSetId is optional, and can be skipped. If it is set, it is used to check the access to the dataset.",
             ),
         ],
@@ -161,7 +161,7 @@ class MigrateApp(typer.Typer):
                 "--mapping-file",
                 "-m",
                 help="Path to the mapping file that contains the mapping from Files to CogniteFiles. "
-                "This file is expected to have the following columns: [id/externalId, dataSetId, space, externalId]."
+                "This file is expected to have the following columns: [id, dataSetId, space, externalId]."
                 "The dataSetId is optional, and can be skipped. If it is set, it is used to check the access to the dataset.",
             ),
         ],
