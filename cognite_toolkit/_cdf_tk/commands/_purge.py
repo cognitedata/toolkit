@@ -708,8 +708,15 @@ class PurgeCommand(ToolkitCommand):
 
     @staticmethod
     def _prepare(instance_ids: list[InstanceId]) -> list[dict[str, JsonVal]]:
-        # MyPy does not understand that InstanceId.dump() returns dict[str, JsonVal]
-        return [instance_id.dump() for instance_id in instance_ids]  # type: ignore[return-value, misc]
+        output: list[dict[str, JsonVal]] = []
+        for instance_id in instance_ids:
+            dumped = instance_id.dump(include_instance_type=True)
+            # The PySDK uses 'type' instead of 'instanceType' which is required by the delete endpoint
+            dumped["instanceType"] = dumped.pop("type")
+            # MyPy does not understand that InstanceId.dump() returns dict[str, JsonVal]
+            output.append(dumped)  # type: ignore[arg-type]
+
+        return output
 
     def _unlink_prepare(
         self,
