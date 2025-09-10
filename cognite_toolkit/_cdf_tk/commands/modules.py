@@ -148,12 +148,12 @@ class ModulesCommand(ToolkitCommand):
         mode: Literal["new", "clean", "update"] | None,
         download_data: bool = False,
     ) -> None:
-        modules_target_path = organization_dir / MODULES
-        if mode == "clean" and modules_target_path.is_dir():
+        modules_target_root_dir = organization_dir / MODULES
+        if mode == "clean" and modules_target_root_dir.is_dir():
             print(f"{INDENT}[yellow]Clearing directory[/]")
-            safe_rmtree(modules_target_path)
+            safe_rmtree(modules_target_root_dir)
 
-        modules_target_path.mkdir(parents=True, exist_ok=True)
+        modules_target_root_dir.mkdir(parents=True, exist_ok=True)
 
         seen_modules: set[Path] = set()
         selected_paths: set[Path] = set()
@@ -177,7 +177,7 @@ class ModulesCommand(ToolkitCommand):
                     extra_resources.update(module.definition.extra_resources)
 
                 print(f"{INDENT * 2}[{'yellow' if mode == 'clean' else 'green'}]Creating module {module.name}[/]")
-                target_dir = modules_target_path / module.relative_path
+                target_dir = modules_target_root_dir / module.relative_path
                 if Path(target_dir).exists() and mode == "update":
                     if questionary.confirm(
                         f"{INDENT}Module {module.name} already exists in folder {target_dir}. Would you like to overwrite?",
@@ -214,7 +214,7 @@ class ModulesCommand(ToolkitCommand):
             for extra in extra_resources:
                 module_dir = module_directory_from_path(extra)
                 extra_full_path = modules_source_path / extra
-                target_path = modules_target_path / extra
+                target_path = modules_target_root_dir / extra
                 if target_path.exists():
                     # Assume that the user has already created this shared resource
                     continue
