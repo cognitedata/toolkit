@@ -195,7 +195,7 @@ class RawFileLoader(DataLoader):
                 # Note: an additional safeguard is that pandas is capped at < 3.0 in this project.
                 with warnings.catch_warnings():
                     warnings.filterwarnings("ignore", category=FutureWarning)
-                    data.fillna("", inplace=True)
+                    data.astype(object).fillna("", inplace=True)
                 if not data.columns.empty and data.columns[0] == "key":
                     print(f"Setting index to 'key' for {datafile.name}")
                     data.set_index("key", inplace=True)
