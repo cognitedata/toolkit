@@ -261,6 +261,7 @@ class ExtractionPipelineConfigLoader(
     def get_required_capability(
         cls, items: Sequence[ExtractionPipelineConfigWrite] | None, read_only: bool
     ) -> list[Capability]:
+        # We check the parent extraction pipeline permissions instead
         return []
 
     @classmethod
