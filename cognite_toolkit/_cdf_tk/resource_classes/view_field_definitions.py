@@ -48,16 +48,15 @@ class ViewReference(BaseModelResource):
 
 class DirectRelationReference(BaseModelResource):
     space: str = Field(
-        description="Id of the space that the view belongs to.",
+        description="Id of the space that the instance belongs to.",
         min_length=1,
         max_length=43,
         pattern=SPACE_FORMAT_PATTERN,
     )
     external_id: str = Field(
-        description="External-id of the view.",
+        description="External-id of the instance.",
         min_length=1,
         max_length=255,
-        pattern=CONTAINER_AND_VIEW_EXTERNAL_ID_PATTERN,
     )
 
 

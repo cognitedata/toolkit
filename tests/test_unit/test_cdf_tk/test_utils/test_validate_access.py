@@ -1,9 +1,10 @@
 import pytest
 from cognite.client.data_classes.capabilities import (
+    AssetsAcl,
     Capability,
     DataModelInstancesAcl,
     DataModelsAcl,
-    FilesAcl,  # Added import for FilesAcl
+    FilesAcl,
     ProjectCapability,
     ProjectCapabilityList,
     TimeSeriesAcl,
@@ -317,6 +318,77 @@ class TestValidateAccess:
             client.lookup.data_sets.external_id.side_effect = external_id_lookup
             validator = ValidateAccess(client, "test the operation")
             result = validator.files(["read"], dataset_ids=dataset_ids)
+            assert result == expected_result
+
+    @pytest.mark.parametrize(
+        "capabilities, dataset_ids, expected_error",
+        [
+            pytest.param(
+                [],
+                None,
+                "You have no permission to read assets. This is required to test the operation.",
+                id="No capabilities",
+            ),
+            pytest.param(
+                [AssetsAcl([AssetsAcl.Action.Read], AssetsAcl.Scope.DataSet([1]))],
+                {1, 2},
+                "You have no permission to read assets in dataset(s) 2. This is required to test the operation.",
+                id="Missing dataset",
+            ),
+        ],
+    )
+    def test_assets_access_raise(
+        self, capabilities: list[Capability], dataset_ids: set[int] | None, expected_error: str
+    ) -> None:
+        inspection = self._create_inspection_obj(capabilities)
+
+        def external_id_lookup(ids: list[int]) -> list[str]:
+            return [str(id_) for id_ in ids]
+
+        with monkeypatch_toolkit_client() as client:
+            client.iam.token.inspect.return_value = inspection
+            client.lookup.data_sets.external_id.side_effect = external_id_lookup
+            validator = ValidateAccess(client, "test the operation")
+            with pytest.raises(AuthorizationError) as exc:
+                validator.assets(["read"], dataset_ids=dataset_ids)
+            assert str(exc.value) == expected_error
+
+    @pytest.mark.parametrize(
+        "capabilities, dataset_ids, expected_result",
+        [
+            pytest.param(
+                [AssetsAcl([AssetsAcl.Action.Read], AssetsAcl.Scope.DataSet([1, 2]))],
+                {1},
+                None,
+                id="Dataset match",
+            ),
+            pytest.param(
+                [AssetsAcl([AssetsAcl.Action.Read], AssetsAcl.Scope.All())],
+                None,
+                None,
+                id="All scope",
+            ),
+            pytest.param(
+                [AssetsAcl([AssetsAcl.Action.Read], AssetsAcl.Scope.DataSet([1, 2]))],
+                None,
+                {"dataset": ["1", "2"]},
+                id="Limited list of datasets",
+            ),
+        ],
+    )
+    def test_assets_access(
+        self, capabilities: list[Capability], dataset_ids: set[int] | None, expected_result: dict | None
+    ) -> None:
+        inspection = self._create_inspection_obj(capabilities)
+
+        def external_id_lookup(ids: list[int]) -> list[str]:
+            return [str(id_) for id_ in ids]
+
+        with monkeypatch_toolkit_client() as client:
+            client.iam.token.inspect.return_value = inspection
+            client.lookup.data_sets.external_id.side_effect = external_id_lookup
+            validator = ValidateAccess(client, "test the operation")
+            result = validator.assets(["read"], dataset_ids=dataset_ids)
             assert result == expected_result
 
     @staticmethod
