@@ -1,8 +1,19 @@
-from typing import ClassVar, Literal
+import sys
+from types import MappingProxyType
+from typing import Any, ClassVar, Literal, cast
 
-from pydantic import Field, SecretStr
+from pydantic import Field, ModelWrapValidatorHandler, SecretStr, model_serializer, model_validator
+from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
+
+from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
 from .base import BaseModelResource, ToolkitResource
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 
 class CACertificate(BaseModelResource):
@@ -37,6 +48,38 @@ class AuthCertificate(BaseModelResource):
 
 class Authentication(BaseModelResource):
     type: ClassVar[str]
+
+    @model_validator(mode="wrap")
+    @classmethod
+    def find_source_type(
+        cls, data: "dict[str, Any] | Authentication", handler: ModelWrapValidatorHandler[Self]
+    ) -> Self:
+        if isinstance(data, Authentication):
+            return cast(Self, data)
+        if not isinstance(data, dict):
+            raise ValueError(f"Invalid authentication data '{type(data)}' expected dict")
+
+        if cls is not Authentication:
+            # We are already in a subclass, so just validate as usual
+            return handler(data)
+        # If not we need to find the right subclass based on the type field.
+        if "type" not in data:
+            raise ValueError("Invalid authentication data missing 'type' key")
+        type_ = data["type"]
+        if type_ not in _AUTHENTICATION_CLS_BY_TYPE:
+            raise ValueError(
+                f"invalid trigger authentication '{type_}'. Expected one of {humanize_collection(_AUTHENTICATION_CLS_BY_TYPE.keys(), bind_word='or')}"
+            )
+        cls_ = _SOURCE_CLS_BY_TYPE[type_]
+        return cast(Self, cls_.model_validate({k: v for k, v in data.items() if k != "type"}))
+
+    @model_serializer(mode="wrap", when_used="always", return_type=dict)
+    def include_type(self, handler: SerializerFunctionWrapHandler) -> dict:
+        if self.type is None:
+            raise ValueError("Type is not set")
+        serialized_data = handler(self)
+        serialized_data["type"] = self.type
+        return serialized_data
 
 
 class BasicAuthentication(Authentication):
@@ -109,6 +152,38 @@ class HostedExtractorSourceYAML(ToolkitResource):
         max_length=255,
     )
 
+    @model_validator(mode="wrap")
+    @classmethod
+    def find_source_type(
+        cls, data: "dict[str, Any] | HostedExtractorSourceYAML", handler: ModelWrapValidatorHandler[Self]
+    ) -> Self:
+        if isinstance(data, HostedExtractorSourceYAML):
+            return cast(Self, data)
+        if not isinstance(data, dict):
+            raise ValueError(f"Invalid hosted extractor source data '{type(data)}' expected dict")
+
+        if cls is not HostedExtractorSourceYAML:
+            # We are already in a subclass, so just validate as usual
+            return handler(data)
+        # If not we need to find the right subclass based on the type field.
+        if "type" not in data:
+            raise ValueError("Invalid hosted extractor source data missing 'type' key")
+        type_ = data["type"]
+        if type_ not in _SOURCE_CLS_BY_TYPE:
+            raise ValueError(
+                f"invalid trigger hosted extractor source '{type_}'. Expected one of {humanize_collection(_SOURCE_CLS_BY_TYPE.keys(), bind_word='or')}"
+            )
+        cls_ = _SOURCE_CLS_BY_TYPE[type_]
+        return cast(Self, cls_.model_validate({k: v for k, v in data.items() if k != "type"}))
+
+    @model_serializer(mode="wrap", when_used="always", return_type=dict)
+    def include_type(self, handler: SerializerFunctionWrapHandler) -> dict:
+        if self.type is None:
+            raise ValueError("Type is not set")
+        serialized_data = handler(self)
+        serialized_data["type"] = self.type
+        return serialized_data
+
 
 class EventHubSource(HostedExtractorSourceYAML):
     type: ClassVar[str] = "eventhub"
@@ -156,6 +231,17 @@ class RESTSource(HostedExtractorSourceYAML):
         description="Custom certificate authority certificate to let the source use a self signed certificate.",
     )
     authentication: Authentication | None = Field(None, description="Authentication details for source")
+
+    @model_serializer(mode="wrap")
+    def serialize_authentication(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> dict:
+        # Authentication are serialized as dict {}
+        # This issue arises because Pydantic's serialization mechanism doesn't automatically
+        # handle polymorphic serialization for subclasses of Authentication.
+        # To address this, we include the below to explicitly calling model dump on the authentication
+        serialized_data = handler(self)
+        if self.authentication:
+            serialized_data["authentication"] = self.authentication.model_dump(**vars(info))
+        return serialized_data
 
 
 class MQTTSource(HostedExtractorSourceYAML):
@@ -225,3 +311,23 @@ class KafkaSource(HostedExtractorSourceYAML):
         None,
         description="Authentication certificate (if configured) used to authenticate to source.",
     )
+
+    @model_serializer(mode="wrap")
+    def serialize_authentication(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> dict:
+        # Authentication are serialized as dict {}
+        # This issue arises because Pydantic's serialization mechanism doesn't automatically
+        # handle polymorphic serialization for subclasses of Authentication.
+        # To address this, we include the below to explicitly calling model dump on the authentication
+        serialized_data = handler(self)
+        if self.authentication:
+            serialized_data["authentication"] = self.authentication.model_dump(**vars(info))
+        return serialized_data
+
+
+_SOURCE_CLS_BY_TYPE: MappingProxyType[str, type[HostedExtractorSourceYAML]] = MappingProxyType(
+    {s.type: s for s in get_concrete_subclasses(HostedExtractorSourceYAML)}
+)
+
+_AUTHENTICATION_CLS_BY_TYPE: MappingProxyType[str, type[Authentication]] = MappingProxyType(
+    {s.type: s for s in get_concrete_subclasses(Authentication)}
+)
