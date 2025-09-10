@@ -1,3 +1,4 @@
+from abc import ABC
 from collections.abc import Iterable
 from dataclasses import dataclass
 from functools import cached_property
@@ -38,13 +39,19 @@ from .data_model import INSTANCE_SOURCE_VIEW_ID
 
 
 @dataclass(frozen=True)
-class MigrationSelector(AssetCentricSelector, InstanceSelector): ...
+class MigrationSelector(AssetCentricSelector, InstanceSelector, ABC): ...
 
 
 @dataclass(frozen=True)
 class MigrationCSVFileSelector(MigrationSelector):
     datafile: Path
     resource_type: str
+
+    def get_schema_spaces(self) -> list[str] | None:
+        return None
+
+    def get_instance_spaces(self) -> list[str] | None:
+        return sorted({item.instance_id.space for item in self.items})
 
     @cached_property
     def items(self) -> MigrationMappingList:
