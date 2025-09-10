@@ -35,6 +35,9 @@ class SearchConfigLoader(
     _doc_base_url = "https://api-docs.cogheim.net/redoc/#tag/"
     _doc_url = "Search-Config/operation/upsertSearchConfigViews"
 
+    # This cache is used to store the existing search configurations in the API.
+    _existing_configs_cache: dict[ViewId, int] | None = None
+
     @property
     def display_name(self) -> str:
         return "search config"
@@ -74,6 +77,18 @@ class SearchConfigLoader(
                 dumped.pop(key, None)
         return dumped
 
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> SearchConfigWrite:
+        loaded = SearchConfigWrite._load(resource)
+
+        if self._existing_configs_cache is None:
+            all_configs = self.client.search.configurations.list()
+            self._existing_configs_cache = {config.view: config.id for config in all_configs if config.id is not None}
+
+        if loaded.view in self._existing_configs_cache:
+            loaded.id = self._existing_configs_cache[loaded.view]
+
+        return loaded
+
     def diff_list(
         self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
     ) -> tuple[dict[int, int], list[int]]:
@@ -83,10 +98,13 @@ class SearchConfigLoader(
             return diff_list_identifiable(local, cdf, get_identifier=dm_identifier)
         return super().diff_list(local, cdf, json_path)
 
-    def _upsert(self, items: SearchConfigWriteList) -> SearchConfigList:
+    def _upsert(self, items: SearchConfigWrite | SearchConfigWriteList) -> SearchConfigList:
         """
         Upsert search configurations using the upsert method
         """
+        if isinstance(items, SearchConfigWrite):
+            items = SearchConfigWriteList([items])
+
         result = SearchConfigList([])
         for item in items:
             created = self.client.search.configurations.upsert(item)
@@ -97,9 +115,6 @@ class SearchConfigLoader(
         """
         Create new search configurations using the upsert method
         """
-        if isinstance(items, SearchConfigWrite):
-            items = SearchConfigWriteList([items])
-
         return self._upsert(items)
 
     def retrieve(self, ids: SequenceNotStr[ViewId]) -> SearchConfigList:
@@ -112,17 +127,6 @@ class SearchConfigLoader(
         """
         Update search configurations using the upsert method
         """
-        if isinstance(items, SearchConfigWrite):
-            items = SearchConfigWriteList([items])
-
-        # Update of configs only possible if Id is provided in the body
-        update_config_views: set[ViewId] = {item.view for item in items}
-        existing_configs = self.retrieve(list(update_config_views))
-        existing_by_view_id = {config.view: config.id for config in existing_configs}
-
-        for item in items:
-            item.id = existing_by_view_id[item.view]
-
         return self._upsert(items)
 
     def delete(self, ids: SequenceNotStr[ViewId]) -> int:
