@@ -111,7 +111,7 @@ class SearchConfigLoader(
             result.append(created)
         return result
 
-    def create(self, items: SearchConfigWrite | SearchConfigWriteList) -> SearchConfigList:
+    def create(self, items: SearchConfigWriteList) -> SearchConfigList:
         """
         Create new search configurations using the upsert method
         """
@@ -123,7 +123,7 @@ class SearchConfigLoader(
         # The API does not support server-side filtering, so we filter in memory.
         return SearchConfigList([config for config in all_configs if config.view in ids])
 
-    def update(self, items: SearchConfigWrite | SearchConfigWriteList) -> SearchConfigList:
+    def update(self, items: SearchConfigWriteList) -> SearchConfigList:
         """
         Update search configurations using the upsert method
         """
