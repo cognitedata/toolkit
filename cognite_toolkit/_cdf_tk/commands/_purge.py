@@ -1,14 +1,13 @@
 import uuid
-from collections.abc import Callable, Hashable, Iterable
+from collections.abc import Callable, Hashable
 from functools import partial
 from graphlib import CycleError, TopologicalSorter
-from typing import Literal, cast
+from typing import cast
 
 import questionary
 from cognite.client.data_classes import AggregateResultItem, DataSetUpdate, filters
-from cognite.client.data_classes.aggregations import Count
-from cognite.client.data_classes.data_modeling import NodeId, View, ViewId
-from cognite.client.exceptions import CogniteAPIError, CogniteException
+from cognite.client.data_classes.data_modeling import NodeId, ViewId
+from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils._identifier import InstanceId
 from rich import print
 from rich.console import Console
@@ -16,9 +15,9 @@ from rich.panel import Panel
 from rich.status import Status
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.constants import COGNITE_FILE_CONTAINER, COGNITE_TIME_SERIES_CONTAINER
 from cognite_toolkit._cdf_tk.data_classes import DeployResults, ResourceDeployResult
 from cognite_toolkit._cdf_tk.exceptions import (
+    AuthorizationError,
     CDFAPIError,
     ToolkitMissingResourceError,
     ToolkitRequiredValueError,
@@ -43,15 +42,16 @@ from cognite_toolkit._cdf_tk.loaders import (
     TransformationLoader,
     ViewLoader,
 )
+from cognite_toolkit._cdf_tk.storageio import InstanceIO, InstanceSelector
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
     LimitedAccessWarning,
     MediumSeverityWarning,
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
-from cognite_toolkit._cdf_tk.utils.interactive_select import DataModelingSelect
+from cognite_toolkit._cdf_tk.utils.batch_processor import BatchResult, HTTPBatchProcessor
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
+from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
 
 from ._base import ToolkitCommand
@@ -598,180 +598,153 @@ class PurgeCommand(ToolkitCommand):
     def instances(
         self,
         client: ToolkitClient,
-        view: list[str] | None = None,
-        instance_space: list[str] | None = None,
-        instance_type: str = "node",
+        selector: InstanceSelector,
         dry_run: bool = False,
         auto_yes: bool = False,
         unlink: bool = True,
         verbose: bool = False,
     ) -> None:
-        is_interactive = view is None
+        """Purge instances"""
+        io = InstanceIO(client)
+        console = Console()
         validator = ValidateAccess(client, default_operation="purge")
-        self.validate_model_access(validator, view)
-        self.validate_instance_access(validator)
-        selector = DataModelingSelect(client, operation="purge")
-        selected_view = (
-            selector.select_view(include_global=True) if view is None else self._get_selected_view(view, client)
-        )
-        self.validate_timeseries_access(validator, selected_view, unlink)
+        self.validate_instance_access(validator, selector.get_instance_spaces())
+        if unlink:
+            self.validate_timeseries_access(validator)
+            self.validate_file_access(validator)
 
-        if is_interactive:
-            selected_instance_type = selector.select_instance_type(selected_view.used_for)
-            instance_space = selector.select_instance_spaces(selected_view.as_id(), selected_instance_type)
-            dry_run = questionary.confirm("Dry run?", default=True).ask()
-            if self._is_timeseries(selected_view):
-                unlink = questionary.confirm(
-                    "Do you want to unlink timeseries from the datapoints before deleting the instances?", default=True
-                ).ask()
-        else:
-            selected_instance_type = self._validate_instance_type(instance_type, selected_view.used_for)
-
+        total = io.count(selector)
+        if total is None or total == 0:
+            print("No instances found.")
+            return
         if not dry_run:
-            self._print_panel("view", str(selected_view.as_id()))
+            self._print_panel("instances", str(selector))
             if not auto_yes:
                 confirm = questionary.confirm(
-                    f"Are you really sure you want to purge all {selected_instance_type}s with properties in the {selected_view.as_id()!r} view?",
+                    f"Are you really sure you want to purge all {total:,} instances in {selector!s}?",
                     default=False,
                 ).ask()
                 if not confirm:
                     return
 
-        process: Callable[[list[InstanceId]], list[InstanceId]] = self._no_op
-        if self._is_timeseries(selected_view) and unlink:
-            process = partial(self._unlink_timeseries, client=client, dry_run=dry_run, verbose=verbose)
+        process: Callable[[list[InstanceId]], list[dict[str, JsonVal]]] = self._prepare
+        if unlink:
+            process = partial(self._unlink_prepare, client=client, dry_run=dry_run, console=console, verbose=verbose)
 
-        if self._is_files(selected_view) and unlink:
-            process = partial(self._unlink_files, client=client, dry_run=dry_run, verbose=verbose)
-
-        total = client.data_modeling.instances.aggregate(
-            view=selected_view.as_id(),
-            aggregates=Count("externalId"),
-            instance_type=selected_instance_type,
-            filter=filters.SpaceFilter(space=instance_space, instance_type=selected_instance_type)
-            if instance_space
-            else None,
-            limit=-1,
-        ).value
-        if total is None or total == 0:
-            print(f"No {selected_instance_type}s found with properties in the {selected_view.as_id()!r} view.")
-            return
-
-        iteration_count = int(total // 1000 + (1 if total % 1000 > 0 else 0))
-        console = Console()
-
-        executor = ProducerWorkerExecutor[list[InstanceId], list[InstanceId]](
-            download_iterable=self._iterate_instances(
-                client=client,
-                view_id=selected_view.as_id(),
-                instance_space=instance_space,
-                instance_type=selected_instance_type,
+        iteration_count = int(total // io.chunk_size + (1 if total % io.chunk_size > 0 else 0))
+        with HTTPBatchProcessor(
+            endpoint_url=client.config.create_api_url("/models/instances/delete"),
+            config=client.config,
+            as_id=InstanceId.load,  # type: ignore[arg-type]
+            result_processor=self._no_op_results,
+            batch_size=io.chunk_size,
+            max_workers=1,
+        ) as http_client:
+            process_str = "Would be unlinking" if dry_run else "Unlinking"
+            write_str = "Would be deleting" if dry_run else "Deleting"
+            executor = ProducerWorkerExecutor[list[InstanceId], list[dict[str, JsonVal]]](
+                download_iterable=io.download_ids(selector),
+                process=process,
+                write=self._no_delete if dry_run else http_client.add_items,
+                iteration_count=iteration_count,
+                max_queue_size=10,
+                download_description=f"Retrieving instances from {selector!s}",
+                process_description=f"{process_str} instances from files/timeseries" if unlink else "",
+                write_description=f"{write_str} instances",
                 console=console,
-            ),
-            process=process,
-            write=self._no_delete if dry_run else client.data_modeling.instances.delete_fast,  # type: ignore[arg-type]
-            iteration_count=iteration_count,
-            max_queue_size=10,
-            download_description=f"Retrieving {instance_type}s",
-            process_description=f"Preparing {instance_type}s for deletion",
-            write_description=f"Deleting {instance_type}s",
-            console=console,
-        )
+            )
 
-        executor.run()
-        executor.raise_on_error()
+            executor.run()
+            executor.raise_on_error()
 
         prefix = "Would have purged" if dry_run else "Purged"
-        console.print(
-            f"{prefix} {executor.total_items:,} {selected_instance_type} with properties in the {selected_view.as_id()!r} view."
-        )
+        console.print(f"{prefix} {executor.total_items:,} instances in {selector!s}")
 
-    def validate_model_access(self, validator: ValidateAccess, view: list[str] | None) -> None:
-        space = view[0] if isinstance(view, list) and view and isinstance(view[0], str) else None
-        if space_ids := validator.data_model(["read"], space=space):
-            self.warn(
-                LimitedAccessWarning(
-                    f"You can only select views in the {len(space_ids)} spaces you have access to: {humanize_collection(space_ids)}."
-                )
-            )
-
-    def validate_instance_access(self, validator: ValidateAccess) -> None:
-        if space_ids := validator.instances(["read", "write"]):
-            self.warn(
-                LimitedAccessWarning(
-                    f"You can only purge instances in the {len(space_ids)} spaces you have access to: {humanize_collection(space_ids)}."
-                )
-            )
-
-    def validate_timeseries_access(self, validator: ValidateAccess, view: View, unlink: bool) -> None:
-        if unlink is False or not self._is_timeseries(view):
+    def validate_instance_access(self, validator: ValidateAccess, instance_spaces: list[str] | None) -> None:
+        space_ids = validator.instances(["read", "write"], operation="purge")
+        if space_ids is None:
+            # Full access
             return
-        if ids_by_scope := validator.timeseries(["read", "write"], operation="unlink"):
-            scope_str = humanize_collection(
-                [f"{scope_name} ({humanize_collection(ids)})" for scope_name, ids in ids_by_scope.items()],
-                bind_word="and",
+        if instance_spaces is None:
+            self.warn(
+                LimitedAccessWarning(
+                    f"You can only purge instances in the following instance spaces: {humanize_collection(space_ids)}."
+                )
             )
-            self.warn(LimitedAccessWarning(f"You can only unlink time series in the following scopes: {scope_str}."))
-
-    @staticmethod
-    def _validate_instance_type(
-        instance_type: str, view_used_for: Literal["node", "edge", "all"]
-    ) -> Literal["node", "edge"]:
-        if instance_type not in ["node", "edge"]:
-            raise ToolkitValueError(f"Invalid instance type: {instance_type!r}. Must be 'node' or 'edge'.")
-        if view_used_for == "all":
-            return instance_type  # type: ignore[return-value]
-        if view_used_for != instance_type:
-            raise ToolkitValueError(
-                f"View {view_used_for!r} does not support instance type {instance_type!r}. "
-                f"You must purge {view_used_for!r} instances or select another view."
+            return
+        invalid_spaces = set(instance_spaces or []) - set(space_ids)
+        if invalid_spaces:
+            raise AuthorizationError(
+                f"Cannot purge. You do not have access to the following spaces: {humanize_collection(invalid_spaces)}."
             )
-        return instance_type  # type: ignore[return-value]
+
+    def validate_timeseries_access(self, validator: ValidateAccess) -> None:
+        try:
+            ids_by_scope = validator.timeseries(["read", "write"], operation="unlink")
+        except AuthorizationError as e:
+            self.warn(HighSeverityWarning(f"You cannot unlink time series. You need read and write access: {e!s}"))
+            return
+        if ids_by_scope is None:
+            return
+        scope_str = humanize_collection(
+            [f"{scope_name} ({humanize_collection(ids)})" for scope_name, ids in ids_by_scope.items()],
+            bind_word="and",
+        )
+        self.warn(LimitedAccessWarning(f"You can only unlink time series in the following scopes: {scope_str}."))
+
+    def validate_file_access(self, validator: ValidateAccess) -> None:
+        try:
+            ids_by_scope = validator.files(["read", "write"], operation="unlink")
+        except AuthorizationError as e:
+            self.warn(HighSeverityWarning(f"You cannot unlink files. You need read and write access: {e!s}"))
+            return
+        if ids_by_scope is None:
+            return
+        scope_str = humanize_collection(
+            [f"{scope_name} ({humanize_collection(ids)})" for scope_name, ids in ids_by_scope.items()],
+            bind_word="and",
+        )
+        self.warn(LimitedAccessWarning(f"You can only unlink files in the following scopes: {scope_str}."))
 
     @staticmethod
-    def _is_timeseries(view: View) -> bool:
-        return COGNITE_TIME_SERIES_CONTAINER in view.referenced_containers()
+    def _prepare(instance_ids: list[InstanceId]) -> list[dict[str, JsonVal]]:
+        output: list[dict[str, JsonVal]] = []
+        for instance_id in instance_ids:
+            dumped = instance_id.dump(include_instance_type=True)
+            # The PySDK uses 'type' instead of 'instanceType' which is required by the delete endpoint
+            dumped["instanceType"] = dumped.pop("type")
+            # MyPy does not understand that InstanceId.dump() returns dict[str, JsonVal]
+            output.append(dumped)  # type: ignore[arg-type]
 
-    @staticmethod
-    def _is_files(view: View) -> bool:
-        return COGNITE_FILE_CONTAINER in view.referenced_containers()
+        return output
 
-    @staticmethod
-    def _iterate_instances(
+    def _unlink_prepare(
+        self,
+        instance_ids: list[InstanceId],
         client: ToolkitClient,
-        view_id: ViewId,
-        instance_space: list[str] | None,
-        instance_type: Literal["node", "edge"],
+        dry_run: bool,
         console: Console,
-    ) -> Iterable[list[InstanceId]]:
-        chunk: list[InstanceId] = []
-        for instance in iterate_instances(
-            client=client,
-            instance_type=instance_type,
-            source=view_id,
-            space=instance_space,
-            console=console,
-        ):
-            chunk.append(instance.as_id())
-            if len(chunk) >= 1000:
-                yield chunk
-                chunk = []
-        if chunk:
-            yield chunk
+        verbose: bool = False,
+    ) -> list[dict[str, JsonVal]]:
+        self._unlink_timeseries(instance_ids, client, dry_run, console, verbose)
+        self._unlink_files(instance_ids, client, dry_run, console, verbose)
+        return self._prepare(instance_ids)
 
     @staticmethod
-    def _no_op(instances: list[InstanceId]) -> list[InstanceId]:
-        """No operation function that returns the input instances unchanged."""
-        return instances
-
-    @staticmethod
-    def _no_delete(instances: list[InstanceId]) -> None:
+    def _no_delete(instances: list[dict[str, JsonVal]]) -> None:
         """No operation function that does not delete the instances."""
         # This is used in dry-run mode to avoid actual deletion
         pass
 
+    @staticmethod
+    def _no_op_results(results: BatchResult[InstanceId]) -> None:
+        """No operation function that does not process results."""
+        # This is used in dry-run mode to avoid actual processing
+        pass
+
+    @staticmethod
     def _unlink_timeseries(
-        self, instances: list[InstanceId], client: ToolkitClient, dry_run: bool, verbose: bool
+        instances: list[InstanceId], client: ToolkitClient, dry_run: bool, console: Console, verbose: bool
     ) -> list[InstanceId]:
         node_ids = [instance for instance in instances if isinstance(instance, NodeId)]
         if node_ids:
@@ -780,11 +753,14 @@ class PurgeCommand(ToolkitCommand):
                 migrated_timeseries_ids = [ts.id for ts in timeseries if ts.instance_id and ts.pending_instance_id]  # type: ignore[attr-defined]
                 client.time_series.unlink_instance_ids(id=migrated_timeseries_ids)
                 if verbose:
-                    self.console(f"Unlinked {len(migrated_timeseries_ids)} timeseries from datapoints.")
+                    console.print(f"Unlinked {len(migrated_timeseries_ids)} timeseries from datapoints.")
+            elif verbose and timeseries:
+                console.print(f"Would have unlinked {len(timeseries)} timeseries from datapoints.")
         return instances
 
+    @staticmethod
     def _unlink_files(
-        self, instances: list[InstanceId], client: ToolkitClient, dry_run: bool, verbose: bool
+        instances: list[InstanceId], client: ToolkitClient, dry_run: bool, console: Console, verbose: bool
     ) -> list[InstanceId]:
         file_ids = [instance for instance in instances if isinstance(instance, NodeId)]
         if file_ids:
@@ -797,23 +773,14 @@ class PurgeCommand(ToolkitCommand):
                 ]
                 client.files.unlink_instance_ids(id=migrated_file_ids)
                 if verbose:
-                    self.console(f"Unlinked {len(migrated_file_ids)} files from nodes.")
+                    console.print(f"Unlinked {len(migrated_file_ids)} files from nodes.")
+            elif verbose and files:
+                console.print(f"Would have unlinked {len(files)} files from their blob content.")
         return instances
 
     @staticmethod
-    def _get_selected_view(view: list[str], client: ToolkitClient) -> View:
+    def get_selected_view_id(view: list[str]) -> ViewId:
         if not (isinstance(view, list) and len(view) == 3):
             raise ToolkitValueError(f"Invalid view format: {view}. Expected format is 'space externalId version'.")
 
-        try:
-            retrieve_views = client.data_modeling.views.retrieve(
-                ViewId.load(tuple(view)),  # type: ignore[arg-type]
-                include_inherited_properties=True,
-            )
-        except CogniteAPIError as e:
-            raise CDFAPIError(f"Failed to retrieve view {view!r}. Status {e.code} Error: {e.message}") from e
-        except CogniteException as e:
-            raise CDFAPIError(f"Failed to retrieve view {view!r}. Error: {e}") from e
-        if len(retrieve_views) == 0:
-            raise ToolkitMissingResourceError(f"View {view!r} does not exist")
-        return retrieve_views[0]
+        return ViewId.load(tuple(view))  # type: ignore[arg-type]
