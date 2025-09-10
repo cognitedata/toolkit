@@ -114,6 +114,8 @@ class AssetCentricMigrationIOAdapter(
                 raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
             return id_
         elif isinstance(item, Event | Asset | TimeSeries | FileMetadata):
+            if item.id is None:
+                raise TypeError(f"Resource of type {type(item).__name__!r} is missing an 'id'.")
             return item.id
         elif isinstance(item, dict) and isinstance(item.get("id"), int):
             # MyPy checked above.
