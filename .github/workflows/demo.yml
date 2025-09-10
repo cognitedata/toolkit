@@ -10,13 +10,12 @@ env:
 jobs:
   build-modules:
     runs-on: ubuntu-latest
-    environment: dev
     env:
-        CDF_CLUSTER: ${{ secrets.CDF_CLUSTER }}
-        CDF_PROJECT: ${{ secrets.CDF_PROJECT }}
-        IDP_CLIENT_ID: ${{ secrets.IDP_CLIENT_ID }}
+        CDF_CLUSTER: ${{ env.CDF_CLUSTER }}
+        CDF_PROJECT: ${{ env.CDF_PROJECT }}
+        IDP_CLIENT_ID: ${{ env.IDP_CLIENT_ID }}
         IDP_CLIENT_SECRET: ${{ secrets.IDP_CLIENT_SECRET }}
-        IDP_TOKEN_URL: ${{ secrets.IDP_TOKEN_URL }}
+        IDP_TOKEN_URL: ${{ env.IDP_TOKEN_URL }}
         LOGIN_FLOW: client_credentials
     name: Loadmaster
     steps:
