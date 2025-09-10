@@ -48,6 +48,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.resource_classes import ExtractionPipelineConfigYAML, ExtractionPipelineYAML
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
 )
@@ -78,6 +79,7 @@ class ExtractionPipelineLoader(
     list_write_cls = ExtractionPipelineWriteList
     kind = "ExtractionPipeline"
     dependencies = frozenset({DataSetsLoader, RawDatabaseLoader, RawTableLoader, GroupAllScopedLoader})
+    yaml_cls = ExtractionPipelineYAML
     _doc_url = "Extraction-Pipelines/operation/createExtPipes"
 
     @property
@@ -250,6 +252,7 @@ class ExtractionPipelineConfigLoader(
     dependencies = frozenset({ExtractionPipelineLoader})
     _doc_url = "Extraction-Pipelines-Config/operation/createExtPipeConfig"
     parent_resource = frozenset({ExtractionPipelineLoader})
+    yaml_cls = ExtractionPipelineConfigYAML
 
     @property
     def display_name(self) -> str:

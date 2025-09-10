@@ -34,7 +34,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
-from cognite_toolkit._cdf_tk.resource_classes import TimeSeriesYAML
+from cognite_toolkit._cdf_tk.resource_classes import DatapointSubscriptionYAML, TimeSeriesYAML
 from cognite_toolkit._cdf_tk.utils import calculate_hash
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
@@ -225,6 +225,7 @@ class DatapointSubscriptionLoader(
             GroupAllScopedLoader,
         }
     )
+    yaml_cls = DatapointSubscriptionYAML
 
     _hash_key = "cdf-hash"
     _description_character_limit = 1000
