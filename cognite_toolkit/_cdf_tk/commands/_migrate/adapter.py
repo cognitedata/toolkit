@@ -115,7 +115,7 @@ class AssetCentricMigrationIOAdapter(
 
             mapping = next((source for source in sources if source.source == INSTANCE_SOURCE_VIEW_ID), None)
             if mapping is None:
-                raise TypeError(f"Cannot ID from item of type {type(item).__name__!r}")
+                raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
             id_ = mapping.properties.get("id")
             if not isinstance(id_, int):
                 raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
