@@ -2,6 +2,7 @@ from collections.abc import Sequence
 from typing import Literal
 
 from cognite.client.data_classes.capabilities import (
+    AssetsAcl,
     Capability,
     DataModelInstancesAcl,
     DataModelsAcl,
@@ -177,6 +178,49 @@ class ValidateAccess:
                 output["dataset"] = self.client.lookup.data_sets.external_id(scope.ids)
             else:
                 raise ValueError(f"Unexpected file scope type: {type(scope)}. Expected DataSet or All.")
+        return output
+
+    def assets(
+        self,
+        action: Sequence[Literal["read", "write"]],
+        dataset_ids: set[int] | None = None,
+        operation: str | None = None,
+    ) -> dict[str, list[str]] | None:
+        """Validate access to assets.
+        Args:
+            action (Sequence[Literal["read", "write"]]): The actions to validate access for
+            dataset_ids (Set[int] | None): The dataset IDs to check access for. If None, checks access for all datasets.
+            operation (str | None): The operation being performed, used for error messages.
+        Returns:
+            dict[str, list[str]] | None: Returns a dictionary with the key 'dataset'
+                if access is limited to a dataset scope, or None if access is granted to all assets.
+        Raises:
+            ValueError: If the client.token.get_scope() returns an unexpected asset scope type.
+            AuthorizationError: If the user does not have permission to perform the specified action on the given
+                dataset.
+        """
+        operation = operation or self.default_operation
+        asset_scopes, actions_str = self._set_up_read_write(
+            action, AssetsAcl.Action.Read, AssetsAcl.Action.Write, operation, "assets"
+        )
+        if isinstance(asset_scopes[0], AssetsAcl.Scope.All):
+            return None
+        if dataset_ids is not None:
+            missing = set(dataset_ids)
+            for scope in asset_scopes:
+                if isinstance(scope, AssetsAcl.Scope.DataSet):
+                    missing = missing - set(scope.ids)
+                    if not missing:
+                        return None
+            raise AuthorizationError(
+                f"You have no permission to {actions_str} assets in dataset(s) {humanize_collection(missing)}. This is required to {operation}."
+            )
+        output: dict[str, list[str]] = {}
+        for scope in asset_scopes:
+            if isinstance(scope, AssetsAcl.Scope.DataSet):
+                output["dataset"] = self.client.lookup.data_sets.external_id(scope.ids)
+            else:
+                raise ValueError(f"Unexpected asset scope type: {type(scope)}. Expected DataSet or All.")
         return output
 
     def _set_up_read_write(

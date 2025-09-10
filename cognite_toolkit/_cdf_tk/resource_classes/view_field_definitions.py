@@ -7,10 +7,10 @@ from pydantic import Field, ModelWrapValidatorHandler, model_serializer, model_v
 from pydantic_core.core_schema import SerializerFunctionWrapHandler
 
 from cognite_toolkit._cdf_tk.constants import (
-    CONTAINER_AND_VIEW_EXTERNAL_ID_PATTERN,
     CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER_PATTERN,
+    DM_EXTERNAL_ID_PATTERN,
+    DM_VERSION_PATTERN,
     SPACE_FORMAT_PATTERN,
-    VIEW_VERSION_PATTERN,
 )
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 
@@ -37,27 +37,26 @@ class ViewReference(BaseModelResource):
         description="External-id of the view.",
         min_length=1,
         max_length=255,
-        pattern=CONTAINER_AND_VIEW_EXTERNAL_ID_PATTERN,
+        pattern=DM_EXTERNAL_ID_PATTERN,
     )
     version: str = Field(
         description="Version of the view.",
         max_length=43,
-        pattern=VIEW_VERSION_PATTERN,
+        pattern=DM_VERSION_PATTERN,
     )
 
 
 class DirectRelationReference(BaseModelResource):
     space: str = Field(
-        description="Id of the space that the view belongs to.",
+        description="Id of the space that the instance belongs to.",
         min_length=1,
         max_length=43,
         pattern=SPACE_FORMAT_PATTERN,
     )
     external_id: str = Field(
-        description="External-id of the view.",
+        description="External-id of the instance.",
         min_length=1,
         max_length=255,
-        pattern=CONTAINER_AND_VIEW_EXTERNAL_ID_PATTERN,
     )
 
 
