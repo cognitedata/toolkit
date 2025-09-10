@@ -21,8 +21,15 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitNotImplementedError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID
-from cognite_toolkit._cdf_tk.storageio import AssetCentricSelector, BaseAssetCentricIO, InstanceIO, TableStorageIO
+from cognite_toolkit._cdf_tk.storageio import (
+    AssetCentricSelector,
+    BaseAssetCentricIO,
+    InstanceIO,
+    InstanceSelector,
+    TableStorageIO,
+)
 from cognite_toolkit._cdf_tk.storageio._base import StorageIOConfig, T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
@@ -31,7 +38,7 @@ from .data_model import INSTANCE_SOURCE_VIEW_ID
 
 
 @dataclass(frozen=True)
-class MigrationSelector(AssetCentricSelector): ...
+class MigrationSelector(AssetCentricSelector, InstanceSelector): ...
 
 
 @dataclass(frozen=True)
@@ -51,6 +58,12 @@ class AssetCentricMapping(Generic[T_WritableCogniteResource], WriteableCogniteRe
 
     def as_write(self) -> InstanceApply:
         raise NotImplementedError()
+
+    def dump(self, camel_case: bool = True) -> dict[str, JsonVal]:
+        return {
+            "mapping": self.mapping.model_dump(exclude_unset=True, by_alias=camel_case),
+            "resource": self.resource.dump(camel_case=camel_case),
+        }
 
 
 class AssetCentricMappingList(
@@ -110,25 +123,38 @@ class AssetCentricMigrationIOAdapter(
     def download_iterable(
         self, selector: MigrationSelector, limit: int | None = None
     ) -> Iterable[AssetCentricMappingList]:
-        raise NotImplementedError()
+        if isinstance(selector, MigrationCSVFileSelector):
+            items = selector.items
+            if limit is not None:
+                items = MigrationMappingList(items[:limit])
+            chunk: list[AssetCentricMapping[T_WritableCogniteResource]] = []
+            for mapping_chunk in chunker_sequence(items, self.chunk_size):
+                resources = self.base.retrieve(mapping_chunk.get_ids())
+                for mapping, resource in zip(mapping_chunk, resources):
+                    chunk.append(AssetCentricMapping(mapping=mapping, resource=resource))
+                if chunk:
+                    yield AssetCentricMappingList(chunk)
+                    chunk = []
+        else:
+            raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for download_iterable")
 
     def count(self, selector: AssetCentricSelector) -> int | None:
         return self.base.count(selector)
 
     def upload_items(self, data_chunk: InstanceApplyList, selector: MigrationSelector) -> None:
-        raise NotImplementedError()
+        self.instance.upload_items(data_chunk, selector)
 
     def data_to_json_chunk(self, data_chunk: AssetCentricMappingList) -> list[dict[str, JsonVal]]:
         return data_chunk.dump()
+
+    def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> InstanceApplyList:
+        return self.instance.json_chunk_to_data(data_chunk)
 
     def load_selector(self, datafile: Path) -> MigrationSelector:
         raise ToolkitNotImplementedError("load_selector is not implemented for AssetCentricMigrationIOAdapter")
 
     def configurations(self, selector: MigrationSelector) -> Iterable[StorageIOConfig]:
         raise ToolkitNotImplementedError("configurations is not implemented for AssetCentricMigrationIOAdapter")
-
-    def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> InstanceApplyList:
-        return self.instance.json_chunk_to_data(data_chunk)
 
     def ensure_configurations(self, selector: MigrationSelector, console: Console | None = None) -> None:
         raise ToolkitNotImplementedError("ensure_configurations is not implemented for AssetCentricMappingList")
