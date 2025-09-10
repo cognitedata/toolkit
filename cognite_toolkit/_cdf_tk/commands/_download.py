@@ -7,7 +7,12 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio import StorageIO, TableStorageIO
-from cognite_toolkit._cdf_tk.storageio._base import T_CogniteResourceList, T_Selector, T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.storageio._base import (
+    T_ID,
+    T_CogniteResourceList,
+    T_Selector,
+    T_WritableCogniteResourceList,
+)
 from cognite_toolkit._cdf_tk.utils.file import safe_write, to_directory_compatible, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import TABLE_WRITE_CLS_BY_FORMAT, Compression, FileWriter, SchemaColumn
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
@@ -20,7 +25,7 @@ class DownloadCommand(ToolkitCommand):
     def download(
         self,
         selectors: Iterable[T_Selector],
-        io: StorageIO[T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
+        io: StorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
         output_dir: Path,
         verbose: bool,
         file_format: str,
@@ -90,7 +95,7 @@ class DownloadCommand(ToolkitCommand):
 
     @staticmethod
     def _get_iteration_count(
-        io: StorageIO[T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
+        io: StorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
         selector: T_Selector,
         limit: int | None,
     ) -> int | None:
