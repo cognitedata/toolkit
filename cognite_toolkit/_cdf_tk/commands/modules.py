@@ -144,9 +144,9 @@ class ModulesCommand(ToolkitCommand):
         organization_dir: Path,
         selected_packages: Packages,
         environments: list[EnvType],
+        modules_source_path: Path,
         mode: Literal["new", "clean", "update"] | None,
         download_data: bool = False,
-        modules_source_path: Path | None = None,
     ) -> None:
         modules_target_path = organization_dir / MODULES
         if mode == "clean" and modules_target_path.is_dir():
@@ -160,8 +160,6 @@ class ModulesCommand(ToolkitCommand):
         downloader_by_repo: dict[str, FileDownloader] = {}
 
         extra_resources: set[Path] = set()
-
-        modules_source_path = modules_source_path or self._builtin_modules_path
 
         for package_name, package in selected_packages.items():
             print(f"{INDENT}[{'yellow' if mode == 'clean' else 'green'}]Creating {package_name}[/]")

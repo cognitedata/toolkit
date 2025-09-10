@@ -1,0 +1,3 @@
+[module]
+title = "External module two"
+is_selected_by_default = false
