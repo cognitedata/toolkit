@@ -157,9 +157,10 @@ def invalid_hosted_extractor_source_test_cases() -> Iterable:
         id="RESTSource HeaderCredentials missing value",
     )
     # RESTSource with ScramSha256 (invalid type)
+    # RESTSource with ScramSha256 (invalid type)
     yield pytest.param(
         {
-            "externalId": "restHeaderCredMissingValue",
+            "externalId": "restSourceWithInvalidAuth",
             "type": "rest",
             "host": "api.example.com",
             "authentication": {
@@ -171,7 +172,7 @@ def invalid_hosted_extractor_source_test_cases() -> Iterable:
         {
             "In field authentication invalid authentication type 'scramSha256' for REST source. Expected one of basic, clientCredentials, header or query"
         },
-        id="RESTSource HeaderCredentials missing value",
+        id="RESTSource with invalid auth type",
     )
     # KafkaSource with ScramSha256 (missing password)
     yield pytest.param(
