@@ -198,7 +198,7 @@ class HostedExtractorSourceYAML(ToolkitResource):
         type_ = data["type"]
         if type_ not in _SOURCE_CLS_BY_TYPE:
             raise ValueError(
-                f"Invalid hosted extractor source '{type_}'. Expected one of {humanize_collection(_SOURCE_CLS_BY_TYPE.keys(), bind_word='or')}"
+                f"Invalid hosted extractor source type='{type_}'. Expected one of {humanize_collection(_SOURCE_CLS_BY_TYPE.keys(), bind_word='or')}"
             )
         cls_ = _SOURCE_CLS_BY_TYPE[type_]
         return cast(Self, cls_.model_validate({k: v for k, v in data.items() if k != "type"}))
