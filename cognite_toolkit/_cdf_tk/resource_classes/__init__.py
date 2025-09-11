@@ -22,6 +22,7 @@ from .functions import FunctionsYAML
 from .groups import GroupYAML
 from .labels import LabelsYAML
 from .location import LocationYAML
+from .node import NodeYAML
 from .raw_database_table import DatabaseYAML, TableYAML
 from .search_config import SearchConfigYAML
 from .securitycategories import SecurityCategoriesYAML
@@ -53,6 +54,7 @@ __all__ = [
     "GroupYAML",
     "LabelsYAML",
     "LocationYAML",
+    "NodeYAML",
     "SearchConfigYAML",
     "SecurityCategoriesYAML",
     "SpaceYAML",
