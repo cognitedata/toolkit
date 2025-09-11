@@ -1,6 +1,7 @@
 from ._applications import ChartIO
 from ._asset_centric import AssetIO, BaseAssetCentricIO, FileMetadataIO
 from ._base import StorageIO, TableStorageIO
+from ._data_classes import ModelList
 from ._instances import InstanceIO
 from ._raw import RawIO
 from ._selectors import (
@@ -32,6 +33,7 @@ __all__ = [
     "InstanceIO",
     "InstanceSelector",
     "InstanceViewSelector",
+    "ModelList",
     "RawIO",
     "StorageIO",
     "TableStorageIO",
