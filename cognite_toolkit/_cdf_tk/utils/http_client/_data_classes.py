@@ -15,7 +15,10 @@ StatusCode: TypeAlias = int
 class HTTPMessage(ABC):
     """Base class for HTTP messages (requests and responses)"""
 
-    ...
+    def dump(self) -> dict[str, JsonVal]:
+        output = self.__dict__.copy()
+        output["type"] = type(self).__name__
+        return output
 
 
 @dataclass
