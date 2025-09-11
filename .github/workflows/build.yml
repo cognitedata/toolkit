@@ -59,7 +59,7 @@ jobs:
       CDF_CLUSTER: ${{ vars.CDF_CLUSTER }}
       CDF_PROJECT: ${{ vars.CDF_PROJECT }}
       IDP_CLIENT_ID: ${{ vars.IDP_CLIENT_ID }}
-      IDP_CLIENT_SECRET: ${{ vars.IDP_CLIENT_SECRET }}
+      IDP_CLIENT_SECRET: ${{ secrets.IDP_CLIENT_SECRET }}
       IDP_TOKEN_URL: ${{ vars.IDP_TOKEN_URL }}
     strategy:
       fail-fast: false
