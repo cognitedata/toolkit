@@ -10,6 +10,7 @@ from tests.test_unit.utils import find_resources
 
 
 def invalid_hosted_extractor_source_test_cases() -> Iterable:
+    # Invalid type
     yield pytest.param(
         {
             "externalId": "mySource",
@@ -23,6 +24,69 @@ def invalid_hosted_extractor_source_test_cases() -> Iterable:
             "Invalid hosted extractor source type='invalid'. Expected one of eventhub, kafka, mqtt3, mqtt5 or rest",
         },
         id="Invalid source type",
+    )
+    # Invalid eventhub (missing required event_hub_name)
+    yield pytest.param(
+        {
+            "externalId": "mySource",
+            "type": "eventhub",
+            "host": "host",
+            "keyName": "key",
+            "keyValue": "secret",
+            # missing eventHubName
+        },
+        {
+            "Missing required field: 'eventHubName'",
+        },
+        id="EventHubSource missing event_hub_name",
+    )
+    # Invalid kafka (missing bootstrap_brokers)
+    yield pytest.param(
+        {
+            "externalId": "mySource",
+            "type": "kafka",
+            # missing bootstrapBrokers
+        },
+        {
+            "Missing required field: 'bootstrapBrokers'",
+        },
+        id="KafkaSource missing bootstrap_brokers",
+    )
+    # Invalid rest (missing host)
+    yield pytest.param(
+        {
+            "externalId": "mySource",
+            "type": "rest",
+            # missing host
+        },
+        {
+            "Missing required field: 'host'",
+        },
+        id="RESTSource missing host",
+    )
+    # Invalid mqtt3 (missing host)
+    yield pytest.param(
+        {
+            "externalId": "mySource",
+            "type": "mqtt3",
+            # missing host
+        },
+        {
+            "Missing required field: 'host'",
+        },
+        id="MQTT3Source missing host",
+    )
+    # Invalid mqtt5 (missing host)
+    yield pytest.param(
+        {
+            "externalId": "mySource",
+            "type": "mqtt5",
+            # missing host
+        },
+        {
+            "Missing required field: 'host'",
+        },
+        id="MQTT5Source missing host",
     )
 
 
