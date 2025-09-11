@@ -1,6 +1,4 @@
-from typing import Any
-
-from pydantic import Field
+from pydantic import Field, JsonValue
 
 from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
 
@@ -19,7 +17,7 @@ class NodeType(BaseModelResource):
     external_id: str = Field(
         description="External-id of the node.",
         min_length=1,
-        max_length=255,
+        max_length=256,
         pattern=r"^[^\\x00]{1,256}$",
     )
 
@@ -28,7 +26,7 @@ class NodeSource(BaseModelResource):
     source: ViewReference | ContainerReference = Field(
         description="Reference to the view or container from where this source is inherited.",
     )
-    properties: dict[str, Any] | None = Field(
+    properties: dict[str, JsonValue] | None = Field(
         default=None,
         description="Properties included in the source.",
     )
@@ -44,7 +42,7 @@ class NodeYAML(ToolkitResource):
     external_id: str = Field(
         description="External-id of the node.",
         min_length=1,
-        max_length=255,
+        max_length=256,
         pattern=r"^[^\\x00]{1,256}$",
     )
     type: NodeType | None = Field(
