@@ -177,6 +177,20 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
         return {"items": self.items}
 
     def split(self, status_attempts: int) -> "list[ItemsRequest]":
+        """Splits the request into two smaller requests.
+
+        This is useful for retrying requests that fail due to size limits or timeouts.
+
+        Args:
+            status_attempts: The number of status attempts to set for the new requests. This is used when the
+                request failed with a 5xx status code and we want to track the number of attempts. For 4xx errors,
+                there is at least one item causing the error, so we do not increment the status attempts, but
+                instead essentially do a binary search to find the problematic item(s).
+
+        Returns:
+            A list containing two new ItemsRequest instances, each with half of the original items.
+
+        """
         mid = len(self.items) // 2
         if mid == 0:
             return [self]
