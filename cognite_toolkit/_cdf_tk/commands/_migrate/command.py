@@ -57,7 +57,7 @@ class MigrationCommand(ToolkitCommand):
             executor = ProducerWorkerExecutor[T_WritableCogniteResourceList, T_CogniteResourceList](
                 download_iterable=self._download_iterable(selected, data, tracker),
                 process=self._convert(mapper, data, tracker, log_file),
-                write=self._upload(write_client, data, log_file, tracker, dry_run),
+                write=self._upload(write_client, data, tracker, log_file, dry_run),
                 iteration_count=iteration_count,
                 max_queue_size=10,
                 download_description=f"Downloading {data.display_name}",
@@ -106,8 +106,8 @@ class MigrationCommand(ToolkitCommand):
         self,
         write_client: HTTPClient,
         target: StorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
-        log_file: NDJsonWriter,
         tracker: ProgressTracker[T_ID],
+        log_file: NDJsonWriter,
         dry_run: bool,
     ) -> Callable[[T_CogniteResourceList], None]:
         def upload_items(data_chunk: T_CogniteResourceList) -> None:
@@ -126,13 +126,7 @@ class MigrationCommand(ToolkitCommand):
                 elif isinstance(item, ItemIDMessage):
                     tracker.set_progress(item.id, step=self.Steps.UPLOAD, status="failed")
                 if not isinstance(item, SuccessItem):
-                    issues.append(
-                        WriteIssue(
-                            instance_id=target.as_id(item),
-                            status_code=item.status_code,
-                            message=str(item),
-                        ).model_dump()
-                    )
+                    issues.append(item.dump())
             if issues:
                 log_file.write_chunks(issues)
             return None
