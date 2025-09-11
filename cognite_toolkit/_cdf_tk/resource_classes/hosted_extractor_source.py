@@ -47,7 +47,7 @@ class AuthCertificate(BaseModelResource):
     )
 
     @field_serializer("key_password", when_used="json")
-    def dump_key_password(self, v):
+    def dump_key_password(self, v: SecretStr | None) -> str | None:
         return v.get_secret_value() if v else None
 
 
@@ -99,7 +99,7 @@ class BasicAuthentication(Authentication):
     )
 
     @field_serializer("password", when_used="json")
-    def dump_password(self, v):
+    def dump_password(self, v: SecretStr) -> str:
         return v.get_secret_value()
 
 
@@ -121,7 +121,7 @@ class ClientCredentials(Authentication):
     )
 
     @field_serializer("client_secret", when_used="json")
-    def dump_client_secret(self, v):
+    def dump_client_secret(self, v: SecretStr) -> str:
         return v.get_secret_value()
 
 
@@ -133,7 +133,7 @@ class QueryCredentials(Authentication):
     value: SecretStr = Field(description="Value of the authentication token")
 
     @field_serializer("value", when_used="json")
-    def dump_value(self, v):
+    def dump_value(self, v: SecretStr) -> str:
         return v.get_secret_value()
 
 
@@ -145,7 +145,7 @@ class HeaderCredentials(Authentication):
     value: SecretStr = Field(description="Value of the authentication token")
 
     @field_serializer("value", when_used="json")
-    def dump_value(self, v):
+    def dump_value(self, v: SecretStr) -> str:
         return v.get_secret_value()
 
 
@@ -160,7 +160,7 @@ class ScramSha(Authentication, ABC):
     )
 
     @field_serializer("password", when_used="json")
-    def dump_password(self, v):
+    def dump_password(self, v: SecretStr) -> str:
         return v.get_secret_value()
 
 
@@ -237,7 +237,7 @@ class EventHubSource(HostedExtractorSourceYAML):
     )
 
     @field_serializer("key_value", when_used="json")
-    def dump_secret(self, v):
+    def dump_secret(self, v: SecretStr) -> str:
         return v.get_secret_value()
 
 
