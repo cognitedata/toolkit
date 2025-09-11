@@ -10,14 +10,13 @@ jobs:
   upload_coverage:
     name: Upload coverage report
     runs-on: ubuntu-latest
-    environment: dev
     permissions: read-all
     env:
-      CDF_CLUSTER: ${{ secrets.CDF_CLUSTER }}
-      CDF_PROJECT: ${{ secrets.CDF_PROJECT }}
-      IDP_CLIENT_ID: ${{ secrets.IDP_CLIENT_ID }}
+      CDF_CLUSTER: ${{ vars.CDF_CLUSTER }}
+      CDF_PROJECT: ${{ vars.CDF_PROJECT }}
+      IDP_CLIENT_ID: ${{ vars.IDP_CLIENT_ID }}
       IDP_CLIENT_SECRET: ${{ secrets.IDP_CLIENT_SECRET }}
-      IDP_TOKEN_URL: ${{ secrets.IDP_TOKEN_URL }}
+      IDP_TOKEN_URL: ${{ vars.IDP_TOKEN_URL }}
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
       - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
