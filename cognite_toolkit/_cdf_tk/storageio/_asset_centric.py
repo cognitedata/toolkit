@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Generic
 
@@ -68,6 +68,10 @@ class BaseAssetCentricIO(
 
     @abstractmethod
     def _get_aggregator(self) -> AssetCentricAggregator:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def retrieve(self, ids: Sequence[int]) -> T_WritableCogniteResourceList:
         raise NotImplementedError()
 
     def count(self, selector: AssetCentricSelector) -> int | None:
@@ -238,6 +242,9 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> AssetWriteList:
         return AssetWriteList([self._loader.load_resource(item) for item in data_chunk])
 
+    def retrieve(self, ids: Sequence[int]) -> AssetList:
+        return self.client.assets.retrieve_multiple(ids)
+
 
 class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, FileMetadataWriteList, FileMetadataList]):
     folder_name = FileMetadataLoader.folder_name
@@ -308,6 +315,9 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
         ):
             self._collect_dependencies(file_list, selector)
             yield file_list
+
+    def retrieve(self, ids: Sequence[int]) -> FileMetadataList:
+        return self.client.files.retrieve_multiple(ids)
 
     def upload_items(self, data_chunk: FileMetadataWriteList, selector: AssetCentricSelector) -> None:
         if not data_chunk:
