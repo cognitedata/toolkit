@@ -9,7 +9,9 @@ from pydantic import BaseModel, field_validator
 from pydantic_core import ValidationError
 from rich.console import Console
 
+from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.client.data_classes.pending_instances_ids import PendingInstanceId
+from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import create_default_mappings
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValueError,
 )
@@ -42,6 +44,20 @@ class MigrationMapping(BaseModel, alias_generator=to_camel_case, extra="ignore")
     data_set_id: int | None = None
     ingestion_view: str | None = None
     preferred_consumer_view: ViewId | None = None
+
+    def get_ingestion_view(self) -> str:
+        """Get the ingestion view for the mapping. If not specified, return the default ingestion view."""
+        if self.ingestion_view:
+            return self.ingestion_view
+
+        default_mappings = create_default_mappings()
+        for mapping in default_mappings:
+            if mapping.resource_type == self.resource_type:
+                return mapping.external_id
+        raise TypeError(f"No default ingestion view specified for resource type '{self.resource_type}'")
+
+    def as_asset_centric_id(self) -> AssetCentricId:
+        return AssetCentricId(resource_type=self.resource_type, id_=self.id)  # type: ignore[arg-type]
 
     @field_validator("data_set_id", "ingestion_view", mode="before")
     def _empty_string_to_none(cls, v: Any) -> Any:

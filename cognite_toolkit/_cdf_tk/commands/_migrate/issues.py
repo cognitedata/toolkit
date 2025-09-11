@@ -107,6 +107,7 @@ class ConversionIssue(MigrationIssue):
     type: ClassVar[str] = "conversion"
     asset_centric_id: AssetCentricId
     instance_id: InstanceId
+    error: str | None = None
     missing_asset_centric_properties: list[str] = Field(default_factory=list)
     missing_instance_properties: list[str] = Field(default_factory=list)
     invalid_instance_property_types: list[InvalidPropertyDataType] = Field(default_factory=list)
