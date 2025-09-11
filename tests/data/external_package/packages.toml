@@ -1,0 +1,11 @@
+[library]
+title = "External packages"
+
+[packages.imported]
+title = "Imported"
+description = "Imported packages"
+canCherryPick = true
+modules = [
+    "external_module_1",
+    "external_module_2"
+]
