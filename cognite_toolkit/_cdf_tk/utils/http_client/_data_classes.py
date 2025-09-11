@@ -1,12 +1,13 @@
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from collections.abc import Callable, Hashable, Sequence
 from dataclasses import dataclass, field
-from typing import Literal, TypeAlias
+from typing import Generic, Literal, TypeAlias, TypeVar
 
 import requests
 
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
+T_ID = TypeVar("T_ID", bound=Hashable)
 StatusCode: TypeAlias = int
 
 
@@ -51,7 +52,7 @@ class RequestMessage(HTTPMessage):
         raise NotImplementedError()
 
     @abstractmethod
-    def create_failed(self, error_message: str) -> Sequence[HTTPMessage]:
+    def create_failed_request(self, error_message: str) -> Sequence[HTTPMessage]:
         raise NotImplementedError()
 
 
@@ -83,7 +84,8 @@ class SimpleRequest(RequestMessage):
             error_message = f"Request failed with status code {response.status_code}"
         return [FailedResponse(status_code=response.status_code, error=error_message, body=response_body)]
 
-    def create_failed(self, error_message: str) -> Sequence[HTTPMessage]:
+    @classmethod
+    def create_failed_request(cls, error_message: str) -> Sequence[HTTPMessage]:
         return [FailedRequestMessage(error=error_message)]
 
 
@@ -109,3 +111,179 @@ class SimpleBodyRequest(SimpleRequest, BodyRequest):
 
     def body(self) -> dict[str, JsonVal]:
         return self.body_content
+
+
+@dataclass
+class ItemMessage(ABC):
+    """Base class for message related to a specific item"""
+
+    ...
+
+
+@dataclass
+class ItemIDMessage(Generic[T_ID], ItemMessage, ABC):
+    """Base class for message related to a specific item identified by an ID"""
+
+    id: T_ID
+
+
+@dataclass
+class ItemResponse(ItemIDMessage, ResponseMessage, ABC): ...
+
+
+@dataclass
+class SuccessItem(ItemResponse):
+    item: JsonVal | None = None
+
+
+@dataclass
+class FailedItem(ItemResponse):
+    error: str
+
+
+@dataclass
+class MissingItem(ItemResponse): ...
+
+
+@dataclass
+class UnexpectedItem(ItemResponse):
+    item: JsonVal | None = None
+
+
+@dataclass
+class FailedRequestItem(ItemIDMessage, FailedRequestMessage): ...
+
+
+@dataclass
+class UnknownRequestItem(ItemMessage, FailedRequestMessage):
+    item: JsonVal | None = None
+
+
+@dataclass
+class UnknownResponseItem(ItemMessage, ResponseMessage):
+    error: str
+    item: JsonVal | None = None
+
+
+@dataclass
+class ItemsRequest(Generic[T_ID], BodyRequest):
+    items: list[JsonVal] = field(default_factory=list)
+    extra_body_fields: dict[str, JsonVal] = field(default_factory=dict)
+    as_id: Callable[[JsonVal], T_ID] | None = None
+
+    def body(self) -> dict[str, JsonVal]:
+        if self.extra_body_fields:
+            return {"items": self.items, **self.extra_body_fields}
+        return {"items": self.items}
+
+    def split(self, status_attempts: int) -> "list[ItemsRequest]":
+        mid = len(self.items) // 2
+        if mid == 0:
+            return [self]
+        first_half = ItemsRequest[T_ID](
+            endpoint_url=self.endpoint_url,
+            method=self.method,
+            items=self.items[:mid],
+            extra_body_fields=self.extra_body_fields,
+            as_id=self.as_id,
+            connect_attempt=self.connect_attempt,
+            read_attempt=self.read_attempt,
+            status_attempt=status_attempts,
+        )
+        second_half = ItemsRequest[T_ID](
+            endpoint_url=self.endpoint_url,
+            method=self.method,
+            items=self.items[mid:],
+            extra_body_fields=self.extra_body_fields,
+            as_id=self.as_id,
+            connect_attempt=self.connect_attempt,
+            read_attempt=self.read_attempt,
+            status_attempt=status_attempts,
+        )
+        return [first_half, second_half]
+
+    def create_responses(
+        self,
+        response: requests.Response,
+        response_body: dict[str, JsonVal] | None = None,
+        error_message: str | None = None,
+    ) -> Sequence[HTTPMessage]:
+        if self.as_id is None:
+            return SimpleBodyRequest.create_responses(response, response_body, error_message)
+        request_items_by_id, errors = self._create_items_by_id()
+        responses: list[HTTPMessage] = []
+        responses.extend(errors)
+        error_message = error_message or "Unknown error"
+        if not self._is_items_response(response_body):
+            if 200 <= response.status_code < 300:
+                responses.extend(
+                    [SuccessItem(status_code=response.status_code, id=id_) for id_ in request_items_by_id.keys()]
+                )
+            else:
+                responses.extend(
+                    [
+                        FailedItem(status_code=response.status_code, error=error_message, id=id_)
+                        for id_ in request_items_by_id.keys()
+                    ]
+                )
+            return responses
+
+        # MyPy we check that items is a list in _is_items_response
+        for response_item in response_body["items"]:  # type: ignore[index, union-attr]
+            try:
+                item_id = self.as_id(response_item)
+            except Exception as e:
+                responses.append(
+                    UnknownResponseItem(
+                        status_code=response.status_code, item=response_item, error=f"Error extracting ID: {e!s}"
+                    )
+                )
+                continue
+            request_item = request_items_by_id.pop(item_id, None)
+            if request_item is None:
+                responses.append(UnexpectedItem(status_code=response.status_code, id=item_id, item=response_item))
+            elif 200 <= response.status_code < 300:
+                responses.append(SuccessItem(status_code=response.status_code, id=item_id, item=response_item))
+            else:
+                responses.append(FailedItem(status_code=response.status_code, id=item_id, error=error_message))
+
+        for item_id, request_item in request_items_by_id.items():
+            responses.append(MissingItem(status_code=response.status_code, id=item_id))
+
+        return responses
+
+    def create_failed_request(self, error_message: str) -> Sequence[HTTPMessage]:
+        if self.as_id is None:
+            return SimpleBodyRequest.create_failed_request(error_message)
+        items_by_id, errors = self._create_items_by_id()
+        results: list[HTTPMessage] = []
+        results.extend(errors)
+        results.extend(FailedRequestItem(id=item_id, error=error_message) for item_id in items_by_id.keys())
+        return results
+
+    def _create_items_by_id(self) -> tuple[dict[T_ID, JsonVal], list[FailedRequestItem | UnknownRequestItem]]:
+        if self.as_id is None:
+            raise ValueError("as_id function must be provided to create items by ID")
+        items_by_id: dict[T_ID, JsonVal] = {}
+        errors: list[FailedRequestItem | UnknownRequestItem] = []
+        for item in self.items:
+            try:
+                item_id = self.as_id(item)
+            except Exception as e:
+                errors.append(UnknownRequestItem(error=f"Error extracting ID: {e!s}", item=item))
+                continue
+            if item_id in items_by_id:
+                errors.append(FailedRequestItem(id=item_id, error=f"Duplicate item ID: {item_id!r}"))
+            else:
+                items_by_id[item_id] = item
+        return items_by_id, errors
+
+    @staticmethod
+    def _is_items_response(body: dict[str, JsonVal] | None = None) -> bool:
+        if body is None:
+            return False
+        if "items" not in body:
+            return False
+        if not isinstance(body["items"], list):
+            return False
+        return True
