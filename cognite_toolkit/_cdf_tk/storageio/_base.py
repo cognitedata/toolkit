@@ -1,22 +1,17 @@
 from abc import ABC, abstractmethod
-from collections.abc import Hashable, Iterable
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Generic, TypeVar
+from typing import Generic
 
 from cognite.client.data_classes._base import (
     T_CogniteResourceList,
-    WriteableCogniteResourceList,
 )
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
-from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
-
-T_ID = TypeVar("T_ID", bound=Hashable)
-T_Selector = TypeVar("T_Selector", bound=Hashable)
-T_WritableCogniteResourceList = TypeVar("T_WritableCogniteResourceList", bound=WriteableCogniteResourceList)
+from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal, T_Selector, T_WritableCogniteResourceList
 
 
 @dataclass
