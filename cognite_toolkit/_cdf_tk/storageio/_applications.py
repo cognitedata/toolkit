@@ -6,9 +6,9 @@ from rich.console import Console
 from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList, ChartWrite, ChartWriteList
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
-from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
+from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal, T_Selector
 
-from ._base import StorageIO, StorageIOConfig, T_Selector
+from ._base import StorageIO, StorageIOConfig
 from ._selectors import AllChartSelector, ChartOwnerSelector, ChartSelector
 
 

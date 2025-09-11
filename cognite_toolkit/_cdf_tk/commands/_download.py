@@ -3,20 +3,15 @@ from collections.abc import Iterable
 from functools import partial
 from pathlib import Path
 
+from cognite.client.data_classes._base import T_CogniteResourceList
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio import StorageIO, TableStorageIO
-from cognite_toolkit._cdf_tk.storageio._base import (
-    T_ID,
-    T_CogniteResourceList,
-    T_Selector,
-    T_WritableCogniteResourceList,
-)
 from cognite_toolkit._cdf_tk.utils.file import safe_write, to_directory_compatible, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import TABLE_WRITE_CLS_BY_FORMAT, Compression, FileWriter, SchemaColumn
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
-from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
+from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal, T_Selector, T_WritableCogniteResourceList
 
 from ._base import ToolkitCommand
 

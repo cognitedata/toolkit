@@ -2,19 +2,14 @@ from functools import partial
 from pathlib import Path
 from typing import Any
 
+from cognite.client.data_classes._base import T_CogniteResourceList
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.storageio import StorageIO
-from cognite_toolkit._cdf_tk.storageio._base import (
-    T_ID,
-    T_CogniteResourceList,
-    T_Selector,
-    T_WritableCogniteResourceList,
-)
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.fileio import FileReader
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
-from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
+from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal, T_Selector, T_WritableCogniteResourceList
 
 from ._base import ToolkitCommand
 
