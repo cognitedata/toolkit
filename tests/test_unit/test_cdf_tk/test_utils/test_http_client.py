@@ -204,6 +204,7 @@ class TestHTTPClient:
 
 @pytest.mark.usefixtures("disable_pypi_check")
 class TestHTTPClientItemRequests:
+    @pytest.mark.usefixtures("disable_gzip")
     def test_request_with_items_happy_path(self, http_client: HTTPClient, rsps: responses.RequestsMock) -> None:
         rsps.post(
             "https://example.com/api/resource",
@@ -216,6 +217,7 @@ class TestHTTPClientItemRequests:
                 endpoint_url="https://example.com/api/resource",
                 method="POST",
                 items=items,
+                extra_body_fields={"autoCreateDirectRelations": True},
                 as_id=lambda item: item["id"],
             )
         )
@@ -223,6 +225,11 @@ class TestHTTPClientItemRequests:
             SuccessItem(status_code=200, id=1, item={"id": 1, "value": 42}),
             SuccessItem(status_code=200, id=2, item={"id": 2, "value": 43}),
         ]
+        assert len(rsps.calls) == 1
+        assert json.loads(rsps.calls[0].request.body) == {
+            "items": [{"name": "item1", "id": 1}, {"name": "item2", "id": 2}],
+            "autoCreateDirectRelations": True,
+        }
 
     @pytest.mark.usefixtures("disable_gzip")
     def test_request_with_items_issues(self, http_client: HTTPClient, rsps: responses.RequestsMock) -> None:
@@ -266,6 +273,22 @@ class TestHTTPClientItemRequests:
             MissingItem(status_code=200, id="missing"),
             FailedItem(status_code=400, id="fail", error="Item failed"),
         ]
+        assert len(rsps.calls) == 5  # Three requests made
+        first, second, third, fourth, fifth = rsps.calls
+        # First call will fail, and split into 1 item + 2 items
+        assert json.loads(first.request.body)["items"] == [
+            {"externalId": "success"},
+            {"externalId": "missing"},
+            {"externalId": "fail"},
+        ]
+        # Second succeeds with 1 item.
+        assert json.loads(second.request.body)["items"] == [{"externalId": "success"}]
+        # Third fails with two items, and splits into 1 + 1
+        assert json.loads(third.request.body)["items"] == [{"externalId": "missing"}, {"externalId": "fail"}]
+        # Fourth succeeds with 1 item.
+        assert json.loads(fourth.request.body)["items"] == [{"externalId": "missing"}]
+        # Fifth fails with 1 item.
+        assert json.loads(fifth.request.body)["items"] == [{"externalId": "fail"}]
 
     def test_request_all_item_fail(self, http_client: HTTPClient, rsps: responses.RequestsMock) -> None:
         rsps.post(
