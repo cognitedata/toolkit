@@ -1,6 +1,4 @@
-from typing import Any
-
-from pydantic import Field
+from pydantic import Field, JsonValue
 
 from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
 
@@ -29,7 +27,7 @@ class EdgeSource(BaseModelResource):
     source: ViewReference | ContainerReference = Field(
         description="Reference to the view or container from where this source is inherited.",
     )
-    properties: dict[str, Any] | None = Field(
+    properties: dict[str, JsonValue] | None = Field(
         default=None,
         description="Properties included in the source.",
     )

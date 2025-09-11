@@ -13,7 +13,6 @@ from .containers import ContainerYAML
 from .data_model import DataModelYAML
 from .datapoint_subscription import DatapointSubscriptionYAML
 from .dataset import DataSetYAML
-from .edge import EdgeYAML
 from .event import EventYAML
 from .extraction_pipeline import ExtractionPipelineYAML
 from .extraction_pipeline_config import ExtractionPipelineConfigYAML
@@ -46,7 +45,6 @@ __all__ = [
     "DataSetYAML",
     "DatabaseYAML",
     "DatapointSubscriptionYAML",
-    "EdgeYAML",
     "EventYAML",
     "ExtractionPipelineConfigYAML",
     "ExtractionPipelineYAML",
