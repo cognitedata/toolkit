@@ -661,21 +661,26 @@ class PurgeCommand(ToolkitCommand):
         console.print(f"{prefix} {executor.total_items:,} instances in {selector!s}")
 
     def validate_instance_access(self, validator: ValidateAccess, instance_spaces: list[str] | None) -> None:
-        space_ids = validator.instances(["read", "write"], operation="purge")
+        space_ids = validator.instances(
+            ["read", "write"], spaces=set(instance_spaces) if instance_spaces else None, operation="purge"
+        )
         if space_ids is None:
             # Full access
             return
-        if instance_spaces is None:
+        self.warn(
+            LimitedAccessWarning(
+                f"You can only purge instances in the following instance spaces: {humanize_collection(space_ids)}."
+            )
+        )
+        return
+
+    def validate_model_access(self, validator: ValidateAccess, view: list[str] | None) -> None:
+        space = view[0] if isinstance(view, list) and view and isinstance(view[0], str) else None
+        if space_ids := validator.data_model(["read"], spaces={space} if space else None):
             self.warn(
                 LimitedAccessWarning(
-                    f"You can only purge instances in the following instance spaces: {humanize_collection(space_ids)}."
+                    f"You can only select views in the {len(space_ids)} spaces you have access to: {humanize_collection(space_ids)}."
                 )
-            )
-            return
-        invalid_spaces = set(instance_spaces or []) - set(space_ids)
-        if invalid_spaces:
-            raise AuthorizationError(
-                f"Cannot purge. You do not have access to the following spaces: {humanize_collection(invalid_spaces)}."
             )
 
     def validate_timeseries_access(self, validator: ValidateAccess) -> None:

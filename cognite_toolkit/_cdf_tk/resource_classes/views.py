@@ -5,12 +5,12 @@ from pydantic import Field, field_validator, model_serializer
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
 from cognite_toolkit._cdf_tk.constants import (
-    CONTAINER_AND_VIEW_EXTERNAL_ID_PATTERN,
     CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER_PATTERN,
+    DM_EXTERNAL_ID_PATTERN,
+    DM_VERSION_PATTERN,
     FORBIDDEN_CONTAINER_AND_VIEW_EXTERNAL_IDS,
     FORBIDDEN_CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER,
     SPACE_FORMAT_PATTERN,
-    VIEW_VERSION_PATTERN,
 )
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 
@@ -31,12 +31,12 @@ class ViewYAML(ToolkitResource):
         description="External-id of the view.",
         min_length=1,
         max_length=255,
-        pattern=CONTAINER_AND_VIEW_EXTERNAL_ID_PATTERN,
+        pattern=DM_EXTERNAL_ID_PATTERN,
     )
     version: str = Field(
         description="Version of the view.",
         max_length=43,
-        pattern=VIEW_VERSION_PATTERN,
+        pattern=DM_VERSION_PATTERN,
     )
     name: str | None = Field(
         default=None,
