@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.adapter import (
     MigrationSelector,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import asset_centric_to_dm
-from cognite_toolkit._cdf_tk.commands._migrate.issues import ConversionIssue, MigrationIssue
+from cognite_toolkit._cdf_tk.commands._migrate.issues import MigrationIssue
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio._base import T_Selector, T_WritableCogniteResourceList
 
@@ -74,32 +74,19 @@ class AssetCentricMapper(DataMapper[MigrationSelector, AssetCentricMappingList, 
         for item in source:
             mapping = item.mapping
             ingestion_view = mapping.get_ingestion_view()
-            if ingestion_view not in self._view_mapping_by_id:
-                issues.append(
-                    ConversionIssue(
-                        asset_centric_id=mapping.as_asset_centric_id(),
-                        instance_id=mapping.instance_id,
-                        error=f"Ingestion view '{ingestion_view}' not found.",
-                    )
+            try:
+                view_source = self._view_mapping_by_id[ingestion_view]
+                instance, conversion_issue = asset_centric_to_dm(
+                    item.resource,
+                    instance_id=mapping.instance_id,
+                    view_source=view_source,
+                    view_properties=self._ingestion_view_by_id[view_source.view_id].properties,
                 )
-                continue
-            view_source = self._view_mapping_by_id[ingestion_view]
-            if view_source.view_id not in self._ingestion_view_by_id:
-                issues.append(
-                    ConversionIssue(
-                        asset_centric_id=mapping.as_asset_centric_id(),
-                        instance_id=mapping.instance_id,
-                        error=f"Ingestion view '{view_source.view_id}' not found in Data Modeling.",
-                    )
-                )
-                continue
-
-            instance, conversion_issue = asset_centric_to_dm(
-                item.resource,
-                instance_id=mapping.instance_id,
-                view_source=view_source,
-                view_properties=self._ingestion_view_by_id[view_source.view_id].properties,
-            )
+            except KeyError as e:
+                raise RuntimeError(
+                    f"Failed to lookup mapping or view for ingestion view '{ingestion_view}'. Did you forget to call .prepare()?"
+                ) from e
             instances.append(instance)
-            issues.append(conversion_issue)
+            if conversion_issue.has_issues:
+                issues.append(conversion_issue)
         return instances, issues

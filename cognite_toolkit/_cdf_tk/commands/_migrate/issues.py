@@ -114,6 +114,17 @@ class ConversionIssue(MigrationIssue):
     failed_conversions: list[FailedConversion] = Field(default_factory=list)
     ignored_asset_centric_properties: list[str] = Field(default_factory=list)
 
+    @property
+    def has_issues(self) -> bool:
+        """Check if there are any issues recorded in this ConversionIssue."""
+        return bool(
+            self.error
+            or self.missing_asset_centric_properties
+            or self.missing_instance_properties
+            or self.invalid_instance_property_types
+            or self.failed_conversions
+        )
+
     @field_serializer("instance_id")
     def serialize_instance_id(self, instance_id: NodeId) -> dict[str, str]:
         return instance_id.dump(include_instance_type=True)
