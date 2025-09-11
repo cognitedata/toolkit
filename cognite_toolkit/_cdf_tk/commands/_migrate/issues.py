@@ -107,7 +107,6 @@ class ConversionIssue(MigrationIssue):
     type: ClassVar[str] = "conversion"
     asset_centric_id: AssetCentricId
     instance_id: InstanceId
-    error: str | None = None
     missing_asset_centric_properties: list[str] = Field(default_factory=list)
     missing_instance_properties: list[str] = Field(default_factory=list)
     invalid_instance_property_types: list[InvalidPropertyDataType] = Field(default_factory=list)
@@ -118,8 +117,7 @@ class ConversionIssue(MigrationIssue):
     def has_issues(self) -> bool:
         """Check if there are any issues recorded in this ConversionIssue."""
         return bool(
-            self.error
-            or self.missing_asset_centric_properties
+            self.missing_asset_centric_properties
             or self.missing_instance_properties
             or self.invalid_instance_property_types
             or self.failed_conversions
