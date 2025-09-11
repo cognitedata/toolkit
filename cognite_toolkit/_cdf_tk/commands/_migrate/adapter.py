@@ -1,5 +1,5 @@
 from abc import ABC
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
@@ -139,7 +139,7 @@ class AssetCentricMigrationIOAdapter(
             chunk: list[AssetCentricMapping[T_WritableCogniteResource]] = []
             for mapping_chunk in chunker_sequence(items, self.chunk_size):
                 resources = self.base.retrieve(mapping_chunk.get_ids())
-                for mapping, resource in zip(mapping_chunk, resources):
+                for mapping, resource in zip(mapping_chunk, resources, strict=True):
                     chunk.append(AssetCentricMapping(mapping=mapping, resource=resource))
                 if chunk:
                     yield AssetCentricMappingList(chunk)
