@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import asset_centric_t
 from cognite_toolkit._cdf_tk.commands._migrate.issues import MigrationIssue
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio._base import T_Selector, T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 
 class DataMapper(Generic[T_Selector, T_WritableCogniteResourceList, T_CogniteResourceList], ABC):
@@ -54,9 +55,11 @@ class AssetCentricMapper(DataMapper[MigrationSelector, AssetCentricMappingList, 
         ingestion_view_ids = source_selector.get_ingestion_views()
         ingestion_views = self.client.migration.view_source.retrieve(ingestion_view_ids)
         self._view_mapping_by_id = {view.external_id: view for view in ingestion_views}
-        missing_views = set(ingestion_view_ids) - set(self._view_mapping_by_id.keys())
-        if missing_views:
-            raise ToolkitValueError(f"The following ingestion views were not found: {', '.join(missing_views)}")
+        missing_mappings = set(ingestion_view_ids) - set(self._view_mapping_by_id.keys())
+        if missing_mappings:
+            raise ToolkitValueError(
+                f"The following ingestion views were not found: {humanize_collection(missing_mappings)}"
+            )
 
         view_ids = list({view.view_id for view in ingestion_views})
         views = self.client.data_modeling.views.retrieve(view_ids)
@@ -64,7 +67,7 @@ class AssetCentricMapper(DataMapper[MigrationSelector, AssetCentricMappingList, 
         missing_views = set(view_ids) - set(self._ingestion_view_by_id.keys())
         if missing_views:
             raise ToolkitValueError(
-                f"The following ingestion views were not found in Data Modeling: {', '.join(missing_views)}"
+                f"The following ingestion views were not found in Data Modeling: {humanize_collection(missing_views)}"
             )
 
     def map_chunk(self, source: AssetCentricMappingList) -> tuple[InstanceApplyList, list[MigrationIssue]]:
