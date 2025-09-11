@@ -3,7 +3,7 @@ from abc import ABC
 from types import MappingProxyType
 from typing import Any, ClassVar, Literal, cast
 
-from pydantic import Field, ModelWrapValidatorHandler, SecretStr, model_serializer, model_validator
+from pydantic import Field, ModelWrapValidatorHandler, SecretStr, field_serializer, model_serializer, model_validator
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -45,6 +45,10 @@ class AuthCertificate(BaseModelResource):
         description="Base 64 encoded der certificate, or a pem certificate with headers.",
         max_length=100000,
     )
+
+    @field_serializer("key_password", when_used="json")
+    def dump_key_password(self, v):
+        return v.get_secret_value() if v else None
 
 
 class Authentication(BaseModelResource):
@@ -94,6 +98,10 @@ class BasicAuthentication(Authentication):
         max_length=200,
     )
 
+    @field_serializer("password", when_used="json")
+    def dump_password(self, v):
+        return v.get_secret_value()
+
 
 class ClientCredentials(Authentication):
     type: ClassVar[str] = "clientCredentials"
@@ -112,6 +120,10 @@ class ClientCredentials(Authentication):
         description="Default value for the expires_in OAuth 2.0 parameter. If the identity provider does not return expires_in in token requests, this parameter must be set or the request will fail.",
     )
 
+    @field_serializer("client_secret", when_used="json")
+    def dump_client_secret(self, v):
+        return v.get_secret_value()
+
 
 class QueryCredentials(Authentication):
     type: ClassVar[str] = "query"
@@ -120,6 +132,10 @@ class QueryCredentials(Authentication):
     )
     value: SecretStr = Field(description="Value of the authentication token")
 
+    @field_serializer("value", when_used="json")
+    def dump_value(self, v):
+        return v.get_secret_value()
+
 
 class HeaderCredentials(Authentication):
     type: ClassVar[str] = "header"
@@ -127,6 +143,10 @@ class HeaderCredentials(Authentication):
         description="Key for the header to place the authentication token in",
     )
     value: SecretStr = Field(description="Value of the authentication token")
+
+    @field_serializer("value", when_used="json")
+    def dump_value(self, v):
+        return v.get_secret_value()
 
 
 class ScramSha(Authentication, ABC):
@@ -138,6 +158,10 @@ class ScramSha(Authentication, ABC):
         description="Password for authentication",
         max_length=200,
     )
+
+    @field_serializer("password", when_used="json")
+    def dump_password(self, v):
+        return v.get_secret_value()
 
 
 class ScramSha256(ScramSha):
@@ -174,7 +198,7 @@ class HostedExtractorSourceYAML(ToolkitResource):
         type_ = data["type"]
         if type_ not in _SOURCE_CLS_BY_TYPE:
             raise ValueError(
-                f"invalid trigger hosted extractor source '{type_}'. Expected one of {humanize_collection(_SOURCE_CLS_BY_TYPE.keys(), bind_word='or')}"
+                f"Invalid hosted extractor source '{type_}'. Expected one of {humanize_collection(_SOURCE_CLS_BY_TYPE.keys(), bind_word='or')}"
             )
         cls_ = _SOURCE_CLS_BY_TYPE[type_]
         return cast(Self, cls_.model_validate({k: v for k, v in data.items() if k != "type"}))
@@ -202,7 +226,7 @@ class EventHubSource(HostedExtractorSourceYAML):
         description="The name of the Event Hub key to use for authentication.",
         max_length=200,
     )
-    key_value: str = Field(
+    key_value: SecretStr = Field(
         description="Value of the Event Hub key to use for authentication.",
         max_length=200,
     )
@@ -211,6 +235,10 @@ class EventHubSource(HostedExtractorSourceYAML):
         description="The event hub consumer group to use. Microsoft recommends having a distinct consumer group for each application consuming data from event hub. If left out, this uses the default consumer group.",
         max_length=200,
     )
+
+    @field_serializer("key_value", when_used="json")
+    def dump_secret(self, v):
+        return v.get_secret_value()
 
 
 class RESTSource(HostedExtractorSourceYAML):
