@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from cognite_toolkit._cdf_tk.resource_classes import EdgeYAML
+from cognite_toolkit._cdf_tk.resource_classes.edge import EdgeYAML
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
 from tests.test_unit.utils import find_resources
