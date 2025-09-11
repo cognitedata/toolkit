@@ -3,7 +3,15 @@ from abc import ABC
 from types import MappingProxyType
 from typing import Any, ClassVar, Literal, cast
 
-from pydantic import Field, ModelWrapValidatorHandler, SecretStr, field_serializer, model_serializer, model_validator
+from pydantic import (
+    Field,
+    ModelWrapValidatorHandler,
+    SecretStr,
+    field_serializer,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -263,6 +271,15 @@ class RESTSource(HostedExtractorSourceYAML):
     )
     authentication: Authentication | None = Field(None, description="Authentication details for source")
 
+    @field_validator("authentication", mode="after")
+    def validate_authentication(cls, value: Authentication | None) -> Authentication | None:
+        valid_auth = (BasicAuthentication, ClientCredentials, QueryCredentials, HeaderCredentials)
+        if value is not None and not isinstance(value, valid_auth):
+            raise ValueError(
+                f"Invalid authentication type '{value.type}' for REST source. Expected one of {humanize_collection([a.type for a in valid_auth], bind_word='or')}"
+            )
+        return value
+
     @model_serializer(mode="wrap")
     def serialize_authentication(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> dict:
         # Authentication are serialized as dict {}
@@ -342,6 +359,15 @@ class KafkaSource(HostedExtractorSourceYAML):
         None,
         description="Authentication certificate (if configured) used to authenticate to source.",
     )
+
+    @field_validator("authentication", mode="after")
+    def validate_authentication(cls, value: Authentication | None) -> Authentication | None:
+        valid_auth = (BasicAuthentication, ClientCredentials, ScramSha256, ScramSha512)
+        if value is not None and not isinstance(value, valid_auth):
+            raise ValueError(
+                f"Invalid authentication type '{value.type}' for Kafka source. Expected one of {humanize_collection([a.type for a in valid_auth], bind_word='or')}"
+            )
+        return value
 
     @model_serializer(mode="wrap")
     def serialize_authentication(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> dict:
