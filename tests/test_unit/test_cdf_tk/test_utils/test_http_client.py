@@ -7,12 +7,14 @@ import requests
 import responses
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.http_client import (
     FailedItem,
     FailedRequestItem,
     FailedRequestMessage,
     FailedResponse,
     HTTPClient,
+    HTTPMessage,
     ItemsRequest,
     MissingItem,
     ParamRequest,
@@ -24,6 +26,7 @@ from cognite_toolkit._cdf_tk.utils.http_client import (
     UnknownResponseItem,
 )
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
+from tests.test_unit.utils import FakeCogniteResourceGenerator
 
 
 @pytest.fixture
@@ -376,3 +379,17 @@ class TestHTTPClientItemRequests:
         assert results == [
             FailedRequestItem(id=1, error="RequestException after 1 attempts (read error): Simulated timeout error")
         ]
+
+
+class TestHTTPMessage:
+    @pytest.mark.parametrize("message_cls", get_concrete_subclasses(HTTPMessage))
+    def test_dump_http_message(self, message_cls: type[HTTPMessage]) -> None:
+        message = FakeCogniteResourceGenerator(seed=42).create_instance(message_cls)
+
+        dumped = message.dump()
+        assert isinstance(dumped, dict)
+        assert dumped["type"] == message_cls.__name__
+        try:
+            json.dumps(dumped)
+        except Exception as e:
+            pytest.fail(f"Dumped data is not valid JSON: {e}")
