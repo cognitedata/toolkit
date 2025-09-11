@@ -1,4 +1,5 @@
-from collections.abc import Iterable
+from abc import ABC
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
@@ -17,9 +18,7 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList
-from cognite_toolkit._cdf_tk.exceptions import (
-    ToolkitNotImplementedError,
-)
+from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID
 from cognite_toolkit._cdf_tk.storageio import (
     AssetCentricSelector,
@@ -38,13 +37,19 @@ from .data_model import INSTANCE_SOURCE_VIEW_ID
 
 
 @dataclass(frozen=True)
-class MigrationSelector(AssetCentricSelector, InstanceSelector): ...
+class MigrationSelector(AssetCentricSelector, InstanceSelector, ABC): ...
 
 
 @dataclass(frozen=True)
 class MigrationCSVFileSelector(MigrationSelector):
     datafile: Path
     resource_type: str
+
+    def get_schema_spaces(self) -> list[str] | None:
+        return None
+
+    def get_instance_spaces(self) -> list[str] | None:
+        return sorted({item.instance_id.space for item in self.items})
 
     @cached_property
     def items(self) -> MigrationMappingList:
@@ -108,7 +113,7 @@ class AssetCentricMigrationIOAdapter(
 
             mapping = next((source for source in sources if source.source == INSTANCE_SOURCE_VIEW_ID), None)
             if mapping is None:
-                raise TypeError(f"Cannot ID from item of type {type(item).__name__!r}")
+                raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
             id_ = mapping.properties.get("id")
             if not isinstance(id_, int):
                 raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
@@ -124,21 +129,20 @@ class AssetCentricMigrationIOAdapter(
 
     def download_iterable(
         self, selector: MigrationSelector, limit: int | None = None
-    ) -> Iterable[AssetCentricMappingList]:
-        if isinstance(selector, MigrationCSVFileSelector):
-            items = selector.items
-            if limit is not None:
-                items = MigrationMappingList(items[:limit])
-            chunk: list[AssetCentricMapping[T_WritableCogniteResource]] = []
-            for mapping_chunk in chunker_sequence(items, self.chunk_size):
-                resources = self.base.retrieve(mapping_chunk.get_ids())
-                for mapping, resource in zip(mapping_chunk, resources):
-                    chunk.append(AssetCentricMapping(mapping=mapping, resource=resource))
-                if chunk:
-                    yield AssetCentricMappingList(chunk)
-                    chunk = []
-        else:
+    ) -> Iterator[AssetCentricMappingList]:
+        if not isinstance(selector, MigrationCSVFileSelector):
             raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for download_iterable")
+        items = selector.items
+        if limit is not None:
+            items = MigrationMappingList(items[:limit])
+        chunk: list[AssetCentricMapping[T_WritableCogniteResource]] = []
+        for current_batch in chunker_sequence(items, self.chunk_size):
+            resources = self.base.retrieve(current_batch.get_ids())
+            for mapping, resource in zip(current_batch, resources, strict=True):
+                chunk.append(AssetCentricMapping(mapping=mapping, resource=resource))
+            if chunk:
+                yield AssetCentricMappingList(chunk)
+                chunk = []
 
     def count(self, selector: AssetCentricSelector) -> int | None:
         return self.base.count(selector)
