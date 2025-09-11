@@ -131,7 +131,7 @@ class AssetCentricMigrationIOAdapter(
 
     def download_iterable(
         self, selector: MigrationSelector, limit: int | None = None
-    ) -> Iterable[AssetCentricMappingList]:
+    ) -> Iterator[AssetCentricMappingList]:
         if isinstance(selector, MigrationCSVFileSelector):
             items = selector.items
             if limit is not None:
