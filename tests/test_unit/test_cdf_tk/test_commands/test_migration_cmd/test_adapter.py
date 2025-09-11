@@ -1,18 +1,10 @@
-from collections.abc import Iterable
 from pathlib import Path
 
-import pytest
 import responses
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.commands._migrate.adapter import AssetCentricMigrationIOAdapter, MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.storageio import AssetIO, InstanceIO
-
-
-@pytest.fixture
-def rsps() -> Iterable[responses.RequestsMock]:
-    with responses.RequestsMock() as rsps:
-        yield rsps
 
 
 class TestAssetCentricMigrationIOAdapter:
