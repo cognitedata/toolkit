@@ -137,9 +137,9 @@ class AssetCentricMigrationIOAdapter(
             if limit is not None:
                 items = MigrationMappingList(items[:limit])
             chunk: list[AssetCentricMapping[T_WritableCogniteResource]] = []
-            for mapping_chunk in chunker_sequence(items, self.chunk_size):
-                resources = self.base.retrieve(mapping_chunk.get_ids())
-                for mapping, resource in zip(mapping_chunk, resources, strict=True):
+            for current_batch in chunker_sequence(items, self.chunk_size):
+                resources = self.base.retrieve(current_batch.get_ids())
+                for mapping, resource in zip(current_batch, resources, strict=True):
                     chunk.append(AssetCentricMapping(mapping=mapping, resource=resource))
                 if chunk:
                     yield AssetCentricMappingList(chunk)
