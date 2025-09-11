@@ -54,7 +54,7 @@ class MigrationMapping(BaseModel, alias_generator=to_camel_case, extra="ignore")
         for mapping in default_mappings:
             if mapping.resource_type == self.resource_type:
                 return mapping.external_id
-        raise TypeError(f"No default ingestion view specified for resource type '{self.resource_type}'")
+        raise ToolkitValueError(f"No default ingestion view specified for resource type '{self.resource_type}'")
 
     def as_asset_centric_id(self) -> AssetCentricId:
         return AssetCentricId(resource_type=self.resource_type, id_=self.id)  # type: ignore[arg-type]
