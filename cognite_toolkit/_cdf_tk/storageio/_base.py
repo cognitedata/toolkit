@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from collections.abc import Hashable, Iterable
+from collections.abc import Hashable, Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Generic, TypeVar
@@ -12,6 +12,7 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 T_Selector = TypeVar("T_Selector", bound=Hashable)
@@ -88,6 +89,19 @@ class StorageIO(ABC, Generic[T_Selector, T_CogniteResourceList, T_WritableCognit
         Args:
             data_chunk: The chunk of data to upload, which should be a list of writable Cognite resources.
             selector: The selection criteria to identify where to upload the data.
+        """
+        raise NotImplementedError()
+
+    def upload_items_force(
+        self, data_chunk: T_CogniteResourceList, http_client: HTTPClient, selector: T_Selector | None = None
+    ) -> Sequence[HTTPMessage]:
+        """Upload a chunk of data to the storage using a custom HTTP client.
+        This ensures that even if one item in the chunk fails, the rest will still be uploaded.
+
+        Args:
+            data_chunk: The chunk of data to upload, which should be a list of writable Cognite resources.
+            http_client: The custom HTTP client to use for the upload.
+            selector: Optional selection criteria to identify where to upload the data.
         """
         raise NotImplementedError()
 
