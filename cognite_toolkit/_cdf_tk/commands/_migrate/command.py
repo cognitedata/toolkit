@@ -1,19 +1,20 @@
-from collections.abc import Iterable, Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from enum import Enum
 from pathlib import Path
 
-from chunk import Chunk
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import DataMapper
+from cognite_toolkit._cdf_tk.commands._migrate.issues import WriteIssue
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileExistsError
 from cognite_toolkit._cdf_tk.storageio import StorageIO
 from cognite_toolkit._cdf_tk.storageio._base import T_CogniteResourceList, T_Selector, T_WritableCogniteResourceList
-from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage
+from cognite_toolkit._cdf_tk.utils.fileio import Chunk, NDJsonWriter, Uncompressed
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemIDMessage, SuccessItem
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.progress_tracker import ProgressTracker
+from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
 
 
 class MigrationCommand(ToolkitCommand):
@@ -29,7 +30,7 @@ class MigrationCommand(ToolkitCommand):
     def migrate(
         self,
         selected: T_Selector,
-        data: StorageIO[T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
+        data: StorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
         mapper: DataMapper[T_Selector, T_WritableCogniteResourceList, T_CogniteResourceList],
         log_dir: Path,
         dry_run: bool = False,
@@ -48,20 +49,20 @@ class MigrationCommand(ToolkitCommand):
             iteration_count = (total_items // data.chunk_size) + (1 if total_items % data.chunk_size > 0 else 0)
 
         console = Console()
-        tracker = ProgressTracker[int](self.Steps.list())
+        tracker = ProgressTracker[T_ID](self.Steps.list())
         with (
             NDJsonWriter(log_dir, kind=f"{data.kind}MigrationIssues", compression=Uncompressed) as log_file,
             HTTPClient(config=data.client.config) as write_client,
         ):
             executor = ProducerWorkerExecutor[T_WritableCogniteResourceList, T_CogniteResourceList](
                 download_iterable=self._download_iterable(selected, data, tracker),
-                process=self._convert(mapper, tracker, log_file),
+                process=self._convert(mapper, data, tracker, log_file),
                 write=self._upload(write_client, data, log_file, tracker, dry_run),
                 iteration_count=iteration_count,
                 max_queue_size=10,
                 download_description=f"Downloading {data.display_name}",
-                process_description=f"Converting",
-                write_description=f"Uploading",
+                process_description="Converting",
+                write_description="Uploading",
                 console=console,
             )
 
@@ -73,10 +74,10 @@ class MigrationCommand(ToolkitCommand):
         console.print(f"{action} {total:,} {data.display_name} to instances.")
 
     def _download_iterable(
-            self,
-            selected: T_Selector,
-            data: StorageIO[T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
-            tracker: ProgressTracker,
+        self,
+        selected: T_Selector,
+        data: StorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
+        tracker: ProgressTracker,
     ) -> Iterable[T_WritableCogniteResourceList]:
         for chunk in data.download_iterable(selected):
             for item in chunk:
@@ -84,28 +85,30 @@ class MigrationCommand(ToolkitCommand):
             yield chunk
 
     def _convert(
-            self,
-            mapper: DataMapper[T_Selector, T_WritableCogniteResourceList, T_CogniteResourceList],
-            tracker: ProgressTracker[int],
-            log_file: NDJsonWriter,
+        self,
+        mapper: DataMapper[T_Selector, T_WritableCogniteResourceList, T_CogniteResourceList],
+        data: StorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
+        tracker: ProgressTracker[T_ID],
+        log_file: NDJsonWriter,
     ) -> Callable[[T_WritableCogniteResourceList], T_CogniteResourceList]:
         def track_mapping(source: T_WritableCogniteResourceList) -> T_CogniteResourceList:
             target, issues = mapper.map_chunk(source)
             for item in source:
-                tracker.set_progress(item.id, step=self.Steps.CONVERT, status="success")
+                tracker.set_progress(data.as_id(item), step=self.Steps.CONVERT, status="success")
             if issues:
-                log_file.write_chunks([issue.dump() for issue in issues])
+                # MyPy fails to understand that dict[str, JsonVal] is a Chunk
+                log_file.write_chunks([issue.dump() for issue in issues])  # type: ignore[misc]
             return target
 
         return track_mapping
 
     def _upload(
-            self,
-            write_client: HTTPClient,
-            target: StorageIO[T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
-            log_file: NDJsonWriter,
-            tracker: ProgressTracker[int],
-            dry_run: bool,
+        self,
+        write_client: HTTPClient,
+        target: StorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
+        log_file: NDJsonWriter,
+        tracker: ProgressTracker[T_ID],
+        dry_run: bool,
     ) -> Callable[[T_CogniteResourceList], None]:
         def upload_items(data_chunk: T_CogniteResourceList) -> None:
             if not data_chunk:
@@ -123,7 +126,13 @@ class MigrationCommand(ToolkitCommand):
                 elif isinstance(item, ItemIDMessage):
                     tracker.set_progress(item.id, step=self.Steps.UPLOAD, status="failed")
                 if not isinstance(item, SuccessItem):
-                    issues.append(item.dump_json())
+                    issues.append(
+                        WriteIssue(
+                            instance_id=target.as_id(item),
+                            status_code=item.status_code,
+                            message=str(item),
+                        ).model_dump()
+                    )
             if issues:
                 log_file.write_chunks(issues)
             return None
