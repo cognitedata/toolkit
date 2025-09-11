@@ -89,7 +89,7 @@ class AssetCentricMappingList(
 
 class AssetCentricMigrationIOAdapter(
     Generic[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
-    TableStorageIO[MigrationSelector, InstanceApplyList, AssetCentricMappingList],
+    TableStorageIO[int, MigrationSelector, InstanceApplyList, AssetCentricMappingList],
 ):
     folder_name = "migration"
     kind = "AssetCentricMigration"
