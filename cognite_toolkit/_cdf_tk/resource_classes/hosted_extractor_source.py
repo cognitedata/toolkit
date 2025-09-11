@@ -83,7 +83,7 @@ class Authentication(BaseModelResource):
             raise ValueError(
                 f"invalid trigger authentication '{type_}'. Expected one of {humanize_collection(_AUTHENTICATION_CLS_BY_TYPE.keys(), bind_word='or')}"
             )
-        cls_ = _SOURCE_CLS_BY_TYPE[type_]
+        cls_ = _AUTHENTICATION_CLS_BY_TYPE[type_]
         return cast(Self, cls_.model_validate({k: v for k, v in data.items() if k != "type"}))
 
     @model_serializer(mode="wrap", when_used="always", return_type=dict)
