@@ -1,4 +1,5 @@
 import sys
+from abc import ABC
 from types import MappingProxyType
 from typing import Any, ClassVar, Literal, cast
 
@@ -113,6 +114,7 @@ class ClientCredentials(Authentication):
 
 
 class QueryCredentials(Authentication):
+    type: ClassVar[str] = "query"
     key: str = Field(
         description="Key for the query parameter to place the authentication token in.",
     )
@@ -120,13 +122,14 @@ class QueryCredentials(Authentication):
 
 
 class HeaderCredentials(Authentication):
+    type: ClassVar[str] = "header"
     key: str = Field(
         description="Key for the header to place the authentication token in",
     )
     value: SecretStr = Field(description="Value of the authentication token")
 
 
-class ScramSha(Authentication):
+class ScramSha(Authentication, ABC):
     username: str = Field(
         description="Username for authentication",
         max_length=200,
@@ -244,7 +247,7 @@ class RESTSource(HostedExtractorSourceYAML):
         return serialized_data
 
 
-class MQTTSource(HostedExtractorSourceYAML):
+class MQTTSource(HostedExtractorSourceYAML, ABC):
     host: str = Field(
         description="Host or IP address of the MQTT broker to connect to.",
         max_length=200,
@@ -325,9 +328,9 @@ class KafkaSource(HostedExtractorSourceYAML):
 
 
 _SOURCE_CLS_BY_TYPE: MappingProxyType[str, type[HostedExtractorSourceYAML]] = MappingProxyType(
-    {s.type: s for s in get_concrete_subclasses(HostedExtractorSourceYAML)}
+    {source.type: source for source in get_concrete_subclasses(HostedExtractorSourceYAML)}
 )
 
 _AUTHENTICATION_CLS_BY_TYPE: MappingProxyType[str, type[Authentication]] = MappingProxyType(
-    {s.type: s for s in get_concrete_subclasses(Authentication)}
+    {auth.type: auth for auth in get_concrete_subclasses(Authentication)}
 )
