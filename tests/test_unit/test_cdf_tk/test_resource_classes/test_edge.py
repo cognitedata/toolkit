@@ -69,6 +69,7 @@ class TestEdgeYAML:
         data = {
             "space": "my_space",
             "externalId": "multi_source_edge",
+            "type": {"space": "type_space", "externalId": "type_edge"},
             "startNode": {"space": "node_space", "externalId": "start_node"},
             "endNode": {"space": "node_space", "externalId": "end_node"},
             "sources": [
