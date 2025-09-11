@@ -130,20 +130,19 @@ class AssetCentricMigrationIOAdapter(
     def download_iterable(
         self, selector: MigrationSelector, limit: int | None = None
     ) -> Iterator[AssetCentricMappingList]:
-        if isinstance(selector, MigrationCSVFileSelector):
-            items = selector.items
-            if limit is not None:
-                items = MigrationMappingList(items[:limit])
-            chunk: list[AssetCentricMapping[T_WritableCogniteResource]] = []
-            for current_batch in chunker_sequence(items, self.chunk_size):
-                resources = self.base.retrieve(current_batch.get_ids())
-                for mapping, resource in zip(current_batch, resources, strict=True):
-                    chunk.append(AssetCentricMapping(mapping=mapping, resource=resource))
-                if chunk:
-                    yield AssetCentricMappingList(chunk)
-                    chunk = []
-        else:
+        if not isinstance(selector, MigrationCSVFileSelector):
             raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for download_iterable")
+        items = selector.items
+        if limit is not None:
+            items = MigrationMappingList(items[:limit])
+        chunk: list[AssetCentricMapping[T_WritableCogniteResource]] = []
+        for current_batch in chunker_sequence(items, self.chunk_size):
+            resources = self.base.retrieve(current_batch.get_ids())
+            for mapping, resource in zip(current_batch, resources, strict=True):
+                chunk.append(AssetCentricMapping(mapping=mapping, resource=resource))
+            if chunk:
+                yield AssetCentricMappingList(chunk)
+                chunk = []
 
     def count(self, selector: AssetCentricSelector) -> int | None:
         return self.base.count(selector)
