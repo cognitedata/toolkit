@@ -81,7 +81,7 @@ class Authentication(BaseModelResource):
         type_ = data["type"]
         if type_ not in _AUTHENTICATION_CLS_BY_TYPE:
             raise ValueError(
-                f"invalid trigger authentication '{type_}'. Expected one of {humanize_collection(_AUTHENTICATION_CLS_BY_TYPE.keys(), bind_word='or')}"
+                f"invalid authentication type '{type_}'. Expected one of {humanize_collection(_AUTHENTICATION_CLS_BY_TYPE.keys(), bind_word='or')}"
             )
         cls_ = _AUTHENTICATION_CLS_BY_TYPE[type_]
         return cast(Self, cls_.model_validate({k: v for k, v in data.items() if k != "type"}))
