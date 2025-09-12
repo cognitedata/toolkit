@@ -77,6 +77,10 @@ class Flags(Enum):
         visible=True,
         description="Enables the cdf upload command",
     )
+    SEARCH_CONFIG = FlagMetadata(
+        visible=True,
+        description="Enables the support for the search config command",
+    )
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)
