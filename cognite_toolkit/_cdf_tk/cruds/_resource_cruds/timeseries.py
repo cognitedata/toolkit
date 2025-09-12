@@ -29,20 +29,20 @@ from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk._parameters import ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.constants import MAX_TIMESTAMP_MS, MIN_TIMESTAMP_MS
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import DatapointSubscriptionYAML, TimeSeriesYAML
 from cognite_toolkit._cdf_tk.utils import calculate_hash
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
 from cognite_toolkit._cdf_tk.utils.text import suffix_description
 
-from .auth_loaders import GroupAllScopedLoader, SecurityCategoryCRUD
-from .classic_loaders import AssetCRUD
-from .data_organization_loaders import DataSetsCRUD
+from .auth import GroupAllScopedLoader, SecurityCategoryCRUD
+from .classic import AssetCRUD
+from .data_organization import DataSetsCRUD
 
 
 @final

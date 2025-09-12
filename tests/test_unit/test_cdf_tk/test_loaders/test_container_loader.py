@@ -5,7 +5,7 @@ import pytest
 from cognite.client.data_classes.data_modeling import Container, ContainerProperty, Text
 
 from cognite_toolkit._cdf_tk._parameters import read_parameters_from_dict
-from cognite_toolkit._cdf_tk.loaders import ContainerLoader, ResourceWorker
+from cognite_toolkit._cdf_tk.cruds import ContainerLoader, ResourceWorker
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 

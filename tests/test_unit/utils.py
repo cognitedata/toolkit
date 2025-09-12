@@ -126,7 +126,7 @@ def mock_read_yaml_file(
         "transformation_loaders",
     ]:
         monkeypatch.setattr(
-            f"cognite_toolkit._cdf_tk.loaders._resource_loaders.{module}.load_yaml_inject_variables",
+            f"cognite_toolkit._cdf_tk.loaders._resource_cruds.{module}.load_yaml_inject_variables",
             fake_load_yaml_inject_variables,
         )
 

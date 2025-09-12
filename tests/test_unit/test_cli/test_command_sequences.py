@@ -14,9 +14,9 @@ from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.commands import BuildCommand, CleanCommand, DeployCommand
 from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH
+from cognite_toolkit._cdf_tk.cruds import LOADER_BY_FOLDER_NAME, Loader
 from cognite_toolkit._cdf_tk.data_classes import ModuleDirectories
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME, Loader
 from cognite_toolkit._cdf_tk.utils import humanize_collection, iterate_modules
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import COMPLETE_ORG, COMPLETE_ORG_ALPHA_FLAGS

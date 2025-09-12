@@ -48,12 +48,12 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ToolkitCycleError,
     ToolkitRequiredValueError,
 )
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import WorkflowTriggerYAML, WorkflowVersionYAML, WorkflowYAML
 from cognite_toolkit._cdf_tk.tk_warnings import (
     LowSeverityWarning,
@@ -69,11 +69,11 @@ from cognite_toolkit._cdf_tk.utils import (
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 
-from .auth_loaders import GroupAllScopedLoader
-from .data_organization_loaders import DataSetsCRUD
-from .function_loaders import FunctionCRUD
-from .group_scoped_loader import GroupResourceScopedLoader
-from .transformation_loaders import TransformationCRUD
+from .auth import GroupAllScopedLoader
+from .data_organization import DataSetsCRUD
+from .function import FunctionCRUD
+from .group_scoped import GroupResourceScopedLoader
+from .transformation import TransformationCRUD
 
 
 @final

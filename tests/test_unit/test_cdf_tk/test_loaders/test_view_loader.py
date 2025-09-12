@@ -6,7 +6,7 @@ import pytest
 from cognite.client.data_classes import data_modeling as dm
 
 from cognite_toolkit._cdf_tk._parameters import read_parameters_from_dict
-from cognite_toolkit._cdf_tk.loaders import ContainerLoader, ResourceCRUD, ResourceWorker, SpaceLoader, ViewCRUD
+from cognite_toolkit._cdf_tk.cruds import ContainerLoader, ResourceCRUD, ResourceWorker, SpaceLoader, ViewCRUD
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 

@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from cognite_toolkit._cdf_tk.builders import get_loader
-from cognite_toolkit._cdf_tk.loaders import FileCRUD, RawDatabaseLoader, RawTableLoader, ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds import FileCRUD, RawDatabaseLoader, RawTableLoader, ResourceCRUD
 
 
 @pytest.mark.parametrize(

@@ -6,7 +6,7 @@ from cognite.client.data_classes.raw import RowWrite
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import UploadCommand
-from cognite_toolkit._cdf_tk.loaders import RawTableLoader
+from cognite_toolkit._cdf_tk.cruds import RawTableLoader
 from cognite_toolkit._cdf_tk.storageio import RawIO
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
 

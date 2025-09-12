@@ -85,11 +85,11 @@ from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import (
     GraphQLDataModelWriteList,
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, HAS_DATA_FILTER_LIMIT
-from cognite_toolkit._cdf_tk.exceptions import GraphQLParseError, ToolkitCycleError, ToolkitFileNotFoundError
-from cognite_toolkit._cdf_tk.loaders._base_loaders import (
+from cognite_toolkit._cdf_tk.cruds._base_cruds import (
     ResourceContainerCRUD,
     ResourceCRUD,
 )
+from cognite_toolkit._cdf_tk.exceptions import GraphQLParseError, ToolkitCycleError, ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.resource_classes import ContainerYAML, SpaceYAML, ViewYAML
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
@@ -106,7 +106,7 @@ from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
 from cognite_toolkit._cdf_tk.utils.tarjan import tarjan
 
-from .auth_loaders import GroupAllScopedLoader
+from .auth import GroupAllScopedLoader
 
 
 @final

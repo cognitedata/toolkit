@@ -70,6 +70,7 @@ from cognite_toolkit._cdf_tk._parameters import ANY_INT, ParameterSpec, Paramete
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ToolkitFileNotFoundError,
@@ -78,7 +79,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
     ToolkitYAMLFormatError,
 )
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import (
     TransformationNotificationYAML,
     TransformationScheduleYAML,
@@ -97,11 +97,11 @@ from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
 
-from .auth_loaders import GroupAllScopedLoader
-from .data_organization_loaders import DataSetsCRUD
-from .datamodel_loaders import DataModelCRUD, SpaceLoader, ViewCRUD
-from .group_scoped_loader import GroupResourceScopedLoader
-from .raw_loaders import RawDatabaseLoader, RawTableLoader
+from .auth import GroupAllScopedLoader
+from .data_organization import DataSetsCRUD
+from .datamodel import DataModelCRUD, SpaceLoader, ViewCRUD
+from .group_scoped import GroupResourceScopedLoader
+from .raw import RawDatabaseLoader, RawTableLoader
 
 
 @final

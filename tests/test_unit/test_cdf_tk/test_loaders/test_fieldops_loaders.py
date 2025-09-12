@@ -7,14 +7,14 @@ from cognite_toolkit._cdf_tk.client.data_classes.apm_config_v1 import (
     RootLocationConfiguration,
     RootLocationDataFilters,
 )
-from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.loaders import (
+from cognite_toolkit._cdf_tk.cruds import (
     AssetCRUD,
     DataSetsCRUD,
     GroupResourceScopedLoader,
     InfieldV1CRUD,
     SpaceLoader,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 
 
 class TestInfieldV1Loader:

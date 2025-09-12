@@ -15,8 +15,8 @@ from cognite.client.data_classes import (
 from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.loaders import ContainerLoader, TimeSeriesLoader
-from cognite_toolkit._cdf_tk.loaders._resource_loaders.three_d_model_loaders import ThreeDModelLoader
+from cognite_toolkit._cdf_tk.cruds import ContainerLoader, TimeSeriesLoader
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.three_d_model import ThreeDModelLoader
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
 

@@ -18,8 +18,8 @@ from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.cruds import FunctionCRUD, FunctionScheduleCRUD, ResourceWorker
 from cognite_toolkit._cdf_tk.exceptions import ResourceCreationError, ToolkitRequiredValueError
-from cognite_toolkit._cdf_tk.loaders import FunctionCRUD, FunctionScheduleCRUD, ResourceWorker
 from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, calculate_secure_hash
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import LOAD_DATA

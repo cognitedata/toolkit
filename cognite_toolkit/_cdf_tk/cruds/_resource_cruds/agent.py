@@ -9,7 +9,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk._parameters.constants import ANY_INT, ANYTHING
 from cognite_toolkit._cdf_tk._parameters.data_classes import ParameterSpec, ParameterSpecSet
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 
 

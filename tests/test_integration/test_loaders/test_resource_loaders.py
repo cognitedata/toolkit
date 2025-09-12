@@ -54,7 +54,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
     RobotCapabilityWriteList,
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.loaders import (
+from cognite_toolkit._cdf_tk.cruds import (
     AssetCRUD,
     CogniteFileLoader,
     DataModelCRUD,

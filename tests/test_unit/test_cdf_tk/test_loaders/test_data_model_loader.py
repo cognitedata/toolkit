@@ -8,9 +8,9 @@ from cognite.client.data_classes import data_modeling as dm
 
 from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import GraphQLDataModel, GraphQLDataModelWriteList
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.cruds import DataModelCRUD, ResourceWorker
+from cognite_toolkit._cdf_tk.cruds._resource_cruds import GraphQLLoader, ViewCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
-from cognite_toolkit._cdf_tk.loaders import DataModelCRUD, ResourceWorker
-from cognite_toolkit._cdf_tk.loaders._resource_loaders import GraphQLLoader, ViewCRUD
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.test_unit.approval_client import ApprovalToolkitClient
 

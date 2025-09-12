@@ -15,15 +15,7 @@ from rich.panel import Panel
 from rich.status import Status
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.data_classes import DeployResults, ResourceDeployResult
-from cognite_toolkit._cdf_tk.exceptions import (
-    AuthorizationError,
-    CDFAPIError,
-    ToolkitMissingResourceError,
-    ToolkitRequiredValueError,
-    ToolkitValueError,
-)
-from cognite_toolkit._cdf_tk.loaders import (
+from cognite_toolkit._cdf_tk.cruds import (
     RESOURCE_LOADER_LIST,
     AssetCRUD,
     CogniteFileLoader,
@@ -41,6 +33,14 @@ from cognite_toolkit._cdf_tk.loaders import (
     StreamlitCRUD,
     TransformationCRUD,
     ViewCRUD,
+)
+from cognite_toolkit._cdf_tk.data_classes import DeployResults, ResourceDeployResult
+from cognite_toolkit._cdf_tk.exceptions import (
+    AuthorizationError,
+    CDFAPIError,
+    ToolkitMissingResourceError,
+    ToolkitRequiredValueError,
+    ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.storageio import InstanceIO, InstanceSelector
 from cognite_toolkit._cdf_tk.tk_warnings import (

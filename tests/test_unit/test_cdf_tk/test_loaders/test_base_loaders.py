@@ -27,11 +27,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import Grap
 from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import Streamlit
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, ModulesCommand
-from cognite_toolkit._cdf_tk.data_classes import (
-    BuildConfigYAML,
-)
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
-from cognite_toolkit._cdf_tk.loaders import (
+from cognite_toolkit._cdf_tk.cruds import (
     LOADER_BY_FOLDER_NAME,
     LOADER_LIST,
     RESOURCE_LOADER_LIST,
@@ -50,6 +46,10 @@ from cognite_toolkit._cdf_tk.loaders import (
     WorkflowTriggerCRUD,
     get_loader,
 )
+from cognite_toolkit._cdf_tk.data_classes import (
+    BuildConfigYAML,
+)
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.utils import tmp_build_directory
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml

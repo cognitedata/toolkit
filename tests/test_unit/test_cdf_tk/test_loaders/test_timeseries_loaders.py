@@ -3,8 +3,8 @@ from cognite.client.data_classes import DataPointSubscriptionWrite
 from cognite.client.data_classes.data_modeling import NodeId
 from cognite.client.data_classes.datapoints_subscriptions import TimeSeriesID, TimeSeriesIDList
 
+from cognite_toolkit._cdf_tk.cruds import DatapointSubscriptionCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.loaders import DatapointSubscriptionCRUD
 
 
 class TestDatapointSubscriptionLoader:

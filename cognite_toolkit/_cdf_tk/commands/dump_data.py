@@ -24,12 +24,7 @@ from rich.progress import track
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
-from cognite_toolkit._cdf_tk.exceptions import (
-    ToolkitFileExistsError,
-    ToolkitIsADirectoryError,
-    ToolkitValueError,
-)
-from cognite_toolkit._cdf_tk.loaders import (
+from cognite_toolkit._cdf_tk.cruds import (
     AssetCRUD,
     DataSetsCRUD,
     EventCRUD,
@@ -37,6 +32,11 @@ from cognite_toolkit._cdf_tk.loaders import (
     LabelCRUD,
     ResourceCRUD,
     TimeSeriesLoader,
+)
+from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitFileExistsError,
+    ToolkitIsADirectoryError,
+    ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts

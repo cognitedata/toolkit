@@ -15,8 +15,8 @@ from cognite.client.data_classes.workflows import (
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.cruds import WorkflowTriggerCRUD, WorkflowVersionCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError, ToolkitRequiredValueError
-from cognite_toolkit._cdf_tk.loaders import WorkflowTriggerCRUD, WorkflowVersionCRUD
 from cognite_toolkit._cdf_tk.utils import calculate_secure_hash
 
 

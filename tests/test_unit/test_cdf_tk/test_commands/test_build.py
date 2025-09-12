@@ -9,13 +9,13 @@ from _pytest.monkeypatch import MonkeyPatch
 from cognite.client.data_classes.data_modeling import DataModelId, Space
 
 from cognite_toolkit._cdf_tk.commands.build_cmd import BuildCommand
+from cognite_toolkit._cdf_tk.cruds import TransformationCRUD
 from cognite_toolkit._cdf_tk.data_classes import BuildVariables, Environment
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMissingModuleError,
 )
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.hints import ModuleDefinition
-from cognite_toolkit._cdf_tk.loaders import TransformationCRUD
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests import data

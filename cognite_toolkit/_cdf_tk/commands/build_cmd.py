@@ -27,6 +27,22 @@ from cognite_toolkit._cdf_tk.constants import (
     URL,
     YAML_SUFFIX,
 )
+from cognite_toolkit._cdf_tk.cruds import (
+    ContainerLoader,
+    DataCRUD,
+    DataModelCRUD,
+    DataSetsCRUD,
+    ExtractionPipelineConfigCRUD,
+    FileCRUD,
+    LocationFilterCRUD,
+    NodeLoader,
+    RawDatabaseLoader,
+    RawTableLoader,
+    ResourceCRUD,
+    SpaceLoader,
+    TransformationCRUD,
+    ViewCRUD,
+)
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
     BuildDestinationFile,
@@ -50,22 +66,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.hints import Hint, ModuleDefinition, verify_module_directory
-from cognite_toolkit._cdf_tk.loaders import (
-    ContainerLoader,
-    DataCRUD,
-    DataModelCRUD,
-    DataSetsCRUD,
-    ExtractionPipelineConfigCRUD,
-    FileCRUD,
-    LocationFilterCRUD,
-    NodeLoader,
-    RawDatabaseLoader,
-    RawTableLoader,
-    ResourceCRUD,
-    SpaceLoader,
-    TransformationCRUD,
-    ViewCRUD,
-)
 from cognite_toolkit._cdf_tk.tk_warnings import (
     DuplicatedItemWarning,
     FileReadWarning,

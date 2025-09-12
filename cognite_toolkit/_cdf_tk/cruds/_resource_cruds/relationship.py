@@ -14,12 +14,12 @@ from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ParameterSpec, ParameterSpecSet
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 
-from .classic_loaders import AssetCRUD, EventCRUD, SequenceCRUD
-from .data_organization_loaders import DataSetsCRUD, LabelCRUD
-from .file_loader import FileMetadataLoader
-from .timeseries_loaders import TimeSeriesLoader
+from .classic import AssetCRUD, EventCRUD, SequenceCRUD
+from .data_organization import DataSetsCRUD, LabelCRUD
+from .file import FileMetadataLoader
+from .timeseries import TimeSeriesLoader
 
 
 @final

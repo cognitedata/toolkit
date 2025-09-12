@@ -23,9 +23,9 @@ from cognite_toolkit._cdf_tk.constants import (
     SEARCH_VARIABLES_SUFFIX,
     EnvType,
 )
+from cognite_toolkit._cdf_tk.cruds import LOADER_BY_FOLDER_NAME, RawDatabaseLoader
 from cognite_toolkit._cdf_tk.exceptions import ToolkitEnvError, ToolkitMissingModuleError
 from cognite_toolkit._cdf_tk.hints import ModuleDefinition
-from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME, RawDatabaseLoader
 from cognite_toolkit._cdf_tk.tk_warnings import (
     FileReadWarning,
     MediumSeverityWarning,

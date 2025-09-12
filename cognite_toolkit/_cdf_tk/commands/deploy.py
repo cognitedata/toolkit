@@ -17,6 +17,16 @@ from cognite_toolkit._cdf_tk.constants import (
     BUILD_ENVIRONMENT_FILE,
     HINT_LEAD_TEXT,
 )
+from cognite_toolkit._cdf_tk.cruds import (
+    DataCRUD,
+    Loader,
+    RawDatabaseLoader,
+    ResourceContainerCRUD,
+    ResourceCRUD,
+    ResourceWorker,
+)
+from cognite_toolkit._cdf_tk.cruds._base_cruds import T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.cruds._worker import CategorizedResources
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
     DatapointDeployResult,
@@ -34,16 +44,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
     ToolkitNotADirectoryError,
 )
-from cognite_toolkit._cdf_tk.loaders import (
-    DataCRUD,
-    Loader,
-    RawDatabaseLoader,
-    ResourceContainerCRUD,
-    ResourceCRUD,
-    ResourceWorker,
-)
-from cognite_toolkit._cdf_tk.loaders._base_loaders import T_WritableCogniteResourceList
-from cognite_toolkit._cdf_tk.loaders._worker import CategorizedResources
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning
 from cognite_toolkit._cdf_tk.tk_warnings.base import WarningList, catch_warnings
 from cognite_toolkit._cdf_tk.tk_warnings.other import (

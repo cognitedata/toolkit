@@ -23,7 +23,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarnin
 from cognite_toolkit._cdf_tk.utils import to_diff
 
 from . import FunctionCRUD
-from ._base_loaders import T_ID, ResourceCRUD, T_WritableCogniteResourceList
+from ._base_cruds import T_ID, ResourceCRUD, T_WritableCogniteResourceList
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.data_classes._module_directories import ReadModule

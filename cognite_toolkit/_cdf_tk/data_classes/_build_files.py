@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from cognite_toolkit._cdf_tk.loaders import (
+from cognite_toolkit._cdf_tk.cruds import (
     ResourceCRUD,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (

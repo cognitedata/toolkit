@@ -13,10 +13,10 @@ from cognite_toolkit._cdf_tk.client.data_classes.migration import (
     ViewSourceApply,
 )
 from cognite_toolkit._cdf_tk.constants import COGNITE_MIGRATION_SPACE
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.utils import in_dict
 
-from .datamodel_loaders import SpaceLoader, ViewCRUD
+from .datamodel import SpaceLoader, ViewCRUD
 
 
 @final

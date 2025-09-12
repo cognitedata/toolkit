@@ -7,11 +7,11 @@ from cognite.client._api.iam import IAMAPI
 from cognite.client.data_classes import GroupWrite, capabilities
 
 from cognite_toolkit._cdf_tk.commands import AuthCommand, BuildCommand
+from cognite_toolkit._cdf_tk.cruds import GroupAllScopedLoader
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
     BuiltModule,
 )
-from cognite_toolkit._cdf_tk.loaders import GroupAllScopedLoader
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 

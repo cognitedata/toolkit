@@ -13,8 +13,8 @@ from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.utils import read_yaml_content, safe_read
 from cognite_toolkit._cdf_tk.utils.file import read_csv
 
-from ._base_loaders import T_ID, DataCRUD, ResourceCRUD, T_WritableCogniteResourceList
-from ._resource_loaders import CogniteFileLoader, FileMetadataLoader, RawTableLoader, TimeSeriesLoader
+from ._base_cruds import T_ID, DataCRUD, ResourceCRUD, T_WritableCogniteResourceList
+from ._resource_cruds import CogniteFileLoader, FileMetadataLoader, RawTableLoader, TimeSeriesLoader
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.data_classes import BuildEnvironment

@@ -37,12 +37,12 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk._parameters import ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import HostedExtractorDestinationYAML, HostedExtractorMappingYAML
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 
-from .data_organization_loaders import DataSetsCRUD
+from .data_organization import DataSetsCRUD
 
 
 class HostedExtractorSourceCRUD(ResourceCRUD[str, SourceWrite, Source, SourceWriteList, SourceList]):

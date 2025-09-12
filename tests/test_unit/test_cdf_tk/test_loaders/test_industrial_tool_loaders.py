@@ -2,7 +2,7 @@ import pytest
 from cognite.client import _version as CogniteSDKVersion
 from packaging.requirements import Requirement
 
-from cognite_toolkit._cdf_tk.loaders._resource_loaders.industrial_tool_loaders import StreamlitCRUD
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.industrial_tool import StreamlitCRUD
 from cognite_toolkit._cdf_tk.tk_warnings import StreamlitRequirementsWarning
 
 

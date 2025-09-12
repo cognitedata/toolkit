@@ -1,10 +1,10 @@
 from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableCogniteResource, T_WriteClass
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk.loaders import (
+from cognite_toolkit._cdf_tk.cruds import (
     ResourceCRUD,
 )
-from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.cruds._base_cruds import T_ID, T_WritableCogniteResourceList
 
 
 def _print_ids_or_length(resource_ids: SequenceNotStr[T_ID], limit: int = 10) -> str:

@@ -10,7 +10,7 @@ from cognite.client.data_classes import data_modeling as dm
 
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.loaders import (
+from cognite_toolkit._cdf_tk.cruds import (
     DataModelCRUD,
     DataSetsCRUD,
     RawDatabaseLoader,

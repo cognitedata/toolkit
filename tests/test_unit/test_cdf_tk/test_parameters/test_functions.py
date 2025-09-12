@@ -14,8 +14,8 @@ from cognite_toolkit._cdf_tk._parameters import (
     read_parameter_from_init_type_hints,
     read_parameters_from_dict,
 )
-from cognite_toolkit._cdf_tk.loaders import RESOURCE_LOADER_LIST, ResourceCRUD
-from cognite_toolkit._cdf_tk.loaders._resource_loaders.location_loaders import LocationFilterCRUD
+from cognite_toolkit._cdf_tk.cruds import RESOURCE_LOADER_LIST, ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.location import LocationFilterCRUD
 
 
 class TestReadParameterFromTypeHints:

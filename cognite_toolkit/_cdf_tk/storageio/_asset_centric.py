@@ -26,8 +26,8 @@ from cognite.client.data_classes.labels import LabelDefinitionWriteList
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.cruds import AssetCRUD, DataSetsCRUD, FileMetadataLoader, LabelCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
-from cognite_toolkit._cdf_tk.loaders import AssetCRUD, DataSetsCRUD, FileMetadataLoader, LabelCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.utils.aggregators import AssetAggregator, AssetCentricAggregator, FileAggregator
 from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
 from cognite_toolkit._cdf_tk.utils.file import find_files_with_suffix_and_prefix

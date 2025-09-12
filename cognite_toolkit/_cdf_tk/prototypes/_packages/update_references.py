@@ -14,7 +14,7 @@ from cognite.client.data_classes.transformations import OidcCredentials
 from cognite.client.data_classes.transformations.common import TransformationDestination
 from cognite.client.utils._text import to_camel_case
 
-from cognite_toolkit._cdf_tk.loaders import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.utils import safe_read
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml
 

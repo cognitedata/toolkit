@@ -16,17 +16,17 @@ from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
     LocationFilterWriteList,
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ResourceRetrievalError, ToolkitCycleError
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import LocationYAML
 from cognite_toolkit._cdf_tk.utils import in_dict, quote_int_value_by_key_in_yaml, safe_read
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
 
-from .classic_loaders import AssetCRUD, SequenceCRUD
-from .data_organization_loaders import DataSetsCRUD
-from .datamodel_loaders import DataModelCRUD, SpaceLoader, ViewCRUD
-from .file_loader import FileMetadataLoader
-from .timeseries_loaders import TimeSeriesLoader
+from .classic import AssetCRUD, SequenceCRUD
+from .data_organization import DataSetsCRUD
+from .datamodel import DataModelCRUD, SpaceLoader, ViewCRUD
+from .file import FileMetadataLoader
+from .timeseries import TimeSeriesLoader
 
 
 @final

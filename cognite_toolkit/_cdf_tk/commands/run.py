@@ -32,6 +32,8 @@ from rich.table import Table
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.functions import FunctionScheduleID
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
+from cognite_toolkit._cdf_tk.cruds import FunctionCRUD, FunctionScheduleCRUD, WorkflowVersionCRUD
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.workflow import WorkflowTriggerCRUD
 from cognite_toolkit._cdf_tk.data_classes import BuiltResourceFull, ModuleResources
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthorizationError,
@@ -43,8 +45,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
-from cognite_toolkit._cdf_tk.loaders import FunctionCRUD, FunctionScheduleCRUD, WorkflowVersionCRUD
-from cognite_toolkit._cdf_tk.loaders._resource_loaders.workflow_loaders import WorkflowTriggerCRUD
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import in_dict
 from cognite_toolkit._cdf_tk.utils.auth import CLIENT_NAME, EnvironmentVariables

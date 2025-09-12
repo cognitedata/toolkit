@@ -14,11 +14,11 @@ from cognite.client.data_classes.capabilities import Capability
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import ThreeDModelYAML
 
-from .data_organization_loaders import DataSetsCRUD
+from .data_organization import DataSetsCRUD
 
 
 @final

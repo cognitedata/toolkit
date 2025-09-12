@@ -20,14 +20,14 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 
-from .auth_loaders import GroupCRUD, SecurityCategoryCRUD
-from .classic_loaders import AssetCRUD
-from .data_organization_loaders import DataSetsCRUD
-from .datamodel_loaders import SpaceLoader
-from .extraction_pipeline_loaders import ExtractionPipelineCRUD
-from .location_loaders import LocationFilterCRUD
-from .raw_loaders import RawDatabaseLoader, RawTableLoader
-from .timeseries_loaders import TimeSeriesLoader
+from .auth import GroupCRUD, SecurityCategoryCRUD
+from .classic import AssetCRUD
+from .data_organization import DataSetsCRUD
+from .datamodel import SpaceLoader
+from .extraction_pipeline import ExtractionPipelineCRUD
+from .location import LocationFilterCRUD
+from .raw import RawDatabaseLoader, RawTableLoader
+from .timeseries import TimeSeriesLoader
 
 
 @final

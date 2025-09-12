@@ -6,7 +6,7 @@ import yaml
 from cognite.client.data_classes import TimeSeries
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet
-from cognite_toolkit._cdf_tk.loaders import ContainerLoader, SpaceLoader, TimeSeriesLoader, ViewCRUD
+from cognite_toolkit._cdf_tk.cruds import ContainerLoader, SpaceLoader, TimeSeriesLoader, ViewCRUD
 from cognite_toolkit._cdf_tk.tk_warnings import (
     CaseTypoWarning,
     DataSetMissingWarning,

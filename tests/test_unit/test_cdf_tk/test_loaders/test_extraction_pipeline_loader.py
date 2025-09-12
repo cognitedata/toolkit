@@ -9,7 +9,7 @@ from cognite.client.data_classes import ExtractionPipelineConfig
 
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
 from cognite_toolkit._cdf_tk.commands import CleanCommand
-from cognite_toolkit._cdf_tk.loaders import (
+from cognite_toolkit._cdf_tk.cruds import (
     DataSetsCRUD,
     ExtractionPipelineConfigCRUD,
     ExtractionPipelineCRUD,

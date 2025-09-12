@@ -34,14 +34,14 @@ from cognite_toolkit._cdf_tk.client.data_classes.sequences import (
     ToolkitSequenceRowsWrite,
     ToolkitSequenceRowsWriteList,
 )
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import AssetYAML, EventYAML
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.utils.file import read_csv
 
-from .data_organization_loaders import DataSetsCRUD, LabelCRUD
+from .data_organization import DataSetsCRUD, LabelCRUD
 
 
 @final

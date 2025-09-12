@@ -7,8 +7,7 @@ from _pytest.monkeypatch import MonkeyPatch
 from cognite.client.data_classes import Group, GroupWrite
 
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
-from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError
-from cognite_toolkit._cdf_tk.loaders import (
+from cognite_toolkit._cdf_tk.cruds import (
     DataSetsCRUD,
     ExtractionPipelineCRUD,
     GroupAllScopedLoader,
@@ -20,6 +19,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     ResourceWorker,
     SpaceLoader,
 )
+from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import LOAD_DATA
 from tests.test_unit.approval_client import ApprovalToolkitClient

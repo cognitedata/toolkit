@@ -33,12 +33,12 @@ from rich.console import Console
 from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.functions import FunctionScheduleID
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ResourceRetrievalError,
     ToolkitRequiredValueError,
 )
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import FunctionScheduleYAML, FunctionsYAML
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
@@ -50,9 +50,9 @@ from cognite_toolkit._cdf_tk.utils import (
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.text import suffix_description
 
-from .auth_loaders import GroupAllScopedLoader
-from .data_organization_loaders import DataSetsCRUD
-from .group_scoped_loader import GroupResourceScopedLoader
+from .auth import GroupAllScopedLoader
+from .data_organization import DataSetsCRUD
+from .group_scoped import GroupResourceScopedLoader
 
 
 @final

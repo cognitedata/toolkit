@@ -9,8 +9,8 @@ from pydantic import BaseModel, TypeAdapter, ValidationError
 from pydantic_core import ErrorDetails
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameters_from_dict
+from cognite_toolkit._cdf_tk.cruds import NodeLoader
 from cognite_toolkit._cdf_tk.data_classes import BuildVariables
-from cognite_toolkit._cdf_tk.loaders import NodeLoader
 from cognite_toolkit._cdf_tk.resource_classes import BaseModelResource
 from cognite_toolkit._cdf_tk.tk_warnings import (
     CaseTypoWarning,

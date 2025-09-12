@@ -42,20 +42,20 @@ from cognite_toolkit._cdf_tk.client.data_classes.extendable_cognite_file import 
     ExtendableCogniteFileApplyList,
     ExtendableCogniteFileList,
 )
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import FileMetadataYAML
 from cognite_toolkit._cdf_tk.utils import (
     in_dict,
 )
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
 
-from .auth_loaders import GroupAllScopedLoader, SecurityCategoryCRUD
-from .classic_loaders import AssetCRUD
-from .data_organization_loaders import DataSetsCRUD, LabelCRUD
-from .datamodel_loaders import SpaceLoader, ViewCRUD
+from .auth import GroupAllScopedLoader, SecurityCategoryCRUD
+from .classic import AssetCRUD
+from .data_organization import DataSetsCRUD, LabelCRUD
+from .datamodel import SpaceLoader, ViewCRUD
 
 
 @final

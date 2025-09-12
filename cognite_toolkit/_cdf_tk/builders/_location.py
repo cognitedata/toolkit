@@ -3,10 +3,10 @@ from graphlib import CycleError, TopologicalSorter
 from typing import Any
 
 from cognite_toolkit._cdf_tk.builders._base import Builder
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.location import LocationFilterCRUD
 from cognite_toolkit._cdf_tk.data_classes._build_files import BuildDestinationFile, BuildSourceFile
 from cognite_toolkit._cdf_tk.data_classes._module_directories import ModuleLocation
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError
-from cognite_toolkit._cdf_tk.loaders._resource_loaders.location_loaders import LocationFilterCRUD
 from cognite_toolkit._cdf_tk.tk_warnings.base import ToolkitWarning, WarningList
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import FileReadWarning
 

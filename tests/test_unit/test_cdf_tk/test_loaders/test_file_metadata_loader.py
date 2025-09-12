@@ -7,7 +7,7 @@ from _pytest.mark import ParameterSet
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client.data_classes import FileMetadata, FileMetadataWrite, FileMetadataWriteList
 
-from cognite_toolkit._cdf_tk.loaders import FileMetadataLoader
+from cognite_toolkit._cdf_tk.cruds import FileMetadataLoader
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.approval_client.client import LookUpAPIMock
 

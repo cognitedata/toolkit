@@ -2,13 +2,13 @@ import shutil
 from collections.abc import Callable, Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.builders import Builder
+from cognite_toolkit._cdf_tk.cruds import StreamlitCRUD
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildDestinationFile,
     BuildSourceFile,
     ModuleLocation,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileExistsError, ToolkitNotADirectoryError, ToolkitValueError
-from cognite_toolkit._cdf_tk.loaders import StreamlitCRUD
 from cognite_toolkit._cdf_tk.tk_warnings import (
     FileReadWarning,
     HighSeverityWarning,

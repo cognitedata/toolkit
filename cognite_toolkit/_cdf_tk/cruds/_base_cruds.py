@@ -235,12 +235,12 @@ class ResourceCRUD(
         if parent_ids is not None and not self.parent_resource:
             return []
         if space is not None:
-            from ._resource_loaders.datamodel_loaders import SpaceLoader
+            from ._resource_cruds.datamodel import SpaceLoader
 
             if SpaceLoader not in self.dependencies:
                 return []
         if data_set_external_id is not None:
-            from ._resource_loaders.data_organization_loaders import DataSetsCRUD
+            from ._resource_cruds.data_organization import DataSetsCRUD
 
             if DataSetsCRUD not in self.dependencies:
                 return []

@@ -12,8 +12,7 @@ from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, PullCommand
-from cognite_toolkit._cdf_tk.data_classes import BuiltModuleList, ResourceDeployResult
-from cognite_toolkit._cdf_tk.loaders import (
+from cognite_toolkit._cdf_tk.cruds import (
     RESOURCE_LOADER_LIST,
     FunctionCRUD,
     FunctionScheduleCRUD,
@@ -27,7 +26,8 @@ from cognite_toolkit._cdf_tk.loaders import (
     TransformationCRUD,
     WorkflowTriggerCRUD,
 )
-from cognite_toolkit._cdf_tk.loaders._resource_loaders.location_loaders import LocationFilterCRUD
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.location import LocationFilterCRUD
+from cognite_toolkit._cdf_tk.data_classes import BuiltModuleList, ResourceDeployResult
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.file import remove_trailing_newline
 from tests import data

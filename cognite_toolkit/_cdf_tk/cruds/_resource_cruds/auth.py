@@ -46,8 +46,8 @@ from rich.markup import escape
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import GroupYAML, SecurityCategoriesYAML
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
@@ -146,13 +146,13 @@ class GroupCRUD(ResourceCRUD[str, GroupWrite, Group, GroupWriteList, GroupList])
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
-        from .classic_loaders import AssetCRUD
-        from .data_organization_loaders import DataSetsCRUD
-        from .datamodel_loaders import SpaceLoader
-        from .extraction_pipeline_loaders import ExtractionPipelineCRUD
-        from .location_loaders import LocationFilterCRUD
-        from .raw_loaders import RawDatabaseLoader, RawTableLoader
-        from .timeseries_loaders import TimeSeriesLoader
+        from .classic import AssetCRUD
+        from .data_organization import DataSetsCRUD
+        from .datamodel import SpaceLoader
+        from .extraction_pipeline import ExtractionPipelineCRUD
+        from .location import LocationFilterCRUD
+        from .raw import RawDatabaseLoader, RawTableLoader
+        from .timeseries import TimeSeriesLoader
 
         for capability in item.get("capabilities", []):
             for acl, content in capability.items():

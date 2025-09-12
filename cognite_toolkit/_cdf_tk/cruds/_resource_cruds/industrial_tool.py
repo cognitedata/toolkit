@@ -21,8 +21,8 @@ from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import (
     StreamlitWrite,
     StreamlitWriteList,
 )
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotADirectoryError, ToolkitRequiredValueError
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import StreamlitYAML
 from cognite_toolkit._cdf_tk.utils import (
     load_yaml_inject_variables,
@@ -30,8 +30,8 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_hash
 
-from .auth_loaders import GroupAllScopedLoader
-from .data_organization_loaders import DataSetsCRUD
+from .auth import GroupAllScopedLoader
+from .data_organization import DataSetsCRUD
 
 
 @final

@@ -1,9 +1,9 @@
-from .agent_loaders import AgentCRUD
-from .auth_loaders import GroupAllScopedLoader, GroupCRUD, SecurityCategoryCRUD
-from .classic_loaders import AssetCRUD, EventCRUD, SequenceCRUD, SequenceRowCRUD
-from .configuration_loader import SearchConfigCRUD
-from .data_organization_loaders import DataSetsCRUD, LabelCRUD
-from .datamodel_loaders import (
+from .agent import AgentCRUD
+from .auth import GroupAllScopedLoader, GroupCRUD, SecurityCategoryCRUD
+from .classic import AssetCRUD, EventCRUD, SequenceCRUD, SequenceRowCRUD
+from .configuration import SearchConfigCRUD
+from .data_organization import DataSetsCRUD, LabelCRUD
+from .datamodel import (
     ContainerLoader,
     DataModelCRUD,
     EdgeLoader,
@@ -12,33 +12,33 @@ from .datamodel_loaders import (
     SpaceLoader,
     ViewCRUD,
 )
-from .extraction_pipeline_loaders import ExtractionPipelineConfigCRUD, ExtractionPipelineCRUD
-from .fieldops_loaders import InfieldV1CRUD
-from .file_loader import CogniteFileLoader, FileMetadataLoader
-from .function_loaders import FunctionCRUD, FunctionScheduleCRUD
-from .group_scoped_loader import GroupResourceScopedLoader
+from .extraction_pipeline import ExtractionPipelineConfigCRUD, ExtractionPipelineCRUD
+from .fieldops import InfieldV1CRUD
+from .file import CogniteFileLoader, FileMetadataLoader
+from .function import FunctionCRUD, FunctionScheduleCRUD
+from .group_scoped import GroupResourceScopedLoader
 from .hosted_extractors import (
     HostedExtractorDestinationCRUD,
     HostedExtractorJobCRUD,
     HostedExtractorMappingCRUD,
     HostedExtractorSourceCRUD,
 )
-from .industrial_tool_loaders import StreamlitCRUD
-from .location_loaders import LocationFilterCRUD
+from .industrial_tool import StreamlitCRUD
+from .location import LocationFilterCRUD
 from .migration import ViewSourceCRUD
-from .raw_loaders import RawDatabaseLoader, RawTableLoader
-from .relationship_loader import RelationshipCRUD
-from .robotics_loaders import (
+from .raw import RawDatabaseLoader, RawTableLoader
+from .relationship import RelationshipCRUD
+from .robotics import (
     RobotCapabilityCRUD,
     RoboticFrameCRUD,
     RoboticLocationCRUD,
     RoboticMapCRUD,
     RoboticsDataPostProcessingCRUD,
 )
-from .three_d_model_loaders import ThreeDModelLoader
-from .timeseries_loaders import DatapointSubscriptionCRUD, TimeSeriesLoader
-from .transformation_loaders import TransformationCRUD, TransformationNotificationCRUD, TransformationScheduleCRUD
-from .workflow_loaders import WorkflowCRUD, WorkflowTriggerCRUD, WorkflowVersionCRUD
+from .three_d_model import ThreeDModelLoader
+from .timeseries import DatapointSubscriptionCRUD, TimeSeriesLoader
+from .transformation import TransformationCRUD, TransformationNotificationCRUD, TransformationScheduleCRUD
+from .workflow import WorkflowCRUD, WorkflowTriggerCRUD, WorkflowVersionCRUD
 
 __all__ = [
     "AgentCRUD",

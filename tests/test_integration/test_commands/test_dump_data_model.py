@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import DumpResourceCommand
 from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.loaders import ContainerLoader, DataModelCRUD, GraphQLLoader, SpaceLoader, ViewCRUD
+from cognite_toolkit._cdf_tk.cruds import ContainerLoader, DataModelCRUD, GraphQLLoader, SpaceLoader, ViewCRUD
 from tests.data import NAUGHTY_PROJECT
 
 

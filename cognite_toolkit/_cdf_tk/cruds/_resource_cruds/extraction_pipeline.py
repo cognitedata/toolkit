@@ -43,10 +43,10 @@ from rich import print
 from cognite_toolkit._cdf_tk._parameters import ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import ExtractionPipelineConfigYAML, ExtractionPipelineYAML
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
@@ -59,9 +59,9 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_force_hashable, diff_list_identifiable
 
-from .auth_loaders import GroupAllScopedLoader
-from .data_organization_loaders import DataSetsCRUD
-from .raw_loaders import RawDatabaseLoader, RawTableLoader
+from .auth import GroupAllScopedLoader
+from .data_organization import DataSetsCRUD
+from .raw import RawDatabaseLoader, RawTableLoader
 
 
 @final

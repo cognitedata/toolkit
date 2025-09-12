@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from cognite_toolkit._cdf_tk.loaders import ResourceWorker, ViewCRUD
+from cognite_toolkit._cdf_tk.cruds import ResourceWorker, ViewCRUD
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 

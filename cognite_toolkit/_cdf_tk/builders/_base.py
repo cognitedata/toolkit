@@ -5,6 +5,13 @@ from pathlib import Path
 from typing import Any, ClassVar, cast
 
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
+from cognite_toolkit._cdf_tk.cruds import (
+    LOADER_BY_FOLDER_NAME,
+    GroupCRUD,
+    RawDatabaseLoader,
+    RawTableLoader,
+    ResourceCRUD,
+)
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildDestinationFile,
     BuildSourceFile,
@@ -13,13 +20,6 @@ from cognite_toolkit._cdf_tk.data_classes import (
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     AmbiguousResourceFileError,
-)
-from cognite_toolkit._cdf_tk.loaders import (
-    LOADER_BY_FOLDER_NAME,
-    GroupCRUD,
-    RawDatabaseLoader,
-    RawTableLoader,
-    ResourceCRUD,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
     ToolkitNotSupportedWarning,

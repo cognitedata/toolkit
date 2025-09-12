@@ -53,13 +53,7 @@ from rich.panel import Panel
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.location_filters import LocationFilterList
 from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import Streamlit, StreamlitList
-from cognite_toolkit._cdf_tk.exceptions import (
-    ResourceRetrievalError,
-    ToolkitMissingResourceError,
-    ToolkitResourceMissingError,
-    ToolkitValueError,
-)
-from cognite_toolkit._cdf_tk.loaders import (
+from cognite_toolkit._cdf_tk.cruds import (
     AgentCRUD,
     ContainerLoader,
     DataModelCRUD,
@@ -82,7 +76,13 @@ from cognite_toolkit._cdf_tk.loaders import (
     WorkflowTriggerCRUD,
     WorkflowVersionCRUD,
 )
-from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID
+from cognite_toolkit._cdf_tk.cruds._base_cruds import T_ID
+from cognite_toolkit._cdf_tk.exceptions import (
+    ResourceRetrievalError,
+    ToolkitMissingResourceError,
+    ToolkitResourceMissingError,
+    ToolkitValueError,
+)
 from cognite_toolkit._cdf_tk.tk_warnings import FileExistsWarning, HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, safe_write, to_directory_compatible, yaml_safe_dump

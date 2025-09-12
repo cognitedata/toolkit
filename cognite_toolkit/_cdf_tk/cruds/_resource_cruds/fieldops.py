@@ -17,16 +17,16 @@ from cognite_toolkit._cdf_tk.client.data_classes.apm_config_v1 import (
     APMConfigWriteList,
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.utils import quote_int_value_by_key_in_yaml, safe_read
 from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, hash_dict
 
-from .auth_loaders import GroupAllScopedLoader
-from .classic_loaders import AssetCRUD
-from .data_organization_loaders import DataSetsCRUD
-from .datamodel_loaders import SpaceLoader
-from .group_scoped_loader import GroupResourceScopedLoader
+from .auth import GroupAllScopedLoader
+from .classic import AssetCRUD
+from .data_organization import DataSetsCRUD
+from .datamodel import SpaceLoader
+from .group_scoped import GroupResourceScopedLoader
 
 
 @final

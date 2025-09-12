@@ -29,7 +29,7 @@ from dotenv import load_dotenv
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawDatabaseList, RawTable, RawTableList
 from cognite_toolkit._cdf_tk.commands import CollectCommand
-from cognite_toolkit._cdf_tk.loaders import RawDatabaseLoader, RawTableLoader
+from cognite_toolkit._cdf_tk.cruds import RawDatabaseLoader, RawTableLoader
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.cdf import ThrottlerState, raw_row_count
 from tests.constants import REPO_ROOT

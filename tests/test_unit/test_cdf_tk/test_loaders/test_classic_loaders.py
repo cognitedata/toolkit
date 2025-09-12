@@ -2,7 +2,7 @@ from cognite.client.data_classes import SequenceWrite
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.loaders import SequenceCRUD
+from cognite_toolkit._cdf_tk.cruds import SequenceCRUD
 
 
 class TestSequenceLoader:

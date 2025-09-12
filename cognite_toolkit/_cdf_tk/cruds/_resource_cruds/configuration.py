@@ -14,11 +14,11 @@ from cognite_toolkit._cdf_tk.client.data_classes.search_config import (
     SearchConfigWriteList,
     ViewId,
 )
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import SearchConfigYAML
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
 
-from .datamodel_loaders import ViewCRUD
+from .datamodel import ViewCRUD
 
 
 @final

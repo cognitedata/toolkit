@@ -16,9 +16,9 @@ from typing import Literal, TypeAlias
 
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 
-from ._base_loaders import DataCRUD, Loader, ResourceContainerCRUD, ResourceCRUD
-from ._data_loaders import DatapointsCRUD, FileCRUD, RawFileCRUD
-from ._resource_loaders import (
+from ._base_cruds import DataCRUD, Loader, ResourceContainerCRUD, ResourceCRUD
+from ._data_cruds import DatapointsCRUD, FileCRUD, RawFileCRUD
+from ._resource_cruds import (
     AgentCRUD,
     AssetCRUD,
     CogniteFileLoader,

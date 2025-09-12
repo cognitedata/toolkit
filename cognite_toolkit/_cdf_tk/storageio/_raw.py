@@ -5,8 +5,8 @@ from cognite.client.data_classes import RowList, RowWrite, RowWriteList
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawDatabaseList, RawTable, RawTableList
+from cognite_toolkit._cdf_tk.cruds import RawDatabaseLoader, RawTableLoader
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.loaders import RawDatabaseLoader, RawTableLoader
 from cognite_toolkit._cdf_tk.utils.file import find_adjacent_files, read_yaml_file
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 

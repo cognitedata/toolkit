@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 from cognite.client.data_classes.capabilities import FilesAcl, FunctionsAcl
 from cognite.client.data_classes.workflows import WorkflowScheduledTriggerRule, WorkflowTrigger
 
-from cognite_toolkit._cdf_tk.loaders import FunctionCRUD, ResourceWorker, WorkflowTriggerCRUD
+from cognite_toolkit._cdf_tk.cruds import FunctionCRUD, ResourceWorker, WorkflowTriggerCRUD
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
@@ -49,7 +49,7 @@ authentication:
         # This test verifies that the ResourceWorker uses function-specific capabilities
         # for FunctionLoader rather than generic capabilities
         with patch(
-            "cognite_toolkit._cdf_tk.loaders._resource_loaders.function_loaders.FunctionLoader.load_resource_file"
+            "cognite_toolkit._cdf_tk.cruds._resource_cruds.function_loaders.FunctionLoader.load_resource_file"
         ) as mock_load_resource_file:
             mock_authorization = toolkit_client_approval.mock_client.verify.authorization
             mock_authorization.return_value = []

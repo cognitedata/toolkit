@@ -65,7 +65,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import Grap
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
-from cognite_toolkit._cdf_tk.loaders import FileCRUD
+from cognite_toolkit._cdf_tk.cruds import FileCRUD
 from cognite_toolkit._cdf_tk.utils import calculate_hash
 from cognite_toolkit._cdf_tk.utils.auth import CLIENT_NAME
 

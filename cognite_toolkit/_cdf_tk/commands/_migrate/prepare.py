@@ -3,8 +3,7 @@ from rich import print
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.deploy import DeployCommand
-from cognite_toolkit._cdf_tk.data_classes import DeployResults
-from cognite_toolkit._cdf_tk.loaders import (
+from cognite_toolkit._cdf_tk.cruds import (
     ContainerLoader,
     DataModelCRUD,
     ResourceWorker,
@@ -12,6 +11,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     ViewCRUD,
     ViewSourceCRUD,
 )
+from cognite_toolkit._cdf_tk.data_classes import DeployResults
 
 from .data_model import COGNITE_MIGRATION_MODEL, CONTAINERS, MODEL_ID, SPACE, VIEWS
 from .default_mappings import create_default_mappings

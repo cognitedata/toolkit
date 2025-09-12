@@ -7,9 +7,9 @@ from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, SupportsIndex, TypeVar, cast, overload
 
+from cognite_toolkit._cdf_tk.cruds import get_loader
+from cognite_toolkit._cdf_tk.cruds._base_cruds import T_ID, ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError
-from cognite_toolkit._cdf_tk.loaders import get_loader
-from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, ResourceCRUD
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
     calculate_hash,
@@ -100,7 +100,7 @@ class BuiltResource(Generic[T_ID]):
 
     @classmethod
     def load(cls, data: dict[str, Any], resource_folder: str) -> Self:
-        from cognite_toolkit._cdf_tk.loaders import ResourceCRUD, get_loader
+        from cognite_toolkit._cdf_tk.cruds import ResourceCRUD, get_loader
 
         kind = data["kind"]
         loader = cast(ResourceCRUD, get_loader(resource_folder, kind))
@@ -115,7 +115,7 @@ class BuiltResource(Generic[T_ID]):
         )
 
     def dump(self, resource_folder: str, include_destination: bool = False) -> dict[str, Any]:
-        from cognite_toolkit._cdf_tk.loaders import ResourceCRUD, get_loader
+        from cognite_toolkit._cdf_tk.cruds import ResourceCRUD, get_loader
 
         loader = cast(ResourceCRUD, get_loader(resource_folder, self.kind))
         dumped = loader.dump_id(self.identifier)

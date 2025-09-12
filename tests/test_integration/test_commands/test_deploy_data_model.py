@@ -2,7 +2,7 @@ import pytest
 from cognite.client import data_modeling as dm
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.loaders import ContainerLoader, SpaceLoader, ViewCRUD
+from cognite_toolkit._cdf_tk.cruds import ContainerLoader, SpaceLoader, ViewCRUD
 from tests.data import STRONGLY_COUPLED_MODEL
 
 

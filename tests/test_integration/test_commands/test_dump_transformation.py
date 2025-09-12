@@ -15,7 +15,7 @@ from cognite.client.data_classes.transformations import NonceCredentials
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import DumpResourceCommand
 from cognite_toolkit._cdf_tk.commands.dump_resource import TransformationFinder
-from cognite_toolkit._cdf_tk.loaders import (
+from cognite_toolkit._cdf_tk.cruds import (
     TransformationCRUD,
     TransformationNotificationCRUD,
     TransformationScheduleCRUD,

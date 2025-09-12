@@ -9,8 +9,8 @@ from rich.panel import Panel
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 
 from .constants import COGNITE_MODULES, CUSTOM_MODULES, HINT_LEAD_TEXT, MODULES, ROOT_MODULES, URL
+from .cruds import LOADER_BY_FOLDER_NAME
 from .exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError
-from .loaders import LOADER_BY_FOLDER_NAME
 from .tk_warnings import MediumSeverityWarning
 from .utils import find_directory_with_subdirectories
 
