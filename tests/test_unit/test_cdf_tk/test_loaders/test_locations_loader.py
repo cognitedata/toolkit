@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
     LocationFilterWrite,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
-from cognite_toolkit._cdf_tk.loaders._resource_loaders.location_loaders import LocationFilterLoader
+from cognite_toolkit._cdf_tk.loaders._resource_loaders.location_loaders import LocationFilterCRUD
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import LOAD_DATA
 from tests.test_unit.approval_client.client import ApprovalToolkitClient
@@ -16,7 +16,7 @@ from tests.test_unit.approval_client.client import ApprovalToolkitClient
 
 @pytest.fixture
 def exhaustive_filter(env_vars_with_client: EnvironmentVariables) -> LocationFilterWrite:
-    loader = LocationFilterLoader.create_loader(env_vars_with_client.get_client())
+    loader = LocationFilterCRUD.create_loader(env_vars_with_client.get_client())
     raw_list = loader.load_resource_file(
         LOAD_DATA / "locations" / "exhaustive.LocationFilter.yaml", env_vars_with_client.dump()
     )
@@ -30,7 +30,7 @@ class TestLocationFilterLoader:
         env_vars_with_client: EnvironmentVariables,
         toolkit_client_approval: ApprovalToolkitClient,
     ) -> None:
-        loader = LocationFilterLoader.create_loader(env_vars_with_client.get_client())
+        loader = LocationFilterCRUD.create_loader(env_vars_with_client.get_client())
         raw_list = loader.load_resource_file(
             LOAD_DATA / "locations" / "minimum.LocationFilter.yaml", env_vars_with_client.dump()
         )
@@ -84,7 +84,7 @@ class TestLocationFilterLoader:
             ),
         ]
 
-        sorted_filters = LocationFilterLoader.topological_sort(location_filters)
+        sorted_filters = LocationFilterCRUD.topological_sort(location_filters)
 
         # Should be sorted with grandparent first, then parent, then child
         assert len(sorted_filters) == 3
@@ -111,7 +111,7 @@ class TestLocationFilterLoader:
             location_filters.append(location_filter)
 
         with pytest.raises(ToolkitCycleError) as exc:
-            LocationFilterLoader.topological_sort(location_filters)
+            LocationFilterCRUD.topological_sort(location_filters)
 
         error = exc.value
         assert isinstance(error, ToolkitCycleError)

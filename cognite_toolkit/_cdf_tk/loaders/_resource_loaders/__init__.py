@@ -1,94 +1,94 @@
-from .agent_loaders import AgentLoader
-from .auth_loaders import GroupAllScopedLoader, GroupLoader, SecurityCategoryLoader
-from .classic_loaders import AssetLoader, EventLoader, SequenceLoader, SequenceRowLoader
-from .configuration_loader import SearchConfigLoader
-from .data_organization_loaders import DataSetsLoader, LabelLoader
+from .agent_loaders import AgentCRUD
+from .auth_loaders import GroupAllScopedLoader, GroupCRUD, SecurityCategoryCRUD
+from .classic_loaders import AssetCRUD, EventCRUD, SequenceCRUD, SequenceRowCRUD
+from .configuration_loader import SearchConfigCRUD
+from .data_organization_loaders import DataSetsCRUD, LabelCRUD
 from .datamodel_loaders import (
     ContainerLoader,
-    DataModelLoader,
+    DataModelCRUD,
     EdgeLoader,
     GraphQLLoader,
     NodeLoader,
     SpaceLoader,
-    ViewLoader,
+    ViewCRUD,
 )
-from .extraction_pipeline_loaders import ExtractionPipelineConfigLoader, ExtractionPipelineLoader
-from .fieldops_loaders import InfieldV1Loader
+from .extraction_pipeline_loaders import ExtractionPipelineConfigCRUD, ExtractionPipelineCRUD
+from .fieldops_loaders import InfieldV1CRUD
 from .file_loader import CogniteFileLoader, FileMetadataLoader
-from .function_loaders import FunctionLoader, FunctionScheduleLoader
+from .function_loaders import FunctionCRUD, FunctionScheduleCRUD
 from .group_scoped_loader import GroupResourceScopedLoader
 from .hosted_extractors import (
-    HostedExtractorDestinationLoader,
-    HostedExtractorJobLoader,
-    HostedExtractorMappingLoader,
-    HostedExtractorSourceLoader,
+    HostedExtractorDestinationCRUD,
+    HostedExtractorJobCRUD,
+    HostedExtractorMappingCRUD,
+    HostedExtractorSourceCRUD,
 )
-from .industrial_tool_loaders import StreamlitLoader
-from .location_loaders import LocationFilterLoader
-from .migration import ViewSourceLoader
+from .industrial_tool_loaders import StreamlitCRUD
+from .location_loaders import LocationFilterCRUD
+from .migration import ViewSourceCRUD
 from .raw_loaders import RawDatabaseLoader, RawTableLoader
-from .relationship_loader import RelationshipLoader
+from .relationship_loader import RelationshipCRUD
 from .robotics_loaders import (
-    RobotCapabilityLoader,
-    RoboticFrameLoader,
-    RoboticLocationLoader,
-    RoboticMapLoader,
-    RoboticsDataPostProcessingLoader,
+    RobotCapabilityCRUD,
+    RoboticFrameCRUD,
+    RoboticLocationCRUD,
+    RoboticMapCRUD,
+    RoboticsDataPostProcessingCRUD,
 )
 from .three_d_model_loaders import ThreeDModelLoader
-from .timeseries_loaders import DatapointSubscriptionLoader, TimeSeriesLoader
-from .transformation_loaders import TransformationLoader, TransformationNotificationLoader, TransformationScheduleLoader
-from .workflow_loaders import WorkflowLoader, WorkflowTriggerLoader, WorkflowVersionLoader
+from .timeseries_loaders import DatapointSubscriptionCRUD, TimeSeriesLoader
+from .transformation_loaders import TransformationCRUD, TransformationNotificationCRUD, TransformationScheduleCRUD
+from .workflow_loaders import WorkflowCRUD, WorkflowTriggerCRUD, WorkflowVersionCRUD
 
 __all__ = [
-    "AgentLoader",
-    "AssetLoader",
+    "AgentCRUD",
+    "AssetCRUD",
     "CogniteFileLoader",
     "ContainerLoader",
-    "DataModelLoader",
-    "DataSetsLoader",
-    "DatapointSubscriptionLoader",
+    "DataModelCRUD",
+    "DataSetsCRUD",
+    "DatapointSubscriptionCRUD",
     "EdgeLoader",
-    "EventLoader",
-    "ExtractionPipelineConfigLoader",
-    "ExtractionPipelineLoader",
+    "EventCRUD",
+    "ExtractionPipelineCRUD",
+    "ExtractionPipelineConfigCRUD",
     "FileMetadataLoader",
-    "FunctionLoader",
-    "FunctionScheduleLoader",
+    "FunctionCRUD",
+    "FunctionScheduleCRUD",
     "GraphQLLoader",
     "GroupAllScopedLoader",
-    "GroupLoader",
+    "GroupCRUD",
     "GroupResourceScopedLoader",
-    "HostedExtractorDestinationLoader",
-    "HostedExtractorJobLoader",
-    "HostedExtractorMappingLoader",
-    "HostedExtractorSourceLoader",
-    "InfieldV1Loader",
-    "LabelLoader",
-    "LocationFilterLoader",
+    "HostedExtractorDestinationCRUD",
+    "HostedExtractorJobCRUD",
+    "HostedExtractorMappingCRUD",
+    "HostedExtractorSourceCRUD",
+    "InfieldV1CRUD",
+    "LabelCRUD",
+    "LocationFilterCRUD",
     "NodeLoader",
     "RawDatabaseLoader",
     "RawTableLoader",
-    "RelationshipLoader",
-    "RobotCapabilityLoader",
-    "RoboticFrameLoader",
-    "RoboticLocationLoader",
-    "RoboticMapLoader",
-    "RoboticsDataPostProcessingLoader",
-    "SearchConfigLoader",
-    "SecurityCategoryLoader",
-    "SequenceLoader",
-    "SequenceRowLoader",
+    "RelationshipCRUD",
+    "RobotCapabilityCRUD",
+    "RoboticFrameCRUD",
+    "RoboticLocationCRUD",
+    "RoboticMapCRUD",
+    "RoboticsDataPostProcessingCRUD",
+    "SearchConfigCRUD",
+    "SecurityCategoryCRUD",
+    "SequenceCRUD",
+    "SequenceRowCRUD",
     "SpaceLoader",
-    "StreamlitLoader",
+    "StreamlitCRUD",
     "ThreeDModelLoader",
     "TimeSeriesLoader",
-    "TransformationLoader",
-    "TransformationNotificationLoader",
-    "TransformationScheduleLoader",
-    "ViewLoader",
-    "ViewSourceLoader",
-    "WorkflowLoader",
-    "WorkflowTriggerLoader",
-    "WorkflowVersionLoader",
+    "TransformationCRUD",
+    "TransformationNotificationCRUD",
+    "TransformationScheduleCRUD",
+    "ViewCRUD",
+    "ViewSourceCRUD",
+    "WorkflowCRUD",
+    "WorkflowTriggerCRUD",
+    "WorkflowVersionCRUD",
 ]

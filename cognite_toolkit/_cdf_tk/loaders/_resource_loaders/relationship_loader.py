@@ -14,16 +14,16 @@ from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ParameterSpec, ParameterSpecSet
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceCRUD
 
-from .classic_loaders import AssetLoader, EventLoader, SequenceLoader
-from .data_organization_loaders import DataSetsLoader, LabelLoader
+from .classic_loaders import AssetCRUD, EventCRUD, SequenceCRUD
+from .data_organization_loaders import DataSetsCRUD, LabelCRUD
 from .file_loader import FileMetadataLoader
 from .timeseries_loaders import TimeSeriesLoader
 
 
 @final
-class RelationshipLoader(ResourceLoader[str, RelationshipWrite, Relationship, RelationshipWriteList, RelationshipList]):
+class RelationshipCRUD(ResourceCRUD[str, RelationshipWrite, Relationship, RelationshipWriteList, RelationshipList]):
     folder_name = "classic"
     filename_pattern = r"^.*\.Relationship$"  # Matches all yaml files whose stem ends with '.Asset'.
     filetypes = frozenset({"yaml", "yml"})
@@ -33,7 +33,7 @@ class RelationshipLoader(ResourceLoader[str, RelationshipWrite, Relationship, Re
     list_write_cls = RelationshipWriteList
     kind = "Relationship"
     dependencies = frozenset(
-        {DataSetsLoader, AssetLoader, EventLoader, SequenceLoader, FileMetadataLoader, TimeSeriesLoader, LabelLoader}
+        {DataSetsCRUD, AssetCRUD, EventCRUD, SequenceCRUD, FileMetadataLoader, TimeSeriesLoader, LabelCRUD}
     )
     _doc_url = "Relationships/operation/createRelationships"
 
@@ -123,19 +123,19 @@ class RelationshipLoader(ResourceLoader[str, RelationshipWrite, Relationship, Re
         return spec
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         """Returns all items that this item requires.
 
         For example, a TimeSeries requires a DataSet, so this method would return the
         DatasetLoader and identifier of that dataset.
         """
         if "dataSetExternalId" in item:
-            yield DataSetsLoader, item["dataSetExternalId"]
+            yield DataSetsCRUD, item["dataSetExternalId"]
         for label in item.get("labels", []):
             if isinstance(label, dict):
-                yield LabelLoader, label["externalId"]
+                yield LabelCRUD, label["externalId"]
             elif isinstance(label, str):
-                yield LabelLoader, label
+                yield LabelCRUD, label
         for connection in ["source", "target"]:
             type_key = f"{connection}Type"
             id_key = f"{connection}ExternalId"
@@ -145,15 +145,15 @@ class RelationshipLoader(ResourceLoader[str, RelationshipWrite, Relationship, Re
                 if isinstance(id_value, str) and isinstance(type_value, str):
                     type_value = type_value.strip().casefold()
                     if type_value == "asset":
-                        yield AssetLoader, id_value
+                        yield AssetCRUD, id_value
                     elif type_value == "sequence":
-                        yield SequenceLoader, id_value
+                        yield SequenceCRUD, id_value
                     elif type_value == "timeseries":
                         yield TimeSeriesLoader, id_value
                     elif type_value == "file":
                         yield FileMetadataLoader, id_value
                     elif type_value == "event":
-                        yield EventLoader, id_value
+                        yield EventCRUD, id_value
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> RelationshipWrite:
         if ds_external_id := resource.pop("dataSetExternalId", None):

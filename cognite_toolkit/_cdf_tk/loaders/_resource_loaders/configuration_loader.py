@@ -14,17 +14,15 @@ from cognite_toolkit._cdf_tk.client.data_classes.search_config import (
     SearchConfigWriteList,
     ViewId,
 )
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import SearchConfigYAML
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
 
-from .datamodel_loaders import ViewLoader
+from .datamodel_loaders import ViewCRUD
 
 
 @final
-class SearchConfigLoader(
-    ResourceLoader[ViewId, SearchConfigWrite, SearchConfig, SearchConfigWriteList, SearchConfigList]
-):
+class SearchConfigCRUD(ResourceCRUD[ViewId, SearchConfigWrite, SearchConfig, SearchConfigWriteList, SearchConfigList]):
     support_drop = False
     folder_name = "cdf_applications"
     filename_pattern = r"^.*SearchConfig$"
@@ -33,7 +31,7 @@ class SearchConfigLoader(
     list_cls = SearchConfigList
     list_write_cls = SearchConfigWriteList
     yaml_cls = SearchConfigYAML
-    dependencies = frozenset({ViewLoader})
+    dependencies = frozenset({ViewCRUD})
     kind = "SearchConfig"
     _doc_base_url = "https://api-docs.cogheim.net/redoc/#tag/"
     _doc_url = "Search-Config/operation/upsertSearchConfigViews"

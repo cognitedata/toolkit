@@ -33,20 +33,20 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
+from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import DatapointSubscriptionYAML, TimeSeriesYAML
 from cognite_toolkit._cdf_tk.utils import calculate_hash
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
 from cognite_toolkit._cdf_tk.utils.text import suffix_description
 
-from .auth_loaders import GroupAllScopedLoader, SecurityCategoryLoader
-from .classic_loaders import AssetLoader
-from .data_organization_loaders import DataSetsLoader
+from .auth_loaders import GroupAllScopedLoader, SecurityCategoryCRUD
+from .classic_loaders import AssetCRUD
+from .data_organization_loaders import DataSetsCRUD
 
 
 @final
-class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries, TimeSeriesWriteList, TimeSeriesList]):
+class TimeSeriesLoader(ResourceContainerCRUD[str, TimeSeriesWrite, TimeSeries, TimeSeriesWriteList, TimeSeriesList]):
     item_name = "datapoints"
     folder_name = "timeseries"
     filename_pattern = r"^(?!.*DatapointSubscription$).*"
@@ -56,7 +56,7 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
     list_write_cls = TimeSeriesWriteList
     yaml_cls = TimeSeriesYAML
     kind = "TimeSeries"
-    dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader, AssetLoader})
+    dependencies = frozenset({DataSetsCRUD, GroupAllScopedLoader, AssetCRUD})
     _doc_url = "Time-series/operation/postTimeSeries"
 
     @property
@@ -101,14 +101,14 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
         return {"externalId": id}
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "dataSetExternalId" in item:
-            yield DataSetsLoader, item["dataSetExternalId"]
+            yield DataSetsCRUD, item["dataSetExternalId"]
         if "securityCategoryNames" in item:
             for security_category in item["securityCategoryNames"]:
-                yield SecurityCategoryLoader, security_category
+                yield SecurityCategoryCRUD, security_category
         if "assetExternalId" in item:
-            yield AssetLoader, item["assetExternalId"]
+            yield AssetCRUD, item["assetExternalId"]
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> TimeSeriesWrite:
         if ds_external_id := resource.pop("dataSetExternalId", None):
@@ -202,8 +202,8 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
 
 
 @final
-class DatapointSubscriptionLoader(
-    ResourceLoader[
+class DatapointSubscriptionCRUD(
+    ResourceCRUD[
         str,
         DataPointSubscriptionWrite,
         DatapointSubscription,
@@ -268,9 +268,9 @@ class DatapointSubscriptionLoader(
         return spec
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "dataSetExternalId" in item:
-            yield DataSetsLoader, item["dataSetExternalId"]
+            yield DataSetsCRUD, item["dataSetExternalId"]
         for timeseries_id in item.get("timeSeriesIds", []):
             yield TimeSeriesLoader, timeseries_id
 

@@ -19,7 +19,7 @@ from cognite.client.exceptions import CogniteAPIError
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ResourceCreationError, ToolkitRequiredValueError
-from cognite_toolkit._cdf_tk.loaders import FunctionLoader, FunctionScheduleLoader, ResourceWorker
+from cognite_toolkit._cdf_tk.loaders import FunctionCRUD, FunctionScheduleCRUD, ResourceWorker
 from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, calculate_secure_hash
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import LOAD_DATA
@@ -28,7 +28,7 @@ from tests.test_unit.approval_client import ApprovalToolkitClient
 
 class TestFunctionLoader:
     def test_load_functions(self, env_vars_with_client: EnvironmentVariables) -> None:
-        loader = FunctionLoader.create_loader(env_vars_with_client.get_client(), LOAD_DATA)
+        loader = FunctionCRUD.create_loader(env_vars_with_client.get_client(), LOAD_DATA)
 
         raw_list = loader.load_resource_file(
             LOAD_DATA / "functions" / "1.my_functions.yaml", env_vars_with_client.dump()
@@ -37,7 +37,7 @@ class TestFunctionLoader:
         assert len(raw_list) == 2
 
     def test_load_function(self, env_vars_with_client: EnvironmentVariables) -> None:
-        loader = FunctionLoader.create_loader(env_vars_with_client.get_client(), LOAD_DATA)
+        loader = FunctionCRUD.create_loader(env_vars_with_client.get_client(), LOAD_DATA)
 
         raw_list = loader.load_resource_file(
             LOAD_DATA / "functions" / "1.my_function.yaml", env_vars_with_client.dump()
@@ -61,8 +61,8 @@ secrets:
             file_id=123,
             status="Ready",
             metadata={
-                FunctionLoader._MetadataKey.function_hash: FunctionLoader._create_hash_values(tmp_path / "my_function"),
-                FunctionLoader._MetadataKey.secret_hash: calculate_secure_hash(
+                FunctionCRUD._MetadataKey.function_hash: FunctionCRUD._create_hash_values(tmp_path / "my_function"),
+                FunctionCRUD._MetadataKey.secret_hash: calculate_secure_hash(
                     {
                         "secret1": "value1",
                         "secret2": "value2",
@@ -79,9 +79,9 @@ secrets:
 
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = local_yaml
-        filepath.parent.name = FunctionLoader.folder_name
+        filepath.parent.name = FunctionCRUD.folder_name
 
-        worker = ResourceWorker(FunctionLoader.create_loader(env_vars_with_client.get_client(), tmp_path), "deploy")
+        worker = ResourceWorker(FunctionCRUD.create_loader(env_vars_with_client.get_client(), tmp_path), "deploy")
         resources = worker.prepare_resources([filepath])
 
         assert {
@@ -92,7 +92,7 @@ secrets:
         } == {"create": 0, "update": 0, "delete": 0, "unchanged": 1}
 
         toolkit_client_approval.clear_cdf_resources(Function)
-        cdf_function.metadata[FunctionLoader._MetadataKey.secret_hash] = calculate_secure_hash(
+        cdf_function.metadata[FunctionCRUD._MetadataKey.secret_hash] = calculate_secure_hash(
             {
                 "secret1": "value1",
                 "secret2": "updated_value2",
@@ -120,12 +120,12 @@ secrets:
             file_id=123,
             external_id="my_function",
             metadata={
-                FunctionLoader._MetadataKey.function_hash: calculate_directory_hash(
+                FunctionCRUD._MetadataKey.function_hash: calculate_directory_hash(
                     tmp_path / "my_function", exclude_prefixes={".DS_Store"}
                 ),
             },
         )
-        loader = FunctionLoader.create_loader(env_vars_with_client.get_client(), tmp_path)
+        loader = FunctionCRUD.create_loader(env_vars_with_client.get_client(), tmp_path)
 
         dumped = loader.dump_resource(cdf_function, local_dict)
 
@@ -133,7 +133,7 @@ secrets:
         assert dumped["indexUrl"] == "http://my-index-url"
 
     def test_get_function_required_capabilities(self, env_vars_with_client: EnvironmentVariables) -> None:
-        loader = FunctionLoader.create_loader(env_vars_with_client.get_client(), None)
+        loader = FunctionCRUD.create_loader(env_vars_with_client.get_client(), None)
         loader.data_set_id_by_external_id = {"function1": 123, "function2": 456}
 
         # Mock data
@@ -162,12 +162,12 @@ secrets:
         assert sorted(write_capabilities[1].scope.ids) == [123, 456]
 
     def test_get_function_required_capabilities_empty(self, env_vars_with_client: EnvironmentVariables) -> None:
-        loader = FunctionLoader.create_loader(env_vars_with_client.get_client(), None)
+        loader = FunctionCRUD.create_loader(env_vars_with_client.get_client(), None)
         capabilities = loader.get_function_required_capabilities([], read_only=False)
         assert capabilities == []
 
     def test_get_function_required_capabilities_no_datasets(self, env_vars_with_client: EnvironmentVariables) -> None:
-        loader = FunctionLoader.create_loader(env_vars_with_client.get_client(), None)
+        loader = FunctionCRUD.create_loader(env_vars_with_client.get_client(), None)
         items = [
             FunctionWrite(external_id="function1", name="Function 1", file_id=1001),
             FunctionWrite(external_id="function2", name="Function 2", file_id=1002),
@@ -195,7 +195,7 @@ class TestFunctionScheduleLoader:
         )
         with monkeypatch_toolkit_client() as client:
             client.config = config
-            loader = FunctionScheduleLoader.create_loader(client)
+            loader = FunctionScheduleCRUD.create_loader(client)
 
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = yaml.dump(schedule)
@@ -226,12 +226,12 @@ authentication:
                 name="daily-8am-utc",
                 function_external_id="fn_example_repeater",
                 cron_expression="0 8 * * *",
-                description=f"Run the function every day at 8am UTC {FunctionScheduleLoader._hash_key}: {auth_hash}",
+                description=f"Run the function every day at 8am UTC {FunctionScheduleCRUD._hash_key}: {auth_hash}",
                 cognite_client=client,
             )
             # The as_write method looks up the input data.
             client.functions.schedules.get_input_data.return_value = None
-            loader = FunctionScheduleLoader(client, None, None)
+            loader = FunctionScheduleCRUD(client, None, None)
 
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = local_content
@@ -294,7 +294,7 @@ authentication:
                 json={"error": {"message": "Invalid client credentials"}},
             )
             client = ToolkitClient(toolkit_config)
-            loader = FunctionScheduleLoader(client, None, None)
+            loader = FunctionScheduleCRUD(client, None, None)
             schedule = FunctionScheduleWrite(
                 name="daily-8am-utc",
                 function_external_id="fn_example_repeater",
@@ -320,7 +320,7 @@ authentication:
                 json={"items": []},
             )
             client = ToolkitClient(toolkit_config)
-            loader = FunctionScheduleLoader(client, None, None)
+            loader = FunctionScheduleCRUD(client, None, None)
             schedule = FunctionScheduleWrite(
                 name="daily-8am-utc",
                 function_external_id="fn_non_existent_function",

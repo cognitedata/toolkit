@@ -13,14 +13,14 @@ from cognite_toolkit._cdf_tk.client.data_classes.migration import (
     ViewSourceApply,
 )
 from cognite_toolkit._cdf_tk.constants import COGNITE_MIGRATION_SPACE
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceCRUD
 from cognite_toolkit._cdf_tk.utils import in_dict
 
-from .datamodel_loaders import SpaceLoader, ViewLoader
+from .datamodel_loaders import SpaceLoader, ViewCRUD
 
 
 @final
-class ViewSourceLoader(ResourceLoader[str, ViewSourceApply, ViewSource, NodeApplyList, NodeList[ViewSource]]):
+class ViewSourceCRUD(ResourceCRUD[str, ViewSourceApply, ViewSource, NodeApplyList, NodeList[ViewSource]]):
     folder_name = "migration"
     filename_pattern = r"^.*\.ViewSource$"  # Matches all yaml files whose stem ends with '.ViewSource'.
     filetypes = frozenset({"yaml", "yml"})
@@ -29,7 +29,7 @@ class ViewSourceLoader(ResourceLoader[str, ViewSourceApply, ViewSource, NodeAppl
     list_cls = NodeList[ViewSource]
     list_write_cls = NodeApplyList
     kind = "ViewSource"
-    dependencies = frozenset({SpaceLoader, ViewLoader})
+    dependencies = frozenset({SpaceLoader, ViewCRUD})
     _doc_url = "Instances/operation/applyNodeAndEdges"
 
     @property
@@ -88,15 +88,15 @@ class ViewSourceLoader(ResourceLoader[str, ViewSourceApply, ViewSource, NodeAppl
             return []
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> "Iterable[tuple[type[ResourceLoader], Hashable]]":
+    def get_dependent_items(cls, item: dict) -> "Iterable[tuple[type[ResourceCRUD], Hashable]]":
         yield SpaceLoader, COGNITE_MIGRATION_SPACE
 
-        yield ViewLoader, ViewSource.get_source()
+        yield ViewCRUD, ViewSource.get_source()
 
         if "viewId" in item:
             view_id = item["viewId"]
             if isinstance(view_id, dict) and in_dict(("space", "externalId"), view_id):
-                yield ViewLoader, ViewId.load(view_id)
+                yield ViewCRUD, ViewId.load(view_id)
 
     def dump_resource(self, resource: ViewSource, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump(context="local")

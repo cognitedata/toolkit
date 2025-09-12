@@ -15,8 +15,8 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import DumpResourceCommand
 from cognite_toolkit._cdf_tk.commands.dump_resource import ExtractionPipelineFinder
 from cognite_toolkit._cdf_tk.loaders import (
-    ExtractionPipelineConfigLoader,
-    ExtractionPipelineLoader,
+    ExtractionPipelineConfigCRUD,
+    ExtractionPipelineCRUD,
 )
 
 
@@ -71,7 +71,7 @@ class TestDumpExtractionPipeline:
             verbose=False,
         )
 
-        folder = tmp_path / ExtractionPipelineLoader.folder_name
+        folder = tmp_path / ExtractionPipelineCRUD.folder_name
         assert folder.exists()
-        assert sum(1 for _ in folder.glob(f"*{ExtractionPipelineLoader.kind}.yaml")) == 1
-        assert sum(1 for _ in folder.glob(f"*{ExtractionPipelineConfigLoader.kind}.yaml")) == 1
+        assert sum(1 for _ in folder.glob(f"*{ExtractionPipelineCRUD.kind}.yaml")) == 1
+        assert sum(1 for _ in folder.glob(f"*{ExtractionPipelineConfigCRUD.kind}.yaml")) == 1

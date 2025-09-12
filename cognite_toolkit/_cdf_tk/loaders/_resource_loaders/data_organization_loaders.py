@@ -40,14 +40,14 @@ from cognite_toolkit._cdf_tk._parameters import ANY_STR, ANYTHING, ParameterSpec
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import DataSetYAML, LabelsYAML
 
 from .auth_loaders import GroupAllScopedLoader
 
 
 @final
-class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList, DataSetList]):
+class DataSetsCRUD(ResourceCRUD[str, DataSetWrite, DataSet, DataSetWriteList, DataSetList]):
     support_drop = False
     folder_name = "data_sets"
     resource_cls = DataSet
@@ -174,8 +174,8 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
 
 
 @final
-class LabelLoader(
-    ResourceLoader[str, LabelDefinitionWrite, LabelDefinition, LabelDefinitionWriteList, LabelDefinitionList]
+class LabelCRUD(
+    ResourceCRUD[str, LabelDefinitionWrite, LabelDefinition, LabelDefinitionWriteList, LabelDefinitionList]
 ):
     folder_name = "classic"
     filename_pattern = r"^.*Label$"  # Matches all yaml files whose stem ends with *Label.
@@ -185,7 +185,7 @@ class LabelLoader(
     list_write_cls = LabelDefinitionWriteList
     yaml_cls = LabelsYAML
     kind = "Label"
-    dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
+    dependencies = frozenset({DataSetsCRUD, GroupAllScopedLoader})
     _doc_url = "Labels/operation/createLabelDefinitions"
     support_update = False
 
@@ -264,14 +264,14 @@ class LabelLoader(
         return spec
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         """Returns all items that this item requires.
 
         For example, a TimeSeries requires a DataSet, so this method would return the
         DatasetLoader and identifier of that dataset.
         """
         if "dataSetExternalId" in item:
-            yield DataSetsLoader, item["dataSetExternalId"]
+            yield DataSetsCRUD, item["dataSetExternalId"]
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> LabelDefinitionWrite:
         if ds_external_id := resource.pop("dataSetExternalId", None):

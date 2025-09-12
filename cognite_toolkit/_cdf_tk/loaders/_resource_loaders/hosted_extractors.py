@@ -38,14 +38,14 @@ from rich.console import Console
 from cognite_toolkit._cdf_tk._parameters import ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import HostedExtractorDestinationYAML, HostedExtractorMappingYAML
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 
-from .data_organization_loaders import DataSetsLoader
+from .data_organization_loaders import DataSetsCRUD
 
 
-class HostedExtractorSourceLoader(ResourceLoader[str, SourceWrite, Source, SourceWriteList, SourceList]):
+class HostedExtractorSourceCRUD(ResourceCRUD[str, SourceWrite, Source, SourceWriteList, SourceList]):
     folder_name = "hosted_extractors"
     filename_pattern = r".*\.Source$"  # Matches all yaml files whose stem ends with '.Source'.
     resource_cls = Source
@@ -155,8 +155,8 @@ class HostedExtractorSourceLoader(ResourceLoader[str, SourceWrite, Source, Sourc
             yield auth.client_secret
 
 
-class HostedExtractorDestinationLoader(
-    ResourceLoader[str, DestinationWrite, Destination, DestinationWriteList, DestinationList]
+class HostedExtractorDestinationCRUD(
+    ResourceCRUD[str, DestinationWrite, Destination, DestinationWriteList, DestinationList]
 ):
     folder_name = "hosted_extractors"
     filename_pattern = r".*\.Destination$"  # Matches all yaml files whose stem ends with '.Destination'.
@@ -164,7 +164,7 @@ class HostedExtractorDestinationLoader(
     resource_write_cls = DestinationWrite
     list_cls = DestinationList
     list_write_cls = DestinationWriteList
-    dependencies = frozenset({DataSetsLoader})
+    dependencies = frozenset({DataSetsCRUD})
     kind = "Destination"
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
     _doc_url = "Destinations/operation/create_destinations"
@@ -262,9 +262,9 @@ class HostedExtractorDestinationLoader(
         return spec
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "targetDataSetId" in item:
-            yield DataSetsLoader, item["targetDataSetId"]
+            yield DataSetsCRUD, item["targetDataSetId"]
 
     def sensitive_strings(self, item: DestinationWrite) -> Iterable[str]:
         yield item.credentials.nonce
@@ -273,14 +273,14 @@ class HostedExtractorDestinationLoader(
             yield self._authentication_by_id[id_].client_secret
 
 
-class HostedExtractorJobLoader(ResourceLoader[str, JobWrite, Job, JobWriteList, JobList]):
+class HostedExtractorJobCRUD(ResourceCRUD[str, JobWrite, Job, JobWriteList, JobList]):
     folder_name = "hosted_extractors"
     filename_pattern = r".*\.Job$"  # Matches all yaml files whose stem ends with '.Job'.
     resource_cls = Job
     resource_write_cls = JobWrite
     list_cls = JobList
     list_write_cls = JobWriteList
-    dependencies = frozenset({HostedExtractorSourceLoader, HostedExtractorDestinationLoader})
+    dependencies = frozenset({HostedExtractorSourceCRUD, HostedExtractorDestinationCRUD})
     kind = "Job"
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
     _doc_url = "Jobs/operation/create_jobs"
@@ -373,14 +373,14 @@ class HostedExtractorJobLoader(ResourceLoader[str, JobWrite, Job, JobWriteList, 
         return spec
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "sourceId" in item:
-            yield HostedExtractorSourceLoader, item["sourceId"]
+            yield HostedExtractorSourceCRUD, item["sourceId"]
         if "destinationId" in item:
-            yield HostedExtractorDestinationLoader, item["destinationId"]
+            yield HostedExtractorDestinationCRUD, item["destinationId"]
 
 
-class HostedExtractorMappingLoader(ResourceLoader[str, MappingWrite, Mapping, MappingWriteList, MappingList]):
+class HostedExtractorMappingCRUD(ResourceCRUD[str, MappingWrite, Mapping, MappingWriteList, MappingList]):
     folder_name = "hosted_extractors"
     filename_pattern = r".*\.Mapping$"  # Matches all yaml files whose stem ends with '.Mapping'.
     resource_cls = Mapping
@@ -388,7 +388,7 @@ class HostedExtractorMappingLoader(ResourceLoader[str, MappingWrite, Mapping, Ma
     list_cls = MappingList
     list_write_cls = MappingWriteList
     # This is not an explicit dependency, however, adding it here as mapping will should be deployed after source.
-    dependencies = frozenset({HostedExtractorSourceLoader})
+    dependencies = frozenset({HostedExtractorSourceCRUD})
     kind = "Mapping"
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
     _doc_url = "Mappings/operation/create_mappings"

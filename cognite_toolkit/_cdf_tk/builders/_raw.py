@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     SourceLocation,
     SourceLocationEager,
 )
-from cognite_toolkit._cdf_tk.loaders import RawDatabaseLoader, RawTableLoader, ResourceLoader
+from cognite_toolkit._cdf_tk.loaders import RawDatabaseLoader, RawTableLoader, ResourceCRUD
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 from cognite_toolkit._cdf_tk.utils import calculate_hash
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
@@ -29,7 +29,7 @@ class RawBuilder(Builder):
                 continue
             loaded_list = loaded if isinstance(loaded, list) else [loaded]
             seen_databases: set[tuple] = set()
-            entry_by_loader: dict[type[ResourceLoader], list[dict[str, Any]]] = defaultdict(list)
+            entry_by_loader: dict[type[ResourceCRUD], list[dict[str, Any]]] = defaultdict(list)
             has_split_table_and_database = False
 
             for item in loaded_list:

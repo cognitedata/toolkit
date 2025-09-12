@@ -11,13 +11,13 @@ from cognite_toolkit._cdf_tk.data_classes import (
     SourceLocation,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitYAMLFormatError
-from cognite_toolkit._cdf_tk.loaders import TransformationLoader
+from cognite_toolkit._cdf_tk.loaders import TransformationCRUD
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, ToolkitWarning
 from cognite_toolkit._cdf_tk.utils import safe_write
 
 
 class TransformationBuilder(Builder):
-    _resource_folder = TransformationLoader.folder_name
+    _resource_folder = TransformationCRUD.folder_name
 
     def build(
         self, source_files: list[BuildSourceFile], module: ModuleLocation, console: Callable[[str], None] | None = None
@@ -42,7 +42,7 @@ class TransformationBuilder(Builder):
             destination_path = self._create_destination_path(source_file.source.path, loader.kind)
 
             extra_sources: list[SourceLocation] | None = None
-            if loader is TransformationLoader:
+            if loader is TransformationCRUD:
                 extra_sources = self._add_query(loaded, source_file, query_files, destination_path)
 
             destination = BuildDestinationFile(
@@ -68,7 +68,7 @@ class TransformationBuilder(Builder):
         extra_sources: list[SourceLocation] = []
         for entry in loaded_list:
             try:
-                external_id = TransformationLoader.get_id(entry)
+                external_id = TransformationCRUD.get_id(entry)
             except KeyError:
                 # This will be validated later
                 continue

@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 from cognite.client.data_classes.capabilities import FilesAcl, FunctionsAcl
 from cognite.client.data_classes.workflows import WorkflowScheduledTriggerRule, WorkflowTrigger
 
-from cognite_toolkit._cdf_tk.loaders import FunctionLoader, ResourceWorker, WorkflowTriggerLoader
+from cognite_toolkit._cdf_tk.loaders import FunctionCRUD, ResourceWorker, WorkflowTriggerCRUD
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
@@ -20,11 +20,11 @@ class TestResourceWorker:
                 "my_workflow",
                 "v1",
                 metadata={
-                    WorkflowTriggerLoader._MetadataKey.secret_hash: "outdated-hash",
+                    WorkflowTriggerCRUD._MetadataKey.secret_hash: "outdated-hash",
                 },
             ),
         )
-        loader = WorkflowTriggerLoader.create_loader(toolkit_client_approval.mock_client)
+        loader = WorkflowTriggerCRUD.create_loader(toolkit_client_approval.mock_client)
 
         worker = ResourceWorker(loader, "deploy")
         local_file = MagicMock(spec=Path)
@@ -61,11 +61,11 @@ authentication:
                 }
             ]
 
-            loader = FunctionLoader.create_loader(toolkit_client_approval.mock_client, None)
+            loader = FunctionCRUD.create_loader(toolkit_client_approval.mock_client, None)
             loader.data_set_id_by_external_id = {"my_function": 789}
 
             local_file = MagicMock(spec=Path)
-            local_file.parent.name = FunctionLoader.folder_name
+            local_file.parent.name = FunctionCRUD.folder_name
 
             worker = ResourceWorker(loader, "deploy")
             local_by_id = worker.load_resources([local_file], None, False)

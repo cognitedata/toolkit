@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from cognite_toolkit._cdf_tk.builders import get_loader
-from cognite_toolkit._cdf_tk.loaders import FileLoader, RawDatabaseLoader, RawTableLoader, ResourceLoader
+from cognite_toolkit._cdf_tk.loaders import FileLoader, RawDatabaseLoader, RawTableLoader, ResourceCRUD
 
 
 @pytest.mark.parametrize(
@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.loaders import FileLoader, RawDatabaseLoader, RawTa
         ("dbName: my_database\ntableName: my_table\n", RawTableLoader),
     ],
 )
-def test_get_loader_raw_loaders(content: str, expected_loader_cls: type[ResourceLoader]) -> None:
+def test_get_loader_raw_loaders(content: str, expected_loader_cls: type[ResourceCRUD]) -> None:
     filepath = MagicMock(spec=Path)
     filepath.name = "filelocation.yaml"
     filepath.stem = "filelocation"

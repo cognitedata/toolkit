@@ -87,8 +87,8 @@ from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import (
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, HAS_DATA_FILTER_LIMIT
 from cognite_toolkit._cdf_tk.exceptions import GraphQLParseError, ToolkitCycleError, ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.loaders._base_loaders import (
-    ResourceContainerLoader,
-    ResourceLoader,
+    ResourceContainerCRUD,
+    ResourceCRUD,
 )
 from cognite_toolkit._cdf_tk.resource_classes import ContainerYAML, SpaceYAML, ViewYAML
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning, MediumSeverityWarning
@@ -110,7 +110,7 @@ from .auth_loaders import GroupAllScopedLoader
 
 
 @final
-class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList, SpaceList]):
+class SpaceLoader(ResourceContainerCRUD[str, SpaceApply, Space, SpaceApplyList, SpaceList]):
     item_name = "nodes and edges"
     folder_name = "data_models"
     filename_pattern = r"^.*space$"
@@ -242,9 +242,7 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
             yield instances.as_ids()
 
 
-class ContainerLoader(
-    ResourceContainerLoader[ContainerId, ContainerApply, Container, ContainerApplyList, ContainerList]
-):
+class ContainerLoader(ResourceContainerCRUD[ContainerId, ContainerApply, Container, ContainerApplyList, ContainerList]):
     item_name = "nodes and edges"
     folder_name = "data_models"
     filename_pattern = r"^.*container$"
@@ -292,7 +290,7 @@ class ContainerLoader(
         return id.dump(include_type=False)
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "space" in item:
             yield SpaceLoader, item["space"]
         # Note that we are very careful in the code below to not raise an exception if the
@@ -485,7 +483,7 @@ class ContainerLoader(
         return to_directory_compatible(f"{id.space}_{id.external_id}")
 
 
-class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList]):
+class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View, ViewApplyList, ViewList]):
     folder_name = "data_models"
     filename_pattern = r"^.*view$"
     resource_cls = View
@@ -544,7 +542,7 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         return id.dump(include_type=False)
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "space" in item:
             yield SpaceLoader, item["space"]
         if isinstance(implements := item.get("implements", []), list):
@@ -553,7 +551,7 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
                     continue
                 if parent.get("type") == "view" and in_dict(["space", "externalId", "version"], parent):
                     yield (
-                        ViewLoader,
+                        ViewCRUD,
                         ViewId(parent["space"], parent["externalId"], str(v) if (v := parent.get("version")) else None),
                     )
         for prop in item.get("properties", {}).values():
@@ -564,7 +562,7 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
                 if source := dct_.get(key, {}):
                     if source.get("type") == "view" and in_dict(("space", "externalId", "version"), source):
                         yield (
-                            ViewLoader,
+                            ViewCRUD,
                             ViewId(
                                 source["space"], source["externalId"], str(v) if (v := source.get("version")) else None
                             ),
@@ -895,7 +893,7 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
 
 
 @final
-class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, DataModelApplyList, DataModelList]):
+class DataModelCRUD(ResourceCRUD[DataModelId, DataModelApply, DataModel, DataModelApplyList, DataModelList]):
     folder_name = "data_models"
     filename_pattern = r"^.*datamodel$"
     resource_cls = DataModel
@@ -903,7 +901,7 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
     list_cls = DataModelList
     list_write_cls = DataModelApplyList
     kind = "DataModel"
-    dependencies = frozenset({SpaceLoader, ViewLoader})
+    dependencies = frozenset({SpaceLoader, ViewCRUD})
     _doc_url = "Data-models/operation/createDataModels"
 
     @property
@@ -941,13 +939,13 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         return id.dump(include_type=False)
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "space" in item:
             yield SpaceLoader, item["space"]
         for view in item.get("views", []):
             if in_dict(("space", "externalId"), view):
                 yield (
-                    ViewLoader,
+                    ViewCRUD,
                     ViewId(view["space"], view["externalId"], str(v) if (v := view.get("version")) else None),
                 )
 
@@ -1036,7 +1034,7 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
 
 
 @final
-class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList, NodeList]):
+class NodeLoader(ResourceContainerCRUD[NodeId, NodeApply, Node, NodeApplyList, NodeList]):
     item_name = "nodes"
     folder_name = "data_models"
     filename_pattern = r"^.*node$"
@@ -1045,7 +1043,7 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
     list_cls = NodeList
     list_write_cls = NodeApplyList
     kind = "Node"
-    dependencies = frozenset({SpaceLoader, ViewLoader, ContainerLoader})
+    dependencies = frozenset({SpaceLoader, ViewCRUD, ContainerLoader})
     _doc_url = "Instances/operation/applyNodeAndEdges"
 
     def __init__(
@@ -1097,14 +1095,14 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
         return id.dump()
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "space" in item:
             yield SpaceLoader, item["space"]
         for source in item.get("sources", []):
             if (identifier := source.get("source")) and isinstance(identifier, dict):
                 if identifier.get("type") == "view" and in_dict(("space", "externalId", "version"), identifier):
                     yield (
-                        ViewLoader,
+                        ViewCRUD,
                         ViewId(
                             identifier["space"],
                             identifier["externalId"],
@@ -1208,7 +1206,7 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
 
 
 class GraphQLLoader(
-    ResourceContainerLoader[
+    ResourceContainerCRUD[
         DataModelId, GraphQLDataModelWrite, GraphQLDataModel, GraphQLDataModelWriteList, GraphQLDataModelList
     ]
 ):
@@ -1262,7 +1260,7 @@ class GraphQLLoader(
         )
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "space" in item:
             yield SpaceLoader, item["space"]
 
@@ -1409,7 +1407,7 @@ class GraphQLLoader(
 
 
 @final
-class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, EdgeApplyList, EdgeList]):
+class EdgeLoader(ResourceContainerCRUD[EdgeId, EdgeApply, Edge, EdgeApplyList, EdgeList]):
     item_name = "edges"
     folder_name = "data_models"
     filename_pattern = r"^.*edge"
@@ -1418,7 +1416,7 @@ class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, EdgeApplyList,
     list_cls = EdgeList
     list_write_cls = EdgeApplyList
     kind = "Edge"
-    dependencies = frozenset({SpaceLoader, ViewLoader, ContainerLoader, NodeLoader})
+    dependencies = frozenset({SpaceLoader, ViewCRUD, ContainerLoader, NodeLoader})
     _doc_url = "Instances/operation/applyNodeAndEdges"
 
     @property
@@ -1459,14 +1457,14 @@ class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, EdgeApplyList,
         return id.dump()
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "space" in item:
             yield SpaceLoader, item["space"]
         for source in item.get("sources", []):
             if (identifier := source.get("source")) and isinstance(identifier, dict):
                 if identifier.get("type") == "view" and in_dict(("space", "externalId", "version"), identifier):
                     yield (
-                        ViewLoader,
+                        ViewCRUD,
                         ViewId(
                             identifier["space"],
                             identifier["externalId"],

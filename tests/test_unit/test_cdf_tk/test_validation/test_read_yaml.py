@@ -6,7 +6,7 @@ import yaml
 from cognite.client.data_classes import TimeSeries
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet
-from cognite_toolkit._cdf_tk.loaders import ContainerLoader, SpaceLoader, TimeSeriesLoader, ViewLoader
+from cognite_toolkit._cdf_tk.loaders import ContainerLoader, SpaceLoader, TimeSeriesLoader, ViewCRUD
 from cognite_toolkit._cdf_tk.tk_warnings import (
     CaseTypoWarning,
     DataSetMissingWarning,
@@ -39,7 +39,7 @@ def test_validate_raw() -> None:
 def test_validate_raw_nested() -> None:
     raw_file = LOAD_DATA / "datamodels" / "snake_cased_view_property.yaml"
     warnings = validate_resource_yaml(
-        yaml.safe_load(raw_file.read_text()), ViewLoader.get_write_cls_parameter_spec(), raw_file
+        yaml.safe_load(raw_file.read_text()), ViewCRUD.get_write_cls_parameter_spec(), raw_file
     )
 
     assert len(warnings) == 1

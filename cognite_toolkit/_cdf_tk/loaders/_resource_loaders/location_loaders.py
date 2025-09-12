@@ -17,21 +17,21 @@ from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import ResourceRetrievalError, ToolkitCycleError
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import LocationYAML
 from cognite_toolkit._cdf_tk.utils import in_dict, quote_int_value_by_key_in_yaml, safe_read
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
 
-from .classic_loaders import AssetLoader, SequenceLoader
-from .data_organization_loaders import DataSetsLoader
-from .datamodel_loaders import DataModelLoader, SpaceLoader, ViewLoader
+from .classic_loaders import AssetCRUD, SequenceCRUD
+from .data_organization_loaders import DataSetsCRUD
+from .datamodel_loaders import DataModelCRUD, SpaceLoader, ViewCRUD
 from .file_loader import FileMetadataLoader
 from .timeseries_loaders import TimeSeriesLoader
 
 
 @final
-class LocationFilterLoader(
-    ResourceLoader[str, LocationFilterWrite, LocationFilter, LocationFilterWriteList, LocationFilterList]
+class LocationFilterCRUD(
+    ResourceCRUD[str, LocationFilterWrite, LocationFilter, LocationFilterWriteList, LocationFilterList]
 ):
     folder_name = "locations"
     filename_pattern = r"^.*LocationFilter$"
@@ -42,12 +42,12 @@ class LocationFilterLoader(
     yaml_cls = LocationYAML
     dependencies = frozenset(
         {
-            AssetLoader,
-            DataSetsLoader,
-            DataModelLoader,
+            AssetCRUD,
+            DataSetsCRUD,
+            DataModelCRUD,
             SpaceLoader,
-            ViewLoader,
-            SequenceLoader,
+            ViewCRUD,
+            SequenceCRUD,
             FileMetadataLoader,
             TimeSeriesLoader,
         }
@@ -358,7 +358,7 @@ class LocationFilterLoader(
         return spec
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         """Returns all items that this item requires.
 
         For example, a TimeSeries requires a DataSet, so this method would return the
@@ -367,22 +367,22 @@ class LocationFilterLoader(
         if "assetCentric" in item:
             asset_centric = item["assetCentric"]
             for data_set_external_id in asset_centric.get("dataSetExternalIds", []):
-                yield DataSetsLoader, data_set_external_id
+                yield DataSetsCRUD, data_set_external_id
             for asset in asset_centric.get("assetSubtreeIds", []):
                 if "externalId" in asset:
-                    yield AssetLoader, asset["externalId"]
+                    yield AssetCRUD, asset["externalId"]
             for subfilter_name in cls.subfilter_names:
                 subfilter = asset_centric.get(subfilter_name, {})
                 for data_set_external_id in subfilter.get("dataSetExternalIds", []):
-                    yield DataSetsLoader, data_set_external_id
+                    yield DataSetsCRUD, data_set_external_id
                 for asset in subfilter.get("assetSubtreeIds", []):
                     if "externalId" in asset:
-                        yield AssetLoader, asset["externalId"]
+                        yield AssetCRUD, asset["externalId"]
         for view in item.get("views", []):
             if in_dict(["space", "externalId", "version"], view):
-                yield ViewLoader, ViewId(view["space"], view["externalId"], view["version"])
+                yield ViewCRUD, ViewId(view["space"], view["externalId"], view["version"])
         for space in item.get("instanceSpaces", []):
             yield SpaceLoader, space
         for data_model in item.get("dataModels", []):
             if in_dict(["space", "externalId", "version"], data_model):
-                yield DataModelLoader, DataModelId(data_model["space"], data_model["externalId"], data_model["version"])
+                yield DataModelCRUD, DataModelId(data_model["space"], data_model["externalId"], data_model["version"])

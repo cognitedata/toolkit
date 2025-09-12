@@ -13,7 +13,7 @@ from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.utils import read_yaml_content, safe_read
 from cognite_toolkit._cdf_tk.utils.file import read_csv
 
-from ._base_loaders import T_ID, DataLoader, ResourceLoader, T_WritableCogniteResourceList
+from ._base_loaders import T_ID, DataLoader, ResourceCRUD, T_WritableCogniteResourceList
 from ._resource_loaders import CogniteFileLoader, FileMetadataLoader, RawTableLoader, TimeSeriesLoader
 
 if TYPE_CHECKING:
@@ -131,7 +131,7 @@ class FileLoader(DataLoader):
     def _read_metadata(
         destination: Path,
         loader: type[
-            ResourceLoader[
+            ResourceCRUD[
                 T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
             ]
         ],

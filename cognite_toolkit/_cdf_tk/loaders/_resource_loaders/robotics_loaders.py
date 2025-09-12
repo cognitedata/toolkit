@@ -31,11 +31,11 @@ from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
     RobotCapabilityWrite,
     RobotCapabilityWriteList,
 )
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceCRUD
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
 
 
-class RoboticFrameLoader(ResourceLoader[str, FrameWrite, Frame, FrameWriteList, FrameList]):
+class RoboticFrameCRUD(ResourceCRUD[str, FrameWrite, Frame, FrameWriteList, FrameList]):
     folder_name = "robotics"
     filename_pattern = r"^.*\.Frame$"  # Matches all yaml files whose stem ends with '.Frame'.
     resource_cls = Frame
@@ -103,7 +103,7 @@ class RoboticFrameLoader(ResourceLoader[str, FrameWrite, Frame, FrameWriteList, 
         return iter(self.client.robotics.frames)
 
 
-class RoboticLocationLoader(ResourceLoader[str, LocationWrite, Location, LocationWriteList, LocationList]):
+class RoboticLocationCRUD(ResourceCRUD[str, LocationWrite, Location, LocationWriteList, LocationList]):
     folder_name = "robotics"
     filename_pattern = r"^.*\.Location$"  # Matches all yaml files whose stem ends with '.Location'.
     resource_cls = Location
@@ -176,10 +176,8 @@ class RoboticLocationLoader(ResourceLoader[str, LocationWrite, Location, Locatio
         return iter(self.client.robotics.locations)
 
 
-class RoboticsDataPostProcessingLoader(
-    ResourceLoader[
-        str, DataPostProcessingWrite, DataPostProcessing, DataPostProcessingWriteList, DataPostProcessingList
-    ]
+class RoboticsDataPostProcessingCRUD(
+    ResourceCRUD[str, DataPostProcessingWrite, DataPostProcessing, DataPostProcessingWriteList, DataPostProcessingList]
 ):
     folder_name = "robotics"
     filename_pattern = r"^.*\.DataPostProcessing$"  # Matches all yaml files whose stem ends with '.DataPostProcessing'.
@@ -272,8 +270,8 @@ class RoboticsDataPostProcessingLoader(
         return super().diff_list(local, cdf, json_path)
 
 
-class RobotCapabilityLoader(
-    ResourceLoader[str, RobotCapabilityWrite, RobotCapability, RobotCapabilityWriteList, RobotCapabilityList]
+class RobotCapabilityCRUD(
+    ResourceCRUD[str, RobotCapabilityWrite, RobotCapability, RobotCapabilityWriteList, RobotCapabilityList]
 ):
     folder_name = "robotics"
     filename_pattern = r"^.*\.RobotCapability$"  # Matches all yaml files whose stem ends with '.RobotCapability'.
@@ -369,7 +367,7 @@ class RobotCapabilityLoader(
         return super().diff_list(local, cdf, json_path)
 
 
-class RoboticMapLoader(ResourceLoader[str, MapWrite, Map, MapWriteList, MapList]):
+class RoboticMapCRUD(ResourceCRUD[str, MapWrite, Map, MapWriteList, MapList]):
     folder_name = "robotics"
     filename_pattern = r"^.*\.Map$"  # Matches all yaml files whose stem ends with '.Map'.
     resource_cls = Map
@@ -377,7 +375,7 @@ class RoboticMapLoader(ResourceLoader[str, MapWrite, Map, MapWriteList, MapList]
     list_cls = MapList
     list_write_cls = MapWriteList
     kind = "Map"
-    dependencies = frozenset({RoboticFrameLoader, RoboticLocationLoader})
+    dependencies = frozenset({RoboticFrameCRUD, RoboticLocationCRUD})
     _doc_url = "Maps/operation/createMaps"
 
     @property

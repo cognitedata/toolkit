@@ -53,7 +53,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitCycleError,
     ToolkitRequiredValueError,
 )
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import WorkflowTriggerYAML, WorkflowVersionYAML, WorkflowYAML
 from cognite_toolkit._cdf_tk.tk_warnings import (
     LowSeverityWarning,
@@ -70,14 +70,14 @@ from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 
 from .auth_loaders import GroupAllScopedLoader
-from .data_organization_loaders import DataSetsLoader
-from .function_loaders import FunctionLoader
+from .data_organization_loaders import DataSetsCRUD
+from .function_loaders import FunctionCRUD
 from .group_scoped_loader import GroupResourceScopedLoader
-from .transformation_loaders import TransformationLoader
+from .transformation_loaders import TransformationCRUD
 
 
 @final
-class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpsertList, WorkflowList]):
+class WorkflowCRUD(ResourceCRUD[str, WorkflowUpsert, Workflow, WorkflowUpsertList, WorkflowList]):
     folder_name = "workflows"
     filename_pattern = r"^.*Workflow$"
     resource_cls = Workflow
@@ -88,9 +88,9 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
     dependencies = frozenset(
         {
             GroupAllScopedLoader,
-            TransformationLoader,
-            FunctionLoader,
-            DataSetsLoader,
+            TransformationCRUD,
+            FunctionCRUD,
+            DataSetsCRUD,
         }
     )
     yaml_cls = WorkflowYAML
@@ -206,19 +206,19 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
         return spec
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         """Returns all items that this item requires.
 
         For example, a TimeSeries requires a DataSet, so this method would return the
         DatasetLoader and identifier of that dataset.
         """
         if "dataSetExternalId" in item:
-            yield DataSetsLoader, item["dataSetExternalId"]
+            yield DataSetsCRUD, item["dataSetExternalId"]
 
 
 @final
-class WorkflowVersionLoader(
-    ResourceLoader[
+class WorkflowVersionCRUD(
+    ResourceCRUD[
         WorkflowVersionId, WorkflowVersionUpsert, WorkflowVersion, WorkflowVersionUpsertList, WorkflowVersionList
     ]
 ):
@@ -229,8 +229,8 @@ class WorkflowVersionLoader(
     list_cls = WorkflowVersionList
     list_write_cls = WorkflowVersionUpsertList
     kind = "WorkflowVersion"
-    dependencies = frozenset({WorkflowLoader})
-    parent_resource = frozenset({WorkflowLoader})
+    dependencies = frozenset({WorkflowCRUD})
+    parent_resource = frozenset({WorkflowCRUD})
     yaml_cls = WorkflowVersionYAML
 
     _doc_base_url = "https://api-docs.cognite.com/20230101-beta/tag/"
@@ -388,9 +388,9 @@ class WorkflowVersionLoader(
         return super().diff_list(local, cdf, json_path)
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "workflowExternalId" in item:
-            yield WorkflowLoader, item["workflowExternalId"]
+            yield WorkflowCRUD, item["workflowExternalId"]
 
     @classmethod
     def check_item(cls, item: dict, filepath: Path, element_no: int | None) -> list[ToolkitWarning]:
@@ -534,8 +534,8 @@ class WorkflowVersionLoader(
 
 
 @final
-class WorkflowTriggerLoader(
-    ResourceLoader[str, WorkflowTriggerUpsert, WorkflowTrigger, WorkflowTriggerUpsertList, WorkflowTriggerList]
+class WorkflowTriggerCRUD(
+    ResourceCRUD[str, WorkflowTriggerUpsert, WorkflowTrigger, WorkflowTriggerUpsertList, WorkflowTriggerList]
 ):
     folder_name = "workflows"
     filename_pattern = r"^.*WorkflowTrigger$"
@@ -544,8 +544,8 @@ class WorkflowTriggerLoader(
     list_cls = WorkflowTriggerList
     list_write_cls = WorkflowTriggerUpsertList
     kind = "WorkflowTrigger"
-    dependencies = frozenset({WorkflowLoader, WorkflowVersionLoader, GroupResourceScopedLoader, GroupAllScopedLoader})
-    parent_resource = frozenset({WorkflowLoader})
+    dependencies = frozenset({WorkflowCRUD, WorkflowVersionCRUD, GroupResourceScopedLoader, GroupAllScopedLoader})
+    parent_resource = frozenset({WorkflowCRUD})
     yaml_cls = WorkflowTriggerYAML
 
     _doc_url = "Workflow-triggers/operation/CreateOrUpdateTriggers"
@@ -679,13 +679,13 @@ class WorkflowTriggerLoader(
         return spec
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         """Returns all items that this item requires."""
         if "workflowExternalId" in item:
-            yield WorkflowLoader, item["workflowExternalId"]
+            yield WorkflowCRUD, item["workflowExternalId"]
 
             if "workflowVersion" in item:
-                yield WorkflowVersionLoader, WorkflowVersionId(item["workflowExternalId"], item["workflowVersion"])
+                yield WorkflowVersionCRUD, WorkflowVersionId(item["workflowExternalId"], item["workflowVersion"])
 
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None

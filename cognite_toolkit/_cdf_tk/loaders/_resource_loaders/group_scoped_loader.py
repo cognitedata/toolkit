@@ -20,27 +20,27 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 
-from .auth_loaders import GroupLoader, SecurityCategoryLoader
-from .classic_loaders import AssetLoader
-from .data_organization_loaders import DataSetsLoader
+from .auth_loaders import GroupCRUD, SecurityCategoryCRUD
+from .classic_loaders import AssetCRUD
+from .data_organization_loaders import DataSetsCRUD
 from .datamodel_loaders import SpaceLoader
-from .extraction_pipeline_loaders import ExtractionPipelineLoader
-from .location_loaders import LocationFilterLoader
+from .extraction_pipeline_loaders import ExtractionPipelineCRUD
+from .location_loaders import LocationFilterCRUD
 from .raw_loaders import RawDatabaseLoader, RawTableLoader
 from .timeseries_loaders import TimeSeriesLoader
 
 
 @final
-class GroupResourceScopedLoader(GroupLoader):
+class GroupResourceScopedLoader(GroupCRUD):
     dependencies = frozenset(
         {
             SpaceLoader,
-            DataSetsLoader,
-            ExtractionPipelineLoader,
+            DataSetsCRUD,
+            ExtractionPipelineCRUD,
             TimeSeriesLoader,
-            SecurityCategoryLoader,
-            LocationFilterLoader,
-            AssetLoader,
+            SecurityCategoryCRUD,
+            LocationFilterCRUD,
+            AssetCRUD,
             RawDatabaseLoader,
             RawTableLoader,
         }

@@ -55,21 +55,21 @@ from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.loaders import (
-    AssetLoader,
+    AssetCRUD,
     CogniteFileLoader,
-    DataModelLoader,
-    DatapointSubscriptionLoader,
-    FunctionLoader,
-    FunctionScheduleLoader,
-    GroupLoader,
-    LabelLoader,
+    DataModelCRUD,
+    DatapointSubscriptionCRUD,
+    FunctionCRUD,
+    FunctionScheduleCRUD,
+    GroupCRUD,
+    LabelCRUD,
     NodeLoader,
     ResourceWorker,
-    RobotCapabilityLoader,
-    RoboticsDataPostProcessingLoader,
-    TransformationLoader,
-    ViewLoader,
-    WorkflowVersionLoader,
+    RobotCapabilityCRUD,
+    RoboticsDataPostProcessingCRUD,
+    TransformationCRUD,
+    ViewCRUD,
+    WorkflowVersionCRUD,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, catch_warnings
 from tests.test_integration.constants import RUN_UNIQUE_ID
@@ -85,7 +85,7 @@ class TestFunctionScheduleLoader:
         dummy_function: Function,
         dummy_schedule: FunctionSchedule,
     ) -> None:
-        loader = FunctionScheduleLoader(toolkit_client, None, None)
+        loader = FunctionScheduleCRUD(toolkit_client, None, None)
         function_schedule = dummy_schedule.as_write()
 
         function_schedule.description = (
@@ -122,7 +122,7 @@ class TestFunctionScheduleLoader:
             function_external_id=dummy_function.external_id,
             description="This schedule should be ignored as it does not have a function_external_id",
         )
-        loader = FunctionScheduleLoader(toolkit_client, None, None)
+        loader = FunctionScheduleCRUD(toolkit_client, None, None)
         assert isinstance(toolkit_client_config.credentials, OAuthClientCredentials)
         loader.authentication_by_id[loader.get_id(local)] = ClientCredentials(
             toolkit_client_config.credentials.client_id, toolkit_client_config.credentials.client_secret
@@ -214,7 +214,7 @@ def three_hundred_and_three_cognite_timeseries(
 
 class TestDatapointSubscriptionLoader:
     def test_delete_non_existing(self, toolkit_client: ToolkitClient) -> None:
-        loader = DatapointSubscriptionLoader(toolkit_client, None)
+        loader = DatapointSubscriptionCRUD(toolkit_client, None)
         delete_count = loader.delete(["non_existing"])
         assert delete_count == 0
 
@@ -232,7 +232,7 @@ class TestDatapointSubscriptionLoader:
             filter=filters.Prefix(DatapointSubscriptionProperty.external_id, "ts_value"),
         )
 
-        loader = DatapointSubscriptionLoader(toolkit_client, None)
+        loader = DatapointSubscriptionCRUD(toolkit_client, None)
 
         try:
             created = loader.create(DatapointSubscriptionWriteList([sub]))
@@ -275,7 +275,7 @@ name: The subscription name
 timeSeriesIds:
 - {ts_update_ds}
 """
-        loader = DatapointSubscriptionLoader(toolkit_client, None)
+        loader = DatapointSubscriptionCRUD(toolkit_client, None)
         sub = self._load_subscription_from_yaml(self._create_mock_file(sub_yaml), loader)
         try:
             created = loader.create(DatapointSubscriptionWriteList([sub]))
@@ -310,7 +310,7 @@ timeSeriesIds:
 - {three_timeseries[1].external_id}
 - {three_timeseries[2].external_id}
 """
-        loader = DatapointSubscriptionLoader.create_loader(toolkit_client)
+        loader = DatapointSubscriptionCRUD.create_loader(toolkit_client)
 
         filepath = self._create_mock_file(definition_yaml)
         resource = self._load_subscription_from_yaml(filepath, loader)
@@ -335,7 +335,7 @@ timeSeriesIds:
         return mock_file
 
     @staticmethod
-    def _load_subscription_from_yaml(filepath: Path, loader: DatapointSubscriptionLoader) -> DataPointSubscriptionWrite:
+    def _load_subscription_from_yaml(filepath: Path, loader: DatapointSubscriptionCRUD) -> DataPointSubscriptionWrite:
         resource_dict = loader.load_resource_file(filepath, {})
         assert len(resource_dict) == 1
         return loader.load_resource(resource_dict[0])
@@ -343,7 +343,7 @@ timeSeriesIds:
 
 class TestLabelLoader:
     def test_delete_non_existing(self, cognite_client: CogniteClient) -> None:
-        loader = LabelLoader(cognite_client, None)
+        loader = LabelCRUD(cognite_client, None)
         delete_count = loader.delete(["non_existing"])
         assert delete_count == 0
 
@@ -352,7 +352,7 @@ class TestLabelLoader:
             external_id=f"tmp_test_create_update_delete_label_{RUN_UNIQUE_ID}",
             name="Initial name",
         )
-        loader = LabelLoader(toolkit_client, None)
+        loader = LabelCRUD(toolkit_client, None)
 
         try:
             created = loader.create(LabelDefinitionWriteList([label]))
@@ -369,7 +369,7 @@ class TestAssetLoader:
             description="My description",
         )
 
-        loader = AssetLoader(cognite_client, None)
+        loader = AssetCRUD(cognite_client, None)
 
         try:
             created = loader.create(AssetWriteList([asset]))
@@ -403,14 +403,14 @@ class TestRobotCapability:
     def test_retrieve_existing_and_not_existing(
         self, toolkit_client: ToolkitClient, existing_robot_capability: RobotCapability
     ) -> None:
-        loader = RobotCapabilityLoader(toolkit_client, None)
+        loader = RobotCapabilityCRUD(toolkit_client, None)
 
         capabilities = loader.retrieve([existing_robot_capability.external_id, "non_existing_robot"])
 
         assert len(capabilities) == 1
 
     def test_create_update_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
-        loader = RobotCapabilityLoader(toolkit_client, None)
+        loader = RobotCapabilityCRUD(toolkit_client, None)
 
         original = RobotCapabilityWrite.load("""name: Read dial gauge
 externalId: read_dial_gauge
@@ -456,7 +456,7 @@ dataHandlingSchema:
 
 class TestRobotDataPostProcessing:
     def test_create_update_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
-        loader = RoboticsDataPostProcessingLoader(toolkit_client, None)
+        loader = RoboticsDataPostProcessingCRUD(toolkit_client, None)
 
         original = DataPostProcessingWrite.load("""name: Read dial gauge
 externalId: read_dial_gauge
@@ -605,7 +605,7 @@ class TestDataModelLoader:
     def test_create_update_delete(
         self, toolkit_client: ToolkitClient, schema_space: dm.Space, two_views: dm.ViewList
     ) -> None:
-        loader = DataModelLoader(toolkit_client, None)
+        loader = DataModelCRUD(toolkit_client, None)
         view_list = two_views.as_ids()
         assert len(view_list) == 2, "Expected 2 views in the test data model"
         my_model = dm.DataModelApply(
@@ -767,7 +767,7 @@ class TestGroupLoader:
             group_id = created_group.id
             toolkit_client.time_series.delete(id=created_ts.id)
 
-            loader = GroupLoader.create_loader(toolkit_client)
+            loader = GroupCRUD.create_loader(toolkit_client)
 
             dumped = loader.dump_resource(created_group)
             assert "capabilities" in dumped
@@ -806,7 +806,7 @@ workflowDefinition:
         file = MagicMock(spec=Path)
         file.read_text.return_value = definition_yaml
         with monkeypatch_toolkit_client() as client:
-            loader = WorkflowVersionLoader(client, None, None)
+            loader = WorkflowVersionCRUD(client, None, None)
 
             with catch_warnings(EnvironmentVariableMissingWarning) as warning_list:
                 loaded = loader.load_resource_file(file, {"myTask1.output.data": "should-be-ignored"})
@@ -837,7 +837,7 @@ workflowDefinition:
         externalId: some_transformation
     retries: null
 """
-        loader = WorkflowVersionLoader.create_loader(toolkit_client)
+        loader = WorkflowVersionCRUD.create_loader(toolkit_client)
 
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = definition_yaml
@@ -875,7 +875,7 @@ authentication:
   clientId: ${IDP_CLIENT_ID}
   clientSecret: ${IDP_CLIENT_SECRET}
 """
-        loader = TransformationLoader.create_loader(toolkit_client)
+        loader = TransformationCRUD.create_loader(toolkit_client)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = transformation_text
 
@@ -907,7 +907,7 @@ authentication:
     clientId: ${IDP_CLIENT_ID}
     clientSecret: ${IDP_CLIENT_SECRET}
         """
-        loader = TransformationLoader.create_loader(toolkit_client)
+        loader = TransformationCRUD.create_loader(toolkit_client)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = transformation_text
 
@@ -958,7 +958,7 @@ authentication:
             for i in range(1, N + 1)
         ]
 
-        loader = TransformationLoader.create_loader(toolkit_client)
+        loader = TransformationCRUD.create_loader(toolkit_client)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = "\n".join(definition_yaml)
 
@@ -1038,7 +1038,7 @@ properties:
       type: container
     containerPropertyIdentifier: name
         """
-        loader = ViewLoader.create_loader(toolkit_client)
+        loader = ViewCRUD.create_loader(toolkit_client)
 
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = definition_yaml
@@ -1086,14 +1086,14 @@ dataSetExternalId: {toolkit_dataset.external_id}
 description: ""
         """
         build_dir = tmp_path / "build"
-        function_code_path = build_dir / FunctionLoader.folder_name / external_id / "handler.py"
+        function_code_path = build_dir / FunctionCRUD.folder_name / external_id / "handler.py"
         function_code_path.parent.mkdir(parents=True, exist_ok=True)
         function_code_path.write_text(function_code, encoding="utf-8")
 
-        loader = FunctionLoader.create_loader(toolkit_client, build_dir)
+        loader = FunctionCRUD.create_loader(toolkit_client, build_dir)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = definition_yaml
-        filepath.parent.name = FunctionLoader.folder_name
+        filepath.parent.name = FunctionCRUD.folder_name
         resource_dict = loader.load_resource_file(filepath, {})
         assert len(resource_dict) == 1
         resource = loader.load_resource(resource_dict[0])

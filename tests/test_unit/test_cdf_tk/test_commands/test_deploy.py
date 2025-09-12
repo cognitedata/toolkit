@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from cognite_toolkit._cdf_tk.loaders import ResourceWorker, ViewLoader
+from cognite_toolkit._cdf_tk.loaders import ResourceWorker, ViewCRUD
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 
@@ -12,7 +12,7 @@ class TestDeployCommand:
         path = MagicMock(spec=Path)
         path.name = "my.View.yaml"
         path.read_text.return_value = VIEW_SOURCE_NONE
-        worker = ResourceWorker(ViewLoader.create_loader(env_vars_with_client.get_client()), "deploy")
+        worker = ResourceWorker(ViewCRUD.create_loader(env_vars_with_client.get_client()), "deploy")
 
         with pytest.raises(TypeError) as e:
             worker.prepare_resources([path], environment_variables={}, is_dry_run=True, verbose=False)

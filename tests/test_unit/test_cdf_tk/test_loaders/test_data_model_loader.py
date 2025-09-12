@@ -9,8 +9,8 @@ from cognite.client.data_classes import data_modeling as dm
 from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import GraphQLDataModel, GraphQLDataModelWriteList
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
-from cognite_toolkit._cdf_tk.loaders import DataModelLoader, ResourceWorker
-from cognite_toolkit._cdf_tk.loaders._resource_loaders import GraphQLLoader, ViewLoader
+from cognite_toolkit._cdf_tk.loaders import DataModelCRUD, ResourceWorker
+from cognite_toolkit._cdf_tk.loaders._resource_loaders import GraphQLLoader, ViewCRUD
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
@@ -51,7 +51,7 @@ class TestDataModelLoader:
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = local_data_model
 
-        loader = DataModelLoader.create_loader(
+        loader = DataModelCRUD.create_loader(
             env_vars_with_client.get_client(),
         )
         worker = ResourceWorker(loader, "deploy")
@@ -85,7 +85,7 @@ views:
             name=None,
             is_global=False,
         )
-        loader = DataModelLoader.create_loader(env_vars_with_client.get_client())
+        loader = DataModelCRUD.create_loader(env_vars_with_client.get_client())
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = local_yaml
         # The load filepath method ensures version is read as an int.
@@ -239,7 +239,7 @@ class TestViewLoader:
     def test_topological_sorting(self, parent_grandparent_view: dm.ViewList) -> None:
         with monkeypatch_toolkit_client() as client:
             client.data_modeling.views.retrieve.return_value = parent_grandparent_view
-            loader = ViewLoader(client, Path("build_dir"), None, topological_sort_implements=True)
+            loader = ViewCRUD(client, Path("build_dir"), None, topological_sort_implements=True)
             actual = loader.topological_sort(
                 [dm.ViewId("space", "Parent", "v1"), dm.ViewId("space", "GrandParent", "v1")]
             )
@@ -251,7 +251,7 @@ class TestViewLoader:
 
         with monkeypatch_toolkit_client() as client, pytest.raises(ToolkitCycleError) as exc_info:
             client.data_modeling.views.retrieve.return_value = parent_grandparent_view
-            loader = ViewLoader(client, Path("build_dir"), None, topological_sort_implements=True)
+            loader = ViewCRUD(client, Path("build_dir"), None, topological_sort_implements=True)
             loader.topological_sort([dm.ViewId("space", "Parent", "v1"), dm.ViewId("space", "GrandParent", "v1")])
 
         assert "cycle in implements" in str(exc_info.value)

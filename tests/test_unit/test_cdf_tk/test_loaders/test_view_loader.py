@@ -6,7 +6,7 @@ import pytest
 from cognite.client.data_classes import data_modeling as dm
 
 from cognite_toolkit._cdf_tk._parameters import read_parameters_from_dict
-from cognite_toolkit._cdf_tk.loaders import ContainerLoader, ResourceLoader, ResourceWorker, SpaceLoader, ViewLoader
+from cognite_toolkit._cdf_tk.loaders import ContainerLoader, ResourceCRUD, ResourceWorker, SpaceLoader, ViewCRUD
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
@@ -53,7 +53,7 @@ class TestViewLoader:
         ],
     )
     def test_valid_spec(self, item: dict):
-        spec = ViewLoader.get_write_cls_parameter_spec()
+        spec = ViewCRUD.get_write_cls_parameter_spec()
         dumped = read_parameters_from_dict(item)
 
         extra = dumped - spec
@@ -61,7 +61,7 @@ class TestViewLoader:
         assert not extra, f"Extra keys: {extra}"
 
     def test_unchanged_view_int_version(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
-        loader = ViewLoader.create_loader(toolkit_client_approval.mock_client)
+        loader = ViewCRUD.create_loader(toolkit_client_approval.mock_client)
         raw_file = """- space: sp_space
   externalId: my_view
   version: 1"""
@@ -138,14 +138,14 @@ class TestViewLoader:
                 },
                 [
                     (SpaceLoader, "sp_my_space"),
-                    (ViewLoader, dm.ViewId(space="my_view_space", external_id="my_view", version="1")),
-                    (ViewLoader, dm.ViewId(space="my_other_view_space", external_id="my_edge_view", version="42")),
+                    (ViewCRUD, dm.ViewId(space="my_view_space", external_id="my_view", version="1")),
+                    (ViewCRUD, dm.ViewId(space="my_other_view_space", external_id="my_edge_view", version="42")),
                 ],
                 id="View with one container property",
             ),
         ],
     )
-    def test_get_dependent_items(self, item: dict, expected: list[tuple[type[ResourceLoader], Hashable]]) -> None:
-        actual = ViewLoader.get_dependent_items(item)
+    def test_get_dependent_items(self, item: dict, expected: list[tuple[type[ResourceCRUD], Hashable]]) -> None:
+        actual = ViewCRUD.get_dependent_items(item)
 
         assert list(actual) == expected

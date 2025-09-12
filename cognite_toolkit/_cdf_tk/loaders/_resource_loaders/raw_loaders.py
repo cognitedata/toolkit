@@ -30,16 +30,14 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawDatabaseList, RawTable, RawTableList
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
+from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import DatabaseYAML, TableYAML
 
 from .auth_loaders import GroupAllScopedLoader
 
 
 @final
-class RawDatabaseLoader(
-    ResourceContainerLoader[RawDatabase, RawDatabase, RawDatabase, RawDatabaseList, RawDatabaseList]
-):
+class RawDatabaseLoader(ResourceContainerCRUD[RawDatabase, RawDatabase, RawDatabase, RawDatabaseList, RawDatabaseList]):
     item_name = "raw tables"
     folder_name = "raw"
     filename_pattern = r"^(?!.*Table$).*$"
@@ -153,7 +151,7 @@ class RawDatabaseLoader(
 
 
 @final
-class RawTableLoader(ResourceContainerLoader[RawTable, RawTable, RawTable, RawTableList, RawTableList]):
+class RawTableLoader(ResourceContainerCRUD[RawTable, RawTable, RawTable, RawTableList, RawTableList]):
     item_name = "raw rows"
     folder_name = "raw"
     filename_pattern = r"^(?!.*Database$).*$"
@@ -213,7 +211,7 @@ class RawTableLoader(ResourceContainerLoader[RawTable, RawTable, RawTable, RawTa
         return {"dbName": id.db_name, "tableName": id.table_name}
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "dbName" in item:
             yield RawDatabaseLoader, RawDatabase(item["dbName"])
 

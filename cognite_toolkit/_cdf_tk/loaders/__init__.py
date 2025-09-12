@@ -16,83 +16,83 @@ from typing import Literal, TypeAlias
 
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 
-from ._base_loaders import DataLoader, Loader, ResourceContainerLoader, ResourceLoader
+from ._base_loaders import DataLoader, Loader, ResourceContainerCRUD, ResourceCRUD
 from ._data_loaders import DatapointsLoader, FileLoader, RawFileLoader
 from ._resource_loaders import (
-    AgentLoader,
-    AssetLoader,
+    AgentCRUD,
+    AssetCRUD,
     CogniteFileLoader,
     ContainerLoader,
-    DataModelLoader,
-    DatapointSubscriptionLoader,
-    DataSetsLoader,
+    DataModelCRUD,
+    DatapointSubscriptionCRUD,
+    DataSetsCRUD,
     EdgeLoader,
-    EventLoader,
-    ExtractionPipelineConfigLoader,
-    ExtractionPipelineLoader,
+    EventCRUD,
+    ExtractionPipelineConfigCRUD,
+    ExtractionPipelineCRUD,
     FileMetadataLoader,
-    FunctionLoader,
-    FunctionScheduleLoader,
+    FunctionCRUD,
+    FunctionScheduleCRUD,
     GraphQLLoader,
     GroupAllScopedLoader,
-    GroupLoader,
+    GroupCRUD,
     GroupResourceScopedLoader,
-    HostedExtractorDestinationLoader,
-    HostedExtractorJobLoader,
-    HostedExtractorMappingLoader,
-    HostedExtractorSourceLoader,
-    InfieldV1Loader,
-    LabelLoader,
-    LocationFilterLoader,
+    HostedExtractorDestinationCRUD,
+    HostedExtractorJobCRUD,
+    HostedExtractorMappingCRUD,
+    HostedExtractorSourceCRUD,
+    InfieldV1CRUD,
+    LabelCRUD,
+    LocationFilterCRUD,
     NodeLoader,
     RawDatabaseLoader,
     RawTableLoader,
-    RelationshipLoader,
-    RobotCapabilityLoader,
-    RoboticFrameLoader,
-    RoboticLocationLoader,
-    RoboticMapLoader,
-    RoboticsDataPostProcessingLoader,
-    SearchConfigLoader,
-    SecurityCategoryLoader,
-    SequenceLoader,
-    SequenceRowLoader,
+    RelationshipCRUD,
+    RobotCapabilityCRUD,
+    RoboticFrameCRUD,
+    RoboticLocationCRUD,
+    RoboticMapCRUD,
+    RoboticsDataPostProcessingCRUD,
+    SearchConfigCRUD,
+    SecurityCategoryCRUD,
+    SequenceCRUD,
+    SequenceRowCRUD,
     SpaceLoader,
-    StreamlitLoader,
+    StreamlitCRUD,
     ThreeDModelLoader,
     TimeSeriesLoader,
-    TransformationLoader,
-    TransformationNotificationLoader,
-    TransformationScheduleLoader,
-    ViewLoader,
-    ViewSourceLoader,
-    WorkflowLoader,
-    WorkflowTriggerLoader,
-    WorkflowVersionLoader,
+    TransformationCRUD,
+    TransformationNotificationCRUD,
+    TransformationScheduleCRUD,
+    ViewCRUD,
+    ViewSourceCRUD,
+    WorkflowCRUD,
+    WorkflowTriggerCRUD,
+    WorkflowVersionCRUD,
 )
 from ._worker import ResourceWorker
 
-_EXCLUDED_LOADERS: set[type[ResourceLoader]] = set()
+_EXCLUDED_LOADERS: set[type[ResourceCRUD]] = set()
 if not FeatureFlag.is_enabled(Flags.GRAPHQL):
     _EXCLUDED_LOADERS.add(GraphQLLoader)
 if not FeatureFlag.is_enabled(Flags.AGENTS):
-    _EXCLUDED_LOADERS.add(AgentLoader)
+    _EXCLUDED_LOADERS.add(AgentCRUD)
 if not FeatureFlag.is_enabled(Flags.INFIELD):
-    _EXCLUDED_LOADERS.add(InfieldV1Loader)
+    _EXCLUDED_LOADERS.add(InfieldV1CRUD)
 if not FeatureFlag.is_enabled(Flags.MIGRATE):
-    _EXCLUDED_LOADERS.add(ViewSourceLoader)
+    _EXCLUDED_LOADERS.add(ViewSourceCRUD)
 if not FeatureFlag.is_enabled(Flags.SEARCH_CONFIG):
-    _EXCLUDED_LOADERS.add(SearchConfigLoader)
+    _EXCLUDED_LOADERS.add(SearchConfigCRUD)
 
 
 LOADER_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}
 for _loader in itertools.chain(
-    ResourceLoader.__subclasses__(),
-    ResourceContainerLoader.__subclasses__(),
+    ResourceCRUD.__subclasses__(),
+    ResourceContainerCRUD.__subclasses__(),
     DataLoader.__subclasses__(),
-    GroupLoader.__subclasses__(),
+    GroupCRUD.__subclasses__(),
 ):
-    if _loader in [ResourceLoader, ResourceContainerLoader, DataLoader, GroupLoader] or _loader in _EXCLUDED_LOADERS:
+    if _loader in [ResourceCRUD, ResourceContainerCRUD, DataLoader, GroupCRUD] or _loader in _EXCLUDED_LOADERS:
         # Skipping base classes
         continue
     if _loader.folder_name not in LOADER_BY_FOLDER_NAME:  # type: ignore[attr-defined]
@@ -102,8 +102,8 @@ for _loader in itertools.chain(
 del _loader  # cleanup module namespace
 
 LOADER_LIST = list(itertools.chain(*LOADER_BY_FOLDER_NAME.values()))
-RESOURCE_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass(loader, ResourceLoader)]
-RESOURCE_CONTAINER_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass(loader, ResourceContainerLoader)]
+RESOURCE_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass(loader, ResourceCRUD)]
+RESOURCE_CONTAINER_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass(loader, ResourceContainerCRUD)]
 RESOURCE_DATA_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass(loader, DataLoader)]
 KINDS_BY_FOLDER_NAME: dict[str, set[str]] = {}
 for loader in LOADER_LIST:
@@ -149,59 +149,59 @@ __all__ = [
     "RESOURCE_CONTAINER_LOADER_LIST",
     "RESOURCE_DATA_LOADER_LIST",
     "RESOURCE_LOADER_LIST",
-    "AssetLoader",
+    "AssetCRUD",
     "CogniteFileLoader",
     "ContainerLoader",
     "DataLoader",
-    "DataModelLoader",
-    "DataSetsLoader",
-    "DatapointSubscriptionLoader",
+    "DataModelCRUD",
+    "DataSetsCRUD",
+    "DatapointSubscriptionCRUD",
     "DatapointsLoader",
     "EdgeLoader",
-    "EventLoader",
-    "ExtractionPipelineConfigLoader",
-    "ExtractionPipelineLoader",
+    "EventCRUD",
+    "ExtractionPipelineCRUD",
+    "ExtractionPipelineConfigCRUD",
     "FileLoader",
     "FileMetadataLoader",
-    "FunctionLoader",
-    "FunctionScheduleLoader",
+    "FunctionCRUD",
+    "FunctionScheduleCRUD",
     "GroupAllScopedLoader",
-    "GroupLoader",
+    "GroupCRUD",
     "GroupResourceScopedLoader",
-    "HostedExtractorDestinationLoader",
-    "HostedExtractorJobLoader",
-    "HostedExtractorMappingLoader",
-    "HostedExtractorSourceLoader",
-    "LabelLoader",
-    "LocationFilterLoader",
+    "HostedExtractorDestinationCRUD",
+    "HostedExtractorJobCRUD",
+    "HostedExtractorMappingCRUD",
+    "HostedExtractorSourceCRUD",
+    "LabelCRUD",
+    "LocationFilterCRUD",
     "NodeLoader",
     "RawDatabaseLoader",
     "RawFileLoader",
     "RawTableLoader",
-    "RelationshipLoader",
-    "ResourceContainerLoader",
-    "ResourceLoader",
+    "RelationshipCRUD",
+    "ResourceCRUD",
+    "ResourceContainerCRUD",
     "ResourceTypes",
     "ResourceWorker",
-    "RobotCapabilityLoader",
-    "RoboticFrameLoader",
-    "RoboticLocationLoader",
-    "RoboticMapLoader",
-    "RoboticsDataPostProcessingLoader",
-    "SearchConfigLoader",
-    "SecurityCategoryLoader",
-    "SequenceLoader",
-    "SequenceRowLoader",
+    "RobotCapabilityCRUD",
+    "RoboticFrameCRUD",
+    "RoboticLocationCRUD",
+    "RoboticMapCRUD",
+    "RoboticsDataPostProcessingCRUD",
+    "SearchConfigCRUD",
+    "SecurityCategoryCRUD",
+    "SequenceCRUD",
+    "SequenceRowCRUD",
     "SpaceLoader",
-    "StreamlitLoader",
+    "StreamlitCRUD",
     "ThreeDModelLoader",
     "TimeSeriesLoader",
-    "TransformationLoader",
-    "TransformationNotificationLoader",
-    "TransformationScheduleLoader",
-    "ViewLoader",
-    "WorkflowLoader",
-    "WorkflowTriggerLoader",
-    "WorkflowVersionLoader",
+    "TransformationCRUD",
+    "TransformationNotificationCRUD",
+    "TransformationScheduleCRUD",
+    "ViewCRUD",
+    "WorkflowCRUD",
+    "WorkflowTriggerCRUD",
+    "WorkflowVersionCRUD",
     "get_loader",
 ]

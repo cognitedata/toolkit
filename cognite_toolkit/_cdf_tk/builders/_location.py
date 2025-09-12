@@ -6,13 +6,13 @@ from cognite_toolkit._cdf_tk.builders._base import Builder
 from cognite_toolkit._cdf_tk.data_classes._build_files import BuildDestinationFile, BuildSourceFile
 from cognite_toolkit._cdf_tk.data_classes._module_directories import ModuleLocation
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError
-from cognite_toolkit._cdf_tk.loaders._resource_loaders.location_loaders import LocationFilterLoader
+from cognite_toolkit._cdf_tk.loaders._resource_loaders.location_loaders import LocationFilterCRUD
 from cognite_toolkit._cdf_tk.tk_warnings.base import ToolkitWarning, WarningList
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import FileReadWarning
 
 
 class LocationBuilder(Builder):
-    _resource_folder = LocationFilterLoader.folder_name
+    _resource_folder = LocationFilterCRUD.folder_name
 
     def build(
         self, source_files: list[BuildSourceFile], module: ModuleLocation, console: Callable[[str], None] | None = None
@@ -30,7 +30,7 @@ class LocationBuilder(Builder):
 
         for source_file in source_files:
             loader, warning = self._get_loader(source_file.source.path)
-            if isinstance(loader, LocationFilterLoader):
+            if isinstance(loader, LocationFilterCRUD):
                 if warning is not None:
                     yield [warning]
                 continue

@@ -47,7 +47,7 @@ from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, Para
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
 from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import GroupYAML, SecurityCategoriesYAML
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
@@ -67,7 +67,7 @@ class _ReplaceMethod:
     id_name: str
 
 
-class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupList]):
+class GroupCRUD(ResourceCRUD[str, GroupWrite, Group, GroupWriteList, GroupList]):
     folder_name = "auth"
     filename_pattern = r"^(?!.*SecurityCategory$).*"
     kind = "Group"
@@ -145,12 +145,12 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         return {"name": id}
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
-        from .classic_loaders import AssetLoader
-        from .data_organization_loaders import DataSetsLoader
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+        from .classic_loaders import AssetCRUD
+        from .data_organization_loaders import DataSetsCRUD
         from .datamodel_loaders import SpaceLoader
-        from .extraction_pipeline_loaders import ExtractionPipelineLoader
-        from .location_loaders import LocationFilterLoader
+        from .extraction_pipeline_loaders import ExtractionPipelineCRUD
+        from .location_loaders import LocationFilterCRUD
         from .raw_loaders import RawDatabaseLoader, RawTableLoader
         from .timeseries_loaders import TimeSeriesLoader
 
@@ -164,7 +164,7 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
                     if data_set_ids := scope.get(cap.DataSetScope._scope_name, []):
                         if isinstance(data_set_ids, dict) and "ids" in data_set_ids:
                             for data_set_id in data_set_ids["ids"]:
-                                yield DataSetsLoader, data_set_id
+                                yield DataSetsCRUD, data_set_id
                     if table_ids := scope.get(cap.TableScope._scope_name, []):
                         for db_name, tables in table_ids.get("dbsToTables", {}).items():
                             yield RawDatabaseLoader, RawDatabase(db_name)
@@ -176,25 +176,25 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
                     if extraction_pipeline_ids := scope.get(cap.ExtractionPipelineScope._scope_name, []):
                         if isinstance(extraction_pipeline_ids, dict) and "ids" in extraction_pipeline_ids:
                             for extraction_pipeline_id in extraction_pipeline_ids["ids"]:
-                                yield ExtractionPipelineLoader, extraction_pipeline_id
+                                yield ExtractionPipelineCRUD, extraction_pipeline_id
                     if asset_root_ids := scope.get(cap.AssetRootIDScope._scope_name, []):
                         if isinstance(asset_root_ids, dict) and "rootIds" in asset_root_ids:
                             for asset_root_id in asset_root_ids["rootIds"]:
-                                yield AssetLoader, asset_root_id
+                                yield AssetCRUD, asset_root_id
                     if (ids := scope.get(cap.IDScope._scope_name, [])) or (
                         ids := scope.get(cap.IDScopeLowerCase._scope_name, [])
                     ):
-                        loader: type[ResourceLoader] | None = None
+                        loader: type[ResourceCRUD] | None = None
                         if acl == cap.DataSetsAcl._capability_name:
-                            loader = DataSetsLoader
+                            loader = DataSetsCRUD
                         elif acl == cap.ExtractionPipelinesAcl._capability_name:
-                            loader = ExtractionPipelineLoader
+                            loader = ExtractionPipelineCRUD
                         elif acl == cap.TimeSeriesAcl._capability_name:
                             loader = TimeSeriesLoader
                         elif acl == cap.SecurityCategoriesAcl._capability_name:
-                            loader = SecurityCategoryLoader
+                            loader = SecurityCategoryCRUD
                         elif acl == cap.LocationFiltersAcl._capability_name:
-                            loader = LocationFilterLoader
+                            loader = LocationFilterCRUD
                         if loader is not None and isinstance(ids, dict) and "ids" in ids:
                             for id_ in ids["ids"]:
                                 yield loader, id_
@@ -497,7 +497,7 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
 
 
 @final
-class GroupAllScopedLoader(GroupLoader):
+class GroupAllScopedLoader(GroupCRUD):
     def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None):
         super().__init__(client, build_dir, console, "all_scoped_only")
 
@@ -507,8 +507,8 @@ class GroupAllScopedLoader(GroupLoader):
 
 
 @final
-class SecurityCategoryLoader(
-    ResourceLoader[str, SecurityCategoryWrite, SecurityCategory, SecurityCategoryWriteList, SecurityCategoryList]
+class SecurityCategoryCRUD(
+    ResourceCRUD[str, SecurityCategoryWrite, SecurityCategory, SecurityCategoryWriteList, SecurityCategoryList]
 ):
     filename_pattern = r"^.*SecurityCategory$"  # Matches all yaml files who's stem ends with *SecurityCategory.
     resource_cls = SecurityCategory

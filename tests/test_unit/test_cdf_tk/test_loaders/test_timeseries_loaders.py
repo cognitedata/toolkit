@@ -4,7 +4,7 @@ from cognite.client.data_classes.data_modeling import NodeId
 from cognite.client.data_classes.datapoints_subscriptions import TimeSeriesID, TimeSeriesIDList
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.loaders import DatapointSubscriptionLoader
+from cognite_toolkit._cdf_tk.loaders import DatapointSubscriptionCRUD
 
 
 class TestDatapointSubscriptionLoader:
@@ -30,7 +30,7 @@ class TestDatapointSubscriptionLoader:
             instance_ids=[NodeId("my_space", f"node_{i}") for i in range(node_count)] or None,
         )
 
-        to_upsert, batches = DatapointSubscriptionLoader.create_split_timeseries_ids(sub)
+        to_upsert, batches = DatapointSubscriptionCRUD.create_split_timeseries_ids(sub)
 
         assert len(to_upsert.time_series_ids or []) == expected_ts_count
         assert len(to_upsert.instance_ids or []) == expected_node_count
@@ -45,7 +45,7 @@ class TestDatapointSubscriptionLoader:
         )
 
         with pytest.raises(ToolkitValueError) as exc:
-            DatapointSubscriptionLoader.create_split_timeseries_ids(sub)
+            DatapointSubscriptionCRUD.create_split_timeseries_ids(sub)
 
         assert str(exc.value) == 'Subscription "mySub" has 12,000 time series, which is more than the limit of 10,000.'
 
@@ -80,7 +80,7 @@ class TestDatapointSubscriptionLoader:
             instance_ids=[NodeId("my_space", f"node_{i}") for i in range(node_count)] or None,
         )
 
-        _, batches = DatapointSubscriptionLoader.update_split_timeseries_ids(sub, current)
+        _, batches = DatapointSubscriptionCRUD.update_split_timeseries_ids(sub, current)
         assert len(batches) == expected_updates
 
     def test_update_split_timeseries_ids_raise(self) -> None:
@@ -93,7 +93,7 @@ class TestDatapointSubscriptionLoader:
         )
 
         with pytest.raises(ToolkitValueError) as exc:
-            DatapointSubscriptionLoader.update_split_timeseries_ids(sub, current)
+            DatapointSubscriptionCRUD.update_split_timeseries_ids(sub, current)
 
         assert str(exc.value) == 'Subscription "mySub" has 12,000 time series, which is more than the limit of 10,000.'
 
@@ -112,7 +112,7 @@ class TestDatapointSubscriptionLoader:
             instance_ids=[NodeId("my_space", "node_1"), NodeId("my_space", "node_4")],
             time_series_ids=["timeseries_3", "timeseries_4"],
         )
-        _, batches = DatapointSubscriptionLoader.update_split_timeseries_ids(sub, current)
+        _, batches = DatapointSubscriptionCRUD.update_split_timeseries_ids(sub, current)
 
         assert len(batches) == 1
         assert batches[0].dump() == {

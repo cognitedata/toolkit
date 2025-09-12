@@ -22,8 +22,8 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError, Toolki
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, catch_warnings
 from cognite_toolkit._cdf_tk.utils import to_diff
 
-from . import FunctionLoader
-from ._base_loaders import T_ID, ResourceLoader, T_WritableCogniteResourceList
+from . import FunctionCRUD
+from ._base_loaders import T_ID, ResourceCRUD, T_WritableCogniteResourceList
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.data_classes._module_directories import ReadModule
@@ -42,7 +42,7 @@ class ResourceWorker(
 ):
     def __init__(
         self,
-        loader: ResourceLoader[
+        loader: ResourceCRUD[
             T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
         ],
         action: str,
@@ -147,8 +147,8 @@ class ResourceWorker(
 
     def validate_access(self, local_by_id: dict[T_ID, tuple[dict[str, Any], T_WriteClass]], is_dry_run: bool) -> None:
         capabilities: Capability | list[Capability]
-        if isinstance(self.loader, FunctionLoader):
-            function_loader: FunctionLoader = self.loader
+        if isinstance(self.loader, FunctionCRUD):
+            function_loader: FunctionCRUD = self.loader
             function_items = cast(list[FunctionWrite], [item for _, item in local_by_id.values()])
             capabilities = function_loader.get_function_required_capabilities(function_items, read_only=is_dry_run)
         else:

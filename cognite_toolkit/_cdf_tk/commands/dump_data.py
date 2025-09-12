@@ -30,12 +30,12 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.loaders import (
-    AssetLoader,
-    DataSetsLoader,
-    EventLoader,
+    AssetCRUD,
+    DataSetsCRUD,
+    EventCRUD,
     FileMetadataLoader,
-    LabelLoader,
-    ResourceLoader,
+    LabelCRUD,
+    ResourceCRUD,
     TimeSeriesLoader,
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -83,7 +83,7 @@ class AssetCentricFinder(DataFinder, ABC, Generic[T_CogniteResource]):
         self._used_data_sets: set[str] = set()
 
     @abstractmethod
-    def _create_loader(self, client: ToolkitClient) -> ResourceLoader:
+    def _create_loader(self, client: ToolkitClient) -> ResourceCRUD:
         """Create the appropriate loader for the finder."""
         raise NotImplementedError()
 
@@ -156,7 +156,7 @@ class AssetCentricFinder(DataFinder, ABC, Generic[T_CogniteResource]):
         data_sets = self.client.data_sets.retrieve_multiple(
             external_ids=list(self._used_data_sets), ignore_unknown_ids=True
         )
-        loader = DataSetsLoader.create_loader(self.client)
+        loader = DataSetsCRUD.create_loader(self.client)
 
         def process_data_sets(items: DataSetList) -> list[tuple[str, list[dict[str, Any]]]]:
             # All data sets are written to a single group, thus the empty string as the group key.
@@ -180,7 +180,7 @@ class AssetCentricFinder(DataFinder, ABC, Generic[T_CogniteResource]):
 
     def _labels(self) -> tuple[Schema, int, Iterable, Callable]:
         labels = self.client.labels.retrieve(external_id=list(self._used_labels))
-        loader = LabelLoader.create_loader(self.client)
+        loader = LabelCRUD.create_loader(self.client)
 
         def process_labels(items: LabelDefinitionList) -> list[tuple[str, list[dict[str, Any]]]]:
             # All labels are written to a single group, thus the empty string as the group key.
@@ -206,8 +206,8 @@ class AssetCentricFinder(DataFinder, ABC, Generic[T_CogniteResource]):
 class AssetFinder(AssetCentricFinder[Asset]):
     supported_formats = frozenset({"csv", "parquet", "yaml"})
 
-    def _create_loader(self, client: ToolkitClient) -> ResourceLoader:
-        return AssetLoader.create_loader(client)
+    def _create_loader(self, client: ToolkitClient) -> ResourceCRUD:
+        return AssetCRUD.create_loader(client)
 
     def _aggregate_count(self, hierarchies: list[str], data_sets: list[str]) -> int:
         return self.client.assets.aggregate_count(
@@ -274,7 +274,7 @@ class AssetFinder(AssetCentricFinder[Asset]):
 class FileMetadataFinder(AssetCentricFinder[FileMetadata]):
     supported_formats = frozenset({"csv", "parquet"})
 
-    def _create_loader(self, client: ToolkitClient) -> ResourceLoader:
+    def _create_loader(self, client: ToolkitClient) -> ResourceCRUD:
         return FileMetadataLoader.create_loader(client)
 
     def _aggregate_count(self, hierarchies: list[str], data_sets: list[str]) -> int:
@@ -373,8 +373,8 @@ class TimeSeriesFinder(AssetCentricFinder[TimeSeries]):
 class EventFinder(AssetCentricFinder[Event]):
     supported_formats = frozenset({"csv", "parquet"})
 
-    def _create_loader(self, client: ToolkitClient) -> ResourceLoader:
-        return EventLoader.create_loader(client)
+    def _create_loader(self, client: ToolkitClient) -> ResourceCRUD:
+        return EventCRUD.create_loader(client)
 
     def _aggregate_count(self, hierarchies: list[str], data_sets: list[str]) -> int:
         return self.client.events.aggregate_count(

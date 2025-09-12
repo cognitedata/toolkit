@@ -46,14 +46,14 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
     TransformationFinder,
 )
 from cognite_toolkit._cdf_tk.loaders import (
-    AgentLoader,
-    DataSetsLoader,
-    ExtractionPipelineLoader,
-    FunctionLoader,
+    AgentCRUD,
+    DataSetsCRUD,
+    ExtractionPipelineCRUD,
+    FunctionCRUD,
     GroupAllScopedLoader,
-    LocationFilterLoader,
-    StreamlitLoader,
-    TransformationLoader,
+    LocationFilterCRUD,
+    StreamlitCRUD,
+    TransformationCRUD,
 )
 from cognite_toolkit._cdf_tk.utils import read_yaml_file
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -124,7 +124,7 @@ class TestDumpTransformations:
                 clean=False,
                 verbose=False,
             )
-            loader = TransformationLoader(client, None, None)
+            loader = TransformationCRUD(client, None, None)
 
         filepaths = list(loader.find_files(tmp_path))
         assert len(filepaths) == 2
@@ -198,7 +198,7 @@ class TestDumpLocationFilter:
                 clean=False,
                 verbose=False,
             )
-            loader = LocationFilterLoader(client, None, None)
+            loader = LocationFilterCRUD(client, None, None)
 
         filepaths = list(loader.find_files(tmp_path))
         assert len(filepaths) == 2
@@ -238,7 +238,7 @@ class TestDumpAgents:
                 clean=False,
                 verbose=False,
             )
-            loader = AgentLoader(client, None, None)
+            loader = AgentCRUD(client, None, None)
 
         filepaths = list(loader.find_files(tmp_path))
         assert len(filepaths) == 2
@@ -320,7 +320,7 @@ class TestDumpExtractionPipeline:
                 clean=False,
                 verbose=False,
             )
-            loader = ExtractionPipelineLoader(client, None, None)
+            loader = ExtractionPipelineCRUD(client, None, None)
 
             filepaths = list(loader.find_files(tmp_path))
             items = sorted(
@@ -446,7 +446,7 @@ class TestDumpFunctions:
                 clean=False,
                 verbose=False,
             )
-            loader = FunctionLoader(client, None, None)
+            loader = FunctionCRUD(client, None, None)
 
         filepaths = list(loader.find_files(tmp_path))
         assert len(filepaths) == 2
@@ -514,7 +514,7 @@ class TestDumpDataSets:
                 clean=False,
                 verbose=False,
             )
-            loader = DataSetsLoader(client, None, None)
+            loader = DataSetsCRUD(client, None, None)
 
         filepaths = list(loader.find_files(tmp_path))
         assert len(filepaths) == 2
@@ -607,7 +607,7 @@ class TestDumpStreamlitApps:
                 clean=False,
                 verbose=False,
             )
-            loader = StreamlitLoader(client, None, None)
+            loader = StreamlitCRUD(client, None, None)
 
         filepaths = list(loader.find_files(tmp_path))
         assert len(filepaths) == 1

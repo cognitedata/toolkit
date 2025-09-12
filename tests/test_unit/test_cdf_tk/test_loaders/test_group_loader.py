@@ -9,14 +9,14 @@ from cognite.client.data_classes import Group, GroupWrite
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
 from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError
 from cognite_toolkit._cdf_tk.loaders import (
-    DataSetsLoader,
-    ExtractionPipelineLoader,
+    DataSetsCRUD,
+    ExtractionPipelineCRUD,
     GroupAllScopedLoader,
-    GroupLoader,
+    GroupCRUD,
     GroupResourceScopedLoader,
     RawDatabaseLoader,
     RawTableLoader,
-    ResourceLoader,
+    ResourceCRUD,
     ResourceWorker,
     SpaceLoader,
 )
@@ -173,7 +173,7 @@ class TestGroupLoader:
             pytest.param(
                 {"capabilities": [{"timeSeriesAcl": {"scope": {"datasetScope": {"ids": ["ds_dataset1"]}}}}]},
                 [
-                    (DataSetsLoader, "ds_dataset1"),
+                    (DataSetsCRUD, "ds_dataset1"),
                 ],
                 id="Dataset scope",
             ),
@@ -184,7 +184,7 @@ class TestGroupLoader:
                     ]
                 },
                 [
-                    (ExtractionPipelineLoader, "ex_my_extraction"),
+                    (ExtractionPipelineCRUD, "ex_my_extraction"),
                 ],
                 id="Extraction pipeline scope",
             ),
@@ -199,21 +199,21 @@ class TestGroupLoader:
             pytest.param(
                 {"capabilities": [{"datasetsAcl": {"scope": {"idscope": {"ids": ["ds_my_dataset"]}}}}]},
                 [
-                    (DataSetsLoader, "ds_my_dataset"),
+                    (DataSetsCRUD, "ds_my_dataset"),
                 ],
                 id="ID scope dataset",
             ),
             pytest.param(
                 {"capabilities": [{"extractionPipelinesAcl": {"scope": {"idscope": {"ids": ["ex_my_extraction"]}}}}]},
                 [
-                    (ExtractionPipelineLoader, "ex_my_extraction"),
+                    (ExtractionPipelineCRUD, "ex_my_extraction"),
                 ],
                 id="ID scope extractionpipline ",
             ),
         ],
     )
-    def test_get_dependent_items(self, item: dict, expected: list[tuple[type[ResourceLoader], Hashable]]) -> None:
-        actual_dependent_items = GroupLoader.get_dependent_items(item)
+    def test_get_dependent_items(self, item: dict, expected: list[tuple[type[ResourceCRUD], Hashable]]) -> None:
+        actual_dependent_items = GroupCRUD.get_dependent_items(item)
 
         assert list(actual_dependent_items) == expected
 

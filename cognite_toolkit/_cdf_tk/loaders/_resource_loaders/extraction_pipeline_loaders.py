@@ -46,7 +46,7 @@ from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import ExtractionPipelineConfigYAML, ExtractionPipelineYAML
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
@@ -60,15 +60,13 @@ from cognite_toolkit._cdf_tk.utils import (
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_force_hashable, diff_list_identifiable
 
 from .auth_loaders import GroupAllScopedLoader
-from .data_organization_loaders import DataSetsLoader
+from .data_organization_loaders import DataSetsCRUD
 from .raw_loaders import RawDatabaseLoader, RawTableLoader
 
 
 @final
-class ExtractionPipelineLoader(
-    ResourceLoader[
-        str, ExtractionPipelineWrite, ExtractionPipeline, ExtractionPipelineWriteList, ExtractionPipelineList
-    ]
+class ExtractionPipelineCRUD(
+    ResourceCRUD[str, ExtractionPipelineWrite, ExtractionPipeline, ExtractionPipelineWriteList, ExtractionPipelineList]
 ):
     folder_name = "extraction_pipelines"
     filename_pattern = r"^(?:(?!\.config).)*$"  # Matches all yaml files except file names who's stem contain *.config.
@@ -77,7 +75,7 @@ class ExtractionPipelineLoader(
     list_cls = ExtractionPipelineList
     list_write_cls = ExtractionPipelineWriteList
     kind = "ExtractionPipeline"
-    dependencies = frozenset({DataSetsLoader, RawDatabaseLoader, RawTableLoader, GroupAllScopedLoader})
+    dependencies = frozenset({DataSetsCRUD, RawDatabaseLoader, RawTableLoader, GroupAllScopedLoader})
     yaml_cls = ExtractionPipelineYAML
     _doc_url = "Extraction-Pipelines/operation/createExtPipes"
 
@@ -131,10 +129,10 @@ class ExtractionPipelineLoader(
         return {"externalId": id}
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         seen_databases: set[str] = set()
         if "dataSetExternalId" in item:
-            yield DataSetsLoader, item["dataSetExternalId"]
+            yield DataSetsCRUD, item["dataSetExternalId"]
         if "rawTables" in item:
             for entry in item["rawTables"]:
                 if db := entry.get("dbName"):
@@ -232,8 +230,8 @@ class ExtractionPipelineLoader(
 
 
 @final
-class ExtractionPipelineConfigLoader(
-    ResourceLoader[
+class ExtractionPipelineConfigCRUD(
+    ResourceCRUD[
         str,
         ExtractionPipelineConfigWrite,
         ExtractionPipelineConfig,
@@ -248,9 +246,9 @@ class ExtractionPipelineConfigLoader(
     list_cls = ExtractionPipelineConfigList
     list_write_cls = ExtractionPipelineConfigWriteList
     kind = "Config"
-    dependencies = frozenset({ExtractionPipelineLoader})
+    dependencies = frozenset({ExtractionPipelineCRUD})
     _doc_url = "Extraction-Pipelines-Config/operation/createExtPipeConfig"
-    parent_resource = frozenset({ExtractionPipelineLoader})
+    parent_resource = frozenset({ExtractionPipelineCRUD})
     yaml_cls = ExtractionPipelineConfigYAML
 
     @property
@@ -277,9 +275,9 @@ class ExtractionPipelineConfigLoader(
         return {"externalId": id}
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "externalId" in item:
-            yield ExtractionPipelineLoader, item["externalId"]
+            yield ExtractionPipelineCRUD, item["externalId"]
 
     def safe_read(self, filepath: Path | str) -> str:
         # The config is expected to be a string that is parsed as a YAML on the server side.

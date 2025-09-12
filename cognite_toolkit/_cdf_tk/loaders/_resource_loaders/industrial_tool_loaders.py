@@ -22,7 +22,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import (
     StreamlitWriteList,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotADirectoryError, ToolkitRequiredValueError
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import StreamlitYAML
 from cognite_toolkit._cdf_tk.utils import (
     load_yaml_inject_variables,
@@ -31,11 +31,11 @@ from cognite_toolkit._cdf_tk.utils import (
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_hash
 
 from .auth_loaders import GroupAllScopedLoader
-from .data_organization_loaders import DataSetsLoader
+from .data_organization_loaders import DataSetsCRUD
 
 
 @final
-class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWriteList, StreamlitList]):
+class StreamlitCRUD(ResourceCRUD[str, StreamlitWrite, Streamlit, StreamlitWriteList, StreamlitList]):
     folder_name = "streamlit"
     filename_pattern = r".*streamlit$"
     resource_cls = Streamlit
@@ -43,7 +43,7 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
     list_cls = StreamlitList
     list_write_cls = StreamlitWriteList
     kind = "Streamlit"
-    dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
+    dependencies = frozenset({DataSetsCRUD, GroupAllScopedLoader})
     _doc_url = "Files/operation/initFileUpload"
     _metadata_hash_key = "cdf-toolkit-app-hash"
     yaml_cls = StreamlitYAML
@@ -89,9 +89,9 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
         return {"externalId": id}
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "dataSetExternalId" in item:
-            yield DataSetsLoader, item["dataSetExternalId"]
+            yield DataSetsCRUD, item["dataSetExternalId"]
 
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
@@ -153,7 +153,7 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
     def _missing_recommended_requirements(requirements: list[str]) -> list[str]:
         missing = []
         user_requirements = {Requirement(req).name for req in requirements}
-        for recommended in StreamlitLoader.recommended_packages():
+        for recommended in StreamlitCRUD.recommended_packages():
             if recommended.name not in user_requirements:
                 missing.append(recommended.name)
         return missing

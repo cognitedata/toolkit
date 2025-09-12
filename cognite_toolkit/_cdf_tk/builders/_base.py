@@ -16,10 +16,10 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
-    GroupLoader,
+    GroupCRUD,
     RawDatabaseLoader,
     RawTableLoader,
-    ResourceLoader,
+    ResourceCRUD,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
     ToolkitNotSupportedWarning,
@@ -102,7 +102,7 @@ class Builder(ABC):
         destination_path.parent.mkdir(parents=True, exist_ok=True)
         return destination_path
 
-    def _get_loader(self, source_path: Path) -> tuple[None, ToolkitWarning] | tuple[type[ResourceLoader], None]:
+    def _get_loader(self, source_path: Path) -> tuple[None, ToolkitWarning] | tuple[type[ResourceCRUD], None]:
         return get_loader(source_path, self.resource_folder)
 
 
@@ -110,7 +110,7 @@ def get_loader(
     source_path: Path,
     resource_folder: str,
     force_pattern: bool = False,
-) -> tuple[None, ToolkitWarning] | tuple[type[ResourceLoader], None]:
+) -> tuple[None, ToolkitWarning] | tuple[type[ResourceCRUD], None]:
     folder_loaders = LOADER_BY_FOLDER_NAME.get(resource_folder, [])
     if not folder_loaders:
         return None, ToolkitNotSupportedWarning(
@@ -149,9 +149,9 @@ def get_loader(
             return RawTableLoader, None
         else:
             return RawDatabaseLoader, None
-    elif len(loaders) > 1 and all(issubclass(loader, GroupLoader) for loader in loaders):
+    elif len(loaders) > 1 and all(issubclass(loader, GroupCRUD) for loader in loaders):
         # There are two group loaders, one for resource scoped and one for all scoped.
-        return GroupLoader, None
+        return GroupCRUD, None
     elif len(loaders) > 1:
         names = humanize_collection(
             [f"'{source_path.stem}.{loader.kind}{source_path.suffix}'" for loader in loaders], bind_word="or"
@@ -162,7 +162,7 @@ def get_loader(
             f"\nPlease name the file {names}."
         )
 
-    return cast(type[ResourceLoader], loaders[0]), None
+    return cast(type[ResourceCRUD], loaders[0]), None
 
 
 class DefaultBuilder(Builder):

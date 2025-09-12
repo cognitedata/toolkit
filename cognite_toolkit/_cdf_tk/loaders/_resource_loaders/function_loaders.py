@@ -38,7 +38,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ResourceRetrievalError,
     ToolkitRequiredValueError,
 )
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import FunctionScheduleYAML, FunctionsYAML
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
@@ -51,12 +51,12 @@ from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.text import suffix_description
 
 from .auth_loaders import GroupAllScopedLoader
-from .data_organization_loaders import DataSetsLoader
+from .data_organization_loaders import DataSetsCRUD
 from .group_scoped_loader import GroupResourceScopedLoader
 
 
 @final
-class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteList, FunctionList]):
+class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function, FunctionWriteList, FunctionList]):
     support_drop = True
     folder_name = "functions"
     filename_pattern = (
@@ -68,7 +68,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
     list_write_cls = FunctionWriteList
     kind = "Function"
     yaml_cls = FunctionsYAML
-    dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
+    dependencies = frozenset({DataSetsCRUD, GroupAllScopedLoader})
     _doc_url = "Functions/operation/postFunctions"
     metadata_value_limit = 512
     support_update = False
@@ -116,9 +116,9 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         return {"externalId": id}
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "dataSetExternalId" in item:
-            yield DataSetsLoader, item["dataSetExternalId"]
+            yield DataSetsCRUD, item["dataSetExternalId"]
 
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
@@ -388,8 +388,8 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
 
 
 @final
-class FunctionScheduleLoader(
-    ResourceLoader[
+class FunctionScheduleCRUD(
+    ResourceCRUD[
         FunctionScheduleID, FunctionScheduleWrite, FunctionSchedule, FunctionScheduleWriteList, FunctionSchedulesList
     ]
 ):
@@ -401,9 +401,9 @@ class FunctionScheduleLoader(
     list_write_cls = FunctionScheduleWriteList
     kind = "Schedule"
     yaml_cls = FunctionScheduleYAML
-    dependencies = frozenset({FunctionLoader, GroupResourceScopedLoader, GroupAllScopedLoader})
+    dependencies = frozenset({FunctionCRUD, GroupResourceScopedLoader, GroupAllScopedLoader})
     _doc_url = "Function-schedules/operation/postFunctionSchedules"
-    parent_resource = frozenset({FunctionLoader})
+    parent_resource = frozenset({FunctionCRUD})
     support_update = False
 
     _hash_key = "cdf-auth"
@@ -455,9 +455,9 @@ class FunctionScheduleLoader(
         return FunctionScheduleID(item.function_external_id, item.name)
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "functionExternalId" in item:
-            yield FunctionLoader, item["functionExternalId"]
+            yield FunctionCRUD, item["functionExternalId"]
 
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
@@ -511,7 +511,7 @@ class FunctionScheduleLoader(
         names_by_function: dict[str, set[str]] = defaultdict(set)
         for id_ in ids:
             names_by_function[id_.function_external_id].add(id_.name)
-        functions = FunctionLoader(self.client, None, None).retrieve(list(names_by_function))
+        functions = FunctionCRUD(self.client, None, None).retrieve(list(names_by_function))
         schedules = FunctionSchedulesList([])
         for func in functions:
             func_external_id = cast(str, func.external_id)

@@ -16,9 +16,9 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import DumpResourceCommand
 from cognite_toolkit._cdf_tk.commands.dump_resource import TransformationFinder
 from cognite_toolkit._cdf_tk.loaders import (
-    TransformationLoader,
-    TransformationNotificationLoader,
-    TransformationScheduleLoader,
+    TransformationCRUD,
+    TransformationNotificationCRUD,
+    TransformationScheduleCRUD,
 )
 
 
@@ -96,6 +96,6 @@ class TestDumpTransformation:
 
         transformation_folder = tmp_path / "transformations"
         assert transformation_folder.exists()
-        assert sum(1 for _ in transformation_folder.glob(f"*{TransformationLoader.kind}.yaml")) == 1
-        assert sum(1 for _ in transformation_folder.glob(f"*{TransformationScheduleLoader.kind}.yaml")) == 1
-        assert sum(1 for _ in transformation_folder.glob(f"*{TransformationNotificationLoader.kind}.yaml")) == 1
+        assert sum(1 for _ in transformation_folder.glob(f"*{TransformationCRUD.kind}.yaml")) == 1
+        assert sum(1 for _ in transformation_folder.glob(f"*{TransformationScheduleCRUD.kind}.yaml")) == 1
+        assert sum(1 for _ in transformation_folder.glob(f"*{TransformationNotificationCRUD.kind}.yaml")) == 1

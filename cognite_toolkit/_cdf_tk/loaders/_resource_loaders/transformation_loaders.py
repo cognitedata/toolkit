@@ -78,7 +78,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
     ToolkitYAMLFormatError,
 )
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import (
     TransformationNotificationYAML,
     TransformationScheduleYAML,
@@ -98,15 +98,15 @@ from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
 
 from .auth_loaders import GroupAllScopedLoader
-from .data_organization_loaders import DataSetsLoader
-from .datamodel_loaders import DataModelLoader, SpaceLoader, ViewLoader
+from .data_organization_loaders import DataSetsCRUD
+from .datamodel_loaders import DataModelCRUD, SpaceLoader, ViewCRUD
 from .group_scoped_loader import GroupResourceScopedLoader
 from .raw_loaders import RawDatabaseLoader, RawTableLoader
 
 
 @final
-class TransformationLoader(
-    ResourceLoader[str, TransformationWrite, Transformation, TransformationWriteList, TransformationList]
+class TransformationCRUD(
+    ResourceCRUD[str, TransformationWrite, Transformation, TransformationWriteList, TransformationList]
 ):
     folder_name = "transformations"
     filename_pattern = (
@@ -121,12 +121,12 @@ class TransformationLoader(
     yaml_cls = TransformationYAML
     dependencies = frozenset(
         {
-            DataSetsLoader,
+            DataSetsCRUD,
             RawDatabaseLoader,
             GroupAllScopedLoader,
             SpaceLoader,
-            ViewLoader,
-            DataModelLoader,
+            ViewCRUD,
+            DataModelCRUD,
             RawTableLoader,
             RawDatabaseLoader,
             GroupResourceScopedLoader,
@@ -193,9 +193,9 @@ class TransformationLoader(
         return {"externalId": id}
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "dataSetExternalId" in item:
-            yield DataSetsLoader, item["dataSetExternalId"]
+            yield DataSetsCRUD, item["dataSetExternalId"]
         if destination := item.get("destination", {}):
             if not isinstance(destination, dict):
                 return
@@ -207,14 +207,14 @@ class TransformationLoader(
                     yield SpaceLoader, space
                 if in_dict(("space", "externalId", "version"), view):
                     view["version"] = str(view["version"])
-                    yield ViewLoader, ViewId.load(view)
+                    yield ViewCRUD, ViewId.load(view)
             elif destination.get("type") == "instances":
                 if space := destination.get("instanceSpace"):
                     yield SpaceLoader, space
                 if data_model := destination.get("dataModel"):
                     if in_dict(("space", "externalId", "version"), data_model):
                         data_model["version"] = str(data_model["version"])
-                        yield DataModelLoader, DataModelId.load(data_model)
+                        yield DataModelCRUD, DataModelId.load(data_model)
 
     def safe_read(self, filepath: Path | str) -> str:
         # If the destination is a DataModel or a View we need to ensure that the version is a string
@@ -520,8 +520,8 @@ class TransformationLoader(
 
 
 @final
-class TransformationScheduleLoader(
-    ResourceLoader[
+class TransformationScheduleCRUD(
+    ResourceCRUD[
         str,
         TransformationScheduleWrite,
         TransformationSchedule,
@@ -538,9 +538,9 @@ class TransformationScheduleLoader(
     list_write_cls = TransformationScheduleWriteList
     kind = "Schedule"
     yaml_cls = TransformationScheduleYAML
-    dependencies = frozenset({TransformationLoader})
+    dependencies = frozenset({TransformationCRUD})
     _doc_url = "Transformation-Schedules/operation/createTransformationSchedules"
-    parent_resource = frozenset({TransformationLoader})
+    parent_resource = frozenset({TransformationCRUD})
 
     @property
     def display_name(self) -> str:
@@ -567,9 +567,9 @@ class TransformationScheduleLoader(
         return {"externalId": id}
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "externalId" in item:
-            yield TransformationLoader, item["externalId"]
+            yield TransformationCRUD, item["externalId"]
 
     def create(self, items: Sequence[TransformationScheduleWrite]) -> TransformationScheduleList:
         try:
@@ -618,8 +618,8 @@ class TransformationScheduleLoader(
 
 
 @final
-class TransformationNotificationLoader(
-    ResourceLoader[
+class TransformationNotificationCRUD(
+    ResourceCRUD[
         str,
         TransformationNotificationWrite,
         TransformationNotification,
@@ -635,10 +635,10 @@ class TransformationNotificationLoader(
     list_cls = TransformationNotificationList
     list_write_cls = TransformationNotificationWriteList
     kind = "Notification"
-    dependencies = frozenset({TransformationLoader})
+    dependencies = frozenset({TransformationCRUD})
     _doc_url = "Transformation-Notifications/operation/createTransformationNotifications"
     _split_character = "@@@"
-    parent_resource = frozenset({TransformationLoader})
+    parent_resource = frozenset({TransformationCRUD})
     yaml_cls = TransformationNotificationYAML
 
     @property
@@ -765,11 +765,11 @@ class TransformationNotificationLoader(
                     yield from self.client.transformations.notifications(transformation_id=transformation_id)
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         """Returns all items that this item requires.
 
         For example, a TimeSeries requires a DataSet, so this method would return the
         DatasetLoader and identifier of that dataset.
         """
         if "transformationExternalId" in item:
-            yield TransformationLoader, item["transformationExternalId"]
+            yield TransformationCRUD, item["transformationExternalId"]

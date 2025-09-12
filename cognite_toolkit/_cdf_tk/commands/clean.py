@@ -30,10 +30,10 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
     DataLoader,
-    DataSetsLoader,
+    DataSetsCRUD,
     RawDatabaseLoader,
-    ResourceContainerLoader,
-    ResourceLoader,
+    ResourceContainerCRUD,
+    ResourceCRUD,
     ResourceWorker,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, Loader, T_WritableCogniteResourceList
@@ -57,7 +57,7 @@ AVAILABLE_DATA_TYPES: tuple[str, ...] = tuple(LOADER_BY_FOLDER_NAME)
 class CleanCommand(ToolkitCommand):
     def clean_resources(
         self,
-        loader: ResourceLoader[
+        loader: ResourceCRUD[
             T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
         ],
         env_vars: EnvironmentVariables,
@@ -67,13 +67,13 @@ class CleanCommand(ToolkitCommand):
         drop_data: bool = False,
         verbose: bool = False,
     ) -> ResourceDeployResult | None:
-        if not isinstance(loader, ResourceContainerLoader) and not drop:
+        if not isinstance(loader, ResourceContainerCRUD) and not drop:
             # Skipping silently as this, we will not drop data or delete this resource
             return ResourceDeployResult(name=loader.display_name)
         if not loader.support_drop:
             print(f"  [bold green]INFO:[/] {loader.display_name!r} cleaning is not supported, skipping...")
             return ResourceDeployResult(name=loader.display_name)
-        elif isinstance(loader, ResourceContainerLoader) and not drop_data:
+        elif isinstance(loader, ResourceContainerCRUD) and not drop_data:
             print(
                 f"  [bold]INFO:[/] Skipping cleaning of {loader.display_name!r}. This is a data resource (it contains "
                 f"data and is not only configuration/metadata) and therefore "
@@ -96,7 +96,7 @@ class CleanCommand(ToolkitCommand):
 
         if drop:
             prefix = "Would clean" if dry_run else "Cleaning"
-            with_data = "with data " if isinstance(loader, ResourceContainerLoader) else ""
+            with_data = "with data " if isinstance(loader, ResourceContainerCRUD) else ""
         else:
             prefix = "Would drop data from" if dry_run else "Dropping data from"
             with_data = ""
@@ -106,7 +106,7 @@ class CleanCommand(ToolkitCommand):
                 self.warn(LowSeverityWarning(f"Duplicate {loader.display_name} {duplicate}."))
 
         # Deleting resources.
-        if isinstance(loader, ResourceContainerLoader) and drop_data:
+        if isinstance(loader, ResourceContainerCRUD) and drop_data:
             nr_of_dropped_datapoints = self._drop_data(existing_resources, loader, dry_run, verbose)
             if drop:
                 nr_of_deleted = self._delete_resources(existing_resources, loader, dry_run, verbose)
@@ -121,7 +121,7 @@ class CleanCommand(ToolkitCommand):
                 dropped_datapoints=nr_of_dropped_datapoints,
                 item_name=loader.item_name,
             )
-        elif not isinstance(self, ResourceContainerLoader) and drop:
+        elif not isinstance(self, ResourceContainerCRUD) and drop:
             nr_of_deleted = self._delete_resources(existing_resources, loader, dry_run, verbose)
             if verbose:
                 print("")
@@ -130,7 +130,7 @@ class CleanCommand(ToolkitCommand):
             return ResourceDeployResult(name=loader.display_name)
 
     def _delete_resources(
-        self, loaded_resources: T_CogniteResourceList, loader: ResourceLoader, dry_run: bool, verbose: bool
+        self, loaded_resources: T_CogniteResourceList, loader: ResourceCRUD, dry_run: bool, verbose: bool
     ) -> int:
         nr_of_deleted = 0
         resource_ids = loader.get_ids(loaded_resources)
@@ -155,7 +155,7 @@ class CleanCommand(ToolkitCommand):
         return nr_of_deleted
 
     def _drop_data(
-        self, loaded_resources: T_CogniteResourceList, loader: ResourceContainerLoader, dry_run: bool, verbose: bool
+        self, loaded_resources: T_CogniteResourceList, loader: ResourceContainerCRUD, dry_run: bool, verbose: bool
     ) -> int:
         nr_of_dropped = 0
         resource_ids = loader.get_ids(loaded_resources)
@@ -180,7 +180,7 @@ class CleanCommand(ToolkitCommand):
         return nr_of_dropped
 
     def _verbose_print_drop(
-        self, drop_count: int, resource_ids: SequenceNotStr[T_ID], loader: ResourceContainerLoader, dry_run: bool
+        self, drop_count: int, resource_ids: SequenceNotStr[T_ID], loader: ResourceContainerCRUD, dry_run: bool
     ) -> None:
         prefix = "Would have dropped" if dry_run else "Dropped"
         if drop_count > 0:
@@ -259,10 +259,10 @@ class CleanCommand(ToolkitCommand):
             self.warn(ToolkitDependenciesIncludedWarning([item.folder_name for item in should_include]))
 
         for loader_cls in reversed(resolved_list):
-            if not issubclass(loader_cls, ResourceLoader):
+            if not issubclass(loader_cls, ResourceCRUD):
                 continue
             loader = loader_cls.create_loader(client, build_dir)
-            if type(loader) is DataSetsLoader:
+            if type(loader) is DataSetsCRUD:
                 self.warn(ToolkitNotSupportedWarning(feature="Dataset clean."))
                 continue
             result = self.clean_resources(

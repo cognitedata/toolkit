@@ -34,18 +34,18 @@ from cognite_toolkit._cdf_tk.client.data_classes.sequences import (
     ToolkitSequenceRowsWrite,
     ToolkitSequenceRowsWriteList,
 )
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import AssetYAML, EventYAML
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.utils.file import read_csv
 
-from .data_organization_loaders import DataSetsLoader, LabelLoader
+from .data_organization_loaders import DataSetsCRUD, LabelCRUD
 
 
 @final
-class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetList]):
+class AssetCRUD(ResourceCRUD[str, AssetWrite, Asset, AssetWriteList, AssetList]):
     folder_name = "classic"
     filename_pattern = r"^.*\.Asset$"  # Matches all yaml files whose stem ends with '.Asset'.
     filetypes = frozenset({"yaml", "yml", "csv", "parquet"})
@@ -55,7 +55,7 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
     list_write_cls = AssetWriteList
     yaml_cls = AssetYAML
     kind = "Asset"
-    dependencies = frozenset({DataSetsLoader, LabelLoader})
+    dependencies = frozenset({DataSetsCRUD, LabelCRUD})
     _doc_url = "Assets/operation/createAssets"
 
     @property
@@ -165,19 +165,19 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         return spec
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         """Returns all items that this item requires.
 
         For example, a TimeSeries requires a DataSet, so this method would return the
         DatasetLoader and identifier of that dataset.
         """
         if "dataSetExternalId" in item:
-            yield DataSetsLoader, item["dataSetExternalId"]
+            yield DataSetsCRUD, item["dataSetExternalId"]
         for label in item.get("labels", []):
             if isinstance(label, dict):
-                yield LabelLoader, label["externalId"]
+                yield LabelCRUD, label["externalId"]
             elif isinstance(label, str):
-                yield LabelLoader, label
+                yield LabelCRUD, label
         if "parentExternalId" in item:
             yield cls, item["parentExternalId"]
 
@@ -239,7 +239,7 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
 
 
 @final
-class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteList, SequenceList]):
+class SequenceCRUD(ResourceCRUD[str, SequenceWrite, Sequence, SequenceWriteList, SequenceList]):
     folder_name = "classic"
     filename_pattern = r"^.*\.Sequence$"
     resource_cls = Sequence
@@ -247,7 +247,7 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
     list_cls = SequenceList
     list_write_cls = SequenceWriteList
     kind = "Sequence"
-    dependencies = frozenset({DataSetsLoader, AssetLoader})
+    dependencies = frozenset({DataSetsCRUD, AssetCRUD})
     _doc_url = "Sequences/operation/createSequence"
 
     @property
@@ -375,16 +375,16 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
         return spec
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "dataSetExternalId" in item:
-            yield DataSetsLoader, item["dataSetExternalId"]
+            yield DataSetsCRUD, item["dataSetExternalId"]
         if "assetExternalId" in item:
-            yield AssetLoader, item["assetExternalId"]
+            yield AssetCRUD, item["assetExternalId"]
 
 
 @final
-class SequenceRowLoader(
-    ResourceLoader[
+class SequenceRowCRUD(
+    ResourceCRUD[
         str, ToolkitSequenceRowsWrite, ToolkitSequenceRows, ToolkitSequenceRowsWriteList, ToolkitSequenceRowsList
     ]
 ):
@@ -395,8 +395,8 @@ class SequenceRowLoader(
     list_cls = ToolkitSequenceRowsList
     list_write_cls = ToolkitSequenceRowsWriteList
     kind = "SequenceRow"
-    dependencies = frozenset({SequenceLoader})
-    parent_resource = frozenset({SequenceLoader})
+    dependencies = frozenset({SequenceCRUD})
+    parent_resource = frozenset({SequenceCRUD})
     _doc_url = "Sequences/operation/postSequenceData"
     support_update = False
 
@@ -474,13 +474,13 @@ class SequenceRowLoader(
                     yield ToolkitSequenceRows._load(res.dump(camel_case=True))
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         """Returns all items that this item requires.
 
         For example, a TimeSeries requires a DataSet, so this method would return the
         DatasetLoader and identifier of that dataset.
         """
-        yield SequenceLoader, item["externalId"]
+        yield SequenceCRUD, item["externalId"]
 
     def dump_resource(self, resource: ToolkitSequenceRows, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
@@ -514,7 +514,7 @@ class SequenceRowLoader(
 
 
 @final
-class EventLoader(ResourceLoader[str, EventWrite, Event, EventWriteList, EventList]):
+class EventCRUD(ResourceCRUD[str, EventWrite, Event, EventWriteList, EventList]):
     folder_name = "classic"
     filename_pattern = r"^.*\.Event$"  # Matches all yaml files whose stem ends with '.Event'.
     filetypes = frozenset({"yaml", "yml"})
@@ -524,7 +524,7 @@ class EventLoader(ResourceLoader[str, EventWrite, Event, EventWriteList, EventLi
     list_write_cls = EventWriteList
     yaml_cls = EventYAML
     kind = "Event"
-    dependencies = frozenset({DataSetsLoader, AssetLoader})
+    dependencies = frozenset({DataSetsCRUD, AssetCRUD})
     _doc_url = "Events/operation/createEvents"
 
     @property
@@ -623,17 +623,17 @@ class EventLoader(ResourceLoader[str, EventWrite, Event, EventWriteList, EventLi
         return spec
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         """Returns all items that this item requires.
 
         For example, a TimeSeries requires a DataSet, so this method would return the
         DatasetLoader and identifier of that dataset.
         """
         if "dataSetExternalId" in item:
-            yield DataSetsLoader, item["dataSetExternalId"]
+            yield DataSetsCRUD, item["dataSetExternalId"]
         for asset_id in item.get("assetExternalIds", []):
             if isinstance(asset_id, str):
-                yield AssetLoader, asset_id
+                yield AssetCRUD, asset_id
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> EventWrite:
         if ds_external_id := resource.get("dataSetExternalId", None):

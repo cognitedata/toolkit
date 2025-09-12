@@ -2,7 +2,7 @@ import pytest
 from cognite.client import data_modeling as dm
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.loaders import ContainerLoader, SpaceLoader, ViewLoader
+from cognite_toolkit._cdf_tk.loaders import ContainerLoader, SpaceLoader, ViewCRUD
 from tests.data import STRONGLY_COUPLED_MODEL
 
 
@@ -28,7 +28,7 @@ def deployed_container_space_coupled_model(toolkit_client: ToolkitClient) -> Non
 
 @pytest.mark.usefixtures("deployed_container_space_coupled_model")
 def test_deploy_strongly_coupled_model(toolkit_client: ToolkitClient) -> None:
-    loader = ViewLoader(toolkit_client, STRONGLY_COUPLED_MODEL, None)
+    loader = ViewCRUD(toolkit_client, STRONGLY_COUPLED_MODEL, None)
     views = dm.ViewApplyList([dm.ViewApply.load(file.read_text(encoding="utf-8")) for file in loader.find_files()])
 
     try:

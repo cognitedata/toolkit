@@ -17,20 +17,20 @@ from cognite_toolkit._cdf_tk.client.data_classes.apm_config_v1 import (
     APMConfigWriteList,
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceCRUD
 from cognite_toolkit._cdf_tk.utils import quote_int_value_by_key_in_yaml, safe_read
 from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, hash_dict
 
 from .auth_loaders import GroupAllScopedLoader
-from .classic_loaders import AssetLoader
-from .data_organization_loaders import DataSetsLoader
+from .classic_loaders import AssetCRUD
+from .data_organization_loaders import DataSetsCRUD
 from .datamodel_loaders import SpaceLoader
 from .group_scoped_loader import GroupResourceScopedLoader
 
 
 @final
-class InfieldV1Loader(ResourceLoader[str, APMConfigWrite, APMConfig, APMConfigWriteList, APMConfigList]):
+class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig, APMConfigWriteList, APMConfigList]):
     folder_name = "cdf_applications"
     filename_pattern = r"^.*\.InfieldV1$"  # Matches all yaml files whose stem ends with '.InfieldV1'.
     filetypes = frozenset({"yaml", "yml"})
@@ -39,9 +39,7 @@ class InfieldV1Loader(ResourceLoader[str, APMConfigWrite, APMConfig, APMConfigWr
     list_cls = APMConfigList
     list_write_cls = APMConfigWriteList
     kind = "InfieldV1"
-    dependencies = frozenset(
-        {DataSetsLoader, AssetLoader, SpaceLoader, GroupAllScopedLoader, GroupResourceScopedLoader}
-    )
+    dependencies = frozenset({DataSetsCRUD, AssetCRUD, SpaceLoader, GroupAllScopedLoader, GroupResourceScopedLoader})
     _doc_url = "Instances/operation/applyNodeAndEdges"
     _root_location_filters: tuple[str, ...] = ("general", "assets", "files", "timeseries")
     _group_keys: tuple[str, ...] = ("templateAdmins", "checklistAdmins")
@@ -147,16 +145,16 @@ class InfieldV1Loader(ResourceLoader[str, APMConfigWrite, APMConfig, APMConfigWr
         return spec
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if isinstance(app_data_space_id := item.get("appDataSpaceId"), str):
             yield SpaceLoader, app_data_space_id
         if isinstance(customer_data_space_id := item.get("customerDataSpaceId"), str):
             yield SpaceLoader, customer_data_space_id
         for config in cls._get_root_location_configurations(item) or []:
             if isinstance(asset_external_id := config.get("assetExternalId"), str):
-                yield AssetLoader, asset_external_id
+                yield AssetCRUD, asset_external_id
             if isinstance(data_set_external_id := config.get("dataSetExternalId"), str):
-                yield DataSetsLoader, data_set_external_id
+                yield DataSetsCRUD, data_set_external_id
             if isinstance(app_data_instance_space := config.get("appDataInstanceSpace"), str):
                 yield SpaceLoader, app_data_instance_space
             if isinstance(source_data_instance_space := config.get("sourceDataInstanceSpace"), str):
@@ -174,10 +172,10 @@ class InfieldV1Loader(ResourceLoader[str, APMConfigWrite, APMConfig, APMConfigWr
                     continue
                 for data_set_external_id in filter_.get("dataSetExternalIds", []):
                     if isinstance(data_set_external_id, str):
-                        yield DataSetsLoader, data_set_external_id
+                        yield DataSetsCRUD, data_set_external_id
                 for asset_external_id in filter_.get("assetSubtreeExternalIds", []):
                     if isinstance(asset_external_id, str):
-                        yield AssetLoader, asset_external_id
+                        yield AssetCRUD, asset_external_id
                 if app_data_instance_space := filter_.get("appDataInstanceSpace"):
                     if isinstance(app_data_instance_space, str):
                         yield SpaceLoader, app_data_instance_space

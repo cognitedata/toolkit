@@ -15,15 +15,15 @@ from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
+from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import ThreeDModelYAML
 
-from .data_organization_loaders import DataSetsLoader
+from .data_organization_loaders import DataSetsCRUD
 
 
 @final
 class ThreeDModelLoader(
-    ResourceContainerLoader[str, ThreeDModelWrite, ThreeDModel, ThreeDModelWriteList, ThreeDModelList]
+    ResourceContainerCRUD[str, ThreeDModelWrite, ThreeDModel, ThreeDModelWriteList, ThreeDModelList]
 ):
     folder_name = "3dmodels"
     filename_pattern = r"^.*\.3DModel$"  # Matches all yaml files whose stem ends with '.3DModel'.
@@ -33,7 +33,7 @@ class ThreeDModelLoader(
     list_write_cls = ThreeDModelWriteList
     kind = "3DModel"
     yaml_cls = ThreeDModelYAML
-    dependencies = frozenset({DataSetsLoader})
+    dependencies = frozenset({DataSetsCRUD})
     _doc_url = "3D-Models/operation/create3DModels"
     item_name = "revisions"
 
@@ -178,14 +178,14 @@ class ThreeDModelLoader(
         return spec
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         """Returns all items that this item requires.
 
         For example, a TimeSeries requires a DataSet, so this method would return the
         DatasetLoader and identifier of that dataset.
         """
         if "dataSetExternalId" in item:
-            yield DataSetsLoader, item["dataSetExternalId"]
+            yield DataSetsCRUD, item["dataSetExternalId"]
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> ThreeDModelWrite:
         if ds_external_id := resource.pop("dataSetExternalId", None):

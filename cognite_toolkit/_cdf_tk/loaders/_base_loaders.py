@@ -55,7 +55,7 @@ class Loader(ABC):
     folder_name: str
     kind: str
     filename_pattern: str = ""
-    dependencies: "frozenset[type[ResourceLoader]]" = frozenset()
+    dependencies: "frozenset[type[ResourceCRUD]]" = frozenset()
     exclude_filetypes: frozenset[str] = frozenset()
     _doc_base_url: str = "https://api-docs.cognite.com/20230101/tag/"
     _doc_url: str = ""
@@ -150,7 +150,7 @@ class Loader(ABC):
 T_Loader = TypeVar("T_Loader", bound=Loader)
 
 
-class ResourceLoader(
+class ResourceCRUD(
     Loader,
     ABC,
     Generic[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
@@ -185,11 +185,11 @@ class ResourceLoader(
     support_drop = True
     support_update = True
     filetypes = frozenset({"yaml", "yml"})
-    dependencies: "frozenset[type[ResourceLoader]]" = frozenset()
+    dependencies: "frozenset[type[ResourceCRUD]]" = frozenset()
     # For example, TransformationNotification and Schedule has Transformation as the parent resource
     # This is used in the iterate method to ensure that nothing is returned if
     # the resource type does not have a parent resource.
-    parent_resource: "frozenset[type[ResourceLoader]]" = frozenset()
+    parent_resource: "frozenset[type[ResourceCRUD]]" = frozenset()
 
     # The methods that must be implemented in the subclass
     @classmethod
@@ -240,9 +240,9 @@ class ResourceLoader(
             if SpaceLoader not in self.dependencies:
                 return []
         if data_set_external_id is not None:
-            from ._resource_loaders.data_organization_loaders import DataSetsLoader
+            from ._resource_loaders.data_organization_loaders import DataSetsCRUD
 
-            if DataSetsLoader not in self.dependencies:
+            if DataSetsCRUD not in self.dependencies:
                 return []
         return self._iterate(data_set_external_id, space, parent_ids)
 
@@ -262,7 +262,7 @@ class ResourceLoader(
         return read_parameter_from_init_type_hints(cls.resource_write_cls).as_camel_case()
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> "Iterable[tuple[type[ResourceLoader], Hashable]]":
+    def get_dependent_items(cls, item: dict) -> "Iterable[tuple[type[ResourceCRUD], Hashable]]":
         """Returns all items that this item requires.
 
         For example, a TimeSeries requires a DataSet, so this method would return the
@@ -429,8 +429,8 @@ class ResourceLoader(
         )
 
 
-class ResourceContainerLoader(
-    ResourceLoader[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
+class ResourceContainerCRUD(
+    ResourceCRUD[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
     ABC,
 ):
     """This is the base class for all loaders' resource containers.

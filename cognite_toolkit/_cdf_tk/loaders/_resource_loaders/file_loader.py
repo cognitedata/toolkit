@@ -45,22 +45,22 @@ from cognite_toolkit._cdf_tk.client.data_classes.extendable_cognite_file import 
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
+from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import FileMetadataYAML
 from cognite_toolkit._cdf_tk.utils import (
     in_dict,
 )
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
 
-from .auth_loaders import GroupAllScopedLoader, SecurityCategoryLoader
-from .classic_loaders import AssetLoader
-from .data_organization_loaders import DataSetsLoader, LabelLoader
-from .datamodel_loaders import SpaceLoader, ViewLoader
+from .auth_loaders import GroupAllScopedLoader, SecurityCategoryCRUD
+from .classic_loaders import AssetCRUD
+from .data_organization_loaders import DataSetsCRUD, LabelCRUD
+from .datamodel_loaders import SpaceLoader, ViewCRUD
 
 
 @final
 class FileMetadataLoader(
-    ResourceContainerLoader[str, FileMetadataWrite, FileMetadata, FileMetadataWriteList, FileMetadataList]
+    ResourceContainerCRUD[str, FileMetadataWrite, FileMetadata, FileMetadataWriteList, FileMetadataList]
 ):
     item_name = "file contents"
     folder_name = "files"
@@ -74,7 +74,7 @@ class FileMetadataLoader(
     list_write_cls = FileMetadataWriteList
     yaml_cls = FileMetadataYAML
     kind = "FileMetadata"
-    dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader, LabelLoader, AssetLoader})
+    dependencies = frozenset({DataSetsCRUD, GroupAllScopedLoader, LabelCRUD, AssetCRUD})
 
     _doc_url = "Files/operation/initFileUpload"
 
@@ -117,20 +117,20 @@ class FileMetadataLoader(
         return {"externalId": id}
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "dataSetExternalId" in item:
-            yield DataSetsLoader, item["dataSetExternalId"]
+            yield DataSetsCRUD, item["dataSetExternalId"]
         if "securityCategoryNames" in item:
             for security_category in item["securityCategoryNames"]:
-                yield SecurityCategoryLoader, security_category
+                yield SecurityCategoryCRUD, security_category
         if "labels" in item:
             for label in item["labels"]:
                 if isinstance(label, dict):
-                    yield LabelLoader, label["externalId"]
+                    yield LabelCRUD, label["externalId"]
                 elif isinstance(label, str):
-                    yield LabelLoader, label
+                    yield LabelCRUD, label
         for asset_external_id in item.get("assetExternalIds", []):
-            yield AssetLoader, asset_external_id
+            yield AssetCRUD, asset_external_id
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> FileMetadataWrite:
         if resource.get("dataSetExternalId") is not None:
@@ -221,7 +221,7 @@ class FileMetadataLoader(
 
 @final
 class CogniteFileLoader(
-    ResourceContainerLoader[
+    ResourceContainerCRUD[
         NodeId,
         ExtendableCogniteFileApply,
         ExtendableCogniteFile,
@@ -238,7 +238,7 @@ class CogniteFileLoader(
     resource_write_cls = ExtendableCogniteFileApply
     list_cls = ExtendableCogniteFileList
     list_write_cls = ExtendableCogniteFileApplyList
-    dependencies = frozenset({GroupAllScopedLoader, SpaceLoader, ViewLoader})
+    dependencies = frozenset({GroupAllScopedLoader, SpaceLoader, ViewCRUD})
 
     _doc_url = "Files/operation/initFileUpload"
 
@@ -387,7 +387,7 @@ class CogniteFileLoader(
         return spec
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         """Returns all items that this item requires.
 
         For example, a TimeSeries requires a DataSet, so this method would return the
@@ -397,4 +397,4 @@ class CogniteFileLoader(
             yield SpaceLoader, item["space"]
         if "nodeSource" in item:
             if in_dict(("space", "externalId", "type"), item["nodeSource"]):
-                yield ViewLoader, ViewId.load(item["nodeSource"])
+                yield ViewCRUD, ViewId.load(item["nodeSource"])

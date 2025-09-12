@@ -37,17 +37,17 @@ from cognite_toolkit._cdf_tk.loaders import (
     RESOURCE_LOADER_LIST,
     DatapointsLoader,
     FileMetadataLoader,
-    FunctionScheduleLoader,
+    FunctionScheduleCRUD,
     GroupResourceScopedLoader,
-    HostedExtractorDestinationLoader,
-    HostedExtractorSourceLoader,
+    HostedExtractorDestinationCRUD,
+    HostedExtractorSourceCRUD,
     Loader,
-    LocationFilterLoader,
-    ResourceLoader,
+    LocationFilterCRUD,
+    ResourceCRUD,
     ResourceTypes,
-    TransformationLoader,
-    ViewLoader,
-    WorkflowTriggerLoader,
+    TransformationCRUD,
+    ViewCRUD,
+    WorkflowTriggerCRUD,
     get_loader,
 )
 from cognite_toolkit._cdf_tk.utils import tmp_build_directory
@@ -70,7 +70,7 @@ SNAPSHOTS_DIR = SNAPSHOTS_DIR_ALL / "load_data_snapshots"
     ],
 )
 def test_loader_class(
-    loader_cls: type[ResourceLoader],
+    loader_cls: type[ResourceCRUD],
     toolkit_client_approval: ApprovalToolkitClient,
     env_vars_with_client: EnvironmentVariables,
     data_regression: DataRegressionFixture,
@@ -99,7 +99,7 @@ class TestDeployResources:
 
         cmd = DeployCommand(print_warning=False)
         cmd.deploy_resource_type(
-            ViewLoader.create_loader(env_vars_with_client.get_client(), BUILD_DIR),
+            ViewCRUD.create_loader(env_vars_with_client.get_client(), BUILD_DIR),
             env_vars_with_client,
             [],
             dry_run=False,
@@ -115,7 +115,7 @@ class TestDeployResources:
 class TestFormatConsistency:
     @pytest.mark.parametrize("Loader", RESOURCE_LOADER_LIST)
     def test_fake_resource_generator(
-        self, Loader: type[ResourceLoader], env_vars_with_client: EnvironmentVariables, monkeypatch: MonkeyPatch
+        self, Loader: type[ResourceCRUD], env_vars_with_client: EnvironmentVariables, monkeypatch: MonkeyPatch
     ):
         fakegenerator = FakeCogniteResourceGenerator(seed=1337)
 
@@ -127,7 +127,7 @@ class TestFormatConsistency:
     @pytest.mark.parametrize("Loader", RESOURCE_LOADER_LIST)
     def test_loader_takes_dict(
         self,
-        Loader: type[ResourceLoader],
+        Loader: type[ResourceCRUD],
         env_vars_with_client: EnvironmentVariables,
         monkeypatch: MonkeyPatch,
         tmp_path: Path,
@@ -140,7 +140,7 @@ class TestFormatConsistency:
             pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
         elif Loader in [GroupResourceScopedLoader]:
             pytest.skip(f"Skipping {loader.resource_cls} because it requires scoped capabilities")
-        elif Loader in [LocationFilterLoader]:
+        elif Loader in [LocationFilterCRUD]:
             pytest.skip(f"Skipping {loader.resource_cls} because it requires special handling")
 
         instance = FakeCogniteResourceGenerator(seed=1337).create_instance(loader.resource_write_cls)
@@ -162,7 +162,7 @@ class TestFormatConsistency:
     @pytest.mark.parametrize("Loader", RESOURCE_LOADER_LIST)
     def test_loader_takes_list(
         self,
-        Loader: type[ResourceLoader],
+        Loader: type[ResourceCRUD],
         env_vars_with_client: EnvironmentVariables,
         monkeypatch: MonkeyPatch,
         tmp_path: Path,
@@ -175,7 +175,7 @@ class TestFormatConsistency:
             pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
         elif Loader in [GroupResourceScopedLoader]:
             pytest.skip(f"Skipping {loader.resource_cls} because it requires scoped capabilities")
-        elif Loader in [LocationFilterLoader]:
+        elif Loader in [LocationFilterCRUD]:
             # TODO: https://cognitedata.atlassian.net/browse/CDF-22363
             pytest.skip(
                 f"Skipping {loader.resource_cls} because FakeCogniteResourceGenerator doesn't generate cls properties correctly"
@@ -269,7 +269,7 @@ def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
                         # Cannot find loader for resource kind
                         continue
                     filepath = cast(Path, resource.destination)
-                    if issubclass(loader, ResourceLoader):
+                    if issubclass(loader, ResourceCRUD):
                         raw = yaml.CSafeLoader(filepath.read_text()).get_data()
 
                         if isinstance(raw, dict):
@@ -281,7 +281,7 @@ def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
 
 def sensitive_strings_test_cases() -> Iterable[ParameterSet]:
     yield pytest.param(
-        WorkflowTriggerLoader,
+        WorkflowTriggerCRUD,
         """externalId: my_trigger
 triggerRule:
   triggerType: schedule
@@ -296,7 +296,7 @@ authentication:
         id="WorkflowTriggerLoader",
     )
     yield pytest.param(
-        FunctionScheduleLoader,
+        FunctionScheduleCRUD,
         """name: daily-8pm-utc
 functionExternalId: 'fn_example_repeater'
 cronExpression: '0 20 * * *'
@@ -308,7 +308,7 @@ authentication:
         id="FunctionScheduleLoader",
     )
     yield pytest.param(
-        TransformationLoader,
+        TransformationCRUD,
         """externalId: my_transformation
 name: My Transformation
 destination:
@@ -328,7 +328,7 @@ authentication:
         id="TransformationLoader with authentication",
     )
     yield pytest.param(
-        TransformationLoader,
+        TransformationCRUD,
         """externalId: my_transformation
 name: My Transformation
 destination:
@@ -356,7 +356,7 @@ authentication:
     )
 
     yield pytest.param(
-        HostedExtractorDestinationLoader,
+        HostedExtractorDestinationCRUD,
         """externalId: my_cdf
 credentials:
   clientId: my_client_id
@@ -366,7 +366,7 @@ targetDataSetExternalId: ds_files_hamburg""",
         id="HostedExtractorDestinationLoader",
     )
     yield pytest.param(
-        HostedExtractorSourceLoader,
+        HostedExtractorSourceCRUD,
         """type: mqtt5
 externalId: my_mqtt
 host: mqtt.example.com
@@ -379,7 +379,7 @@ authentication:
         id="MQTT HostedExtractorSourceLoader",
     )
     yield pytest.param(
-        HostedExtractorSourceLoader,
+        HostedExtractorSourceCRUD,
         """type: kafka
 externalId: my_kafka
 bootstrapBrokers:
@@ -399,7 +399,7 @@ authCertificate:
         id="Kafka HostedExtractorSourceLoader",
     )
     yield pytest.param(
-        HostedExtractorSourceLoader,
+        HostedExtractorSourceCRUD,
         """type: rest
 externalId: my_rest
 host: rest.example.com
@@ -420,9 +420,9 @@ class TestResourceLoaders:
     # The HostedExtractorSourceLoader does not support parameter spec.
     @pytest.mark.parametrize(
         "loader_cls",
-        [loader_cls for loader_cls in RESOURCE_LOADER_LIST if loader_cls is not HostedExtractorSourceLoader],
+        [loader_cls for loader_cls in RESOURCE_LOADER_LIST if loader_cls is not HostedExtractorSourceCRUD],
     )
-    def test_get_write_cls_spec(self, loader_cls: type[ResourceLoader]) -> None:
+    def test_get_write_cls_spec(self, loader_cls: type[ResourceCRUD]) -> None:
         resource = FakeCogniteResourceGenerator(seed=1337, max_list_dict_items=1).create_instance(
             loader_cls.resource_write_cls
         )
@@ -450,7 +450,7 @@ class TestResourceLoaders:
         assert sorted(extra) == []
 
     @pytest.mark.parametrize("loader_cls, content", list(cognite_module_files_with_loader()))
-    def test_write_cls_spec_against_cognite_modules(self, loader_cls: type[ResourceLoader], content: dict) -> None:
+    def test_write_cls_spec_against_cognite_modules(self, loader_cls: type[ResourceCRUD], content: dict) -> None:
         spec = loader_cls.get_write_cls_parameter_spec()
 
         warnings = validate_resource_yaml(content, spec, Path("test.yaml"))
@@ -459,7 +459,7 @@ class TestResourceLoaders:
 
     @pytest.mark.parametrize("loader_cls", RESOURCE_LOADER_LIST)
     def test_empty_required_capabilities_when_no_items(
-        self, loader_cls: type[ResourceLoader], env_vars_with_client: EnvironmentVariables
+        self, loader_cls: type[ResourceCRUD], env_vars_with_client: EnvironmentVariables
     ):
         actual = loader_cls.get_required_capability(loader_cls.list_write_cls([]), read_only=False)
 
@@ -479,7 +479,7 @@ class TestResourceLoaders:
 
     @pytest.mark.parametrize("loader_cls, local_file, expected_strings", list(sensitive_strings_test_cases()))
     def test_sensitive_strings(
-        self, loader_cls: type[ResourceLoader], local_file: str, expected_strings: set[str]
+        self, loader_cls: type[ResourceCRUD], local_file: str, expected_strings: set[str]
     ) -> None:
         with monkeypatch_toolkit_client() as client:
             client.iam.sessions.create.return_value = CreatedSession(123, "READY", "my-nonce")
@@ -499,10 +499,10 @@ class TestResourceLoaders:
         [
             loader_cls
             for loader_cls in RESOURCE_LOADER_LIST
-            if loader_cls != {HostedExtractorSourceLoader, HostedExtractorDestinationLoader}
+            if loader_cls != {HostedExtractorSourceCRUD, HostedExtractorDestinationCRUD}
         ],
     )
-    def test_dump_resource_with_local_id(self, loader_cls: type[ResourceLoader]) -> None:
+    def test_dump_resource_with_local_id(self, loader_cls: type[ResourceCRUD]) -> None:
         with monkeypatch_toolkit_client() as toolkit_client:
             # Since we are not loading the local resource, we must allow reverse lookup
             # without first lookup.

@@ -10,12 +10,12 @@ from cognite.client.data_classes import ExtractionPipelineConfig
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
 from cognite_toolkit._cdf_tk.commands import CleanCommand
 from cognite_toolkit._cdf_tk.loaders import (
-    DataSetsLoader,
-    ExtractionPipelineConfigLoader,
-    ExtractionPipelineLoader,
+    DataSetsCRUD,
+    ExtractionPipelineConfigCRUD,
+    ExtractionPipelineCRUD,
     RawDatabaseLoader,
     RawTableLoader,
-    ResourceLoader,
+    ResourceCRUD,
     ResourceWorker,
 )
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
@@ -49,7 +49,7 @@ class TestExtractionPipelineDependencies:
         local_file = MagicMock(spec=Path)
         local_file.read_text.return_value = self.config_yaml
 
-        loader = ExtractionPipelineConfigLoader.create_loader(toolkit_client_approval.mock_client)
+        loader = ExtractionPipelineConfigCRUD.create_loader(toolkit_client_approval.mock_client)
         worker = ResourceWorker(loader, "deploy")
         resources = worker.prepare_resources([local_file])
         assert {
@@ -79,8 +79,8 @@ class TestExtractionPipelineDependencies:
         local_file.stem = "ep_src_asset"
 
         cmd = CleanCommand(print_warning=False)
-        loader = ExtractionPipelineConfigLoader.create_loader(env_vars_with_client.get_client())
-        with patch.object(ExtractionPipelineConfigLoader, "find_files", return_value=[local_file]):
+        loader = ExtractionPipelineConfigCRUD.create_loader(env_vars_with_client.get_client())
+        with patch.object(ExtractionPipelineConfigCRUD, "find_files", return_value=[local_file]):
             res = cmd.clean_resources(loader, env_vars_with_client, [], dry_run=True, drop=True)
             assert res is not None
             assert res.deleted == 1
@@ -99,7 +99,7 @@ class TestExtractionPipelineLoader:
                     ],
                 },
                 [
-                    (DataSetsLoader, "ds_my_dataset"),
+                    (DataSetsCRUD, "ds_my_dataset"),
                     (RawDatabaseLoader, RawDatabase("my_db")),
                     (RawTableLoader, RawTable("my_db", "my_table")),
                     (RawTableLoader, RawTable("my_db", "my_table2")),
@@ -108,8 +108,8 @@ class TestExtractionPipelineLoader:
             ),
         ],
     )
-    def test_get_dependent_items(self, item: dict, expected: list[tuple[type[ResourceLoader], Hashable]]) -> None:
-        actual = ExtractionPipelineLoader.get_dependent_items(item)
+    def test_get_dependent_items(self, item: dict, expected: list[tuple[type[ResourceCRUD], Hashable]]) -> None:
+        actual = ExtractionPipelineCRUD.get_dependent_items(item)
 
         assert list(actual) == expected
 
@@ -135,7 +135,7 @@ class TestExtractionPipelineLoader:
         """
         local_file.stem = "ep_src_asset"
 
-        loader = ExtractionPipelineConfigLoader.create_loader(env_vars_with_client.get_client())
+        loader = ExtractionPipelineConfigCRUD.create_loader(env_vars_with_client.get_client())
         res = loader.load_resource_file(filepath=local_file, environment_variables=env_vars_with_client.dump())
         # Assert that env vars are skipped for this loader
         assert res[0]["config"] == "secret: ${INGESTION_CLIENT_SECRET}"

@@ -15,7 +15,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.hints import ModuleDefinition
-from cognite_toolkit._cdf_tk.loaders import TransformationLoader
+from cognite_toolkit._cdf_tk.loaders import TransformationCRUD
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests import data
@@ -81,7 +81,7 @@ class TestBuildCommand:
         transformation_files = [
             f
             for f in (tmp_path / "transformations").iterdir()
-            if f.is_file() and TransformationLoader.is_supported_file(f)
+            if f.is_file() and TransformationCRUD.is_supported_file(f)
         ]
         assert len(transformation_files) == 2
 
@@ -165,7 +165,7 @@ externalId: some_external_id
         source_filepath.read_bytes.return_value = raw_yaml.encode("utf-8")
 
         source_files = cmd._replace_variables(
-            [source_filepath], BuildVariables([]), TransformationLoader.folder_name, Path("my_module"), verbose=False
+            [source_filepath], BuildVariables([]), TransformationCRUD.folder_name, Path("my_module"), verbose=False
         )
         assert len(source_files) == 1
         source_file = source_files[0]
