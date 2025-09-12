@@ -3,18 +3,18 @@ from collections.abc import Callable, Iterable
 from typing import Any
 
 from cognite_toolkit._cdf_tk.builders import Builder
+from cognite_toolkit._cdf_tk.cruds import CogniteFileCRUD, FileCRUD, FileMetadataCRUD
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildDestinationFile,
     BuildSourceFile,
     ModuleLocation,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitYAMLFormatError
-from cognite_toolkit._cdf_tk.loaders import CogniteFileLoader, FileLoader, FileMetadataLoader
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, ToolkitWarning
 
 
 class FileBuilder(Builder):
-    _resource_folder = FileMetadataLoader.folder_name
+    _resource_folder = FileMetadataCRUD.folder_name
     template_pattern = "$FILENAME"
 
     def build(
@@ -30,7 +30,7 @@ class FileBuilder(Builder):
                 if warning is not None:
                     yield [warning]
                 continue
-            if loader in {FileMetadataLoader, CogniteFileLoader}:
+            if loader in {FileMetadataCRUD, CogniteFileCRUD}:
                 loaded = self._expand_file_metadata(loaded, module, console)
             destination_path = self._create_destination_path(source_file.source.path, loader.kind)
 
@@ -78,8 +78,8 @@ class FileBuilder(Builder):
                 f"Expanding file metadata..."
             )
         expanded_metadata: list[dict[str, Any]] = []
-        for filepath in module.source_paths_by_resource_folder[FileLoader.folder_name]:
-            if not FileLoader.is_supported_file(filepath):
+        for filepath in module.source_paths_by_resource_folder[FileCRUD.folder_name]:
+            if not FileCRUD.is_supported_file(filepath):
                 continue
             new_entry = copy.deepcopy(template)
             new_entry["externalId"] = new_entry["externalId"].replace(cls.template_pattern, filepath.name)
