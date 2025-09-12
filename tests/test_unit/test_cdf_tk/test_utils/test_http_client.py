@@ -8,12 +8,20 @@ import responses
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.utils.http_client import (
+    FailedItem,
+    FailedRequestItem,
     FailedRequestMessage,
     FailedResponse,
     HTTPClient,
+    ItemsRequest,
+    MissingItem,
     ParamRequest,
     SimpleBodyRequest,
+    SuccessItem,
     SuccessResponse,
+    UnexpectedItem,
+    UnknownRequestItem,
+    UnknownResponseItem,
 )
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
@@ -192,3 +200,202 @@ class TestHTTPClient:
         assert isinstance(response, FailedResponse)
         assert response.status_code == 401
         assert response.error == '{"message": "plain_text"}'
+
+
+@pytest.mark.usefixtures("disable_pypi_check")
+class TestHTTPClientItemRequests:
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_request_with_items_happy_path(self, http_client: HTTPClient, rsps: responses.RequestsMock) -> None:
+        rsps.post(
+            "https://example.com/api/resource",
+            json={"items": [{"id": 1, "value": 42}, {"id": 2, "value": 43}]},
+            status=200,
+        )
+        items = [{"name": "item1", "id": 1}, {"name": "item2", "id": 2}]
+        results = http_client.request(
+            ItemsRequest[int](
+                endpoint_url="https://example.com/api/resource",
+                method="POST",
+                items=items,
+                extra_body_fields={"autoCreateDirectRelations": True},
+                as_id=lambda item: item["id"],
+            )
+        )
+        assert results == [
+            SuccessItem(status_code=200, id=1, item={"id": 1, "value": 42}),
+            SuccessItem(status_code=200, id=2, item={"id": 2, "value": 43}),
+        ]
+        assert len(rsps.calls) == 1
+        assert json.loads(rsps.calls[0].request.body) == {
+            "items": [{"name": "item1", "id": 1}, {"name": "item2", "id": 2}],
+            "autoCreateDirectRelations": True,
+        }
+
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_request_with_items_issues(self, http_client: HTTPClient, rsps: responses.RequestsMock) -> None:
+        response_items = [
+            {"externalId": "success", "data": 123},
+            {"externalId": "unexpected", "data": 999},
+        ]
+
+        def server_callback(request: requests.PreparedRequest) -> tuple[int, dict[str, str], str]:
+            # status, headers, body
+            if "fail" in request.body:
+                return 400, {}, json.dumps({"error": "Item failed"})
+            elif "success" in request.body:
+                return 200, {}, json.dumps({"items": response_items})
+            else:
+                return 200, {}, json.dumps({"items": []})
+
+        rsps.add_callback(
+            method=responses.POST,
+            url="https://example.com/api/resource",
+            callback=server_callback,
+            content_type="application/json",
+        )
+
+        request_items = [
+            {"externalId": "success"},
+            {"externalId": "missing"},
+            {"externalId": "fail"},
+        ]
+        results = http_client.request_with_retries(
+            ItemsRequest[str](
+                endpoint_url="https://example.com/api/resource",
+                method="POST",
+                items=request_items,
+                as_id=lambda item: item["externalId"],
+            )
+        )
+        assert results == [
+            SuccessItem(status_code=200, id="success", item={"externalId": "success", "data": 123}),
+            UnexpectedItem(status_code=200, id="unexpected", item={"externalId": "unexpected", "data": 999}),
+            MissingItem(status_code=200, id="missing"),
+            FailedItem(status_code=400, id="fail", error="Item failed"),
+        ]
+        assert len(rsps.calls) == 5  # Three requests made
+        first, second, third, fourth, fifth = rsps.calls
+        # First call will fail, and split into 1 item + 2 items
+        assert json.loads(first.request.body)["items"] == [
+            {"externalId": "success"},
+            {"externalId": "missing"},
+            {"externalId": "fail"},
+        ]
+        # Second succeeds with 1 item.
+        assert json.loads(second.request.body)["items"] == [{"externalId": "success"}]
+        # Third fails with two items, and splits into 1 + 1
+        assert json.loads(third.request.body)["items"] == [{"externalId": "missing"}, {"externalId": "fail"}]
+        # Fourth succeeds with 1 item.
+        assert json.loads(fourth.request.body)["items"] == [{"externalId": "missing"}]
+        # Fifth fails with 1 item.
+        assert json.loads(fifth.request.body)["items"] == [{"externalId": "fail"}]
+
+    def test_request_all_item_fail(self, http_client: HTTPClient, rsps: responses.RequestsMock) -> None:
+        rsps.post(
+            "https://example.com/api/resource",
+            json={"error": "Unauthorized"},
+            status=401,
+        )
+        items = [{"name": "item1", "id": 1}, {"name": "item2", "id": 2}]
+        results = http_client.request(
+            ItemsRequest[int](
+                endpoint_url="https://example.com/api/resource",
+                method="POST",
+                items=items,
+                as_id=lambda item: item["id"],
+            )
+        )
+        assert results == [
+            FailedItem(status_code=401, id=1, error="Unauthorized"),
+            FailedItem(status_code=401, id=2, error="Unauthorized"),
+        ]
+
+        assert len(rsps.calls) == 1  # Only one request made
+
+    def test_bad_request_items(self, http_client: HTTPClient, rsps: responses.RequestsMock) -> None:
+        # Test with non-serializable item
+        bad_items = [
+            {"id": 1},
+            {"externalId": "duplicate"},
+            {"externalId": "duplicate"},
+        ]  # Duplicate externalId will cause issue
+        rsps.post(
+            "https://example.com/api/resource",
+            json={"items": [{"externalId": "duplicate", "data": 123}]},
+            status=200,
+        )
+
+        results = http_client.request(
+            ItemsRequest[str](
+                endpoint_url="https://example.com/api/resource",
+                method="POST",
+                items=bad_items,
+                as_id=lambda item: item["externalId"],  # KeyError will occur here
+            )
+        )
+        assert results == [
+            UnknownRequestItem(error="Error extracting ID: 'externalId'", item={"id": 1}),
+            FailedRequestItem(id="duplicate", error="Duplicate item ID: 'duplicate'"),
+            SuccessItem(status_code=200, id="duplicate", item={"externalId": "duplicate", "data": 123}),
+        ]
+
+    def test_request_no_items_response(self, http_client: HTTPClient, rsps: responses.RequestsMock) -> None:
+        rsps.post(
+            "https://example.com/api/resource/delete",
+            status=200,
+        )
+        items = [{"id": 1}, {"id": 2}]
+        results = http_client.request(
+            ItemsRequest[int](
+                endpoint_url="https://example.com/api/resource/delete",
+                method="POST",
+                items=items,
+                as_id=lambda item: item["id"],
+            )
+        )
+        assert results == [
+            SuccessItem(status_code=200, id=1),
+            SuccessItem(status_code=200, id=2),
+        ]
+
+    def test_response_unknown_id(self, http_client: HTTPClient, rsps: responses.RequestsMock) -> None:
+        rsps.post(
+            "https://example.com/api/resource",
+            json={"items": [{"uid": "a", "data": 1}, {"uid": "b", "data": 2}]},
+            status=200,
+        )
+        items = [{"name": "itemA", "id": 1}, {"name": "itemB", "id": 2}]
+        results = http_client.request(
+            ItemsRequest[int](
+                endpoint_url="https://example.com/api/resource",
+                method="POST",
+                items=items,
+                as_id=lambda item: item["id"],
+            )
+        )
+        assert results == [
+            UnknownResponseItem(status_code=200, item={"uid": "a", "data": 1}, error="Error extracting ID: 'id'"),
+            UnknownResponseItem(status_code=200, item={"uid": "b", "data": 2}, error="Error extracting ID: 'id'"),
+            MissingItem(status_code=200, id=1),
+            MissingItem(status_code=200, id=2),
+        ]
+
+    def test_timeout_error(self, http_client_one_retry: HTTPClient, rsps: responses.RequestsMock) -> None:
+        client = http_client_one_retry
+        rsps.add(
+            responses.POST,
+            "https://example.com/api/resource",
+            body=requests.ReadTimeout("Simulated timeout error"),
+        )
+        with patch("time.sleep"):
+            results = client.request_with_retries(
+                ItemsRequest[int](
+                    endpoint_url="https://example.com/api/resource",
+                    method="POST",
+                    items=[{"id": 1}],
+                    as_id=lambda item: item["id"],
+                )
+            )
+        assert results == [
+            FailedRequestItem(id=1, error="RequestException after 1 attempts (read error): Simulated timeout error")
+        ]
