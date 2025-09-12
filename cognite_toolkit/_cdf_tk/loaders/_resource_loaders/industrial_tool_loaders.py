@@ -23,6 +23,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import (
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotADirectoryError, ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.resource_classes import StreamlitYAML
 from cognite_toolkit._cdf_tk.utils import (
     load_yaml_inject_variables,
     safe_read,
@@ -45,6 +46,7 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
     dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
     _doc_url = "Files/operation/initFileUpload"
     _metadata_hash_key = "cdf-toolkit-app-hash"
+    yaml_cls = StreamlitYAML
 
     @property
     def display_name(self) -> str:
