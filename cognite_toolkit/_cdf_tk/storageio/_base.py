@@ -10,8 +10,9 @@ from cognite.client.data_classes._base import (
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal, T_Selector, T_WritableCogniteResourceList
 
 
@@ -47,6 +48,7 @@ class StorageIO(ABC, Generic[T_ID, T_Selector, T_CogniteResourceList, T_Writable
     supported_compressions: frozenset[str]
     supported_read_formats: frozenset[str]
     chunk_size: int
+    UPLOAD_ENDPOINT: str
 
     def __init__(self, client: ToolkitClient) -> None:
         self.client = client
@@ -109,7 +111,19 @@ class StorageIO(ABC, Generic[T_ID, T_Selector, T_CogniteResourceList, T_Writable
             http_client: The custom HTTP client to use for the upload.
             selector: Optional selection criteria to identify where to upload the data.
         """
-        raise NotImplementedError()
+        if not hasattr(self, "UPLOAD_ENDPOINT"):
+            raise ToolkitNotImplementedError(f"Upload not implemented for {self.kind} storage.")
+
+        config = http_client.config
+        return http_client.request_with_retries(
+            message=ItemsRequest(
+                endpoint_url=config.create_api_url(self.UPLOAD_ENDPOINT),
+                method="POST",
+                # The dump method from the PySDK always returns JsonVal, but mypy cannot infer that
+                items=data_chunk.dump(camel_case=True),  # type: ignore[arg-type]
+                as_id=self.as_id,
+            )
+        )
 
     @abstractmethod
     def data_to_json_chunk(self, data_chunk: T_WritableCogniteResourceList) -> list[dict[str, JsonVal]]:
