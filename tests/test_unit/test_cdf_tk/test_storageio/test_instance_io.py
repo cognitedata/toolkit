@@ -123,5 +123,5 @@ class TestInstanceIO:
             assert len(results) == instance_count
             failed_items = [res for res in results if isinstance(res, FailedItem)]
             assert len(failed_items) == instance_count // 2
-            success_items = [res for res in results if not isinstance(res, SuccessItem)]
+            success_items = [res for res in results if isinstance(res, SuccessItem)]
             assert len(success_items) == instance_count // 2
