@@ -36,11 +36,13 @@ from cognite_toolkit._cdf_tk.storageio import (
     InstanceSelector,
     TableStorageIO,
 )
+from cognite_toolkit._cdf_tk.client.data_classes.pending_instances_ids import PendingInstanceId
 from cognite_toolkit._cdf_tk.storageio._base import StorageIOConfig, T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest, SuccessItem
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal, T_Selector
+from cognite_toolkit._cdf_tk.commands._migrate.data_model import INSTANCE_SOURCE_VIEW_ID
 
 from .data_classes import MigrationMapping, MigrationMappingList
 
@@ -208,23 +210,32 @@ class FileMetaAdapter(
         FileMetadataList,
     ]
 ):
+    def as_pending_instance_id(self, item: InstanceApply) -> PendingInstanceId:
+        # Either a lookup
+        # Or check for the INSTANCE_SOURCE_VIEW_ID in source.
+        raise NotImplementedError()
+
     def upload_items_force(
         self, data_chunk: InstanceApplyList, http_client: HTTPClient, selector: T_Selector | None = None
     ) -> Sequence[HTTPMessage]:
         config = http_client.config
-        # f"{self._RESOURCE_PATH}/set-pending-instance-ids",
-        # "api_subversion": "alpha",
-        # "items": [identifier.dump(camel_case=True) for identifier in id_chunk],
         results: list[HTTPMessage] = []
+        successful_linked: set[int] = set()
         for batch in chunker_sequence(data_chunk, self.chunk_size):
             batch_results = http_client.request_with_retries(
                 message=ItemsRequest(
                     endpoint_url=config.create_api_url("files/set-pending-instance-ids"),
                     method="POST",
-                    items=[],  # type: ignore[arg-type]
+                    api_version="alpha",
+                    items=[self.as_pending_instance_id(item) for item in batch],  # type: ignore[arg-type]
                     as_id=self.as_id,
                 )
             )
+            for res in batch_results:
+                if isinstance(res, SuccessItem):
+                    successful_linked.add(res.id)
             results.extend(batch_results)
+        to_upload = [item for item in data_chunk if self.as_id(item) in successful_linked]
+        if to_upload:
+            results.extend(self.instance.upload_items_force(InstanceApplyList(to_upload), http_client, selector))
         return results
-        return super().upload_items_force(data_chunk, http_client, selector)
