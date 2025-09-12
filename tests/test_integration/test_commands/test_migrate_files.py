@@ -51,13 +51,13 @@ def three_files_with_content(
     client.files.delete(external_id=created.as_external_ids(), ignore_unknown_ids=True)
 
 
-@pytest.mark.skip(
-    "This is not yet enabled in the staging cluster that Toolkit uses for testing. Only runs a dev cluster."
-)
 class TestMigrateFilesCommand:
     # This tests uses instances.apply_fast() which uses up to 4 workers for writing instances,
     # when this is used in parallel with other tests that uses instances.apply() then we get 5 workers in total,
     # which will trigger a 429 error.
+    @pytest.mark.skip(
+        "This is not yet enabled in the staging cluster that Toolkit uses for testing. Only runs a dev cluster."
+    )
     @pytest.mark.usefixtures("max_two_workers")
     def test_migrate_files_command(
         self,
