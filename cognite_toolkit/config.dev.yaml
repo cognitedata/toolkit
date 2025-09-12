@@ -1,7 +1,0 @@
-environment:
-  name: dev
-  project: consul-dev
-  validation-type: dev
-  selected:
-  - modules/
-variables: {}

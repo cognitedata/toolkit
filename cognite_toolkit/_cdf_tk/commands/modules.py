@@ -144,15 +144,16 @@ class ModulesCommand(ToolkitCommand):
         organization_dir: Path,
         selected_packages: Packages,
         environments: list[EnvType],
+        modules_source_path: Path,
         mode: Literal["new", "clean", "update"] | None,
         download_data: bool = False,
     ) -> None:
-        modules_root_dir = organization_dir / MODULES
-        if mode == "clean" and modules_root_dir.is_dir():
+        modules_target_root_dir = organization_dir / MODULES
+        if mode == "clean" and modules_target_root_dir.is_dir():
             print(f"{INDENT}[yellow]Clearing directory[/]")
-            safe_rmtree(modules_root_dir)
+            safe_rmtree(modules_target_root_dir)
 
-        modules_root_dir.mkdir(parents=True, exist_ok=True)
+        modules_target_root_dir.mkdir(parents=True, exist_ok=True)
 
         seen_modules: set[Path] = set()
         selected_paths: set[Path] = set()
@@ -176,7 +177,7 @@ class ModulesCommand(ToolkitCommand):
                     extra_resources.update(module.definition.extra_resources)
 
                 print(f"{INDENT * 2}[{'yellow' if mode == 'clean' else 'green'}]Creating module {module.name}[/]")
-                target_dir = modules_root_dir / module.relative_path
+                target_dir = modules_target_root_dir / module.relative_path
                 if Path(target_dir).exists() and mode == "update":
                     if questionary.confirm(
                         f"{INDENT}Module {module.name} already exists in folder {target_dir}. Would you like to overwrite?",
@@ -212,8 +213,8 @@ class ModulesCommand(ToolkitCommand):
             created_by_module: dict[Path, int] = Counter()
             for extra in extra_resources:
                 module_dir = module_directory_from_path(extra)
-                extra_full_path = self._builtin_modules_path / extra
-                target_path = modules_root_dir / extra
+                extra_full_path = modules_source_path / extra
+                target_path = modules_target_root_dir / extra
                 if target_path.exists():
                     # Assume that the user has already created this shared resource
                     continue
@@ -238,7 +239,7 @@ class ModulesCommand(ToolkitCommand):
             if mode == "update":
                 config_init = InitConfigYAML.load_existing(
                     safe_read(Path(organization_dir) / f"config.{environment}.yaml"), environment
-                ).load_defaults(self._builtin_modules_path, selected_paths)
+                ).load_defaults(modules_source_path, selected_paths)
             else:
                 ignore_variable_patterns: list[tuple[str, ...]] | None = None
                 if len(selected_packages) == 1 and "quickstart" in selected_packages:
@@ -261,7 +262,7 @@ class ModulesCommand(ToolkitCommand):
                         validation_type=environment,
                         selected=[f"{MODULES}/"],
                     )
-                ).load_defaults(self._builtin_modules_path, selected_paths, ignore_variable_patterns)
+                ).load_defaults(modules_source_path, selected_paths, ignore_variable_patterns)
 
                 if len(selected_packages) == 1 and "quickstart" in selected_packages:
                     config_init.lift()
@@ -313,13 +314,17 @@ default_organization_dir = "{organization_dir.name}"''',
 
         modules_root_dir = organization_dir / MODULES
 
-        packages = self._get_available_packages()
+        packages, modules_source_path = self._get_available_packages()
 
         if select_all:
             print(Panel("Instantiating all available modules"))
             mode = self._verify_clean(modules_root_dir, clean)
             self._create(
-                organization_dir=organization_dir, selected_packages=packages, environments=["dev", "prod"], mode=mode
+                organization_dir=organization_dir,
+                selected_packages=packages,
+                environments=["dev", "prod"],
+                mode=mode,
+                modules_source_path=modules_source_path,
             )
             return
         is_interactive = user_select is not None
@@ -357,7 +362,13 @@ default_organization_dir = "{organization_dir.name}"''',
                 mode = self._verify_clean(bootcamp_org / MODULES, clean)
             # We only ask to verify if the user has not already selected overwrite in the _verify_clean method
             if mode == "clean" or questionary.confirm("Would you like to continue with creation?", default=True).ask():
-                self._create(bootcamp_org, selected, ["test"], mode)
+                self._create(
+                    organization_dir=bootcamp_org,
+                    selected_packages=selected,
+                    environments=["test"],
+                    mode=mode,
+                    modules_source_path=modules_source_path,
+                )
             raise typer.Exit()
 
         if (
@@ -387,7 +398,14 @@ default_organization_dir = "{organization_dir.name}"''',
             download_data = self._get_download_data(selected)
         else:
             download_data = user_download_data
-        self._create(organization_dir, selected, environments, mode, download_data)
+        self._create(
+            organization_dir=organization_dir,
+            selected_packages=selected,
+            environments=environments,
+            mode=mode,
+            download_data=download_data,
+            modules_source_path=modules_source_path,
+        )
 
         print(
             Panel(
@@ -713,13 +731,20 @@ default_organization_dir = "{organization_dir.name}"''',
             build_env = default.environment.validation_type
 
         existing_module_names = [module.name for module in ModuleResources(organization_dir, build_env).list()]
-        available_packages = self._get_available_packages()
+        available_packages, modules_source_path = self._get_available_packages()
         added_packages = self._select_packages(available_packages, existing_module_names)
 
         download_data = self._get_download_data(added_packages)
-        self._create(organization_dir, added_packages, environments, "update", download_data)
+        self._create(
+            organization_dir=organization_dir,
+            selected_packages=added_packages,
+            environments=environments,
+            mode="update",
+            download_data=download_data,
+            modules_source_path=modules_source_path,
+        )
 
-    def _get_available_packages(self) -> Packages:
+    def _get_available_packages(self) -> tuple[Packages, Path]:
         """
         Returns a list of available packages, either from the CDF TOML file or from external libraries if the feature flag is enabled.
         If the feature flag is not enabled and no libraries are specified, it returns the built-in modules.
@@ -743,7 +768,7 @@ default_organization_dir = "{organization_dir.name}"''',
                     self._unpack(file_path)
                     packages = Packages().load(file_path.parent)
                     self._validate_packages(packages, f"library {library_name}")
-                    return packages
+                    return packages, file_path.parent
                 except Exception as e:
                     if isinstance(e, ToolkitError):
                         raise e
@@ -758,7 +783,7 @@ default_organization_dir = "{organization_dir.name}"''',
         else:
             packages = Packages.load(self._builtin_modules_path)
             self._validate_packages(packages, "built-in modules")
-            return packages
+            return packages, self._builtin_modules_path
 
     def _validate_packages(self, packages: Packages, source_name: str) -> None:
         """
