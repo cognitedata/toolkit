@@ -6,7 +6,6 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import DataMapper
-from cognite_toolkit._cdf_tk.commands._migrate.issues import WriteIssue
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileExistsError
 from cognite_toolkit._cdf_tk.storageio import StorageIO
 from cognite_toolkit._cdf_tk.storageio._base import T_CogniteResourceList, T_Selector, T_WritableCogniteResourceList
@@ -126,7 +125,8 @@ class MigrationCommand(ToolkitCommand):
                 elif isinstance(item, ItemIDMessage):
                     tracker.set_progress(item.id, step=self.Steps.UPLOAD, status="failed")
                 if not isinstance(item, SuccessItem):
-                    issues.append(item.dump())
+                    # MyPy fails to understand that dict[str, JsonVal] is a Chunk
+                    issues.append(item.dump())  # type: ignore[arg-type]
             if issues:
                 log_file.write_chunks(issues)
             return None
