@@ -7,7 +7,7 @@ from .container_field_definitions import ContainerReference
 from .view_field_definitions import ViewReference
 
 
-class InstanceType(BaseModelResource):
+class NodeType(BaseModelResource):
     space: str = Field(
         description="The space where the instance is located.",
         min_length=1,
@@ -45,7 +45,7 @@ class NodeYAML(ToolkitResource):
         max_length=256,
         pattern=r"^[^\\x00]{1,256}$",
     )
-    type: InstanceType | None = Field(
+    type: NodeType | None = Field(
         default=None,
         description="The type of the node, defined by a direct relation to another node.",
     )
