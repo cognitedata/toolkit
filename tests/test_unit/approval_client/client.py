@@ -65,7 +65,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import Grap
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
-from cognite_toolkit._cdf_tk.loaders import FileLoader
+from cognite_toolkit._cdf_tk.cruds import FileCRUD
 from cognite_toolkit._cdf_tk.utils import calculate_hash
 from cognite_toolkit._cdf_tk.utils.auth import CLIENT_NAME
 
@@ -682,7 +682,7 @@ class ApprovalToolkitClient:
                 entry = instance_id.dump(include_instance_type=False)
             entry["filehash"] = filehash
 
-            created_resources[FileLoader.__name__].append(entry)
+            created_resources[FileCRUD.__name__].append(entry)
 
             return FileMetadata(external_id, instance_id)
 
