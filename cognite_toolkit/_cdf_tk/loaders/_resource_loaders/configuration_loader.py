@@ -1,9 +1,12 @@
 from collections.abc import Hashable, Iterable, Sequence
+from pathlib import Path
 from typing import Any, final
 
 from cognite.client.data_classes.capabilities import AppConfigAcl, Capability
 from cognite.client.utils.useful_types import SequenceNotStr
+from rich.console import Console
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.search_config import (
     SearchConfig,
     SearchConfigList,
@@ -35,8 +38,9 @@ class SearchConfigLoader(
     _doc_base_url = "https://api-docs.cogheim.net/redoc/#tag/"
     _doc_url = "Search-Config/operation/upsertSearchConfigViews"
 
-    # This cache is used to store the existing search configurations in the API.
-    _existing_configs_cache: dict[ViewId, int] | None = None
+    def __init__(self, client: ToolkitClient, build_path: Path | None, console: Console | None):
+        super().__init__(client, build_path, console)
+        self._existing_configs_cache: dict[ViewId, int] | None = None
 
     @property
     def display_name(self) -> str:
