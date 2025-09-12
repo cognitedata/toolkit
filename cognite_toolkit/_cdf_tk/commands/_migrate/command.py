@@ -34,7 +34,7 @@ class MigrationCommand(ToolkitCommand):
         log_dir: Path,
         dry_run: bool = False,
         verbose: bool = False,
-    ) -> None:
+    ) -> ProgressTracker[T_ID]:
         if log_dir.exists():
             raise ToolkitFileExistsError(
                 f"Log directory {log_dir} already exists. Please remove it or choose another directory."
@@ -71,6 +71,7 @@ class MigrationCommand(ToolkitCommand):
         executor.raise_on_error()
         action = "Would migrate" if dry_run else "Migrating"
         console.print(f"{action} {total:,} {data.display_name} to instances.")
+        return tracker
 
     def _download_iterable(
         self,
