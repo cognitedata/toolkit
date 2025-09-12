@@ -414,5 +414,5 @@ class TestHTTPMessage:
         assert dumped["type"] == message_cls.__name__
         try:
             json.dumps(dumped)
-        except Exception as e:
+        except (TypeError, ValueError) as e:
             pytest.fail(f"Dumped data is not valid JSON: {e}")

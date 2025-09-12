@@ -15,8 +15,13 @@ class HTTPMessage(ABC):
     """Base class for HTTP messages (requests and responses)"""
 
     def dump(self) -> dict[str, JsonVal]:
+        """Dumps the message to a JSON serializable dictionary.
+
+        Returns:
+            dict[str, JsonVal]: The message as a dictionary.
+        """
         # We avoid using the asdict function as we know we have a shallow structure,
-        # and this is much faster.
+        # and this roughly ~10x faster.
         output = self.__dict__.copy()
         output["type"] = type(self).__name__
         return output
@@ -176,6 +181,13 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
     as_id: Callable[[JsonVal], T_ID] | None = None
 
     def dump(self) -> dict[str, JsonVal]:
+        """Dumps the message to a JSON serializable dictionary.
+
+        This override removes the 'as_id' attribute as it is not serializable.
+
+        Returns:
+            dict[str, JsonVal]: The message as a dictionary.
+        """
         output = super().dump()
         if self.as_id is not None:
             # We cannot serialize functions
