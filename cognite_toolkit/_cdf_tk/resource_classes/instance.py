@@ -73,7 +73,7 @@ class EdgeYAML(ToolkitResource):
         max_length=256,
         pattern=r"^[^\\x00]{1,256}$",
     )
-    type: InstanceType = Field(
+    type: NodeType = Field(
         description="The type of the edge, defined by a direct relation to another edge.",
     )
     sources: list[InstanceSource] | None = Field(
@@ -85,9 +85,9 @@ class EdgeYAML(ToolkitResource):
         description="Version of the edge.",
         ge=0,
     )
-    start_node: InstanceType = Field(
+    start_node: NodeType = Field(
         description="Reference to the node at the start of the edge.",
     )
-    end_node: InstanceType = Field(
+    end_node: NodeType = Field(
         description="Reference to the node at the end of the edge.",
     )
