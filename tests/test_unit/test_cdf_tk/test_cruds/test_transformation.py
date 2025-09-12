@@ -13,10 +13,10 @@ from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.cruds import (
     DataModelCRUD,
     DataSetsCRUD,
-    RawDatabaseLoader,
-    RawTableLoader,
+    RawDatabaseCRUD,
+    RawTableCRUD,
     ResourceCRUD,
-    SpaceLoader,
+    SpaceCRUD,
     TransformationCRUD,
     ViewCRUD,
 )
@@ -164,7 +164,7 @@ authentication:
                 },
                 [
                     (DataSetsCRUD, "ds_my_dataset"),
-                    (SpaceLoader, "sp_data_space"),
+                    (SpaceCRUD, "sp_data_space"),
                     (DataModelCRUD, dm.DataModelId(space="sp_model_space", external_id="my_model", version="v1")),
                 ],
                 id="Transformation to data model",
@@ -178,7 +178,7 @@ authentication:
                     }
                 },
                 [
-                    (SpaceLoader, "sp_data_space"),
+                    (SpaceCRUD, "sp_data_space"),
                     (ViewCRUD, dm.ViewId(space="sp_space", external_id="my_view", version="v1")),
                 ],
                 id="Transformation to nodes ",
@@ -186,8 +186,8 @@ authentication:
             pytest.param(
                 {"destination": {"type": "raw", "database": "my_db", "table": "my_table"}},
                 [
-                    (RawDatabaseLoader, RawDatabase("my_db")),
-                    (RawTableLoader, RawTable("my_db", "my_table")),
+                    (RawDatabaseCRUD, RawDatabase("my_db")),
+                    (RawTableCRUD, RawTable("my_db", "my_table")),
                 ],
                 id="Transformation to RAW table",
             ),

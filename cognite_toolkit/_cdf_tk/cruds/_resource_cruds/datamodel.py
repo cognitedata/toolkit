@@ -106,11 +106,11 @@ from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
 from cognite_toolkit._cdf_tk.utils.tarjan import tarjan
 
-from .auth import GroupAllScopedLoader
+from .auth import GroupAllScopedCRUD
 
 
 @final
-class SpaceLoader(ResourceContainerCRUD[str, SpaceApply, Space, SpaceApplyList, SpaceList]):
+class SpaceCRUD(ResourceContainerCRUD[str, SpaceApply, Space, SpaceApplyList, SpaceList]):
     item_name = "nodes and edges"
     folder_name = "data_models"
     filename_pattern = r"^.*space$"
@@ -120,7 +120,7 @@ class SpaceLoader(ResourceContainerCRUD[str, SpaceApply, Space, SpaceApplyList, 
     list_cls = SpaceList
     kind = "Space"
     yaml_cls = SpaceYAML
-    dependencies = frozenset({GroupAllScopedLoader})
+    dependencies = frozenset({GroupAllScopedCRUD})
     _doc_url = "Spaces/operation/ApplySpaces"
     delete_recreate_limit_seconds: int = 10
 
@@ -242,7 +242,7 @@ class SpaceLoader(ResourceContainerCRUD[str, SpaceApply, Space, SpaceApplyList, 
             yield instances.as_ids()
 
 
-class ContainerLoader(ResourceContainerCRUD[ContainerId, ContainerApply, Container, ContainerApplyList, ContainerList]):
+class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerApply, Container, ContainerApplyList, ContainerList]):
     item_name = "nodes and edges"
     folder_name = "data_models"
     filename_pattern = r"^.*container$"
@@ -251,7 +251,7 @@ class ContainerLoader(ResourceContainerCRUD[ContainerId, ContainerApply, Contain
     list_cls = ContainerList
     list_write_cls = ContainerApplyList
     kind = "Container"
-    dependencies = frozenset({SpaceLoader})
+    dependencies = frozenset({SpaceCRUD})
     yaml_cls = ContainerYAML
     _doc_url = "Containers/operation/ApplyContainers"
 
@@ -292,7 +292,7 @@ class ContainerLoader(ResourceContainerCRUD[ContainerId, ContainerApply, Contain
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "space" in item:
-            yield SpaceLoader, item["space"]
+            yield SpaceCRUD, item["space"]
         # Note that we are very careful in the code below to not raise an exception if the
         # item is not properly formed. If that is the case, an appropriate warning will be given elsewhere.
         for prop in item.get("properties", {}).values():
@@ -304,7 +304,7 @@ class ContainerLoader(ResourceContainerCRUD[ContainerId, ContainerApply, Contain
                     container = prop_type["container"]
                     if "space" in container and "externalId" in container and container.get("type") == "container":
                         yield (
-                            ContainerLoader,
+                            ContainerCRUD,
                             ContainerId(space=container["space"], external_id=container["externalId"]),
                         )
 
@@ -491,7 +491,7 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View, ViewApplyList, ViewList]):
     list_cls = ViewList
     list_write_cls = ViewApplyList
     kind = "View"
-    dependencies = frozenset({SpaceLoader, ContainerLoader})
+    dependencies = frozenset({SpaceCRUD, ContainerCRUD})
     yaml_cls = ViewYAML
     _doc_url = "Views/operation/ApplyViews"
 
@@ -544,7 +544,7 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View, ViewApplyList, ViewList]):
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "space" in item:
-            yield SpaceLoader, item["space"]
+            yield SpaceCRUD, item["space"]
         if isinstance(implements := item.get("implements", []), list):
             for parent in implements:
                 if not isinstance(parent, dict):
@@ -557,7 +557,7 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View, ViewApplyList, ViewList]):
         for prop in item.get("properties", {}).values():
             if (container := prop.get("container", {})) and container.get("type") == "container":
                 if in_dict(("space", "externalId"), container):
-                    yield ContainerLoader, ContainerId(container["space"], container["externalId"])
+                    yield ContainerCRUD, ContainerId(container["space"], container["externalId"])
             for key, dct_ in [("source", prop), ("edgeSource", prop), ("source", prop.get("through", {}))]:
                 if source := dct_.get(key, {}):
                     if source.get("type") == "view" and in_dict(("space", "externalId", "version"), source):
@@ -568,7 +568,7 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View, ViewApplyList, ViewList]):
                             ),
                         )
                     elif source.get("type") == "container" and in_dict(("space", "externalId"), source):
-                        yield ContainerLoader, ContainerId(source["space"], source["externalId"])
+                        yield ContainerCRUD, ContainerId(source["space"], source["externalId"])
 
     def safe_read(self, filepath: Path | str) -> str:
         # The version is a string, but the user often writes it as an int.
@@ -901,7 +901,7 @@ class DataModelCRUD(ResourceCRUD[DataModelId, DataModelApply, DataModel, DataMod
     list_cls = DataModelList
     list_write_cls = DataModelApplyList
     kind = "DataModel"
-    dependencies = frozenset({SpaceLoader, ViewCRUD})
+    dependencies = frozenset({SpaceCRUD, ViewCRUD})
     _doc_url = "Data-models/operation/createDataModels"
 
     @property
@@ -941,7 +941,7 @@ class DataModelCRUD(ResourceCRUD[DataModelId, DataModelApply, DataModel, DataMod
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "space" in item:
-            yield SpaceLoader, item["space"]
+            yield SpaceCRUD, item["space"]
         for view in item.get("views", []):
             if in_dict(("space", "externalId"), view):
                 yield (
@@ -1034,7 +1034,7 @@ class DataModelCRUD(ResourceCRUD[DataModelId, DataModelApply, DataModel, DataMod
 
 
 @final
-class NodeLoader(ResourceContainerCRUD[NodeId, NodeApply, Node, NodeApplyList, NodeList]):
+class NodeCRUD(ResourceContainerCRUD[NodeId, NodeApply, Node, NodeApplyList, NodeList]):
     item_name = "nodes"
     folder_name = "data_models"
     filename_pattern = r"^.*node$"
@@ -1043,7 +1043,7 @@ class NodeLoader(ResourceContainerCRUD[NodeId, NodeApply, Node, NodeApplyList, N
     list_cls = NodeList
     list_write_cls = NodeApplyList
     kind = "Node"
-    dependencies = frozenset({SpaceLoader, ViewCRUD, ContainerLoader})
+    dependencies = frozenset({SpaceCRUD, ViewCRUD, ContainerCRUD})
     _doc_url = "Instances/operation/applyNodeAndEdges"
 
     def __init__(
@@ -1097,7 +1097,7 @@ class NodeLoader(ResourceContainerCRUD[NodeId, NodeApply, Node, NodeApplyList, N
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "space" in item:
-            yield SpaceLoader, item["space"]
+            yield SpaceCRUD, item["space"]
         for source in item.get("sources", []):
             if (identifier := source.get("source")) and isinstance(identifier, dict):
                 if identifier.get("type") == "view" and in_dict(("space", "externalId", "version"), identifier):
@@ -1110,7 +1110,7 @@ class NodeLoader(ResourceContainerCRUD[NodeId, NodeApply, Node, NodeApplyList, N
                         ),
                     )
                 elif identifier.get("type") == "container" and in_dict(("space", "externalId"), identifier):
-                    yield ContainerLoader, ContainerId(identifier["space"], identifier["externalId"])
+                    yield ContainerCRUD, ContainerId(identifier["space"], identifier["externalId"])
 
     def dump_resource(self, resource: Node, local: dict[str, Any] | None = None) -> dict[str, Any]:
         # CDF resource does not have properties set, so we need to do a lookup
@@ -1217,7 +1217,7 @@ class GraphQLLoader(
     list_cls = GraphQLDataModelList
     list_write_cls = GraphQLDataModelWriteList
     kind = "GraphQLSchema"
-    dependencies = frozenset({SpaceLoader, ContainerLoader})
+    dependencies = frozenset({SpaceCRUD, ContainerCRUD})
     item_name = "views"
     _doc_url = "Data-models/operation/createDataModels"
     _hash_name = "CDFToolkitHash:"
@@ -1262,7 +1262,7 @@ class GraphQLLoader(
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "space" in item:
-            yield SpaceLoader, item["space"]
+            yield SpaceCRUD, item["space"]
 
     def safe_read(self, filepath: Path | str) -> str:
         # The version is a string, but the user often writes it as an int.
@@ -1416,7 +1416,7 @@ class EdgeLoader(ResourceContainerCRUD[EdgeId, EdgeApply, Edge, EdgeApplyList, E
     list_cls = EdgeList
     list_write_cls = EdgeApplyList
     kind = "Edge"
-    dependencies = frozenset({SpaceLoader, ViewCRUD, ContainerLoader, NodeLoader})
+    dependencies = frozenset({SpaceCRUD, ViewCRUD, ContainerCRUD, NodeCRUD})
     _doc_url = "Instances/operation/applyNodeAndEdges"
 
     @property
@@ -1459,7 +1459,7 @@ class EdgeLoader(ResourceContainerCRUD[EdgeId, EdgeApply, Edge, EdgeApplyList, E
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "space" in item:
-            yield SpaceLoader, item["space"]
+            yield SpaceCRUD, item["space"]
         for source in item.get("sources", []):
             if (identifier := source.get("source")) and isinstance(identifier, dict):
                 if identifier.get("type") == "view" and in_dict(("space", "externalId", "version"), identifier):
@@ -1472,12 +1472,12 @@ class EdgeLoader(ResourceContainerCRUD[EdgeId, EdgeApply, Edge, EdgeApplyList, E
                         ),
                     )
                 elif identifier.get("type") == "container" and in_dict(("space", "externalId"), identifier):
-                    yield ContainerLoader, ContainerId(identifier["space"], identifier["externalId"])
+                    yield ContainerCRUD, ContainerId(identifier["space"], identifier["externalId"])
 
         for key in ["startNode", "endNode", "type"]:
             if node_ref := item.get(key):
                 if isinstance(node_ref, dict) and in_dict(("space", "externalId"), node_ref):
-                    yield NodeLoader, NodeId(node_ref["space"], node_ref["externalId"])
+                    yield NodeCRUD, NodeId(node_ref["space"], node_ref["externalId"])
 
     def dump_resource(self, resource: Edge, local: dict[str, Any] | None = None) -> dict[str, Any]:
         # CDF resource does not have properties set, so we need to do a lookup

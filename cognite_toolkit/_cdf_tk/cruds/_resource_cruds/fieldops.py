@@ -22,11 +22,11 @@ from cognite_toolkit._cdf_tk.utils import quote_int_value_by_key_in_yaml, safe_r
 from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, hash_dict
 
-from .auth import GroupAllScopedLoader
+from .auth import GroupAllScopedCRUD
 from .classic import AssetCRUD
 from .data_organization import DataSetsCRUD
-from .datamodel import SpaceLoader
-from .group_scoped import GroupResourceScopedLoader
+from .datamodel import SpaceCRUD
+from .group_scoped import GroupResourceScopedCRUD
 
 
 @final
@@ -39,7 +39,7 @@ class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig, APMConfigWriteL
     list_cls = APMConfigList
     list_write_cls = APMConfigWriteList
     kind = "InfieldV1"
-    dependencies = frozenset({DataSetsCRUD, AssetCRUD, SpaceLoader, GroupAllScopedLoader, GroupResourceScopedLoader})
+    dependencies = frozenset({DataSetsCRUD, AssetCRUD, SpaceCRUD, GroupAllScopedCRUD, GroupResourceScopedCRUD})
     _doc_url = "Instances/operation/applyNodeAndEdges"
     _root_location_filters: tuple[str, ...] = ("general", "assets", "files", "timeseries")
     _group_keys: tuple[str, ...] = ("templateAdmins", "checklistAdmins")
@@ -147,22 +147,22 @@ class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig, APMConfigWriteL
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if isinstance(app_data_space_id := item.get("appDataSpaceId"), str):
-            yield SpaceLoader, app_data_space_id
+            yield SpaceCRUD, app_data_space_id
         if isinstance(customer_data_space_id := item.get("customerDataSpaceId"), str):
-            yield SpaceLoader, customer_data_space_id
+            yield SpaceCRUD, customer_data_space_id
         for config in cls._get_root_location_configurations(item) or []:
             if isinstance(asset_external_id := config.get("assetExternalId"), str):
                 yield AssetCRUD, asset_external_id
             if isinstance(data_set_external_id := config.get("dataSetExternalId"), str):
                 yield DataSetsCRUD, data_set_external_id
             if isinstance(app_data_instance_space := config.get("appDataInstanceSpace"), str):
-                yield SpaceLoader, app_data_instance_space
+                yield SpaceCRUD, app_data_instance_space
             if isinstance(source_data_instance_space := config.get("sourceDataInstanceSpace"), str):
-                yield SpaceLoader, source_data_instance_space
+                yield SpaceCRUD, source_data_instance_space
             for key in cls._group_keys:
                 for group in config.get(key, []):
                     if isinstance(group, str):
-                        yield GroupResourceScopedLoader, group
+                        yield GroupResourceScopedCRUD, group
             data_filters = config.get("dataFilters")
             if not isinstance(data_filters, dict):
                 continue
@@ -178,7 +178,7 @@ class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig, APMConfigWriteL
                         yield AssetCRUD, asset_external_id
                 if app_data_instance_space := filter_.get("appDataInstanceSpace"):
                     if isinstance(app_data_instance_space, str):
-                        yield SpaceLoader, app_data_instance_space
+                        yield SpaceCRUD, app_data_instance_space
 
     def safe_read(self, filepath: Path | str) -> str:
         # The customerDataSpaceVersion is a string, but the user often writes it as an int.

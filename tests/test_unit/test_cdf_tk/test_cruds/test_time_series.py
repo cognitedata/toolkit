@@ -3,7 +3,7 @@ from cognite.client.data_classes import TimeSeriesWrite
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.cruds import TimeSeriesLoader
+from cognite_toolkit._cdf_tk.cruds import TimeSeriesCRUD
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.approval_client.client import LookUpAPIMock
 
@@ -25,7 +25,7 @@ description: PH 1stStgSuctCool Gas Out
         self,
         toolkit_client_approval: ApprovalToolkitClient,
     ) -> None:
-        loader = TimeSeriesLoader(toolkit_client_approval.mock_client, None)
+        loader = TimeSeriesCRUD(toolkit_client_approval.mock_client, None)
         ts_dict = yaml.safe_load(self.timeseries_yaml)
         data_set_external_id = ts_dict["dataSetExternalId"]
         expected_id = LookUpAPIMock.create_id(data_set_external_id)
@@ -38,7 +38,7 @@ description: PH 1stStgSuctCool Gas Out
         self,
         toolkit_client_approval: ApprovalToolkitClient,
     ) -> None:
-        loader = TimeSeriesLoader(toolkit_client_approval.mock_client, None)
+        loader = TimeSeriesCRUD(toolkit_client_approval.mock_client, None)
         ts_dict = yaml.safe_load(self.timeseries_yaml)
 
         def id_missing(*args):
@@ -63,7 +63,7 @@ description: PH 1stStgSuctCool Gas Out
             client.lookup.data_sets.id.side_effect = mock_id_lookup
             client.lookup.assets.id.side_effect = mock_id_lookup
             client.lookup.security_categories.id.side_effect = mock_id_lookup
-            loader = TimeSeriesLoader.create_loader(client)
+            loader = TimeSeriesCRUD.create_loader(client)
 
         resource = {
             "externalId": "MyTimeseries",

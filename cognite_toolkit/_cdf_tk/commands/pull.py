@@ -24,7 +24,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     ExtractionPipelineConfigCRUD,
     FunctionCRUD,
     GraphQLLoader,
-    GroupAllScopedLoader,
+    GroupAllScopedCRUD,
     HostedExtractorDestinationCRUD,
     HostedExtractorSourceCRUD,
     ResourceCRUD,
@@ -529,7 +529,7 @@ class PullCommand(ToolkitCommand):
                     )
                 )
                 continue
-            if isinstance(loader, GroupAllScopedLoader):
+            if isinstance(loader, GroupAllScopedCRUD):
                 # We have two loaders for Groups. We skip this one and
                 # only use the GroupResourceScopedLoader
                 continue

@@ -26,7 +26,7 @@ from cognite.client.data_classes.labels import LabelDefinitionWriteList
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.cruds import AssetCRUD, DataSetsCRUD, FileMetadataLoader, LabelCRUD, ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds import AssetCRUD, DataSetsCRUD, FileMetadataCRUD, LabelCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.utils.aggregators import AssetAggregator, AssetCentricAggregator, FileAggregator
 from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
@@ -247,7 +247,7 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
 
 
 class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, FileMetadataWriteList, FileMetadataList]):
-    folder_name = FileMetadataLoader.folder_name
+    folder_name = FileMetadataCRUD.folder_name
     kind = "FileMetadata"
     display_name = "file metadata"
     supported_download_formats = frozenset({".parquet", ".csv", ".ndjson"})
@@ -259,8 +259,8 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
             return item.id  # type: ignore[union-attr]
         return super().as_id(item)
 
-    def _get_loader(self) -> FileMetadataLoader:
-        return FileMetadataLoader.create_loader(self.client)
+    def _get_loader(self) -> FileMetadataCRUD:
+        return FileMetadataCRUD.create_loader(self.client)
 
     def _get_aggregator(self) -> AssetCentricAggregator:
         return FileAggregator(self.client)

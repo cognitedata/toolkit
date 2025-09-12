@@ -16,20 +16,20 @@ from rich.status import Status
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.cruds import (
-    RESOURCE_LOADER_LIST,
+    RESOURCE_CRUD_LIST,
     AssetCRUD,
-    CogniteFileLoader,
+    CogniteFileCRUD,
     DataSetsCRUD,
     FunctionCRUD,
     GraphQLLoader,
-    GroupAllScopedLoader,
+    GroupAllScopedCRUD,
     GroupCRUD,
-    GroupResourceScopedLoader,
+    GroupResourceScopedCRUD,
     HostedExtractorDestinationCRUD,
     LocationFilterCRUD,
-    NodeLoader,
+    NodeCRUD,
     ResourceCRUD,
-    SpaceLoader,
+    SpaceCRUD,
     StreamlitCRUD,
     TransformationCRUD,
     ViewCRUD,
@@ -83,18 +83,18 @@ class PurgeCommand(ToolkitCommand):
                     return
 
         loaders = self._get_dependencies(
-            SpaceLoader,
+            SpaceCRUD,
             exclude={
                 GraphQLLoader,
-                GroupResourceScopedLoader,
+                GroupResourceScopedCRUD,
                 LocationFilterCRUD,
                 TransformationCRUD,
-                CogniteFileLoader,
+                CogniteFileCRUD,
             },
         )
         is_purged = self._purge(client, loaders, selected_space, dry_run=dry_run, verbose=verbose)
         if include_space and is_purged:
-            space_loader = SpaceLoader.create_loader(client)
+            space_loader = SpaceCRUD.create_loader(client)
             if dry_run:
                 print(f"Would delete space {selected_space}")
             else:
@@ -117,7 +117,7 @@ class PurgeCommand(ToolkitCommand):
     ) -> dict[type[ResourceCRUD], frozenset[type[ResourceCRUD]]]:
         return {
             dep_cls: dep_cls.dependencies
-            for dep_cls in RESOURCE_LOADER_LIST
+            for dep_cls in RESOURCE_CRUD_LIST
             if loader_cls in dep_cls.dependencies and (exclude is None or dep_cls not in exclude)
         }
 
@@ -170,8 +170,8 @@ class PurgeCommand(ToolkitCommand):
             DataSetsCRUD,
             exclude={
                 GroupCRUD,
-                GroupResourceScopedLoader,
-                GroupAllScopedLoader,
+                GroupResourceScopedCRUD,
+                GroupAllScopedCRUD,
                 StreamlitCRUD,
                 HostedExtractorDestinationCRUD,
                 FunctionCRUD,
@@ -257,7 +257,7 @@ class PurgeCommand(ToolkitCommand):
                     status_prefix = "Expected deleted"  # Views are not always deleted immediately
                     has_purged_views = True
 
-                if not dry_run and isinstance(loader, NodeLoader):
+                if not dry_run and isinstance(loader, NodeCRUD):
                     # Special handling of nodes as node type must be deleted after regular nodes
                     # In dry-run mode, we are not deleting the nodes, so we can skip this.
                     warnings_before = len(self.warning_list)
@@ -415,7 +415,7 @@ class PurgeCommand(ToolkitCommand):
 
     def _purge_nodes(
         self,
-        loader: NodeLoader,
+        loader: NodeCRUD,
         status: Status,
         selected_space: str | None = None,
         verbose: bool = False,
@@ -473,7 +473,7 @@ class PurgeCommand(ToolkitCommand):
         return count
 
     def _delete_node_batch(
-        self, batch_ids: list[NodeId], loader: NodeLoader, batch_size: int, console: Console, verbose: bool
+        self, batch_ids: list[NodeId], loader: NodeCRUD, batch_size: int, console: Console, verbose: bool
     ) -> tuple[int, int]:
         try:
             deleted = loader.delete(batch_ids)

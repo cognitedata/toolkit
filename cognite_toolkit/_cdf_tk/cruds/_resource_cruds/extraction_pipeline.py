@@ -59,9 +59,9 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_force_hashable, diff_list_identifiable
 
-from .auth import GroupAllScopedLoader
+from .auth import GroupAllScopedCRUD
 from .data_organization import DataSetsCRUD
-from .raw import RawDatabaseLoader, RawTableLoader
+from .raw import RawDatabaseCRUD, RawTableCRUD
 
 
 @final
@@ -75,7 +75,7 @@ class ExtractionPipelineCRUD(
     list_cls = ExtractionPipelineList
     list_write_cls = ExtractionPipelineWriteList
     kind = "ExtractionPipeline"
-    dependencies = frozenset({DataSetsCRUD, RawDatabaseLoader, RawTableLoader, GroupAllScopedLoader})
+    dependencies = frozenset({DataSetsCRUD, RawDatabaseCRUD, RawTableCRUD, GroupAllScopedCRUD})
     yaml_cls = ExtractionPipelineYAML
     _doc_url = "Extraction-Pipelines/operation/createExtPipes"
 
@@ -138,9 +138,9 @@ class ExtractionPipelineCRUD(
                 if db := entry.get("dbName"):
                     if db not in seen_databases:
                         seen_databases.add(db)
-                        yield RawDatabaseLoader, RawDatabase(db_name=db)
+                        yield RawDatabaseCRUD, RawDatabase(db_name=db)
                     if "tableName" in entry:
-                        yield RawTableLoader, RawTable._load(entry)
+                        yield RawTableCRUD, RawTable._load(entry)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> ExtractionPipelineWrite:
         if ds_external_id := resource.pop("dataSetExternalId", None):

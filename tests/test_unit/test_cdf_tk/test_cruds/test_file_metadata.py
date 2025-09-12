@@ -7,7 +7,7 @@ from _pytest.mark import ParameterSet
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client.data_classes import FileMetadata, FileMetadataWrite, FileMetadataWriteList
 
-from cognite_toolkit._cdf_tk.cruds import FileMetadataLoader
+from cognite_toolkit._cdf_tk.cruds import FileMetadataCRUD
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.approval_client.client import LookUpAPIMock
 
@@ -73,7 +73,7 @@ class TestLoadResources:
         toolkit_client_approval: ApprovalToolkitClient,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = FileMetadataLoader(toolkit_client_approval.mock_client, None)
+        loader = FileMetadataCRUD(toolkit_client_approval.mock_client, None)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = yaml_content
         filepath.parent.glob.return_value = [Path(f) for f in files]
@@ -92,7 +92,7 @@ class TestLoadResources:
         self, monkeypatch: MonkeyPatch, toolkit_client_approval: ApprovalToolkitClient
     ) -> None:
         metadata = FileMetadata("my_file", name="my_file.txt", mime_type="text/plain")
-        loader = FileMetadataLoader.create_loader(toolkit_client_approval.mock_client)
+        loader = FileMetadataCRUD.create_loader(toolkit_client_approval.mock_client)
 
         dumped = loader.dump_resource(metadata)
 

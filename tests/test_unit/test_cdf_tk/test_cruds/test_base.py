@@ -28,13 +28,13 @@ from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import Streamlit
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, ModulesCommand
 from cognite_toolkit._cdf_tk.cruds import (
-    LOADER_BY_FOLDER_NAME,
-    LOADER_LIST,
-    RESOURCE_LOADER_LIST,
+    CRUD_LIST,
+    CRUDS_BY_FOLDER_NAME,
+    RESOURCE_CRUD_LIST,
     DatapointsCRUD,
-    FileMetadataLoader,
+    FileMetadataCRUD,
     FunctionScheduleCRUD,
-    GroupResourceScopedLoader,
+    GroupResourceScopedCRUD,
     HostedExtractorDestinationCRUD,
     HostedExtractorSourceCRUD,
     Loader,
@@ -44,7 +44,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     TransformationCRUD,
     ViewCRUD,
     WorkflowTriggerCRUD,
-    get_loader,
+    get_crud,
 )
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
@@ -65,7 +65,7 @@ SNAPSHOTS_DIR = SNAPSHOTS_DIR_ALL / "load_data_snapshots"
 @pytest.mark.parametrize(
     "loader_cls",
     [
-        FileMetadataLoader,
+        FileMetadataCRUD,
         DatapointsCRUD,
     ],
 )
@@ -113,7 +113,7 @@ class TestDeployResources:
 
 
 class TestFormatConsistency:
-    @pytest.mark.parametrize("Loader", RESOURCE_LOADER_LIST)
+    @pytest.mark.parametrize("Loader", RESOURCE_CRUD_LIST)
     def test_fake_resource_generator(
         self, Loader: type[ResourceCRUD], env_vars_with_client: EnvironmentVariables, monkeypatch: MonkeyPatch
     ):
@@ -124,7 +124,7 @@ class TestFormatConsistency:
 
         assert isinstance(instance, loader.resource_write_cls)
 
-    @pytest.mark.parametrize("Loader", RESOURCE_LOADER_LIST)
+    @pytest.mark.parametrize("Loader", RESOURCE_CRUD_LIST)
     def test_loader_takes_dict(
         self,
         Loader: type[ResourceCRUD],
@@ -138,7 +138,7 @@ class TestFormatConsistency:
             pytest.skip("Skipped loaders that require secondary files")
         elif loader.resource_cls in [Edge, Node, Destination]:
             pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
-        elif Loader in [GroupResourceScopedLoader]:
+        elif Loader in [GroupResourceScopedCRUD]:
             pytest.skip(f"Skipping {loader.resource_cls} because it requires scoped capabilities")
         elif Loader in [LocationFilterCRUD]:
             pytest.skip(f"Skipping {loader.resource_cls} because it requires special handling")
@@ -159,7 +159,7 @@ class TestFormatConsistency:
         assert isinstance(loaded, list)
         assert len(loaded) == 1
 
-    @pytest.mark.parametrize("Loader", RESOURCE_LOADER_LIST)
+    @pytest.mark.parametrize("Loader", RESOURCE_CRUD_LIST)
     def test_loader_takes_list(
         self,
         Loader: type[ResourceCRUD],
@@ -173,7 +173,7 @@ class TestFormatConsistency:
             pytest.skip("Skipped loaders that require secondary files")
         elif loader.resource_cls in [Edge, Node, Destination]:
             pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
-        elif Loader in [GroupResourceScopedLoader]:
+        elif Loader in [GroupResourceScopedCRUD]:
             pytest.skip(f"Skipping {loader.resource_cls} because it requires scoped capabilities")
         elif Loader in [LocationFilterCRUD]:
             # TODO: https://cognitedata.atlassian.net/browse/CDF-22363
@@ -206,7 +206,7 @@ class TestFormatConsistency:
             return False
 
     @pytest.mark.parametrize(
-        "Loader", [loader for loader in LOADER_LIST if loader.folder_name != "robotics"]
+        "Loader", [loader for loader in CRUD_LIST if loader.folder_name != "robotics"]
     )  # Robotics does not have a public doc_url
     def test_loader_has_doc_url(
         self, Loader: type[Loader], env_vars_with_client: EnvironmentVariables, monkeypatch: MonkeyPatch
@@ -217,7 +217,7 @@ class TestFormatConsistency:
 
 
 def test_resource_types_is_up_to_date() -> None:
-    expected = set(LOADER_BY_FOLDER_NAME.keys())
+    expected = set(CRUDS_BY_FOLDER_NAME.keys())
     actual = set(ResourceTypes.__args__)
 
     missing = expected - actual
@@ -264,7 +264,7 @@ def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
             for resource_folder, resources in module.resources.items():
                 for resource in resources:
                     try:
-                        loader = get_loader(resource_folder, resource.kind)
+                        loader = get_crud(resource_folder, resource.kind)
                     except ValueError:
                         # Cannot find loader for resource kind
                         continue
@@ -420,7 +420,7 @@ class TestResourceLoaders:
     # The HostedExtractorSourceLoader does not support parameter spec.
     @pytest.mark.parametrize(
         "loader_cls",
-        [loader_cls for loader_cls in RESOURCE_LOADER_LIST if loader_cls is not HostedExtractorSourceCRUD],
+        [loader_cls for loader_cls in RESOURCE_CRUD_LIST if loader_cls is not HostedExtractorSourceCRUD],
     )
     def test_get_write_cls_spec(self, loader_cls: type[ResourceCRUD]) -> None:
         resource = FakeCogniteResourceGenerator(seed=1337, max_list_dict_items=1).create_instance(
@@ -457,7 +457,7 @@ class TestResourceLoaders:
 
         assert sorted(warnings) == []
 
-    @pytest.mark.parametrize("loader_cls", RESOURCE_LOADER_LIST)
+    @pytest.mark.parametrize("loader_cls", RESOURCE_CRUD_LIST)
     def test_empty_required_capabilities_when_no_items(
         self, loader_cls: type[ResourceCRUD], env_vars_with_client: EnvironmentVariables
     ):
@@ -467,7 +467,7 @@ class TestResourceLoaders:
 
     def test_unique_kind_by_folder(self):
         kind = defaultdict(list)
-        for loader_cls in RESOURCE_LOADER_LIST:
+        for loader_cls in RESOURCE_CRUD_LIST:
             kind[loader_cls.folder_name].append(loader_cls.kind)
 
         duplicated = {folder: Counter(kinds) for folder, kinds in kind.items() if len(set(kinds)) != len(kinds)}
@@ -498,7 +498,7 @@ class TestResourceLoaders:
         "loader_cls",
         [
             loader_cls
-            for loader_cls in RESOURCE_LOADER_LIST
+            for loader_cls in RESOURCE_CRUD_LIST
             if loader_cls != {HostedExtractorSourceCRUD, HostedExtractorDestinationCRUD}
         ],
     )
@@ -523,7 +523,7 @@ class TestResourceLoaders:
 class TestLoaders:
     def test_unique_display_names(self, env_vars_with_client: EnvironmentVariables):
         name_by_count = Counter(
-            [loader_cls.create_loader(env_vars_with_client.get_client()).display_name for loader_cls in LOADER_LIST]
+            [loader_cls.create_loader(env_vars_with_client.get_client()).display_name for loader_cls in CRUD_LIST]
         )
 
         duplicates = {name: count for name, count in name_by_count.items() if count > 1}

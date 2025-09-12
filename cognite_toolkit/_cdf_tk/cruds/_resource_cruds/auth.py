@@ -148,11 +148,11 @@ class GroupCRUD(ResourceCRUD[str, GroupWrite, Group, GroupWriteList, GroupList])
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         from .classic import AssetCRUD
         from .data_organization import DataSetsCRUD
-        from .datamodel import SpaceLoader
+        from .datamodel import SpaceCRUD
         from .extraction_pipeline import ExtractionPipelineCRUD
         from .location import LocationFilterCRUD
-        from .raw import RawDatabaseLoader, RawTableLoader
-        from .timeseries import TimeSeriesLoader
+        from .raw import RawDatabaseCRUD, RawTableCRUD
+        from .timeseries import TimeSeriesCRUD
 
         for capability in item.get("capabilities", []):
             for acl, content in capability.items():
@@ -160,19 +160,19 @@ class GroupCRUD(ResourceCRUD[str, GroupWrite, Group, GroupWriteList, GroupList])
                     if space_ids := scope.get(cap.SpaceIDScope._scope_name, []):
                         if isinstance(space_ids, dict) and "spaceIds" in space_ids:
                             for space_id in space_ids["spaceIds"]:
-                                yield SpaceLoader, space_id
+                                yield SpaceCRUD, space_id
                     if data_set_ids := scope.get(cap.DataSetScope._scope_name, []):
                         if isinstance(data_set_ids, dict) and "ids" in data_set_ids:
                             for data_set_id in data_set_ids["ids"]:
                                 yield DataSetsCRUD, data_set_id
                     if table_ids := scope.get(cap.TableScope._scope_name, []):
                         for db_name, tables in table_ids.get("dbsToTables", {}).items():
-                            yield RawDatabaseLoader, RawDatabase(db_name)
+                            yield RawDatabaseCRUD, RawDatabase(db_name)
                             if isinstance(tables, list):
-                                yield from ((RawTableLoader, RawTable(db_name, table)) for table in tables)
+                                yield from ((RawTableCRUD, RawTable(db_name, table)) for table in tables)
                             elif isinstance(tables, dict) and "tables" in tables:
                                 for table in tables["tables"]:
-                                    yield RawTableLoader, RawTable(db_name, table)
+                                    yield RawTableCRUD, RawTable(db_name, table)
                     if extraction_pipeline_ids := scope.get(cap.ExtractionPipelineScope._scope_name, []):
                         if isinstance(extraction_pipeline_ids, dict) and "ids" in extraction_pipeline_ids:
                             for extraction_pipeline_id in extraction_pipeline_ids["ids"]:
@@ -190,7 +190,7 @@ class GroupCRUD(ResourceCRUD[str, GroupWrite, Group, GroupWriteList, GroupList])
                         elif acl == cap.ExtractionPipelinesAcl._capability_name:
                             loader = ExtractionPipelineCRUD
                         elif acl == cap.TimeSeriesAcl._capability_name:
-                            loader = TimeSeriesLoader
+                            loader = TimeSeriesCRUD
                         elif acl == cap.SecurityCategoriesAcl._capability_name:
                             loader = SecurityCategoryCRUD
                         elif acl == cap.LocationFiltersAcl._capability_name:
@@ -497,7 +497,7 @@ class GroupCRUD(ResourceCRUD[str, GroupWrite, Group, GroupWriteList, GroupList])
 
 
 @final
-class GroupAllScopedLoader(GroupCRUD):
+class GroupAllScopedCRUD(GroupCRUD):
     def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None):
         super().__init__(client, build_dir, console, "all_scoped_only")
 
@@ -518,7 +518,7 @@ class SecurityCategoryCRUD(
     kind = "SecurityCategory"
     yaml_cls = SecurityCategoriesYAML
     folder_name = "auth"
-    dependencies = frozenset({GroupAllScopedLoader})
+    dependencies = frozenset({GroupAllScopedCRUD})
     _doc_url = "Security-categories/operation/createSecurityCategories"
 
     @property

@@ -28,18 +28,18 @@ from cognite_toolkit._cdf_tk.constants import (
     YAML_SUFFIX,
 )
 from cognite_toolkit._cdf_tk.cruds import (
-    ContainerLoader,
+    ContainerCRUD,
     DataCRUD,
     DataModelCRUD,
     DataSetsCRUD,
     ExtractionPipelineConfigCRUD,
     FileCRUD,
     LocationFilterCRUD,
-    NodeLoader,
-    RawDatabaseLoader,
-    RawTableLoader,
+    NodeCRUD,
+    RawDatabaseCRUD,
+    RawTableCRUD,
     ResourceCRUD,
-    SpaceLoader,
+    SpaceCRUD,
     TransformationCRUD,
     ViewCRUD,
 )
@@ -615,10 +615,10 @@ class BuildCommand(ToolkitCommand):
             try:
                 identifier = item_loader.get_id(item)
             except KeyError as error:
-                if loader is RawTableLoader:
+                if loader is RawTableCRUD:
                     try:
-                        identifier = RawDatabaseLoader.get_id(item)
-                        item_loader = RawDatabaseLoader
+                        identifier = RawDatabaseCRUD.get_id(item)
+                        item_loader = RawDatabaseCRUD
                     except KeyError:
                         warning_list.append(
                             MissingRequiredIdentifierWarning(source.path, element_no, tuple(), error.args)
@@ -670,10 +670,10 @@ class BuildCommand(ToolkitCommand):
     @staticmethod
     def _is_system_resource(resource_cls: type[ResourceCRUD], id_: Hashable) -> bool:
         """System resources are deployed to all CDF project and should not be checked for dependencies."""
-        if resource_cls is SpaceLoader and isinstance(id_, str) and id_.startswith("cdf_"):
+        if resource_cls is SpaceCRUD and isinstance(id_, str) and id_.startswith("cdf_"):
             return True
         elif (
-            resource_cls in {ContainerLoader, ViewCRUD, DataModelCRUD, NodeLoader}
+            resource_cls in {ContainerCRUD, ViewCRUD, DataModelCRUD, NodeCRUD}
             and hasattr(id_, "space")
             and id_.space.startswith("cdf_")
         ):

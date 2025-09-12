@@ -43,7 +43,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.resource_classes import DataSetYAML, LabelsYAML
 
-from .auth import GroupAllScopedLoader
+from .auth import GroupAllScopedCRUD
 
 
 @final
@@ -56,7 +56,7 @@ class DataSetsCRUD(ResourceCRUD[str, DataSetWrite, DataSet, DataSetWriteList, Da
     list_write_cls = DataSetWriteList
     yaml_cls = DataSetYAML
     kind = "DataSet"
-    dependencies = frozenset({GroupAllScopedLoader})
+    dependencies = frozenset({GroupAllScopedCRUD})
     _doc_url = "Data-sets/operation/createDataSets"
 
     @property
@@ -185,7 +185,7 @@ class LabelCRUD(
     list_write_cls = LabelDefinitionWriteList
     yaml_cls = LabelsYAML
     kind = "Label"
-    dependencies = frozenset({DataSetsCRUD, GroupAllScopedLoader})
+    dependencies = frozenset({DataSetsCRUD, GroupAllScopedCRUD})
     _doc_url = "Labels/operation/createLabelDefinitions"
     support_update = False
 

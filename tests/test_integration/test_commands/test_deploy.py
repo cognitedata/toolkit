@@ -13,7 +13,7 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, PullCommand
 from cognite_toolkit._cdf_tk.cruds import (
-    RESOURCE_LOADER_LIST,
+    RESOURCE_CRUD_LIST,
     FunctionCRUD,
     FunctionScheduleCRUD,
     GraphQLLoader,
@@ -120,7 +120,7 @@ def test_deploy_complete_org_alpha(env_vars: EnvironmentVariables, build_dir: Pa
 def get_changed_resources(env_vars: EnvironmentVariables, build_dir: Path) -> dict[str, set[Any]]:
     changed_resources: dict[str, set[Any]] = {}
     client = env_vars.get_client()
-    for loader_cls in RESOURCE_LOADER_LIST:
+    for loader_cls in RESOURCE_CRUD_LIST:
         if loader_cls in {HostedExtractorSourceCRUD, HostedExtractorDestinationCRUD}:
             # These resources we have no way of knowing if they have changed. So they are always redeployed.
             continue

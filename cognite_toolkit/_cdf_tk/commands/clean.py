@@ -16,10 +16,10 @@ from cognite_toolkit._cdf_tk.constants import (
     HINT_LEAD_TEXT_LEN,
 )
 from cognite_toolkit._cdf_tk.cruds import (
-    LOADER_BY_FOLDER_NAME,
+    CRUDS_BY_FOLDER_NAME,
     DataCRUD,
     DataSetsCRUD,
-    RawDatabaseLoader,
+    RawDatabaseCRUD,
     ResourceContainerCRUD,
     ResourceCRUD,
     ResourceWorker,
@@ -51,7 +51,7 @@ from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 from ._utils import _print_ids_or_length
 
-AVAILABLE_DATA_TYPES: tuple[str, ...] = tuple(LOADER_BY_FOLDER_NAME)
+AVAILABLE_DATA_TYPES: tuple[str, ...] = tuple(CRUDS_BY_FOLDER_NAME)
 
 
 class CleanCommand(ToolkitCommand):
@@ -101,7 +101,7 @@ class CleanCommand(ToolkitCommand):
             prefix = "Would drop data from" if dry_run else "Dropping data from"
             with_data = ""
         print(f"[bold]{prefix} {nr_of_existing} {loader.display_name} {with_data}from CDF...[/]")
-        if not isinstance(loader, RawDatabaseLoader):
+        if not isinstance(loader, RawDatabaseCRUD):
             for duplicate in worker.duplicates:
                 self.warn(LowSeverityWarning(f"Duplicate {loader.display_name} {duplicate}."))
 
@@ -285,7 +285,7 @@ class CleanCommand(ToolkitCommand):
         self, build_dir: Path, read_resource_folders: set[str], include: list[str] | None
     ) -> dict[type[Loader], frozenset[type[Loader]]]:
         selected_loaders: dict[type[Loader], frozenset[type[Loader]]] = {}
-        for folder_name, loader_classes in LOADER_BY_FOLDER_NAME.items():
+        for folder_name, loader_classes in CRUDS_BY_FOLDER_NAME.items():
             if include is not None and folder_name not in include:
                 continue
             if folder_name in read_resource_folders:

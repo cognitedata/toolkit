@@ -56,14 +56,14 @@ from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.cruds import (
     AssetCRUD,
-    CogniteFileLoader,
+    CogniteFileCRUD,
     DataModelCRUD,
     DatapointSubscriptionCRUD,
     FunctionCRUD,
     FunctionScheduleCRUD,
     GroupCRUD,
     LabelCRUD,
-    NodeLoader,
+    NodeCRUD,
     ResourceWorker,
     RobotCapabilityCRUD,
     RoboticsDataPostProcessingCRUD,
@@ -674,7 +674,7 @@ def cognite_file_extension(
 
 class TestCogniteFileLoader:
     def test_create_update_retrieve_delete(self, toolkit_client: ToolkitClient, instance_space: dm.Space) -> None:
-        loader = CogniteFileLoader(toolkit_client, None)
+        loader = CogniteFileCRUD(toolkit_client, None)
         # Loading from YAML to test the loading of extra properties as well
         file = ExtendableCogniteFileApply.load(f"""space: {instance_space.space}
 externalId: tmp_test_create_update_delete_file_{RUN_UNIQUE_ID}
@@ -707,7 +707,7 @@ description: Original description
     def test_create_update_retrieve_delete_extension(
         self, toolkit_client: ToolkitClient, cognite_file_extension: dm.View, instance_space: dm.Space
     ) -> None:
-        loader = CogniteFileLoader(toolkit_client, None)
+        loader = CogniteFileCRUD(toolkit_client, None)
         view_id = cognite_file_extension.as_id()
         # Loading from YAML to test the loading of extra properties as well
         file = ExtendableCogniteFileApply.load(f"""space: {instance_space.space}
@@ -975,7 +975,7 @@ authentication:
 
 class TestNodeLoader:
     def test_update_existing_node(self, toolkit_client: ToolkitClient, instance_space: dm.Space) -> None:
-        loader = NodeLoader(toolkit_client, None)
+        loader = NodeCRUD(toolkit_client, None)
         view_id = dm.ViewId("cdf_cdm", "CogniteDescribable", "v1")
         existing_node = dm.NodeApply(
             space=instance_space.space,

@@ -4,10 +4,10 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.deploy import DeployCommand
 from cognite_toolkit._cdf_tk.cruds import (
-    ContainerLoader,
+    ContainerCRUD,
     DataModelCRUD,
     ResourceWorker,
-    SpaceLoader,
+    SpaceCRUD,
     ViewCRUD,
     ViewSourceCRUD,
 )
@@ -28,8 +28,8 @@ class MigrationPrepareCommand(ToolkitCommand):
         print(f"{verb} {MODEL_ID!r}")
         results = DeployResults([], "deploy", dry_run=dry_run)
         for loader_cls, resource_list in [
-            (SpaceLoader, [SPACE]),
-            (ContainerLoader, CONTAINERS),
+            (SpaceCRUD, [SPACE]),
+            (ContainerCRUD, CONTAINERS),
             (ViewCRUD, VIEWS),
             (DataModelCRUD, [COGNITE_MIGRATION_MODEL]),
             (ViewSourceCRUD, create_default_mappings()),

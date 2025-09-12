@@ -6,10 +6,10 @@ from typing import Any, ClassVar, cast
 
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
 from cognite_toolkit._cdf_tk.cruds import (
-    LOADER_BY_FOLDER_NAME,
+    CRUDS_BY_FOLDER_NAME,
     GroupCRUD,
-    RawDatabaseLoader,
-    RawTableLoader,
+    RawDatabaseCRUD,
+    RawTableCRUD,
     ResourceCRUD,
 )
 from cognite_toolkit._cdf_tk.data_classes import (
@@ -111,11 +111,11 @@ def get_loader(
     resource_folder: str,
     force_pattern: bool = False,
 ) -> tuple[None, ToolkitWarning] | tuple[type[ResourceCRUD], None]:
-    folder_loaders = LOADER_BY_FOLDER_NAME.get(resource_folder, [])
+    folder_loaders = CRUDS_BY_FOLDER_NAME.get(resource_folder, [])
     if not folder_loaders:
         return None, ToolkitNotSupportedWarning(
             f"resource of type {resource_folder!r} in {source_path.name}.",
-            details=f"Available resources are: {', '.join(LOADER_BY_FOLDER_NAME.keys())}",
+            details=f"Available resources are: {', '.join(CRUDS_BY_FOLDER_NAME.keys())}",
         )
 
     loaders = [
@@ -146,9 +146,9 @@ def get_loader(
             line.strip().startswith("tableName:") or line.strip().startswith("- tableName:")
             for line in safe_read(source_path).splitlines()
         ):
-            return RawTableLoader, None
+            return RawTableCRUD, None
         else:
-            return RawDatabaseLoader, None
+            return RawDatabaseCRUD, None
     elif len(loaders) > 1 and all(issubclass(loader, GroupCRUD) for loader in loaders):
         # There are two group loaders, one for resource scoped and one for all scoped.
         return GroupCRUD, None

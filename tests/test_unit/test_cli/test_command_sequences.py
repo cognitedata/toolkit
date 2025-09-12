@@ -14,7 +14,7 @@ from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.commands import BuildCommand, CleanCommand, DeployCommand
 from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH
-from cognite_toolkit._cdf_tk.cruds import LOADER_BY_FOLDER_NAME, Loader
+from cognite_toolkit._cdf_tk.cruds import CRUDS_BY_FOLDER_NAME, Loader
 from cognite_toolkit._cdf_tk.data_classes import ModuleDirectories
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils import humanize_collection, iterate_modules
@@ -243,19 +243,19 @@ def test_complete_org_is_complete() -> None:
 
     for module in modules:
         for resource_folder, files in module.source_paths_by_resource_folder.items():
-            for loader in LOADER_BY_FOLDER_NAME[resource_folder]:
+            for loader in CRUDS_BY_FOLDER_NAME[resource_folder]:
                 if any(loader.is_supported_file(file) for file in files):
                     used_loader_by_folder_name[resource_folder].add(loader)
     alpha_modules = ModuleDirectories.load(COMPLETE_ORG_ALPHA_FLAGS)
     for module in alpha_modules:
         for resource_folder, files in module.source_paths_by_resource_folder.items():
-            for loader in LOADER_BY_FOLDER_NAME[resource_folder]:
+            for loader in CRUDS_BY_FOLDER_NAME[resource_folder]:
                 if any(loader.is_supported_file(file) for file in files):
                     used_loader_by_folder_name[resource_folder].add(loader)
 
     unused_loaders = {
         loader
-        for folder, loaders in LOADER_BY_FOLDER_NAME.items()
+        for folder, loaders in CRUDS_BY_FOLDER_NAME.items()
         for loader in loaders
         if loader not in used_loader_by_folder_name[folder]
     }

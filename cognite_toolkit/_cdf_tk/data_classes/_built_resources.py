@@ -7,7 +7,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, SupportsIndex, TypeVar, cast, overload
 
-from cognite_toolkit._cdf_tk.cruds import get_loader
+from cognite_toolkit._cdf_tk.cruds import get_crud
 from cognite_toolkit._cdf_tk.cruds._base_cruds import T_ID, ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError
 from cognite_toolkit._cdf_tk.utils import (
@@ -100,10 +100,10 @@ class BuiltResource(Generic[T_ID]):
 
     @classmethod
     def load(cls, data: dict[str, Any], resource_folder: str) -> Self:
-        from cognite_toolkit._cdf_tk.cruds import ResourceCRUD, get_loader
+        from cognite_toolkit._cdf_tk.cruds import ResourceCRUD, get_crud
 
         kind = data["kind"]
-        loader = cast(ResourceCRUD, get_loader(resource_folder, kind))
+        loader = cast(ResourceCRUD, get_crud(resource_folder, kind))
         identifier = loader.get_id(data["identifier"])
 
         return cls(
@@ -115,9 +115,9 @@ class BuiltResource(Generic[T_ID]):
         )
 
     def dump(self, resource_folder: str, include_destination: bool = False) -> dict[str, Any]:
-        from cognite_toolkit._cdf_tk.cruds import ResourceCRUD, get_loader
+        from cognite_toolkit._cdf_tk.cruds import ResourceCRUD, get_crud
 
-        loader = cast(ResourceCRUD, get_loader(resource_folder, self.kind))
+        loader = cast(ResourceCRUD, get_crud(resource_folder, self.kind))
         dumped = loader.dump_id(self.identifier)
 
         output: dict[str, Any] = {
@@ -159,7 +159,7 @@ class BuiltResourceFull(BuiltResource[T_ID]):
         self, environment_variables: dict[str, str | None], validate: bool = False
     ) -> dict[str, Any]:
         content = self.build_variables.replace(safe_read(self.source.path))
-        loader = cast(ResourceCRUD, get_loader(self.resource_dir, self.kind))
+        loader = cast(ResourceCRUD, get_crud(self.resource_dir, self.kind))
         raw = load_yaml_inject_variables(
             content,
             environment_variables,

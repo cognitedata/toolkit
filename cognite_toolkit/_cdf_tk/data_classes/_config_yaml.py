@@ -23,7 +23,7 @@ from cognite_toolkit._cdf_tk.constants import (
     SEARCH_VARIABLES_SUFFIX,
     EnvType,
 )
-from cognite_toolkit._cdf_tk.cruds import LOADER_BY_FOLDER_NAME, RawDatabaseLoader
+from cognite_toolkit._cdf_tk.cruds import CRUDS_BY_FOLDER_NAME, RawDatabaseCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitEnvError, ToolkitMissingModuleError
 from cognite_toolkit._cdf_tk.hints import ModuleDefinition
 from cognite_toolkit._cdf_tk.tk_warnings import (
@@ -307,7 +307,7 @@ class BuildEnvironment(Environment):
     def check_source_files_changed(self) -> WarningList[FileReadWarning]:
         warning_list = WarningList[FileReadWarning]()
         for resource_folder, resources in self.built_resources.items():
-            if resource_folder == RawDatabaseLoader.folder_name:
+            if resource_folder == RawDatabaseCRUD.folder_name:
                 # We modify the hash for RawDatabaseLoader, so we skip checking the hash for this folder.
                 continue
             for resource in resources:
@@ -593,7 +593,7 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
                 continue
             content = safe_read(filepath)
             key_parent = filepath.parent.relative_to(organization_dir).parts
-            if key_parent and key_parent[-1] in LOADER_BY_FOLDER_NAME:
+            if key_parent and key_parent[-1] in CRUDS_BY_FOLDER_NAME:
                 key_parent = key_parent[:-1]
 
             for match in re.findall(r"{{\s*([a-zA-Z0-9_]+)\s*}}", content):
@@ -612,7 +612,7 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
                 # Remove module subfolders.
                 key_parent_list = list(key_parent)
                 for i in range(len(key_parent_list)):
-                    if key_parent_list[i] in LOADER_BY_FOLDER_NAME:
+                    if key_parent_list[i] in CRUDS_BY_FOLDER_NAME:
                         key_parent_list = key_parent_list[:i]
                         break
                 key_parent = tuple(key_parent_list)

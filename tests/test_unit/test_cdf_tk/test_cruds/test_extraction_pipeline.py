@@ -13,8 +13,8 @@ from cognite_toolkit._cdf_tk.cruds import (
     DataSetsCRUD,
     ExtractionPipelineConfigCRUD,
     ExtractionPipelineCRUD,
-    RawDatabaseLoader,
-    RawTableLoader,
+    RawDatabaseCRUD,
+    RawTableCRUD,
     ResourceCRUD,
     ResourceWorker,
 )
@@ -100,9 +100,9 @@ class TestExtractionPipelineLoader:
                 },
                 [
                     (DataSetsCRUD, "ds_my_dataset"),
-                    (RawDatabaseLoader, RawDatabase("my_db")),
-                    (RawTableLoader, RawTable("my_db", "my_table")),
-                    (RawTableLoader, RawTable("my_db", "my_table2")),
+                    (RawDatabaseCRUD, RawDatabase("my_db")),
+                    (RawTableCRUD, RawTable("my_db", "my_table")),
+                    (RawTableCRUD, RawTable("my_db", "my_table2")),
                 ],
                 id="Extraction pipeline to Table",
             ),

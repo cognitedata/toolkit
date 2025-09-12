@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import DumpResourceCommand
 from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.cruds import ContainerLoader, DataModelCRUD, GraphQLLoader, SpaceLoader, ViewCRUD
+from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, DataModelCRUD, GraphQLLoader, SpaceCRUD, ViewCRUD
 from tests.data import NAUGHTY_PROJECT
 
 
@@ -54,8 +54,8 @@ class TestDumpResource:
         assert data_model_folder.exists()
         assert sum(1 for _ in data_model_folder.glob(f"*{DataModelCRUD.kind}.yaml")) == 1
         assert sum(1 for _ in data_model_folder.glob(f"**/*{ViewCRUD.kind}.yaml")) == 33
-        assert sum(1 for _ in data_model_folder.glob(f"**/*{ContainerLoader.kind}.yaml")) == 29
-        assert sum(1 for _ in data_model_folder.glob(f"**/*{SpaceLoader.kind}.yaml")) == 2
+        assert sum(1 for _ in data_model_folder.glob(f"**/*{ContainerCRUD.kind}.yaml")) == 29
+        assert sum(1 for _ in data_model_folder.glob(f"**/*{SpaceCRUD.kind}.yaml")) == 2
 
     def test_dump_misbehaving_grandparent(
         self, deployed_misbehaving_grandparent: DataModelId, toolkit_client: ToolkitClient, tmp_path: Path

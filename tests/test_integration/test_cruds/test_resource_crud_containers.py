@@ -15,8 +15,8 @@ from cognite.client.data_classes import (
 from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.cruds import ContainerLoader, TimeSeriesLoader
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.three_d_model import ThreeDModelLoader
+from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, TimeSeriesCRUD
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.three_d_model import ThreeDModelCRUD
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
 
@@ -39,7 +39,7 @@ class TestTimeSeriesLoader:
             [{"timestamp": 0, timeseries.external_id: 0}, {"timestamp": 1, timeseries.external_id: 1}]
         ).set_index("timestamp")
         datapoints.index = pd.to_datetime(datapoints.index, unit="s")
-        loader = TimeSeriesLoader(cognite_client, None)
+        loader = TimeSeriesCRUD(cognite_client, None)
         ts_ids = [timeseries.external_id]
 
         try:
@@ -101,7 +101,7 @@ class TestContainerLoader:
         )
         container_id = [node_container.as_id()]
 
-        loader = ContainerLoader(cognite_client, None)
+        loader = ContainerCRUD(cognite_client, None)
 
         try:
             assert loader.count(container_id) == 0
@@ -156,7 +156,7 @@ class TestContainerLoader:
         )
         container_id = [edge_container.as_id()]
 
-        loader = ContainerLoader(cognite_client, None)
+        loader = ContainerCRUD(cognite_client, None)
 
         try:
             assert loader.count(container_id) == 0
@@ -191,7 +191,7 @@ class Test3DModelLoader:
             },
         )
 
-        loader = ThreeDModelLoader(toolkit_client, None)
+        loader = ThreeDModelCRUD(toolkit_client, None)
 
         missing = toolkit_client.iam.verify_capabilities(loader.get_required_capability(None, read_only=False))
         assert not missing, f"Missing capabilities: {missing}"

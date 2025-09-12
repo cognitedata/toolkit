@@ -6,14 +6,14 @@ from unittest.mock import MagicMock
 import pytest
 
 from cognite_toolkit._cdf_tk.builders import get_loader
-from cognite_toolkit._cdf_tk.cruds import FileCRUD, RawDatabaseLoader, RawTableLoader, ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds import FileCRUD, RawDatabaseCRUD, RawTableCRUD, ResourceCRUD
 
 
 @pytest.mark.parametrize(
     "content, expected_loader_cls",
     [
-        ("dbName: my_database\n", RawDatabaseLoader),
-        ("dbName: my_database\ntableName: my_table\n", RawTableLoader),
+        ("dbName: my_database\n", RawDatabaseCRUD),
+        ("dbName: my_database\ntableName: my_table\n", RawTableCRUD),
     ],
 )
 def test_get_loader_raw_loaders(content: str, expected_loader_cls: type[ResourceCRUD]) -> None:

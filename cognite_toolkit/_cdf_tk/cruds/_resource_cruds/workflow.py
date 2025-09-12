@@ -69,10 +69,10 @@ from cognite_toolkit._cdf_tk.utils import (
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 
-from .auth import GroupAllScopedLoader
+from .auth import GroupAllScopedCRUD
 from .data_organization import DataSetsCRUD
 from .function import FunctionCRUD
-from .group_scoped import GroupResourceScopedLoader
+from .group_scoped import GroupResourceScopedCRUD
 from .transformation import TransformationCRUD
 
 
@@ -87,7 +87,7 @@ class WorkflowCRUD(ResourceCRUD[str, WorkflowUpsert, Workflow, WorkflowUpsertLis
     kind = "Workflow"
     dependencies = frozenset(
         {
-            GroupAllScopedLoader,
+            GroupAllScopedCRUD,
             TransformationCRUD,
             FunctionCRUD,
             DataSetsCRUD,
@@ -544,7 +544,7 @@ class WorkflowTriggerCRUD(
     list_cls = WorkflowTriggerList
     list_write_cls = WorkflowTriggerUpsertList
     kind = "WorkflowTrigger"
-    dependencies = frozenset({WorkflowCRUD, WorkflowVersionCRUD, GroupResourceScopedLoader, GroupAllScopedLoader})
+    dependencies = frozenset({WorkflowCRUD, WorkflowVersionCRUD, GroupResourceScopedCRUD, GroupAllScopedCRUD})
     parent_resource = frozenset({WorkflowCRUD})
     yaml_cls = WorkflowTriggerYAML
 

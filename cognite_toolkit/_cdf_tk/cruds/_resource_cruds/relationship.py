@@ -18,8 +18,8 @@ from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 
 from .classic import AssetCRUD, EventCRUD, SequenceCRUD
 from .data_organization import DataSetsCRUD, LabelCRUD
-from .file import FileMetadataLoader
-from .timeseries import TimeSeriesLoader
+from .file import FileMetadataCRUD
+from .timeseries import TimeSeriesCRUD
 
 
 @final
@@ -33,7 +33,7 @@ class RelationshipCRUD(ResourceCRUD[str, RelationshipWrite, Relationship, Relati
     list_write_cls = RelationshipWriteList
     kind = "Relationship"
     dependencies = frozenset(
-        {DataSetsCRUD, AssetCRUD, EventCRUD, SequenceCRUD, FileMetadataLoader, TimeSeriesLoader, LabelCRUD}
+        {DataSetsCRUD, AssetCRUD, EventCRUD, SequenceCRUD, FileMetadataCRUD, TimeSeriesCRUD, LabelCRUD}
     )
     _doc_url = "Relationships/operation/createRelationships"
 
@@ -149,9 +149,9 @@ class RelationshipCRUD(ResourceCRUD[str, RelationshipWrite, Relationship, Relati
                     elif type_value == "sequence":
                         yield SequenceCRUD, id_value
                     elif type_value == "timeseries":
-                        yield TimeSeriesLoader, id_value
+                        yield TimeSeriesCRUD, id_value
                     elif type_value == "file":
-                        yield FileMetadataLoader, id_value
+                        yield FileMetadataCRUD, id_value
                     elif type_value == "event":
                         yield EventCRUD, id_value
 

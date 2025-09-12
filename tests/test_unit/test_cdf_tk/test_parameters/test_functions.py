@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk._parameters import (
     read_parameter_from_init_type_hints,
     read_parameters_from_dict,
 )
-from cognite_toolkit._cdf_tk.cruds import RESOURCE_LOADER_LIST, ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_LIST, ResourceCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.location import LocationFilterCRUD
 
 
@@ -151,7 +151,7 @@ class TestReadParameterFromTypeHints:
 
         assert sorted(actual_parameters) == sorted(expected_parameters)
 
-    @pytest.mark.parametrize("loader_cls", RESOURCE_LOADER_LIST)
+    @pytest.mark.parametrize("loader_cls", RESOURCE_CRUD_LIST)
     def test_compatible_with_loaders(self, loader_cls: type[ResourceCRUD]) -> None:
         if loader_cls is LocationFilterCRUD:
             # TODO: https://cognitedata.atlassian.net/browse/CDF-22363

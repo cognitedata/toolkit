@@ -30,7 +30,7 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_hash
 
-from .auth import GroupAllScopedLoader
+from .auth import GroupAllScopedCRUD
 from .data_organization import DataSetsCRUD
 
 
@@ -43,7 +43,7 @@ class StreamlitCRUD(ResourceCRUD[str, StreamlitWrite, Streamlit, StreamlitWriteL
     list_cls = StreamlitList
     list_write_cls = StreamlitWriteList
     kind = "Streamlit"
-    dependencies = frozenset({DataSetsCRUD, GroupAllScopedLoader})
+    dependencies = frozenset({DataSetsCRUD, GroupAllScopedCRUD})
     _doc_url = "Files/operation/initFileUpload"
     _metadata_hash_key = "cdf-toolkit-app-hash"
     yaml_cls = StreamlitYAML

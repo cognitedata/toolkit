@@ -35,7 +35,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.location_filters import Locatio
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, DumpResourceCommand, PullCommand
 from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder, WorkflowFinder
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.cruds import RESOURCE_LOADER_LIST, LocationFilterCRUD, WorkflowVersionCRUD
+from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_LIST, LocationFilterCRUD, WorkflowVersionCRUD
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
 from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
 from cognite_toolkit._cdf_tk.tk_warnings import MissingDependencyWarning
@@ -831,7 +831,7 @@ def test_build_project_with_only_identifiers(
     )
 
     # Loading the local resources as it is done in the PullCommand
-    for loader_cls in RESOURCE_LOADER_LIST:
+    for loader_cls in RESOURCE_CRUD_LIST:
         loader = loader_cls.create_loader(env_vars_with_client.get_client())
         built_resources = built_modules.get_resources(
             None,

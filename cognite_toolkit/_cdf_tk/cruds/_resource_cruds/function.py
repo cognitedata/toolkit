@@ -50,9 +50,9 @@ from cognite_toolkit._cdf_tk.utils import (
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.text import suffix_description
 
-from .auth import GroupAllScopedLoader
+from .auth import GroupAllScopedCRUD
 from .data_organization import DataSetsCRUD
-from .group_scoped import GroupResourceScopedLoader
+from .group_scoped import GroupResourceScopedCRUD
 
 
 @final
@@ -68,7 +68,7 @@ class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function, FunctionWriteList,
     list_write_cls = FunctionWriteList
     kind = "Function"
     yaml_cls = FunctionsYAML
-    dependencies = frozenset({DataSetsCRUD, GroupAllScopedLoader})
+    dependencies = frozenset({DataSetsCRUD, GroupAllScopedCRUD})
     _doc_url = "Functions/operation/postFunctions"
     metadata_value_limit = 512
     support_update = False
@@ -401,7 +401,7 @@ class FunctionScheduleCRUD(
     list_write_cls = FunctionScheduleWriteList
     kind = "Schedule"
     yaml_cls = FunctionScheduleYAML
-    dependencies = frozenset({FunctionCRUD, GroupResourceScopedLoader, GroupAllScopedLoader})
+    dependencies = frozenset({FunctionCRUD, GroupResourceScopedCRUD, GroupAllScopedCRUD})
     _doc_url = "Function-schedules/operation/postFunctionSchedules"
     parent_resource = frozenset({FunctionCRUD})
     support_update = False

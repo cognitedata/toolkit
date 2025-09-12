@@ -52,14 +52,14 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
 
-from .auth import GroupAllScopedLoader, SecurityCategoryCRUD
+from .auth import GroupAllScopedCRUD, SecurityCategoryCRUD
 from .classic import AssetCRUD
 from .data_organization import DataSetsCRUD, LabelCRUD
-from .datamodel import SpaceLoader, ViewCRUD
+from .datamodel import SpaceCRUD, ViewCRUD
 
 
 @final
-class FileMetadataLoader(
+class FileMetadataCRUD(
     ResourceContainerCRUD[str, FileMetadataWrite, FileMetadata, FileMetadataWriteList, FileMetadataList]
 ):
     item_name = "file contents"
@@ -74,7 +74,7 @@ class FileMetadataLoader(
     list_write_cls = FileMetadataWriteList
     yaml_cls = FileMetadataYAML
     kind = "FileMetadata"
-    dependencies = frozenset({DataSetsCRUD, GroupAllScopedLoader, LabelCRUD, AssetCRUD})
+    dependencies = frozenset({DataSetsCRUD, GroupAllScopedCRUD, LabelCRUD, AssetCRUD})
 
     _doc_url = "Files/operation/initFileUpload"
 
@@ -220,7 +220,7 @@ class FileMetadataLoader(
 
 
 @final
-class CogniteFileLoader(
+class CogniteFileCRUD(
     ResourceContainerCRUD[
         NodeId,
         ExtendableCogniteFileApply,
@@ -238,7 +238,7 @@ class CogniteFileLoader(
     resource_write_cls = ExtendableCogniteFileApply
     list_cls = ExtendableCogniteFileList
     list_write_cls = ExtendableCogniteFileApplyList
-    dependencies = frozenset({GroupAllScopedLoader, SpaceLoader, ViewCRUD})
+    dependencies = frozenset({GroupAllScopedCRUD, SpaceCRUD, ViewCRUD})
 
     _doc_url = "Files/operation/initFileUpload"
 
@@ -394,7 +394,7 @@ class CogniteFileLoader(
         DatasetLoader and identifier of that dataset.
         """
         if "space" in item:
-            yield SpaceLoader, item["space"]
+            yield SpaceCRUD, item["space"]
         if "nodeSource" in item:
             if in_dict(("space", "externalId", "type"), item["nodeSource"]):
                 yield ViewCRUD, ViewId.load(item["nodeSource"])

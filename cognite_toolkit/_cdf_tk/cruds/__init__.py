@@ -21,8 +21,8 @@ from ._data_cruds import DatapointsCRUD, FileCRUD, RawFileCRUD
 from ._resource_cruds import (
     AgentCRUD,
     AssetCRUD,
-    CogniteFileLoader,
-    ContainerLoader,
+    CogniteFileCRUD,
+    ContainerCRUD,
     DataModelCRUD,
     DatapointSubscriptionCRUD,
     DataSetsCRUD,
@@ -30,13 +30,13 @@ from ._resource_cruds import (
     EventCRUD,
     ExtractionPipelineConfigCRUD,
     ExtractionPipelineCRUD,
-    FileMetadataLoader,
+    FileMetadataCRUD,
     FunctionCRUD,
     FunctionScheduleCRUD,
     GraphQLLoader,
-    GroupAllScopedLoader,
+    GroupAllScopedCRUD,
     GroupCRUD,
-    GroupResourceScopedLoader,
+    GroupResourceScopedCRUD,
     HostedExtractorDestinationCRUD,
     HostedExtractorJobCRUD,
     HostedExtractorMappingCRUD,
@@ -44,9 +44,9 @@ from ._resource_cruds import (
     InfieldV1CRUD,
     LabelCRUD,
     LocationFilterCRUD,
-    NodeLoader,
-    RawDatabaseLoader,
-    RawTableLoader,
+    NodeCRUD,
+    RawDatabaseCRUD,
+    RawTableCRUD,
     RelationshipCRUD,
     RobotCapabilityCRUD,
     RoboticFrameCRUD,
@@ -57,10 +57,10 @@ from ._resource_cruds import (
     SecurityCategoryCRUD,
     SequenceCRUD,
     SequenceRowCRUD,
-    SpaceLoader,
+    SpaceCRUD,
     StreamlitCRUD,
-    ThreeDModelLoader,
-    TimeSeriesLoader,
+    ThreeDModelCRUD,
+    TimeSeriesCRUD,
     TransformationCRUD,
     TransformationNotificationCRUD,
     TransformationScheduleCRUD,
@@ -72,45 +72,45 @@ from ._resource_cruds import (
 )
 from ._worker import ResourceWorker
 
-_EXCLUDED_LOADERS: set[type[ResourceCRUD]] = set()
+_EXCLUDED_CRUDS: set[type[ResourceCRUD]] = set()
 if not FeatureFlag.is_enabled(Flags.GRAPHQL):
-    _EXCLUDED_LOADERS.add(GraphQLLoader)
+    _EXCLUDED_CRUDS.add(GraphQLLoader)
 if not FeatureFlag.is_enabled(Flags.AGENTS):
-    _EXCLUDED_LOADERS.add(AgentCRUD)
+    _EXCLUDED_CRUDS.add(AgentCRUD)
 if not FeatureFlag.is_enabled(Flags.INFIELD):
-    _EXCLUDED_LOADERS.add(InfieldV1CRUD)
+    _EXCLUDED_CRUDS.add(InfieldV1CRUD)
 if not FeatureFlag.is_enabled(Flags.MIGRATE):
-    _EXCLUDED_LOADERS.add(ViewSourceCRUD)
+    _EXCLUDED_CRUDS.add(ViewSourceCRUD)
 if not FeatureFlag.is_enabled(Flags.SEARCH_CONFIG):
-    _EXCLUDED_LOADERS.add(SearchConfigCRUD)
+    _EXCLUDED_CRUDS.add(SearchConfigCRUD)
 
 
-LOADER_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}
+CRUDS_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}
 for _loader in itertools.chain(
     ResourceCRUD.__subclasses__(),
     ResourceContainerCRUD.__subclasses__(),
     DataCRUD.__subclasses__(),
     GroupCRUD.__subclasses__(),
 ):
-    if _loader in [ResourceCRUD, ResourceContainerCRUD, DataCRUD, GroupCRUD] or _loader in _EXCLUDED_LOADERS:
+    if _loader in [ResourceCRUD, ResourceContainerCRUD, DataCRUD, GroupCRUD] or _loader in _EXCLUDED_CRUDS:
         # Skipping base classes
         continue
-    if _loader.folder_name not in LOADER_BY_FOLDER_NAME:  # type: ignore[attr-defined]
-        LOADER_BY_FOLDER_NAME[_loader.folder_name] = []  # type: ignore[attr-defined]
+    if _loader.folder_name not in CRUDS_BY_FOLDER_NAME:  # type: ignore[attr-defined]
+        CRUDS_BY_FOLDER_NAME[_loader.folder_name] = []  # type: ignore[attr-defined]
     # MyPy bug: https://github.com/python/mypy/issues/4717
-    LOADER_BY_FOLDER_NAME[_loader.folder_name].append(_loader)  # type: ignore[type-abstract, attr-defined, arg-type]
+    CRUDS_BY_FOLDER_NAME[_loader.folder_name].append(_loader)  # type: ignore[type-abstract, attr-defined, arg-type]
 del _loader  # cleanup module namespace
 
-LOADER_LIST = list(itertools.chain(*LOADER_BY_FOLDER_NAME.values()))
-RESOURCE_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass(loader, ResourceCRUD)]
-RESOURCE_CONTAINER_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass(loader, ResourceContainerCRUD)]
-RESOURCE_DATA_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass(loader, DataCRUD)]
+CRUD_LIST = list(itertools.chain(*CRUDS_BY_FOLDER_NAME.values()))
+RESOURCE_CRUD_LIST = [loader for loader in CRUD_LIST if issubclass(loader, ResourceCRUD)]
+RESOURCE_CRUD_CONTAINER_LIST = [loader for loader in CRUD_LIST if issubclass(loader, ResourceContainerCRUD)]
+RESOURCE_DATA_CRUD_LIST = [loader for loader in CRUD_LIST if issubclass(loader, DataCRUD)]
 KINDS_BY_FOLDER_NAME: dict[str, set[str]] = {}
-for loader in LOADER_LIST:
-    if loader.folder_name not in KINDS_BY_FOLDER_NAME:
-        KINDS_BY_FOLDER_NAME[loader.folder_name] = set()
-    KINDS_BY_FOLDER_NAME[loader.folder_name].add(loader.kind)
-del loader  # cleanup module namespace
+for crud in CRUD_LIST:
+    if crud.folder_name not in KINDS_BY_FOLDER_NAME:
+        KINDS_BY_FOLDER_NAME[crud.folder_name] = set()
+    KINDS_BY_FOLDER_NAME[crud.folder_name].add(crud.kind)
+del crud  # cleanup module namespace
 
 ResourceTypes: TypeAlias = Literal[  # type: ignore[no-redef, misc]
     "3dmodels",
@@ -135,23 +135,23 @@ ResourceTypes: TypeAlias = Literal[  # type: ignore[no-redef, misc]
 ]
 
 
-def get_loader(resource_dir: str, kind: str) -> type[Loader]:
-    for loader in LOADER_BY_FOLDER_NAME[resource_dir]:
+def get_crud(resource_dir: str, kind: str) -> type[Loader]:
+    for loader in CRUDS_BY_FOLDER_NAME[resource_dir]:
         if loader.kind == kind:
             return loader
     raise ValueError(f"Loader not found for {resource_dir} and {kind}")
 
 
 __all__ = [
+    "CRUDS_BY_FOLDER_NAME",
+    "CRUD_LIST",
     "KINDS_BY_FOLDER_NAME",
-    "LOADER_BY_FOLDER_NAME",
-    "LOADER_LIST",
-    "RESOURCE_CONTAINER_LOADER_LIST",
-    "RESOURCE_DATA_LOADER_LIST",
-    "RESOURCE_LOADER_LIST",
+    "RESOURCE_CRUD_CONTAINER_LIST",
+    "RESOURCE_CRUD_LIST",
+    "RESOURCE_DATA_CRUD_LIST",
     "AssetCRUD",
-    "CogniteFileLoader",
-    "ContainerLoader",
+    "CogniteFileCRUD",
+    "ContainerCRUD",
     "DataCRUD",
     "DataModelCRUD",
     "DataSetsCRUD",
@@ -162,22 +162,22 @@ __all__ = [
     "ExtractionPipelineCRUD",
     "ExtractionPipelineConfigCRUD",
     "FileCRUD",
-    "FileMetadataLoader",
+    "FileMetadataCRUD",
     "FunctionCRUD",
     "FunctionScheduleCRUD",
-    "GroupAllScopedLoader",
+    "GroupAllScopedCRUD",
     "GroupCRUD",
-    "GroupResourceScopedLoader",
+    "GroupResourceScopedCRUD",
     "HostedExtractorDestinationCRUD",
     "HostedExtractorJobCRUD",
     "HostedExtractorMappingCRUD",
     "HostedExtractorSourceCRUD",
     "LabelCRUD",
     "LocationFilterCRUD",
-    "NodeLoader",
-    "RawDatabaseLoader",
+    "NodeCRUD",
+    "RawDatabaseCRUD",
     "RawFileCRUD",
-    "RawTableLoader",
+    "RawTableCRUD",
     "RelationshipCRUD",
     "ResourceCRUD",
     "ResourceContainerCRUD",
@@ -192,10 +192,10 @@ __all__ = [
     "SecurityCategoryCRUD",
     "SequenceCRUD",
     "SequenceRowCRUD",
-    "SpaceLoader",
+    "SpaceCRUD",
     "StreamlitCRUD",
-    "ThreeDModelLoader",
-    "TimeSeriesLoader",
+    "ThreeDModelCRUD",
+    "TimeSeriesCRUD",
     "TransformationCRUD",
     "TransformationNotificationCRUD",
     "TransformationScheduleCRUD",
@@ -203,5 +203,5 @@ __all__ = [
     "WorkflowCRUD",
     "WorkflowTriggerCRUD",
     "WorkflowVersionCRUD",
-    "get_loader",
+    "get_crud",
 ]

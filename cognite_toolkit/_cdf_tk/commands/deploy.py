@@ -20,7 +20,7 @@ from cognite_toolkit._cdf_tk.constants import (
 from cognite_toolkit._cdf_tk.cruds import (
     DataCRUD,
     Loader,
-    RawDatabaseLoader,
+    RawDatabaseCRUD,
     ResourceContainerCRUD,
     ResourceCRUD,
     ResourceWorker,
@@ -281,7 +281,7 @@ class DeployCommand(ToolkitCommand):
         print(f"[bold]{prefix} {nr_of_items} {loader.display_name} to CDF...[/]")
 
         # Moved here to avoid printing before the above message.
-        if not isinstance(loader, RawDatabaseLoader):
+        if not isinstance(loader, RawDatabaseCRUD):
             for duplicate in worker.duplicates:
                 self.warn(LowSeverityWarning(f"Skipping duplicate {loader.display_name} {duplicate}."))
 

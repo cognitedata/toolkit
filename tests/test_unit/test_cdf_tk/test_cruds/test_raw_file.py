@@ -6,7 +6,7 @@ import pytest
 
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.cruds import RawFileCRUD, RawTableLoader
+from cognite_toolkit._cdf_tk.cruds import RawFileCRUD, RawTableCRUD
 from cognite_toolkit._cdf_tk.data_classes import BuildEnvironment, BuiltResource, BuiltResourceList, SourceLocationEager
 
 
@@ -42,7 +42,7 @@ class TestRawFileLoader:
                 BuiltResource(
                     RawTable("myDB", "myTable"),
                     SourceLocationEager(source_file, "1z234"),
-                    RawTableLoader.kind,
+                    RawTableCRUD.kind,
                     None,
                     None,
                 )
@@ -78,7 +78,7 @@ class TestRawFileLoader:
                 BuiltResource(
                     RawTable("myDB", "myTable"),
                     SourceLocationEager(source_file, "1z234"),
-                    RawTableLoader.kind,
+                    RawTableCRUD.kind,
                     None,
                     None,
                 )

@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.constants import COGNITE_MIGRATION_SPACE
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.utils import in_dict
 
-from .datamodel import SpaceLoader, ViewCRUD
+from .datamodel import SpaceCRUD, ViewCRUD
 
 
 @final
@@ -29,7 +29,7 @@ class ViewSourceCRUD(ResourceCRUD[str, ViewSourceApply, ViewSource, NodeApplyLis
     list_cls = NodeList[ViewSource]
     list_write_cls = NodeApplyList
     kind = "ViewSource"
-    dependencies = frozenset({SpaceLoader, ViewCRUD})
+    dependencies = frozenset({SpaceCRUD, ViewCRUD})
     _doc_url = "Instances/operation/applyNodeAndEdges"
 
     @property
@@ -89,7 +89,7 @@ class ViewSourceCRUD(ResourceCRUD[str, ViewSourceApply, ViewSource, NodeApplyLis
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> "Iterable[tuple[type[ResourceCRUD], Hashable]]":
-        yield SpaceLoader, COGNITE_MIGRATION_SPACE
+        yield SpaceCRUD, COGNITE_MIGRATION_SPACE
 
         yield ViewCRUD, ViewSource.get_source()
 

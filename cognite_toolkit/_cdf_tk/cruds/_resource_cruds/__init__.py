@@ -1,22 +1,22 @@
 from .agent import AgentCRUD
-from .auth import GroupAllScopedLoader, GroupCRUD, SecurityCategoryCRUD
+from .auth import GroupAllScopedCRUD, GroupCRUD, SecurityCategoryCRUD
 from .classic import AssetCRUD, EventCRUD, SequenceCRUD, SequenceRowCRUD
 from .configuration import SearchConfigCRUD
 from .data_organization import DataSetsCRUD, LabelCRUD
 from .datamodel import (
-    ContainerLoader,
+    ContainerCRUD,
     DataModelCRUD,
     EdgeLoader,
     GraphQLLoader,
-    NodeLoader,
-    SpaceLoader,
+    NodeCRUD,
+    SpaceCRUD,
     ViewCRUD,
 )
 from .extraction_pipeline import ExtractionPipelineConfigCRUD, ExtractionPipelineCRUD
 from .fieldops import InfieldV1CRUD
-from .file import CogniteFileLoader, FileMetadataLoader
+from .file import CogniteFileCRUD, FileMetadataCRUD
 from .function import FunctionCRUD, FunctionScheduleCRUD
-from .group_scoped import GroupResourceScopedLoader
+from .group_scoped import GroupResourceScopedCRUD
 from .hosted_extractors import (
     HostedExtractorDestinationCRUD,
     HostedExtractorJobCRUD,
@@ -26,7 +26,7 @@ from .hosted_extractors import (
 from .industrial_tool import StreamlitCRUD
 from .location import LocationFilterCRUD
 from .migration import ViewSourceCRUD
-from .raw import RawDatabaseLoader, RawTableLoader
+from .raw import RawDatabaseCRUD, RawTableCRUD
 from .relationship import RelationshipCRUD
 from .robotics import (
     RobotCapabilityCRUD,
@@ -35,16 +35,16 @@ from .robotics import (
     RoboticMapCRUD,
     RoboticsDataPostProcessingCRUD,
 )
-from .three_d_model import ThreeDModelLoader
-from .timeseries import DatapointSubscriptionCRUD, TimeSeriesLoader
+from .three_d_model import ThreeDModelCRUD
+from .timeseries import DatapointSubscriptionCRUD, TimeSeriesCRUD
 from .transformation import TransformationCRUD, TransformationNotificationCRUD, TransformationScheduleCRUD
 from .workflow import WorkflowCRUD, WorkflowTriggerCRUD, WorkflowVersionCRUD
 
 __all__ = [
     "AgentCRUD",
     "AssetCRUD",
-    "CogniteFileLoader",
-    "ContainerLoader",
+    "CogniteFileCRUD",
+    "ContainerCRUD",
     "DataModelCRUD",
     "DataSetsCRUD",
     "DatapointSubscriptionCRUD",
@@ -52,13 +52,13 @@ __all__ = [
     "EventCRUD",
     "ExtractionPipelineCRUD",
     "ExtractionPipelineConfigCRUD",
-    "FileMetadataLoader",
+    "FileMetadataCRUD",
     "FunctionCRUD",
     "FunctionScheduleCRUD",
     "GraphQLLoader",
-    "GroupAllScopedLoader",
+    "GroupAllScopedCRUD",
     "GroupCRUD",
-    "GroupResourceScopedLoader",
+    "GroupResourceScopedCRUD",
     "HostedExtractorDestinationCRUD",
     "HostedExtractorJobCRUD",
     "HostedExtractorMappingCRUD",
@@ -66,9 +66,9 @@ __all__ = [
     "InfieldV1CRUD",
     "LabelCRUD",
     "LocationFilterCRUD",
-    "NodeLoader",
-    "RawDatabaseLoader",
-    "RawTableLoader",
+    "NodeCRUD",
+    "RawDatabaseCRUD",
+    "RawTableCRUD",
     "RelationshipCRUD",
     "RobotCapabilityCRUD",
     "RoboticFrameCRUD",
@@ -79,10 +79,10 @@ __all__ = [
     "SecurityCategoryCRUD",
     "SequenceCRUD",
     "SequenceRowCRUD",
-    "SpaceLoader",
+    "SpaceCRUD",
     "StreamlitCRUD",
-    "ThreeDModelLoader",
-    "TimeSeriesLoader",
+    "ThreeDModelCRUD",
+    "TimeSeriesCRUD",
     "TransformationCRUD",
     "TransformationNotificationCRUD",
     "TransformationScheduleCRUD",

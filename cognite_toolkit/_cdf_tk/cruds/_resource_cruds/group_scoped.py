@@ -23,26 +23,26 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from .auth import GroupCRUD, SecurityCategoryCRUD
 from .classic import AssetCRUD
 from .data_organization import DataSetsCRUD
-from .datamodel import SpaceLoader
+from .datamodel import SpaceCRUD
 from .extraction_pipeline import ExtractionPipelineCRUD
 from .location import LocationFilterCRUD
-from .raw import RawDatabaseLoader, RawTableLoader
-from .timeseries import TimeSeriesLoader
+from .raw import RawDatabaseCRUD, RawTableCRUD
+from .timeseries import TimeSeriesCRUD
 
 
 @final
-class GroupResourceScopedLoader(GroupCRUD):
+class GroupResourceScopedCRUD(GroupCRUD):
     dependencies = frozenset(
         {
-            SpaceLoader,
+            SpaceCRUD,
             DataSetsCRUD,
             ExtractionPipelineCRUD,
-            TimeSeriesLoader,
+            TimeSeriesCRUD,
             SecurityCategoryCRUD,
             LocationFilterCRUD,
             AssetCRUD,
-            RawDatabaseLoader,
-            RawTableLoader,
+            RawDatabaseCRUD,
+            RawTableCRUD,
         }
     )
 

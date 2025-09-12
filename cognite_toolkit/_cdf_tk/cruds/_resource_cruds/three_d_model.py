@@ -22,9 +22,7 @@ from .data_organization import DataSetsCRUD
 
 
 @final
-class ThreeDModelLoader(
-    ResourceContainerCRUD[str, ThreeDModelWrite, ThreeDModel, ThreeDModelWriteList, ThreeDModelList]
-):
+class ThreeDModelCRUD(ResourceContainerCRUD[str, ThreeDModelWrite, ThreeDModel, ThreeDModelWriteList, ThreeDModelList]):
     folder_name = "3dmodels"
     filename_pattern = r"^.*\.3DModel$"  # Matches all yaml files whose stem ends with '.3DModel'.
     resource_cls = ThreeDModel

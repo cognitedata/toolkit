@@ -50,7 +50,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     DataSetsCRUD,
     ExtractionPipelineCRUD,
     FunctionCRUD,
-    GroupAllScopedLoader,
+    GroupAllScopedCRUD,
     LocationFilterCRUD,
     StreamlitCRUD,
     TransformationCRUD,
@@ -390,7 +390,7 @@ class TestDumpGroups:
                 clean=False,
                 verbose=False,
             )
-            loader = GroupAllScopedLoader(client, None, None)
+            loader = GroupAllScopedCRUD(client, None, None)
 
         filepaths = list(loader.find_files(tmp_path))
         assert len(filepaths) == 2

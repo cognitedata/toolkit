@@ -24,9 +24,9 @@ from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_lis
 
 from .classic import AssetCRUD, SequenceCRUD
 from .data_organization import DataSetsCRUD
-from .datamodel import DataModelCRUD, SpaceLoader, ViewCRUD
-from .file import FileMetadataLoader
-from .timeseries import TimeSeriesLoader
+from .datamodel import DataModelCRUD, SpaceCRUD, ViewCRUD
+from .file import FileMetadataCRUD
+from .timeseries import TimeSeriesCRUD
 
 
 @final
@@ -45,11 +45,11 @@ class LocationFilterCRUD(
             AssetCRUD,
             DataSetsCRUD,
             DataModelCRUD,
-            SpaceLoader,
+            SpaceCRUD,
             ViewCRUD,
             SequenceCRUD,
-            FileMetadataLoader,
-            TimeSeriesLoader,
+            FileMetadataCRUD,
+            TimeSeriesCRUD,
         }
     )
     kind = "LocationFilter"
@@ -382,7 +382,7 @@ class LocationFilterCRUD(
             if in_dict(["space", "externalId", "version"], view):
                 yield ViewCRUD, ViewId(view["space"], view["externalId"], view["version"])
         for space in item.get("instanceSpaces", []):
-            yield SpaceLoader, space
+            yield SpaceCRUD, space
         for data_model in item.get("dataModels", []):
             if in_dict(["space", "externalId", "version"], data_model):
                 yield DataModelCRUD, DataModelId(data_model["space"], data_model["externalId"], data_model["version"])

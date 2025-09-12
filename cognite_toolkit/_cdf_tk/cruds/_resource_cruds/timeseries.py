@@ -40,13 +40,13 @@ from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
 from cognite_toolkit._cdf_tk.utils.text import suffix_description
 
-from .auth import GroupAllScopedLoader, SecurityCategoryCRUD
+from .auth import GroupAllScopedCRUD, SecurityCategoryCRUD
 from .classic import AssetCRUD
 from .data_organization import DataSetsCRUD
 
 
 @final
-class TimeSeriesLoader(ResourceContainerCRUD[str, TimeSeriesWrite, TimeSeries, TimeSeriesWriteList, TimeSeriesList]):
+class TimeSeriesCRUD(ResourceContainerCRUD[str, TimeSeriesWrite, TimeSeries, TimeSeriesWriteList, TimeSeriesList]):
     item_name = "datapoints"
     folder_name = "timeseries"
     filename_pattern = r"^(?!.*DatapointSubscription$).*"
@@ -56,7 +56,7 @@ class TimeSeriesLoader(ResourceContainerCRUD[str, TimeSeriesWrite, TimeSeries, T
     list_write_cls = TimeSeriesWriteList
     yaml_cls = TimeSeriesYAML
     kind = "TimeSeries"
-    dependencies = frozenset({DataSetsCRUD, GroupAllScopedLoader, AssetCRUD})
+    dependencies = frozenset({DataSetsCRUD, GroupAllScopedCRUD, AssetCRUD})
     _doc_url = "Time-series/operation/postTimeSeries"
 
     @property
@@ -221,8 +221,8 @@ class DatapointSubscriptionCRUD(
     _doc_url = "Data-point-subscriptions/operation/postSubscriptions"
     dependencies = frozenset(
         {
-            TimeSeriesLoader,
-            GroupAllScopedLoader,
+            TimeSeriesCRUD,
+            GroupAllScopedCRUD,
         }
     )
     yaml_cls = DatapointSubscriptionYAML
@@ -272,7 +272,7 @@ class DatapointSubscriptionCRUD(
         if "dataSetExternalId" in item:
             yield DataSetsCRUD, item["dataSetExternalId"]
         for timeseries_id in item.get("timeSeriesIds", []):
-            yield TimeSeriesLoader, timeseries_id
+            yield TimeSeriesCRUD, timeseries_id
 
     @classmethod
     def get_required_capability(

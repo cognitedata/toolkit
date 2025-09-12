@@ -11,7 +11,7 @@ from rich.panel import Panel
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import AuthCommand, BuildCommand, DeployCommand, ModulesCommand
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER, MODULES
-from cognite_toolkit._cdf_tk.cruds import LOADER_BY_FOLDER_NAME
+from cognite_toolkit._cdf_tk.cruds import CRUDS_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
@@ -166,7 +166,7 @@ class CogniteToolkitDemo:
                 drop_data=False,
                 drop=False,
                 force_update=False,
-                include=list(LOADER_BY_FOLDER_NAME.keys()),
+                include=list(CRUDS_BY_FOLDER_NAME.keys()),
                 verbose=False,
             )
         )

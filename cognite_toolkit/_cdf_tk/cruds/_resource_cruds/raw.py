@@ -33,11 +33,11 @@ from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawData
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import DatabaseYAML, TableYAML
 
-from .auth import GroupAllScopedLoader
+from .auth import GroupAllScopedCRUD
 
 
 @final
-class RawDatabaseLoader(ResourceContainerCRUD[RawDatabase, RawDatabase, RawDatabase, RawDatabaseList, RawDatabaseList]):
+class RawDatabaseCRUD(ResourceContainerCRUD[RawDatabase, RawDatabase, RawDatabase, RawDatabaseList, RawDatabaseList]):
     item_name = "raw tables"
     folder_name = "raw"
     filename_pattern = r"^(?!.*Table$).*$"
@@ -47,7 +47,7 @@ class RawDatabaseLoader(ResourceContainerCRUD[RawDatabase, RawDatabase, RawDatab
     list_write_cls = RawDatabaseList
     kind = "Database"
     yaml_cls = DatabaseYAML
-    dependencies = frozenset({GroupAllScopedLoader})
+    dependencies = frozenset({GroupAllScopedCRUD})
     support_update = False
     _doc_url = "Raw/operation/createDBs"
 
@@ -151,7 +151,7 @@ class RawDatabaseLoader(ResourceContainerCRUD[RawDatabase, RawDatabase, RawDatab
 
 
 @final
-class RawTableLoader(ResourceContainerCRUD[RawTable, RawTable, RawTable, RawTableList, RawTableList]):
+class RawTableCRUD(ResourceContainerCRUD[RawTable, RawTable, RawTable, RawTableList, RawTableList]):
     item_name = "raw rows"
     folder_name = "raw"
     filename_pattern = r"^(?!.*Database$).*$"
@@ -162,9 +162,9 @@ class RawTableLoader(ResourceContainerCRUD[RawTable, RawTable, RawTable, RawTabl
     kind = "Table"
     yaml_cls = TableYAML
     support_update = False
-    dependencies = frozenset({RawDatabaseLoader, GroupAllScopedLoader})
+    dependencies = frozenset({RawDatabaseCRUD, GroupAllScopedCRUD})
     _doc_url = "Raw/operation/createTables"
-    parent_resource = frozenset({RawDatabaseLoader})
+    parent_resource = frozenset({RawDatabaseCRUD})
 
     def __init__(self, client: ToolkitClient, build_dir: Path, console: Console | None):
         super().__init__(client, build_dir, console)
@@ -213,7 +213,7 @@ class RawTableLoader(ResourceContainerCRUD[RawTable, RawTable, RawTable, RawTabl
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "dbName" in item:
-            yield RawDatabaseLoader, RawDatabase(item["dbName"])
+            yield RawDatabaseCRUD, RawDatabase(item["dbName"])
 
     def create(self, items: RawTableList) -> RawTableList:
         created = RawTableList([])

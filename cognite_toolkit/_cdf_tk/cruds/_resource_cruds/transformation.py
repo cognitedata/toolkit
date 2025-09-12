@@ -97,11 +97,11 @@ from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
 
-from .auth import GroupAllScopedLoader
+from .auth import GroupAllScopedCRUD
 from .data_organization import DataSetsCRUD
-from .datamodel import DataModelCRUD, SpaceLoader, ViewCRUD
-from .group_scoped import GroupResourceScopedLoader
-from .raw import RawDatabaseLoader, RawTableLoader
+from .datamodel import DataModelCRUD, SpaceCRUD, ViewCRUD
+from .group_scoped import GroupResourceScopedCRUD
+from .raw import RawDatabaseCRUD, RawTableCRUD
 
 
 @final
@@ -122,14 +122,14 @@ class TransformationCRUD(
     dependencies = frozenset(
         {
             DataSetsCRUD,
-            RawDatabaseLoader,
-            GroupAllScopedLoader,
-            SpaceLoader,
+            RawDatabaseCRUD,
+            GroupAllScopedCRUD,
+            SpaceCRUD,
             ViewCRUD,
             DataModelCRUD,
-            RawTableLoader,
-            RawDatabaseLoader,
-            GroupResourceScopedLoader,
+            RawTableCRUD,
+            RawDatabaseCRUD,
+            GroupResourceScopedCRUD,
         }
     )
     _doc_url = "Transformations/operation/createTransformations"
@@ -200,17 +200,17 @@ class TransformationCRUD(
             if not isinstance(destination, dict):
                 return
             if destination.get("type") == "raw" and in_dict(("database", "table"), destination):
-                yield RawDatabaseLoader, RawDatabase(destination["database"])
-                yield RawTableLoader, RawTable(destination["database"], destination["table"])
+                yield RawDatabaseCRUD, RawDatabase(destination["database"])
+                yield RawTableCRUD, RawTable(destination["database"], destination["table"])
             elif destination.get("type") in ("nodes", "edges") and (view := destination.get("view", {})):
                 if space := destination.get("instanceSpace"):
-                    yield SpaceLoader, space
+                    yield SpaceCRUD, space
                 if in_dict(("space", "externalId", "version"), view):
                     view["version"] = str(view["version"])
                     yield ViewCRUD, ViewId.load(view)
             elif destination.get("type") == "instances":
                 if space := destination.get("instanceSpace"):
-                    yield SpaceLoader, space
+                    yield SpaceCRUD, space
                 if data_model := destination.get("dataModel"):
                     if in_dict(("space", "externalId", "version"), data_model):
                         data_model["version"] = str(data_model["version"])

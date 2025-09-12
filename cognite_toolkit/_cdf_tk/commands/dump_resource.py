@@ -55,7 +55,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.location_filters import Locatio
 from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import Streamlit, StreamlitList
 from cognite_toolkit._cdf_tk.cruds import (
     AgentCRUD,
-    ContainerLoader,
+    ContainerCRUD,
     DataModelCRUD,
     DataSetsCRUD,
     ExtractionPipelineConfigCRUD,
@@ -64,9 +64,9 @@ from cognite_toolkit._cdf_tk.cruds import (
     FunctionScheduleCRUD,
     GroupCRUD,
     LocationFilterCRUD,
-    NodeLoader,
+    NodeCRUD,
     ResourceCRUD,
-    SpaceLoader,
+    SpaceCRUD,
     StreamlitCRUD,
     TransformationCRUD,
     TransformationNotificationCRUD,
@@ -194,13 +194,13 @@ class DataModelFinder(ResourceFinder[DataModelId]):
             yield [], model_list, model_loader, None
         if self._include_global or is_global_model:
             yield list(self.view_ids), None, ViewCRUD.create_loader(self.client), "views"
-            yield list(self.container_ids), None, ContainerLoader.create_loader(self.client), "containers"
-            yield list(self.space_ids), None, SpaceLoader.create_loader(self.client), None
+            yield list(self.container_ids), None, ContainerCRUD.create_loader(self.client), "containers"
+            yield list(self.space_ids), None, SpaceCRUD.create_loader(self.client), None
         else:
             view_loader = ViewCRUD(self.client, None, None, topological_sort_implements=True)
             views = dm.ViewList([view for view in view_loader.retrieve(list(self.view_ids)) if not view.is_global])
             yield [], views, view_loader, "views"
-            container_loader = ContainerLoader.create_loader(self.client)
+            container_loader = ContainerCRUD.create_loader(self.client)
             containers = dm.ContainerList(
                 [
                     container
@@ -210,7 +210,7 @@ class DataModelFinder(ResourceFinder[DataModelId]):
             )
             yield [], containers, container_loader, "containers"
 
-            space_loader = SpaceLoader.create_loader(self.client)
+            space_loader = SpaceCRUD.create_loader(self.client)
             spaces = dm.SpaceList(
                 [space for space in space_loader.retrieve(list(self.space_ids)) if not space.is_global]
             )
@@ -423,7 +423,7 @@ class NodeFinder(ResourceFinder[dm.ViewId]):
 
     def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
-        loader = NodeLoader(self.client, None, None, self.identifier)
+        loader = NodeCRUD(self.client, None, None, self.identifier)
         if self.is_interactive:
             count = self.client.data_modeling.instances.aggregate(
                 self.identifier, dm.aggregations.Count("externalId"), instance_type="node"

@@ -28,10 +28,10 @@ from cognite_toolkit._cdf_tk.cruds import (
     AssetCRUD,
     DataSetsCRUD,
     EventCRUD,
-    FileMetadataLoader,
+    FileMetadataCRUD,
     LabelCRUD,
     ResourceCRUD,
-    TimeSeriesLoader,
+    TimeSeriesCRUD,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileExistsError,
@@ -275,7 +275,7 @@ class FileMetadataFinder(AssetCentricFinder[FileMetadata]):
     supported_formats = frozenset({"csv", "parquet"})
 
     def _create_loader(self, client: ToolkitClient) -> ResourceCRUD:
-        return FileMetadataLoader.create_loader(client)
+        return FileMetadataCRUD.create_loader(client)
 
     def _aggregate_count(self, hierarchies: list[str], data_sets: list[str]) -> int:
         result = self.client.files.aggregate(
@@ -325,8 +325,8 @@ class FileMetadataFinder(AssetCentricFinder[FileMetadata]):
 class TimeSeriesFinder(AssetCentricFinder[TimeSeries]):
     supported_formats = frozenset({"csv", "parquet", "yaml"})
 
-    def _create_loader(self, client: ToolkitClient) -> TimeSeriesLoader:
-        return TimeSeriesLoader.create_loader(client)
+    def _create_loader(self, client: ToolkitClient) -> TimeSeriesCRUD:
+        return TimeSeriesCRUD.create_loader(client)
 
     def _aggregate_count(self, hierarchies: list[str], data_sets: list[str]) -> int:
         return self.client.time_series.aggregate_count(

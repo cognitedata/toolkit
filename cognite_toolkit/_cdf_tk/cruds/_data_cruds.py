@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.utils import read_yaml_content, safe_read
 from cognite_toolkit._cdf_tk.utils.file import read_csv
 
 from ._base_cruds import T_ID, DataCRUD, ResourceCRUD, T_WritableCogniteResourceList
-from ._resource_cruds import CogniteFileLoader, FileMetadataLoader, RawTableLoader, TimeSeriesLoader
+from ._resource_cruds import CogniteFileCRUD, FileMetadataCRUD, RawTableCRUD, TimeSeriesCRUD
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.data_classes import BuildEnvironment
@@ -26,7 +26,7 @@ class DatapointsCRUD(DataCRUD):
     folder_name = "timeseries"
     kind = "Datapoints"
     filetypes = frozenset({"csv", "parquet"})
-    dependencies = frozenset({TimeSeriesLoader})
+    dependencies = frozenset({TimeSeriesCRUD})
     _doc_url = "Time-series/operation/postMultiTimeSeriesDatapoints"
 
     @property
@@ -90,7 +90,7 @@ class FileCRUD(DataCRUD):
         # Exclude FileMetadata and CogniteFile
         r"(?i)^(?!.*(?:FileMetadata|CogniteFile)$).*$"
     )
-    dependencies = frozenset({FileMetadataLoader, CogniteFileLoader})
+    dependencies = frozenset({FileMetadataCRUD, CogniteFileCRUD})
     _doc_url = "Files/operation/initFileUpload"
 
     @property
@@ -106,8 +106,8 @@ class FileCRUD(DataCRUD):
                 continue
 
             if result := {
-                FileMetadataLoader.kind: (FileMetadataLoader, "external_id"),
-                CogniteFileLoader.kind: (CogniteFileLoader, "instance_id"),
+                FileMetadataCRUD.kind: (FileMetadataCRUD, "external_id"),
+                CogniteFileCRUD.kind: (CogniteFileCRUD, "instance_id"),
             }.get(resource.kind):
                 loader_cls, id_name = result
                 meta: FileMetadataWrite | ExtendableCogniteFileApply = self._read_metadata(
@@ -155,7 +155,7 @@ class RawFileCRUD(DataCRUD):
     folder_name = "raw"
     filetypes = frozenset({"csv", "parquet"})
     kind = "Raw"
-    dependencies = frozenset({RawTableLoader})
+    dependencies = frozenset({RawTableCRUD})
     _doc_url = "Raw/operation/postRows"
 
     @property
@@ -167,7 +167,7 @@ class RawFileCRUD(DataCRUD):
             return
 
         for resource in state.built_resources[self.folder_name]:
-            if resource.kind != RawTableLoader.kind:
+            if resource.kind != RawTableCRUD.kind:
                 continue
             table = cast(RawTable, resource.identifier)
             datafile = next(

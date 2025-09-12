@@ -10,14 +10,14 @@ from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTabl
 from cognite_toolkit._cdf_tk.cruds import (
     DataSetsCRUD,
     ExtractionPipelineCRUD,
-    GroupAllScopedLoader,
+    GroupAllScopedCRUD,
     GroupCRUD,
-    GroupResourceScopedLoader,
-    RawDatabaseLoader,
-    RawTableLoader,
+    GroupResourceScopedCRUD,
+    RawDatabaseCRUD,
+    RawTableCRUD,
     ResourceCRUD,
     ResourceWorker,
-    SpaceLoader,
+    SpaceCRUD,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
@@ -27,7 +27,7 @@ from tests.test_unit.approval_client import ApprovalToolkitClient
 
 class TestGroupLoader:
     def test_load_all_scoped_only(self, env_vars_with_client: EnvironmentVariables, monkeypatch: MonkeyPatch):
-        loader = GroupAllScopedLoader.create_loader(env_vars_with_client.get_client())
+        loader = GroupAllScopedCRUD.create_loader(env_vars_with_client.get_client())
         raw_list = loader.load_resource_file(
             LOAD_DATA / "auth" / "1.my_group_unscoped.yaml", env_vars_with_client.dump()
         )
@@ -39,7 +39,7 @@ class TestGroupLoader:
             loader.load_resource(raw_list[0], is_dry_run=False)
 
     def test_load_resource_scoped_only(self, env_vars_with_client: EnvironmentVariables, monkeypatch: MonkeyPatch):
-        loader = GroupResourceScopedLoader.create_loader(env_vars_with_client.get_client())
+        loader = GroupResourceScopedCRUD.create_loader(env_vars_with_client.get_client())
         with pytest.raises(ToolkitWrongResourceError):
             raw_list = loader.load_resource_file(
                 LOAD_DATA / "auth" / "1.my_group_unscoped.yaml", env_vars_with_client.dump()
@@ -61,7 +61,7 @@ class TestGroupLoader:
     def test_load_group_list_resource_scoped_only(
         self, env_vars_with_client: EnvironmentVariables, monkeypatch: MonkeyPatch
     ):
-        loader = GroupResourceScopedLoader.create_loader(env_vars_with_client.get_client())
+        loader = GroupResourceScopedCRUD.create_loader(env_vars_with_client.get_client())
         raw_list = loader.load_resource_file(
             LOAD_DATA / "auth" / "1.my_group_list_combined.yaml", env_vars_with_client.dump()
         )
@@ -73,7 +73,7 @@ class TestGroupLoader:
     def test_load_group_list_all_scoped_only(
         self, env_vars_with_client: EnvironmentVariables, monkeypatch: MonkeyPatch
     ):
-        loader = GroupAllScopedLoader.create_loader(env_vars_with_client.get_client())
+        loader = GroupAllScopedCRUD.create_loader(env_vars_with_client.get_client())
         raw_list = loader.load_resource_file(
             LOAD_DATA / "auth" / "1.my_group_list_combined.yaml", env_vars_with_client.dump()
         )
@@ -88,7 +88,7 @@ class TestGroupLoader:
         toolkit_client_approval: ApprovalToolkitClient,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = GroupResourceScopedLoader.create_loader(env_vars_with_client.get_client())
+        loader = GroupResourceScopedCRUD.create_loader(env_vars_with_client.get_client())
         raw_list = loader.load_resource_file(LOAD_DATA / "auth" / "1.my_group_scoped.yaml", env_vars_with_client.dump())
         loaded = loader.load_resource(raw_list[0], is_dry_run=False)
 
@@ -131,7 +131,7 @@ class TestGroupLoader:
         toolkit_client_approval: ApprovalToolkitClient,
         monkeypatch: MonkeyPatch,
     ):
-        loader = GroupResourceScopedLoader.create_loader(env_vars_with_client.get_client())
+        loader = GroupResourceScopedCRUD.create_loader(env_vars_with_client.get_client())
         raw_list = loader.load_resource_file(LOAD_DATA / "auth" / "1.my_group_scoped.yaml", env_vars_with_client.dump())
         loaded = loader.load_resource(raw_list[0], is_dry_run=False)
 
@@ -167,7 +167,7 @@ class TestGroupLoader:
         [
             pytest.param(
                 {"capabilities": [{"dataModelsAcl": {"scope": {"spaceIdScope": {"spaceIds": ["space1", "space2"]}}}}]},
-                [(SpaceLoader, "space1"), (SpaceLoader, "space2")],
+                [(SpaceCRUD, "space1"), (SpaceCRUD, "space2")],
                 id="SpaceId scope",
             ),
             pytest.param(
@@ -191,8 +191,8 @@ class TestGroupLoader:
             pytest.param(
                 {"capabilities": [{"rawAcl": {"scope": {"tableScope": {"dbsToTables": {"my_db": ["my_table"]}}}}}]},
                 [
-                    (RawDatabaseLoader, RawDatabase("my_db")),
-                    (RawTableLoader, RawTable("my_db", "my_table")),
+                    (RawDatabaseCRUD, RawDatabase("my_db")),
+                    (RawTableCRUD, RawTable("my_db", "my_table")),
                 ],
                 id="Table scope",
             ),
@@ -223,7 +223,7 @@ class TestGroupLoader:
         toolkit_client_approval: ApprovalToolkitClient,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = GroupAllScopedLoader.create_loader(env_vars_with_client.get_client())
+        loader = GroupAllScopedCRUD.create_loader(env_vars_with_client.get_client())
         local_group = """name: gp_no_metadata
 sourceId: 123
 capabilities:
@@ -270,7 +270,7 @@ deletedTime: -1
         toolkit_client_approval: ApprovalToolkitClient,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = GroupResourceScopedLoader.create_loader(env_vars_with_client.get_client())
+        loader = GroupResourceScopedCRUD.create_loader(env_vars_with_client.get_client())
         local_group = """name: gp_raw_acl_table_scoped
 sourceId: '123'
 capabilities:
