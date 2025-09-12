@@ -1,5 +1,6 @@
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from pathlib import Path
+from typing import ClassVar
 
 from cognite.client.data_classes.aggregations import Count
 from cognite.client.data_classes.data_modeling import Edge, EdgeApply, Node, NodeApply
@@ -23,6 +24,8 @@ class InstanceIO(TableStorageIO[InstanceId, InstanceSelector, InstanceApplyList,
     supported_compressions = frozenset({".gz"})
     supported_read_formats = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
     chunk_size = 1000
+    UPLOAD_ENDPOINT = "/models/instances"
+    UPLOAD_EXTRA_ARGS: ClassVar[Mapping[str, JsonVal] | None] = {"autoCreateDirectRelations": True}
 
     def as_id(self, item: dict[str, JsonVal] | object) -> InstanceId:
         if isinstance(item, dict) and isinstance(item.get("space"), str) and isinstance(item.get("externalId"), str):
