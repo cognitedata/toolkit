@@ -11,6 +11,7 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
+from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal, T_Selector, T_WritableCogniteResourceList
@@ -116,16 +117,20 @@ class StorageIO(ABC, Generic[T_ID, T_Selector, T_CogniteResourceList, T_Writable
             raise ToolkitNotImplementedError(f"Upload not implemented for {self.kind} storage.")
 
         config = http_client.config
-        return http_client.request_with_retries(
-            message=ItemsRequest(
-                endpoint_url=config.create_api_url(self.UPLOAD_ENDPOINT),
-                method="POST",
-                # The dump method from the PySDK always returns JsonVal, but mypy cannot infer that
-                items=data_chunk.dump(camel_case=True),  # type: ignore[arg-type]
-                extra_body_fields=dict(self.UPLOAD_EXTRA_ARGS) if self.UPLOAD_EXTRA_ARGS is not None else None,  # type: ignore[arg-type]
-                as_id=self.as_id,
+        results: list[HTTPMessage] = []
+        for batch in chunker_sequence(data_chunk, self.chunk_size):
+            batch_results = http_client.request_with_retries(
+                message=ItemsRequest(
+                    endpoint_url=config.create_api_url(self.UPLOAD_ENDPOINT),
+                    method="POST",
+                    # The dump method from the PySDK always returns JsonVal, but mypy cannot infer that
+                    items=batch.dump(camel_case=True),  # type: ignore[arg-type]
+                    extra_body_fields=dict(self.UPLOAD_EXTRA_ARGS) if self.UPLOAD_EXTRA_ARGS is not None else None,  # type: ignore[arg-type]
+                    as_id=self.as_id,
+                )
             )
-        )
+            results.extend(batch_results)
+        return results
 
     @abstractmethod
     def data_to_json_chunk(self, data_chunk: T_WritableCogniteResourceList) -> list[dict[str, JsonVal]]:
