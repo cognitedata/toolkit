@@ -236,9 +236,9 @@ class AuthCommand(ToolkitCommand):
         if not is_demo and not is_user_in_toolkit_group:
             print(
                 Panel(
-                    f"To use the Toolkit, for example, 'cdf deploy', [red]you need to switch[/red] "
-                    f"to the principal with source-id {cdf_toolkit_group.source_id!r}.",
-                    title="Switch Principal",
+                    f"To use the Toolkit, for example, 'cdf deploy' you need to make sure to use a service principal", 
+                    f"that is a member of the group with object id {cdf_toolkit_group.source_id!r}.",
+                    title="Service Principal group membership",
                     expand=False,
                 )
             )
