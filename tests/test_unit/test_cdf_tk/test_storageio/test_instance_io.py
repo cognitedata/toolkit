@@ -85,7 +85,7 @@ class TestInstanceIO:
 
             def hate_edges(request: requests.PreparedRequest) -> tuple[int, dict[str, str], str]:
                 # status, headers, body
-                if "edge" in request.body:
+                if b"edge" in request.body:
                     return 400, {}, '{"error":{"code":"InvalidArgument","message":"I do not like edges!"}}'
                 else:
                     items = json.loads(request.body).get("items", [])
