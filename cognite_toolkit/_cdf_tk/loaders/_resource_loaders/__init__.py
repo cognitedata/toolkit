@@ -1,6 +1,7 @@
 from .agent_loaders import AgentLoader
 from .auth_loaders import GroupAllScopedLoader, GroupLoader, SecurityCategoryLoader
 from .classic_loaders import AssetLoader, EventLoader, SequenceLoader, SequenceRowLoader
+from .configuration_loader import SearchConfigLoader
 from .data_organization_loaders import DataSetsLoader, LabelLoader
 from .datamodel_loaders import (
     ContainerLoader,
@@ -74,6 +75,7 @@ __all__ = [
     "RoboticLocationLoader",
     "RoboticMapLoader",
     "RoboticsDataPostProcessingLoader",
+    "SearchConfigLoader",
     "SecurityCategoryLoader",
     "SequenceLoader",
     "SequenceRowLoader",

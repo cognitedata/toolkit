@@ -169,6 +169,12 @@ from cognite_toolkit._cdf_tk.client.data_classes.migration import (
     ViewSourceApply,
 )
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawDatabaseList
+from cognite_toolkit._cdf_tk.client.data_classes.search_config import (
+    SearchConfig,
+    SearchConfigList,
+    SearchConfigWrite,
+    SearchConfigWriteList,
+)
 
 from .data_classes import APIResource, Method
 
@@ -811,6 +817,19 @@ API_RESOURCES = [
             "retrieve": [
                 Method(api_class_method="list", mock_class_method="return_values"),
                 Method(api_class_method="retrieve", mock_class_method="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="search.configurations",
+        resource_cls=SearchConfig,
+        list_cls=SearchConfigList,
+        _write_cls=SearchConfigWrite,
+        _write_list_cls=SearchConfigWriteList,
+        methods={
+            "create": [Method(api_class_method="upsert", mock_class_method="create_multiple")],
+            "retrieve": [
+                Method(api_class_method="list", mock_class_method="return_values"),
             ],
         },
     ),
