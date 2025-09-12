@@ -27,7 +27,6 @@ from cognite.client.data_classes import (
 )
 from cognite.client.data_classes.capabilities import (
     Capability,
-    ExtractionConfigsAcl,
     ExtractionPipelinesAcl,
 )
 from cognite.client.data_classes.extractionpipelines import (
@@ -262,21 +261,8 @@ class ExtractionPipelineConfigLoader(
     def get_required_capability(
         cls, items: Sequence[ExtractionPipelineConfigWrite] | None, read_only: bool
     ) -> list[Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = (
-            [ExtractionConfigsAcl.Action.Read]
-            if read_only
-            else [ExtractionConfigsAcl.Action.Read, ExtractionConfigsAcl.Action.Write]
-        )
-
-        return [
-            ExtractionConfigsAcl(
-                actions,
-                ExtractionConfigsAcl.Scope.All(),
-            )
-        ]
+        # We check the parent extraction pipeline permissions instead
+        return []
 
     @classmethod
     def get_id(cls, item: ExtractionPipelineConfig | ExtractionPipelineConfigWrite | dict) -> str:

@@ -39,6 +39,7 @@ from cognite_toolkit._cdf_tk._parameters import ANYTHING, ParameterSpec, Paramet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.resource_classes import HostedExtractorDestinationYAML, HostedExtractorMappingYAML
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 
 from .data_organization_loaders import DataSetsLoader
@@ -167,6 +168,7 @@ class HostedExtractorDestinationLoader(
     kind = "Destination"
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
     _doc_url = "Destinations/operation/create_destinations"
+    yaml_cls = HostedExtractorDestinationYAML
 
     def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None = None):
         super().__init__(client, build_dir, console)
@@ -390,6 +392,7 @@ class HostedExtractorMappingLoader(ResourceLoader[str, MappingWrite, Mapping, Ma
     kind = "Mapping"
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
     _doc_url = "Mappings/operation/create_mappings"
+    yaml_cls = HostedExtractorMappingYAML
 
     @property
     def display_name(self) -> str:
