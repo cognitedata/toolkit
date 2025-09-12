@@ -98,6 +98,7 @@ class AssetCentricMigrationIOAdapter(
     supported_compressions = frozenset({".gz"})
     supported_read_formats = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
     chunk_size = 1000
+    UPLOAD_ENDPOINT = InstanceIO.UPLOAD_ENDPOINT
 
     def __init__(
         self,
@@ -125,6 +126,8 @@ class AssetCentricMigrationIOAdapter(
             if not isinstance(id_, int):
                 raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
             return id_
+        elif isinstance(item, AssetCentricMapping):
+            return item.resource.id
         elif isinstance(item, Event | Asset | TimeSeries | FileMetadata):
             if item.id is None:
                 raise TypeError(f"Resource of type {type(item).__name__!r} is missing an 'id'.")
