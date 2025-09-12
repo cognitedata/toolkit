@@ -9,8 +9,8 @@ from pydantic import BaseModel, TypeAdapter, ValidationError
 from pydantic_core import ErrorDetails
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameters_from_dict
+from cognite_toolkit._cdf_tk.cruds import NodeCRUD
 from cognite_toolkit._cdf_tk.data_classes import BuildVariables
-from cognite_toolkit._cdf_tk.loaders import NodeLoader
 from cognite_toolkit._cdf_tk.resource_classes import BaseModelResource
 from cognite_toolkit._cdf_tk.tk_warnings import (
     CaseTypoWarning,
@@ -75,7 +75,7 @@ def validate_data_set_is_set(
 def validate_resource_yaml(
     data: dict | list, spec: ParameterSpecSet, source_file: Path, element: int | None = None
 ) -> WarningList:
-    if spec.spec_name == NodeLoader.__name__:
+    if spec.spec_name == NodeCRUD.__name__:
         # Special case for NodeLoader as it has options for API call parameters
         if isinstance(data, list):
             return _validate_resource_yaml(data, spec, source_file)
