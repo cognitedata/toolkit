@@ -7,22 +7,22 @@ from .container_field_definitions import ContainerReference
 from .view_field_definitions import ViewReference
 
 
-class NodeType(BaseModelResource):
+class InstanceType(BaseModelResource):
     space: str = Field(
-        description="The space where the node is located.",
+        description="The space where the instance is located.",
         min_length=1,
         max_length=43,
         pattern=SPACE_FORMAT_PATTERN,
     )
     external_id: str = Field(
-        description="External-id of the node.",
+        description="External-id of the instance.",
         min_length=1,
         max_length=256,
         pattern=r"^[^\\x00]{1,256}$",
     )
 
 
-class NodeSource(BaseModelResource):
+class InstanceSource(BaseModelResource):
     source: ViewReference | ContainerReference = Field(
         description="Reference to the view or container from where this source is inherited.",
     )
@@ -45,11 +45,11 @@ class NodeYAML(ToolkitResource):
         max_length=256,
         pattern=r"^[^\\x00]{1,256}$",
     )
-    type: NodeType | None = Field(
+    type: InstanceType | None = Field(
         default=None,
         description="The type of the node, defined by a direct relation to another node.",
     )
-    sources: list[NodeSource] | None = Field(
+    sources: list[InstanceSource] | None = Field(
         default=None,
         description="List of sources (views) and their properties for this node.",
     )
