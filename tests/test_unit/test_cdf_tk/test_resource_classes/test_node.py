@@ -54,7 +54,7 @@ class TestNodeYAML:
         assert len(warning_list) == 1
         format_warning = warning_list[0]
         assert isinstance(format_warning, ResourceFormatWarning)
-        assert any("Missing required field: 'externalId'" in error for error in format_warning.errors)
+        assert set(format_warning.errors) == {"Missing required field: 'externalId'"}
 
     def test_node_with_multiple_sources(self) -> None:
         """Test node with multiple view sources."""
