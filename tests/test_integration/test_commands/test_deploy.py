@@ -12,22 +12,22 @@ from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, PullCommand
-from cognite_toolkit._cdf_tk.data_classes import BuiltModuleList, ResourceDeployResult
-from cognite_toolkit._cdf_tk.loaders import (
-    RESOURCE_LOADER_LIST,
-    FunctionLoader,
-    FunctionScheduleLoader,
+from cognite_toolkit._cdf_tk.cruds import (
+    RESOURCE_CRUD_LIST,
+    FunctionCRUD,
+    FunctionScheduleCRUD,
     GraphQLLoader,
-    HostedExtractorDestinationLoader,
-    HostedExtractorSourceLoader,
-    ResourceLoader,
+    HostedExtractorDestinationCRUD,
+    HostedExtractorSourceCRUD,
+    ResourceCRUD,
     ResourceWorker,
-    SearchConfigLoader,
-    StreamlitLoader,
-    TransformationLoader,
-    WorkflowTriggerLoader,
+    SearchConfigCRUD,
+    StreamlitCRUD,
+    TransformationCRUD,
+    WorkflowTriggerCRUD,
 )
-from cognite_toolkit._cdf_tk.loaders._resource_loaders.location_loaders import LocationFilterLoader
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.location import LocationFilterCRUD
+from cognite_toolkit._cdf_tk.data_classes import BuiltModuleList, ResourceDeployResult
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.file import remove_trailing_newline
 from tests import data
@@ -120,8 +120,8 @@ def test_deploy_complete_org_alpha(env_vars: EnvironmentVariables, build_dir: Pa
 def get_changed_resources(env_vars: EnvironmentVariables, build_dir: Path) -> dict[str, set[Any]]:
     changed_resources: dict[str, set[Any]] = {}
     client = env_vars.get_client()
-    for loader_cls in RESOURCE_LOADER_LIST:
-        if loader_cls in {HostedExtractorSourceLoader, HostedExtractorDestinationLoader}:
+    for loader_cls in RESOURCE_CRUD_LIST:
+        if loader_cls in {HostedExtractorSourceCRUD, HostedExtractorDestinationCRUD}:
             # These resources we have no way of knowing if they have changed. So they are always redeployed.
             continue
         loader = loader_cls.create_loader(client, build_dir)
@@ -145,17 +145,17 @@ def get_changed_source_files(
     changed_source_files: dict[str, set[str]] = defaultdict(set)
     selected_loaders = cmd._clean_command.get_selected_loaders(build_dir, read_resource_folders=set(), include=None)
     for loader_cls in selected_loaders:
-        if (not issubclass(loader_cls, ResourceLoader)) or (
+        if (not issubclass(loader_cls, ResourceCRUD)) or (
             # Authentication that causes the diff to fail
-            loader_cls in {HostedExtractorSourceLoader, HostedExtractorDestinationLoader}
+            loader_cls in {HostedExtractorSourceCRUD, HostedExtractorDestinationCRUD}
             # External files that cannot (or not yet supported) be pulled
-            or loader_cls in {GraphQLLoader, FunctionLoader, StreamlitLoader}
+            or loader_cls in {GraphQLLoader, FunctionCRUD, StreamlitCRUD}
             # Have authentication hashes that is different for each environment
-            or loader_cls in {TransformationLoader, FunctionScheduleLoader, WorkflowTriggerLoader}
+            or loader_cls in {TransformationCRUD, FunctionScheduleCRUD, WorkflowTriggerCRUD}
             # LocationFilterLoader needs to split the file into multiple files, so we cannot compare them
-            or loader_cls is LocationFilterLoader
+            or loader_cls is LocationFilterCRUD
             # SearchConfigLoader is not supported in pull and post that also will require special handling
-            or loader_cls is SearchConfigLoader
+            or loader_cls is SearchConfigCRUD
         ):
             continue
         loader = loader_cls.create_loader(env_vars.get_client(), build_dir)
