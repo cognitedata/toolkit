@@ -35,7 +35,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
     LOADER_LIST,
     RESOURCE_LOADER_LIST,
-    DatapointsLoader,
+    DatapointsCRUD,
     FileMetadataLoader,
     FunctionScheduleCRUD,
     GroupResourceScopedLoader,
@@ -66,7 +66,7 @@ SNAPSHOTS_DIR = SNAPSHOTS_DIR_ALL / "load_data_snapshots"
     "loader_cls",
     [
         FileMetadataLoader,
-        DatapointsLoader,
+        DatapointsCRUD,
     ],
 )
 def test_loader_class(

@@ -35,7 +35,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitNotADirectoryError,
 )
 from cognite_toolkit._cdf_tk.loaders import (
-    DataLoader,
+    DataCRUD,
     Loader,
     RawDatabaseLoader,
     ResourceContainerCRUD,
@@ -230,7 +230,7 @@ class DeployCommand(ToolkitCommand):
                     force_update,
                     verbose,
                 )
-            elif isinstance(loader, DataLoader):
+            elif isinstance(loader, DataCRUD):
                 resource_result = self.upload_data(loader, build, dry_run, verbose)
             else:
                 raise ValueError(f"Unsupported loader type {type(loader)}.")
@@ -455,7 +455,7 @@ class DeployCommand(ToolkitCommand):
 
     @staticmethod
     def upload_data(
-        loader: DataLoader,
+        loader: DataCRUD,
         state: BuildEnvironment,
         dry_run: bool = False,
         verbose: bool = False,

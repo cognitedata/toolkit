@@ -7,7 +7,7 @@ import pytest
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.data_classes import BuildEnvironment, BuiltResource, BuiltResourceList, SourceLocationEager
-from cognite_toolkit._cdf_tk.loaders import RawFileLoader, RawTableLoader
+from cognite_toolkit._cdf_tk.loaders import RawFileCRUD, RawTableLoader
 
 
 class TestRawFileLoader:
@@ -28,7 +28,7 @@ class TestRawFileLoader:
     )
     def test_upload_dtypes(self, csv_content: str, expected_write: dict[int, Any]) -> None:
         with monkeypatch_toolkit_client() as client:
-            loader = RawFileLoader.create_loader(client)
+            loader = RawFileCRUD.create_loader(client)
         csv_file = MagicMock(spec=Path)
         csv_file.read_bytes.return_value = csv_content.encode("utf-8")
         csv_file.exists.return_value = True
@@ -37,7 +37,7 @@ class TestRawFileLoader:
         source_file.with_suffix.return_value = csv_file
 
         state = BuildEnvironment()
-        state.built_resources[RawFileLoader.folder_name] = BuiltResourceList(
+        state.built_resources[RawFileCRUD.folder_name] = BuiltResourceList(
             [
                 BuiltResource(
                     RawTable("myDB", "myTable"),
@@ -60,7 +60,7 @@ class TestRawFileLoader:
 
     def test_upload_preserves_numeric_types_and_sets_empty_strings_for_nulls(self) -> None:
         with monkeypatch_toolkit_client() as client:
-            loader = RawFileLoader.create_loader(client)
+            loader = RawFileCRUD.create_loader(client)
         csv_file = MagicMock(spec=Path)
         csv_content = """myFloat,myInt,myString,myBool
 ,1,hello,True
@@ -73,7 +73,7 @@ class TestRawFileLoader:
         source_file.with_suffix.return_value = csv_file
 
         state = BuildEnvironment()
-        state.built_resources[RawFileLoader.folder_name] = BuiltResourceList(
+        state.built_resources[RawFileCRUD.folder_name] = BuiltResourceList(
             [
                 BuiltResource(
                     RawTable("myDB", "myTable"),

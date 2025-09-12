@@ -52,11 +52,11 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.hints import Hint, ModuleDefinition, verify_module_directory
 from cognite_toolkit._cdf_tk.loaders import (
     ContainerLoader,
-    DataLoader,
+    DataCRUD,
     DataModelCRUD,
     DataSetsCRUD,
     ExtractionPipelineConfigCRUD,
-    FileLoader,
+    FileCRUD,
     LocationFilterCRUD,
     NodeLoader,
     RawDatabaseLoader,
@@ -354,12 +354,12 @@ class BuildCommand(ToolkitCommand):
                     for warning in destination:
                         self.warn(warning)
                     continue
-                if destination.loader is FileLoader:
+                if destination.loader is FileCRUD:
                     # This is a content file that we should not copy to the build directory.
                     continue
 
                 safe_write(destination.path, destination.content, encoding=BUILD_FOLDER_ENCODING)
-                if issubclass(destination.loader, DataLoader):
+                if issubclass(destination.loader, DataCRUD):
                     continue
 
                 file_warnings, identifiers_kind_pairs = self.check_built_resource(

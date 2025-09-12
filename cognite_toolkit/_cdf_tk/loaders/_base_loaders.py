@@ -137,7 +137,7 @@ class Loader(ABC):
             return False
         if cls.exclude_filetypes and file.suffix[1:] in cls.exclude_filetypes:
             return False
-        if force_pattern is False and not issubclass(cls, DataLoader):
+        if force_pattern is False and not issubclass(cls, DataCRUD):
             return file.stem.casefold().endswith(cls.kind.casefold())
         else:
             if cls.filename_pattern:
@@ -155,14 +155,14 @@ class ResourceCRUD(
     ABC,
     Generic[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
 ):
-    """This is the base class for all resource loaders.
+    """This is the base class for all resource CRUD.
 
     A resource loader consists of the following
         - A CRUD (Create, Retrieve, Update, Delete) interface for interacting with the CDF API.
-        - A read and write data class with list for the resource.
-        - Must use the file-format YAML to store the local version of the resource.
+        - Serialization/Deserialization of the resources between YAML and the cognite-sdk data classes used in the
+          CRUD interface.
 
-    All resources supported by the cognite_toolkit should implement a loader.
+    All resources supported by the cognite_toolkit should implement a CRUD.
 
     Class attributes:
         resource_write_cls: The write data class for the resource.
@@ -170,9 +170,9 @@ class ResourceCRUD(
         list_cls: The read list format for this resource.
         list_write_cls: The write list format for this resource.
         support_drop: Whether the resource supports the drop flag.
-        filetypes: The filetypes that are supported by this loader. This should not be set in the subclass, it
+        filetypes: The filetypes that are supported by this crud. This should not be set in the subclass, it
             should always be yaml and yml.
-        dependencies: A set of loaders that must be loaded before this loader.
+        dependencies: A set of other resource cruds that must be loaded before this crud.
     """
 
     # Must be set in the subclass
@@ -433,12 +433,12 @@ class ResourceContainerCRUD(
     ResourceCRUD[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
     ABC,
 ):
-    """This is the base class for all loaders' resource containers.
+    """This is the base class for all resource CRUD' containers.
 
-    A resource container is a resource that contains data. For example, Timeseries contains datapoints, and another
+    A resource container CRUD is a resource that contains data. For example, Timeseries contains datapoints, and another
     example is spaces and containers in data modeling that contains instances.
 
-    In addition to the methods that are required for a resource loader, a resource container loader must implement
+    In addition to the methods that are required for a resource CRUD, a resource container CRUD must implement
     the following methods:
         - count: Counts the number of items in the resource container.
         - drop_data: Deletes the data in the resource container.
@@ -459,12 +459,12 @@ class ResourceContainerCRUD(
         raise NotImplementedError
 
 
-class DataLoader(Loader, ABC):
-    """This is the base class for all data loaders.
+class DataCRUD(Loader, ABC):
+    """This is the base class for all data CRUD..
 
-    A data loader is a loader that uploads data to CDF. It will typically depend on a
-    resource container that stores the data. For example, the datapoints loader depends
-    on the timeseries loader.
+    A data CRUD is a CRUD that uploads data to CDF. It will typically depend on a
+    resource container that stores the data. For example, the datapoints crud depends
+    on the timeseries CRUD.
 
     It has only one required method:
         - upload: Uploads the data to CDF.

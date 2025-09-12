@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     ModuleLocation,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitYAMLFormatError
-from cognite_toolkit._cdf_tk.loaders import CogniteFileLoader, FileLoader, FileMetadataLoader
+from cognite_toolkit._cdf_tk.loaders import CogniteFileLoader, FileCRUD, FileMetadataLoader
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, ToolkitWarning
 
 
@@ -78,8 +78,8 @@ class FileBuilder(Builder):
                 f"Expanding file metadata..."
             )
         expanded_metadata: list[dict[str, Any]] = []
-        for filepath in module.source_paths_by_resource_folder[FileLoader.folder_name]:
-            if not FileLoader.is_supported_file(filepath):
+        for filepath in module.source_paths_by_resource_folder[FileCRUD.folder_name]:
+            if not FileCRUD.is_supported_file(filepath):
                 continue
             new_entry = copy.deepcopy(template)
             new_entry["externalId"] = new_entry["externalId"].replace(cls.template_pattern, filepath.name)

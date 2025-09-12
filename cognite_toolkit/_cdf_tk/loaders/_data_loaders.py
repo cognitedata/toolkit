@@ -13,7 +13,7 @@ from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.utils import read_yaml_content, safe_read
 from cognite_toolkit._cdf_tk.utils.file import read_csv
 
-from ._base_loaders import T_ID, DataLoader, ResourceCRUD, T_WritableCogniteResourceList
+from ._base_loaders import T_ID, DataCRUD, ResourceCRUD, T_WritableCogniteResourceList
 from ._resource_loaders import CogniteFileLoader, FileMetadataLoader, RawTableLoader, TimeSeriesLoader
 
 if TYPE_CHECKING:
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 
 @final
-class DatapointsLoader(DataLoader):
+class DatapointsCRUD(DataCRUD):
     item_name = "datapoints"
     folder_name = "timeseries"
     kind = "Datapoints"
@@ -80,7 +80,7 @@ class DatapointsLoader(DataLoader):
 
 
 @final
-class FileLoader(DataLoader):
+class FileCRUD(DataCRUD):
     item_name = "file contents"
     folder_name = "files"
     kind = "File"
@@ -150,7 +150,7 @@ class FileLoader(DataLoader):
 
 
 @final
-class RawFileLoader(DataLoader):
+class RawFileCRUD(DataCRUD):
     item_name = "rows"
     folder_name = "raw"
     filetypes = frozenset({"csv", "parquet"})

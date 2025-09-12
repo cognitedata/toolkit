@@ -16,8 +16,8 @@ from typing import Literal, TypeAlias
 
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 
-from ._base_loaders import DataLoader, Loader, ResourceContainerCRUD, ResourceCRUD
-from ._data_loaders import DatapointsLoader, FileLoader, RawFileLoader
+from ._base_loaders import DataCRUD, Loader, ResourceContainerCRUD, ResourceCRUD
+from ._data_loaders import DatapointsCRUD, FileCRUD, RawFileCRUD
 from ._resource_loaders import (
     AgentCRUD,
     AssetCRUD,
@@ -89,10 +89,10 @@ LOADER_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}
 for _loader in itertools.chain(
     ResourceCRUD.__subclasses__(),
     ResourceContainerCRUD.__subclasses__(),
-    DataLoader.__subclasses__(),
+    DataCRUD.__subclasses__(),
     GroupCRUD.__subclasses__(),
 ):
-    if _loader in [ResourceCRUD, ResourceContainerCRUD, DataLoader, GroupCRUD] or _loader in _EXCLUDED_LOADERS:
+    if _loader in [ResourceCRUD, ResourceContainerCRUD, DataCRUD, GroupCRUD] or _loader in _EXCLUDED_LOADERS:
         # Skipping base classes
         continue
     if _loader.folder_name not in LOADER_BY_FOLDER_NAME:  # type: ignore[attr-defined]
@@ -104,7 +104,7 @@ del _loader  # cleanup module namespace
 LOADER_LIST = list(itertools.chain(*LOADER_BY_FOLDER_NAME.values()))
 RESOURCE_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass(loader, ResourceCRUD)]
 RESOURCE_CONTAINER_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass(loader, ResourceContainerCRUD)]
-RESOURCE_DATA_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass(loader, DataLoader)]
+RESOURCE_DATA_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass(loader, DataCRUD)]
 KINDS_BY_FOLDER_NAME: dict[str, set[str]] = {}
 for loader in LOADER_LIST:
     if loader.folder_name not in KINDS_BY_FOLDER_NAME:
@@ -152,16 +152,16 @@ __all__ = [
     "AssetCRUD",
     "CogniteFileLoader",
     "ContainerLoader",
-    "DataLoader",
+    "DataCRUD",
     "DataModelCRUD",
     "DataSetsCRUD",
     "DatapointSubscriptionCRUD",
-    "DatapointsLoader",
+    "DatapointsCRUD",
     "EdgeLoader",
     "EventCRUD",
     "ExtractionPipelineCRUD",
     "ExtractionPipelineConfigCRUD",
-    "FileLoader",
+    "FileCRUD",
     "FileMetadataLoader",
     "FunctionCRUD",
     "FunctionScheduleCRUD",
@@ -176,7 +176,7 @@ __all__ = [
     "LocationFilterCRUD",
     "NodeLoader",
     "RawDatabaseLoader",
-    "RawFileLoader",
+    "RawFileCRUD",
     "RawTableLoader",
     "RelationshipCRUD",
     "ResourceCRUD",
