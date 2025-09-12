@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import responses
 from cognite.client import global_config
 from cognite.client.credentials import Token
 from cognite.client.data_classes import CreatedSession
@@ -146,6 +147,14 @@ def disable_gzip():
 
 
 @pytest.fixture
+def disable_pypi_check():
+    old = global_config.disable_pypi_version_check
+    global_config.disable_pypi_version_check = True
+    yield
+    global_config.disable_pypi_version_check = old
+
+
+@pytest.fixture
 def toolkit_config():
     return ToolkitClientConfig(
         client_name="test-client",
@@ -155,3 +164,9 @@ def toolkit_config():
         timeout=10,
         credentials=Token("abc"),
     )
+
+
+@pytest.fixture
+def rsps() -> Iterator[responses.RequestsMock]:
+    with responses.RequestsMock() as rsps:
+        yield rsps

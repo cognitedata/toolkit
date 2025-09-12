@@ -10,6 +10,7 @@ This is means that we have three set of resource classes we use in Toolkit:
 from .asset import AssetYAML
 from .base import BaseModelResource, ToolkitResource
 from .containers import ContainerYAML
+from .data_model import DataModelYAML
 from .datapoint_subscription import DatapointSubscriptionYAML
 from .dataset import DataSetYAML
 from .event import EventYAML
@@ -19,12 +20,15 @@ from .filemetadata import FileMetadataYAML
 from .function_schedule import FunctionScheduleYAML
 from .functions import FunctionsYAML
 from .groups import GroupYAML
+from .hosted_extractor_destination import HostedExtractorDestinationYAML
+from .hosted_extractor_mapping import HostedExtractorMappingYAML
 from .labels import LabelsYAML
 from .location import LocationYAML
 from .raw_database_table import DatabaseYAML, TableYAML
 from .search_config import SearchConfigYAML
 from .securitycategories import SecurityCategoriesYAML
 from .space import SpaceYAML
+from .streamlit_ import StreamlitYAML
 from .threedmodels import ThreeDModelYAML
 from .timeseries import TimeSeriesYAML
 from .transformation_notification import TransformationNotificationYAML
@@ -39,6 +43,7 @@ __all__ = [
     "AssetYAML",
     "BaseModelResource",
     "ContainerYAML",
+    "DataModelYAML",
     "DataSetYAML",
     "DatabaseYAML",
     "DatapointSubscriptionYAML",
@@ -49,11 +54,14 @@ __all__ = [
     "FunctionScheduleYAML",
     "FunctionsYAML",
     "GroupYAML",
+    "HostedExtractorDestinationYAML",
+    "HostedExtractorMappingYAML",
     "LabelsYAML",
     "LocationYAML",
     "SearchConfigYAML",
     "SecurityCategoriesYAML",
     "SpaceYAML",
+    "StreamlitYAML",
     "TableYAML",
     "ThreeDModelYAML",
     "TimeSeriesYAML",

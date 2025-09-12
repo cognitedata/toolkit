@@ -10,7 +10,6 @@ from cognite.client.data_classes._base import (
     T_CogniteResourceList,
     T_WritableCogniteResource,
     T_WriteClass,
-    WriteableCogniteResourceList,
 )
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.utils.useful_types import SequenceNotStr
@@ -22,6 +21,7 @@ from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, EXCL_FILES,
 from cognite_toolkit._cdf_tk.resource_classes import ToolkitResource
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, to_directory_compatible
+from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, T_WritableCogniteResourceList
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.data_classes import BuildEnvironment
@@ -31,8 +31,7 @@ if sys.version_info >= (3, 11):
 else:
     from typing_extensions import Self
 
-T_ID = TypeVar("T_ID", bound=Hashable)
-T_WritableCogniteResourceList = TypeVar("T_WritableCogniteResourceList", bound=WriteableCogniteResourceList)
+
 _COMPILED_PATTERN: dict[str, re.Pattern] = {}
 
 
