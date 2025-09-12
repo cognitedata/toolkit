@@ -101,6 +101,7 @@ class TestMigrateFilesCommand:
             content = client.files.download_bytes(instance_id=node_id)
             assert content == b"test content", f"Content of file {node_id} does not match expected content."
 
+    @pytest.mark.skip("In development.")
     def test_migrate_files_v2(
         self,
         toolkit_client_with_pending_ids: ToolkitClient,

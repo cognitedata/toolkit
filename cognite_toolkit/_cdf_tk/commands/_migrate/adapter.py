@@ -1,11 +1,19 @@
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
 from typing import Generic
 
-from cognite.client.data_classes import Asset, Event, FileMetadata, TimeSeries
+from cognite.client.data_classes import (
+    Asset,
+    Event,
+    FileMetadata,
+    FileMetadataList,
+    FileMetadataWrite,
+    FileMetadataWriteList,
+    TimeSeries,
+)
 from cognite.client.data_classes._base import (
     T_CogniteResourceList,
     T_WritableCogniteResource,
@@ -31,7 +39,8 @@ from cognite_toolkit._cdf_tk.storageio import (
 from cognite_toolkit._cdf_tk.storageio._base import StorageIOConfig, T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
-from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest
+from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal, T_Selector
 
 from .data_classes import MigrationMapping, MigrationMappingList
 
@@ -188,3 +197,34 @@ class AssetCentricMigrationIOAdapter(
 
     def ensure_configurations(self, selector: MigrationSelector, console: Console | None = None) -> None:
         raise ToolkitNotImplementedError("ensure_configurations is not implemented for AssetCentricMappingList")
+
+
+class FileMetaAdapter(
+    AssetCentricMigrationIOAdapter[
+        str,
+        FileMetadataWrite,
+        FileMetadata,
+        FileMetadataWriteList,
+        FileMetadataList,
+    ]
+):
+    def upload_items_force(
+        self, data_chunk: InstanceApplyList, http_client: HTTPClient, selector: T_Selector | None = None
+    ) -> Sequence[HTTPMessage]:
+        config = http_client.config
+        # f"{self._RESOURCE_PATH}/set-pending-instance-ids",
+        # "api_subversion": "alpha",
+        # "items": [identifier.dump(camel_case=True) for identifier in id_chunk],
+        results: list[HTTPMessage] = []
+        for batch in chunker_sequence(data_chunk, self.chunk_size):
+            batch_results = http_client.request_with_retries(
+                message=ItemsRequest(
+                    endpoint_url=config.create_api_url("files/set-pending-instance-ids"),
+                    method="POST",
+                    items=[],  # type: ignore[arg-type]
+                    as_id=self.as_id,
+                )
+            )
+            results.extend(batch_results)
+        return results
+        return super().upload_items_force(data_chunk, http_client, selector)
