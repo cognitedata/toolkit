@@ -60,7 +60,7 @@ class HTTPClient:
         retry_status_codes: Set[int] = frozenset({408, 429, 502, 503, 504}),
         split_items_status_codes: Set[int] = frozenset({400, 408, 409, 422, 502, 503, 504}),
     ):
-        self._config = config
+        self.config = config
         self._max_retries = max_retries
         self._pool_connections = pool_connections
         self._pool_maxsize = pool_maxsize
@@ -146,13 +146,13 @@ class HTTPClient:
     def _create_headers(self) -> MutableMapping[str, str]:
         headers: MutableMapping[str, str] = CaseInsensitiveDict()
         headers.update(requests.utils.default_headers())
-        auth_name, auth_value = self._config.credentials.authorization_header()
+        auth_name, auth_value = self.config.credentials.authorization_header()
         headers[auth_name] = auth_value
         headers["content-type"] = "application/json"
         headers["accept"] = "application/json"
         headers["x-cdp-sdk"] = f"CogniteToolkit:{get_current_toolkit_version()}"
-        headers["x-cdp-app"] = self._config.client_name
-        headers["cdf-version"] = self._config.api_subversion
+        headers["x-cdp-app"] = self.config.client_name
+        headers["cdf-version"] = self.config.api_subversion
         if "User-Agent" in headers:
             headers["User-Agent"] += f" {get_user_agent()}"
         else:
@@ -197,7 +197,7 @@ class HTTPClient:
             data=data,
             headers=headers,
             params=params,
-            timeout=self._config.timeout,
+            timeout=self.config.timeout,
             allow_redirects=False,
         )
 

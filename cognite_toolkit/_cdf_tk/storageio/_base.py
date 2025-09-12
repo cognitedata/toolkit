@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Generic
+from typing import ClassVar, Generic
 
 from cognite.client.data_classes._base import (
     T_CogniteResourceList,
@@ -10,7 +10,10 @@ from cognite.client.data_classes._base import (
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
+from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal, T_Selector, T_WritableCogniteResourceList
 
 
@@ -46,6 +49,8 @@ class StorageIO(ABC, Generic[T_ID, T_Selector, T_CogniteResourceList, T_Writable
     supported_compressions: frozenset[str]
     supported_read_formats: frozenset[str]
     chunk_size: int
+    UPLOAD_ENDPOINT: ClassVar[str]
+    UPLOAD_EXTRA_ARGS: ClassVar[Mapping[str, JsonVal] | None] = None
 
     def __init__(self, client: ToolkitClient) -> None:
         self.client = client
@@ -96,6 +101,36 @@ class StorageIO(ABC, Generic[T_ID, T_Selector, T_CogniteResourceList, T_Writable
             selector: The selection criteria to identify where to upload the data.
         """
         raise NotImplementedError()
+
+    def upload_items_force(
+        self, data_chunk: T_CogniteResourceList, http_client: HTTPClient, selector: T_Selector | None = None
+    ) -> Sequence[HTTPMessage]:
+        """Upload a chunk of data to the storage using a custom HTTP client.
+        This ensures that even if one item in the chunk fails, the rest will still be uploaded.
+
+        Args:
+            data_chunk: The chunk of data to upload, which should be a list of writable Cognite resources.
+            http_client: The custom HTTP client to use for the upload.
+            selector: Optional selection criteria to identify where to upload the data.
+        """
+        if not hasattr(self, "UPLOAD_ENDPOINT"):
+            raise ToolkitNotImplementedError(f"Upload not implemented for {self.kind} storage.")
+
+        config = http_client.config
+        results: list[HTTPMessage] = []
+        for batch in chunker_sequence(data_chunk, self.chunk_size):
+            batch_results = http_client.request_with_retries(
+                message=ItemsRequest(
+                    endpoint_url=config.create_api_url(self.UPLOAD_ENDPOINT),
+                    method="POST",
+                    # The dump method from the PySDK always returns JsonVal, but mypy cannot infer that
+                    items=batch.dump(camel_case=True),  # type: ignore[arg-type]
+                    extra_body_fields=dict(self.UPLOAD_EXTRA_ARGS or {}),
+                    as_id=self.as_id,
+                )
+            )
+            results.extend(batch_results)
+        return results
 
     @abstractmethod
     def data_to_json_chunk(self, data_chunk: T_WritableCogniteResourceList) -> list[dict[str, JsonVal]]:
