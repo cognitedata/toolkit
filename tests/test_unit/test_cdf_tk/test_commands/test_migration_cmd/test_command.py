@@ -146,7 +146,7 @@ class TestMigrationCommand:
         client = ToolkitClient(config)
         command = MigrationCommand(silent=True)
 
-        command.migrate(
+        result = command.migrate(
             selected=MigrationCSVFileSelector(csv_file, resource_type="asset"),
             data=AssetCentricMigrationIOAdapter(client, AssetIO(client), InstanceIO(client)),
             mapper=AssetCentricMapper(client),
@@ -186,3 +186,6 @@ class TestMigrationCommand:
             for asset in assets
         ]
         assert actual_instances == expected_instance
+        actual_results = [result.get_progress(asset.id) for asset in assets]
+        expected_results = [{"download": "success", "convert": "success", "upload": "success"} for _ in assets]
+        assert actual_results == expected_results
