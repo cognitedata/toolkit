@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Generic
+from typing import ClassVar, Generic
 
 from cognite.client.data_classes._base import (
     T_CogniteResourceList,
@@ -48,7 +48,8 @@ class StorageIO(ABC, Generic[T_ID, T_Selector, T_CogniteResourceList, T_Writable
     supported_compressions: frozenset[str]
     supported_read_formats: frozenset[str]
     chunk_size: int
-    UPLOAD_ENDPOINT: str
+    UPLOAD_ENDPOINT: ClassVar[str]
+    UPLOAD_EXTRA_ARGS: ClassVar[Mapping[str, JsonVal] | None] = None
 
     def __init__(self, client: ToolkitClient) -> None:
         self.client = client
@@ -121,6 +122,7 @@ class StorageIO(ABC, Generic[T_ID, T_Selector, T_CogniteResourceList, T_Writable
                 method="POST",
                 # The dump method from the PySDK always returns JsonVal, but mypy cannot infer that
                 items=data_chunk.dump(camel_case=True),  # type: ignore[arg-type]
+                extra_body_fields=dict(self.UPLOAD_EXTRA_ARGS) if self.UPLOAD_EXTRA_ARGS is not None else None,  # type: ignore[arg-type]
                 as_id=self.as_id,
             )
         )
