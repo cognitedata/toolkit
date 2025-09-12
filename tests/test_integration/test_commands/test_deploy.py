@@ -22,6 +22,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     HostedExtractorSourceLoader,
     ResourceLoader,
     ResourceWorker,
+    SearchConfigLoader,
     StreamlitLoader,
     TransformationLoader,
     WorkflowTriggerLoader,
@@ -121,7 +122,7 @@ def get_changed_resources(env_vars: EnvironmentVariables, build_dir: Path) -> di
     client = env_vars.get_client()
     for loader_cls in RESOURCE_LOADER_LIST:
         if loader_cls in {HostedExtractorSourceLoader, HostedExtractorDestinationLoader}:
-            # These two we have no way of knowing if they have changed. So they are always redeployed.
+            # These resources we have no way of knowing if they have changed. So they are always redeployed.
             continue
         loader = loader_cls.create_loader(client, build_dir)
         worker = ResourceWorker(loader, "deploy")
@@ -153,6 +154,8 @@ def get_changed_source_files(
             or loader_cls in {TransformationLoader, FunctionScheduleLoader, WorkflowTriggerLoader}
             # LocationFilterLoader needs to split the file into multiple files, so we cannot compare them
             or loader_cls is LocationFilterLoader
+            # SearchConfigLoader is not supported in pull and post that also will require special handling
+            or loader_cls is SearchConfigLoader
         ):
             continue
         loader = loader_cls.create_loader(env_vars.get_client(), build_dir)
