@@ -1,13 +1,12 @@
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Hashable, Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from typing import Generic, Literal, TypeAlias, TypeVar
+from typing import Generic, Literal, TypeAlias
 
 import requests
 
-from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
+from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal
 
-T_ID = TypeVar("T_ID", bound=Hashable)
 StatusCode: TypeAlias = int
 
 
@@ -189,6 +188,20 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
         return {"items": self.items}
 
     def split(self, status_attempts: int) -> "list[ItemsRequest]":
+        """Splits the request into two smaller requests.
+
+        This is useful for retrying requests that fail due to size limits or timeouts.
+
+        Args:
+            status_attempts: The number of status attempts to set for the new requests. This is used when the
+                request failed with a 5xx status code and we want to track the number of attempts. For 4xx errors,
+                there is at least one item causing the error, so we do not increment the status attempts, but
+                instead essentially do a binary search to find the problematic item(s).
+
+        Returns:
+            A list containing two new ItemsRequest instances, each with half of the original items.
+
+        """
         mid = len(self.items) // 2
         if mid == 0:
             return [self]
@@ -220,30 +233,65 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
         response_body: dict[str, JsonVal] | None = None,
         error_message: str | None = None,
     ) -> Sequence[HTTPMessage]:
+        """Creates response messages based on the HTTP response and the original request.
+
+        Args:
+            response: The HTTP response received from the server.
+            response_body: The parsed JSON body of the response, if available.
+            error_message: An optional error message to use if the response indicates a failure.
+
+        Returns:
+            A sequence of HTTPMessage instances representing the outcome for each item in the request.
+        """
         if self.as_id is None:
             return SimpleBodyRequest.create_responses(response, response_body, error_message)
         request_items_by_id, errors = self._create_items_by_id()
-        responses: list[HTTPMessage] = []
-        responses.extend(errors)
+        responses: list[HTTPMessage] = list(errors)
         error_message = error_message or "Unknown error"
-        if not self._is_items_response(response_body):
-            if 200 <= response.status_code < 300:
-                responses.extend(
-                    [SuccessItem(status_code=response.status_code, id=id_) for id_ in request_items_by_id.keys()]
-                )
-            else:
-                responses.extend(
-                    [
-                        FailedItem(status_code=response.status_code, error=error_message, id=id_)
-                        for id_ in request_items_by_id.keys()
-                    ]
-                )
-            return responses
 
-        # MyPy we check that items is a list in _is_items_response
+        if not self._is_items_response(response_body):
+            return self._handle_non_items_response(responses, response, error_message, request_items_by_id)
+
+        # Process items from response
+        if response_body is not None:
+            self._process_response_items(responses, response, response_body, error_message, request_items_by_id)
+
+        # Handle missing items
+        self._handle_missing_items(responses, response, request_items_by_id)
+
+        return responses
+
+    @staticmethod
+    def _handle_non_items_response(
+        responses: list[HTTPMessage],
+        response: requests.Response,
+        error_message: str,
+        request_items_by_id: dict[T_ID, JsonVal],
+    ) -> list[HTTPMessage]:
+        """Handles responses that do not contain an 'items' field in the body."""
+        if 200 <= response.status_code < 300:
+            responses.extend(
+                SuccessItem(status_code=response.status_code, id=id_) for id_ in request_items_by_id.keys()
+            )
+        else:
+            responses.extend(
+                FailedItem(status_code=response.status_code, error=error_message, id=id_)
+                for id_ in request_items_by_id.keys()
+            )
+        return responses
+
+    def _process_response_items(
+        self,
+        responses: list[HTTPMessage],
+        response: requests.Response,
+        response_body: dict[str, JsonVal],
+        error_message: str,
+        request_items_by_id: dict[T_ID, JsonVal],
+    ) -> None:
+        """Processes each item in the response body and categorizes them based on their status."""
         for response_item in response_body["items"]:  # type: ignore[index, union-attr]
             try:
-                item_id = self.as_id(response_item)
+                item_id = self.as_id(response_item)  # type: ignore[misc]
             except Exception as e:
                 responses.append(
                     UnknownResponseItem(
@@ -259,10 +307,13 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
             else:
                 responses.append(FailedItem(status_code=response.status_code, id=item_id, error=error_message))
 
-        for item_id, request_item in request_items_by_id.items():
+    @staticmethod
+    def _handle_missing_items(
+        responses: list[HTTPMessage], response: requests.Response, request_items_by_id: dict[T_ID, JsonVal]
+    ) -> None:
+        """Handles items that were in the request but not present in the response."""
+        for item_id in request_items_by_id.keys():
             responses.append(MissingItem(status_code=response.status_code, id=item_id))
-
-        return responses
 
     def create_failed_request(self, error_message: str) -> Sequence[HTTPMessage]:
         if self.as_id is None:
