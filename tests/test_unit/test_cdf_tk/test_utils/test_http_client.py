@@ -189,7 +189,7 @@ class TestHTTPClient:
     def test_raise_if_already_retied(self, http_client_one_retry: HTTPClient) -> None:
         http_client = http_client_one_retry
         bad_request = ParamRequest(endpoint_url="https://example.com/api/resource", method="GET", status_attempt=3)
-        with pytest.raises(RuntimeError, match="RequestMessage has already been attempted 3 times."):
+        with pytest.raises(RuntimeError, match=r"RequestMessage has already been attempted 3 times."):
             http_client.request_with_retries(bad_request)
 
     def test_error_text(self, http_client: HTTPClient, rsps: responses.RequestsMock) -> None:
