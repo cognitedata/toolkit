@@ -14,7 +14,7 @@ from cognite.client.data_classes.transformations import OidcCredentials
 from cognite.client.data_classes.transformations.common import TransformationDestination
 from cognite.client.utils._text import to_camel_case
 
-from cognite_toolkit._cdf_tk.loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.utils import safe_read
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml
 
@@ -270,7 +270,7 @@ def expand_parameters(loader_cls: Any, cls: Any, optional: bool = False) -> dict
 
 def generate(target_path: Path) -> None:
     for loader_cls in [
-        loader for loader in ResourceLoader.__subclasses__() if loader.__name__ not in ["ResourceContainerLoader"]
+        loader for loader in ResourceCRUD.__subclasses__() if loader.__name__ not in ["ResourceContainerLoader"]
     ]:
         write_cls = loader_cls.resource_write_cls  # type: ignore
 
@@ -297,7 +297,7 @@ def generate(target_path: Path) -> None:
 def validate(target_path: Path) -> None:
     total_warnings = 0
     for loader_cls in [
-        loader for loader in ResourceLoader.__subclasses__() if loader.__name__ not in ["ResourceContainerLoader"]
+        loader for loader in ResourceCRUD.__subclasses__() if loader.__name__ not in ["ResourceContainerLoader"]
     ]:
         folder = target_path / loader_cls.folder_name
         file_name = folder / Path(f"reference.{loader_cls.kind}.yaml")

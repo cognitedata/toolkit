@@ -6,7 +6,7 @@ import yaml
 from cognite.client.data_classes import TimeSeries
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet
-from cognite_toolkit._cdf_tk.loaders import ContainerLoader, SpaceLoader, TimeSeriesLoader, ViewLoader
+from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, SpaceCRUD, TimeSeriesCRUD, ViewCRUD
 from cognite_toolkit._cdf_tk.tk_warnings import (
     CaseTypoWarning,
     DataSetMissingWarning,
@@ -24,7 +24,7 @@ def test_validate_raw() -> None:
     raw_file = LOAD_DATA / "timeseries" / "wrong_case.yaml"
 
     warnings = validate_resource_yaml(
-        yaml.safe_load(raw_file.read_text()), TimeSeriesLoader.get_write_cls_parameter_spec(), raw_file
+        yaml.safe_load(raw_file.read_text()), TimeSeriesCRUD.get_write_cls_parameter_spec(), raw_file
     )
 
     assert len(warnings) == 2
@@ -39,7 +39,7 @@ def test_validate_raw() -> None:
 def test_validate_raw_nested() -> None:
     raw_file = LOAD_DATA / "datamodels" / "snake_cased_view_property.yaml"
     warnings = validate_resource_yaml(
-        yaml.safe_load(raw_file.read_text()), ViewLoader.get_write_cls_parameter_spec(), raw_file
+        yaml.safe_load(raw_file.read_text()), ViewCRUD.get_write_cls_parameter_spec(), raw_file
     )
 
     assert len(warnings) == 1
@@ -67,14 +67,14 @@ def test_validate_data_set_is_set():
 def validate_yaml_config_test_cases() -> Iterable:
     content = """space: my_space
 """
-    yield pytest.param(content, SpaceLoader.get_write_cls_parameter_spec(), [], id="Valid space")
+    yield pytest.param(content, SpaceCRUD.get_write_cls_parameter_spec(), [], id="Valid space")
 
     content = """space: my_space
 nme: My space
 """
     yield pytest.param(
         content,
-        SpaceLoader.get_write_cls_parameter_spec(),
+        SpaceCRUD.get_write_cls_parameter_spec(),
         [
             UnusedParameterWarning(
                 DUMMY_FILE,
@@ -98,7 +98,7 @@ properties:
       type: float64"""
     yield pytest.param(
         content,
-        ContainerLoader.get_write_cls_parameter_spec(),
+        ContainerCRUD.get_write_cls_parameter_spec(),
         [
             MissingRequiredParameterWarning(DUMMY_FILE, None, ("space",), "space"),
             CaseTypoWarning(
@@ -116,7 +116,7 @@ properties:
   nme: Third space"""
     yield pytest.param(
         content,
-        SpaceLoader.get_write_cls_parameter_spec(),
+        SpaceCRUD.get_write_cls_parameter_spec(),
         [
             UnusedParameterWarning(DUMMY_FILE, 2, ("nme",), "nme"),
             UnusedParameterWarning(DUMMY_FILE, 3, ("nme",), "nme"),

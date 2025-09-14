@@ -6,7 +6,7 @@ from cognite.client.data_classes.raw import RowWrite
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import UploadCommand
-from cognite_toolkit._cdf_tk.loaders import RawTableLoader
+from cognite_toolkit._cdf_tk.cruds import RawTableCRUD
 from cognite_toolkit._cdf_tk.storageio import RawIO
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
 
@@ -16,7 +16,7 @@ def raw_directory(tmp_path: Path) -> Path:
     """Fixture to create a temporary folder with a sample NDJSON file."""
     folder = tmp_path / RawIO.folder_name
     folder.mkdir(parents=True, exist_ok=True)
-    configfile = folder / f"test_table.{RawTableLoader.kind}.yaml"
+    configfile = folder / f"test_table.{RawTableCRUD.kind}.yaml"
     table = RawTable(db_name="test_db", table_name="test_table")
     configfile.write_text(table.dump_yaml())
     with NDJsonWriter(folder, RawIO.kind, Uncompressed) as writer:
