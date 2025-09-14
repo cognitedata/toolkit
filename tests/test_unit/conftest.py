@@ -147,6 +147,14 @@ def disable_gzip():
 
 
 @pytest.fixture
+def disable_pypi_check():
+    old = global_config.disable_pypi_version_check
+    global_config.disable_pypi_version_check = True
+    yield
+    global_config.disable_pypi_version_check = old
+
+
+@pytest.fixture
 def toolkit_config():
     return ToolkitClientConfig(
         client_name="test-client",
