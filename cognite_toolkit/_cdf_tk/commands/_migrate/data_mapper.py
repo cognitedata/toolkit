@@ -79,16 +79,18 @@ class AssetCentricMapper(DataMapper[MigrationSelector, AssetCentricMappingList, 
             ingestion_view = mapping.get_ingestion_view()
             try:
                 view_source = self._view_mapping_by_id[ingestion_view]
-                instance, conversion_issue = asset_centric_to_dm(
-                    item.resource,
-                    instance_id=mapping.instance_id,
-                    view_source=view_source,
-                    view_properties=self._ingestion_view_by_id[view_source.view_id].properties,
-                )
+                view_properties = self._ingestion_view_by_id[view_source.view_id].properties
             except KeyError as e:
                 raise RuntimeError(
                     f"Failed to lookup mapping or view for ingestion view '{ingestion_view}'. Did you forget to call .prepare()?"
                 ) from e
+            instance, conversion_issue = asset_centric_to_dm(
+                item.resource,
+                instance_id=mapping.instance_id,
+                view_source=view_source,
+                view_properties=view_properties,
+            )
+
             instances.append(instance)
             if conversion_issue.has_issues:
                 issues.append(conversion_issue)
