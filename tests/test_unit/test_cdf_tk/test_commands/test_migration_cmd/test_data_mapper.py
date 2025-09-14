@@ -95,6 +95,7 @@ class TestAssetCentricMapper:
             mapped, issues = mapper.map_chunk(source)
 
             # We do not assert the exact content of mapped, as that is tested in the
+            # tests for the asset_centric_to_dm function.
             assert len(mapped) == asset_count
             assert len(issues) == asset_count // 2
             # All issues are the same.

@@ -125,7 +125,7 @@ class StorageIO(ABC, Generic[T_ID, T_Selector, T_CogniteResourceList, T_Writable
                     method="POST",
                     # The dump method from the PySDK always returns JsonVal, but mypy cannot infer that
                     items=batch.dump(camel_case=True),  # type: ignore[arg-type]
-                    extra_body_fields=dict(self.UPLOAD_EXTRA_ARGS) if self.UPLOAD_EXTRA_ARGS is not None else None,  # type: ignore[arg-type]
+                    extra_body_fields=dict(self.UPLOAD_EXTRA_ARGS or {}),
                     as_id=self.as_id,
                 )
             )
