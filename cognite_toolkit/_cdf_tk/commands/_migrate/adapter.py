@@ -27,6 +27,7 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList
+from cognite_toolkit._cdf_tk.client.data_classes.pending_instances_ids import PendingInstanceId
 from cognite_toolkit._cdf_tk.cruds._base_cruds import T_ID
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.storageio import (
@@ -36,13 +37,11 @@ from cognite_toolkit._cdf_tk.storageio import (
     InstanceSelector,
     TableStorageIO,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.pending_instances_ids import PendingInstanceId
 from cognite_toolkit._cdf_tk.storageio._base import StorageIOConfig, T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest, SuccessItem
-from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal, T_Selector
-from cognite_toolkit._cdf_tk.commands._migrate.data_model import INSTANCE_SOURCE_VIEW_ID
+from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from .data_classes import MigrationMapping, MigrationMappingList
 
@@ -216,7 +215,7 @@ class FileMetaAdapter(
         raise NotImplementedError()
 
     def upload_items_force(
-        self, data_chunk: InstanceApplyList, http_client: HTTPClient, selector: T_Selector | None = None
+        self, data_chunk: InstanceApplyList, http_client: HTTPClient, selector: MigrationSelector | None = None
     ) -> Sequence[HTTPMessage]:
         config = http_client.config
         results: list[HTTPMessage] = []
@@ -227,7 +226,7 @@ class FileMetaAdapter(
                     endpoint_url=config.create_api_url("files/set-pending-instance-ids"),
                     method="POST",
                     api_version="alpha",
-                    items=[self.as_pending_instance_id(item) for item in batch],  # type: ignore[arg-type]
+                    items=[self.as_pending_instance_id(item).dump() for item in batch],
                     as_id=self.as_id,
                 )
             )
@@ -237,5 +236,5 @@ class FileMetaAdapter(
             results.extend(batch_results)
         to_upload = [item for item in data_chunk if self.as_id(item) in successful_linked]
         if to_upload:
-            results.extend(self.instance.upload_items_force(InstanceApplyList(to_upload), http_client, selector))
+            results.extend(list(self.instance.upload_items_force(InstanceApplyList(to_upload), http_client, selector)))
         return results
