@@ -1,8 +1,9 @@
+import sys
 from abc import ABC
 from types import MappingProxyType
-from typing import ClassVar, Literal
+from typing import Any, ClassVar, Literal, cast
 
-from pydantic import Field, JsonValue, field_validator, model_serializer
+from pydantic import Field, JsonValue, ModelWrapValidatorHandler, field_validator, model_serializer, model_validator
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -10,8 +11,85 @@ from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
 from .base import BaseModelResource, ToolkitResource
 
+if sys.version_info < (3, 11):
+    from typing_extensions import Self
+else:
+    from typing import Self
 
-class JobFormat(BaseModelResource, ABC): ...
+
+class JobFormat(BaseModelResource, ABC):
+    type: ClassVar[str]
+    encoding: Literal["utf8", "utf16", "utf16le", "latin1"] = Field(
+        "utf8", description="The type of encoding to convert from."
+    )
+    compression: Literal["gzip"] = Field(
+        "gzip",
+        description="The compression applied to incoming messages. The messages are decompressed before being passed to transformations. This is usually not relevant for REST, where this is handled automatically, but MQTT, Kafka, and EventHub have no such mechanisms.",
+    )
+
+    @model_validator(mode="wrap")
+    @classmethod
+    def find_format(cls, data: "dict[str, Any] | JobFormat", handler: ModelWrapValidatorHandler[Self]) -> Self:
+        if isinstance(data, JobFormat):
+            return cast(Self, data)
+        if not isinstance(data, dict):
+            raise ValueError(f"Invalid input for format '{type(data)}' expected dict")
+
+        if cls is not JobFormat:
+            # We are already in a subclass, so just validate as usual
+            return handler(data)
+        # If not we need to find the right subclass based on the type field.
+        if "type" not in data:
+            raise ValueError("Invalid input format missing 'type' key")
+        type_ = data["type"]
+        if type_ not in _JOB_FORMAT_CLS_BY_TYPE:
+            raise ValueError(
+                f"invalid type '{type_}'. Expected one of {humanize_collection(_JOB_FORMAT_CLS_BY_TYPE.keys(), bind_word='or')}"
+            )
+        cls_ = _JOB_FORMAT_CLS_BY_TYPE[type_]
+        return cast(Self, cls_.model_validate({k: v for k, v in data.items() if k != "type"}))
+
+
+class CustomFormat(JobFormat):
+    type: ClassVar[str] = "custom"
+    mapping_id: str = Field(description="ID of the mapping this format should be tied to.", max_length=255)
+
+
+class PrefixConfig(BaseModelResource):
+    from_topic: bool | None = Field(None, description="Generate the prefix based on the topic of the received message.")
+    prefix: str | None = Field(
+        None,
+        description="A fixed prefix to the generated IDs.",
+        max_length=255,
+    )
+
+
+class SpaceRef(BaseModelResource):
+    space: str = Field(description="The data models space where time series will be created.")
+
+
+class DataModelFormat(JobFormat, ABC):
+    prefix: PrefixConfig | None = Field(
+        None,
+        description="Generate a prefix for resources created using this format. If both prefix and fromTopic are set, the generated ID will be on the form [prefix][topic][id].",
+    )
+    data_models: list[SpaceRef] | None = Field(
+        None,
+        description="Data models configuration to specify the space for all instances.",
+        max_length=10,
+    )
+
+
+class CogniteFormat(DataModelFormat):
+    type: ClassVar[str] = "cognite"
+
+
+class RockwellFormat(DataModelFormat):
+    type: ClassVar[str] = "rockwell"
+
+
+class ValueFormat(DataModelFormat):
+    type: ClassVar[str] = "value"
 
 
 class MQTTConfig(BaseModelResource):
@@ -25,6 +103,28 @@ class KafkaConfig(BaseModelResource):
 
 class IncrementalLoad(BaseModelResource, ABC):
     type: ClassVar[str]
+
+    @model_validator(mode="wrap")
+    @classmethod
+    def find_format(cls, data: "dict[str, Any] | IncrementalLoad", handler: ModelWrapValidatorHandler[Self]) -> Self:
+        if isinstance(data, IncrementalLoad):
+            return cast(Self, data)
+        if not isinstance(data, dict):
+            raise ValueError(f"Invalid input '{type(data)}'. Expected dict")
+
+        if cls is not IncrementalLoad:
+            # We are already in a subclass, so just validate as usual
+            return handler(data)
+        # If not we need to find the right subclass based on the type field.
+        if "type" not in data:
+            raise ValueError("Invalid input format missing 'type' key")
+        type_ = data["type"]
+        if type_ not in _INCREMENTAL_LOAD_CLS_BY_TYPE:
+            raise ValueError(
+                f"invalid type '{type_}'. Expected one of {humanize_collection(_INCREMENTAL_LOAD_CLS_BY_TYPE.keys(), bind_word='or')}"
+            )
+        cls_ = _INCREMENTAL_LOAD_CLS_BY_TYPE[type_]
+        return cast(Self, cls_.model_validate({k: v for k, v in data.items() if k != "type"}))
 
 
 class BodyIncrementalLoad(IncrementalLoad):
@@ -136,4 +236,7 @@ class HostedExtractorJobYAML(ToolkitResource):
 
 _INCREMENTAL_LOAD_CLS_BY_TYPE: MappingProxyType[str, type[IncrementalLoad]] = MappingProxyType(
     {load.type: load for load in get_concrete_subclasses(IncrementalLoad)}
+)
+_JOB_FORMAT_CLS_BY_TYPE: MappingProxyType[str, type[JobFormat]] = MappingProxyType(
+    {fmt.type: fmt for fmt in get_concrete_subclasses(JobFormat)}
 )
