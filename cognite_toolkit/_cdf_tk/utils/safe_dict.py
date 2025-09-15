@@ -73,6 +73,8 @@ class ThreadSafeDict(UserDict, Generic[T_ID, T_Value]):
         with self._lock:
             super().update(*args, **kwargs)  # type: ignore[misc]
 
+    # For these we override to get a thread-safe operation.
+    # keys, values, items in the super class returns views which are not thread-safe
     def keys(self) -> list[T_ID]:  # type: ignore[override]
         with self._lock:
             return list(self.data.keys())
