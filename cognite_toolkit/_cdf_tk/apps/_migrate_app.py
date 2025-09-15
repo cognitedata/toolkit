@@ -225,7 +225,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
             ),
-        ] = Path(f"{TODAY!s}_migration_logs"),
+        ] = Path(f"migration_logs_{TODAY!s}"),
         dry_run: Annotated[
             bool,
             typer.Option(
