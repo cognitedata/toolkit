@@ -34,6 +34,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.storageio import (
     AssetCentricSelector,
     BaseAssetCentricIO,
+    FileMetadataIO,
     InstanceIO,
     InstanceSelector,
     TableStorageIO,
@@ -210,6 +211,9 @@ class FileMetaAdapter(
         FileMetadataList,
     ]
 ):
+    def __init__(self, client: ToolkitClient, instance: InstanceIO) -> None:
+        super().__init__(client, FileMetadataIO(client), instance)
+
     @staticmethod
     def as_pending_instance_id(item: InstanceApply) -> PendingInstanceId:
         source = next((source for source in item.sources if source.source == INSTANCE_SOURCE_VIEW_ID), None)

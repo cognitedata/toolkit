@@ -11,11 +11,14 @@ from cognite.client.exceptions import CogniteAPIError
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.extended_timeseries import ExtendedTimeSeriesList
 from cognite_toolkit._cdf_tk.commands import MigrateFilesCommand
-from cognite_toolkit._cdf_tk.commands._migrate.adapter import AssetCentricMigrationIOAdapter, MigrationCSVFileSelector
+from cognite_toolkit._cdf_tk.commands._migrate.adapter import (
+    FileMetaAdapter,
+    MigrationCSVFileSelector,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import _FILE_METADATA_ID
-from cognite_toolkit._cdf_tk.storageio import FileMetadataIO, InstanceIO
+from cognite_toolkit._cdf_tk.storageio import InstanceIO
 
 
 @pytest.fixture()
@@ -101,7 +104,6 @@ class TestMigrateFilesCommand:
             content = client.files.download_bytes(instance_id=node_id)
             assert content == b"test content", f"Content of file {node_id} does not match expected content."
 
-    @pytest.mark.skip("In development.")
     def test_migrate_files_v2(
         self,
         toolkit_client_with_pending_ids: ToolkitClient,
@@ -123,7 +125,7 @@ class TestMigrateFilesCommand:
         cmd = MigrationCommand(skip_tracking=True, silent=True)
         results = cmd.migrate(
             selected=MigrationCSVFileSelector(input_file, resource_type="file"),
-            data=AssetCentricMigrationIOAdapter(client, FileMetadataIO(client), InstanceIO(client)),
+            data=FileMetaAdapter(client, InstanceIO(client)),
             mapper=AssetCentricMapper(client),
             log_dir=tmp_path / "logs",
             dry_run=False,
