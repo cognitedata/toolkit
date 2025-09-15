@@ -1,6 +1,6 @@
 import threading
 from collections import UserDict
-from collections.abc import ItemsView, Iterator, KeysView, ValuesView
+from collections.abc import Iterator
 from typing import Any, Generic
 
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, T_Value
