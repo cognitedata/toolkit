@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 
 
 @dataclass
-class RequestTracker:
+class ItemsRequestTracker:
     """Tracks the state of requests split from an original request."""
 
     max_failures_before_abort: int = 0  # 0 means no early abort

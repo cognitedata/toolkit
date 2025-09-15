@@ -5,6 +5,7 @@ from typing import Generic, Literal, TypeAlias
 
 import requests
 
+from cognite_toolkit._cdf_tk.utils.http_client._tracker import ItemsRequestTracker
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal
 
 StatusCode: TypeAlias = int
@@ -193,6 +194,7 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
     extra_body_fields: dict[str, JsonVal] = field(default_factory=dict)
     as_id: Callable[[JsonVal], T_ID] | None = None
     max_failures_before_abort: int = 10
+    tracker: ItemsRequestTracker | None = field(default=None, init=False)
 
     def dump(self) -> dict[str, JsonVal]:
         """Dumps the message to a JSON serializable dictionary.
@@ -206,6 +208,9 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
         if self.as_id is not None:
             # We cannot serialize functions
             del output["as_id"]
+        if self.tracker is not None:
+            # We cannot serialize the tracker
+            del output["tracker"]
         return output
 
     def body(self) -> dict[str, JsonVal]:
@@ -231,6 +236,7 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
         mid = len(self.items) // 2
         if mid == 0:
             return [self]
+        tracker = self.tracker or ItemsRequestTracker(self.max_failures_before_abort)
         first_half = ItemsRequest[T_ID](
             endpoint_url=self.endpoint_url,
             method=self.method,
@@ -241,6 +247,7 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
             read_attempt=self.read_attempt,
             status_attempt=status_attempts,
         )
+        first_half.tracker = tracker
         second_half = ItemsRequest[T_ID](
             endpoint_url=self.endpoint_url,
             method=self.method,
@@ -251,6 +258,7 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
             read_attempt=self.read_attempt,
             status_attempt=status_attempts,
         )
+        second_half.tracker = tracker
         return [first_half, second_half]
 
     def create_responses(
