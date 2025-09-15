@@ -432,6 +432,41 @@ class TestHTTPClientItemRequests:
             FailedRequestItem: 750,  # 750 items get the early abort message.
         }
 
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_failing_3_items(self, http_client_one_retry: HTTPClient, rsps: responses.RequestsMock) -> None:
+        client = http_client_one_retry
+
+        def dislike_942_112_and_547(request: requests.PreparedRequest) -> tuple[int, dict[str, str], str]:
+            # status, headers, body
+            for no in ["942", "112", "547"]:
+                if no in request.body:
+                    return 400, {}, json.dumps({"error": f"Item {no} is not allowed"})
+            return (
+                200,
+                {},
+                json.dumps(
+                    {
+                        "items": [
+                            {"id": item["id"], "status": "ok"} for item in json.loads(request.body).get("items", [])
+                        ]
+                    }
+                ),
+            )
+
+        rsps.add_callback(responses.POST, "https://example.com/api/resource", callback=dislike_942_112_and_547)
+        with patch("time.sleep"):
+            results = client.request_with_retries(
+                ItemsRequest[int](
+                    endpoint_url="https://example.com/api/resource",
+                    method="POST",
+                    items=[{"id": i} for i in range(1000)],
+                    as_id=lambda item: item["id"],
+                    max_failures_before_abort=30,
+                )
+            )
+        failures = Counter([type(results) for results in results])
+        assert failures == {FailedItem: 3, SuccessItem: 997}
+
 
 class TestHTTPMessage:
     @pytest.mark.parametrize("message_cls", get_concrete_subclasses(HTTPMessage))
