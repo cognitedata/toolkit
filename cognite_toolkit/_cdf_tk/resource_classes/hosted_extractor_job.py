@@ -112,7 +112,9 @@ class IncrementalLoad(BaseModelResource, ABC):
 
     @model_validator(mode="wrap")
     @classmethod
-    def find_format(cls, data: "dict[str, Any] | IncrementalLoad", handler: ModelWrapValidatorHandler[Self]) -> Self:
+    def find_incremental_load(
+        cls, data: "dict[str, Any] | IncrementalLoad", handler: ModelWrapValidatorHandler[Self]
+    ) -> Self:
         if isinstance(data, IncrementalLoad):
             return cast(Self, data)
         if not isinstance(data, dict):
