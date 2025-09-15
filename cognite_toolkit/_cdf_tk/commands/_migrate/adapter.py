@@ -21,7 +21,7 @@ from cognite.client.data_classes._base import (
     WriteableCogniteResource,
     WriteableCogniteResourceList,
 )
-from cognite.client.data_classes.data_modeling import EdgeId, InstanceApply, NodeId
+from cognite.client.data_classes.data_modeling import EdgeId, InstanceApply, NodeApply, NodeId
 from cognite.client.utils._identifier import InstanceId
 from rich.console import Console
 
@@ -141,11 +141,11 @@ class AssetCentricMigrationIOAdapter(
             if item.id is None:
                 raise TypeError(f"Resource of type {type(item).__name__!r} is missing an 'id'.")
             return item.id
-        elif isinstance(item, InstanceApply):
-            instance_id_ = InstanceId(item.space, item.external_id)
-            if instance_id_ not in self._id_by_instance_id:
-                raise ValueError(f"Missing mapping for instance {instance_id_!r}")
-            return self._id_by_instance_id[instance_id_]
+        elif isinstance(item, NodeApply):
+            node_id = item.as_id()
+            if node_id not in self._id_by_instance_id:
+                raise ValueError(f"Missing mapping for instance {node_id!r}")
+            return self._id_by_instance_id[node_id]
         elif isinstance(item, dict) and isinstance(item.get("id"), int):
             # MyPy checked above.
             return item["id"]  # type: ignore[arg-type, return-value]
@@ -254,5 +254,5 @@ class FileMetaAdapter(
             results.extend(batch_results)
         to_upload = [item for item in data_chunk if self.as_id(item) in successful_linked]
         if to_upload:
-            results.extend(list(self.instance.upload_items_force(InstanceApplyList(to_upload), http_client, selector)))
+            results.extend(list(super().upload_items_force(InstanceApplyList(to_upload), http_client, selector)))
         return results
