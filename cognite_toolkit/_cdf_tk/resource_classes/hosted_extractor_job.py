@@ -209,7 +209,7 @@ class RestConfig(BaseModelResource):
         return v
 
     @model_serializer(mode="wrap")
-    def serialize_input(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> dict:
+    def serialize_incremental_load(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> dict:
         # IncrementalLoad and pagination are serialized as empty dict
         # This issue arises because Pydantic's serialization mechanism doesn't automatically
         # handle polymorphic serialization for subclasses of IncrementalLoad.
