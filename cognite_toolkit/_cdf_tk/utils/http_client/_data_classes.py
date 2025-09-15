@@ -237,6 +237,7 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
         if mid == 0:
             return [self]
         tracker = self.tracker or ItemsRequestTracker(self.max_failures_before_abort)
+        tracker.register_failure()
         first_half = ItemsRequest[T_ID](
             endpoint_url=self.endpoint_url,
             method=self.method,
