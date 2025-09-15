@@ -7,12 +7,14 @@ import requests
 import responses
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.http_client import (
     FailedItem,
     FailedRequestItem,
     FailedRequestMessage,
     FailedResponse,
     HTTPClient,
+    HTTPMessage,
     ItemsRequest,
     MissingItem,
     ParamRequest,
@@ -24,6 +26,7 @@ from cognite_toolkit._cdf_tk.utils.http_client import (
     UnknownResponseItem,
 )
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
+from tests.test_unit.utils import FakeCogniteResourceGenerator
 
 
 @pytest.fixture
@@ -189,7 +192,7 @@ class TestHTTPClient:
     def test_raise_if_already_retied(self, http_client_one_retry: HTTPClient) -> None:
         http_client = http_client_one_retry
         bad_request = ParamRequest(endpoint_url="https://example.com/api/resource", method="GET", status_attempt=3)
-        with pytest.raises(RuntimeError, match="RequestMessage has already been attempted 3 times."):
+        with pytest.raises(RuntimeError, match=r"RequestMessage has already been attempted 3 times."):
             http_client.request_with_retries(bad_request)
 
     def test_error_text(self, http_client: HTTPClient, rsps: responses.RequestsMock) -> None:
@@ -399,3 +402,17 @@ class TestHTTPClientItemRequests:
         assert results == [
             FailedRequestItem(id=1, error="RequestException after 1 attempts (read error): Simulated timeout error")
         ]
+
+
+class TestHTTPMessage:
+    @pytest.mark.parametrize("message_cls", get_concrete_subclasses(HTTPMessage))
+    def test_dump_http_message(self, message_cls: type[HTTPMessage]) -> None:
+        message = FakeCogniteResourceGenerator(seed=42).create_instance(message_cls)
+
+        dumped = message.dump()
+        assert isinstance(dumped, dict)
+        assert dumped["type"] == message_cls.__name__
+        try:
+            json.dumps(dumped)
+        except (TypeError, ValueError) as e:
+            pytest.fail(f"Dumped data is not valid JSON: {e}")
