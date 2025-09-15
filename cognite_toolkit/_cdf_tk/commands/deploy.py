@@ -17,6 +17,16 @@ from cognite_toolkit._cdf_tk.constants import (
     BUILD_ENVIRONMENT_FILE,
     HINT_LEAD_TEXT,
 )
+from cognite_toolkit._cdf_tk.cruds import (
+    DataCRUD,
+    Loader,
+    RawDatabaseCRUD,
+    ResourceContainerCRUD,
+    ResourceCRUD,
+    ResourceWorker,
+)
+from cognite_toolkit._cdf_tk.cruds._base_cruds import T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.cruds._worker import CategorizedResources
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
     DatapointDeployResult,
@@ -34,16 +44,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
     ToolkitNotADirectoryError,
 )
-from cognite_toolkit._cdf_tk.loaders import (
-    DataLoader,
-    Loader,
-    RawDatabaseLoader,
-    ResourceContainerLoader,
-    ResourceLoader,
-    ResourceWorker,
-)
-from cognite_toolkit._cdf_tk.loaders._base_loaders import T_WritableCogniteResourceList
-from cognite_toolkit._cdf_tk.loaders._worker import CategorizedResources
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning
 from cognite_toolkit._cdf_tk.tk_warnings.base import WarningList, catch_warnings
 from cognite_toolkit._cdf_tk.tk_warnings.other import (
@@ -182,9 +182,9 @@ class DeployCommand(ToolkitCommand):
             return None
 
         for loader_cls in reversed(ordered_loaders):
-            if not issubclass(loader_cls, ResourceLoader):
+            if not issubclass(loader_cls, ResourceCRUD):
                 continue
-            loader: ResourceLoader = loader_cls.create_loader(client, build_dir)
+            loader: ResourceCRUD = loader_cls.create_loader(client, build_dir)
             result = self._clean_command.clean_resources(
                 loader,
                 env_vars=env_vars,
@@ -219,7 +219,7 @@ class DeployCommand(ToolkitCommand):
         for loader_cls in ordered_loaders:
             loader = loader_cls.create_loader(client, build_dir)
             resource_result: DeployResult | None
-            if isinstance(loader, ResourceLoader):
+            if isinstance(loader, ResourceCRUD):
                 resource_result = self.deploy_resource_type(
                     loader,
                     env_vars,
@@ -230,7 +230,7 @@ class DeployCommand(ToolkitCommand):
                     force_update,
                     verbose,
                 )
-            elif isinstance(loader, DataLoader):
+            elif isinstance(loader, DataCRUD):
                 resource_result = self.upload_data(loader, build, dry_run, verbose)
             else:
                 raise ValueError(f"Unsupported loader type {type(loader)}.")
@@ -243,7 +243,7 @@ class DeployCommand(ToolkitCommand):
 
     def deploy_resource_type(
         self,
-        loader: ResourceLoader[
+        loader: ResourceCRUD[
             T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
         ],
         env_vars: EnvironmentVariables,
@@ -281,7 +281,7 @@ class DeployCommand(ToolkitCommand):
         print(f"[bold]{prefix} {nr_of_items} {loader.display_name} to CDF...[/]")
 
         # Moved here to avoid printing before the above message.
-        if not isinstance(loader, RawDatabaseLoader):
+        if not isinstance(loader, RawDatabaseCRUD):
             for duplicate in worker.duplicates:
                 self.warn(LowSeverityWarning(f"Skipping duplicate {loader.display_name} {duplicate}."))
 
@@ -298,7 +298,7 @@ class DeployCommand(ToolkitCommand):
         if verbose:
             self._verbose_print(resources, loader, dry_run)
 
-        if isinstance(loader, ResourceContainerLoader):
+        if isinstance(loader, ResourceContainerCRUD):
             return ResourceContainerDeployResult.from_resource_deploy_result(
                 result,
                 item_name=loader.item_name,
@@ -308,7 +308,7 @@ class DeployCommand(ToolkitCommand):
     def actual_deploy(
         self,
         resources: CategorizedResources[T_ID, T_CogniteResourceList],
-        loader: ResourceLoader[
+        loader: ResourceCRUD[
             T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
         ],
         env_var_warnings: WarningList | None = None,
@@ -342,7 +342,7 @@ class DeployCommand(ToolkitCommand):
     @staticmethod
     def dry_run_deploy(
         resources: CategorizedResources[T_ID, T_CogniteResourceList],
-        loader: ResourceLoader[
+        loader: ResourceCRUD[
             T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
         ],
         has_done_drop: bool,
@@ -351,7 +351,7 @@ class DeployCommand(ToolkitCommand):
         if (
             loader.support_drop
             and has_done_drop
-            and (not isinstance(loader, ResourceContainerLoader) or has_dropped_data)
+            and (not isinstance(loader, ResourceContainerCRUD) or has_dropped_data)
         ):
             # Means the resources will be deleted and not left unchanged or changed
             for item in resources.unchanged:
@@ -376,7 +376,7 @@ class DeployCommand(ToolkitCommand):
     @staticmethod
     def _verbose_print(
         resources: CategorizedResources[T_ID, T_CogniteResourceList],
-        loader: ResourceLoader,
+        loader: ResourceCRUD,
         dry_run: bool,
     ) -> None:
         print_outs = []
@@ -400,7 +400,7 @@ class DeployCommand(ToolkitCommand):
     def _create_resources(
         self,
         resources: T_CogniteResourceList,
-        loader: ResourceLoader,
+        loader: ResourceCRUD,
         environment_variable_warning_by_id: dict[Hashable, EnvironmentVariableMissingWarning],
     ) -> int:
         try:
@@ -423,7 +423,7 @@ class DeployCommand(ToolkitCommand):
     def _update_resources(
         self,
         resources: T_CogniteResourceList,
-        loader: ResourceLoader,
+        loader: ResourceCRUD,
         environment_variable_warning_by_id: dict[Hashable, EnvironmentVariableMissingWarning],
     ) -> int:
         try:
@@ -455,7 +455,7 @@ class DeployCommand(ToolkitCommand):
 
     @staticmethod
     def upload_data(
-        loader: DataLoader,
+        loader: DataCRUD,
         state: BuildEnvironment,
         dry_run: bool = False,
         verbose: bool = False,

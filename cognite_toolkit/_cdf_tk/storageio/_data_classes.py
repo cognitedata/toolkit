@@ -3,6 +3,10 @@ from abc import ABC, abstractmethod
 from collections import UserList
 from collections.abc import Collection
 from pathlib import Path
+from typing import Literal, TypeVar
+
+from cognite.client.utils._text import to_camel_case
+from pydantic import BaseModel
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
@@ -60,3 +64,18 @@ class ModelList(UserList[T_BaseModel], ABC):
         actual = {col.name for col in schema}
         if missing_columns := cls._required_header_names() - actual:
             raise ToolkitValueError(f"Missing required columns: {humanize_collection(missing_columns)}")
+
+
+T_ModelList = TypeVar("T_ModelList", bound=ModelList)
+
+
+class InstanceIdRow(BaseModel, alias_generator=to_camel_case):
+    space: str
+    external_id: str
+    instance_type: Literal["node", "edge"] = "node"
+
+
+class InstanceIdCSVList(ModelList[InstanceIdRow]):
+    @classmethod
+    def _get_base_model_cls(cls) -> type[InstanceIdRow]:
+        return InstanceIdRow

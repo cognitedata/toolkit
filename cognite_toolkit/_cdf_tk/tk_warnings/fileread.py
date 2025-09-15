@@ -215,9 +215,9 @@ class DataSetMissingWarning(IdentifiedResourceFileReadWarning):
 
     def get_message(self) -> str:
         # Avoid circular import
-        from cognite_toolkit._cdf_tk.loaders import TransformationLoader
+        from cognite_toolkit._cdf_tk.cruds import TransformationCRUD
 
-        if self.filepath.parent.name == TransformationLoader.folder_name:
+        if self.filepath.parent.name == TransformationCRUD.folder_name:
             return f"{type(self).__name__}: It is recommended to use a data set if source or destination can be scoped with a data set. If not, ignore this warning."
         else:
             return f"{type(self).__name__}: It is recommended that you set dataSetExternalId for {self.resource_name}. This is missing in {self.filepath.name}. Did you forget to add it?"
