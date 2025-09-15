@@ -98,7 +98,7 @@ for _loader in itertools.chain(
     if _loader.folder_name not in CRUDS_BY_FOLDER_NAME:  # type: ignore[attr-defined]
         CRUDS_BY_FOLDER_NAME[_loader.folder_name] = []  # type: ignore[attr-defined]
     # MyPy bug: https://github.com/python/mypy/issues/4717
-    CRUDS_BY_FOLDER_NAME[_loader.folder_name].append(_loader)  # type: ignore[type-abstract, attr-defined, arg-type]
+    CRUDS_BY_FOLDER_NAME[_loader.folder_name].append(_loader)  # type: ignore[arg-type, attr-defined]
 del _loader  # cleanup module namespace
 
 CRUD_LIST = list(itertools.chain.from_iterable(CRUDS_BY_FOLDER_NAME.values()))
@@ -112,7 +112,7 @@ for crud in CRUD_LIST:
     KINDS_BY_FOLDER_NAME[crud.folder_name].add(crud.kind)
 del crud  # cleanup module namespace
 
-ResourceTypes: TypeAlias = Literal[  # type: ignore[no-redef, misc]
+ResourceTypes: TypeAlias = Literal[
     "3dmodels",
     "agents",
     "auth",

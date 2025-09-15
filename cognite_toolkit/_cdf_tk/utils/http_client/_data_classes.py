@@ -301,7 +301,7 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
         request_items_by_id: dict[T_ID, JsonVal],
     ) -> None:
         """Processes each item in the response body and categorizes them based on their status."""
-        for response_item in response_body["items"]:  # type: ignore[index, union-attr]
+        for response_item in response_body["items"]:  # type: ignore[union-attr]
             try:
                 item_id = self.as_id(response_item)  # type: ignore[misc]
             except Exception as e:

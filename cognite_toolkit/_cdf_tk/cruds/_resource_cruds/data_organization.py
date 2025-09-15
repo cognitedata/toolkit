@@ -222,10 +222,7 @@ class LabelCRUD(
             else [capabilities.LabelsAcl.Action.Read, capabilities.LabelsAcl.Action.Write]
         )
 
-        return capabilities.LabelsAcl(
-            actions,
-            scope,  # type: ignore[arg-type]
-        )
+        return capabilities.LabelsAcl(actions, scope)
 
     def create(self, items: LabelDefinitionWriteList) -> LabelDefinitionList:
         return self.client.labels.create(items)

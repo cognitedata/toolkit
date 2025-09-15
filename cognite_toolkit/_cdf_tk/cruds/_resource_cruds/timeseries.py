@@ -157,14 +157,14 @@ class TimeSeriesCRUD(ResourceContainerCRUD[str, TimeSeriesWrite, TimeSeries, Tim
 
     def count(self, ids: str | dict[str, Any] | SequenceNotStr[str | dict[str, Any]] | None) -> int:
         datapoints = self.client.time_series.data.retrieve(
-            external_id=cast(SequenceNotStr[str], ids),
+            external_id=ids,  # type: ignore[arg-type]
             start=MIN_TIMESTAMP_MS,
             end=MAX_TIMESTAMP_MS + 1,
             aggregates="count",
             granularity="1000d",
             ignore_unknown_ids=True,
         )
-        return sum(sum(data.count or []) for data in datapoints)
+        return sum(sum(data.count or []) for data in datapoints)  # type: ignore[union-attr, misc, arg-type]
 
     def drop_data(self, ids: SequenceNotStr[str] | None) -> int:
         count = self.count(ids)

@@ -109,7 +109,7 @@ class ResourceWorker(
     def load_resources(
         self, filepaths: list[Path], environment_variables: dict[str, str | None] | None, is_dry_run: bool
     ) -> dict[T_ID, tuple[dict[str, Any], T_WriteClass]]:
-        local_by_id: dict[T_ID, tuple[dict[str, Any], T_WriteClass]] = {}  # type: ignore[assignment]
+        local_by_id: dict[T_ID, tuple[dict[str, Any], T_WriteClass]] = {}
         # Load all resources from files, get ids, and remove duplicates.
         environment_variables = environment_variables or {}
         for filepath in filepaths:

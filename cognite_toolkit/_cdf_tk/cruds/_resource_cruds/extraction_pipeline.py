@@ -103,10 +103,7 @@ class ExtractionPipelineCRUD(
             if data_set_id := {item.data_set_id for item in items if item.data_set_id}:
                 scope = ExtractionPipelinesAcl.Scope.DataSet(list(data_set_id))
 
-        return ExtractionPipelinesAcl(
-            actions,
-            scope,  # type: ignore[arg-type]
-        )
+        return ExtractionPipelinesAcl(actions, scope)
 
     @classmethod
     def get_id(cls, item: ExtractionPipeline | ExtractionPipelineWrite | dict) -> str:
