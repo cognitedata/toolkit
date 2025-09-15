@@ -176,9 +176,23 @@ class UnknownResponseItem(ItemMessage, ResponseMessage):
 
 @dataclass
 class ItemsRequest(Generic[T_ID], BodyRequest):
+    """Requests message for endpoints that accept multiple items in a single request.
+
+    This class provides functionality to split large requests into smaller ones, handle responses for each item,
+    and manage errors effectively.
+
+    Attributes:
+        items (list[JsonVal]): The list of items to be sent in the request body.
+        extra_body_fields (dict[str, JsonVal]): Additional fields to include in the request body
+        as_id (Callable[[JsonVal], T_ID] | None): A function to extract the ID from each item. If None, IDs are not used.
+        max_failures_before_abort (int): The maximum number of failed split requests before aborting further splits.
+
+    """
+
     items: list[JsonVal] = field(default_factory=list)
     extra_body_fields: dict[str, JsonVal] = field(default_factory=dict)
     as_id: Callable[[JsonVal], T_ID] | None = None
+    max_failures_before_abort: int = 10
 
     def dump(self) -> dict[str, JsonVal]:
         """Dumps the message to a JSON serializable dictionary.
