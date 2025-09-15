@@ -16,7 +16,7 @@
 import json
 from collections.abc import Hashable, Iterable, Sequence
 from functools import lru_cache
-from typing import Any, cast, final
+from typing import Any, final
 
 from cognite.client.data_classes import (
     DataSet,
@@ -142,9 +142,7 @@ class DataSetsCRUD(ResourceCRUD[str, DataSetWrite, DataSet, DataSetWriteList, Da
         return created
 
     def retrieve(self, ids: SequenceNotStr[str]) -> DataSetList:
-        return self.client.data_sets.retrieve_multiple(
-            external_ids=cast(SequenceNotStr[str], ids), ignore_unknown_ids=True
-        )
+        return self.client.data_sets.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
     def update(self, items: DataSetWriteList) -> DataSetList:
         return self.client.data_sets.update(items, mode="replace")

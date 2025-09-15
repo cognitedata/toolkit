@@ -728,7 +728,7 @@ class TransformationNotificationCRUD(
             else:
                 create.append(local_item)
             if existing_item:
-                delete.append(cast(int, existing_item.id))
+                delete.append(existing_item.id)
         if delete:
             self.client.transformations.notifications.delete(delete)
         updated_by_id: dict[str, TransformationNotification] = {}
