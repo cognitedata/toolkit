@@ -28,6 +28,7 @@ from rich.console import Console
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList
 from cognite_toolkit._cdf_tk.client.data_classes.pending_instances_ids import PendingInstanceId
+from cognite_toolkit._cdf_tk.commands._migrate.data_model import INSTANCE_SOURCE_VIEW_ID
 from cognite_toolkit._cdf_tk.cruds._base_cruds import T_ID
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.storageio import (
@@ -209,10 +210,18 @@ class FileMetaAdapter(
         FileMetadataList,
     ]
 ):
-    def as_pending_instance_id(self, item: InstanceApply) -> PendingInstanceId:
-        # Either a lookup
-        # Or check for the INSTANCE_SOURCE_VIEW_ID in source.
-        raise NotImplementedError()
+    @staticmethod
+    def as_pending_instance_id(item: InstanceApply) -> PendingInstanceId:
+        source = next((source for source in item.sources if source.source == INSTANCE_SOURCE_VIEW_ID), None)
+        if source is None:
+            raise ValueError(f"Cannot extract ID from item of type {type(item).__name__!r}")
+        if not isinstance(source.properties["id"], int):
+            raise ValueError(f"Unexpected ID type: {type(source.properties['id']).__name__!r}")
+        id_ = source.properties["id"]
+        return PendingInstanceId(
+            pending_instance_id=NodeId(item.space, item.external_id),
+            id=id_,
+        )
 
     def upload_items_force(
         self, data_chunk: InstanceApplyList, http_client: HTTPClient, selector: MigrationSelector | None = None
