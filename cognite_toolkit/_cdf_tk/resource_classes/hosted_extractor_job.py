@@ -49,6 +49,12 @@ class JobFormat(BaseModelResource, ABC):
         cls_ = _JOB_FORMAT_CLS_BY_TYPE[type_]
         return cast(Self, cls_.model_validate({k: v for k, v in data.items() if k != "type"}))
 
+    @model_serializer(mode="wrap", when_used="always", return_type=dict)
+    def include_type(self, handler: SerializerFunctionWrapHandler) -> dict:
+        serialized_data = handler(self)
+        serialized_data["type"] = self.type
+        return serialized_data
+
 
 class CustomFormat(JobFormat):
     type: ClassVar[str] = "custom"
@@ -125,6 +131,12 @@ class IncrementalLoad(BaseModelResource, ABC):
             )
         cls_ = _INCREMENTAL_LOAD_CLS_BY_TYPE[type_]
         return cast(Self, cls_.model_validate({k: v for k, v in data.items() if k != "type"}))
+
+    @model_serializer(mode="wrap", when_used="always", return_type=dict)
+    def include_type(self, handler: SerializerFunctionWrapHandler) -> dict:
+        serialized_data = handler(self)
+        serialized_data["type"] = self.type
+        return serialized_data
 
 
 class BodyIncrementalLoad(IncrementalLoad):
