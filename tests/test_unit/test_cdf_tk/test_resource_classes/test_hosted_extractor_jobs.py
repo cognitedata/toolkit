@@ -192,6 +192,40 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
         id="Format null type",
     )
 
+    # Rest Config validation - invalid IncrementalLoad type
+    yield pytest.param(
+        {
+            "externalId": "myJob",
+            "destinationId": "myDest",
+            "sourceId": "mySource",
+            "format": {"type": "cognite"},
+            "config": {
+                "interval": "1h",
+                "path": "/some/path",
+                "method": "get",
+                "incrementalLoad": {"type": "nextUrl", "value": "some_value"},
+                "pagination": {"type": "body", "value": "some_value"},
+            },
+        },
+        {
+            "In config.KafkaConfig missing required field: 'topic'",
+            "In config.KafkaConfig unused field: 'incrementalLoad'",
+            "In config.KafkaConfig unused field: 'interval'",
+            "In config.KafkaConfig unused field: 'method'",
+            "In config.KafkaConfig unused field: 'pagination'",
+            "In config.KafkaConfig unused field: 'path'",
+            "In config.MQTTConfig missing required field: 'topicFilter'",
+            "In config.MQTTConfig unused field: 'incrementalLoad'",
+            "In config.MQTTConfig unused field: 'interval'",
+            "In config.MQTTConfig unused field: 'method'",
+            "In config.MQTTConfig unused field: 'pagination'",
+            "In config.MQTTConfig unused field: 'path'",
+            "In config.RestConfig.incrementalLoad invalid type 'nextUrl'. Expected one of "
+            "body, headerValue and queryParameter",
+        },
+        id="Invalid IncrementalLoad and Pagination type",
+    )
+
 
 class TestHostedExtractorJobYAML:
     @pytest.mark.parametrize("data", list(find_resources("Job", resource_dir="hosted_extractors")))
