@@ -1,4 +1,5 @@
 import json
+from collections import Counter
 from collections.abc import Iterator
 from unittest.mock import patch
 
@@ -192,7 +193,7 @@ class TestHTTPClient:
     def test_raise_if_already_retied(self, http_client_one_retry: HTTPClient) -> None:
         http_client = http_client_one_retry
         bad_request = ParamRequest(endpoint_url="https://example.com/api/resource", method="GET", status_attempt=3)
-        with pytest.raises(RuntimeError, match="RequestMessage has already been attempted 3 times."):
+        with pytest.raises(RuntimeError, match=r"RequestMessage has already been attempted 3 times."):
             http_client.request_with_retries(bad_request)
 
     def test_error_text(self, http_client: HTTPClient, rsps: responses.RequestsMock) -> None:
@@ -418,6 +419,69 @@ class TestHTTPClientItemRequests:
         assert results == [
             FailedRequestItem(id=1, error="RequestException after 1 attempts (read error): Simulated timeout error")
         ]
+
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_early_failure(self, http_client_one_retry: HTTPClient, rsps: responses.RequestsMock) -> None:
+        client = http_client_one_retry
+        rsps.add(
+            responses.POST,
+            "https://example.com/api/resource",
+            json={"error": "Server error"},
+            status=400,
+        )
+        with patch("time.sleep"):
+            results = client.request_with_retries(
+                ItemsRequest[int](
+                    endpoint_url="https://example.com/api/resource",
+                    method="POST",
+                    items=[{"id": i} for i in range(1000)],
+                    as_id=lambda item: item["id"],
+                    max_failures_before_abort=5,
+                )
+            )
+        assert len(rsps.calls) == 5
+        actual_items_per_request = [len(json.loads(call.request.body)["items"]) for call in rsps.calls]
+        assert actual_items_per_request == [1000, 500, 500, 250, 250]  # Splits in half each time
+        failures = Counter([type(results) for results in results])
+        assert failures == {
+            FailedItem: 250,  # 250 items keeps the original error message.
+            FailedRequestItem: 750,  # 750 items get the early abort message.
+        }
+
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_failing_3_items(self, http_client_one_retry: HTTPClient, rsps: responses.RequestsMock) -> None:
+        client = http_client_one_retry
+
+        def dislike_942_112_and_547(request: requests.PreparedRequest) -> tuple[int, dict[str, str], str]:
+            # status, headers, body
+            for no in ["942", "112", "547"]:
+                if no in request.body:
+                    return 400, {}, json.dumps({"error": f"Item {no} is not allowed"})
+            return (
+                200,
+                {},
+                json.dumps(
+                    {
+                        "items": [
+                            {"id": item["id"], "status": "ok"} for item in json.loads(request.body).get("items", [])
+                        ]
+                    }
+                ),
+            )
+
+        rsps.add_callback(responses.POST, "https://example.com/api/resource", callback=dislike_942_112_and_547)
+        with patch("time.sleep"):
+            results = client.request_with_retries(
+                ItemsRequest[int](
+                    endpoint_url="https://example.com/api/resource",
+                    method="POST",
+                    items=[{"id": i} for i in range(1000)],
+                    as_id=lambda item: item["id"],
+                    max_failures_before_abort=30,
+                )
+            )
+        failures = Counter([type(results) for results in results])
+        assert failures == {FailedItem: 3, SuccessItem: 997}
 
 
 class TestHTTPMessage:

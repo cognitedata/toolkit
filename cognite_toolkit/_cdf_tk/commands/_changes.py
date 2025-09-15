@@ -69,7 +69,7 @@ After `your_file.FileMetadata.yaml`:
                 for source_file in source_files:
                     if source_file.suffix not in {".yaml", ".yml"}:
                         continue
-                    loader, warning = get_loader(source_file, resource_folder, force_pattern=True)
+                    loader, _ = get_loader(source_file, resource_folder, force_pattern=True)
                     if loader is None:
                         print(f"Could not find loader for {source_file}")
                         continue

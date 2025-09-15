@@ -48,6 +48,6 @@ class TestExtendedTimeSeriesAPI:
     def test_unlink_instance_ids_invalid(self, toolkit_config: ToolkitClientConfig) -> None:
         client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
         with pytest.raises(
-            ValueError, match="Cannot specify both id and external_id as single values. Use one or the other."
+            ValueError, match=r"Cannot specify both id and external_id as single values. Use one or the other."
         ):
             client.time_series.unlink_instance_ids(id=123, external_id="123")

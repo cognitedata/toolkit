@@ -28,7 +28,7 @@ def test_location_builder_detect_cyclic_references(build_tmp_path):
     ]
 
     location_builder = LocationBuilder(build_dir=build_tmp_path)
-    with pytest.raises(ToolkitError, match="Circular dependency found in Locations*"):
+    with pytest.raises(ToolkitError, match=r"Circular dependency found in Locations*"):
         list(location_builder.build(source_files=[source_file], module=module_location))
 
 
@@ -49,5 +49,5 @@ def test_location_builder_detect_self_reference(build_tmp_path):
     ]
 
     location_builder = LocationBuilder(build_dir=build_tmp_path)
-    with pytest.raises(ToolkitError, match="Circular dependency found in Locations*"):
+    with pytest.raises(ToolkitError, match=r"Circular dependency found in Locations*"):
         list(location_builder.build(source_files=[source_file], module=module_location))

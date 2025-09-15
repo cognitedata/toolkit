@@ -5,6 +5,7 @@ from typing import Generic, Literal, TypeAlias
 
 import requests
 
+from cognite_toolkit._cdf_tk.utils.http_client._tracker import ItemsRequestTracker
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal
 
 StatusCode: TypeAlias = int
@@ -177,9 +178,24 @@ class UnknownResponseItem(ItemMessage, ResponseMessage):
 
 @dataclass
 class ItemsRequest(Generic[T_ID], BodyRequest):
+    """Requests message for endpoints that accept multiple items in a single request.
+
+    This class provides functionality to split large requests into smaller ones, handle responses for each item,
+    and manage errors effectively.
+
+    Attributes:
+        items (list[JsonVal]): The list of items to be sent in the request body.
+        extra_body_fields (dict[str, JsonVal]): Additional fields to include in the request body
+        as_id (Callable[[JsonVal], T_ID] | None): A function to extract the ID from each item. If None, IDs are not used.
+        max_failures_before_abort (int): The maximum number of failed split requests before aborting further splits.
+
+    """
+
     items: list[JsonVal] = field(default_factory=list)
     extra_body_fields: dict[str, JsonVal] = field(default_factory=dict)
     as_id: Callable[[JsonVal], T_ID] | None = None
+    max_failures_before_abort: int = 50
+    tracker: ItemsRequestTracker | None = field(default=None, init=False)
 
     def dump(self) -> dict[str, JsonVal]:
         """Dumps the message to a JSON serializable dictionary.
@@ -193,6 +209,9 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
         if self.as_id is not None:
             # We cannot serialize functions
             del output["as_id"]
+        if self.tracker is not None:
+            # We cannot serialize the tracker
+            del output["tracker"]
         return output
 
     def body(self) -> dict[str, JsonVal]:
@@ -218,6 +237,8 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
         mid = len(self.items) // 2
         if mid == 0:
             return [self]
+        tracker = self.tracker or ItemsRequestTracker(self.max_failures_before_abort)
+        tracker.register_failure()
         first_half = ItemsRequest[T_ID](
             endpoint_url=self.endpoint_url,
             method=self.method,
@@ -228,6 +249,7 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
             read_attempt=self.read_attempt,
             status_attempt=status_attempts,
         )
+        first_half.tracker = tracker
         second_half = ItemsRequest[T_ID](
             endpoint_url=self.endpoint_url,
             method=self.method,
@@ -238,6 +260,7 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
             read_attempt=self.read_attempt,
             status_attempt=status_attempts,
         )
+        second_half.tracker = tracker
         return [first_half, second_half]
 
     def create_responses(

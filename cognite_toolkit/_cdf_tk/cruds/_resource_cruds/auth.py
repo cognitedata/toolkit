@@ -208,7 +208,7 @@ class GroupCRUD(ResourceCRUD[str, GroupWrite, Group, GroupWriteList, GroupList])
                 if len(scope) != 1:
                     # This will raise an error when the group is loaded.
                     continue
-                scope_name, scope_content = next(iter(scope.items()))
+                scope_name, _scope_content = next(iter(scope.items()))
 
                 if (acl, scope_name) in replace_method_by_acl:
                     replace_method = replace_method_by_acl[(acl, scope_name)]
