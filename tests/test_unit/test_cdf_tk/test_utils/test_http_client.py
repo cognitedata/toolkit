@@ -403,6 +403,27 @@ class TestHTTPClientItemRequests:
             FailedRequestItem(id=1, error="RequestException after 1 attempts (read error): Simulated timeout error")
         ]
 
+    def test_early_failure(self, http_client_one_retry: HTTPClient, rsps: responses.RequestsMock) -> None:
+        client = http_client_one_retry
+        rsps.add(
+            responses.POST,
+            "https://example.com/api/resource",
+            json={"error": "Server error"},
+            status=400,
+        )
+        with patch("time.sleep"):
+            results = client.request_with_retries(
+                ItemsRequest[int](
+                    endpoint_url="https://example.com/api/resource",
+                    method="POST",
+                    items=[{"id": i} for i in range(1000)],
+                    as_id=lambda item: item["id"],
+                    max_failures_before_abort=10,
+                )
+            )
+        assert len(rsps.calls) == 10
+        assert results == [FailedItem(status_code=400, id=i, error="Server error") for i in range(1000)]
+
 
 class TestHTTPMessage:
     @pytest.mark.parametrize("message_cls", get_concrete_subclasses(HTTPMessage))
