@@ -61,6 +61,10 @@ class Flags(Enum):
         visible=True,
         description="Enables the migrate command",
     )
+    MIGRATIONV2 = FlagMetadata(
+        visible=True,
+        description="Enables the migrate command this requires the CogniteMigration data model ine the project.",
+    )
     EXTERNAL_LIBRARIES = FlagMetadata(
         visible=True,
         description="Enables the support for external libraries in the config file",

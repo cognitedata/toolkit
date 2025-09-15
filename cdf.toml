@@ -14,6 +14,7 @@ dump-extended = true
 infield = true
 dump-data = true
 migrate = true
+migrationv2 = true
 purge_instances = true
 search-config = true
 download = true
