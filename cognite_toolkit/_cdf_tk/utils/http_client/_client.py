@@ -5,7 +5,7 @@ import sys
 import time
 from collections import deque
 from collections.abc import MutableMapping, Sequence, Set
-from typing import Any, Literal
+from typing import Literal
 
 import requests
 import urllib3
@@ -26,6 +26,7 @@ from cognite_toolkit._cdf_tk.utils.http_client._data_classes import (
     RequestMessage,
     ResponseMessage,
 )
+from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -241,13 +242,17 @@ class HTTPClient:
             return request.create_responses(response, body, self._get_error_message(body, response.text))
 
     @staticmethod
-    def _get_error_message(body: dict[str, Any], default: str) -> str:
+    def _get_error_message(body: JsonVal, default: str) -> str:
         error = default
-        if "error" in body:
-            if isinstance(body["error"], str):
-                error = body["error"]
-            elif isinstance(body["error"], dict) and "message" in body["error"]:
-                error = body["error"]["message"]
+        if not isinstance(body, dict):
+            return error
+        if "error" not in body:
+            return error
+        error_nested = body["error"]
+        if isinstance(error_nested, str):
+            return error_nested
+        if isinstance(error_nested, dict) and "message" in error_nested and isinstance(error_nested["message"], str):
+            return error_nested["message"]
         return error
 
     @staticmethod
