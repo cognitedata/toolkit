@@ -90,12 +90,12 @@ class TestExtendedFileMetadataAPI:
 
     def test_unlink_instance_ids_no_identifiers_raises(self, toolkit_config: ToolkitClientConfig) -> None:
         client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
-        with pytest.raises(ValueError, match="At least one of id or external_id must be provided."):
+        with pytest.raises(ValueError, match=r"At least one of id or external_id must be provided."):
             client.files.unlink_instance_ids(id=None, external_id=None)
 
     def test_unlink_instance_ids_invalid(self, toolkit_config: ToolkitClientConfig) -> None:
         client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
         with pytest.raises(
-            ValueError, match="Cannot specify both id and external_id as single values. Use one or the other."
+            ValueError, match=r"Cannot specify both id and external_id as single values. Use one or the other."
         ):
             client.files.unlink_instance_ids(id=123, external_id="123")
