@@ -134,7 +134,7 @@ class TestAssetCentricMapper:
             # Call map_chunk without calling prepare first
             with pytest.raises(
                 RuntimeError,
-                match="Failed to lookup mapping or view for ingestion view 'cdf_asset_mapping'. Did you forget to call .prepare()?",
+                match=r"Failed to lookup mapping or view for ingestion view 'cdf_asset_mapping'. Did you forget to call .prepare()?",
             ):
                 mapper.map_chunk(source)
 
@@ -152,7 +152,7 @@ class TestAssetCentricMapper:
             mapper = AssetCentricMapper(client)
 
             with pytest.raises(
-                ToolkitValueError, match="The following ingestion views were not found: missing_view_source"
+                ToolkitValueError, match=r"The following ingestion views were not found: missing_view_source"
             ):
                 mapper.prepare(selected)
 
