@@ -124,14 +124,21 @@ class TestThreadSafeDict:
         modifier_thread.start()
 
         # This should not raise an exception even though dict is being modified
-        keys_during_iteration = set(d.keys())
+        keys_during_iteration = []
+        try:
+            # Iterating should be safe as it should operate on a snapshot.
+            for key in d.keys():
+                keys_during_iteration.append(key)
+                time.sleep(0.001)  # Simulate work to increase chance of concurrent modification
+        except RuntimeError:
+            pytest.fail("Iteration over d.keys() should be thread-safe and not raise RuntimeError.")
 
         modifier_thread.join()
 
-        # Original keys should still be present
-        for i in range(100):
-            assert i in keys_during_iteration
-        assert keys_during_iteration < set(d.keys()), "New keys should have been added"
+        # The iteration should have captured a snapshot of the keys at the beginning.
+        assert len(keys_during_iteration) == 100
+        assert set(keys_during_iteration) == {i for i in range(100)}
+        assert set(keys_during_iteration) < set(d.keys()), "New keys should have been added after iteration"
 
     def test_concurrent_access(self):
         """Test thread safety with concurrent read/write operations."""
