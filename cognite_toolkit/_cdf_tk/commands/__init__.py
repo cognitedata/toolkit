@@ -4,6 +4,7 @@ from ._migrate import (
     MigrateFilesCommand,
     MigrateTimeseriesCommand,
     MigrationCanvasCommand,
+    MigrationCommand,
     MigrationPrepareCommand,
 )
 from ._populate import PopulateCommand
@@ -39,6 +40,7 @@ __all__ = [
     "MigrateFilesCommand",
     "MigrateTimeseriesCommand",
     "MigrationCanvasCommand",
+    "MigrationCommand",
     "MigrationPrepareCommand",
     "ModulesCommand",
     "PopulateCommand",
