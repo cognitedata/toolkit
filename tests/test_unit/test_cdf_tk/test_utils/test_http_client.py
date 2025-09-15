@@ -1,4 +1,5 @@
 import json
+from collections import Counter
 from collections.abc import Iterator
 from unittest.mock import patch
 
@@ -403,6 +404,7 @@ class TestHTTPClientItemRequests:
             FailedRequestItem(id=1, error="RequestException after 1 attempts (read error): Simulated timeout error")
         ]
 
+    @pytest.mark.usefixtures("disable_gzip")
     def test_early_failure(self, http_client_one_retry: HTTPClient, rsps: responses.RequestsMock) -> None:
         client = http_client_one_retry
         rsps.add(
@@ -418,11 +420,17 @@ class TestHTTPClientItemRequests:
                     method="POST",
                     items=[{"id": i} for i in range(1000)],
                     as_id=lambda item: item["id"],
-                    max_failures_before_abort=10,
+                    max_failures_before_abort=5,
                 )
             )
-        assert len(rsps.calls) == 10
-        assert results == [FailedItem(status_code=400, id=i, error="Server error") for i in range(1000)]
+        assert len(rsps.calls) == 5
+        actual_items_per_request = [len(json.loads(call.request.body)["items"]) for call in rsps.calls]
+        assert actual_items_per_request == [1000, 500, 500, 250, 250]  # Splits in half each time
+        failures = Counter([type(results) for results in results])
+        assert failures == {
+            FailedItem: 250,  # 250 items keeps the original error message.
+            FailedRequestItem: 750,  # 750 items get the early abort message.
+        }
 
 
 class TestHTTPMessage:
