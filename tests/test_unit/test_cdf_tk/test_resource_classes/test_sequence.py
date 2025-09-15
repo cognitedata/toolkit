@@ -16,6 +16,14 @@ def invalid_sequence_test_cases() -> Iterable:
         id="missing-required-fields",
     )
     yield pytest.param(
+        {"name": "Sequence 1", "columns": []},
+        {
+            "In field columns list should have at least 1 item after validation, not 0",
+            "Missing required field: 'externalId'",
+        },
+        id="columns-list-validation-errors",
+    )
+    yield pytest.param(
         {
             "externalId": "seq_1",
             "columns": [
@@ -32,7 +40,9 @@ def invalid_sequence_test_cases() -> Iterable:
                 {"externalId": "col_1", "valueType": "INVALID_TYPE"},
             ],
         },
-        {"In columns[1].valueType input should be 'STRING', 'DOUBLE' or 'LONG'. Got 'INVALID_TYPE'."},
+        {
+            "In columns[1].valueType input should be 'STRING', 'string', 'DOUBLE', 'double', 'LONG' or 'long'. Got 'INVALID_TYPE'."
+        },
         id="invalid-valueType-in-column",
     )
     yield pytest.param(
@@ -77,6 +87,24 @@ def valid_sequence_test_cases() -> Iterable:
                     "name": "Long Column",
                     "description": "A long integer column",
                     "valueType": "LONG",
+                },
+                {
+                    "externalId": "string_col_2",
+                    "name": "String Column",
+                    "description": "A string column",
+                    "valueType": "string",
+                },
+                {
+                    "externalId": "long_col_2",
+                    "name": "Long Column",
+                    "description": "A long integer column",
+                    "valueType": "long",
+                },
+                {
+                    "externalId": "double_col_2",
+                    "name": "Double Column",
+                    "description": "A double precision column",
+                    "valueType": "double",
                 },
             ],
         },

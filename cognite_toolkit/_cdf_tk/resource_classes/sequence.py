@@ -25,7 +25,7 @@ class SequenceColumnDTO(BaseModelResource):
         description="Custom, application-specific metadata.",
         max_length=256,
     )
-    value_type: Literal["STRING", "DOUBLE", "LONG"] | None = Field(
+    value_type: Literal["STRING", "string", "DOUBLE", "double", "LONG", "long"] | None = Field(
         default=None,
         description="What type the datapoints in a column will have.",
     )
@@ -61,4 +61,6 @@ class SequenceYAML(ToolkitResource):
     )
     columns: list[SequenceColumnDTO] = Field(
         description="List of column definitions.",
+        min_length=1,
+        max_length=400,
     )
