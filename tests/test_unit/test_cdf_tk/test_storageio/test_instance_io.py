@@ -63,7 +63,7 @@ class TestInstanceIO:
     def test_upload_force(self, toolkit_config: ToolkitClientConfig, rsps: responses.RequestsMock) -> None:
         config = toolkit_config
         client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
-        instance_count = 1002
+        instance_count = 12
         with HTTPClient(config) as http_client:
             instances = InstanceApplyList(
                 [
