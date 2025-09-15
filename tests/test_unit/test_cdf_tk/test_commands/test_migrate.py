@@ -105,7 +105,7 @@ class TestBaseCommand:
 
             client.data_modeling.data_models.retrieve.return_value = DataModelList([model])
 
-            with pytest.raises(ToolkitMigrationError, match="Invalid migration model. Missing views"):
+            with pytest.raises(ToolkitMigrationError, match=r"Invalid migration model. Missing views"):
                 BaseMigrateCommand.validate_migration_model_available(client)
 
     def test_validate_migration_model_available_success(self) -> None:
