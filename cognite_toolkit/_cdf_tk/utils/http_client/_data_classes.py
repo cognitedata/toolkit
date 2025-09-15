@@ -193,7 +193,7 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
     items: list[JsonVal] = field(default_factory=list)
     extra_body_fields: dict[str, JsonVal] = field(default_factory=dict)
     as_id: Callable[[JsonVal], T_ID] | None = None
-    max_failures_before_abort: int = 10
+    max_failures_before_abort: int = 50
     tracker: ItemsRequestTracker | None = field(default=None, init=False)
 
     def dump(self) -> dict[str, JsonVal]:
