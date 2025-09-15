@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Generic
 
@@ -26,14 +26,13 @@ from cognite.client.data_classes.labels import LabelDefinitionWriteList
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.cruds import AssetCRUD, DataSetsCRUD, FileMetadataCRUD, LabelCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
-from cognite_toolkit._cdf_tk.loaders import AssetLoader, DataSetsLoader, FileMetadataLoader, LabelLoader, ResourceLoader
-from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.utils.aggregators import AssetAggregator, AssetCentricAggregator, FileAggregator
 from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
 from cognite_toolkit._cdf_tk.utils.file import find_files_with_suffix_and_prefix
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
-from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
+from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal, T_WritableCogniteResourceList
 
 from ._base import StorageIOConfig, TableStorageIO
 from ._selectors import AssetCentricFileSelector, AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
@@ -41,7 +40,7 @@ from ._selectors import AssetCentricFileSelector, AssetCentricSelector, AssetSub
 
 class BaseAssetCentricIO(
     Generic[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
-    TableStorageIO[AssetCentricSelector, T_CogniteResourceList, T_WritableCogniteResourceList],
+    TableStorageIO[int, AssetCentricSelector, T_CogniteResourceList, T_WritableCogniteResourceList],
     ABC,
 ):
     chunk_size = 1000
@@ -53,16 +52,26 @@ class BaseAssetCentricIO(
         self._downloaded_data_sets_by_selector: dict[AssetCentricSelector, set[int]] = defaultdict(set)
         self._downloaded_labels_by_selector: dict[AssetCentricSelector, set[str]] = defaultdict(set)
 
+    def as_id(self, item: dict[str, JsonVal] | object) -> int:
+        if isinstance(item, dict) and isinstance(item.get("id"), int):
+            # MyPy checked above.
+            return item["id"]  # type: ignore[return-value]
+        raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
+
     @abstractmethod
     def _get_loader(
         self,
-    ) -> ResourceLoader[
+    ) -> ResourceCRUD[
         T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
     ]:
         raise NotImplementedError()
 
     @abstractmethod
     def _get_aggregator(self) -> AssetCentricAggregator:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def retrieve(self, ids: Sequence[int]) -> T_WritableCogniteResourceList:
         raise NotImplementedError()
 
     def count(self, selector: AssetCentricSelector) -> int | None:
@@ -79,10 +88,10 @@ class BaseAssetCentricIO(
         data_set_ids = self._downloaded_data_sets_by_selector[selector]
         if data_set_ids:
             data_set_external_ids = self.client.lookup.data_sets.external_id(list(data_set_ids))
-            yield from self._configurations(data_set_external_ids, DataSetsLoader.create_loader(self.client))
+            yield from self._configurations(data_set_external_ids, DataSetsCRUD.create_loader(self.client))
 
         yield from self._configurations(
-            list(self._downloaded_labels_by_selector[selector]), LabelLoader.create_loader(self.client)
+            list(self._downloaded_labels_by_selector[selector]), LabelCRUD.create_loader(self.client)
         )
 
     def _collect_dependencies(self, resources: AssetList | FileMetadataList, selector: AssetCentricSelector) -> None:
@@ -101,7 +110,7 @@ class BaseAssetCentricIO(
     def _configurations(
         cls,
         ids: list[str],
-        loader: DataSetsLoader | LabelLoader,
+        loader: DataSetsCRUD | LabelCRUD,
     ) -> Iterable[StorageIOConfig]:
         if not ids:
             return
@@ -122,21 +131,21 @@ class BaseAssetCentricIO(
             return None
         datafile = selector.datafile
         filepaths = find_files_with_suffix_and_prefix(
-            datafile.parent.parent / DataSetsLoader.folder_name, datafile.name, suffix=f".{DataSetsLoader.kind}.yaml"
+            datafile.parent.parent / DataSetsCRUD.folder_name, datafile.name, suffix=f".{DataSetsCRUD.kind}.yaml"
         )
-        self._create_if_not_exists(filepaths, DataSetsLoader.create_loader(self.client), console)
+        self._create_if_not_exists(filepaths, DataSetsCRUD.create_loader(self.client), console)
 
         filepaths = find_files_with_suffix_and_prefix(
-            datafile.parent.parent / LabelLoader.folder_name, datafile.name, suffix=f".{LabelLoader.kind}.yaml"
+            datafile.parent.parent / LabelCRUD.folder_name, datafile.name, suffix=f".{LabelCRUD.kind}.yaml"
         )
-        self._create_if_not_exists(filepaths, LabelLoader.create_loader(self.client), console)
+        self._create_if_not_exists(filepaths, LabelCRUD.create_loader(self.client), console)
         return None
 
     @classmethod
     def _create_if_not_exists(
         cls,
         filepaths: list[Path],
-        loader: DataSetsLoader | LabelLoader,
+        loader: DataSetsCRUD | LabelCRUD,
         console: Console | None = None,
     ) -> None:
         items: LabelDefinitionWriteList | DataSetWriteList = loader.list_write_cls([])
@@ -164,8 +173,13 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
     supported_compressions = frozenset({".gz"})
     supported_read_formats = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
 
-    def _get_loader(self) -> AssetLoader:
-        return AssetLoader.create_loader(self.client)
+    def as_id(self, item: dict[str, JsonVal] | object) -> int:
+        if isinstance(item, Asset | AssetWrite) and item.id is not None:  # type: ignore[union-attr]
+            return item.id  # type: ignore[union-attr]
+        return super().as_id(item)
+
+    def _get_loader(self) -> AssetCRUD:
+        return AssetCRUD.create_loader(self.client)
 
     def _get_aggregator(self) -> AssetCentricAggregator:
         return AssetAggregator(self.client)
@@ -228,17 +242,25 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> AssetWriteList:
         return AssetWriteList([self._loader.load_resource(item) for item in data_chunk])
 
+    def retrieve(self, ids: Sequence[int]) -> AssetList:
+        return self.client.assets.retrieve_multiple(ids)
+
 
 class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, FileMetadataWriteList, FileMetadataList]):
-    folder_name = FileMetadataLoader.folder_name
+    folder_name = FileMetadataCRUD.folder_name
     kind = "FileMetadata"
     display_name = "file metadata"
     supported_download_formats = frozenset({".parquet", ".csv", ".ndjson"})
     supported_compressions = frozenset({".gz"})
     supported_read_formats = frozenset({".parquet", ".csv", ".ndjson"})
 
-    def _get_loader(self) -> FileMetadataLoader:
-        return FileMetadataLoader.create_loader(self.client)
+    def as_id(self, item: dict[str, JsonVal] | object) -> int:
+        if isinstance(item, FileMetadata | FileMetadataWrite) and item.id is not None:  # type: ignore[union-attr]
+            return item.id  # type: ignore[union-attr]
+        return super().as_id(item)
+
+    def _get_loader(self) -> FileMetadataCRUD:
+        return FileMetadataCRUD.create_loader(self.client)
 
     def _get_aggregator(self) -> AssetCentricAggregator:
         return FileAggregator(self.client)
@@ -293,6 +315,9 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
         ):
             self._collect_dependencies(file_list, selector)
             yield file_list
+
+    def retrieve(self, ids: Sequence[int]) -> FileMetadataList:
+        return self.client.files.retrieve_multiple(ids)
 
     def upload_items(self, data_chunk: FileMetadataWriteList, selector: AssetCentricSelector) -> None:
         if not data_chunk:

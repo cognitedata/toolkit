@@ -1,7 +1,10 @@
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from pathlib import Path
+from types import MappingProxyType
+from typing import ClassVar
 
 from cognite.client.data_classes.aggregations import Count
+from cognite.client.data_classes.data_modeling import Edge, EdgeApply, Node, NodeApply
 from cognite.client.utils._identifier import InstanceId
 from rich.console import Console
 
@@ -15,7 +18,7 @@ from ._base import StorageIOConfig, TableStorageIO
 from ._selectors import InstanceFileSelector, InstanceSelector, InstanceViewSelector
 
 
-class InstanceIO(TableStorageIO[InstanceSelector, InstanceApplyList, InstanceList]):
+class InstanceIO(TableStorageIO[InstanceId, InstanceSelector, InstanceApplyList, InstanceList]):
     folder_name = "instances"
     kind = "Instances"
     display_name = "Instances"
@@ -23,6 +26,18 @@ class InstanceIO(TableStorageIO[InstanceSelector, InstanceApplyList, InstanceLis
     supported_compressions = frozenset({".gz"})
     supported_read_formats = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
     chunk_size = 1000
+    UPLOAD_ENDPOINT = "/models/instances"
+    UPLOAD_EXTRA_ARGS: ClassVar[Mapping[str, JsonVal] | None] = MappingProxyType({"autoCreateDirectRelations": True})
+
+    def as_id(self, item: dict[str, JsonVal] | object) -> InstanceId:
+        if isinstance(item, dict) and isinstance(item.get("space"), str) and isinstance(item.get("externalId"), str):
+            # MyPy checked above.
+            return InstanceId(space=item["space"], external_id=item["externalId"])  # type: ignore[arg-type]
+        if isinstance(item, InstanceId):
+            return item
+        elif isinstance(item, Node | Edge | NodeApply | EdgeApply):
+            return item.as_id()
+        raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
 
     def download_iterable(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[InstanceList]:
         if isinstance(selector, InstanceViewSelector):

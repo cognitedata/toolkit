@@ -29,7 +29,7 @@ from dotenv import load_dotenv
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawDatabaseList, RawTable, RawTableList
 from cognite_toolkit._cdf_tk.commands import CollectCommand
-from cognite_toolkit._cdf_tk.loaders import RawDatabaseLoader, RawTableLoader
+from cognite_toolkit._cdf_tk.cruds import RawDatabaseCRUD, RawTableCRUD
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.cdf import ThrottlerState, raw_row_count
 from tests.constants import REPO_ROOT
@@ -260,7 +260,7 @@ def populated_raw_table(toolkit_client: ToolkitClient, raw_data: RowWriteList) -
 
 @pytest.fixture(scope="session")
 def aggregator_raw_db(toolkit_client: ToolkitClient) -> str:
-    loader = RawDatabaseLoader.create_loader(toolkit_client)
+    loader = RawDatabaseCRUD.create_loader(toolkit_client)
     db_name = "toolkit_aggregators_test_db"
     if not loader.retrieve([RawDatabase(db_name=db_name)]):
         loader.create(RawDatabaseList([RawDatabase(db_name=db_name)]))
@@ -298,7 +298,7 @@ def aggregator_root_asset(toolkit_client: ToolkitClient, aggregator_two_datasets
 
 
 def create_raw_table_with_data(client: ToolkitClient, table: RawTable, rows: list[RowWrite]) -> None:
-    loader = RawTableLoader.create_loader(client)
+    loader = RawTableCRUD.create_loader(client)
     existing_tables = loader.retrieve([table])
     if not existing_tables:
         loader.create(RawTableList([table]))

@@ -1,80 +1,81 @@
-from collections.abc import Collection, Iterator, Sequence
+import sys
+from abc import ABC, abstractmethod
+from collections import UserList
+from collections.abc import Collection
 from pathlib import Path
-from typing import SupportsIndex, overload
+from typing import Literal, TypeVar
 
-from cognite.client.data_classes.data_modeling import EdgeId, NodeId
-from cognite.client.utils._identifier import InstanceId
+from cognite.client.utils._text import to_camel_case
+from pydantic import BaseModel
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.fileio import CSVReader, SchemaColumn
+from cognite_toolkit._cdf_tk.validation import T_BaseModel, instantiate_class
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 
-class InstanceIdList(list, Sequence[InstanceId]):
-    REQUIRED_HEADER = (
-        SchemaColumn("space", "string"),
-        SchemaColumn("externalId", "string"),
-        SchemaColumn("instanceType", "string"),
-    )
-
-    # Implemented to get correct type hints
+class ModelList(UserList[T_BaseModel], ABC):
     def __init__(
-        self, collection: Collection[InstanceId] | None = None, invalid_rows: dict[int, list[str]] | None = None
+        self,
+        collection: Collection[T_BaseModel] | None = None,
+        invalid_rows: dict[int, ResourceFormatWarning] | None = None,
     ) -> None:
         super().__init__(collection or [])
         self.invalid_rows = invalid_rows or {}
 
-    def __iter__(self) -> Iterator[InstanceId]:
-        return super().__iter__()
-
-    @overload
-    def __getitem__(self, index: SupportsIndex) -> InstanceId: ...
-
-    @overload
-    def __getitem__(self, index: slice) -> "InstanceIdList": ...
-
-    def __getitem__(self, index: SupportsIndex | slice, /) -> "InstanceId | InstanceIdList":
-        if isinstance(index, slice):
-            return InstanceIdList(super().__getitem__(index))
-        return super().__getitem__(index)
+    @classmethod
+    @abstractmethod
+    def _get_base_model_cls(cls) -> type[T_BaseModel]:
+        raise NotImplementedError()
 
     @classmethod
-    def read_csv_file(cls, filepath: Path) -> "InstanceIdList":
+    def _required_header_names(cls) -> set[str]:
+        model_cls = cls._get_base_model_cls()
+        return {field_.alias or field_id for field_id, field_ in model_cls.model_fields.items() if field_.is_required()}
+
+    @classmethod
+    def read_csv_file(cls, filepath: Path) -> "Self":
         # We only need to read one row to get the header
         schema = CSVReader.sniff_schema(filepath, sniff_rows=1)
         cls._validate_schema(schema)
         reader = CSVReader(input_file=filepath)
-        instance_ids: list[InstanceId] = []
-        invalid_rows: dict[int, list[str]] = {}
+        items: list[T_BaseModel] = []
+        invalid_rows: dict[int, ResourceFormatWarning] = {}
+        model_cls = cls._get_base_model_cls()
         for row_no, row in enumerate(reader.read_chunks_unprocessed(), start=1):
-            space, external_id, instance_type = row["space"], row["externalId"], row["instanceType"]
-            errors: list[str] = []
-            if space.strip() == "":
-                errors.append("Space is empty.")
-            if external_id.strip() == "":
-                errors.append("External ID is empty.")
+            result = instantiate_class(row, model_cls, filepath)
+            if isinstance(result, model_cls):
+                items.append(result)
+            elif isinstance(result, ResourceFormatWarning):
+                invalid_rows[row_no] = result
+            else:
+                raise TypeError(f"Unexpected result type: {type(result)}")
 
-            instance_id: InstanceId | None = None
-            try:
-                if instance_type == "node":
-                    instance_id = NodeId.load(row)
-                elif instance_type == "edge":
-                    instance_id = EdgeId.load(row)
-                else:
-                    errors.append(f"Unknown instance type {instance_type!r}, expected 'node' or 'edge'.")
-            except (ValueError, TypeError) as e:
-                errors.append(f"Failed to load instance: {e}")
-            if errors:
-                invalid_rows[row_no] = errors
-
-            if instance_id and not errors:
-                instance_ids.append(instance_id)
-
-        return cls(instance_ids, invalid_rows)
+        return cls(items, invalid_rows)
 
     @classmethod
     def _validate_schema(cls, schema: list[SchemaColumn]) -> None:
-        expected = {col.name for col in cls.REQUIRED_HEADER}
         actual = {col.name for col in schema}
-        if missing_columns := expected - actual:
+        if missing_columns := cls._required_header_names() - actual:
             raise ToolkitValueError(f"Missing required columns: {humanize_collection(missing_columns)}")
+
+
+T_ModelList = TypeVar("T_ModelList", bound=ModelList)
+
+
+class InstanceIdRow(BaseModel, alias_generator=to_camel_case):
+    space: str
+    external_id: str
+    instance_type: Literal["node", "edge"] = "node"
+
+
+class InstanceIdCSVList(ModelList[InstanceIdRow]):
+    @classmethod
+    def _get_base_model_cls(cls) -> type[InstanceIdRow]:
+        return InstanceIdRow

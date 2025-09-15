@@ -1,0 +1,10 @@
+view:
+  externalId: test-view
+  space: test-space
+useAsName: name
+useAsDescription: description
+columnsLayout:
+  - property: name
+    selected: true
+  - property: description
+    selected: true

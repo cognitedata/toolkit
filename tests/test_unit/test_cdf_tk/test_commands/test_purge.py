@@ -93,44 +93,45 @@ def files_by_node_id(
 
 
 @pytest.fixture()
-def purge_responses(toolkit_config: ToolkitClientConfig) -> Iterator[responses.RequestsMock]:
+def purge_responses(
+    rsps: responses.RequestsMock, toolkit_config: ToolkitClientConfig
+) -> Iterator[responses.RequestsMock]:
     config = toolkit_config
-    with responses.RequestsMock() as rsps:
-        rsps.add(
-            responses.GET,
-            f"{config.base_url}/api/v1/token/inspect",
-            json={
-                "subject": "123",
-                "projects": [],
-                "capabilities": [
-                    {
-                        "projectScope": {"allProjects": {}},
-                        **TimeSeriesAcl(
-                            actions=[TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write],
-                            scope=TimeSeriesAcl.Scope.All(),
-                        ).dump(),
-                    },
-                    {
-                        "projectScope": {"allProjects": {}},
-                        **DataModelsAcl(actions=[DataModelsAcl.Action.Read], scope=DataModelsAcl.Scope.All()).dump(),
-                    },
-                    {
-                        "projectScope": {"allProjects": {}},
-                        **DataModelInstancesAcl(
-                            actions=[DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write],
-                            scope=DataModelInstancesAcl.Scope.All(),
-                        ).dump(),
-                    },
-                    {
-                        "projectScope": {"allProjects": {}},
-                        **FilesAcl(
-                            actions=[FilesAcl.Action.Read, FilesAcl.Action.Write], scope=FilesAcl.Scope.All()
-                        ).dump(),
-                    },
-                ],
-            },
-        )
-        yield rsps
+    rsps.add(
+        responses.GET,
+        f"{config.base_url}/api/v1/token/inspect",
+        json={
+            "subject": "123",
+            "projects": [],
+            "capabilities": [
+                {
+                    "projectScope": {"allProjects": {}},
+                    **TimeSeriesAcl(
+                        actions=[TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write],
+                        scope=TimeSeriesAcl.Scope.All(),
+                    ).dump(),
+                },
+                {
+                    "projectScope": {"allProjects": {}},
+                    **DataModelsAcl(actions=[DataModelsAcl.Action.Read], scope=DataModelsAcl.Scope.All()).dump(),
+                },
+                {
+                    "projectScope": {"allProjects": {}},
+                    **DataModelInstancesAcl(
+                        actions=[DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write],
+                        scope=DataModelInstancesAcl.Scope.All(),
+                    ).dump(),
+                },
+                {
+                    "projectScope": {"allProjects": {}},
+                    **FilesAcl(
+                        actions=[FilesAcl.Action.Read, FilesAcl.Action.Write], scope=FilesAcl.Scope.All()
+                    ).dump(),
+                },
+            ],
+        },
+    )
+    yield rsps
 
 
 @pytest.fixture()

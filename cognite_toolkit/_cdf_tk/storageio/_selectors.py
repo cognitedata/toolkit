@@ -1,13 +1,32 @@
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import Literal
+from typing import Generic, Literal
 
 from cognite.client.data_classes.data_modeling import EdgeId, NodeId, ViewId
+from cognite.client.utils._identifier import InstanceId
 
-from cognite_toolkit._cdf_tk.storageio._data_classes import InstanceIdList
+from cognite_toolkit._cdf_tk.storageio._data_classes import InstanceIdCSVList, T_ModelList
 from cognite_toolkit._cdf_tk.utils.file import to_directory_compatible
+
+
+@dataclass(frozen=True)
+class CSVFileSelector(Generic[T_ModelList], ABC):
+    """Data class for file-based data selection from CSV files."""
+
+    datafile: Path
+
+    @abstractmethod
+    def list_cls(self) -> type[T_ModelList]:
+        raise NotImplementedError()
+
+    @cached_property
+    def items(self) -> T_ModelList:
+        return self.list_cls().read_csv_file(self.datafile)
+
+    def __str__(self) -> str:
+        return f"{type(self).__name__}={self.datafile.name}"
 
 
 @dataclass(frozen=True)
@@ -57,21 +76,33 @@ class InstanceSelector:
 
 
 @dataclass(frozen=True)
-class InstanceFileSelector(InstanceSelector):
+class InstanceFileSelector(CSVFileSelector[InstanceIdCSVList], InstanceSelector):
     datafile: Path
     validate: bool = True
 
-    @cached_property
-    def instance_ids(self) -> InstanceIdList:
-        return InstanceIdList.read_csv_file(self.datafile)
+    def list_cls(self) -> type[InstanceIdCSVList]:
+        return InstanceIdCSVList
+
+    @property
+    def instance_ids(self) -> list[InstanceId]:
+        return [
+            NodeId(instance.space, instance.external_id)
+            if instance.instance_type == "node"
+            else EdgeId(instance.space, instance.external_id)
+            for instance in self.items
+        ]
 
     @property
     def node_ids(self) -> list[NodeId]:
-        return [instance for instance in self.instance_ids if isinstance(instance, NodeId)]
+        return [
+            NodeId(instance.space, instance.external_id) for instance in self.items if instance.instance_type == "node"
+        ]
 
     @property
     def edge_ids(self) -> list[EdgeId]:
-        return [instance for instance in self.instance_ids if isinstance(instance, EdgeId)]
+        return [
+            EdgeId(instance.space, instance.external_id) for instance in self.items if instance.instance_type == "edge"
+        ]
 
     def get_schema_spaces(self) -> list[str] | None:
         return None

@@ -1,65 +1,83 @@
 from pathlib import Path
 
 import pytest
-from cognite.client.data_classes.data_modeling import EdgeId, NodeId
+from pydantic import BaseModel, Field, field_validator
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.storageio._data_classes import InstanceIdList
+from cognite_toolkit._cdf_tk.storageio import InstanceIdCSVList, InstanceIdRow, ModelList
 
 
-class TestInstanceIdList:
-    def test_read_csv_file(self, tmp_path: Path) -> None:
-        csv_content = (
-            "space,externalId,instanceType\nmy_space,instance1,node\nmy_space,instance2,node\nmy_space,instance3,edge\n"
-        )
-        csv_file = tmp_path / "instances.csv"
-        csv_file.write_text(csv_content)
+class MyRow(BaseModel):
+    id: int
+    name: str
+    display_name: str | None = Field(None, alias="displayName")
 
-        instance_list = InstanceIdList.read_csv_file(csv_file)
-        assert len(instance_list.invalid_rows) == 0
-        assert len(instance_list) == 3
-        assert instance_list == InstanceIdList(
-            [NodeId(space="my_space", external_id=f"instance{i}") for i in range(1, 3)]
-            + [EdgeId(space="my_space", external_id="instance3")]
-        )
-        sublist = instance_list[:2]
-        assert isinstance(sublist, InstanceIdList)
-        assert sublist == InstanceIdList([NodeId(space="my_space", external_id=f"instance{i}") for i in range(1, 3)])
-        assert instance_list[0] == NodeId(space="my_space", external_id="instance1")
+    @field_validator("display_name", mode="before")
+    @classmethod
+    def validate_display_name(cls, v: str | None) -> str | None:
+        if isinstance(v, str) and v.strip() == "":
+            return None
+        return v
 
-    def test_read_csv_file_with_errors(self, tmp_path: Path) -> None:
-        csv_content = "space,externalId,instanceType\nmy_space,instance1,node\n,instance2,node\nmy_space,,edge\nmy_space,instance4,invalid_type\n,,"
-        csv_file = tmp_path / "instances.csv"
-        csv_file.write_text(csv_content)
 
-        instance_list = InstanceIdList.read_csv_file(csv_file)
-        assert len(instance_list) == 1
-        assert instance_list == InstanceIdList([NodeId(space="my_space", external_id="instance1")])
-        assert instance_list.invalid_rows == {
-            2: ["Space is empty."],
-            3: ["External ID is empty."],
-            4: ["Unknown instance type 'invalid_type', expected 'node' or 'edge'."],
-            5: ["Space is empty.", "External ID is empty.", "Unknown instance type '', expected 'node' or 'edge'."],
-        }
+class MyList(ModelList[MyRow]):
+    @classmethod
+    def _get_base_model_cls(cls) -> type[MyRow]:
+        return MyRow
 
-    @pytest.mark.parametrize(
-        "csv_content,expected_error",
+
+@pytest.fixture()
+def a_list() -> MyList:
+    return MyList(
         [
-            pytest.param(
-                "space,externalId\nmy_space,instance1\n", "Missing required columns: instanceType", id="Missing column"
-            ),
-            pytest.param(
-                "space,externalId,InstanceType\n", "No data found in the file: '{filepath}'.", id="Empty file"
-            ),
-        ],
+            MyRow(id=1, name="Alice", displayName="Aly"),
+            MyRow(id=2, name="Bob"),
+            MyRow(id=3, name="Charlie"),
+        ]
     )
-    def test_read_csv_file_missing_column(self, csv_content: str, expected_error: str, tmp_path: Path) -> None:
+
+
+class TestModelList:
+    def test_read_csv(self, tmp_path: Path) -> None:
+        csv_content = "id,name,displayName\n1,Alice,Aly\n2,Bob,\ninvalid_row\n3,Charlie,\n"
+        csv_file = tmp_path / "test.csv"
+        csv_file.write_text(csv_content)
+
+        my_list = MyList.read_csv_file(csv_file)
+
+        assert len(my_list) == 3
+        assert my_list[0] == MyRow(id=1, name="Alice", displayName="Aly")
+        assert my_list[1] == MyRow(id=2, name="Bob")
+        assert my_list[2] == MyRow(id=3, name="Charlie")
+        assert len(my_list.invalid_rows) == 1
+        assert 3 in my_list.invalid_rows
+
+    def test_raise_missing_column(self, tmp_path: Path) -> None:
+        csv_content = "id\n1\n2\n3\n"
+        csv_file = tmp_path / "test_missing_column.csv"
+        csv_file.write_text(csv_content)
+
+        with pytest.raises(ToolkitValueError, match="Missing required columns: name"):
+            MyList.read_csv_file(csv_file)
+
+    def test_iterate(self, a_list: MyList) -> None:
+        names = [row.name for row in a_list]
+        assert names == ["Alice", "Bob", "Charlie"]
+
+    def test_get_item(self, a_list: MyList) -> None:
+        assert a_list[0] == MyRow(id=1, name="Alice", displayName="Aly")
+        assert a_list[1:3] == MyList([MyRow(id=2, name="Bob"), MyRow(id=3, name="Charlie")])
+
+
+class TestInstanceCSVList:
+    def test_read_csv(self, tmp_path: Path) -> None:
+        csv_content = "space,externalId,instanceType\nmySpace,id1,node\nmySpace,id2,edge\n"
         csv_file = tmp_path / "instances.csv"
         csv_file.write_text(csv_content)
-        if "{filepath}" in expected_error:
-            expected_error = expected_error.format(filepath=csv_file.as_posix())
 
-        with pytest.raises(ToolkitValueError) as e:
-            InstanceIdList.read_csv_file(csv_file)
+        instance_list = InstanceIdCSVList.read_csv_file(csv_file)
 
-        assert str(e.value) == expected_error
+        assert len(instance_list) == 2
+        assert instance_list[0] == InstanceIdRow(externalId="id1", space="mySpace")
+        assert instance_list[1] == InstanceIdRow(externalId="id2", space="mySpace", instanceType="edge")
+        assert len(instance_list.invalid_rows) == 0
