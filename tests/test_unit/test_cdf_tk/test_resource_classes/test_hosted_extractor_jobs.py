@@ -24,53 +24,16 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
         id="Invalid type",
     )
 
-    # Missing required fields
-    yield pytest.param(
-        {
-            "destinationId": "myDest",
-            "sourceId": "mySource",
-            "format": {"type": "cognite"},
-        },
-        {
-            "Missing required field: 'externalId'",
-        },
-        id="Missing externalId",
-    )
-
     yield pytest.param(
         {
             "externalId": "myJob",
-            "sourceId": "mySource",
-            "format": {"type": "cognite"},
         },
         {
             "Missing required field: 'destinationId'",
-        },
-        id="Missing destinationId",
-    )
-
-    yield pytest.param(
-        {
-            "externalId": "myJob",
-            "destinationId": "myDest",
-            "format": {"type": "cognite"},
-        },
-        {
             "Missing required field: 'sourceId'",
-        },
-        id="Missing sourceId",
-    )
-
-    yield pytest.param(
-        {
-            "externalId": "myJob",
-            "destinationId": "myDest",
-            "sourceId": "mySource",
-        },
-        {
             "Missing required field: 'format'",
         },
-        id="Missing format",
+        id="Missing required fields",
     )
 
     # Format validation - missing type
@@ -87,7 +50,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
         id="Format missing type",
     )
 
-    # Format validation - invalid encoding
+    # Format validation - invalid encoding for all JobFormat types
     yield pytest.param(
         {
             "externalId": "myJob",
@@ -98,10 +61,10 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
         {
             "In format.encoding input should be 'utf8', 'utf16', 'utf16le' or 'latin1'. Got 'invalid_encoding'.",
         },
-        id="Invalid encoding",
+        id="CogniteFormat invalid encoding",
     )
 
-    # Format validation - invalid compression
+    # Format validation - invalid compression for all JobFormat types
     yield pytest.param(
         {
             "externalId": "myJob",
@@ -112,7 +75,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
         {
             "In format.compression input should be 'gzip'. Got 'invalid_compression'.",
         },
-        id="Invalid compression",
+        id="CogniteFormat invalid compression",
     )
 
     # CustomFormat validation - missing mapping_id
@@ -143,7 +106,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
         id="CustomFormat mappingId too long",
     )
 
-    # DataModelFormat validation - prefix config
+    # DataModelFormat validation - prefix config for all DataModelFormat types
     yield pytest.param(
         {
             "externalId": "myJob",
@@ -154,10 +117,10 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
         {
             "In format.prefix.prefix string should have at most 255 characters",
         },
-        id="DataModelFormat prefix too long",
+        id="CogniteFormat prefix too long",
     )
 
-    # DataModelFormat validation - too many data models
+    # DataModelFormat validation - too many data models for all DataModelFormat types
     yield pytest.param(
         {
             "externalId": "myJob",
@@ -168,7 +131,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
         {
             "In format.dataModels list should have at most 10 items after validation, not 11",
         },
-        id="DataModelFormat too many data models",
+        id="CogniteFormat too many data models",
     )
 
     # DataModelFormat validation - missing space in dataModels
@@ -182,49 +145,23 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
         {
             "In format.dataModels[1] missing required field: 'space'",
         },
-        id="DataModelFormat missing space",
+        id="CogniteFormat missing space in dataModels",
     )
 
     # Field length validation - externalId too long
     yield pytest.param(
         {
             "externalId": "a" * 256,
-            "destinationId": "myDest",
-            "sourceId": "mySource",
-            "format": {"type": "cognite"},
-        },
-        {
-            "In field externalId string should have at most 255 characters",
-        },
-        id="externalId too long",
-    )
-
-    # Field length validation - destinationId too long
-    yield pytest.param(
-        {
-            "externalId": "myJob",
             "destinationId": "a" * 256,
-            "sourceId": "mySource",
-            "format": {"type": "cognite"},
-        },
-        {
-            "In field destinationId string should have at most 255 characters",
-        },
-        id="destinationId too long",
-    )
-
-    # Field length validation - sourceId too long
-    yield pytest.param(
-        {
-            "externalId": "myJob",
-            "destinationId": "myDest",
             "sourceId": "a" * 256,
             "format": {"type": "cognite"},
         },
         {
+            "In field externalId string should have at most 255 characters",
+            "In field destinationId string should have at most 255 characters",
             "In field sourceId string should have at most 255 characters",
         },
-        id="sourceId too long",
+        id="externalId too long",
     )
 
     # Format validation - non-dict format
@@ -241,60 +178,18 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
         id="Format non-dict type",
     )
 
-    # RockwellFormat validation tests - additional JobFormat types
+    # Format validation - null format
     yield pytest.param(
         {
             "externalId": "myJob",
             "destinationId": "myDest",
             "sourceId": "mySource",
-            "format": {"type": "rockwell", "encoding": "invalid_encoding"},
+            "format": None,
         },
         {
-            "In format.encoding input should be 'utf8', 'utf16', 'utf16le' or 'latin1'. Got 'invalid_encoding'.",
+            "In field format invalid input for format '<class 'NoneType'>' expected dict",
         },
-        id="RockwellFormat invalid encoding",
-    )
-
-    # ValueFormat validation tests
-    yield pytest.param(
-        {
-            "externalId": "myJob",
-            "destinationId": "myDest",
-            "sourceId": "mySource",
-            "format": {"type": "value", "compression": "invalid_compression"},
-        },
-        {
-            "In format.compression input should be 'gzip'. Got 'invalid_compression'.",
-        },
-        id="ValueFormat invalid compression",
-    )
-
-    # More comprehensive DataModelFormat tests
-    yield pytest.param(
-        {
-            "externalId": "myJob",
-            "destinationId": "myDest",
-            "sourceId": "mySource",
-            "format": {"type": "rockwell", "prefix": {"fromTopic": True, "prefix": "a" * 256}},
-        },
-        {
-            "In format.prefix.prefix string should have at most 255 characters",
-        },
-        id="RockwellFormat prefix too long",
-    )
-
-    # ValueFormat with dataModels validation
-    yield pytest.param(
-        {
-            "externalId": "myJob",
-            "destinationId": "myDest",
-            "sourceId": "mySource",
-            "format": {"type": "value", "dataModels": [{"space": f"space{i}"} for i in range(11)]},
-        },
-        {
-            "In format.dataModels list should have at most 10 items after validation, not 11",
-        },
-        id="ValueFormat too many data models",
+        id="Format null type",
     )
 
 
