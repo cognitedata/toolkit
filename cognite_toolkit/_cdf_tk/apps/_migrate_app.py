@@ -1,3 +1,4 @@
+from datetime import date
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -8,9 +9,16 @@ from cognite_toolkit._cdf_tk.commands import (
     MigrateFilesCommand,
     MigrateTimeseriesCommand,
     MigrationCanvasCommand,
+    MigrationCommand,
     MigrationPrepareCommand,
 )
+from cognite_toolkit._cdf_tk.commands._migrate.adapter import FileMetaAdapter, MigrationCSVFileSelector
+from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
+from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.storageio import InstanceIO
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+
+TODAY = date.today()
 
 
 class MigrateApp(typer.Typer):
@@ -21,7 +29,10 @@ class MigrateApp(typer.Typer):
         # Uncomment when command is ready.
         # self.command("assets")(self.assets)
         self.command("timeseries")(self.timeseries)
-        self.command("files")(self.files)
+        if Flags.MIGRATION_V2.is_enabled():
+            self.command("files")(self.files_v2)
+        else:
+            self.command("files")(self.files)
         self.command("canvas")(self.canvas)
 
     def main(self, ctx: typer.Context) -> None:
@@ -190,6 +201,58 @@ class MigrateApp(typer.Typer):
             lambda: cmd.migrate_files(
                 client,
                 mapping_file=mapping_file,
+                dry_run=dry_run,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def files_v2(
+        ctx: typer.Context,
+        mapping_file: Annotated[
+            Path,
+            typer.Option(
+                "--mapping-file",
+                "-m",
+                help="Path to the mapping file that contains the mapping from Files to CogniteFiles. "
+                "This file is expected to have the following columns: [id, space, externalId, ingestionView].",
+            ),
+        ],
+        log_dir: Annotated[
+            Path,
+            typer.Option(
+                "--log-dir",
+                "-l",
+                help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
+            ),
+        ] = Path(f"{TODAY!s}_migration_logs"),
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-d",
+                help="If set, the migration will not be executed, but only a report of what would be done is printed.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """Migrate Files to CogniteFiles."""
+
+        client = EnvironmentVariables.create_from_environment().get_client(enable_set_pending_ids=True)
+        cmd = MigrationCommand()
+        cmd.run(
+            lambda: cmd.migrate(
+                selected=MigrationCSVFileSelector(mapping_file, resource_type="file"),
+                data=FileMetaAdapter(client, InstanceIO(client)),
+                mapper=AssetCentricMapper(client),
+                log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
             )
