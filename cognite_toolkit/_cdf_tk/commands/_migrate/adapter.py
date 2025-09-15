@@ -146,6 +146,11 @@ class AssetCentricMigrationIOAdapter(
             if node_id not in self._id_by_instance_id:
                 raise ValueError(f"Missing mapping for instance {node_id!r}")
             return self._id_by_instance_id[node_id]
+        elif isinstance(item, InstanceApply):
+            instance_id_ = InstanceId(item.space, item.external_id)
+            if instance_id_ not in self._id_by_instance_id:
+                raise ValueError(f"Missing mapping for instance {instance_id_!r}")
+            return self._id_by_instance_id[instance_id_]
         elif isinstance(item, dict) and isinstance(item.get("id"), int):
             # MyPy checked above.
             return item["id"]  # type: ignore[arg-type, return-value]
