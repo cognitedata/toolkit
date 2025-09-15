@@ -565,10 +565,7 @@ class EventCRUD(ResourceCRUD[str, EventWrite, Event, EventWriteList, EventList])
             if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
                 scope = capabilities.EventsAcl.Scope.DataSet(list(data_set_ids))
 
-        return capabilities.EventsAcl(
-            actions,
-            scope,  # type: ignore[arg-type]
-        )
+        return capabilities.EventsAcl(actions, scope)
 
     def create(self, items: EventWriteList) -> EventList:
         return self.client.events.create(items)

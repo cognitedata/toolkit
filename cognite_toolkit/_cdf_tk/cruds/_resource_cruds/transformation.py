@@ -244,7 +244,7 @@ class TransformationCRUD(
                 warning.print_warning(console=self.console)
             elif query_file and not query_file.exists():
                 # We checked above that filepath is not None
-                raise ToolkitFileNotFoundError(f"Query file {query_file.as_posix()} not found", filepath)  # type: ignore[union-attr]
+                raise ToolkitFileNotFoundError(f"Query file {query_file.as_posix()} not found", filepath)
             elif query_file and "query" in item:
                 raise ToolkitYAMLFormatError(
                     f"query property is ambiguously defined in both the yaml file and a separate file named {query_file}\n"
@@ -678,7 +678,7 @@ class TransformationNotificationCRUD(
         return dumped
 
     def create(self, items: TransformationNotificationWriteList) -> TransformationNotificationList:
-        return self.client.transformations.notifications.create(items)  # type: ignore[return-value]
+        return self.client.transformations.notifications.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> TransformationNotificationList:
         retrieved = TransformationNotificationList([])
@@ -743,7 +743,7 @@ class TransformationNotificationCRUD(
         # while the toolkit uses the transformationExternalId + destination as the id. Thus, there could
         # be multiple notifications for the same transformationExternalId + destination.
         if existing := self.retrieve(ids):
-            self.client.transformations.notifications.delete([item.id for item in existing])  # type: ignore[misc]
+            self.client.transformations.notifications.delete([item.id for item in existing])
         return len(existing)
 
     def _iterate(
