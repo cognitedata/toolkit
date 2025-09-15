@@ -73,17 +73,17 @@ class ThreadSafeDict(UserDict, Generic[T_ID, T_Value]):
         with self._lock:
             super().update(*args, **kwargs)  # type: ignore[misc]
 
-    def keys(self) -> KeysView[T_ID]:
+    def keys(self) -> list[T_ID]:
         with self._lock:
-            return self.data.keys()
+            return list(self.data.keys())
 
-    def values(self) -> ValuesView[T_Value]:
+    def values(self) -> list[T_Value]:
         with self._lock:
-            return self.data.values()
+            return list(self.data.values())
 
-    def items(self) -> ItemsView[T_ID, T_Value]:
+    def items(self) -> list[tuple[T_ID, T_Value]]:
         with self._lock:
-            return self.data.items()
+            return list(self.data.items())
 
     def __repr__(self) -> str:
         with self._lock:
