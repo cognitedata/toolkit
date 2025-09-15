@@ -192,8 +192,7 @@ class RestConfig(BaseModelResource):
         description="The format of the messages from the source. This is used to convert messages coming from the source system to a format that can be inserted into CDF.",
     )
 
-    @classmethod
-    @field_validator("incremental_load", mode="before")
+    @field_validator("incremental_load", mode="after")
     def validate_incremental_load_type(cls, v: IncrementalLoad | None) -> IncrementalLoad | None:
         if v is None:
             return v
