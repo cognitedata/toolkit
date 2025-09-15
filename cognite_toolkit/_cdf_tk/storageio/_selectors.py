@@ -83,32 +83,35 @@ class InstanceFileSelector(CSVFileSelector[InstanceIdCSVList], InstanceSelector)
     def list_cls(self) -> type[InstanceIdCSVList]:
         return InstanceIdCSVList
 
+    @cached_property
+    def _ids_by_type(self) -> tuple[list[NodeId], list[EdgeId]]:
+        node_ids: list[NodeId] = []
+        edge_ids: list[EdgeId] = []
+        for instance in self.items:
+            if instance.instance_type == "node":
+                node_ids.append(NodeId(instance.space, instance.external_id))
+            else:
+                edge_ids.append(EdgeId(instance.space, instance.external_id))
+        return node_ids, edge_ids
+
     @property
     def instance_ids(self) -> list[InstanceId]:
-        return [
-            NodeId(instance.space, instance.external_id)
-            if instance.instance_type == "node"
-            else EdgeId(instance.space, instance.external_id)
-            for instance in self.items
-        ]
+        node_ids, edge_ids = self._ids_by_type
+        return [*node_ids, *edge_ids]
 
     @property
     def node_ids(self) -> list[NodeId]:
-        return [
-            NodeId(instance.space, instance.external_id) for instance in self.items if instance.instance_type == "node"
-        ]
+        return self._ids_by_type[0]
 
     @property
     def edge_ids(self) -> list[EdgeId]:
-        return [
-            EdgeId(instance.space, instance.external_id) for instance in self.items if instance.instance_type == "edge"
-        ]
+        return self._ids_by_type[1]
 
     def get_schema_spaces(self) -> list[str] | None:
         return None
 
     def get_instance_spaces(self) -> list[str] | None:
-        return sorted({instance.space for instance in self.instance_ids})
+        return sorted({instance.space for instance in self.items})
 
     def __str__(self) -> str:
         return f"file {self.datafile.as_posix()}"
