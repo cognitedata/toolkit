@@ -1,7 +1,6 @@
 from datetime import datetime
 
-from pydantic import Field, JsonValue, model_serializer
-from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
+from pydantic import Field, JsonValue
 
 from .base import ToolkitResource
 from .view_field_definitions import DirectRelationReference, ViewReference
@@ -43,14 +42,3 @@ class CogniteFileYAML(ToolkitResource):
     extra_properties: dict[str, JsonValue] | None = Field(
         default=None, description="Additional custom properties for the file."
     )
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> dict:
-        serialized_data = handler(self)
-
-        if self.source_created_time:
-            serialized_data["sourceCreatedTime"] = self.source_created_time.isoformat().replace("+00:00", "Z")
-        if self.source_updated_time:
-            serialized_data["sourceUpdatedTime"] = self.source_updated_time.isoformat().replace("+00:00", "Z")
-
-        return serialized_data

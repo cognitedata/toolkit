@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -22,8 +23,8 @@ def valid_cognitefile_test_cases() -> Iterable:
             "sourceId": "source_123",
             "sourceContext": "production_system",
             "source": {"space": "source_space", "externalId": "source_ref_123"},
-            "sourceCreatedTime": "2025-01-15T10:30:00Z",
-            "sourceUpdatedTime": "2025-08-01T15:45:30Z",
+            "sourceCreatedTime": datetime(2025, 1, 15, 10, 30, 0, tzinfo=timezone.utc),
+            "sourceUpdatedTime": datetime(2025, 8, 1, 15, 45, 30, tzinfo=timezone.utc),
             "sourceCreatedUser": "user123",
             "sourceUpdatedUser": "user456",
             "assets": [
