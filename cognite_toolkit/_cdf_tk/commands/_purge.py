@@ -19,7 +19,10 @@ from cognite_toolkit._cdf_tk.cruds import (
     RESOURCE_CRUD_LIST,
     AssetCRUD,
     CogniteFileCRUD,
+    ContainerCRUD,
+    DataModelCRUD,
     DataSetsCRUD,
+    EdgeCRUD,
     FunctionCRUD,
     GraphQLLoader,
     GroupAllScopedCRUD,
@@ -110,6 +113,57 @@ class PurgeCommand(ToolkitCommand):
             print(f"Purge space {selected_space!r} completed.")
         elif not dry_run:
             print(f"Purge space {selected_space!r} partly completed. See warnings for details.")
+
+    def space_v2(
+        self,
+        client: ToolkitClient,
+        space: str,
+        include_space: bool = False,
+        dry_run: bool = False,
+        auto_yes: bool = False,
+        verbose: bool = False,
+    ) -> DeployResults:
+        selected_space = space
+        results = DeployResults([], "purge", dry_run=dry_run)
+
+        # Warning Messages
+        if not dry_run:
+            self._print_panel("space", selected_space)
+        if not dry_run and not auto_yes:
+            confirm = questionary.confirm(
+                f"Are you really sure you want to purge the {selected_space!r} space?", default=False
+            ).ask()
+            if not confirm:
+                return results
+
+        stats = client.data_modeling.statistics.spaces.retrieve(selected_space)
+        if stats is None:
+            raise ToolkitMissingResourceError(f"Space {selected_space!r} does not exist")
+
+        # ValidateAuth
+        validator = ValidateAccess(client, "purge")
+        if include_space or (stats.containers + stats.views + stats.data_models) > 0:
+            validator.data_model(["read", "write"], spaces={selected_space})
+        if (stats.nodes + stats.edges) > 0:
+            validator.instances(["read", "write"], spaces={selected_space})
+
+        total_by_crud_cls = dict(
+            zip(
+                [EdgeCRUD, NodeCRUD, DataModelCRUD, ViewCRUD, ContainerCRUD],
+                [stats.edges, stats.nodes, stats.data_models, stats.views, stats.containers],
+            )
+        )
+        if dry_run:
+            for crud_cls, total in total_by_crud_cls.items():
+                crud = crud_cls.create_loader(client)  # type: ignore[attr-defined]
+                results[crud.display_name] = ResourceDeployResult(crud.display_name, deleted=total)
+            if include_space:
+                space_loader = SpaceCRUD.create_loader(client)
+                results[space_loader.display_name] = ResourceDeployResult(space_loader.display_name, deleted=1)
+        else:
+            raise NotImplementedError("Non-dry-run mode is not implemented for space_v2")
+        print(results.counts_table(exclude_columns={"Created", "Changed", "Untouched", "Total"}))
+        return results
 
     @staticmethod
     def _get_dependencies(
