@@ -679,7 +679,7 @@ class TestDataModelingInteractiveSelect:
         ):
             client.data_modeling.spaces.list.return_value = SpaceList(spaces)
             selector = DataModelingSelect(client, "test_operation")
-            selected_space = selector.select_space(include_global=True)
+            selected_space = selector.select_schema_space(include_global=True)
 
         assert selected_space.space == "space2"
 
