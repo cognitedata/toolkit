@@ -12,6 +12,7 @@ from cognite.client.data_classes import (
 )
 from cognite.client.data_classes.aggregations import CountValue
 from cognite.client.data_classes.data_modeling import NodeList, Space, SpaceList, View, ViewId, ViewList
+from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics, SpaceStatisticsList
 from cognite.client.data_classes.raw import Database, DatabaseList, Table, TableList
 from questionary import Choice
 
@@ -628,6 +629,7 @@ class TestDataModelingInteractiveSelect:
             View(space="space1", external_id="view1", version="1", **self.DEFAULT_VIEW_ARGS),
             View(space="space1", external_id="view2", version="1", **self.DEFAULT_VIEW_ARGS),
         ]
+        space_stats = SpaceStatisticsList([SpaceStatistics(space.space, 0, 1, 0, 0, 0, 0, 0) for space in spaces])
 
         answers = [spaces[0], views[1]]
         with (
@@ -636,24 +638,27 @@ class TestDataModelingInteractiveSelect:
         ):
             client.data_modeling.spaces.list.return_value = SpaceList(spaces)
             client.data_modeling.views.list.return_value = ViewList(views)
+            client.data_modeling.statistics.spaces.list.return_value = space_stats
             selector = DataModelingSelect(client, "test_operation")
             selected_view = selector.select_view()
 
         assert selected_view.external_id == "view2"
 
-    def test_select_view_no_views_found(self, monkeypatch) -> None:
+    def test_select_no_schema_space_found(self, monkeypatch) -> None:
         space = Space(space="space1", **self.DEFAULT_SPACE_ARGS)
+        space_stats = [SpaceStatistics(space.space, 0, 0, 0, 0, 0, 0, 0)]
         answers = [space]  # Direct string answer
         with (
             monkeypatch_toolkit_client() as client,
             MockQuestionary(DataModelingSelect.__module__, monkeypatch, answers),
         ):
             client.data_modeling.spaces.list.return_value = SpaceList([space])
+            client.data_modeling.statistics.spaces.list.return_value = SpaceStatisticsList(space_stats)
             client.data_modeling.views.list.return_value = []
             selector = DataModelingSelect(client, "test_operation")
             with pytest.raises(ToolkitMissingResourceError) as exc_info:
                 selector.select_view()
-            assert str(exc_info.value) == "No views found in space 'space1'."
+            assert str(exc_info.value) == "No spaces with schema (containers, views, or data models) found."
 
     def test_select_instance_type(self, monkeypatch) -> None:
         answers = ["node"]  # Direct string answer
@@ -671,6 +676,7 @@ class TestDataModelingInteractiveSelect:
             Space(space="space1", **self.DEFAULT_SPACE_ARGS),
             Space(space="space2", **self.DEFAULT_SPACE_ARGS),
         ]
+        stats = [SpaceStatistics(space.space, 0, 1, 0, 0, 0, 0, 0) for space in spaces]
         answers = [spaces[1]]
 
         with (
@@ -678,6 +684,7 @@ class TestDataModelingInteractiveSelect:
             MockQuestionary(DataModelingSelect.__module__, monkeypatch, answers),
         ):
             client.data_modeling.spaces.list.return_value = SpaceList(spaces)
+            client.data_modeling.statistics.spaces.list.return_value = SpaceStatisticsList(stats)
             selector = DataModelingSelect(client, "test_operation")
             selected_space = selector.select_schema_space(include_global=True)
 
