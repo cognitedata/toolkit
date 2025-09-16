@@ -45,6 +45,19 @@ class TestRobotMapYAML:
                     "In field mapType input should be 'WAYPOINTMAP', 'THREEDMODEL', 'TWODMAP' or 'POINTCLOUD'. Got 'INVALID_TYPE'."
                 },
             ),
+            (
+                {
+                    "name": "3D Model Map",
+                    "externalId": "map_3d_001",
+                    "mapType": "THREEDMODEL",
+                    "description": "3D model of the facility",
+                    "frameExternalId": "frame_001",
+                    "data": {"modelUrl": "https://example.com/model.obj"},
+                    "locationExternalId": "location_001",
+                    "scale": 1.1,
+                },
+                {"In field scale input should be less than or equal to 1"},
+            ),
         ],
     )
     def test_invalid_map_configurations(self, data: dict[str, object], expected_error: str) -> None:

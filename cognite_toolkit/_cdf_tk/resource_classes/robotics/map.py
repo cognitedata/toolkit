@@ -13,4 +13,4 @@ class RobotMapYAML(ToolkitResource):
     frame_external_id: str | None = Field(default=None, description="External id of the map's reference frame.")
     data: dict[str, JsonValue] | None = Field(default=None, description="Map-specific data.")
     location_external_id: str | None = Field(default=None, description="External id of the location.")
-    scale: float | None = Field(default=None, description="Uniform scaling factor.")
+    scale: float | None = Field(default=None, description="Uniform scaling factor.", ge=0.0, le=1.0)
