@@ -44,7 +44,7 @@ Function:
   fileId: -1
   functionPath: handler.py
   metadata:
-    cognite-toolkit-hash: /=e024a566;handler.py=8c89b5ab;requirements.txt=1d4815ec
+    cognite-toolkit-hash: /=6326d695;handler.py=a6e154f2;requirements.txt=1d4815ec
   name: P&ID Annotator
   owner: Anonymous
 Node:

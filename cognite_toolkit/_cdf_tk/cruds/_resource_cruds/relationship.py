@@ -73,10 +73,7 @@ class RelationshipCRUD(ResourceCRUD[str, RelationshipWrite, Relationship, Relati
             if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
                 scope = capabilities.RelationshipsAcl.Scope.DataSet(list(data_set_ids))
 
-        return capabilities.RelationshipsAcl(
-            actions,
-            scope,  # type: ignore[arg-type]
-        )
+        return capabilities.RelationshipsAcl(actions, scope)
 
     def create(self, items: RelationshipWriteList) -> RelationshipList:
         return self.client.relationships.create(items)

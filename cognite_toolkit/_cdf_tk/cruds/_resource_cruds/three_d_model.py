@@ -83,10 +83,7 @@ class ThreeDModelCRUD(ResourceContainerCRUD[str, ThreeDModelWrite, ThreeDModel, 
             ]
         )
 
-        return capabilities.ThreeDAcl(
-            actions,
-            scope,  # type: ignore[arg-type]
-        )
+        return capabilities.ThreeDAcl(actions, scope)
 
     def create(self, items: ThreeDModelWriteList) -> ThreeDModelList:
         created = ThreeDModelList([])
