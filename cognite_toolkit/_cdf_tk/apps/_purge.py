@@ -218,7 +218,7 @@ class PurgeApp(typer.Typer):
             interactive = DataModelingSelect(client, operation="purge")
             select_view = interactive.select_view(include_global=True)
             selected_instance_type = interactive.select_instance_type(select_view.used_for)
-            instance_space = interactive.select_instance_spaces(select_view.as_id(), selected_instance_type)
+            instance_space = interactive.select_instance_space(True, select_view.as_id(), selected_instance_type)
             selector = InstanceViewSelector(
                 view=select_view.as_id(),
                 instance_type=selected_instance_type,
