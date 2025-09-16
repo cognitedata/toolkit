@@ -52,7 +52,8 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     MediumSeverityWarning,
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.batch_processor import BatchResult, HTTPBatchProcessor
+from cognite_toolkit._cdf_tk.utils.batch_processor import BatchResult, HTTPBatchProcessor, SuccessItem
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ItemsRequest
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
@@ -146,24 +147,77 @@ class PurgeCommand(ToolkitCommand):
         if (stats.nodes + stats.edges) > 0:
             validator.instances(["read", "write"], spaces={selected_space})
 
+        config = client.config
         total_by_crud_cls = {
-            EdgeCRUD: stats.edges,
-            NodeCRUD: stats.nodes,
-            DataModelCRUD: stats.data_models,
-            ViewCRUD: stats.views,
-            ContainerCRUD: stats.containers,
+            EdgeCRUD: (stats.edges, config.create_api_url("/models/instances/delete")),
+            NodeCRUD: (stats.nodes, config.create_api_url("/models/instances/delete")),
+            DataModelCRUD: (stats.data_models, config.create_api_url("/models/datamodels/delete")),
+            ViewCRUD: (stats.views, config.create_api_url("/models/views/delete")),
+            ContainerCRUD: (stats.containers, config.create_api_url("/models/containers/delete")),
         }
         if dry_run:
-            for crud_cls, total in total_by_crud_cls.items():
+            for crud_cls, (total, _) in total_by_crud_cls.items():
                 crud = crud_cls.create_loader(client)  # type: ignore[attr-defined]
                 results[crud.display_name] = ResourceDeployResult(crud.display_name, deleted=total)
             if include_space:
                 space_loader = SpaceCRUD.create_loader(client)
                 results[space_loader.display_name] = ResourceDeployResult(space_loader.display_name, deleted=1)
         else:
-            raise NotImplementedError("Non-dry-run mode is not implemented for space_v2")
-        print(results.counts_table(exclude_columns={"Created", "Changed", "Untouched", "Total"}))
+            with HTTPClient(client.config, max_retries=10) as delete_client:
+                for crud_cls, (total, URL) in total_by_crud_cls.items():
+                    crud = crud_cls.create_loader(client)  # type: ignore[attr-defined]
+                    if total == 0:
+                        results[crud.display_name] = ResourceDeployResult(crud.display_name, deleted=0)
+                        continue
+                    result = ResourceDeployResult(crud.display_name)
+                    executor = ProducerWorkerExecutor(
+                        download_iterable=crud.iterate(space=selected_space),
+                        process=lambda list_: list_.dump(),
+                        write=self._purge_batch(crud, URL, delete_client, result),
+                        max_queue_size=10,
+                        iteration_count=total // 1000 + (1 if total % 1000 > 0 else 0),
+                        download_description=f"Downloading {crud.display_name}",
+                        process_description=f"Preparing {crud.display_name} for deletion",
+                        write_description=f"Deleting {crud.display_name}",
+                    )
+                    executor.run()
+                    results[crud.display_name] = result
+                    if executor.error_occurred:
+                        self.warn(
+                            HighSeverityWarning(f"Failed to delete all {crud.display_name}. {executor.error_message}")
+                        )
+            if include_space:
+                space_loader = SpaceCRUD.create_loader(client)
+                try:
+                    space_loader.delete([selected_space])
+                    print(f"Space {selected_space} deleted")
+                except CogniteAPIError as e:
+                    self.warn(HighSeverityWarning(f"Failed to delete space {selected_space!r}: {e}"))
+                else:
+                    results[space_loader.display_name] = ResourceDeployResult(space_loader.display_name, deleted=1)
+        print(results.counts_table(exclude_columns={"Created", "Changed", "Total"}))
         return results
+
+    @staticmethod
+    def _purge_batch(
+        crud: ResourceCRUD, delete_url: str, delete_client: HTTPClient, result: ResourceDeployResult
+    ) -> Callable[[list[JsonVal]], None]:
+        def process(items: list[JsonVal]) -> None:
+            responses = delete_client.request_with_retries(
+                ItemsRequest(
+                    endpoint_url=delete_url,
+                    method="POST",
+                    items=items,
+                    as_id=crud.get_id,
+                )
+            )
+            for response in responses:
+                if isinstance(response, SuccessItem):
+                    result.deleted += 1
+                else:
+                    result.unchanged += 1
+
+        return process
 
     @staticmethod
     def _get_dependencies(
