@@ -671,7 +671,7 @@ class TestDataModelingInteractiveSelect:
 
         assert instance_type == "node"
 
-    def test_select_single_space(self, monkeypatch) -> None:
+    def test_select_single_schema_space(self, monkeypatch) -> None:
         spaces = [
             Space(space="space1", **self.DEFAULT_SPACE_ARGS),
             Space(space="space2", **self.DEFAULT_SPACE_ARGS),
