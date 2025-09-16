@@ -28,7 +28,7 @@ DataSet:
 - description: This dataset is used for all the resources in the complete_org.
   externalId: ds_complete_org
   name: Example dataset.
-FileLoader:
+FileCRUD:
 - externalId: MyExtendedFile
   filehash: 5e6be7b4
   space: sp_nodes

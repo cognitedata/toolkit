@@ -26,8 +26,8 @@ from cognite.client.data_classes.labels import LabelDefinitionWriteList
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.cruds import AssetCRUD, DataSetsCRUD, FileMetadataCRUD, LabelCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
-from cognite_toolkit._cdf_tk.loaders import AssetLoader, DataSetsLoader, FileMetadataLoader, LabelLoader, ResourceLoader
 from cognite_toolkit._cdf_tk.utils.aggregators import AssetAggregator, AssetCentricAggregator, FileAggregator
 from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
 from cognite_toolkit._cdf_tk.utils.file import find_files_with_suffix_and_prefix
@@ -61,7 +61,7 @@ class BaseAssetCentricIO(
     @abstractmethod
     def _get_loader(
         self,
-    ) -> ResourceLoader[
+    ) -> ResourceCRUD[
         T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
     ]:
         raise NotImplementedError()
@@ -88,10 +88,10 @@ class BaseAssetCentricIO(
         data_set_ids = self._downloaded_data_sets_by_selector[selector]
         if data_set_ids:
             data_set_external_ids = self.client.lookup.data_sets.external_id(list(data_set_ids))
-            yield from self._configurations(data_set_external_ids, DataSetsLoader.create_loader(self.client))
+            yield from self._configurations(data_set_external_ids, DataSetsCRUD.create_loader(self.client))
 
         yield from self._configurations(
-            list(self._downloaded_labels_by_selector[selector]), LabelLoader.create_loader(self.client)
+            list(self._downloaded_labels_by_selector[selector]), LabelCRUD.create_loader(self.client)
         )
 
     def _collect_dependencies(self, resources: AssetList | FileMetadataList, selector: AssetCentricSelector) -> None:
@@ -110,7 +110,7 @@ class BaseAssetCentricIO(
     def _configurations(
         cls,
         ids: list[str],
-        loader: DataSetsLoader | LabelLoader,
+        loader: DataSetsCRUD | LabelCRUD,
     ) -> Iterable[StorageIOConfig]:
         if not ids:
             return
@@ -131,21 +131,21 @@ class BaseAssetCentricIO(
             return None
         datafile = selector.datafile
         filepaths = find_files_with_suffix_and_prefix(
-            datafile.parent.parent / DataSetsLoader.folder_name, datafile.name, suffix=f".{DataSetsLoader.kind}.yaml"
+            datafile.parent.parent / DataSetsCRUD.folder_name, datafile.name, suffix=f".{DataSetsCRUD.kind}.yaml"
         )
-        self._create_if_not_exists(filepaths, DataSetsLoader.create_loader(self.client), console)
+        self._create_if_not_exists(filepaths, DataSetsCRUD.create_loader(self.client), console)
 
         filepaths = find_files_with_suffix_and_prefix(
-            datafile.parent.parent / LabelLoader.folder_name, datafile.name, suffix=f".{LabelLoader.kind}.yaml"
+            datafile.parent.parent / LabelCRUD.folder_name, datafile.name, suffix=f".{LabelCRUD.kind}.yaml"
         )
-        self._create_if_not_exists(filepaths, LabelLoader.create_loader(self.client), console)
+        self._create_if_not_exists(filepaths, LabelCRUD.create_loader(self.client), console)
         return None
 
     @classmethod
     def _create_if_not_exists(
         cls,
         filepaths: list[Path],
-        loader: DataSetsLoader | LabelLoader,
+        loader: DataSetsCRUD | LabelCRUD,
         console: Console | None = None,
     ) -> None:
         items: LabelDefinitionWriteList | DataSetWriteList = loader.list_write_cls([])
@@ -155,8 +155,8 @@ class BaseAssetCentricIO(
             for loaded in loader.load_resource_file(filepath):
                 items.append(loader.load_resource(loaded))
         # MyPy fails to understand that existing, existing_ids and missing will be consistent for given loader.
-        existing = loader.retrieve(loader.get_ids(items))  # type: ignore[arg-type]
-        existing_ids = set(loader.get_ids(existing))  # type: ignore[arg-type]
+        existing = loader.retrieve(loader.get_ids(items))
+        existing_ids = set(loader.get_ids(existing))
         if missing := [item for item in items if loader.get_id(item) not in existing_ids]:  # type: ignore[arg-type]
             loader.create(loader.list_write_cls(missing))  # type: ignore[arg-type]
             if console:
@@ -178,8 +178,8 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
             return item.id  # type: ignore[union-attr]
         return super().as_id(item)
 
-    def _get_loader(self) -> AssetLoader:
-        return AssetLoader.create_loader(self.client)
+    def _get_loader(self) -> AssetCRUD:
+        return AssetCRUD.create_loader(self.client)
 
     def _get_aggregator(self) -> AssetCentricAggregator:
         return AssetAggregator(self.client)
@@ -247,7 +247,7 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
 
 
 class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, FileMetadataWriteList, FileMetadataList]):
-    folder_name = FileMetadataLoader.folder_name
+    folder_name = FileMetadataCRUD.folder_name
     kind = "FileMetadata"
     display_name = "file metadata"
     supported_download_formats = frozenset({".parquet", ".csv", ".ndjson"})
@@ -259,8 +259,8 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
             return item.id  # type: ignore[union-attr]
         return super().as_id(item)
 
-    def _get_loader(self) -> FileMetadataLoader:
-        return FileMetadataLoader.create_loader(self.client)
+    def _get_loader(self) -> FileMetadataCRUD:
+        return FileMetadataCRUD.create_loader(self.client)
 
     def _get_aggregator(self) -> AssetCentricAggregator:
         return FileAggregator(self.client)

@@ -37,7 +37,7 @@ from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.table import Table
 
-from cognite_toolkit._cdf_tk import loaders
+from cognite_toolkit._cdf_tk import cruds
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import (
     HINT_LEAD_TEXT,
@@ -236,9 +236,9 @@ class AuthCommand(ToolkitCommand):
         if not is_demo and not is_user_in_toolkit_group:
             print(
                 Panel(
-                    f"To use the Toolkit, for example, 'cdf deploy', [red]you need to switch[/red] "
-                    f"to the principal with source-id {cdf_toolkit_group.source_id!r}.",
-                    title="Switch Principal",
+                    "To use the Toolkit, for example, 'cdf deploy', [red]you need[/red] to make sure to use a service principal "
+                    f"that is a member of the group with object id {cdf_toolkit_group.source_id!r}.",
+                    title="Service Principal group membership",
                     expand=False,
                 )
             )
@@ -437,7 +437,7 @@ class AuthCommand(ToolkitCommand):
     ) -> tuple[list[Capability], dict[tuple, list[str]]]:
         loaders_by_capability_tuple: dict[tuple, list[str]] = defaultdict(list)
         capability_by_id: dict[frozenset[tuple], Capability] = {}
-        for loader_cls in loaders.RESOURCE_LOADER_LIST:
+        for loader_cls in cruds.RESOURCE_CRUD_LIST:
             loader = loader_cls.create_loader(client)
             capability = loader_cls.get_required_capability(None, read_only=False)
             capabilities = capability if isinstance(capability, list) else [capability]
