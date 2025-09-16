@@ -340,7 +340,7 @@ ExtractionPipelineConfig:
     \ queries\nqueries:\n- name: test-postgres\n  database: postgres\n  query: SELECT\n"
   description: DB extractor config reading data from Hamburg SAP
   externalId: ep_src_asset_hamburg_sap
-FileLoader:
+FileCRUD:
 - externalId: MyVanillaFile
   filehash: adc874a9
   space: sp_nodes

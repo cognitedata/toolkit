@@ -47,7 +47,7 @@ Function:
   fileId: -1
   functionPath: handler.py
   metadata:
-    cognite-toolkit-hash: /=bd8fe6e3;handler.py=3c550663;requirements.txt=1d4815ec
+    cognite-toolkit-hash: /=ae0f84f7;handler.py=318d6241;requirements.txt=1d4815ec
   name: Entity Matching Function
   owner: Anonymous
 Group:
