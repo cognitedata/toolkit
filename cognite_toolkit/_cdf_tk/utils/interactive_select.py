@@ -19,7 +19,6 @@ from cognite.client.data_classes.capabilities import (
 )
 from cognite.client.data_classes.data_modeling import NodeList, Space, SpaceList, View, ViewId
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
-from cognite.client.exceptions import CogniteException
 from cognite.client.utils import ms_to_datetime
 from questionary import Choice
 from rich.console import Console
@@ -584,6 +583,10 @@ class DataModelingSelect:
     def select_instance_spaces(
         self, selected_view: ViewId | None = None, instance_type: Literal["node", "edge"] | None = None
     ) -> list[str] | None:
+        if (selected_view is not None and instance_type is None) or (
+            selected_view is None and instance_type is not None
+        ):
+            raise ToolkitValueError("Both selected_view and instance_type must be provided or both must be None.")
         if selected_view is not None and instance_type is not None:
             all_spaces = self._get_available_spaces(include_global=False)
             count_by_space = self._get_instance_count_in_view_by_space(all_spaces, selected_view, instance_type)
@@ -645,12 +648,8 @@ class DataModelingSelect:
         self, all_spaces: SpaceList, view_id: ViewId, instance_type: Literal["node", "edge"]
     ) -> dict[str, float]:
         count_by_space: dict[str, float] = {}
-        try:
-            read_limit = self.client.data_modeling.statistics.project().concurrent_read_limit
-        except CogniteException:
-            # Fetching a broad exception as the statistics endpoint is in pre-alpha and may suddenly no longer be
-            # available.
-            read_limit = 2
+        result = self.client.data_modeling.statistics.project()
+        read_limit = result.concurrent_read_limit
 
         with ThreadPoolExecutor(max_workers=read_limit // 2) as executor:
             results = executor.map(
