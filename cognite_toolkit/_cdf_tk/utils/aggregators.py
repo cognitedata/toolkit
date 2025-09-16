@@ -97,7 +97,7 @@ class AssetCentricAggregator(ABC):
                 ids.append(id_)
                 seen.add(id_)
             try:
-                int_id = int(id_)  # type: ignore[arg-type]
+                int_id = int(id_)
             except (ValueError, TypeError):
                 continue
             if int_id not in seen:

@@ -155,8 +155,8 @@ class BaseAssetCentricIO(
             for loaded in loader.load_resource_file(filepath):
                 items.append(loader.load_resource(loaded))
         # MyPy fails to understand that existing, existing_ids and missing will be consistent for given loader.
-        existing = loader.retrieve(loader.get_ids(items))  # type: ignore[arg-type]
-        existing_ids = set(loader.get_ids(existing))  # type: ignore[arg-type]
+        existing = loader.retrieve(loader.get_ids(items))
+        existing_ids = set(loader.get_ids(existing))
         if missing := [item for item in items if loader.get_id(item) not in existing_ids]:  # type: ignore[arg-type]
             loader.create(loader.list_write_cls(missing))  # type: ignore[arg-type]
             if console:
