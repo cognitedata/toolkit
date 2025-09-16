@@ -664,8 +664,6 @@ class DataModelingSelect:
             selected_spaces = questionary.select(message, choices=choices).ask()
         if selected_spaces is None or (isinstance(selected_spaces, list) and len(selected_spaces) == 0):
             raise ToolkitValueError(f"No empty space selected to {self.operation}. Aborting.")
-        if not isinstance(selected_spaces, list):
-            raise ToolkitValueError(f"Selected space is not a valid list: {selected_spaces!r}")
         return selected_spaces
 
     def _get_instance_count_in_view_by_space(
