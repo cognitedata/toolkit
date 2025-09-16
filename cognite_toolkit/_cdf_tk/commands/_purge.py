@@ -117,13 +117,12 @@ class PurgeCommand(ToolkitCommand):
     def space_v2(
         self,
         client: ToolkitClient,
-        space: str,
+        selected_space: str,
         include_space: bool = False,
         dry_run: bool = False,
         auto_yes: bool = False,
         verbose: bool = False,
     ) -> DeployResults:
-        selected_space = space
         results = DeployResults([], "purge", dry_run=dry_run)
 
         # Warning Messages
@@ -147,12 +146,13 @@ class PurgeCommand(ToolkitCommand):
         if (stats.nodes + stats.edges) > 0:
             validator.instances(["read", "write"], spaces={selected_space})
 
-        total_by_crud_cls = dict(
-            zip(
-                [EdgeCRUD, NodeCRUD, DataModelCRUD, ViewCRUD, ContainerCRUD],
-                [stats.edges, stats.nodes, stats.data_models, stats.views, stats.containers],
-            )
-        )
+        total_by_crud_cls = {
+            EdgeCRUD: stats.edges,
+            NodeCRUD: stats.nodes,
+            DataModelCRUD: stats.data_models,
+            ViewCRUD: stats.views,
+            ContainerCRUD: stats.containers,
+        }
         if dry_run:
             for crud_cls, total in total_by_crud_cls.items():
                 crud = crud_cls.create_loader(client)  # type: ignore[attr-defined]
