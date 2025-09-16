@@ -623,7 +623,7 @@ class DataModelingSelect:
         if len(count_by_space) == 1:
             selected_spaces = next(iter(count_by_space.keys()))
             self.console.print(f"Only one space with instances found: {selected_spaces!r}. Using this space.")
-            return [selected_spaces]
+            return [selected_spaces] if multiselect else selected_spaces
 
         message = f"In which Space{'(s)' if multiselect else ''} do you want to {self.operation} instances?"
         choices = [
@@ -654,7 +654,7 @@ class DataModelingSelect:
         if len(empty_spaces) == 1:
             selected_space = empty_spaces[0]
             self.console.print(f"Only one empty space found: {selected_space!r}. Using this space.")
-            return [selected_space]
+            return [selected_space] if multiselect else selected_space
 
         message = f"In which empty Space{'(s)' if multiselect else ''} do you want to {self.operation}?"
         choices = [Choice(title=f"{space}", value=space) for space in sorted(empty_spaces)]
