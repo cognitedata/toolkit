@@ -580,9 +580,28 @@ class DataModelingSelect:
             raise ToolkitValueError(f"Selected space type is not valid: {selected_space_type!r}")
         return selected_space_type
 
-    def select_instance_spaces(
-        self, selected_view: ViewId | None = None, instance_type: Literal["node", "edge"] | None = None
-    ) -> list[str] | None:
+    @overload
+    def select_instance_space(
+        self,
+        multiselect: Literal[False],
+        selected_view: ViewId | None = None,
+        instance_type: Literal["node", "edge"] | None = None,
+    ) -> str: ...
+
+    @overload
+    def select_instance_space(
+        self,
+        multiselect: Literal[True] = True,
+        selected_view: ViewId | None = None,
+        instance_type: Literal["node", "edge"] | None = None,
+    ) -> list[str]: ...
+
+    def select_instance_space(
+        self,
+        multiselect: bool = True,
+        selected_view: ViewId | None = None,
+        instance_type: Literal["node", "edge"] | None = None,
+    ) -> str | list[str]:
         if (selected_view is not None and instance_type is None) or (
             selected_view is None and instance_type is not None
         ):
@@ -606,21 +625,25 @@ class DataModelingSelect:
             self.console.print(f"Only one space with instances found: {selected_spaces!r}. Using this space.")
             return [selected_spaces]
 
-        selected_spaces = questionary.select(
-            f"In which Space(s) do you want to {self.operation} instances?",
-            choices=[
-                Choice(title=f"{space} ({count:,} instances)", value=space)
-                for space, count in sorted(count_by_space.items(), key=lambda item: item[1], reverse=True)
-            ],
-            multiselect=True,
-        ).ask()
-        if selected_spaces is None or len(selected_spaces) == 0:
-            return None
-        if not isinstance(selected_spaces, list):
-            raise ToolkitValueError(f"Selected space is not a valid list: {selected_spaces!r}")
+        message = f"In which Space{'(s)' if multiselect else ''} do you want to {self.operation} instances?"
+        choices = [
+            Choice(title=f"{space} ({count:,} instances)", value=space)
+            for space, count in sorted(count_by_space.items(), key=lambda item: item[1], reverse=True)
+        ]
+        if multiselect:
+            selected_spaces = questionary.checkbox(message, choices=choices).ask()
+        else:
+            selected_spaces = questionary.select(message, choices=choices).ask()
+        if selected_spaces is None or (isinstance(selected_spaces, list) and len(selected_spaces) == 0):
+            raise ToolkitValueError(f"No space selected to {self.operation}. Aborting.")
         return selected_spaces
 
-    def select_empty_spaces(self) -> list[str] | None:
+    @overload
+    def select_empty_spaces(self, multiselect: Literal[False]) -> str: ...
+    @overload
+    def select_empty_spaces(self, multiselect: Literal[True]) -> list[str]: ...
+
+    def select_empty_spaces(self, multiselect: bool = True) -> str | list[str]:
         empty_spaces = [
             space
             for space, stats in self.stats_by_space.items()
@@ -633,13 +656,14 @@ class DataModelingSelect:
             self.console.print(f"Only one empty space found: {selected_space!r}. Using this space.")
             return [selected_space]
 
-        selected_spaces = questionary.select(
-            f"In which empty Space(s) do you want to {self.operation}?",
-            choices=[Choice(title=f"{space}", value=space) for space in sorted(empty_spaces)],
-            multiselect=True,
-        ).ask()
-        if selected_spaces is None or len(selected_spaces) == 0:
-            return None
+        message = f"In which empty Space{'(s)' if multiselect else ''} do you want to {self.operation}?"
+        choices = [Choice(title=f"{space}", value=space) for space in sorted(empty_spaces)]
+        if multiselect:
+            selected_spaces = questionary.checkbox(message, choices=choices).ask()
+        else:
+            selected_spaces = questionary.select(message, choices=choices).ask()
+        if selected_spaces is None or (isinstance(selected_spaces, list) and len(selected_spaces) == 0):
+            raise ToolkitValueError(f"No empty space selected to {self.operation}. Aborting.")
         if not isinstance(selected_spaces, list):
             raise ToolkitValueError(f"Selected space is not a valid list: {selected_spaces!r}")
         return selected_spaces
