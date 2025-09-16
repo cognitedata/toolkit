@@ -143,7 +143,7 @@ class HTTPClient:
         session.mount("https://", adapter)
         return session
 
-    def _create_headers(self) -> MutableMapping[str, str]:
+    def _create_headers(self, api_version: str | None = None) -> MutableMapping[str, str]:
         headers: MutableMapping[str, str] = CaseInsensitiveDict()
         headers.update(requests.utils.default_headers())
         auth_name, auth_value = self.config.credentials.authorization_header()
@@ -152,7 +152,7 @@ class HTTPClient:
         headers["accept"] = "application/json"
         headers["x-cdp-sdk"] = f"CogniteToolkit:{get_current_toolkit_version()}"
         headers["x-cdp-app"] = self.config.client_name
-        headers["cdf-version"] = self.config.api_subversion
+        headers["cdf-version"] = api_version or self.config.api_subversion
         if "User-Agent" in headers:
             headers["User-Agent"] += f" {get_user_agent()}"
         else:
@@ -184,7 +184,7 @@ class HTTPClient:
         return data
 
     def _make_request(self, item: RequestMessage) -> requests.Response:
-        headers = self._create_headers()
+        headers = self._create_headers(item.api_version)
         params: dict[str, str] | None = None
         if isinstance(item, ParamRequest):
             params = item.parameters
