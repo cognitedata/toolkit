@@ -1,4 +1,4 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from functools import cached_property
@@ -18,8 +18,8 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList
+from cognite_toolkit._cdf_tk.cruds._base_cruds import T_ID
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
-from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID
 from cognite_toolkit._cdf_tk.storageio import (
     AssetCentricSelector,
     BaseAssetCentricIO,
@@ -37,7 +37,10 @@ from .data_model import INSTANCE_SOURCE_VIEW_ID
 
 
 @dataclass(frozen=True)
-class MigrationSelector(AssetCentricSelector, InstanceSelector, ABC): ...
+class MigrationSelector(AssetCentricSelector, InstanceSelector, ABC):
+    @abstractmethod
+    def get_ingestion_views(self) -> list[str]:
+        raise NotImplementedError()
 
 
 @dataclass(frozen=True)
@@ -50,6 +53,10 @@ class MigrationCSVFileSelector(MigrationSelector):
 
     def get_instance_spaces(self) -> list[str] | None:
         return sorted({item.instance_id.space for item in self.items})
+
+    def get_ingestion_views(self) -> list[str]:
+        views = {item.get_ingestion_view() for item in self.items}
+        return sorted(views)
 
     @cached_property
     def items(self) -> MigrationMappingList:
@@ -72,11 +79,11 @@ class AssetCentricMapping(Generic[T_WritableCogniteResource], WriteableCogniteRe
 
 
 class AssetCentricMappingList(
-    WriteableCogniteResourceList[AssetCentricMapping[T_WritableCogniteResource], InstanceApply]
+    WriteableCogniteResourceList[InstanceApply, AssetCentricMapping[T_WritableCogniteResource]]
 ):
     _RESOURCE: type = AssetCentricMapping
 
-    def as_write(self) -> InstanceApplyList:  # type: ignore[override]
+    def as_write(self) -> InstanceApplyList:
         return InstanceApplyList([item.as_write() for item in self])
 
 
@@ -124,7 +131,7 @@ class AssetCentricMigrationIOAdapter(
             return item.id
         elif isinstance(item, dict) and isinstance(item.get("id"), int):
             # MyPy checked above.
-            return item["id"]  # type: ignore[arg-type, return-value]
+            return item["id"]  # type: ignore[return-value]
         raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
 
     def download_iterable(
