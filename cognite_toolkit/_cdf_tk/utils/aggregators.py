@@ -180,7 +180,7 @@ class MetadataAggregator(AssetCentricAggregator, ABC, Generic[T_CogniteFilter]):
             data_set_ids = [{"externalId": item} for item in data_set_external_id]
 
         # MyPy fails to understand that filter_cls() produce a T_CogniteFilter
-        return cls.filter_cls(asset_subtree_ids=asset_subtree_ids, data_set_ids=data_set_ids)  # type: ignore[return-value]
+        return cls.filter_cls(asset_subtree_ids=asset_subtree_ids, data_set_ids=data_set_ids)
 
     @classmethod
     def _is_empty(cls, items: str | list[str] | tuple[str, ...] | None) -> bool:
