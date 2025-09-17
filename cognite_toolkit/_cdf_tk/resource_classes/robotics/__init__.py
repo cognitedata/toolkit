@@ -1,4 +1,5 @@
-from .capabilities import RobotCapabilityYAML
+from .capability import RobotCapabilityYAML
+
 
 __all__ = [
     "RobotCapabilityYAML",
