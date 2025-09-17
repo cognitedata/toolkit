@@ -1,5 +1,5 @@
 import uuid
-from collections.abc import Callable, Hashable
+from collections.abc import Callable, Hashable, Iterable
 from functools import partial
 from graphlib import CycleError, TopologicalSorter
 from typing import cast
@@ -52,8 +52,8 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     MediumSeverityWarning,
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.batch_processor import BatchResult, HTTPBatchProcessor, SuccessItem
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ItemsRequest
+from cognite_toolkit._cdf_tk.utils.batch_processor import BatchResult, HTTPBatchProcessor
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ItemsRequest, SuccessItem
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
@@ -171,8 +171,8 @@ class PurgeCommand(ToolkitCommand):
                         continue
                     result = ResourceDeployResult(crud.display_name)
                     executor = ProducerWorkerExecutor(
-                        download_iterable=crud.iterate(space=selected_space),
-                        process=lambda list_: list_.dump(),
+                        download_iterable=self._iterate_batch(crud, selected_space),
+                        process=lambda list_: [item.as_id().dump() for item in list_],
                         write=self._purge_batch(crud, URL, delete_client, result),
                         max_queue_size=10,
                         iteration_count=total // 1000 + (1 if total % 1000 > 0 else 0),
@@ -197,6 +197,17 @@ class PurgeCommand(ToolkitCommand):
                     results[space_loader.display_name] = ResourceDeployResult(space_loader.display_name, deleted=1)
         print(results.counts_table(exclude_columns={"Created", "Changed", "Total"}))
         return results
+
+    @staticmethod
+    def _iterate_batch(crud: ResourceCRUD, selected_space: str, batch_size: int = 1000) -> Iterable:
+        batch = crud.list_cls([])
+        for resource in crud.iterate(space=selected_space):
+            batch.append(resource)
+            if len(batch) >= batch_size:
+                yield batch
+                batch = crud.list_cls([])
+        if batch:
+            yield batch
 
     @staticmethod
     def _purge_batch(
