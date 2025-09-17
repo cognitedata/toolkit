@@ -6,6 +6,7 @@ from typing import cast
 
 import questionary
 from cognite.client.data_classes import AggregateResultItem, DataSetUpdate, filters
+from cognite.client.data_classes._base import CogniteResourceList
 from cognite.client.data_classes.data_modeling import NodeId, ViewId
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils._identifier import InstanceId
@@ -62,6 +63,8 @@ from ._base import ToolkitCommand
 
 
 class PurgeCommand(ToolkitCommand):
+    BATCH_SIZE_DM = 1000
+
     def space(
         self,
         client: ToolkitClient,
@@ -175,12 +178,12 @@ class PurgeCommand(ToolkitCommand):
                     dump_args = (
                         {"include_type": False} if isinstance(crud, ContainerCRUD | DataModelCRUD | ViewCRUD) else {}
                     )
-                    executor = ProducerWorkerExecutor(
-                        download_iterable=self._iterate_batch(crud, selected_space),
+                    executor = ProducerWorkerExecutor[CogniteResourceList, list[JsonVal]](
+                        download_iterable=self._iterate_batch(crud, selected_space, batch_size=self.BATCH_SIZE_DM),
                         process=lambda list_: [item.as_id().dump(**dump_args) for item in list_],
                         write=self._purge_batch(crud, URL, delete_client, result),
                         max_queue_size=10,
-                        iteration_count=total // 1000 + (1 if total % 1000 > 0 else 0),
+                        iteration_count=total // self.BATCH_SIZE_DM + (1 if total % self.BATCH_SIZE_DM > 0 else 0),
                         download_description=f"Downloading {crud.display_name}",
                         process_description=f"Preparing {crud.display_name} for deletion",
                         write_description=f"Deleting {crud.display_name}",
@@ -204,7 +207,7 @@ class PurgeCommand(ToolkitCommand):
         return results
 
     @staticmethod
-    def _iterate_batch(crud: ResourceCRUD, selected_space: str, batch_size: int = 1000) -> Iterable:
+    def _iterate_batch(crud: ResourceCRUD, selected_space: str, batch_size: int) -> Iterable[CogniteResourceList]:
         batch = crud.list_cls([])
         for resource in crud.iterate(space=selected_space):
             batch.append(resource)
