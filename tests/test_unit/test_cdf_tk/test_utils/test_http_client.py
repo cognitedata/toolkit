@@ -204,6 +204,22 @@ class TestHTTPClient:
         assert response.status_code == 401
         assert response.error == '{"message": "plain_text"}'
 
+    def test_request_alpha(self, http_client: HTTPClient, rsps: responses.RequestsMock) -> None:
+        rsps.get("https://example.com/api/alpha/endpoint", json={"key": "value"}, status=200)
+        results = http_client.request(
+            ParamRequest(
+                endpoint_url="https://example.com/api/alpha/endpoint",
+                method="GET",
+                parameters={"query": "test"},
+                api_version="alpha",
+            )
+        )
+        assert len(results) == 1
+        response = results[0]
+        assert isinstance(response, SuccessResponse)
+        assert response.status_code == 200
+        assert rsps.calls[-1].request.headers["cdf-version"] == "alpha"
+
 
 @pytest.mark.usefixtures("disable_pypi_check")
 class TestHTTPClientItemRequests:

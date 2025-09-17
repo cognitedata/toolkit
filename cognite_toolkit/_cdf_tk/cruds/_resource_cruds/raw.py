@@ -78,9 +78,9 @@ class RawDatabaseCRUD(ResourceContainerCRUD[RawDatabase, RawDatabase, RawDatabas
             for item in items:
                 tables_by_database[item.db_name] = []
 
-            scope = RawAcl.Scope.Table(dict(tables_by_database)) if tables_by_database else RawAcl.Scope.All()  # type: ignore[arg-type]
+            scope = RawAcl.Scope.Table(dict(tables_by_database)) if tables_by_database else RawAcl.Scope.All()
 
-        return RawAcl(actions, scope)  # type: ignore[arg-type]
+        return RawAcl(actions, scope)
 
     @classmethod
     def get_id(cls, item: RawDatabase | dict) -> RawDatabase:
@@ -193,9 +193,9 @@ class RawTableCRUD(ResourceContainerCRUD[RawTable, RawTable, RawTable, RawTableL
             for item in items:
                 tables_by_database[item.db_name].append(item.table_name)
 
-            scope = RawAcl.Scope.Table(dict(tables_by_database)) if tables_by_database else RawAcl.Scope.All()  # type: ignore[arg-type]
+            scope = RawAcl.Scope.Table(dict(tables_by_database)) if tables_by_database else RawAcl.Scope.All()
 
-        return RawAcl(actions, scope)  # type: ignore[arg-type]
+        return RawAcl(actions, scope)
 
     @classmethod
     def get_id(cls, item: RawTable | dict) -> RawTable:
@@ -271,8 +271,8 @@ class RawTableCRUD(ResourceContainerCRUD[RawTable, RawTable, RawTable, RawTableL
         for parent_id in parent_ids or (RawDatabase(cast(str, db.name)) for db in self.client.raw.databases):
             if not isinstance(parent_id, RawDatabase):
                 continue
-            for table in self.client.raw.tables(cast(str, parent_id.db_name)):
-                yield RawTable(db_name=cast(str, parent_id.db_name), table_name=cast(str, table.name))
+            for table in self.client.raw.tables(parent_id.db_name):
+                yield RawTable(db_name=parent_id.db_name, table_name=cast(str, table.name))
 
     def count(self, ids: SequenceNotStr[RawTable]) -> int:
         if not self._printed_warning:

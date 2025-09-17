@@ -97,7 +97,7 @@ class AssetCentricAggregator(ABC):
                 ids.append(id_)
                 seen.add(id_)
             try:
-                int_id = int(id_)  # type: ignore[arg-type]
+                int_id = int(id_)
             except (ValueError, TypeError):
                 continue
             if int_id not in seen:
@@ -179,6 +179,7 @@ class MetadataAggregator(AssetCentricAggregator, ABC, Generic[T_CogniteFilter]):
         elif isinstance(data_set_external_id, list | tuple) and data_set_external_id:
             data_set_ids = [{"externalId": item} for item in data_set_external_id]
 
+        # MyPy fails to understand that filter_cls() produce a T_CogniteFilter
         return cls.filter_cls(asset_subtree_ids=asset_subtree_ids, data_set_ids=data_set_ids)
 
     @classmethod

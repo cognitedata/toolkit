@@ -83,7 +83,7 @@ class AssetCentricMappingList(
 ):
     _RESOURCE: type = AssetCentricMapping
 
-    def as_write(self) -> InstanceApplyList:  # type: ignore[override]
+    def as_write(self) -> InstanceApplyList:
         return InstanceApplyList([item.as_write() for item in self])
 
 
@@ -136,7 +136,7 @@ class AssetCentricMigrationIOAdapter(
             return self._id_by_instance_id[instance_id_]
         elif isinstance(item, dict) and isinstance(item.get("id"), int):
             # MyPy checked above.
-            return item["id"]  # type: ignore[arg-type, return-value]
+            return item["id"]  # type: ignore[return-value]
         elif (
             isinstance(item, dict)
             and isinstance(item.get("space"), str)
