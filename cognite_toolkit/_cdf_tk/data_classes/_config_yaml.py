@@ -173,7 +173,7 @@ class BuildConfigYAML(ConfigYAMLCore, ConfigCore):
         self, built_modules: BuiltModuleList, selected_modules: ModuleDirectories
     ) -> "BuildEnvironment":
         return BuildEnvironment(
-            name=self.environment.name,  # type: ignore[arg-type]
+            name=self.environment.name,
             project=self.environment.project,
             validation_type=self.environment.validation_type,
             selected=self.environment.selected,
@@ -635,7 +635,7 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
         ] = defaultdict(list)
         count_by_variable_keys: dict[str, set[float | int | str | bool | tuple[Hashable] | None]] = defaultdict(set)
         for key, entry in self.items():
-            value = tuple(entry.value) if isinstance(entry.value, list) else entry.value  # type: ignore[arg-type]
+            value = tuple(entry.value) if isinstance(entry.value, list) else entry.value
             variables_by_key_value[(key[-1], value)].append(entry)
             count_by_variable_keys[key[-1]].add(value)
 

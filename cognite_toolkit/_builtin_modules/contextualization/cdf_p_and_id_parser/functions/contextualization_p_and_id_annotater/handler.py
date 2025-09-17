@@ -188,7 +188,7 @@ class Entity(BaseModel, alias_generator=to_camel, extra="allow", populate_by_nam
 
 
 def execute(data: dict, client: CogniteClient) -> int:
-    logger = CogniteFunctionLogger(data.get("logLevel", "INFO"))  # type: ignore[arg-type]
+    logger = CogniteFunctionLogger(data.get("logLevel", "INFO"))
     logger.debug("Starting diagram parsing annotation")
     config = load_config(client, logger)
     logger.debug("Loaded config successfully")

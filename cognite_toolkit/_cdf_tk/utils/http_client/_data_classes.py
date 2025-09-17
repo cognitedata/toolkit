@@ -46,6 +46,7 @@ class RequestMessage(HTTPMessage):
     connect_attempt: int = 0
     read_attempt: int = 0
     status_attempt: int = 0
+    api_version: str | None = None
 
     @property
     def total_attempts(self) -> int:
@@ -301,7 +302,7 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
         request_items_by_id: dict[T_ID, JsonVal],
     ) -> None:
         """Processes each item in the response body and categorizes them based on their status."""
-        for response_item in response_body["items"]:  # type: ignore[index, union-attr]
+        for response_item in response_body["items"]:  # type: ignore[union-attr]
             try:
                 item_id = self.as_id(response_item)  # type: ignore[misc]
             except Exception as e:
