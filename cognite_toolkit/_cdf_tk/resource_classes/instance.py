@@ -1,6 +1,6 @@
 from pydantic import Field, JsonValue
 
-from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
+from cognite_toolkit._cdf_tk.constants import INSTANCE_EXTERNAL_ID_PATTERN, SPACE_FORMAT_PATTERN
 
 from .base import BaseModelResource, ToolkitResource
 from .container_field_definitions import ContainerReference
@@ -18,7 +18,7 @@ class NodeType(BaseModelResource):
         description="External-id of the instance.",
         min_length=1,
         max_length=256,
-        pattern=r"^[^\\x00]{1,256}$",
+        pattern=INSTANCE_EXTERNAL_ID_PATTERN,
     )
 
 
@@ -43,7 +43,7 @@ class NodeYAML(ToolkitResource):
         description="External-id of the node.",
         min_length=1,
         max_length=256,
-        pattern=r"^[^\\x00]{1,256}$",
+        pattern=INSTANCE_EXTERNAL_ID_PATTERN,
     )
     type: NodeType | None = Field(
         default=None,
@@ -71,7 +71,7 @@ class EdgeYAML(ToolkitResource):
         description="External-id of the edge.",
         min_length=1,
         max_length=256,
-        pattern=r"^[^\\x00]{1,256}$",
+        pattern=INSTANCE_EXTERNAL_ID_PATTERN,
     )
     type: NodeType = Field(
         description="The type of the edge, defined by a direct relation to another edge.",
