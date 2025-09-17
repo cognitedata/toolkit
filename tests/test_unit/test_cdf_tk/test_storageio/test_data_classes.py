@@ -4,7 +4,7 @@ import pytest
 from pydantic import BaseModel, Field, field_validator
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.storageio import ModelList
+from cognite_toolkit._cdf_tk.storageio import InstanceIdCSVList, InstanceIdRow, ModelList
 
 
 class MyRow(BaseModel):
@@ -67,3 +67,17 @@ class TestModelList:
     def test_get_item(self, a_list: MyList) -> None:
         assert a_list[0] == MyRow(id=1, name="Alice", displayName="Aly")
         assert a_list[1:3] == MyList([MyRow(id=2, name="Bob"), MyRow(id=3, name="Charlie")])
+
+
+class TestInstanceCSVList:
+    def test_read_csv(self, tmp_path: Path) -> None:
+        csv_content = "space,externalId,instanceType\nmySpace,id1,node\nmySpace,id2,edge\n"
+        csv_file = tmp_path / "instances.csv"
+        csv_file.write_text(csv_content)
+
+        instance_list = InstanceIdCSVList.read_csv_file(csv_file)
+
+        assert len(instance_list) == 2
+        assert instance_list[0] == InstanceIdRow(externalId="id1", space="mySpace")
+        assert instance_list[1] == InstanceIdRow(externalId="id2", space="mySpace", instanceType="edge")
+        assert len(instance_list.invalid_rows) == 0

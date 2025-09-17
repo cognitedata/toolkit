@@ -28,7 +28,7 @@ DataSet:
 - description: This dataset is used for all the resources in the complete_org.
   externalId: ds_complete_org
   name: Example dataset.
-FileLoader:
+FileCRUD:
 - externalId: MyExtendedFile
   filehash: 5e6be7b4
   space: sp_nodes
@@ -146,6 +146,41 @@ Node:
       type: view
       version: v1
   space: cognite_migration
+SearchConfig:
+- columnsLayout:
+  - property: title
+    selected: true
+  - property: summary
+    selected: true
+  - property: status
+    selected: false
+  filterLayout:
+  - disabled: false
+    property: status
+  - disabled: false
+    property: category
+  propertiesLayout:
+  - hidden: false
+    property: title
+  - hidden: false
+    property: summary
+  - hidden: true
+    property: description
+  useAsDescription: summary
+  useAsName: title
+  view:
+    externalId: complex-view
+    space: complex-space
+- columnsLayout:
+  - property: name
+    selected: true
+  - property: description
+    selected: true
+  useAsDescription: description
+  useAsName: name
+  view:
+    externalId: test-view
+    space: test-space
 Space:
 - space: sp_instance
 - space: sp_schema
