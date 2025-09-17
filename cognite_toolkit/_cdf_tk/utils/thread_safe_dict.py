@@ -19,7 +19,7 @@ class ThreadSafeDict(UserDict, Generic[T_ID, T_Value]):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         self._lock = threading.RLock()  # Initialize lock first
-        super().__init__(*args, **kwargs)  # type: ignore[misc]
+        super().__init__(*args, **kwargs)
 
     def __getitem__(self, key: T_ID) -> T_Value:
         with self._lock:
@@ -74,7 +74,7 @@ class ThreadSafeDict(UserDict, Generic[T_ID, T_Value]):
 
     def update(self, *args: Any, **kwargs: Any) -> None:
         with self._lock:
-            super().update(*args, **kwargs)  # type: ignore[misc]
+            super().update(*args, **kwargs)
 
     # For these we override to get a thread-safe operation.
     # keys, values, items in the super class returns views which are not thread-safe
