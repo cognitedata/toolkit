@@ -274,7 +274,7 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerApply, Container
             else DataModelsAcl.Scope.All()
         )
 
-        return DataModelsAcl(actions, scope)  # type: ignore[arg-type]
+        return DataModelsAcl(actions, scope)
 
     @classmethod
     def get_id(cls, item: ContainerApply | Container | dict) -> ContainerId:
@@ -525,7 +525,7 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View, ViewApplyList, ViewList]):
             else DataModelsAcl.Scope.All()
         )
 
-        return DataModelsAcl(actions, scope)  # type: ignore[arg-type]
+        return DataModelsAcl(actions, scope)
 
     @classmethod
     def get_id(cls, item: ViewApply | View | dict) -> ViewId:
@@ -923,7 +923,7 @@ class DataModelCRUD(ResourceCRUD[DataModelId, DataModelApply, DataModel, DataMod
             else DataModelsAcl.Scope.All()
         )
 
-        return DataModelsAcl(actions, scope)  # type: ignore[arg-type]
+        return DataModelsAcl(actions, scope)
 
     @classmethod
     def get_id(cls, item: DataModelApply | DataModel | dict) -> DataModelId:

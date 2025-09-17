@@ -156,7 +156,7 @@ class TestViewSource:
         result = view_source_api.delete("test_source")
         assert result == "deleted_node_id"
         instance_api.delete.assert_called_once()
-        args, kwargs = instance_api.delete.call_args
+        args, _ = instance_api.delete.call_args
         assert args[0] == NodeId(COGNITE_MIGRATION_SPACE, "test_source")
 
     def test_delete_multiple(self, instance_api: MagicMock) -> None:
@@ -166,7 +166,7 @@ class TestViewSource:
         result = view_source_api.delete(["test_source_1", "test_source_2"])
         assert len(result) == 2
         instance_api.delete.assert_called_once()
-        args, kwargs = instance_api.delete.call_args
+        args, _ = instance_api.delete.call_args
         assert args[0] == [
             NodeId(COGNITE_MIGRATION_SPACE, "test_source_1"),
             NodeId(COGNITE_MIGRATION_SPACE, "test_source_2"),

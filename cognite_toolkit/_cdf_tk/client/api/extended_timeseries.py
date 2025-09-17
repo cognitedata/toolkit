@@ -156,7 +156,7 @@ class ExtendedTimeSeriesAPI(TimeSeriesAPI):
             if len(result) > 1:
                 raise ValueError("Expected a single time series, but multiple were returned.")
             return cast(ExtendedTimeSeries, result[0])
-        return cast(ExtendedTimeSeriesList, result)
+        return result
 
     def retrieve(
         self, id: int | None = None, external_id: str | None = None, instance_id: NodeId | None = None
