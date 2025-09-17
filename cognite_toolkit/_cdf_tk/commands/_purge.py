@@ -170,9 +170,14 @@ class PurgeCommand(ToolkitCommand):
                         results[crud.display_name] = ResourceDeployResult(crud.display_name, deleted=0)
                         continue
                     result = ResourceDeployResult(crud.display_name)
+                    # Containers, DataModels and Views need special handling to avoid type info in the delete call
+                    # While for instance we need the type info in delete.
+                    dump_args = (
+                        {"include_type": False} if isinstance(crud, ContainerCRUD | DataModelCRUD | ViewCRUD) else {}
+                    )
                     executor = ProducerWorkerExecutor(
                         download_iterable=self._iterate_batch(crud, selected_space),
-                        process=lambda list_: [item.as_id().dump() for item in list_],
+                        process=lambda list_: [item.as_id().dump(**dump_args) for item in list_],
                         write=self._purge_batch(crud, URL, delete_client, result),
                         max_queue_size=10,
                         iteration_count=total // 1000 + (1 if total % 1000 > 0 else 0),
