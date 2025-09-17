@@ -7,11 +7,11 @@ from cognite.client._api.iam import IAMAPI
 from cognite.client.data_classes import GroupWrite, capabilities
 
 from cognite_toolkit._cdf_tk.commands import AuthCommand, BuildCommand
+from cognite_toolkit._cdf_tk.cruds import GroupAllScopedCRUD
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
     BuiltModule,
 )
-from cognite_toolkit._cdf_tk.loaders import GroupAllScopedLoader
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 
@@ -58,7 +58,7 @@ def read_write_group(built_module: BuiltModule, env_vars_with_client: Environmen
     read_write_resource = next((resource for resource in auth if resource.identifier == "gp_admin_read_write"), None)
     assert read_write_resource is not None
 
-    loader = GroupAllScopedLoader(env_vars_with_client.get_client(), None, None)
+    loader = GroupAllScopedCRUD(env_vars_with_client.get_client(), None, None)
     items = loader.load_resource_file(read_write_resource.destination, env_vars_with_client.dump())
     return loader.load_resource(items[0], is_dry_run=True)
 
@@ -69,7 +69,7 @@ def readonly_group(built_module: BuiltModule, env_vars_with_client: EnvironmentV
     readonly_resource = next((resource for resource in auth if resource.identifier == "gp_admin_readonly"), None)
     assert readonly_resource is not None
 
-    loader = GroupAllScopedLoader(env_vars_with_client.get_client(), None, None)
+    loader = GroupAllScopedCRUD(env_vars_with_client.get_client(), None, None)
     items = loader.load_resource_file(readonly_resource.destination, env_vars_with_client.dump())
     return loader.load_resource(items[0], is_dry_run=True)
 

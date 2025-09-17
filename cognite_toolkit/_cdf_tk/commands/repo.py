@@ -44,7 +44,7 @@ class RepoCommand(ToolkitCommand):
                     elif cwd != git_root:
                         raise ToolkitValueError(
                             f"Current working directory is not the root of the git repository. "
-                            f"Please run this command from {git_root.as_posix()!r}."  # type: ignore [union-attr]
+                            f"Please run this command from {git_root.as_posix()!r}."
                         )
             else:
                 self.warn(

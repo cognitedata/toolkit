@@ -110,7 +110,7 @@ def convert_str_to_data_type(
             if converted is not None:
                 output.append(converted)  # type: ignore[arg-type]
         # MyPy gets confused by the SequenceNotStr used in the PropertyValueWrite
-        return output  # type: ignore[return-value]
+        return output
     else:
         return converter.convert(value)  # type: ignore[return-value]
 
@@ -150,7 +150,7 @@ def infer_data_type_from_value(value: str, dtype: Literal["Json", "Python"]) -> 
     )
     for converter_cls in converters_to_use:
         # MyPy thinks that converter_cls can be abstract, but it is not
-        converter = converter_cls(nullable=False)  # type: ignore[abstract]
+        converter = converter_cls(nullable=False)
         try:
             converted_value = converter.convert(value)
         except ValueError:
@@ -162,7 +162,7 @@ def infer_data_type_from_value(value: str, dtype: Literal["Json", "Python"]) -> 
             and _is_midnight_and_naive(converted_value)
         ):
             # If the converted value is a datetime with no time component, return it as a date
-            return _DateConverter.schema_type, converted_value.date()  # type: ignore[return-value]
+            return _DateConverter.schema_type, converted_value.date()
         else:
             return converter_cls.schema_type, converted_value  # type: ignore[return-value]
 
@@ -405,7 +405,7 @@ class _JsonConverter(_ValueConverter):
                 raise ValueError(
                     f"JSON keys must be strings. Found non-string keys: {humanize_collection(non_string_keys)}"
                 )
-            return value  # type: ignore[return-value]
+            return value
         elif isinstance(value, list):
             if not all(isinstance(item, str | int | float | bool | dict | list) for item in value):
                 raise ValueError("All items in the list must be of type str, int, float, bool, dict, or list.")

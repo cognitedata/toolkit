@@ -205,7 +205,7 @@ class Canvas(_CanvasProperties, TypedNode):
             source_canvas_id=self.source_canvas_id,
             is_archived=self.is_archived,
             context=self.context,
-            solution_tags=self.solution_tags,  # type: ignore[arg-type]
+            solution_tags=self.solution_tags,
             existing_version=self.version,
             type=self.type,
         )

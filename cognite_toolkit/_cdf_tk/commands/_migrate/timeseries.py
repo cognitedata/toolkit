@@ -67,7 +67,7 @@ class MigrateTimeseriesCommand(BaseMigrateCommand):
     def _validate_timeseries_existence(self, client: ToolkitClient, mappings: MigrationMappingList) -> None:
         total_validated = 0
         chunk: MigrationMappingList
-        for chunk in track(  # type: ignore[assignment]
+        for chunk in track(
             chunker_sequence(mappings, size=self.chunk_size),
             description="Validating...",
             total=len(mappings) // self.chunk_size + 1,
@@ -125,7 +125,7 @@ class MigrateTimeseriesCommand(BaseMigrateCommand):
             chunker_sequence(mappings, size=self.chunk_size),
             description="Migrating TimeSeries to CogniteTimeSeries...",
             total=len(mappings) // self.chunk_size + 1,
-        ):  # type: ignore[assignment]
+        ):
             if verbose:
                 print(f"Migrating {len(chunk):,} TimeSeries...")
 

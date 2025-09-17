@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, SupportsIndex, overload
 
-from cognite_toolkit._cdf_tk.loaders import ResourceTypes
-from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID
+from cognite_toolkit._cdf_tk.cruds import ResourceTypes
+from cognite_toolkit._cdf_tk.cruds._base_cruds import T_ID
 
 from ._build_variables import BuildVariables
 from ._built_resources import (
