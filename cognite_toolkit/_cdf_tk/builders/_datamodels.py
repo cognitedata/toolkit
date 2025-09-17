@@ -5,6 +5,7 @@ from typing import Any
 
 from cognite_toolkit._cdf_tk.builders import Builder
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
+from cognite_toolkit._cdf_tk.cruds import GraphQLLoader
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildDestinationFile,
     BuildSourceFile,
@@ -12,7 +13,6 @@ from cognite_toolkit._cdf_tk.data_classes import (
     SourceLocation,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
-from cognite_toolkit._cdf_tk.loaders import GraphQLLoader
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 
 

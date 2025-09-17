@@ -6,13 +6,13 @@ from unittest.mock import MagicMock
 import pytest
 
 from cognite_toolkit._cdf_tk.commands.pull import PullCommand, ResourceYAMLDifference, TextFileDifference
+from cognite_toolkit._cdf_tk.cruds import DataSetsCRUD
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildVariable,
     BuildVariables,
     BuiltFullResourceList,
     BuiltResourceFull,
 )
-from cognite_toolkit._cdf_tk.loaders import DataSetsLoader
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
@@ -515,7 +515,7 @@ class TestPullCommand:
             to_write=to_write,
             resources=resources,
             environment_variables={},
-            loader=DataSetsLoader.create_loader(toolkit_client_approval.mock_client),
+            loader=DataSetsCRUD.create_loader(toolkit_client_approval.mock_client),
         )
         assert not extra_files, "This tests does not support testing extra files"
         assert actual.splitlines() == expected.splitlines()

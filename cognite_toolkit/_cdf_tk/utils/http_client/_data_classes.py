@@ -1,13 +1,12 @@
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Hashable, Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from typing import Generic, Literal, TypeAlias, TypeVar
+from typing import Generic, Literal, TypeAlias
 
 import requests
 
-from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
+from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal
 
-T_ID = TypeVar("T_ID", bound=Hashable)
 StatusCode: TypeAlias = int
 
 
@@ -15,7 +14,17 @@ StatusCode: TypeAlias = int
 class HTTPMessage(ABC):
     """Base class for HTTP messages (requests and responses)"""
 
-    ...
+    def dump(self) -> dict[str, JsonVal]:
+        """Dumps the message to a JSON serializable dictionary.
+
+        Returns:
+            dict[str, JsonVal]: The message as a dictionary.
+        """
+        # We avoid using the asdict function as we know we have a shallow structure,
+        # and this roughly ~10x faster.
+        output = self.__dict__.copy()
+        output["type"] = type(self).__name__
+        return output
 
 
 @dataclass
@@ -37,6 +46,7 @@ class RequestMessage(HTTPMessage):
     connect_attempt: int = 0
     read_attempt: int = 0
     status_attempt: int = 0
+    api_version: str | None = None
 
     @property
     def total_attempts(self) -> int:
@@ -171,6 +181,20 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
     extra_body_fields: dict[str, JsonVal] = field(default_factory=dict)
     as_id: Callable[[JsonVal], T_ID] | None = None
 
+    def dump(self) -> dict[str, JsonVal]:
+        """Dumps the message to a JSON serializable dictionary.
+
+        This override removes the 'as_id' attribute as it is not serializable.
+
+        Returns:
+            dict[str, JsonVal]: The message as a dictionary.
+        """
+        output = super().dump()
+        if self.as_id is not None:
+            # We cannot serialize functions
+            del output["as_id"]
+        return output
+
     def body(self) -> dict[str, JsonVal]:
         if self.extra_body_fields:
             return {"items": self.items, **self.extra_body_fields}
@@ -278,7 +302,7 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
         request_items_by_id: dict[T_ID, JsonVal],
     ) -> None:
         """Processes each item in the response body and categorizes them based on their status."""
-        for response_item in response_body["items"]:  # type: ignore[index, union-attr]
+        for response_item in response_body["items"]:  # type: ignore[union-attr]
             try:
                 item_id = self.as_id(response_item)  # type: ignore[misc]
             except Exception as e:
