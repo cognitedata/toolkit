@@ -12,6 +12,9 @@ class ThreadSafeDict(UserDict, Generic[T_ID, T_Value]):
     This class extends `UserDict` to provide a dictionary that is safe for concurrent access
     by multiple threads. It uses a threading lock to ensure that operations on the dictionary
     are atomic and do not lead to race conditions.
+
+    It only supports one-thread reading/writing at a time, meaning that if one thread is reading,
+    no other thread can read or write until the first thread is done. Todo: Support multiple readers
     """
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:

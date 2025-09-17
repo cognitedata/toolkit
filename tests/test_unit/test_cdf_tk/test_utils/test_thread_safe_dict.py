@@ -4,11 +4,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pytest
 
-from cognite_toolkit._cdf_tk.utils.safe_dict import ThreadSafeDict
+from cognite_toolkit._cdf_tk.utils.thread_safe_dict import ThreadSafeDict
 
 
 class TestThreadSafeDict:
-    def test_basic_operations(self):
+    def test_basic_operations(self) -> None:
         """Test basic dictionary operations work correctly."""
         d = ThreadSafeDict[str, int]()
 
@@ -60,7 +60,7 @@ class TestThreadSafeDict:
         assert len(d) == 0
         assert list(d.keys()) == []
 
-    def test_initialization_with_data(self):
+    def test_initialization_with_data(self) -> None:
         """Test ThreadSafeDict can be initialized with data."""
         # Test with dict
         d1 = ThreadSafeDict({"a": 1, "b": 2})
@@ -80,7 +80,7 @@ class TestThreadSafeDict:
         assert d3["baz"] == "qux"
         assert len(d3) == 2
 
-    def test_copy(self):
+    def test_copy(self) -> None:
         """Test that copy creates a new independent instance."""
         d1 = ThreadSafeDict({"a": 1, "b": 2})
         d2 = d1.copy()
@@ -96,7 +96,7 @@ class TestThreadSafeDict:
         d2["d"] = 4
         assert "d" not in d1
 
-    def test_string_representations(self):
+    def test_string_representations(self) -> None:
         """Test __str__ and __repr__ methods."""
         d = ThreadSafeDict({"a": 1, "b": 2})
 
@@ -110,7 +110,7 @@ class TestThreadSafeDict:
         assert "ThreadSafeDict" in repr_str
         assert "a" in repr_str and "b" in repr_str
 
-    def test_iteration_safety(self):
+    def test_iteration_safety(self) -> None:
         """Test that iteration works safely even with concurrent modifications."""
         d = ThreadSafeDict({i: i * 2 for i in range(100)})
 
@@ -140,7 +140,7 @@ class TestThreadSafeDict:
         assert set(keys_during_iteration) == {i for i in range(100)}
         assert set(keys_during_iteration) < set(d.keys()), "New keys should have been added after iteration"
 
-    def test_concurrent_access(self):
+    def test_concurrent_access(self) -> None:
         """Test thread safety with concurrent read/write operations."""
         d = ThreadSafeDict[int, int]()
         num_threads = 10
@@ -174,7 +174,7 @@ class TestThreadSafeDict:
                 key = thread_id * 1000 + i
                 assert d[key] == key * 3
 
-    def test_concurrent_modifications(self):
+    def test_concurrent_modifications(self) -> None:
         """Test concurrent modifications don't cause corruption."""
         d = ThreadSafeDict[str, int]()
         num_threads = 20
@@ -200,7 +200,7 @@ class TestThreadSafeDict:
         remaining_keys = len(d)
         assert remaining_keys >= 0  # Should not be negative due to corruption
 
-    def test_exception_handling(self):
+    def test_exception_handling(self) -> None:
         """Test proper exception handling."""
         d = ThreadSafeDict[str, int]()
 
@@ -220,7 +220,7 @@ class TestThreadSafeDict:
         with pytest.raises(KeyError):
             del d["nonexistent"]
 
-    def test_pop_with_default(self):
+    def test_pop_with_default(self) -> None:
         """Test pop method with default value."""
         d = ThreadSafeDict({"a": 1})
 
@@ -235,7 +235,7 @@ class TestThreadSafeDict:
         with pytest.raises(KeyError):
             d.pop("c")
 
-    def test_update_methods(self):
+    def test_update_methods(self) -> None:
         """Test various ways to update the dictionary."""
         d = ThreadSafeDict[str, int]()
 
@@ -254,7 +254,7 @@ class TestThreadSafeDict:
         assert d["e"] == 5
         assert d["f"] == 6
 
-    def test_performance_under_contention(self):
+    def test_performance_under_contention(self) -> None:
         """Test that performance is reasonable under high contention."""
         d = ThreadSafeDict[int, int]()
         num_threads = 50
