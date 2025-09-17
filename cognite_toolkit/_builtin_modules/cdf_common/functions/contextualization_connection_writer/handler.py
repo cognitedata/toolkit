@@ -168,7 +168,7 @@ class State(BaseModel):
 
 
 def execute(data: dict, client: CogniteClient) -> int:
-    logger = CogniteFunctionLogger(data.get("logLevel", "INFO"))  # type: ignore[arg-type]
+    logger = CogniteFunctionLogger(data.get("logLevel", "INFO"))
     logger.debug("Starting connection write")
     config = load_config(client, logger)
     logger.debug("Loaded config successfully")
