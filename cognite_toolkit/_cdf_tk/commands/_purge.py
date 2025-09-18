@@ -85,7 +85,8 @@ class PurgeCommand(ToolkitCommand):
                     f"If any of the nodes in {selected_space!r} are TimeSeries or Files, this will delete the "
                     "datapoints and file contents. If you want to unlink the nodes before deleting, please use the "
                     "cdf purge instances command. Are you sure you want to continue?",
-                )
+                    default=False,
+                ).ask()
                 if not confirm:
                     return
         loaders = self._get_dependencies(
