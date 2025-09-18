@@ -2,9 +2,10 @@
 repos:
   - repo: https://github.com/astral-sh/uv-pre-commit
     # uv version.
-    rev: 0.8.15
+    rev: 0.8.18
     hooks:
       - id: uv-lock
+
   - repo: https://github.com/astral-sh/ruff-pre-commit
     hooks:
       - id: ruff-check
@@ -18,11 +19,15 @@ repos:
           - --target-version=py310
       - id: ruff-format
     rev: v0.12.12
-
   - repo: https://github.com/igorshubovych/markdownlint-cli
     rev: v0.45.0
     hooks:
     - id: markdownlint
+    
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0 # Use the latest stable version
+    hooks:
+      - id: end-of-file-fixer
 
 # Mypy must be run in the local system environment, not in the pre-commit environment.
   - hooks:
