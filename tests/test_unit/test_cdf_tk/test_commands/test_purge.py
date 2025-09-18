@@ -213,7 +213,7 @@ class TestPurgeInstances:
             )
 
         cmd = PurgeCommand(silent=True)
-        cmd.instances(
+        result = cmd.instances(
             client,
             InstanceViewSelector(view=ViewId(space="cdf_cdm", external_id="CogniteTimeSeries", version="v1")),
             dry_run=dry_run,
@@ -221,3 +221,4 @@ class TestPurgeInstances:
             unlink=unlink,
             verbose=False,
         )
+        assert result.deleted == 2000
