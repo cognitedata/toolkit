@@ -186,3 +186,21 @@ databases:
         args, _ = print_mock.call_args
         _, message = args
         assert "ep_src_asset" in message
+
+    def test_load_resource_yaml_array(self) -> None:
+        resource = {
+            "externalId": "ep_src_asset",
+            "config": "- item1: value1",
+        }
+        console = MagicMock(spec=Console)
+        print_mock = MagicMock()
+        console.print = print_mock
+        crud = ExtractionPipelineConfigCRUD(MagicMock(spec=ToolkitClient), None, console=console)
+        loaded = crud.load_resource(resource)
+
+        assert isinstance(loaded, ExtractionPipelineConfigWrite)
+        print_mock.assert_called_once()
+        args, _ = print_mock.call_args
+        _, message = args
+        assert "ep_src_asset" in message
+        assert "a valid YAML mapping" in message
