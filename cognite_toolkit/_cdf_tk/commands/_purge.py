@@ -752,21 +752,20 @@ class PurgeCommand(ToolkitCommand):
     def _delete_instance_ids(
         items: list[dict[str, JsonVal]], dry_run: bool, delete_client: HTTPClient, results: DeleteResults
     ) -> None:
-        responses: Sequence[ResponseMessage | FailedRequestMessage]
         if dry_run:
-            # The PySDK does not use the JsonVal type hint, but we know these are correct
-            responses = [SuccessItem(status_code=200, id=InstanceId.load(item)) for item in items]  # type: ignore[arg-type]
-        else:
-            responses = delete_client.request_with_retries(
-                ItemsRequest(
-                    delete_client.config.create_api_url("/models/instances/delete"),
-                    method="POST",
-                    # MyPy fails to understand that dict[str, JsonVal] is compatible with JsonVal
-                    items=items,  # type: ignore[arg-type]
-                    # The PySDK does not use the JsonVal type hint, but we know these are correct
-                    as_id=InstanceId.load,  # type: ignore[arg-type]
-                )
+            results.deleted += len(items)
+            return
+
+        responses: Sequence[ResponseMessage | FailedRequestMessage] = delete_client.request_with_retries(
+            ItemsRequest(
+                delete_client.config.create_api_url("/models/instances/delete"),
+                method="POST",
+                # MyPy fails to understand that dict[str, JsonVal] is compatible with JsonVal
+                items=items,  # type: ignore[arg-type]
+                # The PySDK does not use the JsonVal type hint, but we know these are correct
+                as_id=InstanceId.load,  # type: ignore[arg-type]
             )
+        )
         for response in responses:
             if isinstance(response, SuccessItem):
                 results.deleted += 1
