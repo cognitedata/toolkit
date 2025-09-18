@@ -310,7 +310,7 @@ class ExtractionPipelineConfigCRUD(
             # There might be keyvauls secrets in the config that would lead to parsing errors. The syntax
             # for this is `connection-string: !keyvault secret`. This is not valid YAML, so we need to
             # replace it with `connection-string: keyvault secret` to make it valid.
-            config_raw = re.sub(r": !(\w+)", r": \1", config_raw)
+            config_raw = re.sub(r":\s+!(\w+)", r": \1", config_raw)
             self._validate_config(config_raw, resource)
         return ExtractionPipelineConfigWrite._load(resource)
 
