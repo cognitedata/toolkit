@@ -89,7 +89,7 @@
         "--env=local",
         "--verbose",
         "-o",
-        "./cognite_toolkit/"
+        "."
       ],
       "console": "integratedTerminal",
       "justMyCode": false

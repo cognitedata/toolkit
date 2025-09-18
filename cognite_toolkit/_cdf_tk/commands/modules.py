@@ -55,6 +55,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitRequiredValu
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
+from cognite_toolkit._cdf_tk.tk_warnings.other import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection, read_yaml_file
 from cognite_toolkit._cdf_tk.utils.file import safe_read, safe_rmtree, safe_write, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.modules import module_directory_from_path
@@ -847,9 +848,12 @@ default_organization_dir = "{organization_dir.name}"''',
             raise ToolkitError(f"Unexpected error during checksum calculation for {file_path}: {e}") from e
 
         if calculated != checksum:
-            raise ToolkitError(
-                f"[red]✗[/red] The provided checksum sha256:{checksum} does not match downloaded file hash sha256:{calculated}.\n"
-                "Please verify the checksum with the source and update cdf.toml if needed."
+            self.warn(
+                HighSeverityWarning(
+                    f"The provided checksum sha256:{checksum} does not match downloaded file hash sha256:{calculated}.\n"
+                    "Please verify the checksum with the source and update cdf.toml if needed."
+                    "This may indicate that the package content has changed."
+                )
             )
         else:
             print("[green]✓ Checksum verified[/green]")
