@@ -851,7 +851,7 @@ default_organization_dir = "{organization_dir.name}"''',
             self.warn(
                 HighSeverityWarning(
                     f"The provided checksum sha256:{checksum} does not match downloaded file hash sha256:{calculated}.\n"
-                    "Please verify the checksum with the source and update cdf.toml if needed."
+                    "Please verify the checksum with the source and update cdf.toml if needed.\n"
                     "This may indicate that the package content has changed."
                 )
             )
