@@ -170,4 +170,19 @@ databases:
         # No warning should be printed
         print_mock.assert_not_called()
 
-    def test_load_resource_invalid_yaml_warning(self) -> None: ...
+    def test_load_resource_invalid_yaml_warning(self) -> None:
+        resource = {
+            "externalId": "ep_src_asset",
+            "config": "invalid-yaml: [unclosed_list",
+        }
+        console = MagicMock(spec=Console)
+        print_mock = MagicMock()
+        console.print = print_mock
+        crud = ExtractionPipelineConfigCRUD(MagicMock(spec=ToolkitClient), None, console=console)
+        loaded = crud.load_resource(resource)
+
+        assert isinstance(loaded, ExtractionPipelineConfigWrite)
+        print_mock.assert_called_once()
+        args, _ = print_mock.call_args
+        _, message = args
+        assert "ep_src_asset" in message
