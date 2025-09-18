@@ -84,9 +84,9 @@ RESOURCE_VIEW_MAPPING_VIEW = dm.ViewApply(
             container=RESOURCE_VIEW_MAPPING.as_id(),
             container_property_identifier="viewId",
         ),
-        "mapping": dm.MappedPropertyApply(
+        "propertyMapping": dm.MappedPropertyApply(
             container=RESOURCE_VIEW_MAPPING.as_id(),
-            container_property_identifier="mapping",
+            container_property_identifier="propertyMapping",
         ),
     },
 )
