@@ -311,14 +311,27 @@ class ExtractionPipelineConfigCRUD(
             # for this is `connection-string: !keyvault secret`. This is not valid YAML, so we need to
             # replace it with `connection-string: keyvault secret` to make it valid.
             config_raw = re.sub(r": !(\w+)", r": \1", config_raw)
-            try:
-                read_yaml_content(config_raw)
-            except yaml.YAMLError as e:
-                HighSeverityWarning(
-                    f"Configuration for {resource.get('external_id', 'missing')} could not be parsed "
-                    f"as valid YAML, which is the recommended format. Error: {e}"
-                ).print_warning(console=self.console)
+            self._validate_config(config_raw, resource)
         return ExtractionPipelineConfigWrite._load(resource)
+
+    def _validate_config(self, config_raw: str, resource: dict[str, Any]) -> dict[str, Any]:
+        """The extraction pipeline API specifies config to be a string. However, it should be a valid YAML mapping,
+        so we validate that here and warn if it is not."""
+        try:
+            result = read_yaml_content(config_raw)
+        except yaml.YAMLError as e:
+            HighSeverityWarning(
+                f"Configuration for {resource.get('external_id', 'missing')} could not be parsed "
+                f"as valid YAML, which is the recommended format. Error: {e}"
+            ).print_warning(console=self.console)
+        else:
+            if isinstance(result, dict):
+                return result
+            HighSeverityWarning(
+                f"Configuration for {resource.get('external_id', 'missing')} is not a valid YAML mapping (dict). "
+                f"Got {type(result).__name__} instead."
+            ).print_warning(console=self.console)
+        return {}
 
     def dump_resource(self, resource: ExtractionPipelineConfig, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
@@ -333,13 +346,7 @@ class ExtractionPipelineConfigCRUD(
             if dumped["config"].strip() == "":
                 dumped["config"] = {}
             else:
-                try:
-                    dumped["config"] = read_yaml_content(dumped["config"])
-                except yaml.YAMLError as e:
-                    HighSeverityWarning(
-                        f"Configuration for {dumped.get('externalId', 'missing')} could not be parsed "
-                        f"as valid YAML, which is the recommended format. Error: {e!s}"
-                    ).print_warning(console=self.console)
+                dumped["config"] = self._validate_config(dumped["config"], dumped)
         return dumped
 
     def diff_list(
