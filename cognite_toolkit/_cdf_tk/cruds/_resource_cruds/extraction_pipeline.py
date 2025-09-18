@@ -320,18 +320,25 @@ class ExtractionPipelineConfigCRUD(
         try:
             result = read_yaml_content(config_raw)
         except yaml.YAMLError as e:
+            id_ = self._get_id(resource, default="missing")
             HighSeverityWarning(
-                f"Configuration for {resource.get('external_id', 'missing')} could not be parsed "
+                f"Configuration for {id_!r} could not be parsed "
                 f"as valid YAML, which is the recommended format. Error: {e}"
             ).print_warning(console=self.console)
         else:
             if isinstance(result, dict):
                 return result
+            id_ = self._get_id(resource, default="missing")
             HighSeverityWarning(
-                f"Configuration for {resource.get('external_id', 'missing')} is not a valid YAML mapping (dict). "
-                f"Got {type(result).__name__} instead."
+                f"Configuration for {id_!r} is not a valid YAML mapping (dict). Got {type(result).__name__} instead."
             ).print_warning(console=self.console)
         return {}
+
+    def _get_id(self, resource: dict[str, Any], default: str) -> str:
+        try:
+            return self.get_id(resource)
+        except (ToolkitRequiredValueError, KeyError):
+            return default
 
     def dump_resource(self, resource: ExtractionPipelineConfig, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
