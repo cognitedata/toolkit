@@ -38,7 +38,6 @@ from cognite.client.data_classes.extractionpipelines import (
 )
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
-from rich import print
 
 from cognite_toolkit._cdf_tk._parameters import ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
@@ -315,12 +314,10 @@ class ExtractionPipelineConfigCRUD(
             try:
                 read_yaml_content(config_raw)
             except yaml.YAMLError as e:
-                print(
-                    HighSeverityWarning(
-                        f"Configuration for {resource.get('external_id', 'missing')} could not be parsed "
-                        f"as valid YAML, which is the recommended format. Error: {e}"
-                    ).get_message()
-                )
+                HighSeverityWarning(
+                    f"Configuration for {resource.get('external_id', 'missing')} could not be parsed "
+                    f"as valid YAML, which is the recommended format. Error: {e}"
+                ).print_warning(console=self.console)
         return ExtractionPipelineConfigWrite._load(resource)
 
     def dump_resource(self, resource: ExtractionPipelineConfig, local: dict[str, Any] | None = None) -> dict[str, Any]:
