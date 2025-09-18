@@ -8,7 +8,7 @@ from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteAsset
 from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.commands import MigrateAssetsCommand
+from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
 
@@ -42,7 +42,7 @@ def three_assets(toolkit_client: ToolkitClient, toolkit_space: Space) -> Iterato
 
 
 class TestMigrateAssetsCommand:
-    def test_migrate_assets_command(
+    def test_migrate_assets(
         self,
         toolkit_client: ToolkitClient,
         three_assets: AssetList,
@@ -62,8 +62,8 @@ class TestMigrateAssetsCommand:
                 + "\n"
             )
 
-        cmd = MigrateAssetsCommand(skip_tracking=True, silent=True)
-        cmd.migrate_assets(
+        cmd = MigrationCommand(skip_tracking=True, silent=True)
+        cmd.migrate(
             client=client,
             mapping_file=input_file,
             dry_run=False,
