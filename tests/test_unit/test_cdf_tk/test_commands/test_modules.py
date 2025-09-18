@@ -235,8 +235,9 @@ class TestModulesCommand:
         file_path.write_text(valid_toml_content)
 
         with ModulesCommand() as cmd:
-            packs, _ = cmd._get_available_packages()
+            packs, location = cmd._get_available_packages()
             assert "quickstart" in packs
+            assert location == BUILTIN_MODULES_PATH
 
     def test_download_success(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         dummy_file_content = b"PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
