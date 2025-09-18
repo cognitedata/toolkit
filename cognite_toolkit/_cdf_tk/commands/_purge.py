@@ -616,7 +616,7 @@ class PurgeCommand(ToolkitCommand):
         auto_yes: bool = False,
         unlink: bool = True,
         verbose: bool = False,
-    ) -> None:
+    ) -> DeleteResults:
         """Purge instances"""
         io = InstanceIO(client)
         console = Console()
@@ -629,7 +629,7 @@ class PurgeCommand(ToolkitCommand):
         total = io.count(selector)
         if total is None or total == 0:
             print("No instances found.")
-            return
+            return DeleteResults()
         if not dry_run:
             self._print_panel("instances", str(selector))
             if not auto_yes:
@@ -638,7 +638,7 @@ class PurgeCommand(ToolkitCommand):
                     default=False,
                 ).ask()
                 if not confirm:
-                    return
+                    return DeleteResults()
 
         process: Callable[[list[InstanceId]], list[dict[str, JsonVal]]] = self._prepare
         if unlink:
@@ -671,6 +671,7 @@ class PurgeCommand(ToolkitCommand):
             console.print(
                 f"{prefix} {results.deleted:,} instances in {selector!s}, but failed to purge {results.failed:,} instances"
             )
+        return results
 
     def validate_instance_access(self, validator: ValidateAccess, instance_spaces: list[str] | None) -> None:
         space_ids = validator.instances(
