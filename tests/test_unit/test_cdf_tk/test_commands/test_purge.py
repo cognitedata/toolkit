@@ -14,6 +14,7 @@ from cognite.client.data_classes.data_modeling import (
     ViewId,
 )
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFile, CogniteTimeSeries
+from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.extended_filemetadata import (
@@ -113,7 +114,9 @@ def purge_responses(
                 },
                 {
                     "projectScope": {"allProjects": {}},
-                    **DataModelsAcl(actions=[DataModelsAcl.Action.Read], scope=DataModelsAcl.Scope.All()).dump(),
+                    **DataModelsAcl(
+                        actions=[DataModelsAcl.Action.Read, DataModelsAcl.Action.Write], scope=DataModelsAcl.Scope.All()
+                    ).dump(),
                 },
                 {
                     "projectScope": {"allProjects": {}},
@@ -221,3 +224,39 @@ class TestPurgeInstances:
             unlink=unlink,
             verbose=False,
         )
+
+
+class TestPurgeSpace:
+    @pytest.mark.usefixtures("disable_gzip")
+    @pytest.mark.parametrize("include_space", [True, False])
+    def test_dry_run(
+        self, include_space: bool, purge_client: ToolkitClient, purge_responses: responses.RequestsMock
+    ) -> None:
+        config = purge_client.config
+        rsps = purge_responses
+        rsps.add(
+            responses.POST,
+            config.create_api_url("/models/statistics/spaces/byids"),
+            json={"items": SpaceStatistics("test_space", 10, 15, 3, 4000, 0, 5000, 0).dump()},
+        )
+
+        cmd = PurgeCommand(silent=True)
+        results = cmd.space_v2(
+            purge_client,
+            "test_space",
+            include_space=include_space,
+            dry_run=True,
+            auto_yes=True,
+            verbose=False,
+        )
+        expected = {
+            "containers": 10,
+            "views": 15,
+            "data models": 3,
+            "edges": 4000,
+            "nodes": 5000,
+        }
+        if include_space:
+            expected["spaces"] = 1
+
+        assert {name: value.deleted for name, value in results.data.items()} == expected
