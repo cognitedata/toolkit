@@ -433,6 +433,76 @@ class TestHTTPClientItemRequests:
         }
 
     @pytest.mark.usefixtures("disable_gzip")
+    def test_abort_on_first_failure(self, http_client: HTTPClient, rsps: responses.RequestsMock) -> None:
+        client = http_client
+        rsps.add(
+            responses.POST,
+            "https://example.com/api/resource",
+            json={"error": "Server error"},
+            status=400,
+        )
+        results = client.request_with_retries(
+            ItemsRequest[int](
+                endpoint_url="https://example.com/api/resource",
+                method="POST",
+                items=[{"id": i} for i in range(1000)],
+                as_id=lambda item: item["id"],
+                max_failures_before_abort=1,
+            )
+        )
+        actual_failure_types = Counter([type(results) for results in results])
+        assert actual_failure_types == {FailedItem: 1000}
+        assert len(rsps.calls) == 1
+        actual_items_per_request = [len(json.loads(call.request.body)["items"]) for call in rsps.calls]
+        assert actual_items_per_request == [1000]
+
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_abort_on_second_failure(self, http_client: HTTPClient, rsps: responses.RequestsMock) -> None:
+        client = http_client
+        rsps.add(
+            responses.POST,
+            "https://example.com/api/resource",
+            json={"error": "Server error"},
+            status=400,
+        )
+        results = client.request_with_retries(
+            ItemsRequest[int](
+                endpoint_url="https://example.com/api/resource",
+                method="POST",
+                items=[{"id": i} for i in range(1000)],
+                as_id=lambda item: item["id"],
+                max_failures_before_abort=2,
+            )
+        )
+        actual_failure_types = Counter([type(results) for results in results])
+        assert actual_failure_types == {FailedItem: 500, FailedRequestItem: 500}
+        assert len(rsps.calls) == 2
+        actual_items_per_request = [len(json.loads(call.request.body)["items"]) for call in rsps.calls]
+        assert actual_items_per_request == [1000, 500]
+
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_never_abort_on_failure(self, http_client: HTTPClient, rsps: responses.RequestsMock) -> None:
+        client = http_client
+        rsps.add(
+            responses.POST,
+            "https://example.com/api/resource",
+            json={"error": "Server error"},
+            status=400,
+        )
+        results = client.request_with_retries(
+            ItemsRequest[int](
+                endpoint_url="https://example.com/api/resource",
+                method="POST",
+                items=[{"id": i} for i in range(100)],
+                as_id=lambda item: item["id"],
+                max_failures_before_abort=-1,  # Never abort
+            )
+        )
+        actual_failure_types = Counter([type(results) for results in results])
+        assert actual_failure_types == {FailedItem: 100}
+        assert len(rsps.calls) == 199
+
+    @pytest.mark.usefixtures("disable_gzip")
     def test_failing_3_items(self, http_client_one_retry: HTTPClient, rsps: responses.RequestsMock) -> None:
         client = http_client_one_retry
 
