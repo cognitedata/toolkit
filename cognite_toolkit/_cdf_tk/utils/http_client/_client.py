@@ -191,7 +191,7 @@ class HTTPClient:
         return self.session.request(
             method=item.method,
             url=item.endpoint_url,
-            data=data,
+            content=data,
             headers=headers,
             params=params,
             timeout=self.config.timeout,
@@ -206,7 +206,7 @@ class HTTPClient:
         try:
             body = response.json()
         except ValueError as e:
-            return request.creat_responses(response, error_message=f"Invalid JSON response: {e!s}")
+            return request.create_responses(response, error_message=f"Invalid JSON response: {e!s}")
 
         if 200 <= response.status_code < 300:
             return request.create_responses(response, body)
