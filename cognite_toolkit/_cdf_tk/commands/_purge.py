@@ -1,5 +1,6 @@
+import dataclasses
 import uuid
-from collections.abc import Callable, Hashable
+from collections.abc import Callable, Hashable, Sequence
 from functools import partial
 from graphlib import CycleError, TopologicalSorter
 from typing import cast
@@ -52,12 +53,24 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     MediumSeverityWarning,
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.batch_processor import BatchResult, HTTPBatchProcessor
+from cognite_toolkit._cdf_tk.utils.http_client import (
+    FailedRequestMessage,
+    HTTPClient,
+    ItemsRequest,
+    ResponseMessage,
+    SuccessItem,
+)
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
 
 from ._base import ToolkitCommand
+
+
+@dataclasses.dataclass
+class DeleteResults:
+    deleted: int = 0
+    failed: int = 0
 
 
 class PurgeCommand(ToolkitCommand):
@@ -664,7 +677,7 @@ class PurgeCommand(ToolkitCommand):
         auto_yes: bool = False,
         unlink: bool = True,
         verbose: bool = False,
-    ) -> None:
+    ) -> DeleteResults:
         """Purge instances"""
         io = InstanceIO(client)
         console = Console()
@@ -677,7 +690,7 @@ class PurgeCommand(ToolkitCommand):
         total = io.count(selector)
         if total is None or total == 0:
             print("No instances found.")
-            return
+            return DeleteResults()
         if not dry_run:
             self._print_panel("instances", str(selector))
             if not auto_yes:
@@ -686,27 +699,21 @@ class PurgeCommand(ToolkitCommand):
                     default=False,
                 ).ask()
                 if not confirm:
-                    return
+                    return DeleteResults()
 
         process: Callable[[list[InstanceId]], list[dict[str, JsonVal]]] = self._prepare
         if unlink:
             process = partial(self._unlink_prepare, client=client, dry_run=dry_run, console=console, verbose=verbose)
 
         iteration_count = int(total // io.chunk_size + (1 if total % io.chunk_size > 0 else 0))
-        with HTTPBatchProcessor(
-            endpoint_url=client.config.create_api_url("/models/instances/delete"),
-            config=client.config,
-            as_id=InstanceId.load,  # type: ignore[arg-type]
-            result_processor=self._no_op_results,
-            batch_size=io.chunk_size,
-            max_workers=1,
-        ) as http_client:
+        with HTTPClient(config=client.config) as delete_client:
             process_str = "Would be unlinking" if dry_run else "Unlinking"
             write_str = "Would be deleting" if dry_run else "Deleting"
+            results = DeleteResults()
             executor = ProducerWorkerExecutor[list[InstanceId], list[dict[str, JsonVal]]](
                 download_iterable=io.download_ids(selector),
                 process=process,
-                write=self._no_delete if dry_run else http_client.add_items,
+                write=partial(self._delete_instance_ids, dry_run=dry_run, delete_client=delete_client, results=results),
                 iteration_count=iteration_count,
                 max_queue_size=10,
                 download_description=f"Retrieving instances from {selector!s}",
@@ -719,7 +726,13 @@ class PurgeCommand(ToolkitCommand):
             executor.raise_on_error()
 
         prefix = "Would have purged" if dry_run else "Purged"
-        console.print(f"{prefix} {executor.total_items:,} instances in {selector!s}")
+        if results.failed == 0:
+            console.print(f"{prefix} {results.deleted:,} instances in {selector!s}")
+        else:
+            console.print(
+                f"{prefix} {results.deleted:,} instances in {selector!s}, but failed to purge {results.failed:,} instances"
+            )
+        return results
 
     def validate_instance_access(self, validator: ValidateAccess, instance_spaces: list[str] | None) -> None:
         space_ids = validator.instances(
@@ -797,16 +810,28 @@ class PurgeCommand(ToolkitCommand):
         return self._prepare(instance_ids)
 
     @staticmethod
-    def _no_delete(instances: list[dict[str, JsonVal]]) -> None:
-        """No operation function that does not delete the instances."""
-        # This is used in dry-run mode to avoid actual deletion
-        pass
+    def _delete_instance_ids(
+        items: list[dict[str, JsonVal]], dry_run: bool, delete_client: HTTPClient, results: DeleteResults
+    ) -> None:
+        if dry_run:
+            results.deleted += len(items)
+            return
 
-    @staticmethod
-    def _no_op_results(results: BatchResult[InstanceId]) -> None:
-        """No operation function that does not process results."""
-        # This is used in dry-run mode to avoid actual processing
-        pass
+        responses: Sequence[ResponseMessage | FailedRequestMessage] = delete_client.request_with_retries(
+            ItemsRequest(
+                delete_client.config.create_api_url("/models/instances/delete"),
+                method="POST",
+                # MyPy fails to understand that dict[str, JsonVal] is compatible with JsonVal
+                items=items,  # type: ignore[arg-type]
+                # The PySDK does not use the JsonVal type hint, but we know these are correct
+                as_id=InstanceId.load,  # type: ignore[arg-type]
+            )
+        )
+        for response in responses:
+            if isinstance(response, SuccessItem):
+                results.deleted += 1
+            else:
+                results.failed += 1
 
     @staticmethod
     def _unlink_timeseries(
