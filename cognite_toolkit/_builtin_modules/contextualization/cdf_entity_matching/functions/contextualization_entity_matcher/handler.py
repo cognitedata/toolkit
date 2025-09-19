@@ -280,7 +280,7 @@ class CogniteFunctionLogger:
 
 
 def execute(data: dict, client: CogniteClient) -> None:
-    logger = CogniteFunctionLogger(data.get("logLevel", "INFO"))  # type: ignore[arg-type]
+    logger = CogniteFunctionLogger(data.get("logLevel", "INFO"))
     logger.debug("Starting entity matching")
     config = load_config(client, logger)
     logger.debug("Loaded config successfully")

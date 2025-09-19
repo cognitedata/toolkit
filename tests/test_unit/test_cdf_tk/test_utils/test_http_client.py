@@ -192,7 +192,7 @@ class TestHTTPClient:
     def test_raise_if_already_retied(self, http_client_one_retry: HTTPClient) -> None:
         http_client = http_client_one_retry
         bad_request = ParamRequest(endpoint_url="https://example.com/api/resource", method="GET", status_attempt=3)
-        with pytest.raises(RuntimeError, match="RequestMessage has already been attempted 3 times."):
+        with pytest.raises(RuntimeError, match=r"RequestMessage has already been attempted 3 times."):
             http_client.request_with_retries(bad_request)
 
     def test_error_text(self, http_client: HTTPClient, rsps: responses.RequestsMock) -> None:
@@ -203,6 +203,22 @@ class TestHTTPClient:
         assert isinstance(response, FailedResponse)
         assert response.status_code == 401
         assert response.error == '{"message": "plain_text"}'
+
+    def test_request_alpha(self, http_client: HTTPClient, rsps: responses.RequestsMock) -> None:
+        rsps.get("https://example.com/api/alpha/endpoint", json={"key": "value"}, status=200)
+        results = http_client.request(
+            ParamRequest(
+                endpoint_url="https://example.com/api/alpha/endpoint",
+                method="GET",
+                parameters={"query": "test"},
+                api_version="alpha",
+            )
+        )
+        assert len(results) == 1
+        response = results[0]
+        assert isinstance(response, SuccessResponse)
+        assert response.status_code == 200
+        assert rsps.calls[-1].request.headers["cdf-version"] == "alpha"
 
 
 @pytest.mark.usefixtures("disable_pypi_check")
