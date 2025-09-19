@@ -342,12 +342,12 @@ ExtractionPipelineConfig:
   externalId: ep_src_asset_hamburg_sap
 FileCRUD:
 - externalId: MyVanillaFile
-  filehash: adc874a9
+  filehash: 0f18a9c5
   space: sp_nodes
 - external_id: classicFileMetadata
-  filehash: c646656c
+  filehash: de91f3a0
 - externalId: filecontent.txt
-  filehash: e0b202a1
+  filehash: 9aaf2409
   space: sp_complete_org_files
 - external_id: myapp
   filehash: c59dc2b6
@@ -809,7 +809,7 @@ Transformation:
   isPublic: true
   name: example:first:transformation
   query: "-- cdf-auth: f164c472\nselect\n  cast(`externalId` as STRING) as externalId\n\
-    from\n  `db_foo`.`table_foo`;\n-- this is a comment with an ← Unicode character"
+    from\n  `db_foo`.`table_foo`;\n-- this is a comment with an ← Unicode character\n"
   sourceNonce:
     cdfProjectName: pytest-project
     nonce: dummy-nonce

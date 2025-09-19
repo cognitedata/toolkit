@@ -1407,7 +1407,7 @@ class GraphQLLoader(
 
 
 @final
-class EdgeLoader(ResourceContainerCRUD[EdgeId, EdgeApply, Edge, EdgeApplyList, EdgeList]):
+class EdgeCRUD(ResourceContainerCRUD[EdgeId, EdgeApply, Edge, EdgeApplyList, EdgeList]):
     item_name = "edges"
     folder_name = "data_models"
     filename_pattern = r"^.*edge"
