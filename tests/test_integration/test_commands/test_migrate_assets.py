@@ -41,6 +41,9 @@ def three_assets(toolkit_client: ToolkitClient, toolkit_space: Space) -> Iterato
     client.assets.delete(external_id=created.as_external_ids())
 
 
+@pytest.mark.skip(
+    "We will change the migration model and then we cannot have an integration tests deploying it while we are changing it."
+)
 class TestMigrateAssetsCommand:
     def test_migrate_assets_command(
         self,
