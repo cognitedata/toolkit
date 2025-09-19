@@ -53,36 +53,36 @@ from rich.panel import Panel
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.location_filters import LocationFilterList
 from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import Streamlit, StreamlitList
+from cognite_toolkit._cdf_tk.cruds import (
+    AgentCRUD,
+    ContainerCRUD,
+    DataModelCRUD,
+    DataSetsCRUD,
+    ExtractionPipelineConfigCRUD,
+    ExtractionPipelineCRUD,
+    FunctionCRUD,
+    FunctionScheduleCRUD,
+    GroupCRUD,
+    LocationFilterCRUD,
+    NodeCRUD,
+    ResourceCRUD,
+    SpaceCRUD,
+    StreamlitCRUD,
+    TransformationCRUD,
+    TransformationNotificationCRUD,
+    TransformationScheduleCRUD,
+    ViewCRUD,
+    WorkflowCRUD,
+    WorkflowTriggerCRUD,
+    WorkflowVersionCRUD,
+)
+from cognite_toolkit._cdf_tk.cruds._base_cruds import T_ID
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceRetrievalError,
     ToolkitMissingResourceError,
     ToolkitResourceMissingError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.loaders import (
-    AgentLoader,
-    ContainerLoader,
-    DataModelLoader,
-    DataSetsLoader,
-    ExtractionPipelineConfigLoader,
-    ExtractionPipelineLoader,
-    FunctionLoader,
-    FunctionScheduleLoader,
-    GroupLoader,
-    LocationFilterLoader,
-    NodeLoader,
-    ResourceLoader,
-    SpaceLoader,
-    StreamlitLoader,
-    TransformationLoader,
-    TransformationNotificationLoader,
-    TransformationScheduleLoader,
-    ViewLoader,
-    WorkflowLoader,
-    WorkflowTriggerLoader,
-    WorkflowVersionLoader,
-)
-from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID
 from cognite_toolkit._cdf_tk.tk_warnings import FileExistsWarning, HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, safe_write, to_directory_compatible, yaml_safe_dump
@@ -99,7 +99,7 @@ class ResourceFinder(Iterable, ABC, Generic[T_ID]):
         return self.identifier or self._interactive_select()
 
     @abstractmethod
-    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
+    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
         raise NotImplementedError
 
     @abstractmethod
@@ -180,9 +180,9 @@ class DataModelFinder(ResourceFinder[DataModelId]):
             return
         self.space_ids |= {item.space for item in resources}
 
-    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
+    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
-        model_loader = DataModelLoader.create_loader(self.client)
+        model_loader = DataModelCRUD.create_loader(self.client)
         if self.data_model:
             is_global_model = self.data_model.is_global
             yield [], dm.DataModelList([self.data_model]), model_loader, None
@@ -193,14 +193,14 @@ class DataModelFinder(ResourceFinder[DataModelId]):
             is_global_model = model_list[0].is_global
             yield [], model_list, model_loader, None
         if self._include_global or is_global_model:
-            yield list(self.view_ids), None, ViewLoader.create_loader(self.client), "views"
-            yield list(self.container_ids), None, ContainerLoader.create_loader(self.client), "containers"
-            yield list(self.space_ids), None, SpaceLoader.create_loader(self.client), None
+            yield list(self.view_ids), None, ViewCRUD.create_loader(self.client), "views"
+            yield list(self.container_ids), None, ContainerCRUD.create_loader(self.client), "containers"
+            yield list(self.space_ids), None, SpaceCRUD.create_loader(self.client), None
         else:
-            view_loader = ViewLoader(self.client, None, None, topological_sort_implements=True)
+            view_loader = ViewCRUD(self.client, None, None, topological_sort_implements=True)
             views = dm.ViewList([view for view in view_loader.retrieve(list(self.view_ids)) if not view.is_global])
             yield [], views, view_loader, "views"
-            container_loader = ContainerLoader.create_loader(self.client)
+            container_loader = ContainerCRUD.create_loader(self.client)
             containers = dm.ContainerList(
                 [
                     container
@@ -210,7 +210,7 @@ class DataModelFinder(ResourceFinder[DataModelId]):
             )
             yield [], containers, container_loader, "containers"
 
-            space_loader = SpaceLoader.create_loader(self.client)
+            space_loader = SpaceCRUD.create_loader(self.client)
             spaces = dm.SpaceList(
                 [space for space in space_loader.retrieve(list(self.space_ids)) if not space.is_global]
             )
@@ -253,22 +253,22 @@ class WorkflowFinder(ResourceFinder[WorkflowVersionId]):
                 break
         return selected_version
 
-    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
+    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
         if self._workflow:
-            yield [], WorkflowList([self._workflow]), WorkflowLoader.create_loader(self.client), None
+            yield [], WorkflowList([self._workflow]), WorkflowCRUD.create_loader(self.client), None
         else:
-            yield [self.identifier.workflow_external_id], None, WorkflowLoader.create_loader(self.client), None
+            yield [self.identifier.workflow_external_id], None, WorkflowCRUD.create_loader(self.client), None
         if self._workflow_version:
             yield (
                 [],
                 WorkflowVersionList([self._workflow_version]),
-                WorkflowVersionLoader.create_loader(self.client),
+                WorkflowVersionCRUD.create_loader(self.client),
                 None,
             )
         else:
-            yield [self.identifier], None, WorkflowVersionLoader.create_loader(self.client), None
-        trigger_loader = WorkflowTriggerLoader.create_loader(self.client)
+            yield [self.identifier], None, WorkflowVersionCRUD.create_loader(self.client), None
+        trigger_loader = WorkflowTriggerCRUD.create_loader(self.client)
         trigger_list = WorkflowTriggerList(
             list(trigger_loader.iterate(parent_ids=[self.identifier.workflow_external_id]))
         )
@@ -304,22 +304,22 @@ class TransformationFinder(ResourceFinder[tuple[str, ...]]):
             raise ToolkitValueError("No transformations selected for dumping.")
         return tuple(selected_transformation_ids)
 
-    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
+    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
         if self.transformations:
             yield (
                 [],
                 TransformationList([t for t in self.transformations if t.external_id in self.identifier]),
-                TransformationLoader.create_loader(self.client),
+                TransformationCRUD.create_loader(self.client),
                 None,
             )
         else:
-            yield list(self.identifier), None, TransformationLoader.create_loader(self.client), None
+            yield list(self.identifier), None, TransformationCRUD.create_loader(self.client), None
 
-        schedule_loader = TransformationScheduleLoader.create_loader(self.client)
+        schedule_loader = TransformationScheduleCRUD.create_loader(self.client)
         schedule_list = TransformationScheduleList(list(schedule_loader.iterate(parent_ids=list(self.identifier))))
         yield [], schedule_list, schedule_loader, None
-        notification_loader = TransformationNotificationLoader.create_loader(self.client)
+        notification_loader = TransformationNotificationCRUD.create_loader(self.client)
         notification_list = TransformationNotificationList(
             list(notification_loader.iterate(parent_ids=list(self.identifier)))
         )
@@ -350,12 +350,12 @@ class GroupFinder(ResourceFinder[tuple[str, ...]]):
         self.groups = [group for group_list in selected_groups for group in group_list]
         return tuple(group_list[0].name for group_list in selected_groups)
 
-    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
+    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
         if self.groups:
-            yield [], GroupList(self.groups), GroupLoader.create_loader(self.client), None
+            yield [], GroupList(self.groups), GroupCRUD.create_loader(self.client), None
         else:
-            yield list(self.identifier), None, GroupLoader.create_loader(self.client), None
+            yield list(self.identifier), None, GroupCRUD.create_loader(self.client), None
 
 
 class AgentFinder(ResourceFinder[tuple[str, ...]]):
@@ -382,9 +382,9 @@ class AgentFinder(ResourceFinder[tuple[str, ...]]):
             raise ToolkitValueError("No agents selected for dumping.")
         return tuple(selected_agent_ids)
 
-    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
+    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
-        loader = AgentLoader.create_loader(self.client)
+        loader = AgentCRUD.create_loader(self.client)
         if self.agents:
             yield (
                 [],
@@ -421,9 +421,9 @@ class NodeFinder(ResourceFinder[dm.ViewId]):
         ).ask()
         return selected_view_id
 
-    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
+    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
-        loader = NodeLoader(self.client, None, None, self.identifier)
+        loader = NodeCRUD(self.client, None, None, self.identifier)
         if self.is_interactive:
             count = self.client.data_modeling.instances.aggregate(
                 self.identifier, dm.aggregations.Count("externalId"), instance_type="node"
@@ -465,10 +465,10 @@ class LocationFilterFinder(ResourceFinder[tuple[str, ...]]):
             raise ToolkitResourceMissingError(f"Location filters {identifiers} not found", str(identifiers))
         return LocationFilterList(filters)
 
-    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
+    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
         self.identifier = self.identifier or self._interactive_select()
         filters = self._get_filters(self.identifier)
-        yield [], filters, LocationFilterLoader.create_loader(self.client), None
+        yield [], filters, LocationFilterCRUD.create_loader(self.client), None
 
 
 class ExtractionPipelineFinder(ResourceFinder[tuple[str, ...]]):
@@ -493,9 +493,9 @@ class ExtractionPipelineFinder(ResourceFinder[tuple[str, ...]]):
             raise ToolkitValueError("No extraction pipelines selected for dumping.")
         return tuple(selected_pipeline_ids)
 
-    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
+    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
-        pipeline_loader = ExtractionPipelineLoader.create_loader(self.client)
+        pipeline_loader = ExtractionPipelineCRUD.create_loader(self.client)
         if self.extraction_pipelines:
             selected_pipelines = ExtractionPipelineList(
                 [p for p in self.extraction_pipelines if p.external_id in self.identifier]
@@ -503,7 +503,7 @@ class ExtractionPipelineFinder(ResourceFinder[tuple[str, ...]]):
             yield [], selected_pipelines, pipeline_loader, None
         else:
             yield list(self.identifier), None, pipeline_loader, None
-        config_loader = ExtractionPipelineConfigLoader.create_loader(self.client)
+        config_loader = ExtractionPipelineConfigCRUD.create_loader(self.client)
         configs = ExtractionPipelineConfigList(list(config_loader.iterate(parent_ids=list(self.identifier))))
         yield [], configs, config_loader, None
 
@@ -532,9 +532,9 @@ class DataSetFinder(ResourceFinder[tuple[str, ...]]):
             raise ToolkitValueError("No datasets selected for dumping.")
         return tuple(selected_dataset_ids)
 
-    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
+    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
-        loader = DataSetsLoader.create_loader(self.client)
+        loader = DataSetsCRUD.create_loader(self.client)
         if self.datasets:
             yield (
                 [],
@@ -568,16 +568,16 @@ class FunctionFinder(ResourceFinder[tuple[str, ...]]):
             raise ToolkitValueError("No functions selected for dumping.")
         return tuple(selected_function_ids)
 
-    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
+    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
-        loader = FunctionLoader.create_loader(self.client)
+        loader = FunctionCRUD.create_loader(self.client)
         if self.functions:
             selected_functions = FunctionList([f for f in self.functions if f.external_id in self.identifier])
             yield [], selected_functions, loader, None
         else:
             yield list(self.identifier), None, loader, None
 
-        schedule_loader = FunctionScheduleLoader.create_loader(self.client)
+        schedule_loader = FunctionScheduleCRUD.create_loader(self.client)
         schedules = schedule_loader.iterate(parent_ids=list(self.identifier))
         yield [], FunctionSchedulesList(list(schedules)), schedule_loader, None
 
@@ -647,9 +647,9 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
             raise ToolkitValueError("No Streamlit app selected for dumping. Aborting...")
         return tuple(selected_ids)
 
-    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
+    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
         identifier = self.identifier or self._interactive_select()
-        loader = StreamlitLoader.create_loader(self.client)
+        loader = StreamlitCRUD.create_loader(self.client)
         # If the user used interactive select, we have already downloaded the streamlit apps,
         # Thus, we do not need to download them again. If not pass the identifier and let the main logic
         # take care of the download.

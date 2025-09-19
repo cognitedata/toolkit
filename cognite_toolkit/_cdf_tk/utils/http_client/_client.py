@@ -21,6 +21,7 @@ from cognite_toolkit._cdf_tk.utils.http_client._data_classes import (
     BodyRequest,
     FailedRequestMessage,
     HTTPMessage,
+    ItemsRequest,
     ParamRequest,
     RequestMessage,
     ResponseMessage,
@@ -45,6 +46,8 @@ class HTTPClient:
         max_retries (int): The maximum number of retries for a request. Default is 10.
         retry_status_codes (frozenset[int]): HTTP status codes that should trigger a retry.
             Default is {408, 429, 502, 503, 504}.
+        split_items_status_codes (frozenset[int]): In the case of ItemRequest with multiple
+            items, these status codes will trigger splitting the request into smaller batches.
 
     """
 
@@ -55,12 +58,14 @@ class HTTPClient:
         pool_connections: int = 10,
         pool_maxsize: int = 20,
         retry_status_codes: Set[int] = frozenset({408, 429, 502, 503, 504}),
+        split_items_status_codes: Set[int] = frozenset({400, 408, 409, 422, 502, 503, 504}),
     ):
-        self._config = config
+        self.config = config
         self._max_retries = max_retries
         self._pool_connections = pool_connections
         self._pool_maxsize = pool_maxsize
         self._retry_status_codes = retry_status_codes
+        self._split_items_status_codes = split_items_status_codes
 
         # Thread-safe session for connection pooling
         self.session = self._create_thread_safe_session()
@@ -138,16 +143,16 @@ class HTTPClient:
         session.mount("https://", adapter)
         return session
 
-    def _create_headers(self) -> MutableMapping[str, str]:
+    def _create_headers(self, api_version: str | None = None) -> MutableMapping[str, str]:
         headers: MutableMapping[str, str] = CaseInsensitiveDict()
         headers.update(requests.utils.default_headers())
-        auth_name, auth_value = self._config.credentials.authorization_header()
+        auth_name, auth_value = self.config.credentials.authorization_header()
         headers[auth_name] = auth_value
         headers["content-type"] = "application/json"
         headers["accept"] = "application/json"
         headers["x-cdp-sdk"] = f"CogniteToolkit:{get_current_toolkit_version()}"
-        headers["x-cdp-app"] = self._config.client_name
-        headers["cdf-version"] = self._config.api_subversion
+        headers["x-cdp-app"] = self.config.client_name
+        headers["cdf-version"] = api_version or self.config.api_subversion
         if "User-Agent" in headers:
             headers["User-Agent"] += f" {get_user_agent()}"
         else:
@@ -179,7 +184,7 @@ class HTTPClient:
         return data
 
     def _make_request(self, item: RequestMessage) -> requests.Response:
-        headers = self._create_headers()
+        headers = self._create_headers(item.api_version)
         params: dict[str, str] | None = None
         if isinstance(item, ParamRequest):
             params = item.parameters
@@ -192,7 +197,7 @@ class HTTPClient:
             data=data,
             headers=headers,
             params=params,
-            timeout=self._config.timeout,
+            timeout=self.config.timeout,
             allow_redirects=False,
         )
 
@@ -208,6 +213,17 @@ class HTTPClient:
 
         if 200 <= response.status_code < 300:
             return request.create_responses(response, body)
+        elif (
+            isinstance(request, ItemsRequest)
+            and len(request.items) > 1
+            and response.status_code in self._split_items_status_codes
+        ):
+            # 4XX: Status there is at least one item that is invalid, split the batch to get all valid items processed
+            # 5xx: Server error, split to reduce the number of items in each request, and count as a status attempt
+            status_attempts = request.status_attempt
+            if 500 <= response.status_code < 600:
+                status_attempts += 1
+            return request.split(status_attempts=status_attempts)
         elif request.status_attempt < self._max_retries and response.status_code in self._retry_status_codes:
             request.status_attempt += 1
             time.sleep(self._backoff_time(request.total_attempts))
@@ -252,7 +268,7 @@ class HTTPClient:
             attempts = request.connect_attempt
         else:
             error_msg = f"Unexpected exception: {e!s}"
-            return request.create_failed(error_msg)
+            return request.create_failed_request(error_msg)
 
         if attempts <= self._max_retries:
             time.sleep(self._backoff_time(request.total_attempts))
@@ -261,7 +277,7 @@ class HTTPClient:
             # We have already incremented the attempt count, so we subtract 1 here
             error_msg = f"RequestException after {request.total_attempts - 1} attempts ({error_type} error): {e!s}"
 
-            return request.create_failed(error_msg)
+            return request.create_failed_request(error_msg)
 
     @classmethod
     def _any_exception_in_context_isinstance(

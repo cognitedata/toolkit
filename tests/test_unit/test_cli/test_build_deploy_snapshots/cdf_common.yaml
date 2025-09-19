@@ -49,7 +49,7 @@ Function:
   fileId: -1
   functionPath: handler.py
   metadata:
-    cognite-toolkit-hash: /=5b1a09e8;handler.py=fb006a62;requirements.txt=1d4815ec
+    cognite-toolkit-hash: /=d32c50d9;handler.py=7a0c434e;requirements.txt=1d4815ec
   name: Annotation to Direct Relations Writer
   owner: Anonymous
 Space:

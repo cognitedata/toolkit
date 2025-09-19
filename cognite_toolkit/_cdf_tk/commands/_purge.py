@@ -15,6 +15,25 @@ from rich.panel import Panel
 from rich.status import Status
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.cruds import (
+    RESOURCE_CRUD_LIST,
+    AssetCRUD,
+    CogniteFileCRUD,
+    DataSetsCRUD,
+    FunctionCRUD,
+    GraphQLLoader,
+    GroupAllScopedCRUD,
+    GroupCRUD,
+    GroupResourceScopedCRUD,
+    HostedExtractorDestinationCRUD,
+    LocationFilterCRUD,
+    NodeCRUD,
+    ResourceCRUD,
+    SpaceCRUD,
+    StreamlitCRUD,
+    TransformationCRUD,
+    ViewCRUD,
+)
 from cognite_toolkit._cdf_tk.data_classes import DeployResults, ResourceDeployResult
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthorizationError,
@@ -22,25 +41,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMissingResourceError,
     ToolkitRequiredValueError,
     ToolkitValueError,
-)
-from cognite_toolkit._cdf_tk.loaders import (
-    RESOURCE_LOADER_LIST,
-    AssetLoader,
-    CogniteFileLoader,
-    DataSetsLoader,
-    FunctionLoader,
-    GraphQLLoader,
-    GroupAllScopedLoader,
-    GroupLoader,
-    GroupResourceScopedLoader,
-    HostedExtractorDestinationLoader,
-    LocationFilterLoader,
-    NodeLoader,
-    ResourceLoader,
-    SpaceLoader,
-    StreamlitLoader,
-    TransformationLoader,
-    ViewLoader,
 )
 from cognite_toolkit._cdf_tk.storageio import InstanceIO, InstanceSelector
 from cognite_toolkit._cdf_tk.tk_warnings import (
@@ -81,20 +81,27 @@ class PurgeCommand(ToolkitCommand):
                 ).ask()
                 if not confirm:
                     return
-
+                confirm = questionary.confirm(
+                    f"If any of the nodes in {selected_space!r} are TimeSeries or Files, this will delete the "
+                    "datapoints and file contents. If you want to unlink the nodes before deleting, please use the "
+                    "cdf purge instances command. Are you sure you want to continue?",
+                    default=False,
+                ).ask()
+                if not confirm:
+                    return
         loaders = self._get_dependencies(
-            SpaceLoader,
+            SpaceCRUD,
             exclude={
                 GraphQLLoader,
-                GroupResourceScopedLoader,
-                LocationFilterLoader,
-                TransformationLoader,
-                CogniteFileLoader,
+                GroupResourceScopedCRUD,
+                LocationFilterCRUD,
+                TransformationCRUD,
+                CogniteFileCRUD,
             },
         )
         is_purged = self._purge(client, loaders, selected_space, dry_run=dry_run, verbose=verbose)
         if include_space and is_purged:
-            space_loader = SpaceLoader.create_loader(client)
+            space_loader = SpaceCRUD.create_loader(client)
             if dry_run:
                 print(f"Would delete space {selected_space}")
             else:
@@ -113,11 +120,11 @@ class PurgeCommand(ToolkitCommand):
 
     @staticmethod
     def _get_dependencies(
-        loader_cls: type[ResourceLoader], exclude: set[type[ResourceLoader]] | None = None
-    ) -> dict[type[ResourceLoader], frozenset[type[ResourceLoader]]]:
+        loader_cls: type[ResourceCRUD], exclude: set[type[ResourceCRUD]] | None = None
+    ) -> dict[type[ResourceCRUD], frozenset[type[ResourceCRUD]]]:
         return {
             dep_cls: dep_cls.dependencies
-            for dep_cls in RESOURCE_LOADER_LIST
+            for dep_cls in RESOURCE_CRUD_LIST
             if loader_cls in dep_cls.dependencies and (exclude is None or dep_cls not in exclude)
         }
 
@@ -167,15 +174,15 @@ class PurgeCommand(ToolkitCommand):
                     return
 
         loaders = self._get_dependencies(
-            DataSetsLoader,
+            DataSetsCRUD,
             exclude={
-                GroupLoader,
-                GroupResourceScopedLoader,
-                GroupAllScopedLoader,
-                StreamlitLoader,
-                HostedExtractorDestinationLoader,
-                FunctionLoader,
-                LocationFilterLoader,
+                GroupCRUD,
+                GroupResourceScopedCRUD,
+                GroupAllScopedCRUD,
+                StreamlitCRUD,
+                HostedExtractorDestinationCRUD,
+                FunctionCRUD,
+                LocationFilterCRUD,
             },
         )
         is_purged = self._purge(client, loaders, selected_data_set=selected_dataset, dry_run=dry_run, verbose=verbose)
@@ -235,7 +242,7 @@ class PurgeCommand(ToolkitCommand):
     def _purge(
         self,
         client: ToolkitClient,
-        loaders: dict[type[ResourceLoader], frozenset[type[ResourceLoader]]],
+        loaders: dict[type[ResourceCRUD], frozenset[type[ResourceCRUD]]],
         selected_space: str | None = None,
         selected_data_set: str | None = None,
         dry_run: bool = False,
@@ -244,7 +251,7 @@ class PurgeCommand(ToolkitCommand):
     ) -> bool:
         is_purged = True
         results = DeployResults([], "purge", dry_run=dry_run)
-        loader_cls: type[ResourceLoader]
+        loader_cls: type[ResourceCRUD]
         has_purged_views = False
         with Console().status("...", spinner="aesthetic", speed=0.4) as status:
             for loader_cls in reversed(list(TopologicalSorter(loaders).static_order())):
@@ -253,11 +260,11 @@ class PurgeCommand(ToolkitCommand):
                     continue
                 loader = loader_cls.create_loader(client, console=status.console)
                 status_prefix = "Would have deleted" if dry_run else "Deleted"
-                if isinstance(loader, ViewLoader) and not dry_run:
+                if isinstance(loader, ViewCRUD) and not dry_run:
                     status_prefix = "Expected deleted"  # Views are not always deleted immediately
                     has_purged_views = True
 
-                if not dry_run and isinstance(loader, NodeLoader):
+                if not dry_run and isinstance(loader, NodeCRUD):
                     # Special handling of nodes as node type must be deleted after regular nodes
                     # In dry-run mode, we are not deleting the nodes, so we can skip this.
                     warnings_before = len(self.warning_list)
@@ -272,7 +279,7 @@ class PurgeCommand(ToolkitCommand):
                     ):
                         is_purged = False
                     continue
-                elif not dry_run and isinstance(loader, AssetLoader):
+                elif not dry_run and isinstance(loader, AssetCRUD):
                     # Special handling of assets as we must ensure all children are deleted before the parent.
                     # In dry-run mode, we are not deleting the assets, so we can skip this.
                     deleted_assets = self._purge_assets(loader, status, selected_data_set)
@@ -349,7 +356,7 @@ class PurgeCommand(ToolkitCommand):
         self,
         batch_ids: list[Hashable],
         dry_run: bool,
-        loader: ResourceLoader,
+        loader: ResourceCRUD,
         batch_size: int,
         console: Console,
         verbose: bool,
@@ -393,7 +400,7 @@ class PurgeCommand(ToolkitCommand):
 
     @staticmethod
     def _delete_children(
-        parent_ids: list[Hashable], child_loaders: list[ResourceLoader], dry_run: bool, console: Console, verbose: bool
+        parent_ids: list[Hashable], child_loaders: list[ResourceCRUD], dry_run: bool, console: Console, verbose: bool
     ) -> dict[str, int]:
         child_deletion: dict[str, int] = {}
         for child_loader in child_loaders:
@@ -415,7 +422,7 @@ class PurgeCommand(ToolkitCommand):
 
     def _purge_nodes(
         self,
-        loader: NodeLoader,
+        loader: NodeCRUD,
         status: Status,
         selected_space: str | None = None,
         verbose: bool = False,
@@ -473,7 +480,7 @@ class PurgeCommand(ToolkitCommand):
         return count
 
     def _delete_node_batch(
-        self, batch_ids: list[NodeId], loader: NodeLoader, batch_size: int, console: Console, verbose: bool
+        self, batch_ids: list[NodeId], loader: NodeCRUD, batch_size: int, console: Console, verbose: bool
     ) -> tuple[int, int]:
         try:
             deleted = loader.delete(batch_ids)
@@ -531,7 +538,7 @@ class PurgeCommand(ToolkitCommand):
 
     def _purge_assets(
         self,
-        loader: AssetLoader,
+        loader: AssetCRUD,
         status: Status,
         selected_data_set: str | None = None,
         batch_size: int = 1000,
@@ -661,21 +668,26 @@ class PurgeCommand(ToolkitCommand):
         console.print(f"{prefix} {executor.total_items:,} instances in {selector!s}")
 
     def validate_instance_access(self, validator: ValidateAccess, instance_spaces: list[str] | None) -> None:
-        space_ids = validator.instances(["read", "write"], operation="purge")
+        space_ids = validator.instances(
+            ["read", "write"], spaces=set(instance_spaces) if instance_spaces else None, operation="purge"
+        )
         if space_ids is None:
             # Full access
             return
-        if instance_spaces is None:
+        self.warn(
+            LimitedAccessWarning(
+                f"You can only purge instances in the following instance spaces: {humanize_collection(space_ids)}."
+            )
+        )
+        return
+
+    def validate_model_access(self, validator: ValidateAccess, view: list[str] | None) -> None:
+        space = view[0] if isinstance(view, list) and view and isinstance(view[0], str) else None
+        if space_ids := validator.data_model(["read"], spaces={space} if space else None):
             self.warn(
                 LimitedAccessWarning(
-                    f"You can only purge instances in the following instance spaces: {humanize_collection(space_ids)}."
+                    f"You can only select views in the {len(space_ids)} spaces you have access to: {humanize_collection(space_ids)}."
                 )
-            )
-            return
-        invalid_spaces = set(instance_spaces or []) - set(space_ids)
-        if invalid_spaces:
-            raise AuthorizationError(
-                f"Cannot purge. You do not have access to the following spaces: {humanize_collection(invalid_spaces)}."
             )
 
     def validate_timeseries_access(self, validator: ValidateAccess) -> None:

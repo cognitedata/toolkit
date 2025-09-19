@@ -18,7 +18,7 @@ from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
 
 class TestValidateAccess:
     @pytest.mark.parametrize(
-        "capabilities, space, expected_error",
+        "capabilities, spaces, expected_error",
         [
             pytest.param(
                 [],
@@ -28,28 +28,30 @@ class TestValidateAccess:
             ),
             pytest.param(
                 [DataModelsAcl([DataModelsAcl.Action.Read], DataModelsAcl.Scope.SpaceID(["space1"]))],
-                "space2",
-                "You have no permission to read the 'space2' space. This is required to test the operation.",
+                {"space2"},
+                "You have no permission to read the 'space2' space(s). This is required to test the operation.",
                 id="Space mismatch",
             ),
         ],
     )
-    def test_model_access_raise(self, capabilities: list[Capability], space: str | None, expected_error: str) -> None:
+    def test_model_access_raise(
+        self, capabilities: list[Capability], spaces: set[str] | None, expected_error: str
+    ) -> None:
         inspection = self._create_inspection_obj(capabilities)
 
         with monkeypatch_toolkit_client() as client:
             client.iam.token.inspect.return_value = inspection
             validator = ValidateAccess(client, "test the operation")
             with pytest.raises(AuthorizationError) as exc:
-                validator.data_model(["read"], space=space)
+                validator.data_model(["read"], spaces=spaces)
             assert str(exc.value) == expected_error
 
     @pytest.mark.parametrize(
-        "capabilities, space, expected_result",
+        "capabilities, spaces, expected_result",
         [
             pytest.param(
                 [DataModelsAcl([DataModelsAcl.Action.Read], DataModelsAcl.Scope.SpaceID(["space1"]))],
-                "space1",
+                {"space1"},
                 None,
                 id="Space match",
             ),
@@ -65,18 +67,18 @@ class TestValidateAccess:
         ],
     )
     def test_model_access(
-        self, capabilities: list[Capability], space: str | None, expected_result: list[str] | None
+        self, capabilities: list[Capability], spaces: set[str] | None, expected_result: list[str] | None
     ) -> None:
         inspection = self._create_inspection_obj(capabilities)
 
         with monkeypatch_toolkit_client() as client:
             client.iam.token.inspect.return_value = inspection
             validator = ValidateAccess(client, "test the operation")
-            result = validator.data_model(["read"], space=space)
+            result = validator.data_model(["read"], spaces=spaces)
             assert result == expected_result
 
     @pytest.mark.parametrize(
-        "capabilities, space, expected_error",
+        "capabilities, spaces, expected_error",
         [
             pytest.param(
                 [],
@@ -90,14 +92,14 @@ class TestValidateAccess:
                         [DataModelInstancesAcl.Action.Read], DataModelInstancesAcl.Scope.SpaceID(["space1"])
                     )
                 ],
-                "space2",
-                "You have no permission to read instances in space 'space2'. This is required to test the operation instances.",
+                {"space2"},
+                "You have no permission to read instances in the 'space2' space(s). This is required to test the operation instances.",
                 id="Space mismatch",
             ),
         ],
     )
     def test_instances_access_raise(
-        self, capabilities: list[Capability], space: str | None, expected_error: str
+        self, capabilities: list[Capability], spaces: set[str] | None, expected_error: str
     ) -> None:
         inspection = self._create_inspection_obj(capabilities)
 
@@ -105,11 +107,11 @@ class TestValidateAccess:
             client.iam.token.inspect.return_value = inspection
             validator = ValidateAccess(client, "test the operation")
             with pytest.raises(AuthorizationError) as exc:
-                validator.instances(["read"], space=space)
+                validator.instances(["read"], spaces=spaces)
             assert str(exc.value) == expected_error
 
     @pytest.mark.parametrize(
-        "capabilities, space, expected_result",
+        "capabilities, spaces, expected_result",
         [
             pytest.param(
                 [
@@ -117,7 +119,7 @@ class TestValidateAccess:
                         [DataModelInstancesAcl.Action.Read], DataModelInstancesAcl.Scope.SpaceID(["space1"])
                     )
                 ],
-                "space1",
+                {"space1"},
                 None,
                 id="Space match",
             ),
@@ -140,18 +142,18 @@ class TestValidateAccess:
         ],
     )
     def test_instances_access(
-        self, capabilities: list[Capability], space: str | None, expected_result: list[str] | None
+        self, capabilities: list[Capability], spaces: set[str] | None, expected_result: list[str] | None
     ) -> None:
         inspection = self._create_inspection_obj(capabilities)
 
         with monkeypatch_toolkit_client() as client:
             client.iam.token.inspect.return_value = inspection
             validator = ValidateAccess(client, "test the operation")
-            result = validator.instances(["read"], space=space)
+            result = validator.instances(["read"], spaces=spaces)
             assert result == expected_result
 
     @pytest.mark.parametrize(
-        "capabilities, dataset_id, expected_error",
+        "capabilities, dataset_ids, expected_error",
         [
             pytest.param(
                 [],
@@ -161,20 +163,20 @@ class TestValidateAccess:
             ),
             pytest.param(
                 [TimeSeriesAcl([TimeSeriesAcl.Action.Read], TimeSeriesAcl.Scope.DataSet([1]))],
-                2,
+                {2},
                 "You have no permission to read time series in dataset 2. This is required to test the operation.",
                 id="Dataset mismatch",
             ),
             pytest.param(
                 [TimeSeriesAcl([TimeSeriesAcl.Action.Read], TimeSeriesAcl.Scope.AssetRootID([10]))],
-                1,
+                {1},
                 "You have no permission to read time series in dataset 1. This is required to test the operation.",
                 id="Access by other scope type",
             ),
         ],
     )
     def test_timeseries_access_raise(
-        self, capabilities: list[Capability], dataset_id: int | None, expected_error: str
+        self, capabilities: list[Capability], dataset_ids: set[int] | None, expected_error: str
     ) -> None:
         inspection = self._create_inspection_obj(capabilities)
 
@@ -189,15 +191,15 @@ class TestValidateAccess:
 
             validator = ValidateAccess(client, "test the operation")
             with pytest.raises(AuthorizationError) as exc:
-                validator.timeseries(["read"], dataset_id=dataset_id)
+                validator.timeseries(["read"], dataset_ids=dataset_ids)
             assert str(exc.value) == expected_error
 
     @pytest.mark.parametrize(
-        "capabilities, dataset_id, expected_result",
+        "capabilities, dataset_ids, expected_result",
         [
             pytest.param(
                 [TimeSeriesAcl([TimeSeriesAcl.Action.Read], TimeSeriesAcl.Scope.DataSet([1, 2]))],
-                1,
+                {1},
                 None,
                 id="Dataset match",
             ),
@@ -230,7 +232,7 @@ class TestValidateAccess:
         ],
     )
     def test_timeseries_access(
-        self, capabilities: list[Capability], dataset_id: int | None, expected_result: dict | None
+        self, capabilities: list[Capability], dataset_ids: set[int] | None, expected_result: dict | None
     ) -> None:
         inspection = self._create_inspection_obj(capabilities)
 
@@ -244,11 +246,11 @@ class TestValidateAccess:
             client.lookup.time_series.external_id.side_effect = external_id_lookup
 
             validator = ValidateAccess(client, "test the operation")
-            result = validator.timeseries(["read"], dataset_id=dataset_id)
+            result = validator.timeseries(["read"], dataset_ids=dataset_ids)
             assert result == expected_result
 
     @pytest.mark.parametrize(
-        "capabilities, dataset_id, expected_error",
+        "capabilities, dataset_ids, expected_error",
         [
             pytest.param(
                 [],
@@ -258,14 +260,14 @@ class TestValidateAccess:
             ),
             pytest.param(
                 [FilesAcl([FilesAcl.Action.Read], FilesAcl.Scope.DataSet([1]))],
-                2,
+                {2},
                 "You have no permission to read files in dataset 2. This is required to test the operation.",
                 id="Dataset mismatch",
             ),
         ],
     )
     def test_files_access_raise(
-        self, capabilities: list[Capability], dataset_id: int | None, expected_error: str
+        self, capabilities: list[Capability], dataset_ids: set[int] | None, expected_error: str
     ) -> None:
         inspection = self._create_inspection_obj(capabilities)
 
@@ -277,15 +279,15 @@ class TestValidateAccess:
             client.lookup.data_sets.external_id.side_effect = external_id_lookup
             validator = ValidateAccess(client, "test the operation")
             with pytest.raises(AuthorizationError) as exc:
-                validator.files(["read"], dataset_id=dataset_id)
+                validator.files(["read"], dataset_ids=dataset_ids)
             assert str(exc.value) == expected_error
 
     @pytest.mark.parametrize(
-        "capabilities, dataset_id, expected_result",
+        "capabilities, dataset_ids, expected_result",
         [
             pytest.param(
                 [FilesAcl([FilesAcl.Action.Read], FilesAcl.Scope.DataSet([1, 2]))],
-                1,
+                {1},
                 None,
                 id="Dataset match",
             ),
@@ -304,7 +306,7 @@ class TestValidateAccess:
         ],
     )
     def test_files_access(
-        self, capabilities: list[Capability], dataset_id: int | None, expected_result: dict | None
+        self, capabilities: list[Capability], dataset_ids: set[int] | None, expected_result: dict | None
     ) -> None:
         inspection = self._create_inspection_obj(capabilities)
 
@@ -315,7 +317,7 @@ class TestValidateAccess:
             client.iam.token.inspect.return_value = inspection
             client.lookup.data_sets.external_id.side_effect = external_id_lookup
             validator = ValidateAccess(client, "test the operation")
-            result = validator.files(["read"], dataset_id=dataset_id)
+            result = validator.files(["read"], dataset_ids=dataset_ids)
             assert result == expected_result
 
     @pytest.mark.parametrize(

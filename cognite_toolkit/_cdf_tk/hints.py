@@ -9,8 +9,8 @@ from rich.panel import Panel
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 
 from .constants import COGNITE_MODULES, CUSTOM_MODULES, HINT_LEAD_TEXT, MODULES, ROOT_MODULES, URL
+from .cruds import CRUDS_BY_FOLDER_NAME
 from .exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError
-from .loaders import LOADER_BY_FOLDER_NAME
 from .tk_warnings import MediumSeverityWarning
 from .utils import find_directory_with_subdirectories
 
@@ -45,13 +45,15 @@ class Hint:
 class ModuleDefinition(Hint):
     @classmethod
     def _short(cls) -> str:
-        return f"Available resource directories are {sorted(LOADER_BY_FOLDER_NAME)}. {cls.link(URL.configs)} to learn more."
+        return (
+            f"Available resource directories are {sorted(CRUDS_BY_FOLDER_NAME)}. {cls.link(URL.configs)} to learn more."
+        )
 
     @classmethod
     def long(cls, missing_modules: set[str | Path] | None = None, organization_dir: Path | None = None) -> str:  # type: ignore[override]
         lines = [
             "A module is a directory with one or more resource directories in it.",
-            f"Available resource directories are {sorted(LOADER_BY_FOLDER_NAME)}",
+            f"Available resource directories are {sorted(CRUDS_BY_FOLDER_NAME)}",
             f"{cls.link(URL.configs)} to learn more",
         ]
         if missing_modules and organization_dir:
