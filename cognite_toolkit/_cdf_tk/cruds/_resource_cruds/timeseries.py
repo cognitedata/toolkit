@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Any, Literal, cast, final
 
 from cognite.client.data_classes import (
-    DatapointsList,
     DatapointSubscription,
     DatapointSubscriptionList,
     DataPointSubscriptionUpdate,
@@ -77,10 +76,7 @@ class TimeSeriesCRUD(ResourceContainerCRUD[str, TimeSeriesWrite, TimeSeries, Tim
             if dataset_ids := {item.data_set_id for item in items if item.data_set_id}:
                 scope = TimeSeriesAcl.Scope.DataSet(list(dataset_ids))
 
-        return TimeSeriesAcl(
-            actions,
-            scope,  # type: ignore[arg-type]
-        )
+        return TimeSeriesAcl(actions, scope)
 
     @classmethod
     def get_id(cls, item: TimeSeries | TimeSeriesWrite | dict) -> str:
@@ -160,18 +156,15 @@ class TimeSeriesCRUD(ResourceContainerCRUD[str, TimeSeriesWrite, TimeSeries, Tim
         )
 
     def count(self, ids: str | dict[str, Any] | SequenceNotStr[str | dict[str, Any]] | None) -> int:
-        datapoints = cast(
-            DatapointsList,
-            self.client.time_series.data.retrieve(
-                external_id=cast(SequenceNotStr[str], ids),
-                start=MIN_TIMESTAMP_MS,
-                end=MAX_TIMESTAMP_MS + 1,
-                aggregates="count",
-                granularity="1000d",
-                ignore_unknown_ids=True,
-            ),
+        datapoints = self.client.time_series.data.retrieve(
+            external_id=ids,  # type: ignore[arg-type]
+            start=MIN_TIMESTAMP_MS,
+            end=MAX_TIMESTAMP_MS + 1,
+            aggregates="count",
+            granularity="1000d",
+            ignore_unknown_ids=True,
         )
-        return sum(sum(data.count or []) for data in datapoints)
+        return sum(sum(data.count or []) for data in datapoints)  # type: ignore[union-attr, misc, arg-type]
 
     def drop_data(self, ids: SequenceNotStr[str] | None) -> int:
         count = self.count(ids)
@@ -294,10 +287,7 @@ class DatapointSubscriptionCRUD(
             if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
                 scope = TimeSeriesSubscriptionsAcl.Scope.DataSet(list(data_set_ids))
 
-        return TimeSeriesSubscriptionsAcl(
-            actions,
-            scope,  # type: ignore[arg-type]
-        )
+        return TimeSeriesSubscriptionsAcl(actions, scope)
 
     def create(self, items: DatapointSubscriptionWriteList) -> DatapointSubscriptionList:
         created_list = DatapointSubscriptionList([])

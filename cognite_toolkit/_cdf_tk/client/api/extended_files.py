@@ -53,9 +53,9 @@ class ExtendedFileMetadataAPI(FilesAPI):
             and isinstance(instance_id[0], str)
             and isinstance(instance_id[1], str)
         ):
-            return self._set_pending_ids([PendingInstanceId(NodeId.load(instance_id), id=id, external_id=external_id)])[
+            return self._set_pending_ids([PendingInstanceId(NodeId.load(instance_id), id=id, external_id=external_id)])[  # type: ignore[return-value]
                 0
-            ]  # type: ignore[return-value, arg-type]
+            ]
         elif isinstance(instance_id, Sequence) and all(isinstance(item, PendingInstanceId) for item in instance_id):
             return self._set_pending_ids(instance_id)  # type: ignore[arg-type]
         else:

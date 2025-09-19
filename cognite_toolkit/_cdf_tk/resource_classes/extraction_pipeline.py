@@ -14,7 +14,7 @@ class Contact(BaseModelResource):
     name: str | None = Field(None, description="Contact name")
     email: str | None = Field(None, description="Contact email", min_length=1, max_length=254)
     role: str | None = Field(None, description="Contact role")
-    send_notifications: bool | None = Field(None, description="True, if contact receives email notifications")
+    send_notification: bool | None = Field(None, description="True, if contact receives email notifications")
 
 
 class NotificationConfig(BaseModelResource):
