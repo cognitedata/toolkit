@@ -1,4 +1,5 @@
 import threading
+from collections import Counter
 from typing import Generic, Literal, TypeAlias, get_args, overload
 
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -70,3 +71,17 @@ class ProgressTracker(Generic[T_ID]):
             if step not in self._step_to_idx:
                 raise ValueError(f"Step '{step}' not found in steps {humanize_collection(self._steps)}")
             return self._progress[item_id][step]
+
+    def result(self) -> dict[T_ID, dict[str, Status]]:
+        """Get the progress of all items."""
+        with self._lock:
+            return {item_id: progress.copy() for item_id, progress in self._progress.items()}
+
+    def aggregate(self) -> dict[tuple[str, Status], int]:
+        """Aggregate the progress across all items and steps.
+
+        Returns:
+            dict[tuple[str, Status], int]: A dictionary with keys as (step, status) tuples and values as counts.
+        """
+        with self._lock:
+            return Counter((step, status) for progress in self._progress.values() for step, status in progress.items())
