@@ -1,7 +1,9 @@
 from collections.abc import Iterator
 
+import httpx
 import pytest
 import responses
+import respx
 from cognite.client.data_classes.capabilities import (
     DataModelInstancesAcl,
     DataModelsAcl,
@@ -165,6 +167,7 @@ class TestPurgeInstances:
         instance_type: str,
         purge_client: ToolkitClient,
         purge_responses: responses.RequestsMock,
+        respx_mock: respx.MockRouter,
         cognite_timeseries_2000_list: NodeList[CogniteTimeSeries],
         timeseries_by_node_id: dict[NodeId, ExtendedTimeSeries],
         cognite_files_2000_list: NodeList[CogniteFile],
@@ -209,10 +212,13 @@ class TestPurgeInstances:
                 json={"items": [file.dump() for file in files_by_node_id.values()]},
             )
         if not dry_run:
-            rsps.add(
-                responses.POST,
+            respx_mock.post(
                 config.create_api_url("/models/instances/delete"),
-                json={"items": [instance.as_id().dump() for instance in instances]},
+            ).mock(
+                return_value=httpx.Response(
+                    status_code=200,
+                    json={"items": [instance.as_id().dump() for instance in instances]},
+                )
             )
 
         cmd = PurgeCommand(silent=True)
