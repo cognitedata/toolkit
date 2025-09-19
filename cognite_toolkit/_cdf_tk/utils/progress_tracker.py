@@ -7,7 +7,7 @@ from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
 
 Status: TypeAlias = Literal["pending", "failed", "success", "aborted"]
 
-_ALLOWED_STATUS = get_args(Status)
+AVAILABLE_STATUS = get_args(Status)
 
 
 class ProgressTracker(Generic[T_ID]):
@@ -43,8 +43,8 @@ class ProgressTracker(Generic[T_ID]):
 
     def set_progress(self, item_id: T_ID, step: str, status: Status) -> None:
         """Set the progress of a specific step for a given item."""
-        if status not in _ALLOWED_STATUS:
-            raise ValueError(f"Status must be one of {humanize_collection(_ALLOWED_STATUS)}")
+        if status not in AVAILABLE_STATUS:
+            raise ValueError(f"Status must be one of {humanize_collection(AVAILABLE_STATUS)}")
         with self._lock:
             self._init_item(item_id)
             try:
