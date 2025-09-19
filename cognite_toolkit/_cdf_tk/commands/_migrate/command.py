@@ -3,6 +3,7 @@ from enum import Enum
 from pathlib import Path
 
 from rich.console import Console
+from rich.table import Table
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import DataMapper
@@ -12,7 +13,7 @@ from cognite_toolkit._cdf_tk.storageio._base import T_CogniteResourceList, T_Sel
 from cognite_toolkit._cdf_tk.utils.fileio import Chunk, NDJsonWriter, Uncompressed
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemIDMessage, SuccessItem
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
-from cognite_toolkit._cdf_tk.utils.progress_tracker import ProgressTracker
+from cognite_toolkit._cdf_tk.utils.progress_tracker import AVAILABLE_STATUS, ProgressTracker, Status
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
 
 
@@ -68,10 +69,24 @@ class MigrationCommand(ToolkitCommand):
             executor.run()
             total = executor.total_items
 
+        self._print_table(tracker.aggregate(), console)
         executor.raise_on_error()
         action = "Would migrate" if dry_run else "Migrating"
         console.print(f"{action} {total:,} {data.display_name} to instances.")
         return tracker
+
+    def _print_table(self, results: dict[tuple[str, Status], int], console: Console) -> None:
+        table = Table(title="Migration Summary", show_lines=True)
+        table.add_column("Status", style="cyan", no_wrap=True)
+        for step in self.Steps:
+            table.add_column(step.value.capitalize(), style="magenta")
+        for status in AVAILABLE_STATUS:
+            row = [status]
+            for step in self.Steps:
+                row.append(str(results.get((step.value, status), 0)))
+            table.add_row(*row)
+
+        console.print(table)
 
     def _download_iterable(
         self,
