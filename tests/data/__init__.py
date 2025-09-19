@@ -13,6 +13,7 @@ RUN_DATA = DATA_FOLDER / "run_data"
 TRANSFORMATION_CLI = DATA_FOLDER / "transformation_cli"
 PROJECT_WITH_BAD_MODULES = DATA_FOLDER / "project_with_bad_modules"
 NAUGHTY_PROJECT = DATA_FOLDER / "naughty_project"
+EXTERNAL_PACKAGE = DATA_FOLDER / "external_package"
 
 BUILD_GROUP_WITH_UNKNOWN_ACL = DATA_FOLDER / "build_group_with_unknown_acl"
 COMPLETE_ORG = DATA_FOLDER / "complete_org"
@@ -28,6 +29,7 @@ __all__ = [
     "COMPLETE_ORG",
     "DATA_FOLDER",
     "DESCRIPTIONS_FOLDER",
+    "EXTERNAL_PACKAGE",
     "LOAD_DATA",
     "PROJECT_FOR_TEST",
     "PROJECT_NO_COGNITE_MODULES",
