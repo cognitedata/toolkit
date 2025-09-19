@@ -480,7 +480,7 @@ class AssetCentricDestinationSelect:
         if destination_type is None:
             raise ToolkitValueError("No destination type selected. Aborting.")
         # We only input valid destination types, so we can safely skip MyPy's type checking here
-        return destination_type  # type: ignore[return-value]
+        return destination_type
 
     @classmethod
     def get(cls, destination_type: str | None = None) -> AssetCentricDestinationType:

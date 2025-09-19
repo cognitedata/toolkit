@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 def sentry_exception_filter(event: "SentryEvent", hint: "SentryHint") -> "SentryEvent | None":
     if "exc_info" in hint:
-        exc_type, exc_value, tb = hint["exc_info"]
+        _exc_type, exc_value, _tb = hint["exc_info"]
         # Returning None prevents the event from being sent to Sentry
         if isinstance(exc_value, ToolkitError):
             return None

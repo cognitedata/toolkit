@@ -1,3 +1,5 @@
+import pytest
+
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import MigrationPrepareCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import CONTAINERS, VIEWS
@@ -5,6 +7,9 @@ from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import create_de
 from cognite_toolkit._cdf_tk.data_classes import ResourceDeployResult
 
 
+@pytest.mark.skip(
+    "We will change the migration model and then we cannot have an integration tests deploying it while we are changing it."
+)
 class TestMigrateTimeSeriesCommand:
     def test_migration_prepare_command(
         self,

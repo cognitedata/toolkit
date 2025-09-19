@@ -7,7 +7,7 @@ from typing import Literal, TypeAlias
 from cognite.client.data_classes.data_modeling import ContainerId
 
 try:
-    from pyodide.ffi import IN_BROWSER  # type: ignore [import-not-found]
+    from pyodide.ffi import IN_BROWSER
 except ModuleNotFoundError:
     IN_BROWSER = False
 # This is the default config located locally in each module.
