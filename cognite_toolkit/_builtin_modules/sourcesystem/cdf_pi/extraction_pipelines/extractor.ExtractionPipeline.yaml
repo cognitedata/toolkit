@@ -9,4 +9,3 @@ rawTables:
 source: '{{ sourceName }}'
 documentation: >
   # Writing TimeSeries metadata from {{ sourceName }} into {{ rawSourceDatabase }}.timeseries_metadata so that the Transformation can populate CogniteTimeSeries instances.
-

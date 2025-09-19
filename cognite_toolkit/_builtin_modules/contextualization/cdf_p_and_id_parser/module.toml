@@ -21,5 +21,3 @@ location = "cdf_common/functions/write.Function.yaml"
 
 [[extra_resources]]
 location = "cdf_common/raw/contextualization_state.DataBase.yaml"
-
-

@@ -26,7 +26,7 @@ ExtractionPipeline:
     \            - propertyB\n        targetViews:\n         -  space: <>\n      \
     \      externalId: <>\n            version: <>\n            properties: # The\
     \ properties to use for the matching\n              - propertyA\n            \
-    \  - propertyB\n```"
+    \  - propertyB\n```\n"
   externalId: ctx_entity_matching
   name: Entity Matcher
 ExtractionPipelineConfig:
