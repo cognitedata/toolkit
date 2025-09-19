@@ -9,4 +9,3 @@ workflowDefinition:
           externalId: {{ timeseriesTransformationExternalId }}
           concurrencyPolicy: fail
       onFailure: abortWorkflow
-

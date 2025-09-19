@@ -74,7 +74,7 @@ class StreamlitCRUD(ResourceCRUD[str, StreamlitWrite, Streamlit, StreamlitWriteL
             if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
                 scope = FilesAcl.Scope.DataSet(list(data_set_ids))
 
-        return FilesAcl(actions, scope)  # type: ignore[arg-type]
+        return FilesAcl(actions, scope)
 
     @classmethod
     def get_id(cls, item: Streamlit | StreamlitWrite | dict) -> str:

@@ -96,5 +96,5 @@ Transformation:
     \ as STRING) as externalId,\n  cast(`WORKORDER_TASKNAME` as STRING) as name,\n\
     \  cast(`WORKORDER_STATUS` as STRING) as status,\n  array(cast(`WORKORDER_ITEMNAME`\
     \ as STRING)) as tags\nfrom\n  unique_workitem\nwhere\n  isnotnull(`sourceId`)\
-    \ and\n  rn = 1"
+    \ and\n  rn = 1\n"
 deleted: {}
