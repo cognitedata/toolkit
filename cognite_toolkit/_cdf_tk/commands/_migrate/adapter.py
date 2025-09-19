@@ -143,10 +143,9 @@ class AssetCentricMigrationIOAdapter(
     def as_id(self, item: dict[str, JsonVal] | object) -> int:
         if isinstance(item, AssetCentricMapping):
             instance_id = item.mapping.instance_id
-            id_ = item.mapping.id
             if instance_id not in self._id_by_instance_id:
-                self._id_by_instance_id[instance_id] = id_
-            return id_
+                self._id_by_instance_id.setdefault(instance_id, item.mapping.id)
+            return item.mapping.id
         elif isinstance(item, Event | Asset | TimeSeries | FileMetadata | PendingInstanceId):
             if item.id is None:
                 raise TypeError(f"Resource of type {type(item).__name__!r} is missing an 'id'.")
