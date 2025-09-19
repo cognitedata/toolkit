@@ -4,7 +4,8 @@ from functools import cached_property
 from pathlib import Path
 from typing import Generic, Literal
 
-from cognite.client.data_classes.data_modeling import ViewId
+from cognite.client.data_classes.data_modeling import EdgeId, NodeId, ViewId
+from cognite.client.utils._identifier import InstanceId
 
 from cognite_toolkit._cdf_tk.storageio._data_classes import InstanceIdCSVList, T_ModelList
 from cognite_toolkit._cdf_tk.utils.file import to_directory_compatible
@@ -76,14 +77,41 @@ class InstanceSelector:
 
 @dataclass(frozen=True)
 class InstanceFileSelector(CSVFileSelector[InstanceIdCSVList], InstanceSelector):
+    datafile: Path
+    validate: bool = True
+
     def list_cls(self) -> type[InstanceIdCSVList]:
         return InstanceIdCSVList
 
+    @cached_property
+    def _ids_by_type(self) -> tuple[list[NodeId], list[EdgeId]]:
+        node_ids: list[NodeId] = []
+        edge_ids: list[EdgeId] = []
+        for instance in self.items:
+            if instance.instance_type == "node":
+                node_ids.append(NodeId(instance.space, instance.external_id))
+            else:
+                edge_ids.append(EdgeId(instance.space, instance.external_id))
+        return node_ids, edge_ids
+
+    @property
+    def instance_ids(self) -> list[InstanceId]:
+        node_ids, edge_ids = self._ids_by_type
+        return [*node_ids, *edge_ids]
+
+    @property
+    def node_ids(self) -> list[NodeId]:
+        return self._ids_by_type[0]
+
+    @property
+    def edge_ids(self) -> list[EdgeId]:
+        return self._ids_by_type[1]
+
     def get_schema_spaces(self) -> list[str] | None:
-        raise NotImplementedError()
+        return None
 
     def get_instance_spaces(self) -> list[str] | None:
-        raise NotImplementedError()
+        return sorted({instance.space for instance in self.items})
 
     def __str__(self) -> str:
         return f"file {self.datafile.as_posix()}"
