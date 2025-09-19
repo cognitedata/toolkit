@@ -11,4 +11,3 @@ destination:
 conflictMode: upsert
 isPublic: true
 ignoreNullFields: true
-
