@@ -5,7 +5,7 @@ from typing import Generic, Literal, TypeAlias, get_args, overload
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
 
-Status: TypeAlias = Literal["pending", "failed", "success", "aborted"]
+Status: TypeAlias = Literal["success", "failed", "aborted", "pending"]
 
 AVAILABLE_STATUS = get_args(Status)
 
