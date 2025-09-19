@@ -7,13 +7,9 @@ from collections import deque
 from collections.abc import MutableMapping, Sequence, Set
 from typing import Literal
 
-import requests
-import urllib3
+import httpx
 from cognite.client import global_config
 from cognite.client.utils import _json
-from requests.adapters import HTTPAdapter
-from requests.structures import CaseInsensitiveDict
-from urllib3.util.retry import Retry
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.utils.auxiliary import get_current_toolkit_version, get_user_agent
@@ -139,19 +135,18 @@ class HTTPClient:
 
         return final_responses
 
-    def _create_thread_safe_session(self) -> requests.Session:
-        session = requests.Session()
-        adapter = HTTPAdapter(
-            pool_connections=self._pool_connections,
-            pool_maxsize=self._pool_maxsize,
-            max_retries=Retry(total=0),  # We handle retries manually
+    def _create_thread_safe_session(self) -> httpx.Client:
+        return httpx.Client(
+            limits=httpx.Limits(
+                max_connections=self._pool_maxsize,
+                max_keepalive_connections=self._pool_connections,
+            ),
+            timeout=self.config.timeout,
         )
-        session.mount("https://", adapter)
-        return session
 
     def _create_headers(self, api_version: str | None = None) -> MutableMapping[str, str]:
-        headers: MutableMapping[str, str] = CaseInsensitiveDict()
-        headers.update(requests.utils.default_headers())
+        headers: MutableMapping[str, str] = {}
+        headers["User-Agent"] = f"httpx/{httpx.__version__} {get_user_agent()}"
         auth_name, auth_value = self.config.credentials.authorization_header()
         headers[auth_name] = auth_value
         headers["content-type"] = "application/json"
@@ -159,10 +154,6 @@ class HTTPClient:
         headers["x-cdp-sdk"] = f"CogniteToolkit:{get_current_toolkit_version()}"
         headers["x-cdp-app"] = self.config.client_name
         headers["cdf-version"] = api_version or self.config.api_subversion
-        if "User-Agent" in headers:
-            headers["User-Agent"] += f" {get_user_agent()}"
-        else:
-            headers["User-Agent"] = get_user_agent()
         if not global_config.disable_gzip:
             headers["Content-Encoding"] = "gzip"
         return headers
@@ -189,7 +180,7 @@ class HTTPClient:
             data = gzip.compress(data.encode())
         return data
 
-    def _make_request(self, item: RequestMessage) -> requests.Response:
+    def _make_request(self, item: RequestMessage) -> httpx.Response:
         headers = self._create_headers(item.api_version)
         params: dict[str, str] | None = None
         if isinstance(item, ParamRequest):
@@ -204,18 +195,18 @@ class HTTPClient:
             headers=headers,
             params=params,
             timeout=self.config.timeout,
-            allow_redirects=False,
+            follow_redirects=False,
         )
 
     def _handle_response(
         self,
-        response: requests.Response,
+        response: httpx.Response,
         request: RequestMessage,
     ) -> Sequence[HTTPMessage]:
         try:
             body = response.json()
         except ValueError as e:
-            return request.create_responses(response, error_message=f"Invalid JSON response: {e!s}")
+            return request.creat_responses(response, error_message=f"Invalid JSON response: {e!s}")
 
         if 200 <= response.status_code < 300:
             return request.create_responses(response, body)
@@ -265,9 +256,7 @@ class HTTPClient:
         e: Exception,
         request: RequestMessage,
     ) -> Sequence[HTTPMessage]:
-        if self._any_exception_in_context_isinstance(
-            e, (socket.timeout, urllib3.exceptions.ReadTimeoutError, requests.exceptions.ReadTimeout)
-        ):
+        if self._any_exception_in_context_isinstance(e, (socket.timeout, httpx.ReadTimeout, httpx.TimeoutException)):
             error_type = "read"
             request.read_attempt += 1
             attempts = request.read_attempt
@@ -275,9 +264,8 @@ class HTTPClient:
             e,
             (
                 ConnectionError,
-                urllib3.exceptions.ConnectionError,
-                urllib3.exceptions.ConnectTimeoutError,
-                requests.exceptions.ConnectionError,
+                httpx.ConnectError,
+                httpx.ConnectTimeout,
             ),
         ):
             error_type = "connect"
