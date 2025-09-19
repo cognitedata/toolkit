@@ -76,11 +76,18 @@ class MigrationCommand(ToolkitCommand):
         return tracker
 
     def _print_table(self, results: dict[tuple[str, Status], int], console: Console) -> None:
+        for step in self.Steps:
+            # We treat pending as failed for summary purposes
+            results[(step.value, "failed")] += results.get((step.value, "pending"), 0)
+
         table = Table(title="Migration Summary", show_lines=True)
         table.add_column("Status", style="cyan", no_wrap=True)
         for step in self.Steps:
             table.add_column(step.value.capitalize(), style="magenta")
         for status in AVAILABLE_STATUS:
+            if status == "pending":
+                # Skip pending as we treat it as failed
+                continue
             row = [status]
             for step in self.Steps:
                 row.append(str(results.get((step.value, status), 0)))
