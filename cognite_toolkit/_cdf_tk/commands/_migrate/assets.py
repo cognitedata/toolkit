@@ -47,7 +47,7 @@ class MigrateAssetsCommand(BaseMigrateCommand):
         verbose: bool = False,
     ) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
-        mappings = MigrationMappingList.read_mapping_file(mapping_file, "asset")
+        mappings = MigrationMappingList.read_csv_file(mapping_file, "asset")
         self.validate_access(
             client,
             instance_spaces=list(mappings.spaces()),
