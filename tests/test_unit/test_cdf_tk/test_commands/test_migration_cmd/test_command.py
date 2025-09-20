@@ -2,8 +2,10 @@ import json
 from collections.abc import Iterator
 from pathlib import Path
 
+import httpx
 import pytest
 import responses
+import respx
 from cognite.client.data_classes import Asset, AssetList
 from cognite.client.data_classes.data_modeling import (
     ContainerId,
@@ -91,7 +93,11 @@ def cognite_migration_model(
 class TestMigrationCommand:
     @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
     def test_migrate_assets(
-        self, toolkit_config: ToolkitClientConfig, cognite_migration_model: responses.RequestsMock, tmp_path: Path
+        self,
+        toolkit_config: ToolkitClientConfig,
+        cognite_migration_model: responses.RequestsMock,
+        tmp_path: Path,
+        respx_mock: respx.MockRouter,
     ) -> None:
         rsps = cognite_migration_model
         config = toolkit_config
@@ -121,23 +127,26 @@ class TestMigrationCommand:
             status=200,
         )
         # Instance creation
-        rsps.post(
+        respx.post(
             config.create_api_url("/models/instances"),
-            json={
-                "items": [
-                    {
-                        "instanceType": "node",
-                        "space": space,
-                        "externalId": f"asset_{i}",
-                        "version": 1,
-                        "wasModified": True,
-                        "createdTime": 1,
-                        "lastUpdatedTime": 1,
-                    }
-                    for i in range(len(assets))
-                ]
-            },
-            status=200,
+        ).mock(
+            return_value=httpx.Response(
+                status_code=200,
+                json={
+                    "items": [
+                        {
+                            "instanceType": "node",
+                            "space": space,
+                            "externalId": f"asset_{i}",
+                            "version": 1,
+                            "wasModified": True,
+                            "createdTime": 1,
+                            "lastUpdatedTime": 1,
+                        }
+                        for i in range(len(assets))
+                    ]
+                },
+            )
         )
 
         csv_file = tmp_path / "migration.csv"
@@ -156,10 +165,10 @@ class TestMigrationCommand:
         )
 
         # Check that the assets were uploaded
-        last_call = rsps.calls[-1]
+        last_call = respx_mock.calls[-1]
         assert last_call.request.url == config.create_api_url("/models/instances")
         assert last_call.request.method == "POST"
-        actual_instances = json.loads(last_call.request.body)["items"]
+        actual_instances = json.loads(last_call.request.content)["items"]
         expected_instance = [
             NodeApply(
                 space=space,
