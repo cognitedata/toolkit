@@ -32,6 +32,13 @@ from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
     RobotCapabilityWriteList,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.resource_classes import (
+    RobotCapabilityYAML,
+    RobotDataPostProcessingYAML,
+    RobotFrameYAML,
+    RobotLocationYAML,
+    RobotMapYAML,
+)
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
 
 
@@ -43,6 +50,7 @@ class RoboticFrameCRUD(ResourceCRUD[str, FrameWrite, Frame, FrameWriteList, Fram
     list_cls = FrameList
     list_write_cls = FrameWriteList
     kind = "Frame"
+    yaml_cls = RobotFrameYAML
     _doc_url = "Frames/operation/createFrames"
 
     @property
@@ -111,6 +119,7 @@ class RoboticLocationCRUD(ResourceCRUD[str, LocationWrite, Location, LocationWri
     list_cls = LocationList
     list_write_cls = LocationWriteList
     kind = "Location"
+    yaml_cls = RobotLocationYAML
     _doc_url = "Locations/operation/createLocations"
 
     @property
@@ -186,6 +195,7 @@ class RoboticsDataPostProcessingCRUD(
     list_cls = DataPostProcessingList
     list_write_cls = DataPostProcessingWriteList
     kind = "DataPostProcessing"
+    yaml_cls = RobotDataPostProcessingYAML
     _doc_url = "DataPostProcessing/operation/createDataPostProcessing"
 
     @property
@@ -280,6 +290,7 @@ class RobotCapabilityCRUD(
     list_cls = RobotCapabilityList
     list_write_cls = RobotCapabilityWriteList
     kind = "RobotCapability"
+    yaml_cls = RobotCapabilityYAML
     _doc_url = "RobotCapabilities/operation/createRobotCapabilities"
 
     @property
@@ -376,6 +387,7 @@ class RoboticMapCRUD(ResourceCRUD[str, MapWrite, Map, MapWriteList, MapList]):
     list_write_cls = MapWriteList
     kind = "Map"
     dependencies = frozenset({RoboticFrameCRUD, RoboticLocationCRUD})
+    yaml_cls = RobotMapYAML
     _doc_url = "Maps/operation/createMaps"
 
     @property

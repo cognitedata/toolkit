@@ -18,3 +18,4 @@ variables:
       ds_something: ds_something
       dict_variable: empty
       a_key: some_value
+      a_value: 42

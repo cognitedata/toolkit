@@ -90,7 +90,14 @@ from cognite_toolkit._cdf_tk.cruds._base_cruds import (
     ResourceCRUD,
 )
 from cognite_toolkit._cdf_tk.exceptions import GraphQLParseError, ToolkitCycleError, ToolkitFileNotFoundError
-from cognite_toolkit._cdf_tk.resource_classes import ContainerYAML, SpaceYAML, ViewYAML
+from cognite_toolkit._cdf_tk.resource_classes import (
+    ContainerYAML,
+    DataModelYAML,
+    EdgeYAML,
+    NodeYAML,
+    SpaceYAML,
+    ViewYAML,
+)
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     GraphQLParser,
@@ -902,6 +909,7 @@ class DataModelCRUD(ResourceCRUD[DataModelId, DataModelApply, DataModel, DataMod
     list_write_cls = DataModelApplyList
     kind = "DataModel"
     dependencies = frozenset({SpaceCRUD, ViewCRUD})
+    yaml_cls = DataModelYAML
     _doc_url = "Data-models/operation/createDataModels"
 
     @property
@@ -1043,6 +1051,7 @@ class NodeCRUD(ResourceContainerCRUD[NodeId, NodeApply, Node, NodeApplyList, Nod
     list_cls = NodeList
     list_write_cls = NodeApplyList
     kind = "Node"
+    yaml_cls = NodeYAML
     dependencies = frozenset({SpaceCRUD, ViewCRUD, ContainerCRUD})
     _doc_url = "Instances/operation/applyNodeAndEdges"
 
@@ -1416,6 +1425,7 @@ class EdgeCRUD(ResourceContainerCRUD[EdgeId, EdgeApply, Edge, EdgeApplyList, Edg
     list_cls = EdgeList
     list_write_cls = EdgeApplyList
     kind = "Edge"
+    yaml_cls = EdgeYAML
     dependencies = frozenset({SpaceCRUD, ViewCRUD, ContainerCRUD, NodeCRUD})
     _doc_url = "Instances/operation/applyNodeAndEdges"
 

@@ -23,4 +23,5 @@
         externalId: Alert
         version: 1
         type: view
-      properties: {{ a_key }}
+      properties:
+        {{ a_key }}: {{ a_value }}

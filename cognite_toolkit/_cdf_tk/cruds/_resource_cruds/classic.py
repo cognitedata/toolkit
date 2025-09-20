@@ -35,7 +35,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.sequences import (
     ToolkitSequenceRowsWriteList,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
-from cognite_toolkit._cdf_tk.resource_classes import AssetYAML, EventYAML
+from cognite_toolkit._cdf_tk.resource_classes import AssetYAML, EventYAML, SequenceYAML
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
@@ -245,6 +245,7 @@ class SequenceCRUD(ResourceCRUD[str, SequenceWrite, Sequence, SequenceWriteList,
     list_write_cls = SequenceWriteList
     kind = "Sequence"
     dependencies = frozenset({DataSetsCRUD, AssetCRUD})
+    yaml_cls = SequenceYAML
     _doc_url = "Sequences/operation/createSequence"
 
     @property

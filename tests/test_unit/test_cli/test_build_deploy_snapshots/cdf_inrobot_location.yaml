@@ -300,11 +300,11 @@ Map:
 - data:
     modelId: <change_me>
     revisionId: <change_me>
-  description: <change_me> <change_me>
+  description: THREEDMODEL <change_me>
   externalId: <change_me>
   frameExternalId: frame_<change_me>
   locationExternalId: my_root_asset
-  mapType: <change_me>
+  mapType: THREEDMODEL
   name: <change_me>
   scale: 1.0
 Space:
