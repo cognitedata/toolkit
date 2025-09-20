@@ -26,7 +26,7 @@ repos:
     - id: markdownlint
     
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0 # Use the latest stable version
+    rev: v6.0.0 # Use the latest stable version
     hooks:
       - id: end-of-file-fixer
 
