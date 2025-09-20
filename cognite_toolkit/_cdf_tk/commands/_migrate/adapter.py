@@ -158,7 +158,7 @@ class AssetCentricMigrationIOAdapter(
 
     def stream_data(self, selector: MigrationSelector, limit: int | None = None) -> Iterator[AssetCentricMappingList]:
         if not isinstance(selector, MigrationCSVFileSelector):
-            raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for download_iterable")
+            raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for stream_data")
         items = selector.items
         if limit is not None:
             items = MigrationMappingList(items[:limit])
