@@ -14,13 +14,13 @@ from ._base import StorageIO, StorageIOConfig
 
 
 class RawIO(StorageIO[RawTable, RawTable, RowWriteList, RowList]):
-    folder_name = "raw"
-    kind = "RawRows"
-    display_name = "Raw Rows"
-    supported_download_formats = frozenset({".yaml", ".ndjson"})
-    supported_compressions = frozenset({".gz"})
-    supported_read_formats = frozenset({".parquet", ".csv", ".ndjson", ".yaml"})
-    chunk_size = 10_000
+    FOLDER_NAME = "raw"
+    KIND = "RawRows"
+    DISPLAY_NAME = "Raw Rows"
+    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".yaml", ".ndjson"})
+    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
+    SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson", ".yaml"})
+    CHUNK_SIZE = 10_000
 
     def as_id(self, item: dict[str, JsonVal] | object) -> RawTable:
         raise ValueError("You cannot extract an ID from a Raw Table row. Use a RawTable selector instead.")
@@ -30,7 +30,7 @@ class RawIO(StorageIO[RawTable, RawTable, RowWriteList, RowList]):
         # up front.
         return None
 
-    def download_iterable(self, selector: RawTable, limit: int | None = None) -> Iterable[RowList]:
+    def stream_data(self, selector: RawTable, limit: int | None = None) -> Iterable[RowList]:
         yield from self.client.raw.rows(
             db_name=selector.db_name,
             table_name=selector.table_name,
@@ -38,7 +38,7 @@ class RawIO(StorageIO[RawTable, RawTable, RowWriteList, RowList]):
             # We cannot use partitions here as it is not thread safe. This spawn multiple threads
             # that are not shut down until all data is downloaded. We need to be able to abort.
             partitions=None,
-            chunk_size=self.chunk_size,
+            chunk_size=self.CHUNK_SIZE,
         )
 
     def upload_items(self, data_chunk: RowWriteList, selector: RawTable) -> None:

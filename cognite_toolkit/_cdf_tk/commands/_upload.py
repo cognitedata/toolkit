@@ -49,7 +49,7 @@ class UploadCommand(ToolkitCommand):
         """
         console = Console()
         cwd = Path.cwd()
-        files = list(input_dir.glob(f"*.{io.kind}.*"))
+        files = list(input_dir.glob(f"*.{io.KIND}.*"))
         if verbose:
             input_dir_display = input_dir
             if input_dir.is_relative_to(cwd):
@@ -62,7 +62,7 @@ class UploadCommand(ToolkitCommand):
             if file_display.is_relative_to(cwd):
                 file_display = file_display.relative_to(cwd)
             if verbose:
-                console.print(f"{action} {io.display_name} from {file_display.as_posix()!r}")
+                console.print(f"{action} {io.DISPLAY_NAME} from {file_display.as_posix()!r}")
 
             selector = io.load_selector(file)
             if ensure_configurations and not dry_run:
@@ -70,14 +70,14 @@ class UploadCommand(ToolkitCommand):
 
             reader = FileReader.from_filepath(file)
             executor = ProducerWorkerExecutor[list[dict[str, JsonVal]], T_CogniteResourceList](
-                download_iterable=chunker(reader.read_chunks(), io.chunk_size),
+                download_iterable=chunker(reader.read_chunks(), io.CHUNK_SIZE),
                 process=io.json_chunk_to_data,
                 write=partial(io.upload_items, selector=selector) if not dry_run else self._no_op,
                 iteration_count=None,
                 max_queue_size=self._MAX_QUEUE_SIZE,
                 download_description=f"Reading {file_display.as_posix()!s}",
                 process_description="Processing",
-                write_description=f"{action} {io.display_name!r}",
+                write_description=f"{action} {io.DISPLAY_NAME!r}",
                 console=console,
             )
             executor.run()
@@ -85,7 +85,7 @@ class UploadCommand(ToolkitCommand):
             final_action = "Uploaded" if not dry_run else "Would upload"
             suffix = " successfully" if not dry_run else ""
             console.print(
-                f"{final_action} {executor.total_items:,} {io.display_name} from {file_display.as_posix()!r}{suffix}."
+                f"{final_action} {executor.total_items:,} {io.DISPLAY_NAME} from {file_display.as_posix()!r}{suffix}."
             )
 
     @staticmethod

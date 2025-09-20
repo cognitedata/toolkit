@@ -36,7 +36,7 @@ class TestRawStorageIO:
 
             assert io.count(table) is None
 
-            source = io.download_iterable(table, limit=100)
+            source = io.stream_data(table, limit=100)
             json_chunks: list[list[dict[str, JsonVal]]] = []
             for chunk in source:
                 json_chunk = io.data_to_json_chunk(chunk)

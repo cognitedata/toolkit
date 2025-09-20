@@ -13,8 +13,8 @@ class TestAssetCentricMigrationIOAdapter:
         client = ToolkitClient(config=config)
         N = 1500
         items = [{"id": i, "externalId": f"asset_{i}", "space": "mySpace"} for i in range(N)]
-        rsps.post(config.create_api_url("/assets/byids"), json={"items": items[: AssetIO.chunk_size]})
-        rsps.post(config.create_api_url("/assets/byids"), json={"items": items[AssetIO.chunk_size :]})
+        rsps.post(config.create_api_url("/assets/byids"), json={"items": items[: AssetIO.CHUNK_SIZE]})
+        rsps.post(config.create_api_url("/assets/byids"), json={"items": items[AssetIO.CHUNK_SIZE :]})
 
         csv_file = tmp_path / "files.csv"
         csv_file.write_text("id,space,externalId\n" + "\n".join(f"{i},mySpace,asset_{i}" for i in range(N)))
@@ -24,7 +24,7 @@ class TestAssetCentricMigrationIOAdapter:
             AssetIO(client),
             InstanceIO(client),
         )
-        downloaded = list(adapter.download_iterable(selector))
+        downloaded = list(adapter.stream_data(selector))
         assert len(downloaded) == 2
         assert sum(len(chunk) for chunk in downloaded) == N
         unexpected_space = [
