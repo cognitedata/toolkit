@@ -1,16 +1,15 @@
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 from cognite.client.data_classes.data_modeling import DirectRelationReference, NodeId, ViewId
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteTimeSeriesApply
-from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.data_classes.extended_timeseries import ExtendedTimeSeries
 from cognite_toolkit._cdf_tk.commands import MigrateTimeseriesCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
-    MigrationMapping,
     MigrationMappingList,
+    TimeSeriesMapping,
+    TimeSeriesMigrationMappingList,
 )
 
 
@@ -71,14 +70,12 @@ class TestMigrationMappingList:
                 "id,dataSetId,space,externalId\n123,123,sp_full_ts,full_ts_id\n3231,,sp_step_ts,step_ts_id\n",
                 MigrationMappingList(
                     [
-                        MigrationMapping(
-                            resourceType="timeseries",
+                        TimeSeriesMapping(
                             id=123,
                             dataSetId=123,
                             instanceId=NodeId("sp_full_ts", "full_ts_id"),
                         ),
-                        MigrationMapping(
-                            resourceType="timeseries",
+                        TimeSeriesMapping(
                             id=3231,
                             dataSetId=None,
                             instanceId=NodeId("sp_step_ts", "step_ts_id"),
@@ -91,8 +88,7 @@ class TestMigrationMappingList:
                 "id,space,externalId\n230,my_space,target_external_id\n",
                 MigrationMappingList(
                     [
-                        MigrationMapping(
-                            resourceType="timeseries",
+                        TimeSeriesMapping(
                             id=230,
                             dataSetId=None,
                             instanceId=NodeId("my_space", "target_external_id"),
@@ -105,8 +101,7 @@ class TestMigrationMappingList:
                 """\ufeffid,dataSetId,space,externalId\n42,123,sp_full_ts,full_ts_id\n""",
                 MigrationMappingList(
                     [
-                        MigrationMapping(
-                            resourceType="timeseries",
+                        TimeSeriesMapping(
                             id=42,
                             dataSetId=123,
                             instanceId=NodeId("sp_full_ts", "full_ts_id"),
@@ -121,8 +116,7 @@ class TestMigrationMappingList:
 3231,sp_step_ts,step_ts_id,,ingestion_view_id_2,consumer_view_space_2,consumer_view_external_id_2,2.0\n""",
                 MigrationMappingList(
                     [
-                        MigrationMapping(
-                            resourceType="timeseries",
+                        TimeSeriesMapping(
                             id=123,
                             dataSetId=123,
                             instanceId=NodeId("sp_full_ts", "full_ts_id"),
@@ -131,8 +125,7 @@ class TestMigrationMappingList:
                                 space="consumer_view_space", external_id="consumer_view_external_id", version="1.0"
                             ),
                         ),
-                        MigrationMapping(
-                            resourceType="timeseries",
+                        TimeSeriesMapping(
                             id=3231,
                             dataSetId=None,
                             instanceId=NodeId("sp_step_ts", "step_ts_id"),
@@ -150,8 +143,8 @@ class TestMigrationMappingList:
     def test_read_mapping_file(self, content: str, expected: MigrationMappingList, tmp_path: Path) -> None:
         input_file = tmp_path / "mapping_file.csv"
         input_file.write_text(content, encoding="utf-8")
-        actual = MigrationMappingList.read_mapping_file(input_file, resource_type="timeseries")
-        assert not actual.error_by_row_no
+        actual = TimeSeriesMigrationMappingList.read_csv_file(input_file)
+        assert not actual.invalid_rows
         assert actual == expected
 
     @pytest.mark.parametrize(
@@ -160,7 +153,7 @@ class TestMigrationMappingList:
             pytest.param("", "No data found in the file: '{filepath}'.", id="empty_file"),
             pytest.param(
                 "id,externalId\n123,full_ts_id\n",
-                "Missing required columns in mapping file: space.",
+                "Missing required columns: space",
                 id="Too few columns",
             ),
         ],
@@ -172,7 +165,7 @@ class TestMigrationMappingList:
             expected_msg = expected_msg.format(filepath=input_file.as_posix())
 
         with pytest.raises(ValueError) as exc_info:
-            MigrationMappingList.read_mapping_file(input_file, resource_type="timeseries")
+            TimeSeriesMigrationMappingList.read_csv_file(input_file)
         assert str(exc_info.value) == expected_msg
 
     @pytest.mark.parametrize(
@@ -189,12 +182,6 @@ class TestMigrationMappingList:
         actual_warnings: list[str] = []
         input_file = tmp_path / "mapping_file.csv"
         input_file.write_text(content, encoding="utf-8")
-        fake_console = MagicMock(spec=Console)
 
-        def fake_print(prefix: str, message: str, *_, **__) -> None:
-            actual_warnings.append(message)
-
-        fake_console.print.side_effect = fake_print
-
-        MigrationMappingList.read_mapping_file(input_file, resource_type="timeseries", console=fake_console)
+        TimeSeriesMigrationMappingList.read_csv_file(input_file)
         assert actual_warnings == expected_warnings
