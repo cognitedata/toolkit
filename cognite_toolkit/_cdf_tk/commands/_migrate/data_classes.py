@@ -65,7 +65,7 @@ class MigrationMapping(BaseModel, alias_generator=to_camel_case, extra="ignore")
             values["preferredConsumerView"] = consumer_view
         return values
 
-    @field_validator("data_set_id", "ingestion_view", "ingestion_view", mode="before")
+    @field_validator("data_set_id", "ingestion_view", mode="before")
     def _empty_string_to_none(cls, v: Any) -> Any:
         if isinstance(v, str) and not v.strip():
             return None
