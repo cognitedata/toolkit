@@ -169,19 +169,18 @@ class TestMigrationMappingList:
         assert str(exc_info.value) == expected_msg
 
     @pytest.mark.parametrize(
-        "content, expected_warnings",
+        "content, unexpected_columns",
         [
             pytest.param(
                 "id,dataSetId,space,externalId,unexpected_col\n123,123,sp_full_ts,full_ts_id,some_value\n",
-                ["Ignoring unexpected columns in mapping file: unexpected_col"],
+                {"unexpected_col"},
                 id="Unexpected column",
             ),
         ],
     )
-    def test_read_with_warnings(self, content: str, expected_warnings: list[str], tmp_path: Path) -> None:
-        actual_warnings: list[str] = []
+    def test_read_with_warnings(self, content: str, unexpected_columns: list[str], tmp_path: Path) -> None:
         input_file = tmp_path / "mapping_file.csv"
         input_file.write_text(content, encoding="utf-8")
 
-        TimeSeriesMigrationMappingList.read_csv_file(input_file)
-        assert actual_warnings == expected_warnings
+        mapping = TimeSeriesMigrationMappingList.read_csv_file(input_file)
+        assert mapping.unexpected_columns == unexpected_columns

@@ -60,7 +60,7 @@ class MigrationCSVFileSelector(MigrationSelector):
 
     @cached_property
     def items(self) -> MigrationMappingList:
-        return MigrationMappingList.read_mapping_file(self.datafile, resource_type=self.resource_type)
+        return MigrationMappingList.read_csv_file(self.datafile, resource_type=self.resource_type)
 
 
 @dataclass

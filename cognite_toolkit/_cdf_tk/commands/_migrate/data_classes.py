@@ -1,4 +1,5 @@
 import sys
+from pathlib import Path
 from typing import Any, Literal
 
 from cognite.client.data_classes.data_modeling import NodeId, ViewId
@@ -98,6 +99,10 @@ class MigrationMappingList(ModelList[MigrationMapping]):
     def _required_header_names(cls) -> set[str]:
         return {"id", "space", "externalId"}
 
+    @classmethod
+    def _optional_header_names(cls) -> set[str]:
+        return {"dataSetId", "ingestionView", "consumerViewSpace", "consumerViewExternalId", "consumerViewVersion"}
+
     def get_ids(self) -> list[int]:
         """Return a list of IDs from the migration mappings."""
         return [mapping.id for mapping in self]
@@ -120,6 +125,21 @@ class MigrationMappingList(ModelList[MigrationMapping]):
     def as_mapping_by_id(self) -> dict[int, MigrationMapping]:
         """Return a mapping of IDs to MigrationMapping objects."""
         return {mapping.id: mapping for mapping in self}
+
+    @classmethod
+    def read_csv_file(cls, filepath: Path, resource_type: str | None = None) -> "MigrationMappingList":
+        if cls is not MigrationMapping or resource_type is None:
+            return super().read_csv_file(filepath)
+        cls_by_resource_type: dict[str, type[MigrationMappingList]] = {
+            "asset": AssetMigrationMappingList,
+            "timeseries": TimeSeriesMigrationMappingList,
+            "file": FileMigrationMappingList,
+        }
+        if resource_type not in cls_by_resource_type:
+            raise ToolkitValueError(
+                f"Invalid resource type '{resource_type}'. Must be one of 'asset', 'timeseries', or 'file'."
+            )
+        return cls_by_resource_type[resource_type].read_csv_file(filepath, resource_type=None)
 
 
 class AssetMapping(MigrationMapping):
