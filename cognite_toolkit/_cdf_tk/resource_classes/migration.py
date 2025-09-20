@@ -8,7 +8,9 @@ from cognite_toolkit._cdf_tk.utils import humanize_collection
 from .base import ToolkitResource
 from .view_field_definitions import ViewReference
 
-JSON_PATH_PATTERN = re.compile(r"^\$(\.[a-zA-Z_][a-zA-Z0-9_]*|\[\d+\]|\[\'[^\']*\'\]|\[\"[^\"]*\"\])*$")
+JSON_PATH_PATTERN = re.compile(
+    r"^([a-zA-Z_][a-zA-Z0-9_]*|\[\d+\])(\.[a-zA-Z_][a-zA-Z0-9_]*|\[\d+\]|\[\'[^\']*\'\]|\[\"[^\"]*\"\])*$"
+)
 
 
 class ResourceViewMappingYAML(ToolkitResource):
