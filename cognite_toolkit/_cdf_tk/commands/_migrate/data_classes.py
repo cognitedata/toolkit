@@ -1,4 +1,3 @@
-import sys
 from pathlib import Path
 from typing import Any, Literal
 
@@ -13,11 +12,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.storageio._data_classes import ModelList
-
-if sys.version_info >= (3, 11):
-    pass
-else:
-    pass
 
 
 class MigrationMapping(BaseModel, alias_generator=to_camel_case, extra="ignore"):
@@ -128,7 +122,7 @@ class MigrationMappingList(ModelList[MigrationMapping]):
 
     @classmethod
     def read_csv_file(cls, filepath: Path, resource_type: str | None = None) -> "MigrationMappingList":
-        if cls is not MigrationMapping or resource_type is None:
+        if cls is not MigrationMappingList or resource_type is None:
             return super().read_csv_file(filepath)
         cls_by_resource_type: dict[str, type[MigrationMappingList]] = {
             "asset": AssetMigrationMappingList,
