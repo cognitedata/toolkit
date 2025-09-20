@@ -110,7 +110,7 @@ class TestAssetIO:
 
             upload_command.upload(
                 io=io,
-                input_dir=tmp_path / io.folder_name,
+                input_dir=tmp_path / io.FOLDER_NAME,
                 ensure_configurations=True,
                 dry_run=False,
                 verbose=False,

@@ -54,7 +54,7 @@ class TestInstanceIO:
             io = InstanceIO(client)
             ids = list(io.download_ids(selector))
             count = io.count(selector)
-        assert len(list(ids)) == N // io.chunk_size + (1 if N % io.chunk_size > 0 else 0)
+        assert len(list(ids)) == N // io.CHUNK_SIZE + (1 if N % io.CHUNK_SIZE > 0 else 0)
         total_ids = sum(len(chunk) for chunk in ids)
         assert total_ids == N
         assert count == N
