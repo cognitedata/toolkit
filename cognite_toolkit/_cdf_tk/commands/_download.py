@@ -38,7 +38,7 @@ class DownloadCommand(ToolkitCommand):
             compression: The compression method to use for the downloaded files (e.g., "none", "gzip").
             limit: The maximum number of items to download for each selected set. If None, all items will be downloaded.
         """
-        target_directory = output_dir / io.folder_name
+        target_directory = output_dir / io.FOLDER_NAME
         target_directory.mkdir(parents=True, exist_ok=True)
         compression_cls = Compression.from_name(compression)
 
@@ -46,7 +46,7 @@ class DownloadCommand(ToolkitCommand):
         filestem_counter: dict[str, int] = Counter()
         for selector in selectors:
             if verbose:
-                console.print(f"Downloading {io.display_name} '{selector!s}' to {target_directory.as_posix()!r}")
+                console.print(f"Downloading {io.DISPLAY_NAME} '{selector!s}' to {target_directory.as_posix()!r}")
 
             filestem = to_directory_compatible(str(selector))
             if filestem_counter[filestem] > 0:
@@ -59,11 +59,11 @@ class DownloadCommand(ToolkitCommand):
                 columns = io.get_schema(selector)
             elif file_format in TABLE_WRITE_CLS_BY_FORMAT:
                 raise ToolkitValueError(
-                    f"Cannot download {io.kind} in {file_format!r} format. The {io.kind!r} storage type does not support table schemas."
+                    f"Cannot download {io.KIND} in {file_format!r} format. The {io.KIND!r} storage type does not support table schemas."
                 )
 
             with FileWriter.create_from_format(
-                file_format, target_directory, io.kind, compression_cls, columns=columns
+                file_format, target_directory, io.KIND, compression_cls, columns=columns
             ) as writer:
                 executor = ProducerWorkerExecutor[T_WritableCogniteResourceList, list[dict[str, JsonVal]]](
                     download_iterable=io.download_iterable(selector, limit),
@@ -99,5 +99,5 @@ class DownloadCommand(ToolkitCommand):
             total = limit
         iteration_count: int | None = None
         if total is not None:
-            iteration_count = total // io.chunk_size + (1 if total % io.chunk_size > 0 else 0)
+            iteration_count = total // io.CHUNK_SIZE + (1 if total % io.CHUNK_SIZE > 0 else 0)
         return iteration_count

@@ -32,23 +32,23 @@ class StorageIO(ABC, Generic[T_ID, T_Selector, T_CogniteResourceList, T_Writable
     should implement this interface to provide specific functionality.
 
     Attributes:
-        folder_name: The name of the folder in which the storage item is located.
-        kind: The type of storage (e.g., 'raw', 'assets').
-        display_name: A human-readable name for the storage item.
-        supported_download_formats: A set of formats that the storage item supports for downloading.
-        supported_compressions: A set of compression formats that the storage item supports.
-        supported_read_formats: A set of formats that the storage item supports for reading.
-        chunk_size: The size of the data chunks to be processed during download and upload operations.
+        FOLDER_NAME: The name of the folder in which the storage item is located.
+        KIND: The type of storage (e.g., 'raw', 'assets').
+        DISPLAY_NAME: A human-readable name for the storage item.
+        SUPPORTED_DOWNLOAD_FORMATS: A set of formats that the storage item supports for downloading.
+        SUPPORTED_COMPRESSIONS: A set of compression formats that the storage item supports.
+        SUPPORTED_READ_FORMATS: A set of formats that the storage item supports for reading.
+        CHUNK_SIZE: The size of the data chunks to be processed during download and upload operations.
         client: An instance of ToolkitClient to interact with the CDF API.
     """
 
-    folder_name: str
-    kind: str
-    display_name: str
-    supported_download_formats: frozenset[str]
-    supported_compressions: frozenset[str]
-    supported_read_formats: frozenset[str]
-    chunk_size: int
+    FOLDER_NAME: str
+    KIND: str
+    DISPLAY_NAME: str
+    SUPPORTED_DOWNLOAD_FORMATS: frozenset[str]
+    SUPPORTED_COMPRESSIONS: frozenset[str]
+    SUPPORTED_READ_FORMATS: frozenset[str]
+    CHUNK_SIZE: int
     UPLOAD_ENDPOINT: ClassVar[str]
     UPLOAD_EXTRA_ARGS: ClassVar[Mapping[str, JsonVal] | None] = None
 
@@ -114,11 +114,11 @@ class StorageIO(ABC, Generic[T_ID, T_Selector, T_CogniteResourceList, T_Writable
             selector: Optional selection criteria to identify where to upload the data.
         """
         if not hasattr(self, "UPLOAD_ENDPOINT"):
-            raise ToolkitNotImplementedError(f"Upload not implemented for {self.kind} storage.")
+            raise ToolkitNotImplementedError(f"Upload not implemented for {self.KIND} storage.")
 
         config = http_client.config
         results: list[HTTPMessage] = []
-        for batch in chunker_sequence(data_chunk, self.chunk_size):
+        for batch in chunker_sequence(data_chunk, self.CHUNK_SIZE):
             batch_results = http_client.request_with_retries(
                 message=ItemsRequest(
                     endpoint_url=config.create_api_url(self.UPLOAD_ENDPOINT),

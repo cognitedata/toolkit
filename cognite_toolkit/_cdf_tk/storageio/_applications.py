@@ -13,13 +13,13 @@ from ._selectors import AllChartSelector, ChartOwnerSelector, ChartSelector
 
 
 class ChartIO(StorageIO[str, ChartSelector, ChartWriteList, ChartList]):
-    folder_name = "cdf_application_data"
-    kind = "Charts"
-    display_name = "CDF Charts"
-    supported_download_formats = frozenset({".ndjson"})
-    supported_compressions = frozenset({".gz"})
-    supported_read_formats = frozenset({".ndjson"})
-    chunk_size = 10
+    FOLDER_NAME = "cdf_application_data"
+    KIND = "Charts"
+    DISPLAY_NAME = "CDF Charts"
+    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
+    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
+    SUPPORTED_READ_FORMATS = frozenset({".ndjson"})
+    CHUNK_SIZE = 10
 
     def as_id(self, item: dict[str, JsonVal] | object) -> str:
         if isinstance(item, dict) and isinstance(item.get("externalId"), str):
@@ -40,7 +40,7 @@ class ChartIO(StorageIO[str, ChartSelector, ChartWriteList, ChartList]):
 
         if limit is not None:
             selected_charts = ChartList(selected_charts[:limit])
-        for chunk in chunker_sequence(selected_charts, self.chunk_size):
+        for chunk in chunker_sequence(selected_charts, self.CHUNK_SIZE):
             ts_ids_to_lookup = {
                 ts_ref.ts_id
                 for chart in chunk

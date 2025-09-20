@@ -19,13 +19,13 @@ from ._selectors import InstanceFileSelector, InstanceSelector, InstanceViewSele
 
 
 class InstanceIO(TableStorageIO[InstanceId, InstanceSelector, InstanceApplyList, InstanceList]):
-    folder_name = "instances"
-    kind = "Instances"
-    display_name = "Instances"
-    supported_download_formats = frozenset({".parquet", ".csv", ".ndjson"})
-    supported_compressions = frozenset({".gz"})
-    supported_read_formats = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
-    chunk_size = 1000
+    FOLDER_NAME = "instances"
+    KIND = "Instances"
+    DISPLAY_NAME = "Instances"
+    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
+    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
+    SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
+    CHUNK_SIZE = 1000
     UPLOAD_ENDPOINT = "/models/instances"
     UPLOAD_EXTRA_ARGS: ClassVar[Mapping[str, JsonVal] | None] = MappingProxyType({"autoCreateDirectRelations": True})
 
@@ -53,15 +53,15 @@ class InstanceIO(TableStorageIO[InstanceId, InstanceSelector, InstanceApplyList,
                     break
                 total += 1
                 chunk.append(instance)
-                if len(chunk) >= self.chunk_size:
+                if len(chunk) >= self.CHUNK_SIZE:
                     yield chunk
                     chunk = InstanceList([])
             if chunk:
                 yield chunk
         elif isinstance(selector, InstanceFileSelector):
-            for node_chunk in chunker_sequence(selector.node_ids, self.chunk_size):
+            for node_chunk in chunker_sequence(selector.node_ids, self.CHUNK_SIZE):
                 yield InstanceList(self.client.data_modeling.instances.retrieve(nodes=node_chunk).nodes)
-            for edge_chunk in chunker_sequence(selector.edge_ids, self.chunk_size):
+            for edge_chunk in chunker_sequence(selector.edge_ids, self.CHUNK_SIZE):
                 yield InstanceList(self.client.data_modeling.instances.retrieve(edges=edge_chunk).edges)
         else:
             raise NotImplementedError()
@@ -71,7 +71,7 @@ class InstanceIO(TableStorageIO[InstanceId, InstanceSelector, InstanceApplyList,
             instances_to_yield = selector.instance_ids
             if limit is not None:
                 instances_to_yield = instances_to_yield[:limit]
-            yield from chunker_sequence(instances_to_yield, self.chunk_size)
+            yield from chunker_sequence(instances_to_yield, self.CHUNK_SIZE)
         else:
             yield from ([instance.as_id() for instance in chunk] for chunk in self.download_iterable(selector, limit))  # type: ignore[attr-defined]
 
