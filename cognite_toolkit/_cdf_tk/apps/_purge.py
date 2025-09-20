@@ -1,4 +1,5 @@
 from enum import Enum
+from pathlib import Path
 from typing import Annotated, Any
 
 import questionary
@@ -8,7 +9,7 @@ from rich import print
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.storageio import InstanceViewSelector
+from cognite_toolkit._cdf_tk.storageio import InstanceFileSelector, InstanceSelector, InstanceViewSelector
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.interactive_select import DataModelingSelect
 
@@ -152,7 +153,8 @@ class PurgeApp(typer.Typer):
             typer.Argument(
                 help="Purge instances with properties in the specified view. Expected format is "
                 "'space externalId version'. For example 'cdf_cdm CogniteTimeSeries v1' will purge all nodes"
-                "that have properties in the CogniteTimeSeries view. If not provided, interactive mode will be used.",
+                "that have properties in the CogniteTimeSeries view. If not provided and no "
+                "instance list is provided, interactive mode will be used.",
             ),
         ] = None,
         instance_space: Annotated[
@@ -173,6 +175,21 @@ class PurgeApp(typer.Typer):
                 show_default=True,
             ),
         ] = InstanceTypeEnum.node,
+        instance_list: Annotated[
+            Path | None,
+            typer.Option(
+                "--list",
+                "-l",
+                help="Path to a file containing a list of instance external IDs to purge. This file should be a csv file with space,externalId,instanceType columns."
+                "If this option is provided, the view, instance-space and instance-type options will be ignored.",
+                exists=True,
+                file_okay=True,
+                dir_okay=False,
+                readable=True,
+                resolve_path=True,
+                show_default=True,
+            ),
+        ] = None,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -213,12 +230,13 @@ class PurgeApp(typer.Typer):
 
         cmd = PurgeCommand()
         client = EnvironmentVariables.create_from_environment().get_client(enable_set_pending_ids=True)
-        is_interactive = view is None
+        is_interactive = view is None and instance_list is None
+        selector: InstanceSelector
         if is_interactive:
             interactive = DataModelingSelect(client, operation="purge")
             select_view = interactive.select_view(include_global=True)
             selected_instance_type = interactive.select_instance_type(select_view.used_for)
-            instance_space = interactive.select_instance_spaces(select_view.as_id(), selected_instance_type)
+            instance_space = interactive.select_instance_space(True, select_view.as_id(), selected_instance_type)
             selector = InstanceViewSelector(
                 view=select_view.as_id(),
                 instance_type=selected_instance_type,
@@ -226,6 +244,8 @@ class PurgeApp(typer.Typer):
             )
             dry_run = questionary.confirm("Dry run?", default=True).ask()
             unlink = questionary.confirm("Unlink instances connected to timeseries or files?", default=True).ask()
+        elif instance_list is not None:
+            selector = InstanceFileSelector(datafile=instance_list)
         elif view is not None:
             selector = InstanceViewSelector(
                 view=cmd.get_selected_view_id(view),

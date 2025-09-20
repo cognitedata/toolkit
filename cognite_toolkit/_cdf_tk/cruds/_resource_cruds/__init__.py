@@ -6,7 +6,7 @@ from .data_organization import DataSetsCRUD, LabelCRUD
 from .datamodel import (
     ContainerCRUD,
     DataModelCRUD,
-    EdgeLoader,
+    EdgeCRUD,
     GraphQLLoader,
     NodeCRUD,
     SpaceCRUD,
@@ -48,7 +48,7 @@ __all__ = [
     "DataModelCRUD",
     "DataSetsCRUD",
     "DatapointSubscriptionCRUD",
-    "EdgeLoader",
+    "EdgeCRUD",
     "EventCRUD",
     "ExtractionPipelineCRUD",
     "ExtractionPipelineConfigCRUD",

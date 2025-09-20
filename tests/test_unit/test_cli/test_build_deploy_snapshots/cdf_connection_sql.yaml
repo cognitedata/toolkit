@@ -69,7 +69,7 @@ Transformation:
     \ 'VAL_', ''), ':', 1)\nwhere\n  activity.space == 'springfield_instances' and\n\
     \  isnotnull(activity.tags) and\n  isnotnull(activity.`externalId`) and\n  timeseries_lookup.space\
     \ == 'springfield_instances' and\n  isnotnull(timeseries_lookup.`name`)\ngroup\
-    \ by\n  activity.`externalId`"
+    \ by\n  activity.`externalId`\n"
 - conflictMode: upsert
   dataSetId: 316416785021717804
   destination:
