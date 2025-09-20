@@ -59,3 +59,31 @@ class TestProgressTracker:
         self.tracker.set_progress(("a", 2), "extract", "failed")
         assert self.tracker.get_progress(1, "extract") == "success"
         assert self.tracker.get_progress(("a", 2), "extract") == "failed"
+
+    def test_result_method(self):
+        self.tracker.set_progress("item1", "extract", "success")
+        self.tracker.set_progress("item2", "extract", "failed")
+        result = self.tracker.result()
+        assert result == {
+            "item1": {"extract": "success", "transform": "pending", "load": "pending"},
+            "item2": {"extract": "failed", "transform": "aborted", "load": "aborted"},
+        }
+
+    def test_aggregate_method(self):
+        self.tracker.set_progress("item1", "extract", "success")
+        self.tracker.set_progress("item1", "transform", "success")
+        self.tracker.set_progress("item1", "load", "success")
+        self.tracker.set_progress("item2", "extract", "failed")
+        self.tracker.set_progress("item3", "extract", "success")
+        self.tracker.set_progress("item3", "transform", "failed")
+        aggregate = dict(self.tracker.aggregate())
+        expected = {
+            ("extract", "success"): 2,
+            ("extract", "failed"): 1,
+            ("transform", "success"): 1,
+            ("transform", "aborted"): 1,
+            ("transform", "failed"): 1,
+            ("load", "success"): 1,
+            ("load", "aborted"): 2,
+        }
+        assert aggregate == expected
