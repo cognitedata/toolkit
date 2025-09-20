@@ -66,9 +66,7 @@ class StorageIO(ABC, Generic[T_ID, T_Selector, T_CogniteResourceList, T_Writable
         raise NotImplementedError()
 
     @abstractmethod
-    def download_iterable(
-        self, selector: T_Selector, limit: int | None = None
-    ) -> Iterable[T_WritableCogniteResourceList]:
+    def stream_data(self, selector: T_Selector, limit: int | None = None) -> Iterable[T_WritableCogniteResourceList]:
         """Download items from the storage given the selection criteria.
 
         Args:

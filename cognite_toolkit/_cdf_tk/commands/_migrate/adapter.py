@@ -156,9 +156,7 @@ class AssetCentricMigrationIOAdapter(
             return self._id_by_instance_id[instance]
         raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
 
-    def download_iterable(
-        self, selector: MigrationSelector, limit: int | None = None
-    ) -> Iterator[AssetCentricMappingList]:
+    def stream_data(self, selector: MigrationSelector, limit: int | None = None) -> Iterator[AssetCentricMappingList]:
         if not isinstance(selector, MigrationCSVFileSelector):
             raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for download_iterable")
         items = selector.items

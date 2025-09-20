@@ -39,7 +39,7 @@ class InstanceIO(TableStorageIO[InstanceId, InstanceSelector, InstanceApplyList,
             return item.as_id()
         raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
 
-    def download_iterable(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[InstanceList]:
+    def stream_data(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[InstanceList]:
         if isinstance(selector, InstanceViewSelector):
             chunk = InstanceList([])
             total = 0
@@ -73,7 +73,7 @@ class InstanceIO(TableStorageIO[InstanceId, InstanceSelector, InstanceApplyList,
                 instances_to_yield = instances_to_yield[:limit]
             yield from chunker_sequence(instances_to_yield, self.CHUNK_SIZE)
         else:
-            yield from ([instance.as_id() for instance in chunk] for chunk in self.download_iterable(selector, limit))  # type: ignore[attr-defined]
+            yield from ([instance.as_id() for instance in chunk] for chunk in self.stream_data(selector, limit))  # type: ignore[attr-defined]
 
     def count(self, selector: InstanceSelector) -> int | None:
         if isinstance(selector, InstanceViewSelector):

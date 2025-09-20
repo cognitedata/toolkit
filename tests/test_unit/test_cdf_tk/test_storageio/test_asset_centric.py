@@ -54,7 +54,7 @@ class TestAssetIO:
 
             assert io.count(selector) == 100
 
-            source = io.download_iterable(selector)
+            source = io.stream_data(selector)
             json_chunks: list[list[dict[str, JsonVal]]] = []
             for chunk in source:
                 json_chunk = io.data_to_json_chunk(chunk)
@@ -160,7 +160,7 @@ class TestFileMetadataIO:
 
             assert io.count(selector) == 50
 
-            source = io.download_iterable(selector)
+            source = io.stream_data(selector)
             json_chunks: list[list[dict[str, JsonVal]]] = []
             for chunk in source:
                 json_chunk = io.data_to_json_chunk(chunk)

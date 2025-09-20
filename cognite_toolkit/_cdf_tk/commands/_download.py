@@ -66,7 +66,7 @@ class DownloadCommand(ToolkitCommand):
                 file_format, target_directory, io.KIND, compression_cls, columns=columns
             ) as writer:
                 executor = ProducerWorkerExecutor[T_WritableCogniteResourceList, list[dict[str, JsonVal]]](
-                    download_iterable=io.download_iterable(selector, limit),
+                    download_iterable=io.stream_data(selector, limit),
                     process=io.data_to_json_chunk,
                     write=partial(writer.write_chunks, filestem=filestem),
                     iteration_count=iteration_count,

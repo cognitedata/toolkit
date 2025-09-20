@@ -79,7 +79,7 @@ class MigrationCommand(ToolkitCommand):
         data: StorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
         tracker: ProgressTracker[T_ID],
     ) -> Iterable[T_WritableCogniteResourceList]:
-        for chunk in data.download_iterable(selected):
+        for chunk in data.stream_data(selected):
             for item in chunk:
                 tracker.set_progress(data.as_id(item), self.Steps.DOWNLOAD, "success")
             yield chunk

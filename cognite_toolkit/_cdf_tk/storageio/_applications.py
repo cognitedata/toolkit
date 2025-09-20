@@ -29,7 +29,7 @@ class ChartIO(StorageIO[str, ChartSelector, ChartWriteList, ChartList]):
             return item.external_id
         raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
 
-    def download_iterable(self, selector: ChartSelector, limit: int | None = None) -> Iterable[ChartList]:
+    def stream_data(self, selector: ChartSelector, limit: int | None = None) -> Iterable[ChartList]:
         selected_charts = self.client.charts.list(visibility="PUBLIC")
         if isinstance(selector, AllChartSelector):
             ...

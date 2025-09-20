@@ -30,7 +30,7 @@ class RawIO(StorageIO[RawTable, RawTable, RowWriteList, RowList]):
         # up front.
         return None
 
-    def download_iterable(self, selector: RawTable, limit: int | None = None) -> Iterable[RowList]:
+    def stream_data(self, selector: RawTable, limit: int | None = None) -> Iterable[RowList]:
         yield from self.client.raw.rows(
             db_name=selector.db_name,
             table_name=selector.table_name,

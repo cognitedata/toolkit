@@ -215,7 +215,7 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
         ]
         return asset_schema + metadata_schema
 
-    def download_iterable(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[AssetList]:
+    def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[AssetList]:
         asset_subtree_external_ids: list[str] | None = None
         data_set_external_ids: list[str] | None = None
         if isinstance(selector, DataSetSelector):
@@ -297,7 +297,7 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
         ]
         return file_schema + metadata_schema
 
-    def download_iterable(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[FileMetadataList]:
+    def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[FileMetadataList]:
         asset_subtree_external_ids: list[str] | None = None
         data_set_external_ids: list[str] | None = None
         if isinstance(selector, DataSetSelector):

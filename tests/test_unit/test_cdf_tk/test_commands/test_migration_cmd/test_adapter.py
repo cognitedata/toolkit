@@ -24,7 +24,7 @@ class TestAssetCentricMigrationIOAdapter:
             AssetIO(client),
             InstanceIO(client),
         )
-        downloaded = list(adapter.download_iterable(selector))
+        downloaded = list(adapter.stream_data(selector))
         assert len(downloaded) == 2
         assert sum(len(chunk) for chunk in downloaded) == N
         unexpected_space = [
