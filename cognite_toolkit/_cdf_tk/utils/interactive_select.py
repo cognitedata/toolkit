@@ -3,7 +3,7 @@ from collections import defaultdict
 from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from functools import lru_cache, partial
+from functools import cached_property, lru_cache, partial
 from typing import ClassVar, Literal, TypeVar, get_args, overload
 
 import questionary
@@ -18,7 +18,7 @@ from cognite.client.data_classes.capabilities import (
     UserProfilesAcl,
 )
 from cognite.client.data_classes.data_modeling import NodeList, Space, SpaceList, View, ViewId
-from cognite.client.exceptions import CogniteException
+from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from cognite.client.utils import ms_to_datetime
 from questionary import Choice
 from rich.console import Console
@@ -499,10 +499,16 @@ class DataModelingSelect:
         self.console = console or Console()
         self._available_spaces: SpaceList | None = None
 
+    @cached_property
+    def stats_by_space(self) -> dict[str, SpaceStatistics]:
+        result = self.client.data_modeling.statistics.spaces.list()
+        return {stat.space: stat for stat in result}
+
     def select_view(self, include_global: bool = False) -> View:
-        selected_space = self.select_space(
+        selected_space = self.select_schema_space(
             include_global, message=f"In which Spaces is the view you will use to select instances to {self.operation}?"
         )
+
         views = self.client.data_modeling.views.list(
             space=selected_space.space,
             include_inherited_properties=True,
@@ -522,9 +528,17 @@ class DataModelingSelect:
             raise ToolkitValueError(f"Selected view is not a valid View object: {selected_view!r}")
         return selected_view
 
-    def select_space(self, include_global: bool, message: str | None = None) -> Space:
+    def select_schema_space(self, include_global: bool, message: str | None = None) -> Space:
         message = message or f"Select the space to {self.operation}:"
         spaces = self._get_available_spaces(include_global)
+        schema_spaces = {
+            space
+            for space, stats in self.stats_by_space.items()
+            if (stats.containers + stats.views + stats.data_models) > 0
+        }
+        spaces = SpaceList([space for space in spaces if space.space in schema_spaces or space.is_global])
+        if not spaces:
+            raise ToolkitMissingResourceError("No spaces with schema (containers, views, or data models) found.")
         selected_space = questionary.select(
             message,
             [Choice(title=space.space, value=space) for space in sorted(spaces, key=lambda s: s.space)],
@@ -551,11 +565,56 @@ class DataModelingSelect:
             raise ToolkitValueError(f"Selected instance type is not valid: {selected_instance_type!r}")
         return selected_instance_type
 
-    def select_instance_spaces(
-        self, selected_view: ViewId, instance_type: Literal["node", "edge"] = "node"
-    ) -> list[str] | None:
-        all_spaces = self._get_available_spaces(include_global=False)
-        count_by_space = self._get_instance_count_by_space(all_spaces, selected_view, instance_type)
+    def select_space_type(self) -> Literal["instance", "schema", "empty"]:
+        selected_space_type = questionary.select(
+            f"What type of spaces do you want to {self.operation}?",
+            choices=[
+                Choice(title="Instance spaces with instances", value="instance"),
+                Choice(title="Schema spaces with schema", value="schema"),
+                Choice(title="Empty spaces without schema or instances", value="empty"),
+            ],
+        ).ask()
+        if selected_space_type is None:
+            raise ToolkitValueError("No space type selected")
+        if selected_space_type not in ["instance", "schema", "empty"]:
+            raise ToolkitValueError(f"Selected space type is not valid: {selected_space_type!r}")
+        return selected_space_type
+
+    @overload
+    def select_instance_space(
+        self,
+        multiselect: Literal[False],
+        selected_view: ViewId | None = None,
+        instance_type: Literal["node", "edge"] | None = None,
+    ) -> str: ...
+
+    @overload
+    def select_instance_space(
+        self,
+        multiselect: Literal[True] = True,
+        selected_view: ViewId | None = None,
+        instance_type: Literal["node", "edge"] | None = None,
+    ) -> list[str]: ...
+
+    def select_instance_space(
+        self,
+        multiselect: bool = True,
+        selected_view: ViewId | None = None,
+        instance_type: Literal["node", "edge"] | None = None,
+    ) -> str | list[str]:
+        if (selected_view is not None and instance_type is None) or (
+            selected_view is None and instance_type is not None
+        ):
+            raise ToolkitValueError("Both selected_view and instance_type must be provided or both must be None.")
+        if selected_view is not None and instance_type is not None:
+            all_spaces = self._get_available_spaces(include_global=False)
+            count_by_space = self._get_instance_count_in_view_by_space(all_spaces, selected_view, instance_type)
+        else:
+            count_by_space = {
+                space: stats.nodes + stats.edges
+                for space, stats in self.stats_by_space.items()
+                if (stats.nodes + stats.edges) > 0
+            }
 
         if not count_by_space:
             raise ToolkitMissingResourceError(
@@ -564,32 +623,55 @@ class DataModelingSelect:
         if len(count_by_space) == 1:
             selected_spaces = next(iter(count_by_space.keys()))
             self.console.print(f"Only one space with instances found: {selected_spaces!r}. Using this space.")
-            return [selected_spaces]
+            return [selected_spaces] if multiselect else selected_spaces
 
-        selected_spaces = questionary.select(
-            f"In which Space(s) do you want to {self.operation} instances?",
-            choices=[
-                Choice(title=f"{space} ({count:,} instances)", value=space)
-                for space, count in sorted(count_by_space.items(), key=lambda item: item[1], reverse=True)
-            ],
-            multiselect=True,
-        ).ask()
-        if selected_spaces is None or len(selected_spaces) == 0:
-            return None
-        if not isinstance(selected_spaces, list):
-            raise ToolkitValueError(f"Selected space is not a valid list: {selected_spaces!r}")
+        message = f"In which Space{'(s)' if multiselect else ''} do you want to {self.operation} instances?"
+        choices = [
+            Choice(title=f"{space} ({count:,} instances)", value=space)
+            for space, count in sorted(count_by_space.items(), key=lambda item: item[1], reverse=True)
+        ]
+        if multiselect:
+            selected_spaces = questionary.checkbox(message, choices=choices).ask()
+        else:
+            selected_spaces = questionary.select(message, choices=choices).ask()
+        if selected_spaces is None or (isinstance(selected_spaces, list) and len(selected_spaces) == 0):
+            raise ToolkitValueError(f"No space selected to {self.operation}. Aborting.")
         return selected_spaces
 
-    def _get_instance_count_by_space(
+    @overload
+    def select_empty_spaces(self, multiselect: Literal[False]) -> str: ...
+    @overload
+    def select_empty_spaces(self, multiselect: Literal[True]) -> list[str]: ...
+
+    def select_empty_spaces(self, multiselect: bool = True) -> str | list[str]:
+        empty_spaces = [
+            space
+            for space, stats in self.stats_by_space.items()
+            if (stats.nodes + stats.edges + stats.containers + stats.views + stats.data_models) == 0
+        ]
+        if not empty_spaces:
+            raise ToolkitMissingResourceError("No empty spaces found.")
+        if len(empty_spaces) == 1:
+            selected_space = empty_spaces[0]
+            self.console.print(f"Only one empty space found: {selected_space!r}. Using this space.")
+            return [selected_space] if multiselect else selected_space
+
+        message = f"In which empty Space{'(s)' if multiselect else ''} do you want to {self.operation}?"
+        choices = [Choice(title=f"{space}", value=space) for space in sorted(empty_spaces)]
+        if multiselect:
+            selected_spaces = questionary.checkbox(message, choices=choices).ask()
+        else:
+            selected_spaces = questionary.select(message, choices=choices).ask()
+        if selected_spaces is None or (isinstance(selected_spaces, list) and len(selected_spaces) == 0):
+            raise ToolkitValueError(f"No empty space selected to {self.operation}. Aborting.")
+        return selected_spaces
+
+    def _get_instance_count_in_view_by_space(
         self, all_spaces: SpaceList, view_id: ViewId, instance_type: Literal["node", "edge"]
     ) -> dict[str, float]:
         count_by_space: dict[str, float] = {}
-        try:
-            read_limit = self.client.data_modeling.statistics.project().concurrent_read_limit
-        except CogniteException:
-            # Fetching a broad exception as the statistics endpoint is in pre-alpha and may suddenly no longer be
-            # available.
-            read_limit = 2
+        result = self.client.data_modeling.statistics.project()
+        read_limit = result.concurrent_read_limit
 
         with ThreadPoolExecutor(max_workers=read_limit // 2) as executor:
             results = executor.map(
