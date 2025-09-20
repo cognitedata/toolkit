@@ -8,7 +8,10 @@ from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteAsset
 from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.commands._migrate.adapter import AssetCentricMigrationIOAdapter, MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
+from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
+from cognite_toolkit._cdf_tk.storageio import AssetIO, InstanceIO
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
 
@@ -67,26 +70,13 @@ class TestMigrateAssetsCommand:
 
         cmd = MigrationCommand(skip_tracking=True, silent=True)
         cmd.migrate(
-            client=client,
-            mapping_file=input_file,
+            selected=MigrationCSVFileSelector(input_file, resource_type="asset"),
+            data=AssetCentricMigrationIOAdapter(client, AssetIO(client), InstanceIO(client)),
+            mapper=AssetCentricMapper(client),
+            log_dir=tmp_path / "logs",
             dry_run=False,
             verbose=False,
-            max_workers=2,
-            output_dir=tmp_path,
         )
         node_ids = [NodeId(space, a.external_id) for a in three_assets]
         migrated_assets = client.data_modeling.instances.retrieve_nodes(node_ids, CogniteAsset)
         assert len(migrated_assets) == len(three_assets), "Not all assets were migrated successfully."
-
-        csv_files = list(tmp_path.rglob("*MigrationResults.csv"))
-        assert len(csv_files) == 1, "Expected one CSV file to be created."
-        csv_file = csv_files[0]
-        content = csv_file.read_text(encoding="utf-8")
-        assert (
-            content
-            == f"""ResourceType,NodeSpace,NodeExternalId,ResponseStatus,ResponseMessage
-asset,toolkit_test_space,toolkit_asset_test_migration_0_{RUN_UNIQUE_ID},200,
-asset,toolkit_test_space,toolkit_asset_test_migration_1_{RUN_UNIQUE_ID},200,
-asset,toolkit_test_space,toolkit_asset_test_migration_2_{RUN_UNIQUE_ID},200,
-"""
-        )
