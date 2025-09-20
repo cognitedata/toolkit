@@ -1,12 +1,13 @@
 import dataclasses
 import uuid
-from collections.abc import Callable, Hashable, Sequence
+from collections.abc import Callable, Hashable, Iterable, Sequence
 from functools import partial
 from graphlib import CycleError, TopologicalSorter
 from typing import cast
 
 import questionary
 from cognite.client.data_classes import AggregateResultItem, DataSetUpdate, filters
+from cognite.client.data_classes._base import CogniteResourceList
 from cognite.client.data_classes.data_modeling import NodeId, ViewId
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils._identifier import InstanceId
@@ -74,6 +75,8 @@ class DeleteResults:
 
 
 class PurgeCommand(ToolkitCommand):
+    BATCH_SIZE_DM = 1000
+
     def space(
         self,
         client: ToolkitClient,
@@ -166,24 +169,93 @@ class PurgeCommand(ToolkitCommand):
         if (stats.nodes + stats.edges) > 0:
             validator.instances(["read", "write"], spaces={selected_space})
 
+        config = client.config
         total_by_crud_cls = {
-            EdgeCRUD: stats.edges,
-            NodeCRUD: stats.nodes,
-            DataModelCRUD: stats.data_models,
-            ViewCRUD: stats.views,
-            ContainerCRUD: stats.containers,
+            EdgeCRUD: (stats.edges, config.create_api_url("/models/instances/delete")),
+            NodeCRUD: (stats.nodes, config.create_api_url("/models/instances/delete")),
+            DataModelCRUD: (stats.data_models, config.create_api_url("/models/datamodels/delete")),
+            ViewCRUD: (stats.views, config.create_api_url("/models/views/delete")),
+            ContainerCRUD: (stats.containers, config.create_api_url("/models/containers/delete")),
         }
         if dry_run:
-            for crud_cls, total in total_by_crud_cls.items():
+            for crud_cls, (total, _) in total_by_crud_cls.items():
                 crud = crud_cls.create_loader(client)  # type: ignore[attr-defined]
                 results[crud.display_name] = ResourceDeployResult(crud.display_name, deleted=total)
             if include_space:
                 space_loader = SpaceCRUD.create_loader(client)
                 results[space_loader.display_name] = ResourceDeployResult(space_loader.display_name, deleted=1)
         else:
-            raise NotImplementedError("Non-dry-run mode is not implemented for space_v2")
-        print(results.counts_table(exclude_columns={"Created", "Changed", "Untouched", "Total"}))
+            with HTTPClient(client.config, max_retries=10) as delete_client:
+                for crud_cls, (total, URL) in total_by_crud_cls.items():
+                    crud = crud_cls.create_loader(client)  # type: ignore[attr-defined]
+                    if total == 0:
+                        results[crud.display_name] = ResourceDeployResult(crud.display_name, deleted=0)
+                        continue
+                    result = ResourceDeployResult(crud.display_name)
+                    # Containers, DataModels and Views need special handling to avoid type info in the delete call
+                    # While for instance we need the type info in delete.
+                    dump_args = (
+                        {"include_type": False} if isinstance(crud, ContainerCRUD | DataModelCRUD | ViewCRUD) else {}
+                    )
+                    executor = ProducerWorkerExecutor[CogniteResourceList, list[JsonVal]](
+                        download_iterable=self._iterate_batch(crud, selected_space, batch_size=self.BATCH_SIZE_DM),
+                        process=lambda list_: [item.as_id().dump(**dump_args) for item in list_],
+                        write=self._purge_batch(crud, URL, delete_client, result),
+                        max_queue_size=10,
+                        iteration_count=total // self.BATCH_SIZE_DM + (1 if total % self.BATCH_SIZE_DM > 0 else 0),
+                        download_description=f"Downloading {crud.display_name}",
+                        process_description=f"Preparing {crud.display_name} for deletion",
+                        write_description=f"Deleting {crud.display_name}",
+                    )
+                    executor.run()
+                    results[crud.display_name] = result
+                    if executor.error_occurred:
+                        self.warn(
+                            HighSeverityWarning(f"Failed to delete all {crud.display_name}. {executor.error_message}")
+                        )
+            if include_space:
+                space_loader = SpaceCRUD.create_loader(client)
+                try:
+                    space_loader.delete([selected_space])
+                    print(f"Space {selected_space} deleted")
+                except CogniteAPIError as e:
+                    self.warn(HighSeverityWarning(f"Failed to delete space {selected_space!r}: {e}"))
+                else:
+                    results[space_loader.display_name] = ResourceDeployResult(space_loader.display_name, deleted=1)
+        print(results.counts_table(exclude_columns={"Created", "Changed", "Total"}))
         return results
+
+    @staticmethod
+    def _iterate_batch(crud: ResourceCRUD, selected_space: str, batch_size: int) -> Iterable[CogniteResourceList]:
+        batch = crud.list_cls([])
+        for resource in crud.iterate(space=selected_space):
+            batch.append(resource)
+            if len(batch) >= batch_size:
+                yield batch
+                batch = crud.list_cls([])
+        if batch:
+            yield batch
+
+    @staticmethod
+    def _purge_batch(
+        crud: ResourceCRUD, delete_url: str, delete_client: HTTPClient, result: ResourceDeployResult
+    ) -> Callable[[list[JsonVal]], None]:
+        def process(items: list[JsonVal]) -> None:
+            responses = delete_client.request_with_retries(
+                ItemsRequest(
+                    endpoint_url=delete_url,
+                    method="POST",
+                    items=items,
+                    as_id=crud.get_id,
+                )
+            )
+            for response in responses:
+                if isinstance(response, SuccessItem):
+                    result.deleted += 1
+                else:
+                    result.unchanged += 1
+
+        return process
 
     @staticmethod
     def _get_dependencies(
