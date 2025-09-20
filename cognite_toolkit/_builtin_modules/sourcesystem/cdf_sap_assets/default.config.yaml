@@ -13,4 +13,3 @@ groupSourceId: <not set>
 workflow: sap_s4hana_population # can also contain location sap_springfield_s4hana_population
 workflowClientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
 workflowClientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}
-
