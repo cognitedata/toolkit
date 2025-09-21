@@ -25,7 +25,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     DataSetsCRUD,
     EdgeCRUD,
     FunctionCRUD,
-    GraphQLLoader,
+    GraphQLCRUD,
     GroupAllScopedCRUD,
     GroupCRUD,
     GroupResourceScopedCRUD,
@@ -108,7 +108,7 @@ class PurgeCommand(ToolkitCommand):
         loaders = self._get_dependencies(
             SpaceCRUD,
             exclude={
-                GraphQLLoader,
+                GraphQLCRUD,
                 GroupResourceScopedCRUD,
                 LocationFilterCRUD,
                 TransformationCRUD,

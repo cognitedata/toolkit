@@ -1205,7 +1205,7 @@ class NodeCRUD(ResourceContainerCRUD[NodeId, NodeApply, Node, NodeApplyList, Nod
         return to_directory_compatible(f"{id.space}_{id.external_id}")
 
 
-class GraphQLLoader(
+class GraphQLCRUD(
     ResourceContainerCRUD[
         DataModelId, GraphQLDataModelWrite, GraphQLDataModel, GraphQLDataModelWriteList, GraphQLDataModelList
     ]

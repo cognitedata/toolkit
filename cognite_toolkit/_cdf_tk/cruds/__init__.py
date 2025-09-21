@@ -33,7 +33,7 @@ from ._resource_cruds import (
     FileMetadataCRUD,
     FunctionCRUD,
     FunctionScheduleCRUD,
-    GraphQLLoader,
+    GraphQLCRUD,
     GroupAllScopedCRUD,
     GroupCRUD,
     GroupResourceScopedCRUD,
@@ -74,7 +74,7 @@ from ._worker import ResourceWorker
 
 _EXCLUDED_CRUDS: set[type[ResourceCRUD]] = set()
 if not FeatureFlag.is_enabled(Flags.GRAPHQL):
-    _EXCLUDED_CRUDS.add(GraphQLLoader)
+    _EXCLUDED_CRUDS.add(GraphQLCRUD)
 if not FeatureFlag.is_enabled(Flags.AGENTS):
     _EXCLUDED_CRUDS.add(AgentCRUD)
 if not FeatureFlag.is_enabled(Flags.INFIELD):

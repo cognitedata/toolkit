@@ -9,7 +9,7 @@ from cognite.client.data_classes import data_modeling as dm
 from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import GraphQLDataModel, GraphQLDataModelWriteList
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.cruds import DataModelCRUD, ResourceWorker
-from cognite_toolkit._cdf_tk.cruds._resource_cruds import GraphQLLoader, ViewCRUD
+from cognite_toolkit._cdf_tk.cruds._resource_cruds import GraphQLCRUD, ViewCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -100,7 +100,7 @@ class TestGraphQLLoader:
     def test_deployment_order(
         self, env_vars_with_client: EnvironmentVariables, toolkit_client_approval: ApprovalToolkitClient
     ) -> None:
-        loader = GraphQLLoader.create_loader(env_vars_with_client.get_client())
+        loader = GraphQLCRUD.create_loader(env_vars_with_client.get_client())
         # The first model is dependent on the second model
         first_file = self._create_mock_file(
             """
@@ -134,7 +134,7 @@ type GeneratingUnit {
     def test_raise_cycle_error(
         self, env_vars_with_client: EnvironmentVariables, toolkit_client_approval: ApprovalToolkitClient
     ) -> None:
-        loader = GraphQLLoader.create_loader(env_vars_with_client.get_client())
+        loader = GraphQLCRUD.create_loader(env_vars_with_client.get_client())
         # The two models are dependent on each other
         first_file = self._create_mock_file(
             """type WindTurbine @import(dataModel: {externalId: "SolarModel", version: "v1", space: "second_space"}) {
@@ -171,7 +171,7 @@ name: String}""",
             "AssetHierarchyDOM",
             "3_0_2",
         )
-        loader = GraphQLLoader.create_loader(env_vars_with_client.get_client())
+        loader = GraphQLCRUD.create_loader(env_vars_with_client.get_client())
 
         items = loader.load_resource_file(file, {})
 
