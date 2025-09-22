@@ -738,10 +738,10 @@ class TestSearchConfigFinder:
             finder = SearchConfigFinder(client, None)
             selected = finder._interactive_select()
 
-        assert selected == [
+        assert selected == (
             ViewId(external_id="searchConfigB", space="spaceB"),
             ViewId(external_id="searchConfigC", space="spaceC"),
-        ]
+        )
 
 
 class TestDumpSearchConfigs:
@@ -766,6 +766,8 @@ class TestDumpSearchConfigs:
 
         filepaths = list(loader.find_files(tmp_path))
         assert len(filepaths) == 2
-        items = [read_yaml_file(filepath) for filepath in filepaths]
-        expected = [loader.dump_resource(sc) for sc in three_search_configs[1:]]
+        items = sorted([read_yaml_file(filepath) for filepath in filepaths], key=lambda d: d["view"]["externalId"])
+        expected = sorted(
+            [loader.dump_resource(sc) for sc in three_search_configs[1:]], key=lambda d: d["view"]["externalId"]
+        )
         assert items == expected

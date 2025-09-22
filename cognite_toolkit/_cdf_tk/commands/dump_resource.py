@@ -742,13 +742,13 @@ class SearchConfigFinder(ResourceFinder[tuple[SearchConfigViewId, ...]]):
             Choice(f"{config.view.external_id} {config.view.space}", value=config.view)
             for config in self.search_configs
         ]
-        selected_view_ids: tuple[SearchConfigViewId, ...] | None = questionary.checkbox(
+        selected_view_ids: list[SearchConfigViewId] | None = questionary.checkbox(
             "For which view would you like to dump the search configuration?",
             choices=choices,
         ).ask()
         if not selected_view_ids:
             raise ToolkitValueError("No view selected for dumping the search configuration.")
-        return selected_view_ids
+        return tuple(selected_view_ids)
 
     def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()

@@ -716,8 +716,10 @@ class DumpConfigApp(typer.Typer):
         client = EnvironmentVariables.create_from_environment().get_client()
         selected_view_id: Union[None, SearchConfigViewId] = None
         if view_id is not None:
-            if len(view_id) < 2:
-                raise ToolkitRequiredValueError("View ID must have externalId and space.")
+            if len(view_id) != 2:
+                raise ToolkitRequiredValueError(
+                    "View ID must be provided as exactly two arguments: externalId and space."
+                )
             selected_view_id = SearchConfigViewId(*view_id)
         cmd = DumpResourceCommand()
         cmd.run(

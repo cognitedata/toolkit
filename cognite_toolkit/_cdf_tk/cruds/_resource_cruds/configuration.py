@@ -77,8 +77,7 @@ class SearchConfigCRUD(ResourceCRUD[ViewId, SearchConfigWrite, SearchConfig, Sea
     def dump_resource(self, resource: SearchConfig, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
         local = local or {}
-        excluded_keys = ["id", "createdTime", "lastUpdatedTime"]
-        for key in excluded_keys:
+        for key in ["id", "createdTime", "lastUpdatedTime"]:
             if key in dumped and key not in local:
                 dumped.pop(key, None)
         for key in ["columnsLayout", "filterLayout", "propertiesLayout"]:
