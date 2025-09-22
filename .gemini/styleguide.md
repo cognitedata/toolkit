@@ -174,4 +174,3 @@ error_data = {"function_name": "foo", "message": "bar"}
 - Use the `logging` module with appropriate levels
 - Include contextual information for debugging
 - Format: `log.warning(f"Description: {variable}")`
-  
