@@ -1,14 +1,12 @@
 import threading
-from collections.abc import Hashable
-from typing import Generic, Literal, TypeAlias, TypeVar, get_args, overload
+from typing import Generic, Literal, TypeAlias, get_args, overload
 
 from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
 
 Status: TypeAlias = Literal["pending", "failed", "success", "aborted"]
 
 _ALLOWED_STATUS = get_args(Status)
-
-T_ID = TypeVar("T_ID", bound=Hashable)
 
 
 class ProgressTracker(Generic[T_ID]):

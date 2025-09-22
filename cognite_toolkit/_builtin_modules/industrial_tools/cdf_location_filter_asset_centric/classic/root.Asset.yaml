@@ -6,4 +6,3 @@
   name: Asset Centric Location Filter Example 2
   description: This is an example of an asset centric location filter 2
   dataSetExternalId: {{ ds_asset }}
-

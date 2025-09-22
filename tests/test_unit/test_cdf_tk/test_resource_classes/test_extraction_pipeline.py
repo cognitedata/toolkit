@@ -45,7 +45,18 @@ def invalid_extraction_pipeline_test_cases() -> Iterable:
 
 
 class TestExtractionPipelineYAML:
-    @pytest.mark.parametrize("data", list(find_resources("ExtractionPipeline")))
+    @pytest.mark.parametrize(
+        "data",
+        [
+            *find_resources("ExtractionPipeline"),
+            {
+                "externalId": "pipeline6",
+                "name": "Pipeline 6",
+                "dataSetExternalId": "ds6",
+                "contacts": [{"name": "John Doe", "role": "Owner", "sendNotification": True}],
+            },
+        ],
+    )
     def test_load_valid_extraction_pipeline(self, data: dict[str, object]) -> None:
         loaded = ExtractionPipelineYAML.model_validate(data)
 
