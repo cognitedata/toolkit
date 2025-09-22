@@ -53,41 +53,51 @@ class TestChunkSequence:
 
 class TestFlattenDictJsonPath:
     @pytest.mark.parametrize(
-        "dct,expected",
+        "dct,flatten_list, expected",
         [
-            pytest.param({"a": 1}, {"a": 1}, id="flat dict"),
-            pytest.param({"a": {"b": 2}}, {"a.b": 2}, id="nested dict"),
+            pytest.param({"a": 1}, True, {"a": 1}, id="flat dict"),
+            pytest.param({"a": {"b": 2}}, True, {"a.b": 2}, id="nested dict"),
             pytest.param(
-                {"a": {"b": [{"c": {"d": 3}}, 1]}}, {"a.b[0].c.d": 3, "a.b[1]": 1}, id="nested dict with list"
+                {"a": {"b": [{"c": {"d": 3}}, 1]}}, True, {"a.b[0].c.d": 3, "a.b[1]": 1}, id="nested dict with list"
             ),
-            pytest.param({}, {}, id="empty dict"),
-            pytest.param({"a": []}, {}, id="empty list"),
-            pytest.param({"a": {}}, {}, id="nested empty dict"),
-            pytest.param({"a": None}, {"a": None}, id="None value"),
-            pytest.param({"a": [1, 2, 3]}, {"a[0]": 1, "a[1]": 2, "a[2]": 3}, id="simple list"),
+            pytest.param({}, True, {}, id="empty dict"),
+            pytest.param({"a": []}, True, {}, id="empty list"),
+            pytest.param({"a": {}}, True, {}, id="nested empty dict"),
+            pytest.param({"a": None}, True, {"a": None}, id="None value"),
+            pytest.param({"a": [1, 2, 3]}, True, {"a[0]": 1, "a[1]": 2, "a[2]": 3}, id="simple list"),
             pytest.param(
                 {"a": [1, [2, 3], 4]},
+                True,
                 {"a[0]": 1, "a[1][0]": 2, "a[1][1]": 3, "a[2]": 4},
                 id="nested list",
             ),
             pytest.param(
+                {"a": [1, [2, 3], 4]},
+                False,
+                {"a": [1, [2, 3], 4]},
+                id="Skip flattening lists",
+            ),
+            pytest.param(
                 {"a": {"b": {"c": {"d": {"e": 5}}}}},
+                True,
                 {"a.b.c.d.e": 5},
                 id="deep nesting",
             ),
             pytest.param(
                 {"a": {"b": [{"c": [1, {"d": 2}]}, 3]}},
+                True,
                 {"a.b[0].c[0]": 1, "a.b[0].c[1].d": 2, "a.b[1]": 3},
                 id="complex nesting",
             ),
             pytest.param(
                 {"a": {"b": True, "c": False}},
+                True,
                 {"a.b": True, "a.c": False},
                 id="boolean values",
             ),
         ],
     )
-    def test_flatten_dict_json_path(self, dct: dict[str, Any], expected: dict[str, Any]):
+    def test_flatten_dict_json_path(self, dct: dict[str, Any], flatten_list: bool, expected: dict[str, Any]):
         """Test that flatten_dict_json_path correctly flattens a nested dictionary."""
-        flat_dict = flatten_dict_json_path(dct)
+        flat_dict = flatten_dict_json_path(dct, flatten_lists=flatten_list)
         assert flat_dict == expected
