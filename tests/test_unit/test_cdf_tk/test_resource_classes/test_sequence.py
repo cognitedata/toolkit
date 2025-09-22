@@ -208,6 +208,33 @@ def invalid_sequence_row_test_cases() -> Iterable:
         {"Unused field: 'unknownField'"},
         id="unknown-field-present",
     )
+    yield pytest.param(
+        {
+            "externalId": "a" * 257,
+            "columns": ["col1"],
+            "rows": [{"rowNumber": 0, "values": [1]}],
+        },
+        {"In field externalId string should have at most 256 characters"},
+        id="externalId-too-long",
+    )
+    yield pytest.param(
+        {
+            "externalId": "seq_row_1",
+            "columns": ["a"] * 201,
+            "rows": [{"rowNumber": 0, "values": [1]}],
+        },
+        {"In field columns list should have at most 200 items after validation, not 201"},
+        id="too-many-columns",
+    )
+    yield pytest.param(
+        {
+            "externalId": "seq_row_1",
+            "columns": ["col1"],
+            "rows": [{"rowNumber": 0, "values": [1]}] * 10001,
+        },
+        {"In field rows list should have at most 10000 items after validation, not 10001"},
+        id="too-many-rows",
+    )
 
 
 def valid_sequence_row_test_cases() -> Iterable:
