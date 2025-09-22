@@ -180,7 +180,7 @@ def create_properties(
     flatten_dump = flatten_dict_json_path(dumped)
     issue.ignored_asset_centric_properties = sorted(set(flatten_dump.keys()) - set(property_mapping.keys()))
     issue.missing_asset_centric_properties = sorted(set(property_mapping.keys()) - set(flatten_dump.keys()))
-    issue.missing_instance_properties = sorted(set(view_properties.keys()) - set(property_mapping.values()))
+    issue.missing_instance_properties = sorted(set(property_mapping.values()) - set(view_properties.keys()))
 
     properties: dict[str, PropertyValueWrite] = {}
     for prop_json_path, prop_id in property_mapping.items():
