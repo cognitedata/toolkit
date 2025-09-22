@@ -153,3 +153,52 @@ def _create_properties(
             continue
         properties[dm_prop_id] = value
     return properties
+
+
+def create_properties(
+    dumped: dict[str, Any],
+    view_properties: dict[str, ViewProperty],
+    property_mapping: dict[str, str],
+    issue: ConversionIssue,
+) -> dict[str, PropertyValueWrite]:
+    """
+    Create properties for a data model instance from an asset-centric resource.
+
+    Args:
+        dumped: Dict representation of the asset-centric resource.
+        view_properties: Defined properties referenced in the view source mapping.
+        property_mapping:  Mapping from asset-centric property IDs to data model property IDs.
+        issue: ConversionIssue object to log any issues encountered during conversion.
+
+    Returns:
+        Dict of property IDs to PropertyValueWrite objects.
+
+    """
+    flatten_dump  = flatten_dict(dumped)
+    issue.ignored_asset_centric_properties = set(flatten_dump.keys()) - set(property_mapping.keys())
+    issue.missing_asset_centric_properties = set(property_mapping.keys()) - set(flatten_dump.keys())
+    issue.missing_instance_properties = set(view_properties.keys()) - set(property_mapping.values())
+
+    properties: dict[str, PropertyValueWrite] = {}
+    for prop_json_path, prop_id in property_mapping.items():
+        if prop_json_path not in flatten_dump:
+            continue
+        if prop_id not in view_properties:
+            continue
+        dm_prop = view_properties[prop_id]
+        if not isinstance(dm_prop, MappedProperty):
+            issue.invalid_instance_property_types.append(
+                InvalidPropertyDataType(property_id=prop_id, expected_type=MappedProperty.__name__)
+            )
+            continue
+        try:
+            value = convert_to_primary_property(
+                flatten_dump[prop_json_path],
+                dm_prop.type,
+                dm_prop.nullable,
+            )
+        except (ValueError, TypeError, NotImplementedError) as e:
+            issue.failed_conversions.append(FailedConversion(property_id=prop_json_path, value=dumped[prop_json_path], error=str(e)))
+            continue
+        properties[prop_id] = value
+    return properties
