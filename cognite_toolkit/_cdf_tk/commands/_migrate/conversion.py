@@ -60,11 +60,9 @@ def asset_centric_to_dm(
     instance_source_properties = {
         "resourceType": resource_type,
         "id": id_,
+        "dataSetId": data_set_id,
+        "classicExternalId": external_id,
     }
-    if data_set_id is not None:
-        instance_source_properties["dataSetId"] = data_set_id
-    if external_id is not None:
-        instance_source_properties["classicExternalId"] = external_id
     sources.append(NodeOrEdgeData(source=INSTANCE_SOURCE_VIEW_ID, properties=instance_source_properties))
 
     node = NodeApply(
