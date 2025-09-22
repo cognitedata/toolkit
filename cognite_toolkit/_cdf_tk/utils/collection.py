@@ -18,23 +18,23 @@ def flatten_dict(dct: dict[str, Any]) -> dict[tuple[str, ...], Any]:
     return items
 
 
-def flatten_dict_json_path(dct: dict[str, Any]) -> dict[str, Any]:
+def flatten_dict_json_path(dct: dict[str, Any], flatten_lists: bool = True) -> dict[str, Any]:
     """Flatten a dictionary to a dictionary with JSON path keys."""
 
-    return _flatten(dct)
+    return _flatten(dct, flatten_lists=flatten_lists)
 
 
-def _flatten(obj: Any, path: str = "") -> dict[str, Any]:
+def _flatten(obj: Any, path: str = "", flatten_lists: bool = True) -> dict[str, Any]:
     items: dict[str, Any] = {}
     if isinstance(obj, dict):
         for key, value in obj.items():
             current_path = f"{path}.{key}" if path else key
-            items.update(_flatten(value, current_path))
-    elif isinstance(obj, list):
+            items.update(_flatten(value, current_path, flatten_lists))
+    elif isinstance(obj, list) and flatten_lists:
         for i, value in enumerate(obj):
             current_path = f"{path}[{i}]"
             if isinstance(value, (dict, list)):
-                items.update(_flatten(value, current_path))
+                items.update(_flatten(value, current_path, flatten_lists))
             else:
                 items[current_path] = value
     else:
