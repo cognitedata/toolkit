@@ -5,8 +5,8 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.migration import (
     AssetCentricToViewMapping,
     InstanceSource,
-    ViewSource,
-    ViewSourceApply,
+    ResourceViewMapping,
+    ResourceViewMappingApply,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import IgnoredValueWarning, catch_warnings
 
@@ -67,7 +67,7 @@ class TestInstanceSourceAPI:
 
 class TestViewSourceAPI:
     def test_create_retrieve_list_delete(self, toolkit_client: ToolkitClient) -> None:
-        source = ViewSourceApply(
+        source = ResourceViewMappingApply(
             external_id="test_view_source",
             resource_type="asset",
             view_id=ViewId("cdf_cdm", "CogniteAsset", "v1"),
@@ -79,7 +79,7 @@ class TestViewSourceAPI:
             ),
         )
 
-        created: ViewSource | None = None
+        created: ResourceViewMapping | None = None
         try:
             created = toolkit_client.migration.view_source.upsert(source)
 

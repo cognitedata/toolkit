@@ -7,7 +7,7 @@ from cognite.client.data_classes.data_modeling import MappedProperty, NodeApply,
 from cognite.client.data_classes.data_modeling.instances import NodeOrEdgeData, PropertyValueWrite
 from cognite.client.data_classes.data_modeling.views import ViewProperty
 
-from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId, ViewSource
+from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId, ResourceViewMapping
 from cognite_toolkit._cdf_tk.utils.collection import flatten_dict_json_path
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     asset_centric_convert_to_primary_property,
@@ -26,7 +26,7 @@ _RESERVED_ASSET_CENTRIC_PROPERTIES = frozenset({"metadata", "externalId", "dataS
 def asset_centric_to_dm(
     resource: T_AssetCentricResource,
     instance_id: NodeId,
-    view_source: ViewSource,
+    view_source: ResourceViewMapping,
     view_properties: dict[str, ViewProperty],
 ) -> tuple[NodeApply, ConversionIssue]:
     """Convert an asset-centric resource to a data model instance.
@@ -34,7 +34,7 @@ def asset_centric_to_dm(
     Args:
         resource (T_AssetCentricResource): The asset-centric resource to convert.
         instance_id (NodeId): The ID of the instance to create or update.
-        view_source (ViewSource): The view source defining how to map the resource to the data model.
+        view_source (ResourceViewMapping): The view source defining how to map the resource to the data model.
         view_properties (dict[str, ViewProperty]): The defined properties referenced in the view source mapping.
 
     Returns:

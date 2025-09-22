@@ -13,7 +13,7 @@ from cognite.client.data_classes.data_modeling import (
     ViewId,
 )
 
-from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricToViewMapping, ViewSource
+from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricToViewMapping, ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.adapter import (
     AssetCentricMapping,
@@ -57,13 +57,13 @@ class TestAssetCentricMapper:
         selected = MigrationCSVFileSelector(mapping_file, resource_type="asset")
 
         with monkeypatch_toolkit_client() as client:
-            client.migration.view_source.retrieve.return_value = NodeList[ViewSource](
+            client.migration.view_source.retrieve.return_value = NodeList[ResourceViewMapping](
                 [
-                    ViewSource(
+                    ResourceViewMapping(
                         external_id="cdf_asset_mapping",
                         resource_type="asset",
                         view_id=ViewId("cdf_cdm", "CogniteAsset", "v1"),
-                        mapping=AssetCentricToViewMapping(
+                        property_mapping=AssetCentricToViewMapping(
                             to_property_id={
                                 "name": "name",
                                 "description": "description",
@@ -147,7 +147,7 @@ class TestAssetCentricMapper:
 
         with monkeypatch_toolkit_client() as client:
             # Return empty list to simulate missing view source
-            client.migration.view_source.retrieve.return_value = NodeList[ViewSource]([])
+            client.migration.view_source.retrieve.return_value = NodeList[ResourceViewMapping]([])
 
             mapper = AssetCentricMapper(client)
 
@@ -165,13 +165,13 @@ class TestAssetCentricMapper:
 
         with monkeypatch_toolkit_client() as client:
             # Return view source but empty view list to simulate missing view in Data Modeling
-            client.migration.view_source.retrieve.return_value = NodeList[ViewSource](
+            client.migration.view_source.retrieve.return_value = NodeList[ResourceViewMapping](
                 [
-                    ViewSource(
+                    ResourceViewMapping(
                         external_id="cdf_asset_mapping",
                         resource_type="asset",
                         view_id=ViewId("cdf_cdm", "CogniteAsset", "v1"),
-                        mapping=AssetCentricToViewMapping(
+                        property_mapping=AssetCentricToViewMapping(
                             to_property_id={
                                 "name": "name",
                                 "description": "description",

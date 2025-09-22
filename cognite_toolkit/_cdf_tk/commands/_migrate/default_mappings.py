@@ -2,7 +2,7 @@ from functools import lru_cache
 
 from cognite.client.data_classes.data_modeling import ViewId
 
-from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricToViewMapping, ViewSourceApply
+from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricToViewMapping, ResourceViewMappingApply
 
 _ASSET_ID = "cdf_asset_mapping"
 _EVENT_ID = "cdf_event_mapping"
@@ -11,10 +11,10 @@ _FILE_METADATA_ID = "cdf_file_metadata_mapping"
 
 
 @lru_cache(maxsize=1)
-def create_default_mappings() -> list[ViewSourceApply]:
+def create_default_mappings() -> list[ResourceViewMappingApply]:
     """Return the default mappings for migration."""
     return [
-        ViewSourceApply(
+        ResourceViewMappingApply(
             external_id=_ASSET_ID,
             resource_type="asset",
             view_id=ViewId("cdf_cdm", "CogniteAsset", "v1"),
@@ -27,7 +27,7 @@ def create_default_mappings() -> list[ViewSourceApply]:
                 }
             ),
         ),
-        ViewSourceApply(
+        ResourceViewMappingApply(
             external_id=_EVENT_ID,
             resource_type="event",
             view_id=ViewId("cdf_cdm", "CogniteActivity", "v1"),
@@ -41,7 +41,7 @@ def create_default_mappings() -> list[ViewSourceApply]:
                 }
             ),
         ),
-        ViewSourceApply(
+        ResourceViewMappingApply(
             external_id=_TIME_SERIES_ID,
             resource_type="timeseries",
             view_id=ViewId("cdf_cdm", "CogniteTimeSeries", "v1"),
@@ -58,7 +58,7 @@ def create_default_mappings() -> list[ViewSourceApply]:
                 }
             ),
         ),
-        ViewSourceApply(
+        ResourceViewMappingApply(
             external_id=_FILE_METADATA_ID,
             resource_type="file",
             view_id=ViewId("cdf_cdm", "CogniteFile", "v1"),

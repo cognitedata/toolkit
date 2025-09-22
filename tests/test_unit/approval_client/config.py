@@ -165,8 +165,8 @@ from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
     LocationFilterWriteList,
 )
 from cognite_toolkit._cdf_tk.client.data_classes.migration import (
-    ViewSource,
-    ViewSourceApply,
+    ResourceViewMapping,
+    ResourceViewMappingApply,
 )
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawDatabaseList
 from cognite_toolkit._cdf_tk.client.data_classes.search_config import (
@@ -807,9 +807,9 @@ API_RESOURCES = [
     ),
     APIResource(
         api_name="migration.view_source",
-        resource_cls=ViewSource,
-        list_cls=NodeList[ViewSource],
-        _write_cls=ViewSourceApply,
+        resource_cls=ResourceViewMapping,
+        list_cls=NodeList[ResourceViewMapping],
+        _write_cls=ResourceViewMappingApply,
         _write_list_cls=NodeApplyList,
         methods={
             "create": [Method(api_class_method="upsert", mock_class_method="create_nodes")],

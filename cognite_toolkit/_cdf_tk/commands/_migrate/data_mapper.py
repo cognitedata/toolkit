@@ -8,7 +8,7 @@ from cognite.client.data_classes.data_modeling import View, ViewId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList
-from cognite_toolkit._cdf_tk.client.data_classes.migration import ViewSource
+from cognite_toolkit._cdf_tk.client.data_classes.migration import ResourceViewMapping
 from cognite_toolkit._cdf_tk.commands._migrate.adapter import (
     AssetCentricMappingList,
     MigrationSelector,
@@ -49,7 +49,7 @@ class AssetCentricMapper(DataMapper[MigrationSelector, AssetCentricMappingList, 
     def __init__(self, client: ToolkitClient) -> None:
         self.client = client
         self._ingestion_view_by_id: dict[ViewId, View] = {}
-        self._view_mapping_by_id: dict[str, ViewSource] = {}
+        self._view_mapping_by_id: dict[str, ResourceViewMapping] = {}
 
     def prepare(self, source_selector: MigrationSelector) -> None:
         ingestion_view_ids = source_selector.get_ingestion_views()

@@ -10,7 +10,11 @@ from cognite.client.data_classes.data_modeling.data_types import DirectRelationR
 from cognite.client.data_classes.data_modeling.ids import ContainerId, ViewId
 from cognite.client.data_classes.data_modeling.views import MappedProperty, MultiEdgeConnection, ViewProperty
 
-from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId, AssetCentricToViewMapping, ViewSource
+from cognite_toolkit._cdf_tk.client.data_classes.migration import (
+    AssetCentricId,
+    AssetCentricToViewMapping,
+    ResourceViewMapping,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import asset_centric_to_dm
 from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     ConversionIssue,
@@ -133,14 +137,14 @@ class TestAssetCentricConversion:
             pytest.param(
                 # Simple Asset with basic mapping
                 Asset(id=123, external_id="asset_123", name="Test Asset", description="A test asset"),
-                ViewSource(
+                ResourceViewMapping(
                     external_id="asset_mapping",
                     version=1,
                     last_updated_time=1000000,
                     created_time=1000000,
                     resource_type="asset",
                     view_id=ViewId("test_space", "test_view", "v1"),
-                    mapping=AssetCentricToViewMapping(
+                    property_mapping=AssetCentricToViewMapping(
                         to_property_id={"name": "assetName", "description": "assetDescription"}
                     ),
                 ),
@@ -179,14 +183,14 @@ class TestAssetCentricConversion:
                     unit="celsius",
                     metadata={"sensor_type": "temperature", "location": "room_1"},
                 ),
-                ViewSource(
+                ResourceViewMapping(
                     external_id="timeseries_mapping",
                     version=1,
                     last_updated_time=1000000,
                     created_time=1000000,
                     resource_type="timeseries",
                     view_id=ViewId("test_space", "test_view", "v1"),
-                    mapping=AssetCentricToViewMapping(
+                    property_mapping=AssetCentricToViewMapping(
                         to_property_id={"name": "timeseriesName", "unit": "measurementUnit"},
                         metadata_to_property_id={"sensor_type": "sensorType", "location": "deviceLocation"},
                     ),
@@ -254,14 +258,14 @@ class TestAssetCentricConversion:
                         ),
                     },
                 ),
-                ViewSource(
+                ResourceViewMapping(
                     external_id="incomplete_mapping",
                     version=1,
                     last_updated_time=1000000,
                     created_time=1000000,
                     resource_type="event",
                     view_id=ViewId("test_space", "test_view", "v1"),
-                    mapping=AssetCentricToViewMapping(
+                    property_mapping=AssetCentricToViewMapping(
                         to_property_id={
                             "missing_prop": "targetProp",
                             "startTime": "eventStart",
@@ -350,14 +354,14 @@ class TestAssetCentricConversion:
                     mime_type="application/octet-stream",
                     metadata={"file_type": "pdf", "confidential": "true"},
                 ),
-                ViewSource(
+                ResourceViewMapping(
                     external_id="file_mapping",
                     version=1,
                     last_updated_time=1000000,
                     created_time=1000000,
                     resource_type="file",
                     view_id=ViewId("test_space", "test_view", "v1"),
-                    mapping=AssetCentricToViewMapping(
+                    property_mapping=AssetCentricToViewMapping(
                         to_property_id={},
                         metadata_to_property_id={},
                     ),
@@ -418,14 +422,14 @@ class TestAssetCentricConversion:
                     description="A test sequence",
                     metadata=None,
                 ),
-                ViewSource(
+                ResourceViewMapping(
                     external_id="sequence_mapping",
                     version=1,
                     last_updated_time=1000000,
                     created_time=1000000,
                     resource_type="sequence",
                     view_id=ViewId("test_space", "test_view", "v1"),
-                    mapping=AssetCentricToViewMapping(
+                    property_mapping=AssetCentricToViewMapping(
                         to_property_id={"name": "sequenceName"},
                         metadata_to_property_id={"category": "sequenceCategory"},
                     ),
@@ -460,14 +464,14 @@ class TestAssetCentricConversion:
             ),
             pytest.param(
                 Asset(id=999, external_id="asset_999", name=None, description=None),
-                ViewSource(
+                ResourceViewMapping(
                     external_id="empty_mapping",
                     version=1,
                     last_updated_time=1000000,
                     created_time=1000000,
                     resource_type="asset",
                     view_id=ViewId("test_space", "test_view", "v1"),
-                    mapping=AssetCentricToViewMapping(
+                    property_mapping=AssetCentricToViewMapping(
                         to_property_id={"name": "assetName", "description": "assetDescription"}
                     ),
                 ),
@@ -503,14 +507,14 @@ class TestAssetCentricConversion:
             ),
             pytest.param(
                 Event(id=999, external_id="event_999", type="MyType", metadata={"category": "MyCategory"}),
-                ViewSource(
+                ResourceViewMapping(
                     external_id="event_mapping",
                     version=1,
                     last_updated_time=1000000,
                     created_time=1000000,
                     resource_type="event",
                     view_id=ViewId("test_space", "test_view", "v1"),
-                    mapping=AssetCentricToViewMapping(
+                    property_mapping=AssetCentricToViewMapping(
                         to_property_id={"type": "category"},
                         metadata_to_property_id={"category": "category"},
                     ),
@@ -542,7 +546,7 @@ class TestAssetCentricConversion:
     def test_asset_centric_to_dm(
         self,
         resource: Asset | FileMetadata | Event | TimeSeries | Sequence,
-        view_source: ViewSource,
+        view_source: ResourceViewMapping,
         view_properties: dict[str, ViewProperty],
         expected_properties: dict[str, str],
         expected_issue: ConversionIssue,

@@ -18,8 +18,8 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from cognite_toolkit._cdf_tk.client.data_classes.migration import (
     AssetCentricId,
     InstanceSource,
-    ViewSource,
-    ViewSourceApply,
+    ResourceViewMapping,
+    ResourceViewMappingApply,
 )
 from cognite_toolkit._cdf_tk.constants import COGNITE_MIGRATION_SPACE
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
@@ -78,12 +78,12 @@ class ViewSourceAPI:
 
     def __init__(self, instance_api: ExtendedInstancesAPI) -> None:
         self._instance_api = instance_api
-        self._view_id = ViewSource.get_source()
+        self._view_id = ResourceViewMapping.get_source()
 
     @overload
     def upsert(
         self,
-        item: ViewSourceApply,
+        item: ResourceViewMappingApply,
         skip_on_version_conflict: bool = False,
         replace: bool = False,
     ) -> NodeApplyResult: ...
@@ -91,14 +91,14 @@ class ViewSourceAPI:
     @overload
     def upsert(
         self,
-        item: Sequence[ViewSourceApply],
+        item: Sequence[ResourceViewMappingApply],
         skip_on_version_conflict: bool = False,
         replace: bool = False,
     ) -> NodeApplyResultList: ...
 
     def upsert(
         self,
-        item: ViewSourceApply | Sequence[ViewSourceApply],
+        item: ResourceViewMappingApply | Sequence[ResourceViewMappingApply],
         skip_on_version_conflict: bool = False,
         replace: bool = False,
     ) -> NodeApplyResult | NodeApplyResultList:
@@ -106,20 +106,24 @@ class ViewSourceAPI:
         result = self._instance_api.apply(
             item, skip_on_version_conflict=skip_on_version_conflict, replace=replace
         ).nodes
-        if isinstance(item, ViewSourceApply):
+        if isinstance(item, ResourceViewMappingApply):
             return result[0]
         return NodeApplyResultList(result)
 
     @overload
-    def retrieve(self, external_id: str) -> ViewSource | None: ...
+    def retrieve(self, external_id: str) -> ResourceViewMapping | None: ...
 
     @overload
-    def retrieve(self, external_id: SequenceNotStr[str]) -> NodeList[ViewSource]: ...
+    def retrieve(self, external_id: SequenceNotStr[str]) -> NodeList[ResourceViewMapping]: ...
 
-    def retrieve(self, external_id: str | SequenceNotStr[str]) -> ViewSource | NodeList[ViewSource] | None:
+    def retrieve(
+        self, external_id: str | SequenceNotStr[str]
+    ) -> ResourceViewMapping | NodeList[ResourceViewMapping] | None:
         """Retrieve one or more view sources by their external IDs."""
         if isinstance(external_id, str):
-            return self._instance_api.retrieve_nodes(NodeId(COGNITE_MIGRATION_SPACE, external_id), node_cls=ViewSource)
+            return self._instance_api.retrieve_nodes(
+                NodeId(COGNITE_MIGRATION_SPACE, external_id), node_cls=ResourceViewMapping
+            )
         else:
             nodes = self._instance_api.retrieve(
                 nodes=[NodeId(COGNITE_MIGRATION_SPACE, ext_id) for ext_id in external_id], sources=[self._view_id]
@@ -139,7 +143,9 @@ class ViewSourceAPI:
         else:
             return self._instance_api.delete([NodeId(COGNITE_MIGRATION_SPACE, ext_id) for ext_id in external_id]).nodes
 
-    def list(self, resource_type: str | None = None, limit: int | None = DEFAULT_LIMIT_READ) -> NodeList[ViewSource]:
+    def list(
+        self, resource_type: str | None = None, limit: int | None = DEFAULT_LIMIT_READ
+    ) -> NodeList[ResourceViewMapping]:
         """List view sources optionally filtered by resource type"""
         is_selected: filters.Filter | None = None
         if resource_type:
@@ -151,11 +157,11 @@ class ViewSourceAPI:
         return self._safe_convert(nodes)
 
     @classmethod
-    def _safe_convert(cls, nodes: NodeList[Node]) -> NodeList[ViewSource]:
-        results = NodeList[ViewSource]([])
+    def _safe_convert(cls, nodes: NodeList[Node]) -> NodeList[ResourceViewMapping]:
+        results = NodeList[ResourceViewMapping]([])
         for node in nodes:
             try:
-                loaded = ViewSource._load(node.dump())
+                loaded = ResourceViewMapping._load(node.dump())
             except ValueError as e:
                 warnings.warn(
                     HighSeverityWarning(
