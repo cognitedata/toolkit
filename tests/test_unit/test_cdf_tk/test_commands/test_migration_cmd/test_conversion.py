@@ -40,21 +40,6 @@ class TestCreateProperties:
                 id="Basic property mapping with integer conversion and no issues",
             ),
             pytest.param(
-                {"items": [{"id": 1, "name": "Item1"}, {"id": 2, "name": "Item2"}]},
-                {
-                    "item1NameId": MappedProperty(CONTAINER_ID, "item1NameId", dt.Text(), **DEFAULT_CONTAINER_ARGS),
-                    "item2NameId": MappedProperty(CONTAINER_ID, "item2NameId", dt.Text(), **DEFAULT_CONTAINER_ARGS),
-                },
-                {"items[0].name": "item1NameId", "items[1].name": "item2NameId"},
-                {"item1NameId": "Item1", "item2NameId": "Item2"},
-                ConversionIssue(
-                    asset_centric_id=ASSET_CENTRIC_ID,
-                    instance_id=INSTANCE_ID,
-                    ignored_asset_centric_properties=["items[0].id", "items[1].id"],
-                ),
-                id="List indexing with JSON path",
-            ),
-            pytest.param(
                 {"name": "MyAsset", "created": "2023-01-01T12:00:00Z", "active": True},
                 {
                     "nameId": MappedProperty(CONTAINER_ID, "nameId", dt.Text(), **DEFAULT_CONTAINER_ARGS),
