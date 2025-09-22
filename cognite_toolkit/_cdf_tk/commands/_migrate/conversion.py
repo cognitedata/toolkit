@@ -177,7 +177,7 @@ def create_properties(
         Dict of property IDs to PropertyValueWrite objects.
 
     """
-    flatten_dump = flatten_dict_json_path(dumped)
+    flatten_dump = flatten_dict_json_path(dumped, flatten_lists=False)
     issue.ignored_asset_centric_properties = sorted(set(flatten_dump.keys()) - set(property_mapping.keys()))
     issue.missing_asset_centric_properties = sorted(set(property_mapping.keys()) - set(flatten_dump.keys()))
     issue.missing_instance_properties = sorted(set(property_mapping.values()) - set(view_properties.keys()))
