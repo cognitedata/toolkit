@@ -101,7 +101,7 @@ class TestPurge:
 
         purge = PurgeCommand(silent=True)
 
-        purge.instances(
+        results = purge.instances(
             client,
             InstanceFileSelector(datafile=csv_path, validate=True),
             dry_run=False,
@@ -109,6 +109,7 @@ class TestPurge:
             verbose=False,
             auto_yes=True,
         )
+        assert results.deleted == 2
 
         results = client.data_modeling.instances.retrieve([file_node, ts_node])
         assert len(results.nodes) == 0, "Instances were not purged"

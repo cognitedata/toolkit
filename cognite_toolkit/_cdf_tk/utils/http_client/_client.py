@@ -26,6 +26,7 @@ from cognite_toolkit._cdf_tk.utils.http_client._data_classes import (
     RequestMessage,
     ResponseMessage,
 )
+from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -90,6 +91,11 @@ class HTTPClient:
             Sequence[HTTPMessage]: The response message(s). This can also
                 include RequestMessage(s) to be retried.
         """
+        if isinstance(message, ItemsRequest) and message.tracker and message.tracker.limit_reached():
+            error_msg = (
+                f"Aborting further splitting of requests after {message.tracker.failed_split_count} failed attempts."
+            )
+            return message.create_failed_request(error_msg)
         try:
             response = self._make_request(message)
             results = self._handle_response(response, message)
@@ -223,20 +229,31 @@ class HTTPClient:
             status_attempts = request.status_attempt
             if 500 <= response.status_code < 600:
                 status_attempts += 1
-            return request.split(status_attempts=status_attempts)
+            splits = request.split(status_attempts=status_attempts)
+            if splits[0].tracker and splits[0].tracker.limit_reached():
+                return request.create_responses(response, body, self._get_error_message(body, response.text))
+            return splits
         elif request.status_attempt < self._max_retries and response.status_code in self._retry_status_codes:
             request.status_attempt += 1
             time.sleep(self._backoff_time(request.total_attempts))
             return [request]
         else:
             # Permanent failure
-            error = response.text
-            if "error" in body:
-                if isinstance(body["error"], str):
-                    error = body["error"]
-                elif isinstance(body["error"], dict) and "message" in body["error"]:
-                    error = body["error"]["message"]
-            return request.create_responses(response, body, error)
+            return request.create_responses(response, body, self._get_error_message(body, response.text))
+
+    @staticmethod
+    def _get_error_message(body: JsonVal, default: str) -> str:
+        error = default
+        if not isinstance(body, dict):
+            return error
+        if "error" not in body:
+            return error
+        error_nested = body["error"]
+        if isinstance(error_nested, str):
+            return error_nested
+        if isinstance(error_nested, dict) and "message" in error_nested and isinstance(error_nested["message"], str):
+            return error_nested["message"]
+        return error
 
     @staticmethod
     def _backoff_time(attempts: int) -> float:
