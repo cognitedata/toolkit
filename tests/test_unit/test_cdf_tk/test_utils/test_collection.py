@@ -60,6 +60,31 @@ class TestFlattenDictJsonPath:
             pytest.param(
                 {"a": {"b": [{"c": {"d": 3}}, 1]}}, {"a.b[0].c.d": 3, "a.b[1]": 1}, id="nested dict with list"
             ),
+            pytest.param({}, {}, id="empty dict"),
+            pytest.param({"a": []}, {}, id="empty list"),
+            pytest.param({"a": {}}, {}, id="nested empty dict"),
+            pytest.param({"a": None}, {"a": None}, id="None value"),
+            pytest.param({"a": [1, 2, 3]}, {"a[0]": 1, "a[1]": 2, "a[2]": 3}, id="simple list"),
+            pytest.param(
+                {"a": [1, [2, 3], 4]},
+                {"a[0]": 1, "a[1][0]": 2, "a[1][1]": 3, "a[2]": 4},
+                id="nested list",
+            ),
+            pytest.param(
+                {"a": {"b": {"c": {"d": {"e": 5}}}}},
+                {"a.b.c.d.e": 5},
+                id="deep nesting",
+            ),
+            pytest.param(
+                {"a": {"b": [{"c": [1, {"d": 2}]}, 3]}},
+                {"a.b[0].c[0]": 1, "a.b[0].c[1].d": 2, "a.b[1]": 3},
+                id="complex nesting",
+            ),
+            pytest.param(
+                {"a": {"b": True, "c": False}},
+                {"a.b": True, "a.c": False},
+                id="boolean values",
+            ),
         ],
     )
     def test_flatten_dict_json_path(self, dct: dict[str, Any], expected: dict[str, Any]):
