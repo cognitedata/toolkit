@@ -204,7 +204,7 @@ def create_properties(
             )
         except (ValueError, TypeError, NotImplementedError) as e:
             issue.failed_conversions.append(
-                FailedConversion(property_id=prop_json_path, value=dumped[prop_json_path], error=str(e))
+                FailedConversion(property_id=prop_json_path, value=flatten_dump[prop_json_path], error=str(e))
             )
             continue
         properties[prop_id] = value
