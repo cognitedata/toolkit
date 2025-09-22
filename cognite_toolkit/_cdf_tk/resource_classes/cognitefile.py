@@ -2,13 +2,20 @@ from datetime import datetime
 
 from pydantic import Field, JsonValue
 
+from cognite_toolkit._cdf_tk.constants import (
+    INSTANCE_EXTERNAL_ID_PATTERN,
+    SPACE_FORMAT_PATTERN,
+)
+
 from .base import ToolkitResource
 from .view_field_definitions import DirectRelationReference, ViewReference
 
 
 class CogniteFileYAML(ToolkitResource):
-    space: str = Field(description="The space where the file is located.")
-    external_id: str = Field(description="External-id of the file.", max_length=256)
+    space: str = Field(description="The space where the file is located.", max_length=43, pattern=SPACE_FORMAT_PATTERN)
+    external_id: str = Field(
+        description="External-id of the file.", max_length=255, pattern=INSTANCE_EXTERNAL_ID_PATTERN
+    )
     name: str | None = Field(default=None, description="name of the file.")
     description: str | None = Field(default=None, description="Description of the file.")
     tags: list[str] | None = Field(default=None, description="Text based labels for generic use.", max_length=1000)

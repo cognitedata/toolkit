@@ -1,5 +1,4 @@
 from collections.abc import Iterable
-from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -23,8 +22,8 @@ def valid_cognitefile_test_cases() -> Iterable:
             "sourceId": "source_123",
             "sourceContext": "production_system",
             "source": {"space": "source_space", "externalId": "source_ref_123"},
-            "sourceCreatedTime": datetime(2025, 1, 15, 10, 30, 0, tzinfo=timezone.utc),
-            "sourceUpdatedTime": datetime(2025, 8, 1, 15, 45, 30, tzinfo=timezone.utc),
+            "sourceCreatedTime": "2025-01-15T10:30:00Z",
+            "sourceUpdatedTime": "2025-08-01T15:45:30Z",
             "sourceCreatedUser": "user123",
             "sourceUpdatedUser": "user456",
             "assets": [
@@ -79,6 +78,11 @@ def invalid_cognitefile_test_cases() -> Iterable:
         {"In field existingVersion input should be a valid integer. Got 'not_a_number' of type str."},
         id="invalid-existingVersion-type",
     )
+    yield pytest.param(
+        {"space": "my_space", "externalId": "a" * 256},
+        {"In field externalId string should have at most 255 characters"},
+        id="invalid-externalId-too-long",
+    )
 
 
 class TestCogniteFileYAML:
@@ -90,7 +94,7 @@ class TestCogniteFileYAML:
     @pytest.mark.parametrize("data", list(valid_cognitefile_test_cases()))
     def test_load_valid_cognitefile(self, data: dict) -> None:
         loaded = CogniteFileYAML.model_validate(data)
-        assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
+        assert loaded.model_dump(exclude_unset=True, by_alias=True, mode="json") == data
 
     @pytest.mark.parametrize("data, expected_errors", list(invalid_cognitefile_test_cases()))
     def test_invalid_cognitefile(self, data: dict, expected_errors: set[str]) -> None:
