@@ -18,6 +18,31 @@ def flatten_dict(dct: dict[str, Any]) -> dict[tuple[str, ...], Any]:
     return items
 
 
+def flatten_dict_json_path(dct: dict[str, Any]) -> dict[str, Any]:
+    """Flatten a dictionary to a dictionary with JSON path keys."""
+
+    return _flatten(dct)
+
+
+def _flatten(obj: Any, path: str = "") -> dict[str, Any]:
+    items: dict[str, Any] = {}
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            current_path = f"{path}.{key}" if path else key
+            items.update(_flatten(value, current_path))
+    elif isinstance(obj, list):
+        for i, value in enumerate(obj):
+            current_path = f"{path}[{i}]"
+            if isinstance(value, (dict, list)):
+                items.update(_flatten(value, current_path))
+            else:
+                items[current_path] = value
+    else:
+        items[path] = obj
+
+    return items
+
+
 def to_diff(a: dict[str, Any], b: dict[str, Any]) -> Iterator[str]:
     a_str = yaml_safe_dump(a, sort_keys=True)
     b_str = yaml_safe_dump(b, sort_keys=True)
