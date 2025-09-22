@@ -307,7 +307,7 @@ class ExtractionPipelineConfigCRUD(
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> ExtractionPipelineConfigWrite:
         config_raw = resource.get("config")
         if isinstance(config_raw, str):
-            # There might be keyvauls secrets in the config that would lead to parsing errors. The syntax
+            # There might be keyvaults secrets in the config that would lead to parsing errors. The syntax
             # for this is `connection-string: !keyvault secret`. This is not valid YAML, so we need to
             # replace it with `connection-string: keyvault secret` to make it valid.
             config_raw = re.sub(r":\s+!(\w+)", r": \1", config_raw)
