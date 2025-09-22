@@ -37,13 +37,14 @@ class GraphQLDataModelYAML(ToolkitResource):
         description="Description of the data model.",
         max_length=1024,
     )
+    dml: str | None = Field(
+        default=None,
+        description="The path to the graphql file containing the DML schema. If not provided, the file"
+        "is assumed to be named <config_file>.graphql in the same directory as the config file.",
+    )
     previous_version: str | None = Field(
         default=None,
-        description="The previous version of the data model. Used when creating a new version based on the previous version.",
         max_length=43,
         pattern=DM_VERSION_PATTERN,
     )
-    preserve_dml: bool | None = Field(
-        default=None,
-        description="If true, the DML of the previous version is preserved. If false, the DML must be provided.",
-    )
+    preserve_dml: bool | None = None
