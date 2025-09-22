@@ -5,8 +5,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
-from cognite.client.data_classes import ExtractionPipelineConfig
+from cognite.client.data_classes import ExtractionPipelineConfig, ExtractionPipelineConfigWrite
+from rich.console import Console
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
 from cognite_toolkit._cdf_tk.commands import CleanCommand
 from cognite_toolkit._cdf_tk.cruds import (
@@ -140,3 +142,65 @@ class TestExtractionPipelineLoader:
         # Assert that env vars are skipped for this loader
         assert res[0]["config"] == "secret: ${INGESTION_CLIENT_SECRET}"
         assert res[1]["name"] == "this-is-not-a-secret"
+
+
+class TestExtractionPipelineConfigCRUD:
+    def test_load_resource_no_warning_on_keyvault(self) -> None:
+        resource = {
+            "externalId": "ep_src_asset",
+            "config": """azure-keyvault:
+  authentication-method: client-secret
+  keyvault-name: CogniteKeyVault
+  tenant-id: ${AZ_ENTRA_TENANT_ID}
+  client-id: ${AZ_SERVICE_PRINCIPLE_APPLICATION_ID}
+  secret: ${AZ_SERVICE_PRINCIPLE_CLIENT_SECRET}
+databases:
+-   connection-string:  !keyvault value-secret-name
+    name: my_db
+    type: odbc""",
+        }
+        console = MagicMock(spec=Console)
+        print_mock = MagicMock()
+        console.print = print_mock
+        crud = ExtractionPipelineConfigCRUD(MagicMock(spec=ToolkitClient), None, console=console)
+
+        loaded = crud.load_resource(resource)
+
+        assert isinstance(loaded, ExtractionPipelineConfigWrite)
+        # No warning should be printed
+        print_mock.assert_not_called()
+
+    def test_load_resource_invalid_yaml_warning(self) -> None:
+        resource = {
+            "externalId": "ep_src_asset",
+            "config": "invalid-yaml: [unclosed_list",
+        }
+        console = MagicMock(spec=Console)
+        print_mock = MagicMock()
+        console.print = print_mock
+        crud = ExtractionPipelineConfigCRUD(MagicMock(spec=ToolkitClient), None, console=console)
+        loaded = crud.load_resource(resource)
+
+        assert isinstance(loaded, ExtractionPipelineConfigWrite)
+        print_mock.assert_called_once()
+        args, _ = print_mock.call_args
+        _, message = args
+        assert "ep_src_asset" in message
+
+    def test_load_resource_yaml_array(self) -> None:
+        resource = {
+            "externalId": "ep_src_asset",
+            "config": "- item1: value1",
+        }
+        console = MagicMock(spec=Console)
+        print_mock = MagicMock()
+        console.print = print_mock
+        crud = ExtractionPipelineConfigCRUD(MagicMock(spec=ToolkitClient), None, console=console)
+        loaded = crud.load_resource(resource)
+
+        assert isinstance(loaded, ExtractionPipelineConfigWrite)
+        print_mock.assert_called_once()
+        args, _ = print_mock.call_args
+        _, message = args
+        assert "ep_src_asset" in message
+        assert "a valid YAML mapping" in message
