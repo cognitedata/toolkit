@@ -38,7 +38,6 @@ from cognite.client.data_classes.extractionpipelines import (
 )
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
-from rich import print
 
 from cognite_toolkit._cdf_tk._parameters import ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
@@ -103,10 +102,7 @@ class ExtractionPipelineCRUD(
             if data_set_id := {item.data_set_id for item in items if item.data_set_id}:
                 scope = ExtractionPipelinesAcl.Scope.DataSet(list(data_set_id))
 
-        return ExtractionPipelinesAcl(
-            actions,
-            scope,  # type: ignore[arg-type]
-        )
+        return ExtractionPipelinesAcl(actions, scope)
 
     @classmethod
     def get_id(cls, item: ExtractionPipeline | ExtractionPipelineWrite | dict) -> str:
@@ -311,20 +307,38 @@ class ExtractionPipelineConfigCRUD(
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> ExtractionPipelineConfigWrite:
         config_raw = resource.get("config")
         if isinstance(config_raw, str):
-            # There might be keyvauls secrets in the config that would lead to parsing errors. The syntax
+            # There might be keyvaults secrets in the config that would lead to parsing errors. The syntax
             # for this is `connection-string: !keyvault secret`. This is not valid YAML, so we need to
             # replace it with `connection-string: keyvault secret` to make it valid.
-            config_raw = re.sub(r": !(\w+)", r": \1", config_raw)
-            try:
-                read_yaml_content(config_raw)
-            except yaml.YAMLError as e:
-                print(
-                    HighSeverityWarning(
-                        f"Configuration for {resource.get('external_id', 'missing')} could not be parsed "
-                        f"as valid YAML, which is the recommended format. Error: {e}"
-                    ).get_message()
-                )
+            config_raw = re.sub(r":\s+!(\w+)", r": \1", config_raw)
+            self._validate_config(config_raw, resource)
         return ExtractionPipelineConfigWrite._load(resource)
+
+    def _validate_config(self, config_raw: str, resource: dict[str, Any]) -> dict[str, Any]:
+        """The extraction pipeline API specifies config to be a string. However, it should be a valid YAML mapping,
+        so we validate that here and warn if it is not."""
+        try:
+            result = read_yaml_content(config_raw)
+        except yaml.YAMLError as e:
+            id_ = self._get_id(resource, default="missing")
+            HighSeverityWarning(
+                f"Configuration for {id_!r} could not be parsed "
+                f"as valid YAML, which is the recommended format. Error: {e}"
+            ).print_warning(console=self.console)
+        else:
+            if isinstance(result, dict):
+                return result
+            id_ = self._get_id(resource, default="missing")
+            HighSeverityWarning(
+                f"Configuration for {id_!r} is not a valid YAML mapping (dict). Got {type(result).__name__} instead."
+            ).print_warning(console=self.console)
+        return {}
+
+    def _get_id(self, resource: dict[str, Any], default: str) -> str:
+        try:
+            return self.get_id(resource)
+        except (ToolkitRequiredValueError, KeyError):
+            return default
 
     def dump_resource(self, resource: ExtractionPipelineConfig, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
@@ -339,13 +353,7 @@ class ExtractionPipelineConfigCRUD(
             if dumped["config"].strip() == "":
                 dumped["config"] = {}
             else:
-                try:
-                    dumped["config"] = read_yaml_content(dumped["config"])
-                except yaml.YAMLError as e:
-                    HighSeverityWarning(
-                        f"Configuration for {dumped.get('externalId', 'missing')} could not be parsed "
-                        f"as valid YAML, which is the recommended format. Error: {e!s}"
-                    ).print_warning(console=self.console)
+                dumped["config"] = self._validate_config(dumped["config"], dumped)
         return dumped
 
     def diff_list(

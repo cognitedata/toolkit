@@ -96,7 +96,7 @@ class FileMetadataCRUD(
             if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
                 scope = FilesAcl.Scope.DataSet(list(data_set_ids))
 
-        return FilesAcl(actions, scope)  # type: ignore[arg-type]
+        return FilesAcl(actions, scope)
 
     @classmethod
     def get_id(cls, item: FileMetadata | FileMetadataWrite | dict) -> str:
@@ -279,10 +279,7 @@ class CogniteFileCRUD(
                 scope = DataModelInstancesAcl.Scope.SpaceID(list(spaces))
         return [
             FilesAcl(file_actions, FilesAcl.Scope.All()),
-            DataModelInstancesAcl(
-                instance_actions,  # type: ignore[valid-type]
-                scope,  # type: ignore[arg-type]
-            ),
+            DataModelInstancesAcl(instance_actions, scope),
         ]
 
     def dump_resource(self, resource: ExtendableCogniteFile, local: dict[str, Any] | None = None) -> dict[str, Any]:
