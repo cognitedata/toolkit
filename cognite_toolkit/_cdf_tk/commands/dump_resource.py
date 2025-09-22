@@ -52,6 +52,8 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.location_filters import LocationFilterList
+from cognite_toolkit._cdf_tk.client.data_classes.search_config import SearchConfigList
+from cognite_toolkit._cdf_tk.client.data_classes.search_config import ViewId as SearchConfigViewId
 from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import Streamlit, StreamlitList
 from cognite_toolkit._cdf_tk.cruds import (
     AgentCRUD,
@@ -66,6 +68,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     LocationFilterCRUD,
     NodeCRUD,
     ResourceCRUD,
+    SearchConfigCRUD,
     SpaceCRUD,
     StreamlitCRUD,
     TransformationCRUD,
@@ -726,6 +729,36 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
             ).print_warning(console=console)
 
 
+class SearchConfigFinder(ResourceFinder[tuple[SearchConfigViewId, ...]]):
+    def __init__(self, client: ToolkitClient, identifier: tuple[SearchConfigViewId, ...] | None = None):
+        super().__init__(client, identifier)
+        self.search_configs: SearchConfigList | None = None
+
+    def _interactive_select(self) -> tuple[SearchConfigViewId, ...]:
+        self.search_configs = self.client.search.configurations.list()
+        if not self.search_configs:
+            raise ToolkitMissingResourceError("No search configurations found!")
+        choices = [
+            Choice(f"{config.view.external_id} {config.view.space}", value=config.view)
+            for config in self.search_configs
+        ]
+        selected_view_ids: tuple[SearchConfigViewId, ...] | None = questionary.checkbox(
+            "For which view would you like to dump the search configuration?",
+            choices=choices,
+        ).ask()
+        if not selected_view_ids:
+            raise ToolkitValueError("No view selected for dumping the search configuration.")
+        return selected_view_ids
+
+    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
+        self.identifier = self._selected()
+        loader = SearchConfigCRUD.create_loader(self.client)
+        if self.search_configs:
+            yield [], SearchConfigList([sc for sc in self.search_configs if sc.view in self.identifier]), loader, None
+        else:
+            yield list(self.identifier), None, loader, None
+
+
 class DumpResourceCommand(ToolkitCommand):
     def dump_to_yamls(
         self,
@@ -782,4 +815,15 @@ class DumpResourceCommand(ToolkitCommand):
                 if isinstance(finder, StreamlitFinder) and isinstance(resource, Streamlit):
                     finder.dump_code(resource, resource_folder)
                 dumped_ids.append(resource_id)
-        print(Panel(f"Dumped {humanize_collection(dumped_ids)}", title="Success", style="green", expand=False))
+
+        if isinstance(finder, SearchConfigFinder):
+            print(
+                Panel(
+                    f"Dumped search configurations for views {humanize_collection([f'({view.external_id}, {view.space})' for view in dumped_ids])}",  # type: ignore[attr-defined]
+                    title="Success",
+                    style="green",
+                    expand=False,
+                )
+            )
+        else:
+            print(Panel(f"Dumped {humanize_collection(dumped_ids)}", title="Success", style="green", expand=False))
