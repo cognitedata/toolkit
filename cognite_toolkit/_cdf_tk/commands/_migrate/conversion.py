@@ -8,6 +8,7 @@ from cognite.client.data_classes.data_modeling.instances import NodeOrEdgeData, 
 from cognite.client.data_classes.data_modeling.views import ViewProperty
 
 from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId, ViewSource
+from cognite_toolkit._cdf_tk.utils.collection import flatten_dict_json_path
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     asset_centric_convert_to_primary_property,
     convert_to_primary_property,
@@ -159,6 +160,7 @@ def create_properties(
     dumped: dict[str, Any],
     view_properties: dict[str, ViewProperty],
     property_mapping: dict[str, str],
+    resource_type: AssetCentric,
     issue: ConversionIssue,
 ) -> dict[str, PropertyValueWrite]:
     """
@@ -168,16 +170,17 @@ def create_properties(
         dumped: Dict representation of the asset-centric resource.
         view_properties: Defined properties referenced in the view source mapping.
         property_mapping:  Mapping from asset-centric property IDs to data model property IDs.
+        resource_type: The type of the asset-centric resource (e.g., "asset", "timeseries").
         issue: ConversionIssue object to log any issues encountered during conversion.
 
     Returns:
         Dict of property IDs to PropertyValueWrite objects.
 
     """
-    flatten_dump  = flatten_dict(dumped)
-    issue.ignored_asset_centric_properties = set(flatten_dump.keys()) - set(property_mapping.keys())
-    issue.missing_asset_centric_properties = set(property_mapping.keys()) - set(flatten_dump.keys())
-    issue.missing_instance_properties = set(view_properties.keys()) - set(property_mapping.values())
+    flatten_dump = flatten_dict_json_path(dumped)
+    issue.ignored_asset_centric_properties = sorted(set(flatten_dump.keys()) - set(property_mapping.keys()))
+    issue.missing_asset_centric_properties = sorted(set(property_mapping.keys()) - set(flatten_dump.keys()))
+    issue.missing_instance_properties = sorted(set(view_properties.keys()) - set(property_mapping.values()))
 
     properties: dict[str, PropertyValueWrite] = {}
     for prop_json_path, prop_id in property_mapping.items():
@@ -192,13 +195,17 @@ def create_properties(
             )
             continue
         try:
-            value = convert_to_primary_property(
+            value = asset_centric_convert_to_primary_property(
                 flatten_dump[prop_json_path],
                 dm_prop.type,
                 dm_prop.nullable,
+                destination_container_property=(dm_prop.container, dm_prop.container_property_identifier),
+                source_property=(resource_type, prop_json_path),
             )
         except (ValueError, TypeError, NotImplementedError) as e:
-            issue.failed_conversions.append(FailedConversion(property_id=prop_json_path, value=dumped[prop_json_path], error=str(e)))
+            issue.failed_conversions.append(
+                FailedConversion(property_id=prop_json_path, value=dumped[prop_json_path], error=str(e))
+            )
             continue
         properties[prop_id] = value
     return properties
