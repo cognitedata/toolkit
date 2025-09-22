@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from cognite_toolkit._cdf_tk.constants import MODULES
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_classes.graphql_model import GraphQLDataModelYAML
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
@@ -31,7 +32,8 @@ def invalid_test_cases() -> Iterable:
     )
 
 
-class TestGraphQQDataModelYAML:
+@pytest.mark.skipif(not Flags.GRAPHQL.is_enabled(), reason="This is an alpha feature")
+class TestGraphQLDataModelYAML:
     @pytest.mark.parametrize("data", list(find_resources("GraphQLSchema", base=COMPLETE_ORG_ALPHA_FLAGS / MODULES)))
     def test_load_valid(self, data: dict[str, object]) -> None:
         loaded = GraphQLDataModelYAML.model_validate(data)
