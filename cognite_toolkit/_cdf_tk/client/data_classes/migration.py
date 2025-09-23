@@ -290,7 +290,7 @@ class ResourceViewMappingApply(_ResourceViewMapping, TypedNodeApply):
                     "externalId": "CogniteAsset",
                     "version": "v1"
                 },
-                "mapping": {
+                "propertyMapping": {
                     "name": "name"
                 },
             }
@@ -387,5 +387,5 @@ class ResourceViewMapping(_ResourceViewMapping, TypedNode):
         return {
             "resourceType": self.resource_type,
             "viewId": self.view_id.dump(),
-            "mapping": self.property_mapping,
+            "propertyMapping": self.property_mapping,
         }
