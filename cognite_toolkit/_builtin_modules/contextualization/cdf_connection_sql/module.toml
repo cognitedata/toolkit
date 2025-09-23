@@ -10,4 +10,3 @@ location = "cdf_common/data_sets/demo.DataSet.yaml"
 
 [[extra_resources]]
 location = "cdf_common/data_models/demo.Space.yaml"
-
