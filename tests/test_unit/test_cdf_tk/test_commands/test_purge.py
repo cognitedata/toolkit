@@ -246,7 +246,12 @@ class TestPurgeSpace:
     @pytest.mark.usefixtures("disable_gzip")
     @pytest.mark.parametrize("dry_run, include_space", itertools.product([True, False], [True, False]))
     def test_purge(
-        self, dry_run: bool, include_space: bool, purge_client: ToolkitClient, purge_responses: responses.RequestsMock
+        self,
+        dry_run: bool,
+        include_space: bool,
+        purge_client: ToolkitClient,
+        purge_responses: responses.RequestsMock,
+        respx_mock: respx.MockRouter,
     ) -> None:
         config = purge_client.config
         space = "test_space"
@@ -266,7 +271,10 @@ class TestPurgeSpace:
             },
         )
 
-        def delete_callback(request: requests.PreparedRequest) -> tuple[int, dict[str, str], str]:
+        def delete_callback(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, content=request.content)
+
+        def delete_space_callback(request: requests.PreparedRequest) -> tuple[int, dict[str, str], str]:
             return 200, {}, request.body
 
         if not dry_run:
@@ -279,14 +287,15 @@ class TestPurgeSpace:
                 "/models/datamodels/delete",
                 "/models/instances/delete",
             ]
-            if include_space:
-                delete_urls.append("/models/spaces/delete")
             for url in delete_urls:
+                respx.post(config.create_api_url(url)).mock(side_effect=delete_callback)
+            if include_space:
                 rsps.add_callback(
                     method=responses.POST,
-                    url=config.create_api_url(url),
-                    callback=delete_callback,
+                    url=config.create_api_url("/models/spaces/delete"),
+                    callback=delete_space_callback,
                 )
+
             list_calls = [
                 ("/models/containers", responses.GET, Container, container_count),
                 ("/models/views", responses.GET, View, view_count),
