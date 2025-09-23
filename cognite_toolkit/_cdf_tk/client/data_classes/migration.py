@@ -159,7 +159,7 @@ class _ResourceViewMapping:
 
     @classmethod
     def get_source(cls) -> ViewId:
-        return ViewId("cognite_migration", "ViewSource", "v1")
+        return ViewId("cognite_migration", "ResourceViewMapping", "v1")
 
 
 class ResourceViewMappingApply(_ResourceViewMapping, TypedNodeApply):
