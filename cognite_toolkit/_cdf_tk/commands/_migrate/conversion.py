@@ -110,11 +110,9 @@ def create_properties(
 
     """
     flatten_dump = flatten_dict_json_path(dumped, flatten_lists=False)
-    issue.ignored_asset_centric_properties = sorted(set(flatten_dump.keys()) - set(property_mapping.keys()))
-    issue.missing_asset_centric_properties = sorted(set(property_mapping.keys()) - set(flatten_dump.keys()))
-    issue.missing_instance_properties = sorted(set(property_mapping.values()) - set(view_properties.keys()))
 
     properties: dict[str, PropertyValueWrite] = {}
+    ignored_asset_centric_properties: set[str] = set()
     for prop_json_path, prop_id in property_mapping.items():
         if prop_json_path not in flatten_dump:
             continue
@@ -139,5 +137,14 @@ def create_properties(
                 FailedConversion(property_id=prop_json_path, value=flatten_dump[prop_json_path], error=str(e))
             )
             continue
+        if prop_id in properties:
+            ignored_asset_centric_properties.add(prop_json_path)
+            continue
         properties[prop_id] = value
+
+    issue.ignored_asset_centric_properties = sorted(
+        (set(flatten_dump.keys()) - set(property_mapping.keys())) | ignored_asset_centric_properties
+    )
+    issue.missing_asset_centric_properties = sorted(set(property_mapping.keys()) - set(flatten_dump.keys()))
+    issue.missing_instance_properties = sorted(set(property_mapping.values()) - set(view_properties.keys()))
     return properties
