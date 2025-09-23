@@ -63,12 +63,10 @@ class TestAssetCentricMapper:
                         external_id="cdf_asset_mapping",
                         resource_type="asset",
                         view_id=ViewId("cdf_cdm", "CogniteAsset", "v1"),
-                        property_mapping=AssetCentricToViewMapping(
-                            to_property_id={
-                                "name": "name",
-                                "description": "description",
-                            }
-                        ),
+                        property_mapping={
+                            "name": "name",
+                            "description": "description",
+                        },
                         last_updated_time=1,
                         created_time=0,
                         version=1,
