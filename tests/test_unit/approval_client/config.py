@@ -806,7 +806,7 @@ API_RESOURCES = [
         },
     ),
     APIResource(
-        api_name="migration.view_source",
+        api_name="migration.resource_view_mapping",
         resource_cls=ResourceViewMapping,
         list_cls=NodeList[ResourceViewMapping],
         _write_cls=ResourceViewMappingApply,

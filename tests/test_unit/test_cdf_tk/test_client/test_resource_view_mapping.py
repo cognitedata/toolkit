@@ -7,11 +7,7 @@ from cognite.client.data_classes.data_modeling.instances import Node, Properties
 
 from cognite_toolkit._cdf_tk.client.api.extended_data_modeling import ExtendedInstancesAPI
 from cognite_toolkit._cdf_tk.client.api.migration import ResourceViewMappingAPI
-from cognite_toolkit._cdf_tk.client.data_classes.migration import (
-    AssetCentricToViewMapping,
-    ResourceViewMapping,
-    ResourceViewMappingApply,
-)
+from cognite_toolkit._cdf_tk.client.data_classes.migration import ResourceViewMapping, ResourceViewMappingApply
 from cognite_toolkit._cdf_tk.constants import COGNITE_MIGRATION_SPACE
 
 
@@ -27,12 +23,10 @@ class TestViewSource:
             external_id="asset_mapping",
             resource_type="asset",
             view_id=ViewId("cdf_cdm", "CogniteAsset", "v1"),
-            mapping=AssetCentricToViewMapping(
-                to_property_id={
-                    "name": "name",
-                    "description": "description",
-                }
-            ),
+            property_mapping={
+                "name": "name",
+                "description": "description",
+            },
         )
         _ = view_source_api.upsert(view_source)
 
@@ -50,7 +44,7 @@ class TestViewSource:
             created_time=1000,
             resource_type="asset",
             view_id=ViewId("cdf_cdm", "CogniteAsset", "v1"),
-            property_mapping=AssetCentricToViewMapping(to_property_id={"name": "name"}),
+            property_mapping={"name": "name"},
         )
         instance_api.retrieve_nodes.return_value = mock_view_source
 
@@ -77,7 +71,7 @@ class TestViewSource:
                         ResourceViewMappingApply.get_source(): {
                             "resourceType": "asset",
                             "viewId": ViewId("cdf_cdm", "CogniteAsset", "v1").dump(),
-                            "mapping": {"toPropertyId": {"name": "name"}},
+                            "propertyMapping": {"name": "name"},
                         }
                     }
                 ),
@@ -124,7 +118,7 @@ class TestViewSource:
                         ResourceViewMappingApply.get_source(): {
                             "resourceType": "asset",
                             "viewId": ViewId("cdf_cdm", "CogniteAsset", "v1").dump(),
-                            "mapping": {"toPropertyId": {"name": "name"}},
+                            "propertyMapping": {"name": "name"},
                         }
                     }
                 ),
@@ -137,7 +131,7 @@ class TestViewSource:
                         ResourceViewMappingApply.get_source(): {
                             "resourceType": "asset",
                             "viewId": "invalid_view_id_format",
-                            "mapping": {"Not a valid mapping": {"name": "name"}},
+                            "propertyMapping": {"Not a valid mapping": {"name": "name"}},
                         }
                     }
                 ),
