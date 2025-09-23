@@ -326,14 +326,14 @@ class TestAssetCentricConversion:
                     asset_centric_id=AssetCentricId("event", id_=789),
                     instance_id=INSTANCE_ID,
                     ignored_asset_centric_properties=["description"],
-                    missing_asset_centric_properties=["missing_prop", "metadata.missingMetaProp"],
-                    missing_instance_properties=["missingDMProp"],
+                    missing_asset_centric_properties=["metadata.missingMetaProp", "missing_prop"],
+                    missing_instance_properties=["anotherMissingDMProp", "missingDMProp", "targetProp"],
                     invalid_instance_property_types=[
                         InvalidPropertyDataType(property_id="some_other_event", expected_type="MappedProperty")
                     ],
                     failed_conversions=[
                         FailedConversion(
-                            property_id="value",
+                            property_id="metadata.value",
                             value="invalid_int",
                             error="Cannot convert invalid_int to int64.",
                         )
