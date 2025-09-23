@@ -28,12 +28,12 @@ DataSet:
 - description: This dataset is used for all the resources in the complete_org.
   externalId: ds_complete_org
   name: Example dataset.
-FileLoader:
+FileCRUD:
 - externalId: MyExtendedFile
-  filehash: 5e6be7b4
+  filehash: c7fbc0e8
   space: sp_nodes
 - external_id: shopConfigFile
-  filehash: 09d16fb3
+  filehash: b1f3b6ef
 FileMetadata:
 - dataSetId: 7982613576047462211
   directory: /files
@@ -49,7 +49,7 @@ Function:
   fileId: -1
   functionPath: handler.py
   metadata:
-    cognite-toolkit-hash: /=ddc72a0f;handler.py=6596f06a;other_module.py=9bf3de91;requirements.txt=8359cc6a
+    cognite-toolkit-hash: /=7cf06c9d;handler.py=6596f06a;other_module.py=9bf3de91;requirements.txt=c7e9925f
     version: '1'
   name: Multi File Function
   owner: doctrino
@@ -146,6 +146,41 @@ Node:
       type: view
       version: v1
   space: cognite_migration
+SearchConfig:
+- columnsLayout:
+  - property: title
+    selected: true
+  - property: summary
+    selected: true
+  - property: status
+    selected: false
+  filterLayout:
+  - disabled: false
+    property: status
+  - disabled: false
+    property: category
+  propertiesLayout:
+  - hidden: false
+    property: title
+  - hidden: false
+    property: summary
+  - hidden: true
+    property: description
+  useAsDescription: summary
+  useAsName: title
+  view:
+    externalId: complex-view
+    space: complex-space
+- columnsLayout:
+  - property: name
+    selected: true
+  - property: description
+    selected: true
+  useAsDescription: description
+  useAsName: name
+  view:
+    externalId: test-view
+    space: test-space
 Space:
 - space: sp_instance
 - space: sp_schema

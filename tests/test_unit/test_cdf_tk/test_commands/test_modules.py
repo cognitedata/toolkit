@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import zipfile
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -16,6 +17,7 @@ from cognite_toolkit._cdf_tk.commands.modules import ModulesCommand
 from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH
 from cognite_toolkit._cdf_tk.data_classes import Package, Packages
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError
+from cognite_toolkit._cdf_tk.tk_warnings.other import HighSeverityWarning
 from tests.data import EXTERNAL_PACKAGE
 from tests.test_unit.utils import MockQuestionary
 
@@ -235,8 +237,9 @@ class TestModulesCommand:
         file_path.write_text(valid_toml_content)
 
         with ModulesCommand() as cmd:
-            packs, _ = cmd._get_available_packages()
+            packs, location = cmd._get_available_packages()
             assert "quickstart" in packs
+            assert location == BUILTIN_MODULES_PATH
 
     def test_download_success(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         dummy_file_content = b"PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
@@ -422,3 +425,22 @@ class TestModulesCommand:
         import shutil
 
         shutil.rmtree(mock_module_dir)
+
+    def test_checksum_mismatch_prints_warning(self, tmp_path: Path, capsys) -> None:
+        file_path = tmp_path / "mismatch.zip"
+        # Write some bytes so we get a deterministic SHA256
+        file_bytes = b"dummy-bytes-for-checksum-test"
+        file_path.write_bytes(file_bytes)
+
+        # Intentionally use a different checksum than the file's actual hash
+        wrong_checksum = "sha256:" + hashlib.sha256(b"some-other-content").hexdigest()
+
+        cmd = ModulesCommand(print_warning=True, skip_tracking=True)
+        cmd._validate_checksum(wrong_checksum, file_path)
+
+        assert len(cmd.warning_list) == 1
+        warning = cmd.warning_list[0]
+        assert isinstance(warning, HighSeverityWarning)
+        # Expect: two SHA256 hex hashes in the message, one for provided and one for calculated
+        pattern = r"^The provided checksum sha256:[0-9a-f]{64} does not match downloaded file hash sha256:[0-9a-f]{64}"
+        assert re.search(pattern, warning.message_raw)

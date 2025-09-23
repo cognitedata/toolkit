@@ -113,7 +113,7 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
             while True:
                 current_calls = {
                     #
-                    executor.submit(self.create_api_callable(row, col, client)): (row, col)  # type: ignore[arg-type]
+                    executor.submit(self.create_api_callable(row, col, client)): (row, col)
                     for (row, col), cell in table.items()
                     if cell is WaitingAPICall
                 }

@@ -1,0 +1,90 @@
+name: agent123
+description: agent123
+instructions: '- Be polite - Be honest about your limitations - Be brief with your
+  answers, unless asked for more details'
+model: azure/gpt-4o
+exampleQuestions:
+- question: What are the critical workorders?
+tools:
+- name: find_assets
+  description: Use this tool to get information about assets.
+  configuration:
+    dataModels:
+    - space: cdf_cdm
+      externalId: CogniteCore
+      version: v1
+      viewExternalIds:
+      - CogniteAsset
+    instanceSpaces:
+      type: all
+  type: queryKnowledgeGraph
+- name: find_maintenance_orders
+  description: Use this tool to get information about maintenance orders, often called
+    work orders.
+  configuration:
+    dataModels:
+    - space: sp_model_adnoc_app
+      externalId: ADNOCApplication
+      version: v1
+      viewExternalIds:
+      - MaintenanceOrder
+    instanceSpaces:
+      type: manual
+      spaces:
+      - sp_model_adnoc_app
+  type: queryKnowledgeGraph
+- name: Find notifications
+  description: Use this tool to get information about notifications.
+  configuration:
+    dataModels:
+    - space: sp_model_adnoc_app
+      externalId: ADNOCApplication
+      version: v1
+      viewExternalIds:
+      - Notification
+    instanceSpaces:
+      type: all
+  type: queryKnowledgeGraph
+- name: Ask documents
+  description: Documents Question Answering. This function is used to get the answer
+    to a question from a document, perform semantic search on the documents.
+  type: askDocument
+- name: Find files
+  description: Use this tool to get information about files. The space and external
+    id of files can be used as instance id in Doc Q&A and Doc summarization tools.
+  configuration:
+    dataModels:
+    - space: cdf_cdm
+      externalId: CogniteCore
+      version: v1
+      viewExternalIds:
+      - CogniteFile
+    instanceSpaces:
+      type: all
+  type: queryKnowledgeGraph
+- name: Find alerts
+  description: Find alert information for a specific asset. Use this tool give alert
+    information to the user.
+  configuration:
+    dataModels:
+    - space: sp_model_adnoc_app
+      externalId: ADNOCApplication
+      version: v1
+      viewExternalIds:
+      - Alert
+    instanceSpaces:
+      type: all
+  type: queryKnowledgeGraph
+- name: Find BoschLeakagefault
+  description: use This tool to find fault and descriptions of the fault, coming from
+    the bosch system.
+  configuration:
+    dataModels:
+    - space: sp_model_adnoc_app
+      externalId: ADNOCApplication
+      version: v1
+      viewExternalIds:
+      - BoschLeakageFault
+    instanceSpaces:
+      type: all
+  type: queryKnowledgeGraph

@@ -1,6 +1,8 @@
+import itertools
 from collections.abc import Iterator
 
 import pytest
+import requests
 import responses
 from cognite.client.data_classes.capabilities import (
     DataModelInstancesAcl,
@@ -9,11 +11,18 @@ from cognite.client.data_classes.capabilities import (
     TimeSeriesAcl,
 )
 from cognite.client.data_classes.data_modeling import (
+    Container,
+    DataModel,
+    Edge,
+    Node,
     NodeId,
     NodeList,
+    Space,
+    View,
     ViewId,
 )
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFile, CogniteTimeSeries
+from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.extended_filemetadata import (
@@ -22,6 +31,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.extended_filemetadata import (
 from cognite_toolkit._cdf_tk.client.data_classes.extended_timeseries import ExtendedTimeSeries
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
 from cognite_toolkit._cdf_tk.storageio import InstanceViewSelector
+from tests.test_unit.utils import FakeCogniteResourceGenerator
 
 
 @pytest.fixture(scope="session")
@@ -113,7 +123,9 @@ def purge_responses(
                 },
                 {
                     "projectScope": {"allProjects": {}},
-                    **DataModelsAcl(actions=[DataModelsAcl.Action.Read], scope=DataModelsAcl.Scope.All()).dump(),
+                    **DataModelsAcl(
+                        actions=[DataModelsAcl.Action.Read, DataModelsAcl.Action.Write], scope=DataModelsAcl.Scope.All()
+                    ).dump(),
                 },
                 {
                     "projectScope": {"allProjects": {}},
@@ -213,7 +225,7 @@ class TestPurgeInstances:
             )
 
         cmd = PurgeCommand(silent=True)
-        cmd.instances(
+        result = cmd.instances(
             client,
             InstanceViewSelector(view=ViewId(space="cdf_cdm", external_id="CogniteTimeSeries", version="v1")),
             dry_run=dry_run,
@@ -221,3 +233,87 @@ class TestPurgeInstances:
             unlink=unlink,
             verbose=False,
         )
+        assert result.deleted == 2000
+
+
+class TestPurgeSpace:
+    @pytest.mark.usefixtures("disable_gzip")
+    @pytest.mark.parametrize("dry_run, include_space", itertools.product([True, False], [True, False]))
+    def test_purge(
+        self, dry_run: bool, include_space: bool, purge_client: ToolkitClient, purge_responses: responses.RequestsMock
+    ) -> None:
+        config = purge_client.config
+        space = "test_space"
+        rsps = purge_responses
+        container_count = 10
+        view_count = 15
+        data_model_count = 3
+        edge_count = 40
+        node_count = 50
+        rsps.add(
+            responses.POST,
+            config.create_api_url("/models/statistics/spaces/byids"),
+            json={
+                "items": SpaceStatistics(
+                    space, container_count, view_count, data_model_count, edge_count, 0, node_count, 0
+                ).dump()
+            },
+        )
+
+        def delete_callback(request: requests.PreparedRequest) -> tuple[int, dict[str, str], str]:
+            return 200, {}, request.body
+
+        if not dry_run:
+            gen = FakeCogniteResourceGenerator(seed=42)
+            space_obj = gen.create_instance(Space)
+            space_obj.space = space
+            delete_urls = [
+                "/models/containers/delete",
+                "/models/views/delete",
+                "/models/datamodels/delete",
+                "/models/instances/delete",
+            ]
+            if include_space:
+                delete_urls.append("/models/spaces/delete")
+            for url in delete_urls:
+                rsps.add_callback(
+                    method=responses.POST,
+                    url=config.create_api_url(url),
+                    callback=delete_callback,
+                )
+            list_calls = [
+                ("/models/containers", responses.GET, Container, container_count),
+                ("/models/views", responses.GET, View, view_count),
+                ("/models/datamodels", responses.GET, DataModel, data_model_count),
+                ("/models/instances/list", responses.POST, Edge, edge_count),
+                ("/models/instances/list", responses.POST, Node, node_count),
+            ]
+            if include_space:
+                list_calls.append(("/models/spaces/byids", responses.POST, Space, 1))
+            for url, method, cls_, count in list_calls:
+                rsps.add(
+                    method=method,
+                    url=config.create_api_url(url),
+                    json={"items": [gen.create_instance(cls_).dump() for _ in range(count)]},
+                )
+
+        cmd = PurgeCommand(silent=True)
+        results = cmd.space_v2(
+            purge_client,
+            "test_space",
+            include_space=include_space,
+            dry_run=dry_run,
+            auto_yes=True,
+            verbose=False,
+        )
+        expected = {
+            "containers": container_count,
+            "views": view_count,
+            "data models": data_model_count,
+            "edges": edge_count,
+            "nodes": node_count,
+        }
+        if include_space:
+            expected["spaces"] = 1
+
+        assert {name: value.deleted for name, value in results.data.items()} == expected

@@ -7,7 +7,7 @@ from typing import Literal, TypeAlias
 from cognite.client.data_classes.data_modeling import ContainerId
 
 try:
-    from pyodide.ffi import IN_BROWSER  # type: ignore [import-not-found]
+    from pyodide.ffi import IN_BROWSER
 except ModuleNotFoundError:
     IN_BROWSER = False
 # This is the default config located locally in each module.
@@ -81,6 +81,7 @@ EnvType: TypeAlias = Literal["dev", "test", "staging", "qa", "prod"]
 USE_SENTRY = "pytest" not in sys.modules and os.environ.get("SENTRY_ENABLED", "true").lower() == "true"
 SPACE_FORMAT_PATTERN = r"^[a-zA-Z][a-zA-Z0-9_-]{0,41}[a-zA-Z0-9]?$"
 DM_EXTERNAL_ID_PATTERN = r"^[a-zA-Z]([a-zA-Z0-9_]{0,253}[a-zA-Z0-9])?$"
+INSTANCE_EXTERNAL_ID_PATTERN = r"^[^\\x00]{1,256}$"
 FORBIDDEN_SPACES = frozenset(["space", "cdf", "dms", "pg3", "shared", "system", "node", "edge"])
 FORBIDDEN_CONTAINER_AND_VIEW_EXTERNAL_IDS = frozenset(
     [

@@ -20,6 +20,17 @@ from rich.panel import Panel
 from cognite_toolkit._cdf_tk.builders import create_builder
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import BUILD_ENVIRONMENT_FILE, ENV_VAR_PATTERN
+from cognite_toolkit._cdf_tk.cruds import (
+    ExtractionPipelineConfigCRUD,
+    FunctionCRUD,
+    GraphQLLoader,
+    GroupAllScopedCRUD,
+    HostedExtractorDestinationCRUD,
+    HostedExtractorSourceCRUD,
+    ResourceCRUD,
+    StreamlitCRUD,
+)
+from cognite_toolkit._cdf_tk.cruds._base_cruds import T_ID, T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
     BuildVariable,
@@ -33,17 +44,6 @@ from cognite_toolkit._cdf_tk.data_classes import (
     YAMLComments,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitMissingResourceError, ToolkitValueError
-from cognite_toolkit._cdf_tk.loaders import (
-    ExtractionPipelineConfigLoader,
-    FunctionLoader,
-    GraphQLLoader,
-    GroupAllScopedLoader,
-    HostedExtractorDestinationLoader,
-    HostedExtractorSourceLoader,
-    ResourceLoader,
-    StreamlitLoader,
-)
-from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     YAMLComment,
@@ -504,7 +504,7 @@ class PullCommand(ToolkitCommand):
 
         results = DeployResults([], action="pull", dry_run=dry_run)
         for loader_cls in selected_loaders:
-            if not issubclass(loader_cls, ResourceLoader):
+            if not issubclass(loader_cls, ResourceCRUD):
                 continue
             loader = loader_cls.create_loader(client, build_dir)
             resources: BuiltFullResourceList[T_ID] = built_modules.get_resources(  # type: ignore[valid-type]
@@ -516,12 +516,12 @@ class PullCommand(ToolkitCommand):
             )
             if not resources:
                 continue
-            if isinstance(loader, HostedExtractorSourceLoader | HostedExtractorDestinationLoader):
+            if isinstance(loader, HostedExtractorSourceCRUD | HostedExtractorDestinationCRUD):
                 self.warn(
                     LowSeverityWarning(f"Skipping {loader.display_name} as it is not supported by the pull command.")
                 )
                 continue
-            if isinstance(loader, GraphQLLoader | FunctionLoader | StreamlitLoader):
+            if isinstance(loader, GraphQLLoader | FunctionCRUD | StreamlitCRUD):
                 self.warn(
                     LowSeverityWarning(
                         f"Skipping {loader.display_name} as it is not supported by the pull command due to"
@@ -529,7 +529,7 @@ class PullCommand(ToolkitCommand):
                     )
                 )
                 continue
-            if isinstance(loader, GroupAllScopedLoader):
+            if isinstance(loader, GroupAllScopedCRUD):
                 # We have two loaders for Groups. We skip this one and
                 # only use the GroupResourceScopedLoader
                 continue
@@ -542,14 +542,14 @@ class PullCommand(ToolkitCommand):
 
     def _pull_resources(
         self,
-        loader: ResourceLoader[
+        loader: ResourceCRUD[
             T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
         ],
         resources: BuiltFullResourceList[T_ID],
         dry_run: bool,
         environment_variables: dict[str, str | None],
     ) -> ResourceDeployResult:
-        cdf_resources = loader.retrieve(resources.identifiers)  # type: ignore[arg-type]
+        cdf_resources = loader.retrieve(resources.identifiers)
         cdf_resource_by_id: dict[T_ID, T_WritableCogniteResource] = {loader.get_id(r): r for r in cdf_resources}
 
         resources_by_file = resources.by_file()
@@ -560,7 +560,7 @@ class PullCommand(ToolkitCommand):
             has_changes, to_write = self._get_to_write(local_resource_by_id, cdf_resource_by_id, file_results, loader)
 
             if has_changes and not dry_run:
-                new_content, extra_files = self._to_write_content(  # type: ignore[arg-type]
+                new_content, extra_files = self._to_write_content(
                     safe_read(source_file), to_write, resources, environment_variables, loader
                 )
                 with source_file.open("w", encoding=ENCODING, newline=NEWLINE) as f:
@@ -576,7 +576,7 @@ class PullCommand(ToolkitCommand):
         local_resource_by_id: dict[T_ID, dict[str, Any]],
         cdf_resource_by_id: dict[T_ID, T_WritableCogniteResource],
         file_results: ResourceDeployResult,
-        loader: ResourceLoader[
+        loader: ResourceCRUD[
             T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
         ],
     ) -> tuple[bool, dict[T_ID, dict[str, Any]]]:
@@ -607,7 +607,7 @@ class PullCommand(ToolkitCommand):
     @staticmethod
     def _get_local_resource_dict_by_id(
         resources: BuiltFullResourceList[T_ID],
-        loader: ResourceLoader[
+        loader: ResourceCRUD[
             T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
         ],
         environment_variables: dict[str, str | None],
@@ -625,7 +625,7 @@ class PullCommand(ToolkitCommand):
 
     @staticmethod
     def _select_resource_ids(
-        all_: bool, id_: T_ID, loader: ResourceLoader, local_resources: BuiltFullResourceList, organization_dir: Path
+        all_: bool, id_: T_ID, loader: ResourceCRUD, local_resources: BuiltFullResourceList, organization_dir: Path
     ) -> BuiltFullResourceList[T_ID]:
         if all_:
             return local_resources
@@ -646,7 +646,7 @@ class PullCommand(ToolkitCommand):
         to_write: dict[T_ID, dict[str, Any]],
         resources: BuiltFullResourceList[T_ID],
         environment_variables: dict[str, str | None],
-        loader: ResourceLoader[
+        loader: ResourceCRUD[
             T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
         ],
     ) -> tuple[str, dict[Path, str]]:
@@ -686,7 +686,7 @@ class PullCommand(ToolkitCommand):
         comments = YAMLComments.load(source)
         # If there is a variable in the identifier, we need to replace it with the value
         # such that we can look it up in the to_write dict.
-        if isinstance(loader, ExtractionPipelineConfigLoader):
+        if isinstance(loader, ExtractionPipelineConfigCRUD):
             # The safe read in ExtractionPipelineConfigLoader stringifies the config dict,
             # but we need to load it as a dict so we can write it back to the file maintaining
             # the order or the keys.
@@ -774,7 +774,7 @@ class ResourceReplacer:
     The local resource dict order is maintained. In addition, placeholders are used for variables.
     """
 
-    def __init__(self, value_by_placeholder: dict[str, BuildVariable], loader: ResourceLoader) -> None:
+    def __init__(self, value_by_placeholder: dict[str, BuildVariable], loader: ResourceCRUD) -> None:
         self._value_by_placeholder = value_by_placeholder
         self._loader = loader
 

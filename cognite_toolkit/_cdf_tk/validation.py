@@ -1,16 +1,16 @@
 import inspect
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 from cognite.client.data_classes._base import CogniteObject
 from cognite.client.utils._text import to_camel_case, to_snake_case
-from pydantic import TypeAdapter, ValidationError
+from pydantic import BaseModel, TypeAdapter, ValidationError
 from pydantic_core import ErrorDetails
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameters_from_dict
+from cognite_toolkit._cdf_tk.cruds import NodeCRUD
 from cognite_toolkit._cdf_tk.data_classes import BuildVariables
-from cognite_toolkit._cdf_tk.loaders import NodeLoader
 from cognite_toolkit._cdf_tk.resource_classes import BaseModelResource
 from cognite_toolkit._cdf_tk.tk_warnings import (
     CaseTypoWarning,
@@ -20,10 +20,12 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     UnusedParameterWarning,
     WarningList,
 )
+from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 
 __all__ = ["validate_data_set_is_set", "validate_modules_variables", "validate_resource_yaml"]
 
-from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
+
+T_BaseModel = TypeVar("T_BaseModel", bound=BaseModel)
 
 
 def validate_modules_variables(variables: BuildVariables, filepath: Path) -> WarningList:
@@ -73,7 +75,7 @@ def validate_data_set_is_set(
 def validate_resource_yaml(
     data: dict | list, spec: ParameterSpecSet, source_file: Path, element: int | None = None
 ) -> WarningList:
-    if spec.spec_name == NodeLoader.__name__:
+    if spec.spec_name == NodeCRUD.__name__:
         # Special case for NodeLoader as it has options for API call parameters
         if isinstance(data, list):
             return _validate_resource_yaml(data, spec, source_file)
@@ -147,6 +149,26 @@ def validate_resource_yaml_pydantic(
     else:
         raise ValueError(f"Expected a dictionary or list of dictionaries, got {type(data)}.")
     return warning_list
+
+
+def instantiate_class(
+    data: dict[str, Any], validation_cls: type[T_BaseModel], source_file: Path, strict: bool = False
+) -> T_BaseModel | ResourceFormatWarning:
+    """Instantiates a class from a dictionary using the given pydantic model.
+
+    Args:
+        data: The data to instantiate the class from.
+        validation_cls: The pydantic model to use for instantiation.
+        source_file: The source file of the resource.
+        strict: Whether to enforce types strictly.
+
+    Returns:
+        The instantiated class or a ResourceFormatWarning if validation failed.
+    """
+    try:
+        return validation_cls.model_validate(data, strict=strict)
+    except ValidationError as e:
+        return ResourceFormatWarning(source_file, tuple(_humanize_validation_error(e)))
 
 
 def _humanize_validation_error(error: ValidationError) -> list[str]:

@@ -88,7 +88,7 @@ except AttributeError as e:
 _app = CoreApp(**default_typer_kws)
 
 user_app = typer.Typer(**default_typer_kws, hidden=True)  # type: ignore [arg-type]
-landing_app = LandingApp(**default_typer_kws)  # type: ignore [arg-type]
+landing_app = LandingApp(**default_typer_kws)
 
 _app.add_typer(AuthApp(**default_typer_kws), name="auth")
 if Plugins.run.value.is_enabled():
