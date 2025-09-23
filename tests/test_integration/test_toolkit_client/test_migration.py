@@ -81,20 +81,20 @@ class TestViewSourceAPI:
 
         created: ResourceViewMapping | None = None
         try:
-            created = toolkit_client.migration.view_source.upsert(source)
+            created = toolkit_client.migration.resource_view_mapping.upsert(source)
 
             assert created.external_id == source.external_id
 
-            retrieved = toolkit_client.migration.view_source.retrieve(source.external_id)
+            retrieved = toolkit_client.migration.resource_view_mapping.retrieve(source.external_id)
 
             assert retrieved.external_id == source.external_id
 
-            listed = toolkit_client.migration.view_source.list(resource_type="asset")
+            listed = toolkit_client.migration.resource_view_mapping.list(resource_type="asset")
             assert len(listed) > 0
             existing = {vs.external_id for vs in listed}
             assert source.external_id in existing, "Expected the created view source to be listed"
 
-            deleted = toolkit_client.migration.view_source.delete(source.external_id)
+            deleted = toolkit_client.migration.resource_view_mapping.delete(source.external_id)
 
             assert deleted == created.as_id(), "Expected the deleted view source to match the created one"
         finally:

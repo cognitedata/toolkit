@@ -66,16 +66,16 @@ class ViewSourceCRUD(
         )
 
     def create(self, items: NodeApplyList) -> Sized:
-        return self.client.migration.view_source.upsert(items)
+        return self.client.migration.resource_view_mapping.upsert(items)
 
     def update(self, items: NodeApplyList) -> Sized:
-        return self.client.migration.view_source.upsert(items)
+        return self.client.migration.resource_view_mapping.upsert(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> NodeList[ResourceViewMapping]:
-        return self.client.migration.view_source.retrieve(external_id=ids)
+        return self.client.migration.resource_view_mapping.retrieve(external_id=ids)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
-        result = self.client.migration.view_source.delete(external_id=ids)
+        result = self.client.migration.resource_view_mapping.delete(external_id=ids)
         return len(result)
 
     def _iterate(
@@ -85,7 +85,7 @@ class ViewSourceCRUD(
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[ResourceViewMapping]:
         if space == COGNITE_MIGRATION_SPACE:
-            return self.client.migration.view_source.list(limit=-1)
+            return self.client.migration.resource_view_mapping.list(limit=-1)
         else:
             return []
 

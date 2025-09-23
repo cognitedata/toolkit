@@ -53,7 +53,7 @@ class AssetCentricMapper(DataMapper[MigrationSelector, AssetCentricMappingList, 
 
     def prepare(self, source_selector: MigrationSelector) -> None:
         ingestion_view_ids = source_selector.get_ingestion_views()
-        ingestion_views = self.client.migration.view_source.retrieve(ingestion_view_ids)
+        ingestion_views = self.client.migration.resource_view_mapping.retrieve(ingestion_view_ids)
         self._view_mapping_by_id = {view.external_id: view for view in ingestion_views}
         missing_mappings = set(ingestion_view_ids) - set(self._view_mapping_by_id.keys())
         if missing_mappings:

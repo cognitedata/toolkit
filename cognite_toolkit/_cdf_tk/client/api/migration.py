@@ -73,8 +73,8 @@ class InstanceSourceAPI:
         return filters.Or(*to_or_filters)
 
 
-class ViewSourceAPI:
-    """API for retrieving view sources from the data model."""
+class ResourceViewMappingAPI:
+    """API for retrieving resource view mapping from the data model."""
 
     def __init__(self, instance_api: ExtendedInstancesAPI) -> None:
         self._instance_api = instance_api
@@ -176,4 +176,4 @@ class ViewSourceAPI:
 class MigrationAPI:
     def __init__(self, instance_api: ExtendedInstancesAPI) -> None:
         self.instance_source = InstanceSourceAPI(instance_api)
-        self.view_source = ViewSourceAPI(instance_api)
+        self.resource_view_mapping = ResourceViewMappingAPI(instance_api)
