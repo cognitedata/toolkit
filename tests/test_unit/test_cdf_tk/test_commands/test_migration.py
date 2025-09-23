@@ -487,7 +487,7 @@ class TestAssetCentricConversion:
                     ignored_asset_centric_properties=[],
                     # Name and description set to None is the same as missing as we have now way of knowing
                     # whether they were explicitly set to None or just not set at all.
-                    missing_asset_centric_properties=["name", "description"],
+                    missing_asset_centric_properties=["description", "name"],
                     missing_instance_properties=[],
                 ),
                 id="Asset with non-nullable properties all None",
@@ -520,8 +520,6 @@ class TestAssetCentricConversion:
                     asset_centric_id=AssetCentricId("event", id_=999),
                     instance_id=INSTANCE_ID,
                     ignored_asset_centric_properties=["metadata.category"],
-                    missing_asset_centric_properties=[],
-                    missing_instance_properties=[],
                 ),
                 id="Event with overlapping property and metadata mapping (property takes precedence)",
             ),
