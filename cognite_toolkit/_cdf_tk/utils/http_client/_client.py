@@ -1,6 +1,5 @@
 import gzip
 import random
-import socket
 import sys
 import time
 from collections import deque
@@ -256,18 +255,11 @@ class HTTPClient:
         e: Exception,
         request: RequestMessage,
     ) -> Sequence[HTTPMessage]:
-        if self._any_exception_in_context_isinstance(e, (socket.timeout, httpx.ReadTimeout, httpx.TimeoutException)):
+        if isinstance(e, httpx.ReadTimeout | httpx.TimeoutException):
             error_type = "read"
             request.read_attempt += 1
             attempts = request.read_attempt
-        elif self._any_exception_in_context_isinstance(
-            e,
-            (
-                ConnectionError,
-                httpx.ConnectError,
-                httpx.ConnectTimeout,
-            ),
-        ):
+        elif isinstance(e, ConnectionError | httpx.ConnectError | httpx.ConnectTimeout):
             error_type = "connect"
             request.connect_attempt += 1
             attempts = request.connect_attempt
@@ -283,16 +275,3 @@ class HTTPClient:
             error_msg = f"RequestException after {request.total_attempts - 1} attempts ({error_type} error): {e!s}"
 
             return request.create_failed_request(error_msg)
-
-    @classmethod
-    def _any_exception_in_context_isinstance(
-        cls, exc: BaseException, exc_types: tuple[type[BaseException], ...] | type[BaseException]
-    ) -> bool:
-        """requests does not use the "raise ... from ..." syntax, so we need to access the underlying exceptions using
-        the __context__ attribute.
-        """
-        if isinstance(exc, exc_types):
-            return True
-        if exc.__context__ is None:
-            return False
-        return cls._any_exception_in_context_isinstance(exc.__context__, exc_types)
