@@ -15,7 +15,11 @@ from cognite.client.data_classes.data_modeling.statistics import InstanceStatist
 
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.base import BaseMigrateCommand
-from cognite_toolkit._cdf_tk.commands._migrate.data_model import INSTANCE_SOURCE_VIEW_ID, MODEL_ID, VIEW_SOURCE_VIEW_ID
+from cognite_toolkit._cdf_tk.commands._migrate.data_model import (
+    INSTANCE_SOURCE_VIEW_ID,
+    MODEL_ID,
+    RESOURCE_VIEW_MAPPING_VIEW_ID,
+)
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitMigrationError, ToolkitValueError
 
 
@@ -117,7 +121,7 @@ class TestBaseCommand:
             model = MagicMock(spec=DataModel)
             model.as_id.return_value = MODEL_ID
             # Model has all required views
-            model.views = [INSTANCE_SOURCE_VIEW_ID, VIEW_SOURCE_VIEW_ID]
+            model.views = [INSTANCE_SOURCE_VIEW_ID, RESOURCE_VIEW_MAPPING_VIEW_ID]
 
             client.data_modeling.data_models.retrieve.return_value = DataModelList([model])
 
