@@ -815,15 +815,4 @@ class DumpResourceCommand(ToolkitCommand):
                 if isinstance(finder, StreamlitFinder) and isinstance(resource, Streamlit):
                     finder.dump_code(resource, resource_folder)
                 dumped_ids.append(resource_id)
-
-        if isinstance(finder, SearchConfigFinder):
-            print(
-                Panel(
-                    f"Dumped search configurations for views {humanize_collection([f'({view.external_id}, {view.space})' for view in dumped_ids])}",  # type: ignore[attr-defined]
-                    title="Success",
-                    style="green",
-                    expand=False,
-                )
-            )
-        else:
-            print(Panel(f"Dumped {humanize_collection(dumped_ids)}", title="Success", style="green", expand=False))
+        print(Panel(f"Dumped {humanize_collection(dumped_ids)}", title="Success", style="green", expand=False))
