@@ -27,7 +27,7 @@ from cognite.client.data_classes._base import (
 from cognite.client.data_classes.agents import (
     AgentList,
 )
-from cognite.client.data_classes.data_modeling import DataModelId
+from cognite.client.data_classes.data_modeling import DataModelId, SpaceList
 from cognite.client.data_classes.documents import SourceFileProperty
 from cognite.client.data_classes.extractionpipelines import ExtractionPipelineConfigList
 from cognite.client.data_classes.functions import (
@@ -724,6 +724,37 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
                 f"The Streamlit app {app.external_id!r} has an entry point {entry_point} that was not found in the files. "
                 "The app may be corrupted."
             ).print_warning(console=console)
+
+
+class SpaceFinder(ResourceFinder[tuple[str, ...]]):
+    def __init__(self, client: ToolkitClient, identifier: tuple[str, ...] | None = None):
+        super().__init__(client, identifier)
+        self.spaces: SpaceList | None = None
+
+    def _interactive_select(self) -> tuple[str, ...]:
+        self.spaces = self.client.data_modeling.spaces.list(limit=-1)
+        if not self.spaces:
+            raise ToolkitMissingResourceError("No spaces found!")
+        choices = [Choice(f"{space.space}", value=space.space) for space in sorted(self.spaces, key=lambda s: s.space)]
+        selected_spaces: list[str] | None = questionary.checkbox(
+            "Which space(s) would you like to dump?", choices=choices
+        ).ask()
+        if not selected_spaces:
+            raise ToolkitValueError("No spaces selected for dumping.")
+        return tuple(selected_spaces)
+
+    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
+        self.identifier = self._selected()
+        loader = SpaceCRUD.create_loader(self.client)
+        if self.spaces:
+            yield (
+                [],
+                SpaceList([s for s in self.spaces if s.space in set(self.identifier)]),
+                loader,
+                None,
+            )
+        else:
+            yield list(self.identifier), None, loader, None
 
 
 class DumpResourceCommand(ToolkitCommand):

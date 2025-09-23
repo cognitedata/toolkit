@@ -42,6 +42,7 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
     FunctionFinder,
     GroupFinder,
     LocationFilterFinder,
+    SpaceFinder,
     StreamlitFinder,
     TransformationFinder,
 )
@@ -52,6 +53,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     FunctionCRUD,
     GroupAllScopedCRUD,
     LocationFilterCRUD,
+    SpaceCRUD,
     StreamlitCRUD,
     TransformationCRUD,
 )
@@ -700,3 +702,74 @@ class TestDumpStreamlitApps:
             severity, actual_message = console.print.call_args.args
             assert expected_warning in actual_message
             assert expected_severity in str(severity).casefold()
+
+
+@pytest.fixture()
+def three_spaces() -> dm.SpaceList:
+    return dm.SpaceList(
+        [
+            dm.Space(
+                space="spaceA",
+                name="Space A",
+                description="This is Space A",
+                is_global=False,
+                last_updated_time=1,
+                created_time=1,
+            ),
+            dm.Space(
+                space="spaceB",
+                name="Space B",
+                description="This is Space B",
+                is_global=False,
+                last_updated_time=1,
+                created_time=1,
+            ),
+            dm.Space(
+                space="spaceC",
+                name="Space C",
+                description="This is Space C",
+                is_global=False,
+                last_updated_time=1,
+                created_time=1,
+            ),
+        ]
+    )
+
+
+class TestSpaceFinder:
+    def test_select_spaces(self, three_spaces: dm.SpaceList, monkeypatch: MonkeyPatch) -> None:
+        def select_spaces(choices: list[Choice]) -> list[str]:
+            assert len(choices) == len(three_spaces)
+            return [choices[1].value, choices[2].value]
+
+        answers = [select_spaces]
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(SpaceFinder.__module__, monkeypatch, answers),
+        ):
+            client.data_modeling.spaces.list.return_value = three_spaces
+            finder = SpaceFinder(client, None)
+            selected = finder._interactive_select()
+
+        assert selected == ("spaceB", "spaceC")
+
+
+class TestDumpSpaces:
+    def test_dump_spaces(self, three_spaces: dm.SpaceList, tmp_path: Path) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.data_modeling.spaces.retrieve.return_value = three_spaces[1:]
+
+            cmd = DumpResourceCommand(silent=True)
+            cmd.dump_to_yamls(
+                SpaceFinder(client, ("spaceB", "spaceC")),
+                output_dir=tmp_path,
+                clean=False,
+                verbose=False,
+            )
+            loader = SpaceCRUD(client, None, None)
+
+        filepaths = list(loader.find_files(tmp_path))
+        assert len(filepaths) == 2
+        items = sorted([read_yaml_file(filepath) for filepath in filepaths], key=lambda d: d["space"])
+        expected = sorted([loader.dump_resource(s) for s in three_spaces[1:]], key=lambda d: d["space"])
+        assert items == expected
