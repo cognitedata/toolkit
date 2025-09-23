@@ -12,7 +12,6 @@ from cognite.client.data_classes.data_modeling.views import MappedProperty, Mult
 
 from cognite_toolkit._cdf_tk.client.data_classes.migration import (
     AssetCentricId,
-    AssetCentricToViewMapping,
     ResourceViewMapping,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import asset_centric_to_dm
@@ -144,9 +143,7 @@ class TestAssetCentricConversion:
                     created_time=1000000,
                     resource_type="asset",
                     view_id=ViewId("test_space", "test_view", "v1"),
-                    property_mapping=AssetCentricToViewMapping(
-                        to_property_id={"name": "assetName", "description": "assetDescription"}
-                    ),
+                    property_mapping={"name": "assetName", "description": "assetDescription"},
                 ),
                 {
                     "assetName": MappedProperty(
@@ -190,10 +187,12 @@ class TestAssetCentricConversion:
                     created_time=1000000,
                     resource_type="timeseries",
                     view_id=ViewId("test_space", "test_view", "v1"),
-                    property_mapping=AssetCentricToViewMapping(
-                        to_property_id={"name": "timeseriesName", "unit": "measurementUnit"},
-                        metadata_to_property_id={"sensor_type": "sensorType", "location": "deviceLocation"},
-                    ),
+                    property_mapping={
+                        "name": "timeseriesName",
+                        "unit": "measurementUnit",
+                        "metadata.sensor_type": "sensorType",
+                        "metadata.location": "deviceLocation",
+                    },
                 ),
                 {
                     "timeseriesName": MappedProperty(
@@ -265,20 +264,16 @@ class TestAssetCentricConversion:
                     created_time=1000000,
                     resource_type="event",
                     view_id=ViewId("test_space", "test_view", "v1"),
-                    property_mapping=AssetCentricToViewMapping(
-                        to_property_id={
-                            "missing_prop": "targetProp",
-                            "startTime": "eventStart",
-                            "endTime": "eventEnd",
-                        },
-                        metadata_to_property_id={
-                            "operator": "missingDMProp",
-                            "severity": "eventSeverity",
-                            "value": "eventValue",
-                            "missingMetaProp": "anotherMissingDMProp",
-                            "aConnectionProp": "some_other_event",
-                        },
-                    ),
+                    property_mapping={
+                        "missing_prop": "targetProp",
+                        "startTime": "eventStart",
+                        "endTime": "eventEnd",
+                        "metadata.operator": "missingDMProp",
+                        "metadata.severity": "eventSeverity",
+                        "metadata.value": "eventValue",
+                        "metadata.missingMetaProp": "anotherMissingDMProp",
+                        "metadata.aConnectionProp": "some_other_event",
+                    },
                 ),
                 {
                     "eventStart": MappedProperty(
@@ -361,10 +356,7 @@ class TestAssetCentricConversion:
                     created_time=1000000,
                     resource_type="file",
                     view_id=ViewId("test_space", "test_view", "v1"),
-                    property_mapping=AssetCentricToViewMapping(
-                        to_property_id={},
-                        metadata_to_property_id={},
-                    ),
+                    property_mapping={},
                 ),
                 {
                     "fileName": MappedProperty(
@@ -429,10 +421,7 @@ class TestAssetCentricConversion:
                     created_time=1000000,
                     resource_type="sequence",
                     view_id=ViewId("test_space", "test_view", "v1"),
-                    property_mapping=AssetCentricToViewMapping(
-                        to_property_id={"name": "sequenceName"},
-                        metadata_to_property_id={"category": "sequenceCategory"},
-                    ),
+                    property_mapping={"name": "sequenceName", "metadata.category": "sequenceCategory"},
                 ),
                 {
                     "sequenceName": MappedProperty(
@@ -471,9 +460,7 @@ class TestAssetCentricConversion:
                     created_time=1000000,
                     resource_type="asset",
                     view_id=ViewId("test_space", "test_view", "v1"),
-                    property_mapping=AssetCentricToViewMapping(
-                        to_property_id={"name": "assetName", "description": "assetDescription"}
-                    ),
+                    property_mapping={"name": "assetName", "description": "assetDescription"},
                 ),
                 {
                     "assetName": MappedProperty(
@@ -514,10 +501,7 @@ class TestAssetCentricConversion:
                     created_time=1000000,
                     resource_type="event",
                     view_id=ViewId("test_space", "test_view", "v1"),
-                    property_mapping=AssetCentricToViewMapping(
-                        to_property_id={"type": "category"},
-                        metadata_to_property_id={"category": "category"},
-                    ),
+                    property_mapping={"type": "category", "metadata.category": "category"},
                 ),
                 {
                     "category": MappedProperty(
@@ -571,7 +555,9 @@ class TestAssetCentricConversion:
         assert instance_source.source == self.INSTANCE_SOURCE_VIEW_ID
         assert instance_source.properties["resourceType"] == view_source.resource_type
         assert instance_source.properties["id"] == resource.id
-        assert instance_source.properties["dataSetId"] == resource.data_set_id
-        assert instance_source.properties["classicExternalId"] == resource.external_id
+        if hasattr(resource, "data_set_id") and resource.data_set_id is not None:
+            assert instance_source.properties["dataSetId"] == resource.data_set_id
+        if hasattr(resource, "external_id") and resource.external_id is not None:
+            assert instance_source.properties["classicExternalId"] == resource.external_id
 
         assert expected_issue.dump() == issue.dump()
