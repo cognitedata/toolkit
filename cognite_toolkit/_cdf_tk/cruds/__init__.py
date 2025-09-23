@@ -48,6 +48,7 @@ from ._resource_cruds import (
     RawDatabaseCRUD,
     RawTableCRUD,
     RelationshipCRUD,
+    ResourceViewMappingCRUD,
     RobotCapabilityCRUD,
     RoboticFrameCRUD,
     RoboticLocationCRUD,
@@ -65,7 +66,6 @@ from ._resource_cruds import (
     TransformationNotificationCRUD,
     TransformationScheduleCRUD,
     ViewCRUD,
-    ViewSourceCRUD,
     WorkflowCRUD,
     WorkflowTriggerCRUD,
     WorkflowVersionCRUD,
@@ -80,7 +80,7 @@ if not FeatureFlag.is_enabled(Flags.AGENTS):
 if not FeatureFlag.is_enabled(Flags.INFIELD):
     _EXCLUDED_CRUDS.add(InfieldV1CRUD)
 if not FeatureFlag.is_enabled(Flags.MIGRATE):
-    _EXCLUDED_CRUDS.add(ViewSourceCRUD)
+    _EXCLUDED_CRUDS.add(ResourceViewMappingCRUD)
 if not FeatureFlag.is_enabled(Flags.SEARCH_CONFIG):
     _EXCLUDED_CRUDS.add(SearchConfigCRUD)
 

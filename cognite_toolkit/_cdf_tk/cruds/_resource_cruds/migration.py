@@ -20,23 +20,25 @@ from .datamodel import SpaceCRUD, ViewCRUD
 
 
 @final
-class ViewSourceCRUD(
+class ResourceViewMappingCRUD(
     ResourceCRUD[str, ResourceViewMappingApply, ResourceViewMapping, NodeApplyList, NodeList[ResourceViewMapping]]
 ):
     folder_name = "migration"
-    filename_pattern = r"^.*\.ViewSource$"  # Matches all yaml files whose stem ends with '.ViewSource'.
+    filename_pattern = (
+        r"^.*\.ResourceViewMapping$"  # Matches all yaml files whose stem ends with '.ResourceViewMapping$'.
+    )
     filetypes = frozenset({"yaml", "yml"})
     resource_cls = ResourceViewMapping
     resource_write_cls = ResourceViewMappingApply
     list_cls = NodeList[ResourceViewMapping]
     list_write_cls = NodeApplyList
-    kind = "ViewSource"
+    kind = "ResourceViewMapping$"
     dependencies = frozenset({SpaceCRUD, ViewCRUD})
     _doc_url = "Instances/operation/applyNodeAndEdges"
 
     @property
     def display_name(self) -> str:
-        return "view sources"
+        return "resource view mapping"
 
     @classmethod
     def get_id(cls, item: ResourceViewMapping | ResourceViewMappingApply | dict) -> str:
