@@ -3,7 +3,6 @@ from cognite.client.data_classes.data_modeling import NodeApply, NodeApplyList, 
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.migration import (
-    AssetCentricToViewMapping,
     InstanceSource,
     ResourceViewMapping,
     ResourceViewMappingApply,
@@ -65,18 +64,16 @@ class TestInstanceSourceAPI:
         )
 
 
-class TestViewSourceAPI:
+class TestResourceViewMappingAPI:
     def test_create_retrieve_list_delete(self, toolkit_client: ToolkitClient) -> None:
         source = ResourceViewMappingApply(
             external_id="test_view_source",
             resource_type="asset",
             view_id=ViewId("cdf_cdm", "CogniteAsset", "v1"),
-            mapping=AssetCentricToViewMapping(
-                to_property_id={
-                    "name": "name",
-                    "description": "description",
-                }
-            ),
+            property_mapping={
+                "name": "name",
+                "description": "description",
+            },
         )
 
         created: ResourceViewMapping | None = None
