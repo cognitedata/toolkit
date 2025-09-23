@@ -16,7 +16,6 @@ from cognite.client.data_classes.data_modeling.instances import (
 
 from cognite_toolkit._cdf_tk.constants import COGNITE_MIGRATION_SPACE
 from cognite_toolkit._cdf_tk.tk_warnings import IgnoredValueWarning
-from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentric
 
 if sys.version_info >= (3, 11):
@@ -151,47 +150,6 @@ class InstanceSource(_InstanceSourceProperties, TypedNode):
             "timeseries": "CogniteTimeSeries",
         }[self.resource_type]
         return ViewId("cdf_cdm", external_id, "v1")
-
-
-@dataclass
-class AssetCentricToViewMapping(CogniteObject):
-    to_property_id: dict[str, str]
-    metadata_to_property_id: dict[str, str] | None = None
-
-    @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
-        """Load an AssetCentricToViewMapping from a dictionary."""
-        to_property_id = resource["toPropertyId"]
-        metadata_to_property_id = resource.get("metadataToPropertyId")
-
-        if not isinstance(to_property_id, dict):
-            raise TypeError(f"toPropertyId must be a dictionary, not {type(to_property_id)}")
-
-        if invalid_keys := [
-            key for key, value in to_property_id.items() if not (isinstance(key, str) and isinstance(value, str))
-        ]:
-            raise TypeError(
-                f"toPropertyId keys and values must be strings, found invalid keys: {humanize_collection(invalid_keys)}"
-            )
-
-        if metadata_to_property_id is not None and not isinstance(metadata_to_property_id, dict):
-            raise TypeError(f"metadataToPropertyId must be a dictionary or None, not {type(metadata_to_property_id)}")
-
-        if metadata_to_property_id and (
-            invalid_metadata_keys := [
-                key
-                for key, value in metadata_to_property_id.items()
-                if not (isinstance(key, str) and isinstance(value, str))
-            ]
-        ):
-            raise TypeError(
-                f"metadataToPropertyId keys and values must be strings, found invalid keys: {humanize_collection(invalid_metadata_keys)}"
-            )
-
-        return cls(
-            to_property_id=to_property_id,
-            metadata_to_property_id=metadata_to_property_id,
-        )
 
 
 class _ResourceViewMapping:
