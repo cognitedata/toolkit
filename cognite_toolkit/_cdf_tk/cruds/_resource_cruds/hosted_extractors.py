@@ -39,7 +39,12 @@ from cognite_toolkit._cdf_tk._parameters import ANYTHING, ParameterSpec, Paramet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
-from cognite_toolkit._cdf_tk.resource_classes import HostedExtractorDestinationYAML, HostedExtractorMappingYAML
+from cognite_toolkit._cdf_tk.resource_classes import (
+    HostedExtractorDestinationYAML,
+    HostedExtractorJobYAML,
+    HostedExtractorMappingYAML,
+    HostedExtractorSourceYAML,
+)
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 
 from .data_organization import DataSetsCRUD
@@ -53,6 +58,7 @@ class HostedExtractorSourceCRUD(ResourceCRUD[str, SourceWrite, Source, SourceWri
     list_cls = SourceList
     list_write_cls = SourceWriteList
     kind = "Source"
+    yaml_cls = HostedExtractorSourceYAML
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
     _doc_url = "Sources/operation/create_sources"
     _SupportedSources = (_MQTTSourceWrite, KafkaSourceWrite, RestSourceWrite, EventHubSourceWrite)
@@ -282,6 +288,7 @@ class HostedExtractorJobCRUD(ResourceCRUD[str, JobWrite, Job, JobWriteList, JobL
     list_write_cls = JobWriteList
     dependencies = frozenset({HostedExtractorSourceCRUD, HostedExtractorDestinationCRUD})
     kind = "Job"
+    yaml_cls = HostedExtractorJobYAML
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
     _doc_url = "Jobs/operation/create_jobs"
 

@@ -1,11 +1,13 @@
+import dataclasses
 import uuid
-from collections.abc import Callable, Hashable
+from collections.abc import Callable, Hashable, Iterable, Sequence
 from functools import partial
 from graphlib import CycleError, TopologicalSorter
 from typing import cast
 
 import questionary
 from cognite.client.data_classes import AggregateResultItem, DataSetUpdate, filters
+from cognite.client.data_classes._base import CogniteResourceList
 from cognite.client.data_classes.data_modeling import NodeId, ViewId
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils._identifier import InstanceId
@@ -24,7 +26,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     DataSetsCRUD,
     EdgeCRUD,
     FunctionCRUD,
-    GraphQLLoader,
+    GraphQLCRUD,
     GroupAllScopedCRUD,
     GroupCRUD,
     GroupResourceScopedCRUD,
@@ -52,7 +54,13 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     MediumSeverityWarning,
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.batch_processor import BatchResult, HTTPBatchProcessor
+from cognite_toolkit._cdf_tk.utils.http_client import (
+    FailedRequestMessage,
+    HTTPClient,
+    ItemsRequest,
+    ResponseMessage,
+    SuccessItem,
+)
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
@@ -60,7 +68,15 @@ from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
 from ._base import ToolkitCommand
 
 
+@dataclasses.dataclass
+class DeleteResults:
+    deleted: int = 0
+    failed: int = 0
+
+
 class PurgeCommand(ToolkitCommand):
+    BATCH_SIZE_DM = 1000
+
     def space(
         self,
         client: ToolkitClient,
@@ -95,7 +111,7 @@ class PurgeCommand(ToolkitCommand):
         loaders = self._get_dependencies(
             SpaceCRUD,
             exclude={
-                GraphQLLoader,
+                GraphQLCRUD,
                 GroupResourceScopedCRUD,
                 LocationFilterCRUD,
                 TransformationCRUD,
@@ -153,24 +169,93 @@ class PurgeCommand(ToolkitCommand):
         if (stats.nodes + stats.edges) > 0:
             validator.instances(["read", "write"], spaces={selected_space})
 
+        config = client.config
         total_by_crud_cls = {
-            EdgeCRUD: stats.edges,
-            NodeCRUD: stats.nodes,
-            DataModelCRUD: stats.data_models,
-            ViewCRUD: stats.views,
-            ContainerCRUD: stats.containers,
+            EdgeCRUD: (stats.edges, config.create_api_url("/models/instances/delete")),
+            NodeCRUD: (stats.nodes, config.create_api_url("/models/instances/delete")),
+            DataModelCRUD: (stats.data_models, config.create_api_url("/models/datamodels/delete")),
+            ViewCRUD: (stats.views, config.create_api_url("/models/views/delete")),
+            ContainerCRUD: (stats.containers, config.create_api_url("/models/containers/delete")),
         }
         if dry_run:
-            for crud_cls, total in total_by_crud_cls.items():
+            for crud_cls, (total, _) in total_by_crud_cls.items():
                 crud = crud_cls.create_loader(client)  # type: ignore[attr-defined]
                 results[crud.display_name] = ResourceDeployResult(crud.display_name, deleted=total)
             if include_space:
                 space_loader = SpaceCRUD.create_loader(client)
                 results[space_loader.display_name] = ResourceDeployResult(space_loader.display_name, deleted=1)
         else:
-            raise NotImplementedError("Non-dry-run mode is not implemented for space_v2")
-        print(results.counts_table(exclude_columns={"Created", "Changed", "Untouched", "Total"}))
+            with HTTPClient(client.config, max_retries=10) as delete_client:
+                for crud_cls, (total, URL) in total_by_crud_cls.items():
+                    crud = crud_cls.create_loader(client)  # type: ignore[attr-defined]
+                    if total == 0:
+                        results[crud.display_name] = ResourceDeployResult(crud.display_name, deleted=0)
+                        continue
+                    result = ResourceDeployResult(crud.display_name)
+                    # Containers, DataModels and Views need special handling to avoid type info in the delete call
+                    # While for instance we need the type info in delete.
+                    dump_args = (
+                        {"include_type": False} if isinstance(crud, ContainerCRUD | DataModelCRUD | ViewCRUD) else {}
+                    )
+                    executor = ProducerWorkerExecutor[CogniteResourceList, list[JsonVal]](
+                        download_iterable=self._iterate_batch(crud, selected_space, batch_size=self.BATCH_SIZE_DM),
+                        process=lambda list_: [item.as_id().dump(**dump_args) for item in list_],
+                        write=self._purge_batch(crud, URL, delete_client, result),
+                        max_queue_size=10,
+                        iteration_count=total // self.BATCH_SIZE_DM + (1 if total % self.BATCH_SIZE_DM > 0 else 0),
+                        download_description=f"Downloading {crud.display_name}",
+                        process_description=f"Preparing {crud.display_name} for deletion",
+                        write_description=f"Deleting {crud.display_name}",
+                    )
+                    executor.run()
+                    results[crud.display_name] = result
+                    if executor.error_occurred:
+                        self.warn(
+                            HighSeverityWarning(f"Failed to delete all {crud.display_name}. {executor.error_message}")
+                        )
+            if include_space:
+                space_loader = SpaceCRUD.create_loader(client)
+                try:
+                    space_loader.delete([selected_space])
+                    print(f"Space {selected_space} deleted")
+                except CogniteAPIError as e:
+                    self.warn(HighSeverityWarning(f"Failed to delete space {selected_space!r}: {e}"))
+                else:
+                    results[space_loader.display_name] = ResourceDeployResult(space_loader.display_name, deleted=1)
+        print(results.counts_table(exclude_columns={"Created", "Changed", "Total"}))
         return results
+
+    @staticmethod
+    def _iterate_batch(crud: ResourceCRUD, selected_space: str, batch_size: int) -> Iterable[CogniteResourceList]:
+        batch = crud.list_cls([])
+        for resource in crud.iterate(space=selected_space):
+            batch.append(resource)
+            if len(batch) >= batch_size:
+                yield batch
+                batch = crud.list_cls([])
+        if batch:
+            yield batch
+
+    @staticmethod
+    def _purge_batch(
+        crud: ResourceCRUD, delete_url: str, delete_client: HTTPClient, result: ResourceDeployResult
+    ) -> Callable[[list[JsonVal]], None]:
+        def process(items: list[JsonVal]) -> None:
+            responses = delete_client.request_with_retries(
+                ItemsRequest(
+                    endpoint_url=delete_url,
+                    method="POST",
+                    items=items,
+                    as_id=crud.get_id,
+                )
+            )
+            for response in responses:
+                if isinstance(response, SuccessItem):
+                    result.deleted += 1
+                else:
+                    result.unchanged += 1
+
+        return process
 
     @staticmethod
     def _get_dependencies(
@@ -664,7 +749,7 @@ class PurgeCommand(ToolkitCommand):
         auto_yes: bool = False,
         unlink: bool = True,
         verbose: bool = False,
-    ) -> None:
+    ) -> DeleteResults:
         """Purge instances"""
         io = InstanceIO(client)
         console = Console()
@@ -677,7 +762,7 @@ class PurgeCommand(ToolkitCommand):
         total = io.count(selector)
         if total is None or total == 0:
             print("No instances found.")
-            return
+            return DeleteResults()
         if not dry_run:
             self._print_panel("instances", str(selector))
             if not auto_yes:
@@ -686,27 +771,21 @@ class PurgeCommand(ToolkitCommand):
                     default=False,
                 ).ask()
                 if not confirm:
-                    return
+                    return DeleteResults()
 
         process: Callable[[list[InstanceId]], list[dict[str, JsonVal]]] = self._prepare
         if unlink:
             process = partial(self._unlink_prepare, client=client, dry_run=dry_run, console=console, verbose=verbose)
 
-        iteration_count = int(total // io.chunk_size + (1 if total % io.chunk_size > 0 else 0))
-        with HTTPBatchProcessor(
-            endpoint_url=client.config.create_api_url("/models/instances/delete"),
-            config=client.config,
-            as_id=InstanceId.load,  # type: ignore[arg-type]
-            result_processor=self._no_op_results,
-            batch_size=io.chunk_size,
-            max_workers=1,
-        ) as http_client:
+        iteration_count = int(total // io.CHUNK_SIZE + (1 if total % io.CHUNK_SIZE > 0 else 0))
+        with HTTPClient(config=client.config) as delete_client:
             process_str = "Would be unlinking" if dry_run else "Unlinking"
             write_str = "Would be deleting" if dry_run else "Deleting"
+            results = DeleteResults()
             executor = ProducerWorkerExecutor[list[InstanceId], list[dict[str, JsonVal]]](
                 download_iterable=io.download_ids(selector),
                 process=process,
-                write=self._no_delete if dry_run else http_client.add_items,
+                write=partial(self._delete_instance_ids, dry_run=dry_run, delete_client=delete_client, results=results),
                 iteration_count=iteration_count,
                 max_queue_size=10,
                 download_description=f"Retrieving instances from {selector!s}",
@@ -719,7 +798,13 @@ class PurgeCommand(ToolkitCommand):
             executor.raise_on_error()
 
         prefix = "Would have purged" if dry_run else "Purged"
-        console.print(f"{prefix} {executor.total_items:,} instances in {selector!s}")
+        if results.failed == 0:
+            console.print(f"{prefix} {results.deleted:,} instances in {selector!s}")
+        else:
+            console.print(
+                f"{prefix} {results.deleted:,} instances in {selector!s}, but failed to purge {results.failed:,} instances"
+            )
+        return results
 
     def validate_instance_access(self, validator: ValidateAccess, instance_spaces: list[str] | None) -> None:
         space_ids = validator.instances(
@@ -797,16 +882,28 @@ class PurgeCommand(ToolkitCommand):
         return self._prepare(instance_ids)
 
     @staticmethod
-    def _no_delete(instances: list[dict[str, JsonVal]]) -> None:
-        """No operation function that does not delete the instances."""
-        # This is used in dry-run mode to avoid actual deletion
-        pass
+    def _delete_instance_ids(
+        items: list[dict[str, JsonVal]], dry_run: bool, delete_client: HTTPClient, results: DeleteResults
+    ) -> None:
+        if dry_run:
+            results.deleted += len(items)
+            return
 
-    @staticmethod
-    def _no_op_results(results: BatchResult[InstanceId]) -> None:
-        """No operation function that does not process results."""
-        # This is used in dry-run mode to avoid actual processing
-        pass
+        responses: Sequence[ResponseMessage | FailedRequestMessage] = delete_client.request_with_retries(
+            ItemsRequest(
+                delete_client.config.create_api_url("/models/instances/delete"),
+                method="POST",
+                # MyPy fails to understand that dict[str, JsonVal] is compatible with JsonVal
+                items=items,  # type: ignore[arg-type]
+                # The PySDK does not use the JsonVal type hint, but we know these are correct
+                as_id=InstanceId.load,  # type: ignore[arg-type]
+            )
+        )
+        for response in responses:
+            if isinstance(response, SuccessItem):
+                results.deleted += 1
+            else:
+                results.failed += 1
 
     @staticmethod
     def _unlink_timeseries(

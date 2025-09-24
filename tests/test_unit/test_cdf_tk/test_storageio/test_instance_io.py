@@ -1,8 +1,9 @@
 import json
 
+import httpx
 import pytest
-import requests
 import responses
+import respx
 from cognite.client.data_classes.data_modeling import EdgeApply, NodeApply, ViewId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
@@ -54,13 +55,13 @@ class TestInstanceIO:
             io = InstanceIO(client)
             ids = list(io.download_ids(selector))
             count = io.count(selector)
-        assert len(list(ids)) == N // io.chunk_size + (1 if N % io.chunk_size > 0 else 0)
+        assert len(list(ids)) == N // io.CHUNK_SIZE + (1 if N % io.CHUNK_SIZE > 0 else 0)
         total_ids = sum(len(chunk) for chunk in ids)
         assert total_ids == N
         assert count == N
 
     @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
-    def test_upload_force(self, toolkit_config: ToolkitClientConfig, rsps: responses.RequestsMock) -> None:
+    def test_upload_force(self, toolkit_config: ToolkitClientConfig) -> None:
         config = toolkit_config
         client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
         instance_count = 12
@@ -83,42 +84,36 @@ class TestInstanceIO:
                 ]
             )
 
-            def hate_edges(request: requests.PreparedRequest) -> tuple[int, dict[str, str], str]:
-                # status, headers, body
-                if "edge" in request.body:
-                    return 400, {}, '{"error":{"code":"InvalidArgument","message":"I do not like edges!"}}'
-                else:
-                    items = json.loads(request.body).get("items", [])
-                    return (
-                        200,
-                        {},
-                        json.dumps(
-                            {
-                                "items": [
-                                    {
-                                        "instanceType": "node",
-                                        "space": item["space"],
-                                        "externalId": item["externalId"],
-                                        "wasModified": True,
-                                        "createdTime": 0,
-                                        "lastUpdatedTime": 0,
-                                    }
-                                    for item in items
-                                ]
-                            }
-                        ),
+            def hate_edges(request: httpx.Request) -> httpx.Response:
+                # Check request body content
+                body_content = request.content.decode() if request.content else ""
+                if "edge" in body_content:
+                    return httpx.Response(
+                        400, json={"error": {"code": "InvalidArgument", "message": "I do not like edges!"}}
                     )
+                else:
+                    items = json.loads(body_content).get("items", [])
+                    response_data = {
+                        "items": [
+                            {
+                                "instanceType": "node",
+                                "space": item["space"],
+                                "externalId": item["externalId"],
+                                "wasModified": True,
+                                "createdTime": 0,
+                                "lastUpdatedTime": 0,
+                            }
+                            for item in items
+                        ]
+                    }
+                    return httpx.Response(200, json=response_data)
 
             url = toolkit_config.create_api_url("/models/instances")
 
-            rsps.add_callback(
-                responses.POST,
-                url,
-                callback=hate_edges,
-                content_type="application/json",
-            )
-            io = InstanceIO(client)
-            results = io.upload_items_force(instances, http_client)
+            with respx.mock() as rsps:
+                rsps.post(url).mock(side_effect=hate_edges)
+                io = InstanceIO(client)
+                results = io.upload_items_force(instances, http_client)
 
             assert len(results) == instance_count
             failed_items = [res for res in results if isinstance(res, FailedItem)]
