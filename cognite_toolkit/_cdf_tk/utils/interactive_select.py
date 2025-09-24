@@ -639,7 +639,9 @@ class DataModelingSelect:
         else:
             selected_spaces = questionary.select(message, choices=choices).ask()
         if selected_spaces is None or (isinstance(selected_spaces, list) and len(selected_spaces) == 0):
-            raise ToolkitValueError(f"No space selected to {self.operation}. Aborting.")
+            raise ToolkitValueError(
+                f"No instance space selected to {self.operation}. Use arrow keys to navigate and space key to select. Press enter to confirm."
+            )
         return selected_spaces
 
     @overload

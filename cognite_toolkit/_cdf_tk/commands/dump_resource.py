@@ -27,7 +27,7 @@ from cognite.client.data_classes._base import (
 from cognite.client.data_classes.agents import (
     AgentList,
 )
-from cognite.client.data_classes.data_modeling import DataModelId, SpaceList
+from cognite.client.data_classes.data_modeling import DataModelId
 from cognite.client.data_classes.documents import SourceFileProperty
 from cognite.client.data_classes.extractionpipelines import ExtractionPipelineConfigList
 from cognite.client.data_classes.functions import (
@@ -730,33 +730,20 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
 class SpaceFinder(ResourceFinder[tuple[str, ...]]):
     def __init__(self, client: ToolkitClient, identifier: tuple[str, ...] | None = None):
         super().__init__(client, identifier)
-        self.spaces: SpaceList | None = None
 
     def _interactive_select(self) -> tuple[str, ...]:
         # Using new interactive select component for selecting instance spaces
+        # This will raise a ToolkitValueError if no instance spaces are selected and this is handled in the caller.
         data_modeling_select = DataModelingSelect(self.client, "dump")
         selected_spaces = data_modeling_select.select_instance_space(
             multiselect=True, message="Which instance space(s) would you like to dump?"
         )
-
-        if not selected_spaces:
-            raise ToolkitValueError("No instance spaces selected for dumping.")
-
-        self.spaces = self.client.data_modeling.spaces.list(limit=-1)
         return tuple(selected_spaces)
 
     def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
         loader = SpaceCRUD.create_loader(self.client)
-        if self.spaces:
-            yield (
-                [],
-                SpaceList([s for s in self.spaces if s.space in set(self.identifier)]),
-                loader,
-                None,
-            )
-        else:
-            yield list(self.identifier), None, loader, None
+        yield list(self.identifier), None, loader, None
 
 
 class DumpResourceCommand(ToolkitCommand):
