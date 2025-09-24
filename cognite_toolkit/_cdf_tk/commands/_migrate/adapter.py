@@ -141,6 +141,7 @@ class AssetCentricMigrationIOAdapter(
         return None
 
     def as_id(self, item: dict[str, JsonVal] | object) -> int:
+        # When multiple threads are accessing this class, they will always operate on different ids
         if isinstance(item, AssetCentricMapping):
             instance_id = item.mapping.instance_id
             self._id_by_instance_id.setdefault(instance_id, item.mapping.id)
