@@ -203,7 +203,7 @@ class PurgeCommand(ToolkitCommand):
                         {"include_type": False} if isinstance(crud, ContainerCRUD | DataModelCRUD | ViewCRUD) else {}
                     )
                     process = partial(self._as_id_batch, dump_args=dump_args)
-                    if isinstance(crud, NodeCRUD) and (not delete_datapoints or not delete_file_content):
+                    if isinstance(crud, NodeCRUD):
                         process = partial(
                             self._check_data,
                             client=client,
