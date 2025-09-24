@@ -14,12 +14,12 @@ from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
 @pytest.fixture
 def raw_directory(tmp_path: Path) -> Path:
     """Fixture to create a temporary folder with a sample NDJSON file."""
-    folder = tmp_path / RawIO.folder_name
+    folder = tmp_path / RawIO.FOLDER_NAME
     folder.mkdir(parents=True, exist_ok=True)
     configfile = folder / f"test_table.{RawTableCRUD.kind}.yaml"
     table = RawTable(db_name="test_db", table_name="test_table")
     configfile.write_text(table.dump_yaml())
-    with NDJsonWriter(folder, RawIO.kind, Uncompressed) as writer:
+    with NDJsonWriter(folder, RawIO.KIND, Uncompressed) as writer:
         writer.write_chunks(
             [
                 RowWrite(
