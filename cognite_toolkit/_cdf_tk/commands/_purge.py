@@ -209,6 +209,7 @@ class PurgeCommand(ToolkitCommand):
                             client=client,
                             delete_datapoints=delete_datapoints,
                             delete_file_content=delete_file_content,
+                            process_results=process_results,
                             console=console,
                             verbose=verbose,
                         )
@@ -265,6 +266,7 @@ class PurgeCommand(ToolkitCommand):
         client: ToolkitClient,
         delete_datapoints: bool,
         delete_file_content: bool,
+        process_results: ResourceDeployResult,
         console: Console,
         verbose: bool,
     ) -> list[JsonVal]:
@@ -279,6 +281,7 @@ class PurgeCommand(ToolkitCommand):
             found_ids |= {f.instance_id for f in files if f.instance_id is not None}
         if found_ids and verbose:
             console.print(f"Skipping {found_ids} nodes as they have datapoints or file content")
+        process_results.unchanged += len(found_ids)
         result = [node_id.dump(include_instance_type=True) for node_id in node_ids if node_id not in found_ids]
         # MyPy fails to understand that list[dict[str, str]] is a valid return type for list[JsonVal]
         return result  # type: ignore[return-value]
