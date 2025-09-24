@@ -19,7 +19,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
-from .data_model import INSTANCE_SOURCE_VIEW_ID, MODEL_ID, VIEW_SOURCE_VIEW_ID
+from .data_model import INSTANCE_SOURCE_VIEW_ID, MODEL_ID, RESOURCE_VIEW_MAPPING_VIEW_ID
 
 T_AssetCentricResource = TypeVar("T_AssetCentricResource", bound=Asset | Event | FileMetadata | TimeSeries | Sequence)
 
@@ -78,7 +78,7 @@ class BaseMigrateCommand(ToolkitCommand, ABC):
                 "Please delete the duplicate models before proceeding with the migration."
             )
         model = models[0]
-        missing_views = {INSTANCE_SOURCE_VIEW_ID, VIEW_SOURCE_VIEW_ID} - set(model.views or [])
+        missing_views = {INSTANCE_SOURCE_VIEW_ID, RESOURCE_VIEW_MAPPING_VIEW_ID} - set(model.views or [])
         if missing_views:
             raise ToolkitMigrationError(
                 f"Invalid migration model. Missing views {humanize_collection(missing_views)}. "
