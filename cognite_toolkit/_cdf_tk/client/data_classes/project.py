@@ -1,8 +1,14 @@
+import sys
 from dataclasses import dataclass
-from typing import Any, Literal, Self
+from typing import Any, Literal
 
 from cognite.client import CogniteClient
 from cognite.client.data_classes._base import CogniteResource
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 
 @dataclass
