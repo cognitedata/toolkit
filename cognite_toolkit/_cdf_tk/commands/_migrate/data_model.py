@@ -5,28 +5,20 @@ SPACE = dm.SpaceApply(
     "cognite_migration", description="Space for the asset-centric to data modeling migration", name="cdf_migration"
 )
 
-VIEW_SOURCE_CONTAINER = dm.ContainerApply(
+RESOURCE_VIEW_MAPPING = dm.ContainerApply(
     space=SPACE.space,
-    external_id="ViewSource",
+    external_id="ResourceViewMapping",
     used_for="node",
     properties={
         "resourceType": dm.ContainerProperty(
-            type=dm.data_types.Enum(
-                values={
-                    "timeseries": dm.data_types.EnumValue(),
-                    "asset": dm.data_types.EnumValue(),
-                    "file": dm.data_types.EnumValue(),
-                    "event": dm.data_types.EnumValue(),
-                    "sequence": dm.data_types.EnumValue(),
-                }
-            ),
+            type=dm.Text(max_text_size=255),
             nullable=False,
         ),
         "viewId": dm.ContainerProperty(
             type=dm.data_types.Json(),
             nullable=False,
         ),
-        "mapping": dm.ContainerProperty(
+        "propertyMapping": dm.ContainerProperty(
             type=dm.data_types.Json(),
             nullable=False,
         ),
@@ -66,8 +58,8 @@ INSTANCE_SOURCE_CONTAINER = dm.ContainerApply(
             type=dm.data_types.Json(),
             nullable=True,
         ),
-        "ingestionView": dm.ContainerProperty(
-            type=dm.data_types.DirectRelation(container=VIEW_SOURCE_CONTAINER.as_id()), nullable=True
+        "resourceViewMapping": dm.ContainerProperty(
+            type=dm.data_types.DirectRelation(container=RESOURCE_VIEW_MAPPING.as_id()), nullable=True
         ),
     },
     indexes={
@@ -75,26 +67,26 @@ INSTANCE_SOURCE_CONTAINER = dm.ContainerApply(
         "resourceType": BTreeIndex(["resourceType", "id"], cursorable=False),
     },
 )
-CONTAINERS = [VIEW_SOURCE_CONTAINER, INSTANCE_SOURCE_CONTAINER]
+CONTAINERS = [RESOURCE_VIEW_MAPPING, INSTANCE_SOURCE_CONTAINER]
 
-VIEW_SOURCE_VIEW = dm.ViewApply(
+RESOURCE_VIEW_MAPPING_VIEW = dm.ViewApply(
     space=SPACE.space,
-    external_id="ViewSource",
+    external_id="ResourceViewMapping",
     version="v1",
-    name="ViewSource",
-    description="The source of the view in asset-centric resources.",
+    name="ResourceViewMapping",
+    description="The mapping from asset-centric resources to data modeling view.",
     properties={
         "resourceType": dm.MappedPropertyApply(
-            container=VIEW_SOURCE_CONTAINER.as_id(),
+            container=RESOURCE_VIEW_MAPPING.as_id(),
             container_property_identifier="resourceType",
         ),
         "viewId": dm.MappedPropertyApply(
-            container=VIEW_SOURCE_CONTAINER.as_id(),
+            container=RESOURCE_VIEW_MAPPING.as_id(),
             container_property_identifier="viewId",
         ),
-        "mapping": dm.MappedPropertyApply(
-            container=VIEW_SOURCE_CONTAINER.as_id(),
-            container_property_identifier="mapping",
+        "propertyMapping": dm.MappedPropertyApply(
+            container=RESOURCE_VIEW_MAPPING.as_id(),
+            container_property_identifier="propertyMapping",
         ),
     },
 )
@@ -126,18 +118,18 @@ INSTANCE_SOURCE_VIEW = dm.ViewApply(
             container=INSTANCE_SOURCE_CONTAINER.as_id(),
             container_property_identifier="preferredConsumerViewId",
         ),
-        "ingestionView": dm.MappedPropertyApply(
+        "resourceViewMapping": dm.MappedPropertyApply(
             container=INSTANCE_SOURCE_CONTAINER.as_id(),
-            container_property_identifier="ingestionView",
-            source=VIEW_SOURCE_VIEW.as_id(),
+            container_property_identifier="resourceViewMapping",
+            source=RESOURCE_VIEW_MAPPING_VIEW.as_id(),
         ),
     },
 )
 
 INSTANCE_SOURCE_VIEW_ID = INSTANCE_SOURCE_VIEW.as_id()
-VIEW_SOURCE_VIEW_ID = VIEW_SOURCE_VIEW.as_id()
+RESOURCE_VIEW_MAPPING_VIEW_ID = RESOURCE_VIEW_MAPPING_VIEW.as_id()
 
-VIEWS = [VIEW_SOURCE_VIEW, INSTANCE_SOURCE_VIEW]
+VIEWS = [RESOURCE_VIEW_MAPPING_VIEW, INSTANCE_SOURCE_VIEW]
 
 COGNITE_MIGRATION_MODEL = dm.DataModelApply(
     space=SPACE.space,
@@ -145,7 +137,7 @@ COGNITE_MIGRATION_MODEL = dm.DataModelApply(
     version="v1",
     name="CDF Migration Model",
     description="Data model for migrating asset-centric resources to data modeling resources in CDF.",
-    views=[VIEW_SOURCE_VIEW.as_id(), INSTANCE_SOURCE_VIEW.as_id()],
+    views=[RESOURCE_VIEW_MAPPING_VIEW.as_id(), INSTANCE_SOURCE_VIEW.as_id()],
 )
 
 MODEL_ID = COGNITE_MIGRATION_MODEL.as_id()
