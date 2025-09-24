@@ -2,6 +2,6 @@ inrobot_admin_first_location_source_id: <change_me>
 inrobot_users_first_location_source_id: <change_me>
 robot_1_first_location_source_id: <change_me>
 three_d_model_name: <change_me>
-three_d_type: <change_me>
+three_d_type: THREEDMODEL # can be WAYPOINTMAP, THREEDMODEL, TWODMAP,  or POINTCLOUD
 three_d_model_id: <change_me>
 three_d_revision_id: <change_me>
