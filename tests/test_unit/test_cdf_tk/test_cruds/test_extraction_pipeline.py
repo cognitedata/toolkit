@@ -204,3 +204,25 @@ databases:
         _, message = args
         assert "ep_src_asset" in message
         assert "a valid YAML mapping" in message
+
+    def test_load_resource_keyvault_in_multiline_string(self) -> None:
+        resource = {
+            "externalId": "ep_multiline_keyvault",
+            "config": """databases:
+  - type: odbc
+    name: mssql-sap
+    connection-string: >
+      DSN=value;
+      UID=!keyvault SOME-KEYVAULT-ID;
+      PWD=!keyvault SOME-KEYVAULT-CLIENT""",
+        }
+        console = MagicMock(spec=Console)
+        print_mock = MagicMock()
+        console.print = print_mock
+        crud = ExtractionPipelineConfigCRUD(MagicMock(spec=ToolkitClient), None, console=console)
+
+        loaded = crud.load_resource(resource)
+
+        assert isinstance(loaded, ExtractionPipelineConfigWrite)
+        # No warning should be printed for valid YAML with keyvault directives
+        print_mock.assert_not_called()
