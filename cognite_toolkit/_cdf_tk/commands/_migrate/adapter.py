@@ -93,13 +93,13 @@ class AssetCentricMigrationIOAdapter(
     Generic[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
     TableStorageIO[int, MigrationSelector, InstanceApplyList, AssetCentricMappingList],
 ):
-    folder_name = "migration"
-    kind = "AssetCentricMigration"
-    display_name = "Asset-Centric Migration"
-    supported_download_formats = frozenset({".parquet", ".csv", ".ndjson"})
-    supported_compressions = frozenset({".gz"})
-    supported_read_formats = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
-    chunk_size = 1000
+    FOLDER_NAME = "migration"
+    KIND = "AssetCentricMigration"
+    DISPLAY_NAME = "Asset-Centric Migration"
+    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
+    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
+    SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
+    CHUNK_SIZE = 1000
     UPLOAD_ENDPOINT = InstanceIO.UPLOAD_ENDPOINT
 
     def __init__(
@@ -163,16 +163,14 @@ class AssetCentricMigrationIOAdapter(
             return self._id_by_instance_id[parsed_instance_id]
         raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
 
-    def download_iterable(
-        self, selector: MigrationSelector, limit: int | None = None
-    ) -> Iterator[AssetCentricMappingList]:
+    def stream_data(self, selector: MigrationSelector, limit: int | None = None) -> Iterator[AssetCentricMappingList]:
         if not isinstance(selector, MigrationCSVFileSelector):
-            raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for download_iterable")
+            raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for stream_data")
         items = selector.items
         if limit is not None:
             items = MigrationMappingList(items[:limit])
         chunk: list[AssetCentricMapping[T_WritableCogniteResource]] = []
-        for current_batch in chunker_sequence(items, self.chunk_size):
+        for current_batch in chunker_sequence(items, self.CHUNK_SIZE):
             resources = self.base.retrieve(current_batch.get_ids())
             for mapping, resource in zip(current_batch, resources, strict=True):
                 chunk.append(AssetCentricMapping(mapping=mapping, resource=resource))

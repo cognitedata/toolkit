@@ -88,7 +88,7 @@ class TestChartIO:
             assert io.count(selector) is None, (
                 "Count should be None since CDF does not provide a way to get the count of charts up front."
             )
-            charts_iterator = io.download_iterable(selector=selector)
+            charts_iterator = io.stream_data(selector=selector)
             json_iterator = (io.data_to_json_chunk(chunk) for chunk in charts_iterator)
             chart_data = [io.json_chunk_to_data(chunk) for chunk in json_iterator]
 
@@ -141,7 +141,7 @@ class TestChartIO:
         with monkeypatch_toolkit_client() as client:
             client.charts.list.return_value = twenty_charts
             io = ChartIO(client)
-            chunks = list(io.download_iterable(selector=selector, limit=limit))
+            chunks = list(io.stream_data(selector=selector, limit=limit))
             all_charts = ChartList([])
             for chunk in chunks:
                 all_charts.extend(chunk)
@@ -152,6 +152,6 @@ class TestChartIO:
             io = ChartIO(client)
 
             with pytest.raises(NotImplementedError) as excinfo:
-                list(io.download_iterable(selector=ChartFileSelector(filepath=Path("some/path.Chart.ndjson"))))
+                list(io.stream_data(selector=ChartFileSelector(filepath=Path("some/path.Chart.ndjson"))))
 
         assert "Unsupported selector type" in str(excinfo.value)

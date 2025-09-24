@@ -777,7 +777,7 @@ class PurgeCommand(ToolkitCommand):
         if unlink:
             process = partial(self._unlink_prepare, client=client, dry_run=dry_run, console=console, verbose=verbose)
 
-        iteration_count = int(total // io.chunk_size + (1 if total % io.chunk_size > 0 else 0))
+        iteration_count = int(total // io.CHUNK_SIZE + (1 if total % io.CHUNK_SIZE > 0 else 0))
         with HTTPClient(config=client.config) as delete_client:
             process_str = "Would be unlinking" if dry_run else "Unlinking"
             write_str = "Would be deleting" if dry_run else "Deleting"
