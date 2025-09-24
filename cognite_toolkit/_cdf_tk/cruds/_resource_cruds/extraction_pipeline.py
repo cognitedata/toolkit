@@ -311,7 +311,7 @@ class ExtractionPipelineConfigCRUD(
             # for this is `connection-string: !keyvault secret` or within multiline strings like
             # `UID=!keyvault SOME-KEYVAULT-ID`. This is not valid YAML, so we need to
             # replace it with `keyvault secret` to make it valid.
-            config_raw = re.sub(r"!(\w+)", r"\1", config_raw)
+            config_raw = re.sub(r"(?<!\!)!(\w+)", r"\1", config_raw)
             self._validate_config(config_raw, resource)
         return ExtractionPipelineConfigWrite._load(resource)
 
