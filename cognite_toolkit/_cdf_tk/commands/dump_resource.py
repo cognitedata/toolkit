@@ -89,6 +89,8 @@ from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, safe_write, to_direc
 
 from ._base import ToolkitCommand
 
+_INTERACTIVE_SELECT_HELPER_TEXT = " Use arrow keys to navigate and space key to select. Press enter to confirm."
+
 
 class ResourceFinder(Iterable, ABC, Generic[T_ID]):
     def __init__(self, client: ToolkitClient, identifier: T_ID | None = None):
@@ -301,9 +303,7 @@ class TransformationFinder(ResourceFinder[tuple[str, ...]]):
             choices=choices,
         ).ask()
         if not selected_transformation_ids:
-            raise ToolkitValueError(
-                "No transformations selected for dumping. Use arrow keys to navigate and space key to select. Press enter to confirm."
-            )
+            raise ToolkitValueError(f"No transformations selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
         return tuple(selected_transformation_ids)
 
     def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
@@ -348,9 +348,7 @@ class GroupFinder(ResourceFinder[tuple[str, ...]]):
             ],
         ).ask()
         if not selected_groups:
-            raise ToolkitValueError(
-                "No group selected for dumping. Use arrow keys to navigate and space key to select. Press enter to confirm."
-            )
+            raise ToolkitValueError(f"No group selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
         self.groups = [group for group_list in selected_groups for group in group_list]
         return tuple(group_list[0].name for group_list in selected_groups)
 
@@ -383,9 +381,7 @@ class AgentFinder(ResourceFinder[tuple[str, ...]]):
             choices=choices,
         ).ask()
         if not selected_agent_ids:
-            raise ToolkitValueError(
-                "No agents selected for dumping. Use arrow keys to navigate and space key to select. Press enter to confirm."
-            )
+            raise ToolkitValueError(f"No agents selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
         return tuple(selected_agent_ids)
 
     def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
@@ -461,9 +457,7 @@ class LocationFilterFinder(ResourceFinder[tuple[str, ...]]):
             choices=[Choice(name, value=id_) for name, id_ in id_by_display_name.items()],
         ).ask()
         if not selected_filter_ids:
-            raise ToolkitValueError(
-                "No filters selected for dumping. Use arrow keys to navigate and space key to select. Press enter to confirm."
-            )
+            raise ToolkitValueError(f"No filters selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
         return tuple(selected_filter_ids)
 
     def _get_filters(self, identifiers: tuple[str, ...]) -> LocationFilterList:
@@ -499,9 +493,7 @@ class ExtractionPipelineFinder(ResourceFinder[tuple[str, ...]]):
             choices=choices,
         ).ask()
         if not selected_pipeline_ids:
-            raise ToolkitValueError(
-                "No extraction pipelines selected for dumping. Use arrow keys to navigate and space key to select. Press enter to confirm."
-            )
+            raise ToolkitValueError(f"No extraction pipelines selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
         return tuple(selected_pipeline_ids)
 
     def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
@@ -540,9 +532,7 @@ class DataSetFinder(ResourceFinder[tuple[str, ...]]):
             choices=choices,
         ).ask()
         if not selected_dataset_ids:
-            raise ToolkitValueError(
-                "No datasets selected for dumping. Use arrow keys to navigate and space key to select. Press enter to confirm."
-            )
+            raise ToolkitValueError(f"No datasets selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
         return tuple(selected_dataset_ids)
 
     def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
@@ -578,9 +568,7 @@ class FunctionFinder(ResourceFinder[tuple[str, ...]]):
             choices=choices,
         ).ask()
         if not selected_function_ids:
-            raise ToolkitValueError(
-                "No functions selected for dumping. Use arrow keys to navigate and space key to select. Press enter to confirm."
-            )
+            raise ToolkitValueError(f"No functions selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
         return tuple(selected_function_ids)
 
     def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
@@ -659,9 +647,7 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
             ],
         ).ask()
         if not selected_ids:
-            raise ToolkitValueError(
-                "No Streamlit app selected for dumping. Use arrow keys to navigate and space key to select. Press enter to confirm."
-            )
+            raise ToolkitValueError(f"No Streamlit app selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
         return tuple(selected_ids)
 
     def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
