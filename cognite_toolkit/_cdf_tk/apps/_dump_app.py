@@ -676,8 +676,8 @@ class DumpConfigApp(typer.Typer):
         spaces: Annotated[
             list[str] | None,
             typer.Argument(
-                help="The name of the space(s) you want to dump. "
-                "If nothing is provided, an interactive prompt will be shown to select the spaces.",
+                help="The name of the instance space(s) you want to dump. "
+                "If nothing is provided, an interactive prompt will be shown to select the instance spaces.",
             ),
         ] = None,
         output_dir: Annotated[
@@ -685,7 +685,7 @@ class DumpConfigApp(typer.Typer):
             typer.Option(
                 "--output-dir",
                 "-o",
-                help="Where to dump the space files.",
+                help="Where to dump the instance space files.",
                 allow_dash=True,
             ),
         ] = Path("tmp"),
@@ -694,7 +694,7 @@ class DumpConfigApp(typer.Typer):
             typer.Option(
                 "--clean",
                 "-c",
-                help="Delete the output directory before dumping the spaces.",
+                help="Delete the output directory before dumping the instance spaces.",
             ),
         ] = False,
         verbose: Annotated[
@@ -706,7 +706,7 @@ class DumpConfigApp(typer.Typer):
             ),
         ] = False,
     ) -> None:
-        """This command will dump the selected spaces as yaml to the folder specified, defaults to /tmp."""
+        """This command will dump the selected instance spaces as yaml to the folder specified, defaults to /tmp."""
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = DumpResourceCommand()
         cmd.run(

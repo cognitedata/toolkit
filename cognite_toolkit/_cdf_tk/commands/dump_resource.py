@@ -86,6 +86,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.tk_warnings import FileExistsWarning, HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, safe_write, to_directory_compatible, yaml_safe_dump
+from cognite_toolkit._cdf_tk.utils.interactive_select import DataModelingSelect
 
 from ._base import ToolkitCommand
 
@@ -732,15 +733,16 @@ class SpaceFinder(ResourceFinder[tuple[str, ...]]):
         self.spaces: SpaceList | None = None
 
     def _interactive_select(self) -> tuple[str, ...]:
-        self.spaces = self.client.data_modeling.spaces.list(limit=-1)
-        if not self.spaces:
-            raise ToolkitMissingResourceError("No spaces found!")
-        choices = [Choice(f"{space.space}", value=space.space) for space in sorted(self.spaces, key=lambda s: s.space)]
-        selected_spaces: list[str] | None = questionary.checkbox(
-            "Which space(s) would you like to dump?", choices=choices
-        ).ask()
+        # Using new interactive select component for selecting instance spaces
+        data_modeling_select = DataModelingSelect(self.client, "dump")
+        selected_spaces = data_modeling_select.select_instance_space(
+            multiselect=True, message="Which instance space(s) would you like to dump?"
+        )
+
         if not selected_spaces:
-            raise ToolkitValueError("No spaces selected for dumping.")
+            raise ToolkitValueError("No instance spaces selected for dumping.")
+
+        self.spaces = self.client.data_modeling.spaces.list(limit=-1)
         return tuple(selected_spaces)
 
     def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
