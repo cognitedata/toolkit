@@ -78,7 +78,7 @@ class MigrationCommand(ToolkitCommand):
     def _print_table(self, results: dict[tuple[str, Status], int], console: Console) -> None:
         for step in self.Steps:
             # We treat pending as failed for summary purposes
-            results[(step.value, "failed")] += results.get((step.value, "pending"), 0)
+            results[(step.value, "failed")] = results.get((step.value, "failed"), 0) + results.get((step.value, "pending"), 0)
 
         table = Table(title="Migration Summary", show_lines=True)
         table.add_column("Status", style="cyan", no_wrap=True)
