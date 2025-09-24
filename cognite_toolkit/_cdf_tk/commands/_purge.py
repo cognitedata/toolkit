@@ -3,7 +3,7 @@ import uuid
 from collections.abc import Callable, Hashable, Iterable, Sequence
 from functools import partial
 from graphlib import CycleError, TopologicalSorter
-from typing import cast
+from typing import Any, cast
 
 import questionary
 from cognite.client.data_classes import AggregateResultItem, DataSetUpdate, filters
@@ -199,7 +199,7 @@ class PurgeCommand(ToolkitCommand):
                     )
                     executor = ProducerWorkerExecutor[CogniteResourceList, list[JsonVal]](
                         download_iterable=self._iterate_batch(crud, selected_space, batch_size=self.BATCH_SIZE_DM),
-                        process=lambda list_: [item.as_id().dump(**dump_args) for item in list_],
+                        process=partial(self._as_id_batch, dump_args=dump_args),
                         write=self._purge_batch(crud, URL, delete_client, result),
                         max_queue_size=10,
                         iteration_count=total // self.BATCH_SIZE_DM + (1 if total % self.BATCH_SIZE_DM > 0 else 0),
@@ -235,6 +235,10 @@ class PurgeCommand(ToolkitCommand):
                 batch = crud.list_cls([])
         if batch:
             yield batch
+
+    @staticmethod
+    def _as_id_batch(chunk: CogniteResourceList, dump_args: dict[str, Any]) -> list[JsonVal]:
+        return [item.as_id().dump(**dump_args) for item in chunk]
 
     @staticmethod
     def _purge_batch(
