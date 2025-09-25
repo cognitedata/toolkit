@@ -6,8 +6,8 @@ from cognite.client.data_classes.data_modeling import NodeId, ViewId
 from cognite.client.data_classes.data_modeling.instances import Node, Properties
 
 from cognite_toolkit._cdf_tk.client.api.extended_data_modeling import ExtendedInstancesAPI
-from cognite_toolkit._cdf_tk.client.api.migration import ViewSourceAPI
-from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricToViewMapping, ViewSource, ViewSourceApply
+from cognite_toolkit._cdf_tk.client.api.migration import ResourceViewMappingAPI
+from cognite_toolkit._cdf_tk.client.data_classes.migration import ResourceViewMapping, ResourceViewMappingApply
 from cognite_toolkit._cdf_tk.constants import COGNITE_MIGRATION_SPACE
 
 
@@ -18,17 +18,15 @@ def instance_api() -> MagicMock:
 
 class TestViewSource:
     def test_upsert(self, instance_api: MagicMock) -> None:
-        view_source_api = ViewSourceAPI(instance_api=instance_api)
-        view_source = ViewSourceApply(
+        view_source_api = ResourceViewMappingAPI(instance_api=instance_api)
+        view_source = ResourceViewMappingApply(
             external_id="asset_mapping",
             resource_type="asset",
             view_id=ViewId("cdf_cdm", "CogniteAsset", "v1"),
-            mapping=AssetCentricToViewMapping(
-                to_property_id={
-                    "name": "name",
-                    "description": "description",
-                }
-            ),
+            property_mapping={
+                "name": "name",
+                "description": "description",
+            },
         )
         _ = view_source_api.upsert(view_source)
 
@@ -38,15 +36,15 @@ class TestViewSource:
         assert kwargs == {"skip_on_version_conflict": False, "replace": False}
 
     def test_retrieve_single_valid(self, instance_api: MagicMock) -> None:
-        view_source_api = ViewSourceAPI(instance_api=instance_api)
-        mock_view_source = ViewSource(
+        view_source_api = ResourceViewMappingAPI(instance_api=instance_api)
+        mock_view_source = ResourceViewMapping(
             external_id="test_source",
             version=1,
             last_updated_time=1000,
             created_time=1000,
             resource_type="asset",
             view_id=ViewId("cdf_cdm", "CogniteAsset", "v1"),
-            mapping=AssetCentricToViewMapping(to_property_id={"name": "name"}),
+            property_mapping={"name": "name"},
         )
         instance_api.retrieve_nodes.return_value = mock_view_source
 
@@ -55,10 +53,10 @@ class TestViewSource:
         instance_api.retrieve_nodes.assert_called_once()
         args, kwargs = instance_api.retrieve_nodes.call_args
         assert args[0] == mock_view_source.as_id()
-        assert kwargs == {"node_cls": ViewSource}
+        assert kwargs == {"node_cls": ResourceViewMapping}
 
     def test_retrieve_multiple_valid(self, instance_api: MagicMock) -> None:
-        view_source_api = ViewSourceAPI(instance_api=instance_api)
+        view_source_api = ResourceViewMappingAPI(instance_api=instance_api)
         mock_view_sources = [
             Node(
                 space=COGNITE_MIGRATION_SPACE,
@@ -70,10 +68,10 @@ class TestViewSource:
                 type=None,
                 properties=Properties(
                     {
-                        ViewSourceApply.get_source(): {
+                        ResourceViewMappingApply.get_source(): {
                             "resourceType": "asset",
                             "viewId": ViewId("cdf_cdm", "CogniteAsset", "v1").dump(),
-                            "mapping": {"toPropertyId": {"name": "name"}},
+                            "propertyMapping": {"name": "name"},
                         }
                     }
                 ),
@@ -84,11 +82,11 @@ class TestViewSource:
 
         result = view_source_api.retrieve(["test_source_0", "test_source_1"])
         assert len(result) == 2
-        assert all(isinstance(r, ViewSource) for r in result)
+        assert all(isinstance(r, ResourceViewMapping) for r in result)
         instance_api.retrieve.assert_called_once()
 
     def test_retrieve_single_invalid(self, instance_api: MagicMock) -> None:
-        view_source_api = ViewSourceAPI(instance_api=instance_api)
+        view_source_api = ResourceViewMappingAPI(instance_api=instance_api)
         instance_api.retrieve_nodes.side_effect = ValueError(
             "Invalid viewId format. Expected 'space', 'externalId', 'version'. Error: 'some_error'"
         )
@@ -110,17 +108,17 @@ class TestViewSource:
             deleted_time=None,
             type=None,
         )
-        view_source_api = ViewSourceAPI(instance_api=instance_api)
+        view_source_api = ResourceViewMappingAPI(instance_api=instance_api)
         mock_view_sources = [
             Node(
                 external_id="valid_source",
                 **default_args,
                 properties=Properties(
                     {
-                        ViewSourceApply.get_source(): {
+                        ResourceViewMappingApply.get_source(): {
                             "resourceType": "asset",
                             "viewId": ViewId("cdf_cdm", "CogniteAsset", "v1").dump(),
-                            "mapping": {"toPropertyId": {"name": "name"}},
+                            "propertyMapping": {"name": "name"},
                         }
                     }
                 ),
@@ -130,10 +128,10 @@ class TestViewSource:
                 **default_args,
                 properties=Properties(
                     {
-                        ViewSourceApply.get_source(): {
+                        ResourceViewMappingApply.get_source(): {
                             "resourceType": "asset",
                             "viewId": "invalid_view_id_format",
-                            "mapping": {"Not a valid mapping": {"name": "name"}},
+                            "propertyMapping": {"Not a valid mapping": {"name": "name"}},
                         }
                     }
                 ),
@@ -145,12 +143,12 @@ class TestViewSource:
             result = view_source_api.retrieve(["valid_source", "invalid_source"])
         assert len(result) == 1
         first = result[0]
-        assert isinstance(first, ViewSource)
+        assert isinstance(first, ResourceViewMapping)
         assert first.external_id == "valid_source"
         assert len(record) == 1
 
     def test_delete_single(self, instance_api: MagicMock) -> None:
-        view_source_api = ViewSourceAPI(instance_api=instance_api)
+        view_source_api = ResourceViewMappingAPI(instance_api=instance_api)
         instance_api.delete.return_value.nodes = ["deleted_node_id"]
 
         result = view_source_api.delete("test_source")
@@ -160,7 +158,7 @@ class TestViewSource:
         assert args[0] == NodeId(COGNITE_MIGRATION_SPACE, "test_source")
 
     def test_delete_multiple(self, instance_api: MagicMock) -> None:
-        view_source_api = ViewSourceAPI(instance_api=instance_api)
+        view_source_api = ResourceViewMappingAPI(instance_api=instance_api)
         instance_api.delete.return_value.nodes = ["deleted_node_1", "deleted_node_2"]
 
         result = view_source_api.delete(["test_source_1", "test_source_2"])

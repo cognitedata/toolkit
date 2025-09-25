@@ -18,29 +18,31 @@ def flatten_dict(dct: dict[str, Any]) -> dict[tuple[str, ...], Any]:
     return items
 
 
-def flatten_dict_json_path(dct: dict[str, Any], exclude_keys: Set[str] | None = None) -> dict[str, Any]:
+def flatten_dict_json_path(dct: dict[str, Any], keep_structured: Set[str] | None = None) -> dict[str, Any]:
     """Flatten a dictionary to a dictionary with JSON path keys.
+
+    Empty keys are ignored.
 
     Args:
         dct: The dictionary to flatten.
-        exclude_keys: The keys ot exclude from flattening. If a key is in this set, it will not be flattened,
-            and the value will be kept as is. This only applies to top-level keys.
+        keep_structured: A set of keys to keep structured (not flatten). If a key is in this set,
+            it will not be flattened, and the value will be kept as is. This only applies to top-level keys.
 
     Returns:
         A dictionary with JSON path keys.
     """
 
-    return _flatten(dct, exclude_keys=exclude_keys or set())
+    return _flatten(dct, keep_structured=keep_structured or set())
 
 
-def _flatten(obj: Any, exclude_keys: Set[str], path: str = "") -> dict[str, Any]:
+def _flatten(obj: Any, keep_structured: Set[str], path: str = "") -> dict[str, Any]:
     items: dict[str, Any] = {}
     if isinstance(obj, dict):
         for key, value in obj.items():
             if not key:
                 continue
             current_path = f"{path}.{key}" if path else key
-            if key in exclude_keys:
+            if key in keep_structured:
                 items[current_path] = value
             else:
                 items.update(_flatten(value, set(), current_path))
