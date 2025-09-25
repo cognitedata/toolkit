@@ -1,5 +1,5 @@
 import difflib
-from collections.abc import Collection, Iterable, Iterator, Sequence
+from collections.abc import Collection, Iterable, Iterator, Sequence, Set
 from itertools import islice
 from typing import Any, TypeVar
 
@@ -15,6 +15,47 @@ def flatten_dict(dct: dict[str, Any]) -> dict[tuple[str, ...], Any]:
                 items[(key, *sub_key)] = sub_value
         else:
             items[(key,)] = value
+    return items
+
+
+def flatten_dict_json_path(dct: dict[str, Any], keep_structured: Set[str] | None = None) -> dict[str, Any]:
+    """Flatten a dictionary to a dictionary with JSON path keys.
+
+    Empty keys are ignored.
+
+    Args:
+        dct: The dictionary to flatten.
+        keep_structured: A set of keys to keep structured (not flatten). If a key is in this set,
+            it will not be flattened, and the value will be kept as is. This only applies to top-level keys.
+
+    Returns:
+        A dictionary with JSON path keys.
+    """
+
+    return _flatten(dct, keep_structured=keep_structured or set())
+
+
+def _flatten(obj: Any, keep_structured: Set[str], path: str = "") -> dict[str, Any]:
+    items: dict[str, Any] = {}
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            if not key:
+                continue
+            current_path = f"{path}.{key}" if path else key
+            if key in keep_structured:
+                items[current_path] = value
+            else:
+                items.update(_flatten(value, set(), current_path))
+    elif isinstance(obj, list):
+        for i, value in enumerate(obj):
+            current_path = f"{path}[{i}]"
+            if isinstance(value, (dict, list)):
+                items.update(_flatten(value, set(), current_path))
+            else:
+                items[current_path] = value
+    else:
+        items[path] = obj
+
     return items
 
 
