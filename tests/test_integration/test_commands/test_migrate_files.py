@@ -142,10 +142,12 @@ class TestMigrateFilesCommand:
         ]
         assert actual_results == expected_results
 
-        # Wait for syncer
-        time.sleep(5)
-
-        migrated_files = client.files.retrieve_multiple(external_ids=three_files_with_content.as_external_ids())
+        # Wait for syncer by polling
+        for _ in range(12):  # Poll for up to 60 seconds
+            migrated_files = client.files.retrieve_multiple(external_ids=three_files_with_content.as_external_ids())
+            if all(f.instance_id is not None for f in migrated_files):
+                break
+            time.sleep(5)
 
         missing_node_id = [ts.external_id for ts in migrated_files if ts.instance_id is None]
         assert not missing_node_id, f"Some files are missing NodeId: {missing_node_id}"
