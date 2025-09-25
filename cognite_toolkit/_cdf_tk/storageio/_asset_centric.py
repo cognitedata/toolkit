@@ -43,7 +43,7 @@ class BaseAssetCentricIO(
     TableStorageIO[int, AssetCentricSelector, T_CogniteResourceList, T_WritableCogniteResourceList],
     ABC,
 ):
-    chunk_size = 1000
+    CHUNK_SIZE = 1000
 
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
@@ -155,8 +155,8 @@ class BaseAssetCentricIO(
             for loaded in loader.load_resource_file(filepath):
                 items.append(loader.load_resource(loaded))
         # MyPy fails to understand that existing, existing_ids and missing will be consistent for given loader.
-        existing = loader.retrieve(loader.get_ids(items))  # type: ignore[arg-type]
-        existing_ids = set(loader.get_ids(existing))  # type: ignore[arg-type]
+        existing = loader.retrieve(loader.get_ids(items))
+        existing_ids = set(loader.get_ids(existing))
         if missing := [item for item in items if loader.get_id(item) not in existing_ids]:  # type: ignore[arg-type]
             loader.create(loader.list_write_cls(missing))  # type: ignore[arg-type]
             if console:
@@ -166,12 +166,12 @@ class BaseAssetCentricIO(
 
 
 class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetList]):
-    folder_name = "classic"
-    kind = "Assets"
-    display_name = "Assets"
-    supported_download_formats = frozenset({".parquet", ".csv", ".ndjson"})
-    supported_compressions = frozenset({".gz"})
-    supported_read_formats = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
+    FOLDER_NAME = "classic"
+    KIND = "Assets"
+    DISPLAY_NAME = "Assets"
+    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
+    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
+    SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
 
     def as_id(self, item: dict[str, JsonVal] | object) -> int:
         if isinstance(item, Asset | AssetWrite) and item.id is not None:  # type: ignore[union-attr]
@@ -215,7 +215,7 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
         ]
         return asset_schema + metadata_schema
 
-    def download_iterable(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[AssetList]:
+    def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[AssetList]:
         asset_subtree_external_ids: list[str] | None = None
         data_set_external_ids: list[str] | None = None
         if isinstance(selector, DataSetSelector):
@@ -226,7 +226,7 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
             # This selector is for uploads, not for downloading from CDF.
             raise ToolkitNotImplementedError(f"Selector type {type(selector)} not supported for AssetIO.")
         for asset_list in self.client.assets(
-            chunk_size=self.chunk_size,
+            chunk_size=self.CHUNK_SIZE,
             limit=limit,
             asset_subtree_external_ids=asset_subtree_external_ids,
             data_set_external_ids=data_set_external_ids,
@@ -247,12 +247,12 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
 
 
 class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, FileMetadataWriteList, FileMetadataList]):
-    folder_name = FileMetadataCRUD.folder_name
-    kind = "FileMetadata"
-    display_name = "file metadata"
-    supported_download_formats = frozenset({".parquet", ".csv", ".ndjson"})
-    supported_compressions = frozenset({".gz"})
-    supported_read_formats = frozenset({".parquet", ".csv", ".ndjson"})
+    FOLDER_NAME = FileMetadataCRUD.folder_name
+    KIND = "FileMetadata"
+    DISPLAY_NAME = "file metadata"
+    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
+    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
+    SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
 
     def as_id(self, item: dict[str, JsonVal] | object) -> int:
         if isinstance(item, FileMetadata | FileMetadataWrite) and item.id is not None:  # type: ignore[union-attr]
@@ -297,7 +297,7 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
         ]
         return file_schema + metadata_schema
 
-    def download_iterable(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[FileMetadataList]:
+    def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[FileMetadataList]:
         asset_subtree_external_ids: list[str] | None = None
         data_set_external_ids: list[str] | None = None
         if isinstance(selector, DataSetSelector):
@@ -308,7 +308,7 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
             # This selector is for uploads, not for downloading from CDF.
             raise ToolkitNotImplementedError(f"Selector type {type(selector)} not supported for FileMetadataIO.")
         for file_list in self.client.files(
-            chunk_size=self.chunk_size,
+            chunk_size=self.CHUNK_SIZE,
             limit=limit,
             asset_subtree_external_ids=asset_subtree_external_ids,
             data_set_external_ids=data_set_external_ids,

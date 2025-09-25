@@ -5,7 +5,7 @@ from typing import Any
 
 from cognite_toolkit._cdf_tk.builders import Builder
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
-from cognite_toolkit._cdf_tk.cruds import GraphQLLoader
+from cognite_toolkit._cdf_tk.cruds import GraphQLCRUD
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildDestinationFile,
     BuildSourceFile,
@@ -17,7 +17,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 
 
 class DataModelBuilder(Builder):
-    _resource_folder = GraphQLLoader.folder_name
+    _resource_folder = GraphQLCRUD.folder_name
 
     def build(
         self, source_files: list[BuildSourceFile], module: ModuleLocation, console: Callable[[str], None] | None = None
@@ -42,7 +42,7 @@ class DataModelBuilder(Builder):
             destination_path = self._create_destination_path(source_file.source.path, loader.kind)
 
             extra_sources: list[SourceLocation] | None = None
-            if loader is GraphQLLoader:
+            if loader is GraphQLCRUD:
                 # The GraphQL must be copied over instead of added to the DML field as
                 # it is hashed in the deployment step and used to determine if the DML has changed.
                 extra_sources = self._copy_graphql_to_build(source_file, destination_path, graphql_files)
@@ -71,7 +71,7 @@ class DataModelBuilder(Builder):
             if "dml" in entry:
                 expected_filename = entry["dml"]
             else:
-                expected_filename = f"{INDEX_PATTERN.sub('', source_file.source.path.stem.removesuffix(GraphQLLoader.kind).removesuffix('.'))}.graphql"
+                expected_filename = f"{INDEX_PATTERN.sub('', source_file.source.path.stem.removesuffix(GraphQLCRUD.kind).removesuffix('.'))}.graphql"
             expected_path = source_file.source.path.parent / Path(expected_filename)
 
             if expected_path in graphql_files:

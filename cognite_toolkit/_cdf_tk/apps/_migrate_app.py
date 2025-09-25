@@ -1,16 +1,22 @@
+from datetime import date
 from pathlib import Path
 from typing import Annotated, Any
 
 import typer
 
 from cognite_toolkit._cdf_tk.commands import (
-    MigrateAssetsCommand,
     MigrateFilesCommand,
     MigrateTimeseriesCommand,
     MigrationCanvasCommand,
     MigrationPrepareCommand,
 )
+from cognite_toolkit._cdf_tk.commands._migrate import MigrationCommand
+from cognite_toolkit._cdf_tk.commands._migrate.adapter import AssetCentricMigrationIOAdapter, MigrationCSVFileSelector
+from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
+from cognite_toolkit._cdf_tk.storageio import AssetIO, InstanceIO
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+
+TODAY = date.today()
 
 
 class MigrateApp(typer.Typer):
@@ -80,6 +86,14 @@ class MigrateApp(typer.Typer):
                 "The dataSetId is optional, and can be skipped. If it is set, it is used to check the access to the dataset.",
             ),
         ],
+        log_dir: Annotated[
+            Path,
+            typer.Option(
+                "--log-dir",
+                "-l",
+                help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
+            ),
+        ] = Path(f"migration_logs_{TODAY!s}"),
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -99,11 +113,13 @@ class MigrateApp(typer.Typer):
     ) -> None:
         """Migrate Assets to CogniteAssets."""
         client = EnvironmentVariables.create_from_environment().get_client()
-        cmd = MigrateAssetsCommand()
+        cmd = MigrationCommand()
         cmd.run(
-            lambda: cmd.migrate_assets(
-                client,
-                mapping_file=mapping_file,
+            lambda: cmd.migrate(
+                selected=MigrationCSVFileSelector(mapping_file, resource_type="asset"),
+                data=AssetCentricMigrationIOAdapter(client, AssetIO(client), InstanceIO(client)),
+                mapper=AssetCentricMapper(client),
+                log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
             )

@@ -35,7 +35,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.sequences import (
     ToolkitSequenceRowsWriteList,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
-from cognite_toolkit._cdf_tk.resource_classes import AssetYAML, EventYAML
+from cognite_toolkit._cdf_tk.resource_classes import AssetYAML, EventYAML, SequenceYAML
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
@@ -102,10 +102,7 @@ class AssetCRUD(ResourceCRUD[str, AssetWrite, Asset, AssetWriteList, AssetList])
             if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
                 scope = capabilities.AssetsAcl.Scope.DataSet(list(data_set_ids))
 
-        return capabilities.AssetsAcl(
-            actions,
-            scope,  # type: ignore[arg-type]
-        )
+        return capabilities.AssetsAcl(actions, scope)
 
     def create(self, items: AssetWriteList) -> AssetList:
         return self.client.assets.create(items)
@@ -248,6 +245,7 @@ class SequenceCRUD(ResourceCRUD[str, SequenceWrite, Sequence, SequenceWriteList,
     list_write_cls = SequenceWriteList
     kind = "Sequence"
     dependencies = frozenset({DataSetsCRUD, AssetCRUD})
+    yaml_cls = SequenceYAML
     _doc_url = "Sequences/operation/createSequence"
 
     @property
@@ -291,10 +289,7 @@ class SequenceCRUD(ResourceCRUD[str, SequenceWrite, Sequence, SequenceWriteList,
             else [capabilities.SequencesAcl.Action.Read, capabilities.SequencesAcl.Action.Write]
         )
 
-        return capabilities.SequencesAcl(
-            actions,
-            scope,  # type: ignore[arg-type]
-        )
+        return capabilities.SequencesAcl(actions, scope)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> SequenceWrite:
         if ds_external_id := resource.pop("dataSetExternalId", None):
@@ -571,10 +566,7 @@ class EventCRUD(ResourceCRUD[str, EventWrite, Event, EventWriteList, EventList])
             if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
                 scope = capabilities.EventsAcl.Scope.DataSet(list(data_set_ids))
 
-        return capabilities.EventsAcl(
-            actions,
-            scope,  # type: ignore[arg-type]
-        )
+        return capabilities.EventsAcl(actions, scope)
 
     def create(self, items: EventWriteList) -> EventList:
         return self.client.events.create(items)

@@ -1,4 +1,3 @@
-from collections.abc import Callable
 from typing import Any
 
 from cognite.client.data_classes import Asset, Event, FileMetadata, Sequence, TimeSeries
@@ -9,33 +8,29 @@ from cognite.client.data_classes.data_modeling.views import ViewProperty
 
 from cognite_toolkit._cdf_tk.client.data_classes.extended_filemetadata import ExtendedFileMetadata
 from cognite_toolkit._cdf_tk.client.data_classes.extended_timeseries import ExtendedTimeSeries
-from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId, ViewSource
+from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId, ResourceViewMapping
+from cognite_toolkit._cdf_tk.utils.collection import flatten_dict_json_path
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     asset_centric_convert_to_primary_property,
-    convert_to_primary_property,
 )
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentric
 
-from .base import T_AssetCentricResource
 from .data_model import INSTANCE_SOURCE_VIEW_ID
 from .issues import ConversionIssue, FailedConversion, InvalidPropertyDataType
 
-# These properties are not expected to be mapped to the instance.
-_RESERVED_ASSET_CENTRIC_PROPERTIES = frozenset({"metadata", "externalId", "dataSetId", "parentId", "id"})
-
 
 def asset_centric_to_dm(
-    resource: T_AssetCentricResource,
+    resource: CogniteResource,
     instance_id: NodeId,
-    view_source: ViewSource,
+    view_source: ResourceViewMapping,
     view_properties: dict[str, ViewProperty],
 ) -> tuple[NodeApply, ConversionIssue]:
     """Convert an asset-centric resource to a data model instance.
 
     Args:
-        resource (T_AssetCentricResource): The asset-centric resource to convert.
+        resource (CogniteResource): The asset-centric resource to convert.
         instance_id (NodeId): The ID of the instance to create or update.
-        view_source (ViewSource): The view source defining how to map the resource to the data model.
+        view_source (ResourceViewMapping): The view source defining how to map the resource to the data model.
         view_properties (dict[str, ViewProperty]): The defined properties referenced in the view source mapping.
 
     Returns:
@@ -43,65 +38,34 @@ def asset_centric_to_dm(
     """
     resource_type = _lookup_resource_type(type(resource))
     dumped = resource.dump()
-    available_properties = (
-        set(dumped.keys()) | {f"metadata.{key}" for key in resource.metadata or {}}
-    ) - _RESERVED_ASSET_CENTRIC_PROPERTIES
-    expected_properties = set(view_source.mapping.to_property_id.keys()) | {
-        f"metadata.{key}" for key in (view_source.mapping.metadata_to_property_id or {}).keys()
-    }
+    try:
+        id_ = dumped.pop("id")
+    except KeyError as e:
+        raise ValueError("Resource must have an 'id' field.") from e
+    if not isinstance(id_, int):
+        raise TypeError(f"Resource 'id' field must be an int, got {type(id_)}.")
+    data_set_id = dumped.pop("dataSetId", None)
+    external_id = dumped.pop("externalId", None)
 
-    issue = ConversionIssue(
-        asset_centric_id=AssetCentricId(resource_type, id_=resource.id),
-        instance_id=instance_id,
-        ignored_asset_centric_properties=sorted(available_properties - expected_properties),
-    )
+    issue = ConversionIssue(asset_centric_id=AssetCentricId(resource_type, id_=id_), instance_id=instance_id)
 
-    properties = _create_properties(
+    properties = create_properties(
         dumped,
-        issue,
-        conversion=lambda value, prop_id, dm_prop: asset_centric_convert_to_primary_property(
-            value,
-            dm_prop.type,
-            dm_prop.nullable,
-            destination_container_property=(dm_prop.container, dm_prop.container_property_identifier),
-            source_property=(resource_type, prop_id),
-        ),
-        view_properties=view_properties,
-        asset_centric_to_instance=view_source.mapping.to_property_id,
+        view_properties,
+        view_source.property_mapping,
+        resource_type,
+        issue=issue,
     )
-    if view_source.mapping.metadata_to_property_id is not None:
-        metadata_properties = _create_properties(
-            resource.metadata or {},
-            issue,
-            conversion=lambda value, prop_id, dm_prop: convert_to_primary_property(
-                value,
-                dm_prop.type,
-                dm_prop.nullable,
-            ),
-            view_properties=view_properties,
-            asset_centric_to_instance=view_source.mapping.metadata_to_property_id,
-            source_prefix="metadata.",
-        )
-        for key, value in metadata_properties.items():
-            if key not in properties:
-                properties[key] = value
-            else:
-                issue.ignored_asset_centric_properties.append(f"metadata.{key}")
-
     sources: list[NodeOrEdgeData] = []
     if properties:
         sources.append(NodeOrEdgeData(source=view_source.view_id, properties=properties))
-    sources.append(
-        NodeOrEdgeData(
-            source=INSTANCE_SOURCE_VIEW_ID,
-            properties={
-                "resourceType": resource_type,
-                "id": resource.id,
-                "dataSetId": resource.data_set_id,
-                "classicExternalId": resource.external_id,
-            },
-        )
-    )
+    instance_source_properties = {
+        "resourceType": resource_type,
+        "id": id_,
+        "dataSetId": data_set_id,
+        "classicExternalId": external_id,
+    }
+    sources.append(NodeOrEdgeData(source=INSTANCE_SOURCE_VIEW_ID, properties=instance_source_properties))
 
     node = NodeApply(
         space=instance_id.space,
@@ -112,7 +76,7 @@ def asset_centric_to_dm(
     return node, issue
 
 
-def _lookup_resource_type(resource_type: type[T_AssetCentricResource]) -> AssetCentric:
+def _lookup_resource_type(resource_type: type[CogniteResource]) -> AssetCentric:
     resource_type_map: dict[type[CogniteResource], AssetCentric] = {
         Asset: "asset",
         FileMetadata: "file",
@@ -128,32 +92,62 @@ def _lookup_resource_type(resource_type: type[T_AssetCentricResource]) -> AssetC
         raise ValueError(f"Unsupported resource type: {resource_type}") from e
 
 
-def _create_properties(
+def create_properties(
     dumped: dict[str, Any],
-    issue: ConversionIssue,
-    conversion: Callable[[Any, str, MappedProperty], PropertyValueWrite],
     view_properties: dict[str, ViewProperty],
-    asset_centric_to_instance: dict[str, str],
-    source_prefix: str = "",
+    property_mapping: dict[str, str],
+    resource_type: AssetCentric,
+    issue: ConversionIssue,
 ) -> dict[str, PropertyValueWrite]:
+    """
+    Create properties for a data model instance from an asset-centric resource.
+
+    Args:
+        dumped: Dict representation of the asset-centric resource.
+        view_properties: Defined properties referenced in the view source mapping.
+        property_mapping:  Mapping from asset-centric property IDs to data model property IDs.
+        resource_type: The type of the asset-centric resource (e.g., "asset", "timeseries").
+        issue: ConversionIssue object to log any issues encountered during conversion.
+
+    Returns:
+        Dict of property IDs to PropertyValueWrite objects.
+
+    """
+    flatten_dump = flatten_dict_json_path(dumped, keep_structured=set(property_mapping.keys()))
     properties: dict[str, PropertyValueWrite] = {}
-    for prop_id, dm_prop_id in asset_centric_to_instance.items():
-        if prop_id not in dumped:
-            issue.missing_asset_centric_properties.append(f"{source_prefix}{prop_id}")
+    ignored_asset_centric_properties: set[str] = set()
+    for prop_json_path, prop_id in property_mapping.items():
+        if prop_json_path not in flatten_dump:
             continue
-        if dm_prop_id not in view_properties:
-            issue.missing_instance_properties.append(dm_prop_id)
+        if prop_id not in view_properties:
             continue
-        dm_prop = view_properties[dm_prop_id]
+        if prop_id in properties:
+            ignored_asset_centric_properties.add(prop_json_path)
+            continue
+        dm_prop = view_properties[prop_id]
         if not isinstance(dm_prop, MappedProperty):
             issue.invalid_instance_property_types.append(
-                InvalidPropertyDataType(property_id=dm_prop_id, expected_type=MappedProperty.__name__)
+                InvalidPropertyDataType(property_id=prop_id, expected_type=MappedProperty.__name__)
             )
             continue
         try:
-            value = conversion(dumped[prop_id], prop_id, dm_prop)
-        except (ValueError, TypeError) as e:
-            issue.failed_conversions.append(FailedConversion(property_id=prop_id, value=dumped[prop_id], error=str(e)))
+            value = asset_centric_convert_to_primary_property(
+                flatten_dump[prop_json_path],
+                dm_prop.type,
+                dm_prop.nullable,
+                destination_container_property=(dm_prop.container, dm_prop.container_property_identifier),
+                source_property=(resource_type, prop_json_path),
+            )
+        except (ValueError, TypeError, NotImplementedError) as e:
+            issue.failed_conversions.append(
+                FailedConversion(property_id=prop_json_path, value=flatten_dump[prop_json_path], error=str(e))
+            )
             continue
-        properties[dm_prop_id] = value
+        properties[prop_id] = value
+
+    issue.ignored_asset_centric_properties = sorted(
+        (set(flatten_dump.keys()) - set(property_mapping.keys())) | ignored_asset_centric_properties
+    )
+    issue.missing_asset_centric_properties = sorted(set(property_mapping.keys()) - set(flatten_dump.keys()))
+    issue.missing_instance_properties = sorted(set(property_mapping.values()) - set(view_properties.keys()))
     return properties

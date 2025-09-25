@@ -10,21 +10,22 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList, InstanceList
 from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
+from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import StorageIOConfig, TableStorageIO
-from ._selectors import InstanceSelector, InstanceViewSelector
+from ._selectors import InstanceFileSelector, InstanceSelector, InstanceViewSelector
 
 
 class InstanceIO(TableStorageIO[InstanceId, InstanceSelector, InstanceApplyList, InstanceList]):
-    folder_name = "instances"
-    kind = "Instances"
-    display_name = "Instances"
-    supported_download_formats = frozenset({".parquet", ".csv", ".ndjson"})
-    supported_compressions = frozenset({".gz"})
-    supported_read_formats = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
-    chunk_size = 1000
+    FOLDER_NAME = "instances"
+    KIND = "Instances"
+    DISPLAY_NAME = "Instances"
+    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
+    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
+    SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
+    CHUNK_SIZE = 1000
     UPLOAD_ENDPOINT = "/models/instances"
     UPLOAD_EXTRA_ARGS: ClassVar[Mapping[str, JsonVal] | None] = MappingProxyType({"autoCreateDirectRelations": True})
 
@@ -38,7 +39,7 @@ class InstanceIO(TableStorageIO[InstanceId, InstanceSelector, InstanceApplyList,
             return item.as_id()
         raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
 
-    def download_iterable(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[InstanceList]:
+    def stream_data(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[InstanceList]:
         if isinstance(selector, InstanceViewSelector):
             chunk = InstanceList([])
             total = 0
@@ -52,19 +53,27 @@ class InstanceIO(TableStorageIO[InstanceId, InstanceSelector, InstanceApplyList,
                     break
                 total += 1
                 chunk.append(instance)
-                if len(chunk) >= self.chunk_size:
+                if len(chunk) >= self.CHUNK_SIZE:
                     yield chunk
                     chunk = InstanceList([])
             if chunk:
                 yield chunk
+        elif isinstance(selector, InstanceFileSelector):
+            for node_chunk in chunker_sequence(selector.node_ids, self.CHUNK_SIZE):
+                yield InstanceList(self.client.data_modeling.instances.retrieve(nodes=node_chunk).nodes)
+            for edge_chunk in chunker_sequence(selector.edge_ids, self.CHUNK_SIZE):
+                yield InstanceList(self.client.data_modeling.instances.retrieve(edges=edge_chunk).edges)
         else:
             raise NotImplementedError()
 
     def download_ids(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[list[InstanceId]]:
-        if isinstance(selector, InstanceViewSelector):
-            yield from ([instance.as_id() for instance in chunk] for chunk in self.download_iterable(selector, limit))  # type: ignore[attr-defined]
+        if isinstance(selector, InstanceFileSelector) and selector.validate is False:
+            instances_to_yield = selector.instance_ids
+            if limit is not None:
+                instances_to_yield = instances_to_yield[:limit]
+            yield from chunker_sequence(instances_to_yield, self.CHUNK_SIZE)
         else:
-            raise NotImplementedError()
+            yield from ([instance.as_id() for instance in chunk] for chunk in self.stream_data(selector, limit))  # type: ignore[attr-defined]
 
     def count(self, selector: InstanceSelector) -> int | None:
         if isinstance(selector, InstanceViewSelector):
@@ -75,6 +84,8 @@ class InstanceIO(TableStorageIO[InstanceId, InstanceSelector, InstanceApplyList,
                 space=list(selector.instance_spaces) if selector.instance_spaces else None,
             )
             return int(result.value or 0)
+        elif isinstance(selector, InstanceFileSelector):
+            return len(selector.instance_ids)
         raise NotImplementedError()
 
     def upload_items(self, data_chunk: InstanceApplyList, selector: InstanceSelector) -> None:

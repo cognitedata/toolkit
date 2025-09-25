@@ -23,7 +23,7 @@ from cognite_toolkit._cdf_tk.constants import BUILD_ENVIRONMENT_FILE, ENV_VAR_PA
 from cognite_toolkit._cdf_tk.cruds import (
     ExtractionPipelineConfigCRUD,
     FunctionCRUD,
-    GraphQLLoader,
+    GraphQLCRUD,
     GroupAllScopedCRUD,
     HostedExtractorDestinationCRUD,
     HostedExtractorSourceCRUD,
@@ -521,7 +521,7 @@ class PullCommand(ToolkitCommand):
                     LowSeverityWarning(f"Skipping {loader.display_name} as it is not supported by the pull command.")
                 )
                 continue
-            if isinstance(loader, GraphQLLoader | FunctionCRUD | StreamlitCRUD):
+            if isinstance(loader, GraphQLCRUD | FunctionCRUD | StreamlitCRUD):
                 self.warn(
                     LowSeverityWarning(
                         f"Skipping {loader.display_name} as it is not supported by the pull command due to"
@@ -549,7 +549,7 @@ class PullCommand(ToolkitCommand):
         dry_run: bool,
         environment_variables: dict[str, str | None],
     ) -> ResourceDeployResult:
-        cdf_resources = loader.retrieve(resources.identifiers)  # type: ignore[arg-type]
+        cdf_resources = loader.retrieve(resources.identifiers)
         cdf_resource_by_id: dict[T_ID, T_WritableCogniteResource] = {loader.get_id(r): r for r in cdf_resources}
 
         resources_by_file = resources.by_file()
@@ -560,7 +560,7 @@ class PullCommand(ToolkitCommand):
             has_changes, to_write = self._get_to_write(local_resource_by_id, cdf_resource_by_id, file_results, loader)
 
             if has_changes and not dry_run:
-                new_content, extra_files = self._to_write_content(  # type: ignore[arg-type]
+                new_content, extra_files = self._to_write_content(
                     safe_read(source_file), to_write, resources, environment_variables, loader
                 )
                 with source_file.open("w", encoding=ENCODING, newline=NEWLINE) as f:

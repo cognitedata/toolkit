@@ -90,7 +90,14 @@ from cognite_toolkit._cdf_tk.cruds._base_cruds import (
     ResourceCRUD,
 )
 from cognite_toolkit._cdf_tk.exceptions import GraphQLParseError, ToolkitCycleError, ToolkitFileNotFoundError
-from cognite_toolkit._cdf_tk.resource_classes import ContainerYAML, SpaceYAML, ViewYAML
+from cognite_toolkit._cdf_tk.resource_classes import (
+    ContainerYAML,
+    DataModelYAML,
+    EdgeYAML,
+    NodeYAML,
+    SpaceYAML,
+    ViewYAML,
+)
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     GraphQLParser,
@@ -274,7 +281,7 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerApply, Container
             else DataModelsAcl.Scope.All()
         )
 
-        return DataModelsAcl(actions, scope)  # type: ignore[arg-type]
+        return DataModelsAcl(actions, scope)
 
     @classmethod
     def get_id(cls, item: ContainerApply | Container | dict) -> ContainerId:
@@ -525,7 +532,7 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View, ViewApplyList, ViewList]):
             else DataModelsAcl.Scope.All()
         )
 
-        return DataModelsAcl(actions, scope)  # type: ignore[arg-type]
+        return DataModelsAcl(actions, scope)
 
     @classmethod
     def get_id(cls, item: ViewApply | View | dict) -> ViewId:
@@ -902,6 +909,7 @@ class DataModelCRUD(ResourceCRUD[DataModelId, DataModelApply, DataModel, DataMod
     list_write_cls = DataModelApplyList
     kind = "DataModel"
     dependencies = frozenset({SpaceCRUD, ViewCRUD})
+    yaml_cls = DataModelYAML
     _doc_url = "Data-models/operation/createDataModels"
 
     @property
@@ -923,7 +931,7 @@ class DataModelCRUD(ResourceCRUD[DataModelId, DataModelApply, DataModel, DataMod
             else DataModelsAcl.Scope.All()
         )
 
-        return DataModelsAcl(actions, scope)  # type: ignore[arg-type]
+        return DataModelsAcl(actions, scope)
 
     @classmethod
     def get_id(cls, item: DataModelApply | DataModel | dict) -> DataModelId:
@@ -1043,6 +1051,7 @@ class NodeCRUD(ResourceContainerCRUD[NodeId, NodeApply, Node, NodeApplyList, Nod
     list_cls = NodeList
     list_write_cls = NodeApplyList
     kind = "Node"
+    yaml_cls = NodeYAML
     dependencies = frozenset({SpaceCRUD, ViewCRUD, ContainerCRUD})
     _doc_url = "Instances/operation/applyNodeAndEdges"
 
@@ -1205,7 +1214,7 @@ class NodeCRUD(ResourceContainerCRUD[NodeId, NodeApply, Node, NodeApplyList, Nod
         return to_directory_compatible(f"{id.space}_{id.external_id}")
 
 
-class GraphQLLoader(
+class GraphQLCRUD(
     ResourceContainerCRUD[
         DataModelId, GraphQLDataModelWrite, GraphQLDataModel, GraphQLDataModelWriteList, GraphQLDataModelList
     ]
@@ -1407,7 +1416,7 @@ class GraphQLLoader(
 
 
 @final
-class EdgeLoader(ResourceContainerCRUD[EdgeId, EdgeApply, Edge, EdgeApplyList, EdgeList]):
+class EdgeCRUD(ResourceContainerCRUD[EdgeId, EdgeApply, Edge, EdgeApplyList, EdgeList]):
     item_name = "edges"
     folder_name = "data_models"
     filename_pattern = r"^.*edge"
@@ -1416,6 +1425,7 @@ class EdgeLoader(ResourceContainerCRUD[EdgeId, EdgeApply, Edge, EdgeApplyList, E
     list_cls = EdgeList
     list_write_cls = EdgeApplyList
     kind = "Edge"
+    yaml_cls = EdgeYAML
     dependencies = frozenset({SpaceCRUD, ViewCRUD, ContainerCRUD, NodeCRUD})
     _doc_url = "Instances/operation/applyNodeAndEdges"
 

@@ -15,6 +15,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.resource_classes import RelationshipYAML
 
 from .classic import AssetCRUD, EventCRUD, SequenceCRUD
 from .data_organization import DataSetsCRUD, LabelCRUD
@@ -32,6 +33,7 @@ class RelationshipCRUD(ResourceCRUD[str, RelationshipWrite, Relationship, Relati
     list_cls = RelationshipList
     list_write_cls = RelationshipWriteList
     kind = "Relationship"
+    yaml_cls = RelationshipYAML
     dependencies = frozenset(
         {DataSetsCRUD, AssetCRUD, EventCRUD, SequenceCRUD, FileMetadataCRUD, TimeSeriesCRUD, LabelCRUD}
     )
@@ -73,10 +75,7 @@ class RelationshipCRUD(ResourceCRUD[str, RelationshipWrite, Relationship, Relati
             if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
                 scope = capabilities.RelationshipsAcl.Scope.DataSet(list(data_set_ids))
 
-        return capabilities.RelationshipsAcl(
-            actions,
-            scope,  # type: ignore[arg-type]
-        )
+        return capabilities.RelationshipsAcl(actions, scope)
 
     def create(self, items: RelationshipWriteList) -> RelationshipList:
         return self.client.relationships.create(items)

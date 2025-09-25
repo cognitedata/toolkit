@@ -3,8 +3,9 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Generic, Literal, TypeAlias
 
-import requests
+import httpx
 
+from cognite_toolkit._cdf_tk.utils.http_client._tracker import ItemsRequestTracker
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal
 
 StatusCode: TypeAlias = int
@@ -55,7 +56,7 @@ class RequestMessage(HTTPMessage):
     @abstractmethod
     def create_responses(
         self,
-        response: requests.Response,
+        response: httpx.Response,
         response_body: dict[str, JsonVal] | None = None,
         error_message: str | None = None,
     ) -> Sequence[HTTPMessage]:
@@ -84,7 +85,7 @@ class SimpleRequest(RequestMessage):
     @classmethod
     def create_responses(
         cls,
-        response: requests.Response,
+        response: httpx.Response,
         response_body: dict[str, JsonVal] | None = None,
         error_message: str | None = None,
     ) -> Sequence[ResponseMessage]:
@@ -177,9 +178,24 @@ class UnknownResponseItem(ItemMessage, ResponseMessage):
 
 @dataclass
 class ItemsRequest(Generic[T_ID], BodyRequest):
+    """Requests message for endpoints that accept multiple items in a single request.
+
+    This class provides functionality to split large requests into smaller ones, handle responses for each item,
+    and manage errors effectively.
+
+    Attributes:
+        items (list[JsonVal]): The list of items to be sent in the request body.
+        extra_body_fields (dict[str, JsonVal]): Additional fields to include in the request body
+        as_id (Callable[[JsonVal], T_ID] | None): A function to extract the ID from each item. If None, IDs are not used.
+        max_failures_before_abort (int): The maximum number of failed split requests before aborting further splits.
+
+    """
+
     items: list[JsonVal] = field(default_factory=list)
     extra_body_fields: dict[str, JsonVal] = field(default_factory=dict)
     as_id: Callable[[JsonVal], T_ID] | None = None
+    max_failures_before_abort: int = 50
+    tracker: ItemsRequestTracker | None = field(default=None, init=False)
 
     def dump(self) -> dict[str, JsonVal]:
         """Dumps the message to a JSON serializable dictionary.
@@ -193,6 +209,9 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
         if self.as_id is not None:
             # We cannot serialize functions
             del output["as_id"]
+        if self.tracker is not None:
+            # We cannot serialize the tracker
+            del output["tracker"]
         return output
 
     def body(self) -> dict[str, JsonVal]:
@@ -218,6 +237,8 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
         mid = len(self.items) // 2
         if mid == 0:
             return [self]
+        tracker = self.tracker or ItemsRequestTracker(self.max_failures_before_abort)
+        tracker.register_failure()
         first_half = ItemsRequest[T_ID](
             endpoint_url=self.endpoint_url,
             method=self.method,
@@ -228,6 +249,7 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
             read_attempt=self.read_attempt,
             status_attempt=status_attempts,
         )
+        first_half.tracker = tracker
         second_half = ItemsRequest[T_ID](
             endpoint_url=self.endpoint_url,
             method=self.method,
@@ -238,11 +260,12 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
             read_attempt=self.read_attempt,
             status_attempt=status_attempts,
         )
+        second_half.tracker = tracker
         return [first_half, second_half]
 
     def create_responses(
         self,
-        response: requests.Response,
+        response: httpx.Response,
         response_body: dict[str, JsonVal] | None = None,
         error_message: str | None = None,
     ) -> Sequence[HTTPMessage]:
@@ -277,7 +300,7 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
     @staticmethod
     def _handle_non_items_response(
         responses: list[HTTPMessage],
-        response: requests.Response,
+        response: httpx.Response,
         error_message: str,
         request_items_by_id: dict[T_ID, JsonVal],
     ) -> list[HTTPMessage]:
@@ -296,13 +319,13 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
     def _process_response_items(
         self,
         responses: list[HTTPMessage],
-        response: requests.Response,
+        response: httpx.Response,
         response_body: dict[str, JsonVal],
         error_message: str,
         request_items_by_id: dict[T_ID, JsonVal],
     ) -> None:
         """Processes each item in the response body and categorizes them based on their status."""
-        for response_item in response_body["items"]:  # type: ignore[index, union-attr]
+        for response_item in response_body["items"]:  # type: ignore[union-attr]
             try:
                 item_id = self.as_id(response_item)  # type: ignore[misc]
             except Exception as e:
@@ -322,7 +345,7 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
 
     @staticmethod
     def _handle_missing_items(
-        responses: list[HTTPMessage], response: requests.Response, request_items_by_id: dict[T_ID, JsonVal]
+        responses: list[HTTPMessage], response: httpx.Response, request_items_by_id: dict[T_ID, JsonVal]
     ) -> None:
         """Handles items that were in the request but not present in the response."""
         for item_id in request_items_by_id.keys():

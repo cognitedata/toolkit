@@ -1,19 +1,14 @@
 import gzip
 import random
-import socket
 import sys
 import time
 from collections import deque
 from collections.abc import MutableMapping, Sequence, Set
 from typing import Literal
 
-import requests
-import urllib3
+import httpx
 from cognite.client import global_config
 from cognite.client.utils import _json
-from requests.adapters import HTTPAdapter
-from requests.structures import CaseInsensitiveDict
-from urllib3.util.retry import Retry
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.utils.auxiliary import get_current_toolkit_version, get_user_agent
@@ -26,6 +21,7 @@ from cognite_toolkit._cdf_tk.utils.http_client._data_classes import (
     RequestMessage,
     ResponseMessage,
 )
+from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -90,6 +86,11 @@ class HTTPClient:
             Sequence[HTTPMessage]: The response message(s). This can also
                 include RequestMessage(s) to be retried.
         """
+        if isinstance(message, ItemsRequest) and message.tracker and message.tracker.limit_reached():
+            error_msg = (
+                f"Aborting further splitting of requests after {message.tracker.failed_split_count} failed attempts."
+            )
+            return message.create_failed_request(error_msg)
         try:
             response = self._make_request(message)
             results = self._handle_response(response, message)
@@ -133,19 +134,18 @@ class HTTPClient:
 
         return final_responses
 
-    def _create_thread_safe_session(self) -> requests.Session:
-        session = requests.Session()
-        adapter = HTTPAdapter(
-            pool_connections=self._pool_connections,
-            pool_maxsize=self._pool_maxsize,
-            max_retries=Retry(total=0),  # We handle retries manually
+    def _create_thread_safe_session(self) -> httpx.Client:
+        return httpx.Client(
+            limits=httpx.Limits(
+                max_connections=self._pool_maxsize,
+                max_keepalive_connections=self._pool_connections,
+            ),
+            timeout=self.config.timeout,
         )
-        session.mount("https://", adapter)
-        return session
 
     def _create_headers(self, api_version: str | None = None) -> MutableMapping[str, str]:
-        headers: MutableMapping[str, str] = CaseInsensitiveDict()
-        headers.update(requests.utils.default_headers())
+        headers: MutableMapping[str, str] = {}
+        headers["User-Agent"] = f"httpx/{httpx.__version__} {get_user_agent()}"
         auth_name, auth_value = self.config.credentials.authorization_header()
         headers[auth_name] = auth_value
         headers["content-type"] = "application/json"
@@ -153,10 +153,6 @@ class HTTPClient:
         headers["x-cdp-sdk"] = f"CogniteToolkit:{get_current_toolkit_version()}"
         headers["x-cdp-app"] = self.config.client_name
         headers["cdf-version"] = api_version or self.config.api_subversion
-        if "User-Agent" in headers:
-            headers["User-Agent"] += f" {get_user_agent()}"
-        else:
-            headers["User-Agent"] = get_user_agent()
         if not global_config.disable_gzip:
             headers["Content-Encoding"] = "gzip"
         return headers
@@ -183,7 +179,7 @@ class HTTPClient:
             data = gzip.compress(data.encode())
         return data
 
-    def _make_request(self, item: RequestMessage) -> requests.Response:
+    def _make_request(self, item: RequestMessage) -> httpx.Response:
         headers = self._create_headers(item.api_version)
         params: dict[str, str] | None = None
         if isinstance(item, ParamRequest):
@@ -194,16 +190,16 @@ class HTTPClient:
         return self.session.request(
             method=item.method,
             url=item.endpoint_url,
-            data=data,
+            content=data,
             headers=headers,
             params=params,
             timeout=self.config.timeout,
-            allow_redirects=False,
+            follow_redirects=False,
         )
 
     def _handle_response(
         self,
-        response: requests.Response,
+        response: httpx.Response,
         request: RequestMessage,
     ) -> Sequence[HTTPMessage]:
         try:
@@ -223,20 +219,31 @@ class HTTPClient:
             status_attempts = request.status_attempt
             if 500 <= response.status_code < 600:
                 status_attempts += 1
-            return request.split(status_attempts=status_attempts)
+            splits = request.split(status_attempts=status_attempts)
+            if splits[0].tracker and splits[0].tracker.limit_reached():
+                return request.create_responses(response, body, self._get_error_message(body, response.text))
+            return splits
         elif request.status_attempt < self._max_retries and response.status_code in self._retry_status_codes:
             request.status_attempt += 1
             time.sleep(self._backoff_time(request.total_attempts))
             return [request]
         else:
             # Permanent failure
-            error = response.text
-            if "error" in body:
-                if isinstance(body["error"], str):
-                    error = body["error"]
-                elif isinstance(body["error"], dict) and "message" in body["error"]:
-                    error = body["error"]["message"]
-            return request.create_responses(response, body, error)
+            return request.create_responses(response, body, self._get_error_message(body, response.text))
+
+    @staticmethod
+    def _get_error_message(body: JsonVal, default: str) -> str:
+        error = default
+        if not isinstance(body, dict):
+            return error
+        if "error" not in body:
+            return error
+        error_nested = body["error"]
+        if isinstance(error_nested, str):
+            return error_nested
+        if isinstance(error_nested, dict) and "message" in error_nested and isinstance(error_nested["message"], str):
+            return error_nested["message"]
+        return error
 
     @staticmethod
     def _backoff_time(attempts: int) -> float:
@@ -248,21 +255,11 @@ class HTTPClient:
         e: Exception,
         request: RequestMessage,
     ) -> Sequence[HTTPMessage]:
-        if self._any_exception_in_context_isinstance(
-            e, (socket.timeout, urllib3.exceptions.ReadTimeoutError, requests.exceptions.ReadTimeout)
-        ):
+        if isinstance(e, httpx.ReadTimeout | httpx.TimeoutException):
             error_type = "read"
             request.read_attempt += 1
             attempts = request.read_attempt
-        elif self._any_exception_in_context_isinstance(
-            e,
-            (
-                ConnectionError,
-                urllib3.exceptions.ConnectionError,
-                urllib3.exceptions.ConnectTimeoutError,
-                requests.exceptions.ConnectionError,
-            ),
-        ):
+        elif isinstance(e, ConnectionError | httpx.ConnectError | httpx.ConnectTimeout):
             error_type = "connect"
             request.connect_attempt += 1
             attempts = request.connect_attempt
@@ -278,16 +275,3 @@ class HTTPClient:
             error_msg = f"RequestException after {request.total_attempts - 1} attempts ({error_type} error): {e!s}"
 
             return request.create_failed_request(error_msg)
-
-    @classmethod
-    def _any_exception_in_context_isinstance(
-        cls, exc: BaseException, exc_types: tuple[type[BaseException], ...] | type[BaseException]
-    ) -> bool:
-        """requests does not use the "raise ... from ..." syntax, so we need to access the underlying exceptions using
-        the __context__ attribute.
-        """
-        if isinstance(exc, exc_types):
-            return True
-        if exc.__context__ is None:
-            return False
-        return cls._any_exception_in_context_isinstance(exc.__context__, exc_types)

@@ -6,8 +6,8 @@ from .data_organization import DataSetsCRUD, LabelCRUD
 from .datamodel import (
     ContainerCRUD,
     DataModelCRUD,
-    EdgeLoader,
-    GraphQLLoader,
+    EdgeCRUD,
+    GraphQLCRUD,
     NodeCRUD,
     SpaceCRUD,
     ViewCRUD,
@@ -25,7 +25,7 @@ from .hosted_extractors import (
 )
 from .industrial_tool import StreamlitCRUD
 from .location import LocationFilterCRUD
-from .migration import ViewSourceCRUD
+from .migration import ResourceViewMappingCRUD
 from .raw import RawDatabaseCRUD, RawTableCRUD
 from .relationship import RelationshipCRUD
 from .robotics import (
@@ -48,14 +48,14 @@ __all__ = [
     "DataModelCRUD",
     "DataSetsCRUD",
     "DatapointSubscriptionCRUD",
-    "EdgeLoader",
+    "EdgeCRUD",
     "EventCRUD",
     "ExtractionPipelineCRUD",
     "ExtractionPipelineConfigCRUD",
     "FileMetadataCRUD",
     "FunctionCRUD",
     "FunctionScheduleCRUD",
-    "GraphQLLoader",
+    "GraphQLCRUD",
     "GroupAllScopedCRUD",
     "GroupCRUD",
     "GroupResourceScopedCRUD",
@@ -70,6 +70,7 @@ __all__ = [
     "RawDatabaseCRUD",
     "RawTableCRUD",
     "RelationshipCRUD",
+    "ResourceViewMappingCRUD",
     "RobotCapabilityCRUD",
     "RoboticFrameCRUD",
     "RoboticLocationCRUD",
@@ -87,7 +88,6 @@ __all__ = [
     "TransformationNotificationCRUD",
     "TransformationScheduleCRUD",
     "ViewCRUD",
-    "ViewSourceCRUD",
     "WorkflowCRUD",
     "WorkflowTriggerCRUD",
     "WorkflowVersionCRUD",

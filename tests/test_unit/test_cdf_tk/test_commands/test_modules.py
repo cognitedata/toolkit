@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import zipfile
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -16,12 +17,19 @@ from cognite_toolkit._cdf_tk.commands.modules import ModulesCommand
 from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH
 from cognite_toolkit._cdf_tk.data_classes import Package, Packages
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError
+from cognite_toolkit._cdf_tk.tk_warnings.other import HighSeverityWarning
+from tests.data import EXTERNAL_PACKAGE
 from tests.test_unit.utils import MockQuestionary
 
 
 @pytest.fixture(scope="session")
 def selected_packages() -> Packages:
     return Packages.load(BUILTIN_MODULES_PATH)
+
+
+@pytest.fixture(scope="session")
+def selected_packages_location() -> Path:
+    return BUILTIN_MODULES_PATH
 
 
 class MockResponse:
@@ -41,49 +49,97 @@ class MockResponse:
 
 
 class TestModulesCommand:
-    def test_modules_command(self, selected_packages: Packages, tmp_path: Path) -> None:
-        assert selected_packages is not None
-
-        target_path = tmp_path / "repo_root"
-
-        cmd = ModulesCommand(print_warning=True, skip_tracking=True)
-        cmd._create(organization_dir=target_path, selected_packages=selected_packages, environments=["dev"], mode=None)
-
-        assert Path(target_path).exists()
-        assert Path(target_path / "modules" / "infield" / "cdf_infield_common").exists()
-
-    def test_modules_command_with_env(self, selected_packages: Packages, tmp_path: Path) -> None:
+    def test_modules_command(
+        self, selected_packages: Packages, selected_packages_location: Path, tmp_path: Path
+    ) -> None:
         assert selected_packages is not None
 
         target_path = tmp_path / "repo_root"
 
         cmd = ModulesCommand(print_warning=True, skip_tracking=True)
         cmd._create(
-            organization_dir=target_path, selected_packages=selected_packages, environments=["dev", "prod"], mode=None
+            organization_dir=target_path,
+            selected_packages=selected_packages,
+            environments=["dev"],
+            mode=None,
+            modules_source_path=selected_packages_location,
         )
 
-        assert Path(target_path / "config.dev.yaml").exists()
-        assert Path(target_path / "config.prod.yaml").exists()
+        assert Path(target_path).exists()
+        assert Path(target_path / "modules" / "infield" / "cdf_infield_common").exists()
 
-    def test_config(self, selected_packages: Packages, tmp_path: Path) -> None:
+    def test_modules_command_with_env(
+        self, selected_packages: Packages, selected_packages_location: Path, tmp_path: Path
+    ) -> None:
         assert selected_packages is not None
 
         target_path = tmp_path / "repo_root"
 
         cmd = ModulesCommand(print_warning=True, skip_tracking=True)
-        cmd._create(organization_dir=target_path, selected_packages=selected_packages, environments=["dev"], mode=None)
+        cmd._create(
+            organization_dir=target_path,
+            selected_packages=selected_packages,
+            environments=["dev", "prod"],
+            mode=None,
+            modules_source_path=selected_packages_location,
+        )
+
+        assert Path(target_path / "config.dev.yaml").exists()
+        assert Path(target_path / "config.prod.yaml").exists()
+
+    def test_config(self, selected_packages: Packages, selected_packages_location: Path, tmp_path: Path) -> None:
+        assert selected_packages is not None
+
+        target_path = tmp_path / "repo_root"
+
+        cmd = ModulesCommand(print_warning=True, skip_tracking=True)
+        cmd._create(
+            organization_dir=target_path,
+            selected_packages=selected_packages,
+            environments=["dev"],
+            mode=None,
+            modules_source_path=selected_packages_location,
+        )
 
         config = yaml.safe_load(Path(target_path / "config.dev.yaml").read_text())
         assert config["variables"]["modules"]["infield"]["first_location"] == "oid"
 
-    def test_adding(self, selected_packages: Packages, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+    def test_config_non_builtin_modules(self, tmp_path: Path) -> None:
+        target_path = tmp_path / "repo_root"
+
+        selected_packages = Packages.load(EXTERNAL_PACKAGE)
+        selected_packages_location = EXTERNAL_PACKAGE
+
+        cmd = ModulesCommand(print_warning=True, skip_tracking=True)
+        cmd._create(
+            organization_dir=target_path,
+            selected_packages=selected_packages,
+            environments=["dev"],
+            mode=None,
+            modules_source_path=selected_packages_location,
+        )
+
+        config = yaml.safe_load(Path(target_path / "config.dev.yaml").read_text())
+        assert config["variables"]["modules"]["shared_var"] == "shared"
+        assert config["variables"]["modules"]["external_module_1"]["var"] == "one"
+        assert config["variables"]["modules"]["external_module_2"]["var"] == "two"
+
+    def test_adding(
+        self, selected_packages: Packages, selected_packages_location: Path, tmp_path: Path, monkeypatch: MonkeyPatch
+    ) -> None:
         target_path = tmp_path / "repo_root"
         cmd = ModulesCommand(print_warning=True, skip_tracking=True)
 
         first_batch = Packages({"infield": selected_packages["infield"]})
         second_batch = Packages({"quickstart": selected_packages["inrobot"]})
 
-        cmd._create(organization_dir=target_path, selected_packages=first_batch, environments=["qa"], mode=None)
+        cmd._create(
+            organization_dir=target_path,
+            selected_packages=first_batch,
+            environments=["qa"],
+            mode=None,
+            modules_source_path=selected_packages_location,
+        )
         with monkeypatch.context() as m:
             # Mocking questionary such that questionary.confirm.ask() returns True.
             questionary_mock = MagicMock()
@@ -92,7 +148,11 @@ class TestModulesCommand:
 
             m.setattr("cognite_toolkit._cdf_tk.commands.modules.questionary", questionary_mock)
             cmd._create(
-                organization_dir=target_path, selected_packages=second_batch, environments=["qa"], mode="update"
+                organization_dir=target_path,
+                selected_packages=second_batch,
+                environments=["qa"],
+                mode="update",
+                modules_source_path=selected_packages_location,
             )
 
         config = yaml.safe_load(Path(target_path / "config.qa.yaml").read_text())
@@ -177,8 +237,9 @@ class TestModulesCommand:
         file_path.write_text(valid_toml_content)
 
         with ModulesCommand() as cmd:
-            packs = cmd._get_available_packages()
+            packs, location = cmd._get_available_packages()
             assert "quickstart" in packs
+            assert location == BUILTIN_MODULES_PATH
 
     def test_download_success(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         dummy_file_content = b"PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
@@ -364,3 +425,22 @@ class TestModulesCommand:
         import shutil
 
         shutil.rmtree(mock_module_dir)
+
+    def test_checksum_mismatch_prints_warning(self, tmp_path: Path, capsys) -> None:
+        file_path = tmp_path / "mismatch.zip"
+        # Write some bytes so we get a deterministic SHA256
+        file_bytes = b"dummy-bytes-for-checksum-test"
+        file_path.write_bytes(file_bytes)
+
+        # Intentionally use a different checksum than the file's actual hash
+        wrong_checksum = "sha256:" + hashlib.sha256(b"some-other-content").hexdigest()
+
+        cmd = ModulesCommand(print_warning=True, skip_tracking=True)
+        cmd._validate_checksum(wrong_checksum, file_path)
+
+        assert len(cmd.warning_list) == 1
+        warning = cmd.warning_list[0]
+        assert isinstance(warning, HighSeverityWarning)
+        # Expect: two SHA256 hex hashes in the message, one for provided and one for calculated
+        pattern = r"^The provided checksum sha256:[0-9a-f]{64} does not match downloaded file hash sha256:[0-9a-f]{64}"
+        assert re.search(pattern, warning.message_raw)

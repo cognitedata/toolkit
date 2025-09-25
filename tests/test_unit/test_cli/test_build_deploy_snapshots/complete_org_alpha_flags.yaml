@@ -30,10 +30,10 @@ DataSet:
   name: Example dataset.
 FileCRUD:
 - externalId: MyExtendedFile
-  filehash: 5e6be7b4
+  filehash: c7fbc0e8
   space: sp_nodes
 - external_id: shopConfigFile
-  filehash: 09d16fb3
+  filehash: b1f3b6ef
 FileMetadata:
 - dataSetId: 7982613576047462211
   directory: /files
@@ -49,7 +49,7 @@ Function:
   fileId: -1
   functionPath: handler.py
   metadata:
-    cognite-toolkit-hash: /=ddc72a0f;handler.py=6596f06a;other_module.py=9bf3de91;requirements.txt=8359cc6a
+    cognite-toolkit-hash: /=7cf06c9d;handler.py=6596f06a;other_module.py=9bf3de91;requirements.txt=c7e9925f
     version: '1'
   name: Multi File Function
   owner: doctrino
@@ -128,12 +128,10 @@ Node:
   instanceType: node
   sources:
   - properties:
-      mapping:
-        metadataToPropertyId:
-          altName: alias
-        toPropertyId:
-          description: description
-          name: name
+      propertyMapping:
+        description: description
+        metadata.altName: alias
+        name: name
       resourceType: asset
       viewId:
         externalId: CogniteAsset
@@ -141,7 +139,7 @@ Node:
         type: view
         version: v1
     source:
-      externalId: ViewSource
+      externalId: ResourceViewMapping
       space: cognite_migration
       type: view
       version: v1
