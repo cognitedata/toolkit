@@ -199,9 +199,12 @@ class PurgeCommand(ToolkitCommand):
                     write_results = ResourceDeployResult(crud.display_name)
                     # Containers, DataModels and Views need special handling to avoid type info in the delete call
                     # While for instance we need the type info in delete.
-                    dump_args = (
-                        {"include_type": False} if isinstance(crud, ContainerCRUD | DataModelCRUD | ViewCRUD) else {}
-                    )
+                    if isinstance(crud, ContainerCRUD | DataModelCRUD | ViewCRUD):
+                        dump_args = {"include_type": False}
+                    elif isinstance(crud, EdgeCRUD):
+                        dump_args = {"include_instance_type": True}
+                    else:
+                        dump_args = {}
                     process = partial(self._as_id_batch, dump_args=dump_args)
                     if isinstance(crud, NodeCRUD):
                         process = partial(
@@ -282,9 +285,14 @@ class PurgeCommand(ToolkitCommand):
         if found_ids and verbose:
             console.print(f"Skipping {found_ids} nodes as they have datapoints or file content")
         process_results.unchanged += len(found_ids)
-        result = [node_id.dump(include_instance_type=True) for node_id in node_ids if node_id not in found_ids]
-        # MyPy fails to understand that list[dict[str, str]] is a valid return type for list[JsonVal]
-        return result  # type: ignore[return-value]
+        result: list[JsonVal] = []
+        for node_id in (n for n in node_ids if n not in found_ids):
+            dumped = node_id.dump(include_instance_type=True)
+            # The delete endpoint expects "instanceType" instead of "type"
+            dumped["instanceType"] = dumped.pop("type")
+            # MyPy think complains about invariant here, even though dict[str, str] is a type of JsonVal
+            result.append(dumped)  # type: ignore[arg-type]
+        return result
 
     @staticmethod
     def _purge_batch(
