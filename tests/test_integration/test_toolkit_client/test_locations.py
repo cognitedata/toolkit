@@ -27,18 +27,25 @@ def cleanup_before_session(toolkit_client: ToolkitClient) -> None:
     yield  #
 
 
+def _get_location_filter(toolkit_client: ToolkitClient, new_loc_filter: LocationFilterWrite) -> LocationFilter:
+    try:
+        for loc_filter in toolkit_client.search.locations.list():
+            if loc_filter.external_id == new_loc_filter.external_id:
+                return loc_filter
+    except CogniteAPIError:
+        pass
+    created = toolkit_client.search.locations.create(new_loc_filter)
+    return created
+
+
 @pytest.fixture(scope="session")
 def existing_location_filter(toolkit_client: ToolkitClient) -> LocationFilter:
     location_filter = LocationFilterWrite(
         name="loc",
         external_id=SESSION_EXTERNAL_ID,
+        data_modeling_type="DATA_MODELING_ONLY",
     )
-    try:
-        retrieved = toolkit_client.search.locations.retrieve(RUN_UNIQUE_ID)
-        return retrieved
-    except CogniteAPIError:
-        created = toolkit_client.search.locations.create(location_filter)
-        return created
+    return _get_location_filter(toolkit_client, location_filter)
 
 
 @pytest.fixture(scope="session")
@@ -56,16 +63,11 @@ def my_data_model(toolkit_client: ToolkitClient, toolkit_space: Space) -> DataMo
 
 @pytest.fixture(scope="session")
 def second_location_filter(toolkit_client: ToolkitClient) -> LocationFilter:
-    second_location_filter = LocationFilterWrite(
+    location_filter = LocationFilterWrite(
         external_id=f"{SESSION_EXTERNAL_ID}_2",
         name="loc2",
     )
-    try:
-        retrieved = toolkit_client.search.locations.retrieve(f"{SESSION_EXTERNAL_ID}_2")
-        return retrieved
-    except CogniteAPIError:
-        created = toolkit_client.search.locations.create(second_location_filter)
-        return created
+    return _get_location_filter(toolkit_client, location_filter)
 
 
 class TestLocationFilterAPI:
