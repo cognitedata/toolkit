@@ -1,7 +1,7 @@
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 
-from cognite.client.data_classes import RowList, RowWrite, RowWriteList
+from cognite.client.data_classes import Row, RowList, RowWrite, RowWriteList
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawDatabaseList, RawTable, RawTableList
@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from ._base import StorageIO, StorageIOConfig
 
 
-class RawIO(StorageIO[RawTable, RawTable, RowWriteList, RowList]):
+class RawIO(StorageIO[str, RawTable, RowWriteList, RowList]):
     FOLDER_NAME = "raw"
     KIND = "RawRows"
     DISPLAY_NAME = "Raw Rows"
@@ -24,8 +24,12 @@ class RawIO(StorageIO[RawTable, RawTable, RowWriteList, RowList]):
     CHUNK_SIZE = 10_000
     UPLOAD_ENDPOINT = "/raw/dbs/{dbName}/tables/{tableName}/rows"
 
-    def as_id(self, item: dict[str, JsonVal] | object) -> RawTable:
-        raise ValueError("You cannot extract an ID from a Raw Table row. Use a RawTable selector instead.")
+    def as_id(self, item: dict[str, JsonVal] | object) -> str:
+        if isinstance(item, RowWrite | Row) and item.key is not None:
+            return item.key
+        elif isinstance(item, dict) and "key" in item and isinstance(item["key"], str):
+            return item["key"]
+        raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
 
     def count(self, selector: RawTable) -> int | None:
         # Raw tables do not support aggregation queries, so we do not know the count
