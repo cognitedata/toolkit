@@ -8,13 +8,13 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import DumpResourceCommand
 from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, DataModelCRUD, GraphQLLoader, SpaceCRUD, ViewCRUD
+from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, DataModelCRUD, GraphQLCRUD, SpaceCRUD, ViewCRUD
 from tests.data import NAUGHTY_PROJECT
 
 
 @pytest.fixture()
 def deployed_misbehaving_grandparent(toolkit_client: ToolkitClient) -> DataModelId:
-    loader = GraphQLLoader.create_loader(toolkit_client)
+    loader = GraphQLCRUD.create_loader(toolkit_client)
     filepaths = loader.find_files(NAUGHTY_PROJECT / MODULES / "difficult_graphql")
     assert len(filepaths) == 1
     model_list = loader.load_resource_file(filepaths[0])
