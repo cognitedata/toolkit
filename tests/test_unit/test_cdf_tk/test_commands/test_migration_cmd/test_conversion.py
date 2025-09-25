@@ -142,7 +142,7 @@ class TestCreateProperties:
             pytest.param(
                 {"name": "MyAsset", "labels": [{"externalId": "tag1"}, {"externalId": "tag2"}]},
                 {
-                    "nameId": MappedProperty(CONTAINER_ID, "tags", dt.Text(), **DEFAULT_CONTAINER_ARGS),
+                    "nameId": MappedProperty(CONTAINER_ID, "nameId", dt.Text(), **DEFAULT_CONTAINER_ARGS),
                     "tags": MappedProperty(
                         ContainerId("cdf_cdm", "CogniteDescribable"),
                         "tags",
@@ -157,6 +157,26 @@ class TestCreateProperties:
                     instance_id=INSTANCE_ID,
                 ),
                 id="List of simple types (labels to list of strings)",
+            ),
+            pytest.param(
+                {
+                    "name": "MyAsset",
+                    "labels": [{"externalId": "tag1"}, {"externalId": "tag2"}],
+                    "metadata": {"key": "value"},
+                },
+                {
+                    "nameId": MappedProperty(CONTAINER_ID, "tags", dt.Text(), **DEFAULT_CONTAINER_ARGS),
+                    "tag": MappedProperty(CONTAINER_ID, "tag", dt.Text(is_list=False), **DEFAULT_CONTAINER_ARGS),
+                    "metadata": MappedProperty(CONTAINER_ID, "metadata", dt.Text(), **DEFAULT_CONTAINER_ARGS),
+                },
+                {"name": "nameId", "labels[0].externalId": "tag", "metadata": "metadata"},
+                {"nameId": "MyAsset", "tag": "tag1", "metadata": "{'key': 'value'}"},
+                ConversionIssue(
+                    asset_centric_id=ASSET_CENTRIC_ID,
+                    instance_id=INSTANCE_ID,
+                    ignored_asset_centric_properties=["labels[1].externalId"],
+                ),
+                id="Mapping the first label and entire metadata.",
             ),
         ],
     )
