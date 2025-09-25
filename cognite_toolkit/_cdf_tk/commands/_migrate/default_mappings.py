@@ -8,6 +8,8 @@ _ASSET_ID = "cdf_asset_mapping"
 _EVENT_ID = "cdf_event_mapping"
 _TIME_SERIES_ID = "cdf_time_series_mapping"
 _FILE_METADATA_ID = "cdf_file_metadata_mapping"
+FILE_ANNOTATIONS_ID = "cdf_file_annotations_mapping"
+ASSET_ANNOTATIONS_ID = "cdf_asset_annotations_mapping"
 
 
 @lru_cache(maxsize=1)
