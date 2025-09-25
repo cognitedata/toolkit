@@ -1,5 +1,5 @@
 import re
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import Field, field_validator
 
@@ -28,7 +28,7 @@ class ResourceViewMappingYAML(ToolkitResource):
 
     @field_validator("property_mapping")
     @classmethod
-    def validate_json_paths(cls, value: Any) -> Any:
+    def validate_json_paths(cls, value: dict[str, str]) -> dict[str, str]:
         if not isinstance(value, dict):
             return value
         not_matching_keys = [k for k in value.keys() if not re.match(JSON_PATH_PATTERN, k)]
