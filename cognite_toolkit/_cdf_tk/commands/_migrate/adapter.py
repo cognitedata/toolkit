@@ -220,11 +220,18 @@ class FileMetaAdapter(
         FileMetadataList,
     ]
 ):
+    """Adapter for migrating file metadata to data model instances.
+
+    This is necessary to link asset-centric FileMetadata to their new CogniteFile instances using the
+    files/set-pending-instance-ids.
+    """
+
     def __init__(self, client: ToolkitClient, instance: InstanceIO) -> None:
         super().__init__(client, FileMetadataIO(client), instance)
 
     @staticmethod
     def as_pending_instance_id(item: InstanceApply) -> PendingInstanceId:
+        """Convert an InstanceApply to a PendingInstanceId for linking."""
         source = next((source for source in item.sources if source.source == INSTANCE_SOURCE_VIEW_ID), None)
         if source is None:
             raise ValueError(f"Cannot extract ID from item of type {type(item).__name__!r}")
@@ -239,6 +246,7 @@ class FileMetaAdapter(
     def upload_items_force(
         self, data_chunk: InstanceApplyList, http_client: HTTPClient, selector: MigrationSelector | None = None
     ) -> Sequence[HTTPMessage]:
+        """Upload items by first linking them using files/set-pending-instance-ids and then uploading the instances."""
         config = http_client.config
         results: list[HTTPMessage] = []
         successful_linked: set[int] = set()
