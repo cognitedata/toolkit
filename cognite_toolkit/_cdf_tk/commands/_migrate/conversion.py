@@ -109,7 +109,7 @@ def create_properties(
         Dict of property IDs to PropertyValueWrite objects.
 
     """
-    flatten_dump = flatten_dict_json_path(dumped, exclude_keys=set(property_mapping.keys()))
+    flatten_dump = flatten_dict_json_path(dumped, keep_structured=set(property_mapping.keys()))
     properties: dict[str, PropertyValueWrite] = {}
     ignored_asset_centric_properties: set[str] = set()
     for prop_json_path, prop_id in property_mapping.items():
