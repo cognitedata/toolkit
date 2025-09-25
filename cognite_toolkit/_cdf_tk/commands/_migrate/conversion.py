@@ -109,14 +109,16 @@ def create_properties(
         Dict of property IDs to PropertyValueWrite objects.
 
     """
-    flatten_dump = flatten_dict_json_path(dumped, flatten_lists=False)
-
+    flatten_dump = flatten_dict_json_path(dumped, exclude_keys=set(property_mapping.keys()))
     properties: dict[str, PropertyValueWrite] = {}
     ignored_asset_centric_properties: set[str] = set()
     for prop_json_path, prop_id in property_mapping.items():
         if prop_json_path not in flatten_dump:
             continue
         if prop_id not in view_properties:
+            continue
+        if prop_id in properties:
+            ignored_asset_centric_properties.add(prop_json_path)
             continue
         dm_prop = view_properties[prop_id]
         if not isinstance(dm_prop, MappedProperty):
@@ -136,9 +138,6 @@ def create_properties(
             issue.failed_conversions.append(
                 FailedConversion(property_id=prop_json_path, value=flatten_dump[prop_json_path], error=str(e))
             )
-            continue
-        if prop_id in properties:
-            ignored_asset_centric_properties.add(prop_json_path)
             continue
         properties[prop_id] = value
 
