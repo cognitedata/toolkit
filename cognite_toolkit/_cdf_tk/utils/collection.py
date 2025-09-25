@@ -21,6 +21,8 @@ def flatten_dict(dct: dict[str, Any]) -> dict[tuple[str, ...], Any]:
 def flatten_dict_json_path(dct: dict[str, Any], keep_structured: Set[str] | None = None) -> dict[str, Any]:
     """Flatten a dictionary to a dictionary with JSON path keys.
 
+    Empty keys are ignored.
+
     Args:
         dct: The dictionary to flatten.
         keep_structured: A set of keys to keep structured (not flatten). If a key is in this set,
