@@ -32,7 +32,7 @@ class ResourceViewMappingCRUD(
     resource_write_cls = ResourceViewMappingApply
     list_cls = NodeList[ResourceViewMapping]
     list_write_cls = NodeApplyList
-    kind = "ResourceViewMapping$"
+    kind = "ResourceViewMapping"
     dependencies = frozenset({SpaceCRUD, ViewCRUD})
     _doc_url = "Instances/operation/applyNodeAndEdges"
 
