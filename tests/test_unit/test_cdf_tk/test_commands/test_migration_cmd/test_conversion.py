@@ -178,6 +178,25 @@ class TestCreateProperties:
                 ),
                 id="Mapping the first label and entire metadata.",
             ),
+            pytest.param(
+                {
+                    "name": "MyAsset",
+                    "type": "TypeA",
+                    "metadata": {"category": "TypeB"},
+                },
+                {
+                    "nameId": MappedProperty(CONTAINER_ID, "tags", dt.Text(), **DEFAULT_CONTAINER_ARGS),
+                    "tag": MappedProperty(CONTAINER_ID, "tag", dt.Text(is_list=False), **DEFAULT_CONTAINER_ARGS),
+                },
+                {"name": "nameId", "type": "tag", "metadata.category": "tag"},
+                {"nameId": "MyAsset", "tag": "TypeA"},
+                ConversionIssue(
+                    asset_centric_id=ASSET_CENTRIC_ID,
+                    instance_id=INSTANCE_ID,
+                    ignored_asset_centric_properties=["metadata.category"],
+                ),
+                id="Duplicated mapping target",
+            ),
         ],
     )
     def test_create_properties(
