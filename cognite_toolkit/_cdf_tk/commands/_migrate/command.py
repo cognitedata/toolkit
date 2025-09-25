@@ -70,7 +70,7 @@ class MigrationCommand(ToolkitCommand):
             total = executor.total_items
 
         self._print_table(tracker.aggregate(), console)
-        self._print_csv(tracker, log_dir, f"{data.KIND}MigrationItems", console)
+        self._print_csv(tracker, log_dir, f"{data.KIND}Items", console)
         executor.raise_on_error()
         action = "Would migrate" if dry_run else "Migrating"
         console.print(f"{action} {total:,} {data.DISPLAY_NAME} to instances.")
