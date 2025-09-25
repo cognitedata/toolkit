@@ -178,15 +178,15 @@ def create_properties(
 
     """
     flatten_dump = flatten_dict_json_path(dumped, exclude_keys=set(property_mapping.keys()))
-    issue.ignored_asset_centric_properties = sorted(set(flatten_dump.keys()) - set(property_mapping.keys()))
-    issue.missing_asset_centric_properties = sorted(set(property_mapping.keys()) - set(flatten_dump.keys()))
-    issue.missing_instance_properties = sorted(set(property_mapping.values()) - set(view_properties.keys()))
-
     properties: dict[str, PropertyValueWrite] = {}
+    ignored_asset_centric_properties: set[str] = set()
     for prop_json_path, prop_id in property_mapping.items():
         if prop_json_path not in flatten_dump:
             continue
         if prop_id not in view_properties:
+            continue
+        if prop_id in properties:
+            ignored_asset_centric_properties.add(prop_json_path)
             continue
         dm_prop = view_properties[prop_id]
         if not isinstance(dm_prop, MappedProperty):
@@ -208,4 +208,10 @@ def create_properties(
             )
             continue
         properties[prop_id] = value
+
+    issue.ignored_asset_centric_properties = sorted(
+        (set(flatten_dump.keys()) - set(property_mapping.keys())) | ignored_asset_centric_properties
+    )
+    issue.missing_asset_centric_properties = sorted(set(property_mapping.keys()) - set(flatten_dump.keys()))
+    issue.missing_instance_properties = sorted(set(property_mapping.values()) - set(view_properties.keys()))
     return properties
