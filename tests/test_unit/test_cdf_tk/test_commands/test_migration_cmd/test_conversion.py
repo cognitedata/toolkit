@@ -167,10 +167,10 @@ class TestCreateProperties:
                 {
                     "nameId": MappedProperty(CONTAINER_ID, "tags", dt.Text(), **DEFAULT_CONTAINER_ARGS),
                     "tag": MappedProperty(CONTAINER_ID, "tag", dt.Text(is_list=False), **DEFAULT_CONTAINER_ARGS),
-                    "metadata": MappedProperty(CONTAINER_ID, "metadata", dt.Text(), **DEFAULT_CONTAINER_ARGS),
+                    "metadata": MappedProperty(CONTAINER_ID, "metadata", dt.Json(), **DEFAULT_CONTAINER_ARGS),
                 },
                 {"name": "nameId", "labels[0].externalId": "tag", "metadata": "metadata"},
-                {"nameId": "MyAsset", "tag": "tag1", "metadata": "{'key': 'value'}"},
+                {"nameId": "MyAsset", "tag": "tag1", "metadata": {"key": "value"}},
                 ConversionIssue(
                     asset_centric_id=ASSET_CENTRIC_ID,
                     instance_id=INSTANCE_ID,
