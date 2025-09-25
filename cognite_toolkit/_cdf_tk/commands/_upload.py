@@ -83,6 +83,7 @@ class UploadCommand(ToolkitCommand):
                         dry_run=dry_run,
                         selector=selector,
                         tracker=tracker,
+                        console=console,
                     ),
                     iteration_count=None,
                     max_queue_size=self._MAX_QUEUE_SIZE,
@@ -111,6 +112,7 @@ class UploadCommand(ToolkitCommand):
         selector: T_Selector,
         dry_run: bool,
         tracker: ProgressTracker[T_ID],
+        console: Console,
     ) -> None:
         if dry_run:
             for item in data_chunk:
@@ -122,3 +124,5 @@ class UploadCommand(ToolkitCommand):
                 tracker.set_progress(item.id, step=cls._UPLOAD, status="success")
             elif isinstance(item, ItemIDMessage):
                 tracker.set_progress(item.id, step=cls._UPLOAD, status="failed")
+            else:
+                console.log(f"[red]Unexpected result from upload: {str(item)!r}[/red]")
