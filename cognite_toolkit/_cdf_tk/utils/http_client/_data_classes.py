@@ -3,7 +3,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Generic, Literal, TypeAlias
 
-import requests
+import httpx
 
 from cognite_toolkit._cdf_tk.utils.http_client._tracker import ItemsRequestTracker
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal
@@ -56,7 +56,7 @@ class RequestMessage(HTTPMessage):
     @abstractmethod
     def create_responses(
         self,
-        response: requests.Response,
+        response: httpx.Response,
         response_body: dict[str, JsonVal] | None = None,
         error_message: str | None = None,
     ) -> Sequence[HTTPMessage]:
@@ -85,7 +85,7 @@ class SimpleRequest(RequestMessage):
     @classmethod
     def create_responses(
         cls,
-        response: requests.Response,
+        response: httpx.Response,
         response_body: dict[str, JsonVal] | None = None,
         error_message: str | None = None,
     ) -> Sequence[ResponseMessage]:
@@ -265,7 +265,7 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
 
     def create_responses(
         self,
-        response: requests.Response,
+        response: httpx.Response,
         response_body: dict[str, JsonVal] | None = None,
         error_message: str | None = None,
     ) -> Sequence[HTTPMessage]:
@@ -300,7 +300,7 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
     @staticmethod
     def _handle_non_items_response(
         responses: list[HTTPMessage],
-        response: requests.Response,
+        response: httpx.Response,
         error_message: str,
         request_items_by_id: dict[T_ID, JsonVal],
     ) -> list[HTTPMessage]:
@@ -319,7 +319,7 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
     def _process_response_items(
         self,
         responses: list[HTTPMessage],
-        response: requests.Response,
+        response: httpx.Response,
         response_body: dict[str, JsonVal],
         error_message: str,
         request_items_by_id: dict[T_ID, JsonVal],
@@ -345,7 +345,7 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
 
     @staticmethod
     def _handle_missing_items(
-        responses: list[HTTPMessage], response: requests.Response, request_items_by_id: dict[T_ID, JsonVal]
+        responses: list[HTTPMessage], response: httpx.Response, request_items_by_id: dict[T_ID, JsonVal]
     ) -> None:
         """Handles items that were in the request but not present in the response."""
         for item_id in request_items_by_id.keys():
