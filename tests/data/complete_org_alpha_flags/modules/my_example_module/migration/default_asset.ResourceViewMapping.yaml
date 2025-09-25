@@ -4,9 +4,7 @@ viewId:
   space: cdf_cdm
   externalId: CogniteAsset
   version: v1
-mapping:
-  toPropertyId:
-    name: name
-    description: description
-  metadataToPropertyId:
-    altName: alias
+propertyMapping:
+  name: name
+  description: description
+  metadata.altName: alias
