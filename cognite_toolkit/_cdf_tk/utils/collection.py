@@ -37,6 +37,8 @@ def _flatten(obj: Any, exclude_keys: Set[str], path: str = "") -> dict[str, Any]
     items: dict[str, Any] = {}
     if isinstance(obj, dict):
         for key, value in obj.items():
+            if not key:
+                continue
             current_path = f"{path}.{key}" if path else key
             if key in exclude_keys:
                 items[current_path] = value
