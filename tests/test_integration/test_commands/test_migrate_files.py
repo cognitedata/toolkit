@@ -107,7 +107,7 @@ class TestMigrateFilesCommand:
     def test_migrate_files_v2(
         self,
         toolkit_client_with_pending_ids: ToolkitClient,
-        three_files_with_content: ExtendedTimeSeriesList,
+        three_files_with_content: FileMetadataList,
         toolkit_space: Space,
         tmp_path: Path,
     ):
