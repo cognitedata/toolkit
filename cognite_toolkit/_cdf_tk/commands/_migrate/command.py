@@ -101,8 +101,9 @@ class MigrationCommand(ToolkitCommand):
     def _print_csv(self, tracker: ProgressTracker[T_ID], log_dir: Path, kind: str, console: Console) -> None:
         with CSVWriter(log_dir, kind=kind, compression=Uncompressed, columns=self._csv_columns()) as csv_file:
             batch: list[Chunk] = []
+            steps = self.Steps.list()
             for item_id, progress in tracker.result().items():
-                batch.append({"ID": str(item_id), **{step: progress[step] for step in self.Steps.list()}})
+                batch.append({"ID": str(item_id), **{step: progress[step] for step in steps}})
                 if len(batch) >= 1000:
                     csv_file.write_chunks(batch)
                     batch = []
