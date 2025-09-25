@@ -172,6 +172,7 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
+    UPLOAD_ENDPOINT = "/assets"
 
     def as_id(self, item: dict[str, JsonVal] | object) -> int:
         if isinstance(item, Asset | AssetWrite) and item.id is not None:  # type: ignore[union-attr]
