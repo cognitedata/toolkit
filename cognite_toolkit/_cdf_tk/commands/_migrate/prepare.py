@@ -6,10 +6,10 @@ from cognite_toolkit._cdf_tk.commands.deploy import DeployCommand
 from cognite_toolkit._cdf_tk.cruds import (
     ContainerCRUD,
     DataModelCRUD,
+    ResourceViewMappingCRUD,
     ResourceWorker,
     SpaceCRUD,
     ViewCRUD,
-    ViewSourceCRUD,
 )
 from cognite_toolkit._cdf_tk.data_classes import DeployResults
 
@@ -32,13 +32,13 @@ class MigrationPrepareCommand(ToolkitCommand):
             (ContainerCRUD, CONTAINERS),
             (ViewCRUD, VIEWS),
             (DataModelCRUD, [COGNITE_MIGRATION_MODEL]),
-            (ViewSourceCRUD, create_default_mappings()),
+            (ResourceViewMappingCRUD, create_default_mappings()),
         ]:
             # MyPy does not understand that `loader_cls` has a `create_loader` method.
             loader = loader_cls.create_loader(client)  # type: ignore[attr-defined]
             worker = ResourceWorker(loader, "deploy")
             # MyPy does not understand that `loader` has a `get_id` method.
-            dump_arg = {"context": "local"} if loader_cls is ViewSourceCRUD else {}
+            dump_arg = {"context": "local"} if loader_cls is ResourceViewMappingCRUD else {}
             local_by_id = {loader.get_id(item): (item.dump(**dump_arg), item) for item in resource_list}  # type: ignore[attr-defined]
             worker.validate_access(local_by_id, is_dry_run=dry_run)
             cdf_resources = loader.retrieve(list(local_by_id.keys()))

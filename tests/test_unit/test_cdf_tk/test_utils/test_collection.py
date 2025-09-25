@@ -114,5 +114,5 @@ class TestFlattenDictJsonPath:
     )
     def test_flatten_dict_json_path(self, dct: dict[str, Any], exclude_keys: Set[str], expected: dict[str, Any]):
         """Test that flatten_dict_json_path correctly flattens a nested dictionary."""
-        flat_dict = flatten_dict_json_path(dct, exclude_keys=exclude_keys)
+        flat_dict = flatten_dict_json_path(dct, keep_structured=exclude_keys)
         assert flat_dict == expected
