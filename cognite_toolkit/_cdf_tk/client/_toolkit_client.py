@@ -14,6 +14,7 @@ from .api.extended_raw import ExtendedRawAPI
 from .api.extended_timeseries import ExtendedTimeSeriesAPI
 from .api.lookup import LookUpGroup
 from .api.migration import MigrationAPI
+from .api.project import ProjectAPI
 from .api.robotics import RoboticsAPI
 from .api.search import SearchAPI
 from .api.token import TokenAPI
@@ -133,6 +134,8 @@ class ToolkitClient(CogniteClient):
         self.migration = MigrationAPI(self.data_modeling.instances)
         self.token = TokenAPI(self)
         self.charts = ChartsAPI(self._config, self._API_VERSION, self)
+        if config is not None:
+            self.project = ProjectAPI(config=config)
 
     @property
     def config(self) -> ToolkitClientConfig:
