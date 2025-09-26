@@ -142,12 +142,6 @@ class TestAssetIO:
             )
 
             assert len(respx_mock.calls) == 1
-            # assert client.assets.upsert.call_count == 1
-            # args, _ = client.assets.upsert.call_args
-            # assert len(args) == 1
-            # uploaded_assets = args[0]
-            # assert isinstance(uploaded_assets, AssetWriteList)
-            # assert [asset.dump() for asset in uploaded_assets] == [asset.as_write().dump() for asset in some_asset_data]
 
 
 @pytest.fixture()
