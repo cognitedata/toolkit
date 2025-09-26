@@ -586,6 +586,7 @@ class DataModelingSelect:
         multiselect: Literal[False],
         selected_view: ViewId | None = None,
         instance_type: Literal["node", "edge"] | None = None,
+        message: str | None = None,
     ) -> str: ...
 
     @overload
@@ -594,6 +595,7 @@ class DataModelingSelect:
         multiselect: Literal[True] = True,
         selected_view: ViewId | None = None,
         instance_type: Literal["node", "edge"] | None = None,
+        message: str | None = None,
     ) -> list[str]: ...
 
     def select_instance_space(
@@ -601,6 +603,7 @@ class DataModelingSelect:
         multiselect: bool = True,
         selected_view: ViewId | None = None,
         instance_type: Literal["node", "edge"] | None = None,
+        message: str | None = None,
     ) -> str | list[str]:
         if (selected_view is not None and instance_type is None) or (
             selected_view is None and instance_type is not None
@@ -625,7 +628,8 @@ class DataModelingSelect:
             self.console.print(f"Only one space with instances found: {selected_spaces!r}. Using this space.")
             return [selected_spaces] if multiselect else selected_spaces
 
-        message = f"In which Space{'(s)' if multiselect else ''} do you want to {self.operation} instances?"
+        if not message:
+            message = f"In which Space{'(s)' if multiselect else ''} do you want to {self.operation} instances?"
         choices = [
             Choice(title=f"{space} ({count:,} instances)", value=space)
             for space, count in sorted(count_by_space.items(), key=lambda item: item[1], reverse=True)
@@ -635,7 +639,9 @@ class DataModelingSelect:
         else:
             selected_spaces = questionary.select(message, choices=choices).ask()
         if selected_spaces is None or (isinstance(selected_spaces, list) and len(selected_spaces) == 0):
-            raise ToolkitValueError(f"No space selected to {self.operation}. Aborting.")
+            raise ToolkitValueError(
+                f"No instance space selected to {self.operation}. Use arrow keys to navigate and space key to select. Press enter to confirm."
+            )
         return selected_spaces
 
     @overload
