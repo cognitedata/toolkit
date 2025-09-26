@@ -57,7 +57,7 @@ class TestPackages:
     def test_load_modules_with_and_without_prefix(self, tmp_path: Path) -> None:
         """Test that modules can be specified with or without 'modules/' prefix in packages.toml"""
 
-        # Create a simple module structure
+        # Create the modules directory (required by iterate_modules)
         modules_dir = tmp_path / "modules"
         modules_dir.mkdir()
 
@@ -131,7 +131,7 @@ modules = [
         assert packages["test_with_prefix"].module_names == expected_module_names
         assert packages["test_mixed"].module_names == expected_module_names
 
-        # Verify modules have correct relative paths
+        # Verify modules have correct relative paths (should have modules/ prefix since they're under modules/)
         for package in packages.values():
             for module in package.modules:
                 if module.name == "test_module":
