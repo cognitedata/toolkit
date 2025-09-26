@@ -1,6 +1,9 @@
+import json
 from pathlib import Path
 
+import httpx
 import pytest
+import respx
 from cognite.client.data_classes import (
     Asset,
     AssetList,
@@ -14,6 +17,7 @@ from cognite.client.data_classes import (
     LabelDefinitionList,
 )
 
+from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
 from cognite_toolkit._cdf_tk.storageio import AssetIO, FileMetadataIO
@@ -28,6 +32,7 @@ def some_asset_data() -> AssetList:
     return AssetList(
         [
             Asset(
+                id=1000 + i,
                 external_id=f"asset_{i}",
                 name=f"Asset {i}",
                 description=f"Description for asset {i}",
@@ -77,9 +82,29 @@ class TestAssetIO:
 
             assert uploaded_assets.dump() == some_asset_data.as_write().dump()
 
-    def test_download_upload_command(self, some_asset_data: AssetList, tmp_path: Path) -> None:
+    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
+    def test_download_upload_command(
+        self,
+        some_asset_data: AssetList,
+        tmp_path: Path,
+        toolkit_config: ToolkitClientConfig,
+        respx_mock: respx.MockRouter,
+    ) -> None:
+        config = toolkit_config
+
+        def asset_create_callback(request: httpx.Request) -> httpx.Response:
+            payload = json.loads(request.content)
+            assert "items" in payload
+            items = payload["items"]
+            assert isinstance(items, list)
+            assert items == [asset.as_write().dump() for asset in some_asset_data]
+            return httpx.Response(status_code=200, json={"items": some_asset_data.dump()})
+
+        respx_mock.post(config.create_api_url("/assets")).mock(side_effect=asset_create_callback)
+
         selector = AssetSubtreeSelector(hierarchy="test_hierarchy")
         with monkeypatch_toolkit_client() as client:
+            client.config = config
             client.assets.return_value = [some_asset_data]
             client.assets.aggregate_count.return_value = 100
             client.lookup.data_sets.external_id.return_value = "test_data_set"
@@ -116,12 +141,7 @@ class TestAssetIO:
                 verbose=False,
             )
 
-            assert client.assets.upsert.call_count == 1
-            args, _ = client.assets.upsert.call_args
-            assert len(args) == 1
-            uploaded_assets = args[0]
-            assert isinstance(uploaded_assets, AssetWriteList)
-            assert [asset.dump() for asset in uploaded_assets] == [asset.as_write().dump() for asset in some_asset_data]
+            assert len(respx_mock.calls) == 1
 
 
 @pytest.fixture()
