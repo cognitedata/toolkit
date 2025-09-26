@@ -1,10 +1,15 @@
-import pytest
-from cognite.client.data_classes.raw import Row, RowList, RowWriteList
+import json
 
+import pytest
+import respx
+from cognite.client.data_classes.raw import Row, RowList
+
+from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.storageio import RawIO
 from cognite_toolkit._cdf_tk.utils.collection import chunker
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 
@@ -28,7 +33,14 @@ def some_raw_tables() -> RowList:
 
 
 class TestRawStorageIO:
-    def test_download_upload(self, some_raw_tables: RowList) -> None:
+    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
+    def test_download_upload(
+        self, toolkit_config: ToolkitClientConfig, some_raw_tables: RowList, respx_mock: respx.MockRouter
+    ) -> None:
+        config = toolkit_config
+        respx_mock.post(
+            config.create_api_url("/raw/dbs/test_db/tables/test_table/rows"),
+        ).respond(status_code=200)
         table = RawTable("test_db", "test_table")
         with monkeypatch_toolkit_client() as client:
             client.raw.rows.return_value = chunker(some_raw_tables, 10)
@@ -45,13 +57,15 @@ class TestRawStorageIO:
                 for item in json_chunk:
                     assert isinstance(item, dict)
                 json_chunks.append(json_chunk)
-            data_chunks = (io.json_chunk_to_data(chunk) for chunk in json_chunks)
-            for data_chunk in data_chunks:
-                io.upload_items(data_chunk, table)
 
-            assert client.raw.rows.insert.call_count == 10  # 100 rows in chunks of 10
-            uploaded_rows = RowWriteList([])
-            for call in client.raw.rows.insert.call_args_list:
-                uploaded_rows.extend(call[1].get("row", []))
+            with HTTPClient(config) as upload_client:
+                data_chunks = (io.json_chunk_to_data(chunk) for chunk in json_chunks)
+                for data_chunk in data_chunks:
+                    io.upload_items_force(data_chunk, upload_client, table)
 
-            assert uploaded_rows.dump() == some_raw_tables.as_write().dump()
+            assert respx_mock.calls.call_count == 10  # 100 rows in chunks of 10
+            uploaded_rows = []
+            for call in respx_mock.calls:
+                uploaded_rows.extend(json.loads(call.request.content)["items"])
+
+            assert uploaded_rows == some_raw_tables.as_write().dump()
