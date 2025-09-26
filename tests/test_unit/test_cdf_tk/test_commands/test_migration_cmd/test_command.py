@@ -22,7 +22,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.commands._migrate.adapter import AssetCentricMigrationIOAdapter, MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
-from cognite_toolkit._cdf_tk.commands._migrate.data_model import INSTANCE_SOURCE_VIEW_ID
+from cognite_toolkit._cdf_tk.commands._migrate.data_model import COGNITE_MIGRATION_MODEL, INSTANCE_SOURCE_VIEW_ID
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import _ASSET_ID, create_default_mappings
 from cognite_toolkit._cdf_tk.storageio import AssetIO, InstanceIO
 
@@ -87,6 +87,13 @@ def cognite_migration_model(
         config.create_api_url("models/views/byids"),
         json={"items": [cognite_asset.dump()]},
     )
+    # Migration model
+    migration_model = COGNITE_MIGRATION_MODEL.dump()
+    migration_model["createdTime"] = 1
+    migration_model["lastUpdatedTime"] = 1
+    migration_model["isGlobal"] = False
+    rsps.post(config.create_api_url("models/datamodels/byids"), json={"items": migration_model})
+
     yield rsps
 
 
