@@ -17,6 +17,9 @@ class ViewId(CogniteObject):
     external_id: str
     space: str
 
+    def __str__(self) -> str:
+        return f"({self.external_id}, {self.space})"
+
     @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
         return cls(
