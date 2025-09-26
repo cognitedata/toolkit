@@ -1,9 +1,10 @@
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from typing import overload
 
 from cognite.client import CogniteClient
 from cognite.client._api_client import APIClient
 from cognite.client.config import ClientConfig
+from cognite.client.utils._identifier import IdentifierSequence
 
 from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
     LocationFilter,
@@ -92,3 +93,20 @@ class LocationFiltersAPI(APIClient):
     def list(self) -> LocationFilterList:
         res = self._post(url_path=self._RESOURCE_PATH + "/list", json={"flat": True})
         return LocationFilterList._load(res.json()["items"], cognite_client=self._cognite_client)
+
+    def retrieve_multiple(self, ids: Sequence[int]) -> LocationFilterList:
+        """Retrieve multiple LocationFilters using their IDs.
+
+        Args:
+            ids: The IDs of the LocationFilters
+
+        Returns:
+            LocationFilterList
+        """
+        identifiers = IdentifierSequence.load(ids=ids)
+        return self._retrieve_multiple(
+            identifiers=identifiers,
+            resource_cls=LocationFilter,
+            list_cls=LocationFilterList,
+            resource_path=self._RESOURCE_PATH,
+        )
