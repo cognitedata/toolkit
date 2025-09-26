@@ -23,7 +23,7 @@ from cognite_toolkit._cdf_tk.constants import BUILD_ENVIRONMENT_FILE, ENV_VAR_PA
 from cognite_toolkit._cdf_tk.cruds import (
     ExtractionPipelineConfigCRUD,
     FunctionCRUD,
-    GraphQLLoader,
+    GraphQLCRUD,
     GroupAllScopedCRUD,
     HostedExtractorDestinationCRUD,
     HostedExtractorSourceCRUD,
@@ -521,7 +521,7 @@ class PullCommand(ToolkitCommand):
                     LowSeverityWarning(f"Skipping {loader.display_name} as it is not supported by the pull command.")
                 )
                 continue
-            if isinstance(loader, GraphQLLoader | FunctionCRUD | StreamlitCRUD):
+            if isinstance(loader, GraphQLCRUD | FunctionCRUD | StreamlitCRUD):
                 self.warn(
                     LowSeverityWarning(
                         f"Skipping {loader.display_name} as it is not supported by the pull command due to"
