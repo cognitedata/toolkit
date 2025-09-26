@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH
@@ -51,3 +53,88 @@ class TestPackages:
 
         assert package is not None
         assert package.module_names == expected_module_names
+
+    def test_load_modules_with_and_without_prefix(self, tmp_path: Path) -> None:
+        """Test that modules can be specified with or without 'modules/' prefix in packages.toml"""
+
+        # Create a simple module structure
+        modules_dir = tmp_path / "modules"
+        modules_dir.mkdir()
+
+        # Create a test module
+        test_module_dir = modules_dir / "test_module"
+        test_module_dir.mkdir()
+        (test_module_dir / "module.toml").write_text("""
+[module]
+title = "Test Module"
+""")
+        # Add an auth directory to make it a valid module
+        auth_dir = test_module_dir / "auth"
+        auth_dir.mkdir()
+        (auth_dir / "test.yaml").write_text("# test auth file")
+
+        # Create a nested test module
+        nested_dir = modules_dir / "nested"
+        nested_dir.mkdir()
+        nested_module_dir = nested_dir / "nested_module"
+        nested_module_dir.mkdir()
+        (nested_module_dir / "module.toml").write_text("""
+[module]
+title = "Nested Test Module"
+""")
+        # Add an auth directory to make it a valid module
+        nested_auth_dir = nested_module_dir / "auth"
+        nested_auth_dir.mkdir()
+        (nested_auth_dir / "test.yaml").write_text("# test nested auth file")
+
+        # Create packages.toml with mixed module path formats
+        packages_toml_content = """
+[packages.test_without_prefix]
+title = "Test Without Prefix"
+description = "Package with modules specified without modules/ prefix"
+modules = [
+    "test_module",
+    "nested/nested_module"
+]
+
+[packages.test_with_prefix]
+title = "Test With Prefix"
+description = "Package with modules specified with modules/ prefix"
+modules = [
+    "modules/test_module",
+    "modules/nested/nested_module"
+]
+
+[packages.test_mixed]
+title = "Test Mixed"
+description = "Package with mixed module path formats"
+modules = [
+    "test_module",
+    "modules/nested/nested_module"
+]
+"""
+
+        (tmp_path / "packages.toml").write_text(packages_toml_content)
+
+        # Load packages
+        packages = Packages.load(tmp_path)
+
+        # Verify all packages loaded correctly
+        assert "test_without_prefix" in packages
+        assert "test_with_prefix" in packages
+        assert "test_mixed" in packages
+
+        # Verify all packages have the same modules
+        expected_module_names = {"test_module", "nested_module"}
+
+        assert packages["test_without_prefix"].module_names == expected_module_names
+        assert packages["test_with_prefix"].module_names == expected_module_names
+        assert packages["test_mixed"].module_names == expected_module_names
+
+        # Verify modules have correct relative paths
+        for package in packages.values():
+            for module in package.modules:
+                if module.name == "test_module":
+                    assert module.relative_path == Path("modules/test_module")
+                elif module.name == "nested_module":
+                    assert module.relative_path == Path("modules/nested/nested_module")

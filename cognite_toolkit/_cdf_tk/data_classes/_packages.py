@@ -87,7 +87,22 @@ class Packages(dict, MutableMapping[str, Package]):
             if modules := package_definition.get("modules"):
                 if isinstance(modules, list) and modules:
                     for module_path in modules:
-                        if (module := module_by_relative_path.get(Path(module_path))) is None:
+                        module_path_obj = Path(module_path)
+
+                        # Try to find the module by the exact path first
+                        module = module_by_relative_path.get(module_path_obj)
+
+                        # If not found and the path starts with "modules/", try without the prefix
+                        if module is None and module_path_obj.parts and module_path_obj.parts[0] == "modules":
+                            module_path_without_prefix = Path(*module_path_obj.parts[1:])
+                            module = module_by_relative_path.get(module_path_without_prefix)
+
+                        # If still not found and the path doesn't start with "modules/", try with the prefix
+                        if module is None and (not module_path_obj.parts or module_path_obj.parts[0] != "modules"):
+                            module_path_with_prefix = Path("modules") / module_path_obj
+                            module = module_by_relative_path.get(module_path_with_prefix)
+
+                        if module is None:
                             available = sorted(str(m.relative_path) for m in module_directories)
                             raise ToolkitValueError(
                                 f"Module '{module_path}' not found in the module directories.\n"
