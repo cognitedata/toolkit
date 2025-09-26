@@ -244,11 +244,16 @@ class TestPurgeInstances:
 
 class TestPurgeSpace:
     @pytest.mark.usefixtures("disable_gzip")
-    @pytest.mark.parametrize("dry_run, include_space", itertools.product([True, False], [True, False]))
+    @pytest.mark.parametrize(
+        "dry_run, include_space,delete_datapoints,delete_file_content,",
+        itertools.product([True, False], [True, False], [True, False], [True, False]),
+    )
     def test_purge(
         self,
         dry_run: bool,
         include_space: bool,
+        delete_datapoints: bool,
+        delete_file_content: bool,
         purge_client: ToolkitClient,
         purge_responses: responses.RequestsMock,
         respx_mock: respx.MockRouter,
@@ -261,6 +266,8 @@ class TestPurgeSpace:
         data_model_count = 3
         edge_count = 40
         node_count = 50
+        ts_count = 14
+        file_count = 7
         rsps.add(
             responses.POST,
             config.create_api_url("/models/statistics/spaces/byids"),
@@ -288,7 +295,7 @@ class TestPurgeSpace:
                 "/models/instances/delete",
             ]
             for url in delete_urls:
-                respx.post(config.create_api_url(url)).mock(side_effect=delete_callback)
+                respx_mock.post(config.create_api_url(url)).mock(side_effect=delete_callback)
             if include_space:
                 rsps.add_callback(
                     method=responses.POST,
@@ -305,11 +312,33 @@ class TestPurgeSpace:
             ]
             if include_space:
                 list_calls.append(("/models/spaces/byids", responses.POST, Space, 1))
+            nodes: list[Node] = []
             for url, method, cls_, count in list_calls:
+                items = [gen.create_instance(cls_) for _ in range(count)]
+                if issubclass(cls_, Node):
+                    nodes.extend(items)
                 rsps.add(
                     method=method,
                     url=config.create_api_url(url),
-                    json={"items": [gen.create_instance(cls_).dump() for _ in range(count)]},
+                    json={"items": [item.dump() for item in items]},
+                )
+
+            retrieve_calls = []
+            if not delete_datapoints:
+                retrieve_calls.append(("/timeseries/byids", ExtendedTimeSeries, ts_count, nodes[:ts_count]))
+            if not delete_file_content:
+                retrieve_calls.append(
+                    ("/files/byids", ExtendedFileMetadata, file_count, nodes[ts_count : ts_count + file_count])
+                )
+
+            for url, cls_, count, resource_nodes in retrieve_calls:
+                resource_list = [gen.create_instance(cls_).dump() for _ in range(count)]
+                for ts, node in zip(resource_list, resource_nodes):
+                    ts["instanceId"] = node.as_id().dump(include_instance_type=False)
+                rsps.add(
+                    method=responses.POST,
+                    url=config.create_api_url(url),
+                    json={"items": resource_list},
                 )
 
         cmd = PurgeCommand(silent=True)
@@ -317,16 +346,23 @@ class TestPurgeSpace:
             purge_client,
             "test_space",
             include_space=include_space,
+            delete_datapoints=delete_datapoints,
+            delete_file_content=delete_file_content,
             dry_run=dry_run,
             auto_yes=True,
             verbose=False,
+        )
+        expected_node_count = (
+            node_count
+            - (0 if delete_datapoints or dry_run else ts_count)
+            - (0 if delete_file_content or dry_run else file_count)
         )
         expected = {
             "containers": container_count,
             "views": view_count,
             "data models": data_model_count,
             "edges": edge_count,
-            "nodes": node_count,
+            "nodes": expected_node_count,
         }
         if include_space:
             expected["spaces"] = 1
