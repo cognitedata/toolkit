@@ -1,6 +1,7 @@
 import json
 from collections.abc import Iterator
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import httpx
 import pytest
@@ -9,6 +10,8 @@ import respx
 from cognite.client.data_classes import Asset, AssetList
 from cognite.client.data_classes.data_modeling import (
     ContainerId,
+    DataModel,
+    DataModelList,
     DirectRelation,
     MappedProperty,
     NodeApply,
@@ -17,13 +20,21 @@ from cognite.client.data_classes.data_modeling import (
     View,
     ViewId,
 )
+from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, ProjectStatistics
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.adapter import AssetCentricMigrationIOAdapter, MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
-from cognite_toolkit._cdf_tk.commands._migrate.data_model import COGNITE_MIGRATION_MODEL, INSTANCE_SOURCE_VIEW_ID
+from cognite_toolkit._cdf_tk.commands._migrate.data_model import (
+    COGNITE_MIGRATION_MODEL,
+    INSTANCE_SOURCE_VIEW_ID,
+    MODEL_ID,
+    RESOURCE_VIEW_MAPPING_VIEW_ID,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import _ASSET_ID, create_default_mappings
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio import AssetIO, InstanceIO
 
 
@@ -205,3 +216,95 @@ class TestMigrationCommand:
         actual_results = [result.get_progress(asset.id) for asset in assets]
         expected_results = [{"download": "success", "convert": "success", "upload": "success"} for _ in assets]
         assert actual_results == expected_results
+
+    def test_validate_migration_model_available(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.data_modeling.data_models.retrieve.return_value = DataModelList([])
+            with pytest.raises(ToolkitMigrationError):
+                MigrationCommand.validate_migration_model_available(client)
+
+    def test_validate_migration_model_available_multiple_models(self) -> None:
+        """Test that multiple models raises an error."""
+        with monkeypatch_toolkit_client() as client:
+            # Create mock models with the expected MODEL_ID
+            model1 = MagicMock(spec=DataModel)
+            model1.as_id.return_value = MODEL_ID
+            model2 = MagicMock(spec=DataModel)
+            model2.as_id.return_value = MODEL_ID
+
+            client.data_modeling.data_models.retrieve.return_value = DataModelList([model1, model2])
+
+            with pytest.raises(ToolkitMigrationError) as exc_info:
+                MigrationCommand.validate_migration_model_available(client)
+
+            assert "Multiple migration models" in str(exc_info.value)
+
+    def test_validate_migration_model_available_missing_views(self) -> None:
+        """Test that a model with missing views raises an error."""
+        with monkeypatch_toolkit_client() as client:
+            model = MagicMock(spec=DataModel)
+            model.as_id.return_value = MODEL_ID
+            # Model has views but missing the required ones
+            model.views = [INSTANCE_SOURCE_VIEW_ID]  # Missing VIEW_SOURCE_VIEW_ID
+
+            client.data_modeling.data_models.retrieve.return_value = DataModelList([model])
+
+            with pytest.raises(ToolkitMigrationError, match=r"Invalid migration model. Missing views"):
+                MigrationCommand.validate_migration_model_available(client)
+
+    def test_validate_migration_model_available_success(self) -> None:
+        """Test that a valid model with all required views succeeds."""
+        with monkeypatch_toolkit_client() as client:
+            # Mocking the migration Model to get a response format of the model.
+            # An alternative would be to write a conversion of write -> read format of the model
+            # which is a significant amount of logic.
+            model = MagicMock(spec=DataModel)
+            model.as_id.return_value = MODEL_ID
+            # Model has all required views
+            model.views = [INSTANCE_SOURCE_VIEW_ID, RESOURCE_VIEW_MAPPING_VIEW_ID]
+
+            client.data_modeling.data_models.retrieve.return_value = DataModelList([model])
+
+            # Should not raise any exception
+            MigrationCommand.validate_migration_model_available(client)
+
+            client.data_modeling.data_models.retrieve.assert_called_once_with([MODEL_ID], inline_views=False)
+
+    def test_validate_available_capacity_missing_capacity(self) -> None:
+        cmd = MigrationCommand(silent=True)
+
+        with monkeypatch_toolkit_client() as client:
+            stats = MagicMock(spec=ProjectStatistics)
+            stats.instances = InstanceStatistics(
+                nodes=1000,
+                edges=0,
+                soft_deleted_edges=0,
+                soft_deleted_nodes=0,
+                instances_limit=1500,
+                soft_deleted_instances_limit=10_000,
+                instances=1000,
+                soft_deleted_instances=0,
+            )
+            client.data_modeling.statistics.project.return_value = stats
+            with pytest.raises(ToolkitValueError) as exc_info:
+                cmd.validate_available_capacity(client, 10_000)
+
+        assert "Cannot proceed with migration" in str(exc_info.value)
+
+    def test_validate_available_capacity_sufficient_capacity(self) -> None:
+        cmd = MigrationCommand(silent=True)
+
+        with monkeypatch_toolkit_client() as client:
+            stats = MagicMock(spec=ProjectStatistics)
+            stats.instances = InstanceStatistics(
+                nodes=1000,
+                edges=0,
+                soft_deleted_edges=0,
+                soft_deleted_nodes=0,
+                instances_limit=5_000_000,
+                soft_deleted_instances_limit=100_000_000,
+                instances=1000,
+                soft_deleted_instances=0,
+            )
+            client.data_modeling.statistics.project.return_value = stats
+            cmd.validate_available_capacity(client, 10_000)
