@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import difflib
 import shutil
 import tempfile
 from pathlib import Path
@@ -8,11 +9,11 @@ from typing import Any
 import questionary
 from questionary import Choice
 from rich import print
+from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import BuildCommand
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
-from cognite_toolkit._cdf_tk.commands.pull import ResourceYAMLDifference
 from cognite_toolkit._cdf_tk.cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.transformation import TransformationCRUD
 from cognite_toolkit._cdf_tk.data_classes import BuiltFullResourceList, BuiltModuleList, ModuleDirectories
@@ -54,21 +55,30 @@ class DriftCommand(ToolkitCommand):
             env_map: dict[str, str | None] = {}
             local_dict_by_id = self._get_local_dict_by_id(local_full, loader, env_map)
 
-            # Fetch UI transformations and map by external_id (all)
             ui_list = client.transformations.list(limit=-1)
             ui_by_id = {t.external_id: t for t in ui_list if getattr(t, "external_id", None)}
-
-            # Bucketize
             local_only, ui_only, both = self._bucketize(set(list(local_dict_by_id.keys())), set(list(ui_by_id.keys())))  # type: ignore[arg-type]
 
-            print(f"Local-only: {len(local_only)} | UI-only: {len(ui_only)} | Both: {len(both)}")
+            self._display_drift_table(local_only, ui_only, both)
 
-            # Handle UI-only: offer to dump into a module
-            if ui_only:
+            if local_only:
+                self._handle_local_only(
+                    local_only_ids=local_only,
+                    env_vars=env_vars,
+                    build_dir=build_dir,
+                    env_name=env_name,
+                    dry_run=dry_run,
+                    yes=yes,
+                    verbose=verbose,
+                )
+
+            if ui_only and questionary.confirm("Do you want to dump transformations in CDF into a module?").ask():
                 self._handle_ui_only(ui_only, ui_by_id, organization_dir, client, verbose, dry_run, yes)  # type: ignore[arg-type]
 
-            # Handle both-present: show diff and let user choose
-            if both:
+            if (
+                both
+                and questionary.confirm("Do you want to show diffs for transformations in both local and CDF?").ask()
+            ):
                 self._handle_both_present(
                     both_ids=both,
                     local_full=local_full,
@@ -76,18 +86,6 @@ class DriftCommand(ToolkitCommand):
                     ui_by_id=ui_by_id,  # type: ignore[arg-type]
                     loader=loader,
                     env_map=env_map,
-                    dry_run=dry_run,
-                    yes=yes,
-                    verbose=verbose,
-                )
-
-            # Local-only: suggest deploy
-            if local_only:
-                self._handle_local_only(
-                    local_only_ids=local_only,
-                    env_vars=env_vars,
-                    build_dir=build_dir,
-                    env_name=env_name,
                     dry_run=dry_run,
                     yes=yes,
                     verbose=verbose,
@@ -121,6 +119,20 @@ class DriftCommand(ToolkitCommand):
         both = sorted(local_ids & ui_ids)
         return local_only, ui_only, both
 
+    def _display_drift_table(self, local_only: list[str], ui_only: list[str], both: list[str]) -> None:
+        table = Table(title="Transformation Drift Summary", show_header=True, header_style="bold magenta")
+        table.add_column("Category", style="bold", justify="center")
+        table.add_column("Count", style="cyan", justify="center")
+        table.add_column("External IDs", justify="center")
+
+        def format_ids(ids: list[str]) -> str:
+            return "\n".join(ids) if ids else "[dim]None[/dim]"
+
+        table.add_row("Local only", str(len(local_only)), format_ids(local_only))
+        table.add_row("CDF only", str(len(ui_only)), format_ids(ui_only))
+        table.add_row("Common in both", str(len(both)), format_ids(both))
+        print(table)
+
     def _handle_ui_only(
         self,
         ui_only_ids: list[str],
@@ -146,12 +158,15 @@ class DriftCommand(ToolkitCommand):
             choices = [Choice(title=m.name, value=m.dir) for m in modules]
             choices.append(Choice(title="Create new module", value="__create_new__"))
             selected = questionary.select("Select a module to save UI-only transformations", choices=choices).ask()
+            if not selected:
+                print("[yellow]No module selected. Skipping UI-only dump.[/]")
+                return
             if selected == "__create_new__":
                 new_name = questionary.text("Enter new module name").ask()
                 if not new_name:
                     print("[yellow]No module created. Skipping UI-only dump.[/]")
                     return
-                target_dir: Path = organization_dir / new_name  # type: ignore[no-redef]
+                target_dir: Path = organization_dir / "modules" / new_name  # type: ignore[no-redef]
                 (target_dir / "transformations").mkdir(parents=True, exist_ok=True)
             else:
                 target_dir = selected
@@ -194,8 +209,40 @@ class DriftCommand(ToolkitCommand):
             # Show YAML diff
             build_content = safe_read(built.source.path)
             updated_yaml = yaml_safe_dump(cdf_dumped)
-            diff = ResourceYAMLDifference.load(build_content, updated_yaml)
-            diff.display(title=f"Diff: {rid}")
+
+            lines1 = build_content.splitlines()
+            lines2 = updated_yaml.splitlines()
+            # diff_lines = difflib.unified_
+
+            differ = difflib.Differ()
+            diff = list(differ.compare(lines1, lines2))
+
+            print(f"{'--- YAML in Local ---':<50} | {'+++ YAML in CDF ---':<50}")
+            print("-" * 105)
+
+            line_num1, line_num2 = 0, 0
+            # Process the line-by-line diff to display in two columns
+            for line in diff:
+                code = line[:2]
+                text = line[2:]
+
+                # Lines unique to file 1 or changed
+                if code == "- ":
+                    line_num1 += 1
+                    print(f"{line_num1:03d} {text:<46} | {'':<50}")
+                # Lines unique to file 2 or changed
+                elif code == "+ ":
+                    line_num2 += 1
+                    print(f"{'':<50} | {line_num2:03d} {text:<46}")
+                # Lines common to both
+                elif code == "  ":
+                    line_num1 += 1
+                    line_num2 += 1
+                    print(f"{line_num1:03d} {text:<46} | {line_num2:03d} {text:<46}")
+                # Ignore other metadata from difflib
+                else:
+                    continue
+
             choice = (
                 "local"
                 if yes
@@ -225,5 +272,4 @@ class DriftCommand(ToolkitCommand):
         yes: bool,
         verbose: bool,
     ) -> None:
-        print(f"Local-only transformations: {len(local_only_ids)}")
-        print("Use `cdf build` and `cdf deploy` to deploy local-only transformations to UI.")
+        print("[yellow]Use `cdf build` and `cdf deploy` to deploy local-only transformations to UI.[/]")

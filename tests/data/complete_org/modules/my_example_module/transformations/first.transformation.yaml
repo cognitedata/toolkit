@@ -3,8 +3,8 @@ name: example:first:transformation
 destination:
   type: assets
 ignoreNullFields: true
-isPublic: true
 conflictMode: upsert
+isPublic: true
 dataSetExternalId: ds_complete_org
 authentication:
   clientId: ${IDP_CLIENT_ID}
