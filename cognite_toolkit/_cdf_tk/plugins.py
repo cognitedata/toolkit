@@ -18,6 +18,7 @@ class Plugins(Enum):
     run = Plugin("run", "plugin for Run command to execute Python scripts in CDF")
     dump = Plugin("dump", "plugin for Dump command to retrieve Asset resources from CDF")
     purge = Plugin("purge", "plugin for Purge command to remove datasets and spaces from CDF")
+    drift = Plugin("drift", "Drift detection and update plugin")
 
     @staticmethod
     def list() -> dict[str, bool]:

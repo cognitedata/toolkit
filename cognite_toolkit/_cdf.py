@@ -25,6 +25,7 @@ from cognite_toolkit._cdf_tk.apps import (
     AuthApp,
     CoreApp,
     DownloadApp,
+    DriftApp,
     DumpApp,
     LandingApp,
     MigrateApp,
@@ -100,6 +101,9 @@ if Plugins.dump.value.is_enabled():
 
 if Plugins.purge.value.is_enabled():
     _app.add_typer(PurgeApp(**default_typer_kws), name="purge")
+
+if Plugins.drift.value.is_enabled():
+    _app.add_typer(DriftApp(**default_typer_kws), name="drift")
 
 if Flags.POPULATE.is_enabled():
     _app.add_typer(PopulateApp(**default_typer_kws), name="populate")

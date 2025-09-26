@@ -1,0 +1,229 @@
+from __future__ import annotations
+
+import shutil
+import tempfile
+from pathlib import Path
+from typing import Any
+
+import questionary
+from questionary import Choice
+from rich import print
+
+from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.commands import BuildCommand
+from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
+from cognite_toolkit._cdf_tk.commands.pull import ResourceYAMLDifference
+from cognite_toolkit._cdf_tk.cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.transformation import TransformationCRUD
+from cognite_toolkit._cdf_tk.data_classes import BuiltFullResourceList, BuiltModuleList, ModuleDirectories
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.file import safe_read, safe_write, yaml_safe_dump
+
+
+class DriftCommand(ToolkitCommand):
+    def run_transformations(
+        self,
+        env_vars: EnvironmentVariables,
+        organization_dir: Path,
+        env_name: str | None,
+        dry_run: bool,
+        yes: bool,
+        verbose: bool,
+    ) -> None:
+        client: ToolkitClient = env_vars.get_client()
+        build_dir = Path(tempfile.mkdtemp())
+        try:
+            built_modules: BuiltModuleList = BuildCommand(silent=True, skip_tracking=True).execute(
+                verbose=verbose,
+                organization_dir=organization_dir,
+                build_dir=build_dir,
+                selected=None,
+                build_env_name=env_name,
+                no_clean=False,
+                client=client,
+                on_error="raise",
+            )
+
+            # Collect local transformations as built resources
+            loader: TransformationCRUD = TransformationCRUD(client, build_dir=None)
+            local_full: BuiltFullResourceList[str] = built_modules.get_resources(
+                id_type=str,
+                resource_dir=loader.folder_name,  # type: ignore[arg-type]
+                kind=loader.kind,
+            )
+            env_map: dict[str, str | None] = {}
+            local_dict_by_id = self._get_local_dict_by_id(local_full, loader, env_map)
+
+            # Fetch UI transformations and map by external_id (all)
+            ui_list = client.transformations.list(limit=-1)
+            ui_by_id = {t.external_id: t for t in ui_list if getattr(t, "external_id", None)}
+
+            # Bucketize
+            local_only, ui_only, both = self._bucketize(set(list(local_dict_by_id.keys())), set(list(ui_by_id.keys())))  # type: ignore[arg-type]
+
+            print(f"Local-only: {len(local_only)} | UI-only: {len(ui_only)} | Both: {len(both)}")
+
+            # Handle UI-only: offer to dump into a module
+            if ui_only:
+                self._handle_ui_only(ui_only, ui_by_id, organization_dir, client, verbose, dry_run, yes)  # type: ignore[arg-type]
+
+            # Handle both-present: show diff and let user choose
+            if both:
+                self._handle_both_present(
+                    both_ids=both,
+                    local_full=local_full,
+                    local_dict_by_id=local_dict_by_id,
+                    ui_by_id=ui_by_id,  # type: ignore[arg-type]
+                    loader=loader,
+                    env_map=env_map,
+                    dry_run=dry_run,
+                    yes=yes,
+                    verbose=verbose,
+                )
+
+            # Local-only: suggest deploy
+            if local_only:
+                self._handle_local_only(
+                    local_only_ids=local_only,
+                    env_vars=env_vars,
+                    build_dir=build_dir,
+                    env_name=env_name,
+                    dry_run=dry_run,
+                    yes=yes,
+                    verbose=verbose,
+                )
+        finally:
+            # Build dir cleanup is done by BuildCommand caller patterns elsewhere;
+            # keep artifacts for inspection in POC.
+            pass
+
+    @staticmethod
+    def _get_local_dict_by_id(
+        resources: BuiltFullResourceList[str], loader: ResourceCRUD, environment_variables: dict[str, str | None]
+    ) -> dict[str, dict[str, Any]]:
+        # Mirrors PullCommand._get_local_resource_dict_by_id
+        unique_destinations = {r.destination for r in resources if r.destination}
+        local_by_id: dict[str, dict[str, Any]] = {}
+        local_ids = set(resources.identifiers)
+        for destination in unique_destinations:
+            if not destination:
+                continue
+            for resource_dict in loader.load_resource_file(destination, environment_variables):
+                identifier = loader.get_id(resource_dict)
+                if identifier in local_ids:
+                    local_by_id[identifier] = resource_dict
+        return local_by_id
+
+    @staticmethod
+    def _bucketize(local_ids: set[str], ui_ids: set[str]) -> tuple[list[str], list[str], list[str]]:
+        local_only = sorted(local_ids - ui_ids)
+        ui_only = sorted(ui_ids - local_ids)
+        both = sorted(local_ids & ui_ids)
+        return local_only, ui_only, both
+
+    def _handle_ui_only(
+        self,
+        ui_only_ids: list[str],
+        ui_by_id: dict[str, Any],
+        organization_dir: Path,
+        client: ToolkitClient,
+        verbose: bool,
+        dry_run: bool,
+        yes: bool,
+    ) -> None:
+        modules = ModuleDirectories.load(organization_dir, None)
+        if dry_run:
+            print(f"[bold]UI-only[/]: {len(ui_only_ids)} (dry-run, no writes)")
+            return
+        if yes:
+            # Auto-pick first available module or create a default one
+            if modules:
+                target_dir: Path = modules[0].dir
+            else:
+                target_dir = organization_dir / "drift_imports"
+                (target_dir / "transformations").mkdir(parents=True, exist_ok=True)
+        else:
+            choices = [Choice(title=m.name, value=m.dir) for m in modules]
+            choices.append(Choice(title="Create new module", value="__create_new__"))
+            selected = questionary.select("Select a module to save UI-only transformations", choices=choices).ask()
+            if selected == "__create_new__":
+                new_name = questionary.text("Enter new module name").ask()
+                if not new_name:
+                    print("[yellow]No module created. Skipping UI-only dump.[/]")
+                    return
+                target_dir: Path = organization_dir / new_name  # type: ignore[no-redef]
+                (target_dir / "transformations").mkdir(parents=True, exist_ok=True)
+            else:
+                target_dir = selected
+
+        loader: TransformationCRUD = TransformationCRUD(client, build_dir=None)
+        for tid in ui_only_ids:
+            resource = ui_by_id[tid]
+            dumped = loader.dump_resource(resource)
+            name = loader.as_str(tid)
+            base_filepath = Path(target_dir) / loader.folder_name / f"{name}.{loader.kind}.yaml"
+            base_filepath.parent.mkdir(parents=True, exist_ok=True)
+            for filepath, subpart in loader.split_resource(base_filepath, dumped):
+                content = subpart if isinstance(subpart, str) else yaml_safe_dump(subpart)
+                safe_write(filepath, content, encoding="utf-8")
+            if verbose:
+                print(f"Dumped {loader.kind} {name} to {base_filepath.parent}")
+
+    def _handle_both_present(
+        self,
+        both_ids: list[str],
+        local_full: BuiltFullResourceList[str],
+        local_dict_by_id: dict[str, dict[str, Any]],
+        ui_by_id: dict[str, Any],
+        loader: ResourceCRUD,
+        env_map: dict[str, str | None],
+        dry_run: bool,
+        yes: bool,
+        verbose: bool,
+    ) -> None:
+        # Map identifier -> built resource for quick lookup
+        full_by_id = {r.identifier: r for r in local_full}
+        for rid in both_ids:
+            built = full_by_id[rid]
+            local_dict = local_dict_by_id[rid]
+            cdf_dumped = loader.dump_resource(ui_by_id[rid], local_dict)
+            if cdf_dumped == local_dict:
+                if verbose:
+                    print(f"No diff for {rid}")
+                continue
+            # Show YAML diff
+            build_content = safe_read(built.source.path)
+            updated_yaml = yaml_safe_dump(cdf_dumped)
+            diff = ResourceYAMLDifference.load(build_content, updated_yaml)
+            diff.display(title=f"Diff: {rid}")
+            choice = (
+                "local"
+                if yes
+                else questionary.select(
+                    f"Keep local or overwrite with UI for {rid}?",
+                    choices=[Choice("Keep local", value="local"), Choice("Use UI", value="ui")],
+                ).ask()
+            )
+            if choice != "ui" or dry_run:
+                continue
+            # Backup and overwrite
+            dest = built.source.path
+            backup = dest.with_suffix(dest.suffix + ".bak")
+            try:
+                shutil.copy2(dest, backup)
+            except Exception:
+                pass
+            safe_write(dest, updated_yaml, encoding="utf-8")
+
+    def _handle_local_only(
+        self,
+        local_only_ids: list[str],
+        env_vars: EnvironmentVariables,
+        build_dir: Path,
+        env_name: str | None,
+        dry_run: bool,
+        yes: bool,
+        verbose: bool,
+    ) -> None:
+        print(f"Local-only transformations: {len(local_only_ids)}")
+        print("Use `cdf build` and `cdf deploy` to deploy local-only transformations to UI.")
