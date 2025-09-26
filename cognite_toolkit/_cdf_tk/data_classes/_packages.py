@@ -89,16 +89,19 @@ class Packages(dict, MutableMapping[str, Package]):
                     for module_path in modules:
                         module_path_obj = Path(module_path)
 
-                        # Remove "modules/" prefix if present to normalize user input
-                        normalized_path = (
-                            Path(*module_path_obj.parts[1:])
-                            if module_path_obj.parts and module_path_obj.parts[0] == "modules"
-                            else module_path_obj
-                        )
+                        # Try to find the module with the path as is.
+                        module = module_by_relative_path.get(module_path_obj)
 
-                        # Try to find module by normalized path, then by adding "modules/" prefix
-                        if (module := module_by_relative_path.get(normalized_path)) is None:
-                            module = module_by_relative_path.get(Path("modules") / normalized_path)
+                        if not module:
+                            # If not found, try normalizing the 'modules/' prefix.
+                            if module_path_obj.parts and module_path_obj.parts[0] == "modules":
+                                # The path has 'modules/' prefix, so try without it.
+                                path_without_prefix = Path(*module_path_obj.parts[1:])
+                                module = module_by_relative_path.get(path_without_prefix)
+                            else:
+                                # The path does not have 'modules/' prefix, so try with it.
+                                path_with_prefix = Path("modules") / module_path_obj
+                                module = module_by_relative_path.get(path_with_prefix)
 
                         if module is None:
                             available = sorted(str(m.relative_path) for m in module_directories)
