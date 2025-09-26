@@ -25,9 +25,11 @@ class ModelList(UserList[T_BaseModel], ABC):
         self,
         collection: Collection[T_BaseModel] | None = None,
         invalid_rows: dict[int, ResourceFormatWarning] | None = None,
+        unexpected_columns: set[str] | None = None,
     ) -> None:
         super().__init__(collection or [])
         self.invalid_rows = invalid_rows or {}
+        self.unexpected_columns = unexpected_columns or set()
 
     @classmethod
     @abstractmethod
@@ -40,10 +42,18 @@ class ModelList(UserList[T_BaseModel], ABC):
         return {field_.alias or field_id for field_id, field_ in model_cls.model_fields.items() if field_.is_required()}
 
     @classmethod
+    def _optional_header_names(cls) -> set[str]:
+        model_cls = cls._get_base_model_cls()
+        return {
+            field_.alias or field_id for field_id, field_ in model_cls.model_fields.items() if not field_.is_required()
+        }
+
+    @classmethod
     def read_csv_file(cls, filepath: Path) -> "Self":
         # We only need to read one row to get the header
         schema = CSVReader.sniff_schema(filepath, sniff_rows=1)
         cls._validate_schema(schema)
+        unexpected_columns = {col.name for col in schema} - cls._required_header_names() - cls._optional_header_names()
         reader = CSVReader(input_file=filepath)
         items: list[T_BaseModel] = []
         invalid_rows: dict[int, ResourceFormatWarning] = {}
@@ -57,7 +67,7 @@ class ModelList(UserList[T_BaseModel], ABC):
             else:
                 raise TypeError(f"Unexpected result type: {type(result)}")
 
-        return cls(items, invalid_rows)
+        return cls(items, invalid_rows, unexpected_columns)
 
     @classmethod
     def _validate_schema(cls, schema: list[SchemaColumn]) -> None:

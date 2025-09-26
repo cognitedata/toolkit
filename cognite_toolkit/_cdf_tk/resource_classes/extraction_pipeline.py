@@ -18,7 +18,7 @@ class Contact(BaseModelResource):
 
 
 class NotificationConfig(BaseModelResource):
-    allow_not_seen_range_in_minutes: int | None = Field(
+    allowed_not_seen_range_in_minutes: int | None = Field(
         None,
         ge=0,
         description="Notifications configuration value. Time in minutes to pass without any Run. Null if extraction pipeline is not checked.",
