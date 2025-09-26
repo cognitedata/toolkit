@@ -91,9 +91,7 @@ class DriftCommand(ToolkitCommand):
                     verbose=verbose,
                 )
         finally:
-            # Build dir cleanup is done by BuildCommand caller patterns elsewhere;
-            # keep artifacts for inspection in POC.
-            pass
+            print("[bold green] CDF and local resources are synced![/]")
 
     @staticmethod
     def _get_local_dict_by_id(
@@ -182,7 +180,9 @@ class DriftCommand(ToolkitCommand):
                 content = subpart if isinstance(subpart, str) else yaml_safe_dump(subpart)
                 safe_write(filepath, content, encoding="utf-8")
             if verbose:
-                print(f"Dumped {loader.kind} {name} to {base_filepath.parent}")
+                print(
+                    f"Synchronized [green]{loader.kind}[/green] [green]{name}[/green] to [green]{base_filepath.parent}[/green]"
+                )
 
     def _handle_both_present(
         self,
@@ -203,55 +203,24 @@ class DriftCommand(ToolkitCommand):
             local_dict = local_dict_by_id[rid]
             cdf_dumped = loader.dump_resource(ui_by_id[rid], local_dict)
             if cdf_dumped == local_dict:
-                if verbose:
-                    print(f"No diff for {rid}")
+                print(f"[bold yellow]No change in [green]{rid}[/green][/]")
                 continue
             # Show YAML diff
+            print(f"[bold yellow]Displaying diff for [green]{rid}[/green][/]")
             build_content = safe_read(built.source.path)
             updated_yaml = yaml_safe_dump(cdf_dumped)
 
-            lines1 = build_content.splitlines()
-            lines2 = updated_yaml.splitlines()
-            # diff_lines = difflib.unified_
-
-            differ = difflib.Differ()
-            diff = list(differ.compare(lines1, lines2))
-
-            print(f"{'--- YAML in Local ---':<50} | {'+++ YAML in CDF ---':<50}")
-            print("-" * 105)
-
-            line_num1, line_num2 = 0, 0
-            # Process the line-by-line diff to display in two columns
-            for line in diff:
-                code = line[:2]
-                text = line[2:]
-
-                # Lines unique to file 1 or changed
-                if code == "- ":
-                    line_num1 += 1
-                    print(f"{line_num1:03d} {text:<46} | {'':<50}")
-                # Lines unique to file 2 or changed
-                elif code == "+ ":
-                    line_num2 += 1
-                    print(f"{'':<50} | {line_num2:03d} {text:<46}")
-                # Lines common to both
-                elif code == "  ":
-                    line_num1 += 1
-                    line_num2 += 1
-                    print(f"{line_num1:03d} {text:<46} | {line_num2:03d} {text:<46}")
-                # Ignore other metadata from difflib
-                else:
-                    continue
+            self._display_diff(build_content, updated_yaml)
 
             choice = (
                 "local"
                 if yes
                 else questionary.select(
-                    f"Keep local or overwrite with UI for {rid}?",
-                    choices=[Choice("Keep local", value="local"), Choice("Use UI", value="ui")],
+                    f"Keep local or overwrite with CDF for {rid}?",
+                    choices=[Choice("Keep local", value="local"), Choice("Use CDF", value="cdf")],
                 ).ask()
             )
-            if choice != "ui" or dry_run:
+            if choice == "local" or dry_run:
                 continue
             # Backup and overwrite
             dest = built.source.path
@@ -261,6 +230,47 @@ class DriftCommand(ToolkitCommand):
             except Exception:
                 pass
             safe_write(dest, updated_yaml, encoding="utf-8")
+            # Remove backup after successful writing
+            try:
+                backup.unlink()
+            except Exception:
+                pass
+            if verbose:
+                print(f"[bold green]Updated [green]{rid}[/green] in local[/]")
+
+    def _display_diff(self, build_content: str, updated_yaml: str) -> None:
+        lines1 = build_content.splitlines()
+        lines2 = updated_yaml.splitlines()
+        # diff_lines = difflib.unified_
+
+        differ = difflib.Differ()
+        diff = list(differ.compare(lines1, lines2))
+
+        print(f"{'--- YAML in Local ---':<50} | {'+++ YAML in CDF ---':<50}")
+        print("-" * 105)
+
+        line_num1, line_num2 = 0, 0
+        # Process the line-by-line diff to display in two columns
+        for line in diff:
+            code = line[:2]
+            text = line[2:]
+
+            # Lines unique to file 1 or changed
+            if code == "- ":
+                line_num1 += 1
+                print(f"{line_num1:03d} {text:<46} | {'':<50}")
+            # Lines unique to file 2 or changed
+            elif code == "+ ":
+                line_num2 += 1
+                print(f"{'':<50} | {line_num2:03d} {text:<46}")
+            # Lines common to both
+            elif code == "  ":
+                line_num1 += 1
+                line_num2 += 1
+                print(f"{line_num1:03d} {text:<46} | {line_num2:03d} {text:<46}")
+            # Ignore other metadata from difflib
+            else:
+                continue
 
     def _handle_local_only(
         self,
