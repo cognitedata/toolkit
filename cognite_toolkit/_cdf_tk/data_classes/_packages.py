@@ -96,8 +96,7 @@ class Packages(dict, MutableMapping[str, Package]):
                             normalized_path = module_path_obj
 
                         # Try to find module by normalized path, then by adding "modules/" prefix
-                        module = module_by_relative_path.get(normalized_path)
-                        if module is None:
+                        if (module := module_by_relative_path.get(normalized_path)) is None:
                             module = module_by_relative_path.get(Path("modules") / normalized_path)
 
                         if module is None:
