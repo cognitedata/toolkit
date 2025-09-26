@@ -205,38 +205,75 @@ class DriftCommand(ToolkitCommand):
             if cdf_dumped == local_dict:
                 print(f"[bold yellow]No change in [green]{rid}[/green][/]")
                 continue
-            # Show YAML diff
+
+            # Split resources first to get actual file contents that will be written
+            base_filepath = built.source.path
+            split_resources = list(loader.split_resource(base_filepath, cdf_dumped))
+
+            # Show YAML diff for each file that will be created/modified
             print(f"[bold yellow]Displaying diff for [green]{rid}[/green][/]")
-            build_content = safe_read(built.source.path)
-            updated_yaml = yaml_safe_dump(cdf_dumped)
+            files_to_update = []
 
-            self._display_diff(build_content, updated_yaml)
+            for filepath, subpart in split_resources:
+                if filepath.exists():
+                    build_content = safe_read(filepath)
+                    updated_content = subpart if isinstance(subpart, str) else yaml_safe_dump(subpart)
+                    print(f"[bold blue]Diff for file: {filepath.name}[/]")
+                    self._display_diff(build_content, updated_content)
 
-            choice = (
-                "local"
-                if yes
-                else questionary.select(
-                    f"Keep local or overwrite with CDF for {rid}?",
-                    choices=[Choice("Keep local", value="local"), Choice("Use CDF", value="cdf")],
-                ).ask()
-            )
-            if choice == "local" or dry_run:
+                    # Ask for choice on this specific file
+                    file_choice = (
+                        "cdf"
+                        if yes
+                        else questionary.select(
+                            f"Keep local or overwrite with CDF for {filepath.name}?",
+                            choices=[Choice("Keep local", value="local"), Choice("Use CDF", value="cdf")],
+                        ).ask()
+                    )
+                    if file_choice == "cdf" and not dry_run:
+                        files_to_update.append((filepath, subpart))
+                else:
+                    print(f"[bold green]New file will be created: {filepath.name}[/]")
+                    updated_content = subpart if isinstance(subpart, str) else yaml_safe_dump(subpart)
+                    print(f"[green]{updated_content}[/green]")
+
+                    # Ask for choice on creating this new file
+                    file_choice = (
+                        "cdf"
+                        if yes
+                        else questionary.select(
+                            f"Create new file {filepath.name}?",
+                            choices=[Choice("Skip", value="local"), Choice("Create", value="cdf")],
+                        ).ask()
+                    )
+                    if file_choice == "cdf" and not dry_run:
+                        files_to_update.append((filepath, subpart))
+
+            # If no files selected for update, continue to next resource
+            if not files_to_update:
                 continue
-            # Backup and overwrite
+
+            # Backup and overwrite only the selected files
             dest = built.source.path
             backup = dest.with_suffix(dest.suffix + ".bak")
             try:
                 shutil.copy2(dest, backup)
             except Exception:
                 pass
-            safe_write(dest, updated_yaml, encoding="utf-8")
+
+            # Write only the selected split resources
+            for filepath, subpart in files_to_update:
+                content = subpart if isinstance(subpart, str) else yaml_safe_dump(subpart)
+                safe_write(filepath, content, encoding="utf-8")
+
             # Remove backup after successful writing
             try:
                 backup.unlink()
             except Exception:
                 pass
             if verbose:
-                print(f"[bold green]Updated [green]{rid}[/green] in local[/]")
+                updated_files = [fp.name for fp, _ in files_to_update]
+                print(f"[bold green]Updated files for [green]{rid}[/green]: {', '.join(updated_files)}[/]")
 
     def _display_diff(self, build_content: str, updated_yaml: str) -> None:
         lines1 = build_content.splitlines()
@@ -246,7 +283,7 @@ class DriftCommand(ToolkitCommand):
         differ = difflib.Differ()
         diff = list(differ.compare(lines1, lines2))
 
-        print(f"{'--- YAML in Local ---':<50} | {'+++ YAML in CDF ---':<50}")
+        print(f"{'     Local   ':<50} | {'    CDF    ':<50}")
         print("-" * 105)
 
         line_num1, line_num2 = 0, 0
