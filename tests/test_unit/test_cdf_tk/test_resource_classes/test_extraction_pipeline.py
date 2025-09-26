@@ -54,6 +54,7 @@ class TestExtractionPipelineYAML:
                 "name": "Pipeline 6",
                 "dataSetExternalId": "ds6",
                 "contacts": [{"name": "John Doe", "role": "Owner", "sendNotification": True}],
+                "notificationConfig": {"allowedNotSeenRangeInMinutes": 10},
             },
         ],
     )
