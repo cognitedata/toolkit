@@ -90,10 +90,11 @@ class Packages(dict, MutableMapping[str, Package]):
                         module_path_obj = Path(module_path)
 
                         # Remove "modules/" prefix if present to normalize user input
-                        if module_path_obj.parts and module_path_obj.parts[0] == "modules":
-                            normalized_path = Path(*module_path_obj.parts[1:])
-                        else:
-                            normalized_path = module_path_obj
+                        normalized_path = (
+                            Path(*module_path_obj.parts[1:])
+                            if module_path_obj.parts and module_path_obj.parts[0] == "modules"
+                            else module_path_obj
+                        )
 
                         # Try to find module by normalized path, then by adding "modules/" prefix
                         if (module := module_by_relative_path.get(normalized_path)) is None:
