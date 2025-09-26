@@ -235,11 +235,6 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
             self._collect_dependencies(asset_list, selector)
             yield asset_list
 
-    def upload_items(self, data_chunk: AssetWriteList, selector: AssetCentricSelector) -> None:
-        if not data_chunk:
-            return
-        self.client.assets.upsert(data_chunk, mode="patch")
-
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> AssetWriteList:
         return AssetWriteList([self._loader.load_resource(item) for item in data_chunk])
 
@@ -319,11 +314,6 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
 
     def retrieve(self, ids: Sequence[int]) -> FileMetadataList:
         return self.client.files.retrieve_multiple(ids)
-
-    def upload_items(self, data_chunk: FileMetadataWriteList, selector: AssetCentricSelector) -> None:
-        if not data_chunk:
-            return
-        self._loader.create(data_chunk)
 
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> FileMetadataWriteList:
         return FileMetadataWriteList([self._loader.load_resource(item) for item in data_chunk])

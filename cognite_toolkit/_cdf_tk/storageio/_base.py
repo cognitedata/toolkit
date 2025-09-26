@@ -90,16 +90,6 @@ class StorageIO(ABC, Generic[T_ID, T_Selector, T_CogniteResourceList, T_Writable
         """
         raise NotImplementedError()
 
-    @abstractmethod
-    def upload_items(self, data_chunk: T_CogniteResourceList, selector: T_Selector) -> None:
-        """Upload a chunk of data to the storage.
-
-        Args:
-            data_chunk: The chunk of data to upload, which should be a list of writable Cognite resources.
-            selector: The selection criteria to identify where to upload the data.
-        """
-        raise NotImplementedError()
-
     def upload_items_force(
         self, data_chunk: T_CogniteResourceList, http_client: HTTPClient, selector: T_Selector | None = None
     ) -> Sequence[HTTPMessage]:

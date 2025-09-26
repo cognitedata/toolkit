@@ -47,9 +47,6 @@ class RawIO(StorageIO[str, RawTable, RowWriteList, RowList]):
             chunk_size=self.CHUNK_SIZE,
         )
 
-    def upload_items(self, data_chunk: RowWriteList, selector: RawTable) -> None:
-        self.client.raw.rows.insert(db_name=selector.db_name, table_name=selector.table_name, row=data_chunk)
-
     def upload_items_force(
         self, data_chunk: RowWriteList, http_client: HTTPClient, selector: RawTable | None = None
     ) -> Sequence[HTTPMessage]:

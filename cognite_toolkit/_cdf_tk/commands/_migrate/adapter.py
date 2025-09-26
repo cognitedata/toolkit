@@ -181,9 +181,6 @@ class AssetCentricMigrationIOAdapter(
     def count(self, selector: AssetCentricSelector) -> int | None:
         return self.base.count(selector)
 
-    def upload_items(self, data_chunk: InstanceApplyList, selector: MigrationSelector) -> None:
-        self.instance.upload_items(data_chunk, selector)
-
     def data_to_json_chunk(self, data_chunk: AssetCentricMappingList) -> list[dict[str, JsonVal]]:
         return data_chunk.dump()
 

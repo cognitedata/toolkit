@@ -88,9 +88,6 @@ class InstanceIO(TableStorageIO[InstanceId, InstanceSelector, InstanceApplyList,
             return len(selector.instance_ids)
         raise NotImplementedError()
 
-    def upload_items(self, data_chunk: InstanceApplyList, selector: InstanceSelector) -> None:
-        raise NotImplementedError()
-
     def data_to_json_chunk(self, data_chunk: InstanceList) -> list[dict[str, JsonVal]]:
         raise NotImplementedError()
 
