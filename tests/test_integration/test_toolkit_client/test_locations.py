@@ -27,18 +27,25 @@ def cleanup_before_session(toolkit_client: ToolkitClient) -> None:
     yield  #
 
 
+def _get_location_filter(toolkit_client: ToolkitClient, new_loc_filter: LocationFilterWrite) -> LocationFilter:
+    try:
+        for loc_filter in toolkit_client.search.locations.list():
+            if loc_filter.external_id == new_loc_filter.external_id:
+                return loc_filter
+    except CogniteAPIError:
+        pass
+    created = toolkit_client.search.locations.create(new_loc_filter)
+    return created
+
+
 @pytest.fixture(scope="session")
 def existing_location_filter(toolkit_client: ToolkitClient) -> LocationFilter:
     location_filter = LocationFilterWrite(
         name="loc",
         external_id=SESSION_EXTERNAL_ID,
+        data_modeling_type="DATA_MODELING_ONLY",
     )
-    try:
-        retrieved = toolkit_client.search.locations.retrieve(RUN_UNIQUE_ID)
-        return retrieved
-    except CogniteAPIError:
-        created = toolkit_client.search.locations.create(location_filter)
-        return created
+    return _get_location_filter(toolkit_client, location_filter)
 
 
 @pytest.fixture(scope="session")
@@ -52,6 +59,15 @@ def my_data_model(toolkit_client: ToolkitClient, toolkit_space: Space) -> DataMo
         )
     )
     return data_model
+
+
+@pytest.fixture(scope="session")
+def second_location_filter(toolkit_client: ToolkitClient) -> LocationFilter:
+    location_filter = LocationFilterWrite(
+        external_id=f"{SESSION_EXTERNAL_ID}_2",
+        name="loc2",
+    )
+    return _get_location_filter(toolkit_client, location_filter)
 
 
 class TestLocationFilterAPI:
@@ -107,3 +123,25 @@ class TestLocationFilterAPI:
         update.description = "New description"
         updated = toolkit_client.search.locations.update(update.id, update.as_write())
         assert updated.description == update.description
+
+    def test_retrieve_multiple_location_filters(
+        self,
+        toolkit_client: ToolkitClient,
+        existing_location_filter: LocationFilter,
+        second_location_filter: LocationFilter,
+    ) -> None:
+        ids = [existing_location_filter.id, second_location_filter.id]
+        retrieved = toolkit_client.search.locations.retrieve_multiple(ids)
+        assert isinstance(retrieved, LocationFilterList)
+        assert len(retrieved) == 2
+        assert retrieved[0].id in ids
+        assert retrieved[1].id in ids
+
+    def test_retrieve_multiple_empty_list(self, toolkit_client: ToolkitClient) -> None:
+        retrieved = toolkit_client.search.locations.retrieve_multiple([])
+        assert isinstance(retrieved, LocationFilterList)
+        assert len(retrieved) == 0
+
+    def test_retrieve_multiple_unknown_ids(self, toolkit_client: ToolkitClient) -> None:
+        with pytest.raises(CogniteAPIError):
+            toolkit_client.search.locations.retrieve_multiple([-1, -2])
