@@ -118,7 +118,7 @@ class UploadCommand(ToolkitCommand):
             for item in data_chunk:
                 tracker.set_progress(io.as_id(item), cls._UPLOAD, "success")
             return
-        results = io.upload_items_force(data_chunk, upload_client, selector)
+        results = io.upload_items(data_chunk, upload_client, selector)
         for item in results:
             if isinstance(item, SuccessItem):
                 tracker.set_progress(item.id, step=cls._UPLOAD, status="success")

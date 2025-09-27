@@ -113,6 +113,8 @@ class ToolkitClientMock(CogniteClientMock):
 @contextmanager
 def monkeypatch_toolkit_client() -> Iterator[ToolkitClientMock]:
     toolkit_client_mock = ToolkitClientMock()
-    ToolkitClient.__new__ = lambda *args, **kwargs: toolkit_client_mock  # type: ignore[method-assign]
-    yield toolkit_client_mock
-    ToolkitClient.__new__ = lambda cls, *args, **kwargs: object.__new__(cls)  # type: ignore[method-assign]
+    try:
+        ToolkitClient.__new__ = lambda *args, **kwargs: toolkit_client_mock  # type: ignore[method-assign]
+        yield toolkit_client_mock
+    finally:
+        ToolkitClient.__new__ = lambda cls, *args, **kwargs: object.__new__(cls)  # type: ignore[method-assign]

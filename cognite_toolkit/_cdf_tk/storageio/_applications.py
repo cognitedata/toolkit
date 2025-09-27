@@ -64,10 +64,6 @@ class ChartIO(StorageIO[str, ChartSelector, ChartWriteList, ChartList]):
         # There is no way to get the count of charts up front.
         return None
 
-    def upload_items(self, data_chunk: ChartWriteList, selector: ChartSelector) -> None:
-        # Todo validate all references exist in CDF before uploading.
-        raise ToolkitNotImplementedError("Uploading charts is not implemented yet.")
-
     def data_to_json_chunk(self, data_chunk: ChartList) -> list[dict[str, JsonVal]]:
         return [chart.as_write().dump() for chart in data_chunk]
 
