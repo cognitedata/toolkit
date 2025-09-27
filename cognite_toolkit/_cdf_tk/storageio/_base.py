@@ -104,6 +104,8 @@ class StorageIO(ABC, Generic[T_ID, T_Selector, T_CogniteResourceList, T_Writable
         """
         if not hasattr(self, "UPLOAD_ENDPOINT"):
             raise ToolkitNotImplementedError(f"Upload not implemented for {self.KIND} storage.")
+        if len(data_chunk) > self.CHUNK_SIZE:
+            raise ValueError(f"Data chunk size {len(data_chunk)} exceeds the maximum CHUNK_SIZE of {self.CHUNK_SIZE}.")
 
         config = http_client.config
         return http_client.request_with_retries(
