@@ -314,7 +314,7 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
             self._collect_dependencies(file_list, selector)
             yield file_list
 
-    def upload_items_force(
+    def upload_items(
         self, data_chunk: FileMetadataWriteList, http_client: HTTPClient, selector: AssetCentricSelector | None = None
     ) -> Sequence[HTTPMessage]:
         # The /files endpoint only supports creating one file at a time, so we override the default chunked

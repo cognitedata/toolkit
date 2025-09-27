@@ -61,7 +61,7 @@ class TestRawStorageIO:
             with HTTPClient(config) as upload_client:
                 data_chunks = (io.json_chunk_to_data(chunk) for chunk in json_chunks)
                 for data_chunk in data_chunks:
-                    io.upload_items_force(data_chunk, upload_client, table)
+                    io.upload_items(data_chunk, upload_client, table)
 
             assert respx_mock.calls.call_count == 10  # 100 rows in chunks of 10
             uploaded_rows = []

@@ -90,7 +90,7 @@ class StorageIO(ABC, Generic[T_ID, T_Selector, T_CogniteResourceList, T_Writable
         """
         raise NotImplementedError()
 
-    def upload_items_force(
+    def upload_items(
         self, data_chunk: T_CogniteResourceList, http_client: HTTPClient, selector: T_Selector | None = None
     ) -> Sequence[HTTPMessage]:
         """Upload a chunk of data to the storage using a custom HTTP client.

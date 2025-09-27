@@ -93,7 +93,7 @@ class TestAssetIO:
             with HTTPClient(config) as upload_client:
                 data_chunks = (io.json_chunk_to_data(chunk) for chunk in json_chunks)
                 for data_chunk in data_chunks:
-                    io.upload_items_force(data_chunk, upload_client, selector)
+                    io.upload_items(data_chunk, upload_client, selector)
 
             assert respx_mock.calls.call_count == 10  # 100 rows in chunks of 10
             uploaded_assets = []
@@ -237,7 +237,7 @@ class TestFileMetadataIO:
             with HTTPClient(config) as upload_client:
                 data_chunks = (io.json_chunk_to_data(chunk) for chunk in json_chunks)
                 for data_chunk in data_chunks:
-                    io.upload_items_force(data_chunk, upload_client, selector)
+                    io.upload_items(data_chunk, upload_client, selector)
 
             # /files only support creating one at a time.
             assert respx_mock.calls.call_count == len(some_filemetadata_data)

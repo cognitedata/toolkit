@@ -112,7 +112,7 @@ class TestInstanceIO:
             with respx.mock() as rsps:
                 rsps.post(url).mock(side_effect=hate_edges)
                 io = InstanceIO(client)
-                results = io.upload_items_force(instances, http_client)
+                results = io.upload_items(instances, http_client)
 
             assert len(results) == instance_count
             failed_items = [res for res in results if isinstance(res, FailedItem)]
