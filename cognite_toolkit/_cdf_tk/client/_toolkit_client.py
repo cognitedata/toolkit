@@ -135,7 +135,7 @@ class ToolkitClient(CogniteClient):
         self.token = TokenAPI(self)
         self.charts = ChartsAPI(self._config, self._API_VERSION, self)
         if config is not None:
-            self.project = ProjectAPI(config=config)
+            self.project = ProjectAPI(config=config, cognite_client=self)
 
     @property
     def config(self) -> ToolkitClientConfig:

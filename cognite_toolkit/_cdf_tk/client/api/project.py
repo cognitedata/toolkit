@@ -1,6 +1,8 @@
 from typing import TYPE_CHECKING
 
-from cognite_toolkit._cdf_tk.client.data_classes.project import ProjectStatus
+from cognite.client import CogniteClient
+
+from cognite_toolkit._cdf_tk.client.data_classes.project import ProjectStatusList
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ParamRequest
 
 if TYPE_CHECKING:
@@ -8,11 +10,12 @@ if TYPE_CHECKING:
 
 
 class ProjectAPI:
-    def __init__(self, config: "ToolkitClientConfig") -> None:
+    def __init__(self, config: "ToolkitClientConfig", cognite_client: CogniteClient) -> None:
         self._config = config
+        self._cognite_client = cognite_client
         self._http_client = HTTPClient(config, split_items_status_codes=set())
 
-    def status(self) -> ProjectStatus:
+    def status(self) -> ProjectStatusList:
         """Retrieve information about the current project."""
         response = self._http_client.request_with_retries(
             ParamRequest(
@@ -21,5 +24,4 @@ class ProjectAPI:
         )
         response.raise_for_status()
         body = response.get_first_body()
-        # We expect the API will always return exactly one project when querying by project name
-        return ProjectStatus._load(body["items"][0])  # type: ignore[index,arg-type]
+        return ProjectStatusList._load(body["items"], cognite_client=self._cognite_client)  # type: ignore[arg-type]
