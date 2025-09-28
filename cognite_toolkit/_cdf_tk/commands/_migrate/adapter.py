@@ -62,7 +62,7 @@ class MigrationCSVFileSelector(MigrationSelector):
 
     @cached_property
     def items(self) -> MigrationMappingList:
-        return MigrationMappingList.read_mapping_file(self.datafile, resource_type=self.resource_type)
+        return MigrationMappingList.read_csv_file(self.datafile, resource_type=self.resource_type)
 
 
 @dataclass
@@ -74,8 +74,11 @@ class AssetCentricMapping(Generic[T_WritableCogniteResource], WriteableCogniteRe
         raise NotImplementedError()
 
     def dump(self, camel_case: bool = True) -> dict[str, JsonVal]:
+        mapping = self.mapping.model_dump(exclude_unset=True, by_alias=camel_case)
+        # Ensure that resource type is always included, even if unset.
+        mapping["resourceType" if camel_case else "resource_type"] = self.mapping.resource_type
         return {
-            "mapping": self.mapping.model_dump(exclude_unset=True, by_alias=camel_case),
+            "mapping": mapping,
             "resource": self.resource.dump(camel_case=camel_case),
         }
 
