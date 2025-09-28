@@ -36,7 +36,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
-from .file import to_directory_compatible
+from .file import sanitize_filename
 from .sql_parser import SQLParser
 
 if sys.version_info < (3, 11):
@@ -406,7 +406,7 @@ class ThrottlerState:
     @classmethod
     def _filepath(cls, project: str) -> Path:
         # Enure the project name is a valid string for hashing.
-        project = to_directory_compatible(project)
+        project = sanitize_filename(project)
         filename = cls._FILENAME.format(project=project)
         return Path(tempfile.gettempdir()) / filename
 

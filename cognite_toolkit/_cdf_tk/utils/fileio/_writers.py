@@ -18,7 +18,7 @@ import yaml
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingDependencyError, ToolkitTypeError, ToolkitValueError
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
-from cognite_toolkit._cdf_tk.utils.file import to_directory_compatible
+from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.table_writers import DataType
 
 from ._base import T_IO, CellValue, Chunk, FileIO, SchemaColumn
@@ -61,7 +61,7 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
 
     def _get_filepath(self, filename: str) -> Path:
         # This method is now called within the lock context from write_chunks
-        sanitized_name = f"{to_directory_compatible(filename)}-" if filename else ""
+        sanitized_name = f"{sanitize_filename(filename)}-" if filename else ""
         file_count = self._file_count_by_filename[filename]
         file_path = (
             self.output_dir
