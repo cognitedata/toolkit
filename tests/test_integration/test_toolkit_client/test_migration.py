@@ -64,9 +64,6 @@ class TestInstanceSourceAPI:
         )
 
 
-@pytest.mark.skip(
-    "We are currently changing the MigrationModel and that is causing the ResourceViewMapping do fail until that is deployed"
-)
 class TestResourceViewMappingAPI:
     def test_create_retrieve_list_delete(self, toolkit_client: ToolkitClient) -> None:
         source = ResourceViewMappingApply(

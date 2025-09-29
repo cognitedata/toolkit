@@ -52,6 +52,8 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.location_filters import LocationFilterList
+from cognite_toolkit._cdf_tk.client.data_classes.search_config import SearchConfigList
+from cognite_toolkit._cdf_tk.client.data_classes.search_config import ViewId as SearchConfigViewId
 from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import Streamlit, StreamlitList
 from cognite_toolkit._cdf_tk.cruds import (
     AgentCRUD,
@@ -66,6 +68,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     LocationFilterCRUD,
     NodeCRUD,
     ResourceCRUD,
+    SearchConfigCRUD,
     SpaceCRUD,
     StreamlitCRUD,
     TransformationCRUD,
@@ -85,9 +88,12 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.tk_warnings import FileExistsWarning, HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, safe_write, to_directory_compatible, yaml_safe_dump
+from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, safe_write, sanitize_filename, yaml_safe_dump
+from cognite_toolkit._cdf_tk.utils.interactive_select import DataModelingSelect
 
 from ._base import ToolkitCommand
+
+_INTERACTIVE_SELECT_HELPER_TEXT = " Use arrow keys to navigate and space key to select. Press enter to confirm."
 
 
 class ResourceFinder(Iterable, ABC, Generic[T_ID]):
@@ -300,8 +306,8 @@ class TransformationFinder(ResourceFinder[tuple[str, ...]]):
             "Which transformation(s) would you like to dump?",
             choices=choices,
         ).ask()
-        if selected_transformation_ids is None:
-            raise ToolkitValueError("No transformations selected for dumping.")
+        if not selected_transformation_ids:
+            raise ToolkitValueError(f"No transformations selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
         return tuple(selected_transformation_ids)
 
     def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
@@ -346,7 +352,7 @@ class GroupFinder(ResourceFinder[tuple[str, ...]]):
             ],
         ).ask()
         if not selected_groups:
-            raise ToolkitValueError("No group selected for dumping. Aborting...")
+            raise ToolkitValueError(f"No group selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
         self.groups = [group for group_list in selected_groups for group in group_list]
         return tuple(group_list[0].name for group_list in selected_groups)
 
@@ -378,8 +384,8 @@ class AgentFinder(ResourceFinder[tuple[str, ...]]):
             "Which agent(s) would you like to dump?",
             choices=choices,
         ).ask()
-        if selected_agent_ids is None:
-            raise ToolkitValueError("No agents selected for dumping.")
+        if not selected_agent_ids:
+            raise ToolkitValueError(f"No agents selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
         return tuple(selected_agent_ids)
 
     def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
@@ -450,12 +456,13 @@ class LocationFilterFinder(ResourceFinder[tuple[str, ...]]):
         if not filters:
             raise ToolkitMissingResourceError("No filters found")
         id_by_display_name = {f"{filter.name} ({filter.external_id})": filter.external_id for filter in filters}
-        return tuple(
-            questionary.checkbox(
-                "Which filters would you like to dump?",
-                choices=[Choice(name, value=id_) for name, id_ in id_by_display_name.items()],
-            ).ask()
-        )
+        selected_filter_ids: tuple[str, ...] | None = questionary.checkbox(
+            "Which filters would you like to dump?",
+            choices=[Choice(name, value=id_) for name, id_ in id_by_display_name.items()],
+        ).ask()
+        if not selected_filter_ids:
+            raise ToolkitValueError(f"No filters selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
+        return tuple(selected_filter_ids)
 
     def _get_filters(self, identifiers: tuple[str, ...]) -> LocationFilterList:
         if not identifiers:
@@ -489,8 +496,8 @@ class ExtractionPipelineFinder(ResourceFinder[tuple[str, ...]]):
             "Which extraction pipeline(s) would you like to dump?",
             choices=choices,
         ).ask()
-        if selected_pipeline_ids is None:
-            raise ToolkitValueError("No extraction pipelines selected for dumping.")
+        if not selected_pipeline_ids:
+            raise ToolkitValueError(f"No extraction pipelines selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
         return tuple(selected_pipeline_ids)
 
     def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
@@ -528,8 +535,8 @@ class DataSetFinder(ResourceFinder[tuple[str, ...]]):
             "Which dataset(s) would you like to dump?",
             choices=choices,
         ).ask()
-        if selected_dataset_ids is None:
-            raise ToolkitValueError("No datasets selected for dumping.")
+        if not selected_dataset_ids:
+            raise ToolkitValueError(f"No datasets selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
         return tuple(selected_dataset_ids)
 
     def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
@@ -564,8 +571,8 @@ class FunctionFinder(ResourceFinder[tuple[str, ...]]):
             "Which function(s) would you like to dump?",
             choices=choices,
         ).ask()
-        if selected_function_ids is None:
-            raise ToolkitValueError("No functions selected for dumping.")
+        if not selected_function_ids:
+            raise ToolkitValueError(f"No functions selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
         return tuple(selected_function_ids)
 
     def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
@@ -592,7 +599,7 @@ class FunctionFinder(ResourceFinder[tuple[str, ...]]):
                 return
             raise
         try:
-            top_level = f"{to_directory_compatible(function.external_id or 'unknown_external_id')}/"
+            top_level = f"{sanitize_filename(function.external_id or 'unknown_external_id')}/"
             with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
                 if all(name.startswith(top_level) for name in zf.namelist()):
                     zf.extractall(folder)
@@ -644,7 +651,7 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
             ],
         ).ask()
         if not selected_ids:
-            raise ToolkitValueError("No Streamlit app selected for dumping. Aborting...")
+            raise ToolkitValueError(f"No Streamlit app selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
         return tuple(selected_ids)
 
     def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
@@ -687,7 +694,7 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
             ).print_warning(console=console)
             return
 
-        app_folder = to_directory_compatible(app.external_id)
+        app_folder = sanitize_filename(app.external_id)
         app_path = folder / app_folder
         app_path.mkdir(exist_ok=True)
         if isinstance(json_content.get("requirements"), list):
@@ -724,6 +731,55 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
                 f"The Streamlit app {app.external_id!r} has an entry point {entry_point} that was not found in the files. "
                 "The app may be corrupted."
             ).print_warning(console=console)
+
+
+class SpaceFinder(ResourceFinder[tuple[str, ...]]):
+    def __init__(self, client: ToolkitClient, identifier: tuple[str, ...] | None = None):
+        super().__init__(client, identifier)
+
+    def _interactive_select(self) -> tuple[str, ...]:
+        # Using new interactive select component for selecting instance spaces
+        # This will raise a ToolkitValueError if no instance spaces are selected and this is handled in the caller.
+        data_modeling_select = DataModelingSelect(self.client, "dump")
+        selected_spaces = data_modeling_select.select_instance_space(
+            multiselect=True, message="Which instance space(s) would you like to dump?"
+        )
+        return tuple(selected_spaces)
+
+    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
+        self.identifier = self._selected()
+        loader = SpaceCRUD.create_loader(self.client)
+        yield list(self.identifier), None, loader, None
+
+
+class SearchConfigFinder(ResourceFinder[tuple[SearchConfigViewId, ...]]):
+    def __init__(self, client: ToolkitClient, identifier: tuple[SearchConfigViewId, ...] | None = None):
+        super().__init__(client, identifier)
+        self.search_configs: SearchConfigList | None = None
+
+    def _interactive_select(self) -> tuple[SearchConfigViewId, ...]:
+        self.search_configs = self.client.search.configurations.list()
+        if not self.search_configs:
+            raise ToolkitMissingResourceError("No search configurations found!")
+        choices = [
+            Choice(f"{config.view.external_id} {config.view.space}", value=config.view)
+            for config in self.search_configs
+        ]
+        selected_view_ids: list[SearchConfigViewId] | None = questionary.checkbox(
+            "For which view would you like to dump the search configuration?",
+            choices=choices,
+        ).ask()
+        if not selected_view_ids:
+            raise ToolkitValueError("No view selected for dumping the search configuration.")
+        return tuple(selected_view_ids)
+
+    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
+        self.identifier = self._selected()
+        loader = SearchConfigCRUD.create_loader(self.client)
+        if self.search_configs:
+            yield [], SearchConfigList([sc for sc in self.search_configs if sc.view in self.identifier]), loader, None
+        else:
+            yield list(self.identifier), None, loader, None
 
 
 class DumpResourceCommand(ToolkitCommand):

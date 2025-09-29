@@ -20,7 +20,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, EXCL_FILES, USE_SENTRY
 from cognite_toolkit._cdf_tk.resource_classes import ToolkitResource
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
-from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, to_directory_compatible
+from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, T_WritableCogniteResourceList
 
 if TYPE_CHECKING:
@@ -423,7 +423,7 @@ class ResourceCRUD(
     @classmethod
     def as_str(cls, id: T_ID) -> str:
         if isinstance(id, str):
-            return to_directory_compatible(id)
+            return sanitize_filename(id)
         raise NotImplementedError(
             f"Bug in CogniteToolkit 'as_str' is not implemented for {cls.__name__.removesuffix('Loader')}."
         )

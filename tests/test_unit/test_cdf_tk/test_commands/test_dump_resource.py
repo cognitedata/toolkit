@@ -25,12 +25,14 @@ from cognite.client.data_classes.aggregations import UniqueResult, UniqueResultL
 from cognite.client.data_classes.capabilities import (
     TimeSeriesAcl,
 )
+from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from cognite.client.data_classes.functions import FunctionsStatus
 from cognite.client.exceptions import CogniteAPIError
 from questionary import Choice
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.data_classes.location_filters import LocationFilter, LocationFilterList
+from cognite_toolkit._cdf_tk.client.data_classes.search_config import SearchConfig, SearchConfigList, ViewId
 from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import Streamlit, StreamlitList
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands.dump_resource import (
@@ -42,6 +44,8 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
     FunctionFinder,
     GroupFinder,
     LocationFilterFinder,
+    SearchConfigFinder,
+    SpaceFinder,
     StreamlitFinder,
     TransformationFinder,
 )
@@ -52,6 +56,8 @@ from cognite_toolkit._cdf_tk.cruds import (
     FunctionCRUD,
     GroupAllScopedCRUD,
     LocationFilterCRUD,
+    SearchConfigCRUD,
+    SpaceCRUD,
     StreamlitCRUD,
     TransformationCRUD,
 )
@@ -700,3 +706,179 @@ class TestDumpStreamlitApps:
             severity, actual_message = console.print.call_args.args
             assert expected_warning in actual_message
             assert expected_severity in str(severity).casefold()
+
+
+@pytest.fixture()
+def three_spaces() -> dm.SpaceList:
+    return dm.SpaceList(
+        [
+            dm.Space(
+                space="spaceA",
+                name="Space A",
+                description="This is Space A",
+                is_global=False,
+                last_updated_time=1,
+                created_time=1,
+            ),
+            dm.Space(
+                space="spaceB",
+                name="Space B",
+                description="This is Space B",
+                is_global=False,
+                last_updated_time=1,
+                created_time=1,
+            ),
+            dm.Space(
+                space="spaceC",
+                name="Space C",
+                description="This is Space C",
+                is_global=False,
+                last_updated_time=1,
+                created_time=1,
+            ),
+        ]
+    )
+
+
+class TestSpaceFinder:
+    def test_select_spaces(self, three_spaces: dm.SpaceList, monkeypatch: MonkeyPatch) -> None:
+        mock_stats_by_space = {
+            "spaceA": SpaceStatistics(
+                space="spaceA",
+                nodes=5,
+                edges=3,
+                containers=2,
+                views=1,
+                data_models=1,
+                soft_deleted_edges=0,
+                soft_deleted_nodes=0,
+            ),
+            "spaceB": SpaceStatistics(
+                space="spaceB",
+                nodes=10,
+                edges=7,
+                containers=3,
+                views=2,
+                data_models=1,
+                soft_deleted_edges=0,
+                soft_deleted_nodes=0,
+            ),
+            "spaceC": SpaceStatistics(
+                space="spaceC",
+                nodes=15,
+                edges=12,
+                containers=4,
+                views=3,
+                data_models=2,
+                soft_deleted_edges=0,
+                soft_deleted_nodes=0,
+            ),
+        }
+
+        def select_spaces(choices: list[Choice]) -> list[str]:
+            assert len(choices) == len(three_spaces)
+            return [choices[1].value, choices[2].value]
+
+        answers = [select_spaces]
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary("cognite_toolkit._cdf_tk.utils.interactive_select", monkeypatch, answers),
+        ):
+            client.data_modeling.spaces.list.return_value = three_spaces
+            monkeypatch.setattr(
+                "cognite_toolkit._cdf_tk.utils.interactive_select.DataModelingSelect.stats_by_space",
+                mock_stats_by_space,
+            )
+            finder = SpaceFinder(client, None)
+            selected = finder._interactive_select()
+
+        assert selected == ("spaceB", "spaceA")
+
+
+class TestDumpSpaces:
+    def test_dump_spaces(self, three_spaces: dm.SpaceList, tmp_path: Path) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.data_modeling.spaces.retrieve.return_value = three_spaces[1:]
+
+            cmd = DumpResourceCommand(silent=True)
+            cmd.dump_to_yamls(
+                SpaceFinder(client, ("spaceB", "spaceC")),
+                output_dir=tmp_path,
+                clean=False,
+                verbose=False,
+            )
+            loader = SpaceCRUD(client, None, None)
+
+        filepaths = list(loader.find_files(tmp_path))
+        assert len(filepaths) == 2
+        items = sorted([read_yaml_file(filepath) for filepath in filepaths], key=lambda d: d["space"])
+        expected = sorted([loader.dump_resource(s) for s in three_spaces[1:]], key=lambda d: d["space"])
+        assert items == expected
+
+
+@pytest.fixture()
+def three_search_configs() -> SearchConfigList:
+    return SearchConfigList(
+        [
+            SearchConfig(
+                view=ViewId(external_id="searchConfigA", space="spaceA"), id=1, created_time=1, updated_time=2
+            ),
+            SearchConfig(
+                view=ViewId(external_id="searchConfigB", space="spaceB"), id=2, created_time=1, updated_time=2
+            ),
+            SearchConfig(
+                view=ViewId(external_id="searchConfigC", space="spaceC"), id=3, created_time=1, updated_time=2
+            ),
+        ]
+    )
+
+
+class TestSearchConfigFinder:
+    def test_select_search_configs(self, three_search_configs: SearchConfigList, monkeypatch: MonkeyPatch) -> None:
+        def select_search_configs(choices: list[Choice]) -> list[str]:
+            assert len(choices) == len(three_search_configs)
+            return [choices[1].value, choices[2].value]
+
+        answers = [select_search_configs]
+
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(SearchConfigFinder.__module__, monkeypatch, answers),
+        ):
+            client.search.configurations.list.return_value = three_search_configs
+            finder = SearchConfigFinder(client, None)
+            selected = finder._interactive_select()
+
+        assert selected == (
+            ViewId(external_id="searchConfigB", space="spaceB"),
+            ViewId(external_id="searchConfigC", space="spaceC"),
+        )
+
+
+class TestDumpSearchConfigs:
+    def test_dump_search_configs(self, three_search_configs: SearchConfigList, tmp_path: Path) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.search.configurations.list.return_value = three_search_configs[1:]
+
+            cmd = DumpResourceCommand(silent=True)
+            cmd.dump_to_yamls(
+                SearchConfigFinder(
+                    client,
+                    (
+                        ViewId(external_id="searchConfigB", space="spaceB"),
+                        ViewId(external_id="searchConfigC", space="spaceC"),
+                    ),
+                ),
+                output_dir=tmp_path,
+                clean=False,
+                verbose=False,
+            )
+            loader = SearchConfigCRUD(client, None, None)
+
+        filepaths = list(loader.find_files(tmp_path))
+        assert len(filepaths) == 2
+        items = sorted([read_yaml_file(filepath) for filepath in filepaths], key=lambda d: d["view"]["externalId"])
+        expected = sorted(
+            [loader.dump_resource(sc) for sc in three_search_configs[1:]], key=lambda d: d["view"]["externalId"]
+        )
+        assert items == expected
