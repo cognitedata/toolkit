@@ -11,6 +11,14 @@ from cognite.client.exceptions import CogniteAPIError
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.extended_timeseries import ExtendedTimeSeriesList
 from cognite_toolkit._cdf_tk.commands import MigrateFilesCommand
+from cognite_toolkit._cdf_tk.commands._migrate.adapter import (
+    FileMetaAdapter,
+    MigrationCSVFileSelector,
+)
+from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
+from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
+from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import _FILE_METADATA_ID
+from cognite_toolkit._cdf_tk.storageio import InstanceIO
 
 
 @pytest.fixture()
@@ -50,6 +58,9 @@ class TestMigrateFilesCommand:
     # This tests uses instances.apply_fast() which uses up to 4 workers for writing instances,
     # when this is used in parallel with other tests that uses instances.apply() then we get 5 workers in total,
     # which will trigger a 429 error.
+    @pytest.mark.skip(
+        "This is not yet enabled in the staging cluster that Toolkit uses for testing. Only runs a dev cluster."
+    )
     @pytest.mark.usefixtures("max_two_workers")
     def test_migrate_files_command(
         self,
@@ -84,6 +95,59 @@ class TestMigrateFilesCommand:
         time.sleep(5)
 
         migrated_files = client.files.retrieve_multiple(external_ids=three_files_with_content.as_external_ids())
+
+        missing_node_id = [ts.external_id for ts in migrated_files if ts.instance_id is None]
+        assert not missing_node_id, f"Some files are missing NodeId: {missing_node_id}"
+
+        node_ids = [ts.instance_id for ts in migrated_files]
+        for node_id in node_ids:
+            content = client.files.download_bytes(instance_id=node_id)
+            assert content == b"test content", f"Content of file {node_id} does not match expected content."
+
+    def test_migrate_files_v2(
+        self,
+        toolkit_client_with_pending_ids: ToolkitClient,
+        three_files_with_content: FileMetadataList,
+        toolkit_space: Space,
+        tmp_path: Path,
+    ):
+        client = toolkit_client_with_pending_ids
+        space = toolkit_space.space
+
+        input_file = tmp_path / "files_migration.csv"
+        with input_file.open("w", encoding="utf-8") as f:
+            f.write(
+                "id,space,externalId,ingestionView\n"
+                + "\n".join(f"{ts.id},{space},{ts.external_id},{_FILE_METADATA_ID}" for ts in three_files_with_content)
+                + "\n"
+            )
+
+        cmd = MigrationCommand(skip_tracking=True, silent=True)
+        results = cmd.migrate(
+            selected=MigrationCSVFileSelector(input_file, resource_type="file"),
+            data=FileMetaAdapter(client, InstanceIO(client)),
+            mapper=AssetCentricMapper(client),
+            log_dir=tmp_path / "logs",
+            dry_run=False,
+            verbose=False,
+        )
+        actual_results = [results.get_progress(item.id) for item in three_files_with_content]
+        expected_results = [
+            {
+                cmd.Steps.DOWNLOAD: "success",
+                cmd.Steps.CONVERT: "success",
+                cmd.Steps.UPLOAD: "success",
+            }
+            for _ in three_files_with_content
+        ]
+        assert actual_results == expected_results
+
+        # Wait for syncer by polling
+        for _ in range(12):  # Poll for up to 60 seconds
+            migrated_files = client.files.retrieve_multiple(external_ids=three_files_with_content.as_external_ids())
+            if all(f.instance_id is not None for f in migrated_files):
+                break
+            time.sleep(5)
 
         missing_node_id = [ts.external_id for ts in migrated_files if ts.instance_id is None]
         assert not missing_node_id, f"Some files are missing NodeId: {missing_node_id}"
