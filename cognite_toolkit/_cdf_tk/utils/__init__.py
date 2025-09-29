@@ -9,9 +9,9 @@ from .file import (
     read_yaml_file,
     safe_read,
     safe_write,
+    sanitize_filename,
     stringify_value_by_key_in_yaml,
     tmp_build_directory,
-    to_directory_compatible,
 )
 from .graphql_parser import GraphQLParser
 from .hashing import (
@@ -45,9 +45,9 @@ __all__ = [
     "safe_read",
     "safe_write",
     "safe_write",
+    "sanitize_filename",
     "sentry_exception_filter",
     "stringify_value_by_key_in_yaml",
     "tmp_build_directory",
     "to_diff",
-    "to_directory_compatible",
 ]

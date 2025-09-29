@@ -8,7 +8,7 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio import StorageIO, TableStorageIO
-from cognite_toolkit._cdf_tk.utils.file import safe_write, to_directory_compatible, yaml_safe_dump
+from cognite_toolkit._cdf_tk.utils.file import safe_write, sanitize_filename, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import TABLE_WRITE_CLS_BY_FORMAT, Compression, FileWriter, SchemaColumn
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal, T_Selector, T_WritableCogniteResourceList
@@ -48,7 +48,7 @@ class DownloadCommand(ToolkitCommand):
             if verbose:
                 console.print(f"Downloading {io.DISPLAY_NAME} '{selector!s}' to {target_directory.as_posix()!r}")
 
-            filestem = to_directory_compatible(str(selector))
+            filestem = sanitize_filename(str(selector))
             if filestem_counter[filestem] > 0:
                 filestem = f"{filestem}_{filestem_counter[filestem]}"
             filestem_counter[filestem] += 1

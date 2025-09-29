@@ -47,7 +47,7 @@ class MigrateTimeseriesCommand(BaseMigrateCommand):
         auto_yes: bool = False,
     ) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
-        mappings = MigrationMappingList.read_mapping_file(mapping_file, "timeseries")
+        mappings = MigrationMappingList.read_csv_file(mapping_file, "timeseries")
         self.validate_access(
             client,
             instance_spaces=list(mappings.spaces()),

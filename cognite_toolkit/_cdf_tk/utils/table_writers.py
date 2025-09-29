@@ -16,7 +16,7 @@ from cognite.client.data_classes.data_modeling import data_types as dt
 from cognite.client.data_classes.data_modeling.views import MappedProperty, ViewProperty
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingDependencyError, ToolkitTypeError, ToolkitValueError
-from cognite_toolkit._cdf_tk.utils import humanize_collection, to_directory_compatible
+from cognite_toolkit._cdf_tk.utils import humanize_collection, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 
 from .useful_types import JsonVal
@@ -181,7 +181,7 @@ class TableFileWriter(Generic[T_IO]):
         return None
 
     def _get_writer(self, group: str) -> T_IO:
-        clean_name = f"{to_directory_compatible(group)}-" if group else ""
+        clean_name = f"{sanitize_filename(group)}-" if group else ""
         file_path = (
             self.output_dir
             / self.schema.folder_name
