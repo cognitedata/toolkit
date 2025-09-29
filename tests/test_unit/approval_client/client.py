@@ -692,7 +692,7 @@ class ApprovalToolkitClient:
 
             created_resources[FileCRUD.__name__].append(entry)
 
-            return FileMetadata(external_id, instance_id)
+            return FileMetadata(external_id, instance_id, id=len(filehash))
 
         def create_3dmodel(
             name: str, data_set_id: int | None = None, metadata: dict[str, str] | None = None
