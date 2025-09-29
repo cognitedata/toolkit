@@ -673,13 +673,13 @@ class ApprovalToolkitClient:
             instance_id: NodeId | None = None,
         ) -> FileMetadata:
             if isinstance(content, bytes):
-                # Get rid of Windows line endings to make the hash consistent across platforms.
-                content = content.replace(b"\r\n", b"\n")
+                # It is hard to get the bytes OS independent.
+                result = "bytes-hash"
             elif isinstance(content, str):
-                content = content.replace("\r\n", "\n").encode("utf-8")
-            return _upload_file_content_files_api(
-                calculate_hash(content, shorten=True), external_id=external_id, instance_id=instance_id
-            )
+                result = calculate_hash(content, shorten=True)
+            else:
+                raise NotImplementedError("Only str and bytes content is supported")
+            return _upload_file_content_files_api(result, external_id=external_id, instance_id=instance_id)
 
         def _upload_file_content_files_api(
             filehash: str,
