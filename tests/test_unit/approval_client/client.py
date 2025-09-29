@@ -668,10 +668,12 @@ class ApprovalToolkitClient:
             )
 
         def upload_file_content_bytes_files_api(
-            content: str,
+            content: str | bytes,
             external_id: str | None = None,
             instance_id: NodeId | None = None,
         ) -> FileMetadata:
+            if isinstance(content, bytes):
+                content = content.replace(b"\r\n", b"\n")
             return _upload_file_content_files_api(
                 calculate_hash(content, shorten=True), external_id=external_id, instance_id=instance_id
             )
