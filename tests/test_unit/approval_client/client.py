@@ -649,7 +649,8 @@ class ApprovalToolkitClient:
         def upload_bytes_files_api(content: str | bytes | TextIO | BinaryIO, **kwargs) -> FileMetadata:
             if not isinstance(content, bytes):
                 raise NotImplementedError("Only bytes content is supported")
-
+            if "id" not in kwargs:
+                kwargs["id"] = len(calculate_hash(content, shorten=False))
             created_resources[resource_cls.__name__].append(
                 {
                     **kwargs,
