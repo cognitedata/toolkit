@@ -15,6 +15,7 @@ from mixpanel import Consumer, Mixpanel, MixpanelException
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.constants import IN_BROWSER
 from cognite_toolkit._cdf_tk.data_classes._built_modules import BuiltModule
+from cognite_toolkit._cdf_tk.data_classes._packages import Package
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning, WarningList
 from cognite_toolkit._cdf_tk.utils import get_cicd_environment
 from cognite_toolkit._version import __version__
@@ -71,7 +72,9 @@ class Tracker:
 
         return self._track(f"command{cmd.capitalize()}", event_information)
 
-    def track_module_build(self, module: BuiltModule) -> bool:
+    def track_module_build(
+        self, module: BuiltModule, package_id: str | None = None, module_id: str | None = None
+    ) -> bool:
         event_information = {
             "module": module.name,
             "location_path": module.location.path.as_posix(),
@@ -79,7 +82,109 @@ class Tracker:
             "status": module.status,
             **{resource_type: len(resource_build) for resource_type, resource_build in module.resources.items()},
         }
+        if package_id:
+            event_information["package_id"] = package_id
+        if module_id:
+            event_information["module_id"] = module_id
         return self._track("moduleBuild", event_information)
+
+    def track_deployment_pack_download(self, package_id: str | None, package_name: str, url: str | None = None) -> bool:
+        """Track when a deployment pack is downloaded from an external library."""
+        event_information = {
+            "package_name": package_name,
+            "toolkitVersion": __version__,
+            "$os": platform.system(),
+            "pythonVersion": platform.python_version(),
+            "CICD": self._cicd,
+        }
+        if package_id:
+            event_information["package_id"] = package_id
+        if url:
+            event_information["source_url"] = url
+        return self._track("deploymentPackDownload", event_information)
+
+    def track_deployment_pack_install(self, packages: list[Package], command_type: str = "init") -> bool:
+        """Track when deployment packs are installed via modules init or add commands."""
+        package_ids = [pkg.id for pkg in packages if pkg.id is not None]
+        package_names = [pkg.name for pkg in packages]
+
+        event_information = {
+            "command_type": command_type,  # "init" or "add"
+            "package_count": len(packages),
+            "package_names": package_names,
+            "toolkitVersion": __version__,
+            "$os": platform.system(),
+            "pythonVersion": platform.python_version(),
+            "CICD": self._cicd,
+        }
+        if package_ids:
+            event_information["package_ids"] = package_ids
+        return self._track("deploymentPackInstall", event_information)
+
+    def track_module_build_with_pack_id(
+        self, modules: list[BuiltModule], packages: list[Package] | None = None
+    ) -> bool:
+        """Track multiple module builds with their associated deployment pack information."""
+        if not modules:
+            return False
+
+        # Create a mapping of module names to packages for efficient lookup
+        module_to_package: dict[str, Package] = {}
+        if packages:
+            for package in packages:
+                for module_location in package.modules:
+                    module_to_package[module_location.name] = package
+
+        # Track each module build with package context
+        success_count = 0
+        for module in modules:
+            module_package: Package | None = module_to_package.get(module.name)
+            if self.track_module_build(
+                module,
+                package_id=module_package.id if module_package else None,
+                module_id=None,  # Module ID would come from module.toml if available
+            ):
+                success_count += 1
+
+        return success_count > 0
+
+    def track_module_deploy_with_pack_id(
+        self, modules: list[str], packages: list[Package] | None = None, dry_run: bool = False
+    ) -> bool:
+        """Track module deployments with their associated deployment pack information."""
+        if not modules:
+            return False
+
+        # Create a mapping of module names to packages for efficient lookup
+        module_to_package: dict[str, Package] = {}
+        if packages:
+            for package in packages:
+                for module_location in package.modules:
+                    module_to_package[module_location.name] = package
+
+        package_ids = []
+        package_names = []
+        if packages:
+            for package in packages:
+                if any(module_location.name in modules for module_location in package.modules):
+                    if package.id:
+                        package_ids.append(package.id)
+                    package_names.append(package.name)
+
+        event_information = {
+            "module_count": len(modules),
+            "modules": modules,
+            "dry_run": dry_run,
+            "toolkitVersion": __version__,
+            "$os": platform.system(),
+            "pythonVersion": platform.python_version(),
+            "CICD": self._cicd,
+        }
+        if package_ids:
+            event_information["package_ids"] = package_ids
+        if package_names:
+            event_information["package_names"] = package_names
+        return self._track("moduleDeployWithPackId", event_information)
 
     def _track(self, event_name: str, event_information: dict[str, Any]) -> bool:
         if self.skip_tracking or not self.opted_in or "PYTEST_CURRENT_TEST" in os.environ:
