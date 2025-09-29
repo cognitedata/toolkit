@@ -6,6 +6,7 @@ from cognite.client.data_classes import WorkflowVersionId
 from cognite.client.data_classes.data_modeling import DataModelId, ViewId
 from rich import print
 
+from cognite_toolkit._cdf_tk.client.data_classes.search_config import ViewId as SearchConfigViewId
 from cognite_toolkit._cdf_tk.commands import DumpDataCommand, DumpResourceCommand
 from cognite_toolkit._cdf_tk.commands.dump_data import (
     AssetFinder,
@@ -22,6 +23,7 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
     GroupFinder,
     LocationFilterFinder,
     NodeFinder,
+    SearchConfigFinder,
     SpaceFinder,
     StreamlitFinder,
     TransformationFinder,
@@ -64,8 +66,11 @@ class DumpApp(typer.Typer):
                 self.command("datasets")(DumpConfigApp.dump_datasets)
                 self.command("streamlit")(DumpConfigApp.dump_streamlit)
 
-            if Flags.AGENTS.is_enabled() and Flags.DUMP_EXTENDED.is_enabled():
-                self.command("agents")(DumpConfigApp.dump_agents)
+                if Flags.AGENTS.is_enabled():
+                    self.command("agents")(DumpConfigApp.dump_agents)
+
+                if Flags.SEARCH_CONFIG.is_enabled():
+                    self.command("search-config")(DumpConfigApp.dump_search_config)
 
     @staticmethod
     def dump_main(ctx: typer.Context) -> None:
@@ -92,8 +97,12 @@ class DumpConfigApp(typer.Typer):
             self.command("datasets")(DumpConfigApp.dump_datasets)
             self.command("functions")(self.dump_functions)
             self.command("streamlit")(DumpConfigApp.dump_streamlit)
-        if Flags.DUMP_EXTENDED.is_enabled() and Flags.AGENTS.is_enabled():
-            self.command("agents")(self.dump_agents)
+
+            if Flags.AGENTS.is_enabled():
+                self.command("agents")(self.dump_agents)
+
+            if Flags.SEARCH_CONFIG.is_enabled():
+                self.command("search-config")(self.dump_search_config)
 
     @staticmethod
     def dump_config_main(ctx: typer.Context) -> None:
@@ -712,6 +721,61 @@ class DumpConfigApp(typer.Typer):
         cmd.run(
             lambda: cmd.dump_to_yamls(
                 SpaceFinder(client, tuple(spaces) if spaces else None),
+                output_dir=output_dir,
+                clean=clean,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def dump_search_config(
+        ctx: typer.Context,
+        view_id: Annotated[
+            list[str] | None,
+            typer.Argument(
+                help="The view for which you want to dump the search configuration. Format: externalId space. Example: 'my_external_id my_space'."
+                "If nothing is provided, an interactive prompt will be shown to select the view for which search configurations are available.",
+            ),
+        ] = None,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to dump the search configuration files for the selected view.",
+                allow_dash=True,
+            ),
+        ] = Path("tmp"),
+        clean: Annotated[
+            bool,
+            typer.Option(
+                "--clean",
+                "-c",
+                help="Delete the output directory before dumping the search configuration for the selected view.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will dump the selected view's search configuration as yaml to the folder specified, defaults to /tmp."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        selected_view_id: Union[None, SearchConfigViewId] = None
+        if view_id is not None:
+            if len(view_id) != 2:
+                raise ToolkitRequiredValueError(
+                    "View ID must be provided as exactly two arguments: externalId and space."
+                )
+            selected_view_id = SearchConfigViewId(*view_id)
+        cmd = DumpResourceCommand()
+        cmd.run(
+            lambda: cmd.dump_to_yamls(
+                SearchConfigFinder(client, tuple([selected_view_id]) if selected_view_id else None),
                 output_dir=output_dir,
                 clean=clean,
                 verbose=verbose,
