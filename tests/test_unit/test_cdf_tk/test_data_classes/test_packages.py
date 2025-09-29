@@ -64,7 +64,7 @@ class TestPackages:
             description="A test package",
             id="test-package-123",
         )
-        
+
         assert package.name == "test_package"
         assert package.title == "Test Package"
         assert package.description == "A test package"
@@ -79,7 +79,7 @@ class TestPackages:
             title="Test Package",
             description="A test package",
         )
-        
+
         assert package.name == "test_package"
         assert package.title == "Test Package"
         assert package.description == "A test package"
@@ -94,9 +94,9 @@ class TestPackages:
             "id": "test-package-123",
             "canCherryPick": False,
         }
-        
+
         package = Package.load("test_package", package_definition)
-        
+
         assert package.name == "test_package"
         assert package.title == "Test Package"
         assert package.description == "A test package"
@@ -110,9 +110,9 @@ class TestPackages:
             "description": "A test package",
             "canCherryPick": True,
         }
-        
+
         package = Package.load("test_package", package_definition)
-        
+
         assert package.name == "test_package"
         assert package.title == "Test Package"
         assert package.description == "A test package"
@@ -124,9 +124,9 @@ class TestPackages:
         package_definition = {
             "title": "Minimal Package",
         }
-        
+
         package = Package.load("minimal", package_definition)
-        
+
         assert package.name == "minimal"
         assert package.title == "Minimal Package"
         assert package.description is None
@@ -150,24 +150,24 @@ title = "Package Without ID"
 description = "A package that doesn't have an ID"
 modules = []
 """
-        
+
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             packages_file = temp_path / "packages.toml"
             packages_file.write_text(packages_toml_content)
-            
+
             # Create empty module directories to avoid module loading errors
             (temp_path / "modules").mkdir()
-            
+
             packages = Packages.load(temp_path)
-            
+
             assert len(packages) == 2
-            
+
             # Check package with ID
             with_id = packages["with_id"]
             assert with_id.title == "Package With ID"
             assert with_id.id == "package-with-id-123"
-            
+
             # Check package without ID
             without_id = packages["without_id"]
             assert without_id.title == "Package Without ID"
@@ -184,7 +184,7 @@ class TestModuleToml:
             id="test-module-456",
             is_selected_by_default=True,
         )
-        
+
         assert module_toml.title == "Test Module"
         assert module_toml.id == "test-module-456"
         assert module_toml.is_selected_by_default is True
@@ -196,7 +196,7 @@ class TestModuleToml:
             title="Test Module",
             is_selected_by_default=False,
         )
-        
+
         assert module_toml.title == "Test Module"
         assert module_toml.id is None
         assert module_toml.is_selected_by_default is False
@@ -213,9 +213,9 @@ class TestModuleToml:
                 "modules": ["other_module"],
             },
         }
-        
+
         module_toml = ModuleToml.load(data)
-        
+
         assert module_toml.title == "Test Module"
         assert module_toml.id == "test-module-456"
         assert module_toml.is_selected_by_default is True
@@ -229,9 +229,9 @@ class TestModuleToml:
                 "is_selected_by_default": False,
             },
         }
-        
+
         module_toml = ModuleToml.load(data)
-        
+
         assert module_toml.title == "Test Module"
         assert module_toml.id is None
         assert module_toml.is_selected_by_default is False
@@ -239,9 +239,9 @@ class TestModuleToml:
     def test_module_toml_load_minimal(self) -> None:
         """Test loading ModuleToml with minimal data."""
         data = {}
-        
+
         module_toml = ModuleToml.load(data)
-        
+
         assert module_toml.title is None
         assert module_toml.id is None
         assert module_toml.is_selected_by_default is False
@@ -258,14 +258,14 @@ is_selected_by_default = true
 [dependencies]
 modules = ["dependency1", "dependency2"]
 """
-        
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.toml', delete=False) as f:
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
             f.write(toml_content)
             temp_path = Path(f.name)
-        
+
         try:
             module_toml = ModuleToml.load(temp_path)
-            
+
             assert module_toml.title == "Test Module"
             assert module_toml.id == "test-module-456"
             assert module_toml.is_selected_by_default is True
@@ -282,14 +282,14 @@ modules = ["dependency1", "dependency2"]
 title = "Test Module"
 is_selected_by_default = false
 """
-        
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.toml', delete=False) as f:
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
             f.write(toml_content)
             temp_path = Path(f.name)
-        
+
         try:
             module_toml = ModuleToml.load(temp_path)
-            
+
             assert module_toml.title == "Test Module"
             assert module_toml.id is None
             assert module_toml.is_selected_by_default is False
