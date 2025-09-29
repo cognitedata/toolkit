@@ -62,6 +62,7 @@ from requests import Response
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import GraphQLDataModelWrite
+from cognite_toolkit._cdf_tk.client.data_classes.project import ProjectStatus, ProjectStatusList
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
@@ -154,9 +155,10 @@ class ApprovalToolkitClient:
         credentials.client_secret = "toolkit-client-secret"
         credentials.token_url = "https://toolkit.auth.com/oauth/token"
         credentials.scopes = ["ttps://pytest-field.cognitedata.com/.default"]
+        project = "test_project"
         self.mock_client.config = ToolkitClientConfig(
             client_name=CLIENT_NAME,
-            project="pytest-project",
+            project=project,
             credentials=credentials,
             is_strict_validation=False,
         )
@@ -182,10 +184,15 @@ class ApprovalToolkitClient:
         # Set functions to be activated
         self.mock_client.functions.status.return_value = FunctionsStatus(status="activated")
 
+        # Use Hybrid project
+        self.mock_client.project.status.return_value = ProjectStatusList(
+            [ProjectStatus(url_name=project, data_modeling_status="HYBRID")], cognite_client=mock_client
+        )
+
         # Activate authorization_header()
         self.mock_client.config.credentials.authorization_header.return_value = ("Bearer", "123")
         # Set project
-        self.mock_client.config.project = "test_project"
+        self.mock_client.config.project = project
         self.mock_client.config.base_url = "https://bluefield.cognitedata.com"
         # Setup mock for all lookup methods
         for method_name, lookup_api in self.mock_client.lookup.__dict__.items():
@@ -1119,6 +1126,7 @@ class ApprovalToolkitClient:
                 continue
             mocked_apis["lookup"].add(name)
         mocked_apis["verify"] = {"authorization"}
+        mocked_apis["project"] = {"status"}
 
         not_mocked: dict[str, int] = defaultdict(int)
         for api_name, api in vars(self.mock_client).items():
