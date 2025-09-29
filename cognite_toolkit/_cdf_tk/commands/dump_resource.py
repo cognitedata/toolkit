@@ -85,7 +85,8 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.tk_warnings import FileExistsWarning, HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, safe_write, to_directory_compatible, yaml_safe_dump
+from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, safe_write, sanitize_filename, yaml_safe_dump
+from cognite_toolkit._cdf_tk.utils.interactive_select import DataModelingSelect
 
 from ._base import ToolkitCommand
 
@@ -595,7 +596,7 @@ class FunctionFinder(ResourceFinder[tuple[str, ...]]):
                 return
             raise
         try:
-            top_level = f"{to_directory_compatible(function.external_id or 'unknown_external_id')}/"
+            top_level = f"{sanitize_filename(function.external_id or 'unknown_external_id')}/"
             with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
                 if all(name.startswith(top_level) for name in zf.namelist()):
                     zf.extractall(folder)
@@ -690,7 +691,7 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
             ).print_warning(console=console)
             return
 
-        app_folder = to_directory_compatible(app.external_id)
+        app_folder = sanitize_filename(app.external_id)
         app_path = folder / app_folder
         app_path.mkdir(exist_ok=True)
         if isinstance(json_content.get("requirements"), list):
@@ -727,6 +728,25 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
                 f"The Streamlit app {app.external_id!r} has an entry point {entry_point} that was not found in the files. "
                 "The app may be corrupted."
             ).print_warning(console=console)
+
+
+class SpaceFinder(ResourceFinder[tuple[str, ...]]):
+    def __init__(self, client: ToolkitClient, identifier: tuple[str, ...] | None = None):
+        super().__init__(client, identifier)
+
+    def _interactive_select(self) -> tuple[str, ...]:
+        # Using new interactive select component for selecting instance spaces
+        # This will raise a ToolkitValueError if no instance spaces are selected and this is handled in the caller.
+        data_modeling_select = DataModelingSelect(self.client, "dump")
+        selected_spaces = data_modeling_select.select_instance_space(
+            multiselect=True, message="Which instance space(s) would you like to dump?"
+        )
+        return tuple(selected_spaces)
+
+    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
+        self.identifier = self._selected()
+        loader = SpaceCRUD.create_loader(self.client)
+        yield list(self.identifier), None, loader, None
 
 
 class DumpResourceCommand(ToolkitCommand):

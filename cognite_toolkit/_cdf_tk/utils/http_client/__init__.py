@@ -12,6 +12,7 @@ from ._data_classes import (
     MissingItem,
     ParamRequest,
     RequestMessage,
+    ResponseList,
     ResponseMessage,
     SimpleBodyRequest,
     SuccessItem,
@@ -20,6 +21,7 @@ from ._data_classes import (
     UnknownRequestItem,
     UnknownResponseItem,
 )
+from ._exception import ToolkitAPIError
 
 __all__ = [
     "FailedItem",
@@ -35,10 +37,12 @@ __all__ = [
     "MissingItem",
     "ParamRequest",
     "RequestMessage",
+    "ResponseList",
     "ResponseMessage",
     "SimpleBodyRequest",
     "SuccessItem",
     "SuccessResponse",
+    "ToolkitAPIError",
     "UnexpectedItem",
     "UnknownRequestItem",
     "UnknownResponseItem",
