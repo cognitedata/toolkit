@@ -1,6 +1,6 @@
 import dataclasses
 import uuid
-from collections.abc import Callable, Hashable, Iterable, Sequence
+from collections.abc import Callable, Hashable, Iterable
 from functools import partial
 from graphlib import CycleError, TopologicalSorter
 from typing import Any, cast
@@ -55,10 +55,8 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.http_client import (
-    FailedRequestMessage,
     HTTPClient,
     ItemsRequest,
-    ResponseMessage,
     SuccessItem,
 )
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
@@ -947,7 +945,7 @@ class PurgeCommand(ToolkitCommand):
             results.deleted += len(items)
             return
 
-        responses: Sequence[ResponseMessage | FailedRequestMessage] = delete_client.request_with_retries(
+        responses = delete_client.request_with_retries(
             ItemsRequest(
                 delete_client.config.create_api_url("/models/instances/delete"),
                 method="POST",
