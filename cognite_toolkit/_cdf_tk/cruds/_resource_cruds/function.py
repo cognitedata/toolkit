@@ -81,6 +81,7 @@ class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function, FunctionWriteList,
     def __init__(self, client: ToolkitClient, build_path: Path | None, console: Console | None):
         super().__init__(client, build_path, console)
         self.data_set_id_by_external_id: dict[str, int] = {}
+        self.space_by_external_id: dict[str, str] = {}
         self.function_dir_by_external_id: dict[str, Path] = {}
 
     @property
@@ -208,6 +209,8 @@ class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function, FunctionWriteList,
         item_id = self.get_id(resource)
         if ds_external_id := resource.pop("dataSetExternalId", None):
             self.data_set_id_by_external_id[item_id] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
+        if space := resource.pop("space", None):
+            self.space_by_external_id[item_id] = space
         if "fileId" not in resource:
             # The fileID is required for the function to be created, but in the `.create` method
             # we first create that file and then set the fileID.
@@ -256,6 +259,8 @@ class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function, FunctionWriteList,
             function_zip_file = self.client.files.retrieve(id=file_id)
             if function_zip_file and (data_set_id := function_zip_file.data_set_id):
                 dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
+            if function_zip_file and function_zip_file.instance_id is not None:
+                dumped["space"] = function_zip_file.instance_id.space
 
         if dumped.get("functionPath") == HANDLER_FILE_NAME and "functionPath" not in local:
             # Remove the default value of the functionPath
@@ -300,16 +305,7 @@ class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function, FunctionWriteList,
             raise ValueError("build_path must be set to compare functions as function code must be compared.")
         for item in items:
             external_id = item.external_id or item.name
-            function_rootdir = self.function_dir_by_external_id[external_id]
-            with create_temporary_zip(function_rootdir, "function.zip") as zip_path:
-                upload_file = self.client.files.upload_bytes(
-                    zip_path.read_bytes(),
-                    name=f"{sanitize_filename(item.name)}.zip",
-                    external_id=external_id,
-                    overwrite=True,
-                    data_set_id=self.data_set_id_by_external_id.get(external_id),
-                )
-                file_id = upload_file.id
+            file_id = self._upload_function_code(external_id, item)
             # Wait until the files is available
             t0 = time.perf_counter()
             sleep_time = 1.0  # seconds
@@ -331,6 +327,19 @@ class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function, FunctionWriteList,
             self._warn_if_cpu_or_memory_changed(created_item, item)
             created.append(created_item)
         return created
+
+    def _upload_function_code(self, external_id: str, item: FunctionWrite) -> int:
+        function_rootdir = self.function_dir_by_external_id[external_id]
+        with create_temporary_zip(function_rootdir, "function.zip") as zip_path:
+            upload_file = self.client.files.upload_bytes(
+                zip_path.read_bytes(),
+                name=f"{sanitize_filename(item.name)}.zip",
+                external_id=external_id,
+                overwrite=True,
+                data_set_id=self.data_set_id_by_external_id.get(external_id),
+            )
+            file_id = upload_file.id
+        return file_id
 
     @staticmethod
     def _warn_if_cpu_or_memory_changed(created_item: Function, item: FunctionWrite) -> None:
