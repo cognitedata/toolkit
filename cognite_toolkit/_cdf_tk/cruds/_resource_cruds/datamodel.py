@@ -68,7 +68,6 @@ from cognite.client.data_classes.data_modeling.ids import (
     NodeId,
     ViewId,
 )
-from cognite.client.data_classes.data_modeling.views import ReverseDirectRelationApply
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
@@ -90,7 +89,14 @@ from cognite_toolkit._cdf_tk.cruds._base_cruds import (
     ResourceCRUD,
 )
 from cognite_toolkit._cdf_tk.exceptions import GraphQLParseError, ToolkitCycleError, ToolkitFileNotFoundError
-from cognite_toolkit._cdf_tk.resource_classes import ContainerYAML, SpaceYAML, ViewYAML
+from cognite_toolkit._cdf_tk.resource_classes import (
+    ContainerYAML,
+    DataModelYAML,
+    EdgeYAML,
+    NodeYAML,
+    SpaceYAML,
+    ViewYAML,
+)
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     GraphQLParser,
@@ -104,7 +110,6 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
-from cognite_toolkit._cdf_tk.utils.tarjan import tarjan
 
 from .auth import GroupAllScopedCRUD
 
@@ -644,77 +649,7 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View, ViewApplyList, ViewList]):
             if self._is_auto_retryable(e1):
                 # Fallback to creating one by one if the error is auto-retryable.
                 return self._fallback_create_one_by_one(items, e1)
-            elif self._is_false_not_exists(e1, {item.as_id() for item in items}):
-                return self._try_to_recover_coupled(items, e1)
             raise
-
-    @staticmethod
-    def _is_false_not_exists(e: CogniteAPIError, request_views: set[ViewId]) -> bool:
-        if "not exist" not in e.message and 400 <= e.code < 500:
-            return False
-        results = re.findall(r"'([a-zA-Z0-9_-]+):([a-zA-Z0-9_]+)/([.a-zA-Z0-9_-]+)'", e.message)
-        if not results:
-            # No view references in the message
-            return False
-        error_message_views = {ViewId(*result) for result in results}
-        return error_message_views.issubset(request_views)
-
-    def _try_to_recover_coupled(self, items: Sequence[ViewApply], original_error: CogniteAPIError) -> ViewList:
-        """The /models/views endpoint can give faulty 400 about missing views that are part of the request.
-
-        This method tries to recover from such errors by identifying the strongly connected components in the graph
-        defined by the implements and through properties of the views. We then create the components in topological
-        order.
-
-        Args:
-            items: The items that failed to create.
-            original_error: The original error that was raised. If the problem is not recoverable, this error is raised.
-
-        Returns:
-            The views that were created.
-
-        """
-        views_by_id = {self.get_id(item): item for item in items}
-        parents_by_child: dict[ViewId, set[ViewId]] = {
-            view_id: {parent for parent in view.implements or [] if parent in views_by_id}
-            for view_id, view in views_by_id.items()
-        }
-        # Check for cycles in the implements graph
-        try:
-            TopologicalSorter(parents_by_child).static_order()
-        except CycleError as e:
-            raise ToolkitCycleError(f"Failed to deploy views. This likely due to a cycle in implements. {e.args[1]}")
-
-        dependencies_by_id: dict[ViewId, set[ViewId]] = defaultdict(set)
-        for view_id, view in views_by_id.items():
-            dependencies_by_id[view_id].update([parent for parent in view.implements or [] if parent in views_by_id])
-            for properties in (view.properties or {}).values():
-                if isinstance(properties, ReverseDirectRelationApply):
-                    if isinstance(properties.through.source, ViewId) and properties.through.source in views_by_id:
-                        dependencies_by_id[view_id].add(properties.through.source)
-
-        LowSeverityWarning(
-            f"Failed to create {len(items)} views: {escape(original_error.message)}.\nAttempting to recover..."
-        ).print_warning(include_timestamp=True, console=self.console)
-        created = ViewList([])
-        for strongly_connected in tarjan(dependencies_by_id):
-            to_create = [views_by_id[view_id] for view_id in strongly_connected]
-            try:
-                created_set = self.client.data_modeling.views.apply(to_create)
-            except CogniteAPIError as error:
-                self.client.data_modeling.views.delete(created.as_ids())
-                HighSeverityWarning(
-                    f"Recovering attempt failed. Could not create views {self.get_ids(to_create)}: "
-                    f"{escape(error.message)}.\n Raising original error."
-                ).print_warning(console=self.console)
-                raise original_error
-            created.extend(created_set)
-        message = f"Recovery attempt succeeded. Created {len(created)} views."
-        if self.console:
-            self.console.print(message)
-        else:
-            print(message)
-        return created
 
     @staticmethod
     def _is_auto_retryable(e: CogniteAPIError) -> bool:
@@ -902,6 +837,7 @@ class DataModelCRUD(ResourceCRUD[DataModelId, DataModelApply, DataModel, DataMod
     list_write_cls = DataModelApplyList
     kind = "DataModel"
     dependencies = frozenset({SpaceCRUD, ViewCRUD})
+    yaml_cls = DataModelYAML
     _doc_url = "Data-models/operation/createDataModels"
 
     @property
@@ -1043,6 +979,7 @@ class NodeCRUD(ResourceContainerCRUD[NodeId, NodeApply, Node, NodeApplyList, Nod
     list_cls = NodeList
     list_write_cls = NodeApplyList
     kind = "Node"
+    yaml_cls = NodeYAML
     dependencies = frozenset({SpaceCRUD, ViewCRUD, ContainerCRUD})
     _doc_url = "Instances/operation/applyNodeAndEdges"
 
@@ -1205,7 +1142,7 @@ class NodeCRUD(ResourceContainerCRUD[NodeId, NodeApply, Node, NodeApplyList, Nod
         return to_directory_compatible(f"{id.space}_{id.external_id}")
 
 
-class GraphQLLoader(
+class GraphQLCRUD(
     ResourceContainerCRUD[
         DataModelId, GraphQLDataModelWrite, GraphQLDataModel, GraphQLDataModelWriteList, GraphQLDataModelList
     ]
@@ -1416,6 +1353,7 @@ class EdgeCRUD(ResourceContainerCRUD[EdgeId, EdgeApply, Edge, EdgeApplyList, Edg
     list_cls = EdgeList
     list_write_cls = EdgeApplyList
     kind = "Edge"
+    yaml_cls = EdgeYAML
     dependencies = frozenset({SpaceCRUD, ViewCRUD, ContainerCRUD, NodeCRUD})
     _doc_url = "Instances/operation/applyNodeAndEdges"
 

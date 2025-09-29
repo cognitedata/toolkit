@@ -1,6 +1,6 @@
 import dataclasses
 import uuid
-from collections.abc import Callable, Hashable, Iterable, Sequence
+from collections.abc import Callable, Hashable, Iterable
 from functools import partial
 from graphlib import CycleError, TopologicalSorter
 from typing import cast
@@ -26,7 +26,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     DataSetsCRUD,
     EdgeCRUD,
     FunctionCRUD,
-    GraphQLLoader,
+    GraphQLCRUD,
     GroupAllScopedCRUD,
     GroupCRUD,
     GroupResourceScopedCRUD,
@@ -55,10 +55,8 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.http_client import (
-    FailedRequestMessage,
     HTTPClient,
     ItemsRequest,
-    ResponseMessage,
     SuccessItem,
 )
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
@@ -111,7 +109,7 @@ class PurgeCommand(ToolkitCommand):
         loaders = self._get_dependencies(
             SpaceCRUD,
             exclude={
-                GraphQLLoader,
+                GraphQLCRUD,
                 GroupResourceScopedCRUD,
                 LocationFilterCRUD,
                 TransformationCRUD,
@@ -777,7 +775,7 @@ class PurgeCommand(ToolkitCommand):
         if unlink:
             process = partial(self._unlink_prepare, client=client, dry_run=dry_run, console=console, verbose=verbose)
 
-        iteration_count = int(total // io.chunk_size + (1 if total % io.chunk_size > 0 else 0))
+        iteration_count = int(total // io.CHUNK_SIZE + (1 if total % io.CHUNK_SIZE > 0 else 0))
         with HTTPClient(config=client.config) as delete_client:
             process_str = "Would be unlinking" if dry_run else "Unlinking"
             write_str = "Would be deleting" if dry_run else "Deleting"
@@ -889,7 +887,7 @@ class PurgeCommand(ToolkitCommand):
             results.deleted += len(items)
             return
 
-        responses: Sequence[ResponseMessage | FailedRequestMessage] = delete_client.request_with_retries(
+        responses = delete_client.request_with_retries(
             ItemsRequest(
                 delete_client.config.create_api_url("/models/instances/delete"),
                 method="POST",

@@ -33,7 +33,7 @@ from ._resource_cruds import (
     FileMetadataCRUD,
     FunctionCRUD,
     FunctionScheduleCRUD,
-    GraphQLLoader,
+    GraphQLCRUD,
     GroupAllScopedCRUD,
     GroupCRUD,
     GroupResourceScopedCRUD,
@@ -48,6 +48,7 @@ from ._resource_cruds import (
     RawDatabaseCRUD,
     RawTableCRUD,
     RelationshipCRUD,
+    ResourceViewMappingCRUD,
     RobotCapabilityCRUD,
     RoboticFrameCRUD,
     RoboticLocationCRUD,
@@ -65,7 +66,6 @@ from ._resource_cruds import (
     TransformationNotificationCRUD,
     TransformationScheduleCRUD,
     ViewCRUD,
-    ViewSourceCRUD,
     WorkflowCRUD,
     WorkflowTriggerCRUD,
     WorkflowVersionCRUD,
@@ -74,13 +74,13 @@ from ._worker import ResourceWorker
 
 _EXCLUDED_CRUDS: set[type[ResourceCRUD]] = set()
 if not FeatureFlag.is_enabled(Flags.GRAPHQL):
-    _EXCLUDED_CRUDS.add(GraphQLLoader)
+    _EXCLUDED_CRUDS.add(GraphQLCRUD)
 if not FeatureFlag.is_enabled(Flags.AGENTS):
     _EXCLUDED_CRUDS.add(AgentCRUD)
 if not FeatureFlag.is_enabled(Flags.INFIELD):
     _EXCLUDED_CRUDS.add(InfieldV1CRUD)
 if not FeatureFlag.is_enabled(Flags.MIGRATE):
-    _EXCLUDED_CRUDS.add(ViewSourceCRUD)
+    _EXCLUDED_CRUDS.add(ResourceViewMappingCRUD)
 if not FeatureFlag.is_enabled(Flags.SEARCH_CONFIG):
     _EXCLUDED_CRUDS.add(SearchConfigCRUD)
 

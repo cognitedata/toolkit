@@ -23,6 +23,7 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
     GroupFinder,
     LocationFilterFinder,
     NodeFinder,
+    SpaceFinder,
     SearchConfigFinder,
     StreamlitFinder,
     TransformationFinder,
@@ -56,6 +57,7 @@ class DumpApp(typer.Typer):
             self.command("transformation")(DumpConfigApp.dump_transformation)
             self.command("group")(DumpConfigApp.dump_group)
             self.command("node")(DumpConfigApp.dump_node)
+            self.command("spaces")(DumpConfigApp.dump_spaces)
 
             if Flags.DUMP_EXTENDED.is_enabled():
                 self.command("location-filter")(DumpConfigApp.dump_location_filters)
@@ -88,6 +90,7 @@ class DumpConfigApp(typer.Typer):
         self.command("transformation")(self.dump_transformation)
         self.command("group")(self.dump_group)
         self.command("node")(self.dump_node)
+        self.command("spaces")(self.dump_spaces)
         if Flags.DUMP_EXTENDED.is_enabled():
             self.command("location-filters")(self.dump_location_filters)
             self.command("extraction-pipeline")(self.dump_extraction_pipeline)
@@ -670,6 +673,54 @@ class DumpConfigApp(typer.Typer):
         cmd.run(
             lambda: cmd.dump_to_yamls(
                 StreamlitFinder(client, tuple(external_id) if external_id else None),
+                output_dir=output_dir,
+                clean=clean,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def dump_spaces(
+        ctx: typer.Context,
+        spaces: Annotated[
+            list[str] | None,
+            typer.Argument(
+                help="The name of the instance space(s) you want to dump. "
+                "If nothing is provided, an interactive prompt will be shown to select the instance spaces.",
+            ),
+        ] = None,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to dump the instance space files.",
+                allow_dash=True,
+            ),
+        ] = Path("tmp"),
+        clean: Annotated[
+            bool,
+            typer.Option(
+                "--clean",
+                "-c",
+                help="Delete the output directory before dumping the instance spaces.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will dump the selected instance spaces as yaml to the folder specified, defaults to /tmp."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = DumpResourceCommand()
+        cmd.run(
+            lambda: cmd.dump_to_yamls(
+                SpaceFinder(client, tuple(spaces) if spaces else None),
                 output_dir=output_dir,
                 clean=clean,
                 verbose=verbose,
