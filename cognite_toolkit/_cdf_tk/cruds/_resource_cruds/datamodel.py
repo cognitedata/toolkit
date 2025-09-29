@@ -105,8 +105,8 @@ from cognite_toolkit._cdf_tk.utils import (
     load_yaml_inject_variables,
     quote_int_value_by_key_in_yaml,
     safe_read,
+    sanitize_filename,
     to_diff,
-    to_directory_compatible,
 )
 from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
@@ -485,7 +485,7 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerApply, Container
 
     @classmethod
     def as_str(cls, id: ContainerId) -> str:
-        return to_directory_compatible(f"{id.space}_{id.external_id}")
+        return sanitize_filename(f"{id.space}_{id.external_id}")
 
 
 class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View, ViewApplyList, ViewList]):
@@ -798,7 +798,7 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View, ViewApplyList, ViewList]):
 
     @classmethod
     def as_str(cls, id: ViewId) -> str:
-        return to_directory_compatible(id.external_id)
+        return sanitize_filename(id.external_id)
 
     def _lookup_views(self, view_ids: list[ViewId]) -> dict[ViewId, View]:
         """Looks up views by their IDs and caches them."""
@@ -966,7 +966,7 @@ class DataModelCRUD(ResourceCRUD[DataModelId, DataModelApply, DataModel, DataMod
 
     @classmethod
     def as_str(cls, id: DataModelId) -> str:
-        return to_directory_compatible(id.external_id)
+        return sanitize_filename(id.external_id)
 
 
 @final
@@ -1139,7 +1139,7 @@ class NodeCRUD(ResourceContainerCRUD[NodeId, NodeApply, Node, NodeApplyList, Nod
 
     @classmethod
     def as_str(cls, id: NodeId) -> str:
-        return to_directory_compatible(f"{id.space}_{id.external_id}")
+        return sanitize_filename(f"{id.space}_{id.external_id}")
 
 
 class GraphQLCRUD(

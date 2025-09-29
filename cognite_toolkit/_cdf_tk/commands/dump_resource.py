@@ -88,7 +88,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.tk_warnings import FileExistsWarning, HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, safe_write, to_directory_compatible, yaml_safe_dump
+from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, safe_write, sanitize_filename, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.interactive_select import DataModelingSelect
 
 from ._base import ToolkitCommand
@@ -599,7 +599,7 @@ class FunctionFinder(ResourceFinder[tuple[str, ...]]):
                 return
             raise
         try:
-            top_level = f"{to_directory_compatible(function.external_id or 'unknown_external_id')}/"
+            top_level = f"{sanitize_filename(function.external_id or 'unknown_external_id')}/"
             with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
                 if all(name.startswith(top_level) for name in zf.namelist()):
                     zf.extractall(folder)
@@ -694,7 +694,7 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
             ).print_warning(console=console)
             return
 
-        app_folder = to_directory_compatible(app.external_id)
+        app_folder = sanitize_filename(app.external_id)
         app_path = folder / app_folder
         app_path.mkdir(exist_ok=True)
         if isinstance(json_content.get("requirements"), list):

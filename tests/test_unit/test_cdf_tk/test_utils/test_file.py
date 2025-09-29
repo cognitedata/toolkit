@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
-from cognite_toolkit._cdf_tk.utils.file import find_adjacent_files
+from cognite_toolkit._cdf_tk.utils.file import find_adjacent_files, sanitize_filename
 
 
 class TestFindAdjacentFiles:
@@ -74,3 +74,25 @@ class TestFindAdjacentFiles:
         filepath.name = "my_table-part0001.RawRows.ndjson"
         with pytest.raises(ToolkitFileNotFoundError):
             find_adjacent_files(filepath, suffix=".Table.yaml")
+
+
+class TestSanitizeFilename:
+    @pytest.mark.parametrize(
+        "filename, expected",
+        [
+            ("valid_filename.yaml", "valid_filename.yaml"),
+            ("another-valid_filename123.json", "another-valid_filename123.json"),
+            ("invalid/filename.yaml", "invalid_filename.yaml"),
+            ("invalid\\filename.json", "invalid_filename.json"),
+            ("invalid:filename.yaml", "invalid_filename.yaml"),
+            ("invalid*filename.json", "invalid_filename.json"),
+            ("invalid?filename.yaml", "invalid_filename.yaml"),
+            ('invalid"filename.json', "invalid_filename.json"),
+            ("invalid<filename.yaml", "invalid_filename.yaml"),
+            ("invalid>filename.json", "invalid_filename.json"),
+            ("invalid|filename.yaml", "invalid_filename.yaml"),
+            ("inva|lid:fi*le?name<.json", "inva_lid_fi_le_name_.json"),
+        ],
+    )
+    def test_sanitize_filename(self, filename: str, expected: str) -> None:
+        assert sanitize_filename(filename) == expected
