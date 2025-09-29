@@ -6,6 +6,8 @@ from cognite.client.data_classes.data_modeling import MappedProperty, NodeApply,
 from cognite.client.data_classes.data_modeling.instances import NodeOrEdgeData, PropertyValueWrite
 from cognite.client.data_classes.data_modeling.views import ViewProperty
 
+from cognite_toolkit._cdf_tk.client.data_classes.extended_filemetadata import ExtendedFileMetadata
+from cognite_toolkit._cdf_tk.client.data_classes.extended_timeseries import ExtendedTimeSeries
 from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId, ResourceViewMapping
 from cognite_toolkit._cdf_tk.utils.collection import flatten_dict_json_path
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
@@ -81,6 +83,8 @@ def _lookup_resource_type(resource_type: type[CogniteResource]) -> AssetCentric:
         Event: "event",
         TimeSeries: "timeseries",
         Sequence: "sequence",
+        ExtendedFileMetadata: "file",
+        ExtendedTimeSeries: "timeseries",
     }
     try:
         return resource_type_map[resource_type]
