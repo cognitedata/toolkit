@@ -40,6 +40,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ResourceRetrievalError,
     ToolkitRequiredValueError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_classes import FunctionScheduleYAML, FunctionsYAML
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
@@ -338,14 +339,18 @@ class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function, FunctionWriteList,
         function_rootdir = self.function_dir_by_external_id[external_id]
         data_set_id = self.data_set_id_by_external_id.get(external_id)
         space = self.space_by_external_id.get(external_id)
-        if space is None and self.project_data_modeling_status.casefold() == "data_modeling_only":
+        if (
+            Flags.FUNCTION_COGNITE_FILE.is_enabled()
+            and space is None
+            and self.project_data_modeling_status.casefold() == "data_modeling_only"
+        ):
             raise ResourceCreationError(
                 f"Function {external_id!r} must have a space set when the project is in DATA_MODELING_ONLY mode. "
                 "This is used to set the NodeId of the CogniteFile created for the function code."
             )
 
         with create_temporary_zip(function_rootdir, "function.zip") as zip_path:
-            if space:
+            if Flags.FUNCTION_COGNITE_FILE.is_enabled() and space:
                 cognite_file = CogniteFileApply(
                     space=space,
                     external_id=external_id,
