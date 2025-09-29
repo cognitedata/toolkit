@@ -317,7 +317,7 @@ class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function, FunctionWriteList,
             t0 = time.perf_counter()
             sleep_time = 1.0  # seconds
             for i in range(6):
-                file = self.client.files.retrieve(external_id=external_id)
+                file = self.client.files.retrieve(id=file_id)
                 if file and file.uploaded:
                     break
                 time.sleep(sleep_time)
