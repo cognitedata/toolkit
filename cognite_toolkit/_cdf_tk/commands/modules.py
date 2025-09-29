@@ -56,7 +56,6 @@ from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.tk_warnings.other import HighSeverityWarning
-from cognite_toolkit._cdf_tk.tracker import Tracker
 from cognite_toolkit._cdf_tk.utils import humanize_collection, read_yaml_file
 from cognite_toolkit._cdf_tk.utils.file import safe_read, safe_rmtree, safe_write, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.modules import module_directory_from_path
@@ -408,7 +407,7 @@ default_organization_dir = "{organization_dir.name}"''',
             download_data=download_data,
             modules_source_path=modules_source_path,
         )
-        Tracker().track_deployment_pack_install(list(selected.values()), command_type="init")
+        self.tracker.track_deployment_pack_install(list(selected.values()), command_type="init")
 
         print(
             Panel(
