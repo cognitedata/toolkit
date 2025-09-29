@@ -23,6 +23,7 @@ from rich.rule import Rule
 from rich.table import Table
 from rich.tree import Tree
 
+from cognite_toolkit._cdf_tk.tracker import Tracker
 import cognite_toolkit
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import _cli_commands as CLICommands
@@ -407,6 +408,7 @@ default_organization_dir = "{organization_dir.name}"''',
             download_data=download_data,
             modules_source_path=modules_source_path,
         )
+        Tracker().track_deployment_pack_install(list(selected.values()), command_type="init")
 
         print(
             Panel(
