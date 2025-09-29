@@ -89,8 +89,8 @@ class PurgeApp(typer.Typer):
             )
         )
 
+    @staticmethod
     def purge_space(
-        self,
         ctx: typer.Context,
         space: Annotated[
             str | None,
@@ -104,6 +104,20 @@ class PurgeApp(typer.Typer):
                 "--include-space",
                 "-i",
                 help="Include space in the purge. This will also delete the space.",
+            ),
+        ] = False,
+        delete_datapoints: Annotated[
+            bool,
+            typer.Option(
+                "--delete-datapoints",
+                help="Delete datapoints linked to CogniteTimeSeries nodes in the space.",
+            ),
+        ] = False,
+        delete_file_content: Annotated[
+            bool,
+            typer.Option(
+                "--delete-file-content",
+                help="Delete file content linked to CogniteFile nodes in the space.",
             ),
         ] = False,
         dry_run: Annotated[
@@ -135,14 +149,34 @@ class PurgeApp(typer.Typer):
 
         cmd = PurgeCommand()
         client = EnvironmentVariables.create_from_environment().get_client()
+
+        if space is None:
+            # Is Interactive
+            interactive = DataModelingSelect(client, operation="purge")
+            space_type = interactive.select_space_type()
+            if space_type == "empty":
+                space = interactive.select_empty_spaces(multiselect=False)
+            elif space_type == "instance":
+                space = interactive.select_instance_space(multiselect=False)
+            elif space_type == "schema":
+                space = interactive.select_schema_space(include_global=False).space
+            else:
+                raise ToolkitValueError("Invalid space type selected.")
+            dry_run = questionary.confirm("Dry run?", default=True).ask()
+            include_space = questionary.confirm("Delete the space itself?", default=False).ask()
+            delete_datapoints = questionary.confirm("Delete datapoints?", default=False).ask()
+            delete_file_content = questionary.confirm("Delete file content?", default=False).ask()
+
         cmd.run(
-            lambda: cmd.space(
-                client,
-                space,
-                include_space,
-                dry_run,
-                auto_yes,
-                verbose,
+            lambda: cmd.space_v2(
+                client=client,
+                selected_space=space,
+                include_space=include_space,
+                delete_datapoints=delete_datapoints,
+                delete_file_content=delete_file_content,
+                dry_run=dry_run,
+                auto_yes=auto_yes,
+                verbose=verbose,
             )
         )
 
