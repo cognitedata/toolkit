@@ -1,9 +1,9 @@
 import time
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
-from functools import lru_cache
+from functools import cached_property, lru_cache
 from pathlib import Path
-from typing import Any, cast, final
+from typing import Any, Literal, cast, final
 
 from cognite.client.data_classes import (
     ClientCredentials,
@@ -24,6 +24,7 @@ from cognite.client.data_classes.capabilities import (
     FunctionsAcl,
     SessionsAcl,
 )
+from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply
 from cognite.client.data_classes.functions import HANDLER_FILE_NAME
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
@@ -83,6 +84,11 @@ class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function, FunctionWriteList,
         self.data_set_id_by_external_id: dict[str, int] = {}
         self.space_by_external_id: dict[str, str] = {}
         self.function_dir_by_external_id: dict[str, Path] = {}
+
+    @cached_property
+    def project_data_modeling_status(self) -> Literal["HYBRID", "DATA_MODELING_ONLY"]:
+        status = self.client.project.status()
+        return status.this_project.data_modeling_status
 
     @property
     def display_name(self) -> str:
@@ -330,16 +336,35 @@ class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function, FunctionWriteList,
 
     def _upload_function_code(self, external_id: str, item: FunctionWrite) -> int:
         function_rootdir = self.function_dir_by_external_id[external_id]
-        with create_temporary_zip(function_rootdir, "function.zip") as zip_path:
-            upload_file = self.client.files.upload_bytes(
-                zip_path.read_bytes(),
-                name=f"{sanitize_filename(item.name)}.zip",
-                external_id=external_id,
-                overwrite=True,
-                data_set_id=self.data_set_id_by_external_id.get(external_id),
+        data_set_id = self.data_set_id_by_external_id.get(external_id)
+        space = self.space_by_external_id.get(external_id)
+        if space is None and self.project_data_modeling_status.casefold() == "data_modeling_only":
+            raise ResourceCreationError(
+                f"Function {external_id!r} must have a space set when the project is in DATA_MODELING_ONLY mode. "
+                "This is used to set the NodeId of the CogniteFile created for the function code."
             )
-            file_id = upload_file.id
-        return file_id
+
+        with create_temporary_zip(function_rootdir, "function.zip") as zip_path:
+            if space:
+                cognite_file = CogniteFileApply(
+                    space=space,
+                    external_id=external_id,
+                    name=f"{sanitize_filename(item.name)}.zip",
+                    mime_type="application/zip",
+                )
+                _ = self.client.data_modeling.instances.apply(cognite_file, replace=True)
+                upload_file = self.client.files.upload_content_bytes(
+                    zip_path.read_bytes(), instance_id=cognite_file.as_id()
+                )
+            else:
+                upload_file = self.client.files.upload_bytes(
+                    zip_path.read_bytes(),
+                    name=f"{sanitize_filename(item.name)}.zip",
+                    external_id=external_id,
+                    overwrite=True,
+                    data_set_id=data_set_id,
+                )
+        return upload_file.id
 
     @staticmethod
     def _warn_if_cpu_or_memory_changed(created_item: Function, item: FunctionWrite) -> None:
