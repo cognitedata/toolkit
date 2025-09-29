@@ -48,7 +48,7 @@ from cognite_toolkit._cdf_tk.utils import (
     humanize_collection,
 )
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
-from cognite_toolkit._cdf_tk.utils.file import create_temporary_zip, to_directory_compatible
+from cognite_toolkit._cdf_tk.utils.file import create_temporary_zip, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.text import suffix_description
 
 from .auth import GroupAllScopedCRUD
@@ -304,7 +304,7 @@ class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function, FunctionWriteList,
             with create_temporary_zip(function_rootdir, "function.zip") as zip_path:
                 upload_file = self.client.files.upload_bytes(
                     zip_path.read_bytes(),
-                    name=f"{to_directory_compatible(item.name)}.zip",
+                    name=f"{sanitize_filename(item.name)}.zip",
                     external_id=external_id,
                     overwrite=True,
                     data_set_id=self.data_set_id_by_external_id.get(external_id),
