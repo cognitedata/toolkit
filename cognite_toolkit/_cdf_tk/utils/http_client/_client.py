@@ -4,13 +4,12 @@ import sys
 import time
 from collections import deque
 from collections.abc import MutableMapping, Sequence, Set
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import httpx
 from cognite.client import global_config
 from cognite.client.utils import _json
 
-from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.utils.auxiliary import get_current_toolkit_version, get_user_agent
 from cognite_toolkit._cdf_tk.utils.http_client._data_classes import (
     BodyRequest,
@@ -19,6 +18,7 @@ from cognite_toolkit._cdf_tk.utils.http_client._data_classes import (
     ItemsRequest,
     ParamRequest,
     RequestMessage,
+    ResponseList,
     ResponseMessage,
 )
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
@@ -27,6 +27,9 @@ if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self
+
+if TYPE_CHECKING:
+    from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 
 
 class HTTPClient:
@@ -49,7 +52,7 @@ class HTTPClient:
 
     def __init__(
         self,
-        config: ToolkitClientConfig,
+        config: "ToolkitClientConfig",
         max_retries: int = 10,
         pool_connections: int = 10,
         pool_maxsize: int = 20,
@@ -98,7 +101,7 @@ class HTTPClient:
             results = self._handle_error(e, message)
         return results
 
-    def request_with_retries(self, message: RequestMessage) -> Sequence[ResponseMessage | FailedRequestMessage]:
+    def request_with_retries(self, message: RequestMessage) -> ResponseList:
         """Send an HTTP request and handle retries.
 
         This method will keep retrying the request until it either succeeds or
@@ -118,8 +121,7 @@ class HTTPClient:
             raise RuntimeError(f"RequestMessage has already been attempted {message.total_attempts} times.")
         pending_requests: deque[RequestMessage] = deque()
         pending_requests.append(message)
-        final_responses: list[ResponseMessage | FailedRequestMessage] = []
-
+        final_responses = ResponseList([])
         while pending_requests:
             current_request = pending_requests.popleft()
             results = self.request(current_request)

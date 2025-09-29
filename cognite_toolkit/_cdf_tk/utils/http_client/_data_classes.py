@@ -1,10 +1,12 @@
 from abc import ABC, abstractmethod
+from collections import UserList
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Generic, Literal, TypeAlias
 
 import httpx
 
+from cognite_toolkit._cdf_tk.utils.http_client._exception import ToolkitAPIError
 from cognite_toolkit._cdf_tk.utils.http_client._tracker import ItemsRequestTracker
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal
 
@@ -386,3 +388,35 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
         if not isinstance(body["items"], list):
             return False
         return True
+
+
+class ResponseList(UserList[ResponseMessage | FailedRequestMessage]):
+    def __init__(self, collection: Sequence[ResponseMessage | FailedRequestMessage] | None = None) -> None:
+        super().__init__(collection or [])
+
+    def raise_for_status(self) -> None:
+        """Raises an exception if any response in the list indicates a failure."""
+        failed_responses = [resp for resp in self.data if isinstance(resp, FailedResponse)]
+        failed_requests = [resp for resp in self.data if isinstance(resp, FailedRequestMessage)]
+        if not failed_responses and not failed_requests:
+            return
+        error_messages = "; ".join(f"Status {err.status_code}: {err.error}" for err in failed_responses)
+        if failed_requests:
+            if error_messages:
+                error_messages += "; "
+            error_messages += "; ".join(f"Request error: {err.error}" for err in failed_requests)
+        raise ToolkitAPIError(f"One or more requests failed: {error_messages}")
+
+    def get_first_body(self) -> dict[str, JsonVal]:
+        """Returns the body of the first successful response in the list.
+
+        Raises:
+            ValueError: If there are no successful responses with a body.
+
+        Returns:
+            dict[str, JsonVal]: The body of the first successful response.
+        """
+        for resp in self.data:
+            if isinstance(resp, SuccessResponse) and resp.body is not None:
+                return resp.body
+        raise ValueError("No successful responses with a body found.")
