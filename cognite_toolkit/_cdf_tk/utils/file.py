@@ -480,17 +480,18 @@ def create_temporary_zip(directory: Path, zipname: str) -> typing.Generator[Path
         A context manager that yields the path to the zip file.
 
     """
-    current_dir = Path.cwd()
-    try:
-        os.chdir(directory)
-        with tempfile.TemporaryDirectory() as tmpdir:
-            zip_path = Path(tmpdir, zipname)
-            with ZipFile(zip_path, "w", strict_timestamps=False) as zf:
-                for root, dirs, files in os.walk("."):
-                    zf.write(root)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        zip_path = Path(tmpdir, zipname)
+        with ZipFile(zip_path, "w", strict_timestamps=False) as zf:
+            for root, _, files in os.walk(directory):
+                root_path = Path(root)
+                arc_root = root_path.relative_to(directory)
 
-                    for filename in files:
-                        zf.write(Path(root, filename))
-            yield zip_path
-    finally:
-        os.chdir(current_dir)
+                # Add directory entry to preserve directory structure, including empty ones.
+                zf.write(root_path, arcname=str(arc_root))
+
+                for filename in files:
+                    file_path = root_path / filename
+                    arcname = file_path.relative_to(directory)
+                    zf.write(file_path, arcname)
+        yield zip_path
