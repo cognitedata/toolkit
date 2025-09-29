@@ -106,20 +106,21 @@ class PurgeApp(typer.Typer):
                 help="Include space in the purge. This will also delete the space.",
             ),
         ] = False,
-        delete_datapoints: Annotated[
-            bool,
-            typer.Option(
-                "--delete-datapoints",
-                help="Delete datapoints linked to CogniteTimeSeries nodes in the space.",
-            ),
-        ] = False,
-        delete_file_content: Annotated[
-            bool,
-            typer.Option(
-                "--delete-file-content",
-                help="Delete file content linked to CogniteFile nodes in the space.",
-            ),
-        ] = False,
+        # Enable on next minor release
+        # delete_datapoints: Annotated[
+        #     bool,
+        #     typer.Option(
+        #         "--delete-datapoints",
+        #         help="Delete datapoints linked to CogniteTimeSeries nodes in the space.",
+        #     ),
+        # ] = False,
+        # delete_file_content: Annotated[
+        #     bool,
+        #     typer.Option(
+        #         "--delete-file-content",
+        #         help="Delete file content linked to CogniteFile nodes in the space.",
+        #     ),
+        # ] = False,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -167,16 +168,14 @@ class PurgeApp(typer.Typer):
                 include_space = True
             else:
                 include_space = questionary.confirm("Delete the space itself?", default=False).ask()
-            delete_datapoints = questionary.confirm("Delete datapoints?", default=False).ask()
-            delete_file_content = questionary.confirm("Delete file content?", default=False).ask()
 
         cmd.run(
             lambda: cmd.space_v2(
                 client=client,
                 selected_space=space,
                 include_space=include_space,
-                delete_datapoints=delete_datapoints,
-                delete_file_content=delete_file_content,
+                delete_datapoints=False,
+                delete_file_content=False,
                 dry_run=dry_run,
                 auto_yes=auto_yes,
                 verbose=verbose,
