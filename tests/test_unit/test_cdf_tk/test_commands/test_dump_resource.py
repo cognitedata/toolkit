@@ -44,8 +44,8 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
     FunctionFinder,
     GroupFinder,
     LocationFilterFinder,
-    SpaceFinder,
     SearchConfigFinder,
+    SpaceFinder,
     StreamlitFinder,
     TransformationFinder,
 )
@@ -56,8 +56,8 @@ from cognite_toolkit._cdf_tk.cruds import (
     FunctionCRUD,
     GroupAllScopedCRUD,
     LocationFilterCRUD,
-    SpaceCRUD,
     SearchConfigCRUD,
+    SpaceCRUD,
     StreamlitCRUD,
     TransformationCRUD,
 )
