@@ -48,6 +48,7 @@ from cognite_toolkit._cdf_tk.utils import (
     humanize_collection,
 )
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
+from cognite_toolkit._cdf_tk.utils.file import create_temporary_zip, to_directory_compatible
 from cognite_toolkit._cdf_tk.utils.text import suffix_description
 
 from .auth import GroupAllScopedCRUD
@@ -300,12 +301,15 @@ class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function, FunctionWriteList,
         for item in items:
             external_id = item.external_id or item.name
             function_rootdir = self.function_dir_by_external_id[external_id]
-            file_id = self.client.functions._zip_and_upload_folder(
-                name=item.name,
-                folder=str(function_rootdir),
-                external_id=external_id,
-                data_set_id=self.data_set_id_by_external_id.get(external_id),
-            )
+            with create_temporary_zip(function_rootdir, "function.zip") as zip_path:
+                upload_file = self.client.files.upload_bytes(
+                    zip_path.read_bytes(),
+                    name=f"{to_directory_compatible(item.name)}.zip",
+                    external_id=external_id,
+                    overwrite=True,
+                    data_set_id=self.data_set_id_by_external_id.get(external_id),
+                )
+                file_id = upload_file.id
             # Wait until the files is available
             t0 = time.perf_counter()
             sleep_time = 1.0  # seconds
