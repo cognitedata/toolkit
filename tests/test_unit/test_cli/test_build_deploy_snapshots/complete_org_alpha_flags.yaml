@@ -128,12 +128,10 @@ Node:
   instanceType: node
   sources:
   - properties:
-      mapping:
-        metadataToPropertyId:
-          altName: alias
-        toPropertyId:
-          description: description
-          name: name
+      propertyMapping:
+        description: description
+        metadata.altName: alias
+        name: name
       resourceType: asset
       viewId:
         externalId: CogniteAsset
@@ -141,7 +139,7 @@ Node:
         type: view
         version: v1
     source:
-      externalId: ViewSource
+      externalId: ResourceViewMapping
       space: cognite_migration
       type: view
       version: v1

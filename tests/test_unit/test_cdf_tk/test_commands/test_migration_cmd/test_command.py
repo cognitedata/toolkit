@@ -25,6 +25,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMa
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import INSTANCE_SOURCE_VIEW_ID
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import _ASSET_ID, create_default_mappings
 from cognite_toolkit._cdf_tk.storageio import AssetIO, InstanceIO
+from cognite_toolkit._cdf_tk.utils.fileio import CSVReader
 
 
 @pytest.fixture
@@ -198,3 +199,9 @@ class TestMigrationCommand:
         actual_results = [result.get_progress(asset.id) for asset in assets]
         expected_results = [{"download": "success", "convert": "success", "upload": "success"} for _ in assets]
         assert actual_results == expected_results
+        csv_file = next((tmp_path / "logs").glob("*.csv"), None)
+        assert csv_file is not None, "Expected a CSV log file to be created"
+        csv_results = list(CSVReader(csv_file).read_chunks_unprocessed())
+        assert csv_results == [
+            {"ID": str(asset.id), "download": "success", "convert": "success", "upload": "success"} for asset in assets
+        ]
