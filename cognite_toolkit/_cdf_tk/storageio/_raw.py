@@ -1,19 +1,20 @@
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 
-from cognite.client.data_classes import RowList, RowWrite, RowWriteList
+from cognite.client.data_classes import Row, RowList, RowWrite, RowWriteList
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawDatabaseList, RawTable, RawTableList
 from cognite_toolkit._cdf_tk.cruds import RawDatabaseCRUD, RawTableCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils.file import find_adjacent_files, read_yaml_file
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import StorageIO, StorageIOConfig
 
 
-class RawIO(StorageIO[RawTable, RawTable, RowWriteList, RowList]):
+class RawIO(StorageIO[str, RawTable, RowWriteList, RowList]):
     FOLDER_NAME = "raw"
     KIND = "RawRows"
     DISPLAY_NAME = "Raw Rows"
@@ -21,9 +22,14 @@ class RawIO(StorageIO[RawTable, RawTable, RowWriteList, RowList]):
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson", ".yaml"})
     CHUNK_SIZE = 10_000
+    UPLOAD_ENDPOINT = "/raw/dbs/{dbName}/tables/{tableName}/rows"
 
-    def as_id(self, item: dict[str, JsonVal] | object) -> RawTable:
-        raise ValueError("You cannot extract an ID from a Raw Table row. Use a RawTable selector instead.")
+    def as_id(self, item: dict[str, JsonVal] | object) -> str:
+        if isinstance(item, RowWrite | Row) and item.key is not None:
+            return item.key
+        elif isinstance(item, dict) and "key" in item and isinstance(item["key"], str):
+            return item["key"]
+        raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
 
     def count(self, selector: RawTable) -> int | None:
         # Raw tables do not support aggregation queries, so we do not know the count
@@ -43,6 +49,23 @@ class RawIO(StorageIO[RawTable, RawTable, RowWriteList, RowList]):
 
     def upload_items(self, data_chunk: RowWriteList, selector: RawTable) -> None:
         self.client.raw.rows.insert(db_name=selector.db_name, table_name=selector.table_name, row=data_chunk)
+
+    def upload_items_force(
+        self, data_chunk: RowWriteList, http_client: HTTPClient, selector: RawTable | None = None
+    ) -> Sequence[HTTPMessage]:
+        if selector is None:
+            raise ToolkitValueError("Selector must be provided for RawIO upload_items_force")
+        url = self.UPLOAD_ENDPOINT.format(dbName=selector.db_name, tableName=selector.table_name)
+        config = http_client.config
+        return http_client.request_with_retries(
+            message=ItemsRequest(
+                endpoint_url=config.create_api_url(url),
+                method="POST",
+                # The dump method from the PySDK always returns JsonVal, but mypy cannot infer that
+                items=data_chunk.dump(camel_case=True),  # type: ignore[arg-type]
+                as_id=self.as_id,
+            )
+        )
 
     def data_to_json_chunk(self, data_chunk: RowList) -> list[dict[str, JsonVal]]:
         return [row.as_write().dump() for row in data_chunk]

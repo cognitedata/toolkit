@@ -1,8 +1,11 @@
+import json
 from pathlib import Path
 
 import pytest
+import respx
 from cognite.client.data_classes.raw import RowWrite
 
+from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import UploadCommand
@@ -39,18 +42,25 @@ def raw_directory(tmp_path: Path) -> Path:
 
 
 class TestUploadCommand:
-    def test_upload_raw_rows(self, raw_directory: Path, tmp_path: Path) -> None:
+    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
+    def test_upload_raw_rows(
+        self, toolkit_config: ToolkitClientConfig, raw_directory: Path, tmp_path: Path, respx_mock: respx.MockRouter
+    ) -> None:
+        config = toolkit_config
+        insert_url = config.create_api_url("/raw/dbs/test_db/tables/test_table/rows")
+        respx_mock.post(insert_url).respond(status_code=200)
+
         cmd = UploadCommand(silent=True, skip_tracking=True)
         with monkeypatch_toolkit_client() as client:
+            client.config = config
             cmd.upload(RawIO(client), raw_directory, ensure_configurations=True, dry_run=False, verbose=False)
 
-            client.raw.rows.insert.assert_called_once()
-            _, kwargs = client.raw.rows.insert.call_args
-            assert kwargs["db_name"] == "test_db"
-            assert kwargs["table_name"] == "test_table"
-            inserted_rows = kwargs["row"]
-            assert len(inserted_rows) == 1_000
-            assert all(isinstance(row, RowWrite) for row in inserted_rows)
+            assert len(respx_mock.calls) == 1
+            call = respx_mock.calls[0]
+            assert call.request.url == insert_url
+            body = json.loads(call.request.content)["items"]
+            assert isinstance(body, list)
+            assert len(body) == 1_000
 
             client.raw.databases.create.assert_called_once()
             db_args, _ = client.raw.databases.create.call_args
