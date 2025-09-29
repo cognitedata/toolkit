@@ -64,7 +64,7 @@ from cognite_toolkit._cdf_tk.utils import (
     calculate_secure_hash,
     humanize_collection,
     load_yaml_inject_variables,
-    to_directory_compatible,
+    sanitize_filename,
 )
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
@@ -505,7 +505,7 @@ class WorkflowVersionCRUD(
         else:
             version = f"_v{id.version}"
 
-        return to_directory_compatible(f"{id.workflow_external_id}{version}")
+        return sanitize_filename(f"{id.workflow_external_id}{version}")
 
     @classmethod
     def topological_sort(cls, items: Sequence[WorkflowVersionUpsert]) -> list[WorkflowVersionUpsert]:
