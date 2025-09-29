@@ -16,7 +16,6 @@ from cognite.client.data_classes.data_modeling.instances import (
 
 from cognite_toolkit._cdf_tk.constants import COGNITE_MIGRATION_SPACE
 from cognite_toolkit._cdf_tk.tk_warnings import IgnoredValueWarning
-from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentric
 
 if sys.version_info >= (3, 11):
@@ -153,57 +152,17 @@ class InstanceSource(_InstanceSourceProperties, TypedNode):
         return ViewId("cdf_cdm", external_id, "v1")
 
 
-@dataclass
-class AssetCentricToViewMapping(CogniteObject):
-    to_property_id: dict[str, str]
-    metadata_to_property_id: dict[str, str] | None = None
-
-    @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
-        """Load an AssetCentricToViewMapping from a dictionary."""
-        to_property_id = resource["toPropertyId"]
-        metadata_to_property_id = resource.get("metadataToPropertyId")
-
-        if not isinstance(to_property_id, dict):
-            raise TypeError(f"toPropertyId must be a dictionary, not {type(to_property_id)}")
-
-        if invalid_keys := [
-            key for key, value in to_property_id.items() if not (isinstance(key, str) and isinstance(value, str))
-        ]:
-            raise TypeError(
-                f"toPropertyId keys and values must be strings, found invalid keys: {humanize_collection(invalid_keys)}"
-            )
-
-        if metadata_to_property_id is not None and not isinstance(metadata_to_property_id, dict):
-            raise TypeError(f"metadataToPropertyId must be a dictionary or None, not {type(metadata_to_property_id)}")
-
-        if metadata_to_property_id and (
-            invalid_metadata_keys := [
-                key
-                for key, value in metadata_to_property_id.items()
-                if not (isinstance(key, str) and isinstance(value, str))
-            ]
-        ):
-            raise TypeError(
-                f"metadataToPropertyId keys and values must be strings, found invalid keys: {humanize_collection(invalid_metadata_keys)}"
-            )
-
-        return cls(
-            to_property_id=to_property_id,
-            metadata_to_property_id=metadata_to_property_id,
-        )
-
-
-class _ViewSourceProperties:
+class _ResourceViewMapping:
     resource_type = PropertyOptions("resourceType")
     view_id = PropertyOptions("viewId")
+    property_mapping = PropertyOptions("propertyMapping")
 
     @classmethod
     def get_source(cls) -> ViewId:
-        return ViewId("cognite_migration", "ViewSource", "v1")
+        return ViewId("cognite_migration", "ResourceViewMapping", "v1")
 
 
-class ViewSourceApply(_ViewSourceProperties, TypedNodeApply):
+class ResourceViewMappingApply(_ResourceViewMapping, TypedNodeApply):
     """This represents the writing format of view source.
 
     It is used to when data is written to CDF.
@@ -214,7 +173,7 @@ class ViewSourceApply(_ViewSourceProperties, TypedNodeApply):
         external_id: The external id of the view source.
         resource_type: The resource type field.
         view_id: The view id field.
-        mapping: The mapping field.
+        property_mapping: The mapping of asset-centric properties to data model properties.
         existing_version: Fail the ingestion request if the node's version is greater than or equal to this value.
             If no existingVersion is specified, the ingestion will always overwrite any existing data for the node
             (for the specified container or node). If existingVersion is set to 0, the upsert will behave as an insert,
@@ -227,16 +186,16 @@ class ViewSourceApply(_ViewSourceProperties, TypedNodeApply):
         self,
         external_id: str,
         *,
-        resource_type: Literal["asset", "event", "file", "sequence", "timeseries"],
+        resource_type: str,
         view_id: ViewId,
-        mapping: AssetCentricToViewMapping,
+        property_mapping: dict[str, str],
         existing_version: int | None = None,
         type: DirectRelationReference | tuple[str, str] | None = None,
     ) -> None:
         TypedNodeApply.__init__(self, COGNITE_MIGRATION_SPACE, external_id, existing_version, type)
         self.resource_type = resource_type
         self.view_id = view_id
-        self.mapping = mapping
+        self.property_mapping = property_mapping
 
     def dump(self, camel_case: bool = True, context: Literal["api", "local"] = "api") -> dict[str, Any]:
         """Dumps the object to a dictionary.
@@ -247,11 +206,11 @@ class ViewSourceApply(_ViewSourceProperties, TypedNodeApply):
                 for a YAML file and all properties are  on the same level as the node properties. See below
 
         Example:
-            >>> node = ViewSourceApply(
+            >>> node = ResourceViewMappingApply(
             ...    external_id="myMapping",
             ...    resource_type="asset",
             ...    view_id=ViewId("cdf_cdm", "CogniteAsset", "v1"),
-            ...    mapping=AssetCentricToViewMapping(to_property_id={"name": "name"}),
+            ...    property_mapping={"name": "name"},
             ... )
             >>> node.dump(camel_case=True, context="api")
             {
@@ -273,10 +232,8 @@ class ViewSourceApply(_ViewSourceProperties, TypedNodeApply):
                                 "externalId": "CogniteAsset",
                                 "version": "v1"
                             },
-                            "mapping": {
-                                "toPropertyId": {
-                                    "name": "name"
-                                }
+                            "propertyMapping": {
+                                "name": "name"
                             }
                         }
                     }
@@ -291,10 +248,8 @@ class ViewSourceApply(_ViewSourceProperties, TypedNodeApply):
                     "externalId": "CogniteAsset",
                     "version": "v1"
                 },
-                "mapping": {
-                    "toPropertyId": {
-                        "name": "name"
-                    }
+                "propertyMapping": {
+                    "name": "name"
                 },
             }
 
@@ -305,7 +260,6 @@ class ViewSourceApply(_ViewSourceProperties, TypedNodeApply):
         source = output["sources"][0]
         properties = source["properties"]
         properties["viewId"] = self.view_id.dump(camel_case=camel_case, include_type=context == "api")
-        properties["mapping"] = self.mapping.dump(camel_case=camel_case)
 
         if context == "local":
             for key in ("space", "sources", "instanceType"):
@@ -319,13 +273,11 @@ class ViewSourceApply(_ViewSourceProperties, TypedNodeApply):
         properties = cls._load_properties(resource)
         if "viewId" in resource:
             properties["view_id"] = ViewId.load(resource["viewId"])
-        if "mapping" in resource:
-            properties["mapping"] = AssetCentricToViewMapping._load(resource["mapping"], cognite_client=cognite_client)
 
         return cls(**base_props, **properties)
 
 
-class ViewSource(_ViewSourceProperties, TypedNode):
+class ResourceViewMapping(_ResourceViewMapping, TypedNode):
     """This represents the reading format of view source.
 
     It is used to when data is read from CDF.
@@ -341,7 +293,7 @@ class ViewSource(_ViewSourceProperties, TypedNode):
             Coordinated Universal Time (UTC), minus leap seconds.
         resource_type: The resource type field.
         view_id: The view id field.
-        mapping: The mapping field.
+        property_mapping: The mapping field.
         type: Direct relation pointing to the type node.
         deleted_time: The number of milliseconds since 00:00:00 Thursday, 1 January 1970, Coordinated Universal Time
             (UTC), minus leap seconds. Timestamp when the instance was soft deleted. Note that deleted instances
@@ -355,9 +307,9 @@ class ViewSource(_ViewSourceProperties, TypedNode):
         last_updated_time: int,
         created_time: int,
         *,
-        resource_type: Literal["asset", "event", "file", "sequence", "timeseries"],
+        resource_type: str,
         view_id: ViewId,
-        mapping: AssetCentricToViewMapping,
+        property_mapping: dict[str, str],
         type: DirectRelationReference | None = None,
         deleted_time: int | None = None,
     ) -> None:
@@ -366,14 +318,14 @@ class ViewSource(_ViewSourceProperties, TypedNode):
         )
         self.resource_type = resource_type
         self.view_id = view_id
-        self.mapping = mapping
+        self.property_mapping = property_mapping
 
-    def as_write(self) -> ViewSourceApply:
-        return ViewSourceApply(
+    def as_write(self) -> ResourceViewMappingApply:
+        return ResourceViewMappingApply(
             self.external_id,
             resource_type=self.resource_type,
             view_id=self.view_id,
-            mapping=self.mapping,
+            property_mapping=self.property_mapping,
             existing_version=self.version,
             type=self.type,
         )
@@ -386,14 +338,6 @@ class ViewSource(_ViewSourceProperties, TypedNode):
                 resource["viewId"] = ViewId.load(view_id)
             except (TypeError, KeyError) as e:
                 raise ValueError(f"Invalid viewId format. Expected 'space', 'externalId', 'version'. Error: {e!s}")
-        if "mapping" in resource:
-            mapping = resource.pop("mapping")
-            try:
-                resource["mapping"] = AssetCentricToViewMapping._load(mapping)
-            except (TypeError, KeyError) as e:
-                raise ValueError(
-                    f"Invalid mapping format. Expected 'toPropertyId' and optionally 'metadataToPropertyId'. Error: {e!s}"
-                )
         return super()._load_properties(resource)
 
     def _dump_properties(self) -> dict[str, Any]:
@@ -401,5 +345,5 @@ class ViewSource(_ViewSourceProperties, TypedNode):
         return {
             "resourceType": self.resource_type,
             "viewId": self.view_id.dump(),
-            "mapping": self.mapping.dump(),
+            "propertyMapping": self.property_mapping,
         }
