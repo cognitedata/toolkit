@@ -32,6 +32,7 @@ from questionary import Choice
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.data_classes.location_filters import LocationFilter, LocationFilterList
+from cognite_toolkit._cdf_tk.client.data_classes.search_config import SearchConfig, SearchConfigList, ViewId
 from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import Streamlit, StreamlitList
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands.dump_resource import (
@@ -43,6 +44,7 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
     FunctionFinder,
     GroupFinder,
     LocationFilterFinder,
+    SearchConfigFinder,
     SpaceFinder,
     StreamlitFinder,
     TransformationFinder,
@@ -54,6 +56,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     FunctionCRUD,
     GroupAllScopedCRUD,
     LocationFilterCRUD,
+    SearchConfigCRUD,
     SpaceCRUD,
     StreamlitCRUD,
     TransformationCRUD,
@@ -810,4 +813,72 @@ class TestDumpSpaces:
         assert len(filepaths) == 2
         items = sorted([read_yaml_file(filepath) for filepath in filepaths], key=lambda d: d["space"])
         expected = sorted([loader.dump_resource(s) for s in three_spaces[1:]], key=lambda d: d["space"])
+        assert items == expected
+
+
+@pytest.fixture()
+def three_search_configs() -> SearchConfigList:
+    return SearchConfigList(
+        [
+            SearchConfig(
+                view=ViewId(external_id="searchConfigA", space="spaceA"), id=1, created_time=1, updated_time=2
+            ),
+            SearchConfig(
+                view=ViewId(external_id="searchConfigB", space="spaceB"), id=2, created_time=1, updated_time=2
+            ),
+            SearchConfig(
+                view=ViewId(external_id="searchConfigC", space="spaceC"), id=3, created_time=1, updated_time=2
+            ),
+        ]
+    )
+
+
+class TestSearchConfigFinder:
+    def test_select_search_configs(self, three_search_configs: SearchConfigList, monkeypatch: MonkeyPatch) -> None:
+        def select_search_configs(choices: list[Choice]) -> list[str]:
+            assert len(choices) == len(three_search_configs)
+            return [choices[1].value, choices[2].value]
+
+        answers = [select_search_configs]
+
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(SearchConfigFinder.__module__, monkeypatch, answers),
+        ):
+            client.search.configurations.list.return_value = three_search_configs
+            finder = SearchConfigFinder(client, None)
+            selected = finder._interactive_select()
+
+        assert selected == (
+            ViewId(external_id="searchConfigB", space="spaceB"),
+            ViewId(external_id="searchConfigC", space="spaceC"),
+        )
+
+
+class TestDumpSearchConfigs:
+    def test_dump_search_configs(self, three_search_configs: SearchConfigList, tmp_path: Path) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.search.configurations.list.return_value = three_search_configs[1:]
+
+            cmd = DumpResourceCommand(silent=True)
+            cmd.dump_to_yamls(
+                SearchConfigFinder(
+                    client,
+                    (
+                        ViewId(external_id="searchConfigB", space="spaceB"),
+                        ViewId(external_id="searchConfigC", space="spaceC"),
+                    ),
+                ),
+                output_dir=tmp_path,
+                clean=False,
+                verbose=False,
+            )
+            loader = SearchConfigCRUD(client, None, None)
+
+        filepaths = list(loader.find_files(tmp_path))
+        assert len(filepaths) == 2
+        items = sorted([read_yaml_file(filepath) for filepath in filepaths], key=lambda d: d["view"]["externalId"])
+        expected = sorted(
+            [loader.dump_resource(sc) for sc in three_search_configs[1:]], key=lambda d: d["view"]["externalId"]
+        )
         assert items == expected

@@ -8,7 +8,7 @@ from cognite.client.data_classes.data_modeling import EdgeId, NodeId, ViewId
 from cognite.client.utils._identifier import InstanceId
 
 from cognite_toolkit._cdf_tk.storageio._data_classes import InstanceIdCSVList, T_ModelList
-from cognite_toolkit._cdf_tk.utils.file import to_directory_compatible
+from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 
 
 @dataclass(frozen=True)
@@ -41,7 +41,7 @@ class DataSetSelector(AssetCentricSelector):
     data_set_external_id: str
 
     def __str__(self) -> str:
-        return f"DataSet={to_directory_compatible(self.data_set_external_id)}"
+        return f"DataSet={sanitize_filename(self.data_set_external_id)}"
 
 
 @dataclass(frozen=True)
@@ -51,7 +51,7 @@ class AssetSubtreeSelector(AssetCentricSelector):
     hierarchy: str
 
     def __str__(self) -> str:
-        return f"AssetSubtree={to_directory_compatible(self.hierarchy)}"
+        return f"AssetSubtree={sanitize_filename(self.hierarchy)}"
 
 
 @dataclass(frozen=True)
