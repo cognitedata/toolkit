@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.search_config import (
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import SearchConfigYAML
-from cognite_toolkit._cdf_tk.utils import to_directory_compatible
+from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
 
 from .datamodel import ViewCRUD
@@ -72,7 +72,7 @@ class SearchConfigCRUD(ResourceCRUD[ViewId, SearchConfigWrite, SearchConfig, Sea
 
     @classmethod
     def as_str(cls, id: ViewId) -> str:
-        return to_directory_compatible(f"{id.external_id}_{id.space}")
+        return sanitize_filename(f"{id.external_id}_{id.space}")
 
     def dump_resource(self, resource: SearchConfig, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
