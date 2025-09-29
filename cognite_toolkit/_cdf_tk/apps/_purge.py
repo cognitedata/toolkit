@@ -170,7 +170,7 @@ class PurgeApp(typer.Typer):
                 include_space = questionary.confirm("Delete the space itself?", default=False).ask()
 
         cmd.run(
-            lambda: cmd.space_v2(
+            lambda: cmd.space(
                 client=client,
                 selected_space=space,
                 include_space=include_space,

@@ -72,7 +72,7 @@ class DeleteResults:
 class PurgeCommand(ToolkitCommand):
     BATCH_SIZE_DM = 1000
 
-    def space_v2(
+    def space(
         self,
         client: ToolkitClient,
         selected_space: str,
