@@ -336,6 +336,18 @@ class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function, FunctionWriteList,
         return created
 
     def _upload_function_code(self, external_id: str, item: FunctionWrite) -> int:
+        """Uploads the function code to CDF.
+
+        It will either upload the code to a CogniteFile if a space is provided and the feature flag is enabled,
+        or to a classic file if not.
+
+        Args:
+            external_id (str): The external ID of the function.
+            item (FunctionWrite): The function write object.
+
+        Returns:
+            int: The ID of the created file metadata object.
+        """
         function_rootdir = self.function_dir_by_external_id[external_id]
         data_set_id = self.data_set_id_by_external_id.get(external_id)
         space = self.space_by_external_id.get(external_id)
