@@ -3,12 +3,12 @@ import uuid
 from collections.abc import Callable, Hashable, Iterable
 from functools import partial
 from graphlib import CycleError, TopologicalSorter
-from typing import cast
+from typing import Any, cast
 
 import questionary
 from cognite.client.data_classes import AggregateResultItem, DataSetUpdate, filters
 from cognite.client.data_classes._base import CogniteResourceList
-from cognite.client.data_classes.data_modeling import NodeId, ViewId
+from cognite.client.data_classes.data_modeling import NodeId, NodeList, ViewId
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils._identifier import InstanceId
 from rich import print
@@ -140,6 +140,8 @@ class PurgeCommand(ToolkitCommand):
         client: ToolkitClient,
         selected_space: str,
         include_space: bool = False,
+        delete_datapoints: bool = False,
+        delete_file_content: bool = False,
         dry_run: bool = False,
         auto_yes: bool = False,
         verbose: bool = False,
@@ -175,6 +177,7 @@ class PurgeCommand(ToolkitCommand):
             ViewCRUD: (stats.views, config.create_api_url("/models/views/delete")),
             ContainerCRUD: (stats.containers, config.create_api_url("/models/containers/delete")),
         }
+        console = Console()
         if dry_run:
             for crud_cls, (total, _) in total_by_crud_cls.items():
                 crud = crud_cls.create_loader(client)  # type: ignore[attr-defined]
@@ -189,24 +192,44 @@ class PurgeCommand(ToolkitCommand):
                     if total == 0:
                         results[crud.display_name] = ResourceDeployResult(crud.display_name, deleted=0)
                         continue
-                    result = ResourceDeployResult(crud.display_name)
+                    # Two results objects since they are updated concurrently
+                    process_results = ResourceDeployResult(crud.display_name)
+                    write_results = ResourceDeployResult(crud.display_name)
                     # Containers, DataModels and Views need special handling to avoid type info in the delete call
                     # While for instance we need the type info in delete.
-                    dump_args = (
-                        {"include_type": False} if isinstance(crud, ContainerCRUD | DataModelCRUD | ViewCRUD) else {}
-                    )
+                    if isinstance(crud, ContainerCRUD | DataModelCRUD | ViewCRUD):
+                        dump_args = {"include_type": False}
+                    elif isinstance(crud, EdgeCRUD):
+                        dump_args = {"include_instance_type": True}
+                    else:
+                        dump_args = {}
+                    process = partial(self._as_id_batch, dump_args=dump_args)
+                    if isinstance(crud, NodeCRUD):
+                        process = partial(
+                            self._check_data,
+                            client=client,
+                            delete_datapoints=delete_datapoints,
+                            delete_file_content=delete_file_content,
+                            process_results=process_results,
+                            console=console,
+                            verbose=verbose,
+                        )
+
                     executor = ProducerWorkerExecutor[CogniteResourceList, list[JsonVal]](
                         download_iterable=self._iterate_batch(crud, selected_space, batch_size=self.BATCH_SIZE_DM),
-                        process=lambda list_: [item.as_id().dump(**dump_args) for item in list_],
-                        write=self._purge_batch(crud, URL, delete_client, result),
+                        process=process,
+                        write=self._purge_batch(crud, URL, delete_client, write_results),
                         max_queue_size=10,
                         iteration_count=total // self.BATCH_SIZE_DM + (1 if total % self.BATCH_SIZE_DM > 0 else 0),
                         download_description=f"Downloading {crud.display_name}",
                         process_description=f"Preparing {crud.display_name} for deletion",
                         write_description=f"Deleting {crud.display_name}",
+                        console=console,
                     )
                     executor.run()
-                    results[crud.display_name] = result
+                    write_results += process_results
+                    results[crud.display_name] = write_results
+
                     if executor.error_occurred:
                         self.warn(
                             HighSeverityWarning(f"Failed to delete all {crud.display_name}. {executor.error_message}")
@@ -233,6 +256,41 @@ class PurgeCommand(ToolkitCommand):
                 batch = crud.list_cls([])
         if batch:
             yield batch
+
+    @staticmethod
+    def _as_id_batch(chunk: CogniteResourceList, dump_args: dict[str, Any]) -> list[JsonVal]:
+        return [item.as_id().dump(**dump_args) for item in chunk]
+
+    @staticmethod
+    def _check_data(
+        chunk: NodeList,
+        client: ToolkitClient,
+        delete_datapoints: bool,
+        delete_file_content: bool,
+        process_results: ResourceDeployResult,
+        console: Console,
+        verbose: bool,
+    ) -> list[JsonVal]:
+        """Check if the node has timeseries or files and delete the data if requested."""
+        node_ids = chunk.as_ids()
+        found_ids: set[InstanceId] = set()
+        if not delete_datapoints:
+            timeseries = client.time_series.retrieve_multiple(instance_ids=node_ids, ignore_unknown_ids=True)
+            found_ids |= {ts.instance_id for ts in timeseries if ts.instance_id is not None}
+        if not delete_file_content:
+            files = client.files.retrieve_multiple(instance_ids=node_ids, ignore_unknown_ids=True)
+            found_ids |= {f.instance_id for f in files if f.instance_id is not None}
+        if found_ids and verbose:
+            console.print(f"Skipping {found_ids} nodes as they have datapoints or file content")
+        process_results.unchanged += len(found_ids)
+        result: list[JsonVal] = []
+        for node_id in (n for n in node_ids if n not in found_ids):
+            dumped = node_id.dump(include_instance_type=True)
+            # The delete endpoint expects "instanceType" instead of "type"
+            dumped["instanceType"] = dumped.pop("type")
+            # MyPy think complains about invariant here, even though dict[str, str] is a type of JsonVal
+            result.append(dumped)  # type: ignore[arg-type]
+        return result
 
     @staticmethod
     def _purge_batch(

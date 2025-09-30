@@ -77,7 +77,7 @@ class CoreApp(typer.Typer):
                 Panel(
                     "\n".join(
                         [
-                            "The Cognite Data Fusion Toolkit supports configuration of CDF projects from the command line or in CI/CD pipelines.",
+                            "The Cognite Toolkit supports configuration of CDF projects from the command line or in CI/CD pipelines.",
                             "",
                             "[bold]Setup:[/]",
                             "1. Run [underline]cdf repo init[/] [italic]<directory name>[/] to set up a work directory.",
@@ -89,7 +89,7 @@ class CoreApp(typer.Typer):
                             "",
                             "[bold]Deployment steps:[/]",
                             "4. Commit the [italic]<directory name>[/] to version control",
-                            "5. Run [underline]cdf auth verify --interactive[/] to check that you have access to the relevant CDF project. ",
+                            "5. Run [underline]cdf auth verify[/] to check that you have access to the relevant CDF project. ",
                             "    or [underline]cdf auth verify[/] if you have a .env file",
                             "6. Run [underline]cdf deploy --dry-run[/] to simulate the deployment of the configuration to the CDF project. Review the report provided.",
                             "7. Run [underline]cdf deploy[/] to deploy the configuration to the CDF project.",
