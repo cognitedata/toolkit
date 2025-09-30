@@ -370,6 +370,8 @@ class LookUpGroup(ToolkitAPI):
         self.data_sets = DataSetLookUpAPI(config, api_version, cognite_client)
         self.assets = AssetLookUpAPI(config, api_version, cognite_client)
         self.time_series = TimeSeriesLookUpAPI(config, api_version, cognite_client)
+        self.files = FileMetadataLookUpAPI(config, api_version, cognite_client)
+        self.events = EventLookUpAPI(config, api_version, cognite_client)
         self.security_categories = SecurityCategoriesLookUpAPI(config, api_version, cognite_client)
         self.location_filters = LocationFiltersLookUpAPI(config, api_version, cognite_client)
         self.extraction_pipelines = ExtractionPipelineLookUpAPI(config, api_version, cognite_client)
