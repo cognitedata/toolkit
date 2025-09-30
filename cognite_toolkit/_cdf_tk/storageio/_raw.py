@@ -64,23 +64,6 @@ class RawIO(StorageIO[str, RawTable, RowWriteList, RowList]):
             )
         )
 
-    def upload_items_force(
-        self, data_chunk: RowWriteList, http_client: HTTPClient, selector: RawTable | None = None
-    ) -> Sequence[HTTPMessage]:
-        if selector is None:
-            raise ToolkitValueError("Selector must be provided for RawIO upload_items_force")
-        url = self.UPLOAD_ENDPOINT.format(dbName=selector.db_name, tableName=selector.table_name)
-        config = http_client.config
-        return http_client.request_with_retries(
-            message=ItemsRequest(
-                endpoint_url=config.create_api_url(url),
-                method="POST",
-                # The dump method from the PySDK always returns JsonVal, but mypy cannot infer that
-                items=data_chunk.dump(camel_case=True),  # type: ignore[arg-type]
-                as_id=self.as_id,
-            )
-        )
-
     def data_to_json_chunk(self, data_chunk: RowList) -> list[dict[str, JsonVal]]:
         return [row.as_write().dump() for row in data_chunk]
 
