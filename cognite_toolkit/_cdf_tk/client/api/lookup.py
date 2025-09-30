@@ -214,6 +214,52 @@ class TimeSeriesLookUpAPI(LookUpAPI):
         )
 
 
+class FileMetadataLookUpAPI(LookUpAPI):
+    def _id(self, external_id: SequenceNotStr[str]) -> dict[str, int]:
+        return {
+            file.external_id: file.id
+            for file in self._cognite_client.files.retrieve_multiple(external_ids=external_id, ignore_unknown_ids=True)
+            if file.external_id and file.id
+        }
+
+    def _external_id(self, id: Sequence[int]) -> dict[int, str]:
+        return {
+            file.id: file.external_id
+            for file in self._cognite_client.files.retrieve_multiple(ids=id, ignore_unknown_ids=True)
+            if file.external_id and file.id
+        }
+
+    def _read_acl(self) -> Capability:
+        return TimeSeriesAcl(
+            [TimeSeriesAcl.Action.Read],
+            scope=TimeSeriesAcl.Scope.All(),
+        )
+
+
+class EventLookUpAPI(LookUpAPI):
+    def _id(self, external_id: SequenceNotStr[str]) -> dict[str, int]:
+        return {
+            event.external_id: event.id
+            for event in self._cognite_client.events.retrieve_multiple(
+                external_ids=external_id, ignore_unknown_ids=True
+            )
+            if event.external_id and event.id
+        }
+
+    def _external_id(self, id: Sequence[int]) -> dict[int, str]:
+        return {
+            event.id: event.external_id
+            for event in self._cognite_client.events.retrieve_multiple(ids=id, ignore_unknown_ids=True)
+            if event.external_id and event.id
+        }
+
+    def _read_acl(self) -> Capability:
+        return TimeSeriesAcl(
+            [TimeSeriesAcl.Action.Read],
+            scope=TimeSeriesAcl.Scope.All(),
+        )
+
+
 class ExtractionPipelineLookUpAPI(LookUpAPI):
     def _id(self, external_id: SequenceNotStr[str]) -> dict[str, int]:
         return {
