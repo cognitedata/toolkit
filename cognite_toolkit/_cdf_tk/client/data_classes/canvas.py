@@ -1,10 +1,16 @@
 from abc import ABC
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Self
 from uuid import uuid4
 
-from cognite.client.data_classes._base import CogniteResourceList, WriteableCogniteResourceList
+from cognite.client import CogniteClient
+from cognite.client.data_classes._base import (
+    CogniteResource,
+    CogniteResourceList,
+    WriteableCogniteResource,
+    WriteableCogniteResourceList,
+)
 from cognite.client.data_classes.data_modeling import (
     DirectRelationReference,
     EdgeId,
@@ -816,7 +822,7 @@ class FdmInstanceContainerReference(_FdmInstanceContainerReferenceProperties, Ty
         )
 
 
-class IndustrialCanvasApply:
+class IndustrialCanvasApply(CogniteResource):
     """This class represents the writing format of IndustrialCanvas.
     It is used to when data is written to CDF.
     Args:
@@ -937,8 +943,13 @@ class IndustrialCanvasApply:
                 new_item_list.append(new_item)
         return new_container
 
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        """Load an IndustrialCanvasApply instance from a resource dictionary."""
+        raise NotImplementedError("IndustrialCanvasApply cannot be loaded from dict.")
 
-class IndustrialCanvas:
+
+class IndustrialCanvas(WriteableCogniteResource[IndustrialCanvasApply]):
     """This class represents one instance of the Canvas with all connected data."""
 
     def __init__(
@@ -958,7 +969,7 @@ class IndustrialCanvas:
         self.solution_tags = solution_tags or NodeListWithCursor[CogniteSolutionTag]([], None)
 
     @classmethod
-    def load(cls, resource: Mapping[str, list]) -> "IndustrialCanvas":
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> "IndustrialCanvas":
         """Load an IndustrialCanvas instance from a QueryResult."""
         if not ("canvas" in resource and isinstance(resource["canvas"], Sequence) and len(resource["canvas"]) == 1):
             raise ValueError("Resource does not contain a canvas node.")
@@ -1004,8 +1015,10 @@ class IndustrialCanvas:
             )
         raise TypeError(f"Expected a sequence of {node_cls.__name__}, got {type(items).__name__}")
 
-    def dump(self) -> dict[str, list]:
+    def dump(self, camel_case: bool = True) -> dict[str, list]:
         """Dump the IndustrialCanvas to a dictionary."""
+        if not camel_case:
+            raise NotImplementedError("snake_case dump is not supported")
         return {
             "canvas": [self.canvas.dump()],
             "annotations": [annotation.dump() for annotation in self.annotations],
@@ -1028,6 +1041,9 @@ class IndustrialCanvas:
             ],
             solution_tags=[solution_tag.as_write() for solution_tag in self.solution_tags],
         )
+
+    def as_id(self) -> str:
+        return self.canvas.external_id
 
 
 class IndustrialCanvasApplyList(CogniteResourceList):
