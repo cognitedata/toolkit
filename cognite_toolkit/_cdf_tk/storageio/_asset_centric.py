@@ -16,6 +16,10 @@ from cognite.client.data_classes import (
     FileMetadataWriteList,
     Label,
     LabelDefinition,
+    TimeSeries,
+    TimeSeriesList,
+    TimeSeriesWrite,
+    TimeSeriesWriteList,
 )
 from cognite.client.data_classes._base import (
     T_CogniteResourceList,
@@ -26,14 +30,26 @@ from cognite.client.data_classes.labels import LabelDefinitionWriteList
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.cruds import AssetCRUD, DataSetsCRUD, FileMetadataCRUD, LabelCRUD, ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds import (
+    AssetCRUD,
+    DataSetsCRUD,
+    FileMetadataCRUD,
+    LabelCRUD,
+    ResourceCRUD,
+    TimeSeriesCRUD,
+)
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
-from cognite_toolkit._cdf_tk.utils.aggregators import AssetAggregator, AssetCentricAggregator, FileAggregator
+from cognite_toolkit._cdf_tk.utils.aggregators import (
+    AssetAggregator,
+    AssetCentricAggregator,
+    FileAggregator,
+    TimeSeriesAggregator,
+)
 from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
 from cognite_toolkit._cdf_tk.utils.file import find_files_with_suffix_and_prefix
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, SimpleBodyRequest
-from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal, T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal, T_Selector, T_WritableCogniteResourceList
 
 from ._base import StorageIOConfig, TableStorageIO
 from ._selectors import AssetCentricFileSelector, AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
@@ -337,3 +353,63 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
 
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> FileMetadataWriteList:
         return FileMetadataWriteList([self._loader.load_resource(item) for item in data_chunk])
+
+
+class TimeSeriesIO(BaseAssetCentricIO[str, TimeSeriesWrite, TimeSeries, TimeSeriesWriteList, TimeSeriesList]):
+    FOLDER_NAME = TimeSeriesCRUD.folder_name
+    KIND = "TimeSeries"
+    DISPLAY_NAME = "time series"
+    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
+    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
+    SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
+    UPLOAD_ENDPOINT = "/timeseries"
+
+    def as_id(self, item: dict[str, JsonVal] | object) -> int:
+        if isinstance(item, TimeSeries | TimeSeriesWrite) and item.id is not None:  # type: ignore[union-attr]
+            return item.id  # type: ignore[union-attr]
+        return super().as_id(item)
+
+    def _get_loader(self) -> TimeSeriesCRUD:
+        return TimeSeriesCRUD.create_loader(self.client)
+
+    def _get_aggregator(self) -> AssetCentricAggregator:
+        return TimeSeriesAggregator(self.client)
+
+    def retrieve(self, ids: Sequence[int]) -> TimeSeriesList:
+        return self.client.time_series.retrieve_multiple(ids=ids)
+
+    def stream_data(self, selector: T_Selector, limit: int | None = None) -> Iterable[TimeSeriesList]:
+        raise NotImplementedError()
+
+    def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> TimeSeriesWriteList:
+        return self._loader.list_write_cls([self._loader.load_resource(item) for item in data_chunk])
+
+    def get_schema(self, selector: AssetCentricSelector) -> list[SchemaColumn]:
+        data_set_ids: list[int] = []
+        if isinstance(selector, DataSetSelector):
+            data_set_ids.append(self.client.lookup.data_sets.id(selector.data_set_external_id))
+
+        if data_set_ids:
+            metadata_keys = metadata_key_counts(
+                self.client, "timeseries", data_sets=data_set_ids or None, hierarchies=None
+            )
+        else:
+            metadata_keys = []
+        metadata_schema: list[SchemaColumn] = []
+        if metadata_keys:
+            metadata_schema.extend(
+                [SchemaColumn(name=f"metadata.{key}", type="string", is_array=False) for key, _ in metadata_keys]
+            )
+        ts_schema = [
+            SchemaColumn(name="externalId", type="string"),
+            SchemaColumn(name="name", type="string"),
+            SchemaColumn(name="isString", type="boolean"),
+            SchemaColumn(name="unit", type="string"),
+            SchemaColumn(name="unitExternalId", type="string"),
+            SchemaColumn(name="assetExternalId", type="string"),
+            SchemaColumn(name="isStep", type="boolean"),
+            SchemaColumn(name="description", type="string"),
+            SchemaColumn(name="securityCategories", type="string", is_array=True),
+            SchemaColumn(name="dataSetExternalId", type="string"),
+        ]
+        return ts_schema + metadata_schema
