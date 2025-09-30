@@ -173,7 +173,7 @@ class MigrationCommand(ToolkitCommand):
             if dry_run:
                 results = [SuccessItem(200, target.as_id(item)) for item in data_chunk]
             else:
-                results = target.upload_items_force(data_chunk=data_chunk, http_client=write_client, selector=None)
+                results = target.upload_items(data_chunk=data_chunk, http_client=write_client, selector=None)
 
             issues: list[Chunk] = []
             for item in results:
