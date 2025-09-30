@@ -51,7 +51,7 @@ class RawIO(StorageIO[str, RawTable, RowWriteList, RowList]):
         self, data_chunk: RowWriteList, http_client: HTTPClient, selector: RawTable | None = None
     ) -> Sequence[HTTPMessage]:
         if selector is None:
-            raise ToolkitValueError("Selector must be provided for RawIO upload_items_force")
+            raise ToolkitValueError("Selector must be provided for RawIO upload_items")
         url = self.UPLOAD_ENDPOINT.format(dbName=selector.db_name, tableName=selector.table_name)
         config = http_client.config
         return http_client.request_with_retries(
