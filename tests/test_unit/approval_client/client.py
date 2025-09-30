@@ -181,7 +181,7 @@ class ApprovalToolkitClient:
         )
         # Set functions to be activated
         self.mock_client.functions.status.return_value = FunctionsStatus(status="activated")
-        self.mock_client.functions._zip_and_upload_folder.return_value = -1
+
         # Activate authorization_header()
         self.mock_client.config.credentials.authorization_header.return_value = ("Bearer", "123")
         # Set project
