@@ -300,8 +300,8 @@ class TestTimeSeriesIO:
             client.time_series.aggregate_count.return_value = len(some_timeseries_data)
             client.lookup.data_sets.external_id.return_value = "test_data_set"
             client.lookup.data_sets.id.return_value = 1234
-            client.lookup.assets.external_id.return_value = ["test_hierarchy"]
-            client.lookup.assets.id.return_value = [123]
+            client.lookup.assets.external_id.return_value = "test_hierarchy"
+            client.lookup.assets.id.return_value = 123
 
             io = TimeSeriesIO(client)
 
@@ -328,3 +328,5 @@ class TestTimeSeriesIO:
             uploaded_ts = []
             for call in respx_mock.calls:
                 uploaded_ts.extend(json.loads(call.request.content)["items"])
+
+            assert uploaded_ts == some_timeseries_data.as_write().dump()

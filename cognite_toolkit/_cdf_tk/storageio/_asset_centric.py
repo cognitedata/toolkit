@@ -276,8 +276,8 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
     UPLOAD_ENDPOINT = "/files"
 
     def as_id(self, item: dict[str, JsonVal] | object) -> int:
-        if isinstance(item, FileMetadata | FileMetadataWrite) and item.id is not None:  # type: ignore[union-attr]
-            return item.id  # type: ignore[union-attr]
+        if isinstance(item, FileMetadata) and item.id is not None:
+            return item.id
         return super().as_id(item)
 
     def _get_loader(self) -> FileMetadataCRUD:
@@ -364,8 +364,8 @@ class TimeSeriesIO(BaseAssetCentricIO[str, TimeSeriesWrite, TimeSeries, TimeSeri
     UPLOAD_ENDPOINT = "/timeseries"
 
     def as_id(self, item: dict[str, JsonVal] | object) -> int:
-        if isinstance(item, TimeSeries | TimeSeriesWrite) and item.id is not None:  # type: ignore[union-attr]
-            return item.id  # type: ignore[union-attr]
+        if isinstance(item, TimeSeries) and item.id is not None:
+            return item.id
         return super().as_id(item)
 
     def _get_loader(self) -> TimeSeriesCRUD:
