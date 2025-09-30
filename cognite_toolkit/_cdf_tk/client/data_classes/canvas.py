@@ -1,7 +1,8 @@
+import sys
 from abc import ABC
 from collections.abc import Sequence
 from datetime import datetime, timezone
-from typing import Any, Self
+from typing import Any
 from uuid import uuid4
 
 from cognite.client import CogniteClient
@@ -30,6 +31,12 @@ from cognite.client.data_classes.data_modeling.instances import (
 )
 
 from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
+
 
 CANVAS_INSTANCE_SPACE = "IndustrialCanvasInstanceSpace"
 SOLUTION_TAG_SPACE = "SolutionTagsInstanceSpace"
