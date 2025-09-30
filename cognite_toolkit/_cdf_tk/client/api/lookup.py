@@ -7,7 +7,9 @@ from cognite.client.data_classes.capabilities import (
     AssetsAcl,
     Capability,
     DataSetsAcl,
+    EventsAcl,
     ExtractionPipelinesAcl,
+    FilesAcl,
     FunctionsAcl,
     LocationFiltersAcl,
     SecurityCategoriesAcl,
@@ -230,9 +232,9 @@ class FileMetadataLookUpAPI(LookUpAPI):
         }
 
     def _read_acl(self) -> Capability:
-        return TimeSeriesAcl(
-            [TimeSeriesAcl.Action.Read],
-            scope=TimeSeriesAcl.Scope.All(),
+        return FilesAcl(
+            [FilesAcl.Action.Read],
+            scope=FilesAcl.Scope.All(),
         )
 
 
@@ -254,9 +256,9 @@ class EventLookUpAPI(LookUpAPI):
         }
 
     def _read_acl(self) -> Capability:
-        return TimeSeriesAcl(
-            [TimeSeriesAcl.Action.Read],
-            scope=TimeSeriesAcl.Scope.All(),
+        return EventsAcl(
+            [EventsAcl.Action.Read],
+            scope=EventsAcl.Scope.All(),
         )
 
 
