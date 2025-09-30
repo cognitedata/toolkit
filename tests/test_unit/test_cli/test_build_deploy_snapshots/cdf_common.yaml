@@ -43,10 +43,14 @@ ExtractionPipelineConfig:
     \        space: cdf_cdm\n        externalId: CogniteEquipment\n        version:\
     \ v1\n        directRelationProperty: files\n"
   externalId: ctx_files_direct_relation_write
+FileMetadata:
+- data_set_id: 316416785021717804
+  external_id: contextualization_connection_writer
+  name: Annotation_to_Direct_Relations_Writer.zip
+  overwrite: true
 Function:
 - description: Writes all approved Annotations as direct relations connections.
   externalId: contextualization_connection_writer
-  fileId: -1
   functionPath: handler.py
   metadata:
     cognite-toolkit-hash: /=d32c50d9;handler.py=7a0c434e;requirements.txt=1d4815ec
