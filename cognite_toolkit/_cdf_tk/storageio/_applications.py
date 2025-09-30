@@ -1,9 +1,11 @@
 from collections.abc import Iterable
+from dataclasses import dataclass
 from pathlib import Path
 
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList, ChartWrite, ChartWriteList
+from cognite_toolkit._cdf_tk.client.data_classes.canvas import IndustrialCanvasList, IndustrialCanvasApplyList, IndustrialCanvas, IndustrialCanvasApply
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal, T_Selector
@@ -79,4 +81,50 @@ class ChartIO(StorageIO[str, ChartSelector, ChartWriteList, ChartList]):
 
     def ensure_configurations(self, selector: T_Selector, console: Console | None = None) -> None:
         # Charts do not have any configurations to ensure.
+        return None
+
+@dataclass(frozen=True)
+class CanvasSelector:
+    ...
+
+class CanvasIO(StorageIO[str, CanvasSelector, IndustrialCanvasApplyList, IndustrialCanvasList]):
+    FOLDER_NAME = "cdf_application_data"
+    KIND = "IndustrialCanvases"
+    DISPLAY_NAME = "CDF Industrial Canvases"
+    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
+    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
+    SUPPORTED_READ_FORMATS = frozenset({".ndjson"})
+    CHUNK_SIZE = 10
+
+    def as_id(self, item: dict[str, JsonVal] | object) -> str:
+        if isinstance(item, dict) and isinstance(item.get("externalId"), str):
+            # MyPy checked above.
+            return item["externalId"]  # type: ignore[return-value]
+        if isinstance(item, IndustrialCanvas | IndustrialCanvasApply):
+            return item.as_id()
+        raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
+
+    def stream_data(self, selector: CanvasSelector, limit: int | None = None) -> Iterable[IndustrialCanvasList]:
+        raise ToolkitNotImplementedError("Streaming canvases is not implemented yet.")
+
+    def count(self, selector: CanvasSelector) -> int | None:
+        raise ToolkitNotImplementedError("Counting canvases is not implemented yet.")
+
+    def data_to_json_chunk(self, data_chunk: IndustrialCanvasList) -> list[dict[str, JsonVal]]:
+        # Need to do lookup to get external IDs for all asset-centric resources.
+        raise ToolkitNotImplementedError()
+
+    def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> IndustrialCanvasApplyList:
+        # Need to do lookup to get external IDs for all asset-centric resources.
+        raise ToolkitNotImplementedError()
+
+    def configurations(self, selector: CanvasSelector) -> Iterable[StorageIOConfig]:
+        # Canvases does not have any configurations for its data.
+        return []
+
+    def load_selector(self, datafile: Path) -> CanvasSelector:
+        raise ToolkitNotImplementedError("Loading canvases is not implemented yet.")
+
+    def ensure_configurations(self, selector: T_Selector, console: Console | None = None) -> None:
+        # Canvases do not have any configurations to ensure.
         return None

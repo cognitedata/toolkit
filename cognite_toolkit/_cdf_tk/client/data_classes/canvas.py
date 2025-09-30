@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
+from cognite.client.data_classes._base import CogniteResourceList, WriteableCogniteResourceList
 from cognite.client.data_classes.data_modeling import (
     DirectRelationReference,
     EdgeId,
@@ -1027,3 +1028,14 @@ class IndustrialCanvas:
             ],
             solution_tags=[solution_tag.as_write() for solution_tag in self.solution_tags],
         )
+
+
+class IndustrialCanvasApplyList(CogniteResourceList):
+    _RESOURCE = IndustrialCanvasApply
+
+
+class IndustrialCanvasList(WriteableCogniteResourceList[IndustrialCanvasApply, IndustrialCanvas]):
+    _RESOURCE = IndustrialCanvas
+
+    def as_write(self) -> CogniteResourceList[IndustrialCanvasApply]:
+        return IndustrialCanvasApplyList([item.as_write() for item in self])
