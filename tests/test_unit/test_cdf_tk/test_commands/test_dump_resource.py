@@ -201,7 +201,7 @@ class TestDataModelFinder:
             assert len(choices) == 2
             return choices[0].value
 
-        def select_version_of_model(choices: list[Choice]) -> dm.DataModelId:
+        def select_version_of_model(choices: list[Choice]) -> str:
             assert len(choices) == 2
 
             return choices[0].value
