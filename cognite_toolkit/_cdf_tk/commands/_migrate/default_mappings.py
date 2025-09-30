@@ -7,7 +7,9 @@ from cognite_toolkit._cdf_tk.client.data_classes.migration import ResourceViewMa
 ASSET_ID = "cdf_asset_mapping"
 EVENT_ID = "cdf_event_mapping"
 TIME_SERIES_ID = "cdf_time_series_mapping"
+TIME_SERIES_EXTRACTOR_ID = "cdf_time_series_extractor_mapping"
 FILE_METADATA_ID = "cdf_file_metadata_mapping"
+FILE_METADATA_EXTRACTOR_ID = "cdf_file_metadata_extractor_mapping"
 FILE_ANNOTATIONS_ID = "cdf_file_annotations_mapping"
 ASSET_ANNOTATIONS_ID = "cdf_asset_annotations_mapping"
 
@@ -15,6 +17,27 @@ ASSET_ANNOTATIONS_ID = "cdf_asset_annotations_mapping"
 @lru_cache(maxsize=1)
 def create_default_mappings() -> list[ResourceViewMappingApply]:
     """Return the default mappings for migration."""
+    ts_property_mapping = {
+        "name": "name",
+        "description": "description",
+        "isStep": "isStep",
+        "isString": "type",
+        "legacyName": "alias",
+        "unit": "sourceUnit",
+        "unitExternalId": "unit",
+        "source": "source",
+    }
+    file_property_mapping = {
+        "name": "name",
+        "description": "description",
+        "source": "source",
+        "labels": "tags",
+        "mimeType": "mimeType",
+        "directory": "directory",
+        "sourceCreatedTime": "sourceCreatedTime",
+        "sourceUpdatedTime": "sourceUpdatedTime",
+    }
+
     return [
         ResourceViewMappingApply(
             external_id=ASSET_ID,
@@ -43,31 +66,25 @@ def create_default_mappings() -> list[ResourceViewMappingApply]:
             external_id=TIME_SERIES_ID,
             resource_type="timeseries",
             view_id=ViewId("cdf_cdm", "CogniteTimeSeries", "v1"),
-            property_mapping={
-                "name": "name",
-                "description": "description",
-                "isStep": "isStep",
-                "isString": "type",
-                "legacyName": "alias",
-                "unit": "sourceUnit",
-                "unitExternalId": "unit",
-                "source": "source",
-            },
+            property_mapping=ts_property_mapping,
+        ),
+        ResourceViewMappingApply(
+            external_id=TIME_SERIES_EXTRACTOR_ID,
+            resource_type="timeseries",
+            view_id=ViewId("cdf_extraction_extensions", "CogniteExtractorTimeSeries", "v1"),
+            property_mapping={**ts_property_mapping, "metadata": "extractedData"},
         ),
         ResourceViewMappingApply(
             external_id=FILE_METADATA_ID,
             resource_type="file",
             view_id=ViewId("cdf_cdm", "CogniteFile", "v1"),
-            property_mapping={
-                "name": "name",
-                "description": "description",
-                "source": "source",
-                "labels": "tags",
-                "mimeType": "mimeType",
-                "directory": "directory",
-                "sourceCreatedTime": "sourceCreatedTime",
-                "sourceUpdatedTime": "sourceUpdatedTime",
-            },
+            property_mapping=file_property_mapping,
+        ),
+        ResourceViewMappingApply(
+            external_id=FILE_METADATA_EXTRACTOR_ID,
+            resource_type="file",
+            view_id=ViewId("cdf_extraction_extensions", "CogniteExtractorFile", "v1"),
+            property_mapping={**file_property_mapping, "metadata": "extractedData"},
         ),
         ResourceViewMappingApply(
             external_id=ASSET_ANNOTATIONS_ID,
