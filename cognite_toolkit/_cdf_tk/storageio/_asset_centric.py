@@ -49,7 +49,7 @@ from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
 from cognite_toolkit._cdf_tk.utils.file import find_files_with_suffix_and_prefix
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, SimpleBodyRequest
-from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal, T_Selector, T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal, T_WritableCogniteResourceList
 
 from ._base import StorageIOConfig, TableStorageIO
 from ._selectors import AssetCentricFileSelector, AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
@@ -111,17 +111,32 @@ class BaseAssetCentricIO(
             list(self._downloaded_labels_by_selector[selector]), LabelCRUD.create_loader(self.client)
         )
 
-    def _collect_dependencies(self, resources: AssetList | FileMetadataList, selector: AssetCentricSelector) -> None:
+    def _get_hierarchy_dataset_pair(self, selector: AssetCentricSelector) -> tuple[list[str] | None, list[str] | None]:
+        asset_subtree_external_ids: list[str] | None = None
+        data_set_external_ids: list[str] | None = None
+        if isinstance(selector, DataSetSelector):
+            data_set_external_ids = [selector.data_set_external_id]
+        elif isinstance(selector, AssetSubtreeSelector):
+            asset_subtree_external_ids = [selector.hierarchy]
+        else:
+            # This selector is for uploads, not for downloading from CDF.
+            raise ToolkitNotImplementedError(f"Selector type {type(selector)} not supported for {type(self).__name__}.")
+        return asset_subtree_external_ids, data_set_external_ids
+
+    def _collect_dependencies(
+        self, resources: AssetList | FileMetadataList | TimeSeriesList, selector: AssetCentricSelector
+    ) -> None:
         for resource in resources:
             if resource.data_set_id:
                 self._downloaded_data_sets_by_selector[selector].add(resource.data_set_id)
-            for label in resource.labels or []:
-                if isinstance(label, str):
-                    self._downloaded_labels_by_selector[selector].add(label)
-                elif isinstance(label, Label | LabelDefinition) and label.external_id:
-                    self._downloaded_labels_by_selector[selector].add(label.external_id)
-                elif isinstance(label, dict) and "externalId" in label:
-                    self._downloaded_labels_by_selector[selector].add(label["externalId"])
+            if isinstance(resource, Asset | FileMetadata):
+                for label in resource.labels or []:
+                    if isinstance(label, str):
+                        self._downloaded_labels_by_selector[selector].add(label)
+                    elif isinstance(label, Label | LabelDefinition) and label.external_id:
+                        self._downloaded_labels_by_selector[selector].add(label.external_id)
+                    elif isinstance(label, dict) and "externalId" in label:
+                        self._downloaded_labels_by_selector[selector].add(label["externalId"])
 
     @classmethod
     def _configurations(
@@ -234,15 +249,7 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
         return asset_schema + metadata_schema
 
     def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[AssetList]:
-        asset_subtree_external_ids: list[str] | None = None
-        data_set_external_ids: list[str] | None = None
-        if isinstance(selector, DataSetSelector):
-            data_set_external_ids = [selector.data_set_external_id]
-        elif isinstance(selector, AssetSubtreeSelector):
-            asset_subtree_external_ids = [selector.hierarchy]
-        else:
-            # This selector is for uploads, not for downloading from CDF.
-            raise ToolkitNotImplementedError(f"Selector type {type(selector)} not supported for AssetIO.")
+        asset_subtree_external_ids, data_set_external_ids = self._get_hierarchy_dataset_pair(selector)
         for asset_list in self.client.assets(
             chunk_size=self.CHUNK_SIZE,
             limit=limit,
@@ -312,15 +319,7 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
         return file_schema + metadata_schema
 
     def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[FileMetadataList]:
-        asset_subtree_external_ids: list[str] | None = None
-        data_set_external_ids: list[str] | None = None
-        if isinstance(selector, DataSetSelector):
-            data_set_external_ids = [selector.data_set_external_id]
-        elif isinstance(selector, AssetSubtreeSelector):
-            asset_subtree_external_ids = [selector.hierarchy]
-        else:
-            # This selector is for uploads, not for downloading from CDF.
-            raise ToolkitNotImplementedError(f"Selector type {type(selector)} not supported for FileMetadataIO.")
+        asset_subtree_external_ids, data_set_external_ids = self._get_hierarchy_dataset_pair(selector)
         for file_list in self.client.files(
             chunk_size=self.CHUNK_SIZE,
             limit=limit,
@@ -378,8 +377,16 @@ class TimeSeriesIO(BaseAssetCentricIO[str, TimeSeriesWrite, TimeSeries, TimeSeri
     def retrieve(self, ids: Sequence[int]) -> TimeSeriesList:
         return self.client.time_series.retrieve_multiple(ids=ids)
 
-    def stream_data(self, selector: T_Selector, limit: int | None = None) -> Iterable[TimeSeriesList]:
-        raise NotImplementedError()
+    def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[TimeSeriesList]:
+        asset_subtree_external_ids, data_set_external_ids = self._get_hierarchy_dataset_pair(selector)
+        for ts_list in self.client.time_series(
+            chunk_size=self.CHUNK_SIZE,
+            limit=limit,
+            asset_subtree_external_ids=asset_subtree_external_ids,
+            data_set_external_ids=data_set_external_ids,
+        ):
+            self._collect_dependencies(ts_list, selector)
+            yield ts_list
 
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> TimeSeriesWriteList:
         return self._loader.list_write_cls([self._loader.load_resource(item) for item in data_chunk])
@@ -388,6 +395,8 @@ class TimeSeriesIO(BaseAssetCentricIO[str, TimeSeriesWrite, TimeSeries, TimeSeri
         data_set_ids: list[int] = []
         if isinstance(selector, DataSetSelector):
             data_set_ids.append(self.client.lookup.data_sets.id(selector.data_set_external_id))
+        elif isinstance(selector, AssetSubtreeSelector):
+            raise ToolkitNotImplementedError(f"Selector type {type(selector)} not supported for {type(self).__name__}.")
 
         if data_set_ids:
             metadata_keys = metadata_key_counts(
