@@ -10,15 +10,18 @@ from cognite.client.data_classes import (
     CountAggregate,
     DataSet,
     DataSetList,
+    FileMetadata,
     FileMetadataList,
     LabelDefinition,
     LabelDefinitionList,
+    TimeSeries,
+    TimeSeriesList,
 )
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
-from cognite_toolkit._cdf_tk.storageio import AssetIO, FileMetadataIO
+from cognite_toolkit._cdf_tk.storageio import AssetIO, FileMetadataIO, TimeSeriesIO
 from cognite_toolkit._cdf_tk.storageio._selectors import AssetSubtreeSelector, DataSetSelector
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
@@ -167,8 +170,6 @@ class TestAssetIO:
 @pytest.fixture()
 def some_filemetadata_data() -> FileMetadataList:
     """Fixture to provide a sample FileMetadataList for testing."""
-    from cognite.client.data_classes import FileMetadata
-
     return FileMetadataList(
         [
             FileMetadata(
@@ -246,3 +247,84 @@ class TestFileMetadataIO:
                 uploaded_files.append(json.loads(call.request.content))
 
             assert uploaded_files == some_filemetadata_data.as_write().dump()
+
+
+@pytest.fixture()
+def some_timeseries_data() -> TimeSeriesList:
+    """Fixture to provide a sample TimeSeriesList for testing."""
+    return TimeSeriesList(
+        [
+            TimeSeries(
+                external_id=f"ts_{i}",
+                name=f"Time Series {i}",
+                description=f"Description for time series {i}",
+                asset_id=123,
+                data_set_id=1234,
+                unit="unit",
+                is_string=False,
+                is_step=False,
+            )
+            for i in range(50)
+        ]
+    )
+
+
+class TestTimeSeriesIO:
+    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
+    def test_download_upload(
+        self,
+        toolkit_config: ToolkitClientConfig,
+        some_timeseries_data: TimeSeriesList,
+        respx_mock: respx.MockRouter,
+    ) -> None:
+        config = toolkit_config
+        ts_by_external_id = {ts.external_id: ts for ts in some_timeseries_data if ts.external_id is not None}
+        selector = DataSetSelector(data_set_external_id="DataSetSelector")
+
+        def create_callback(request: httpx.Request) -> httpx.Response:
+            payload = json.loads(request.content)
+            assert "items" in payload
+            items = payload["items"]
+            assert isinstance(items, list)
+            return httpx.Response(
+                status_code=200,
+                json={
+                    "items": [ts_by_external_id[item["externalId"]].dump() for item in items if "externalId" in item]
+                },
+            )
+
+        respx_mock.post(config.create_api_url("/timeseries")).mock(side_effect=create_callback)
+        with monkeypatch_toolkit_client() as client:
+            client.config = config
+            client.time_series.return_value = chunker(some_timeseries_data, 10)
+            client.time_series.aggregate_count.return_value = len(some_timeseries_data)
+            client.lookup.data_sets.external_id.return_value = "test_data_set"
+            client.lookup.data_sets.id.return_value = 1234
+            client.lookup.assets.external_id.return_value = ["test_hierarchy"]
+            client.lookup.assets.id.return_value = [123]
+
+            io = TimeSeriesIO(client)
+
+            assert io.count(selector) == 50
+
+            source = io.stream_data(selector)
+            json_chunks: list[list[dict[str, JsonVal]]] = []
+            for chunk in source:
+                json_chunk = io.data_to_json_chunk(chunk)
+                assert isinstance(json_chunk, list)
+                assert len(json_chunk) == 10
+                for item in json_chunk:
+                    assert isinstance(item, dict)
+                    assert "dataSetExternalId" in item
+                    assert item["dataSetExternalId"] == "test_data_set"
+                json_chunks.append(json_chunk)
+
+            with HTTPClient(config) as upload_client:
+                data_chunks = (io.json_chunk_to_data(chunk) for chunk in json_chunks)
+                for data_chunk in data_chunks:
+                    io.upload_items(data_chunk, upload_client, selector)
+
+            assert respx_mock.calls.call_count == 5  # 50 rows in chunks of 10
+            uploaded_ts = []
+            for call in respx_mock.calls:
+                uploaded_ts.extend(json.loads(call.request.content)["items"])
