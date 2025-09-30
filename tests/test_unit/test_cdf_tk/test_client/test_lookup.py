@@ -1,28 +1,32 @@
 import json
+from collections.abc import Sequence
 
 import pytest
 import requests
 import responses
+from _pytest.mark import ParameterSet
 from cognite.client.data_classes import Event, FileMetadata
 from cognite.client.data_classes._base import CogniteResource
+from cognite.client.data_classes.capabilities import Capability, EventsAcl, FilesAcl
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
 from tests.test_unit.utils import FakeCogniteResourceGenerator
 
 
 class TestLookup:
+    CASES: Sequence[ParameterSet] = [
+        pytest.param("events", Event, EventsAcl, id="events"),
+        pytest.param("files", FileMetadata, FilesAcl, id="files"),
+    ]
+
     @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
-    @pytest.mark.parametrize(
-        "endpoint,resource_cls",
-        [
-            pytest.param("events", Event, id="events"),
-            pytest.param("files", FileMetadata, id="files"),
-        ],
-    )
+    @pytest.mark.parametrize("endpoint,resource_cls,cap_cls", CASES)
     def test_lookup_id(
         self,
         endpoint: str,
         resource_cls: type[CogniteResource],
+        cap_cls: type[Capability],
         toolkit_config: ToolkitClientConfig,
         rsps: responses.RequestsMock,
     ) -> None:
@@ -41,6 +45,64 @@ class TestLookup:
 
         single_id = lookup_api.id(external_id=resources[0].external_id)
         assert single_id == resources[0].id
+
+    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
+    @pytest.mark.parametrize("endpoint,resource_cls,cap_cls", CASES)
+    def test_lookup_external_id(
+        self,
+        endpoint: str,
+        resource_cls: type[CogniteResource],
+        cap_cls: type[Capability],
+        toolkit_config: ToolkitClientConfig,
+        rsps: responses.RequestsMock,
+    ) -> None:
+        resources = self._create_resources(resource_cls, N=5)
+        client = self._create_client_mock(endpoint, resources, rsps, toolkit_config)
+        lookup_api = getattr(client.lookup, endpoint)
+
+        # We are testing both orders as the lookup caches the results.
+        single_id = lookup_api.id(external_id=resources[0].external_id)
+        assert single_id == resources[0].id
+
+        multiple_ids = lookup_api.id(external_id=[resource.external_id for resource in resources])
+        assert multiple_ids == [resource.id for resource in resources]
+
+        single_external_di = lookup_api.external_id(id=resources[0].id)
+        assert single_external_di == resources[0].external_id
+
+        multiple_external_ids = lookup_api.external_id(id=[resource.id for resource in resources])
+        assert multiple_external_ids == [resource.external_id for resource in resources]
+
+    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
+    @pytest.mark.parametrize("endpoint,resource_cls,cap_cls", CASES)
+    def test_missing_access(
+        self,
+        endpoint: str,
+        resource_cls: type[CogniteResource],
+        cap_cls: type[Capability],
+        toolkit_config: ToolkitClientConfig,
+        rsps: responses.RequestsMock,
+    ) -> None:
+        rsps.post(
+            toolkit_config.create_api_url(f"{endpoint}/byids"),
+            status=403,
+        )
+        rsps.add(
+            responses.GET,
+            f"{toolkit_config.base_url}/api/v1/token/inspect",
+            json={
+                "subject": "123",
+                "projects": [],
+                "capabilities": [],
+            },
+        )
+        client = ToolkitClient(config=toolkit_config)
+        lookup_api = getattr(client.lookup, endpoint)
+
+        with pytest.raises(AuthorizationError) as exc_info:
+            lookup_api.id(external_id="non-existing")
+
+        assert cap_cls.__name__ in str(exc_info.value)
 
     @staticmethod
     def _create_resources(resource_cls: type[CogniteResource], N: int) -> list[CogniteResource]:
