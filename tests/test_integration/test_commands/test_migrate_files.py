@@ -17,7 +17,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.adapter import (
 )
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
-from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import _FILE_METADATA_ID
+from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import FILE_METADATA_ID
 from cognite_toolkit._cdf_tk.storageio import InstanceIO
 
 
@@ -118,7 +118,7 @@ class TestMigrateFilesCommand:
         with input_file.open("w", encoding="utf-8") as f:
             f.write(
                 "id,space,externalId,ingestionView\n"
-                + "\n".join(f"{ts.id},{space},{ts.external_id},{_FILE_METADATA_ID}" for ts in three_files_with_content)
+                + "\n".join(f"{ts.id},{space},{ts.external_id},{FILE_METADATA_ID}" for ts in three_files_with_content)
                 + "\n"
             )
 

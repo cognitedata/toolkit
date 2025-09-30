@@ -4,10 +4,10 @@ from cognite.client.data_classes.data_modeling import ViewId
 
 from cognite_toolkit._cdf_tk.client.data_classes.migration import ResourceViewMappingApply
 
-_ASSET_ID = "cdf_asset_mapping"
-_EVENT_ID = "cdf_event_mapping"
-_TIME_SERIES_ID = "cdf_time_series_mapping"
-_FILE_METADATA_ID = "cdf_file_metadata_mapping"
+ASSET_ID = "cdf_asset_mapping"
+EVENT_ID = "cdf_event_mapping"
+TIME_SERIES_ID = "cdf_time_series_mapping"
+FILE_METADATA_ID = "cdf_file_metadata_mapping"
 FILE_ANNOTATIONS_ID = "cdf_file_annotations_mapping"
 ASSET_ANNOTATIONS_ID = "cdf_asset_annotations_mapping"
 
@@ -17,7 +17,7 @@ def create_default_mappings() -> list[ResourceViewMappingApply]:
     """Return the default mappings for migration."""
     return [
         ResourceViewMappingApply(
-            external_id=_ASSET_ID,
+            external_id=ASSET_ID,
             resource_type="asset",
             view_id=ViewId("cdf_cdm", "CogniteAsset", "v1"),
             property_mapping={
@@ -28,7 +28,7 @@ def create_default_mappings() -> list[ResourceViewMappingApply]:
             },
         ),
         ResourceViewMappingApply(
-            external_id=_EVENT_ID,
+            external_id=EVENT_ID,
             resource_type="event",
             view_id=ViewId("cdf_cdm", "CogniteActivity", "v1"),
             property_mapping={
@@ -40,7 +40,7 @@ def create_default_mappings() -> list[ResourceViewMappingApply]:
             },
         ),
         ResourceViewMappingApply(
-            external_id=_TIME_SERIES_ID,
+            external_id=TIME_SERIES_ID,
             resource_type="timeseries",
             view_id=ViewId("cdf_cdm", "CogniteTimeSeries", "v1"),
             property_mapping={
@@ -55,7 +55,7 @@ def create_default_mappings() -> list[ResourceViewMappingApply]:
             },
         ),
         ResourceViewMappingApply(
-            external_id=_FILE_METADATA_ID,
+            external_id=FILE_METADATA_ID,
             resource_type="file",
             view_id=ViewId("cdf_cdm", "CogniteFile", "v1"),
             property_mapping={
