@@ -1,24 +1,27 @@
+import json
 from pathlib import Path
 
+import httpx
 import pytest
+import respx
 from cognite.client.data_classes import (
     Asset,
     AssetList,
-    AssetWriteList,
     CountAggregate,
     DataSet,
     DataSetList,
     FileMetadataList,
-    FileMetadataWriteList,
     LabelDefinition,
     LabelDefinitionList,
 )
 
+from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
 from cognite_toolkit._cdf_tk.storageio import AssetIO, FileMetadataIO
 from cognite_toolkit._cdf_tk.storageio._selectors import AssetSubtreeSelector, DataSetSelector
 from cognite_toolkit._cdf_tk.utils.collection import chunker
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 
@@ -28,6 +31,7 @@ def some_asset_data() -> AssetList:
     return AssetList(
         [
             Asset(
+                id=1000 + i,
                 external_id=f"asset_{i}",
                 name=f"Asset {i}",
                 description=f"Description for asset {i}",
@@ -42,9 +46,29 @@ def some_asset_data() -> AssetList:
 
 
 class TestAssetIO:
-    def test_download_upload(self, some_asset_data: AssetList) -> None:
+    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
+    def test_download_upload(
+        self, toolkit_config: ToolkitClientConfig, some_asset_data: AssetList, respx_mock: respx.MockRouter
+    ) -> None:
+        config = toolkit_config
+        asset_by_external_id = {asset.external_id: asset for asset in some_asset_data if asset.external_id is not None}
         selector = AssetSubtreeSelector(hierarchy="test_hierarchy")
+
+        def create_callback(request: httpx.Request) -> httpx.Response:
+            payload = json.loads(request.content)
+            assert "items" in payload
+            items = payload["items"]
+            assert isinstance(items, list)
+            return httpx.Response(
+                status_code=200,
+                json={
+                    "items": [asset_by_external_id[item["externalId"]].dump() for item in items if "externalId" in item]
+                },
+            )
+
+        respx_mock.post(config.create_api_url("/assets")).mock(side_effect=create_callback)
         with monkeypatch_toolkit_client() as client:
+            client.config = config
             client.assets.return_value = chunker(some_asset_data, 10)
             client.assets.aggregate_count.return_value = 100
             client.lookup.data_sets.external_id.return_value = "test_data_set"
@@ -66,20 +90,41 @@ class TestAssetIO:
                     assert item["dataSetExternalId"] == "test_data_set"
                 json_chunks.append(json_chunk)
 
-            data_chunks = (io.json_chunk_to_data(chunk) for chunk in json_chunks)
-            for data_chunk in data_chunks:
-                io.upload_items(data_chunk, selector)
+            with HTTPClient(config) as upload_client:
+                data_chunks = (io.json_chunk_to_data(chunk) for chunk in json_chunks)
+                for data_chunk in data_chunks:
+                    io.upload_items(data_chunk, upload_client, selector)
 
-            assert client.assets.upsert.call_count == 10
-            uploaded_assets = AssetWriteList([])
-            for call in client.assets.upsert.call_args_list:
-                uploaded_assets.extend(call[0][0])
+            assert respx_mock.calls.call_count == 10  # 100 rows in chunks of 10
+            uploaded_assets = []
+            for call in respx_mock.calls:
+                uploaded_assets.extend(json.loads(call.request.content)["items"])
 
-            assert uploaded_assets.dump() == some_asset_data.as_write().dump()
+            assert uploaded_assets == some_asset_data.as_write().dump()
 
-    def test_download_upload_command(self, some_asset_data: AssetList, tmp_path: Path) -> None:
+    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
+    def test_download_upload_command(
+        self,
+        some_asset_data: AssetList,
+        tmp_path: Path,
+        toolkit_config: ToolkitClientConfig,
+        respx_mock: respx.MockRouter,
+    ) -> None:
+        config = toolkit_config
+
+        def asset_create_callback(request: httpx.Request) -> httpx.Response:
+            payload = json.loads(request.content)
+            assert "items" in payload
+            items = payload["items"]
+            assert isinstance(items, list)
+            assert items == [asset.as_write().dump() for asset in some_asset_data]
+            return httpx.Response(status_code=200, json={"items": some_asset_data.dump()})
+
+        respx_mock.post(config.create_api_url("/assets")).mock(side_effect=asset_create_callback)
+
         selector = AssetSubtreeSelector(hierarchy="test_hierarchy")
         with monkeypatch_toolkit_client() as client:
+            client.config = config
             client.assets.return_value = [some_asset_data]
             client.assets.aggregate_count.return_value = 100
             client.lookup.data_sets.external_id.return_value = "test_data_set"
@@ -116,12 +161,7 @@ class TestAssetIO:
                 verbose=False,
             )
 
-            assert client.assets.upsert.call_count == 1
-            args, _ = client.assets.upsert.call_args
-            assert len(args) == 1
-            uploaded_assets = args[0]
-            assert isinstance(uploaded_assets, AssetWriteList)
-            assert [asset.dump() for asset in uploaded_assets] == [asset.as_write().dump() for asset in some_asset_data]
+            assert len(respx_mock.calls) == 1
 
 
 @pytest.fixture()
@@ -146,9 +186,31 @@ def some_filemetadata_data() -> FileMetadataList:
 
 
 class TestFileMetadataIO:
-    def test_download_upload(self, some_filemetadata_data: FileMetadataList) -> None:
+    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
+    def test_download_upload(
+        self,
+        toolkit_config: ToolkitClientConfig,
+        some_filemetadata_data: FileMetadataList,
+        respx_mock: respx.MockRouter,
+    ) -> None:
+        config = toolkit_config
+        file_by_external_id = {
+            file.external_id: file for file in some_filemetadata_data if file.external_id is not None
+        }
+
+        def create_callback(request: httpx.Request) -> httpx.Response:
+            payload = json.loads(request.content)
+            assert "externalId" in payload
+            return httpx.Response(
+                status_code=200,
+                json={"items": [file_by_external_id[payload["externalId"]].dump()]},
+            )
+
+        respx_mock.post(config.create_api_url("/files")).mock(side_effect=create_callback)
         selector = DataSetSelector(data_set_external_id="DataSetSelector")
+
         with monkeypatch_toolkit_client() as client:
+            client.config = config
             client.files.return_value = chunker(some_filemetadata_data, 10)
             client.files.aggregate.return_value = [CountAggregate(50)]
             client.lookup.data_sets.external_id.return_value = "test_data_set"
@@ -172,13 +234,15 @@ class TestFileMetadataIO:
                     assert item["dataSetExternalId"] == "test_data_set"
                 json_chunks.append(json_chunk)
 
-            data_chunks = (io.json_chunk_to_data(chunk) for chunk in json_chunks)
-            for data_chunk in data_chunks:
-                io.upload_items(data_chunk, selector)
+            with HTTPClient(config) as upload_client:
+                data_chunks = (io.json_chunk_to_data(chunk) for chunk in json_chunks)
+                for data_chunk in data_chunks:
+                    io.upload_items(data_chunk, upload_client, selector)
 
-            assert client.files.create.call_count == len(some_filemetadata_data)
-            uploaded_files = FileMetadataWriteList([])
-            for call in client.files.create.call_args_list:
-                uploaded_files.append(call[0][0])
+            # /files only support creating one at a time.
+            assert respx_mock.calls.call_count == len(some_filemetadata_data)
+            uploaded_files = []
+            for call in respx_mock.calls:
+                uploaded_files.append(json.loads(call.request.content))
 
-            assert uploaded_files.dump() == some_filemetadata_data.as_write().dump()
+            assert uploaded_files == some_filemetadata_data.as_write().dump()
