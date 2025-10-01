@@ -29,12 +29,11 @@ def create_default_mappings() -> list[ResourceViewMappingApply]:
     }
     file_property_mapping = {
         "name": "name",
-        "description": "description",
         "source": "source",
         "labels": "tags",
         "mimeType": "mimeType",
         "directory": "directory",
-        "sourceCreatedTime": "sourceCreatedTime",
+        "sourceModifiedTime": "sourceCreatedTime",
         "sourceUpdatedTime": "sourceUpdatedTime",
     }
 
