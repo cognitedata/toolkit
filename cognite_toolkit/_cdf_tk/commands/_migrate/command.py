@@ -5,16 +5,25 @@ from pathlib import Path
 from rich.console import Console
 from rich.table import Table
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import DataMapper
-from cognite_toolkit._cdf_tk.exceptions import ToolkitFileExistsError
+from cognite_toolkit._cdf_tk.constants import DMS_INSTANCE_LIMIT_MARGIN
+from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitFileExistsError,
+    ToolkitMigrationError,
+    ToolkitValueError,
+)
 from cognite_toolkit._cdf_tk.storageio import StorageIO
 from cognite_toolkit._cdf_tk.storageio._base import T_CogniteResourceList, T_Selector, T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.fileio import Chunk, CSVWriter, NDJsonWriter, SchemaColumn, Uncompressed
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemIDMessage, SuccessItem
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.progress_tracker import AVAILABLE_STATUS, ProgressTracker, Status
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
+
+from .data_model import INSTANCE_SOURCE_VIEW_ID, MODEL_ID, RESOURCE_VIEW_MAPPING_VIEW_ID
 
 
 class MigrationCommand(ToolkitCommand):
@@ -40,6 +49,7 @@ class MigrationCommand(ToolkitCommand):
             raise ToolkitFileExistsError(
                 f"Log directory {log_dir} already exists. Please remove it or choose another directory."
             )
+        self.validate_migration_model_available(data.client)
         log_dir.mkdir(parents=True, exist_ok=False)
         mapper.prepare(selected)
 
@@ -47,6 +57,7 @@ class MigrationCommand(ToolkitCommand):
         total_items = data.count(selected)
         if total_items is not None:
             iteration_count = (total_items // data.CHUNK_SIZE) + (1 if total_items % data.CHUNK_SIZE > 0 else 0)
+            self.validate_available_capacity(data.client, total_items)
 
         console = Console()
         tracker = ProgressTracker[T_ID](self.Steps.list())
@@ -162,7 +173,7 @@ class MigrationCommand(ToolkitCommand):
             if dry_run:
                 results = [SuccessItem(200, target.as_id(item)) for item in data_chunk]
             else:
-                results = target.upload_items_force(data_chunk=data_chunk, http_client=write_client, selector=None)
+                results = target.upload_items(data_chunk=data_chunk, http_client=write_client, selector=None)
 
             issues: list[Chunk] = []
             for item in results:
@@ -178,3 +189,44 @@ class MigrationCommand(ToolkitCommand):
             return None
 
         return upload_items
+
+    @staticmethod
+    def validate_migration_model_available(client: ToolkitClient) -> None:
+        models = client.data_modeling.data_models.retrieve([MODEL_ID], inline_views=False)
+        if not models:
+            raise ToolkitMigrationError(
+                f"The migration data model {MODEL_ID!r} does not exist. "
+                "Please run the `cdf migrate prepare` command to deploy the migration data model."
+            )
+        elif len(models) > 1:
+            raise ToolkitMigrationError(
+                f"Multiple migration models {MODEL_ID!r}. "
+                "Please delete the duplicate models before proceeding with the migration."
+            )
+        model = models[0]
+        missing_views = {INSTANCE_SOURCE_VIEW_ID, RESOURCE_VIEW_MAPPING_VIEW_ID} - set(model.views or [])
+        if missing_views:
+            raise ToolkitMigrationError(
+                f"Invalid migration model. Missing views {humanize_collection(missing_views)}. "
+                f"Please run the `cdf migrate prepare` command to deploy the migration data model."
+            )
+
+    def validate_available_capacity(self, client: ToolkitClient, instance_count: int) -> None:
+        """Validate that the project has enough capacity to accommodate the migration."""
+
+        stats = client.data_modeling.statistics.project()
+
+        available_capacity = stats.instances.instances_limit - stats.instances.instances
+        available_capacity_after = available_capacity - instance_count
+
+        if available_capacity_after < DMS_INSTANCE_LIMIT_MARGIN:
+            raise ToolkitValueError(
+                "Cannot proceed with migration, not enough instance capacity available. Total capacity after migration"
+                f" would be {available_capacity_after:,} instances, which is less than the required margin of"
+                f" {DMS_INSTANCE_LIMIT_MARGIN:,} instances. Please increase the instance capacity in your CDF project"
+                f" or delete some existing instances before proceeding with the migration of {instance_count:,} assets."
+            )
+        total_instances = stats.instances.instances + instance_count
+        self.console(
+            f"Project has enough capacity for migration. Total instances after migration: {total_instances:,}."
+        )

@@ -195,9 +195,6 @@ class AssetCentricMigrationIOAdapter(
     def count(self, selector: AssetCentricSelector) -> int | None:
         return self.base.count(selector)
 
-    def upload_items(self, data_chunk: InstanceApplyList, selector: MigrationSelector) -> None:
-        self.instance.upload_items(data_chunk, selector)
-
     def data_to_json_chunk(self, data_chunk: AssetCentricMappingList) -> list[dict[str, JsonVal]]:
         return data_chunk.dump()
 
@@ -246,7 +243,7 @@ class FileMetaAdapter(
             id=id_,
         )
 
-    def upload_items_force(
+    def upload_items(
         self, data_chunk: InstanceApplyList, http_client: HTTPClient, selector: MigrationSelector | None = None
     ) -> Sequence[HTTPMessage]:
         """Upload items by first linking them using files/set-pending-instance-ids and then uploading the instances."""
@@ -269,5 +266,5 @@ class FileMetaAdapter(
             results.extend(batch_results)
         to_upload = [item for item in data_chunk if self.as_id(item) in successful_linked]
         if to_upload:
-            results.extend(list(super().upload_items_force(InstanceApplyList(to_upload), http_client, selector)))
+            results.extend(list(super().upload_items(InstanceApplyList(to_upload), http_client, selector)))
         return results
