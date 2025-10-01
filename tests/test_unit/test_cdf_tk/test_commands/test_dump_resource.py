@@ -138,6 +138,38 @@ class TestDumpTransformations:
         assert items == [loader.dump_resource(t) for t in three_transformations[1:]]
 
 
+@pytest.fixture()
+def three_data_models() -> dm.DataModelList[dm.ViewId]:
+    """Three data models in one space. The first two are different versions of the same model."""
+    default_args = dict(
+        is_global=False,
+        last_updated_time=1,
+        created_time=1,
+        description=None,
+        name=None,
+    )
+    return dm.DataModelList[dm.ViewId](
+        [
+            dm.DataModel[dm.ViewId](
+                "my_space", "my_model", "v1", views=[dm.ViewId("my_space", "firstView", "v1")], **default_args
+            ),
+            dm.DataModel[dm.ViewId](
+                "my_space",
+                "my_model",
+                "v2",
+                views=[
+                    dm.ViewId("my_space", "firstView", "v2"),
+                    dm.ViewId("my_space2", "secondView", "v2"),
+                ],
+                **default_args,
+            ),
+            dm.DataModel[dm.ViewId](
+                "my_space", "other_model", "v1", views=[dm.ViewId("my_space", "otherView", "v1")], **default_args
+            ),
+        ]
+    )
+
+
 class TestDataModelFinder:
     def test_select_data_model(self, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch) -> None:
         default_args = dict(
@@ -161,6 +193,34 @@ class TestDataModelFinder:
 
         assert result == selected
         assert finder.data_model.as_id() == selected
+
+    def test_select_data_model_multiple_versions(
+        self, three_data_models: dm.DataModelList[dm.ViewId], monkeypatch: MonkeyPatch
+    ) -> None:
+        def select_data_model(choices: list[Choice]) -> dm.DataModelId:
+            assert len(choices) == 2
+            return choices[0].value
+
+        def select_version_of_model(choices: list[Choice]) -> str:
+            assert len(choices) == 2
+
+            return choices[0].value
+
+        answers = [select_data_model, True, select_version_of_model]
+
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(DataModelFinder.__module__, monkeypatch, answers),
+        ):
+            # Last two are different models
+            client.data_modeling.data_models.list.return_value = three_data_models[1:]
+            # First two are different versions of the same model
+            client.data_modeling.data_models.retrieve.return_value = three_data_models[:2]
+
+            finder = DataModelFinder(client, None)
+            selected = finder._interactive_select()
+
+        assert selected == three_data_models[0].as_id()
 
 
 @pytest.fixture()
