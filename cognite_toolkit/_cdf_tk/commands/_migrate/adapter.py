@@ -36,11 +36,10 @@ from cognite_toolkit._cdf_tk.storageio import (
     FileMetadataIO,
     InstanceIO,
     InstanceSelector,
-    TableStorageIO,
+    StorageIO,
 )
 from cognite_toolkit._cdf_tk.storageio._base import StorageIOConfig, T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
-from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest, SuccessItem
 from cognite_toolkit._cdf_tk.utils.thread_safe_dict import ThreadSafeDict
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
@@ -105,7 +104,7 @@ class AssetCentricMappingList(
 
 class AssetCentricMigrationIOAdapter(
     Generic[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
-    TableStorageIO[int, MigrationSelector, InstanceApplyList, AssetCentricMappingList],
+    StorageIO[int, MigrationSelector, InstanceApplyList, AssetCentricMappingList],
 ):
     FOLDER_NAME = "migration"
     KIND = "AssetCentricMigration"
@@ -122,17 +121,12 @@ class AssetCentricMigrationIOAdapter(
         base: BaseAssetCentricIO[
             T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
         ],
-        instance: InstanceIO,
     ) -> None:
         super().__init__(client)
         self.base = base
-        self.instance = instance
         # Used to cache the mapping between instance IDs and asset-centric IDs.
         # This is used in the as_id method to track the same object as it is converted to an instance.
         self._id_by_instance_id = ThreadSafeDict[InstanceId, int]()
-
-    def get_schema(self, selector: MigrationSelector) -> list[SchemaColumn]:
-        raise ToolkitNotImplementedError("get_schema is not implemented for AssetCentricMigrationIOAdapter")
 
     @staticmethod
     def _get_id(item: dict[str, JsonVal]) -> int | None:
@@ -199,7 +193,7 @@ class AssetCentricMigrationIOAdapter(
         return data_chunk.dump()
 
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> InstanceApplyList:
-        return self.instance.json_chunk_to_data(data_chunk)
+        raise NotImplementedError()
 
     def load_selector(self, datafile: Path) -> MigrationSelector:
         raise ToolkitNotImplementedError("load_selector is not implemented for AssetCentricMigrationIOAdapter")
@@ -226,8 +220,8 @@ class FileMetaAdapter(
     files/set-pending-instance-ids.
     """
 
-    def __init__(self, client: ToolkitClient, instance: InstanceIO) -> None:
-        super().__init__(client, FileMetadataIO(client), instance)
+    def __init__(self, client: ToolkitClient) -> None:
+        super().__init__(client, FileMetadataIO(client))
 
     @staticmethod
     def as_pending_instance_id(item: InstanceApply) -> PendingInstanceId:
