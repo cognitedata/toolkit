@@ -2,6 +2,7 @@ from datetime import date
 from pathlib import Path
 from typing import Annotated, Any
 
+import questionary
 import typer
 
 from cognite_toolkit._cdf_tk.commands import (
@@ -13,10 +14,13 @@ from cognite_toolkit._cdf_tk.commands import (
 from cognite_toolkit._cdf_tk.commands._migrate import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.adapter import AssetCentricMigrationIOAdapter, MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
-from cognite_toolkit._cdf_tk.storageio import AssetIO, InstanceIO
+from cognite_toolkit._cdf_tk.storageio import AssetIO, AssetSubtreeSelector, InstanceIO
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.interactive_select import AssetInteractiveSelect
 
 TODAY = date.today()
+
+_DEFAULT_LOG_DIR = Path(f"migration_logs_{TODAY!s}")
 
 
 class MigrateApp(typer.Typer):
@@ -29,6 +33,7 @@ class MigrateApp(typer.Typer):
         self.command("timeseries")(self.timeseries)
         self.command("files")(self.files)
         self.command("canvas")(self.canvas)
+        self.command("hierarchy")(self.hierarchy)
 
     def main(self, ctx: typer.Context) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
@@ -93,7 +98,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
             ),
-        ] = Path(f"migration_logs_{TODAY!s}"),
+        ] = _DEFAULT_LOG_DIR,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -252,6 +257,67 @@ class MigrateApp(typer.Typer):
             lambda: cmd.migrate_canvas(
                 client,
                 external_ids=external_id,
+                dry_run=dry_run,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def hierarchy(
+        ctx: typer.Context,
+        root_asset_external_id: Annotated[
+            str | None,
+            typer.Argument(
+                help="The external ID of the root Asset of the hierarchy to migrate. If not provided, an interactive "
+                "selection will be performed to select the root Asset."
+            ),
+        ] = None,
+        log_dir: Annotated[
+            Path,
+            typer.Option(
+                "--log-dir",
+                "-l",
+                help="Path to the directory where logs will be stored.",
+            ),
+        ] = _DEFAULT_LOG_DIR,
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-d",
+                help="If set, the migration will not be executed, but only a report of what would be done is printed.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """Migrate an Asset hierarchy from Asset-Centric to data modeling in CDF.
+
+        This command migrates assets, timeseries, files, and events associated with the asset hierarchy.
+
+        """
+        client = EnvironmentVariables.create_from_environment().get_client()
+        if root_asset_external_id is None:
+            root_asset_external_id = AssetInteractiveSelect(client, "migrate").select_hierarchy()
+            log_dir = questionary.path(
+                message="Enter the directory where logs will be stored.", default=str(log_dir)
+            ).ask()
+            dry_run = questionary.confirm("Run in dry-run mode?", default=dry_run).ask()
+            verbose = questionary.confirm("Run in verbose mode?", default=verbose).ask()
+
+        cmd = MigrationCommand()
+        cmd.run(
+            lambda: cmd.migrate(
+                selected=AssetSubtreeSelector(hierarchy=root_asset_external_id),
+                data=AssetCentricMigrationIOAdapter(client, AssetIO(client), InstanceIO(client)),
+                mapper=AssetCentricMapper(client),
+                log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
             )
