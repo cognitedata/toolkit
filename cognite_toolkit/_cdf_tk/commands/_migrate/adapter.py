@@ -19,7 +19,7 @@ from cognite.client.data_classes._base import (
     T_WritableCogniteResource,
     T_WriteClass,
     WriteableCogniteResource,
-    WriteableCogniteResourceList,
+    WriteableCogniteResourceList, CogniteResourceList,
 )
 from cognite.client.data_classes.data_modeling import EdgeApply, EdgeId, InstanceApply, NodeApply, NodeId
 from cognite.client.utils._identifier import InstanceId
@@ -36,17 +36,18 @@ from cognite_toolkit._cdf_tk.storageio import (
     FileMetadataIO,
     InstanceIO,
     InstanceSelector,
-    TableStorageIO,
+    TableStorageIO, AssetIO, EventIO,
 )
-from cognite_toolkit._cdf_tk.storageio._base import StorageIOConfig, T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.storageio._base import StorageIOConfig, T_WritableCogniteResourceList, StorageIO
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest, SuccessItem
 from cognite_toolkit._cdf_tk.utils.thread_safe_dict import ThreadSafeDict
-from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
+from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal, T_Selector
 
 from .data_classes import MigrationMapping, MigrationMappingList
 from .data_model import INSTANCE_SOURCE_VIEW_ID
+from ...client.data_classes.migration import AssetCentricId
 
 
 @dataclass(frozen=True)
@@ -268,3 +269,53 @@ class FileMetaAdapter(
         if to_upload:
             results.extend(list(super().upload_items(InstanceApplyList(to_upload), http_client, selector)))
         return results
+
+
+class HierarchyMigrationIOAdapter(StorageIO[AssetCentricId, AssetCentricSelector, CogniteResourceList, WriteableCogniteResourceList]):
+    FOLDER_NAME = "migration"
+    KIND = "HierarchyMigration"
+    DISPLAY_NAME = "Hierarchy Migration"
+    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
+    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
+    SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
+    CHUNK_SIZE = 1000
+
+    def __init__(self, client: ToolkitClient):
+        super().__init__(client)
+        self.asset_io = AssetCentricMigrationIOAdapter(client, AssetIO(client), InstanceIO(client))
+        self.timeseries_io = TimeSeriesAdapter(client, InstanceIO(client))
+        self.event_io = AssetCentricMigrationIOAdapter(client, EventIO(client), InstanceIO(client))
+        self.file_io = FileMetaAdapter(client, InstanceIO(client))
+
+    def as_id(self, item: dict[str, JsonVal] | object) -> AssetCentricId:
+        return self.asset_io.as_id(item)
+
+    def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[WriteableCogniteResourceList]:
+        yield from self.asset_io.stream_data(selector, limit)
+        yield from self.timeseries_io.stream_data(selector, limit)
+        yield from self.event_io.stream_data(selector, limit)
+        yield from self.file_io.stream_data(selector, limit)
+
+    def count(self, selector: AssetCentricSelector) -> int | None:
+        total = 0
+        for io in (self.asset_io, self.timeseries_io, self.event_io, self.file_io):
+            count = io.count(selector)
+            if count is None:
+                raise ValueError("Count is not available for all resources")
+            total += count
+        return total
+
+    def data_to_json_chunk(self, data_chunk: WriteableCogniteResourceList) -> list[dict[str, JsonVal]]:
+        raise NotImplementedError()
+
+    def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> T_CogniteResourceList:
+        raise NotImplementedError()
+
+    def configurations(self, selector: AssetCentricSelector) -> Iterable[StorageIOConfig]:
+        raise NotImplementedError()
+
+    def load_selector(self, datafile: Path) -> AssetCentricSelector:
+        raise NotImplementedError()
+
+    def ensure_configurations(self, selector: AssetCentricSelector, console: Console | None = None) -> None:
+        raise NotImplementedError()
