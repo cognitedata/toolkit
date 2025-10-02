@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
@@ -23,7 +23,6 @@ from cognite.client.data_classes._base import (
 )
 from cognite.client.data_classes.data_modeling import EdgeApply, EdgeId, InstanceApply, NodeApply, NodeId
 from cognite.client.utils._identifier import InstanceId
-from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList
@@ -38,7 +37,7 @@ from cognite_toolkit._cdf_tk.storageio import (
     InstanceSelector,
     StorageIO,
 )
-from cognite_toolkit._cdf_tk.storageio._base import StorageIOConfig, T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.storageio._base import T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest, SuccessItem
 from cognite_toolkit._cdf_tk.utils.thread_safe_dict import ThreadSafeDict
@@ -194,15 +193,6 @@ class AssetCentricMigrationIOAdapter(
 
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> InstanceApplyList:
         raise NotImplementedError()
-
-    def load_selector(self, datafile: Path) -> MigrationSelector:
-        raise ToolkitNotImplementedError("load_selector is not implemented for AssetCentricMigrationIOAdapter")
-
-    def configurations(self, selector: MigrationSelector) -> Iterable[StorageIOConfig]:
-        raise ToolkitNotImplementedError("configurations is not implemented for AssetCentricMigrationIOAdapter")
-
-    def ensure_configurations(self, selector: MigrationSelector, console: Console | None = None) -> None:
-        raise ToolkitNotImplementedError("ensure_configurations is not implemented for AssetCentricMappingList")
 
 
 class FileMetaAdapter(
