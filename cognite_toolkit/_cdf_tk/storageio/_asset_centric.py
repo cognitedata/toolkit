@@ -440,8 +440,8 @@ class EventIO(BaseAssetCentricIO[str, EventWrite, Event, EventWriteList, EventLi
     UPLOAD_ENDPOINT = "/events"
 
     def as_id(self, item: dict[str, JsonVal] | object) -> int:
-        if isinstance(item, Event | EventWrite) and item.id is not None:  # type: ignore[union-attr]
-            return item.id  # type: ignore[union-attr]
+        if isinstance(item, Event) and item.id is not None:
+            return item.id
         return super().as_id(item)
 
     def _get_loader(self) -> EventCRUD:
