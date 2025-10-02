@@ -1,5 +1,5 @@
 from ._applications import ChartIO
-from ._asset_centric import AssetIO, BaseAssetCentricIO, FileMetadataIO, TimeSeriesIO
+from ._asset_centric import AssetIO, BaseAssetCentricIO, EventIO, FileMetadataIO, TimeSeriesIO
 from ._base import StorageIO, TableStorageIO
 from ._data_classes import InstanceIdCSVList, InstanceIdRow, ModelList
 from ._instances import InstanceIO
@@ -30,6 +30,7 @@ __all__ = [
     "ChartOwnerSelector",
     "ChartSelector",
     "DataSetSelector",
+    "EventIO",
     "FileMetadataIO",
     "InstanceFileSelector",
     "InstanceIO",
