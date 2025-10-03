@@ -4,7 +4,7 @@ from pathlib import Path
 from cognite.client.data_classes._base import T_CogniteResourceList
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk.storageio import StorageIO
+from cognite_toolkit._cdf_tk.storageio import ConfigurableStorageIO, StorageIO
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.fileio import FileReader
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ItemIDMessage, SuccessItem
@@ -67,9 +67,10 @@ class UploadCommand(ToolkitCommand):
                 if verbose:
                     console.print(f"{action} {io.DISPLAY_NAME} from {file_display.as_posix()!r}")
 
-                selector = io.load_selector(file)
-                if ensure_configurations and not dry_run:
-                    io.ensure_configurations(selector, console)
+                if isinstance(io, ConfigurableStorageIO):
+                    selector = io.load_selector(file)
+                    if ensure_configurations and not dry_run:
+                        io.ensure_configurations(selector, console)
 
                 reader = FileReader.from_filepath(file)
                 tracker = ProgressTracker[T_ID]([self._UPLOAD])

@@ -11,10 +11,10 @@ from cognite_toolkit._cdf_tk.utils.file import find_adjacent_files, read_yaml_fi
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import StorageIO, StorageIOConfig
+from ._base import ConfigurableStorageIO, StorageIOConfig
 
 
-class RawIO(StorageIO[str, RawTable, RowWriteList, RowList]):
+class RawIO(ConfigurableStorageIO[str, RawTable, RowWriteList, RowList]):
     FOLDER_NAME = "raw"
     KIND = "RawRows"
     DISPLAY_NAME = "Raw Rows"
