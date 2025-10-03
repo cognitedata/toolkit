@@ -98,7 +98,8 @@ class IndustrialCanvasAPI:
         result = self._instance_api.query(retrieve_query)
         if len(result["canvas"]) == 0:
             return None
-        return IndustrialCanvas.load(result)
+        # MyPy fails to understand that query result is a dict.
+        return IndustrialCanvas._load(result)  # type: ignore[arg-type]
 
     def update(self, canvas: IndustrialCanvasApply) -> InstancesApplyResultList:
         new_instance_ids = canvas.as_instance_ids(include_solution_tags=False)
