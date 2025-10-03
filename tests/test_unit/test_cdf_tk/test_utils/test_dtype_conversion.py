@@ -226,6 +226,13 @@ class TestConvertToContainerProperty:
                 [datetime(2025, 7, 22, 12, 34, 56, tzinfo=timezone.utc)],
                 id="Single ISO timestamp to Timestamp list property",
             ),
+            pytest.param(
+                1,
+                DirectRelation(),
+                True,
+                DirectRelationReference(space="my_space", external_id="parent1"),
+                id="Int to DirectRelation with cache lookup (1)",
+            ),
         ],
     )
     def test_valid_conversion(
@@ -235,7 +242,11 @@ class TestConvertToContainerProperty:
         nullable: bool,
         expected_value: PropertyValueWrite,
     ):
-        actual = convert_to_primary_property(value, type_, nullable)
+        cache = {
+            1: DirectRelationReference(space="my_space", external_id="parent1"),
+            2: DirectRelationReference(space="my_space", external_id="parent2"),
+        }
+        actual = convert_to_primary_property(value, type_, nullable, cache=cache)
 
         if isinstance(expected_value, float):
             assert actual == pytest.approx(expected_value), f"Expected {expected_value}, but got {actual}"
@@ -364,13 +375,27 @@ class TestConvertToContainerProperty:
                 "Expected a single value for int64, but got a list.",
                 id="List to Int64 (invalid, not a list type)",
             ),
+            pytest.param(
+                1,
+                DirectRelation(),
+                True,
+                "Cannot convert 1 to DirectRelationReference. Invalid data type or missing in cache.",
+                id="DirectRelation with cache miss",
+            ),
+            pytest.param(
+                True,
+                DirectRelation(),
+                True,
+                "Cannot convert True to DirectRelationReference. Invalid data type or missing in cache.",
+                id="DirectRelation with invalid type (bool instead of str or int)",
+            ),
         ],
     )
     def test_invalid_conversion(
         self, value: str | int | float | bool | dict | list, type_: PropertyType, nullable: bool, error_message: str
     ):
         with pytest.raises(ValueError) as exc_info:
-            convert_to_primary_property(value, type_, nullable)
+            convert_to_primary_property(value, type_, nullable, cache={})
 
         assert str(exc_info.value) == error_message, (
             f"Expected error message '{error_message}', but got '{exc_info.value}'"
