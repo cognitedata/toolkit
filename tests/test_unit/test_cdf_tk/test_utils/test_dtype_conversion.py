@@ -7,6 +7,7 @@ from cognite.client.data_classes.data_modeling import ContainerId
 from cognite.client.data_classes.data_modeling.data_types import (
     Boolean,
     DirectRelation,
+    DirectRelationReference,
     Enum,
     EnumValue,
     Float32,
@@ -453,6 +454,14 @@ class TestConvertToContainerProperty:
                 None,
                 id="TimeSeries unitExternalId to DirectRelation conversion with None value (nullable)",
             ),
+            pytest.param(
+                "source1",
+                DirectRelation(),
+                (ContainerId("cdf_cdm", "CogniteSourceable"), "source"),
+                ("timeseries", "source"),
+                DirectRelationReference(space="spaceA", external_id="source1"),
+                id="TimeSeries sourceExternalId to DirectRelation conversion with cache lookup",
+            ),
         ],
     )
     def test_asset_centric_conversion(
@@ -463,8 +472,13 @@ class TestConvertToContainerProperty:
         source_property: tuple[AssetCentric, str],
         expected: PropertyValueWrite,
     ):
+        cache = {
+            "source1": DirectRelationReference(space="spaceA", external_id="source1"),
+            "source2": DirectRelationReference(space="spaceB", external_id="source2"),
+        }
+
         actual = asset_centric_convert_to_primary_property(
-            value, type_, True, destination_container_property, source_property
+            value, type_, True, destination_container_property, source_property, cache=cache
         )
 
         assert actual == expected
@@ -496,6 +510,14 @@ class TestConvertToContainerProperty:
                 "Cannot convert True to TimeSeries unit. Expected a string representing the externalId.",
                 id="TimeSeries unitExternalId to DirectRelation conversion error",
             ),
+            pytest.param(
+                "unknown_source",
+                DirectRelation(),
+                (ContainerId("cdf_cdm", "CogniteSourceable"), "source"),
+                ("timeseries", "source"),
+                "Cannot convert 'unknown_source' to DirectRelationReference. Invalid data type or missing in cache.",
+                id="TimeSeries sourceExternalId to DirectRelation conversion with missing cache entry",
+            ),
         ],
     )
     def test_asset_centric_failed_conversion(
@@ -508,7 +530,7 @@ class TestConvertToContainerProperty:
     ):
         with pytest.raises(ValueError) as exc_info:
             asset_centric_convert_to_primary_property(
-                value, type_, True, destination_container_property, source_property
+                value, type_, True, destination_container_property, source_property, cache={}
             )
 
         assert str(exc_info.value) == error_message
