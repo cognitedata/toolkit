@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.migration import (
 )
 from cognite_toolkit._cdf_tk.constants import COGNITE_MIGRATION_SPACE
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.resource_classes import ResourceViewMappingYAML
 from cognite_toolkit._cdf_tk.utils import in_dict
 
 from .datamodel import SpaceCRUD, ViewCRUD
@@ -35,6 +36,7 @@ class ResourceViewMappingCRUD(
     kind = "ResourceViewMapping"
     dependencies = frozenset({SpaceCRUD, ViewCRUD})
     _doc_url = "Instances/operation/applyNodeAndEdges"
+    yaml_cls = ResourceViewMappingYAML
 
     @property
     def display_name(self) -> str:

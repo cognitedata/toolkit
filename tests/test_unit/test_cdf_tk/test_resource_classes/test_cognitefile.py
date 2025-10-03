@@ -91,7 +91,20 @@ class TestCogniteFileYAML:
         loaded = CogniteFileYAML.model_validate(data)
         assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
 
-    @pytest.mark.parametrize("data", list(valid_cognitefile_test_cases()))
+    @pytest.mark.parametrize(
+        "data",
+        [
+            *valid_cognitefile_test_cases(),
+            pytest.param(
+                {
+                    "space": "my_space",
+                    "externalId": "$FILENAME",
+                    "mimeType": "application/text",
+                },
+                id="CogniteFile with placeholder",
+            ),
+        ],
+    )
     def test_load_valid_cognitefile(self, data: dict) -> None:
         loaded = CogniteFileYAML.model_validate(data)
         assert loaded.model_dump(exclude_unset=True, by_alias=True, mode="json") == data

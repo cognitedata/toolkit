@@ -46,7 +46,7 @@ from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, Res
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
-from cognite_toolkit._cdf_tk.resource_classes import FileMetadataYAML
+from cognite_toolkit._cdf_tk.resource_classes import CogniteFileYAML, FileMetadataYAML
 from cognite_toolkit._cdf_tk.utils import (
     in_dict,
 )
@@ -238,6 +238,7 @@ class CogniteFileCRUD(
     resource_write_cls = ExtendableCogniteFileApply
     list_cls = ExtendableCogniteFileList
     list_write_cls = ExtendableCogniteFileApplyList
+    yaml_cls = CogniteFileYAML
     dependencies = frozenset({GroupAllScopedCRUD, SpaceCRUD, ViewCRUD})
 
     _doc_url = "Files/operation/initFileUpload"

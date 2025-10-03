@@ -35,7 +35,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.sequences import (
     ToolkitSequenceRowsWriteList,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
-from cognite_toolkit._cdf_tk.resource_classes import AssetYAML, EventYAML, SequenceYAML
+from cognite_toolkit._cdf_tk.resource_classes import AssetYAML, EventYAML, SequenceRowYAML, SequenceYAML
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
@@ -393,6 +393,7 @@ class SequenceRowCRUD(
     dependencies = frozenset({SequenceCRUD})
     parent_resource = frozenset({SequenceCRUD})
     _doc_url = "Sequences/operation/postSequenceData"
+    yaml_cls = SequenceRowYAML
     support_update = False
 
     def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None):
