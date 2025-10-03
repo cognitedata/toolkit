@@ -3,7 +3,8 @@ from __future__ import annotations
 import pytest
 
 from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH
-from cognite_toolkit._cdf_tk.data_classes._packages import Packages
+from cognite_toolkit._cdf_tk.data_classes._module_toml import ModuleToml
+from cognite_toolkit._cdf_tk.data_classes._packages import Package, Packages
 
 
 class TestPackages:
@@ -51,3 +52,35 @@ class TestPackages:
 
         assert package is not None
         assert package.module_names == expected_module_names
+
+    def test_package_with_id(self) -> None:
+        """Test Package creation and loading with ID field."""
+        # Test creation with ID
+        package = Package(name="test", title="Test Package", id="test-123")
+        assert package.id == "test-123"
+
+        # Test loading with ID
+        package_data = {"title": "Test Package", "id": "test-456"}
+        loaded_package = Package.load("test", package_data)
+        assert loaded_package.id == "test-456"
+
+        # Test loading without ID
+        package_data_no_id = {"title": "Test Package"}
+        loaded_package_no_id = Package.load("test", package_data_no_id)
+        assert loaded_package_no_id.id is None
+
+    def test_module_toml_with_id(self) -> None:
+        """Test ModuleToml creation and loading with ID field."""
+        # Test creation with ID
+        module_toml = ModuleToml(title="Test Module", id="module-123")
+        assert module_toml.id == "module-123"
+
+        # Test loading with ID
+        data_with_id = {"module": {"title": "Test Module", "id": "module-456"}}
+        loaded_toml = ModuleToml.load(data_with_id)
+        assert loaded_toml.id == "module-456"
+
+        # Test loading without ID
+        data_no_id = {"module": {"title": "Test Module"}}
+        loaded_toml_no_id = ModuleToml.load(data_no_id)
+        assert loaded_toml_no_id.id is None
