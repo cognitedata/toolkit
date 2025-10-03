@@ -342,7 +342,7 @@ class TestPurgeSpace:
                 )
 
         cmd = PurgeCommand(silent=True)
-        results = cmd.space_v2(
+        results = cmd.space(
             purge_client,
             "test_space",
             include_space=include_space,
