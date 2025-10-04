@@ -33,7 +33,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_model import (
     MODEL_ID,
     RESOURCE_VIEW_MAPPING_VIEW_ID,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import _ASSET_ID, create_default_mappings
+from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import ASSET_ID, create_default_mappings
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio import AssetIO, InstanceIO
 from cognite_toolkit._cdf_tk.utils.fileio import CSVReader
@@ -45,7 +45,7 @@ def cognite_migration_model(
 ) -> Iterator[responses.RequestsMock]:
     config = toolkit_config
     mapping_by_id = {mapping.external_id: mapping for mapping in create_default_mappings()}
-    asset_mapping = mapping_by_id[_ASSET_ID]
+    asset_mapping = mapping_by_id[ASSET_ID]
     # Lookup of the mapping in the Migration Model
     mapping_node_response = asset_mapping.dump(context="api")
     mapping_node_response.update({"createdTime": 0, "lastUpdatedTime": 0, "version": 1})
@@ -136,7 +136,7 @@ class TestMigrationCommand:
         )
         space = "my_space"
         csv_content = "id,space,externalId,ingestionView\n" + "\n".join(
-            f"{1000 + i},{space},asset_{i},{_ASSET_ID}" for i in range(len(assets))
+            f"{1000 + i},{space},asset_{i},{ASSET_ID}" for i in range(len(assets))
         )
 
         # Asset retrieve ids
