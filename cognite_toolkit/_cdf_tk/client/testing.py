@@ -32,6 +32,7 @@ from .api.lookup import (
     TimeSeriesLookUpAPI,
 )
 from .api.migration import InstanceSourceAPI, MigrationAPI, ResourceViewMappingAPI
+from .api.project import ProjectAPI
 from .api.robotics import RoboticsAPI
 from .api.robotics.capabilities import CapabilitiesAPI
 from .api.robotics.data_postprocessing import DataPostProcessingAPI
@@ -68,6 +69,8 @@ class ToolkitClientMock(CogniteClientMock):
         self.functions = MagicMock(spec=ExtendedFunctionsAPI)
         self.functions.calls = MagicMock(spec_set=FunctionCallsAPI)
         self.functions.schedules = MagicMock(spec_set=FunctionSchedulesAPI)
+
+        self.project = MagicMock(spec_set=ProjectAPI)
 
         self.search = MagicMock(spec=SearchAPI)
         self.search.locations = MagicMock(spec_set=LocationFiltersAPI)

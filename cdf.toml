@@ -19,6 +19,7 @@ search-config = true
 download = true
 exit-on-warning = true
 upload = true
+function-cognite-file = true
 
 [plugins]
 run = true

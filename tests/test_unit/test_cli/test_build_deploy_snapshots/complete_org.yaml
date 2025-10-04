@@ -362,6 +362,7 @@ FileMetadata:
   source: doctrino
 - data_set_id: 13045366179566211942
   external_id: fn_first_function
+  id: 64
   name: first_example_function.zip
   overwrite: true
 - dataSetId: 7982613576047462211
@@ -387,6 +388,7 @@ Function:
     CDF_ENV: dev
     ENV_TYPE: dev
   externalId: fn_first_function
+  fileId: 64
   functionPath: ./src/handler.py
   indexUrl: https://pypi.org/simple
   memory: 0.6
