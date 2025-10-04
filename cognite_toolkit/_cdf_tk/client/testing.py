@@ -24,7 +24,9 @@ from .api.location_filters import LocationFiltersAPI
 from .api.lookup import (
     AssetLookUpAPI,
     DataSetLookUpAPI,
+    EventLookUpAPI,
     ExtractionPipelineLookUpAPI,
+    FileMetadataLookUpAPI,
     FunctionLookUpAPI,
     LocationFiltersLookUpAPI,
     LookUpGroup,
@@ -77,6 +79,8 @@ class ToolkitClientMock(CogniteClientMock):
         self.lookup.data_sets = MagicMock(spec_set=DataSetLookUpAPI)
         self.lookup.assets = MagicMock(spec_set=AssetLookUpAPI)
         self.lookup.time_series = MagicMock(spec_set=TimeSeriesLookUpAPI)
+        self.lookup.files = MagicMock(spec_set=FileMetadataLookUpAPI)
+        self.lookup.events = MagicMock(spec_set=EventLookUpAPI)
         self.lookup.security_categories = MagicMock(spec_set=SecurityCategoriesLookUpAPI)
         self.lookup.location_filters = MagicMock(spec_set=LocationFiltersLookUpAPI)
         self.lookup.extraction_pipelines = MagicMock(spec_set=ExtractionPipelineLookUpAPI)
