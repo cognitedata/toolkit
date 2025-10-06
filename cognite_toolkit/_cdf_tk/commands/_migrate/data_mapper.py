@@ -4,7 +4,7 @@ from typing import Generic
 from cognite.client.data_classes._base import (
     T_CogniteResourceList,
 )
-from cognite.client.data_classes.data_modeling import View, ViewId
+from cognite.client.data_classes.data_modeling import DirectRelationReference, View, ViewId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList
@@ -18,6 +18,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import MigrationIssue
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio._base import T_Selector, T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils.thread_safe_dict import ThreadSafeDict
 
 
 class DataMapper(Generic[T_Selector, T_WritableCogniteResourceList, T_CogniteResourceList], ABC):
@@ -50,6 +51,8 @@ class AssetCentricMapper(DataMapper[MigrationSelector, AssetCentricMappingList, 
         self.client = client
         self._ingestion_view_by_id: dict[ViewId, View] = {}
         self._view_mapping_by_id: dict[str, ResourceViewMapping] = {}
+        self._asset_mapping_by_id = ThreadSafeDict[int, DirectRelationReference]()
+        self._source_by_id = ThreadSafeDict[str, DirectRelationReference]()
 
     def prepare(self, source_selector: MigrationSelector) -> None:
         ingestion_view_ids = source_selector.get_ingestion_views()
@@ -94,4 +97,9 @@ class AssetCentricMapper(DataMapper[MigrationSelector, AssetCentricMappingList, 
             instances.append(instance)
             if conversion_issue.has_issues:
                 issues.append(conversion_issue)
+
+            if mapping.resource_type == "asset":
+                self._asset_mapping_by_id[mapping.id] = DirectRelationReference(
+                    space=mapping.instance_id.space, external_id=mapping.instance_id.external_id
+                )
         return instances, issues
