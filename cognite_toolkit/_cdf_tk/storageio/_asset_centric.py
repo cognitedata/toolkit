@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Iterable, MutableSequence, Sequence
 from pathlib import Path
-from typing import Generic
+from typing import ClassVar, Generic
 
 from cognite.client.data_classes import (
     Asset,
@@ -49,7 +49,7 @@ from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
 from cognite_toolkit._cdf_tk.utils.file import find_files_with_suffix_and_prefix
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, SimpleBodyRequest
-from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal, T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, AssetCentric, JsonVal, T_WritableCogniteResourceList
 
 from ._base import StorageIOConfig, TableStorageIO
 from ._selectors import AssetCentricFileSelector, AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
@@ -60,6 +60,7 @@ class BaseAssetCentricIO(
     TableStorageIO[int, AssetCentricSelector, T_CogniteResourceList, T_WritableCogniteResourceList],
     ABC,
 ):
+    RESOURCE_TYPE: ClassVar[AssetCentric]
     CHUNK_SIZE = 1000
 
     def __init__(self, client: ToolkitClient) -> None:
@@ -201,6 +202,7 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
     FOLDER_NAME = "classic"
     KIND = "Assets"
     DISPLAY_NAME = "Assets"
+    RESOURCE_TYPE = "asset"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
@@ -270,6 +272,7 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
     FOLDER_NAME = FileMetadataCRUD.folder_name
     KIND = "FileMetadata"
     DISPLAY_NAME = "file metadata"
+    RESOURCE_TYPE = "file"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
