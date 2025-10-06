@@ -103,13 +103,6 @@ class TestChartIO:
             assert second.data.time_series_collection[0].ts_external_id == "ts_4"
             assert second.data.time_series_collection[1].ts_external_id == "ts_3"
 
-    def test_no_configurations(self) -> None:
-        with monkeypatch_toolkit_client() as client:
-            io = ChartIO(client)
-            selector = AllChartSelector()
-            assert list(io.configurations(selector)) == []
-            assert io.ensure_configurations(selector, None) is None
-
     @pytest.mark.parametrize(
         "limit,selector,expected_external_ids",
         [

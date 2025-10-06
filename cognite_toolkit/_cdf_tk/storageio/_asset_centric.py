@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, MutableSequence, Sequence
 from pathlib import Path
-from typing import Generic
+from typing import ClassVar, Generic
 
 from cognite.client.data_classes import (
     Asset,
@@ -32,7 +32,8 @@ from cognite_toolkit._cdf_tk.utils.aggregators import AssetAggregator, AssetCent
 from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
 from cognite_toolkit._cdf_tk.utils.file import find_files_with_suffix_and_prefix
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
-from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal, T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, SimpleBodyRequest
+from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, AssetCentric, JsonVal, T_WritableCogniteResourceList
 
 from ._base import StorageIOConfig, TableStorageIO
 from ._selectors import AssetCentricFileSelector, AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
@@ -43,6 +44,7 @@ class BaseAssetCentricIO(
     TableStorageIO[int, AssetCentricSelector, T_CogniteResourceList, T_WritableCogniteResourceList],
     ABC,
 ):
+    RESOURCE_TYPE: ClassVar[AssetCentric]
     CHUNK_SIZE = 1000
 
     def __init__(self, client: ToolkitClient) -> None:
@@ -169,6 +171,7 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
     FOLDER_NAME = "classic"
     KIND = "Assets"
     DISPLAY_NAME = "Assets"
+    RESOURCE_TYPE = "asset"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
@@ -235,11 +238,6 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
             self._collect_dependencies(asset_list, selector)
             yield asset_list
 
-    def upload_items(self, data_chunk: AssetWriteList, selector: AssetCentricSelector) -> None:
-        if not data_chunk:
-            return
-        self.client.assets.upsert(data_chunk, mode="patch")
-
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> AssetWriteList:
         return AssetWriteList([self._loader.load_resource(item) for item in data_chunk])
 
@@ -251,9 +249,11 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
     FOLDER_NAME = FileMetadataCRUD.folder_name
     KIND = "FileMetadata"
     DISPLAY_NAME = "file metadata"
+    RESOURCE_TYPE = "file"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
+    UPLOAD_ENDPOINT = "/files"
 
     def as_id(self, item: dict[str, JsonVal] | object) -> int:
         if isinstance(item, FileMetadata | FileMetadataWrite) and item.id is not None:  # type: ignore[union-attr]
@@ -317,13 +317,26 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
             self._collect_dependencies(file_list, selector)
             yield file_list
 
+    def upload_items(
+        self, data_chunk: FileMetadataWriteList, http_client: HTTPClient, selector: AssetCentricSelector | None = None
+    ) -> Sequence[HTTPMessage]:
+        # The /files endpoint only supports creating one file at a time, so we override the default chunked
+        # upload behavior to upload one by one.
+        config = http_client.config
+        results: MutableSequence[HTTPMessage] = []
+        for item in data_chunk:
+            file_result = http_client.request_with_retries(
+                message=SimpleBodyRequest(
+                    endpoint_url=config.create_api_url(self.UPLOAD_ENDPOINT),
+                    method="POST",
+                    body_content=item.dump(camel_case=True),
+                )
+            )
+            results.extend(file_result)
+        return results
+
     def retrieve(self, ids: Sequence[int]) -> FileMetadataList:
         return self.client.files.retrieve_multiple(ids)
-
-    def upload_items(self, data_chunk: FileMetadataWriteList, selector: AssetCentricSelector) -> None:
-        if not data_chunk:
-            return
-        self._loader.create(data_chunk)
 
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> FileMetadataWriteList:
         return FileMetadataWriteList([self._loader.load_resource(item) for item in data_chunk])

@@ -38,10 +38,14 @@ ExtractionPipelineConfig:
     \   externalId: CogniteTimeSeries\n          version: v1\n          searchProperty:\
     \ name\n          type: diagrams.FileLink\n"
   externalId: ctx_files_pandid_annotater
+FileMetadata:
+- data_set_id: 316416785021717804
+  external_id: contextualization_p_and_id_annotater
+  name: P&ID_Annotator.zip
+  overwrite: true
 Function:
 - description: Creates annotations for P&ID diagrams.
   externalId: contextualization_p_and_id_annotater
-  fileId: -1
   functionPath: handler.py
   metadata:
     cognite-toolkit-hash: /=6326d695;handler.py=a6e154f2;requirements.txt=1d4815ec
