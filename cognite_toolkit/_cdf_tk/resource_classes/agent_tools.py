@@ -34,7 +34,7 @@ class AgentDataModel(BaseModelResource):
         pattern=SPACE_FORMAT_PATTERN,
     )
     external_id: str = Field(
-        description="The space the data model is in.",
+        description="The external ID of the data model.",
         min_length=1,
         max_length=255,
         pattern=DM_EXTERNAL_ID_PATTERN,
