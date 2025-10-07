@@ -18,7 +18,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import MigrationIssue
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio._base import T_Selector, T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.thread_safe_dict import ThreadSafeDict
 
 
 class DataMapper(Generic[T_Selector, T_WritableCogniteResourceList, T_CogniteResourceList], ABC):
@@ -51,8 +50,10 @@ class AssetCentricMapper(DataMapper[MigrationSelector, AssetCentricMappingList, 
         self.client = client
         self._ingestion_view_by_id: dict[ViewId, View] = {}
         self._view_mapping_by_id: dict[str, ResourceViewMapping] = {}
-        self._asset_mapping_by_id = ThreadSafeDict[int, DirectRelationReference]()
-        self._source_by_id = ThreadSafeDict[str, DirectRelationReference]()
+        # This is used to keep track of already mapped assets, such that we can creat direct relations
+        # to them from files, events, and time series.
+        self._asset_mapping_by_id: dict[int, DirectRelationReference] = {}
+        self._source_system_mapping_by_id: dict[str, DirectRelationReference] = {}
 
     def prepare(self, source_selector: MigrationSelector) -> None:
         ingestion_view_ids = source_selector.get_ingestion_views()
@@ -92,6 +93,8 @@ class AssetCentricMapper(DataMapper[MigrationSelector, AssetCentricMappingList, 
                 instance_id=mapping.instance_id,
                 view_source=view_source,
                 view_properties=view_properties,
+                asset_instance_id_by_id=self._asset_mapping_by_id,
+                source_instance_id_by_external_id=self._source_system_mapping_by_id,
             )
 
             instances.append(instance)

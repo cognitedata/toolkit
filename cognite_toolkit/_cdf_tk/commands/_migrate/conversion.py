@@ -1,8 +1,10 @@
-from typing import Any
+from collections.abc import Mapping, Set
+from dataclasses import dataclass
+from typing import Any, ClassVar
 
 from cognite.client.data_classes import Asset, Event, FileMetadata, Sequence, TimeSeries
 from cognite.client.data_classes._base import CogniteResource
-from cognite.client.data_classes.data_modeling import MappedProperty, NodeApply, NodeId
+from cognite.client.data_classes.data_modeling import DirectRelationReference, MappedProperty, NodeApply, NodeId
 from cognite.client.data_classes.data_modeling.instances import NodeOrEdgeData, PropertyValueWrite
 from cognite.client.data_classes.data_modeling.views import ViewProperty
 
@@ -19,11 +21,58 @@ from .data_model import INSTANCE_SOURCE_VIEW_ID
 from .issues import ConversionIssue, FailedConversion, InvalidPropertyDataType
 
 
+@dataclass
+class DirectRelationCache:
+    """Cache for direct relation references to look up target of direct relations.
+
+    This is used when creating direct relations from asset-centric resources to CogniteAsset and CogniteSourceSystem.
+
+    Attributes:
+        asset: Mapping[int, DirectRelationReference]
+            A mapping from asset IDs to their corresponding DirectRelationReference in the data model.
+        source: Mapping[str, DirectRelationReference]
+            A mapping from source strings to their corresponding DirectRelationReference in the data model.
+
+    Methods:
+        get(resource_type: AssetCentric, property_id: str) -> Mapping[str | int, DirectRelationReference]:
+            Get the appropriate mapping based on the resource type and property ID.
+
+    Note:
+        The ASSET_REFERENCE_PROPERTIES and SOURCE_REFERENCE_PROPERTIES class variables define which properties
+        in asset-centric resources reference assets and sources, respectively.
+
+    """
+
+    ASSET_REFERENCE_PROPERTIES: ClassVar[Set[tuple[AssetCentric, str]]] = {
+        ("timeseries", "assetId"),
+        ("file", "assetIds"),
+        ("event", "assetIds"),
+        ("sequence", "assetId"),
+    }
+    SOURCE_REFERENCE_PROPERTIES: ClassVar[Set[tuple[AssetCentric, str]]] = {
+        ("asset", "source"),
+        ("event", "source"),
+        ("file", "source"),
+    }
+
+    asset: Mapping[int, DirectRelationReference]
+    source: Mapping[str, DirectRelationReference]
+
+    def get(self, resource_type: AssetCentric, property_id: str) -> Mapping[str | int, DirectRelationReference]:
+        if (resource_type, property_id) in self.ASSET_REFERENCE_PROPERTIES:
+            return self.asset  # type: ignore[return-value]
+        if (resource_type, property_id) in self.SOURCE_REFERENCE_PROPERTIES:
+            return self.source  # type: ignore[return-value]
+        return {}
+
+
 def asset_centric_to_dm(
     resource: CogniteResource,
     instance_id: NodeId,
     view_source: ResourceViewMapping,
     view_properties: dict[str, ViewProperty],
+    asset_instance_id_by_id: dict[int, DirectRelationReference],
+    source_instance_id_by_external_id: dict[str, DirectRelationReference],
 ) -> tuple[NodeApply, ConversionIssue]:
     """Convert an asset-centric resource to a data model instance.
 
@@ -32,10 +81,17 @@ def asset_centric_to_dm(
         instance_id (NodeId): The ID of the instance to create or update.
         view_source (ResourceViewMapping): The view source defining how to map the resource to the data model.
         view_properties (dict[str, ViewProperty]): The defined properties referenced in the view source mapping.
+        asset_instance_id_by_id (dict[int, DirectRelationReference]): A mapping from asset IDs to their corresponding
+            DirectRelationReference in the data model. This is used to create direct relations for resources that
+            reference assets.
+        source_instance_id_by_external_id (dict[str, DirectRelationReference]): A mapping from source strings to their
+            corresponding DirectRelationReference in the data model. This is used to create direct relations for resources
+            that reference sources.
 
     Returns:
         tuple[NodeApply, ConversionIssue]: A tuple containing the converted NodeApply and any ConversionIssue encountered.
     """
+    cache = DirectRelationCache(asset=asset_instance_id_by_id, source=source_instance_id_by_external_id)
     resource_type = _lookup_resource_type(type(resource))
     dumped = resource.dump()
     try:
@@ -55,6 +111,7 @@ def asset_centric_to_dm(
         view_source.property_mapping,
         resource_type,
         issue=issue,
+        direct_relation_cache=cache,
     )
     sources: list[NodeOrEdgeData] = []
     if properties:
@@ -98,6 +155,7 @@ def create_properties(
     property_mapping: dict[str, str],
     resource_type: AssetCentric,
     issue: ConversionIssue,
+    direct_relation_cache: DirectRelationCache,
 ) -> dict[str, PropertyValueWrite]:
     """
     Create properties for a data model instance from an asset-centric resource.
@@ -108,6 +166,7 @@ def create_properties(
         property_mapping:  Mapping from asset-centric property IDs to data model property IDs.
         resource_type: The type of the asset-centric resource (e.g., "asset", "timeseries").
         issue: ConversionIssue object to log any issues encountered during conversion.
+        direct_relation_cache: Cache for direct relation references to look up target of direct relations.
 
     Returns:
         Dict of property IDs to PropertyValueWrite objects.
@@ -137,6 +196,7 @@ def create_properties(
                 dm_prop.nullable,
                 destination_container_property=(dm_prop.container, dm_prop.container_property_identifier),
                 source_property=(resource_type, prop_json_path),
+                cache=direct_relation_cache.get(resource_type, prop_json_path),
             )
         except (ValueError, TypeError, NotImplementedError) as e:
             issue.failed_conversions.append(
