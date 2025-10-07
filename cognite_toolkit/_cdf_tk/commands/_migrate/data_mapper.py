@@ -75,6 +75,7 @@ class AssetCentricMapper(DataMapper[MigrationSelector, AssetCentricMappingList, 
             )
 
         # Todo Lookup sources - This requires a change to the Migration model to include source mappings.
+        # The task is capture in issue CDF-25898.
 
     def map_chunk(self, source: AssetCentricMappingList) -> tuple[InstanceApplyList, list[MigrationIssue]]:
         """Map a chunk of asset-centric data to InstanceApplyList format."""
