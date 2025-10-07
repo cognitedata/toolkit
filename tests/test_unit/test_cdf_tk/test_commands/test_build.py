@@ -174,15 +174,15 @@ externalId: some_external_id
         actual = DataModelId.load(source_file.loaded["destination"]["dataModel"])
         assert actual == DataModelId("my_space", "MyModel", "1_0_0")
 
-
-class TestTrackModuleBuild:
     def test_track_module_build(self, tmp_path: Path) -> None:
         cmd = BuildCommand(print_warning=True, skip_tracking=True)
-        cmd.build_modules(
-            modules=ModuleDirectories.load(data.EXTERNAL_PACKAGE),
-            build_dir=tmp_path,
-            variables=BuildVariables([]),
-            verbose=False,
+        cmd.run(
+            lambda: cmd.build_modules(
+                modules=ModuleDirectories.load(data.EXTERNAL_PACKAGE),
+                build_dir=tmp_path,
+                variables=BuildVariables([]),
+                verbose=False,
+            )
         )
         assert cmd._additional_tracking_info == {
             "package_ids": ["rmdm"],
