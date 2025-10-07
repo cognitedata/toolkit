@@ -71,8 +71,8 @@ def asset_centric_to_dm(
     instance_id: NodeId,
     view_source: ResourceViewMapping,
     view_properties: dict[str, ViewProperty],
-    asset_instance_id_by_id: dict[int, DirectRelationReference],
-    source_instance_id_by_external_id: dict[str, DirectRelationReference],
+    asset_instance_id_by_id: Mapping[int, DirectRelationReference],
+    source_instance_id_by_external_id: Mapping[str, DirectRelationReference],
 ) -> tuple[NodeApply, ConversionIssue]:
     """Convert an asset-centric resource to a data model instance.
 
