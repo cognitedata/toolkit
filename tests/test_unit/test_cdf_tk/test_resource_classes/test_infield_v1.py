@@ -134,7 +134,7 @@ def invalid_test_cases() -> Iterable:
     )
 
 
-class TestHostedExtractorDestinationYAML:
+class TestInfieldV1YAML:
     @pytest.mark.parametrize(
         "data", list(find_resources("InfieldV1", resource_dir="cdf_applications", base=COMPLETE_ORG_ALPHA_FLAGS))
     )
