@@ -323,8 +323,20 @@ class BuildCommand(ToolkitCommand):
                     warning_count=module_warnings,
                     status=built_status,
                     iteration=iteration,
+                    module_id=module.module_id,
+                    package_id=module.package_id,
                 )
                 build.append(built_module)
+
+                if module.package_id:
+                    package_ids = self._additional_tracking_info.setdefault("package_ids", [])
+                    if module.package_id not in package_ids:
+                        package_ids.append(module.package_id)
+
+                if module.module_id:
+                    module_ids = self._additional_tracking_info.setdefault("module_ids", [])
+                    module_ids.append(module.module_id)
+
                 self.tracker.track_module_build(built_module)
         return build
 

@@ -407,7 +407,6 @@ default_organization_dir = "{organization_dir.name}"''',
             download_data=download_data,
             modules_source_path=modules_source_path,
         )
-        self.tracker.track_deployment_pack_install(list(selected.values()), command_type="init")
 
         print(
             Panel(

@@ -11,6 +11,7 @@ from cognite.client.data_classes.data_modeling import DataModelId, Space
 from cognite_toolkit._cdf_tk.commands.build_cmd import BuildCommand
 from cognite_toolkit._cdf_tk.cruds import TransformationCRUD
 from cognite_toolkit._cdf_tk.data_classes import BuildVariables, Environment
+from cognite_toolkit._cdf_tk.data_classes._module_directories import ModuleDirectories
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMissingModuleError,
 )
@@ -172,3 +173,18 @@ externalId: some_external_id
         assert isinstance(source_file.loaded, dict)
         actual = DataModelId.load(source_file.loaded["destination"]["dataModel"])
         assert actual == DataModelId("my_space", "MyModel", "1_0_0")
+
+
+class TestTrackModuleBuild:
+    def test_track_module_build(self, tmp_path: Path) -> None:
+        cmd = BuildCommand(print_warning=True, skip_tracking=True)
+        cmd.build_modules(
+            modules=ModuleDirectories.load(data.EXTERNAL_PACKAGE),
+            build_dir=tmp_path,
+            variables=BuildVariables([]),
+            verbose=False,
+        )
+        assert cmd._additional_tracking_info == {
+            "package_ids": ["rmdm"],
+            "module_ids": ["agent", "data_model"],
+        }
