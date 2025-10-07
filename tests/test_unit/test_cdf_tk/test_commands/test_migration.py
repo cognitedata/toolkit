@@ -522,7 +522,13 @@ class TestAssetCentricConversion:
                 id="Asset with non-nullable properties all None",
             ),
             pytest.param(
-                Event(id=999, external_id="event_999", type="MyType", metadata={"category": "MyCategory"}),
+                Event(
+                    id=999,
+                    external_id="event_999",
+                    type="MyType",
+                    metadata={"category": "MyCategory"},
+                    source="not_existing",
+                ),
                 ResourceViewMapping(
                     external_id="event_mapping",
                     version=1,
@@ -530,13 +536,21 @@ class TestAssetCentricConversion:
                     created_time=1000000,
                     resource_type="event",
                     view_id=ViewId("test_space", "test_view", "v1"),
-                    property_mapping={"type": "category", "metadata.category": "category"},
+                    property_mapping={"type": "category", "metadata.category": "category", "source": "source"},
                 ),
                 {
                     "category": MappedProperty(
                         ContainerId("test_space", "test_container"),
                         "category",
                         dt.Text(),
+                        nullable=True,
+                        immutable=False,
+                        auto_increment=False,
+                    ),
+                    "source": MappedProperty(
+                        ContainerId("cdf_cdm", "CogniteSourceable"),
+                        "source",
+                        dt.DirectRelation(),
                         nullable=True,
                         immutable=False,
                         auto_increment=False,
@@ -549,8 +563,17 @@ class TestAssetCentricConversion:
                     asset_centric_id=AssetCentricId("event", id_=999),
                     instance_id=INSTANCE_ID,
                     ignored_asset_centric_properties=["metadata.category"],
+                    failed_conversions=[
+                        FailedConversion(
+                            property_id="source",
+                            value="not_existing",
+                            error="Cannot convert 'not_existing' to "
+                            "DirectRelationReference. Invalid data type "
+                            "or missing in cache.",
+                        )
+                    ],
                 ),
-                id="Event with overlapping property and metadata mapping (property takes precedence)",
+                id="Event with overlapping property and metadata mapping (property takes precedence) and missing source",
             ),
         ],
     )
