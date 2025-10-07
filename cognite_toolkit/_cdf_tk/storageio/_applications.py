@@ -1,14 +1,11 @@
 from collections.abc import Iterable
-from pathlib import Path
-
-from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList, ChartWrite, ChartWriteList
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
-from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal, T_Selector
+from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import StorageIO, StorageIOConfig
+from ._base import StorageIO
 from ._selectors import AllChartSelector, ChartOwnerSelector, ChartSelector
 
 
@@ -64,23 +61,8 @@ class ChartIO(StorageIO[str, ChartSelector, ChartWriteList, ChartList]):
         # There is no way to get the count of charts up front.
         return None
 
-    def upload_items(self, data_chunk: ChartWriteList, selector: ChartSelector) -> None:
-        # Todo validate all references exist in CDF before uploading.
-        raise ToolkitNotImplementedError("Uploading charts is not implemented yet.")
-
     def data_to_json_chunk(self, data_chunk: ChartList) -> list[dict[str, JsonVal]]:
         return [chart.as_write().dump() for chart in data_chunk]
 
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> ChartWriteList:
         return ChartWriteList._load(data_chunk)
-
-    def configurations(self, selector: ChartSelector) -> Iterable[StorageIOConfig]:
-        # Charts does not have any configurations for its data.
-        return []
-
-    def load_selector(self, datafile: Path) -> ChartSelector:
-        raise ToolkitNotImplementedError("Loading charts is not implemented yet.")
-
-    def ensure_configurations(self, selector: T_Selector, console: Console | None = None) -> None:
-        # Charts do not have any configurations to ensure.
-        return None

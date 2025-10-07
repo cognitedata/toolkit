@@ -11,10 +11,10 @@ from cognite_toolkit._cdf_tk.utils.file import find_adjacent_files, read_yaml_fi
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import StorageIO, StorageIOConfig
+from ._base import ConfigurableStorageIO, StorageIOConfig
 
 
-class RawIO(StorageIO[str, RawTable, RowWriteList, RowList]):
+class RawIO(ConfigurableStorageIO[str, RawTable, RowWriteList, RowList]):
     FOLDER_NAME = "raw"
     KIND = "RawRows"
     DISPLAY_NAME = "Raw Rows"
@@ -47,14 +47,11 @@ class RawIO(StorageIO[str, RawTable, RowWriteList, RowList]):
             chunk_size=self.CHUNK_SIZE,
         )
 
-    def upload_items(self, data_chunk: RowWriteList, selector: RawTable) -> None:
-        self.client.raw.rows.insert(db_name=selector.db_name, table_name=selector.table_name, row=data_chunk)
-
-    def upload_items_force(
+    def upload_items(
         self, data_chunk: RowWriteList, http_client: HTTPClient, selector: RawTable | None = None
     ) -> Sequence[HTTPMessage]:
         if selector is None:
-            raise ToolkitValueError("Selector must be provided for RawIO upload_items_force")
+            raise ToolkitValueError("Selector must be provided for RawIO upload_items")
         url = self.UPLOAD_ENDPOINT.format(dbName=selector.db_name, tableName=selector.table_name)
         config = http_client.config
         return http_client.request_with_retries(

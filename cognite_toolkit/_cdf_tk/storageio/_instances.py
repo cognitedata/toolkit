@@ -1,24 +1,21 @@
 from collections.abc import Iterable, Mapping
-from pathlib import Path
 from types import MappingProxyType
 from typing import ClassVar
 
 from cognite.client.data_classes.aggregations import Count
 from cognite.client.data_classes.data_modeling import Edge, EdgeApply, Node, NodeApply
 from cognite.client.utils._identifier import InstanceId
-from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList, InstanceList
 from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
-from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import StorageIOConfig, TableStorageIO
+from ._base import StorageIO
 from ._selectors import InstanceFileSelector, InstanceSelector, InstanceViewSelector
 
 
-class InstanceIO(TableStorageIO[InstanceId, InstanceSelector, InstanceApplyList, InstanceList]):
+class InstanceIO(StorageIO[InstanceId, InstanceSelector, InstanceApplyList, InstanceList]):
     FOLDER_NAME = "instances"
     KIND = "Instances"
     DISPLAY_NAME = "Instances"
@@ -88,23 +85,8 @@ class InstanceIO(TableStorageIO[InstanceId, InstanceSelector, InstanceApplyList,
             return len(selector.instance_ids)
         raise NotImplementedError()
 
-    def upload_items(self, data_chunk: InstanceApplyList, selector: InstanceSelector) -> None:
-        raise NotImplementedError()
-
     def data_to_json_chunk(self, data_chunk: InstanceList) -> list[dict[str, JsonVal]]:
         raise NotImplementedError()
 
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> InstanceApplyList:
-        raise NotImplementedError()
-
-    def configurations(self, selector: InstanceSelector) -> Iterable[StorageIOConfig]:
-        raise NotImplementedError()
-
-    def load_selector(self, datafile: Path) -> InstanceSelector:
-        raise NotImplementedError()
-
-    def ensure_configurations(self, selector: InstanceSelector, console: Console | None = None) -> None:
-        raise NotImplementedError()
-
-    def get_schema(self, selector: InstanceSelector) -> list[SchemaColumn]:
         raise NotImplementedError()
