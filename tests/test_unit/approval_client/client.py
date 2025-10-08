@@ -689,7 +689,7 @@ class ApprovalToolkitClient:
                     result = calculate_hash(",".join(sorted(hashes)), shorten=True)
                 except zipfile.BadZipFile:
                     result = calculate_hash(content, shorten=True)
-            if isinstance(content, bytes | str):
+            elif isinstance(content, str):
                 result = calculate_hash(content, shorten=True)
             else:
                 raise NotImplementedError("Only str and bytes content is supported")
