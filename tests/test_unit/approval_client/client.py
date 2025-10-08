@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import itertools
 import json as JSON
+import zipfile
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
@@ -672,6 +674,21 @@ class ApprovalToolkitClient:
             external_id: str | None = None,
             instance_id: NodeId | None = None,
         ) -> FileMetadata:
+            if isinstance(content, bytes):
+                try:
+                    hashes: list[str] = []
+                    with zipfile.ZipFile(io.BytesIO(content)) as z:
+                        namelist = z.namelist()
+                        for name in sorted(namelist):
+                            hashes.append(calculate_hash(name, shorten=False))
+                            if name.endswith("/"):
+                                continue
+                            with z.open(name) as f:
+                                file_content = f.read()
+                                hashes.append(calculate_hash(file_content, shorten=True))
+                    result = calculate_hash(",".join(sorted(hashes)), shorten=True)
+                except zipfile.BadZipFile:
+                    result = calculate_hash(content, shorten=True)
             if isinstance(content, bytes | str):
                 result = calculate_hash(content, shorten=True)
             else:
