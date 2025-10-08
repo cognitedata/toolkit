@@ -7,7 +7,9 @@ from cognite.client.data_classes.capabilities import (
     AssetsAcl,
     Capability,
     DataSetsAcl,
+    EventsAcl,
     ExtractionPipelinesAcl,
+    FilesAcl,
     FunctionsAcl,
     LocationFiltersAcl,
     SecurityCategoriesAcl,
@@ -214,6 +216,52 @@ class TimeSeriesLookUpAPI(LookUpAPI):
         )
 
 
+class FileMetadataLookUpAPI(LookUpAPI):
+    def _id(self, external_id: SequenceNotStr[str]) -> dict[str, int]:
+        return {
+            file.external_id: file.id
+            for file in self._cognite_client.files.retrieve_multiple(external_ids=external_id, ignore_unknown_ids=True)
+            if file.external_id and file.id
+        }
+
+    def _external_id(self, id: Sequence[int]) -> dict[int, str]:
+        return {
+            file.id: file.external_id
+            for file in self._cognite_client.files.retrieve_multiple(ids=id, ignore_unknown_ids=True)
+            if file.external_id and file.id
+        }
+
+    def _read_acl(self) -> Capability:
+        return FilesAcl(
+            [FilesAcl.Action.Read],
+            scope=FilesAcl.Scope.All(),
+        )
+
+
+class EventLookUpAPI(LookUpAPI):
+    def _id(self, external_id: SequenceNotStr[str]) -> dict[str, int]:
+        return {
+            event.external_id: event.id
+            for event in self._cognite_client.events.retrieve_multiple(
+                external_ids=external_id, ignore_unknown_ids=True
+            )
+            if event.external_id and event.id
+        }
+
+    def _external_id(self, id: Sequence[int]) -> dict[int, str]:
+        return {
+            event.id: event.external_id
+            for event in self._cognite_client.events.retrieve_multiple(ids=id, ignore_unknown_ids=True)
+            if event.external_id and event.id
+        }
+
+    def _read_acl(self) -> Capability:
+        return EventsAcl(
+            [EventsAcl.Action.Read],
+            scope=EventsAcl.Scope.All(),
+        )
+
+
 class ExtractionPipelineLookUpAPI(LookUpAPI):
     def _id(self, external_id: SequenceNotStr[str]) -> dict[str, int]:
         return {
@@ -324,6 +372,8 @@ class LookUpGroup(ToolkitAPI):
         self.data_sets = DataSetLookUpAPI(config, api_version, cognite_client)
         self.assets = AssetLookUpAPI(config, api_version, cognite_client)
         self.time_series = TimeSeriesLookUpAPI(config, api_version, cognite_client)
+        self.files = FileMetadataLookUpAPI(config, api_version, cognite_client)
+        self.events = EventLookUpAPI(config, api_version, cognite_client)
         self.security_categories = SecurityCategoriesLookUpAPI(config, api_version, cognite_client)
         self.location_filters = LocationFiltersLookUpAPI(config, api_version, cognite_client)
         self.extraction_pipelines = ExtractionPipelineLookUpAPI(config, api_version, cognite_client)
