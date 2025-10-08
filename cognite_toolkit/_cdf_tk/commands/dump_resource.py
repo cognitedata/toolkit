@@ -170,7 +170,10 @@ class DataModelFinder(ResourceFinder[DataModelId]):
 
         selected_model = questionary.select(
             "Which version would you like to dump?",
-            [Choice(f"{version}", value=model) for version, model in models_by_version.items()],
+            [
+                Choice(f"{version} ({len(model.views)} views)", value=version)
+                for version, model in models_by_version.items()
+            ],
         ).ask()
         self.data_model = models_by_version[selected_model]
         return self.data_model.as_id()
