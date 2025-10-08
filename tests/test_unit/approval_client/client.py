@@ -672,10 +672,7 @@ class ApprovalToolkitClient:
             external_id: str | None = None,
             instance_id: NodeId | None = None,
         ) -> FileMetadata:
-            if isinstance(content, bytes):
-                # It is hard to get the bytes OS independent.
-                result = "bytes-hash"
-            elif isinstance(content, str):
+            if isinstance(content, bytes | str):
                 result = calculate_hash(content, shorten=True)
             else:
                 raise NotImplementedError("Only str and bytes content is supported")

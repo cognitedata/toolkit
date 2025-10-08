@@ -33,7 +33,7 @@ FileCRUD:
   filehash: c7fbc0e8
   space: sp_nodes
 - externalId: fn_data_modeling_only_function
-  filehash: bytes-hash
+  filehash: 66b9719e
   space: sp_instance
 - external_id: shopConfigFile
   filehash: b1f3b6ef
@@ -54,7 +54,7 @@ FileMetadata:
 Function:
 - description: This function stores its code in a Cognite File.
   externalId: fn_data_modeling_only_function
-  fileId: 10
+  fileId: 8
   functionPath: handler.py
   metadata:
     cognite-toolkit-hash: /=a6647f8a;handler.py=e00d5c6f;requirements.txt=71207964
