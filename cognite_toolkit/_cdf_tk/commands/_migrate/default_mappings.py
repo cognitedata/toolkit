@@ -25,7 +25,6 @@ def create_default_mappings() -> list[ResourceViewMappingApply]:
         "legacyName": "alias",
         "unit": "sourceUnit",
         "unitExternalId": "unit",
-        "source": "source",
     }
     file_property_mapping = {
         "name": "name",
