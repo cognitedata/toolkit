@@ -22,7 +22,6 @@ def create_default_mappings() -> list[ResourceViewMappingApply]:
         "description": "description",
         "isStep": "isStep",
         "isString": "type",
-        "legacyName": "alias",
         "unit": "sourceUnit",
         "unitExternalId": "unit",
     }
