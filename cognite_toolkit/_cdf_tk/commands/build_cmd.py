@@ -332,12 +332,12 @@ class BuildCommand(ToolkitCommand):
                 build.append(built_module)
 
                 if module.package_id:
-                    package_ids = self._additional_tracking_info.setdefault("package_ids", [])
+                    package_ids = self._additional_tracking_info.setdefault("packageId", [])
                     if module.package_id not in package_ids:
                         package_ids.append(module.package_id)
 
                 if module.module_id:
-                    module_ids = self._additional_tracking_info.setdefault("module_ids", [])
+                    module_ids = self._additional_tracking_info.setdefault("moduleIds", [])
                     module_ids.append(module.module_id)
 
                 self.tracker.track_module_build(built_module)

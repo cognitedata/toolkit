@@ -185,6 +185,6 @@ externalId: some_external_id
             )
         )
         assert cmd._additional_tracking_info == {
-            "package_ids": ["rmdm"],
-            "module_ids": ["agent", "data_model"],
+            "packageId": ["rmdm"],
+            "moduleIds": ["agent", "data_model"],
         }
