@@ -164,7 +164,7 @@ class PurgeApp(typer.Typer):
             else:
                 raise ToolkitValueError("Invalid space type selected.")
             dry_run = questionary.confirm("Dry run?", default=True).ask()
-            if space_type == "emtpy":
+            if space_type == "empty":
                 include_space = True
             else:
                 include_space = questionary.confirm("Delete the space itself?", default=False).ask()
