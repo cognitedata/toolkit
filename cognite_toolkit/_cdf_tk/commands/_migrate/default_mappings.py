@@ -32,7 +32,7 @@ def create_default_mappings() -> list[ResourceViewMappingApply]:
         "labels": "tags",
         "mimeType": "mimeType",
         "directory": "directory",
-        "sourceModifiedTime": "sourceCreatedTime",
+        "sourceCreatedTime": "sourceCreatedTime",
         "sourceUpdatedTime": "sourceUpdatedTime",
     }
 
