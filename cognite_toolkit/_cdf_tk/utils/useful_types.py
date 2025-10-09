@@ -14,6 +14,5 @@ PythonTypes: TypeAlias = str | int | float | bool | datetime | date | dict[str, 
 AVAILABLE_DATA_TYPES: set[DataType] = set(get_args(DataType))
 
 T_ID = TypeVar("T_ID", bound=Hashable)
-T_Selector = TypeVar("T_Selector", bound=Hashable)
 T_WritableCogniteResourceList = TypeVar("T_WritableCogniteResourceList", bound=WriteableCogniteResourceList)
 T_Value = TypeVar("T_Value")

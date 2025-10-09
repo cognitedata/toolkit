@@ -4,13 +4,13 @@ from pathlib import Path
 from cognite.client.data_classes._base import T_CogniteResourceList
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk.storageio import ConfigurableStorageIO, StorageIO
+from cognite_toolkit._cdf_tk.storageio import ConfigurableStorageIO, StorageIO, T_Selector
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.fileio import FileReader
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ItemIDMessage, SuccessItem
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.progress_tracker import ProgressTracker
-from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal, T_Selector, T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal, T_WritableCogniteResourceList
 
 from ._base import ToolkitCommand
 
