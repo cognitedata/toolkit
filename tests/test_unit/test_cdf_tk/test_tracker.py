@@ -1,6 +1,5 @@
 """Unit tests for deployment pack tracking functionality in Tracker."""
 
-from __future__ import annotations
 
 from unittest.mock import patch
 
