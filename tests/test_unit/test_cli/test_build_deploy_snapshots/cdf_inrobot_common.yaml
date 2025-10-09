@@ -146,18 +146,22 @@ DataSet:
 FileMetadata:
 - data_set_id: 2501680716255129079
   external_id: fn_contextualize_robot_data
+  id: 64
   name: Contextualize_robot_data.zip
   overwrite: true
 - data_set_id: 2501680716255129079
   external_id: fn_gauge_reading
+  id: 64
   name: Gauge_reading.zip
   overwrite: true
 - data_set_id: 2501680716255129079
   external_id: fn_get_ir_data_from_ir_raw
+  id: 64
   name: Get_IR_data_From_IR_raw.zip
   overwrite: true
 - data_set_id: 2501680716255129079
   external_id: fn_threesixty
+  id: 64
   name: Process_360.zip
   overwrite: true
 Function:
@@ -166,6 +170,7 @@ Function:
     CDF_ENV: dev
     ENV_TYPE: dev
   externalId: fn_contextualize_robot_data
+  fileId: 64
   functionPath: ./handler.py
   metadata:
     cognite-toolkit-hash: /=691fc618;README.md=1298bed9;__init__.py=902542db;handler.py=b5f6f122;requirements.txt=0281500f;common/README.md=9fee0739;common/__init__.py=e3b0c442;common/apm_helpers.py=70a92fce;common/cdf_helpers.py=7ea4870e;common/utils.py=72dacf22;common/dataclass/__init__.py=e3b0c442;common/dataclass/common.py=731db5cb;common/dataclass/vision.py=5121f330
@@ -177,6 +182,7 @@ Function:
     CDF_ENV: dev
     ENV_TYPE: dev
   externalId: fn_gauge_reading
+  fileId: 64
   functionPath: ./handler.py
   metadata:
     cognite-toolkit-hash: /=adbf9658;README.md=a23f8d37;__init__.py=df4a4214;handler.py=4bccc8d4;requirements.txt=ac9cd188;common/README.md=9fee0739;common/__init__.py=e3b0c442;common/apm_helpers.py=70a92fce;common/cdf_helpers.py=7ea4870e;common/utils.py=72dacf22;common/dataclass/__init__.py=e3b0c442;common/dataclass/common.py=731db5cb;common/dataclass/vision.py=5121f330
@@ -188,6 +194,7 @@ Function:
     CDF_ENV: dev
     ENV_TYPE: dev
   externalId: fn_get_ir_data_from_ir_raw
+  fileId: 64
   functionPath: ./handler.py
   metadata:
     cognite-toolkit-hash: /=3294e33e;README.md=e6ac8065;__init__.py=ca7dbb21;handler.py=5467a6e6;requirements.txt=3c27268b;common/README.md=9fee0739;common/__init__.py=e3b0c442;common/apm_helpers.py=70a92fce;common/cdf_helpers.py=7ea4870e;common/utils.py=72dacf22;common/dataclass/__init__.py=e3b0c442;common/dataclass/common.py=731db5cb;common/dataclass/vision.py=5121f330
@@ -199,6 +206,7 @@ Function:
     CDF_ENV: dev
     ENV_TYPE: dev
   externalId: fn_threesixty
+  fileId: 64
   functionPath: ./handler.py
   metadata:
     cognite-toolkit-hash: /=da02145a;README.md=410b0207;__init__.py=99690d7b;cognite_threesixty_images.py=9308e253;handler.py=b74d849b;requirements.txt=16a8f346
