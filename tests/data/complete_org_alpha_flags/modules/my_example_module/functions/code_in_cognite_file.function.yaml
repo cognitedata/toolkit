@@ -1,0 +1,9 @@
+name: DataModelingOnly function
+externalId: fn_data_modeling_only_function
+owner: doctrino
+description: This function stores its code in a Cognite File.
+metadata:
+  version: 'v1'
+runtime: 'py312'
+# Space id for the zip file with the code that is uploaded.
+space: sp_instance

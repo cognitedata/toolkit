@@ -9,6 +9,7 @@ This is means that we have three set of resource classes we use in Toolkit:
 
 from .asset import AssetYAML
 from .base import BaseModelResource, ToolkitResource
+from .cognitefile import CogniteFileYAML
 from .containers import ContainerYAML
 from .data_model import DataModelYAML
 from .datapoint_subscription import DatapointSubscriptionYAML
@@ -19,6 +20,7 @@ from .extraction_pipeline_config import ExtractionPipelineConfigYAML
 from .filemetadata import FileMetadataYAML
 from .function_schedule import FunctionScheduleYAML
 from .functions import FunctionsYAML
+from .graphql_model import GraphQLDataModelYAML
 from .groups import GroupYAML
 from .hosted_extractor_destination import HostedExtractorDestinationYAML
 from .hosted_extractor_job import HostedExtractorJobYAML
@@ -27,12 +29,13 @@ from .hosted_extractor_source import HostedExtractorSourceYAML
 from .instance import EdgeYAML, NodeYAML
 from .labels import LabelsYAML
 from .location import LocationYAML
+from .migration import ResourceViewMappingYAML
 from .raw_database_table import DatabaseYAML, TableYAML
 from .relationship import RelationshipYAML
 from .robotics import RobotCapabilityYAML, RobotDataPostProcessingYAML, RobotFrameYAML, RobotLocationYAML, RobotMapYAML
 from .search_config import SearchConfigYAML
 from .securitycategories import SecurityCategoriesYAML
-from .sequence import SequenceYAML
+from .sequence import SequenceRowYAML, SequenceYAML
 from .space import SpaceYAML
 from .streamlit_ import StreamlitYAML
 from .threedmodels import ThreeDModelYAML
@@ -48,6 +51,7 @@ from .workflow_version import WorkflowVersionYAML
 __all__ = [
     "AssetYAML",
     "BaseModelResource",
+    "CogniteFileYAML",
     "ContainerYAML",
     "DataModelYAML",
     "DataModelYAML",
@@ -61,6 +65,7 @@ __all__ = [
     "FileMetadataYAML",
     "FunctionScheduleYAML",
     "FunctionsYAML",
+    "GraphQLDataModelYAML",
     "GroupYAML",
     "HostedExtractorDestinationYAML",
     "HostedExtractorJobYAML",
@@ -70,6 +75,7 @@ __all__ = [
     "LocationYAML",
     "NodeYAML",
     "RelationshipYAML",
+    "ResourceViewMappingYAML",
     "RobotCapabilityYAML",
     "RobotDataPostProcessingYAML",
     "RobotFrameYAML",
@@ -77,6 +83,7 @@ __all__ = [
     "RobotMapYAML",
     "SearchConfigYAML",
     "SecurityCategoriesYAML",
+    "SequenceRowYAML",
     "SequenceYAML",
     "SpaceYAML",
     "StreamlitYAML",

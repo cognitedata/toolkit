@@ -2,6 +2,8 @@ from typing import Literal
 
 from pydantic import Field
 
+from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
+
 from .base import ToolkitResource
 
 
@@ -58,4 +60,11 @@ class FunctionsYAML(ToolkitResource):
         default=None,
         description="Target dataset external ID for the file where the function code is stored.",
         max_length=255,
+    )
+    space: str | None = Field(
+        default=None,
+        description="The space for the CogniteFile where the function code is stored.",
+        min_length=1,
+        max_length=43,
+        pattern=SPACE_FORMAT_PATTERN,
     )

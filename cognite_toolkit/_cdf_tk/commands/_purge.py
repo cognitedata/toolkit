@@ -2,11 +2,11 @@ import dataclasses
 import uuid
 from collections.abc import Callable, Hashable, Iterable
 from functools import partial
-from graphlib import CycleError, TopologicalSorter
+from graphlib import TopologicalSorter
 from typing import Any, cast
 
 import questionary
-from cognite.client.data_classes import AggregateResultItem, DataSetUpdate, filters
+from cognite.client.data_classes import AggregateResultItem, DataSetUpdate
 from cognite.client.data_classes._base import CogniteResourceList
 from cognite.client.data_classes.data_modeling import NodeId, NodeList, ViewId
 from cognite.client.exceptions import CogniteAPIError
@@ -20,13 +20,11 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.cruds import (
     RESOURCE_CRUD_LIST,
     AssetCRUD,
-    CogniteFileCRUD,
     ContainerCRUD,
     DataModelCRUD,
     DataSetsCRUD,
     EdgeCRUD,
     FunctionCRUD,
-    GraphQLCRUD,
     GroupAllScopedCRUD,
     GroupCRUD,
     GroupResourceScopedCRUD,
@@ -36,7 +34,6 @@ from cognite_toolkit._cdf_tk.cruds import (
     ResourceCRUD,
     SpaceCRUD,
     StreamlitCRUD,
-    TransformationCRUD,
     ViewCRUD,
 )
 from cognite_toolkit._cdf_tk.data_classes import DeployResults, ResourceDeployResult
@@ -76,66 +73,6 @@ class PurgeCommand(ToolkitCommand):
     BATCH_SIZE_DM = 1000
 
     def space(
-        self,
-        client: ToolkitClient,
-        space: str | None = None,
-        include_space: bool = False,
-        dry_run: bool = False,
-        auto_yes: bool = False,
-        verbose: bool = False,
-    ) -> None:
-        """Purge a space and all its content"""
-        selected_space = self._get_selected_space(space, client)
-        if space is None:
-            # Interactive mode
-            include_space = questionary.confirm("Do you also want to delete the space itself?", default=False).ask()
-            dry_run = questionary.confirm("Dry run?", default=True).ask()
-        if not dry_run:
-            self._print_panel("space", selected_space)
-            if not auto_yes:
-                confirm = questionary.confirm(
-                    f"Are you really sure you want to purge the {selected_space!r} space?", default=False
-                ).ask()
-                if not confirm:
-                    return
-                confirm = questionary.confirm(
-                    f"If any of the nodes in {selected_space!r} are TimeSeries or Files, this will delete the "
-                    "datapoints and file contents. If you want to unlink the nodes before deleting, please use the "
-                    "cdf purge instances command. Are you sure you want to continue?",
-                    default=False,
-                ).ask()
-                if not confirm:
-                    return
-        loaders = self._get_dependencies(
-            SpaceCRUD,
-            exclude={
-                GraphQLCRUD,
-                GroupResourceScopedCRUD,
-                LocationFilterCRUD,
-                TransformationCRUD,
-                CogniteFileCRUD,
-            },
-        )
-        is_purged = self._purge(client, loaders, selected_space, dry_run=dry_run, verbose=verbose)
-        if include_space and is_purged:
-            space_loader = SpaceCRUD.create_loader(client)
-            if dry_run:
-                print(f"Would delete space {selected_space}")
-            else:
-                try:
-                    space_loader.delete([selected_space])
-                    print(f"Space {selected_space} deleted")
-                except CogniteAPIError as e:
-                    self.warn(HighSeverityWarning(f"Failed to delete space {selected_space!r}: {e}"))
-        elif include_space:
-            self.warn(HighSeverityWarning(f"Space {selected_space!r} was not deleted due to errors during the purge"))
-
-        if not dry_run and is_purged:
-            print(f"Purge space {selected_space!r} completed.")
-        elif not dry_run:
-            print(f"Purge space {selected_space!r} partly completed. See warnings for details.")
-
-    def space_v2(
         self,
         client: ToolkitClient,
         selected_space: str,
@@ -459,22 +396,7 @@ class PurgeCommand(ToolkitCommand):
                     status_prefix = "Expected deleted"  # Views are not always deleted immediately
                     has_purged_views = True
 
-                if not dry_run and isinstance(loader, NodeCRUD):
-                    # Special handling of nodes as node type must be deleted after regular nodes
-                    # In dry-run mode, we are not deleting the nodes, so we can skip this.
-                    warnings_before = len(self.warning_list)
-                    deleted_nodes = self._purge_nodes(loader, status, selected_space, verbose)
-                    results[loader.display_name] = ResourceDeployResult(
-                        name=loader.display_name,
-                        deleted=deleted_nodes,
-                        total=deleted_nodes,
-                    )
-                    if len(self.warning_list) > warnings_before and any(
-                        isinstance(warn, HighSeverityWarning) for warn in self.warning_list[warnings_before:]
-                    ):
-                        is_purged = False
-                    continue
-                elif not dry_run and isinstance(loader, AssetCRUD):
+                if not dry_run and isinstance(loader, AssetCRUD):
                     # Special handling of assets as we must ensure all children are deleted before the parent.
                     # In dry-run mode, we are not deleting the assets, so we can skip this.
                     deleted_assets = self._purge_assets(loader, status, selected_data_set)
@@ -614,122 +536,6 @@ class PurgeCommand(ToolkitCommand):
                     console.print(f"{prefix} {count:,} {child_loader.display_name}")
             child_deletion[child_loader.display_name] = count
         return child_deletion
-
-    def _purge_nodes(
-        self,
-        loader: NodeCRUD,
-        status: Status,
-        selected_space: str | None = None,
-        verbose: bool = False,
-        batch_size: int = 1000,
-    ) -> int:
-        """Special handling of nodes as we must ensure all node types are deleted last."""
-        # First find all Node Types
-        node_types: dict[NodeId, set[NodeId]] = {}
-        total_count = 0
-        for node in loader.iterate(space=selected_space):
-            if node.type and (selected_space is None or node.space == selected_space):
-                node_id = NodeId(node.type.space, node.type.external_id)
-                node_types[node_id] = set()
-            total_count += 1
-            status.update(f"Looking up node.type {total_count:,}...")
-
-        count = 0
-        batch_ids: list[NodeId] = []
-        for node in loader.iterate(space=selected_space):
-            node_id = node.as_id()
-            if node_id in node_types:
-                # Skip if it is a node type
-                continue
-            batch_ids.append(node_id)
-            if len(batch_ids) >= batch_size:
-                deleted, batch_size = self._delete_node_batch(batch_ids, loader, batch_size, status.console, verbose)
-                count += deleted
-                status.update(f"Deleted {count:,}/{total_count} {loader.display_name}...")
-                batch_ids = []
-
-        if batch_ids:
-            deleted, batch_size = self._delete_node_batch(batch_ids, loader, batch_size, status.console, verbose)
-            count += deleted
-
-        # Finally delete all node types, first do a lookup and topological sort to ensure deleting in the right order.
-        # Note this is an edge case, and is a result of some strange usage. But we need to handle it.
-        for node_type in loader.retrieve(list(node_types.keys())):
-            if node_type.type:
-                required = NodeId(node_type.type.space, node_type.type.external_id)
-                if required in node_types:
-                    node_types[required].add(node_type.as_id())
-
-        try:
-            node_type_ids = list(TopologicalSorter(node_types).static_order())
-        except CycleError as e:
-            self.warn(
-                HighSeverityWarning(f"Failed to delete node-types: Cycle detected. {e.args}"), console=status.console
-            )
-            return count
-
-        deleted, batch_size = self._delete_node_batch(node_type_ids, loader, batch_size, status.console, verbose)
-        count += deleted
-        if count > 0:
-            status.console.print(f"Finished purging {loader.display_name}.")
-        return count
-
-    def _delete_node_batch(
-        self, batch_ids: list[NodeId], loader: NodeCRUD, batch_size: int, console: Console, verbose: bool
-    ) -> tuple[int, int]:
-        try:
-            deleted = loader.delete(batch_ids)
-        except CogniteAPIError as delete_error:
-            if (
-                delete_error.code == 400
-                and "Attempted to delete a node which is used as a type" in delete_error.message
-            ):
-                # Fallback to delete one by one
-                deleted = 0
-                for node_id in batch_ids:
-                    try:
-                        loader.delete([node_id])
-                        deleted += 1
-                    except CogniteAPIError:
-                        is_type = filters.Equals(["node", "type"], node_id.dump(include_instance_type=False))
-                        instance_spaces = {node.space for node in loader.client.data_modeling.instances(filter=is_type)}
-                        if instance_spaces:
-                            suffix = (
-                                "It is used as a node type in the following spaces, "
-                                f"which must be purged first: {humanize_collection(instance_spaces)}"
-                            )
-                        else:
-                            suffix = "It is used as a node type, but failed to find the spaces where it is used."
-                        self.warn(HighSeverityWarning(f"Failed to delete {node_id!r}. {suffix}"), console=console)
-            elif (
-                delete_error.code == 408
-                and "timed out" in delete_error.message.casefold()
-                and batch_size > 1
-                and (len(batch_ids) > 1)
-            ):
-                self.warn(
-                    MediumSeverityWarning(
-                        f"Timed out deleting {loader.display_name}. Trying again with a smaller batch size."
-                    ),
-                    include_timestamp=True,
-                    console=console,
-                )
-                new_batch_size = len(batch_ids) // 2
-                first = batch_ids[:new_batch_size]
-                second = batch_ids[new_batch_size:]
-                first_deleted, first_batch_size = self._delete_node_batch(
-                    first, loader, new_batch_size, console, verbose
-                )
-                second_deleted, second_batch_size = self._delete_node_batch(
-                    second, loader, new_batch_size, console, verbose
-                )
-                return first_deleted + second_deleted, min(first_batch_size, second_batch_size)
-            else:
-                raise delete_error
-
-        if verbose:
-            console.print(f"Deleted {deleted:,} {loader.display_name}")
-        return deleted, batch_size
 
     def _purge_assets(
         self,
