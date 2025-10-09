@@ -507,7 +507,7 @@ class DatapointSubscriptionCRUD(
             elif ts.instance_id and ts.external_id is None:
                 current_instance_ids.add(ts.instance_id)
             else:
-                raise ValueError(f"Time series ID {ts.external_id} and instance ID {ts.instance_id} are both set.")
+                raise ValueError(f"External ID and instance ID are both set for time series {ts.external_id}.")
 
         # Calculate what needs to be added and removed
         ts_to_add = desired_timeseries_ids - current_timeseries_ids
