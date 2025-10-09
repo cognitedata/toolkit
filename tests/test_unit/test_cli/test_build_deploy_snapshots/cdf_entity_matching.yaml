@@ -44,11 +44,13 @@ ExtractionPipelineConfig:
 FileMetadata:
 - data_set_id: 316416785021717804
   external_id: contextualization_entity_matcher
+  id: 64
   name: Entity_Matching_Function.zip
   overwrite: true
 Function:
 - description: Matches entities based on their properties
   externalId: contextualization_entity_matcher
+  fileId: 64
   functionPath: handler.py
   metadata:
     cognite-toolkit-hash: /=ae0f84f7;handler.py=318d6241;requirements.txt=1d4815ec
