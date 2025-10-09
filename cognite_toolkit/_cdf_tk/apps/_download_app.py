@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import typer
+from cognite.client.data_classes.data_modeling import ViewId
 from rich import print
 
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
@@ -12,11 +13,14 @@ from cognite_toolkit._cdf_tk.storageio import (
     AssetIO,
     AssetSubtreeSelector,
     DataSetSelector,
+    InstanceIO,
+    InstanceViewSelector,
     RawIO,
 )
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
     AssetInteractiveSelect,
+    DataModelingSelect,
     RawTableInteractiveSelect,
 )
 
@@ -32,9 +36,23 @@ class AssetCentricFormats(str, Enum):
     ndjson = "ndjson"
 
 
+class InstanceFormats(str, Enum):
+    csv = "csv"
+    parquet = "parquet"
+    ndjson = "ndjson"
+
+
+class InstanceType(str, Enum):
+    node = "node"
+    edge = "edge"
+
+
 class CompressionFormat(str, Enum):
     gzip = "gzip"
     none = "none"
+
+
+DEFAULT_DIR = Path("dat")
 
 
 class DownloadApp(typer.Typer):
@@ -92,7 +110,7 @@ class DownloadApp(typer.Typer):
                 help="Where to download the raw tables.",
                 allow_dash=True,
             ),
-        ] = Path("tmp"),
+        ] = DEFAULT_DIR,
         limit: Annotated[
             int,
             typer.Option(
@@ -181,7 +199,7 @@ class DownloadApp(typer.Typer):
                 help="Where to download the assets.",
                 allow_dash=True,
             ),
-        ] = Path("tmp"),
+        ] = DEFAULT_DIR,
         limit: Annotated[
             int,
             typer.Option(
@@ -220,6 +238,112 @@ class DownloadApp(typer.Typer):
             lambda: cmd.download(
                 selectors=selectors,
                 io=AssetIO(client),
+                output_dir=output_dir,
+                file_format=f".{file_format.value}",
+                compression=compression.value,
+                limit=limit if limit != -1 else None,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def download_instances_cmd(
+        ctx: typer.Context,
+        view_id: Annotated[
+            list[str] | None,
+            typer.Argument(
+                help="The identifier of the view to downloaded. Expected format space externalId version. If not provided, an interactive selection will be made.",
+            ),
+        ] = None,
+        instance_spaces: Annotated[
+            list[str] | None,
+            typer.Option(
+                "--instance-space",
+                "-s",
+                help="List of instance spaces to filter instances by. If not provided, instances from all spaces will be downloaded.",
+            ),
+        ] = None,
+        instance_type: Annotated[
+            InstanceType,
+            typer.Option(
+                "--instance-type",
+                "-t",
+                help="The type of instances to download.",
+            ),
+        ] = InstanceType.node,
+        file_format: Annotated[
+            InstanceFormats,
+            typer.Option(
+                "--format",
+                "-f",
+                help="Format for downloading the instances.",
+            ),
+        ] = InstanceFormats.csv,
+        compression: Annotated[
+            CompressionFormat,
+            typer.Option(
+                "--compression",
+                "-z",
+                help="Compression format to use when downloading the instances.",
+            ),
+        ] = CompressionFormat.none,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to download the instances.",
+                allow_dash=True,
+            ),
+        ] = DEFAULT_DIR,
+        limit: Annotated[
+            int,
+            typer.Option(
+                "--limit",
+                "-l",
+                help="The maximum number of instances to download from each view. Use -1 to download all instances.",
+            ),
+        ] = 100_000,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will download instances from CDF into a temporary directory."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        if view_id is None:
+            # is interactive
+            interactive = DataModelingSelect(client, "download instances")
+            selected_view = interactive.select_view(include_global=True)
+            selected_instance_type = interactive.select_instance_type(selected_view.used_for)
+            selected_view_id = selected_view.as_id()
+            instance_spaces = interactive.select_instance_space(True, selected_view_id, selected_instance_type)
+            selector = InstanceViewSelector(
+                view=selected_view_id,
+                instance_type=selected_instance_type,
+                instance_spaces=tuple(instance_spaces) if instance_spaces else None,
+            )
+        else:
+            if len(view_id) != 3:
+                raise typer.BadParameter(
+                    "The view_id argument must be in the format: space externalId version",
+                    param_hint="view_id",
+                )
+            selector = InstanceViewSelector(
+                view=ViewId.load(tuple(view_id)),  # type: ignore[arg-type]
+                instance_type=instance_type,  # type: ignore[arg-type]
+                instance_spaces=tuple(instance_spaces) if instance_spaces else None,
+            )
+
+        cmd = DownloadCommand()
+        cmd.run(
+            lambda: cmd.download(
+                selectors=[selector],
+                io=InstanceIO(client),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,
