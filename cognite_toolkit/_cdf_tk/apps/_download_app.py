@@ -52,7 +52,7 @@ class CompressionFormat(str, Enum):
     none = "none"
 
 
-DEFAULT_DIR = Path("dat")
+DEFAULT_DIR = Path("data")
 
 
 class DownloadApp(typer.Typer):
@@ -61,6 +61,7 @@ class DownloadApp(typer.Typer):
         self.callback(invoke_without_command=True)(self.download_main)
         self.command("raw")(self.download_raw_cmd)
         self.command("assets")(self.download_assets_cmd)
+        self.command("instances")(self.download_instances_cmd)
 
     @staticmethod
     def download_main(ctx: typer.Context) -> None:
