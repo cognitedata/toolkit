@@ -167,11 +167,9 @@ class TestAuthCommand:
         )
 
 
-def test_get_capabilities_by_loader_respects_project_type(toolkit_client_approval: ApprovalToolkitClient):
+def test_get_capabilities_by_loader_hybrid_project(toolkit_client_approval: ApprovalToolkitClient):
     client = toolkit_client_approval.client
     client.project = MagicMock()
-
-    # HYBRID: expect AssetsAcl and RelationshipsAcl present
     client.project.status.return_value = ProjectStatusList._load(
         [
             {
@@ -186,7 +184,10 @@ def test_get_capabilities_by_loader_respects_project_type(toolkit_client_approva
     assert AssetsAcl in cap_types_hybrid
     assert RelationshipsAcl in cap_types_hybrid
 
-    # DATA_MODELING_ONLY: expect AssetsAcl and RelationshipsAcl excluded
+
+def test_get_capabilities_by_loader_dm_only_project(toolkit_client_approval: ApprovalToolkitClient):
+    client = toolkit_client_approval.client
+    client.project = MagicMock()
     client.project.status.return_value = ProjectStatusList._load(
         [
             {

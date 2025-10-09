@@ -445,7 +445,7 @@ class AuthCommand(ToolkitCommand):
             capability = loader_cls.get_required_capability(None, read_only=False)
             capabilities = capability if isinstance(capability, list) else [capability]
             for cap in capabilities:
-                if project_type == "DATA_MODELING_ONLY" and isinstance(cap, (AssetsAcl, RelationshipsAcl)):
+                if project_type == "DATA_MODELING_ONLY" and isinstance(cap, AssetsAcl | RelationshipsAcl):
                     continue
                 id_ = frozenset(cap.as_tuples())
                 if id_ not in capability_by_id:
