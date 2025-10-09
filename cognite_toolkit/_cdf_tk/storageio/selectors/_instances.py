@@ -17,6 +17,7 @@ class InstanceSelector(DataSelector, ABC):
 
 
 class InstanceViewSelector(InstanceSelector):
+    type = "instanceView"
     view: ViewReference
     instance_type: Literal["node", "edge"] = "node"
     instance_spaces: tuple[str, ...] | None = None
