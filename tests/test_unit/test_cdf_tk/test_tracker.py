@@ -1,6 +1,5 @@
 """Unit tests for deployment pack tracking functionality in Tracker."""
 
-
 from unittest.mock import patch
 
 import pytest
