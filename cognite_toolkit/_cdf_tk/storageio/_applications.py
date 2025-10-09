@@ -1,14 +1,18 @@
 from collections.abc import Iterable
-from pathlib import Path
+from dataclasses import dataclass
 
-from rich.console import Console
-
+from cognite_toolkit._cdf_tk.client.data_classes.canvas import (
+    IndustrialCanvas,
+    IndustrialCanvasApply,
+    IndustrialCanvasApplyList,
+    IndustrialCanvasList,
+)
 from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList, ChartWrite, ChartWriteList
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
-from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal, T_Selector
+from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import StorageIO, StorageIOConfig
+from ._base import StorageIO
 from ._selectors import AllChartSelector, ChartOwnerSelector, ChartSelector
 
 
@@ -64,23 +68,57 @@ class ChartIO(StorageIO[str, ChartSelector, ChartWriteList, ChartList]):
         # There is no way to get the count of charts up front.
         return None
 
-    def upload_items(self, data_chunk: ChartWriteList, selector: ChartSelector) -> None:
-        # Todo validate all references exist in CDF before uploading.
-        raise ToolkitNotImplementedError("Uploading charts is not implemented yet.")
-
     def data_to_json_chunk(self, data_chunk: ChartList) -> list[dict[str, JsonVal]]:
         return [chart.as_write().dump() for chart in data_chunk]
 
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> ChartWriteList:
         return ChartWriteList._load(data_chunk)
 
-    def configurations(self, selector: ChartSelector) -> Iterable[StorageIOConfig]:
-        # Charts does not have any configurations for its data.
-        return []
 
-    def load_selector(self, datafile: Path) -> ChartSelector:
-        raise ToolkitNotImplementedError("Loading charts is not implemented yet.")
+@dataclass(frozen=True)
+class CanvasSelector: ...
 
-    def ensure_configurations(self, selector: T_Selector, console: Console | None = None) -> None:
-        # Charts do not have any configurations to ensure.
-        return None
+
+class CanvasIO(StorageIO[str, CanvasSelector, IndustrialCanvasApplyList, IndustrialCanvasList]):
+    FOLDER_NAME = "cdf_application_data"
+    KIND = "IndustrialCanvas"
+    DISPLAY_NAME = "CDF Industrial Canvases"
+    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
+    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
+    SUPPORTED_READ_FORMATS = frozenset({".ndjson"})
+    CHUNK_SIZE = 10
+
+    @staticmethod
+    def _get_id_from_dict(item: dict[str, JsonVal] | object) -> str | None:
+        if not isinstance(item, dict):
+            return None
+        if "canvas" not in item:
+            return None
+        canvas = item["canvas"]
+        if not isinstance(canvas, dict):
+            return None
+        external_id = canvas.get("externalId")
+        if not isinstance(external_id, str):
+            return None
+        return external_id
+
+    def as_id(self, item: dict[str, JsonVal] | object) -> str:
+        if canvas_id := self._get_id_from_dict(item):
+            return canvas_id
+        if isinstance(item, IndustrialCanvas | IndustrialCanvasApply):
+            return item.as_id()
+        raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
+
+    def stream_data(self, selector: CanvasSelector, limit: int | None = None) -> Iterable[IndustrialCanvasList]:
+        raise ToolkitNotImplementedError("Streaming canvases is not implemented yet.")
+
+    def count(self, selector: CanvasSelector) -> int | None:
+        raise ToolkitNotImplementedError("Counting canvases is not implemented yet.")
+
+    def data_to_json_chunk(self, data_chunk: IndustrialCanvasList) -> list[dict[str, JsonVal]]:
+        # Need to do lookup to get external IDs for all asset-centric resources.
+        raise ToolkitNotImplementedError("Exporting canvases is not implemented yet.")
+
+    def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> IndustrialCanvasApplyList:
+        # Need to do lookup to get external IDs for all asset-centric resources.
+        raise ToolkitNotImplementedError("Importing canvases is not implemented yet.")

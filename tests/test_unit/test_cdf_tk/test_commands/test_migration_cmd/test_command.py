@@ -23,6 +23,7 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, ProjectStatistics
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.adapter import AssetCentricMigrationIOAdapter, MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
@@ -33,9 +34,9 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_model import (
     MODEL_ID,
     RESOURCE_VIEW_MAPPING_VIEW_ID,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import _ASSET_ID, create_default_mappings
+from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import ASSET_ID, create_default_mappings
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
-from cognite_toolkit._cdf_tk.storageio import AssetIO, InstanceIO
+from cognite_toolkit._cdf_tk.storageio import AssetIO
 from cognite_toolkit._cdf_tk.utils.fileio import CSVReader
 
 
@@ -45,7 +46,7 @@ def cognite_migration_model(
 ) -> Iterator[responses.RequestsMock]:
     config = toolkit_config
     mapping_by_id = {mapping.external_id: mapping for mapping in create_default_mappings()}
-    asset_mapping = mapping_by_id[_ASSET_ID]
+    asset_mapping = mapping_by_id[ASSET_ID]
     # Lookup of the mapping in the Migration Model
     mapping_node_response = asset_mapping.dump(context="api")
     mapping_node_response.update({"createdTime": 0, "lastUpdatedTime": 0, "version": 1})
@@ -136,7 +137,7 @@ class TestMigrationCommand:
         )
         space = "my_space"
         csv_content = "id,space,externalId,ingestionView\n" + "\n".join(
-            f"{1000 + i},{space},asset_{i},{_ASSET_ID}" for i in range(len(assets))
+            f"{1000 + i},{space},asset_{i},{ASSET_ID}" for i in range(len(assets))
         )
 
         # Asset retrieve ids
@@ -176,7 +177,7 @@ class TestMigrationCommand:
 
         result = command.migrate(
             selected=MigrationCSVFileSelector(csv_file, resource_type="asset"),
-            data=AssetCentricMigrationIOAdapter(client, AssetIO(client), InstanceIO(client)),
+            data=AssetCentricMigrationIOAdapter(client, AssetIO(client)),
             mapper=AssetCentricMapper(client),
             log_dir=tmp_path / "logs",
             dry_run=False,
@@ -214,14 +215,15 @@ class TestMigrationCommand:
             for asset in assets
         ]
         assert actual_instances == expected_instance
-        actual_results = [result.get_progress(asset.id) for asset in assets]
+        actual_results = [result.get_progress(AssetCentricId("asset", asset.id)) for asset in assets]
         expected_results = [{"download": "success", "convert": "success", "upload": "success"} for _ in assets]
         assert actual_results == expected_results
         csv_file = next((tmp_path / "logs").glob("*.csv"), None)
         assert csv_file is not None, "Expected a CSV log file to be created"
         csv_results = list(CSVReader(csv_file).read_chunks_unprocessed())
         assert csv_results == [
-            {"ID": str(asset.id), "download": "success", "convert": "success", "upload": "success"} for asset in assets
+            {"ID": f"asset(id={asset.id})", "download": "success", "convert": "success", "upload": "success"}
+            for asset in assets
         ]
 
     def test_validate_migration_model_available(self) -> None:
