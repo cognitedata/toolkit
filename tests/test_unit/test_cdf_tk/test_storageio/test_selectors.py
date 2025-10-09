@@ -5,7 +5,13 @@ from typing import Any, get_args
 
 import pytest
 
-from cognite_toolkit._cdf_tk.storageio.selectors import DataSelector, Selector, SelectorAdapter
+from cognite_toolkit._cdf_tk.storageio.selectors import (
+    DataSelector,
+    InstanceViewSelector,
+    RawTableSelector,
+    Selector,
+    SelectorAdapter,
+)
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
@@ -13,7 +19,9 @@ from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
 
 def example_selector_data() -> Iterable[tuple]:
     yield pytest.param(
-        {"type": "rawTable", "table": {"dbName": "my_db", "tableName": "my_table"}}, id="RawTableSelector"
+        {"type": "rawTable", "table": {"dbName": "my_db", "tableName": "my_table"}},
+        RawTableSelector,
+        id="RawTableSelector",
     )
     yield pytest.param(
         {
@@ -22,6 +30,7 @@ def example_selector_data() -> Iterable[tuple]:
             "instanceType": "node",
             "instanceSpaces": ["space1", "space2"],
         },
+        InstanceViewSelector,
         id="InstanceViewSelector",
     )
 
@@ -51,10 +60,16 @@ class TestDataSelectors:
         missing = all_types - example_types
         assert not missing, f"The following DataSelector types are missing example data: {humanize_collection(missing)}"
 
-    @pytest.mark.parametrize("data", list(example_selector_data()))
-    def test_selector_instance(self, data: dict[str, Any], tmp_path: Path) -> None:
+    @pytest.mark.parametrize("data,expected_selector", list(example_selector_data()))
+    def test_selector_instance(
+        self, data: dict[str, Any], expected_selector: type[DataSelector], tmp_path: Path
+    ) -> None:
         instance = SelectorAdapter.validate_python(data)
 
+        # Assert correct type
+        assert isinstance(instance, expected_selector), (
+            f"Expected {expected_selector.__name__}, got {type(instance).__name__}"
+        )
         # Assert __str__ is implemented
         assert str(instance), f"__str__ not implemented for {type(instance).__name__}"
 
