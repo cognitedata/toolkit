@@ -26,8 +26,7 @@ class DataSelector(ABC):
             directory: The directory where the YAML file will be saved.
         """
 
-        filename = sanitize_filename(str(self)) + ".yaml"
-        filepath = directory / filename
+        filepath = directory / f"{sanitize_filename(str(self))}.Selector.yaml"
         safe_write(filepath, yaml_safe_dump(self.dump()))
 
     def __str__(self) -> str:

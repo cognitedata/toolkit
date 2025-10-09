@@ -38,22 +38,23 @@ class DownloadCommand(ToolkitCommand):
             compression: The compression method to use for the downloaded files (e.g., "none", "gzip").
             limit: The maximum number of items to download for each selected set. If None, all items will be downloaded.
         """
-        target_directory = output_dir / io.FOLDER_NAME
-        target_directory.mkdir(parents=True, exist_ok=True)
+        output_dir.mkdir(parents=True, exist_ok=True)
         compression_cls = Compression.from_name(compression)
 
         console = Console()
         filestem_counter: dict[str, int] = Counter()
         for selector in selectors:
+            target_directory = output_dir / str(selector)
+
             if verbose:
                 console.print(f"Downloading {io.DISPLAY_NAME} '{selector!s}' to {target_directory.as_posix()!r}")
 
             filestem = sanitize_filename(str(selector))
             if filestem_counter[filestem] > 0:
                 filestem = f"{filestem}_{filestem_counter[filestem]}"
+
             filestem_counter[filestem] += 1
             iteration_count = self._get_iteration_count(io, selector, limit)
-
             columns: list[SchemaColumn] | None = None
             if file_format in TABLE_WRITE_CLS_BY_FORMAT and isinstance(io, TableStorageIO):
                 columns = io.get_schema(selector)
@@ -61,6 +62,8 @@ class DownloadCommand(ToolkitCommand):
                 raise ToolkitValueError(
                     f"Cannot download {io.KIND} in {file_format!r} format. The {io.KIND!r} storage type does not support table schemas."
                 )
+
+            selector.dump_to_file(target_directory)
 
             with FileWriter.create_from_format(
                 file_format, target_directory, io.KIND, compression_cls, columns=columns
@@ -83,7 +86,7 @@ class DownloadCommand(ToolkitCommand):
 
             if isinstance(io, ConfigurableStorageIO):
                 for config in io.configurations(selector):
-                    config_file = output_dir / config.folder_name / f"{filestem}.{config.kind}.yaml"
+                    config_file = target_directory / "resources" / io.FOLDER_NAME / f"{filestem}.{config.kind}.yaml"
                     config_file.parent.mkdir(parents=True, exist_ok=True)
                     safe_write(config_file, yaml_safe_dump(config.value))
 
