@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import ClassVar, Generic
+from typing import ClassVar, Generic, TypeVar
 
 from cognite.client.data_classes._base import (
     T_CogniteResourceList,
@@ -13,7 +13,9 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest
-from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal, T_Selector, T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal, T_WritableCogniteResourceList
+
+from ._selectors import DataSelector
 
 
 @dataclass
@@ -21,6 +23,9 @@ class StorageIOConfig:
     kind: str
     folder_name: str
     value: JsonVal
+
+
+T_Selector = TypeVar("T_Selector", bound=DataSelector)
 
 
 class StorageIO(ABC, Generic[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList]):
