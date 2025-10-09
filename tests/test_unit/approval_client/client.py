@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import itertools
 import json as JSON
+import zipfile
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
@@ -62,6 +64,7 @@ from requests import Response
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import GraphQLDataModelWrite
+from cognite_toolkit._cdf_tk.client.data_classes.project import ProjectStatus, ProjectStatusList
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
@@ -154,9 +157,10 @@ class ApprovalToolkitClient:
         credentials.client_secret = "toolkit-client-secret"
         credentials.token_url = "https://toolkit.auth.com/oauth/token"
         credentials.scopes = ["ttps://pytest-field.cognitedata.com/.default"]
+        project = "test_project"
         self.mock_client.config = ToolkitClientConfig(
             client_name=CLIENT_NAME,
-            project="pytest-project",
+            project=project,
             credentials=credentials,
             is_strict_validation=False,
         )
@@ -182,10 +186,15 @@ class ApprovalToolkitClient:
         # Set functions to be activated
         self.mock_client.functions.status.return_value = FunctionsStatus(status="activated")
 
+        # Use Hybrid project
+        self.mock_client.project.status.return_value = ProjectStatusList(
+            [ProjectStatus(url_name=project, data_modeling_status="HYBRID")], cognite_client=mock_client
+        )
+
         # Activate authorization_header()
         self.mock_client.config.credentials.authorization_header.return_value = ("Bearer", "123")
         # Set project
-        self.mock_client.config.project = "test_project"
+        self.mock_client.config.project = project
         self.mock_client.config.base_url = "https://bluefield.cognitedata.com"
         # Setup mock for all lookup methods
         for method_name, lookup_api in self.mock_client.lookup.__dict__.items():
@@ -642,7 +651,8 @@ class ApprovalToolkitClient:
         def upload_bytes_files_api(content: str | bytes | TextIO | BinaryIO, **kwargs) -> FileMetadata:
             if not isinstance(content, bytes):
                 raise NotImplementedError("Only bytes content is supported")
-
+            if "id" not in kwargs:
+                kwargs["id"] = len(calculate_hash(content, shorten=False))
             created_resources[resource_cls.__name__].append(
                 {
                     **kwargs,
@@ -660,13 +670,30 @@ class ApprovalToolkitClient:
             )
 
         def upload_file_content_bytes_files_api(
-            content: str,
+            content: str | bytes,
             external_id: str | None = None,
             instance_id: NodeId | None = None,
         ) -> FileMetadata:
-            return _upload_file_content_files_api(
-                calculate_hash(content, shorten=True), external_id=external_id, instance_id=instance_id
-            )
+            if isinstance(content, bytes):
+                try:
+                    hashes: list[str] = []
+                    with zipfile.ZipFile(io.BytesIO(content)) as z:
+                        namelist = z.namelist()
+                        for name in sorted(namelist):
+                            hashes.append(calculate_hash(name, shorten=False))
+                            if name.endswith("/"):
+                                continue
+                            with z.open(name) as f:
+                                file_content = f.read()
+                                hashes.append(calculate_hash(file_content, shorten=True))
+                    result = calculate_hash(",".join(sorted(hashes)), shorten=True)
+                except zipfile.BadZipFile:
+                    result = calculate_hash(content, shorten=True)
+            elif isinstance(content, str):
+                result = calculate_hash(content, shorten=True)
+            else:
+                raise NotImplementedError("Only str and bytes content is supported")
+            return _upload_file_content_files_api(result, external_id=external_id, instance_id=instance_id)
 
         def _upload_file_content_files_api(
             filehash: str,
@@ -684,7 +711,7 @@ class ApprovalToolkitClient:
 
             created_resources[FileCRUD.__name__].append(entry)
 
-            return FileMetadata(external_id, instance_id)
+            return FileMetadata(external_id, instance_id, id=len(filehash))
 
         def create_3dmodel(
             name: str, data_set_id: int | None = None, metadata: dict[str, str] | None = None
@@ -1119,6 +1146,7 @@ class ApprovalToolkitClient:
                 continue
             mocked_apis["lookup"].add(name)
         mocked_apis["verify"] = {"authorization"}
+        mocked_apis["project"] = {"status"}
 
         not_mocked: dict[str, int] = defaultdict(int)
         for api_name, api in vars(self.mock_client).items():
