@@ -73,6 +73,9 @@ class TestDataSelectors:
         # Assert __str__ is implemented
         assert str(instance), f"__str__ not implemented for {type(instance).__name__}"
 
+        # Assert group is implemented
+        assert instance.group, f"group property not implemented for {type(instance).__name__}"
+
         # Assert serialization/deserialization
         filepath = instance.dump_to_file(tmp_path)
         assert filepath.exists(), f"dump_to_file did not create file for {type(instance).__name__}"
