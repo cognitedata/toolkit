@@ -327,6 +327,7 @@ default_organization_dir = "{organization_dir.name}"''',
                 mode=mode,
                 modules_source_path=modules_source_path,
             )
+            self.tracker.track_deployment_pack_install(list(packages.values()), command_type="init")
             return
         is_interactive = user_select is not None
         if not is_interactive:
@@ -744,6 +745,7 @@ default_organization_dir = "{organization_dir.name}"''',
             download_data=download_data,
             modules_source_path=modules_source_path,
         )
+        self.tracker.track_deployment_pack_install(list(added_packages.values()), command_type="add")
 
     def _get_available_packages(self) -> tuple[Packages, Path]:
         """
@@ -769,6 +771,15 @@ default_organization_dir = "{organization_dir.name}"''',
                     self._unpack(file_path)
                     packages = Packages().load(file_path.parent)
                     self._validate_packages(packages, f"library {library_name}")
+
+                    # Track deployment pack download for each package
+                    for package in packages.values():
+                        self.tracker.track_deployment_pack_download(
+                            package_id=package.id,
+                            package_name=package.name,
+                            url=library.url,
+                        )
+
                     return packages, file_path.parent
                 except Exception as e:
                     if isinstance(e, ToolkitError):
