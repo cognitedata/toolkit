@@ -12,6 +12,7 @@ from .old import (
     InstanceSelector,
     InstanceViewSelector,
 )
+from .raw import RawTableSelector
 
 __all__ = [
     "AllChartSelector",
@@ -26,4 +27,5 @@ __all__ = [
     "InstanceFileSelector",
     "InstanceSelector",
     "InstanceViewSelector",
+    "RawTableSelector",
 ]

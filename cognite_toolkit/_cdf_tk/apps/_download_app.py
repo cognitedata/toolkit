@@ -8,6 +8,7 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.commands import DownloadCommand
+from cognite_toolkit._cdf_tk.resource_classes import TableYAML
 from cognite_toolkit._cdf_tk.storageio import (
     AssetCentricSelector,
     AssetIO,
@@ -17,6 +18,7 @@ from cognite_toolkit._cdf_tk.storageio import (
     InstanceViewSelector,
     RawIO,
 )
+from cognite_toolkit._cdf_tk.storageio._selectors import RawTableSelector
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
     AssetInteractiveSelect,
@@ -147,7 +149,9 @@ class DownloadApp(typer.Typer):
 
         cmd.run(
             lambda: cmd.download(
-                selectors=selectors,
+                selectors=[
+                    RawTableSelector(table=TableYAML.model_validate(table.dump(camel_case=True))) for table in selectors
+                ],
                 io=RawIO(client),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
