@@ -19,7 +19,7 @@ class DataSelector(BaseModel, ABC):
     def dump(self) -> dict[str, JsonVal]:
         return self.model_dump(by_alias=True)
 
-    def dump_to_file(self, directory: Path) -> None:
+    def dump_to_file(self, directory: Path) -> Path:
         """Dumps the selector to a YAML file in the specified directory.
 
         The filename is derived from the string representation of the selector.
@@ -31,9 +31,10 @@ class DataSelector(BaseModel, ABC):
         filepath = directory / f"{sanitize_filename(str(self))}.Selector.yaml"
         filepath.parent.mkdir(parents=True, exist_ok=True)
         safe_write(file=filepath, content=yaml_safe_dump(self.dump()), encoding="utf-8")
+        return filepath
 
-    @abstractmethod
     @property
+    @abstractmethod
     def group(self) -> str:
         """A string representing the group of the selector, used for organizing files.
 
@@ -44,7 +45,6 @@ class DataSelector(BaseModel, ABC):
         """
         raise NotImplementedError()
 
-    @abstractmethod
     def __str__(self) -> str:
         # We want to force subclasses to implement __str__
         raise NotImplementedError()
