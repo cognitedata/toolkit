@@ -55,7 +55,7 @@ class TestDataSelectors:
 
     def test_example_data_is_complete(self) -> None:
         all_selectors = get_concrete_subclasses(DataSelector)
-        example_types = {data[0][0]["type"] for data in example_selector_data()}
+        example_types = {p.values[0]["type"] for p in example_selector_data()}
         all_types = {cls.model_fields["type"].default for cls in all_selectors}
         missing = all_types - example_types
         assert not missing, f"The following DataSelector types are missing example data: {humanize_collection(missing)}"
