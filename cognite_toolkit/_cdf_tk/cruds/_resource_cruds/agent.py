@@ -10,6 +10,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from cognite_toolkit._cdf_tk._parameters.constants import ANY_INT, ANYTHING
 from cognite_toolkit._cdf_tk._parameters.data_classes import ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.resource_classes import AgentYAML
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 
 
@@ -21,6 +22,7 @@ class AgentCRUD(ResourceCRUD[str, AgentUpsert, Agent, AgentUpsertList, AgentList
     list_cls = AgentList
     list_write_cls = AgentUpsertList
     kind = "Agent"
+    yaml_cls = AgentYAML
     _doc_base_url = ""
     _doc_url = "https://api-docs.cognite.com/20230101-beta/tag/Agents/operation/main_ai_agents_post/"
 
