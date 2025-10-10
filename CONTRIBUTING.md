@@ -27,10 +27,15 @@ The `cdf_` prefixed modules are tested as part of the product development.
 
 ### Setting up the local environment
 
-Your local environment needs a working Python installation and a virtual environment. We use `poetry` to manage
-the environment and its dependencies.
+Your local environment needs a working Python installation and We use `uv` to manage the environment and its dependencies.
 
-Install pre-commit hooks by running `poetry run pre-commit install` in the root of the repository.
+To install dependencies run `uv sync` to install the default dependencies.
+Run `uv sync --group dev` to include the `dev` dependency group.
+Run `uv sync --all-extras` to install all optional extras defined under `project.optional-dependencies`.
+Run `uv sync --group dev --all-extras` to include both the `dev` group and all extras.
+
+By default, `uv` creates and uses a `.venv` in the project directory. If you already have an active virtual environment,
+pass `--active` to install into it instead.
 
 When developing in vscode, the `cdf-tk-dev.py` file is useful to run the toolkit. This script will set the
 environment and paths correctly (to avoid conflicts with the installed cdf package) and also sets the
