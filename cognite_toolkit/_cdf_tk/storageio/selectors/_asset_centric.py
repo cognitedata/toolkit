@@ -1,4 +1,5 @@
 from abc import ABC
+from pathlib import Path
 from typing import Literal
 
 from ._base import DataSelector
@@ -36,3 +37,17 @@ class AssetSubtreeSelector(AssetCentricSelector):
 
     def __str__(self) -> str:
         return self.resource_type
+
+
+class AssetCentricFileSelector(AssetCentricSelector):
+    """Select data from a specific file."""
+
+    type: Literal["assetFile"] = "assetFile"
+    datafile: Path
+
+    @property
+    def group(self) -> str:
+        return "AssetCentric"
+
+    def __str__(self) -> str:
+        return f"file_{self.datafile.name}"
