@@ -104,9 +104,13 @@ def iterate_instances(
     # WHERE deleted_at IS NULL. In other words, avoiding soft deleted instances.
     body["sort"] = [
         {
+            "property": [instance_type, "space"],
+            "direction": "ascending",
+        },
+        {
             "property": [instance_type, "externalId"],
             "direction": "ascending",
-        }
+        },
     ]
     url = f"/api/{client._API_VERSION}/projects/{client.config.project}/models/instances/list"
     if space:
