@@ -1,5 +1,4 @@
 from collections.abc import Iterable
-from dataclasses import dataclass
 
 from cognite_toolkit._cdf_tk.client.data_classes.canvas import (
     IndustrialCanvas,
@@ -13,7 +12,7 @@ from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import StorageIO
-from ._selectors import AllChartSelector, ChartOwnerSelector, ChartSelector
+from .selectors import AllChartSelector, CanvasSelector, ChartOwnerSelector, ChartSelector
 
 
 class ChartIO(StorageIO[str, ChartSelector, ChartWriteList, ChartList]):
@@ -73,10 +72,6 @@ class ChartIO(StorageIO[str, ChartSelector, ChartWriteList, ChartList]):
 
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> ChartWriteList:
         return ChartWriteList._load(data_chunk)
-
-
-@dataclass(frozen=True)
-class CanvasSelector: ...
 
 
 class CanvasIO(StorageIO[str, CanvasSelector, IndustrialCanvasApplyList, IndustrialCanvasList]):

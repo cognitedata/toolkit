@@ -4,7 +4,8 @@ from pydantic import Field, TypeAdapter
 
 from ._asset_centric import AssetCentricFileSelector, AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 from ._base import DataSelector
-from ._charts import AllChartSelector, ChartOwnerSelector
+from ._canvas import CanvasSelector
+from ._charts import AllChartSelector, ChartOwnerSelector, ChartSelector
 from ._instances import InstanceFileSelector, InstanceSelector, InstanceViewSelector
 from ._raw import RawTableSelector
 
@@ -28,7 +29,9 @@ __all__ = [
     "AssetCentricFileSelector",
     "AssetCentricSelector",
     "AssetSubtreeSelector",
+    "CanvasSelector",
     "ChartOwnerSelector",
+    "ChartSelector",
     "DataSelector",
     "DataSetSelector",
     "InstanceFileSelector",
