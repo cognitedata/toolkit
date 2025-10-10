@@ -6,7 +6,7 @@ from typing import Any, get_args
 import pytest
 
 from cognite_toolkit._cdf_tk.storageio.selectors import (
-    AllChartSelector,
+    AllChartsSelector,
     AssetSubtreeSelector,
     ChartOwnerSelector,
     DataSelector,
@@ -60,7 +60,7 @@ def example_selector_data() -> Iterable[tuple]:
     )
     yield pytest.param(
         {"type": "allCharts"},
-        AllChartSelector,
+        AllChartsSelector,
         id="AllChartSelector",
     )
 

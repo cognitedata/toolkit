@@ -19,7 +19,7 @@ class ChartOwnerSelector(ChartSelector):
         return self.owner_id
 
 
-class AllChartSelector(ChartSelector):
+class AllChartsSelector(ChartSelector):
     type: Literal["allCharts"] = "allCharts"
 
     @property
