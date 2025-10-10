@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 import responses
 
@@ -7,10 +5,9 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList, ChartWriteList
 from cognite_toolkit._cdf_tk.client.data_classes.charts_data import ChartData
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.storageio import (
+from cognite_toolkit._cdf_tk.storageio import ChartIO
+from cognite_toolkit._cdf_tk.storageio.selectors import (
     AllChartSelector,
-    ChartFileSelector,
-    ChartIO,
     ChartOwnerSelector,
     ChartSelector,
 )
@@ -139,12 +136,3 @@ class TestChartIO:
             for chunk in chunks:
                 all_charts.extend(chunk)
             assert [chart.external_id for chart in all_charts] == expected_external_ids
-
-    def test_download_iterable_unsupported_selector(self) -> None:
-        with monkeypatch_toolkit_client() as client:
-            io = ChartIO(client)
-
-            with pytest.raises(NotImplementedError) as excinfo:
-                list(io.stream_data(selector=ChartFileSelector(filepath=Path("some/path.Chart.ndjson"))))
-
-        assert "Unsupported selector type" in str(excinfo.value)
