@@ -1,6 +1,6 @@
 from ._applications import ChartIO
-from ._asset_centric import AssetIO, BaseAssetCentricIO, FileMetadataIO
-from ._base import StorageIO, TableStorageIO
+from ._asset_centric import AssetIO, BaseAssetCentricIO, EventIO, FileMetadataIO, TimeSeriesIO
+from ._base import ConfigurableStorageIO, StorageIO, StorageIOConfig, TableStorageIO
 from ._data_classes import InstanceIdCSVList, InstanceIdRow, ModelList
 from ._instances import InstanceIO
 from ._raw import RawIO
@@ -29,7 +29,9 @@ __all__ = [
     "ChartIO",
     "ChartOwnerSelector",
     "ChartSelector",
+    "ConfigurableStorageIO",
     "DataSetSelector",
+    "EventIO",
     "FileMetadataIO",
     "InstanceFileSelector",
     "InstanceIO",
@@ -40,5 +42,7 @@ __all__ = [
     "ModelList",
     "RawIO",
     "StorageIO",
+    "StorageIOConfig",
     "TableStorageIO",
+    "TimeSeriesIO",
 ]

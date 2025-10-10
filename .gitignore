@@ -314,3 +314,4 @@ qa_pending_id/
 tests/**/cdf.toml
 
 *.xlsx
+data/

@@ -93,6 +93,7 @@ from cognite_toolkit._cdf_tk.resource_classes import (
     ContainerYAML,
     DataModelYAML,
     EdgeYAML,
+    GraphQLDataModelYAML,
     NodeYAML,
     SpaceYAML,
     ViewYAML,
@@ -1156,6 +1157,7 @@ class GraphQLCRUD(
     kind = "GraphQLSchema"
     dependencies = frozenset({SpaceCRUD, ContainerCRUD})
     item_name = "views"
+    yaml_cls = GraphQLDataModelYAML
     _doc_url = "Data-models/operation/createDataModels"
     _hash_name = "CDFToolkitHash:"
 
