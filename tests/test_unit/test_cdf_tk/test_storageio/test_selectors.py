@@ -6,7 +6,12 @@ from typing import Any, get_args
 import pytest
 
 from cognite_toolkit._cdf_tk.storageio.selectors import (
+    AllChartSelector,
+    AssetSubtreeSelector,
+    ChartOwnerSelector,
     DataSelector,
+    DataSetSelector,
+    InstanceFileSelector,
     InstanceViewSelector,
     RawTableSelector,
     Selector,
@@ -32,6 +37,31 @@ def example_selector_data() -> Iterable[tuple]:
         },
         InstanceViewSelector,
         id="InstanceViewSelector",
+    )
+    yield pytest.param(
+        {"type": "instanceFile", "datafile": "path/to/file.csv", "validateInstance": True},
+        InstanceFileSelector,
+        id="InstanceFileSelector",
+    )
+    yield pytest.param(
+        {"type": "dataSet", "dataSetExternalId": "my_data_set", "resourceType": "asset"},
+        DataSetSelector,
+        id="DataSetSelector",
+    )
+    yield pytest.param(
+        {"type": "assetSubtree", "hierarchy": "root/child", "resourceType": "asset"},
+        AssetSubtreeSelector,
+        id="AssetSubtreeSelector",
+    )
+    yield pytest.param(
+        {"type": "chartOwner", "ownerId": "doctrino"},
+        ChartOwnerSelector,
+        id="ChartOwnerSelector",
+    )
+    yield pytest.param(
+        {"type": "allCharts"},
+        AllChartSelector,
+        id="AllChartSelector",
     )
 
 
