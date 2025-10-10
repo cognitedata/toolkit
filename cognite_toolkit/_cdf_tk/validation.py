@@ -136,22 +136,17 @@ def validate_resource_yaml_pydantic(
 
     """
     warning_list: WarningList = WarningList()
-    if isinstance(data, dict):
-        try:
+    try:
+        if isinstance(data, dict):
             validation_cls.model_validate(data, strict=True)
-        except ValidationError as e:
-            printable_errors = tuple(_humanize_validation_error(e))
-            if len(printable_errors) > 0:
-                warning_list.append(ResourceFormatWarning(source_file, printable_errors))
-    elif isinstance(data, list):
-        try:
+        elif isinstance(data, list):
             TypeAdapter(list[validation_cls]).validate_python(data)  # type: ignore[valid-type]
-        except ValidationError as e:
-            printable_errors = tuple(_humanize_validation_error(e))
-            if len(printable_errors) > 0:
-                warning_list.append(ResourceFormatWarning(source_file, printable_errors))
-    else:
-        raise ValueError(f"Expected a dictionary or list of dictionaries, got {type(data)}.")
+        else:
+            raise ValueError(f"Expected a dictionary or list of dictionaries, got {type(data)}.")
+    except ValidationError as e:
+        printable_errors = tuple(_humanize_validation_error(e))
+        if printable_errors:
+            warning_list.append(ResourceFormatWarning(source_file, printable_errors))
     return warning_list
 
 
