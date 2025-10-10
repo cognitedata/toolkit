@@ -7,7 +7,12 @@ from typing import ClassVar, Literal, overload
 
 from cognite.client.data_classes import Label, LabelDefinition
 from cognite.client.data_classes.data_modeling import ContainerId
-from cognite.client.data_classes.data_modeling.data_types import Enum, ListablePropertyType, PropertyType
+from cognite.client.data_classes.data_modeling.data_types import (
+    DirectRelationReference,
+    Enum,
+    ListablePropertyType,
+    PropertyType,
+)
 from cognite.client.data_classes.data_modeling.instances import PropertyValueWrite
 from cognite.client.utils import ms_to_datetime
 from dateutil import parser
@@ -31,17 +36,26 @@ def asset_centric_convert_to_primary_property(
     nullable: bool,
     destination_container_property: tuple[ContainerId, str],
     source_property: tuple[AssetCentric, str],
+    cache: Mapping[str | int, DirectRelationReference] | None = None,
 ) -> PropertyValueWrite:
     if (source_property, destination_container_property) in SPECIAL_CONVERTER_BY_SOURCE_DESTINATION:
         converter_cls = SPECIAL_CONVERTER_BY_SOURCE_DESTINATION[(source_property, destination_container_property)]
-        return converter_cls().convert(value)
+        if issubclass(converter_cls, _SourceConverter):
+            if cache is None:
+                raise TypeError("Cache must be provided for DirectRelationReference conversion")
+            return converter_cls(cache=cache).convert(value)
+        else:
+            return converter_cls().convert(value)
     else:
         # Fallback to the standard conversion
-        return convert_to_primary_property(value, type_, nullable)
+        return convert_to_primary_property(value, type_, nullable, cache=cache)
 
 
 def convert_to_primary_property(
-    value: str | int | float | bool | dict | list | None, type_: PropertyType, nullable: bool
+    value: str | int | float | bool | dict | list | None,
+    type_: PropertyType,
+    nullable: bool,
+    cache: Mapping[str | int, DirectRelationReference] | None = None,
 ) -> PropertyValueWrite:
     """Convert a string value to the appropriate type based on the provided property type.
 
@@ -49,6 +63,7 @@ def convert_to_primary_property(
         value (str | int | float | bool): The value to convert.
         type_ (PropertyType): The type of the property to convert to.
         nullable (bool): Whether the property can be null.
+        cache (Mapping[str | int, DirectRelationReference] | None): Optional cache for DirectRelationReference conversion.
 
     Returns:
         PropertyValueWrite: The converted value as a PropertyValue, or None if is_nullable is True and the value is empty.
@@ -62,6 +77,10 @@ def convert_to_primary_property(
         converter: _ValueConverter = _EnumConverter(type_=type_, nullable=nullable)
     elif issubclass(converter_cls, _EnumConverter):
         raise TypeError(f"Unsupported property type {type_} for enum conversion")
+    elif issubclass(converter_cls, _DirectRelationshipConverter):
+        if cache is None:
+            raise TypeError("Cache must be provided for DirectRelationReference conversion")
+        converter = _DirectRelationshipConverter(cache=cache)
     else:
         converter = converter_cls(nullable)
 
@@ -291,6 +310,30 @@ class _FileLabelConverter(_LabelConverter):
     source_property = ("file", "labels")
 
 
+class _SourceConverter(_SpecialCaseConverter, ABC):
+    destination_container_property = (ContainerId("cdf_cdm", "CogniteSourceable"), "source")
+
+    def __init__(self, cache: Mapping[str | int, DirectRelationReference]) -> None:
+        self.cache = cache
+
+    def convert(self, value: str | int | float | bool | dict | list | None) -> DirectRelationReference:
+        if isinstance(value, str | int) and value in self.cache:
+            return self.cache[value]
+        raise ValueError(f"Cannot convert {value!r} to DirectRelationReference. Invalid data type or missing in cache.")
+
+
+class _AssetSourceConverter(_SourceConverter):
+    source_property = ("asset", "source")
+
+
+class _FileSourceConverter(_SourceConverter):
+    source_property = ("file", "source")
+
+
+class _EventSourceConverter(_SourceConverter):
+    source_property = ("event", "source")
+
+
 class _TextConverter(_ValueConverter):
     type_str = "text"
     schema_type = "string"
@@ -468,8 +511,14 @@ class _EnumConverter(_ValueConverter):
 class _DirectRelationshipConverter(_ValueConverter):
     type_str = "direct"
 
+    def __init__(self, cache: Mapping[str | int, DirectRelationReference]) -> None:
+        super().__init__(nullable=True)
+        self.cache = cache
+
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
-        raise ToolkitNotSupported("Direct relationship conversion is not supported.")
+        if isinstance(value, str | int) and value in self.cache:
+            return self.cache[value]
+        raise ValueError(f"Cannot convert {value!r} to DirectRelationReference. Invalid data type or missing in cache.")
 
 
 class _TimeSeriesReferenceConverter(_ValueConverter):

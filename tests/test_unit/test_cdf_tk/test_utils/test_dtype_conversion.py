@@ -7,6 +7,7 @@ from cognite.client.data_classes.data_modeling import ContainerId
 from cognite.client.data_classes.data_modeling.data_types import (
     Boolean,
     DirectRelation,
+    DirectRelationReference,
     Enum,
     EnumValue,
     Float32,
@@ -225,6 +226,13 @@ class TestConvertToContainerProperty:
                 [datetime(2025, 7, 22, 12, 34, 56, tzinfo=timezone.utc)],
                 id="Single ISO timestamp to Timestamp list property",
             ),
+            pytest.param(
+                1,
+                DirectRelation(),
+                True,
+                DirectRelationReference(space="my_space", external_id="parent1"),
+                id="Int to DirectRelation with cache lookup (1)",
+            ),
         ],
     )
     def test_valid_conversion(
@@ -234,7 +242,11 @@ class TestConvertToContainerProperty:
         nullable: bool,
         expected_value: PropertyValueWrite,
     ):
-        actual = convert_to_primary_property(value, type_, nullable)
+        cache = {
+            1: DirectRelationReference(space="my_space", external_id="parent1"),
+            2: DirectRelationReference(space="my_space", external_id="parent2"),
+        }
+        actual = convert_to_primary_property(value, type_, nullable, cache=cache)
 
         if isinstance(expected_value, float):
             assert actual == pytest.approx(expected_value), f"Expected {expected_value}, but got {actual}"
@@ -363,13 +375,27 @@ class TestConvertToContainerProperty:
                 "Expected a single value for int64, but got a list.",
                 id="List to Int64 (invalid, not a list type)",
             ),
+            pytest.param(
+                1,
+                DirectRelation(),
+                True,
+                "Cannot convert 1 to DirectRelationReference. Invalid data type or missing in cache.",
+                id="DirectRelation with cache miss",
+            ),
+            pytest.param(
+                True,
+                DirectRelation(),
+                True,
+                "Cannot convert True to DirectRelationReference. Invalid data type or missing in cache.",
+                id="DirectRelation with invalid type (bool instead of str or int)",
+            ),
         ],
     )
     def test_invalid_conversion(
         self, value: str | int | float | bool | dict | list, type_: PropertyType, nullable: bool, error_message: str
     ):
         with pytest.raises(ValueError) as exc_info:
-            convert_to_primary_property(value, type_, nullable)
+            convert_to_primary_property(value, type_, nullable, cache={})
 
         assert str(exc_info.value) == error_message, (
             f"Expected error message '{error_message}', but got '{exc_info.value}'"
@@ -453,6 +479,14 @@ class TestConvertToContainerProperty:
                 None,
                 id="TimeSeries unitExternalId to DirectRelation conversion with None value (nullable)",
             ),
+            pytest.param(
+                "source1",
+                DirectRelation(),
+                (ContainerId("cdf_cdm", "CogniteSourceable"), "source"),
+                ("timeseries", "source"),
+                DirectRelationReference(space="spaceA", external_id="source1"),
+                id="TimeSeries sourceExternalId to DirectRelation conversion with cache lookup",
+            ),
         ],
     )
     def test_asset_centric_conversion(
@@ -463,8 +497,13 @@ class TestConvertToContainerProperty:
         source_property: tuple[AssetCentric, str],
         expected: PropertyValueWrite,
     ):
+        cache = {
+            "source1": DirectRelationReference(space="spaceA", external_id="source1"),
+            "source2": DirectRelationReference(space="spaceB", external_id="source2"),
+        }
+
         actual = asset_centric_convert_to_primary_property(
-            value, type_, True, destination_container_property, source_property
+            value, type_, True, destination_container_property, source_property, cache=cache
         )
 
         assert actual == expected
@@ -496,6 +535,14 @@ class TestConvertToContainerProperty:
                 "Cannot convert True to TimeSeries unit. Expected a string representing the externalId.",
                 id="TimeSeries unitExternalId to DirectRelation conversion error",
             ),
+            pytest.param(
+                "unknown_source",
+                DirectRelation(),
+                (ContainerId("cdf_cdm", "CogniteSourceable"), "source"),
+                ("timeseries", "source"),
+                "Cannot convert 'unknown_source' to DirectRelationReference. Invalid data type or missing in cache.",
+                id="TimeSeries sourceExternalId to DirectRelation conversion with missing cache entry",
+            ),
         ],
     )
     def test_asset_centric_failed_conversion(
@@ -508,7 +555,7 @@ class TestConvertToContainerProperty:
     ):
         with pytest.raises(ValueError) as exc_info:
             asset_centric_convert_to_primary_property(
-                value, type_, True, destination_container_property, source_property
+                value, type_, True, destination_container_property, source_property, cache={}
             )
 
         assert str(exc_info.value) == error_message
