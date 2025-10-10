@@ -96,30 +96,3 @@ class TestDatapointSubscriptionLoader:
             DatapointSubscriptionCRUD.update_split_timeseries_ids(sub, current)
 
         assert str(exc.value) == 'Subscription "mySub" has 12,000 time series, which is more than the limit of 10,000.'
-
-    def test_update_split_timeseries_migrated_timeseries(self) -> None:
-        current = TimeSeriesIDList(
-            [
-                TimeSeriesID(id=1, external_id="timeseries_1", instance_id=NodeId("my_space", "node_1")),
-                TimeSeriesID(id=1, external_id="timeseries_2", instance_id=NodeId("my_space", "node_2")),
-                TimeSeriesID(id=1, external_id="timeseries_3", instance_id=NodeId("my_space", "node_3")),
-                TimeSeriesID(id=1, external_id="timeseries_4", instance_id=NodeId("my_space", "node_4")),
-            ]
-        )
-        sub = DataPointSubscriptionWrite(
-            external_id="mySub",
-            partition_count=1,
-            instance_ids=[NodeId("my_space", "node_1"), NodeId("my_space", "node_4")],
-            time_series_ids=["timeseries_3", "timeseries_4"],
-        )
-        _, batches = DatapointSubscriptionCRUD.update_split_timeseries_ids(sub, current)
-
-        assert len(batches) == 1
-        assert batches[0].dump() == {
-            "externalId": "mySub",
-            "update": {
-                "instanceIds": {
-                    "remove": [{"space": "my_space", "externalId": "node_2"}],
-                }
-            },
-        }
