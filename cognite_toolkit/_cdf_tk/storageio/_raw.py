@@ -12,9 +12,10 @@ from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, I
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import ConfigurableStorageIO, StorageIOConfig
+from .selectors import RawTableSelector
 
 
-class RawIO(ConfigurableStorageIO[str, RawTable, RowWriteList, RowList]):
+class RawIO(ConfigurableStorageIO[str, RawTableSelector, RowWriteList, RowList]):
     FOLDER_NAME = "raw"
     KIND = "RawRows"
     DISPLAY_NAME = "Raw Rows"
@@ -31,15 +32,15 @@ class RawIO(ConfigurableStorageIO[str, RawTable, RowWriteList, RowList]):
             return item["key"]
         raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
 
-    def count(self, selector: RawTable) -> int | None:
+    def count(self, selector: RawTableSelector) -> int | None:
         # Raw tables do not support aggregation queries, so we do not know the count
         # up front.
         return None
 
-    def stream_data(self, selector: RawTable, limit: int | None = None) -> Iterable[RowList]:
+    def stream_data(self, selector: RawTableSelector, limit: int | None = None) -> Iterable[RowList]:
         yield from self.client.raw.rows(
-            db_name=selector.db_name,
-            table_name=selector.table_name,
+            db_name=selector.table.db_name,
+            table_name=selector.table.table_name,
             limit=limit,
             # We cannot use partitions here as it is not thread safe. This spawn multiple threads
             # that are not shut down until all data is downloaded. We need to be able to abort.
@@ -48,11 +49,11 @@ class RawIO(ConfigurableStorageIO[str, RawTable, RowWriteList, RowList]):
         )
 
     def upload_items(
-        self, data_chunk: RowWriteList, http_client: HTTPClient, selector: RawTable | None = None
+        self, data_chunk: RowWriteList, http_client: HTTPClient, selector: RawTableSelector | None = None
     ) -> Sequence[HTTPMessage]:
         if selector is None:
             raise ToolkitValueError("Selector must be provided for RawIO upload_items")
-        url = self.UPLOAD_ENDPOINT.format(dbName=selector.db_name, tableName=selector.table_name)
+        url = self.UPLOAD_ENDPOINT.format(dbName=selector.table.db_name, tableName=selector.table.table_name)
         config = http_client.config
         return http_client.request_with_retries(
             message=ItemsRequest(
@@ -70,30 +71,31 @@ class RawIO(ConfigurableStorageIO[str, RawTable, RowWriteList, RowList]):
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> RowWriteList:
         return RowWriteList([RowWrite._load(row) for row in data_chunk])
 
-    def configurations(self, selector: RawTable) -> Iterable[StorageIOConfig]:
-        yield StorageIOConfig(kind=RawTableCRUD.kind, folder_name=RawTableCRUD.folder_name, value=selector.dump())
+    def configurations(self, selector: RawTableSelector) -> Iterable[StorageIOConfig]:
+        yield StorageIOConfig(
+            kind=RawTableCRUD.kind, folder_name=RawTableCRUD.folder_name, value=selector.table.model_dump(by_alias=True)
+        )
 
-    def load_selector(self, datafile: Path) -> RawTable:
+    def load_selector(self, datafile: Path) -> RawTableSelector:
         config_files = find_adjacent_files(datafile, suffix=f".{RawTableCRUD.kind}.yaml")
         if not config_files:
             raise ToolkitValueError(f"No configuration file found for {datafile.as_posix()!r}")
         if len(config_files) > 1:
             raise ToolkitValueError(f"Multiple configuration files found for {datafile.as_posix()!r}: {config_files}")
         config_file = config_files[0]
-        loader = RawTableCRUD.create_loader(self.client)
-        return loader.load_resource(read_yaml_file(config_file, expected_output="dict"))
+        return RawTableSelector.model_validate(read_yaml_file(config_file, expected_output="dict"))
 
-    def ensure_configurations(self, selector: RawTable, console: Console | None = None) -> None:
+    def ensure_configurations(self, selector: RawTableSelector, console: Console | None = None) -> None:
         """Ensure that the Raw table exists in CDF."""
         db_loader = RawDatabaseCRUD.create_loader(self.client, console=console)
-        db = RawDatabase(db_name=selector.db_name)
+        db = RawDatabase(db_name=selector.table.db_name)
         if not db_loader.retrieve([db]):
             db_loader.create(RawDatabaseList([db]))
             if console:
                 console.print(f"Created raw database: [bold]{db.db_name}[/bold]")
 
         table_loader = RawTableCRUD.create_loader(self.client, console=console)
-        if not table_loader.retrieve([selector]):
+        if not table_loader.retrieve([RawTable(db_name=selector.table.db_name, table_name=selector.table.table_name)]):
             table_loader.create(RawTableList([selector]))
             if console:
-                console.print(f"Created raw table: [bold]{selector.db_name}.{selector.table_name}[/bold]")
+                console.print(f"Created raw table: [bold]{selector.table.db_name}.{selector.table.table_name}[/bold]")
