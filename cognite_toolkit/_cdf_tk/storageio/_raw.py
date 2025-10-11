@@ -95,9 +95,8 @@ class RawIO(ConfigurableStorageIO[str, RawTableSelector, RowWriteList, RowList])
                 console.print(f"Created raw database: [bold]{db.db_name}[/bold]")
 
         table_loader = RawTableCRUD.create_loader(self.client, console=console)
-        if not table_loader.retrieve([RawTable(db_name=selector.table.db_name, table_name=selector.table.table_name)]):
-            table_loader.create(
-                RawTableList([RawTable(db_name=selector.table.db_name, table_name=selector.table.table_name)])
-            )
+        table_id = RawTable(db_name=selector.table.db_name, table_name=selector.table.table_name)
+        if not table_loader.retrieve([table_id]):
+            table_loader.create(RawTableList([table_id]))
             if console:
                 console.print(f"Created raw table: [bold]{selector.table.db_name}.{selector.table.table_name}[/bold]")
