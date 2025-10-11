@@ -7,6 +7,7 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.commands import DownloadCommand
+from cognite_toolkit._cdf_tk.constants import DEFAULT_DATA_DIR
 from cognite_toolkit._cdf_tk.resource_classes import TableYAML
 from cognite_toolkit._cdf_tk.storageio import (
     AssetIO,
@@ -39,6 +40,9 @@ class AssetCentricFormats(str, Enum):
 class CompressionFormat(str, Enum):
     gzip = "gzip"
     none = "none"
+
+
+DEFAULT_DOWNLOAD_DIR = Path(DEFAULT_DATA_DIR)
 
 
 class DownloadApp(typer.Typer):
@@ -96,7 +100,7 @@ class DownloadApp(typer.Typer):
                 help="Where to download the raw tables.",
                 allow_dash=True,
             ),
-        ] = Path("tmp"),
+        ] = DEFAULT_DOWNLOAD_DIR,
         limit: Annotated[
             int,
             typer.Option(
@@ -188,7 +192,7 @@ class DownloadApp(typer.Typer):
                 help="Where to download the assets.",
                 allow_dash=True,
             ),
-        ] = Path("tmp"),
+        ] = DEFAULT_DOWNLOAD_DIR,
         limit: Annotated[
             int,
             typer.Option(
