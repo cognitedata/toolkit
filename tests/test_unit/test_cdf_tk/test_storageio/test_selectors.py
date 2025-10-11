@@ -5,7 +5,7 @@ from typing import Any, get_args
 
 import pytest
 
-from cognite_toolkit._cdf_tk.commands._migrate.adapter import MigrationCSVFileSelector, MigrationSelector
+from cognite_toolkit._cdf_tk.commands._migrate.adapter import MigrationSelector
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     AllChartsSelector,
     AssetCentricFileSelector,
@@ -70,11 +70,6 @@ def example_selector_data() -> Iterable[tuple]:
         AssetCentricFileSelector,
         id="AssetCentricFileSelector",
     )
-    yield pytest.param(
-        {"type": "migrationCSVFile", "datafile": "path/to/file.csv", "resourceType": "asset"},
-        MigrationCSVFileSelector,
-        id="MigrationCSVFileSelector",
-    )
 
 
 class TestDataSelectors:
@@ -99,7 +94,10 @@ class TestDataSelectors:
         assert not duplicates, f"The following DataSelector types are not unique: {humanize_collection(duplicates)}"
 
     def test_example_data_is_complete(self) -> None:
-        all_selectors = get_concrete_subclasses(DataSelector)
+        migration_selectors = get_concrete_subclasses(MigrationSelector)
+        # Migration selectors are not part of the Selector union, and are not
+        # required to have example data here.
+        all_selectors = [cls for cls in get_concrete_subclasses(DataSelector) if cls not in migration_selectors]
         example_types = {p.values[0]["type"] for p in example_selector_data()}
         all_types = {cls.model_fields["type"].default for cls in all_selectors}
         missing = all_types - example_types
