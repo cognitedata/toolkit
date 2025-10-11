@@ -27,7 +27,7 @@ class TestDownloadCommand:
         assert len(downloaded_files) == 1, "Expected exactly one file to be downloaded."
         chunks = list(NDJsonReader(downloaded_files[0]).read_chunks())
         assert len(chunks) == TIMESERIES_COUNT, f"Expected {TIMESERIES_COUNT} chunks, got {len(chunks)}."
-        config_files = list(tmp_path.rglob("*.yaml"))
+        config_files = [file for file in tmp_path.rglob("*.yaml") if not file.stem.endswith("Selector")]
         assert len(config_files) == 1, "Expected exactly one configuration file to be created."
         dumped = read_yaml_file(config_files[0], "dict")
         assert dumped == table.dump()["table"]
