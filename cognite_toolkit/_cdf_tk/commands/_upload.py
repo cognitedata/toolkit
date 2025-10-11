@@ -12,6 +12,7 @@ from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.progress_tracker import ProgressTracker
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal, T_WritableCogniteResourceList
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from ._base import ToolkitCommand
 
 
@@ -31,24 +32,26 @@ class UploadCommand(ToolkitCommand):
 
     def upload(
         self,
-        io: StorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
         input_dir: Path,
-        ensure_configurations: bool,
+        deploy_resources: bool,
         dry_run: bool,
         verbose: bool,
+        io: StorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList] | None,
+        client: ToolkitClient | None = None,
     ) -> None:
         """Uploads data from files in the specified input directory to CDF.
 
         Args:
-            io: The StorageIO instance that defines how to upload the data.
             input_dir: The directory containing the files to upload.
-            ensure_configurations: If True, creates a configuration for the upload. For example,
-                in the case of uploading RAW tables, this will create the RAW database and table.
-                For asset-centric, this will create labels and data sets.
+            deploy_resources: If True,
             dry_run: If True, performs a dry run without actually uploading the data.
             verbose: If True, prints detailed information about the upload process.
+            io: The StorageIO instance that defines how to upload the data.
 
         """
+        if client is None and io is None:
+            raise ValueError("Bug in Toolkit: Either client or io must be provided")
+
         console = Console()
         cwd = Path.cwd()
         files = list(input_dir.glob(f"*.{io.KIND}.*"))
