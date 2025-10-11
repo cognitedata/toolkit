@@ -1,4 +1,3 @@
-from collections import Counter
 from collections.abc import Iterable
 from functools import partial
 from pathlib import Path
@@ -6,9 +5,11 @@ from pathlib import Path
 from cognite.client.data_classes._base import T_CogniteResourceList
 from rich.console import Console
 
+from cognite_toolkit._cdf_tk.constants import DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio import ConfigurableStorageIO, StorageIO, T_Selector, TableStorageIO
-from cognite_toolkit._cdf_tk.utils.file import safe_write, sanitize_filename, yaml_safe_dump
+from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
+from cognite_toolkit._cdf_tk.utils.file import safe_write, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import TABLE_WRITE_CLS_BY_FORMAT, Compression, FileWriter, SchemaColumn
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal, T_WritableCogniteResourceList
@@ -43,17 +44,20 @@ class DownloadCommand(ToolkitCommand):
         compression_cls = Compression.from_name(compression)
 
         console = Console()
-        filestem_counter: dict[str, int] = Counter()
         for selector in selectors:
             if verbose:
                 console.print(f"Downloading {io.DISPLAY_NAME} '{selector!s}' to {target_directory.as_posix()!r}")
-
-            filestem = sanitize_filename(str(selector))
-            if filestem_counter[filestem] > 0:
-                filestem = f"{filestem}_{filestem_counter[filestem]}"
-            filestem_counter[filestem] += 1
+            output_dir = target_directory / selector.group
             iteration_count = self._get_iteration_count(io, selector, limit)
+            filestem = str(selector)
+            if self._already_downloaded(output_dir, filestem):
+                warning = LowSeverityWarning(
+                    f"Data for {selector!s} already exists in {output_dir.as_posix()!r}. Skipping download."
+                )
+                self.warn(warning, console=console)
+                continue
 
+            selector.dump_to_file(output_dir)
             columns: list[SchemaColumn] | None = None
             if file_format in TABLE_WRITE_CLS_BY_FORMAT and isinstance(io, TableStorageIO):
                 columns = io.get_schema(selector)
@@ -83,7 +87,13 @@ class DownloadCommand(ToolkitCommand):
 
             if isinstance(io, ConfigurableStorageIO):
                 for config in io.configurations(selector):
-                    config_file = output_dir / config.folder_name / f"{filestem}.{config.kind}.yaml"
+                    config_file = (
+                        output_dir
+                        / selector.group
+                        / DATA_RESOURCE_DIR
+                        / config.folder_name
+                        / f"{filestem}.{config.kind}.yaml"
+                    )
                     config_file.parent.mkdir(parents=True, exist_ok=True)
                     safe_write(config_file, yaml_safe_dump(config.value))
 
@@ -102,3 +112,9 @@ class DownloadCommand(ToolkitCommand):
         if total is not None:
             iteration_count = total // io.CHUNK_SIZE + (1 if total % io.CHUNK_SIZE > 0 else 0)
         return iteration_count
+
+    @staticmethod
+    def _already_downloaded(output_dir: Path, filestem: str) -> bool:
+        if not output_dir.exists():
+            return False
+        return any(output_dir.glob(f"{filestem}.*"))
