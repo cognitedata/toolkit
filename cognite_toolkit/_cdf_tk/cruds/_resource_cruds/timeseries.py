@@ -506,19 +506,8 @@ class DatapointSubscriptionCRUD(
                 current_timeseries_ids.add(ts.external_id)
             elif ts.instance_id and ts.external_id is None:
                 current_instance_ids.add(ts.instance_id)
-            elif ts.external_id and ts.instance_id:
-                # Migrated time series with both external_id and instance_id
-                if ts.external_id in desired_timeseries_ids and ts.instance_id not in desired_instance_ids:
-                    current_timeseries_ids.add(ts.external_id)
-                elif ts.external_id not in desired_timeseries_ids and ts.instance_id in desired_instance_ids:
-                    current_instance_ids.add(ts.instance_id)
-                elif ts.external_id in desired_timeseries_ids and ts.instance_id in desired_instance_ids:
-                    current_timeseries_ids.add(ts.external_id)
-                    current_instance_ids.add(ts.instance_id)
-                else:
-                    # It is in neither of the desired sets, so it will be removed.
-                    # We use instanceId as a preference to avoid duplicates.
-                    current_instance_ids.add(ts.instance_id)
+            else:
+                raise ValueError(f"External ID and instance ID are both set for time series {ts.external_id}.")
 
         # Calculate what needs to be added and removed
         ts_to_add = desired_timeseries_ids - current_timeseries_ids
