@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 import responses
 
@@ -7,10 +5,9 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList, ChartWriteList
 from cognite_toolkit._cdf_tk.client.data_classes.charts_data import ChartData
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.storageio import (
-    AllChartSelector,
-    ChartFileSelector,
-    ChartIO,
+from cognite_toolkit._cdf_tk.storageio import ChartIO
+from cognite_toolkit._cdf_tk.storageio.selectors import (
+    AllChartsSelector,
     ChartOwnerSelector,
     ChartSelector,
 )
@@ -38,7 +35,7 @@ class TestChartIO:
         client = ToolkitClient(config=toolkit_config)
         chart_url = toolkit_config.create_app_url("/storage/charts/charts/list")
         ts_url = toolkit_config.create_api_url("/timeseries/byids")
-        selector = AllChartSelector()
+        selector = AllChartsSelector()
         io = ChartIO(client)
 
         with responses.RequestsMock() as rsps:
@@ -106,11 +103,11 @@ class TestChartIO:
     @pytest.mark.parametrize(
         "limit,selector,expected_external_ids",
         [
-            pytest.param(None, AllChartSelector(), [f"chart_{i}" for i in range(20)], id="all charts no limit"),
-            pytest.param(5, AllChartSelector(), [f"chart_{i}" for i in range(5)], id="all charts with limit"),
+            pytest.param(None, AllChartsSelector(), [f"chart_{i}" for i in range(20)], id="all charts no limit"),
+            pytest.param(5, AllChartsSelector(), [f"chart_{i}" for i in range(5)], id="all charts with limit"),
             pytest.param(
                 10,
-                AllChartSelector(),
+                AllChartsSelector(),
                 [f"chart_{i}" for i in range(10)],
                 id="all charts with limit 10 divisible by chunk size",
             ),
@@ -139,12 +136,3 @@ class TestChartIO:
             for chunk in chunks:
                 all_charts.extend(chunk)
             assert [chart.external_id for chart in all_charts] == expected_external_ids
-
-    def test_download_iterable_unsupported_selector(self) -> None:
-        with monkeypatch_toolkit_client() as client:
-            io = ChartIO(client)
-
-            with pytest.raises(NotImplementedError) as excinfo:
-                list(io.stream_data(selector=ChartFileSelector(filepath=Path("some/path.Chart.ndjson"))))
-
-        assert "Unsupported selector type" in str(excinfo.value)

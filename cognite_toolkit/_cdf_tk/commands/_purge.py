@@ -44,7 +44,8 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.storageio import InstanceIO, InstanceSelector
+from cognite_toolkit._cdf_tk.storageio import InstanceIO
+from cognite_toolkit._cdf_tk.storageio.selectors import InstanceSelector
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
     LimitedAccessWarning,

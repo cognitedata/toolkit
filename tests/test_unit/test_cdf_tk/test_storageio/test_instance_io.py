@@ -4,11 +4,13 @@ import httpx
 import pytest
 import responses
 import respx
-from cognite.client.data_classes.data_modeling import EdgeApply, NodeApply, ViewId
+from cognite.client.data_classes.data_modeling import EdgeApply, NodeApply
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList
-from cognite_toolkit._cdf_tk.storageio import InstanceIO, InstanceViewSelector
+from cognite_toolkit._cdf_tk.resource_classes.views import ViewReference
+from cognite_toolkit._cdf_tk.storageio import InstanceIO
+from cognite_toolkit._cdf_tk.storageio.selectors import InstanceViewSelector
 from cognite_toolkit._cdf_tk.utils.http_client import FailedItem, HTTPClient, SuccessItem
 
 
@@ -17,7 +19,9 @@ class TestInstanceIO:
         client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
         url = toolkit_config.create_api_url("/models/instances/list")
         selector = InstanceViewSelector(
-            ViewId("mySpace", "myView", "v42"), instance_type="node", instance_spaces=("my_insta_space",)
+            view=ViewReference(space="mySpace", external_id="myView", version="v42"),
+            instance_type="node",
+            instance_spaces=("my_insta_space",),
         )
         N = 2500
         rsps.add(

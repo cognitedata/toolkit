@@ -11,7 +11,7 @@ class DatabaseYAML(ToolkitResource):
     )
 
 
-class TableYAML(ToolkitResource):
+class TableYAML(ToolkitResource, populate_by_name=True):
     db_name: str = Field(
         description="The name of the database.",
         min_length=1,

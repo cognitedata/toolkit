@@ -5,8 +5,10 @@ from typing import Any, get_args
 
 import pytest
 
+from cognite_toolkit._cdf_tk.commands._migrate.adapter import MigrationSelector
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     AllChartsSelector,
+    AssetCentricFileSelector,
     AssetSubtreeSelector,
     ChartOwnerSelector,
     DataSelector,
@@ -63,6 +65,11 @@ def example_selector_data() -> Iterable[tuple]:
         AllChartsSelector,
         id="AllChartSelector",
     )
+    yield pytest.param(
+        {"type": "assetFile", "datafile": "path/to/file.csv"},
+        AssetCentricFileSelector,
+        id="AssetCentricFileSelector",
+    )
 
 
 class TestDataSelectors:
@@ -70,8 +77,11 @@ class TestDataSelectors:
 
     def test_all_selectors_in_union(self) -> None:
         all_selectors = get_concrete_subclasses(DataSelector)
+        # The migration selectors are not part of the Selector union, they
+        # are only used for migration commands.
+        migration_selectors = get_concrete_subclasses(MigrationSelector)
         all_union_selectors = get_args(Selector.__args__[0])
-        missing = set(all_selectors) - set(all_union_selectors)
+        missing = set(all_selectors) - set(all_union_selectors) - set(migration_selectors)
         assert not missing, (
             f"The following DataSelector subclasses are "
             f"missing from the Selector union: {humanize_collection([cls.__name__ for cls in missing])}"
@@ -84,7 +94,10 @@ class TestDataSelectors:
         assert not duplicates, f"The following DataSelector types are not unique: {humanize_collection(duplicates)}"
 
     def test_example_data_is_complete(self) -> None:
-        all_selectors = get_concrete_subclasses(DataSelector)
+        migration_selectors = get_concrete_subclasses(MigrationSelector)
+        # Migration selectors are not part of the Selector union, and are not
+        # required to have example data here.
+        all_selectors = [cls for cls in get_concrete_subclasses(DataSelector) if cls not in migration_selectors]
         example_types = {p.values[0]["type"] for p in example_selector_data()}
         all_types = {cls.model_fields["type"].default for cls in all_selectors}
         missing = all_types - example_types

@@ -25,7 +25,7 @@ else:
 KEY_PATTERN = re.compile(CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER_PATTERN)
 
 
-class ViewReference(BaseModelResource):
+class ViewReference(BaseModelResource, populate_by_name=True):
     type: Literal["view"] = "view"
     space: str = Field(
         description="Id of the space that the view belongs to.",

@@ -176,7 +176,7 @@ class TestMigrationCommand:
         command = MigrationCommand(silent=True)
 
         result = command.migrate(
-            selected=MigrationCSVFileSelector(csv_file, resource_type="asset"),
+            selected=MigrationCSVFileSelector(datafile=csv_file, resource_type="asset"),
             data=AssetCentricMigrationIOAdapter(client, AssetIO(client)),
             mapper=AssetCentricMapper(client),
             log_dir=tmp_path / "logs",
