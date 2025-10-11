@@ -162,5 +162,6 @@ COGNITE_FILE_CONTAINER = ContainerId("cdf_cdm", "CogniteFile")
 CDF_UNIT_SPACE = "cdf_cdm_units"
 
 # Data Plugin Constants
-DEFAULT_DATA_DIR = "data"
+DATA_DEFAULT_DIR = "data"
 DATA_RESOURCE_DIR = "resources"
+DATA_METADATA_STEM = "Metadata"

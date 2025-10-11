@@ -7,7 +7,7 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.commands import DownloadCommand
-from cognite_toolkit._cdf_tk.constants import DEFAULT_DATA_DIR
+from cognite_toolkit._cdf_tk.constants import DATA_DEFAULT_DIR
 from cognite_toolkit._cdf_tk.resource_classes import TableYAML
 from cognite_toolkit._cdf_tk.storageio import (
     AssetIO,
@@ -42,7 +42,7 @@ class CompressionFormat(str, Enum):
     none = "none"
 
 
-DEFAULT_DOWNLOAD_DIR = Path(DEFAULT_DATA_DIR)
+DEFAULT_DOWNLOAD_DIR = Path(DATA_DEFAULT_DIR)
 
 
 class DownloadApp(typer.Typer):
