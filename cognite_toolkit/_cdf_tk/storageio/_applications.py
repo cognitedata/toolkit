@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import StorageIO
-from .selectors import AllChartSelector, CanvasSelector, ChartOwnerSelector, ChartSelector
+from .selectors import AllChartsSelector, CanvasSelector, ChartOwnerSelector, ChartSelector
 
 
 class ChartIO(StorageIO[str, ChartSelector, ChartWriteList, ChartList]):
@@ -34,7 +34,7 @@ class ChartIO(StorageIO[str, ChartSelector, ChartWriteList, ChartList]):
 
     def stream_data(self, selector: ChartSelector, limit: int | None = None) -> Iterable[ChartList]:
         selected_charts = self.client.charts.list(visibility="PUBLIC")
-        if isinstance(selector, AllChartSelector):
+        if isinstance(selector, AllChartsSelector):
             ...
         elif isinstance(selector, ChartOwnerSelector):
             selected_charts = ChartList([chart for chart in selected_charts if chart.owner_id == selector.owner_id])
