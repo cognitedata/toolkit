@@ -19,7 +19,7 @@ class TestInstanceIO:
         client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
         url = toolkit_config.create_api_url("/models/instances/list")
         selector = InstanceViewSelector(
-            ViewReference(space="mySpace", externalId="myView", version="v42"),
+            view=ViewReference(space="mySpace", external_id="myView", version="v42"),
             instance_type="node",
             instance_spaces=("my_insta_space",),
         )

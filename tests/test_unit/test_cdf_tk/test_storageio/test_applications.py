@@ -7,7 +7,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.charts_data import ChartData
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.storageio import ChartIO
 from cognite_toolkit._cdf_tk.storageio.selectors import (
-    AllChartSelector,
+    AllChartsSelector,
     ChartOwnerSelector,
     ChartSelector,
 )
@@ -35,7 +35,7 @@ class TestChartIO:
         client = ToolkitClient(config=toolkit_config)
         chart_url = toolkit_config.create_app_url("/storage/charts/charts/list")
         ts_url = toolkit_config.create_api_url("/timeseries/byids")
-        selector = AllChartSelector()
+        selector = AllChartsSelector()
         io = ChartIO(client)
 
         with responses.RequestsMock() as rsps:
@@ -103,11 +103,11 @@ class TestChartIO:
     @pytest.mark.parametrize(
         "limit,selector,expected_external_ids",
         [
-            pytest.param(None, AllChartSelector(), [f"chart_{i}" for i in range(20)], id="all charts no limit"),
-            pytest.param(5, AllChartSelector(), [f"chart_{i}" for i in range(5)], id="all charts with limit"),
+            pytest.param(None, AllChartsSelector(), [f"chart_{i}" for i in range(20)], id="all charts no limit"),
+            pytest.param(5, AllChartsSelector(), [f"chart_{i}" for i in range(5)], id="all charts with limit"),
             pytest.param(
                 10,
-                AllChartSelector(),
+                AllChartsSelector(),
                 [f"chart_{i}" for i in range(10)],
                 id="all charts with limit 10 divisible by chunk size",
             ),

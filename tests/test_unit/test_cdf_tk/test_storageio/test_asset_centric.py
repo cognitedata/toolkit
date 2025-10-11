@@ -24,7 +24,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
 from cognite_toolkit._cdf_tk.storageio import AssetIO, EventIO, FileMetadataIO, TimeSeriesIO
-from cognite_toolkit._cdf_tk.storageio._selectors import AssetSubtreeSelector, DataSetSelector
+from cognite_toolkit._cdf_tk.storageio.selectors import AssetSubtreeSelector, DataSetSelector
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
@@ -363,7 +363,7 @@ class TestEventIO:
     ) -> None:
         config = toolkit_config
         event_by_external_id = {event.external_id: event for event in some_event_data if event.external_id is not None}
-        selector = DataSetSelector(data_set_external_id="DataSetSelector")
+        selector = DataSetSelector(data_set_external_id="DataSetSelector", resource_type="event")
 
         def create_callback(request: httpx.Request) -> httpx.Response:
             payload = json.loads(request.content)
