@@ -36,26 +36,26 @@ def asset_centric_convert_to_primary_property(
     nullable: bool,
     destination_container_property: tuple[ContainerId, str],
     source_property: tuple[AssetCentric, str],
-    cache: Mapping[str | int, DirectRelationReference] | None = None,
+    direct_relation_lookup: Mapping[str | int, DirectRelationReference] | None = None,
 ) -> PropertyValueWrite:
     if (source_property, destination_container_property) in SPECIAL_CONVERTER_BY_SOURCE_DESTINATION:
         converter_cls = SPECIAL_CONVERTER_BY_SOURCE_DESTINATION[(source_property, destination_container_property)]
         if issubclass(converter_cls, _SourceConverter):
-            if cache is None:
-                raise TypeError("Cache must be provided for DirectRelationReference conversion")
-            return converter_cls(cache=cache).convert(value)
+            if direct_relation_lookup is None:
+                raise TypeError("Direct relation lookup must be provided for DirectRelationReference conversion")
+            return converter_cls(direct_relation_lookup=direct_relation_lookup).convert(value)
         else:
             return converter_cls().convert(value)
     else:
         # Fallback to the standard conversion
-        return convert_to_primary_property(value, type_, nullable, cache=cache)
+        return convert_to_primary_property(value, type_, nullable, direct_relation_lookup=direct_relation_lookup)
 
 
 def convert_to_primary_property(
     value: str | int | float | bool | dict | list | None,
     type_: PropertyType,
     nullable: bool,
-    cache: Mapping[str | int, DirectRelationReference] | None = None,
+    direct_relation_lookup: Mapping[str | int, DirectRelationReference] | None = None,
 ) -> PropertyValueWrite:
     """Convert a string value to the appropriate type based on the provided property type.
 
@@ -63,7 +63,8 @@ def convert_to_primary_property(
         value (str | int | float | bool): The value to convert.
         type_ (PropertyType): The type of the property to convert to.
         nullable (bool): Whether the property can be null.
-        cache (Mapping[str | int, DirectRelationReference] | None): Optional cache for DirectRelationReference conversion.
+        direct_relation_lookup (Mapping[str | int, DirectRelationReference] | None): A mapping from external/internal
+            IDs to DirectRelationReference objects,
 
     Returns:
         PropertyValueWrite: The converted value as a PropertyValue, or None if is_nullable is True and the value is empty.
@@ -78,9 +79,9 @@ def convert_to_primary_property(
     elif issubclass(converter_cls, _EnumConverter):
         raise TypeError(f"Unsupported property type {type_} for enum conversion")
     elif issubclass(converter_cls, _DirectRelationshipConverter):
-        if cache is None:
-            raise TypeError("Cache must be provided for DirectRelationReference conversion")
-        converter = _DirectRelationshipConverter(cache=cache)
+        if direct_relation_lookup is None:
+            raise TypeError("Direct relation lookup must be provided for DirectRelationReference conversion")
+        converter = _DirectRelationshipConverter(direct_relation_lookup=direct_relation_lookup)
     else:
         converter = converter_cls(nullable)
 
@@ -313,13 +314,15 @@ class _FileLabelConverter(_LabelConverter):
 class _SourceConverter(_SpecialCaseConverter, ABC):
     destination_container_property = (ContainerId("cdf_cdm", "CogniteSourceable"), "source")
 
-    def __init__(self, cache: Mapping[str | int, DirectRelationReference]) -> None:
-        self.cache = cache
+    def __init__(self, direct_relation_lookup: Mapping[str | int, DirectRelationReference]) -> None:
+        self.direct_relation_lookup = direct_relation_lookup
 
     def convert(self, value: str | int | float | bool | dict | list | None) -> DirectRelationReference:
-        if isinstance(value, str | int) and value in self.cache:
-            return self.cache[value]
-        raise ValueError(f"Cannot convert {value!r} to DirectRelationReference. Invalid data type or missing in cache.")
+        if isinstance(value, str | int) and value in self.direct_relation_lookup:
+            return self.direct_relation_lookup[value]
+        raise ValueError(
+            f"Cannot convert {value!r} to DirectRelationReference. Invalid data type or missing in lookup."
+        )
 
 
 class _AssetSourceConverter(_SourceConverter):
@@ -511,14 +514,16 @@ class _EnumConverter(_ValueConverter):
 class _DirectRelationshipConverter(_ValueConverter):
     type_str = "direct"
 
-    def __init__(self, cache: Mapping[str | int, DirectRelationReference]) -> None:
+    def __init__(self, direct_relation_lookup: Mapping[str | int, DirectRelationReference]) -> None:
         super().__init__(nullable=True)
-        self.cache = cache
+        self.direct_relation_lookup = direct_relation_lookup
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
-        if isinstance(value, str | int) and value in self.cache:
-            return self.cache[value]
-        raise ValueError(f"Cannot convert {value!r} to DirectRelationReference. Invalid data type or missing in cache.")
+        if isinstance(value, str | int) and value in self.direct_relation_lookup:
+            return self.direct_relation_lookup[value]
+        raise ValueError(
+            f"Cannot convert {value!r} to DirectRelationReference. Invalid data type or missing in lookup."
+        )
 
 
 class _TimeSeriesReferenceConverter(_ValueConverter):

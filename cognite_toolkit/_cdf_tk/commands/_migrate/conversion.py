@@ -196,7 +196,7 @@ def create_properties(
                 dm_prop.nullable,
                 destination_container_property=(dm_prop.container, dm_prop.container_property_identifier),
                 source_property=(resource_type, prop_json_path),
-                cache=direct_relation_cache.get(resource_type, prop_json_path),
+                direct_relation_lookup=direct_relation_cache.get(resource_type, prop_json_path),
             )
         except (ValueError, TypeError, NotImplementedError) as e:
             issue.failed_conversions.append(

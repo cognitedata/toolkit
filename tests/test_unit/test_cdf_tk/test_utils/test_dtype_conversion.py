@@ -246,7 +246,7 @@ class TestConvertToContainerProperty:
             1: DirectRelationReference(space="my_space", external_id="parent1"),
             2: DirectRelationReference(space="my_space", external_id="parent2"),
         }
-        actual = convert_to_primary_property(value, type_, nullable, cache=cache)
+        actual = convert_to_primary_property(value, type_, nullable, direct_relation_lookup=cache)
 
         if isinstance(expected_value, float):
             assert actual == pytest.approx(expected_value), f"Expected {expected_value}, but got {actual}"
@@ -395,7 +395,7 @@ class TestConvertToContainerProperty:
         self, value: str | int | float | bool | dict | list, type_: PropertyType, nullable: bool, error_message: str
     ):
         with pytest.raises(ValueError) as exc_info:
-            convert_to_primary_property(value, type_, nullable, cache={})
+            convert_to_primary_property(value, type_, nullable, direct_relation_lookup={})
 
         assert str(exc_info.value) == error_message, (
             f"Expected error message '{error_message}', but got '{exc_info.value}'"
@@ -503,7 +503,7 @@ class TestConvertToContainerProperty:
         }
 
         actual = asset_centric_convert_to_primary_property(
-            value, type_, True, destination_container_property, source_property, cache=cache
+            value, type_, True, destination_container_property, source_property, direct_relation_lookup=cache
         )
 
         assert actual == expected
@@ -555,7 +555,7 @@ class TestConvertToContainerProperty:
     ):
         with pytest.raises(ValueError) as exc_info:
             asset_centric_convert_to_primary_property(
-                value, type_, True, destination_container_property, source_property, cache={}
+                value, type_, True, destination_container_property, source_property, direct_relation_lookup={}
             )
 
         assert str(exc_info.value) == error_message
