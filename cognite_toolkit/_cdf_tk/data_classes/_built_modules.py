@@ -30,6 +30,8 @@ class BuiltModule:
     warning_count: int
     status: str
     iteration: int
+    package_id: str | None = None
+    module_id: str | None = None
 
     @classmethod
     def load(cls, data: dict[str, Any]) -> Self:
@@ -44,6 +46,8 @@ class BuiltModule:
             warning_count=data.get("warning_count", 0),
             status=data.get("status", "Success"),
             iteration=data.get("iteration", 1),
+            package_id=data.get("package_id"),
+            module_id=data.get("module_id"),
         )
 
     def dump(self) -> dict[str, Any]:
@@ -57,6 +61,8 @@ class BuiltModule:
             "warning_count": self.warning_count,
             "status": self.status,
             "iteration": self.iteration,
+            "package_id": self.package_id,
+            "module_id": self.module_id,
         }
 
 

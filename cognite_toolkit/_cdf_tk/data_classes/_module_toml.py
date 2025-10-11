@@ -35,10 +35,12 @@ class ExampleData:
 class ModuleToml:
     filename: ClassVar[str] = "module.toml"
     title: str | None
+    id: str | None = None
     dependencies: frozenset[str] = field(default_factory=frozenset)
     is_selected_by_default: bool = False
     data: list[ExampleData] = field(default_factory=list)
     extra_resources: list[Path] = field(default_factory=list)
+    package_id: str | None = None
 
     def __post_init__(self) -> None:
         for extra in self.extra_resources:
@@ -64,15 +66,20 @@ class ModuleToml:
             extra_resources = [Path(item["location"]) for item in data["extra_resources"] if "location" in item]
 
         title: str | None = None
+        id: str | None = None
         is_selected_by_default: bool = False
         if "module" in data:
             title = data["module"].get("title")
+            id = data["module"].get("id")
             is_selected_by_default = data["module"].get("is_selected_by_default", False)
+            package_id = data["module"].get("package_id")
 
         return cls(
             title=title,
+            id=id,
             dependencies=dependencies,
             is_selected_by_default=is_selected_by_default,
             data=example_data,
             extra_resources=extra_resources,
+            package_id=package_id,
         )

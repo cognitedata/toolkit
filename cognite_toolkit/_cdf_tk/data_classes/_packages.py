@@ -23,12 +23,14 @@ class Package:
         name: the unique identifier of the package.
         title: The display name of the package.
         description: A description of the package.
+        id: An optional identifier for package statistics.
         modules: The modules that are part of the package.
     """
 
     name: str
     title: str
     description: str | None = None
+    id: str | None = None
     can_cherry_pick: bool = True
     modules: list[ModuleLocation] = field(default_factory=list)
 
@@ -43,6 +45,7 @@ class Package:
             name=name,
             title=package_definition["title"],
             description=package_definition.get("description"),
+            id=package_definition.get("id"),
             can_cherry_pick=package_definition.get("canCherryPick", True),
         )
 

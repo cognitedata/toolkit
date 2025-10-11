@@ -20,13 +20,19 @@ class ToolkitCommand:
         self.silent = silent
         self.warning_list = WarningList[ToolkitWarning]()
         self.tracker = Tracker(skip_tracking)
+        self._additional_tracking_info: dict[str, Any] = {}
 
     @property
     def print_warning(self) -> bool:
         return self._print_warning and not self.silent
 
     def _track_command(self, result: str | Exception) -> None:
-        self.tracker.track_cli_command(self.warning_list, result, type(self).__name__.removesuffix("Command"))
+        self.tracker.track_cli_command(
+            self.warning_list,
+            result,
+            type(self).__name__.removesuffix("Command"),
+            self._additional_tracking_info,
+        )
 
     def run(self, execute: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
         global _HAS_PRINTED_COLLECT_MESSAGE

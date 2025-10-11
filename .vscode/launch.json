@@ -24,6 +24,18 @@
       "justMyCode": false
     },
     {
+      "name": "cdf collect opt-in",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": [
+        "collect",
+        "opt-in"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
       "name": "cdf run function local",
       "type": "debugpy",
       "request": "launch",
