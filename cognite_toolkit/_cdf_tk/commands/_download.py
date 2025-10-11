@@ -39,25 +39,24 @@ class DownloadCommand(ToolkitCommand):
             compression: The compression method to use for the downloaded files (e.g., "none", "gzip").
             limit: The maximum number of items to download for each selected set. If None, all items will be downloaded.
         """
-        target_directory = output_dir / io.FOLDER_NAME
-        target_directory.mkdir(parents=True, exist_ok=True)
         compression_cls = Compression.from_name(compression)
 
         console = Console()
         for selector in selectors:
+            target_dir = output_dir / selector.group
             if verbose:
-                console.print(f"Downloading {io.DISPLAY_NAME} '{selector!s}' to {target_directory.as_posix()!r}")
-            output_dir = target_directory / selector.group
+                console.print(f"Downloading {io.DISPLAY_NAME} '{selector!s}' to {target_dir.as_posix()!r}")
+
             iteration_count = self._get_iteration_count(io, selector, limit)
             filestem = str(selector)
-            if self._already_downloaded(output_dir, filestem):
+            if self._already_downloaded(target_dir, filestem):
                 warning = LowSeverityWarning(
-                    f"Data for {selector!s} already exists in {output_dir.as_posix()!r}. Skipping download."
+                    f"Data for {selector!s} already exists in {target_dir.as_posix()!r}. Skipping download."
                 )
                 self.warn(warning, console=console)
                 continue
 
-            selector.dump_to_file(output_dir)
+            selector.dump_to_file(target_dir)
             columns: list[SchemaColumn] | None = None
             if file_format in TABLE_WRITE_CLS_BY_FORMAT and isinstance(io, TableStorageIO):
                 columns = io.get_schema(selector)
@@ -67,7 +66,7 @@ class DownloadCommand(ToolkitCommand):
                 )
 
             with FileWriter.create_from_format(
-                file_format, target_directory, io.KIND, compression_cls, columns=columns
+                file_format, target_dir, io.KIND, compression_cls, columns=columns
             ) as writer:
                 executor = ProducerWorkerExecutor[T_WritableCogniteResourceList, list[dict[str, JsonVal]]](
                     download_iterable=io.stream_data(selector, limit),
@@ -78,7 +77,7 @@ class DownloadCommand(ToolkitCommand):
                     max_queue_size=8 * 10,  # 8 workers, 10 items per worker
                     download_description=f"Downloading {selector!s}",
                     process_description="Processing",
-                    write_description=f"Writing to {target_directory.as_posix()!r} in files with stem {filestem!r}",
+                    write_description=f"Writing to {target_dir.as_posix()!r} in files with stem {filestem!r}",
                     console=console,
                 )
                 executor.run()
@@ -87,17 +86,11 @@ class DownloadCommand(ToolkitCommand):
 
             if isinstance(io, ConfigurableStorageIO):
                 for config in io.configurations(selector):
-                    config_file = (
-                        output_dir
-                        / selector.group
-                        / DATA_RESOURCE_DIR
-                        / config.folder_name
-                        / f"{filestem}.{config.kind}.yaml"
-                    )
+                    config_file = target_dir / DATA_RESOURCE_DIR / config.folder_name / f"{filestem}.{config.kind}.yaml"
                     config_file.parent.mkdir(parents=True, exist_ok=True)
                     safe_write(config_file, yaml_safe_dump(config.value))
 
-            console.print(f"Downloaded {selector!s} to {file_count} file(s) in {target_directory.as_posix()!r}.")
+            console.print(f"Downloaded {selector!s} to {file_count} file(s) in {target_dir.as_posix()!r}.")
 
     @staticmethod
     def _get_iteration_count(
