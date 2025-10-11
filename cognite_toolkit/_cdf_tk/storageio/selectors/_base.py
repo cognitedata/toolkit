@@ -4,6 +4,7 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
+from cognite_toolkit._cdf_tk.constants import DATA_METADATA_STEM
 from cognite_toolkit._cdf_tk.utils.file import safe_write, sanitize_filename, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
@@ -29,7 +30,7 @@ class DataSelector(BaseModel, ABC):
             directory: The directory where the YAML file will be saved.
         """
 
-        filepath = directory / f"{sanitize_filename(str(self))}.Selector.yaml"
+        filepath = directory / f"{sanitize_filename(str(self))}.{DATA_METADATA_STEM}.yaml"
         filepath.parent.mkdir(parents=True, exist_ok=True)
         if filepath.exists():
             raise FileExistsError(f"File {filepath.as_posix()!r} already exists.")
