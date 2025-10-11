@@ -569,7 +569,7 @@ class TestAssetCentricConversion:
                             value="not_existing",
                             error="Cannot convert 'not_existing' to "
                             "DirectRelationReference. Invalid data type "
-                            "or missing in cache.",
+                            "or missing in lookup.",
                         )
                     ],
                 ),
