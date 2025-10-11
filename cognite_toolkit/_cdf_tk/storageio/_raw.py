@@ -83,7 +83,7 @@ class RawIO(ConfigurableStorageIO[str, RawTableSelector, RowWriteList, RowList])
         if len(config_files) > 1:
             raise ToolkitValueError(f"Multiple configuration files found for {datafile.as_posix()!r}: {config_files}")
         config_file = config_files[0]
-        return RawTableSelector.model_validate(read_yaml_file(config_file, expected_output="dict"))
+        return RawTableSelector.model_validate({"table": read_yaml_file(config_file, expected_output="dict")})
 
     def ensure_configurations(self, selector: RawTableSelector, console: Console | None = None) -> None:
         """Ensure that the Raw table exists in CDF."""
@@ -96,6 +96,8 @@ class RawIO(ConfigurableStorageIO[str, RawTableSelector, RowWriteList, RowList])
 
         table_loader = RawTableCRUD.create_loader(self.client, console=console)
         if not table_loader.retrieve([RawTable(db_name=selector.table.db_name, table_name=selector.table.table_name)]):
-            table_loader.create(RawTableList([selector]))
+            table_loader.create(
+                RawTableList([RawTable(db_name=selector.table.db_name, table_name=selector.table.table_name)])
+            )
             if console:
                 console.print(f"Created raw table: [bold]{selector.table.db_name}.{selector.table.table_name}[/bold]")
