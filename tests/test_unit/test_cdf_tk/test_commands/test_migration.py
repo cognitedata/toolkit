@@ -1,4 +1,5 @@
 import json
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from typing import ClassVar
 
@@ -129,6 +130,12 @@ class TestAssetCentricConversion:
     CONTAINER_ID = ContainerId("test_space", "test_container")
     VIEW_ID = ViewId("test_space", "test_view", "v1")
     INSTANCE_SOURCE_VIEW_ID = ViewId("cognite_migration", "InstanceSource", "v1")
+    ASSET_INSTANCE_ID_BY_ID: ClassVar[Mapping[int, DirectRelationReference]] = {
+        123: DirectRelationReference("test_space", "asset_123_instance")
+    }
+    SOURCE_SYSTEM_INSTANCE_ID_BY_EXTERNAL_ID: ClassVar[Mapping[str, DirectRelationReference]] = {
+        "source_system_1": DirectRelationReference("test_space", "source_system_1_instance")
+    }
 
     @pytest.mark.parametrize(
         "resource,view_source,view_properties,expected_properties,expected_issue",
@@ -248,6 +255,8 @@ class TestAssetCentricConversion:
                     start_time=1756359489386,
                     end_time=1756359499880,
                     description="Not mapped",
+                    source="source_system_1",
+                    asset_ids=[123],
                     metadata={
                         "operator": "John Doe",
                         "severity": "HIGH",
@@ -265,6 +274,8 @@ class TestAssetCentricConversion:
                     resource_type="event",
                     view_id=ViewId("test_space", "test_view", "v1"),
                     property_mapping={
+                        "source": "source",
+                        "assetIds": "assets",
                         "missing_prop": "targetProp",
                         "startTime": "eventStart",
                         "endTime": "eventEnd",
@@ -276,6 +287,22 @@ class TestAssetCentricConversion:
                     },
                 ),
                 {
+                    "source": MappedProperty(
+                        ContainerId("cdf_cdm", "CogniteSourceable"),
+                        "source",
+                        dt.DirectRelation(),
+                        nullable=True,
+                        immutable=False,
+                        auto_increment=False,
+                    ),
+                    "assets": MappedProperty(
+                        ContainerId("cdf_cdm", "CogniteFile"),
+                        "assets",
+                        dt.DirectRelation(is_list=True, max_list_size=1200),
+                        nullable=True,
+                        immutable=False,
+                        auto_increment=False,
+                    ),
                     "eventStart": MappedProperty(
                         ContainerId("test_space", "test_container"),
                         "eventStart",
@@ -321,6 +348,8 @@ class TestAssetCentricConversion:
                     "eventStart": datetime(2025, 8, 28, 5, 38, 9, 386000, tzinfo=timezone.utc),
                     "eventEnd": datetime(2025, 8, 28, 5, 38, 19, 880000, tzinfo=timezone.utc),
                     "eventSeverity": "high",
+                    "source": DirectRelationReference("test_space", "source_system_1_instance"),
+                    "assets": [DirectRelationReference("test_space", "asset_123_instance")],
                 },
                 ConversionIssue(
                     asset_centric_id=AssetCentricId("event", id_=789),
@@ -493,7 +522,13 @@ class TestAssetCentricConversion:
                 id="Asset with non-nullable properties all None",
             ),
             pytest.param(
-                Event(id=999, external_id="event_999", type="MyType", metadata={"category": "MyCategory"}),
+                Event(
+                    id=999,
+                    external_id="event_999",
+                    type="MyType",
+                    metadata={"category": "MyCategory"},
+                    source="not_existing",
+                ),
                 ResourceViewMapping(
                     external_id="event_mapping",
                     version=1,
@@ -501,13 +536,21 @@ class TestAssetCentricConversion:
                     created_time=1000000,
                     resource_type="event",
                     view_id=ViewId("test_space", "test_view", "v1"),
-                    property_mapping={"type": "category", "metadata.category": "category"},
+                    property_mapping={"type": "category", "metadata.category": "category", "source": "source"},
                 ),
                 {
                     "category": MappedProperty(
                         ContainerId("test_space", "test_container"),
                         "category",
                         dt.Text(),
+                        nullable=True,
+                        immutable=False,
+                        auto_increment=False,
+                    ),
+                    "source": MappedProperty(
+                        ContainerId("cdf_cdm", "CogniteSourceable"),
+                        "source",
+                        dt.DirectRelation(),
                         nullable=True,
                         immutable=False,
                         auto_increment=False,
@@ -520,8 +563,17 @@ class TestAssetCentricConversion:
                     asset_centric_id=AssetCentricId("event", id_=999),
                     instance_id=INSTANCE_ID,
                     ignored_asset_centric_properties=["metadata.category"],
+                    failed_conversions=[
+                        FailedConversion(
+                            property_id="source",
+                            value="not_existing",
+                            error="Cannot convert 'not_existing' to "
+                            "DirectRelationReference. Invalid data type "
+                            "or missing in lookup.",
+                        )
+                    ],
                 ),
-                id="Event with overlapping property and metadata mapping (property takes precedence)",
+                id="Event with overlapping property and metadata mapping (property takes precedence) and missing source",
             ),
         ],
     )
@@ -533,7 +585,14 @@ class TestAssetCentricConversion:
         expected_properties: dict[str, str],
         expected_issue: ConversionIssue,
     ) -> None:
-        actual, issue = asset_centric_to_dm(resource, self.INSTANCE_ID, view_source, view_properties)
+        actual, issue = asset_centric_to_dm(
+            resource,
+            self.INSTANCE_ID,
+            view_source,
+            view_properties,
+            self.ASSET_INSTANCE_ID_BY_ID,
+            self.SOURCE_SYSTEM_INSTANCE_ID_BY_EXTERNAL_ID,
+        )
 
         # Check the structure of the returned NodeApply
         assert actual.space == self.INSTANCE_ID.space

@@ -10,7 +10,7 @@ from cognite.client.data_classes.data_modeling.instances import PropertyValueWri
 from cognite.client.data_classes.data_modeling.views import MappedProperty, MultiEdgeConnection, ViewProperty
 
 from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId
-from cognite_toolkit._cdf_tk.commands._migrate.conversion import create_properties
+from cognite_toolkit._cdf_tk.commands._migrate.conversion import DirectRelationCache, create_properties
 from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     ConversionIssue,
     FailedConversion,
@@ -23,6 +23,11 @@ class TestCreateProperties:
     CONTAINER_ID = ContainerId("test_space", "test_container")
     DEFAULT_CONTAINER_ARGS: ClassVar = dict(nullable=True, immutable=False, auto_increment=False)
     ASSET_CENTRIC_ID = AssetCentricId(resource_type="asset", id_=123)
+    EVENT_CENTRIC_ID = AssetCentricId(resource_type="event", id_=456)
+    DIRECT_RELATION_CACHE = DirectRelationCache(
+        asset={1: DirectRelationReference("instance_space", "MyFirstAsset")},
+        source={"sourceA": DirectRelationReference("instance_space", "TheSourceA")},
+    )
 
     @pytest.mark.parametrize(
         "dumped,view_properties,property_mapping,expected_properties,expected_issue",
@@ -208,7 +213,66 @@ class TestCreateProperties:
         expected_issue: ConversionIssue,
     ) -> None:
         issue = ConversionIssue(asset_centric_id=self.ASSET_CENTRIC_ID, instance_id=self.INSTANCE_ID)
-        properties = create_properties(dumped, view_properties, property_mapping, "asset", issue)
+        properties = create_properties(
+            dumped, view_properties, property_mapping, "asset", issue, self.DIRECT_RELATION_CACHE
+        )
+
+        assert properties == expected_properties
+
+        assert issue.dump() == expected_issue.dump()
+
+    @pytest.mark.parametrize(
+        "dumped,view_properties,property_mapping,expected_properties,expected_issue",
+        [
+            pytest.param(
+                {"startTime": 123, "endTime": 321, "description": "An event", "source": "sourceA", "assetIds": [1]},
+                {
+                    "startTimeId": MappedProperty(
+                        CONTAINER_ID, "startTimeId", dt.Timestamp(), **DEFAULT_CONTAINER_ARGS
+                    ),
+                    "endTimeId": MappedProperty(CONTAINER_ID, "endTimeId", dt.Timestamp(), **DEFAULT_CONTAINER_ARGS),
+                    "descriptionId": MappedProperty(CONTAINER_ID, "descriptionId", dt.Text(), **DEFAULT_CONTAINER_ARGS),
+                    "source": MappedProperty(
+                        ContainerId("cdf_cdm", "CogniteSourceable"),
+                        "source",
+                        dt.DirectRelation(),
+                        **DEFAULT_CONTAINER_ARGS,
+                    ),
+                    "assets": MappedProperty(
+                        CONTAINER_ID, "assets", dt.DirectRelation(is_list=True), **DEFAULT_CONTAINER_ARGS
+                    ),
+                },
+                {
+                    "startTime": "startTimeId",
+                    "endTime": "endTimeId",
+                    "description": "descriptionId",
+                    "source": "source",
+                    "assetIds": "assets",
+                },
+                {
+                    "startTimeId": datetime(1970, 1, 1, 0, 0, 0, 123000, tzinfo=timezone.utc),
+                    "endTimeId": datetime(1970, 1, 1, 0, 0, 0, 321000, tzinfo=timezone.utc),
+                    "descriptionId": "An event",
+                    "source": DirectRelationReference("instance_space", "TheSourceA"),
+                    "assets": [DirectRelationReference("instance_space", "MyFirstAsset")],
+                },
+                ConversionIssue(asset_centric_id=EVENT_CENTRIC_ID, instance_id=INSTANCE_ID),
+                id="Basic event property mapping with direct relations",
+            ),
+        ],
+    )
+    def test_create_properties_events(
+        self,
+        dumped: dict[str, Any],
+        view_properties: dict[str, ViewProperty],
+        property_mapping: dict[str, str],
+        expected_properties: dict[str, PropertyValueWrite],
+        expected_issue: ConversionIssue,
+    ) -> None:
+        issue = ConversionIssue(asset_centric_id=self.EVENT_CENTRIC_ID, instance_id=self.INSTANCE_ID)
+        properties = create_properties(
+            dumped, view_properties, property_mapping, "event", issue, self.DIRECT_RELATION_CACHE
+        )
 
         assert properties == expected_properties
 
