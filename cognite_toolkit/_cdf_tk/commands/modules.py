@@ -57,6 +57,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitRequiredValueError, ToolkitValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
+from cognite_toolkit._cdf_tk.resource_classes import ToolkitResource
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.tk_warnings.other import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection, read_yaml_file
@@ -910,7 +911,7 @@ default_organization_dir = "{organization_dir.name}"''',
         """
         try:
             return str(crud_cls.display_name.fget(crud_cls))  # type: ignore[attr-defined]
-        except Exception:
+        except AttributeError:
             return crud_cls.folder_name
 
     def _get_module_name(self, organization_dir: Path) -> str:
@@ -935,7 +936,7 @@ default_organization_dir = "{organization_dir.name}"''',
 
     def _get_resource_crud(
         self, resource: str | None, available_resources: dict[str, type[ResourceCRUD]]
-    ) -> type[ResourceCRUD] | None:
+    ) -> type[ResourceCRUD]:
         """
         Helper function to return the resource crud.
         """
@@ -954,11 +955,11 @@ default_organization_dir = "{organization_dir.name}"''',
 
         return resource_crud
 
-    def _create_resource_yaml_skeleton(self, yaml_cls: object) -> dict:
+    def _create_resource_yaml_skeleton(self, yaml_cls: type[ToolkitResource]) -> dict[str, str]:
         """
         Build a lightweight YAML skeleton from a Pydantic model class using field descriptions.
         """
-        yaml_skeleton: dict = {}
+        yaml_skeleton: dict[str, str] = {}
         model_fields = getattr(yaml_cls, "model_fields", {})
         for name, field in model_fields.items():
             description = getattr(field, "description", "") or ""
@@ -1004,7 +1005,7 @@ default_organization_dir = "{organization_dir.name}"''',
         available_resources: dict[str, type[ResourceCRUD]] = {
             self._display_name_for_resource(crud).lower(): crud for crud in RESOURCE_CRUD_LIST
         }
-        resource_crud: type[ResourceCRUD] = self._get_resource_crud(resource, available_resources)  # type: ignore[assignment]
+        resource_crud: type[ResourceCRUD] = self._get_resource_crud(resource, available_resources)
 
         (module_dir / resource_crud.folder_name).mkdir(parents=True, exist_ok=True)
 
