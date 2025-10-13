@@ -4,7 +4,7 @@ from typing import Generic
 from cognite.client.data_classes._base import (
     T_CogniteResourceList,
 )
-from cognite.client.data_classes.data_modeling import View, ViewId
+from cognite.client.data_classes.data_modeling import DirectRelationReference, View, ViewId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList
@@ -50,6 +50,10 @@ class AssetCentricMapper(DataMapper[MigrationSelector, AssetCentricMappingList, 
         self.client = client
         self._ingestion_view_by_id: dict[ViewId, View] = {}
         self._view_mapping_by_id: dict[str, ResourceViewMapping] = {}
+        # This is used to keep track of already mapped assets, such that we can creat direct relations
+        # to them from files, events, and time series.
+        self._asset_mapping_by_id: dict[int, DirectRelationReference] = {}
+        self._source_system_mapping_by_id: dict[str, DirectRelationReference] = {}
 
     def prepare(self, source_selector: MigrationSelector) -> None:
         ingestion_view_ids = source_selector.get_ingestion_views()
@@ -70,6 +74,9 @@ class AssetCentricMapper(DataMapper[MigrationSelector, AssetCentricMappingList, 
                 f"The following ingestion views were not found in Data Modeling: {humanize_collection(missing_views)}"
             )
 
+        # Todo Lookup sources - This requires a change to the Migration model to include source mappings.
+        # The task is capture in issue CDF-25898.
+
     def map_chunk(self, source: AssetCentricMappingList) -> tuple[InstanceApplyList, list[MigrationIssue]]:
         """Map a chunk of asset-centric data to InstanceApplyList format."""
         instances = InstanceApplyList([])
@@ -89,9 +96,16 @@ class AssetCentricMapper(DataMapper[MigrationSelector, AssetCentricMappingList, 
                 instance_id=mapping.instance_id,
                 view_source=view_source,
                 view_properties=view_properties,
+                asset_instance_id_by_id=self._asset_mapping_by_id,
+                source_instance_id_by_external_id=self._source_system_mapping_by_id,
             )
 
             instances.append(instance)
             if conversion_issue.has_issues:
                 issues.append(conversion_issue)
+
+            if mapping.resource_type == "asset":
+                self._asset_mapping_by_id[mapping.id] = DirectRelationReference(
+                    space=mapping.instance_id.space, external_id=mapping.instance_id.external_id
+                )
         return instances, issues
