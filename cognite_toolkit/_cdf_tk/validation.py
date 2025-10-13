@@ -144,7 +144,7 @@ def validate_resource_yaml_pydantic(
         else:
             raise ValueError(f"Expected a dictionary or list of dictionaries, got {type(data)}.")
     except ValidationError as e:
-        printable_errors = tuple(_humanize_validation_error(e))
+        printable_errors = tuple(humanize_validation_error(e))
         if printable_errors:
             warning_list.append(ResourceFormatWarning(source_file, printable_errors))
     return warning_list
@@ -167,10 +167,10 @@ def instantiate_class(
     try:
         return validation_cls.model_validate(data, strict=strict)
     except ValidationError as e:
-        return ResourceFormatWarning(source_file, tuple(_humanize_validation_error(e)))
+        return ResourceFormatWarning(source_file, tuple(humanize_validation_error(e)))
 
 
-def _humanize_validation_error(error: ValidationError) -> list[str]:
+def humanize_validation_error(error: ValidationError) -> list[str]:
     """Converts a ValidationError to a human-readable format.
 
     This overwrites the default error messages from Pydantic to be better suited for Toolkit users.
