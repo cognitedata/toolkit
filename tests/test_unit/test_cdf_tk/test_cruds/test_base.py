@@ -416,7 +416,7 @@ authentication:
     )
 
 
-class TestResourceLoaders:
+class TestResourceCRUDs:
     # The HostedExtractorSourceLoader does not support parameter spec.
     @pytest.mark.parametrize(
         "loader_cls",
@@ -518,6 +518,11 @@ class TestResourceLoaders:
         dumped = loader.dump_resource(resource, local_dict)
 
         assert isinstance(dumped, dict)
+
+    def test_yaml_cls_is_set(self) -> None:
+        missing = [loader_cls.__name__ for loader_cls in RESOURCE_CRUD_LIST if loader_cls.yaml_cls is None]
+
+        assert not missing, f"The following loaders are missing yaml_cls: {missing}"
 
 
 class TestLoaders:

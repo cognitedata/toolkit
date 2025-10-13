@@ -10,6 +10,10 @@ from cognite.client.data_classes import (
     AssetWrite,
     AssetWriteList,
     DataSetWriteList,
+    Event,
+    EventList,
+    EventWrite,
+    EventWriteList,
     FileMetadata,
     FileMetadataList,
     FileMetadataWrite,
@@ -33,6 +37,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.cruds import (
     AssetCRUD,
     DataSetsCRUD,
+    EventCRUD,
     FileMetadataCRUD,
     LabelCRUD,
     ResourceCRUD,
@@ -42,6 +47,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.utils.aggregators import (
     AssetAggregator,
     AssetCentricAggregator,
+    EventAggregator,
     FileAggregator,
     TimeSeriesAggregator,
 )
@@ -52,7 +58,7 @@ from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, S
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, AssetCentric, JsonVal, T_WritableCogniteResourceList
 
 from ._base import StorageIOConfig, TableStorageIO
-from ._selectors import AssetCentricFileSelector, AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
+from .selectors import AssetCentricFileSelector, AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 
 
 class BaseAssetCentricIO(
@@ -62,6 +68,7 @@ class BaseAssetCentricIO(
 ):
     RESOURCE_TYPE: ClassVar[AssetCentric]
     CHUNK_SIZE = 1000
+    BASE_SELECTOR = AssetCentricSelector
 
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
@@ -125,7 +132,7 @@ class BaseAssetCentricIO(
         return asset_subtree_external_ids, data_set_external_ids
 
     def _collect_dependencies(
-        self, resources: AssetList | FileMetadataList | TimeSeriesList, selector: AssetCentricSelector
+        self, resources: AssetList | FileMetadataList | TimeSeriesList | EventList, selector: AssetCentricSelector
     ) -> None:
         for resource in resources:
             if resource.data_set_id:
@@ -425,3 +432,73 @@ class TimeSeriesIO(BaseAssetCentricIO[str, TimeSeriesWrite, TimeSeries, TimeSeri
             SchemaColumn(name="dataSetExternalId", type="string"),
         ]
         return ts_schema + metadata_schema
+
+
+class EventIO(BaseAssetCentricIO[str, EventWrite, Event, EventWriteList, EventList]):
+    FOLDER_NAME = EventCRUD.folder_name
+    KIND = "Events"
+    DISPLAY_NAME = "events"
+    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
+    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
+    SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
+    UPLOAD_ENDPOINT = "/events"
+
+    def as_id(self, item: dict[str, JsonVal] | object) -> int:
+        if isinstance(item, Event) and item.id is not None:
+            return item.id
+        return super().as_id(item)
+
+    def _get_loader(self) -> EventCRUD:
+        return EventCRUD.create_loader(self.client)
+
+    def _get_aggregator(self) -> AssetCentricAggregator:
+        return EventAggregator(self.client)
+
+    def get_schema(self, selector: AssetCentricSelector) -> list[SchemaColumn]:
+        data_set_ids: list[int] = []
+        if isinstance(selector, DataSetSelector):
+            data_set_ids.append(self.client.lookup.data_sets.id(selector.data_set_external_id))
+        hierarchy: list[int] = []
+        if isinstance(selector, AssetSubtreeSelector):
+            raise ToolkitNotImplementedError(f"Selector type {type(selector)} not supported for {type(self).__name__}.")
+
+        if hierarchy or data_set_ids:
+            metadata_keys = metadata_key_counts(
+                self.client, "events", data_sets=data_set_ids or None, hierarchies=hierarchy or None
+            )
+        else:
+            metadata_keys = []
+        metadata_schema: list[SchemaColumn] = []
+        if metadata_keys:
+            metadata_schema.extend(
+                [SchemaColumn(name=f"metadata.{key}", type="string", is_array=False) for key, _ in metadata_keys]
+            )
+        event_schema = [
+            SchemaColumn(name="externalId", type="string"),
+            SchemaColumn(name="dataSetExternalId", type="string"),
+            SchemaColumn(name="startTime", type="integer"),
+            SchemaColumn(name="endTime", type="integer"),
+            SchemaColumn(name="type", type="string"),
+            SchemaColumn(name="subtype", type="string"),
+            SchemaColumn(name="description", type="string"),
+            SchemaColumn(name="assetExternalIds", type="string", is_array=True),
+            SchemaColumn(name="source", type="string"),
+        ]
+        return event_schema + metadata_schema
+
+    def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[EventList]:
+        asset_subtree_external_ids, data_set_external_ids = self._get_hierarchy_dataset_pair(selector)
+        for event_list in self.client.events(
+            chunk_size=self.CHUNK_SIZE,
+            limit=limit,
+            asset_subtree_external_ids=asset_subtree_external_ids,
+            data_set_external_ids=data_set_external_ids,
+        ):
+            self._collect_dependencies(event_list, selector)
+            yield event_list
+
+    def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> EventWriteList:
+        return EventWriteList([self._loader.load_resource(item) for item in data_chunk])
+
+    def retrieve(self, ids: Sequence[int]) -> EventList:
+        return self.client.events.retrieve_multiple(ids)

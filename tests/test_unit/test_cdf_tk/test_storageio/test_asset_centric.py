@@ -10,6 +10,8 @@ from cognite.client.data_classes import (
     CountAggregate,
     DataSet,
     DataSetList,
+    Event,
+    EventList,
     FileMetadata,
     FileMetadataList,
     LabelDefinition,
@@ -21,8 +23,8 @@ from cognite.client.data_classes import (
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
-from cognite_toolkit._cdf_tk.storageio import AssetIO, FileMetadataIO, TimeSeriesIO
-from cognite_toolkit._cdf_tk.storageio._selectors import AssetSubtreeSelector, DataSetSelector
+from cognite_toolkit._cdf_tk.storageio import AssetIO, EventIO, FileMetadataIO, TimeSeriesIO
+from cognite_toolkit._cdf_tk.storageio.selectors import AssetSubtreeSelector, DataSetSelector
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
@@ -55,7 +57,7 @@ class TestAssetIO:
     ) -> None:
         config = toolkit_config
         asset_by_external_id = {asset.external_id: asset for asset in some_asset_data if asset.external_id is not None}
-        selector = AssetSubtreeSelector(hierarchy="test_hierarchy")
+        selector = AssetSubtreeSelector(hierarchy="test_hierarchy", resource_type="asset")
 
         def create_callback(request: httpx.Request) -> httpx.Response:
             payload = json.loads(request.content)
@@ -125,7 +127,7 @@ class TestAssetIO:
 
         respx_mock.post(config.create_api_url("/assets")).mock(side_effect=asset_create_callback)
 
-        selector = AssetSubtreeSelector(hierarchy="test_hierarchy")
+        selector = AssetSubtreeSelector(hierarchy="test_hierarchy", resource_type="asset")
         with monkeypatch_toolkit_client() as client:
             client.config = config
             client.assets.return_value = [some_asset_data]
@@ -208,7 +210,7 @@ class TestFileMetadataIO:
             )
 
         respx_mock.post(config.create_api_url("/files")).mock(side_effect=create_callback)
-        selector = DataSetSelector(data_set_external_id="DataSetSelector")
+        selector = DataSetSelector(data_set_external_id="DataSetSelector", resource_type="file")
 
         with monkeypatch_toolkit_client() as client:
             client.config = config
@@ -279,7 +281,7 @@ class TestTimeSeriesIO:
     ) -> None:
         config = toolkit_config
         ts_by_external_id = {ts.external_id: ts for ts in some_timeseries_data if ts.external_id is not None}
-        selector = DataSetSelector(data_set_external_id="DataSetSelector")
+        selector = DataSetSelector(data_set_external_id="DataSetSelector", resource_type="timeseries")
 
         def create_callback(request: httpx.Request) -> httpx.Response:
             payload = json.loads(request.content)
@@ -330,3 +332,85 @@ class TestTimeSeriesIO:
                 uploaded_ts.extend(json.loads(call.request.content)["items"])
 
             assert uploaded_ts == some_timeseries_data.as_write().dump()
+
+
+@pytest.fixture()
+def some_event_data() -> EventList:
+    """Fixture to provide a sample EventList for testing."""
+    return EventList(
+        [
+            Event(
+                external_id=f"event_{i}",
+                description=f"Description for event {i}",
+                asset_ids=[123],
+                data_set_id=1234,
+                source="test_source",
+                start_time=1000000000000 + i * 1000,
+                end_time=1000000001000 + i * 1000,
+            )
+            for i in range(50)
+        ]
+    )
+
+
+class TestEventIO:
+    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
+    def test_download_upload(
+        self,
+        toolkit_config: ToolkitClientConfig,
+        some_event_data: EventList,
+        respx_mock: respx.MockRouter,
+    ) -> None:
+        config = toolkit_config
+        event_by_external_id = {event.external_id: event for event in some_event_data if event.external_id is not None}
+        selector = DataSetSelector(data_set_external_id="DataSetSelector", resource_type="event")
+
+        def create_callback(request: httpx.Request) -> httpx.Response:
+            payload = json.loads(request.content)
+            assert "items" in payload
+            items = payload["items"]
+            assert isinstance(items, list)
+            return httpx.Response(
+                status_code=200,
+                json={
+                    "items": [event_by_external_id[item["externalId"]].dump() for item in items if "externalId" in item]
+                },
+            )
+
+        respx_mock.post(config.create_api_url("/events")).mock(side_effect=create_callback)
+        with monkeypatch_toolkit_client() as client:
+            client.config = config
+            client.events.return_value = chunker(some_event_data, 10)
+            client.events.aggregate_count.return_value = len(some_event_data)
+            client.lookup.data_sets.external_id.return_value = "test_data_set"
+            client.lookup.data_sets.id.return_value = 1234
+            client.lookup.assets.external_id.return_value = ["test_hierarchy"]
+            client.lookup.assets.id.return_value = [123]
+
+            io = EventIO(client)
+
+            assert io.count(selector) == 50
+
+            source = io.stream_data(selector)
+            json_chunks: list[list[dict[str, JsonVal]]] = []
+            for chunk in source:
+                json_chunk = io.data_to_json_chunk(chunk)
+                assert isinstance(json_chunk, list)
+                assert len(json_chunk) == 10
+                for item in json_chunk:
+                    assert isinstance(item, dict)
+                    assert "dataSetExternalId" in item
+                    assert item["dataSetExternalId"] == "test_data_set"
+                json_chunks.append(json_chunk)
+
+            with HTTPClient(config) as upload_client:
+                data_chunks = (io.json_chunk_to_data(chunk) for chunk in json_chunks)
+                for data_chunk in data_chunks:
+                    io.upload_items(data_chunk, upload_client, selector)
+
+            assert respx_mock.calls.call_count == 5  # 50 rows in chunks of 10
+            uploaded_events = []
+            for call in respx_mock.calls:
+                uploaded_events.extend(json.loads(call.request.content)["items"])
+
+            assert uploaded_events == some_event_data.as_write().dump()

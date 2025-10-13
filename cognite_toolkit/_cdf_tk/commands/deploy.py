@@ -1,6 +1,7 @@
 from collections.abc import Hashable
 from graphlib import TopologicalSorter
 from pathlib import Path
+from typing import overload
 
 from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableCogniteResource, T_WriteClass
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError
@@ -88,17 +89,17 @@ class DeployCommand(ToolkitCommand):
             )
 
         self.deploy_all_resources(
-            client,
-            results,
-            build,
-            build_dir,
-            drop,
-            drop_data,
-            dry_run,
-            env_vars,
-            force_update,
-            ordered_loaders,
-            verbose,
+            client=client,
+            build_dir=build_dir,
+            env_vars=env_vars,
+            results=results,
+            dry_run=dry_run,
+            has_dropped=drop,
+            has_dropped_data=drop_data,
+            force_update=force_update,
+            ordered_loaders=ordered_loaders,
+            build=build,
+            verbose=verbose,
         )
 
         if results.has_counts:
@@ -200,23 +201,81 @@ class DeployCommand(ToolkitCommand):
         print("[bold]...cleaning complete![/]")
         return None
 
+    @overload
     def deploy_all_resources(
         self,
         client: ToolkitClient,
-        results: DeployResults,
-        build: BuildEnvironment,
         build_dir: Path,
-        drop: bool,
-        drop_data: bool,
-        dry_run: bool,
         env_vars: EnvironmentVariables,
-        force_update: bool,
-        ordered_loaders: list[type[Loader]],
-        verbose: bool,
-    ) -> None:
+        results: None = None,
+        dry_run: bool = False,
+        has_dropped: bool = False,
+        has_dropped_data: bool = False,
+        force_update: bool = False,
+        ordered_loaders: list[type[Loader]] | None = None,
+        build: BuildEnvironment | None = None,
+        verbose: bool = False,
+    ) -> DeployResults: ...
+
+    @overload
+    def deploy_all_resources(
+        self,
+        client: ToolkitClient,
+        build_dir: Path,
+        env_vars: EnvironmentVariables,
+        results: DeployResults,
+        dry_run: bool = False,
+        has_dropped: bool = False,
+        has_dropped_data: bool = False,
+        force_update: bool = False,
+        ordered_loaders: list[type[Loader]] | None = None,
+        build: BuildEnvironment | None = None,
+        verbose: bool = False,
+    ) -> None: ...
+
+    def deploy_all_resources(
+        self,
+        client: ToolkitClient,
+        build_dir: Path,
+        env_vars: EnvironmentVariables,
+        results: DeployResults | None = None,
+        dry_run: bool = False,
+        has_dropped: bool = False,
+        has_dropped_data: bool = False,
+        force_update: bool = False,
+        ordered_loaders: list[type[Loader]] | None = None,
+        build: BuildEnvironment | None = None,
+        verbose: bool = False,
+    ) -> DeployResults | None:
+        """Deploy all resources in the build directory.
+
+        Args:
+            client: The Cognite client to use for deployment.
+            build_dir: The directory containing the built resource files.
+            env_vars: The environment variables to use for variable replacement in the resource files.
+            results: An optional DeployResults object to store the results of the deployment. If None, a new object will be created and returned.
+            dry_run: If True, performs a dry run without actually deploying the resources.
+            has_dropped: If True, indicates that resources have been dropped prior to deployment.
+            has_dropped_data: If True, indicates that data resources have been dropped prior to deployment.
+            force_update: If True, forces an update of resources even if they are unchanged.
+            ordered_loaders: An optional list of loader classes to use for deployment. If None, all loaders will be used in the order determined by dependencies.
+            build: An optional BuildEnvironment object containing information about the build. If None, data uploads will be skipped.
+            verbose: If True, prints detailed information about the deployment process.
+
+        Returns:
+            A DeployResults object containing the results of the deployment if results is None, otherwise None.
+
+        """
         if verbose:
             print(Panel("[bold]DEPLOYING resources...[/]"))
 
+        if ordered_loaders is None:
+            selected_loaders = self._clean_command.get_selected_loaders(build_dir, set(), None)
+            ordered_loaders = self._order_loaders(selected_loaders, build_dir)
+        read_modules: list[ReadModule] | None = None
+        if build is not None:
+            read_modules = build.read_modules
+        output_results = results or DeployResults([], "deploy", dry_run=dry_run)
         for loader_cls in ordered_loaders:
             loader = loader_cls.create_loader(client, build_dir)
             resource_result: DeployResult | None
@@ -224,22 +283,31 @@ class DeployCommand(ToolkitCommand):
                 resource_result = self.deploy_resource_type(
                     loader,
                     env_vars,
-                    build.read_modules,
+                    read_modules,
                     dry_run,
-                    drop,
-                    drop_data,
+                    has_dropped,
+                    has_dropped_data,
                     force_update,
                     verbose,
                 )
-            elif isinstance(loader, DataCRUD):
+            elif isinstance(loader, DataCRUD) and build is not None:
                 resource_result = self.upload_data(loader, build, dry_run, verbose)
+            elif isinstance(loader, DataCRUD) and build is None:
+                self.warn(
+                    LowSeverityWarning(
+                        f"Skipping data upload for {loader.display_name} as it is not supported in this context."
+                    )
+                )
+                continue
             else:
                 raise ValueError(f"Unsupported loader type {type(loader)}.")
 
             if resource_result:
-                results[resource_result.name] = resource_result
+                output_results[resource_result.name] = resource_result
             if verbose:
                 print("")  # Extra newline
+        if results is None:
+            return output_results
         return None
 
     def deploy_resource_type(
@@ -248,7 +316,7 @@ class DeployCommand(ToolkitCommand):
             T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
         ],
         env_vars: EnvironmentVariables,
-        read_modules: list[ReadModule],
+        read_modules: list[ReadModule] | None = None,
         dry_run: bool = False,
         has_done_drop: bool = False,
         has_dropped_data: bool = False,

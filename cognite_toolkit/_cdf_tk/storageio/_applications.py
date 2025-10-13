@@ -1,5 +1,4 @@
 from collections.abc import Iterable
-from dataclasses import dataclass
 
 from cognite_toolkit._cdf_tk.client.data_classes.canvas import (
     IndustrialCanvas,
@@ -13,7 +12,7 @@ from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import StorageIO
-from ._selectors import AllChartSelector, ChartOwnerSelector, ChartSelector
+from .selectors import AllChartsSelector, CanvasSelector, ChartOwnerSelector, ChartSelector
 
 
 class ChartIO(StorageIO[str, ChartSelector, ChartWriteList, ChartList]):
@@ -24,6 +23,7 @@ class ChartIO(StorageIO[str, ChartSelector, ChartWriteList, ChartList]):
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     SUPPORTED_READ_FORMATS = frozenset({".ndjson"})
     CHUNK_SIZE = 10
+    BASE_SELECTOR = ChartSelector
 
     def as_id(self, item: dict[str, JsonVal] | object) -> str:
         if isinstance(item, dict) and isinstance(item.get("externalId"), str):
@@ -35,7 +35,7 @@ class ChartIO(StorageIO[str, ChartSelector, ChartWriteList, ChartList]):
 
     def stream_data(self, selector: ChartSelector, limit: int | None = None) -> Iterable[ChartList]:
         selected_charts = self.client.charts.list(visibility="PUBLIC")
-        if isinstance(selector, AllChartSelector):
+        if isinstance(selector, AllChartsSelector):
             ...
         elif isinstance(selector, ChartOwnerSelector):
             selected_charts = ChartList([chart for chart in selected_charts if chart.owner_id == selector.owner_id])
@@ -75,10 +75,6 @@ class ChartIO(StorageIO[str, ChartSelector, ChartWriteList, ChartList]):
         return ChartWriteList._load(data_chunk)
 
 
-@dataclass(frozen=True)
-class CanvasSelector: ...
-
-
 class CanvasIO(StorageIO[str, CanvasSelector, IndustrialCanvasApplyList, IndustrialCanvasList]):
     FOLDER_NAME = "cdf_application_data"
     KIND = "IndustrialCanvas"
@@ -87,6 +83,7 @@ class CanvasIO(StorageIO[str, CanvasSelector, IndustrialCanvasApplyList, Industr
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     SUPPORTED_READ_FORMATS = frozenset({".ndjson"})
     CHUNK_SIZE = 10
+    BASE_SELECTOR = CanvasSelector
 
     @staticmethod
     def _get_id_from_dict(item: dict[str, JsonVal] | object) -> str | None:
