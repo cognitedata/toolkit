@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._migrate.adapter import AssetCentricMigrationIOAdapter, MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
-from cognite_toolkit._cdf_tk.storageio import AssetIO, InstanceIO
+from cognite_toolkit._cdf_tk.storageio import AssetIO
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
 
@@ -67,8 +67,8 @@ class TestMigrateAssetsCommand:
 
         cmd = MigrationCommand(skip_tracking=True, silent=True)
         cmd.migrate(
-            selected=MigrationCSVFileSelector(input_file, resource_type="asset"),
-            data=AssetCentricMigrationIOAdapter(client, AssetIO(client), InstanceIO(client)),
+            selected=MigrationCSVFileSelector(datafile=input_file, resource_type="asset"),
+            data=AssetCentricMigrationIOAdapter(client, AssetIO(client)),
             mapper=AssetCentricMapper(client),
             log_dir=tmp_path / "logs",
             dry_run=False,

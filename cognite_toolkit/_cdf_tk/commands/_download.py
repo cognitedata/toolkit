@@ -7,11 +7,11 @@ from cognite.client.data_classes._base import T_CogniteResourceList
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.storageio import StorageIO, TableStorageIO
+from cognite_toolkit._cdf_tk.storageio import ConfigurableStorageIO, StorageIO, T_Selector, TableStorageIO
 from cognite_toolkit._cdf_tk.utils.file import safe_write, sanitize_filename, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import TABLE_WRITE_CLS_BY_FORMAT, Compression, FileWriter, SchemaColumn
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
-from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal, T_Selector, T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal, T_WritableCogniteResourceList
 
 from ._base import ToolkitCommand
 
@@ -81,10 +81,11 @@ class DownloadCommand(ToolkitCommand):
                 executor.raise_on_error()
                 file_count = writer.file_count
 
-            for config in io.configurations(selector):
-                config_file = output_dir / config.folder_name / f"{filestem}.{config.kind}.yaml"
-                config_file.parent.mkdir(parents=True, exist_ok=True)
-                safe_write(config_file, yaml_safe_dump(config.value))
+            if isinstance(io, ConfigurableStorageIO):
+                for config in io.configurations(selector):
+                    config_file = output_dir / config.folder_name / f"{filestem}.{config.kind}.yaml"
+                    config_file.parent.mkdir(parents=True, exist_ok=True)
+                    safe_write(config_file, yaml_safe_dump(config.value))
 
             console.print(f"Downloaded {selector!s} to {file_count} file(s) in {target_directory.as_posix()!r}.")
 

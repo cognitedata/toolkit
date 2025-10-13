@@ -32,9 +32,17 @@ FileCRUD:
 - externalId: MyExtendedFile
   filehash: c7fbc0e8
   space: sp_nodes
+- externalId: fn_data_modeling_only_function
+  filehash: 22a54716
+  space: sp_instance
 - external_id: shopConfigFile
   filehash: b1f3b6ef
 FileMetadata:
+- data_set_id: 7982613576047462211
+  external_id: fn_multi_file_function
+  id: 64
+  name: Multi_File_Function.zip
+  overwrite: true
 - dataSetId: 7982613576047462211
   directory: /files
   externalId: shopConfigFile
@@ -44,9 +52,19 @@ FileMetadata:
   name: config_shop.yaml
   source: doctrino
 Function:
+- description: This function stores its code in a Cognite File.
+  externalId: fn_data_modeling_only_function
+  fileId: 8
+  functionPath: handler.py
+  metadata:
+    cognite-toolkit-hash: /=a6647f8a;handler.py=e00d5c6f;requirements.txt=71207964
+    version: v1
+  name: DataModelingOnly function
+  owner: doctrino
+  runtime: py312
 - description: Uses multiple modules.
   externalId: fn_multi_file_function
-  fileId: -1
+  fileId: 64
   functionPath: handler.py
   metadata:
     cognite-toolkit-hash: /=7cf06c9d;handler.py=6596f06a;other_module.py=9bf3de91;requirements.txt=c7e9925f
@@ -124,6 +142,31 @@ Node:
       type: view
       version: '1'
   space: APM_Config
+- externalId: fn_data_modeling_only_function
+  instanceType: node
+  sources:
+  - properties:
+      aliases: null
+      assets: null
+      category: null
+      description: null
+      directory: null
+      mimeType: application/zip
+      name: DataModelingOnly_function.zip
+      source: null
+      sourceContext: null
+      sourceCreatedTime: null
+      sourceCreatedUser: null
+      sourceId: null
+      sourceUpdatedTime: null
+      sourceUpdatedUser: null
+      tags: null
+    source:
+      externalId: CogniteFile
+      space: cdf_cdm
+      type: view
+      version: v1
+  space: sp_instance
 - externalId: testing_default_asset_mapping
   instanceType: node
   sources:

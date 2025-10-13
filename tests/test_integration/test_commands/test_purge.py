@@ -10,7 +10,7 @@ from cognite.client.utils import datetime_to_ms
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
-from cognite_toolkit._cdf_tk.storageio import InstanceFileSelector
+from cognite_toolkit._cdf_tk.storageio.selectors import InstanceFileSelector
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
 

@@ -1,6 +1,6 @@
 from enum import Enum
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 import questionary
 import typer
@@ -9,7 +9,8 @@ from rich import print
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.storageio import InstanceFileSelector, InstanceSelector, InstanceViewSelector
+from cognite_toolkit._cdf_tk.resource_classes.view_field_definitions import ViewReference
+from cognite_toolkit._cdf_tk.storageio.selectors import InstanceFileSelector, InstanceSelector, InstanceViewSelector
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.interactive_select import DataModelingSelect
 
@@ -89,8 +90,8 @@ class PurgeApp(typer.Typer):
             )
         )
 
+    @staticmethod
     def purge_space(
-        self,
         ctx: typer.Context,
         space: Annotated[
             str | None,
@@ -106,6 +107,21 @@ class PurgeApp(typer.Typer):
                 help="Include space in the purge. This will also delete the space.",
             ),
         ] = False,
+        # Enable on next minor release
+        # delete_datapoints: Annotated[
+        #     bool,
+        #     typer.Option(
+        #         "--delete-datapoints",
+        #         help="Delete datapoints linked to CogniteTimeSeries nodes in the space.",
+        #     ),
+        # ] = False,
+        # delete_file_content: Annotated[
+        #     bool,
+        #     typer.Option(
+        #         "--delete-file-content",
+        #         help="Delete file content linked to CogniteFile nodes in the space.",
+        #     ),
+        # ] = False,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -135,14 +151,35 @@ class PurgeApp(typer.Typer):
 
         cmd = PurgeCommand()
         client = EnvironmentVariables.create_from_environment().get_client()
+
+        if space is None:
+            # Is Interactive
+            interactive = DataModelingSelect(client, operation="purge")
+            space_type = interactive.select_space_type()
+            if space_type == "empty":
+                space = interactive.select_empty_spaces(multiselect=False)
+            elif space_type == "instance":
+                space = interactive.select_instance_space(multiselect=False)
+            elif space_type == "schema":
+                space = interactive.select_schema_space(include_global=False).space
+            else:
+                raise ToolkitValueError("Invalid space type selected.")
+            dry_run = questionary.confirm("Dry run?", default=True).ask()
+            if space_type == "empty":
+                include_space = True
+            else:
+                include_space = questionary.confirm("Delete the space itself?", default=False).ask()
+
         cmd.run(
             lambda: cmd.space(
-                client,
-                space,
-                include_space,
-                dry_run,
-                auto_yes,
-                verbose,
+                client=client,
+                selected_space=space,
+                include_space=include_space,
+                delete_datapoints=False,
+                delete_file_content=False,
+                dry_run=dry_run,
+                auto_yes=auto_yes,
+                verbose=verbose,
             )
         )
 
@@ -238,7 +275,9 @@ class PurgeApp(typer.Typer):
             selected_instance_type = interactive.select_instance_type(select_view.used_for)
             instance_space = interactive.select_instance_space(True, select_view.as_id(), selected_instance_type)
             selector = InstanceViewSelector(
-                view=select_view.as_id(),
+                view=ViewReference(
+                    space=select_view.space, external_id=select_view.external_id, version=select_view.version
+                ),
                 instance_type=selected_instance_type,
                 instance_spaces=tuple(instance_space) if instance_space else None,
             )
@@ -247,8 +286,11 @@ class PurgeApp(typer.Typer):
         elif instance_list is not None:
             selector = InstanceFileSelector(datafile=instance_list)
         elif view is not None:
+            view_id = cmd.get_selected_view_id(view)  # Will raise if not exactly one view
             selector = InstanceViewSelector(
-                view=cmd.get_selected_view_id(view),
+                view=ViewReference(
+                    space=view_id.space, external_id=view_id.external_id, version=cast(str, view_id.version)
+                ),
                 instance_type=instance_type.value,
                 instance_spaces=tuple(instance_space) if instance_space is not None else None,
             )

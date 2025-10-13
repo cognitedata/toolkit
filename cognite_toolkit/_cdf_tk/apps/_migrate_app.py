@@ -13,7 +13,7 @@ from cognite_toolkit._cdf_tk.commands import (
 from cognite_toolkit._cdf_tk.commands._migrate import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.adapter import AssetCentricMigrationIOAdapter, MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
-from cognite_toolkit._cdf_tk.storageio import AssetIO, InstanceIO
+from cognite_toolkit._cdf_tk.storageio import AssetIO
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 TODAY = date.today()
@@ -116,8 +116,8 @@ class MigrateApp(typer.Typer):
         cmd = MigrationCommand()
         cmd.run(
             lambda: cmd.migrate(
-                selected=MigrationCSVFileSelector(mapping_file, resource_type="asset"),
-                data=AssetCentricMigrationIOAdapter(client, AssetIO(client), InstanceIO(client)),
+                selected=MigrationCSVFileSelector(datafile=mapping_file, resource_type="asset"),
+                data=AssetCentricMigrationIOAdapter(client, AssetIO(client)),
                 mapper=AssetCentricMapper(client),
                 log_dir=log_dir,
                 dry_run=dry_run,

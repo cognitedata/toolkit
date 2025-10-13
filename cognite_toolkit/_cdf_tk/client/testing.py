@@ -24,7 +24,9 @@ from .api.location_filters import LocationFiltersAPI
 from .api.lookup import (
     AssetLookUpAPI,
     DataSetLookUpAPI,
+    EventLookUpAPI,
     ExtractionPipelineLookUpAPI,
+    FileMetadataLookUpAPI,
     FunctionLookUpAPI,
     LocationFiltersLookUpAPI,
     LookUpGroup,
@@ -32,6 +34,7 @@ from .api.lookup import (
     TimeSeriesLookUpAPI,
 )
 from .api.migration import InstanceSourceAPI, MigrationAPI, ResourceViewMappingAPI
+from .api.project import ProjectAPI
 from .api.robotics import RoboticsAPI
 from .api.robotics.capabilities import CapabilitiesAPI
 from .api.robotics.data_postprocessing import DataPostProcessingAPI
@@ -69,6 +72,8 @@ class ToolkitClientMock(CogniteClientMock):
         self.functions.calls = MagicMock(spec_set=FunctionCallsAPI)
         self.functions.schedules = MagicMock(spec_set=FunctionSchedulesAPI)
 
+        self.project = MagicMock(spec_set=ProjectAPI)
+
         self.search = MagicMock(spec=SearchAPI)
         self.search.locations = MagicMock(spec_set=LocationFiltersAPI)
         self.search.configurations = MagicMock(spec_set=SearchConfigurationsAPI)
@@ -77,6 +82,8 @@ class ToolkitClientMock(CogniteClientMock):
         self.lookup.data_sets = MagicMock(spec_set=DataSetLookUpAPI)
         self.lookup.assets = MagicMock(spec_set=AssetLookUpAPI)
         self.lookup.time_series = MagicMock(spec_set=TimeSeriesLookUpAPI)
+        self.lookup.files = MagicMock(spec_set=FileMetadataLookUpAPI)
+        self.lookup.events = MagicMock(spec_set=EventLookUpAPI)
         self.lookup.security_categories = MagicMock(spec_set=SecurityCategoriesLookUpAPI)
         self.lookup.location_filters = MagicMock(spec_set=LocationFiltersLookUpAPI)
         self.lookup.extraction_pipelines = MagicMock(spec_set=ExtractionPipelineLookUpAPI)
@@ -112,6 +119,8 @@ class ToolkitClientMock(CogniteClientMock):
 @contextmanager
 def monkeypatch_toolkit_client() -> Iterator[ToolkitClientMock]:
     toolkit_client_mock = ToolkitClientMock()
-    ToolkitClient.__new__ = lambda *args, **kwargs: toolkit_client_mock  # type: ignore[method-assign]
-    yield toolkit_client_mock
-    ToolkitClient.__new__ = lambda cls, *args, **kwargs: object.__new__(cls)  # type: ignore[method-assign]
+    try:
+        ToolkitClient.__new__ = lambda *args, **kwargs: toolkit_client_mock  # type: ignore[method-assign]
+        yield toolkit_client_mock
+    finally:
+        ToolkitClient.__new__ = lambda cls, *args, **kwargs: object.__new__(cls)  # type: ignore[method-assign]

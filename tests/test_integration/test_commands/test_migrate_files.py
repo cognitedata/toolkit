@@ -10,6 +10,7 @@ from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.extended_timeseries import ExtendedTimeSeriesList
+from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.commands import MigrateFilesCommand
 from cognite_toolkit._cdf_tk.commands._migrate.adapter import (
     FileMetaAdapter,
@@ -17,8 +18,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.adapter import (
 )
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
-from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import _FILE_METADATA_ID
-from cognite_toolkit._cdf_tk.storageio import InstanceIO
+from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import FILE_METADATA_ID
 
 
 @pytest.fixture()
@@ -118,20 +118,20 @@ class TestMigrateFilesCommand:
         with input_file.open("w", encoding="utf-8") as f:
             f.write(
                 "id,space,externalId,ingestionView\n"
-                + "\n".join(f"{ts.id},{space},{ts.external_id},{_FILE_METADATA_ID}" for ts in three_files_with_content)
+                + "\n".join(f"{ts.id},{space},{ts.external_id},{FILE_METADATA_ID}" for ts in three_files_with_content)
                 + "\n"
             )
 
         cmd = MigrationCommand(skip_tracking=True, silent=True)
         results = cmd.migrate(
-            selected=MigrationCSVFileSelector(input_file, resource_type="file"),
-            data=FileMetaAdapter(client, InstanceIO(client)),
+            selected=MigrationCSVFileSelector(datafile=input_file, resource_type="file"),
+            data=FileMetaAdapter(client),
             mapper=AssetCentricMapper(client),
             log_dir=tmp_path / "logs",
             dry_run=False,
             verbose=False,
         )
-        actual_results = [results.get_progress(item.id) for item in three_files_with_content]
+        actual_results = [results.get_progress(AssetCentricId("file", item.id)) for item in three_files_with_content]
         expected_results = [
             {
                 cmd.Steps.DOWNLOAD: "success",

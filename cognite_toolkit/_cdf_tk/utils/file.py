@@ -14,6 +14,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal, TypeVar, overload
+from zipfile import ZipFile
 
 import pandas as pd
 import yaml
@@ -464,3 +465,33 @@ def find_files_with_suffix_and_prefix(dirpath: Path, name: str, suffix: str) -> 
         if file.is_file() and name.startswith(filestem):
             found_files.append(file)
     return found_files
+
+
+@contextmanager
+def create_temporary_zip(directory: Path, zipname: str) -> typing.Generator[Path, None, None]:
+    """
+    Create a temporary zip file from a directory.
+
+    Args:
+        directory: The directory to zip.
+        zipname: The name of the zip file.
+
+    Returns:
+        A context manager that yields the path to the zip file.
+
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        zip_path = Path(tmpdir, zipname)
+        with ZipFile(zip_path, "w", strict_timestamps=False) as zf:
+            for root, _, files in os.walk(directory):
+                root_path = Path(root)
+                arc_root = root_path.relative_to(directory)
+
+                # Add directory entry to preserve directory structure, including empty ones.
+                zf.write(root_path, arcname=str(arc_root))
+
+                for filename in files:
+                    file_path = root_path / filename
+                    arcname = file_path.relative_to(directory)
+                    zf.write(file_path, arcname)
+        yield zip_path
