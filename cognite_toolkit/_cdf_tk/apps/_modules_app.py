@@ -6,6 +6,7 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import ModulesCommand, PullCommand
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._version import __version__
 
@@ -57,6 +58,7 @@ class ModulesApp(typer.Typer):
                 "--library-url",
                 "-u",
                 help="URL of the library to add to the project.",
+                hidden=not Flags.EXTERNAL_LIBRARIES.is_enabled(),
             ),
         ] = None,
         library_checksum: Annotated[
@@ -65,6 +67,7 @@ class ModulesApp(typer.Typer):
                 "--library-checksum",
                 "-c",
                 help="Checksum of the library to add to the project.",
+                hidden=not Flags.EXTERNAL_LIBRARIES.is_enabled(),
             ),
         ] = None,
         verbose: Annotated[
