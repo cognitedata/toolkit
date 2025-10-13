@@ -24,6 +24,7 @@ class RawIO(ConfigurableStorageIO[str, RawTableSelector, RowWriteList, RowList])
     SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson", ".yaml"})
     CHUNK_SIZE = 10_000
     UPLOAD_ENDPOINT = "/raw/dbs/{dbName}/tables/{tableName}/rows"
+    BASE_SELECTOR = RawTableSelector
 
     def as_id(self, item: dict[str, JsonVal] | object) -> str:
         if isinstance(item, RowWrite | Row) and item.key is not None:
