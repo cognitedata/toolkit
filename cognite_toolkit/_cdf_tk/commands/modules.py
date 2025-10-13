@@ -43,7 +43,7 @@ from cognite_toolkit._cdf_tk.constants import (
     SUPPORT_MODULE_UPGRADE_FROM_VERSION,
     EnvType,
 )
-from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_LIST, ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_LIST, ContainerCRUD, NodeCRUD, ResourceCRUD, ViewCRUD
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
     Environment,
@@ -930,9 +930,19 @@ default_organization_dir = "{organization_dir.name}"''',
 
         if module == "__new_module__":
             module = questionary.text("What is the name of the new module?").ask()
-            (organization_dir / MODULES / module).mkdir(parents=True, exist_ok=True)
 
         return module
+
+    def _get_subfolder(self, resource_crud: type[ResourceCRUD]) -> str | None:
+        """
+        Helper function to return the subfolder for a resource.
+        """
+        resources_subfolder_mapping = {
+            ContainerCRUD: "containers",
+            NodeCRUD: "nodes",
+            ViewCRUD: "views",
+        }
+        return resources_subfolder_mapping.get(resource_crud, None)
 
     def _get_resource_crud(
         self, resource: str | None, available_resources: dict[str, type[ResourceCRUD]]
@@ -960,14 +970,11 @@ default_organization_dir = "{organization_dir.name}"''',
         Build a lightweight YAML skeleton from a Pydantic model class using field descriptions.
         """
         yaml_skeleton: dict[str, str] = {}
-        model_fields = getattr(yaml_cls, "model_fields", {})
-        for name, field in model_fields.items():
-            description = getattr(field, "description", "") or ""
-            is_required = getattr(field, "is_required", False)
-            value = description if description else ""
-            if is_required:
-                value = f"(Required) {value}".strip()
-            yaml_skeleton[name] = value
+        for name, field in yaml_cls.model_fields.items():
+            name = field.alias or name
+            yaml_skeleton[name] = field.description or ""
+            if field.is_required():
+                yaml_skeleton[name] = f"(Required) {yaml_skeleton[name]}"
         return yaml_skeleton
 
     def _get_resource_yaml_content(self, resource_crud: type[ResourceCRUD]) -> str:
@@ -986,7 +993,7 @@ default_organization_dir = "{organization_dir.name}"''',
         )
         yaml_skeleton = self._create_resource_yaml_skeleton(yaml_cls)
         yaml_contents = yaml_safe_dump(yaml_skeleton)
-        return yaml_header + "\n" + yaml_contents
+        return yaml_header + "\n\n" + yaml_contents
 
     def resource_create(
         self,
@@ -1000,20 +1007,29 @@ default_organization_dir = "{organization_dir.name}"''',
         """
         if not module:
             module = self._get_module_name(organization_dir)
-        module_dir: Path = organization_dir / MODULES / module
 
         available_resources: dict[str, type[ResourceCRUD]] = {
             self._display_name_for_resource(crud).lower(): crud for crud in RESOURCE_CRUD_LIST
         }
         resource_crud: type[ResourceCRUD] = self._get_resource_crud(resource, available_resources)
-
-        (module_dir / resource_crud.folder_name).mkdir(parents=True, exist_ok=True)
-
+        subfolder: str | None = self._get_subfolder(resource_crud)
+        resource_dir: Path = organization_dir / MODULES / module / resource_crud.folder_name
+        if subfolder:
+            resource_dir = resource_dir / subfolder
+        if not resource_dir.exists():
+            resource_dir.mkdir(parents=True, exist_ok=True)
         if not file_name:
             file_name = questionary.text("What is the name of the new resource file?").ask()
 
-        file_path: Path = module_dir / resource_crud.folder_name / f"{file_name}.{resource_crud.kind}.yaml"
+        file_path: Path = resource_dir / f"{file_name}.{resource_crud.kind}.yaml"
+
+        if file_path.exists() and not questionary.confirm("Resource file already exists. Overwrite?").ask():
+            print("[red]Resource file already exists. Aborting...[/red]")
+            raise typer.Exit()
+
         yaml_content: str = self._get_resource_yaml_content(resource_crud)
         file_path.write_text(yaml_content)
-
-        print(f"[green]Resource {self._display_name_for_resource(resource_crud)} created at {file_path}[/green]")
+        print(
+            f"Resource [green]{self._display_name_for_resource(resource_crud)}[/green] created at "
+            f"[green][link={file_path.resolve().as_uri()}]/{file_path.relative_to(organization_dir).as_posix()}[/link][/green]"
+        )
