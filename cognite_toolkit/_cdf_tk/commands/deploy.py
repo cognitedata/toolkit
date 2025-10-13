@@ -77,6 +77,7 @@ class DeployCommand(ToolkitCommand):
         include = self._clean_command.validate_include(include)
 
         build = self._load_build(build_dir, build_env_name)
+
         client = env_vars.get_client(build.is_strict_validation)
         selected_loaders = self._clean_command.get_selected_loaders(build_dir, build.read_resource_folders, include)
         ordered_loaders = self._order_loaders(selected_loaders, build_dir)
