@@ -15,7 +15,7 @@ class DataSelector(BaseModel, ABC):
     """
 
     type: str
-    model_config = ConfigDict(frozen=True, alias_generator=to_camel)
+    model_config = ConfigDict(frozen=True, alias_generator=to_camel, populate_by_name=True)
 
     def dump(self) -> dict[str, JsonVal]:
         return self.model_dump(by_alias=True)
