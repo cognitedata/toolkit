@@ -55,7 +55,7 @@ DEMO_MODULE = BuiltModule(
     resources={
         "files": BuiltResourceList(
             [
-                BuiltResource("file1", SourceLocationEager(Path("files/file1.yaml"), "hash"), "File", None),
+                BuiltResource("file1", SourceLocationEager(Path("files/file1.yaml"), "hash"), "File", None, []),
             ]
         ),
         "functions": BuiltResourceList(
@@ -65,12 +65,14 @@ DEMO_MODULE = BuiltModule(
                     SourceLocationEager(Path("functions/function1.yaml"), "hash"),
                     "Function",
                     None,
+                    [],
                 )
             ]
         ),
     },
     warning_count=4,
     status="success",
+    iteration=1,
 )
 
 if __name__ == "__main__":

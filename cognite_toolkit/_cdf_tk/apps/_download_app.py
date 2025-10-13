@@ -7,12 +7,16 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.commands import DownloadCommand
+from cognite_toolkit._cdf_tk.resource_classes import TableYAML
 from cognite_toolkit._cdf_tk.storageio import (
-    AssetCentricSelector,
     AssetIO,
+    RawIO,
+)
+from cognite_toolkit._cdf_tk.storageio.selectors import (
+    AssetCentricSelector,
     AssetSubtreeSelector,
     DataSetSelector,
-    RawIO,
+    RawTableSelector,
 )
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
@@ -128,7 +132,10 @@ class DownloadApp(typer.Typer):
 
         cmd.run(
             lambda: cmd.download(
-                selectors=selectors,
+                selectors=[
+                    RawTableSelector(table=TableYAML(db_name=item.db_name, table_name=item.table_name))
+                    for item in selectors
+                ],
                 io=RawIO(client),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
@@ -212,9 +219,9 @@ class DownloadApp(typer.Typer):
 
         selectors: list[AssetCentricSelector] = []
         if data_sets:
-            selectors.extend([DataSetSelector(data_set_external_id=ds) for ds in data_sets])
+            selectors.extend([DataSetSelector(data_set_external_id=ds, resource_type="asset") for ds in data_sets])
         if hierarchy:
-            selectors.extend([AssetSubtreeSelector(hierarchy=h) for h in hierarchy])
+            selectors.extend([AssetSubtreeSelector(hierarchy=h, resource_type="asset") for h in hierarchy])
         cmd = DownloadCommand()
         cmd.run(
             lambda: cmd.download(

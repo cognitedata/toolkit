@@ -58,7 +58,7 @@ from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, S
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, AssetCentric, JsonVal, T_WritableCogniteResourceList
 
 from ._base import StorageIOConfig, TableStorageIO
-from ._selectors import AssetCentricFileSelector, AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
+from .selectors import AssetCentricFileSelector, AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 
 
 class BaseAssetCentricIO(
@@ -68,6 +68,7 @@ class BaseAssetCentricIO(
 ):
     RESOURCE_TYPE: ClassVar[AssetCentric]
     CHUNK_SIZE = 1000
+    BASE_SELECTOR = AssetCentricSelector
 
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)

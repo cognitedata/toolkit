@@ -143,6 +143,9 @@ class BuildCommand(ToolkitCommand):
         if selected:
             config.environment.selected = parse_user_selected_modules(selected, organization_dir)
 
+        # tracking which project the module is being built for to trace promotion
+        self._additional_tracking_info["project"] = config.environment.project
+
         directory_name = "current directory" if organization_dir == Path(".") else f"project '{organization_dir!s}'"
         root_modules = [
             module_dir for root_module in ROOT_MODULES if (module_dir := organization_dir / root_module).exists()
@@ -323,8 +326,20 @@ class BuildCommand(ToolkitCommand):
                     warning_count=module_warnings,
                     status=built_status,
                     iteration=iteration,
+                    module_id=module.module_id,
+                    package_id=module.package_id,
                 )
                 build.append(built_module)
+
+                if module.package_id:
+                    package_ids = self._additional_tracking_info.setdefault("packageId", [])
+                    if module.package_id not in package_ids:
+                        package_ids.append(module.package_id)
+
+                if module.module_id:
+                    module_ids = self._additional_tracking_info.setdefault("moduleIds", [])
+                    module_ids.append(module.module_id)
+
                 self.tracker.track_module_build(built_module)
         return build
 

@@ -24,7 +24,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
 from cognite_toolkit._cdf_tk.storageio import AssetIO, EventIO, FileMetadataIO, TimeSeriesIO
-from cognite_toolkit._cdf_tk.storageio._selectors import AssetSubtreeSelector, DataSetSelector
+from cognite_toolkit._cdf_tk.storageio.selectors import AssetSubtreeSelector, DataSetSelector
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
@@ -57,7 +57,7 @@ class TestAssetIO:
     ) -> None:
         config = toolkit_config
         asset_by_external_id = {asset.external_id: asset for asset in some_asset_data if asset.external_id is not None}
-        selector = AssetSubtreeSelector(hierarchy="test_hierarchy")
+        selector = AssetSubtreeSelector(hierarchy="test_hierarchy", resource_type="asset")
 
         def create_callback(request: httpx.Request) -> httpx.Response:
             payload = json.loads(request.content)
@@ -127,7 +127,7 @@ class TestAssetIO:
 
         respx_mock.post(config.create_api_url("/assets")).mock(side_effect=asset_create_callback)
 
-        selector = AssetSubtreeSelector(hierarchy="test_hierarchy")
+        selector = AssetSubtreeSelector(hierarchy="test_hierarchy", resource_type="asset")
         with monkeypatch_toolkit_client() as client:
             client.config = config
             client.assets.return_value = [some_asset_data]
@@ -210,7 +210,7 @@ class TestFileMetadataIO:
             )
 
         respx_mock.post(config.create_api_url("/files")).mock(side_effect=create_callback)
-        selector = DataSetSelector(data_set_external_id="DataSetSelector")
+        selector = DataSetSelector(data_set_external_id="DataSetSelector", resource_type="file")
 
         with monkeypatch_toolkit_client() as client:
             client.config = config
@@ -281,7 +281,7 @@ class TestTimeSeriesIO:
     ) -> None:
         config = toolkit_config
         ts_by_external_id = {ts.external_id: ts for ts in some_timeseries_data if ts.external_id is not None}
-        selector = DataSetSelector(data_set_external_id="DataSetSelector")
+        selector = DataSetSelector(data_set_external_id="DataSetSelector", resource_type="timeseries")
 
         def create_callback(request: httpx.Request) -> httpx.Response:
             payload = json.loads(request.content)
@@ -363,7 +363,7 @@ class TestEventIO:
     ) -> None:
         config = toolkit_config
         event_by_external_id = {event.external_id: event for event in some_event_data if event.external_id is not None}
-        selector = DataSetSelector(data_set_external_id="DataSetSelector")
+        selector = DataSetSelector(data_set_external_id="DataSetSelector", resource_type="event")
 
         def create_callback(request: httpx.Request) -> httpx.Response:
             payload = json.loads(request.content)
