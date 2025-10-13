@@ -3,7 +3,7 @@ from types import MappingProxyType
 from typing import ClassVar
 
 from cognite.client.data_classes.aggregations import Count
-from cognite.client.data_classes.data_modeling import Edge, EdgeApply, Node, NodeApply
+from cognite.client.data_classes.data_modeling import Edge, EdgeApply, Node, NodeApply, ViewId
 from cognite.client.utils._identifier import InstanceId
 
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList, InstanceList
@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import StorageIO
-from ._selectors import InstanceFileSelector, InstanceSelector, InstanceViewSelector
+from .selectors import InstanceFileSelector, InstanceSelector, InstanceViewSelector
 
 
 class InstanceIO(StorageIO[InstanceId, InstanceSelector, InstanceApplyList, InstanceList]):
@@ -25,6 +25,7 @@ class InstanceIO(StorageIO[InstanceId, InstanceSelector, InstanceApplyList, Inst
     CHUNK_SIZE = 1000
     UPLOAD_ENDPOINT = "/models/instances"
     UPLOAD_EXTRA_ARGS: ClassVar[Mapping[str, JsonVal] | None] = MappingProxyType({"autoCreateDirectRelations": True})
+    BASE_SELECTOR = InstanceSelector
 
     def as_id(self, item: dict[str, JsonVal] | object) -> InstanceId:
         if isinstance(item, dict) and isinstance(item.get("space"), str) and isinstance(item.get("externalId"), str):
@@ -42,7 +43,7 @@ class InstanceIO(StorageIO[InstanceId, InstanceSelector, InstanceApplyList, Inst
             total = 0
             for instance in iterate_instances(
                 client=self.client,
-                source=selector.view,
+                source=ViewId(selector.view.space, selector.view.external_id, selector.view.version),
                 instance_type=selector.instance_type,
                 space=list(selector.instance_spaces) if selector.instance_spaces else None,
             ):
@@ -64,7 +65,7 @@ class InstanceIO(StorageIO[InstanceId, InstanceSelector, InstanceApplyList, Inst
             raise NotImplementedError()
 
     def download_ids(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[list[InstanceId]]:
-        if isinstance(selector, InstanceFileSelector) and selector.validate is False:
+        if isinstance(selector, InstanceFileSelector) and selector.validate_instance is False:
             instances_to_yield = selector.instance_ids
             if limit is not None:
                 instances_to_yield = instances_to_yield[:limit]
@@ -75,7 +76,7 @@ class InstanceIO(StorageIO[InstanceId, InstanceSelector, InstanceApplyList, Inst
     def count(self, selector: InstanceSelector) -> int | None:
         if isinstance(selector, InstanceViewSelector):
             result = self.client.data_modeling.instances.aggregate(
-                view=selector.view,
+                view=ViewId(selector.view.space, selector.view.external_id, selector.view.version),
                 aggregates=Count("externalId"),
                 instance_type=selector.instance_type,
                 space=list(selector.instance_spaces) if selector.instance_spaces else None,

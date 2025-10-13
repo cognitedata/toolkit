@@ -3,7 +3,7 @@ from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import Generic
+from typing import Generic, Literal
 
 from cognite.client.data_classes import (
     Asset,
@@ -31,14 +31,13 @@ from cognite_toolkit._cdf_tk.client.data_classes.pending_instances_ids import Pe
 from cognite_toolkit._cdf_tk.cruds._base_cruds import T_ID
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.storageio import (
-    AssetCentricSelector,
     BaseAssetCentricIO,
     FileMetadataIO,
     InstanceIO,
-    InstanceSelector,
     StorageIO,
 )
 from cognite_toolkit._cdf_tk.storageio._base import T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.storageio.selectors import AssetCentricSelector, InstanceSelector
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest, SuccessItem
 from cognite_toolkit._cdf_tk.utils.thread_safe_dict import ThreadSafeDict
@@ -48,17 +47,23 @@ from .data_classes import MigrationMapping, MigrationMappingList
 from .data_model import INSTANCE_SOURCE_VIEW_ID
 
 
-@dataclass(frozen=True)
 class MigrationSelector(AssetCentricSelector, InstanceSelector, ABC):
     @abstractmethod
     def get_ingestion_views(self) -> list[str]:
         raise NotImplementedError()
 
 
-@dataclass(frozen=True)
 class MigrationCSVFileSelector(MigrationSelector):
+    type: Literal["migrationCSVFile"] = "migrationCSVFile"
     datafile: Path
     resource_type: str
+
+    @property
+    def group(self) -> str:
+        return f"Migration_{self.resource_type}"
+
+    def __str__(self) -> str:
+        return f"file_{self.datafile.name}"
 
     def get_schema_spaces(self) -> list[str] | None:
         return None

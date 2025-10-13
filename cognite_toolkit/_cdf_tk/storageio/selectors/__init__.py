@@ -2,9 +2,10 @@ from typing import Annotated
 
 from pydantic import Field, TypeAdapter
 
-from ._asset_centric import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
+from ._asset_centric import AssetCentricFileSelector, AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 from ._base import DataSelector
-from ._charts import AllChartsSelector, ChartOwnerSelector
+from ._canvas import CanvasSelector
+from ._charts import AllChartsSelector, ChartOwnerSelector, ChartSelector
 from ._instances import InstanceFileSelector, InstanceSelector, InstanceViewSelector
 from ._raw import RawTableSelector
 
@@ -15,6 +16,7 @@ Selector = Annotated[
     | AllChartsSelector
     | ChartOwnerSelector
     | AssetSubtreeSelector
+    | AssetCentricFileSelector
     | DataSetSelector,
     Field(discriminator="type"),
 ]
@@ -24,8 +26,12 @@ SelectorAdapter: TypeAdapter[Selector] = TypeAdapter(Selector)
 
 __all__ = [
     "AllChartsSelector",
+    "AssetCentricFileSelector",
     "AssetCentricSelector",
+    "AssetSubtreeSelector",
+    "CanvasSelector",
     "ChartOwnerSelector",
+    "ChartSelector",
     "DataSelector",
     "DataSetSelector",
     "InstanceFileSelector",

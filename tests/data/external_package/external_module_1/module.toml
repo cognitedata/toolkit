@@ -1,3 +1,5 @@
 [module]
 title = "External module one"
 is_selected_by_default = false
+id = "data_model"
+package_id = "rmdm"
