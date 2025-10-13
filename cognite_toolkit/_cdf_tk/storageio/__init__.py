@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
 from ._applications import CanvasIO, ChartIO
@@ -12,12 +14,18 @@ from .selectors._base import DataSelector
 STORAGE_IO_CLASSES = get_concrete_subclasses(StorageIO)  # type: ignore[type-abstract]
 
 
-def get_storage_io(selector: DataSelector, kind: str) -> type[StorageIO]:
+def get_storage_io(selector: DataSelector, kind: str | Path) -> type[StorageIO]:
     """Get the appropriate StorageIO class based on the type of the provided selector."""
     for cls in STORAGE_IO_CLASSES:
-        if issubclass(type(selector), cls.BASE_SELECTOR) and cls.KIND == kind:
+        if issubclass(type(selector), cls.BASE_SELECTOR) and _is_kind(cls, kind):
             return cls
     raise ValueError(f"No StorageIO found for selector of type {type(selector)}")
+
+
+def _is_kind(cls: type[StorageIO], kind: str | Path) -> bool:
+    if isinstance(kind, Path):
+        return kind.stem.lower().endswith(cls.KIND)
+    return cls.KIND.lower() == kind.lower()
 
 
 __all__ = [
