@@ -14,6 +14,7 @@ import requests
 import typer
 from packaging.version import Version
 from packaging.version import parse as parse_version
+from questionary import Choice
 from rich import print
 from rich.markdown import Markdown
 from rich.padding import Padding
@@ -42,10 +43,12 @@ from cognite_toolkit._cdf_tk.constants import (
     SUPPORT_MODULE_UPGRADE_FROM_VERSION,
     EnvType,
 )
+from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_LIST, ResourceCRUD
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
     Environment,
     InitConfigYAML,
+    ModuleDirectories,
     ModuleLocation,
     ModuleResources,
     Package,
@@ -901,6 +904,89 @@ default_organization_dir = "{organization_dir.name}"''',
         except Exception as e:
             raise ToolkitError(f"An unexpected error occurred while unpacking {file_path}: {e}") from e
 
+    def _display_name_for_resource(self, crud_cls: type[ResourceCRUD]) -> str:
+        """
+        Helper function to return the display name for a resource.
+        """
+        try:
+            return str(crud_cls.display_name.fget(crud_cls))  # type: ignore[attr-defined]
+        except Exception:
+            return crud_cls.folder_name
+
+    def _get_module_name(self, organization_dir: Path) -> str:
+        """
+        Helper function to return the module name.
+        If the user selects to create a new module, it will create the module directory and return the new module name.
+        """
+        present_modules = ModuleDirectories.load(organization_dir, None)
+        choices = [Choice(title=m.name, value=m.name) for m in present_modules]
+        choices.append(Choice(title="Create new module", value="__new_module__"))
+        module: str = questionary.select("Select an existing module or create a new one?", choices=choices).ask()
+
+        if not module:
+            print("[red]No module selected... Aborting...[/red]")
+            raise typer.Exit()
+
+        if module == "__new_module__":
+            module = questionary.text("What is the name of the new module?").ask()
+            (organization_dir / MODULES / module).mkdir(parents=True, exist_ok=True)
+
+        return module
+
+    def _get_resource_crud(
+        self, resource: str | None, available_resources: dict[str, type[ResourceCRUD]]
+    ) -> type[ResourceCRUD] | None:
+        """
+        Helper function to return the resource crud.
+        """
+        resource_crud: type[ResourceCRUD] | None
+        if not resource:
+            choices = [
+                Choice(title=name, value=crud) for name, crud in sorted(available_resources.items(), key=lambda x: x[0])
+            ]
+            resource_crud = questionary.select("Select a resource", choices=choices).ask()
+        else:
+            resource_crud = available_resources.get(resource.lower(), None)
+
+        if not resource_crud:
+            print("[red]No resource selected... Aborting...[/red]")
+            raise typer.Exit()
+
+        return resource_crud
+
+    def _create_resource_yaml_skeleton(self, yaml_cls: object) -> dict:
+        """
+        Build a lightweight YAML skeleton from a Pydantic model class using field descriptions.
+        """
+        yaml_skeleton: dict = {}
+        model_fields = getattr(yaml_cls, "model_fields", {})
+        for name, field in model_fields.items():
+            description = getattr(field, "description", "") or ""
+            is_required = getattr(field, "is_required", False)
+            value = description if description else ""
+            if is_required:
+                value = f"(Required) {value}".strip()
+            yaml_skeleton[name] = value
+        return yaml_skeleton
+
+    def _get_resource_yaml_content(self, resource_crud: type[ResourceCRUD]) -> str:
+        """
+        Creates a new resource in the specified module using the resource_crud.yaml_cls.
+        """
+        yaml_cls = resource_crud.yaml_cls
+        if not yaml_cls:
+            print(
+                f"[red]Resource {self._display_name_for_resource(resource_crud)} does not have a yaml_cls. Contact Toolkit team for assistance.[/red]"
+            )
+            raise typer.Exit()
+        yaml_header = (
+            f"# API docs: {resource_crud.doc_url()}\n"
+            f"# YAML reference: https://docs.cognite.com/cdf/deploy/cdf_toolkit/references/resource_library"
+        )
+        yaml_skeleton = self._create_resource_yaml_skeleton(yaml_cls)
+        yaml_contents = yaml_safe_dump(yaml_skeleton)
+        return yaml_header + "\n" + yaml_contents
+
     def resource_create(
         self,
         organization_dir: Path,
@@ -911,6 +997,22 @@ default_organization_dir = "{organization_dir.name}"''',
         """
         Create a new resource in the specified module.
         """
-        print(organization_dir, module, resource, file_name)
-        print("[red]Command work is in progress.[/red]")
-        raise typer.Exit()
+        if not module:
+            module = self._get_module_name(organization_dir)
+        module_dir: Path = organization_dir / MODULES / module
+
+        available_resources: dict[str, type[ResourceCRUD]] = {
+            self._display_name_for_resource(crud).lower(): crud for crud in RESOURCE_CRUD_LIST
+        }
+        resource_crud: type[ResourceCRUD] = self._get_resource_crud(resource, available_resources)  # type: ignore[assignment]
+
+        (module_dir / resource_crud.folder_name).mkdir(parents=True, exist_ok=True)
+
+        if not file_name:
+            file_name = questionary.text("What is the name of the new resource file?").ask()
+
+        file_path: Path = module_dir / resource_crud.folder_name / f"{file_name}.{resource_crud.kind}.yaml"
+        yaml_content: str = self._get_resource_yaml_content(resource_crud)
+        file_path.write_text(yaml_content)
+
+        print(f"[green]Resource {self._display_name_for_resource(resource_crud)} created at {file_path}[/green]")
