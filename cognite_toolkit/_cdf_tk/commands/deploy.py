@@ -87,17 +87,17 @@ class DeployCommand(ToolkitCommand):
             )
 
         self.deploy_all_resources(
-            client,
-            results,
-            build,
-            build_dir,
-            drop,
-            drop_data,
-            dry_run,
-            env_vars,
-            force_update,
-            ordered_loaders,
-            verbose,
+            client=client,
+            results=results,
+            build=build,
+            build_dir=build_dir,
+            drop=drop,
+            drop_data=drop_data,
+            dry_run=dry_run,
+            env_vars=env_vars,
+            force_update=force_update,
+            ordered_loaders=ordered_loaders,
+            verbose=verbose,
         )
 
         if results.has_counts:
