@@ -45,7 +45,13 @@ class Tracker:
     def opted_in(self) -> bool:
         return self._opt_status == "opted-in"
 
-    def track_cli_command(self, warning_list: WarningList[ToolkitWarning], result: str | Exception, cmd: str) -> bool:
+    def track_cli_command(
+        self,
+        warning_list: WarningList[ToolkitWarning],
+        result: str | Exception,
+        cmd: str,
+        additional_tracking_info: dict[str, Any] | None = None,
+    ) -> bool:
         warning_count = Counter([type(w).__name__ for w in warning_list])
 
         warning_details: dict[str, str | int] = {}
@@ -69,6 +75,9 @@ class Tracker:
             **{f"alphaFlag-{name}": value for name, value in self._cdf_toml.alpha_flags.items()},
             **{f"plugin-{name}": value for name, value in self._cdf_toml.plugins.items()},
         }
+
+        if additional_tracking_info:
+            event_information.update(additional_tracking_info)
 
         return self._track(f"command{cmd.capitalize()}", event_information)
 

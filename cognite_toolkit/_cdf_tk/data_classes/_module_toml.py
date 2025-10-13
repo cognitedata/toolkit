@@ -40,6 +40,7 @@ class ModuleToml:
     is_selected_by_default: bool = False
     data: list[ExampleData] = field(default_factory=list)
     extra_resources: list[Path] = field(default_factory=list)
+    package_id: str | None = None
 
     def __post_init__(self) -> None:
         for extra in self.extra_resources:
@@ -71,6 +72,7 @@ class ModuleToml:
             title = data["module"].get("title")
             id = data["module"].get("id")
             is_selected_by_default = data["module"].get("is_selected_by_default", False)
+            package_id = data["module"].get("package_id")
 
         return cls(
             title=title,
@@ -79,4 +81,5 @@ class ModuleToml:
             is_selected_by_default=is_selected_by_default,
             data=example_data,
             extra_resources=extra_resources,
+            package_id=package_id,
         )
