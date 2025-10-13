@@ -78,17 +78,13 @@ class Library:
     url: str
     checksum: str
 
-    @classmethod
-    def load(cls, raw: dict[str, Any]) -> Self:
-        if "url" not in raw:
-            raise ValueError("Library configuration must contain 'url' field.")
+    def __post_init__(self) -> None:
+        self._validate()
 
-        if "checksum" not in raw:
-            raise ValueError("Library configuration must contain 'checksum' field.")
+    def _validate(self) -> None:
+        parsed_url = urllib.parse.urlparse(self.url)
 
-        parsed_url = urllib.parse.urlparse(raw["url"])
-
-        if not all([parsed_url.scheme, parsed_url.netloc]):
+        if not (parsed_url.scheme and parsed_url.netloc):
             raise ValueError("URL is missing scheme or network location (e.g., 'https://domain.com')")
 
         if parsed_url.scheme != "https":
@@ -96,6 +92,14 @@ class Library:
 
         if not parsed_url.path.casefold().endswith(".zip"):
             raise ValueError("URL must point to a .zip file.")
+
+    @classmethod
+    def load(cls, raw: dict[str, Any]) -> Self:
+        if "url" not in raw:
+            raise ValueError("Library configuration must contain 'url' field.")
+
+        if "checksum" not in raw:
+            raise ValueError("Library configuration must contain 'checksum' field.")
 
         return cls(**raw)
 

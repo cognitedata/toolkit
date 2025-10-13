@@ -67,6 +67,22 @@
       "justMyCode": false
     },
     {
+      "name": "cdf modules init extlib",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": [
+        "--override-env",
+        "modules",
+        "init",
+        "cognite_toolkit",
+        "--library-url=https://github.com/cognitedata/library/releases/download/latest/packages.zip",
+        "--library-checksum=sha256:abc"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
       "name": "cdf modules add",
       "type": "debugpy",
       "request": "launch",

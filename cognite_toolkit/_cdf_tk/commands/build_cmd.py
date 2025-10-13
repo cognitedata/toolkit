@@ -340,7 +340,6 @@ class BuildCommand(ToolkitCommand):
                     module_ids = self._additional_tracking_info.setdefault("moduleIds", [])
                     module_ids.append(module.module_id)
 
-                self.tracker.track_module_build(built_module)
         return build
 
     def _build_module_resources(

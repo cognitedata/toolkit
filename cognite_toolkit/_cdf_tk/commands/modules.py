@@ -24,7 +24,7 @@ from rich.table import Table
 from rich.tree import Tree
 
 import cognite_toolkit
-from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
+from cognite_toolkit._cdf_tk.cdf_toml import CDFToml, Library
 from cognite_toolkit._cdf_tk.commands import _cli_commands as CLICommands
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._changes import (
@@ -302,6 +302,8 @@ default_organization_dir = "{organization_dir.name}"''',
         user_select: str | None = None,
         user_environments: list[str] | None = None,
         user_download_data: bool | None = None,
+        library_url: str | None = None,
+        library_checksum: str | None = None,
     ) -> None:
         if not organization_dir:
             new_line = "\n    "
@@ -315,7 +317,17 @@ default_organization_dir = "{organization_dir.name}"''',
 
         modules_root_dir = organization_dir / MODULES
 
-        packages, modules_source_path = self._get_available_packages()
+        if library_url:
+            if not library_checksum:
+                raise typer.BadParameter(
+                    "The '--library-checksum' is required when '--library-url' is provided.",
+                    param_hint="--library-checksum",
+                )
+
+            user_library = Library(url=library_url, checksum=library_checksum)
+            packages, modules_source_path = self._get_available_packages(user_library)
+        else:
+            packages, modules_source_path = self._get_available_packages()
 
         if select_all:
             print(Panel("Instantiating all available modules"))
@@ -327,7 +339,6 @@ default_organization_dir = "{organization_dir.name}"''',
                 mode=mode,
                 modules_source_path=modules_source_path,
             )
-            self.tracker.track_deployment_pack_install(list(packages.values()), command_type="init")
             return
         is_interactive = user_select is not None
         if not is_interactive:
@@ -408,7 +419,6 @@ default_organization_dir = "{organization_dir.name}"''',
             download_data=download_data,
             modules_source_path=modules_source_path,
         )
-        self.tracker.track_deployment_pack_install(list(selected.values()), command_type="init")
 
         print(
             Panel(
@@ -746,17 +756,22 @@ default_organization_dir = "{organization_dir.name}"''',
             download_data=download_data,
             modules_source_path=modules_source_path,
         )
-        self.tracker.track_deployment_pack_install(list(added_packages.values()), command_type="add")
 
-    def _get_available_packages(self) -> tuple[Packages, Path]:
+    def _get_available_packages(self, user_library: Library | None = None) -> tuple[Packages, Path]:
         """
         Returns a list of available packages, either from the CDF TOML file or from external libraries if the feature flag is enabled.
         If the feature flag is not enabled and no libraries are specified, it returns the built-in modules.
         """
 
         cdf_toml = CDFToml.load()
-        if Flags.EXTERNAL_LIBRARIES.is_enabled() and cdf_toml.libraries:
-            for library_name, library in cdf_toml.libraries.items():
+        if Flags.EXTERNAL_LIBRARIES.is_enabled():
+            if user_library:
+                libraries = {"userdefined": user_library}
+            else:
+                libraries = cdf_toml.libraries
+
+            package_ids = []
+            for library_name, library in libraries.items():
                 try:
                     print(f"[green]Adding library {library_name} from {library.url}[/]")
                     # Extract filename from URL, fallback to library_name.zip if no filename found
@@ -775,11 +790,9 @@ default_organization_dir = "{organization_dir.name}"''',
 
                     # Track deployment pack download for each package
                     for package in packages.values():
-                        self.tracker.track_deployment_pack_download(
-                            package_id=package.id,
-                            package_name=package.name,
-                            url=library.url,
-                        )
+                        package_ids = self._additional_tracking_info.setdefault("packageIds", [])
+                        if package.id not in package_ids:
+                            package_ids.append(package.id)
 
                     return packages, file_path.parent
                 except Exception as e:
@@ -794,6 +807,13 @@ default_organization_dir = "{organization_dir.name}"''',
             # If no libraries are specified or the flag is not enabled, load the built-in modules
             raise ValueError("No valid libraries found.")
         else:
+            if user_library:
+                self.warn(
+                    MediumSeverityWarning(
+                        "External library provided but not enabled in cdf.toml. Please enable the feature flag and try again."
+                    )
+                )
+
             packages = Packages.load(self._builtin_modules_path)
             self._validate_packages(packages, "built-in modules")
             return packages, self._builtin_modules_path
