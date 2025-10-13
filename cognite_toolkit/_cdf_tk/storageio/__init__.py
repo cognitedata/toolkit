@@ -24,7 +24,7 @@ def get_storage_io(selector: DataSelector, kind: str | Path) -> type[StorageIO]:
 
 def _is_kind(cls: type[StorageIO], kind: str | Path) -> bool:
     if isinstance(kind, Path):
-        return kind.stem.lower().endswith(cls.KIND)
+        return kind.stem.lower().endswith(cls.KIND.lower())
     return cls.KIND.lower() == kind.lower()
 
 
