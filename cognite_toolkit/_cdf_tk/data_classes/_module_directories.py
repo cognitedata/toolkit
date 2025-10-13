@@ -51,6 +51,20 @@ class ModuleLocation:
         return None
 
     @property
+    def module_id(self) -> str | None:
+        """The ID of the module."""
+        if self.definition:
+            return self.definition.id
+        return None
+
+    @property
+    def package_id(self) -> str | None:
+        """The ID of the package."""
+        if self.definition:
+            return self.definition.package_id
+        return None
+
+    @property
     def relative_path(self) -> Path:
         """The relative path to the module."""
         return self.dir.relative_to(self.source_absolute_path)

@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import DATA_METADATA_STEM, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.data_classes import DeployResults
 from cognite_toolkit._cdf_tk.storageio import StorageIO, T_Selector
-from cognite_toolkit._cdf_tk.storageio.selectors import SelectorAdapter, Selector
+from cognite_toolkit._cdf_tk.storageio.selectors import Selector, SelectorAdapter
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.utils.collection import chunker

@@ -6,6 +6,7 @@ from typing import Any, get_args
 import pytest
 
 from cognite_toolkit._cdf_tk.commands._migrate.adapter import MigrationSelector
+from cognite_toolkit._cdf_tk.storageio import StorageIO, get_storage_io
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     AllChartsSelector,
     AssetCentricFileSelector,
@@ -28,6 +29,8 @@ def example_selector_data() -> Iterable[tuple]:
     yield pytest.param(
         {"type": "rawTable", "table": {"dbName": "my_db", "tableName": "my_table"}},
         RawTableSelector,
+        RawIO,
+        RawIO.KIND,
         id="RawTableSelector",
     )
     yield pytest.param(
@@ -38,36 +41,50 @@ def example_selector_data() -> Iterable[tuple]:
             "instanceSpaces": ["space1", "space2"],
         },
         InstanceViewSelector,
+        InstanceIO,
+        InstanceIO.KIND,
         id="InstanceViewSelector",
     )
     yield pytest.param(
         {"type": "instanceFile", "datafile": "path/to/file.csv", "validateInstance": True},
         InstanceFileSelector,
+        InstanceIO,
+        InstanceIO.KIND,
         id="InstanceFileSelector",
     )
     yield pytest.param(
         {"type": "dataSet", "dataSetExternalId": "my_data_set", "resourceType": "asset"},
         DataSetSelector,
+        AssetIO,
+        AssetIO.KIND,
         id="DataSetSelector",
     )
     yield pytest.param(
         {"type": "assetSubtree", "hierarchy": "root/child", "resourceType": "asset"},
         AssetSubtreeSelector,
+        AssetIO,
+        AssetIO.KIND,
         id="AssetSubtreeSelector",
     )
     yield pytest.param(
         {"type": "chartOwner", "ownerId": "doctrino"},
         ChartOwnerSelector,
+        ChartIO,
+        ChartIO.KIND,
         id="ChartOwnerSelector",
     )
     yield pytest.param(
         {"type": "allCharts"},
         AllChartsSelector,
+        ChartIO,
+        ChartIO.KIND,
         id="AllChartSelector",
     )
     yield pytest.param(
         {"type": "assetFile", "datafile": "path/to/file.csv"},
         AssetCentricFileSelector,
+        AssetIO,
+        AssetIO.KIND,
         id="AssetCentricFileSelector",
     )
 
@@ -103,9 +120,14 @@ class TestDataSelectors:
         missing = all_types - example_types
         assert not missing, f"The following DataSelector types are missing example data: {humanize_collection(missing)}"
 
-    @pytest.mark.parametrize("data,expected_selector", list(example_selector_data()))
+    @pytest.mark.parametrize("data,expected_selector,expected_io,kind", list(example_selector_data()))
     def test_selector_instance(
-        self, data: dict[str, Any], expected_selector: type[DataSelector], tmp_path: Path
+        self,
+        data: dict[str, Any],
+        expected_selector: type[DataSelector],
+        expected_io: type[StorageIO],
+        kind: str,
+        tmp_path: Path,
     ) -> None:
         instance = SelectorAdapter.validate_python(data)
 
@@ -118,6 +140,11 @@ class TestDataSelectors:
 
         # Assert group is implemented
         assert instance.group, f"group property not implemented for {type(instance).__name__}"
+
+        # Assert correct IO type
+        assert get_storage_io(instance, kind) is expected_io, (
+            f"Expected {expected_io.__name__} for selector {type(instance).__name__}, got {get_storage_io(instance, kind).__name__}"
+        )
 
         # Assert serialization/deserialization
         filepath = instance.dump_to_file(tmp_path)

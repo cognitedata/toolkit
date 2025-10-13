@@ -68,6 +68,7 @@ class BaseAssetCentricIO(
 ):
     RESOURCE_TYPE: ClassVar[AssetCentric]
     CHUNK_SIZE = 1000
+    BASE_SELECTOR = AssetCentricSelector
 
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
