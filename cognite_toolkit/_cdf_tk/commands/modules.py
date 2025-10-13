@@ -900,3 +900,17 @@ default_organization_dir = "{organization_dir.name}"''',
             raise ToolkitError(f"Error unpacking zip file {file_path}: {e}") from e
         except Exception as e:
             raise ToolkitError(f"An unexpected error occurred while unpacking {file_path}: {e}") from e
+
+    def resource_create(
+        self,
+        organization_dir: Path,
+        module: str | None = None,
+        resource: str | None = None,
+        file_name: str | None = None,
+    ) -> None:
+        """
+        Create a new resource in the specified module.
+        """
+        print(organization_dir, module, resource, file_name)
+        print("[red]Command work is in progress.[/red]")
+        raise typer.Exit()

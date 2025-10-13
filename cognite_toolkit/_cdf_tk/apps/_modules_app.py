@@ -6,6 +6,7 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import ModulesCommand, PullCommand
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._version import __version__
 
@@ -21,6 +22,8 @@ class ModulesApp(typer.Typer):
         self.command()(self.pull)
         self.command()(self.list)
         self.command()(self.add)
+        if Flags.RESOURCE_CREATE.is_enabled():
+            self.command()(self.create_resource)
 
     def main(self, ctx: typer.Context) -> None:
         """Commands to manage modules"""
@@ -205,3 +208,49 @@ class ModulesApp(typer.Typer):
         """List all available modules in the project."""
         cmd = ModulesCommand()
         cmd.run(lambda: cmd.list(organization_dir=organization_dir, build_env_name=build_env))
+
+    def create_resource(
+        self,
+        organization_dir: Annotated[
+            Path,
+            typer.Option(
+                "--organization-dir",
+                "-o",
+                help="Where to find the module templates to build from",
+            ),
+        ] = CDF_TOML.cdf.default_organization_dir,
+        module: Annotated[
+            str | None,
+            typer.Option(
+                "--module",
+                "-m",
+                help="The module to create the resource in. If not provided, interactive mode will be used.",
+            ),
+        ] = None,
+        resource: Annotated[
+            str | None,
+            typer.Option(
+                "--resource",
+                "-r",
+                help="The resource to create. If not provided, interactive mode will be used.",
+            ),
+        ] = None,
+        file_name: Annotated[
+            str | None,
+            typer.Option(
+                "--file-name",
+                "-f",
+                help="The name of the resource file to create. If not provided, interactive mode will be used.",
+            ),
+        ] = None,
+    ) -> None:
+        """Create a new resource in module."""
+        cmd = ModulesCommand()
+        cmd.run(
+            lambda: cmd.resource_create(
+                organization_dir=organization_dir,
+                module=module,
+                resource=resource,
+                file_name=file_name,
+            )
+        )
