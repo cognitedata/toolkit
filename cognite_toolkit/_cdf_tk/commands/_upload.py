@@ -1,3 +1,4 @@
+from collections.abc import Hashable
 from functools import partial
 from pathlib import Path
 
@@ -9,7 +10,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import DATA_METADATA_STEM, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.data_classes import DeployResults
 from cognite_toolkit._cdf_tk.storageio import StorageIO, T_Selector
-from cognite_toolkit._cdf_tk.storageio.selectors import SelectorAdapter
+from cognite_toolkit._cdf_tk.storageio.selectors import SelectorAdapter, Selector
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.utils.collection import chunker
@@ -75,7 +76,7 @@ class UploadCommand(ToolkitCommand):
         └── ...
         """
         console = Console()
-        data_files_by_selector = self._find_data_files(input_dir, None)
+        data_files_by_selector = self._find_data_files(input_dir, kind)
 
         total_file_count = sum(len(files) for files in data_files_by_selector.values())
         if verbose:
@@ -107,15 +108,15 @@ class UploadCommand(ToolkitCommand):
         with HTTPClient(config=client.config) as upload_client:
             file_count = 1
             for selector, datafiles in data_files_by_selector.items():
-                io = self._create_selected_io(client, selector)
+                io = self._create_selected_io(client, selector, datafiles[0])
                 for data_file in datafiles:
                     file_display = self._path_as_display_name(data_file)
                     if verbose:
                         console.print(f"{action} {io.DISPLAY_NAME} from {file_display.as_posix()!r}")
 
                     reader = FileReader.from_filepath(data_file)
-                    tracker = ProgressTracker[T_ID]([self._UPLOAD])
-                    executor = ProducerWorkerExecutor[list[dict[str, JsonVal]], T_CogniteResourceList](
+                    tracker = ProgressTracker[Hashable]([self._UPLOAD])
+                    executor = ProducerWorkerExecutor[list[dict[str, JsonVal]], list](
                         download_iterable=chunker(reader.read_chunks(), io.CHUNK_SIZE),
                         process=io.json_chunk_to_data,
                         write=partial(
@@ -158,15 +159,15 @@ class UploadCommand(ToolkitCommand):
     def _find_data_files(
         self,
         input_dir: Path,
-        io: StorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList] | None,
-    ) -> dict[T_Selector, list[Path]]:
+        kind: str | None = None,
+    ) -> dict[Selector, list[Path]]:
         metadata_file_endswith = f".{DATA_METADATA_STEM}.yaml"
-        data_files_by_metadata: dict[T_Selector, list[Path]] = {}
+        data_files_by_metadata: dict[Selector, list[Path]] = {}
         for metadata_file in input_dir.glob(f"*{metadata_file_endswith}"):
             data_file_prefix = metadata_file.name.removesuffix(metadata_file_endswith)
             data_files = list(input_dir.glob(f"{data_file_prefix}.*"))
-            if io is not None and data_files:
-                data_files = [data_file for data_file in data_files if data_file.stem.endswith(io.KIND)]
+            if kind is not None and data_files:
+                data_files = [data_file for data_file in data_files if data_file.stem.endswith(kind)]
                 if not data_files:
                     continue
             if not data_files:
