@@ -23,6 +23,7 @@ class ChartIO(StorageIO[str, ChartSelector, ChartWriteList, ChartList]):
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     SUPPORTED_READ_FORMATS = frozenset({".ndjson"})
     CHUNK_SIZE = 10
+    BASE_SELECTOR = ChartSelector
 
     def as_id(self, item: dict[str, JsonVal] | object) -> str:
         if isinstance(item, dict) and isinstance(item.get("externalId"), str):
@@ -82,6 +83,7 @@ class CanvasIO(StorageIO[str, CanvasSelector, IndustrialCanvasApplyList, Industr
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     SUPPORTED_READ_FORMATS = frozenset({".ndjson"})
     CHUNK_SIZE = 10
+    BASE_SELECTOR = CanvasSelector
 
     @staticmethod
     def _get_id_from_dict(item: dict[str, JsonVal] | object) -> str | None:

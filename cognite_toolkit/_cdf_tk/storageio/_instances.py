@@ -25,6 +25,7 @@ class InstanceIO(StorageIO[InstanceId, InstanceSelector, InstanceApplyList, Inst
     CHUNK_SIZE = 1000
     UPLOAD_ENDPOINT = "/models/instances"
     UPLOAD_EXTRA_ARGS: ClassVar[Mapping[str, JsonVal] | None] = MappingProxyType({"autoCreateDirectRelations": True})
+    BASE_SELECTOR = InstanceSelector
 
     def as_id(self, item: dict[str, JsonVal] | object) -> InstanceId:
         if isinstance(item, dict) and isinstance(item.get("space"), str) and isinstance(item.get("externalId"), str):

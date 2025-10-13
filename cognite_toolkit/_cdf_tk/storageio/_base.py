@@ -55,6 +55,7 @@ class StorageIO(ABC, Generic[T_ID, T_Selector, T_CogniteResourceList, T_Writable
     CHUNK_SIZE: int
     UPLOAD_ENDPOINT: ClassVar[str]
     UPLOAD_EXTRA_ARGS: ClassVar[Mapping[str, JsonVal] | None] = None
+    BASE_SELECTOR: ClassVar[type[DataSelector]]
 
     def __init__(self, client: ToolkitClient) -> None:
         self.client = client
