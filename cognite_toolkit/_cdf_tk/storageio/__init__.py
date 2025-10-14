@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
+from cognite_toolkit._cdf_tk.utils.fileio import COMPRESSION_BY_SUFFIX
 
 from ._applications import CanvasIO, ChartIO
 from ._asset_centric import AssetIO, BaseAssetCentricIO, EventIO, FileMetadataIO, TimeSeriesIO
@@ -23,9 +24,12 @@ def get_storage_io(selector_cls: type[DataSelector], kind: str | Path) -> type[S
 
 
 def _is_kind(cls: type[StorageIO], kind: str | Path) -> bool:
-    if isinstance(kind, Path):
-        return kind.stem.lower().endswith(cls.KIND.lower())
-    return cls.KIND.lower() == kind.lower()
+    if not isinstance(kind, Path):
+        return cls.KIND.lower() == kind.lower()
+    stem = kind.stem
+    if kind.suffix in COMPRESSION_BY_SUFFIX:
+        stem = Path(stem.removesuffix(kind.suffix)).stem
+    return stem.lower().endswith(cls.KIND.lower())
 
 
 __all__ = [
