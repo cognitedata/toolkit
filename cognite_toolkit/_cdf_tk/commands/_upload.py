@@ -92,7 +92,11 @@ class UploadCommand(ToolkitCommand):
         data_files_by_metadata: dict[Selector, list[Path]] = {}
         for metadata_file in input_dir.glob(f"*{metadata_file_endswith}"):
             data_file_prefix = metadata_file.name.removesuffix(metadata_file_endswith)
-            data_files = list(input_dir.glob(f"{data_file_prefix}.*"))
+            data_files = [
+                file
+                for file in input_dir.glob(f"{data_file_prefix}*")
+                if not file.name.endswith(metadata_file_endswith)
+            ]
             if kind is not None and data_files:
                 data_files = [data_file for data_file in data_files if data_file.stem.endswith(kind)]
                 if not data_files:
