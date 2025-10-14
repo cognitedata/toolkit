@@ -143,7 +143,7 @@ class TestDataSelectors:
 
         # Assert correct IO type
         assert get_storage_io(type(instance), kind) is expected_io, (
-            f"Expected {expected_io.__name__} for selector {type(instance).__name__}, got {get_storage_io(instance, kind).__name__}"
+            f"Expected {expected_io.__name__} for selector {type(instance).__name__}, got {get_storage_io(type(instance), kind).__name__}"
         )
 
         # Assert serialization/deserialization
