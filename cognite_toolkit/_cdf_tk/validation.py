@@ -22,7 +22,12 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 )
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 
-__all__ = ["validate_data_set_is_set", "validate_modules_variables", "validate_resource_yaml"]
+__all__ = [
+    "humanize_validation_error",
+    "validate_data_set_is_set",
+    "validate_modules_variables",
+    "validate_resource_yaml",
+]
 
 
 T_BaseModel = TypeVar("T_BaseModel", bound=BaseModel)
