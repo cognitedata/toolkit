@@ -63,7 +63,6 @@ class UploadApp(typer.Typer):
                 dry_run=dry_run,
                 verbose=verbose,
                 deploy_resources=deploy_resources,
-                io=None,
                 client=client,
             )
         )
