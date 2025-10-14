@@ -9,14 +9,19 @@ from cognite_toolkit._cdf_tk.utils.file import safe_write, sanitize_filename, ya
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 
-class DataSelector(BaseModel, ABC):
+class SelectorObject(BaseModel):
+    """This is used as base class for all selector objects including nested ones."""
+
+    model_config = ConfigDict(frozen=True, alias_generator=to_camel, populate_by_name=True)
+
+
+class DataSelector(SelectorObject, ABC):
     """A selector gives instructions on what data to select from CDF.
 
     For example, for instances it can be a view or container, while for assets it can be a data set or asset subtree.
     """
 
     type: str
-    model_config = ConfigDict(frozen=True, alias_generator=to_camel, populate_by_name=True)
 
     def dump(self) -> dict[str, JsonVal]:
         return self.model_dump(by_alias=True)
