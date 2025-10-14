@@ -14,12 +14,12 @@ from .selectors._base import DataSelector
 STORAGE_IO_CLASSES = get_concrete_subclasses(StorageIO)  # type: ignore[type-abstract]
 
 
-def get_storage_io(selector: DataSelector, kind: str | Path) -> type[StorageIO]:
+def get_storage_io(selector_cls: type[DataSelector], kind: str | Path) -> type[StorageIO]:
     """Get the appropriate StorageIO class based on the type of the provided selector."""
     for cls in STORAGE_IO_CLASSES:
-        if issubclass(type(selector), cls.BASE_SELECTOR) and _is_kind(cls, kind):
+        if issubclass(selector_cls, cls.BASE_SELECTOR) and _is_kind(cls, kind):
             return cls
-    raise ValueError(f"No StorageIO found for selector of type {type(selector)}")
+    raise ValueError(f"No StorageIO found for selector of type {selector_cls.__name__}")
 
 
 def _is_kind(cls: type[StorageIO], kind: str | Path) -> bool:
