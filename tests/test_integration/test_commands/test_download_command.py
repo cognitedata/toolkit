@@ -2,6 +2,7 @@ from pathlib import Path
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import DownloadCommand
+from cognite_toolkit._cdf_tk.constants import DATA_METADATA_STEM
 from cognite_toolkit._cdf_tk.storageio import RawIO
 from cognite_toolkit._cdf_tk.storageio.selectors import RawTableSelector, SelectedTable
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
@@ -26,7 +27,7 @@ class TestDownloadCommand:
         assert len(downloaded_files) == 1, "Expected exactly one file to be downloaded."
         chunks = list(NDJsonReader(downloaded_files[0]).read_chunks())
         assert len(chunks) == TIMESERIES_COUNT, f"Expected {TIMESERIES_COUNT} chunks, got {len(chunks)}."
-        config_files = [file for file in tmp_path.rglob("*.yaml") if not file.stem.endswith("Selector")]
+        config_files = [file for file in tmp_path.rglob("*.yaml") if not file.stem.endswith(DATA_METADATA_STEM)]
         assert len(config_files) == 1, "Expected exactly one configuration file to be created."
         dumped = read_yaml_file(config_files[0], "dict")
         assert dumped == table.dump()["table"]
