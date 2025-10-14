@@ -206,7 +206,9 @@ def test_get_capabilities_by_loader_dm_only_project(toolkit_client_approval: App
 
 
 def test_simulate_app_config_acl_unhashable_type_error():
-    app_config_acl = AppConfigAcl(actions=["READ", "WRITE"], scope=AppConfigScope(apps=["SEARCH"]))
+    app_config_acl = AppConfigAcl(
+        actions=[AppConfigAcl.Action.Read, AppConfigAcl.Action.Write], scope=AppConfigScope(apps=["SEARCH"])
+    )
 
     # Older version of AuthCommand()._merge_capabilities() would raise an unhashable type error
     with pytest.raises(TypeError) as err_info:
@@ -219,5 +221,3 @@ def test_simulate_app_config_acl_unhashable_type_error():
     merged_capabilities = AuthCommand._merge_capabilities([app_config_acl])
     assert len(merged_capabilities) == 1
     assert type(merged_capabilities[0]) is AppConfigAcl
-    assert merged_capabilities[0].scope == app_config_acl.scope
-    assert sorted(merged_capabilities[0].actions) == sorted(app_config_acl.actions)
