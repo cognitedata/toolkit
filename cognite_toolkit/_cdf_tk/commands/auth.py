@@ -609,13 +609,19 @@ class AuthCommand(ToolkitCommand):
     @staticmethod
     def _merge_capabilities(capability_list: list[Capability]) -> list[Capability]:
         """Merges capabilities that have the same ACL and Scope"""
-        actions_by_scope_and_cls: dict[tuple[type[Capability], Capability.Scope], set[Capability.Action]] = defaultdict(
+        actions_by_scope_and_cls: dict[tuple[type[Capability], frozenset[tuple]], set[Capability.Action]] = defaultdict(
             set
         )
         for capability in capability_list:
-            actions_by_scope_and_cls[(type(capability), capability.scope)].update(capability.actions)
+            scope_key = frozenset(capability.scope.as_tuples())
+            actions_by_scope_and_cls[(type(capability), scope_key)].update(capability.actions)
+
+        scope_map: dict[tuple[type[Capability], frozenset[tuple]], Capability.Scope] = {
+            (type(cap), frozenset(cap.scope.as_tuples())): cap.scope for cap in capability_list
+        }
+
         return [
-            cap_cls(actions=list(actions), scope=scope, allow_unknown=False)
+            cap_cls(actions=list(actions), scope=scope_map[(cap_cls, scope)], allow_unknown=False)
             for (cap_cls, scope), actions in actions_by_scope_and_cls.items()
         ]
 
