@@ -935,7 +935,7 @@ default_organization_dir = "{organization_dir.name}"''',
 
     def _get_subfolder(self, resource_crud: type[ResourceCRUD]) -> str | None:
         """
-        Helper function to return the subfolder for a resource.
+        Helper function to return the subfolder for a resource if it requires one.
         """
         resources_subfolder_mapping = {
             ContainerCRUD: "containers",
@@ -960,7 +960,10 @@ default_organization_dir = "{organization_dir.name}"''',
             resource_crud = available_resources.get(resource.lower(), None)
 
         if not resource_crud:
-            print("[red]No resource selected... Aborting...[/red]")
+            msg = "No resource selected... Aborting..."
+            if resource:
+                msg = f"'{resource}' resource type does not exist... Aborting..."
+            print(f"[red]{msg}[/red]")
             raise typer.Exit()
 
         return resource_crud
@@ -981,8 +984,7 @@ default_organization_dir = "{organization_dir.name}"''',
         """
         Creates a new resource in the specified module using the resource_crud.yaml_cls.
         """
-        yaml_cls = resource_crud.yaml_cls
-        if not yaml_cls:
+        if not resource_crud.yaml_cls:
             print(
                 f"[red]Resource {self._display_name_for_resource(resource_crud)} does not have a yaml_cls. Contact Toolkit team for assistance.[/red]"
             )
@@ -991,7 +993,7 @@ default_organization_dir = "{organization_dir.name}"''',
             f"# API docs: {resource_crud.doc_url()}\n"
             f"# YAML reference: https://docs.cognite.com/cdf/deploy/cdf_toolkit/references/resource_library"
         )
-        yaml_skeleton = self._create_resource_yaml_skeleton(yaml_cls)
+        yaml_skeleton = self._create_resource_yaml_skeleton(resource_crud.yaml_cls)
         yaml_contents = yaml_safe_dump(yaml_skeleton)
         return yaml_header + "\n\n" + yaml_contents
 
