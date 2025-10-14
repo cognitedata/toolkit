@@ -18,18 +18,19 @@ STORAGE_IO_CLASSES = get_concrete_subclasses(StorageIO)  # type: ignore[type-abs
 def get_storage_io(selector_cls: type[DataSelector], kind: str | Path) -> type[StorageIO]:
     """Get the appropriate StorageIO class based on the type of the provided selector."""
     for cls in STORAGE_IO_CLASSES:
-        if issubclass(selector_cls, cls.BASE_SELECTOR) and _is_kind(cls, kind):
+        if issubclass(selector_cls, cls.BASE_SELECTOR) and are_same_kind(cls.KIND, kind):
             return cls
     raise ValueError(f"No StorageIO found for selector of type {selector_cls.__name__}")
 
 
-def _is_kind(cls: type[StorageIO], kind: str | Path) -> bool:
-    if not isinstance(kind, Path):
-        return cls.KIND.lower() == kind.lower()
-    stem = kind.stem
-    if kind.suffix in COMPRESSION_BY_SUFFIX:
-        stem = Path(stem.removesuffix(kind.suffix)).stem
-    return stem.lower().endswith(cls.KIND.lower())
+def are_same_kind(kind: str, kind_or_path: str | Path, /) -> bool:
+    """Check if two kinds are the same, ignoring case and compression suffixes."""
+    if not isinstance(kind_or_path, Path):
+        return kind.casefold() == kind_or_path.casefold()
+    stem = kind_or_path.stem
+    if kind_or_path.suffix in COMPRESSION_BY_SUFFIX:
+        stem = Path(stem).stem
+    return stem.lower().endswith(kind.casefold())
 
 
 __all__ = [
@@ -50,5 +51,6 @@ __all__ = [
     "T_Selector",
     "TableStorageIO",
     "TimeSeriesIO",
+    "are_same_kind",
     "get_storage_io",
 ]
