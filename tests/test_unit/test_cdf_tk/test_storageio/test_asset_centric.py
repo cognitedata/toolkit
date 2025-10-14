@@ -107,7 +107,6 @@ class TestAssetIO:
 
             assert uploaded_assets == some_asset_data.as_write().dump()
 
-    @pytest.mark.skip(reason="Changing upload/download command")
     @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
     def test_download_upload_command(
         self,
@@ -115,8 +114,11 @@ class TestAssetIO:
         tmp_path: Path,
         toolkit_config: ToolkitClientConfig,
         respx_mock: respx.MockRouter,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         config = toolkit_config
+        monkeypatch.setenv("CDF_CLUSTER", config.cdf_cluster)
+        monkeypatch.setenv("CDF_PROJECT", config.project)
 
         def asset_create_callback(request: httpx.Request) -> httpx.Response:
             payload = json.loads(request.content)
@@ -131,6 +133,7 @@ class TestAssetIO:
         selector = AssetSubtreeSelector(hierarchy="test_hierarchy", resource_type="asset")
         with monkeypatch_toolkit_client() as client:
             client.config = config
+            client.verify.authorization.return_value = []
             client.assets.return_value = [some_asset_data]
             client.assets.aggregate_count.return_value = 100
             client.lookup.data_sets.external_id.return_value = "test_data_set"
@@ -160,11 +163,12 @@ class TestAssetIO:
             )
 
             upload_command.upload(
-                io=io,
                 input_dir=tmp_path / selector.group,
-                ensure_configurations=True,
+                client=client,
+                deploy_resources=True,
                 dry_run=False,
                 verbose=False,
+                kind=io.KIND,
             )
 
             assert len(respx_mock.calls) == 1
