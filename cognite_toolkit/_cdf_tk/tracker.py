@@ -1,4 +1,3 @@
-import os
 import platform
 import sys
 import tempfile
@@ -80,8 +79,8 @@ class Tracker:
         return self._track(f"command{cmd.capitalize()}", event_information)
 
     def _track(self, event_name: str, event_information: dict[str, Any]) -> bool:
-        if self.skip_tracking or not self.opted_in or "PYTEST_CURRENT_TEST" in os.environ:
-            return False
+        # if self.skip_tracking or not self.opted_in or "PYTEST_CURRENT_TEST" in os.environ:
+        #     return False
 
         distinct_id = self.get_distinct_id()
 
