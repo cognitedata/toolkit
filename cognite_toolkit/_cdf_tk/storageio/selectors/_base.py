@@ -37,8 +37,6 @@ class DataSelector(SelectorObject, ABC):
 
         filepath = directory / f"{sanitize_filename(str(self))}.{DATA_METADATA_STEM}.yaml"
         filepath.parent.mkdir(parents=True, exist_ok=True)
-        if filepath.exists():
-            raise FileExistsError(f"File {filepath.as_posix()!r} already exists.")
         safe_write(file=filepath, content=yaml_safe_dump(self.model_dump(mode="json", by_alias=True)), encoding="utf-8")
         return filepath
 

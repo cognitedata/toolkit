@@ -2,7 +2,7 @@ from collections.abc import Hashable
 from functools import partial
 from pathlib import Path
 
-from cognite.client.data_classes._base import T_CogniteResourceList
+from cognite.client.data_classes._base import CogniteResourceList, T_CogniteResourceList
 from pydantic import ValidationError
 from rich.console import Console
 
@@ -178,7 +178,7 @@ class UploadCommand(ToolkitCommand):
                         console.print(f"{action} {io.DISPLAY_NAME} from {file_display.as_posix()!r}")
                     reader = FileReader.from_filepath(data_file)
                     tracker = ProgressTracker[Hashable]([self._UPLOAD])
-                    executor = ProducerWorkerExecutor[list[dict[str, JsonVal]], list](
+                    executor = ProducerWorkerExecutor[list[dict[str, JsonVal]], CogniteResourceList](
                         download_iterable=chunker(reader.read_chunks(), io.CHUNK_SIZE),
                         process=io.json_chunk_to_data,
                         write=partial(
