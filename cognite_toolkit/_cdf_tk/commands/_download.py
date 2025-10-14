@@ -110,4 +110,15 @@ class DownloadCommand(ToolkitCommand):
     def _already_downloaded(output_dir: Path, filestem: str) -> bool:
         if not output_dir.exists():
             return False
-        return any(output_dir.glob(f"{filestem}.*"))
+
+        # Check for multi-part files (e.g. ndjson, csv, parquet)
+        if any(output_dir.glob(f"{filestem}-part-*")):
+            return True
+
+        # Check for single files (e.g. yaml) and exclude the metadata file.
+        metadata_file_name = f"{filestem}.{DATA_METADATA_STEM}.yaml"
+        for f in output_dir.glob(f"{filestem}.*"):
+            if f.name != metadata_file_name:
+                return True
+
+        return False
