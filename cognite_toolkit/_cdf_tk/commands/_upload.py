@@ -22,8 +22,8 @@ from cognite_toolkit._cdf_tk.utils.progress_tracker import ProgressTracker
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal, T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 
-from . import DeployCommand
 from ._base import ToolkitCommand
+from .deploy import DeployCommand
 
 
 class UploadCommand(ToolkitCommand):
