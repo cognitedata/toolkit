@@ -20,6 +20,7 @@ download = true
 exit-on-warning = true
 upload = true
 function-cognite-file = true
+resource-create = true
 
 [plugins]
 run = true
