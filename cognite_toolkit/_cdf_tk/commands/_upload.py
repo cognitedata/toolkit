@@ -8,11 +8,11 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import DATA_METADATA_STEM, DATA_RESOURCE_DIR
-from cognite_toolkit._cdf_tk.data_classes import DeployResults
-from cognite_toolkit._cdf_tk.storageio import StorageIO, T_Selector
+from cognite_toolkit._cdf_tk.storageio import StorageIO, T_Selector, get_storage_io
 from cognite_toolkit._cdf_tk.storageio.selectors import Selector, SelectorAdapter
-from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
 from cognite_toolkit._cdf_tk.utils.fileio import FileReader
@@ -78,25 +78,69 @@ class UploadCommand(ToolkitCommand):
         console = Console()
         data_files_by_selector = self._find_data_files(input_dir, kind)
 
-        total_file_count = sum(len(files) for files in data_files_by_selector.values())
-        if verbose:
-            input_dir_display = self._path_as_display_name(input_dir)
-            console.print(f"Found {total_file_count} files to upload in {input_dir_display.as_posix()!r}.")
+        self._deploy_resource_folder(input_dir / DATA_RESOURCE_DIR, deploy_resources, client, console, dry_run, verbose)
 
-        resource_dir = input_dir / DATA_RESOURCE_DIR
+        self._upload_data(data_files_by_selector, client, dry_run, input_dir, console, verbose)
+
+    def _find_data_files(
+        self,
+        input_dir: Path,
+        kind: str | None = None,
+    ) -> dict[Selector, list[Path]]:
+        """Finds data files and their corresponding metadata files in the input directory."""
+        metadata_file_endswith = f".{DATA_METADATA_STEM}.yaml"
+        data_files_by_metadata: dict[Selector, list[Path]] = {}
+        for metadata_file in input_dir.glob(f"*{metadata_file_endswith}"):
+            data_file_prefix = metadata_file.name.removesuffix(metadata_file_endswith)
+            data_files = list(input_dir.glob(f"{data_file_prefix}.*"))
+            if kind is not None and data_files:
+                data_files = [data_file for data_file in data_files if data_file.stem.endswith(kind)]
+                if not data_files:
+                    continue
+            if not data_files:
+                self.warn(
+                    MediumSeverityWarning(
+                        f"Metadata file {metadata_file.as_posix()!r} has no corresponding data files, skipping.",
+                    )
+                )
+                continue
+
+            selector_dict = read_yaml_file(metadata_file, expected_output="dict")
+            try:
+                selector = SelectorAdapter.validate_python(selector_dict)
+            except ValidationError as e:
+                errors = humanize_validation_error(e)
+                self.warn(
+                    ResourceFormatWarning(
+                        metadata_file, tuple(errors), text="Invalid selector in metadata file, skipping."
+                    )
+                )
+                continue
+            data_files_by_metadata[selector] = data_files
+        return data_files_by_metadata
+
+    def _deploy_resource_folder(
+        self,
+        resource_dir: Path,
+        deploy_resources: bool,
+        client: ToolkitClient,
+        console: Console,
+        dry_run: bool,
+        verbose: bool,
+    ) -> None:
+        """Deploy resources from the specified resource directory if it exists and deployment is enabled."""
         if deploy_resources and resource_dir.exists():
             deploy_command = DeployCommand()
-            results = DeployResults([], "deploy", dry_run=dry_run)
-            deploy_command.deploy_all_resources(
+            deploy_results = deploy_command.deploy_all_resources(
                 client=client,
-                results=results,
-                build=BuildEnvironment,
                 build_dir=resource_dir,
-                drop=False,
-                drop_data=False,
+                env_vars=EnvironmentVariables.create_from_environment(),
                 dry_run=dry_run,
+                verbose=verbose,
             )
             self.warning_list.extend(deploy_command.warning_list)
+            if deploy_results.has_counts:
+                console.print(deploy_results.counts_table())
         elif deploy_resources:
             self.warn(
                 MediumSeverityWarning(
@@ -104,16 +148,30 @@ class UploadCommand(ToolkitCommand):
                 )
             )
 
+    def _upload_data(
+        self,
+        data_files_by_selector: dict[Selector, list[Path]],
+        client: ToolkitClient,
+        dry_run: bool,
+        input_dir: Path,
+        console: Console,
+        verbose: bool,
+    ) -> None:
+        total_file_count = sum(len(files) for files in data_files_by_selector.values())
+        if verbose:
+            input_dir_display = self._path_as_display_name(input_dir)
+            console.print(f"Found {total_file_count} files to upload in {input_dir_display.as_posix()!r}.")
         action = "Would upload" if dry_run else "Uploading"
         with HTTPClient(config=client.config) as upload_client:
             file_count = 1
             for selector, datafiles in data_files_by_selector.items():
-                io = self._create_selected_io(client, selector, datafiles[0])
+                io = self._create_selected_io(selector, datafiles[0], client)
+                if io is None:
+                    continue
                 for data_file in datafiles:
                     file_display = self._path_as_display_name(data_file)
                     if verbose:
                         console.print(f"{action} {io.DISPLAY_NAME} from {file_display.as_posix()!r}")
-
                     reader = FileReader.from_filepath(data_file)
                     tracker = ProgressTracker[Hashable]([self._UPLOAD])
                     executor = ProducerWorkerExecutor[list[dict[str, JsonVal]], list](
@@ -156,41 +214,13 @@ class UploadCommand(ToolkitCommand):
             display_name = input_path.relative_to(cwd)
         return display_name
 
-    def _find_data_files(
-        self,
-        input_dir: Path,
-        kind: str | None = None,
-    ) -> dict[Selector, list[Path]]:
-        metadata_file_endswith = f".{DATA_METADATA_STEM}.yaml"
-        data_files_by_metadata: dict[Selector, list[Path]] = {}
-        for metadata_file in input_dir.glob(f"*{metadata_file_endswith}"):
-            data_file_prefix = metadata_file.name.removesuffix(metadata_file_endswith)
-            data_files = list(input_dir.glob(f"{data_file_prefix}.*"))
-            if kind is not None and data_files:
-                data_files = [data_file for data_file in data_files if data_file.stem.endswith(kind)]
-                if not data_files:
-                    continue
-            if not data_files:
-                self.warn(
-                    MediumSeverityWarning(
-                        f"Metadata file {metadata_file.as_posix()!r} has no corresponding data files, skipping.",
-                    )
-                )
-                continue
-
-            selector_dict = read_yaml_file(metadata_file, expected_output="dict")
-            try:
-                selector = SelectorAdapter.validate_python(selector_dict)
-            except ValidationError as e:
-                errors = humanize_validation_error(e)
-                self.warn(
-                    ResourceFormatWarning(
-                        metadata_file, tuple(errors), text="Invalid selector in metadata file, skipping."
-                    )
-                )
-                continue
-            data_files_by_metadata[selector] = data_files
-        return data_files_by_metadata
+    def _create_selected_io(self, selector: Selector, data_file: Path, client: ToolkitClient) -> StorageIO | None:
+        try:
+            io_cls = get_storage_io(selector, kind=data_file)
+        except ValueError as e:
+            self.warn(HighSeverityWarning(f"Could not find StorageIO for selector {selector}: {e}"))
+            return None
+        return io_cls(client)
 
     @classmethod
     def _upload_items(
