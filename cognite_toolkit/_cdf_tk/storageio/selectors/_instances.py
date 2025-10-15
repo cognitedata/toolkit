@@ -36,6 +36,11 @@ class SelectedView(SelectorObject):
     def as_id(self) -> ViewId:
         return ViewId(space=self.space, external_id=self.external_id, version=self.version)
 
+    def __str__(self) -> str:
+        if self.version:
+            return f"{self.space}_{self.external_id}_{self.version}"
+        return f"{self.space}_{self.external_id}"
+
 
 class InstanceSelector(DataSelector, ABC):
     @abstractmethod
