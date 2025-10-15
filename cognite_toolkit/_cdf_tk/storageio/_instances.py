@@ -3,7 +3,7 @@ from types import MappingProxyType
 from typing import ClassVar
 
 from cognite.client.data_classes.aggregations import Count
-from cognite.client.data_classes.data_modeling import Edge, EdgeApply, Node, NodeApply, ViewId
+from cognite.client.data_classes.data_modeling import Edge, EdgeApply, Node, NodeApply
 from cognite.client.utils._identifier import InstanceId
 
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList, InstanceList
@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import StorageIO
-from .selectors import InstanceFileSelector, InstanceSelector, InstanceViewSelector
+from .selectors import InstanceFileSelector, InstanceSelector, InstanceSpaceSelector, InstanceViewSelector
 
 
 class InstanceIO(StorageIO[InstanceId, InstanceSelector, InstanceApplyList, InstanceList]):
@@ -38,15 +38,10 @@ class InstanceIO(StorageIO[InstanceId, InstanceSelector, InstanceApplyList, Inst
         raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
 
     def stream_data(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[InstanceList]:
-        if isinstance(selector, InstanceViewSelector):
+        if isinstance(selector, InstanceViewSelector | InstanceSpaceSelector):
             chunk = InstanceList([])
             total = 0
-            for instance in iterate_instances(
-                client=self.client,
-                source=ViewId(selector.view.space, selector.view.external_id, selector.view.version),
-                instance_type=selector.instance_type,
-                space=list(selector.instance_spaces) if selector.instance_spaces else None,
-            ):
+            for instance in iterate_instances(client=self.client, **selector.as_filter_args()):
                 if limit is not None and total >= limit:
                     break
                 total += 1
@@ -74,14 +69,27 @@ class InstanceIO(StorageIO[InstanceId, InstanceSelector, InstanceApplyList, Inst
             yield from ([instance.as_id() for instance in chunk] for chunk in self.stream_data(selector, limit))  # type: ignore[attr-defined]
 
     def count(self, selector: InstanceSelector) -> int | None:
-        if isinstance(selector, InstanceViewSelector):
+        if isinstance(selector, InstanceViewSelector) or (
+            isinstance(selector, InstanceSpaceSelector) and selector.view
+        ):
             result = self.client.data_modeling.instances.aggregate(
-                view=ViewId(selector.view.space, selector.view.external_id, selector.view.version),
+                # MyPy do not understand that selector.view is always defined here.
+                view=selector.view.as_id(),  # type: ignore[union-attr]
                 aggregates=Count("externalId"),
                 instance_type=selector.instance_type,
-                space=list(selector.instance_spaces) if selector.instance_spaces else None,
+                space=selector.get_instance_spaces(),
             )
             return int(result.value or 0)
+        elif isinstance(selector, InstanceSpaceSelector):
+            statistics = self.client.data_modeling.statistics.spaces.retrieve(space=selector.instance_space)
+            if statistics is None:
+                return None
+            if selector.instance_type == "node":
+                return statistics.nodes
+            elif selector.instance_type == "edge":
+                return statistics.edges
+            # This should never happen due to validation in the selector.
+            raise ValueError(f"Unknown instance type {selector.instance_type!r}")
         elif isinstance(selector, InstanceFileSelector):
             return len(selector.instance_ids)
         raise NotImplementedError()
