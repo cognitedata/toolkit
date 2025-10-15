@@ -274,9 +274,11 @@ class StreamlitRequirementsWarning(FileReadWarning):
 class ResourceFormatWarning(FileReadWarning):
     severity: ClassVar[SeverityLevel] = SeverityLevel.HIGH
     errors: tuple[str, ...]
+    text: str | None = None
 
     def get_message(self) -> str:
         sep = "\n     * "
         errors = sep.join(map(escape, self.errors))
         s = "s" if len(self.errors) > 1 else ""
-        return f"{type(self).__name__} {len(self.errors)} error{s}:{sep}{errors}"
+        text = self.text or ""
+        return f"{type(self).__name__} {text}{len(self.errors)} error{s}:{sep}{errors}"

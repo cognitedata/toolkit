@@ -6,9 +6,8 @@ from cognite.client.data_classes.raw import Row, RowList
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.resource_classes import TableYAML
 from cognite_toolkit._cdf_tk.storageio import RawIO
-from cognite_toolkit._cdf_tk.storageio.selectors import RawTableSelector
+from cognite_toolkit._cdf_tk.storageio.selectors import RawTableSelector, SelectedTable
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
@@ -42,7 +41,7 @@ class TestRawStorageIO:
         respx_mock.post(
             config.create_api_url("/raw/dbs/test_db/tables/test_table/rows"),
         ).respond(status_code=200)
-        table = RawTableSelector(table=TableYAML(db_name="test_db", table_name="test_table"))
+        table = RawTableSelector(table=SelectedTable(db_name="test_db", table_name="test_table"))
         with monkeypatch_toolkit_client() as client:
             client.raw.rows.return_value = chunker(some_raw_tables, 10)
             io = RawIO(client)
