@@ -145,8 +145,8 @@ class BuildCommand(ToolkitCommand):
 
         # tracking which project the module is being built for to trace promotion
         if client:
-            self._additional_tracking_info["project"] = client._config.project
-            self._additional_tracking_info["cluster"] = client._config.cdf_cluster
+            self._additional_tracking_info["project"] = client.config.project
+            self._additional_tracking_info["cluster"] = client.config.cdf_cluster
 
         directory_name = "current directory" if organization_dir == Path(".") else f"project '{organization_dir!s}'"
         root_modules = [

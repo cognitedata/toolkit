@@ -80,8 +80,8 @@ class DeployCommand(ToolkitCommand):
 
         client = env_vars.get_client(build.is_strict_validation)
 
-        self._additional_tracking_info["project"] = client._config.project
-        self._additional_tracking_info["cluster"] = client._config.cdf_cluster
+        self._additional_tracking_info["project"] = client.config.project
+        self._additional_tracking_info["cluster"] = client.config.cdf_cluster
 
         if not dry_run:
             for module in build.read_modules:
