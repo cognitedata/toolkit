@@ -94,8 +94,5 @@ class InstanceIO(StorageIO[InstanceId, InstanceSelector, InstanceApplyList, Inst
             return len(selector.instance_ids)
         raise NotImplementedError()
 
-    def data_to_json_chunk(self, data_chunk: InstanceList) -> list[dict[str, JsonVal]]:
-        raise NotImplementedError()
-
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> InstanceApplyList:
-        raise NotImplementedError()
+        return InstanceApplyList._load(data_chunk)

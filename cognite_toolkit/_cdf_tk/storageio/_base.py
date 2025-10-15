@@ -123,7 +123,6 @@ class StorageIO(ABC, Generic[T_ID, T_Selector, T_CogniteResourceList, T_Writable
             )
         )
 
-    @abstractmethod
     def data_to_json_chunk(self, data_chunk: T_WritableCogniteResourceList) -> list[dict[str, JsonVal]]:
         """Convert a chunk of data to a JSON-compatible format.
 
@@ -134,7 +133,7 @@ class StorageIO(ABC, Generic[T_ID, T_Selector, T_CogniteResourceList, T_Writable
             A list of dictionaries representing the data in a JSON-compatible format.
 
         """
-        raise NotImplementedError()
+        return data_chunk.dump(camel_case=True)
 
     @abstractmethod
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> T_CogniteResourceList:
