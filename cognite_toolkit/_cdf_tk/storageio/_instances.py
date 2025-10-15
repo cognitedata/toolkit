@@ -3,20 +3,31 @@ from types import MappingProxyType
 from typing import ClassVar
 
 from cognite.client.data_classes.aggregations import Count
-from cognite.client.data_classes.data_modeling import Edge, EdgeApply, Node, NodeApply
+from cognite.client.data_classes.data_modeling import (
+    ContainerList,
+    Edge,
+    EdgeApply,
+    Node,
+    NodeApply,
+    SpaceList,
+    ViewList,
+)
 from cognite.client.utils._identifier import InstanceId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList, InstanceList
+from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, SpaceCRUD, ViewCRUD
+from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import StorageIO
+from . import StorageIOConfig
+from ._base import ConfigurableStorageIO
 from .selectors import InstanceFileSelector, InstanceSelector, InstanceSpaceSelector, InstanceViewSelector
 
 
-class InstanceIO(StorageIO[InstanceId, InstanceSelector, InstanceApplyList, InstanceList]):
+class InstanceIO(ConfigurableStorageIO[InstanceId, InstanceSelector, InstanceApplyList, InstanceList]):
     """This class provides functionality to interact with instances in Cognite Data Fusion (CDF).
 
     It is used to download, upload, and purge instances, as well as spaces,views, and containers related to instances.
@@ -125,3 +136,55 @@ class InstanceIO(StorageIO[InstanceId, InstanceSelector, InstanceApplyList, Inst
             else:
                 raise ValueError(f"Unknown instance type {instance_type!r}")
         return output
+
+    def configurations(self, selector: InstanceSelector) -> Iterable[StorageIOConfig]:
+        if not isinstance(selector, InstanceViewSelector | InstanceSpaceSelector):
+            return
+        spaces = list(set((selector.get_instance_spaces() or []) + (selector.get_schema_spaces() or [])))
+        if not spaces:
+            return
+        space_crud = SpaceCRUD.create_loader(self.client)
+        retrieved_spaces = space_crud.retrieve(spaces)
+        retrieved_spaces = SpaceList([space for space in retrieved_spaces if not space.is_global])
+        if not retrieved_spaces:
+            return
+        for space in retrieved_spaces:
+            yield StorageIOConfig(
+                kind=SpaceCRUD.kind,
+                folder_name=SpaceCRUD.folder_name,
+                value=space_crud.dump_resource(space),
+                filename=sanitize_filename(space.space),
+            )
+        if not selector.view:
+            return
+        view_id = selector.view.as_id()
+        view_crud = ViewCRUD(self.client, None, None, topological_sort_implements=True)
+        views = view_crud.retrieve([view_id])
+        views = ViewList([view for view in views if not view.is_global])
+        if not views:
+            return
+        for view in views:
+            filename = f"{view.space}_{view.external_id}"
+            if view.version is not None:
+                filename += f"_{view.version}"
+            yield StorageIOConfig(
+                kind=ViewCRUD.kind,
+                folder_name=ViewCRUD.folder_name,
+                value=view_crud.dump_resource(view),
+                filename=sanitize_filename(filename),
+            )
+        container_ids = list({container for view in views for container in view.referenced_containers() or []})
+        if not container_ids:
+            return
+        container_crud = ContainerCRUD.create_loader(self.client)
+        containers = container_crud.retrieve(container_ids)
+        containers = ContainerList([container for container in containers if not container.is_global])
+        if not containers:
+            return
+        for container in containers:
+            yield StorageIOConfig(
+                kind=ContainerCRUD.kind,
+                folder_name=ContainerCRUD.folder_name,
+                value=container_crud.dump_resource(container),
+                filename=sanitize_filename(f"{container.space}_{container.external_id}"),
+            )
