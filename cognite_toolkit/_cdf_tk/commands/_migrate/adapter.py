@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
@@ -22,10 +22,11 @@ from cognite.client.data_classes._base import (
     WriteableCogniteResourceList,
 )
 from cognite.client.data_classes.data_modeling import EdgeApply, EdgeId, InstanceApply, NodeApply, NodeId
+from cognite.client.data_classes.data_modeling.instances import Instance
 from cognite.client.utils._identifier import InstanceId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList
+from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList, InstanceList
 from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.client.data_classes.pending_instances_ids import PendingInstanceId
 from cognite_toolkit._cdf_tk.cruds._base_cruds import T_ID
@@ -257,3 +258,40 @@ class FileMetaAdapter(
         if to_upload:
             results.extend(list(super().upload_items(InstanceApplyList(to_upload), http_client, selector)))
         return results
+
+
+class SourceSystemCreation(StorageIO[str, AssetCentricSelector, InstanceApplyList, InstanceList]):
+    """This adapter is used to create CogniteSourceSystem from the 'source' field of
+    asset-centric Event, Asset, and FileMetadata resources.
+
+    """
+
+    FOLDER_NAME = "sourceSystemCreation"
+    KIND = "SourceSystem"
+    DISPLAY_NAME = "Source Systems"
+    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
+    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
+    SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
+    CHUNK_SIZE = 1000
+    UPLOAD_ENDPOINT = InstanceIO.UPLOAD_ENDPOINT
+    UPLOAD_EXTRA_ARGS = None
+    BASE_SELECTOR = AssetCentricSelector
+
+    def as_id(self, item: dict[str, JsonVal] | object) -> str:
+        if isinstance(item, Instance | InstanceApply):
+            return item.external_id
+        elif isinstance(item, dict) and "externalId" in item and isinstance(item["externalId"], str):
+            return item["externalId"]
+        raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
+
+    def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[InstanceList]:
+        raise NotImplementedError()
+
+    def count(self, selector: AssetCentricSelector) -> int | None:
+        raise NotImplementedError()
+
+    def data_to_json_chunk(self, data_chunk: InstanceList) -> list[dict[str, JsonVal]]:
+        return data_chunk.as_write().dump()
+
+    def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> InstanceApplyList:
+        raise NotImplementedError()
