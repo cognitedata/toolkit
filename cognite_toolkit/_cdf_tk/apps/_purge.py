@@ -9,8 +9,12 @@ from rich import print
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.resource_classes.view_field_definitions import ViewReference
-from cognite_toolkit._cdf_tk.storageio.selectors import InstanceFileSelector, InstanceSelector, InstanceViewSelector
+from cognite_toolkit._cdf_tk.storageio.selectors import (
+    InstanceFileSelector,
+    InstanceSelector,
+    InstanceViewSelector,
+    SelectedView,
+)
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.interactive_select import DataModelingSelect
 
@@ -275,7 +279,7 @@ class PurgeApp(typer.Typer):
             selected_instance_type = interactive.select_instance_type(select_view.used_for)
             instance_space = interactive.select_instance_space(True, select_view.as_id(), selected_instance_type)
             selector = InstanceViewSelector(
-                view=ViewReference(
+                view=SelectedView(
                     space=select_view.space, external_id=select_view.external_id, version=select_view.version
                 ),
                 instance_type=selected_instance_type,
@@ -288,7 +292,7 @@ class PurgeApp(typer.Typer):
         elif view is not None:
             view_id = cmd.get_selected_view_id(view)  # Will raise if not exactly one view
             selector = InstanceViewSelector(
-                view=ViewReference(
+                view=SelectedView(
                     space=view_id.space, external_id=view_id.external_id, version=cast(str, view_id.version)
                 ),
                 instance_type=instance_type.value,
