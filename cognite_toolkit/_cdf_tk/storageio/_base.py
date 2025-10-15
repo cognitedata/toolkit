@@ -133,7 +133,7 @@ class StorageIO(ABC, Generic[T_ID, T_Selector, T_CogniteResourceList, T_Writable
             A list of dictionaries representing the data in a JSON-compatible format.
 
         """
-        return data_chunk.dump(camel_case=True)
+        return data_chunk.as_write().dump(camel_case=True)
 
     @abstractmethod
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> T_CogniteResourceList:
