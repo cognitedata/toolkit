@@ -482,16 +482,12 @@ class FunctionScheduleCRUD(
         function_actions = (
             [FunctionsAcl.Action.Read] if read_only else [FunctionsAcl.Action.Read, FunctionsAcl.Action.Write]
         )
-        session_actions = (
-            [SessionsAcl.Action.List]
-            if read_only
-            else [SessionsAcl.Action.List, SessionsAcl.Action.Create, SessionsAcl.Action.Delete]
-        )
-
-        return [
+        required_capabilities: list[Capability] = [
             FunctionsAcl(function_actions, FunctionsAcl.Scope.All()),
-            SessionsAcl(session_actions, SessionsAcl.Scope.All()),
         ]
+        if not read_only:
+            required_capabilities.append(SessionsAcl([SessionsAcl.Action.Create], SessionsAcl.Scope.All()))
+        return required_capabilities
 
     @classmethod
     def dump_id(cls, id: FunctionScheduleID) -> dict[str, Any]:
