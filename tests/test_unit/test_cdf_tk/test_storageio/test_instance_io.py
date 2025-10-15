@@ -164,18 +164,12 @@ class TestInstanceIO:
 
         # Download count
         rsps.post(
-            config.create_api_url("/models/statistics/spaces/byids"),
+            config.create_api_url("/models/instances/aggregate"),
             json={
                 "items": [
                     {
-                        "space": "my_insta_space",
-                        "nodes": 100,
-                        "edges": 50,
-                        "containers": 0,
-                        "views": 0,
-                        "dataModels": 0,
-                        "softDeletedEdges": 0,
-                        "softDeletedNodes": 0,
+                        "aggregates": [{"aggregate": "count", "property": "externalId", "value": 100}],
+                        "instanceType": "node",
                     }
                 ]
             },
@@ -193,10 +187,82 @@ class TestInstanceIO:
             json={"items": [{"space": "my_insta_space", "createdTime": 0, "lastUpdatedTime": 0, "isGlobal": False}]},
             status=200,
         )
+        # View
+        rsps.post(
+            config.create_api_url("/models/views/byids"),
+            json={
+                "items": [
+                    {
+                        "space": "my_schema_space",
+                        "externalId": "my_view",
+                        "version": "v1",
+                        "createdTime": 0,
+                        "lastUpdatedTime": 0,
+                        "description": None,
+                        "name": None,
+                        "writable": True,
+                        "usedFor": "node",
+                        "isGlobal": False,
+                        "properties": {
+                            "name": {
+                                "container": {
+                                    "space": "my_schema_space",
+                                    "externalId": "MyContainer",
+                                },
+                                "containerPropertyIdentifier": "name",
+                                "type": {
+                                    "type": "text",
+                                    "list": False,
+                                },
+                                "nullable": True,
+                                "immutable": False,
+                                "autoIncrement": False,
+                            }
+                        },
+                    }
+                ]
+            },
+        )
+        # Container
+        rsps.post(
+            config.create_api_url("/models/containers/byids"),
+            json={
+                "items": [
+                    {
+                        "space": "my_schema_space",
+                        "externalId": "MyContainer",
+                        "createdTime": 0,
+                        "lastUpdatedTime": 0,
+                        "description": None,
+                        "name": None,
+                        "isGlobal": False,
+                        "usedFor": "node",
+                        "constraints": {},
+                        "indexes": {},
+                        "properties": {
+                            "name": {
+                                "type": {
+                                    "type": "text",
+                                    "list": False,
+                                },
+                                "nullable": True,
+                                "immutable": False,
+                                "autoIncrement": False,
+                            }
+                        },
+                    }
+                ]
+            },
+        )
+
         # Upload data
         respx_mock.post(config.create_api_url(InstanceIO.UPLOAD_ENDPOINT)).mock(side_effect=instance_create_callback)
 
-        selector = InstanceSpaceSelector(instance_space="my_insta_space", instance_type="node")
+        selector = InstanceSpaceSelector(
+            instance_space="my_insta_space",
+            instance_type="node",
+            view=SelectedView(space="my_schema_space", external_id="my_view"),
+        )
         download_command = DownloadCommand(silent=True, skip_tracking=True)
         upload_command = UploadCommand(silent=True, skip_tracking=True)
 
