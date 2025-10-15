@@ -4,18 +4,24 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
+from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM
 from cognite_toolkit._cdf_tk.utils.file import safe_write, sanitize_filename, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 
-class DataSelector(BaseModel, ABC):
+class SelectorObject(BaseModel):
+    """This is used as base class for all selector objects including nested ones."""
+
+    model_config = ConfigDict(frozen=True, alias_generator=to_camel, populate_by_name=True)
+
+
+class DataSelector(SelectorObject, ABC):
     """A selector gives instructions on what data to select from CDF.
 
     For example, for instances it can be a view or container, while for assets it can be a data set or asset subtree.
     """
 
     type: str
-    model_config = ConfigDict(frozen=True, alias_generator=to_camel, populate_by_name=True)
 
     def dump(self) -> dict[str, JsonVal]:
         return self.model_dump(by_alias=True)
@@ -29,7 +35,7 @@ class DataSelector(BaseModel, ABC):
             directory: The directory where the YAML file will be saved.
         """
 
-        filepath = directory / f"{sanitize_filename(str(self))}.Selector.yaml"
+        filepath = directory / f"{sanitize_filename(str(self))}.{DATA_MANIFEST_STEM}.yaml"
         filepath.parent.mkdir(parents=True, exist_ok=True)
         safe_write(file=filepath, content=yaml_safe_dump(self.model_dump(mode="json", by_alias=True)), encoding="utf-8")
         return filepath
