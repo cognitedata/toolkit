@@ -63,8 +63,8 @@ read_modules:
 
         assert cmd._additional_tracking_info["project"] == "my_project"
         assert cmd._additional_tracking_info["cluster"] == "my_cluster"
-        assert cmd._additional_tracking_info["PackageIds"] == ["rmdm"]
-        assert set(cmd._additional_tracking_info["ModuleIds"]) == {"agent", "data_model"}
+        assert cmd._additional_tracking_info["packageIds"] == ["rmdm"]
+        assert set(cmd._additional_tracking_info["moduleIds"]) == {"agent", "data_model"}
 
 
 VIEW_SOURCE_NONE = """- space: dm_domain_generic
