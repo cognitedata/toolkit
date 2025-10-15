@@ -88,14 +88,14 @@ class UploadCommand(ToolkitCommand):
         kind: str | None = None,
     ) -> dict[Selector, list[Path]]:
         """Finds data files and their corresponding metadata files in the input directory."""
-        metadata_file_endswith = f".{DATA_MANIFEST_STEM}.yaml"
+        manifest_file_endswith = f".{DATA_MANIFEST_STEM}.yaml"
         data_files_by_metadata: dict[Selector, list[Path]] = {}
-        for metadata_file in input_dir.glob(f"*{metadata_file_endswith}"):
-            data_file_prefix = metadata_file.name.removesuffix(metadata_file_endswith)
+        for metadata_file in input_dir.glob(f"*{manifest_file_endswith}"):
+            data_file_prefix = metadata_file.name.removesuffix(manifest_file_endswith)
             data_files = [
                 file
                 for file in input_dir.glob(f"{data_file_prefix}*")
-                if not file.name.endswith(metadata_file_endswith)
+                if not file.name.endswith(manifest_file_endswith)
             ]
             if kind is not None and data_files:
                 data_files = [data_file for data_file in data_files if are_same_kind(kind, data_file)]

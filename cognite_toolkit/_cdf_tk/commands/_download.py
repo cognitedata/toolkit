@@ -116,9 +116,9 @@ class DownloadCommand(ToolkitCommand):
             return True
 
         # Check for single files (e.g. yaml) and exclude the metadata file.
-        metadata_file_name = f"{filestem}.{DATA_MANIFEST_STEM}.yaml"
+        manifest_file_name = f"{filestem}.{DATA_MANIFEST_STEM}.yaml"
         for f in output_dir.glob(f"{filestem}.*"):
-            if f.name != metadata_file_name:
+            if f.name != manifest_file_name:
                 return True
 
         return False
