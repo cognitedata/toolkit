@@ -132,10 +132,15 @@ class InstanceIO(ConfigurableStorageIO[InstanceId, InstanceSelector, InstanceApp
         if not isinstance(selector, InstanceViewSelector | InstanceSpaceSelector):
             return
         spaces = (selector.get_instance_spaces() or []) + (selector.get_schema_spaces() or [])
+        if not spaces:
+            return
+        retrieved_spaces = SpaceCRUD.create_loader(self.client).retrieve(spaces)
+        if not retrieved_spaces:
+            return
         yield StorageIOConfig(
             kind=SpaceCRUD.kind,
             folder_name=SpaceCRUD.folder_name,
-            value=SpaceCRUD.create_loader(self.client).retrieve(spaces).dump(),  # type: ignore[arg-type]
+            value=retrieved_spaces.dump(camel_case=True),  # type: ignore[arg-type]
         )
         if not selector.view:
             return
