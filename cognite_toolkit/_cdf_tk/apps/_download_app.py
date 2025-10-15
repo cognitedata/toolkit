@@ -1,6 +1,6 @@
 from enum import Enum
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal, cast
 
 import typer
 from rich import print
@@ -10,18 +10,22 @@ from cognite_toolkit._cdf_tk.commands import DownloadCommand
 from cognite_toolkit._cdf_tk.constants import DATA_DEFAULT_DIR
 from cognite_toolkit._cdf_tk.storageio import (
     AssetIO,
+    InstanceIO,
     RawIO,
 )
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     AssetCentricSelector,
     AssetSubtreeSelector,
     DataSetSelector,
+    InstanceSpaceSelector,
     RawTableSelector,
     SelectedTable,
+    SelectedView,
 )
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
     AssetInteractiveSelect,
+    DataModelingSelect,
     RawTableInteractiveSelect,
 )
 
@@ -35,6 +39,15 @@ class AssetCentricFormats(str, Enum):
     csv = "csv"
     parquet = "parquet"
     ndjson = "ndjson"
+
+
+class InstanceFormats(str, Enum):
+    ndjson = "ndjson"
+
+
+class InstanceTypes(str, Enum):
+    node = "node"
+    edge = "edge"
 
 
 class CompressionFormat(str, Enum):
@@ -231,6 +244,148 @@ class DownloadApp(typer.Typer):
             lambda: cmd.download(
                 selectors=selectors,
                 io=AssetIO(client),
+                output_dir=output_dir,
+                file_format=f".{file_format.value}",
+                compression=compression.value,
+                limit=limit if limit != -1 else None,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def download_instances_cmd(
+        ctx: typer.Context,
+        instance_space: Annotated[
+            str | None,
+            typer.Option(
+                "--instance-space",
+                "-s",
+                help="The instance space to download instances from. If not provided, an interactive "
+                "selection will be made.",
+            ),
+        ] = None,
+        schema_space: Annotated[
+            str | None,
+            typer.Option(
+                "--schema-space",
+                "-c",
+                help="The schema space where the views are located.",
+            ),
+        ] = None,
+        view_external_ids: Annotated[
+            list[str] | None,
+            typer.Option(
+                "--view",
+                "-w",
+                help="List of view external IDs to download properties for the "
+                "instances. To specify version use a forward slash, e.g. viewExternalId/v1.",
+            ),
+        ] = None,
+        instance_type: Annotated[
+            InstanceTypes,
+            typer.Option(
+                "--instance-type",
+                "-t",
+                help="The type of instances to download.",
+            ),
+        ] = InstanceTypes.node,
+        file_format: Annotated[
+            InstanceFormats,
+            typer.Option(
+                "--format",
+                "-f",
+                help="Format to download the instances in.",
+            ),
+        ] = InstanceFormats.ndjson,
+        compression: Annotated[
+            CompressionFormat,
+            typer.Option(
+                "--compression",
+                "-z",
+                help="Compression format to use when downloading the instances.",
+            ),
+        ] = CompressionFormat.none,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to download the instances.",
+                allow_dash=True,
+            ),
+        ] = DEFAULT_DOWNLOAD_DIR,
+        limit: Annotated[
+            int,
+            typer.Option(
+                "--limit",
+                "-l",
+                help="The maximum the number of instances to download from each view. Use -1 to download all.",
+            ),
+        ] = 10_000,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will download Instances from CDF into a temporary directory."""
+        cmd = DownloadCommand()
+
+        client = EnvironmentVariables.create_from_environment().get_client()
+        if instance_space is None:
+            selector = DataModelingSelect(client, "download instances")
+            selected_instance_space = selector.select_instance_space(multiselect=False)
+            selected_instance_type= selector.select_instance_type()
+            selected_schema_space = selector.select_schema_space(
+                include_global=True, message="In which space is the views with instance properties located?"
+            ).space
+            selected_views = selector.select_views(
+                space=selected_schema_space, message="Select views to download instance properties from."
+            )
+            selectors: list[InstanceSpaceSelector] = [
+                InstanceSpaceSelector(
+                    instance_space=selected_instance_space,
+                    view_id=SelectedView(
+                        space=selected_schema_space,
+                        external_id=view.external_id,
+                        version=view.version,
+                    ),
+                    instance_type=selected_instance_type,
+                )
+                for view in selected_views
+            ]
+        elif schema_space is None and view_external_ids is None:
+            selectors = [
+                InstanceSpaceSelector(
+                    instance_space=instance_space, instance_type=cast(Literal["node", "edge"], instance_type)
+                )
+            ]
+        elif schema_space is not None and view_external_ids is not None:
+            selectors = [
+                InstanceSpaceSelector(
+                    instance_space=instance_space,
+                    view_id=SelectedView(
+                        space=schema_space,
+                        external_id=view_id_str.split("/", maxsplit=1)[0],
+                        version=view_id_str.split("/", maxsplit=1)[1] if "/" in view_id_str else None,
+                    ),
+                    instance_type=cast(Literal["node", "edge"], instance_type),
+                )
+                for view_id_str in view_external_ids
+            ]
+        else:
+            raise typer.BadParameter(
+                "Both '--schema-space' and '--view' must be provided together.",
+                param_hint="--view",
+            )
+
+        cmd.run(
+            lambda: cmd.download(
+                selectors=selectors,
+                io=InstanceIO(client),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,
