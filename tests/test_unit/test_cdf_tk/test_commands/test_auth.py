@@ -10,6 +10,7 @@ import yaml
 from cognite.client.data_classes._base import CogniteResource, CogniteResourceList, CogniteResponse
 from cognite.client.data_classes.capabilities import (
     AllProjectsScope,
+    AllScope,
     AppConfigAcl,
     AppConfigScope,
     AssetsAcl,
@@ -205,19 +206,34 @@ def test_get_capabilities_by_loader_dm_only_project(toolkit_client_approval: App
     assert RelationshipsAcl not in cap_types_dm_only
 
 
-def test_simulate_app_config_acl_unhashable_type_error():
-    app_config_acl = AppConfigAcl(
-        actions=[AppConfigAcl.Action.Read, AppConfigAcl.Action.Write], scope=AppConfigScope(apps=["SEARCH"])
+@pytest.mark.parametrize(
+    "capability_list,expected_result",
+    [
+        pytest.param(
+            [
+                AppConfigAcl(
+                    actions=[AppConfigAcl.Action.Read, AppConfigAcl.Action.Write], scope=AppConfigScope(apps=["SEARCH"])
+                ),
+                AppConfigAcl(actions=[AppConfigAcl.Action.Read], scope=AppConfigScope(apps=["SEARCH"])),
+                AppConfigAcl(actions=[AppConfigAcl.Action.Write], scope=AppConfigScope(apps=["SEARCH"])),
+                AssetsAcl(actions=[AssetsAcl.Action.Read, AssetsAcl.Action.Write], scope=AllScope()),
+            ],
+            [
+                AppConfigAcl(
+                    actions=[AppConfigAcl.Action.Read, AppConfigAcl.Action.Write], scope=AppConfigScope(apps=["SEARCH"])
+                ),
+                AssetsAcl(actions=[AssetsAcl.Action.Read, AssetsAcl.Action.Write], scope=AllScope()),
+            ],
+            id="Merge multiple capabilities",
+        )
+    ],
+)
+def test_merge_capabilities(capability_list: list[Capability], expected_result: list[Capability]):
+    merged_capabilities = AuthCommand.merge_capabilities(capability_list)
+    assert len(merged_capabilities) == len(expected_result)
+    app_config_acl = next(c for c in merged_capabilities if type(c) is AppConfigAcl)
+    assert app_config_acl is not None
+    assert app_config_acl.scope == expected_result[0].scope
+    assert sorted(app_config_acl.dump()["appConfigAcl"]["actions"]) == sorted(
+        expected_result[0].dump()["appConfigAcl"]["actions"]
     )
-
-    # Older version of AuthCommand()._merge_capabilities() would raise an unhashable type error
-    with pytest.raises(TypeError) as err_info:
-        # This will trigger the unhashable type error - logic used in older version of AuthCommand()._merge_capabilities()
-        _ = {(type(app_config_acl), app_config_acl.scope): {app_config_acl.actions}}
-
-    assert err_info.value.args[0] == "unhashable type: 'list'"
-
-    # Newer version of AuthCommand()._merge_capabilities() would not raise an unhashable type error
-    merged_capabilities = AuthCommand._merge_capabilities([app_config_acl])
-    assert len(merged_capabilities) == 1
-    assert type(merged_capabilities[0]) is AppConfigAcl
