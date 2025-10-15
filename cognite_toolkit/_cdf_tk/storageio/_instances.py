@@ -162,11 +162,14 @@ class InstanceIO(ConfigurableStorageIO[InstanceId, InstanceSelector, InstanceApp
         if not views:
             return
         for view in views:
+            filename = f"{view.space}_{view.external_id}"
+            if view.version is not None:
+                filename += f"_{view.version}"
             yield StorageIOConfig(
                 kind=ViewCRUD.kind,
                 folder_name=ViewCRUD.folder_name,
                 value=view.as_write().dump(camel_case=True),
-                filename=sanitize_filename(f"{view.space}_{view.external_id}_{view.version}"),
+                filename=sanitize_filename(filename),
             )
         container_ids = list({container for view in views for container in view.referenced_containers() or []})
         if not container_ids:
