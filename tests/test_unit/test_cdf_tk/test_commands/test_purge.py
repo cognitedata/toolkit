@@ -31,8 +31,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.extended_filemetadata import (
 )
 from cognite_toolkit._cdf_tk.client.data_classes.extended_timeseries import ExtendedTimeSeries
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
-from cognite_toolkit._cdf_tk.resource_classes.view_field_definitions import ViewReference
-from cognite_toolkit._cdf_tk.storageio.selectors import InstanceViewSelector
+from cognite_toolkit._cdf_tk.storageio.selectors import InstanceViewSelector, SelectedView
 from tests.test_unit.utils import FakeCogniteResourceGenerator
 
 
@@ -233,7 +232,7 @@ class TestPurgeInstances:
         cmd = PurgeCommand(silent=True)
         result = cmd.instances(
             client,
-            InstanceViewSelector(view=ViewReference(space="cdf_cdm", external_id="CogniteTimeSeries", version="v1")),
+            InstanceViewSelector(view=SelectedView(space="cdf_cdm", external_id="CogniteTimeSeries", version="v1")),
             dry_run=dry_run,
             auto_yes=True,
             unlink=unlink,
