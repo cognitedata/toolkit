@@ -17,7 +17,7 @@ from cognite.client.data_classes.aggregations import Count
 from cognite.client.data_classes.capabilities import (
     UserProfilesAcl,
 )
-from cognite.client.data_classes.data_modeling import NodeList, Space, SpaceList, View, ViewId
+from cognite.client.data_classes.data_modeling import NodeList, Space, SpaceList, View, ViewId, ViewList
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from cognite.client.utils import ms_to_datetime
 from questionary import Choice
@@ -504,29 +504,59 @@ class DataModelingSelect:
         result = self.client.data_modeling.statistics.spaces.list()
         return {stat.space: stat for stat in result}
 
-    def select_view(self, include_global: bool = False) -> View:
-        selected_space = self.select_schema_space(
-            include_global, message=f"In which Spaces is the view you will use to select instances to {self.operation}?"
+    @overload
+    def select_view(
+        self,
+        multiselect: Literal[False] = False,
+        include_global: bool = False,
+        space: str | None = None,
+        message: str | None = None,
+    ) -> View: ...
+
+    @overload
+    def select_view(
+        self,
+        multiselect: Literal[True],
+        include_global: bool = False,
+        space: str | None = None,
+        message: str | None = None,
+    ) -> ViewList: ...
+
+    def select_view(
+        self,
+        multiselect: bool = False,
+        include_global: bool = False,
+        space: str | None = None,
+        message: str | None = None,
+    ) -> View | ViewList:
+        selected_space = (
+            space
+            or self.select_schema_space(
+                include_global,
+                message=f"In which Spaces is the view you will use to select instances to {self.operation}?",
+            ).space
         )
 
         views = self.client.data_modeling.views.list(
-            space=selected_space.space,
+            space=selected_space,
             include_inherited_properties=True,
             limit=-1,
             include_global=include_global,
         )
         if not views:
-            raise ToolkitMissingResourceError(f"No views found in space {selected_space.space!r}.")
-
-        selected_view = questionary.select(
-            f"Which view do you want to use to select instances to {self.operation}?",
-            [Choice(title=f"{view.external_id} (version={view.version})", value=view) for view in views],
-        ).ask()
-        if selected_view is None:
-            raise ToolkitValueError("No view selected")
-        if not isinstance(selected_view, View):
-            raise ToolkitValueError(f"Selected view is not a valid View object: {selected_view!r}")
-        return selected_view
+            raise ToolkitMissingResourceError(f"No views found in space {selected_space!r}.")
+        question = message or f"Which view do you want to use to select instances to {self.operation}?"
+        choices = [Choice(title=f"{view.external_id} (version={view.version})", value=view) for view in views]
+        if multiselect:
+            selected_views = questionary.checkbox(question, choices=choices).ask()
+        else:
+            selected_views = questionary.select(question, choices=choices).ask()
+        if selected_views is None:
+            raise ToolkitValueError("No view(s) selected")
+        if multiselect:
+            return ViewList(selected_views)
+        else:
+            return selected_views
 
     def select_schema_space(self, include_global: bool, message: str | None = None) -> Space:
         message = message or f"Select the space to {self.operation}:"
