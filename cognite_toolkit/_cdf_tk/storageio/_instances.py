@@ -131,7 +131,7 @@ class InstanceIO(ConfigurableStorageIO[InstanceId, InstanceSelector, InstanceApp
     def configurations(self, selector: InstanceSelector) -> Iterable[StorageIOConfig]:
         if not isinstance(selector, InstanceViewSelector | InstanceSpaceSelector):
             return
-        spaces = (selector.get_instance_spaces() or []) + (selector.get_schema_spaces() or [])
+        spaces = list(set((selector.get_instance_spaces() or []) + (selector.get_schema_spaces() or [])))
         if not spaces:
             return
         retrieved_spaces = SpaceCRUD.create_loader(self.client).retrieve(spaces)
