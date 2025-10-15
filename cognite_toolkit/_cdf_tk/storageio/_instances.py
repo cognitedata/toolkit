@@ -3,19 +3,31 @@ from types import MappingProxyType
 from typing import ClassVar
 
 from cognite.client.data_classes.aggregations import Count
-from cognite.client.data_classes.data_modeling import Edge, EdgeApply, Node, NodeApply, ViewId
+from cognite.client.data_classes.data_modeling import Edge, EdgeApply, Node, NodeApply
 from cognite.client.utils._identifier import InstanceId
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList, InstanceList
 from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import StorageIO
-from .selectors import InstanceFileSelector, InstanceSelector, InstanceViewSelector
+from .selectors import InstanceFileSelector, InstanceSelector, InstanceSpaceSelector, InstanceViewSelector
 
 
 class InstanceIO(StorageIO[InstanceId, InstanceSelector, InstanceApplyList, InstanceList]):
+    """This class provides functionality to interact with instances in Cognite Data Fusion (CDF).
+
+    It is used to download, upload, and purge instances, as well as spaces,views, and containers related to instances.
+
+    Args:
+        client (ToolkitClient): An instance of ToolkitClient to interact with the CDF API.
+        remove_existing_version (bool): Whether to remove existing versions of instances during upload.
+            Default is True. Existing versions are used to safeguard against accidental overwrites.
+
+    """
+
     FOLDER_NAME = "instances"
     KIND = "Instances"
     DISPLAY_NAME = "Instances"
@@ -26,6 +38,10 @@ class InstanceIO(StorageIO[InstanceId, InstanceSelector, InstanceApplyList, Inst
     UPLOAD_ENDPOINT = "/models/instances"
     UPLOAD_EXTRA_ARGS: ClassVar[Mapping[str, JsonVal] | None] = MappingProxyType({"autoCreateDirectRelations": True})
     BASE_SELECTOR = InstanceSelector
+
+    def __init__(self, client: ToolkitClient, remove_existing_version: bool = True) -> None:
+        super().__init__(client)
+        self._remove_existing_version = remove_existing_version
 
     def as_id(self, item: dict[str, JsonVal] | object) -> InstanceId:
         if isinstance(item, dict) and isinstance(item.get("space"), str) and isinstance(item.get("externalId"), str):
@@ -38,15 +54,10 @@ class InstanceIO(StorageIO[InstanceId, InstanceSelector, InstanceApplyList, Inst
         raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
 
     def stream_data(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[InstanceList]:
-        if isinstance(selector, InstanceViewSelector):
+        if isinstance(selector, InstanceViewSelector | InstanceSpaceSelector):
             chunk = InstanceList([])
             total = 0
-            for instance in iterate_instances(
-                client=self.client,
-                source=ViewId(selector.view.space, selector.view.external_id, selector.view.version),
-                instance_type=selector.instance_type,
-                space=list(selector.instance_spaces) if selector.instance_spaces else None,
-            ):
+            for instance in iterate_instances(client=self.client, **selector.as_filter_args()):
                 if limit is not None and total >= limit:
                     break
                 total += 1
@@ -74,20 +85,43 @@ class InstanceIO(StorageIO[InstanceId, InstanceSelector, InstanceApplyList, Inst
             yield from ([instance.as_id() for instance in chunk] for chunk in self.stream_data(selector, limit))  # type: ignore[attr-defined]
 
     def count(self, selector: InstanceSelector) -> int | None:
-        if isinstance(selector, InstanceViewSelector):
+        if isinstance(selector, InstanceViewSelector) or (
+            isinstance(selector, InstanceSpaceSelector) and selector.view
+        ):
             result = self.client.data_modeling.instances.aggregate(
-                view=ViewId(selector.view.space, selector.view.external_id, selector.view.version),
+                # MyPy do not understand that selector.view is always defined here.
+                view=selector.view.as_id(),  # type: ignore[union-attr]
                 aggregates=Count("externalId"),
                 instance_type=selector.instance_type,
-                space=list(selector.instance_spaces) if selector.instance_spaces else None,
+                space=selector.get_instance_spaces(),
             )
             return int(result.value or 0)
+        elif isinstance(selector, InstanceSpaceSelector):
+            statistics = self.client.data_modeling.statistics.spaces.retrieve(space=selector.instance_space)
+            if statistics is None:
+                return None
+            if selector.instance_type == "node":
+                return statistics.nodes
+            elif selector.instance_type == "edge":
+                return statistics.edges
+            # This should never happen due to validation in the selector.
+            raise ValueError(f"Unknown instance type {selector.instance_type!r}")
         elif isinstance(selector, InstanceFileSelector):
             return len(selector.instance_ids)
         raise NotImplementedError()
 
-    def data_to_json_chunk(self, data_chunk: InstanceList) -> list[dict[str, JsonVal]]:
-        raise NotImplementedError()
-
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> InstanceApplyList:
-        raise NotImplementedError()
+        # There is a bug in the SDK where InstanceApply._load turns all keys to snake_case.
+        # So we cannot use InstanceApplyList._load here.
+        output = InstanceApplyList([])
+        for item in data_chunk:
+            instance_type = item.get("instanceType")
+            if self._remove_existing_version and "existingVersion" in item:
+                del item["existingVersion"]
+            if instance_type == "node":
+                output.append(NodeApply._load(item, cognite_client=self.client))
+            elif instance_type == "edge":
+                output.append(EdgeApply._load(item, cognite_client=self.client))
+            else:
+                raise ValueError(f"Unknown instance type {instance_type!r}")
+        return output
