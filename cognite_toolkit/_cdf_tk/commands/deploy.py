@@ -86,11 +86,11 @@ class DeployCommand(ToolkitCommand):
         if not dry_run:
             for module in build.read_modules:
                 if module.module_id:
-                    deployed_module_ids = self._additional_tracking_info.setdefault("ModuleIds", [])
+                    deployed_module_ids = self._additional_tracking_info.setdefault("moduleIds", [])
                     if module.module_id not in deployed_module_ids:
                         deployed_module_ids.append(module.module_id)
                 if module.package_id:
-                    deployed_package_ids = self._additional_tracking_info.setdefault("PackageIds", [])
+                    deployed_package_ids = self._additional_tracking_info.setdefault("packageIds", [])
                     if module.package_id not in deployed_package_ids:
                         deployed_package_ids.append(module.package_id)
 
