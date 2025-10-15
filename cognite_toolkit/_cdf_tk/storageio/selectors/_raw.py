@@ -1,13 +1,18 @@
 from typing import Literal
 
-from cognite_toolkit._cdf_tk.resource_classes.raw_database_table import TableYAML
+from ._base import DataSelector, SelectorObject
 
-from ._base import DataSelector
+
+class SelectedTable(SelectorObject):
+    """Selected RAW table"""
+
+    db_name: str
+    table_name: str
 
 
 class RawTableSelector(DataSelector):
     type: Literal["rawTable"] = "rawTable"
-    table: TableYAML
+    table: SelectedTable
 
     @property
     def group(self) -> str:

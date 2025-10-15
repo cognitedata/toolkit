@@ -160,3 +160,8 @@ COGNITE_MIGRATION_SPACE = "cognite_migration"
 COGNITE_TIME_SERIES_CONTAINER = ContainerId("cdf_cdm", "CogniteTimeSeries")
 COGNITE_FILE_CONTAINER = ContainerId("cdf_cdm", "CogniteFile")
 CDF_UNIT_SPACE = "cdf_cdm_units"
+
+# Data Plugin Constants
+DATA_DEFAULT_DIR = "data"
+DATA_RESOURCE_DIR = "resources"
+DATA_MANIFEST_STEM = "Manifest"

@@ -6,8 +6,8 @@ from ._asset_centric import AssetCentricFileSelector, AssetCentricSelector, Asse
 from ._base import DataSelector
 from ._canvas import CanvasSelector
 from ._charts import AllChartsSelector, ChartOwnerSelector, ChartSelector
-from ._instances import InstanceFileSelector, InstanceSelector, InstanceViewSelector
-from ._raw import RawTableSelector
+from ._instances import InstanceFileSelector, InstanceSelector, InstanceViewSelector, SelectedView
+from ._raw import RawTableSelector, SelectedTable
 
 Selector = Annotated[
     RawTableSelector
@@ -38,6 +38,8 @@ __all__ = [
     "InstanceSelector",
     "InstanceViewSelector",
     "RawTableSelector",
+    "SelectedTable",
+    "SelectedView",
     "Selector",
     "SelectorAdapter",
 ]

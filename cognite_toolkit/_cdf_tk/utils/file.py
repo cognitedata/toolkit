@@ -23,8 +23,6 @@ from rich import print
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN, HINT_LEAD_TEXT, URL
 from cognite_toolkit._cdf_tk.exceptions import (
-    ToolkitFileNotFoundError,
-    ToolkitNotADirectoryError,
     ToolkitValueError,
     ToolkitYAMLFormatError,
 )
@@ -428,43 +426,6 @@ def get_table_columns(table: Path) -> list[str]:
         return pd.read_parquet(table).columns.tolist()
     else:
         raise ToolkitValueError(f"The file {table.name} is not a supported table format (csv, parquet)")
-
-
-def find_adjacent_files(filepath: Path, suffix: str) -> list[Path]:
-    """Find files in the same directory as the given file that have the same
-    prefix and a specific suffix.
-
-    Args:
-        filepath (Path): The path to the file for which to find adjacent files.
-        suffix (str): The suffix to match for the adjacent files.
-
-    Returns:
-        list[Path]: A list of Paths to the adjacent files that match the criteria.
-    """
-    if not filepath.is_file():
-        raise ToolkitFileNotFoundError(f"The provided path {filepath} is not a file.")
-    return find_files_with_suffix_and_prefix(filepath.parent, filepath.name, suffix=suffix)
-
-
-def find_files_with_suffix_and_prefix(dirpath: Path, name: str, suffix: str) -> list[Path]:
-    """Find files in a directory that have the same prefix as the given name
-
-    Args:
-        dirpath: The directory in which to search for files.
-        name: The name of the file to match against, which should include the prefix.
-        suffix: The suffix to match for the files.
-
-    Returns:
-        list[Path]: A list of Paths to the files that match the criteria.
-    """
-    if not dirpath.is_dir():
-        raise ToolkitNotADirectoryError(f"The provided path {dirpath} is not a directory.")
-    found_files: list[Path] = []
-    for file in dirpath.glob(f"*{suffix}"):
-        filestem = file.name.removesuffix(suffix)
-        if file.is_file() and name.startswith(filestem):
-            found_files.append(file)
-    return found_files
 
 
 @contextmanager

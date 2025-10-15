@@ -67,7 +67,21 @@ INSTANCE_SOURCE_CONTAINER = dm.ContainerApply(
         "resourceType": BTreeIndex(["resourceType", "id"], cursorable=False),
     },
 )
-CONTAINERS = [RESOURCE_VIEW_MAPPING, INSTANCE_SOURCE_CONTAINER]
+
+CREATED_SOURCE_SYSTEM = dm.ContainerApply(
+    space=SPACE.space,
+    external_id="CreatedSourceSystem",
+    used_for="node",
+    properties={
+        "source": dm.ContainerProperty(
+            type=dm.Text(max_text_size=128),
+            nullable=False,
+        )
+    },
+    constraints={"sourceUnique": dm.UniquenessConstraint(["source"])},
+)
+
+CONTAINERS = [RESOURCE_VIEW_MAPPING, INSTANCE_SOURCE_CONTAINER, CREATED_SOURCE_SYSTEM]
 
 RESOURCE_VIEW_MAPPING_VIEW = dm.ViewApply(
     space=SPACE.space,
@@ -126,10 +140,25 @@ INSTANCE_SOURCE_VIEW = dm.ViewApply(
     },
 )
 
+CREATED_SOURCE_SYSTEM_VIEW = dm.ViewApply(
+    space=SPACE.space,
+    external_id="CreatedSourceSystem",
+    version="v1",
+    name="CreatedSourceSystem",
+    description="The source string the SourceSystem was created from.",
+    properties={
+        "source": dm.MappedPropertyApply(
+            container=CREATED_SOURCE_SYSTEM.as_id(),
+            container_property_identifier="source",
+        ),
+    },
+)
+
 INSTANCE_SOURCE_VIEW_ID = INSTANCE_SOURCE_VIEW.as_id()
 RESOURCE_VIEW_MAPPING_VIEW_ID = RESOURCE_VIEW_MAPPING_VIEW.as_id()
+CREATED_SOURCE_SYSTEM_VIEW_ID = CREATED_SOURCE_SYSTEM_VIEW.as_id()
 
-VIEWS = [RESOURCE_VIEW_MAPPING_VIEW, INSTANCE_SOURCE_VIEW]
+VIEWS = [RESOURCE_VIEW_MAPPING_VIEW, INSTANCE_SOURCE_VIEW, CREATED_SOURCE_SYSTEM_VIEW]
 
 COGNITE_MIGRATION_MODEL = dm.DataModelApply(
     space=SPACE.space,
@@ -137,7 +166,7 @@ COGNITE_MIGRATION_MODEL = dm.DataModelApply(
     version="v1",
     name="CDF Migration Model",
     description="Data model for migrating asset-centric resources to data modeling resources in CDF.",
-    views=[RESOURCE_VIEW_MAPPING_VIEW.as_id(), INSTANCE_SOURCE_VIEW.as_id()],
+    views=[INSTANCE_SOURCE_VIEW_ID, RESOURCE_VIEW_MAPPING_VIEW_ID, CREATED_SOURCE_SYSTEM_VIEW_ID],
 )
 
 MODEL_ID = COGNITE_MIGRATION_MODEL.as_id()

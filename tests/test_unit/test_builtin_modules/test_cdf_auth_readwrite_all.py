@@ -98,7 +98,7 @@ class TestCDFAuthReadWriteAll:
             read_write_group.capabilities, get_all_capabilities(readonly=False)
         )
         if missing_capabilities:
-            merged = AuthCommand._merge_capabilities(missing_capabilities)
+            merged = AuthCommand.merge_capabilities(missing_capabilities)
             missing_yaml = yaml_safe_dump([item.dump() for item in merged], indent=2)
             pyperclip.copy(missing_yaml)
 
@@ -117,7 +117,7 @@ class TestCDFAuthReadWriteAll:
             readonly_group.capabilities, get_all_capabilities(readonly=True)
         )
         if missing_capabilities:
-            merged = AuthCommand._merge_capabilities(missing_capabilities)
+            merged = AuthCommand.merge_capabilities(missing_capabilities)
             missing_yaml = yaml_safe_dump([item.dump() for item in merged], indent=2)
             pyperclip.copy(missing_yaml)
 
