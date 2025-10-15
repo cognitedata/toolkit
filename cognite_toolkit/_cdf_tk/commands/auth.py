@@ -346,7 +346,7 @@ class AuthCommand(ToolkitCommand):
             print(f"  [bold green]OK[/] - The {existing_group.name} has all the required capabilities.")
             return []
 
-        missing_capabilities = self._merge_capabilities(missing_capabilities)
+        missing_capabilities = self.merge_capabilities(missing_capabilities)
         for s in sorted(map(str, missing_capabilities)):
             self.warn(MissingCapabilityWarning(s))
 
@@ -390,7 +390,7 @@ class AuthCommand(ToolkitCommand):
                 updated_toolkit_group.capabilities or [],
                 project=client.config.project,
             )
-        adding = self._merge_capabilities(adding)
+        adding = self.merge_capabilities(adding)
         capability_str = "capabilities" if len(adding) > 1 else "capability"
         if dry_run:
             print(f"Would have updated group {updated_toolkit_group.name} with {len(adding)} new {capability_str}.")
@@ -607,15 +607,21 @@ class AuthCommand(ToolkitCommand):
         return extra
 
     @staticmethod
-    def _merge_capabilities(capability_list: list[Capability]) -> list[Capability]:
+    def merge_capabilities(capability_list: list[Capability]) -> list[Capability]:
         """Merges capabilities that have the same ACL and Scope"""
-        actions_by_scope_and_cls: dict[tuple[type[Capability], Capability.Scope], set[Capability.Action]] = defaultdict(
+        actions_by_scope_and_cls: dict[tuple[type[Capability], frozenset[tuple]], set[Capability.Action]] = defaultdict(
             set
         )
         for capability in capability_list:
-            actions_by_scope_and_cls[(type(capability), capability.scope)].update(capability.actions)
+            scope_key = frozenset(capability.scope.as_tuples())
+            actions_by_scope_and_cls[(type(capability), scope_key)].update(capability.actions)
+
+        scope_map: dict[tuple[type[Capability], frozenset[tuple]], Capability.Scope] = {
+            (type(cap), frozenset(cap.scope.as_tuples())): cap.scope for cap in capability_list
+        }
+
         return [
-            cap_cls(actions=list(actions), scope=scope, allow_unknown=False)
+            cap_cls(actions=list(actions), scope=scope_map[(cap_cls, scope)], allow_unknown=False)
             for (cap_cls, scope), actions in actions_by_scope_and_cls.items()
         ]
 

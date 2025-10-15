@@ -7,8 +7,8 @@ from pydantic import ValidationError
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.constants import DATA_METADATA_STEM, DATA_RESOURCE_DIR
-from cognite_toolkit._cdf_tk.storageio import StorageIO, T_Selector, get_storage_io
+from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM, DATA_RESOURCE_DIR
+from cognite_toolkit._cdf_tk.storageio import StorageIO, T_Selector, are_same_kind, get_storage_io
 from cognite_toolkit._cdf_tk.storageio.selectors import Selector, SelectorAdapter
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
@@ -88,17 +88,17 @@ class UploadCommand(ToolkitCommand):
         kind: str | None = None,
     ) -> dict[Selector, list[Path]]:
         """Finds data files and their corresponding metadata files in the input directory."""
-        metadata_file_endswith = f".{DATA_METADATA_STEM}.yaml"
+        manifest_file_endswith = f".{DATA_MANIFEST_STEM}.yaml"
         data_files_by_metadata: dict[Selector, list[Path]] = {}
-        for metadata_file in input_dir.glob(f"*{metadata_file_endswith}"):
-            data_file_prefix = metadata_file.name.removesuffix(metadata_file_endswith)
+        for metadata_file in input_dir.glob(f"*{manifest_file_endswith}"):
+            data_file_prefix = metadata_file.name.removesuffix(manifest_file_endswith)
             data_files = [
                 file
                 for file in input_dir.glob(f"{data_file_prefix}*")
-                if not file.name.endswith(metadata_file_endswith)
+                if not file.name.endswith(manifest_file_endswith)
             ]
             if kind is not None and data_files:
-                data_files = [data_file for data_file in data_files if data_file.stem.endswith(kind)]
+                data_files = [data_file for data_file in data_files if are_same_kind(kind, data_file)]
                 if not data_files:
                     continue
             if not data_files:
@@ -220,7 +220,7 @@ class UploadCommand(ToolkitCommand):
 
     def _create_selected_io(self, selector: Selector, data_file: Path, client: ToolkitClient) -> StorageIO | None:
         try:
-            io_cls = get_storage_io(selector, kind=data_file)
+            io_cls = get_storage_io(type(selector), kind=data_file)
         except ValueError as e:
             self.warn(HighSeverityWarning(f"Could not find StorageIO for selector {selector}: {e}"))
             return None

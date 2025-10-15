@@ -158,8 +158,8 @@ class TestDataSelectors:
         assert instance.group, f"group property not implemented for {type(instance).__name__}"
 
         # Assert correct IO type
-        assert get_storage_io(instance, kind) is expected_io, (
-            f"Expected {expected_io.__name__} for selector {type(instance).__name__}, got {get_storage_io(instance, kind).__name__}"
+        assert get_storage_io(type(instance), kind) is expected_io, (
+            f"Expected {expected_io.__name__} for selector {type(instance).__name__}, got {get_storage_io(type(instance), kind).__name__}"
         )
 
         # Assert serialization/deserialization
@@ -170,3 +170,27 @@ class TestDataSelectors:
         loaded = SelectorAdapter.validate_python(data)
         assert loaded.model_dump() == instance.model_dump()
         assert type(loaded) is type(instance)
+
+
+class TestGetStorageIO:
+    @pytest.mark.parametrize(
+        "selector,path,expected_io",
+        [
+            pytest.param(
+                RawTableSelector,
+                Path(f"data.{RawIO.KIND}.csv"),
+                RawIO,
+                id="RawTableSelector with path",
+            ),
+            pytest.param(
+                RawTableSelector,
+                Path(f"data.{RawIO.KIND}.csv.gz"),
+                RawIO,
+                id="RawTableSelector with compressed data",
+            ),
+        ],
+    )
+    def test_get_storage_io_with_path(
+        self, selector: type[DataSelector], path: Path, expected_io: type[StorageIO]
+    ) -> None:
+        assert get_storage_io(selector, path) == expected_io

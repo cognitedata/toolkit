@@ -338,7 +338,7 @@ class DownloadApp(typer.Typer):
         if instance_space is None:
             selector = DataModelingSelect(client, "download instances")
             selected_instance_space = selector.select_instance_space(multiselect=False)
-            selected_instance_type= selector.select_instance_type()
+            selected_instance_type = selector.select_instance_type()
             selected_schema_space = selector.select_schema_space(
                 include_global=True, message="In which space is the views with instance properties located?"
             ).space

@@ -164,4 +164,4 @@ CDF_UNIT_SPACE = "cdf_cdm_units"
 # Data Plugin Constants
 DATA_DEFAULT_DIR = "data"
 DATA_RESOURCE_DIR = "resources"
-DATA_METADATA_STEM = "Metadata"
+DATA_MANIFEST_STEM = "Manifest"
