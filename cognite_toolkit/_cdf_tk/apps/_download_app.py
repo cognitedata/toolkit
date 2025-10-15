@@ -7,7 +7,7 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.commands import DownloadCommand
-from cognite_toolkit._cdf_tk.resource_classes import TableYAML
+from cognite_toolkit._cdf_tk.constants import DATA_DEFAULT_DIR
 from cognite_toolkit._cdf_tk.storageio import (
     AssetIO,
     RawIO,
@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     AssetSubtreeSelector,
     DataSetSelector,
     RawTableSelector,
+    SelectedTable,
 )
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
@@ -39,6 +40,9 @@ class AssetCentricFormats(str, Enum):
 class CompressionFormat(str, Enum):
     gzip = "gzip"
     none = "none"
+
+
+DEFAULT_DOWNLOAD_DIR = Path(DATA_DEFAULT_DIR)
 
 
 class DownloadApp(typer.Typer):
@@ -96,7 +100,7 @@ class DownloadApp(typer.Typer):
                 help="Where to download the raw tables.",
                 allow_dash=True,
             ),
-        ] = Path("tmp"),
+        ] = DEFAULT_DOWNLOAD_DIR,
         limit: Annotated[
             int,
             typer.Option(
@@ -133,7 +137,7 @@ class DownloadApp(typer.Typer):
         cmd.run(
             lambda: cmd.download(
                 selectors=[
-                    RawTableSelector(table=TableYAML(db_name=item.db_name, table_name=item.table_name))
+                    RawTableSelector(table=SelectedTable(db_name=item.db_name, table_name=item.table_name))
                     for item in selectors
                 ],
                 io=RawIO(client),
@@ -188,7 +192,7 @@ class DownloadApp(typer.Typer):
                 help="Where to download the assets.",
                 allow_dash=True,
             ),
-        ] = Path("tmp"),
+        ] = DEFAULT_DOWNLOAD_DIR,
         limit: Annotated[
             int,
             typer.Option(
