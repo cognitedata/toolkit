@@ -1,6 +1,6 @@
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 from unittest.mock import MagicMock
 
 import pytest
@@ -621,7 +621,21 @@ class TestDataModelingInteractiveSelect:
         is_global=False,
     )
 
-    def test_select_view(self, monkeypatch) -> None:
+    @pytest.mark.parametrize(
+        "multiselect, space, expected",
+        [
+            pytest.param(False, None, "view2", id="Single view, select space"),
+            pytest.param(True, None, {"view1", "view3"}, id="Multiple views, select space"),
+            pytest.param(False, "space1", "view3", id="Single view, given space"),
+            pytest.param(True, "space1", {"view4"}, id="Multiple views, given space"),
+        ],
+    )
+    def test_select_view(
+        self, multiselect: bool, space: str | None, expected: str | set[str], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        assert (multiselect and isinstance(expected, set)) or (not multiselect and isinstance(expected, str)), (
+            "Test data error: expected type does not match multiselect mode"
+        )
         spaces = [
             Space(space="space1", **self.DEFAULT_SPACE_ARGS),
             Space(space="space2", **self.DEFAULT_SPACE_ARGS),
@@ -629,21 +643,35 @@ class TestDataModelingInteractiveSelect:
         views = [
             View(space="space1", external_id="view1", version="1", **self.DEFAULT_VIEW_ARGS),
             View(space="space1", external_id="view2", version="1", **self.DEFAULT_VIEW_ARGS),
+            View(space="space1", external_id="view3", version="1", **self.DEFAULT_VIEW_ARGS),
+            View(space="space1", external_id="view4", version="1", **self.DEFAULT_VIEW_ARGS),
         ]
         space_stats = SpaceStatisticsList([SpaceStatistics(space.space, 0, 1, 0, 0, 0, 0, 0) for space in spaces])
+        answers: list[Any] = []
+        if space is None:
+            answers.append(spaces[0])
+        if multiselect:
+            answers.append([view for view in views if view.external_id in expected])
+        else:
+            answers.append(next(view for view in views if view.external_id == expected))
 
-        answers = [spaces[0], views[1]]
         with (
             monkeypatch_toolkit_client() as client,
             MockQuestionary(DataModelingSelect.__module__, monkeypatch, answers),
         ):
-            client.data_modeling.spaces.list.return_value = SpaceList(spaces)
+            if space is None:
+                client.data_modeling.spaces.list.return_value = SpaceList(spaces)
             client.data_modeling.views.list.return_value = ViewList(views)
             client.data_modeling.statistics.spaces.list.return_value = space_stats
-            selector = DataModelingSelect(client, "test_operation")
-            selected_view = selector.select_view()
 
-        assert selected_view.external_id == "view2"
+            selector = DataModelingSelect(client, "test_operation")
+            selected_view = selector.select_view(multiselect=multiselect, space=space)
+        if multiselect:
+            assert isinstance(selected_view, ViewList)
+            assert {view.external_id for view in selected_view} == expected
+        else:
+            assert isinstance(selected_view, View)
+            assert selected_view.external_id == expected
 
     def test_select_no_schema_space_found(self, monkeypatch) -> None:
         space = Space(space="space1", **self.DEFAULT_SPACE_ARGS)
