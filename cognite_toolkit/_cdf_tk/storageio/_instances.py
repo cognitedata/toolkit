@@ -3,11 +3,20 @@ from types import MappingProxyType
 from typing import ClassVar
 
 from cognite.client.data_classes.aggregations import Count
-from cognite.client.data_classes.data_modeling import Edge, EdgeApply, Node, NodeApply
+from cognite.client.data_classes.data_modeling import (
+    ContainerList,
+    Edge,
+    EdgeApply,
+    Node,
+    NodeApply,
+    SpaceList,
+    ViewList,
+)
 from cognite.client.utils._identifier import InstanceId
 
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList, InstanceList
 from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, SpaceCRUD, ViewCRUD
+from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
@@ -117,29 +126,41 @@ class InstanceIO(ConfigurableStorageIO[InstanceId, InstanceSelector, InstanceApp
         if not spaces:
             return
         retrieved_spaces = SpaceCRUD.create_loader(self.client).retrieve(spaces)
+        retrieved_spaces = SpaceList([space for space in retrieved_spaces if not space.is_global])
         if not retrieved_spaces:
             return
-        yield StorageIOConfig(
-            kind=SpaceCRUD.kind,
-            folder_name=SpaceCRUD.folder_name,
-            value=retrieved_spaces.dump(camel_case=True),  # type: ignore[arg-type]
-        )
+        for space in retrieved_spaces:
+            yield StorageIOConfig(
+                kind=SpaceCRUD.kind,
+                folder_name=SpaceCRUD.folder_name,
+                value=space.as_write().dump(camel_case=True),
+                filename=sanitize_filename(space.space),
+            )
         if not selector.view:
             return
         view_id = selector.view.as_id()
-        view = ViewCRUD.create_loader(client=self.client).retrieve([view_id])
-        if not view:
+        views = ViewCRUD.create_loader(client=self.client).retrieve([view_id])
+        views = ViewList([view for view in views if not view.is_global])
+        if not views:
             return
-        yield StorageIOConfig(
-            kind=ViewCRUD.kind,
-            folder_name=ViewCRUD.folder_name,
-            value=view.dump(camel_case=True),  # type: ignore[arg-type]
-        )
-        container_ids = list({c for v in view for c in v.referenced_containers() or []})
+        for view in views:
+            yield StorageIOConfig(
+                kind=ViewCRUD.kind,
+                folder_name=ViewCRUD.folder_name,
+                value=view.as_write().dump(camel_case=True),
+                filename=sanitize_filename(f"{view.space}_{view.external_id}_{view.version}"),
+            )
+        container_ids = list({container for view in views for container in view.referenced_containers() or []})
         if not container_ids:
             return
-        yield StorageIOConfig(
-            kind=ContainerCRUD.kind,
-            folder_name=ContainerCRUD.folder_name,
-            value=ContainerCRUD.create_loader(self.client).retrieve(container_ids).dump(camel_case=True),  # type: ignore[arg-type]
-        )
+        containers = ContainerCRUD.create_loader(self.client).retrieve(container_ids)
+        containers = ContainerList([container for container in containers if not container.is_global])
+        if not containers:
+            return
+        for container in containers:
+            yield StorageIOConfig(
+                kind=ContainerCRUD.kind,
+                folder_name=ContainerCRUD.folder_name,
+                value=container.as_write().dump(camel_case=True),
+                filename=sanitize_filename(f"{container.space}_{container.external_id}"),
+            )
