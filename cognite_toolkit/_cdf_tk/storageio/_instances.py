@@ -143,7 +143,8 @@ class InstanceIO(ConfigurableStorageIO[InstanceId, InstanceSelector, InstanceApp
         spaces = list(set((selector.get_instance_spaces() or []) + (selector.get_schema_spaces() or [])))
         if not spaces:
             return
-        retrieved_spaces = SpaceCRUD.create_loader(self.client).retrieve(spaces)
+        space_crud = SpaceCRUD.create_loader(self.client)
+        retrieved_spaces = space_crud.retrieve(spaces)
         retrieved_spaces = SpaceList([space for space in retrieved_spaces if not space.is_global])
         if not retrieved_spaces:
             return
@@ -151,13 +152,14 @@ class InstanceIO(ConfigurableStorageIO[InstanceId, InstanceSelector, InstanceApp
             yield StorageIOConfig(
                 kind=SpaceCRUD.kind,
                 folder_name=SpaceCRUD.folder_name,
-                value=space.as_write().dump(camel_case=True),
+                value=space_crud.dump_resource(space),
                 filename=sanitize_filename(space.space),
             )
         if not selector.view:
             return
         view_id = selector.view.as_id()
-        views = ViewCRUD.create_loader(client=self.client).retrieve([view_id])
+        view_crud = ViewCRUD(self.client, None, None, topological_sort_implements=True)
+        views = view_crud.retrieve([view_id])
         views = ViewList([view for view in views if not view.is_global])
         if not views:
             return
@@ -168,13 +170,14 @@ class InstanceIO(ConfigurableStorageIO[InstanceId, InstanceSelector, InstanceApp
             yield StorageIOConfig(
                 kind=ViewCRUD.kind,
                 folder_name=ViewCRUD.folder_name,
-                value=view.as_write().dump(camel_case=True),
+                value=view_crud.dump_resource(view),
                 filename=sanitize_filename(filename),
             )
         container_ids = list({container for view in views for container in view.referenced_containers() or []})
         if not container_ids:
             return
-        containers = ContainerCRUD.create_loader(self.client).retrieve(container_ids)
+        container_crud = ContainerCRUD.create_loader(self.client)
+        containers = container_crud.retrieve(container_ids)
         containers = ContainerList([container for container in containers if not container.is_global])
         if not containers:
             return
@@ -182,6 +185,6 @@ class InstanceIO(ConfigurableStorageIO[InstanceId, InstanceSelector, InstanceApp
             yield StorageIOConfig(
                 kind=ContainerCRUD.kind,
                 folder_name=ContainerCRUD.folder_name,
-                value=container.as_write().dump(camel_case=True),
+                value=container_crud.dump_resource(container),
                 filename=sanitize_filename(f"{container.space}_{container.external_id}"),
             )
