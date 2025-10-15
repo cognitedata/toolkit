@@ -95,4 +95,15 @@ class InstanceIO(StorageIO[InstanceId, InstanceSelector, InstanceApplyList, Inst
         raise NotImplementedError()
 
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> InstanceApplyList:
-        return InstanceApplyList._load(data_chunk)
+        # There is a bug in the SDK where InstanceApply._load turns all keys to snake_case.
+        # So we cannot use InstanceApplyList._load here.
+        output = InstanceApplyList([])
+        for item in data_chunk:
+            instance_type = item.get("instanceType")
+            if instance_type == "node":
+                output.append(NodeApply._load(item, cognite_client=self.client))
+            elif instance_type == "edge":
+                output.append(EdgeApply._load(item, cognite_client=self.client))
+            else:
+                raise ValueError(f"Unknown instance type {instance_type!r}")
+        return output
