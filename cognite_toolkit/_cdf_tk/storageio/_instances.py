@@ -7,15 +7,17 @@ from cognite.client.data_classes.data_modeling import Edge, EdgeApply, Node, Nod
 from cognite.client.utils._identifier import InstanceId
 
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList, InstanceList
+from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, SpaceCRUD, ViewCRUD
 from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import StorageIO
+from . import StorageIOConfig
+from ._base import ConfigurableStorageIO
 from .selectors import InstanceFileSelector, InstanceSelector, InstanceSpaceSelector, InstanceViewSelector
 
 
-class InstanceIO(StorageIO[InstanceId, InstanceSelector, InstanceApplyList, InstanceList]):
+class InstanceIO(ConfigurableStorageIO[InstanceId, InstanceSelector, InstanceApplyList, InstanceList]):
     FOLDER_NAME = "instances"
     KIND = "Instances"
     DISPLAY_NAME = "Instances"
@@ -107,3 +109,32 @@ class InstanceIO(StorageIO[InstanceId, InstanceSelector, InstanceApplyList, Inst
             else:
                 raise ValueError(f"Unknown instance type {instance_type!r}")
         return output
+
+    def configurations(self, selector: InstanceSelector) -> Iterable[StorageIOConfig]:
+        if not isinstance(selector, InstanceViewSelector | InstanceSpaceSelector):
+            return
+        spaces = (selector.get_instance_spaces() or []) + (selector.get_schema_spaces() or [])
+        yield StorageIOConfig(
+            kind=SpaceCRUD.kind,
+            folder_name=SpaceCRUD.folder_name,
+            value=SpaceCRUD.create_loader(self.client).retrieve(spaces).dump(),  # type: ignore[arg-type]
+        )
+        if not selector.view:
+            return
+        view_id = selector.view.as_id()
+        view = ViewCRUD.create_loader(client=self.client).retrieve([view_id])
+        if not view:
+            return
+        yield StorageIOConfig(
+            kind=ViewCRUD.kind,
+            folder_name=ViewCRUD.folder_name,
+            value=view.dump(camel_case=True),  # type: ignore[arg-type]
+        )
+        container_ids = list({c for v in view for c in v.referenced_containers() or []})
+        if not container_ids:
+            return
+        yield StorageIOConfig(
+            kind=ContainerCRUD.kind,
+            folder_name=ContainerCRUD.folder_name,
+            value=ContainerCRUD.create_loader(self.client).retrieve(container_ids).dump(camel_case=True),  # type: ignore[arg-type]
+        )
