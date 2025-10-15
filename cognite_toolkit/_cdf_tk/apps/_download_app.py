@@ -347,6 +347,8 @@ class DownloadApp(typer.Typer):
                 multiselect=True,
                 space=selected_schema_space,
                 message="Select views to download instance properties from.",
+                include_global=True,
+                instance_type=selected_instance_type,
             )
             selectors: list[InstanceSpaceSelector] = [
                 InstanceSpaceSelector(
