@@ -14,6 +14,7 @@ from cognite.client.data_classes.data_modeling import (
 )
 from cognite.client.utils._identifier import InstanceId
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList, InstanceList
 from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, SpaceCRUD, ViewCRUD
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
@@ -27,6 +28,17 @@ from .selectors import InstanceFileSelector, InstanceSelector, InstanceSpaceSele
 
 
 class InstanceIO(ConfigurableStorageIO[InstanceId, InstanceSelector, InstanceApplyList, InstanceList]):
+    """This class provides functionality to interact with instances in Cognite Data Fusion (CDF).
+
+    It is used to download, upload, and purge instances, as well as spaces,views, and containers related to instances.
+
+    Args:
+        client (ToolkitClient): An instance of ToolkitClient to interact with the CDF API.
+        remove_existing_version (bool): Whether to remove existing versions of instances during upload.
+            Default is True. Existing versions are used to safeguard against accidental overwrites.
+
+    """
+
     FOLDER_NAME = "instances"
     KIND = "Instances"
     DISPLAY_NAME = "Instances"
@@ -37,6 +49,10 @@ class InstanceIO(ConfigurableStorageIO[InstanceId, InstanceSelector, InstanceApp
     UPLOAD_ENDPOINT = "/models/instances"
     UPLOAD_EXTRA_ARGS: ClassVar[Mapping[str, JsonVal] | None] = MappingProxyType({"autoCreateDirectRelations": True})
     BASE_SELECTOR = InstanceSelector
+
+    def __init__(self, client: ToolkitClient, remove_existing_version: bool = True) -> None:
+        super().__init__(client)
+        self._remove_existing_version = remove_existing_version
 
     def as_id(self, item: dict[str, JsonVal] | object) -> InstanceId:
         if isinstance(item, dict) and isinstance(item.get("space"), str) and isinstance(item.get("externalId"), str):
@@ -111,6 +127,8 @@ class InstanceIO(ConfigurableStorageIO[InstanceId, InstanceSelector, InstanceApp
         output = InstanceApplyList([])
         for item in data_chunk:
             instance_type = item.get("instanceType")
+            if self._remove_existing_version and "existingVersion" in item:
+                del item["existingVersion"]
             if instance_type == "node":
                 output.append(NodeApply._load(item, cognite_client=self.client))
             elif instance_type == "edge":
