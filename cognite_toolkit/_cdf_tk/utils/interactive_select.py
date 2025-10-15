@@ -529,6 +529,24 @@ class DataModelingSelect:
         space: str | None = None,
         message: str | None = None,
     ) -> View | ViewList:
+        """Select one or more views interactively.
+
+        Args:
+            multiselect: Whether to allow selecting multiple views.
+            include_global: Whether to include global views in the selection.
+            space: The space to select views from. If None, the user will be prompted to
+                select a space.
+            message: The message to display when prompting for a view. If None, a default message
+                will be used.
+
+        Returns:
+            The selected view(s).
+
+        Raises:
+            ToolkitValueError: If no view(s) are selected or if the selected view(s) are not valid.
+            ToolkitMissingResourceError: If no views are found in the selected space.
+
+        """
         selected_space = (
             space
             or self.select_schema_space(
@@ -586,6 +604,15 @@ class DataModelingSelect:
     def select_instance_type(
         self, view_used_for: Literal["node", "edge", "all"] | None = None
     ) -> Literal["node", "edge"]:
+        """Selects an instance type (node or edge) interactively.
+
+        Args:
+            view_used_for: If 'node' or 'edge', that type is returned directly.
+                           If 'all' or None, the user is prompted to select.
+
+        Returns:
+            The selected instance type, either 'node' or 'edge'.
+        """
         if view_used_for is not None and view_used_for != "all":
             return view_used_for
         selected_instance_type = questionary.select(
