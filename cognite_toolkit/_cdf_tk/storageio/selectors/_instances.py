@@ -3,13 +3,39 @@ from functools import cached_property
 from pathlib import Path
 from typing import Literal
 
-from cognite.client.data_classes.data_modeling import EdgeId, NodeId
+from cognite.client.data_classes.data_modeling import EdgeId, NodeId, ViewId
 from cognite.client.utils._identifier import InstanceId
+from pydantic import Field
 
-from cognite_toolkit._cdf_tk.resource_classes.views import ViewReference
+from cognite_toolkit._cdf_tk.constants import DM_EXTERNAL_ID_PATTERN, DM_VERSION_PATTERN, SPACE_FORMAT_PATTERN
+from cognite_toolkit._cdf_tk.resource_classes.view_field_definitions import ViewReference
 from cognite_toolkit._cdf_tk.storageio._data_classes import InstanceIdCSVList
 
-from ._base import DataSelector
+from ._base import DataSelector, SelectorObject
+
+
+class SelectedView(SelectorObject):
+    space: str = Field(
+        description="Id of the space that the view belongs to.",
+        min_length=1,
+        max_length=43,
+        pattern=SPACE_FORMAT_PATTERN,
+    )
+    external_id: str = Field(
+        description="External-id of the view.",
+        min_length=1,
+        max_length=255,
+        pattern=DM_EXTERNAL_ID_PATTERN,
+    )
+    version: str | None = Field(
+        None,
+        description="Version of the view.",
+        max_length=43,
+        pattern=DM_VERSION_PATTERN,
+    )
+
+    def as_id(self) -> ViewId:
+        return ViewId(space=self.space, external_id=self.external_id, version=self.version)
 
 
 class InstanceSelector(DataSelector, ABC):
@@ -20,6 +46,28 @@ class InstanceSelector(DataSelector, ABC):
     @abstractmethod
     def get_instance_spaces(self) -> list[str] | None:
         raise NotImplementedError()
+
+
+class InstanceSpaceSelector(InstanceSelector):
+    type: Literal["instanceSpace"] = "instanceSpace"
+    instance_space: str
+    instance_type: Literal["node", "edge"] = "node"
+    view_id: SelectedView | None = None
+
+    def get_schema_spaces(self) -> list[str] | None:
+        return [self.view_id.space] if self.view_id else None
+
+    def get_instance_spaces(self) -> list[str] | None:
+        return [self.instance_space]
+
+    @property
+    def group(self) -> str:
+        return self.instance_space
+
+    def __str__(self) -> str:
+        if self.view_id is None:
+            return self.instance_type
+        return f"{self.view_id}_{self.instance_type}"
 
 
 class InstanceViewSelector(InstanceSelector):
