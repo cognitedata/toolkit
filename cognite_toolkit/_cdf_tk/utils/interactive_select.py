@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from functools import cached_property, lru_cache, partial
-from typing import ClassVar, Literal, TypeVar, get_args, overload
+from typing import ClassVar, Literal, TypeVar, cast, get_args, overload
 
 import questionary
 from cognite.client.data_classes import (
@@ -549,8 +549,10 @@ class DataModelingSelect:
             raise ToolkitValueError(f"Selected space is not a valid Space object: {selected_space!r}")
         return selected_space
 
-    def select_instance_type(self, view_used_for: Literal["node", "edge", "all"]) -> Literal["node", "edge"]:
-        if view_used_for != "all":
+    def select_instance_type(
+        self, view_used_for: Literal["node", "edge", "all"] | None = None
+    ) -> Literal["node", "edge"]:
+        if view_used_for is not None and view_used_for != "all":
             return view_used_for
         selected_instance_type = questionary.select(
             f"What type of instances do you want to {self.operation}?",
@@ -561,9 +563,8 @@ class DataModelingSelect:
         ).ask()
         if selected_instance_type is None:
             raise ToolkitValueError("No instance type selected")
-        if selected_instance_type not in ["node", "edge"]:
-            raise ToolkitValueError(f"Selected instance type is not valid: {selected_instance_type!r}")
-        return selected_instance_type
+        # We validated the input above, so we can safely cast here
+        return cast(Literal["node", "edge"], selected_instance_type)
 
     def select_space_type(self) -> Literal["instance", "schema", "empty"]:
         selected_space_type = questionary.select(
