@@ -4,7 +4,7 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
-from cognite_toolkit._cdf_tk.constants import DATA_METADATA_STEM
+from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM
 from cognite_toolkit._cdf_tk.utils.file import safe_write, sanitize_filename, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
@@ -35,7 +35,7 @@ class DataSelector(SelectorObject, ABC):
             directory: The directory where the YAML file will be saved.
         """
 
-        filepath = directory / f"{sanitize_filename(str(self))}.{DATA_METADATA_STEM}.yaml"
+        filepath = directory / f"{sanitize_filename(str(self))}.{DATA_MANIFEST_STEM}.yaml"
         filepath.parent.mkdir(parents=True, exist_ok=True)
         safe_write(file=filepath, content=yaml_safe_dump(self.model_dump(mode="json", by_alias=True)), encoding="utf-8")
         return filepath

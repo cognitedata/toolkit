@@ -7,7 +7,7 @@ from pydantic import ValidationError
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.constants import DATA_METADATA_STEM, DATA_RESOURCE_DIR
+from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.storageio import StorageIO, T_Selector, are_same_kind, get_storage_io
 from cognite_toolkit._cdf_tk.storageio.selectors import Selector, SelectorAdapter
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
@@ -88,7 +88,7 @@ class UploadCommand(ToolkitCommand):
         kind: str | None = None,
     ) -> dict[Selector, list[Path]]:
         """Finds data files and their corresponding metadata files in the input directory."""
-        metadata_file_endswith = f".{DATA_METADATA_STEM}.yaml"
+        metadata_file_endswith = f".{DATA_MANIFEST_STEM}.yaml"
         data_files_by_metadata: dict[Selector, list[Path]] = {}
         for metadata_file in input_dir.glob(f"*{metadata_file_endswith}"):
             data_file_prefix = metadata_file.name.removesuffix(metadata_file_endswith)

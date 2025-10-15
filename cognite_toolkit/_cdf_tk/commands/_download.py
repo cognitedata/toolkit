@@ -5,7 +5,7 @@ from pathlib import Path
 from cognite.client.data_classes._base import T_CogniteResourceList
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk.constants import DATA_METADATA_STEM, DATA_RESOURCE_DIR
+from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio import ConfigurableStorageIO, StorageIO, T_Selector, TableStorageIO
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
@@ -116,7 +116,7 @@ class DownloadCommand(ToolkitCommand):
             return True
 
         # Check for single files (e.g. yaml) and exclude the metadata file.
-        metadata_file_name = f"{filestem}.{DATA_METADATA_STEM}.yaml"
+        metadata_file_name = f"{filestem}.{DATA_MANIFEST_STEM}.yaml"
         for f in output_dir.glob(f"{filestem}.*"):
             if f.name != metadata_file_name:
                 return True
