@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import httpx
 import pytest
@@ -8,9 +9,11 @@ from cognite.client.data_classes.data_modeling import EdgeApply, NodeApply
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList
+from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
 from cognite_toolkit._cdf_tk.resource_classes.views import ViewReference
 from cognite_toolkit._cdf_tk.storageio import InstanceIO
-from cognite_toolkit._cdf_tk.storageio.selectors import InstanceViewSelector
+from cognite_toolkit._cdf_tk.storageio.selectors import InstanceViewSelector, AssetSubtreeSelector, InstanceSpaceSelector
 from cognite_toolkit._cdf_tk.utils.http_client import FailedItem, HTTPClient, SuccessItem
 
 
@@ -123,3 +126,53 @@ class TestInstanceIO:
             assert len(failed_items) == instance_count // 2
             success_items = [res for res in results if isinstance(res, SuccessItem)]
             assert len(success_items) == instance_count // 2
+
+    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
+    def test_download_upload_command(
+        self,
+        tmp_path: Path,
+        toolkit_config: ToolkitClientConfig,
+        respx_mock: respx.MockRouter,
+        rsps: responses.RequestsMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        config = toolkit_config
+        client = ToolkitClient(config)
+        monkeypatch.setenv("CDF_CLUSTER", config.cdf_cluster)
+        monkeypatch.setenv("CDF_PROJECT", config.project)
+
+        def instance_create_callback(request: httpx.Request) -> httpx.Response:
+            payload = json.loads(request.content)
+            assert "items" in payload
+            items = payload["items"]
+            assert isinstance(items, list)
+            assert items == [asset.as_write().dump() for asset in some_asset_data]
+            return httpx.Response(status_code=200, json={"items": some_asset_data.dump()})
+
+        respx_mock.post(config.create_api_url(InstanceIO.UPLOAD_ENDPOINT)).mock(side_effect=instance_create_callback)
+
+        selector = InstanceSpaceSelector(instance_space="my_insta_space", instance_type="node")
+
+        download_command = DownloadCommand(silent=True, skip_tracking=True)
+        upload_command = UploadCommand(silent=True, skip_tracking=True)
+
+        download_command.download(
+            selectors=[selector],
+            io=InstanceIO(client),
+            output_dir=tmp_path,
+            verbose=False,
+            file_format=".ndjson",
+            compression="none",
+            limit=100,
+        )
+
+        upload_command.upload(
+            input_dir=tmp_path / selector.group,
+            client=client,
+            deploy_resources=True,
+            dry_run=False,
+            verbose=False,
+            kind=InstanceIO.KIND,
+        )
+
+        assert len(respx_mock.calls) == 1

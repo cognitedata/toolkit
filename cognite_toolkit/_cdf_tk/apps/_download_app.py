@@ -349,7 +349,7 @@ class DownloadApp(typer.Typer):
             selectors: list[InstanceSpaceSelector] = [
                 InstanceSpaceSelector(
                     instance_space=selected_instance_space,
-                    view_id=SelectedView(
+                    view=SelectedView(
                         space=selected_schema_space,
                         external_id=view.external_id,
                         version=view.version,
@@ -368,7 +368,7 @@ class DownloadApp(typer.Typer):
             selectors = [
                 InstanceSpaceSelector(
                     instance_space=instance_space,
-                    view_id=SelectedView(
+                    view=SelectedView(
                         space=schema_space,
                         external_id=view_id_str.split("/", maxsplit=1)[0],
                         version=view_id_str.split("/", maxsplit=1)[1] if "/" in view_id_str else None,

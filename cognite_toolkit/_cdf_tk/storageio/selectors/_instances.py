@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from functools import cached_property
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Any
 
 from cognite.client.data_classes.data_modeling import EdgeId, NodeId, ViewId
 from cognite.client.utils._identifier import InstanceId
@@ -52,10 +52,10 @@ class InstanceSpaceSelector(InstanceSelector):
     type: Literal["instanceSpace"] = "instanceSpace"
     instance_space: str
     instance_type: Literal["node", "edge"] = "node"
-    view_id: SelectedView | None = None
+    view: SelectedView | None = None
 
     def get_schema_spaces(self) -> list[str] | None:
-        return [self.view_id.space] if self.view_id else None
+        return [self.view.space] if self.view else None
 
     def get_instance_spaces(self) -> list[str] | None:
         return [self.instance_space]
@@ -65,14 +65,22 @@ class InstanceSpaceSelector(InstanceSelector):
         return self.instance_space
 
     def __str__(self) -> str:
-        if self.view_id is None:
+        if self.view is None:
             return self.instance_type
-        return f"{self.view_id}_{self.instance_type}"
+        return f"{self.view}_{self.instance_type}"
 
+    def as_filter_args(self) -> dict[str, Any]:
+        args: dict[str, Any] = {
+            "instance_type": self.instance_type,
+            "space": self.instance_space,
+        }
+        if self.view:
+            args["source"] = self.view.as_id()
+        return args
 
 class InstanceViewSelector(InstanceSelector):
     type: Literal["instanceView"] = "instanceView"
-    view: ViewReference
+    view: SelectedView
     instance_type: Literal["node", "edge"] = "node"
     instance_spaces: tuple[str, ...] | None = None
 
@@ -88,6 +96,15 @@ class InstanceViewSelector(InstanceSelector):
 
     def __str__(self) -> str:
         return f"{self.view.external_id}_{self.view.version}_{self.instance_type}"
+
+    def as_filter_args(self) -> dict[str, Any]:
+        args: dict[str, Any] = {
+            "instance_type": self.instance_type,
+            "source": self.view.as_id(),
+        }
+        if self.instance_spaces:
+            args["space"] = list(self.instance_spaces)
+        return args
 
 
 class InstanceFileSelector(InstanceSelector):

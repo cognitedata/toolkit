@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import StorageIO
-from .selectors import InstanceFileSelector, InstanceSelector, InstanceViewSelector
+from .selectors import InstanceFileSelector, InstanceSelector, InstanceViewSelector, InstanceSpaceSelector
 
 
 class InstanceIO(StorageIO[InstanceId, InstanceSelector, InstanceApplyList, InstanceList]):
@@ -38,14 +38,12 @@ class InstanceIO(StorageIO[InstanceId, InstanceSelector, InstanceApplyList, Inst
         raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
 
     def stream_data(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[InstanceList]:
-        if isinstance(selector, InstanceViewSelector):
+        if isinstance(selector, InstanceViewSelector | InstanceSpaceSelector):
             chunk = InstanceList([])
             total = 0
             for instance in iterate_instances(
                 client=self.client,
-                source=ViewId(selector.view.space, selector.view.external_id, selector.view.version),
-                instance_type=selector.instance_type,
-                space=list(selector.instance_spaces) if selector.instance_spaces else None,
+                **selector.as_filter_args()
             ):
                 if limit is not None and total >= limit:
                     break
@@ -74,12 +72,19 @@ class InstanceIO(StorageIO[InstanceId, InstanceSelector, InstanceApplyList, Inst
             yield from ([instance.as_id() for instance in chunk] for chunk in self.stream_data(selector, limit))  # type: ignore[attr-defined]
 
     def count(self, selector: InstanceSelector) -> int | None:
-        if isinstance(selector, InstanceViewSelector):
+        if isinstance(selector, InstanceViewSelector) or (isinstance(selector, InstanceSpaceSelector) and selector.view is not None):
             result = self.client.data_modeling.instances.aggregate(
-                view=ViewId(selector.view.space, selector.view.external_id, selector.view.version),
+                view=selector.view.as_id(),
                 aggregates=Count("externalId"),
                 instance_type=selector.instance_type,
                 space=list(selector.instance_spaces) if selector.instance_spaces else None,
+            )
+            return int(result.value or 0)
+        elif isinstance(selector, InstanceSpaceSelector):
+            result = self.client.data_modeling.instances.aggregate(
+                instance_type=selector.instance_type,
+                space=selector.instance_space,
+                aggregates=Count("externalId"),
             )
             return int(result.value or 0)
         elif isinstance(selector, InstanceFileSelector):
