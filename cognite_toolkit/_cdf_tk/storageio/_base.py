@@ -21,6 +21,7 @@ class StorageIOConfig:
     kind: str
     folder_name: str
     value: JsonVal
+    filename: str | None = None
 
 
 T_Selector = TypeVar("T_Selector", bound=DataSelector)
