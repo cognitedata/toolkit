@@ -1,5 +1,6 @@
 from collections.abc import Mapping
 from datetime import datetime
+from typing import Literal
 from unittest.mock import MagicMock
 
 import pytest
@@ -660,16 +661,25 @@ class TestDataModelingInteractiveSelect:
                 selector.select_view()
             assert str(exc_info.value) == "No spaces with schema (containers, views, or data models) found."
 
-    def test_select_instance_type(self, monkeypatch) -> None:
-        answers = ["node"]  # Direct string answer
+    @pytest.mark.parametrize(
+        "answer, input",
+        [
+            pytest.param("node", "all", id="View Used for all selecting node"),
+            pytest.param("edge", None, id="Selecting instance type without view"),
+        ],
+    )
+    def test_select_instance_type(
+        self, answer: str, input: Literal["node", "edge", "all"] | None, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        answers = [answer]  # Direct string answer
         with (
             monkeypatch_toolkit_client() as client,
             MockQuestionary(DataModelingSelect.__module__, monkeypatch, answers),
         ):
             selector = DataModelingSelect(client, "test_operation")
-            instance_type = selector.select_instance_type("all")
+            instance_type = selector.select_instance_type(input)
 
-        assert instance_type == "node"
+        assert instance_type == answer
 
     def test_select_single_schema_space(self, monkeypatch) -> None:
         spaces = [
