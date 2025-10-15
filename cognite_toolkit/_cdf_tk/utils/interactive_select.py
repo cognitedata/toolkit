@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from functools import cached_property, lru_cache, partial
-from typing import ClassVar, Literal, TypeVar, cast, get_args, overload
+from typing import ClassVar, Literal, TypeVar, get_args, overload
 
 import questionary
 from cognite.client.data_classes import (
@@ -554,8 +554,12 @@ class DataModelingSelect:
         if selected_views is None:
             raise ToolkitValueError("No view(s) selected")
         if multiselect:
+            if not isinstance(selected_views, list) or not all(isinstance(v, View) for v in selected_views):
+                raise ToolkitValueError(f"Selected views is not a valid list of View objects: {selected_views!r}")
             return ViewList(selected_views)
         else:
+            if not isinstance(selected_views, View):
+                raise ToolkitValueError(f"Selected view is not a valid View object: {selected_views!r}")
             return selected_views
 
     def select_schema_space(self, include_global: bool, message: str | None = None) -> Space:
@@ -593,8 +597,9 @@ class DataModelingSelect:
         ).ask()
         if selected_instance_type is None:
             raise ToolkitValueError("No instance type selected")
-        # We validated the input above, so we can safely cast here
-        return cast(Literal["node", "edge"], selected_instance_type)
+        if selected_instance_type not in ("node", "edge"):
+            raise ToolkitValueError(f"Selected instance type is not valid: {selected_instance_type!r}")
+        return selected_instance_type
 
     def select_space_type(self) -> Literal["instance", "schema", "empty"]:
         selected_space_type = questionary.select(
