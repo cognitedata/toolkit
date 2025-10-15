@@ -1,13 +1,9 @@
 from collections.abc import Iterable, Sequence
-from pathlib import Path
 
 from cognite.client.data_classes import Row, RowList, RowWrite, RowWriteList
-from rich.console import Console
 
-from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawDatabaseList, RawTable, RawTableList
-from cognite_toolkit._cdf_tk.cruds import RawDatabaseCRUD, RawTableCRUD
+from cognite_toolkit._cdf_tk.cruds import RawTableCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.utils.file import find_adjacent_files, read_yaml_file
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
@@ -76,28 +72,3 @@ class RawIO(ConfigurableStorageIO[str, RawTableSelector, RowWriteList, RowList])
         yield StorageIOConfig(
             kind=RawTableCRUD.kind, folder_name=RawTableCRUD.folder_name, value=selector.table.model_dump(by_alias=True)
         )
-
-    def load_selector(self, datafile: Path) -> RawTableSelector:
-        config_files = find_adjacent_files(datafile, suffix=f".{RawTableCRUD.kind}.yaml")
-        if not config_files:
-            raise ToolkitValueError(f"No configuration file found for {datafile.as_posix()!r}")
-        if len(config_files) > 1:
-            raise ToolkitValueError(f"Multiple configuration files found for {datafile.as_posix()!r}: {config_files}")
-        config_file = config_files[0]
-        return RawTableSelector.model_validate({"table": read_yaml_file(config_file, expected_output="dict")})
-
-    def ensure_configurations(self, selector: RawTableSelector, console: Console | None = None) -> None:
-        """Ensure that the Raw table exists in CDF."""
-        db_loader = RawDatabaseCRUD.create_loader(self.client, console=console)
-        db = RawDatabase(db_name=selector.table.db_name)
-        if not db_loader.retrieve([db]):
-            db_loader.create(RawDatabaseList([db]))
-            if console:
-                console.print(f"Created raw database: [bold]{db.db_name}[/bold]")
-
-        table_loader = RawTableCRUD.create_loader(self.client, console=console)
-        table_id = RawTable(db_name=selector.table.db_name, table_name=selector.table.table_name)
-        if not table_loader.retrieve([table_id]):
-            table_loader.create(RawTableList([table_id]))
-            if console:
-                console.print(f"Created raw table: [bold]{selector.table.db_name}.{selector.table.table_name}[/bold]")

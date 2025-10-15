@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Iterable, MutableSequence, Sequence
-from pathlib import Path
 from typing import ClassVar, Generic
 
 from cognite.client.data_classes import (
@@ -9,7 +8,6 @@ from cognite.client.data_classes import (
     AssetList,
     AssetWrite,
     AssetWriteList,
-    DataSetWriteList,
     Event,
     EventList,
     EventWrite,
@@ -30,8 +28,6 @@ from cognite.client.data_classes._base import (
     T_WritableCogniteResource,
     T_WriteClass,
 )
-from cognite.client.data_classes.labels import LabelDefinitionWriteList
-from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.cruds import (
@@ -52,13 +48,12 @@ from cognite_toolkit._cdf_tk.utils.aggregators import (
     TimeSeriesAggregator,
 )
 from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
-from cognite_toolkit._cdf_tk.utils.file import find_files_with_suffix_and_prefix
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, SimpleBodyRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, AssetCentric, JsonVal, T_WritableCogniteResourceList
 
 from ._base import StorageIOConfig, TableStorageIO
-from .selectors import AssetCentricFileSelector, AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
+from .selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 
 
 class BaseAssetCentricIO(
@@ -161,48 +156,6 @@ class BaseAssetCentricIO(
             # We know that the items will be labels for LabelLoader and data sets for DataSetsLoader
             value=[loader.dump_resource(item) for item in items],  # type: ignore[arg-type]
         )
-
-    def load_selector(self, datafile: Path) -> AssetCentricSelector:
-        return AssetCentricFileSelector(datafile=datafile)
-
-    def ensure_configurations(self, selector: AssetCentricSelector, console: Console | None = None) -> None:
-        """Ensures that all data sets and labels referenced by the asset selection exist in CDF."""
-        if not isinstance(selector, AssetCentricFileSelector):
-            return None
-        datafile = selector.datafile
-        filepaths = find_files_with_suffix_and_prefix(
-            datafile.parent.parent / DataSetsCRUD.folder_name, datafile.name, suffix=f".{DataSetsCRUD.kind}.yaml"
-        )
-        self._create_if_not_exists(filepaths, DataSetsCRUD.create_loader(self.client), console)
-
-        filepaths = find_files_with_suffix_and_prefix(
-            datafile.parent.parent / LabelCRUD.folder_name, datafile.name, suffix=f".{LabelCRUD.kind}.yaml"
-        )
-        self._create_if_not_exists(filepaths, LabelCRUD.create_loader(self.client), console)
-        return None
-
-    @classmethod
-    def _create_if_not_exists(
-        cls,
-        filepaths: list[Path],
-        loader: DataSetsCRUD | LabelCRUD,
-        console: Console | None = None,
-    ) -> None:
-        items: LabelDefinitionWriteList | DataSetWriteList = loader.list_write_cls([])
-        for filepath in filepaths:
-            if not filepath.exists():
-                continue
-            for loaded in loader.load_resource_file(filepath):
-                items.append(loader.load_resource(loaded))
-        # MyPy fails to understand that existing, existing_ids and missing will be consistent for given loader.
-        existing = loader.retrieve(loader.get_ids(items))
-        existing_ids = set(loader.get_ids(existing))
-        if missing := [item for item in items if loader.get_id(item) not in existing_ids]:  # type: ignore[arg-type]
-            loader.create(loader.list_write_cls(missing))  # type: ignore[arg-type]
-            if console:
-                console.print(
-                    f"Created {loader.kind} for {len(missing)} items: {', '.join(str(item) for item in loader.get_ids(missing))}"  # type: ignore[arg-type]
-                )
 
 
 class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetList]):
