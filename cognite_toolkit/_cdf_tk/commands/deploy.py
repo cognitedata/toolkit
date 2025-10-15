@@ -79,6 +79,21 @@ class DeployCommand(ToolkitCommand):
         build = self._load_build(build_dir, build_env_name)
 
         client = env_vars.get_client(build.is_strict_validation)
+
+        self._additional_tracking_info["project"] = client._config.project
+        self._additional_tracking_info["cluster"] = client._config.cdf_cluster
+
+        if not dry_run:
+            for module in build.read_modules:
+                if module.module_id:
+                    deployed_module_ids = self._additional_tracking_info.setdefault("ModuleIds", [])
+                    if module.module_id not in deployed_module_ids:
+                        deployed_module_ids.append(module.module_id)
+                if module.package_id:
+                    deployed_package_ids = self._additional_tracking_info.setdefault("PackageIds", [])
+                    if module.package_id not in deployed_package_ids:
+                        deployed_package_ids.append(module.package_id)
+
         selected_loaders = self._clean_command.get_selected_loaders(build_dir, build.read_resource_folders, include)
         ordered_loaders = self._order_loaders(selected_loaders, build_dir)
         self._start_message(build_dir, dry_run, env_vars)
