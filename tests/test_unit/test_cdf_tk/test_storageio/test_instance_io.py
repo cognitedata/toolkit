@@ -187,6 +187,12 @@ class TestInstanceIO:
             json={"items": some_instance_data.dump()},
             status=200,
         )
+        # Space
+        rsps.post(
+            config.create_api_url("/models/spaces/byids"),
+            json={"items": [{"space": "my_insta_space", "createdTime": 0, "lastUpdatedTime": 0, "isGlobal": False}]},
+            status=200,
+        )
         # Upload data
         respx_mock.post(config.create_api_url(InstanceIO.UPLOAD_ENDPOINT)).mock(side_effect=instance_create_callback)
 
@@ -207,7 +213,7 @@ class TestInstanceIO:
         upload_command.upload(
             input_dir=tmp_path / selector.group,
             client=client,
-            deploy_resources=True,
+            deploy_resources=False,
             dry_run=False,
             verbose=False,
             kind=InstanceIO.KIND,
