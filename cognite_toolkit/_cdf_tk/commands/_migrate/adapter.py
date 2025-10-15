@@ -25,13 +25,13 @@ from cognite.client.data_classes._base import (
 from cognite.client.data_classes.aggregations import UniqueResult
 from cognite.client.data_classes.assets import AssetProperty
 from cognite.client.data_classes.data_modeling import EdgeApply, EdgeId, InstanceApply, NodeApply, NodeId, ViewId
-from cognite.client.data_classes.data_modeling.instances import Instance, Node, Properties
+from cognite.client.data_classes.data_modeling.instances import Node, NodeApplyList, NodeList, Properties
 from cognite.client.data_classes.documents import SourceFileProperty
 from cognite.client.data_classes.events import EventProperty
 from cognite.client.utils._identifier import InstanceId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList, InstanceList
+from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList
 from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.client.data_classes.pending_instances_ids import PendingInstanceId
 from cognite_toolkit._cdf_tk.cruds._base_cruds import T_ID
@@ -270,7 +270,7 @@ class FileMetaAdapter(
         return results
 
 
-class SourceSystemCreation(StorageIO[str, AssetCentricSelector, InstanceApplyList, InstanceList]):
+class SourceSystemCreation(StorageIO[NodeId, AssetCentricSelector, NodeApplyList, NodeList[Node]]):
     """This adapter is used to create CogniteSourceSystem from the 'source' field of
     asset-centric Event, Asset, and FileMetadata resources.
 
@@ -295,17 +295,17 @@ class SourceSystemCreation(StorageIO[str, AssetCentricSelector, InstanceApplyLis
         super().__init__(client)
         self._instance_space = instance_space
 
-    def as_id(self, item: dict[str, JsonVal] | object) -> str:
-        if isinstance(item, Instance | InstanceApply):
-            return item.external_id
-        elif isinstance(item, dict) and "externalId" in item and isinstance(item["externalId"], str):
-            return item["externalId"]
+    def as_id(self, item: dict[str, JsonVal] | object) -> NodeId:
+        if isinstance(item, Node | NodeApply):
+            return item.as_id()
+        elif isinstance(item, dict):
+            return NodeId(item["space"], item["externalId"])  # type: ignore[arg-type]
         raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
 
-    def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[InstanceList]:
+    def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[NodeList[Node]]:
         sources: set[str] = set()
         for chunk in chunker(self._lookup_sources(selector), self.CHUNK_SIZE):
-            batch = InstanceList([])
+            batch = NodeList[Node]([])
             for item in chunk:
                 if item.value in sources:
                     continue
@@ -330,7 +330,7 @@ class SourceSystemCreation(StorageIO[str, AssetCentricSelector, InstanceApplyLis
             SourceFileProperty.source, filter=advanced_filter, limit=1000
         )
 
-    def _create_source_system(self, source: str) -> Instance:
+    def _create_source_system(self, source: str) -> Node:
         return Node(
             space=self._instance_space,
             external_id=source,
@@ -365,8 +365,8 @@ class SourceSystemCreation(StorageIO[str, AssetCentricSelector, InstanceApplyLis
         else:
             raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for advanced filter")
 
-    def data_to_json_chunk(self, data_chunk: InstanceList) -> list[dict[str, JsonVal]]:
+    def data_to_json_chunk(self, data_chunk: NodeList) -> list[dict[str, JsonVal]]:
         return data_chunk.as_write().dump()
 
-    def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> InstanceApplyList:
-        return InstanceApplyList([InstanceApply._load(item) for item in data_chunk])
+    def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> NodeApplyList:
+        return NodeApplyList._load(data_chunk)
