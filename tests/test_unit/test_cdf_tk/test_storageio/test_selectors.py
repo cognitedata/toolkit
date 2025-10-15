@@ -146,6 +146,9 @@ class TestDataSelectors:
             f"Expected {expected_io.__name__} for selector {type(instance).__name__}, got {get_storage_io(type(instance), kind).__name__}"
         )
 
+        # Assert selector is hashable
+        assert isinstance(hash(instance), int), f"{type(instance).__name__} is not hashable"
+
         # Assert serialization/deserialization
         filepath = instance.dump_to_file(tmp_path)
         assert filepath.exists(), f"dump_to_file did not create file for {type(instance).__name__}"
