@@ -12,7 +12,11 @@ from cognite_toolkit._cdf_tk.commands import (
     MigrationPrepareCommand,
 )
 from cognite_toolkit._cdf_tk.commands._migrate import MigrationCommand
-from cognite_toolkit._cdf_tk.commands._migrate.adapter import AssetCentricMigrationIOAdapter, MigrationCSVFileSelector
+from cognite_toolkit._cdf_tk.commands._migrate.adapter import (
+    AssetCentricMigrationIOAdapter,
+    MigrationCSVFileSelector,
+    MigrationSelector,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.creators import InstanceSpaceCreator, SourceSystemCreator
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
 from cognite_toolkit._cdf_tk.storageio import AssetIO
@@ -220,7 +224,7 @@ class MigrateApp(typer.Typer):
     def assets(
         ctx: typer.Context,
         mapping_file: Annotated[
-            Path,
+            Path | None,
             typer.Option(
                 "--mapping-file",
                 "-m",
@@ -228,7 +232,16 @@ class MigrateApp(typer.Typer):
                 "This file is expected to have the following columns: [id, dataSetId, space, externalId]."
                 "The dataSetId is optional, and can be skipped. If it is set, it is used to check the access to the dataset.",
             ),
-        ],
+        ] = None,
+        data_set_id: Annotated[
+            str | None,
+            typer.Option(
+                "--data-set-id",
+                "-s",
+                help="The data set ID to use for the migrated CogniteAssets. If not provided, the dataSetId from the mapping file is used. "
+                "If neither is provided, the default data set for the project is used.",
+            ),
+        ] = None,
         log_dir: Annotated[
             Path,
             typer.Option(
@@ -257,9 +270,21 @@ class MigrateApp(typer.Typer):
         """Migrate Assets to CogniteAssets."""
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = MigrationCommand()
+        if data_set_id is not None and mapping_file is not None:
+            raise typer.BadParameter("Cannot specify both data_set_id and mapping_file")
+        elif mapping_file is not None:
+            selected: MigrationSelector = MigrationCSVFileSelector(datafile=mapping_file, kind="Assets")
+        elif data_set_id is not None:
+            raise NotImplementedError()
+        else:
+            # Interactive selection of data set.
+            selector = AssetInteractiveSelect(client, "migrate")
+            selected_data_set_id = selector.select_data_set(allow_empty=False)
+            raise NotImplementedError()
+
         cmd.run(
             lambda: cmd.migrate(
-                selected=MigrationCSVFileSelector(datafile=mapping_file, kind="asset"),
+                selected=selected,
                 data=AssetCentricMigrationIOAdapter(client, AssetIO(client)),
                 mapper=AssetCentricMapper(client),
                 log_dir=log_dir,
