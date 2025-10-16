@@ -78,8 +78,7 @@ class AssetCentricMapper(DataMapper[MigrationSelector, AssetCentricMappingList, 
         # the order ~10 instances, so this is not a big deal for now. See task CDF-25974.
         source_systems = self.client.migration.created_source_system.list(limit=-1)
         self._source_system_mapping_by_id = {
-            source_system.source: DirectRelationReference(space=source_system.space, external_id=source_system.source)
-            for source_system in source_systems
+            source_system.source: source_system.as_direct_relation_reference() for source_system in source_systems
         }
 
     def map_chunk(self, source: AssetCentricMappingList) -> tuple[InstanceApplyList, list[MigrationIssue]]:
