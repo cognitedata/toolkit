@@ -122,7 +122,6 @@ class AssetCentricMigrationIOAdapter(
     Generic[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
     StorageIO[AssetCentricId, MigrationSelector, InstanceApplyList, AssetCentricMappingList],
 ):
-    FOLDER_NAME = "migration"
     KIND = "AssetCentricMigration"
     DISPLAY_NAME = "Asset-Centric Migration"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
@@ -280,7 +279,6 @@ class SourceSystemCreation(StorageIO[NodeId, AssetCentricSelector, NodeApplyList
 
     """
 
-    FOLDER_NAME = "sourceSystemCreation"
     KIND = "SourceSystem"
     DISPLAY_NAME = "Source Systems"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
