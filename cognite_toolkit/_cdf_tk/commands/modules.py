@@ -905,12 +905,12 @@ default_organization_dir = "{organization_dir.name}"''',
         self,
         organization_dir: Path,
         module: str,
-        resource: tuple[str, ...] | None = None,
-        file_name: tuple[str, ...] | None = None,
+        resources: tuple[str, ...] | None = None,
+        file_names: tuple[str, ...] | None = None,
     ) -> None:
         """
         Create a new resource in the specified module.
         """
-        print(organization_dir, module, resource, file_name)
+        print(organization_dir, module, resources, file_names)
         print("[red]Command work is in progress.[/red]")
         raise typer.Exit()
