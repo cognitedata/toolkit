@@ -69,6 +69,28 @@ class MigrationCSVFileSelector(MigrationSelector):
         return MigrationMappingList.read_csv_file(self.datafile, resource_type=self.kind)
 
 
+class MigrateDataSetSelector(MigrationSelector):
+    type: Literal["migrateDataSet"] = "migrateDataSet"
+    data_set_external_id: str
+    resource_type: str
+
+    @property
+    def group(self) -> str:
+        return f"DataSet_{self.data_set_external_id}"
+
+    def __str__(self) -> str:
+        return self.resource_type
+
+    def get_schema_spaces(self) -> list[str] | None:
+        return None
+
+    def get_instance_spaces(self) -> list[str] | None:
+        return None
+
+    def get_ingestion_views(self) -> list[str]:
+        return []
+
+
 @dataclass
 class AssetCentricMapping(Generic[T_WritableCogniteResource], WriteableCogniteResource[InstanceApply]):
     mapping: MigrationMapping
