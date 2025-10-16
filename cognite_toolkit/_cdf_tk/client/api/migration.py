@@ -177,13 +177,36 @@ class ResourceViewMappingAPI:
 class CreatedSourceSystemAPI:
     def __init__(self, instance_api: ExtendedInstancesAPI) -> None:
         self._instance_api = instance_api
+        self._RETRIEVE_LIMIT = 1000
         self._view_id = CreatedSourceSystem.get_source()
 
-    def retrieve(self, source: str | SequenceNotStr[str]) -> CreatedSourceSystem | NodeList[CreatedSourceSystem] | None:
-        raise NotImplementedError()
+    def retrieve(self, source: SequenceNotStr[str]) -> NodeList[CreatedSourceSystem]:
+        """Retrieve one or more view sources by their external IDs."""
+        results: NodeList[CreatedSourceSystem] = NodeList[CreatedSourceSystem]([])
+        # MyPy does not understand that SequenceNotStr is a sequence.
+        for chunk in chunker_sequence(source, self._RETRIEVE_LIMIT):  # type: ignore[type-var]
+            retrieve_query = query.Query(
+                with_={
+                    "sourceSystem": query.NodeResultSetExpression(
+                        filter=filters.And(filters.HasData(views=[self._view_id]), self._create_dms_filter(chunk)),
+                        limit=len(chunk),
+                    ),
+                },
+                select={"sourceSystem": query.Select([query.SourceSelector(self._view_id, ["*"])])},
+            )
+            chunk_response = self._instance_api.query(retrieve_query)
+            results.extend([CreatedSourceSystem._load(item.dump()) for item in chunk_response.get("sourceSystem", [])])
+        return results
+
+    def _create_dms_filter(self, source: SequenceNotStr[str]) -> filters.Filter:
+        """Create a filter that matches all CreatedSourceSystem with given source in the list."""
+        if not source:
+            raise ValueError("Cannot create a filter from an empty source list.")
+        return filters.In(self._view_id.as_property_ref("source"), list(source))
 
     def list(self, limit: int = -1) -> NodeList[CreatedSourceSystem]:
-        raise NotImplementedError()
+        """Lists all created source systems."""
+        return self._instance_api.list(instance_type=CreatedSourceSystem, limit=limit)
 
 
 class MigrationAPI:
