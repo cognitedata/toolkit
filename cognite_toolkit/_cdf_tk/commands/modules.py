@@ -799,11 +799,16 @@ default_organization_dir = "{organization_dir.name}"''',
                     packages = Packages().load(file_path.parent)
                     self._validate_packages(packages, f"library {library_name}")
 
-                    # Track deployment pack download for each package
+                    # Track deployment pack download for each package and module
                     for package in packages.values():
                         downloaded_package_ids = self._additional_tracking_info.setdefault("downloadedPackageIds", [])
                         if package.id and package.id not in downloaded_package_ids:
                             downloaded_package_ids.append(package.id)
+
+                        downloaded_module_ids = self._additional_tracking_info.setdefault("downloadedModuleIds", [])
+                        for module in package.modules:
+                            if module.module_id and module.module_id not in downloaded_module_ids:
+                                downloaded_module_ids.append(module.module_id)
 
                     return packages, file_path.parent
                 except Exception as e:
