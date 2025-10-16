@@ -16,14 +16,19 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.storageio import StorageIO
 from cognite_toolkit._cdf_tk.storageio._base import T_CogniteResourceList, T_Selector, T_WritableCogniteResourceList
-from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils import humanize_collection, sanitize_filename, safe_write
 from cognite_toolkit._cdf_tk.utils.fileio import Chunk, CSVWriter, NDJsonWriter, SchemaColumn, Uncompressed
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemIDMessage, SuccessItem
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.progress_tracker import AVAILABLE_STATUS, ProgressTracker, Status
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
+from .create_interface import MigrationCreate
 
+from ...cruds import ResourceWorker, ResourceCRUD
+from ...data_classes import DeployResults
+from .. import DeployCommand
 from .data_model import INSTANCE_SOURCE_VIEW_ID, MODEL_ID, RESOURCE_VIEW_MAPPING_VIEW_ID
+from ...utils.file import yaml_safe_dump
 
 
 class MigrationCommand(ToolkitCommand):
@@ -230,3 +235,58 @@ class MigrationCommand(ToolkitCommand):
         self.console(
             f"Project has enough capacity for migration. Total instances after migration: {total_instances:,}."
         )
+
+    def create(
+        self,
+        client: ToolkitClient,
+        creator: MigrationCreate,
+        dry_run: bool,
+        output_dir: Path,
+        verbose: bool = False,
+    ) -> DeployResults:
+        """This method is used to create migration resource in CDF."""
+        self.validate_migration_model_available(client)
+
+        deploy_cmd = DeployCommand(self.print_warning, silent=self.silent)
+        deploy_cmd.tracker = self.tracker
+
+        creator.prepare()
+
+        verb = "Would deploy" if dry_run else "Deploying"
+        self.console(f"{verb} {creator.DISPLAY_NAME} to CDF.")
+        crud_cls: type[ResourceCRUD] = creator.CRUD
+        resource_list = creator.deploy_resources()
+
+        results = DeployResults([], "deploy", dry_run=dry_run)
+        # MyPy does not understand that `loader_cls` has a `create_loader` method.
+        crud = crud_cls.create_loader(client)  # type: ignore[attr-defined]
+        worker = ResourceWorker(crud, "deploy")
+        # MyPy does not understand that `loader` has a `get_id` method.
+        local_by_id = {crud.get_id(item): (item.dump(), item) for item in resource_list}  # type: ignore[attr-defined]
+        worker.validate_access(local_by_id, is_dry_run=dry_run)
+        cdf_resources = crud.retrieve(list(local_by_id.keys()))
+        resources = worker.categorize_resources(local_by_id, cdf_resources, False, verbose)
+
+        if dry_run:
+            result = deploy_cmd.dry_run_deploy(resources, crud, False, False)
+        else:
+            result = deploy_cmd.actual_deploy(resources, crud)
+            if result.calculated_total > 0:
+                creator.store_lineage(resources)
+
+        self.console(f"{verb} {creator.DISPLAY_NAME} to CDF.")
+
+        resource_configs = creator.resource_configs()
+        for config in resource_configs:
+            filepath = output_dir / crud_cls.folder_name / f"{sanitize_filename(config.name)}.{crud_cls.kind}.yaml"
+            filepath.parent.mkdir(parents=True, exist_ok=True)
+            safe_write(filepath, yaml_safe_dump(config.data))
+        self.console(f"{len(resource_configs)} {crud_cls.kind} resource configurations written to {output_dir.as_posix()!r}")
+
+        if result:
+            results[result.name] = result
+
+        if results.has_counts:
+            print(results.counts_table())
+
+        return results
