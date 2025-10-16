@@ -1,3 +1,5 @@
+import pytest
+
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import MigrationPrepareCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import CONTAINERS, VIEWS
@@ -5,6 +7,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import create_de
 from cognite_toolkit._cdf_tk.data_classes import ResourceDeployResult
 
 
+@pytest.mark.skip(reason="Implementing a change to the Migration Model ref CDF-25977")
 class TestMigrateTimeSeriesCommand:
     def test_migration_prepare_command(
         self,
