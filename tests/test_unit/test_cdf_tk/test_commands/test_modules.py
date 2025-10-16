@@ -8,6 +8,7 @@ from unittest.mock import MagicMock
 
 import pytest
 import requests
+import typer
 import yaml
 from _pytest.monkeypatch import MonkeyPatch
 from questionary import Choice
@@ -444,3 +445,82 @@ class TestModulesCommand:
         # Expect: two SHA256 hex hashes in the message, one for provided and one for calculated
         pattern = r"^The provided checksum sha256:[0-9a-f]{64} does not match downloaded file hash sha256:[0-9a-f]{64}"
         assert re.search(pattern, warning.message_raw)
+
+    def test_resource_create_interactive_new_module_asset(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+        org = tmp_path / "org"
+        org.mkdir(parents=True, exist_ok=True)
+
+        def select_create_new_module(choices: list[Choice]) -> str:
+            item = next(c for c in choices if c.title == "Create new module")
+            return item.value
+
+        def select_assets(choices: list[Choice]):
+            item = next(c for c in choices if c.title == "assets")
+            return item.value
+
+        answers = [select_create_new_module, "demo_mod", select_assets, "my_asset"]
+
+        cmd = ModulesCommand(print_warning=True, skip_tracking=True)
+        with MockQuestionary(ModulesCommand.__module__, monkeypatch, answers):
+            cmd.resource_create(org)
+
+        created = org / "modules" / "demo_mod" / "classic" / "my_asset.Asset.yaml"
+        assert created.exists()
+        content = created.read_text().splitlines()
+        assert content[0].startswith("# API docs:")
+        assert content[1].startswith(
+            "# YAML reference: https://docs.cognite.com/cdf/deploy/cdf_toolkit/references/resource_library"
+        )
+
+    def test_resource_create_non_interactive(self, tmp_path: Path) -> None:
+        org = tmp_path / "org"
+        cmd = ModulesCommand(print_warning=True, skip_tracking=True)
+
+        cmd.resource_create(org, module="m1", resource="assets", file_name="x")
+
+        created = org / "modules" / "m1" / "classic" / "x.Asset.yaml"
+        assert created.exists()
+        lines = created.read_text().splitlines()
+        assert lines[0].startswith("# API docs:")
+        assert lines[1].startswith("# YAML reference:")
+
+    def test_resource_create_invalid_resource_exits(self, tmp_path: Path) -> None:
+        org = tmp_path / "org"
+        cmd = ModulesCommand(print_warning=True, skip_tracking=True)
+        with pytest.raises(typer.Exit):
+            cmd.resource_create(org, module="m2", resource="no_such", file_name="x")
+
+    def test_resource_create_module_not_selected_exits(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+        org = tmp_path / "org"
+        cmd = ModulesCommand(print_warning=True, skip_tracking=True)
+        answers = [lambda choices: None]
+        with (
+            MockQuestionary(ModulesCommand.__module__, monkeypatch, answers),
+            pytest.raises(typer.Exit),
+        ):
+            cmd.resource_create(org)
+
+    def test_resource_create_resource_not_selected_exits(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+        org = tmp_path / "org"
+        cmd = ModulesCommand(print_warning=True, skip_tracking=True)
+        answers = [lambda choices: None]
+        with (
+            MockQuestionary(ModulesCommand.__module__, monkeypatch, answers),
+            pytest.raises(typer.Exit),
+        ):
+            cmd.resource_create(org, module="m3")
+
+    def test_resource_create_file_exists_decline_overwrite_exits(
+        self, tmp_path: Path, monkeypatch: MonkeyPatch
+    ) -> None:
+        org = tmp_path / "org"
+        cmd = ModulesCommand(print_warning=True, skip_tracking=True)
+        target = org / "modules" / "m4" / "classic" / "x.Asset.yaml"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("# preexisting\n")
+        answers = [False]
+        with (
+            MockQuestionary(ModulesCommand.__module__, monkeypatch, answers),
+            pytest.raises(typer.Exit),
+        ):
+            cmd.resource_create(org, module="m4", resource="assets", file_name="x")
