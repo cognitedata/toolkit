@@ -365,7 +365,7 @@ class SourceSystemCreation(StorageIO[NodeId, AssetCentricSelector, NodeApplyList
         else:
             raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for advanced filter")
 
-    def data_to_json_chunk(self, data_chunk: NodeList) -> list[dict[str, JsonVal]]:
+    def data_to_json_chunk(self, data_chunk: NodeList[Node]) -> list[dict[str, JsonVal]]:
         return data_chunk.as_write().dump()
 
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> NodeApplyList:
