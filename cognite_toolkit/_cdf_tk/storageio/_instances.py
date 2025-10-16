@@ -39,7 +39,6 @@ class InstanceIO(ConfigurableStorageIO[InstanceId, InstanceSelector, InstanceApp
 
     """
 
-    FOLDER_NAME = "instances"
     KIND = "Instances"
     DISPLAY_NAME = "Instances"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
