@@ -904,9 +904,9 @@ default_organization_dir = "{organization_dir.name}"''',
     def resource_create(
         self,
         organization_dir: Path,
-        module: str | None = None,
-        resource: str | None = None,
-        file_name: str | None = None,
+        module: str,
+        resource: tuple[str, ...] | None = None,
+        file_name: tuple[str, ...] | None = None,
     ) -> None:
         """
         Create a new resource in the specified module.

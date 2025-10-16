@@ -211,6 +211,14 @@ class ModulesApp(typer.Typer):
 
     def create_resource(
         self,
+        module: Annotated[
+            str,
+            typer.Option(
+                "--module",
+                "-m",
+                help="Name of an existing module or a new module to create the resource in.",
+            ),
+        ],
         organization_dir: Annotated[
             Path,
             typer.Option(
@@ -219,14 +227,6 @@ class ModulesApp(typer.Typer):
                 help="Where to find the module templates to build from",
             ),
         ] = CDF_TOML.cdf.default_organization_dir,
-        module: Annotated[
-            str | None,
-            typer.Option(
-                "--module",
-                "-m",
-                help="The module to create the resource in. If not provided, interactive mode will be used.",
-            ),
-        ] = None,
         resource: Annotated[
             str | None,
             typer.Option(
@@ -240,7 +240,7 @@ class ModulesApp(typer.Typer):
             typer.Option(
                 "--file-name",
                 "-f",
-                help="The name of the resource file to create. If not provided, interactive mode will be used.",
+                help="The name of the resource file to create.",
             ),
         ] = None,
     ) -> None:
@@ -250,7 +250,7 @@ class ModulesApp(typer.Typer):
             lambda: cmd.resource_create(
                 organization_dir=organization_dir,
                 module=module,
-                resource=resource,
-                file_name=file_name,
+                resource=tuple([resource]) if resource else None,
+                file_name=tuple([file_name]) if file_name else None,
             )
         )
