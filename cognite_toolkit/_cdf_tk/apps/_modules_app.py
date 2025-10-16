@@ -244,13 +244,17 @@ class ModulesApp(typer.Typer):
             ),
         ] = None,
     ) -> None:
-        """Create a new resource in module."""
+        """
+        Create a new resource in module.
+        Use --resource and --file-name to create a single resource.
+        Multiple resources can be created by interactive mode.
+        """
         cmd = ModulesCommand()
         cmd.run(
             lambda: cmd.resource_create(
                 organization_dir=organization_dir,
                 module=module,
-                resource=tuple([resource]) if resource else None,
-                file_name=tuple([file_name]) if file_name else None,
+                resources=tuple([resource]) if resource else None,
+                file_names=tuple([file_name]) if file_name else None,
             )
         )
