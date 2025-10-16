@@ -16,7 +16,6 @@ from .selectors import AllChartsSelector, CanvasSelector, ChartOwnerSelector, Ch
 
 
 class ChartIO(StorageIO[str, ChartSelector, ChartWriteList, ChartList]):
-    FOLDER_NAME = "cdf_application_data"
     KIND = "Charts"
     DISPLAY_NAME = "CDF Charts"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
@@ -76,7 +75,6 @@ class ChartIO(StorageIO[str, ChartSelector, ChartWriteList, ChartList]):
 
 
 class CanvasIO(StorageIO[str, CanvasSelector, IndustrialCanvasApplyList, IndustrialCanvasList]):
-    FOLDER_NAME = "cdf_application_data"
     KIND = "IndustrialCanvas"
     DISPLAY_NAME = "CDF Industrial Canvases"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})

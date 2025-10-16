@@ -35,7 +35,6 @@ class StorageIO(ABC, Generic[T_ID, T_Selector, T_CogniteResourceList, T_Writable
     should implement this interface to provide specific functionality.
 
     Attributes:
-        FOLDER_NAME: The name of the folder in which the storage item is located.
         KIND: The type of storage (e.g., 'raw', 'assets').
         DISPLAY_NAME: A human-readable name for the storage item.
         SUPPORTED_DOWNLOAD_FORMATS: A set of formats that the storage item supports for downloading.
@@ -45,7 +44,6 @@ class StorageIO(ABC, Generic[T_ID, T_Selector, T_CogniteResourceList, T_Writable
         client: An instance of ToolkitClient to interact with the CDF API.
     """
 
-    FOLDER_NAME: str
     KIND: str
     DISPLAY_NAME: str
     SUPPORTED_DOWNLOAD_FORMATS: frozenset[str]

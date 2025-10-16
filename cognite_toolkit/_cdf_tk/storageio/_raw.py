@@ -12,7 +12,6 @@ from .selectors import RawTableSelector
 
 
 class RawIO(ConfigurableStorageIO[str, RawTableSelector, RowWriteList, RowList]):
-    FOLDER_NAME = "raw"
     KIND = "RawRows"
     DISPLAY_NAME = "Raw Rows"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".yaml", ".ndjson"})
