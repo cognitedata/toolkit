@@ -222,7 +222,7 @@ COGNITE_MIGRATION_MODEL = dm.DataModelApply(
     version="v1",
     name="CDF Migration Model",
     description="Data model for migrating asset-centric resources to data modeling resources in CDF.",
-    views=[INSTANCE_SOURCE_VIEW_ID, RESOURCE_VIEW_MAPPING_VIEW_ID, CREATED_SOURCE_SYSTEM_VIEW_ID],
+    views=[INSTANCE_SOURCE_VIEW_ID, RESOURCE_VIEW_MAPPING_VIEW_ID, CREATED_SOURCE_SYSTEM_VIEW_ID, SPACE_SOURCE_VIEW_ID],
 )
 
 MODEL_ID = COGNITE_MIGRATION_MODEL.as_id()
