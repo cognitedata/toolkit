@@ -89,7 +89,7 @@ SPACE_SOURCE = dm.ContainerApply(
     external_id="SpaceSource",
     used_for="node",
     properties={
-        "space": dm.ContainerProperty(
+        "instanceSpace": dm.ContainerProperty(
             type=dm.Text(max_text_size=64),
             nullable=False,
         ),
@@ -103,7 +103,7 @@ SPACE_SOURCE = dm.ContainerApply(
         ),
     },
     indexes={
-        "space": BTreeIndex(["space"], cursorable=True),
+        "space": BTreeIndex(["instanceSpace"], cursorable=True),
         "dataSetId": BTreeIndex(["dataSetId"], cursorable=True),
     },
     constraints={
@@ -191,9 +191,9 @@ SPACE_SOURCE_VIEW = dm.ViewApply(
     name="SpaceSource",
     description="The mapping from CDF spaces to data sets.",
     properties={
-        "space": dm.MappedPropertyApply(
+        "instanceSpace": dm.MappedPropertyApply(
             container=SPACE_SOURCE.as_id(),
-            container_property_identifier="space",
+            container_property_identifier="instanceSpace",
             description="The identifier of the created instances space.",
         ),
         "dataSetId": dm.MappedPropertyApply(
