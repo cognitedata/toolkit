@@ -10,6 +10,9 @@ import yaml
 from cognite.client.data_classes._base import CogniteResource, CogniteResourceList, CogniteResponse
 from cognite.client.data_classes.capabilities import (
     AllProjectsScope,
+    AllScope,
+    AppConfigAcl,
+    AppConfigScope,
     AssetsAcl,
     Capability,
     ProjectCapability,
@@ -201,3 +204,36 @@ def test_get_capabilities_by_loader_dm_only_project(toolkit_client_approval: App
     cap_types_dm_only = {type(c) for c in caps_dm_only}
     assert AssetsAcl not in cap_types_dm_only
     assert RelationshipsAcl not in cap_types_dm_only
+
+
+@pytest.mark.parametrize(
+    "capability_list,expected_result",
+    [
+        pytest.param(
+            [
+                AppConfigAcl(
+                    actions=[AppConfigAcl.Action.Read, AppConfigAcl.Action.Write], scope=AppConfigScope(apps=["SEARCH"])
+                ),
+                AppConfigAcl(actions=[AppConfigAcl.Action.Read], scope=AppConfigScope(apps=["SEARCH"])),
+                AppConfigAcl(actions=[AppConfigAcl.Action.Write], scope=AppConfigScope(apps=["SEARCH"])),
+                AssetsAcl(actions=[AssetsAcl.Action.Read, AssetsAcl.Action.Write], scope=AllScope()),
+            ],
+            [
+                AppConfigAcl(
+                    actions=[AppConfigAcl.Action.Read, AppConfigAcl.Action.Write], scope=AppConfigScope(apps=["SEARCH"])
+                ),
+                AssetsAcl(actions=[AssetsAcl.Action.Read, AssetsAcl.Action.Write], scope=AllScope()),
+            ],
+            id="Merge multiple capabilities",
+        )
+    ],
+)
+def test_merge_capabilities(capability_list: list[Capability], expected_result: list[Capability]):
+    merged_capabilities = AuthCommand.merge_capabilities(capability_list)
+    assert len(merged_capabilities) == len(expected_result)
+    app_config_acl = next(c for c in merged_capabilities if type(c) is AppConfigAcl)
+    assert app_config_acl is not None
+    assert app_config_acl.scope == expected_result[0].scope
+    assert sorted(app_config_acl.dump()["appConfigAcl"]["actions"]) == sorted(
+        expected_result[0].dump()["appConfigAcl"]["actions"]
+    )
