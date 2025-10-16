@@ -1,6 +1,6 @@
 from abc import ABC
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from ._base import DataSelector
 
@@ -23,6 +23,9 @@ class DataSetSelector(AssetCentricSelector):
     def __str__(self) -> str:
         return self.resource_type
 
+    def as_filter(self) -> dict[str, Any]:
+        return {"dataSetIds": [{"externalId": self.data_set_external_id}]}
+
 
 class AssetSubtreeSelector(AssetCentricSelector):
     """Select data associated with an asset and its subtree."""
@@ -37,6 +40,9 @@ class AssetSubtreeSelector(AssetCentricSelector):
 
     def __str__(self) -> str:
         return self.resource_type
+
+    def as_filter(self) -> dict[str, Any]:
+        return {"assetSubtreeIds": [{"externalId": self.hierarchy}]}
 
 
 class AssetCentricFileSelector(AssetCentricSelector):
