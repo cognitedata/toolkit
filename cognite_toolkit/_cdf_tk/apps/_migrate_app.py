@@ -13,6 +13,7 @@ from cognite_toolkit._cdf_tk.commands import (
 from cognite_toolkit._cdf_tk.commands._migrate import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.adapter import (
     AssetCentricMigrationIOAdapter,
+    MigrateDataSetSelector,
     MigrationCSVFileSelector,
     MigrationSelector,
 )
@@ -133,12 +134,12 @@ class MigrateApp(typer.Typer):
         elif mapping_file is not None:
             selected: MigrationSelector = MigrationCSVFileSelector(datafile=mapping_file, resource_type="asset")
         elif data_set_id is not None:
-            raise NotImplementedError()
+            selected = MigrateDataSetSelector(data_set_external_id=data_set_id, resource_type="asset")
         else:
             # Interactive selection of data set.
             selector = AssetInteractiveSelect(client, "migrate")
             selected_data_set_id = selector.select_data_set(allow_empty=False)
-            raise NotImplementedError()
+            selected = MigrateDataSetSelector(data_set_external_id=selected_data_set_id, resource_type="asset")
 
         cmd.run(
             lambda: cmd.migrate(
