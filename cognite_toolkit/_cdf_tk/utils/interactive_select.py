@@ -511,6 +511,7 @@ class DataModelingSelect:
         include_global: bool = False,
         space: str | None = None,
         message: str | None = None,
+        instance_type: Literal["node", "edge", "all"] | None = None,
     ) -> View: ...
 
     @overload
@@ -520,6 +521,7 @@ class DataModelingSelect:
         include_global: bool = False,
         space: str | None = None,
         message: str | None = None,
+        instance_type: Literal["node", "edge", "all"] | None = None,
     ) -> ViewList: ...
 
     def select_view(
@@ -528,6 +530,7 @@ class DataModelingSelect:
         include_global: bool = False,
         space: str | None = None,
         message: str | None = None,
+        instance_type: Literal["node", "edge", "all"] | None = None,
     ) -> View | ViewList:
         """Select one or more views interactively.
 
@@ -538,6 +541,7 @@ class DataModelingSelect:
                 select a space.
             message: The message to display when prompting for a view. If None, a default message
                 will be used.
+            instance_type: If 'node' or 'edge', only views of that type will be shown.
 
         Returns:
             The selected view(s).
@@ -561,6 +565,7 @@ class DataModelingSelect:
             limit=-1,
             include_global=include_global,
         )
+        views = ViewList([view for view in views if instance_type in (None, "all", view.used_for)])
         if not views:
             raise ToolkitMissingResourceError(f"No views found in space {selected_space!r}.")
         question = message or f"Which view do you want to use to select instances to {self.operation}?"

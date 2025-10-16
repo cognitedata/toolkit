@@ -86,7 +86,8 @@ class DownloadCommand(ToolkitCommand):
 
             if isinstance(io, ConfigurableStorageIO):
                 for config in io.configurations(selector):
-                    config_file = target_dir / DATA_RESOURCE_DIR / config.folder_name / f"{filestem}.{config.kind}.yaml"
+                    filename = config.filename or filestem
+                    config_file = target_dir / DATA_RESOURCE_DIR / config.folder_name / f"{filename}.{config.kind}.yaml"
                     config_file.parent.mkdir(parents=True, exist_ok=True)
                     safe_write(config_file, yaml_safe_dump(config.value))
 

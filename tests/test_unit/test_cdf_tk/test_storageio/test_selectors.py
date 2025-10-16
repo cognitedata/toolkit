@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     DataSelector,
     DataSetSelector,
     InstanceFileSelector,
+    InstanceSpaceSelector,
     InstanceViewSelector,
     RawTableSelector,
     Selector,
@@ -86,6 +87,21 @@ def example_selector_data() -> Iterable[tuple]:
         AssetIO,
         AssetIO.KIND,
         id="AssetCentricFileSelector",
+    )
+    yield pytest.param(
+        {
+            "type": "instanceSpace",
+            "instanceSpace": "myLocation",
+            "instanceType": "node",
+            "viewId": {
+                "space": "my_space",
+                "externalId": "MyView",  # Version is optional
+            },
+        },
+        InstanceSpaceSelector,
+        InstanceIO,
+        InstanceIO.KIND,
+        id="InstanceSpaceSelector",
     )
 
 
