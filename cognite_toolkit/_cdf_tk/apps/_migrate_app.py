@@ -34,8 +34,7 @@ class MigrateApp(typer.Typer):
         self.command("prepare")(self.prepare)
         self.command("data-sets")(self.data_sets)
         self.command("source-system")(self.source_system)
-        # Uncomment when command is ready.
-        # self.command("assets")(self.assets)
+        self.command("assets")(self.assets)
         self.command("timeseries")(self.timeseries)
         self.command("files")(self.files)
         self.command("canvas")(self.canvas)
@@ -276,12 +275,12 @@ class MigrateApp(typer.Typer):
         elif mapping_file is not None:
             selected: MigrationSelector = MigrationCSVFileSelector(datafile=mapping_file, kind="Assets")
         elif data_set_id is not None:
-            selected = MigrateDataSetSelector(data_set_external_id=data_set_id, resource_type="asset")
+            selected = MigrateDataSetSelector(data_set_external_id=data_set_id, kind="Assets")
         else:
             # Interactive selection of data set.
             selector = AssetInteractiveSelect(client, "migrate")
             selected_data_set_id = selector.select_data_set(allow_empty=False)
-            selected = MigrateDataSetSelector(data_set_external_id=selected_data_set_id, resource_type="asset")
+            selected = MigrateDataSetSelector(data_set_external_id=selected_data_set_id, kind="Assets")
 
         cmd.run(
             lambda: cmd.migrate(
