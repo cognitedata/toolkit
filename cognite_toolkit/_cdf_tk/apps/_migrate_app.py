@@ -30,8 +30,7 @@ class MigrateApp(typer.Typer):
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.main)
         self.command("prepare")(self.prepare)
-        # Uncomment when command is ready.
-        # self.command("assets")(self.assets)
+        self.command("assets")(self.assets)
         self.command("timeseries")(self.timeseries)
         self.command("files")(self.files)
         self.command("canvas")(self.canvas)
