@@ -476,7 +476,7 @@ class TestModulesCommand:
         org = tmp_path / "org"
         cmd = ModulesCommand(print_warning=True, skip_tracking=True)
 
-        cmd.resource_create(org, module="m1", resource="assets", file_name="x")
+        cmd.resource_create(org, module="m1", resources="assets", file_names="x")
 
         created = org / "modules" / "m1" / "classic" / "x.Asset.yaml"
         assert created.exists()
@@ -488,7 +488,7 @@ class TestModulesCommand:
         org = tmp_path / "org"
         cmd = ModulesCommand(print_warning=True, skip_tracking=True)
         with pytest.raises(typer.Exit):
-            cmd.resource_create(org, module="m2", resource="no_such", file_name="x")
+            cmd.resource_create(org, module="m2", resources="no_such", file_names="x")
 
     def test_resource_create_module_not_selected_exits(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         org = tmp_path / "org"
@@ -523,4 +523,4 @@ class TestModulesCommand:
             MockQuestionary(ModulesCommand.__module__, monkeypatch, answers),
             pytest.raises(typer.Exit),
         ):
-            cmd.resource_create(org, module="m4", resource="assets", file_name="x")
+            cmd.resource_create(org, module="m4", resources="assets", file_names="x")
