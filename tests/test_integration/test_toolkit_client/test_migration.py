@@ -130,7 +130,4 @@ class TestCreatedSourceSystemAPI:
         assert len(retrieved) == 1
         node = retrieved[0]
         assert node.external_id == created_source_system
-        properties = node.properties[CreatedSourceSystem.get_source()]
-
-        assert "source" in properties
-        assert properties["source"] == created_source_system
+        assert node.source == created_source_system
