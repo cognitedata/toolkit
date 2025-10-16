@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     DataSelector,
     DataSetSelector,
     InstanceFileSelector,
+    InstanceSpaceSelector,
     InstanceViewSelector,
     RawTableSelector,
     Selector,
@@ -87,6 +88,21 @@ def example_selector_data() -> Iterable[tuple]:
         AssetIO.KIND,
         id="AssetCentricFileSelector",
     )
+    yield pytest.param(
+        {
+            "type": "instanceSpace",
+            "instanceSpace": "myLocation",
+            "instanceType": "node",
+            "viewId": {
+                "space": "my_space",
+                "externalId": "MyView",  # Version is optional
+            },
+        },
+        InstanceSpaceSelector,
+        InstanceIO,
+        InstanceIO.KIND,
+        id="InstanceSpaceSelector",
+    )
 
 
 class TestDataSelectors:
@@ -142,9 +158,12 @@ class TestDataSelectors:
         assert instance.group, f"group property not implemented for {type(instance).__name__}"
 
         # Assert correct IO type
-        assert get_storage_io(instance, kind) is expected_io, (
-            f"Expected {expected_io.__name__} for selector {type(instance).__name__}, got {get_storage_io(instance, kind).__name__}"
+        assert get_storage_io(type(instance), kind) is expected_io, (
+            f"Expected {expected_io.__name__} for selector {type(instance).__name__}, got {get_storage_io(type(instance), kind).__name__}"
         )
+
+        # Assert selector is hashable
+        assert isinstance(hash(instance), int), f"{type(instance).__name__} is not hashable"
 
         # Assert serialization/deserialization
         filepath = instance.dump_to_file(tmp_path)
@@ -154,3 +173,27 @@ class TestDataSelectors:
         loaded = SelectorAdapter.validate_python(data)
         assert loaded.model_dump() == instance.model_dump()
         assert type(loaded) is type(instance)
+
+
+class TestGetStorageIO:
+    @pytest.mark.parametrize(
+        "selector,path,expected_io",
+        [
+            pytest.param(
+                RawTableSelector,
+                Path(f"data.{RawIO.KIND}.csv"),
+                RawIO,
+                id="RawTableSelector with path",
+            ),
+            pytest.param(
+                RawTableSelector,
+                Path(f"data.{RawIO.KIND}.csv.gz"),
+                RawIO,
+                id="RawTableSelector with compressed data",
+            ),
+        ],
+    )
+    def test_get_storage_io_with_path(
+        self, selector: type[DataSelector], path: Path, expected_io: type[StorageIO]
+    ) -> None:
+        assert get_storage_io(selector, path) == expected_io

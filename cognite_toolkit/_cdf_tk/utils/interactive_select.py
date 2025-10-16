@@ -17,7 +17,7 @@ from cognite.client.data_classes.aggregations import Count
 from cognite.client.data_classes.capabilities import (
     UserProfilesAcl,
 )
-from cognite.client.data_classes.data_modeling import NodeList, Space, SpaceList, View, ViewId
+from cognite.client.data_classes.data_modeling import NodeList, Space, SpaceList, View, ViewId, ViewList
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from cognite.client.utils import ms_to_datetime
 from questionary import Choice
@@ -504,29 +504,86 @@ class DataModelingSelect:
         result = self.client.data_modeling.statistics.spaces.list()
         return {stat.space: stat for stat in result}
 
-    def select_view(self, include_global: bool = False) -> View:
-        selected_space = self.select_schema_space(
-            include_global, message=f"In which Spaces is the view you will use to select instances to {self.operation}?"
+    @overload
+    def select_view(
+        self,
+        multiselect: Literal[False] = False,
+        include_global: bool = False,
+        space: str | None = None,
+        message: str | None = None,
+        instance_type: Literal["node", "edge", "all"] | None = None,
+    ) -> View: ...
+
+    @overload
+    def select_view(
+        self,
+        multiselect: Literal[True],
+        include_global: bool = False,
+        space: str | None = None,
+        message: str | None = None,
+        instance_type: Literal["node", "edge", "all"] | None = None,
+    ) -> ViewList: ...
+
+    def select_view(
+        self,
+        multiselect: bool = False,
+        include_global: bool = False,
+        space: str | None = None,
+        message: str | None = None,
+        instance_type: Literal["node", "edge", "all"] | None = None,
+    ) -> View | ViewList:
+        """Select one or more views interactively.
+
+        Args:
+            multiselect: Whether to allow selecting multiple views.
+            include_global: Whether to include global views in the selection.
+            space: The space to select views from. If None, the user will be prompted to
+                select a space.
+            message: The message to display when prompting for a view. If None, a default message
+                will be used.
+            instance_type: If 'node' or 'edge', only views of that type will be shown.
+
+        Returns:
+            The selected view(s).
+
+        Raises:
+            ToolkitValueError: If no view(s) are selected or if the selected view(s) are not valid.
+            ToolkitMissingResourceError: If no views are found in the selected space.
+
+        """
+        selected_space = (
+            space
+            or self.select_schema_space(
+                include_global,
+                message=f"In which Spaces is the view you will use to select instances to {self.operation}?",
+            ).space
         )
 
         views = self.client.data_modeling.views.list(
-            space=selected_space.space,
+            space=selected_space,
             include_inherited_properties=True,
             limit=-1,
             include_global=include_global,
         )
+        views = ViewList([view for view in views if instance_type in (None, "all", view.used_for)])
         if not views:
-            raise ToolkitMissingResourceError(f"No views found in space {selected_space.space!r}.")
-
-        selected_view = questionary.select(
-            f"Which view do you want to use to select instances to {self.operation}?",
-            [Choice(title=f"{view.external_id} (version={view.version})", value=view) for view in views],
-        ).ask()
-        if selected_view is None:
-            raise ToolkitValueError("No view selected")
-        if not isinstance(selected_view, View):
-            raise ToolkitValueError(f"Selected view is not a valid View object: {selected_view!r}")
-        return selected_view
+            raise ToolkitMissingResourceError(f"No views found in space {selected_space!r}.")
+        question = message or f"Which view do you want to use to select instances to {self.operation}?"
+        choices = [Choice(title=f"{view.external_id} (version={view.version})", value=view) for view in views]
+        if multiselect:
+            selected_views = questionary.checkbox(question, choices=choices).ask()
+        else:
+            selected_views = questionary.select(question, choices=choices).ask()
+        if selected_views is None:
+            raise ToolkitValueError("No view(s) selected")
+        if multiselect:
+            if not isinstance(selected_views, list) or not all(isinstance(v, View) for v in selected_views):
+                raise ToolkitValueError(f"Selected views is not a valid list of View objects: {selected_views!r}")
+            return ViewList(selected_views)
+        else:
+            if not isinstance(selected_views, View):
+                raise ToolkitValueError(f"Selected view is not a valid View object: {selected_views!r}")
+            return selected_views
 
     def select_schema_space(self, include_global: bool, message: str | None = None) -> Space:
         message = message or f"Select the space to {self.operation}:"
@@ -549,8 +606,19 @@ class DataModelingSelect:
             raise ToolkitValueError(f"Selected space is not a valid Space object: {selected_space!r}")
         return selected_space
 
-    def select_instance_type(self, view_used_for: Literal["node", "edge", "all"]) -> Literal["node", "edge"]:
-        if view_used_for != "all":
+    def select_instance_type(
+        self, view_used_for: Literal["node", "edge", "all"] | None = None
+    ) -> Literal["node", "edge"]:
+        """Selects an instance type (node or edge) interactively.
+
+        Args:
+            view_used_for: If 'node' or 'edge', that type is returned directly.
+                           If 'all' or None, the user is prompted to select.
+
+        Returns:
+            The selected instance type, either 'node' or 'edge'.
+        """
+        if view_used_for is not None and view_used_for != "all":
             return view_used_for
         selected_instance_type = questionary.select(
             f"What type of instances do you want to {self.operation}?",
@@ -561,7 +629,7 @@ class DataModelingSelect:
         ).ask()
         if selected_instance_type is None:
             raise ToolkitValueError("No instance type selected")
-        if selected_instance_type not in ["node", "edge"]:
+        if selected_instance_type not in ("node", "edge"):
             raise ToolkitValueError(f"Selected instance type is not valid: {selected_instance_type!r}")
         return selected_instance_type
 

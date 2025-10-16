@@ -1,13 +1,11 @@
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from pathlib import Path
 from typing import ClassVar, Generic, TypeVar
 
 from cognite.client.data_classes._base import (
     T_CogniteResourceList,
 )
-from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
@@ -23,6 +21,7 @@ class StorageIOConfig:
     kind: str
     folder_name: str
     value: JsonVal
+    filename: str | None = None
 
 
 T_Selector = TypeVar("T_Selector", bound=DataSelector)
@@ -125,7 +124,6 @@ class StorageIO(ABC, Generic[T_ID, T_Selector, T_CogniteResourceList, T_Writable
             )
         )
 
-    @abstractmethod
     def data_to_json_chunk(self, data_chunk: T_WritableCogniteResourceList) -> list[dict[str, JsonVal]]:
         """Convert a chunk of data to a JSON-compatible format.
 
@@ -136,7 +134,7 @@ class StorageIO(ABC, Generic[T_ID, T_Selector, T_CogniteResourceList, T_Writable
             A list of dictionaries representing the data in a JSON-compatible format.
 
         """
-        raise NotImplementedError()
+        return data_chunk.as_write().dump(camel_case=True)
 
     @abstractmethod
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> T_CogniteResourceList:
@@ -154,27 +152,6 @@ class ConfigurableStorageIO(StorageIO[T_ID, T_Selector, T_CogniteResourceList, T
     @abstractmethod
     def configurations(self, selector: T_Selector) -> Iterable[StorageIOConfig]:
         """Return configurations for the storage item."""
-        raise NotImplementedError()
-
-    @abstractmethod
-    def load_selector(self, datafile: Path) -> T_Selector:
-        """Load the selector from adjacent filepath."""
-        raise NotImplementedError()
-
-    @abstractmethod
-    def ensure_configurations(self, selector: T_Selector, console: Console | None = None) -> None:
-        """Ensure that the necessary configurations for the storage item are in place.
-
-        This method should create the necessary configurations in CDF if they do not exist.
-        For example, for RAW tables, this will create the RAW database and table.
-
-        For asset-centric storage, this will create labels and data sets.
-
-        Args:
-            selector: The selection criteria to find the data.
-            console: An optional console for outputting messages during the configuration process.
-
-        """
         raise NotImplementedError()
 
 
