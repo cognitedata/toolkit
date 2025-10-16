@@ -52,7 +52,7 @@ class TestSourceSystemCreation:
             pytest.param(AssetSubtreeSelector(hierarchy="rootAsset", resource_type="asset"), id="subtree"),
         ],
     )
-    def test_count_and_stream_data(self, selector: AssetCentricFileSelector) -> None:
+    def test_count_and_stream_data(self, selector: AssetCentricSelector) -> None:
         asset_sources = UniqueResultList([UniqueResult(100, ["aveva"]), UniqueResult(50, ["custom"])])
         event_sources = UniqueResultList(
             [UniqueResult(400, ["sap"]), UniqueResult(200, ["internal"])],
