@@ -1,5 +1,6 @@
 import os
 import shutil
+from dataclasses import dataclass
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -10,14 +11,21 @@ from cognite.client.data_classes import (
     Asset,
     AssetList,
     AssetWrite,
+    AssetWriteList,
     DataSet,
     DataSetList,
     DataSetWrite,
     DataSetWriteList,
+    Event,
+    EventWrite,
+    FileMetadata,
+    FileMetadataWrite,
     Function,
     FunctionSchedule,
     RowWrite,
     RowWriteList,
+    TimeSeries,
+    TimeSeriesWrite,
     Transformation,
     TransformationDestination,
     TransformationJob,
@@ -568,3 +576,101 @@ def disable_throttler(
         patch(f"{raw_row_count.__module__}.ThrottlerState", always_enabled),
     ):
         yield
+
+
+@dataclass
+class HierarchyMinimal:
+    root_asset: Asset
+    child_asset: Asset
+    event: Event
+    file: FileMetadata
+    timeseries: TimeSeries
+    dataset: DataSet
+
+
+@pytest.fixture(scope="session")
+def migration_hierarchy_minimal(toolkit_client: ToolkitClient) -> HierarchyMinimal:
+    root = "migration_test_root_asset"
+    client = toolkit_client
+    dataset_write = DataSetWrite(
+        external_id="migration_test_dataset",
+        name="Migration Test DataSet",
+        description="DataSet for migration integration tests",
+    )
+    data_set = client.data_sets.retrieve(external_id=dataset_write.external_id)
+    if data_set is None:
+        data_set = client.data_sets.create(dataset_write)
+    asset_source = "ToolkitAsset"
+    event_source = "ToolkitEvent"
+    file_source = "ToolkitFile"
+    assets = AssetWriteList(
+        [
+            AssetWrite(
+                name="Migration Test Root Asset",
+                external_id=root,
+                description="Root asset for migration integration tests",
+                data_set_id=data_set.id,
+                source=asset_source,
+            ),
+            AssetWrite(
+                name="Migration Test Child Asset 1",
+                external_id="migration_test_child_asset_1",
+                description="Child asset 1 for migration integration tests",
+                parent_external_id=root,
+                data_set_id=data_set.id,
+                source=asset_source,
+            ),
+        ]
+    )
+    created_assets = client.assets.upsert(assets, mode="replace")
+    child_asset = created_assets[1]
+    event = EventWrite(
+        external_id="migration_test_event",
+        data_set_id=data_set.id,
+        start_time=1_600_000_000_000,
+        end_time=1_600_000_000_500,
+        type="WorkOrder",
+        asset_ids=[child_asset.id],
+        source=event_source,
+    )
+    created_event = client.events.upsert(event, mode="replace")
+    file = FileMetadataWrite(
+        external_id="migration_test_file",
+        name="migration_test_file.txt",
+        mime_type="text/plain",
+        data_set_id=data_set.id,
+        asset_ids=[child_asset.id],
+        source=file_source,
+    )
+    created_file = client.files.retrieve(external_id=file.external_id)
+    if created_file is None:
+        created_file, _ = client.files.create(file, overwrite=True)
+    if not created_file.uploaded:
+        client.files.upload_content_bytes("This is a test file.", external_id=created_file.external_id)
+
+    timeseries = TimeSeriesWrite(
+        name="Migration Test Time Series",
+        external_id="migration_test_timeseries",
+        unit="C",
+        is_step=False,
+        is_string=False,
+        asset_id=child_asset.id,
+        data_set_id=data_set.id,
+        unit_external_id="temperature:deg_c",
+    )
+
+    created_timeseries = client.time_series.upsert(timeseries, mode="replace")
+    if not client.time_series.data.retrieve_latest(external_id=timeseries.external_id):
+        client.time_series.data.insert(
+            external_id=timeseries.external_id,
+            datapoints=[(1_600_000_000_000, 20.0), (1_600_000_000_500, 21.5)],
+        )
+
+    return HierarchyMinimal(
+        root_asset=created_assets[0],
+        child_asset=child_asset,
+        event=created_event,
+        file=created_file,
+        timeseries=created_timeseries,
+        dataset=data_set,
+    )
