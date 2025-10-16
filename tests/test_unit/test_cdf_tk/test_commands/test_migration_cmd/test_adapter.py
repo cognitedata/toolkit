@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.adapter import (
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import CREATED_SOURCE_SYSTEM_VIEW_ID
 from cognite_toolkit._cdf_tk.storageio import AssetIO
-from cognite_toolkit._cdf_tk.storageio.selectors import AssetSubtreeSelector, DataSetSelector
+from cognite_toolkit._cdf_tk.storageio.selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 
 
 class TestAssetCentricMigrationIOAdapter:
