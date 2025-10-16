@@ -17,6 +17,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.data_classes.migration import (
     AssetCentricId,
+    CreatedSourceSystem,
     InstanceSource,
     ResourceViewMapping,
     ResourceViewMappingApply,
@@ -173,7 +174,20 @@ class ResourceViewMappingAPI:
         return results
 
 
+class CreatedSourceSystemAPI:
+    def __init__(self, instance_api: ExtendedInstancesAPI) -> None:
+        self._instance_api = instance_api
+        self._view_id = CreatedSourceSystem.get_source()
+
+    def retrieve(self, source: str | SequenceNotStr[str]) -> CreatedSourceSystem | NodeList[CreatedSourceSystem] | None:
+        raise NotImplementedError()
+
+    def list(self, limit: int = -1) -> NodeList[CreatedSourceSystem]:
+        raise NotImplementedError()
+
+
 class MigrationAPI:
     def __init__(self, instance_api: ExtendedInstancesAPI) -> None:
         self.instance_source = InstanceSourceAPI(instance_api)
         self.resource_view_mapping = ResourceViewMappingAPI(instance_api)
+        self.created_source_system = CreatedSourceSystemAPI(instance_api)
