@@ -79,6 +79,36 @@ CREATED_SOURCE_SYSTEM = dm.ContainerApply(
         )
     },
     constraints={"sourceUnique": dm.UniquenessConstraint(["source"])},
+    indexes={
+        "source": BTreeIndex(["source"], cursorable=True),
+    },
+)
+
+SPACE_SOURCE = dm.ContainerApply(
+    space=SPACE.space,
+    external_id="SpaceSource",
+    used_for="node",
+    properties={
+        "space": dm.ContainerProperty(
+            type=dm.Text(max_text_size=64),
+            nullable=False,
+        ),
+        "dataSetId": dm.ContainerProperty(
+            type=dm.data_types.Int64(),
+            nullable=False,
+        ),
+        "classicExternalId": dm.ContainerProperty(
+            type=dm.Text(max_text_size=256),
+            nullable=True,
+        ),
+    },
+    indexes={
+        "space": BTreeIndex(["space"], cursorable=True),
+        "dataSetId": BTreeIndex(["dataSetId"], cursorable=True),
+    },
+    constraints={
+        "dataSetIdUnique": dm.UniquenessConstraint(["dataSetId"]),
+    },
 )
 
 CONTAINERS = [RESOURCE_VIEW_MAPPING, INSTANCE_SOURCE_CONTAINER, CREATED_SOURCE_SYSTEM]
@@ -154,11 +184,37 @@ CREATED_SOURCE_SYSTEM_VIEW = dm.ViewApply(
     },
 )
 
+SPACE_SOURCE_VIEW = dm.ViewApply(
+    space=SPACE.space,
+    external_id="SpaceSource",
+    version="v1",
+    name="SpaceSource",
+    description="The mapping from CDF spaces to data sets.",
+    properties={
+        "space": dm.MappedPropertyApply(
+            container=SPACE_SOURCE.as_id(),
+            container_property_identifier="space",
+            description="The identifier of the created instances space.",
+        ),
+        "dataSetId": dm.MappedPropertyApply(
+            container=SPACE_SOURCE.as_id(),
+            container_property_identifier="dataSetId",
+            description="The dataSetId the space was created from.",
+        ),
+        "classicExternalId": dm.MappedPropertyApply(
+            container=SPACE_SOURCE.as_id(),
+            container_property_identifier="classicExternalId",
+            description="The externalId of the dataSet (if present) the space was created from.",
+        ),
+    },
+)
+
 INSTANCE_SOURCE_VIEW_ID = INSTANCE_SOURCE_VIEW.as_id()
 RESOURCE_VIEW_MAPPING_VIEW_ID = RESOURCE_VIEW_MAPPING_VIEW.as_id()
 CREATED_SOURCE_SYSTEM_VIEW_ID = CREATED_SOURCE_SYSTEM_VIEW.as_id()
+SPACE_SOURCE_VIEW_ID = SPACE_SOURCE_VIEW.as_id()
 
-VIEWS = [RESOURCE_VIEW_MAPPING_VIEW, INSTANCE_SOURCE_VIEW, CREATED_SOURCE_SYSTEM_VIEW]
+VIEWS = [RESOURCE_VIEW_MAPPING_VIEW, INSTANCE_SOURCE_VIEW, CREATED_SOURCE_SYSTEM_VIEW, SPACE_SOURCE_VIEW]
 
 COGNITE_MIGRATION_MODEL = dm.DataModelApply(
     space=SPACE.space,
