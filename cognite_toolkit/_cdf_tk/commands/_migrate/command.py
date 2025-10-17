@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.creators import MigrationCreator
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import DataMapper
 from cognite_toolkit._cdf_tk.commands.deploy import DeployCommand
 from cognite_toolkit._cdf_tk.constants import DMS_INSTANCE_LIMIT_MARGIN
-from cognite_toolkit._cdf_tk.cruds import ResourceCRUD, ResourceWorker
+from cognite_toolkit._cdf_tk.cruds import ResourceWorker
 from cognite_toolkit._cdf_tk.data_classes import DeployResults
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileExistsError,
@@ -252,14 +252,12 @@ class MigrationCommand(ToolkitCommand):
 
         verb = "Would deploy" if dry_run else "Deploying"
         self.console(f"{verb} {creator.DISPLAY_NAME} to CDF.")
-        crud_cls: type[ResourceCRUD] = creator.CRUD
+        crud_cls = creator.CRUD
         resource_list = creator.create_resources()
 
         results = DeployResults([], "deploy", dry_run=dry_run)
-        # MyPy does not understand that `loader_cls` has a `create_loader` method.
         crud = crud_cls.create_loader(client)
         worker = ResourceWorker(crud, "deploy")
-        # MyPy does not understand that `loader` has a `get_id` method.
         local_by_id = {crud.get_id(item): (item.dump(), item) for item in resource_list}
         worker.validate_access(local_by_id, is_dry_run=dry_run)
         cdf_resources = crud.retrieve(list(local_by_id.keys()))
