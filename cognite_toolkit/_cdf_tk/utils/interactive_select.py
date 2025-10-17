@@ -845,7 +845,7 @@ class AssetCentricInteractive:
         if not options and not allow_empty:
             raise ToolkitValueError(f"No {display_name} is available to select.")
         choices: list[questionary.Choice] = []
-        for option in options:
+        for option in sorted(options, key=lambda o: o.name or o.external_id or ""):
             title = f"{option.name} ({option.external_id})" if option.name != option.external_id else f"{option.name}"
             if include_resource_counts and option.external_id:
                 kwargs = {count_arg: option.external_id}
