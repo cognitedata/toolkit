@@ -12,6 +12,7 @@ from cognite_toolkit._cdf_tk.commands import (
 )
 from cognite_toolkit._cdf_tk.commands._migrate import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.adapter import AssetCentricMigrationIOAdapter, MigrationCSVFileSelector
+from cognite_toolkit._cdf_tk.commands._migrate.creators import InstanceSpaceCreator
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
 from cognite_toolkit._cdf_tk.storageio import AssetIO
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
@@ -24,6 +25,7 @@ class MigrateApp(typer.Typer):
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.main)
         self.command("prepare")(self.prepare)
+        self.command("data-sets")(self.data_sets)
         # Uncomment when command is ready.
         # self.command("assets")(self.assets)
         self.command("timeseries")(self.timeseries)
@@ -68,6 +70,55 @@ class MigrateApp(typer.Typer):
         cmd.run(
             lambda: cmd.deploy_cognite_migration(
                 client,
+                dry_run=dry_run,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def data_sets(
+        ctx: typer.Context,
+        data_set: Annotated[
+            list[str],
+            typer.Argument(
+                help="The name or external ID of the data set to create Instance Spaces for. If not provided, an "
+                "interactive selection will be performed to select the data sets to create Instance Spaces for."
+            ),
+        ],
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Path to the directory where the instance space definitions will be dumped. It is recommended "
+                "to govern these configurations in a git repository.",
+            ),
+        ] = Path("tmp"),
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-d",
+                help="If set, the migration will not be executed, but only a report of what would be done is printed.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """Creates Instance Spaces for all selected data sets."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = MigrationCommand()
+        cmd.run(
+            lambda: cmd.create(
+                client,
+                creator=InstanceSpaceCreator(client, data_set_external_ids=data_set),
+                output_dir=output_dir,
                 dry_run=dry_run,
                 verbose=verbose,
             )
