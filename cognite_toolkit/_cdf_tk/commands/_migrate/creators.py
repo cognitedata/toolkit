@@ -66,7 +66,9 @@ class InstanceSpaceCreator(MigrationCreator[SpaceApplyList]):
     CRUD = SpaceCRUD
     DISPLAY_NAME = "Instance Space"
 
-    def __init__(self, client: ToolkitClient, datasets: DataSetList | None, data_set_external_ids: list[str]) -> None:
+    def __init__(
+        self, client: ToolkitClient, datasets: DataSetList | None = None, data_set_external_ids: list[str] | None = None
+    ) -> None:
         super().__init__(client)
         if sum([datasets is not None, data_set_external_ids is not None]) != 1:
             raise ValueError("Exactly one of datasets or data_set_external_ids must be provided.")
@@ -77,7 +79,7 @@ class InstanceSpaceCreator(MigrationCreator[SpaceApplyList]):
         if self.data_set_external_ids is not None:
             self.datasets = self.client.data_sets.retrieve_multiple(external_ids=self.data_set_external_ids)
 
-        if missing_external_ids := [ds.id for ds in self.datasets if ds.external_id]:
+        if missing_external_ids := [ds.id for ds in self.datasets if ds.external_id is None]:
             raise ToolkitRequiredValueError(
                 f"Cannot create instance spaces for datasets with missing external IDs: {humanize_collection(missing_external_ids)}"
             )
