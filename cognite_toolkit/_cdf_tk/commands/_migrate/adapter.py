@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
@@ -13,7 +13,6 @@ from cognite.client.data_classes import (
     FileMetadataWrite,
     FileMetadataWriteList,
     TimeSeries,
-    filters,
 )
 from cognite.client.data_classes._base import (
     T_CogniteResourceList,
@@ -22,12 +21,7 @@ from cognite.client.data_classes._base import (
     WriteableCogniteResource,
     WriteableCogniteResourceList,
 )
-from cognite.client.data_classes.aggregations import UniqueResult
-from cognite.client.data_classes.assets import AssetProperty
-from cognite.client.data_classes.data_modeling import EdgeApply, EdgeId, InstanceApply, NodeApply, NodeId, ViewId
-from cognite.client.data_classes.data_modeling.instances import Node, NodeApplyList, NodeList, Properties
-from cognite.client.data_classes.documents import SourceFileProperty
-from cognite.client.data_classes.events import EventProperty
+from cognite.client.data_classes.data_modeling import EdgeApply, EdgeId, InstanceApply, NodeApply, NodeId
 from cognite.client.utils._identifier import InstanceId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -45,17 +39,15 @@ from cognite_toolkit._cdf_tk.storageio import (
 from cognite_toolkit._cdf_tk.storageio._base import T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     AssetCentricSelector,
-    AssetSubtreeSelector,
-    DataSetSelector,
     InstanceSelector,
 )
-from cognite_toolkit._cdf_tk.utils.collection import chunker, chunker_sequence
+from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest, SuccessItem
 from cognite_toolkit._cdf_tk.utils.thread_safe_dict import ThreadSafeDict
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from .data_classes import MigrationMapping, MigrationMappingList
-from .data_model import CREATED_SOURCE_SYSTEM_VIEW_ID, INSTANCE_SOURCE_VIEW_ID
+from .data_model import INSTANCE_SOURCE_VIEW_ID
 
 
 class MigrationSelector(AssetCentricSelector, InstanceSelector, ABC):
@@ -267,106 +259,3 @@ class FileMetaAdapter(
         if to_upload:
             results.extend(list(super().upload_items(InstanceApplyList(to_upload), http_client, selector)))
         return results
-
-
-class SourceSystemCreation(StorageIO[NodeId, AssetCentricSelector, NodeApplyList, NodeList[Node]]):
-    """This adapter is used to create CogniteSourceSystem from the 'source' field of
-    asset-centric Event, Asset, and FileMetadata resources.
-
-    Args:
-        client: The Cognite Toolkit client to use for interacting with the Cognite Data Platform.
-        instance_space: The space in which to create the CogniteSourceSystem instances.
-
-    """
-
-    KIND = "SourceSystem"
-    DISPLAY_NAME = "Source Systems"
-    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
-    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
-    SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
-    CHUNK_SIZE = 1000
-    UPLOAD_ENDPOINT = InstanceIO.UPLOAD_ENDPOINT
-    UPLOAD_EXTRA_ARGS = None
-    BASE_SELECTOR = AssetCentricSelector
-
-    def __init__(self, client: ToolkitClient, instance_space: str) -> None:
-        super().__init__(client)
-        self._instance_space = instance_space
-
-    def as_id(self, item: dict[str, JsonVal] | object) -> NodeId:
-        if isinstance(item, Node | NodeApply):
-            return item.as_id()
-        elif isinstance(item, dict):
-            return NodeId(item["space"], item["externalId"])  # type: ignore[arg-type]
-        raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
-
-    def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[NodeList[Node]]:
-        sources: set[str] = set()
-        for chunk in chunker(self._lookup_sources(selector), self.CHUNK_SIZE):
-            batch = NodeList[Node]([])
-            for item in chunk:
-                if item.value in sources:
-                    continue
-                sources.add(item.value)
-                if limit is not None and len(sources) > limit:
-                    if batch:
-                        yield batch
-                    return
-                node = self._create_source_system(item.value)
-                batch.append(node)
-            yield batch
-
-    def _lookup_sources(self, selector: AssetCentricSelector) -> Iterable[UniqueResult]:
-        if not isinstance(selector, DataSetSelector | AssetSubtreeSelector):
-            raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for stream_data")
-        yield from self.client.assets.aggregate_unique_values(AssetProperty.source, filter=selector.as_filter())
-        yield from self.client.events.aggregate_unique_values(
-            property=EventProperty.source, filter=selector.as_filter()
-        )
-        advanced_filter = self._create_advanced_filter(selector)
-        yield from self.client.documents.aggregate_unique_values(
-            SourceFileProperty.source, filter=advanced_filter, limit=1000
-        )
-
-    def _create_source_system(self, source: str) -> Node:
-        return Node(
-            space=self._instance_space,
-            external_id=source,
-            version=0,
-            last_updated_time=1,
-            created_time=1,
-            deleted_time=None,
-            properties=Properties(
-                {
-                    ViewId("cdf_cdm", "CogniteSourceSystem", "v1"): {"name": source},
-                    CREATED_SOURCE_SYSTEM_VIEW_ID: {"source": source},
-                }
-            ),
-            type=None,
-        )
-
-    def count(self, selector: AssetCentricSelector) -> int | None:
-        if not isinstance(selector, DataSetSelector | AssetSubtreeSelector):
-            raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for count")
-        total = 0
-        total += self.client.assets.aggregate_cardinality_values(AssetProperty.source, filter=selector.as_filter())
-        total += self.client.events.aggregate_cardinality_values(EventProperty.source, filter=selector.as_filter())
-        advanced_filter = self._create_advanced_filter(selector)
-        total += self.client.documents.aggregate_cardinality_values(SourceFileProperty.source, filter=advanced_filter)
-        return total
-
-    def _create_advanced_filter(self, selector: AssetCentricSelector) -> filters.Filter:
-        if isinstance(selector, DataSetSelector):
-            return filters.Equals("dataSetId", self.client.lookup.data_sets.id(selector.data_set_external_id))
-        elif isinstance(selector, AssetSubtreeSelector):
-            return filters.InAssetSubtree("assetExternalIds", [selector.hierarchy])
-        else:
-            raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for advanced filter")
-
-    def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> NodeApplyList:
-        output = NodeApplyList([])
-        for data in data_chunk:
-            # Existing version is not needed when creating new instances.
-            data.pop("existingVersion", None)
-            output.append(NodeApply._load(data))
-        return output
