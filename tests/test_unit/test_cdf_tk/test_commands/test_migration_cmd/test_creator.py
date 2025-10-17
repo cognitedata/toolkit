@@ -17,7 +17,6 @@ class TestCreator:
     def test_create_instance_spaces(self, toolkit_client_approval: ApprovalToolkitClient, tmp_path: Path) -> None:
         toolkit_client_approval.append(DataModel, COGNITE_MIGRATION_MODEL)
         toolkit_client_approval.append(View, VIEWS)
-
         data_sets = DataSetList(
             [
                 DataSet(
@@ -28,10 +27,13 @@ class TestCreator:
                 for letter in "ABC"
             ]
         )
+        toolkit_client_approval.append(DataSet, data_sets)
 
         results = MigrationCommand(silent=True).create(
             client=toolkit_client_approval.client,
-            creator=InstanceSpaceCreator(toolkit_client_approval.client, data_sets),
+            creator=InstanceSpaceCreator(
+                toolkit_client_approval.client, data_set_external_ids=[ds.external_id for ds in data_sets]
+            ),
             dry_run=False,
             verbose=False,
             output_dir=tmp_path,
