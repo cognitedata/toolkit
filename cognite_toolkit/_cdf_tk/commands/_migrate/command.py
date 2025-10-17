@@ -7,8 +7,12 @@ from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
+from cognite_toolkit._cdf_tk.commands._migrate.creators import MigrationCreator
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import DataMapper
+from cognite_toolkit._cdf_tk.commands.deploy import DeployCommand
 from cognite_toolkit._cdf_tk.constants import DMS_INSTANCE_LIMIT_MARGIN
+from cognite_toolkit._cdf_tk.cruds import ResourceWorker
+from cognite_toolkit._cdf_tk.data_classes import DeployResults
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileExistsError,
     ToolkitMigrationError,
@@ -16,7 +20,8 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.storageio import StorageIO
 from cognite_toolkit._cdf_tk.storageio._base import T_CogniteResourceList, T_Selector, T_WritableCogniteResourceList
-from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils import humanize_collection, safe_write, sanitize_filename
+from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import Chunk, CSVWriter, NDJsonWriter, SchemaColumn, Uncompressed
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemIDMessage, SuccessItem
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
@@ -230,3 +235,58 @@ class MigrationCommand(ToolkitCommand):
         self.console(
             f"Project has enough capacity for migration. Total instances after migration: {total_instances:,}."
         )
+
+    def create(
+        self,
+        client: ToolkitClient,
+        creator: MigrationCreator,
+        dry_run: bool,
+        output_dir: Path,
+        verbose: bool = False,
+    ) -> DeployResults:
+        """This method is used to create migration resource in CDF."""
+        self.validate_migration_model_available(client)
+
+        deploy_cmd = DeployCommand(self.print_warning, silent=self.silent)
+        deploy_cmd.tracker = self.tracker
+
+        verb = "Would deploy" if dry_run else "Deploying"
+        self.console(f"{verb} {creator.DISPLAY_NAME} to CDF.")
+        crud_cls = creator.CRUD
+        resource_list = creator.create_resources()
+
+        results = DeployResults([], "deploy", dry_run=dry_run)
+        crud = crud_cls.create_loader(client)
+        worker = ResourceWorker(crud, "deploy")
+        local_by_id = {crud.get_id(item): (item.dump(), item) for item in resource_list}
+        worker.validate_access(local_by_id, is_dry_run=dry_run)
+        cdf_resources = crud.retrieve(list(local_by_id.keys()))
+        resources = worker.categorize_resources(local_by_id, cdf_resources, False, verbose)
+
+        if dry_run:
+            result = deploy_cmd.dry_run_deploy(resources, crud, False, False)
+        else:
+            result = deploy_cmd.actual_deploy(resources, crud)
+            if result.calculated_total > 0:
+                store_count = creator.store_lineage(resource_list)
+                self.console(f"Stored lineage for {store_count:,} {creator.DISPLAY_NAME}.")
+
+        self.console(f"{verb} {creator.DISPLAY_NAME} to CDF.")
+
+        resource_configs = creator.resource_configs(resource_list)
+        for config in resource_configs:
+            filepath = output_dir / crud_cls.folder_name / f"{sanitize_filename(config.filestem)}.{crud_cls.kind}.yaml"
+            filepath.parent.mkdir(parents=True, exist_ok=True)
+            safe_write(filepath, yaml_safe_dump(config.data))
+        self.console(
+            f"{len(resource_configs)} {crud_cls.kind} resource configurations written to {(output_dir / crud_cls.folder_name).as_posix()!r}"
+        )
+        self.console("It is recommended to add these files to a Toolkit governed module.")
+
+        if result:
+            results[result.name] = result
+
+        if results.has_counts:
+            print(results.counts_table())
+
+        return results
