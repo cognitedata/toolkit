@@ -3,6 +3,7 @@ from cognite.client.data_classes.data_modeling import NodeApply, NodeApplyList, 
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.migration import (
+    CreatedSourceSystem,
     InstanceSource,
     ResourceViewMapping,
     ResourceViewMappingApply,
@@ -98,3 +99,35 @@ class TestResourceViewMappingAPI:
             if created:
                 # Clean up by deleting the created view source if it exists
                 toolkit_client.data_modeling.instances.delete(source.as_id())
+
+
+@pytest.fixture(scope="session")
+def created_source_system(toolkit_client: ToolkitClient, toolkit_space: Space) -> str:
+    source = "toolkit_test_created_source_system"
+    node = NodeApply(
+        space=toolkit_space.space,
+        external_id=source,
+        sources=[
+            NodeOrEdgeData(
+                CreatedSourceSystem.get_source(),
+                {"source": source},
+            )
+        ],
+    )
+    if not toolkit_client.data_modeling.instances.retrieve_nodes([node.as_id()]):
+        _ = toolkit_client.data_modeling.instances.apply(node)
+    return source
+
+
+class TestCreatedSourceSystemAPI:
+    @pytest.mark.usefixtures("created_source_system")
+    def test_list(self, toolkit_client: ToolkitClient) -> None:
+        created = toolkit_client.migration.created_source_system.list(limit=1)
+        assert len(created) == 1
+
+    def test_retrieve(self, created_source_system: str, toolkit_client: ToolkitClient) -> None:
+        retrieved = toolkit_client.migration.created_source_system.retrieve([created_source_system])
+        assert len(retrieved) == 1
+        node = retrieved[0]
+        assert node.external_id == created_source_system
+        assert node.source == created_source_system
