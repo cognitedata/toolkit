@@ -164,6 +164,8 @@ class ModuleLocation:
         return ReadModule(
             dir=self.dir,
             resource_directories=tuple(self.resource_directories),
+            module_id=self.module_id,
+            package_id=self.package_id,
         )
 
 
@@ -178,6 +180,8 @@ class ReadModule:
 
     dir: Path
     resource_directories: tuple[str, ...]
+    module_id: str | None
+    package_id: str | None
 
     def resource_dir_path(self, resource_folder: str) -> Path | None:
         """Returns the path to a resource in the module.
@@ -198,12 +202,16 @@ class ReadModule:
         return cls(
             dir=Path(data["dir"]),
             resource_directories=tuple(data["resource_directories"]),
+            module_id=data.get("module_id"),
+            package_id=data.get("package_id"),
         )
 
     def dump(self) -> dict[str, Any]:
         return {
             "dir": self.dir.as_posix(),
             "resource_directories": list(self.resource_directories),
+            "module_id": self.module_id,
+            "package_id": self.package_id,
         }
 
 
