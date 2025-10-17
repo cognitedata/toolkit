@@ -868,6 +868,6 @@ class AssetCentricInteractive:
             selected = questionary.checkbox(message, choices=choices).ask()
         else:
             selected = questionary.select(message, choices=choices).ask()
-        if selected is None:
+        if selected is None and not allow_empty:
             raise ToolkitValueError(f"No {display_name} selected. Aborting.")
         return selected
