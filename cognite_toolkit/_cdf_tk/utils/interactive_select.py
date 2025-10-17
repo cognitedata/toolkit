@@ -10,6 +10,7 @@ import questionary
 from cognite.client.data_classes import (
     Asset,
     DataSet,
+    DataSetList,
     UserProfileList,
     filters,
 )
@@ -773,3 +774,45 @@ class DataModelingSelect:
         if include_global:
             return self._available_spaces
         return SpaceList([space for space in self._available_spaces if not space.is_global])
+
+
+class DataSetSelect:
+    def __init__(self, client: ToolkitClient, operation: str) -> None:
+        self.client = client
+        self.operation = operation
+
+    def select_data_set(
+        self, multi: bool, allow_empty: bool = False, include_resource_counts: bool = True
+    ) -> DataSet | DataSetList | None:
+        datasets = self.client.data_sets.list(limit=-1)
+        if not datasets and not allow_empty:
+            raise ToolkitValueError("No data sets available to select.")
+        choices: list[questionary.Choice] = []
+        for dataset in datasets:
+            title = (
+                f"{dataset.name} ({dataset.external_id})" if dataset.name != dataset.external_id else f"{dataset.name}"
+            )
+            if include_resource_counts and dataset.external_id:
+                asset_count = AssetAggregator(self.client).count(data_set_external_id=dataset.external_id)
+                event_count = EventAggregator(self.client).count(data_set_external_id=dataset.external_id)
+                file_count = FileAggregator(self.client).count(data_set_external_id=dataset.external_id)
+                time_series_count = TimeSeriesAggregator(self.client).count(data_set_external_id=dataset.external_id)
+                title += f"[Assets: {asset_count:,}, Events: {event_count:,}, Files: {file_count:,}, Time Series: {time_series_count:,}]"
+            choices.append(questionary.Choice(title=title, value=dataset))
+
+        message = f"Select a data set to {self.operation} listed as 'name (external_id)'"
+        if include_resource_counts:
+            message += " [Assets: x, Events: x, Files: x, Time Series: x]"
+        if multi:
+            selected = questionary.checkbox(message, choices=choices).ask()
+        else:
+            selected = questionary.select(message, choices=choices).ask()
+        if selected is None:
+            raise ToolkitValueError("No data set selected. Aborting.")
+
+        if multi:
+            if not selected and not allow_empty:
+                raise ToolkitValueError("No data sets selected. Aborting.")
+            return DataSetList(selected)
+        else:
+            return selected
