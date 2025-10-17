@@ -4,17 +4,21 @@ from typing import Any
 import pytest
 from cognite.client.data_classes import DataSet, DataSetList
 from cognite.client.data_classes.aggregations import UniqueResult, UniqueResultList
-from cognite.client.data_classes.data_modeling import DataModel, View
+from cognite.client.data_classes.data_modeling import DataModel, NodeApply, SpaceApply, View
 
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.creators import InstanceSpaceCreator, SourceSystemCreator
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import COGNITE_MIGRATION_MODEL, VIEWS
 from cognite_toolkit._cdf_tk.data_classes import ResourceDeployResult
+from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
 class TestCreator:
-    def test_create_instance_spaces(self, toolkit_client_approval: ApprovalToolkitClient, tmp_path: Path) -> None:
+    @pytest.mark.parametrize("dry_run", [pytest.param(True, id="dry_run"), pytest.param(False, id="not_dry_run")])
+    def test_create_instance_spaces(
+        self, dry_run: bool, toolkit_client_approval: ApprovalToolkitClient, tmp_path: Path
+    ) -> None:
         toolkit_client_approval.append(DataModel, COGNITE_MIGRATION_MODEL)
         toolkit_client_approval.append(View, VIEWS)
         data_sets = DataSetList(
@@ -34,7 +38,7 @@ class TestCreator:
             creator=InstanceSpaceCreator(
                 toolkit_client_approval.client, data_set_external_ids=[ds.external_id for ds in data_sets]
             ),
-            dry_run=False,
+            dry_run=dry_run,
             verbose=False,
             output_dir=tmp_path,
         )
@@ -42,6 +46,40 @@ class TestCreator:
         result = results["spaces"]
         assert isinstance(result, ResourceDeployResult)
         assert result.created == 3
+        configurations = list(tmp_path.rglob("*Space.yaml"))
+        assert len(configurations) == 3
+        created_spaces = toolkit_client_approval.created_resources["Space"] if not dry_run else []
+        assert all(isinstance(space, SpaceApply) for space in created_spaces)
+        expected_created = {ds.external_id for ds in data_sets} if not dry_run else set()
+        assert {space.space for space in created_spaces} == expected_created
+
+    def test_create_instance_spaces_missing_external_id(
+        self, toolkit_client_approval: ApprovalToolkitClient, tmp_path: Path
+    ) -> None:
+        toolkit_client_approval.append(DataModel, COGNITE_MIGRATION_MODEL)
+        toolkit_client_approval.append(View, VIEWS)
+        data_sets = DataSetList(
+            [
+                DataSet(
+                    id=i,
+                    name=f"Dataset {i}",
+                    description=f"This is dataset {i}",
+                )
+                for i in range(3)
+            ]
+        )
+
+        with pytest.raises(
+            ToolkitRequiredValueError,
+            match="Cannot create instance spaces for datasets with missing external IDs: 0, 1 and 2",
+        ):
+            MigrationCommand(silent=True).create(
+                client=toolkit_client_approval.client,
+                creator=InstanceSpaceCreator(toolkit_client_approval.client, datasets=data_sets),
+                dry_run=False,
+                verbose=False,
+                output_dir=tmp_path,
+            )
 
     @pytest.mark.parametrize(
         "arguments",
@@ -74,3 +112,9 @@ class TestCreator:
         result = results["nodes"]
         assert isinstance(result, ResourceDeployResult)
         assert result.created == 5
+        configurations = list(tmp_path.rglob("*Node.yaml"))
+        assert len(configurations) == 5
+        expected_external_ids = {"aveva", "custom", "sap", "internal", "sharepoint"}
+        created_nodes = toolkit_client_approval.created_resources["Node"]
+        assert all(isinstance(node, NodeApply) for node in created_nodes)
+        assert {node.external_id for node in created_nodes} == expected_external_ids
