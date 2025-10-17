@@ -29,7 +29,6 @@ class MigrateApp(typer.Typer):
         self.command("timeseries")(self.timeseries)
         self.command("files")(self.files)
         self.command("canvas")(self.canvas)
-        self.command("dataSets"(self.data_sets))
 
     def main(self, ctx: typer.Context) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
@@ -73,46 +72,6 @@ class MigrateApp(typer.Typer):
                 verbose=verbose,
             )
         )
-
-    @staticmethod
-    def data_sets(
-        ctx: typer.Context,
-        data_set: Annotated[
-            list[str] | None,
-            typer.Argument(
-                help="The name or external ID of the data set to create Instance Spaces for. If not provided, an "
-                "interactive selection will be performed to select the data sets to create Instance Spaces for."
-            ),
-        ] = None,
-        output_dir: Annotated[
-            Path,
-            typer.Option(
-                "--output-dir",
-                "-o",
-                help="Path to the directory where the instance space definitions will be dumped. It is recommendedto govern these configurations in a git repository.",
-            ),
-        ] = Path("tmp"),
-        dry_run: Annotated[
-            bool,
-            typer.Option(
-                "--dry-run",
-                "-d",
-                help="If set, the migration will not be executed, but only a report of what would be done is printed.",
-            ),
-        ] = False,
-        verbose: Annotated[
-            bool,
-            typer.Option(
-                "--verbose",
-                "-v",
-                help="Turn on to get more verbose output when running the command",
-            ),
-        ] = False,
-    ) -> None:
-        """Creates Instance Spaces for all selected data sets."""
-        client = EnvironmentVariables.create_from_environment().get_client()
-        cmd = MigrationCommand()
-        cmd.run(lambda: cmd.create(client, creator=data_set, output_dir=output_dir, dry_run=dry_run, verbose=verbose))
 
     @staticmethod
     def assets(
