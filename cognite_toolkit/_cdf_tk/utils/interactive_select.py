@@ -44,7 +44,7 @@ from .useful_types import AssetCentricDestinationType
 T_Type = TypeVar("T_Type", bound=Asset | DataSet)
 
 
-class AssetCentricInteractiveSelect(ABC):
+class AssetCentricBaseSelect(ABC):
     def __init__(self, client: ToolkitClient, operation: str) -> None:
         self.client = client
         self.operation = operation
@@ -222,22 +222,22 @@ class AssetCentricInteractiveSelect(ABC):
         return selected
 
 
-class AssetInteractiveSelect(AssetCentricInteractiveSelect):
+class AssetInteractiveSelect(AssetCentricBaseSelect):
     def _get_aggregator(self, client: ToolkitClient) -> AssetCentricAggregator:
         return AssetAggregator(self.client)
 
 
-class FileMetadataInteractiveSelect(AssetCentricInteractiveSelect):
+class FileMetadataInteractiveSelect(AssetCentricBaseSelect):
     def _get_aggregator(self, client: ToolkitClient) -> AssetCentricAggregator:
         return FileAggregator(self.client)
 
 
-class TimeSeriesInteractiveSelect(AssetCentricInteractiveSelect):
+class TimeSeriesInteractiveSelect(AssetCentricBaseSelect):
     def _get_aggregator(self, client: ToolkitClient) -> AssetCentricAggregator:
         return TimeSeriesAggregator(self.client)
 
 
-class EventInteractiveSelect(AssetCentricInteractiveSelect):
+class EventInteractiveSelect(AssetCentricBaseSelect):
     def _get_aggregator(self, client: ToolkitClient) -> AssetCentricAggregator:
         return EventAggregator(self.client)
 
