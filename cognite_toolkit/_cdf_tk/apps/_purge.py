@@ -30,7 +30,7 @@ class PurgeApp(typer.Typer):
         self.callback(invoke_without_command=True)(self.main)
         self.command("dataset")(self.purge_dataset)
         self.command("space")(self.purge_space)
-        if Flags.PURGE_INSTANCES.is_enabled():
+        if Flags.PURGE_INSTANCES.is_enabled() or Flags.v07.is_enabled():
             self.command("instances")(self.purge_instances)
 
     def main(self, ctx: typer.Context) -> None:
