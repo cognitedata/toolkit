@@ -111,21 +111,22 @@ class PurgeApp(typer.Typer):
                 help="Include space in the purge. This will also delete the space.",
             ),
         ] = False,
-        # Enable on next minor release
-        # delete_datapoints: Annotated[
-        #     bool,
-        #     typer.Option(
-        #         "--delete-datapoints",
-        #         help="Delete datapoints linked to CogniteTimeSeries nodes in the space.",
-        #     ),
-        # ] = False,
-        # delete_file_content: Annotated[
-        #     bool,
-        #     typer.Option(
-        #         "--delete-file-content",
-        #         help="Delete file content linked to CogniteFile nodes in the space.",
-        #     ),
-        # ] = False,
+        delete_datapoints: Annotated[
+            bool,
+            typer.Option(
+                "--delete-datapoints",
+                help="Delete datapoints linked to CogniteTimeSeries nodes in the space.",
+                hidden=not Flags.v07.is_enabled(),
+            ),
+        ] = False,
+        delete_file_content: Annotated[
+            bool,
+            typer.Option(
+                "--delete-file-content",
+                help="Delete file content linked to CogniteFile nodes in the space.",
+                hidden=not Flags.v07.is_enabled(),
+            ),
+        ] = False,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -179,8 +180,8 @@ class PurgeApp(typer.Typer):
                 client=client,
                 selected_space=space,
                 include_space=include_space,
-                delete_datapoints=False,
-                delete_file_content=False,
+                delete_datapoints=delete_datapoints,
+                delete_file_content=delete_file_content,
                 dry_run=dry_run,
                 auto_yes=auto_yes,
                 verbose=verbose,
