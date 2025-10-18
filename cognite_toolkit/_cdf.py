@@ -24,7 +24,7 @@ from rich import print
 from cognite_toolkit._cdf_tk.apps import (
     AuthApp,
     CoreApp,
-    DownloadApp,
+    DataApp,
     DumpApp,
     LandingApp,
     MigrateApp,
@@ -34,7 +34,6 @@ from cognite_toolkit._cdf_tk.apps import (
     PurgeApp,
     RepoApp,
     RunApp,
-    UploadApp,
 )
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import (
@@ -110,11 +109,8 @@ if Flags.PROFILE.is_enabled():
 if Flags.MIGRATE.is_enabled():
     _app.add_typer(MigrateApp(**default_typer_kws), name="migrate")
 
-if Flags.DOWNLOAD.is_enabled():
-    _app.add_typer(DownloadApp(**default_typer_kws), name="download")
-
-if Flags.UPLOAD.is_enabled():
-    _app.add_typer(UploadApp(**default_typer_kws), name="upload")
+if Flags.v07.is_enabled():
+    _app.add_typer(DataApp(**default_typer_kws), name="data")
 
 _app.add_typer(ModulesApp(**default_typer_kws), name="modules")
 _app.command("init")(landing_app.main_init)
