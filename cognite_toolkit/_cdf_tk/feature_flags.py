@@ -85,6 +85,10 @@ class Flags(Enum):
         visible=True,
         description="Enables support for using Cognite Files to store function code",
     )
+    v07 = FlagMetadata(
+        visible=False,
+        description="Enables features planned for Cognite Toolkit version 0.7.0",
+    )
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)
