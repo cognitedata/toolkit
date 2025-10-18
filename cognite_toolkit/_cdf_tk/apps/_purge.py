@@ -34,7 +34,7 @@ class PurgeApp(typer.Typer):
             self.command("instances")(self.purge_instances)
 
     def main(self, ctx: typer.Context) -> None:
-        """Commands purge functionality"""
+        """Commands deleting data from Cognite Data Fusion."""
         if ctx.invoked_subcommand is None:
             print("Use [bold yellow]cdf purge --help[/] for more information.")
 
