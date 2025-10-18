@@ -97,7 +97,7 @@ _app.add_typer(RepoApp(**default_typer_kws), name="repo")
 if Plugins.dump.value.is_enabled():
     _app.add_typer(DumpApp(**default_typer_kws), name="dump")
 
-if Plugins.purge.value.is_enabled():
+if Plugins.purge.value.is_enabled() and not Flags.v07.is_enabled():
     _app.add_typer(PurgeApp(**default_typer_kws), name="purge")
 
 if Flags.POPULATE.is_enabled():
