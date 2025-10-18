@@ -1012,3 +1012,45 @@ class TestAssetCentricInteractive:
             result = selector.select_data_set(multi, allow_empty, include_resource_counts=True)
 
         assert result == expected
+
+    @pytest.mark.parametrize(
+        "multi,allow_empty,expected",
+        [
+            pytest.param(False, False, Asset(external_id="B"), id="Single select, no empty"),
+            pytest.param(True, False, [Asset(external_id="B")], id="Multi select, no empty"),
+            pytest.param(False, True, None, id="Single select, allow empty"),
+            pytest.param(True, True, [], id="Multi select, allow empty"),
+        ],
+    )
+    def test_select_hierarchy(
+        self, multi: bool, allow_empty: bool, expected: Asset | list[Asset] | None, monkeypatch
+    ) -> None:
+        hierarchies = [Asset(external_id=letter) for letter in "ABC"]
+
+        def select_hierarchy(choices: list[Choice]) -> Asset | list[Asset] | None:
+            assert len(choices) == 3
+            if allow_empty and multi:
+                return []
+            elif allow_empty:
+                return None
+            elif multi:
+                return [choices[1].value]  # Select "B"
+            else:
+                return choices[1].value  # Select "B"
+
+        answers = [select_hierarchy]
+
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(AssetInteractiveSelect.__module__, monkeypatch, answers),
+        ):
+            client.assets.list.return_value = hierarchies
+            client.assets.aggregate_count.return_value = 10
+            client.events.aggregate_count.return_value = 20
+            client.files.aggregate.return_value = [CountAggregate(30)]
+            client.time_series.aggregate_count.return_value = 40
+
+            selector = AssetCentricInteractive(client, "test_operation")
+            result = selector.select_hierarchy(multi, allow_empty, include_resource_counts=True)
+
+        assert result == expected
