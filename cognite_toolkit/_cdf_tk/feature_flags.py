@@ -85,6 +85,10 @@ class Flags(Enum):
         visible=True,
         description="Enables support for using Cognite Files to store function code",
     )
+    RESOURCE_CREATE = FlagMetadata(
+        visible=True,
+        description="Enables the support for the resource create command",
+    )
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)
