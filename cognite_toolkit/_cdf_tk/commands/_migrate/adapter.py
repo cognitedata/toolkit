@@ -162,6 +162,39 @@ class AssetCentricMigrationIOAdapter(
             raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for count")
         return len(selector.items)
 
+    def _stream_given_dataset(self, selector: MigrateDataSetSelector, limit: int | None = None) -> Iterator[AssetCentricMappingList]:
+        asset_centric_selector = DataSetSelector(
+            data_set_external_id=selector.data_set_external_id,
+            resource_type=selector.resource_type,
+        )
+        for data_chunk in self.base.stream_data(asset_centric_selector, limit):
+            mapping_chunk = MigrationMappingList(
+                [
+                    MigrationMapping(
+                        resource_type=selector.resource_type,
+                        instance_id=NodeId(
+                            self.prepare_instance_spaec(item.data_set_id),
+                            item=item.external_id,
+                        ),
+                        id=item.id,
+                        data_set_id=item.data_set_id,
+                        ingestion_view=item.ingestion_view,
+                        preferred_consumer_view=ViewId,
+                    )
+                    for item in data_chunk
+                ]
+            )
+            combined_chunk = AssetCentricMappingList(
+                [
+                    AssetCentricMapping(
+                        mapping=mapping,
+                        resource=resource,
+                    )
+                    for mapping, resource in zip(mapping_chunk, data_chunk, strict=True)
+                ]
+            )
+            yield combined_chunk
+
     def data_to_json_chunk(
         self, data_chunk: Sequence[AssetCentricMapping[T_WritableCogniteResource]]
     ) -> list[dict[str, JsonVal]]:
