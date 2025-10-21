@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.creators import InstanceSpaceCrea
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
 from cognite_toolkit._cdf_tk.storageio import AssetIO
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.interactive_select import AssetInteractiveSelect
 
 TODAY = date.today()
 
@@ -113,6 +114,9 @@ class MigrateApp(typer.Typer):
     ) -> None:
         """Creates Instance Spaces for all selected data sets."""
         client = EnvironmentVariables.create_from_environment().get_client()
+        if data_set is None:
+            selector = AssetInteractiveSelect(client, "migrate")
+            data_set = selector.select_data_sets()
         cmd = MigrationCommand()
         cmd.run(
             lambda: cmd.create(
