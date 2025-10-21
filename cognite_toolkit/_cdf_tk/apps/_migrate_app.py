@@ -2,6 +2,7 @@ from datetime import date
 from pathlib import Path
 from typing import Annotated, Any
 
+import questionary
 import typer
 
 from cognite_toolkit._cdf_tk.commands import (
@@ -80,12 +81,12 @@ class MigrateApp(typer.Typer):
     def data_sets(
         ctx: typer.Context,
         data_set: Annotated[
-            list[str],
+            list[str] | None,
             typer.Argument(
                 help="The name or external ID of the data set to create Instance Spaces for. If not provided, an "
                 "interactive selection will be performed to select the data sets to create Instance Spaces for."
             ),
-        ],
+        ] = None,
         output_dir: Annotated[
             Path,
             typer.Option(
@@ -115,8 +116,17 @@ class MigrateApp(typer.Typer):
         """Creates Instance Spaces for all selected data sets."""
         client = EnvironmentVariables.create_from_environment().get_client()
         if data_set is None:
+            # Interactive model
             selector = AssetInteractiveSelect(client, "migrate")
             data_set = selector.select_data_sets()
+            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).ask()
+            output_dir = Path(
+                questionary.path(
+                    "Specify output directory for instance space definitions:", default=str(output_dir)
+                ).ask()
+            )
+            verbose = questionary.confirm("Do you want verbose output?", default=verbose).ask()
+
         cmd = MigrationCommand()
         cmd.run(
             lambda: cmd.create(
