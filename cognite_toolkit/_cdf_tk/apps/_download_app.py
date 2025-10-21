@@ -42,6 +42,10 @@ class AssetCentricFormats(str, Enum):
     ndjson = "ndjson"
 
 
+class HierarchyFormats(str, Enum):
+    ndjson = "ndjson"
+
+
 class InstanceFormats(str, Enum):
     ndjson = "ndjson"
 
@@ -259,19 +263,19 @@ class DownloadApp(typer.Typer):
     def download_hierarchy_cmd(
         ctx: typer.Context,
         hierarchy: Annotated[
-            str,
+            str | None,
             typer.Argument(
                 help="The asset hierarchy to download.",
             ),
-        ],
+        ] = None,
         file_format: Annotated[
-            AssetCentricFormats,
+            HierarchyFormats,
             typer.Option(
                 "--format",
                 "-f",
-                help="Format to download the assets in.",
+                help="Format for downloading the asset hierarchy.",
             ),
-        ] = AssetCentricFormats.csv,
+        ] = HierarchyFormats.ndjson,
         compression: Annotated[
             CompressionFormat,
             typer.Option(

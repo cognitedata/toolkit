@@ -54,7 +54,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, SimpleBodyRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, AssetCentric, JsonVal, T_WritableCogniteResourceList
 
-from ._base import ConfigurableStorageIO, StorageIOConfig, TableStorageIO
+from ._base import StorageIOConfig, TableStorageIO
 from .selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 
 
@@ -125,7 +125,9 @@ class BaseAssetCentricIO(
             asset_subtree_external_ids = [selector.hierarchy]
         else:
             # This selector is for uploads, not for downloading from CDF.
-            raise ToolkitNotImplementedError(f"Selector type {type(selector)} not supported for {type(self).__name__}.")
+            raise ToolkitNotImplementedError(
+                f"Selector type {type(selector).__name__} not supported for {type(self).__name__}."
+            )
         return asset_subtree_external_ids, data_set_external_ids
 
     def _collect_dependencies(
@@ -324,6 +326,7 @@ class TimeSeriesIO(BaseAssetCentricIO[str, TimeSeriesWrite, TimeSeries, TimeSeri
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     UPLOAD_ENDPOINT = "/timeseries"
+    RESOURCE_TYPE = "timeseries"
 
     def as_id(self, item: dict[str, JsonVal] | object) -> int:
         if isinstance(item, TimeSeries) and item.id is not None:
@@ -393,6 +396,7 @@ class EventIO(BaseAssetCentricIO[str, EventWrite, Event, EventWriteList, EventLi
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     UPLOAD_ENDPOINT = "/events"
+    RESOURCE_TYPE = "event"
 
     def as_id(self, item: dict[str, JsonVal] | object) -> int:
         if isinstance(item, Event) and item.id is not None:
@@ -455,9 +459,14 @@ class EventIO(BaseAssetCentricIO[str, EventWrite, Event, EventWriteList, EventLi
         return self.client.events.retrieve_multiple(ids)
 
 
-class HierarchyIO(ConfigurableStorageIO[int, AssetCentricSelector, CogniteResourceList, WriteableCogniteResourceList]):
+class HierarchyIO(TableStorageIO[int, AssetCentricSelector, CogniteResourceList, WriteableCogniteResourceList]):
     CHUNK_SIZE = 1000
     BASE_SELECTOR = AssetCentricSelector
+    KIND = "Hierarchy"
+    DISPLAY_NAME = "hierarchy"
+    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
+    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
+    SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
 
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
@@ -484,6 +493,10 @@ class HierarchyIO(ConfigurableStorageIO[int, AssetCentricSelector, CogniteResour
     ) -> Iterable[WriteableCogniteResourceList]:
         io = self._get_io(selector)
         yield from io.stream_data(selector, limit)
+
+    def get_schema(self, selector: AssetCentricSelector) -> list[SchemaColumn]:
+        io = self._get_io(selector)
+        return io.get_schema(selector)
 
     def _get_io(self, selector: AssetCentricSelector) -> BaseAssetCentricIO:
         if not isinstance(selector, AssetSubtreeSelector | DataSetSelector):
