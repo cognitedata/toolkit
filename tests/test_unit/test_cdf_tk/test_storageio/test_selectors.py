@@ -105,11 +105,15 @@ def example_selector_data() -> Iterable[tuple]:
     )
 
 
+@pytest.fixture(scope="module")
+def all_selectors() -> list[type[DataSelector]]:
+    return get_concrete_subclasses(DataSelector)
+
+
 class TestDataSelectors:
     """Test to ensure all data selectors are working as expected."""
 
-    def test_all_selectors_in_union(self) -> None:
-        all_selectors = get_concrete_subclasses(DataSelector)
+    def test_all_selectors_in_union(self, all_selectors: list[type[DataSelector]]) -> None:
         # The migration selectors are not part of the Selector union, they
         # are only used for migration commands.
         migration_selectors = get_concrete_subclasses(MigrationSelector)
@@ -120,8 +124,7 @@ class TestDataSelectors:
             f"missing from the Selector union: {humanize_collection([cls.__name__ for cls in missing])}"
         )
 
-    def test_all_types_are_unique(self) -> None:
-        all_selectors = get_concrete_subclasses(DataSelector)
+    def test_all_types_are_unique(self, all_selectors: list[type[DataSelector]]) -> None:
         types = Counter(cls.model_fields["type"].default for cls in all_selectors)
         duplicates = [t for t, count in types.items() if count > 1]
         assert not duplicates, f"The following DataSelector types are not unique: {humanize_collection(duplicates)}"
