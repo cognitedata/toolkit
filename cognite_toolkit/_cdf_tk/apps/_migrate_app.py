@@ -120,12 +120,13 @@ class MigrateApp(typer.Typer):
             selector = AssetInteractiveSelect(client, "migrate")
             data_set = selector.select_data_sets()
             dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).ask()
-            output_dir = Path(
-                questionary.path(
-                    "Specify output directory for instance space definitions:", default=str(output_dir)
-                ).ask()
-            )
+            output_dir = questionary.path(
+                "Specify output directory for instance space definitions:", default=str(output_dir)
+            ).ask()
             verbose = questionary.confirm("Do you want verbose output?", default=verbose).ask()
+            if any(res is None for res in [dry_run, output_dir, verbose]):
+                raise typer.Abort()
+            output_dir = Path(output_dir)
 
         cmd = MigrationCommand()
         cmd.run(
