@@ -465,6 +465,12 @@ class HierarchyIO(ConfigurableStorageIO[int, AssetCentricSelector, CogniteResour
         self._file_io = FileMetadataIO(client)
         self._timeseries_io = TimeSeriesIO(client)
         self._event_io = EventIO(client)
+        self._io_by_resource_type: dict[str, BaseAssetCentricIO] = {
+            self._asset_io.RESOURCE_TYPE: self._asset_io,
+            self._file_io.RESOURCE_TYPE: self._file_io,
+            self._timeseries_io.RESOURCE_TYPE: self._timeseries_io,
+            self._event_io.RESOURCE_TYPE: self._event_io,
+        }
 
     def as_id(self, item: dict[str, JsonVal] | object) -> int:
         if hasattr(item, "id") and isinstance(item.id, int):
@@ -476,24 +482,21 @@ class HierarchyIO(ConfigurableStorageIO[int, AssetCentricSelector, CogniteResour
     def stream_data(
         self, selector: AssetCentricSelector, limit: int | None = None
     ) -> Iterable[WriteableCogniteResourceList]:
-        yield from self._asset_io.stream_data(selector, limit)
-        yield from self._file_io.stream_data(selector, limit)
-        yield from self._timeseries_io.stream_data(selector, limit)
-        yield from self._event_io.stream_data(selector, limit)
+        io = self._get_io(selector)
+        yield from io.stream_data(selector, limit)
+
+    def _get_io(self, selector: AssetCentricSelector) -> BaseAssetCentricIO:
+        if not isinstance(selector, AssetSubtreeSelector | DataSetSelector):
+            raise ToolkitNotImplementedError(f"Selector type {type(selector)} not supported for {type(self).__name__}.")
+        return self._io_by_resource_type[selector.resource_type]
 
     def count(self, selector: AssetCentricSelector) -> int | None:
-        asset_count = self._asset_io.count(selector) or 0
-        file_count = self._file_io.count(selector) or 0
-        ts_count = self._timeseries_io.count(selector) or 0
-        event_count = self._event_io.count(selector) or 0
-        total_count = asset_count + file_count + ts_count + event_count
-        return total_count if total_count > 0 else None
+        io = self._get_io(selector)
+        return io.count(selector)
 
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> CogniteResourceList:
         raise NotImplementedError("HierarchyIO does not support json_chunk_to_data directly.")
 
     def configurations(self, selector: AssetCentricSelector) -> Iterable[StorageIOConfig]:
-        yield from self._asset_io.configurations(selector)
-        yield from self._file_io.configurations(selector)
-        yield from self._timeseries_io.configurations(selector)
-        yield from self._event_io.configurations(selector)
+        io = self._get_io(selector)
+        yield from io.configurations(selector)

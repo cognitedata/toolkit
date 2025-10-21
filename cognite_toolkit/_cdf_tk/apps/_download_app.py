@@ -314,10 +314,13 @@ class DownloadApp(typer.Typer):
             selector = AssetInteractiveSelect(client, "download")
             hierarchy = selector.select_hierarchy(allow_empty=False)
 
-        selector = AssetSubtreeSelector(hierarchy=hierarchy, resource_type="hierarchy")
+        selectors = [
+            AssetSubtreeSelector(hierarchy=hierarchy, resource_type=resource_type)
+            for resource_type in ["asset", "event", "file", "timeseries"]
+        ]
         cmd.run(
             lambda: cmd.download(
-                selectors=[selector],
+                selectors=selectors,
                 io=HierarchyIO(client),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
