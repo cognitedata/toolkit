@@ -128,7 +128,9 @@ class MigrateApp(typer.Typer):
             ds_selector = AssetInteractiveSelect(client, "migrate")
             data_set = ds_selector.select_data_set()
             dm_selector = DataModelingSelect(client, "migrate")
-            instance_space = dm_selector.select_instance_space(multiselect=False)
+            instance_space = dm_selector.select_instance_space(
+                multiselect=False, message="In which instance space do you want to create the source system?"
+            )
             dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).ask()
             output_dir = questionary.path(
                 "Specify output directory for instance space definitions:", default=str(output_dir)
