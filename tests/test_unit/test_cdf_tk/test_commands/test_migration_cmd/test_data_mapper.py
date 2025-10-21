@@ -5,6 +5,8 @@ import pytest
 from cognite.client.data_classes import Asset
 from cognite.client.data_classes.data_modeling import (
     ContainerId,
+    DirectRelation,
+    DirectRelationReference,
     MappedProperty,
     NodeId,
     NodeList,
@@ -13,7 +15,7 @@ from cognite.client.data_classes.data_modeling import (
     ViewId,
 )
 
-from cognite_toolkit._cdf_tk.client.data_classes.migration import ResourceViewMapping
+from cognite_toolkit._cdf_tk.client.data_classes.migration import CreatedSourceSystem, ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.adapter import (
     AssetCentricMapping,
@@ -41,6 +43,7 @@ class TestAssetCentricMapper:
                     resource=Asset(
                         id=1000 + i,
                         name=f"Asset {i}",
+                        source="sap",
                         # Half of the assets will be missing description and thus have a conversion issue.
                         description=f"Description {i}" if i % 2 == 0 else None,
                     ),
@@ -66,11 +69,24 @@ class TestAssetCentricMapper:
                         property_mapping={
                             "name": "name",
                             "description": "description",
+                            "source": "source",
                         },
                         last_updated_time=1,
                         created_time=0,
                         version=1,
                     )
+                ]
+            )
+            client.migration.created_source_system.list.return_value = NodeList[CreatedSourceSystem](
+                [
+                    CreatedSourceSystem(
+                        space="source_systems",
+                        external_id="SAP",
+                        source="sap",
+                        last_updated_time=1,
+                        created_time=0,
+                        version=1,
+                    ),
                 ]
             )
             # Mocking the view to avoid setting all properties we don't use
@@ -81,6 +97,9 @@ class TestAssetCentricMapper:
                 ),
                 "description": MappedProperty(
                     ContainerId("cdf_cdm", "CogniteDescribable"), "description", Text(), True, False, False
+                ),
+                "source": MappedProperty(
+                    ContainerId("cdf_cdm", "CogniteSourceable"), "source", DirectRelation(False), True, False, False
                 ),
             }
             cognite_asset.as_id.return_value = ViewId("cdf_cdm", "CogniteAsset", "v1")
@@ -100,9 +119,12 @@ class TestAssetCentricMapper:
             first_issue = issues[0]
             assert isinstance(first_issue, ConversionIssue)
             assert first_issue.missing_asset_centric_properties == ["description"]
+            first_asset = mapped[0]
+            assert first_asset.sources[0].properties["source"] == DirectRelationReference("source_systems", "SAP")
 
             assert client.migration.resource_view_mapping.retrieve.call_count == 1
             client.migration.resource_view_mapping.retrieve.assert_called_with(["cdf_asset_mapping"])
+            assert client.migration.created_source_system.list.call_count == 1
             assert client.data_modeling.views.retrieve.call_count == 1
             client.data_modeling.views.retrieve.assert_called_with([ViewId("cdf_cdm", "CogniteAsset", "v1")])
 

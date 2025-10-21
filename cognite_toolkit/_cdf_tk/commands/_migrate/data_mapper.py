@@ -73,9 +73,13 @@ class AssetCentricMapper(DataMapper[MigrationSelector, AssetCentricMappingList, 
             raise ToolkitValueError(
                 f"The following ingestion views were not found in Data Modeling: {humanize_collection(missing_views)}"
             )
-
-        # Todo Lookup sources - This requires a change to the Migration model to include source mappings.
-        # The task is capture in issue CDF-25898.
+        # We just look-up all source system for now. This can be optimized to only
+        # look-up the ones that are actually used in the ingestion views. However, SourceSystem is typically in
+        # the order ~10 instances, so this is not a big deal for now. See task CDF-25974.
+        source_systems = self.client.migration.created_source_system.list(limit=-1)
+        self._source_system_mapping_by_id = {
+            source_system.source: source_system.as_direct_relation_reference() for source_system in source_systems
+        }
 
     def map_chunk(self, source: AssetCentricMappingList) -> tuple[InstanceApplyList, list[MigrationIssue]]:
         """Map a chunk of asset-centric data to InstanceApplyList format."""
