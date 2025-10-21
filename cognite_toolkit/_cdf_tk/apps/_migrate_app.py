@@ -281,6 +281,10 @@ class MigrateApp(typer.Typer):
             selector = AssetInteractiveSelect(client, "migrate")
             selected_data_set_id = selector.select_data_set(allow_empty=False)
             selected = MigrateDataSetSelector(data_set_external_id=selected_data_set_id, kind="Assets")
+            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).ask()
+            verbose = questionary.confirm("Do you want verbose output?", default=verbose).ask()
+            if any(res is None for res in [dry_run, verbose]):
+                raise typer.Abort()
 
         cmd.run(
             lambda: cmd.migrate(
