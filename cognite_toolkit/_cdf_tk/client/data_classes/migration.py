@@ -389,3 +389,6 @@ class CreatedSourceSystem(TypedNode):
     @classmethod
     def get_source(cls) -> ViewId:
         return ViewId("cognite_migration", "CreatedSourceSystem", "v1")
+
+    def as_direct_relation_reference(self) -> DirectRelationReference:
+        return DirectRelationReference(space=self.space, external_id=self.external_id)
