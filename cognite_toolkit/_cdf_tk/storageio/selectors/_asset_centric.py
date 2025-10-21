@@ -14,14 +14,14 @@ class DataSetSelector(AssetCentricSelector):
     type: Literal["dataSet"] = "dataSet"
 
     data_set_external_id: str
-    resource_type: str
+    kind: str
 
     @property
     def group(self) -> str:
         return f"DataSet_{self.data_set_external_id}"
 
     def __str__(self) -> str:
-        return self.resource_type
+        return self.kind
 
     def as_filter(self) -> dict[str, Any]:
         return {"dataSetIds": [{"externalId": self.data_set_external_id}]}
@@ -32,14 +32,14 @@ class AssetSubtreeSelector(AssetCentricSelector):
 
     type: Literal["assetSubtree"] = "assetSubtree"
     hierarchy: str
-    resource_type: str
+    kind: str
 
     @property
     def group(self) -> str:
         return f"Hierarchy_{self.hierarchy}"
 
     def __str__(self) -> str:
-        return self.resource_type
+        return self.kind
 
     def as_filter(self) -> dict[str, Any]:
         return {"assetSubtreeIds": [{"externalId": self.hierarchy}]}
