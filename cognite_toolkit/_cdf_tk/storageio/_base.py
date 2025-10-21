@@ -122,11 +122,14 @@ class StorageIO(ABC, Generic[T_ID, T_Selector, T_CogniteResourceList, T_Writable
             )
         )
 
-    def data_to_json_chunk(self, data_chunk: T_WritableCogniteResourceList) -> list[dict[str, JsonVal]]:
+    def data_to_json_chunk(
+        self, data_chunk: T_WritableCogniteResourceList, selector: T_Selector
+    ) -> list[dict[str, JsonVal]]:
         """Convert a chunk of data to a JSON-compatible format.
 
         Args:
             data_chunk: The chunk of data to convert, which should be a writable Cognite resource list.
+            selector: The selection criteria used to filter the data (not used in this implementation).
 
         Returns:
             A list of dictionaries representing the data in a JSON-compatible format.

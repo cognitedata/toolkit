@@ -67,7 +67,7 @@ class ChartIO(StorageIO[str, ChartSelector, ChartWriteList, ChartList]):
         # There is no way to get the count of charts up front.
         return None
 
-    def data_to_json_chunk(self, data_chunk: ChartList) -> list[dict[str, JsonVal]]:
+    def data_to_json_chunk(self, data_chunk: ChartList, selector: ChartSelector) -> list[dict[str, JsonVal]]:
         return [chart.as_write().dump() for chart in data_chunk]
 
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> ChartWriteList:
@@ -110,7 +110,9 @@ class CanvasIO(StorageIO[str, CanvasSelector, IndustrialCanvasApplyList, Industr
     def count(self, selector: CanvasSelector) -> int | None:
         raise ToolkitNotImplementedError("Counting canvases is not implemented yet.")
 
-    def data_to_json_chunk(self, data_chunk: IndustrialCanvasList) -> list[dict[str, JsonVal]]:
+    def data_to_json_chunk(
+        self, data_chunk: IndustrialCanvasList, selector: CanvasSelector
+    ) -> list[dict[str, JsonVal]]:
         # Need to do lookup to get external IDs for all asset-centric resources.
         raise ToolkitNotImplementedError("Exporting canvases is not implemented yet.")
 

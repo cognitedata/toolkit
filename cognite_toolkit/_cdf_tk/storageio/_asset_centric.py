@@ -103,7 +103,9 @@ class BaseAssetCentricIO(
             return self._aggregator.count(hierarchy=selector.hierarchy)
         return None
 
-    def data_to_json_chunk(self, data_chunk: T_WritableCogniteResourceList) -> list[dict[str, JsonVal]]:
+    def data_to_json_chunk(
+        self, data_chunk: T_WritableCogniteResourceList, selector: AssetCentricSelector
+    ) -> list[dict[str, JsonVal]]:
         return [self._loader.dump_resource(item) for item in data_chunk]
 
     def configurations(self, selector: AssetCentricSelector) -> Iterable[StorageIOConfig]:
@@ -506,6 +508,12 @@ class HierarchyIO(TableStorageIO[int, AssetCentricSelector, CogniteResourceList,
     def count(self, selector: AssetCentricSelector) -> int | None:
         io = self._get_io(selector)
         return io.count(selector)
+
+    def data_to_json_chunk(
+        self, data_chunk: CogniteResourceList, selector: AssetCentricSelector
+    ) -> list[dict[str, JsonVal]]:
+        io = self._get_io(selector)
+        return io.data_to_json_chunk(data_chunk, selector)
 
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> CogniteResourceList:
         raise NotImplementedError("HierarchyIO does not support json_chunk_to_data directly.")

@@ -195,9 +195,6 @@ class AssetCentricMigrationIOAdapter(
     def count(self, selector: AssetCentricSelector) -> int | None:
         return self.base.count(selector)
 
-    def data_to_json_chunk(self, data_chunk: AssetCentricMappingList) -> list[dict[str, JsonVal]]:
-        return data_chunk.dump()
-
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> InstanceApplyList:
         raise NotImplementedError()
 
