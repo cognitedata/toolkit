@@ -159,7 +159,6 @@ class BaseAssetCentricIO(
 
 
 class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetList]):
-    FOLDER_NAME = "classic"
     KIND = "Assets"
     DISPLAY_NAME = "Assets"
     RESOURCE_TYPE = "asset"
@@ -229,7 +228,6 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
 
 
 class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, FileMetadataWriteList, FileMetadataList]):
-    FOLDER_NAME = FileMetadataCRUD.folder_name
     KIND = "FileMetadata"
     DISPLAY_NAME = "file metadata"
     RESOURCE_TYPE = "file"
@@ -318,7 +316,6 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
 
 
 class TimeSeriesIO(BaseAssetCentricIO[str, TimeSeriesWrite, TimeSeries, TimeSeriesWriteList, TimeSeriesList]):
-    FOLDER_NAME = TimeSeriesCRUD.folder_name
     KIND = "TimeSeries"
     DISPLAY_NAME = "time series"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
@@ -388,7 +385,6 @@ class TimeSeriesIO(BaseAssetCentricIO[str, TimeSeriesWrite, TimeSeries, TimeSeri
 
 
 class EventIO(BaseAssetCentricIO[str, EventWrite, Event, EventWriteList, EventList]):
-    FOLDER_NAME = EventCRUD.folder_name
     KIND = "Events"
     DISPLAY_NAME = "events"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
