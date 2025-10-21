@@ -121,7 +121,7 @@ class MigrateApp(typer.Typer):
             ),
         ] = False,
     ) -> None:
-        """Creates Instance Spaces for all selected data sets."""
+        """Creates source systems from the 'source' property of classic resources (assets, events, files)."""
         client = EnvironmentVariables.create_from_environment().get_client()
         if data_set is None and instance_space is None:
             # Interactive model
