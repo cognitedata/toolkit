@@ -24,9 +24,11 @@ from cognite.client.data_classes import (
     TimeSeriesWriteList,
 )
 from cognite.client.data_classes._base import (
+    CogniteResourceList,
     T_CogniteResourceList,
     T_WritableCogniteResource,
     T_WriteClass,
+    WriteableCogniteResourceList,
 )
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -52,7 +54,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, SimpleBodyRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, AssetCentric, JsonVal, T_WritableCogniteResourceList
 
-from ._base import StorageIOConfig, TableStorageIO
+from ._base import ConfigurableStorageIO, StorageIOConfig, TableStorageIO
 from .selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 
 
@@ -451,3 +453,47 @@ class EventIO(BaseAssetCentricIO[str, EventWrite, Event, EventWriteList, EventLi
 
     def retrieve(self, ids: Sequence[int]) -> EventList:
         return self.client.events.retrieve_multiple(ids)
+
+
+class HierarchyIO(ConfigurableStorageIO[int, AssetCentricSelector, CogniteResourceList, WriteableCogniteResourceList]):
+    CHUNK_SIZE = 1000
+    BASE_SELECTOR = AssetCentricSelector
+
+    def __init__(self, client: ToolkitClient) -> None:
+        super().__init__(client)
+        self._asset_io = AssetIO(client)
+        self._file_io = FileMetadataIO(client)
+        self._timeseries_io = TimeSeriesIO(client)
+        self._event_io = EventIO(client)
+
+    def as_id(self, item: dict[str, JsonVal] | object) -> int:
+        if hasattr(item, "id") and isinstance(item.id, int):
+            return item.id
+        if isinstance(item, dict) and isinstance(item.get("id"), int):
+            return item["id"]  # type: ignore[return-value]
+        raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
+
+    def stream_data(
+        self, selector: AssetCentricSelector, limit: int | None = None
+    ) -> Iterable[WriteableCogniteResourceList]:
+        yield from self._asset_io.stream_data(selector, limit)
+        yield from self._file_io.stream_data(selector, limit)
+        yield from self._timeseries_io.stream_data(selector, limit)
+        yield from self._event_io.stream_data(selector, limit)
+
+    def count(self, selector: AssetCentricSelector) -> int | None:
+        asset_count = self._asset_io.count(selector) or 0
+        file_count = self._file_io.count(selector) or 0
+        ts_count = self._timeseries_io.count(selector) or 0
+        event_count = self._event_io.count(selector) or 0
+        total_count = asset_count + file_count + ts_count + event_count
+        return total_count if total_count > 0 else None
+
+    def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> CogniteResourceList:
+        raise NotImplementedError("HierarchyIO does not support json_chunk_to_data directly.")
+
+    def configurations(self, selector: AssetCentricSelector) -> Iterable[StorageIOConfig]:
+        yield from self._asset_io.configurations(selector)
+        yield from self._file_io.configurations(selector)
+        yield from self._timeseries_io.configurations(selector)
+        yield from self._event_io.configurations(selector)
