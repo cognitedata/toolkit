@@ -22,6 +22,7 @@ class DataSelector(SelectorObject, ABC):
     """
 
     type: str
+    kind: str | None = None
 
     def dump(self) -> dict[str, JsonVal]:
         return self.model_dump(by_alias=True)
@@ -51,6 +52,11 @@ class DataSelector(SelectorObject, ABC):
         would be the table name.
         """
         raise NotImplementedError()
+
+    @property
+    def display_name(self) -> str | None:
+        """A human-readable name for the selector."""
+        return None
 
     def __str__(self) -> str:
         # We want to force subclasses to implement __str__
