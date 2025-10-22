@@ -36,4 +36,4 @@ class TestDownloadCommand:
         database_file = next((file for file in config_files if file.stem.endswith("Database")), None)
         assert database_file is not None, "Database configuration file not found."
         dumped_db = read_yaml_file(database_file, "dict")
-        assert dumped_db == {"db_name": table.table.db_name}
+        assert dumped_db == {"dbName": table.table.db_name}

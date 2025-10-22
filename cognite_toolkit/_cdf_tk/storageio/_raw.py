@@ -72,7 +72,7 @@ class RawIO(ConfigurableStorageIO[str, RawTableSelector, RowWriteList, RowList])
         yield StorageIOConfig(
             kind=RawDatabaseCRUD.kind,
             folder_name=RawDatabaseCRUD.folder_name,
-            value={"db_name": selector.table.db_name},
+            value={"dbName": selector.table.db_name},
             filename=sanitize_filename(selector.table.db_name),
         )
         yield StorageIOConfig(
