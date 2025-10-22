@@ -62,15 +62,15 @@ class DownloadCommand(ToolkitCommand):
                 columns = io.get_schema(selector)
             elif file_format in TABLE_WRITE_CLS_BY_FORMAT:
                 raise ToolkitValueError(
-                    f"Cannot download {io.KIND} in {file_format!r} format. The {io.KIND!r} storage type does not support table schemas."
+                    f"Cannot download {selector.kind} in {file_format!r} format. The {selector.kind!r} storage type does not support table schemas."
                 )
 
             with FileWriter.create_from_format(
-                file_format, target_dir, selector.kind or io.KIND, compression_cls, columns=columns
+                file_format, target_dir, selector.kind, compression_cls, columns=columns
             ) as writer:
                 executor = ProducerWorkerExecutor[T_WritableCogniteResourceList, list[dict[str, JsonVal]]](
                     download_iterable=io.stream_data(selector, limit),
-                    process=io.data_to_json_chunk,
+                    process=partial(io.data_to_json_chunk, selector=selector),
                     write=partial(writer.write_chunks, filestem=filestem),
                     iteration_count=iteration_count,
                     # Limit queue size to avoid filling up memory before the workers can write to disk.

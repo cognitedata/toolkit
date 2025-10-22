@@ -101,7 +101,9 @@ class BaseAssetCentricIO(
             return self._aggregator.count(hierarchy=selector.hierarchy)
         return None
 
-    def data_to_json_chunk(self, data_chunk: T_WritableCogniteResourceList) -> list[dict[str, JsonVal]]:
+    def data_to_json_chunk(
+        self, data_chunk: T_WritableCogniteResourceList, selector: AssetCentricSelector
+    ) -> list[dict[str, JsonVal]]:
         return [self._loader.dump_resource(item) for item in data_chunk]
 
     def configurations(self, selector: AssetCentricSelector) -> Iterable[StorageIOConfig]:

@@ -178,7 +178,7 @@ class TestDataSelectors:
         assert type(loaded) is type(instance)
 
 
-class TestGetStorageIO:
+class TestGetUploadIO:
     @pytest.mark.parametrize(
         "selector,path,expected_io",
         [
