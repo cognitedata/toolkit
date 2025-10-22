@@ -7,11 +7,14 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import ConfigurableStorageIO, StorageIOConfig
+from ._base import ConfigurableStorageIO, StorageIOConfig, UploadableStorageIO
 from .selectors import RawTableSelector
 
 
-class RawIO(ConfigurableStorageIO[str, RawTableSelector, RowWriteList, RowList]):
+class RawIO(
+    ConfigurableStorageIO[str, RawTableSelector, RowWriteList, RowList],
+    UploadableStorageIO[str, RawTableSelector, RowWriteList, RowList],
+):
     KIND = "RawRows"
     DISPLAY_NAME = "Raw Rows"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".yaml", ".ndjson"})

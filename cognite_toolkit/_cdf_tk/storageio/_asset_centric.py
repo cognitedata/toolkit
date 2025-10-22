@@ -54,13 +54,15 @@ from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, SimpleBodyRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, AssetCentric, JsonVal, T_WritableCogniteResourceList
 
-from ._base import ConfigurableStorageIO, StorageIOConfig, TableStorageIO
+from ._base import ConfigurableStorageIO, StorageIOConfig, TableStorageIO, UploadableStorageIO
 from .selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 
 
 class BaseAssetCentricIO(
     Generic[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
     TableStorageIO[int, AssetCentricSelector, T_CogniteResourceList, T_WritableCogniteResourceList],
+    ConfigurableStorageIO[int, AssetCentricSelector, T_CogniteResourceList, T_WritableCogniteResourceList],
+    UploadableStorageIO[int, AssetCentricSelector, T_CogniteResourceList, T_WritableCogniteResourceList],
     ABC,
 ):
     RESOURCE_TYPE: ClassVar[AssetCentric]
@@ -469,11 +471,11 @@ class HierarchyIO(ConfigurableStorageIO[int, AssetCentricSelector, CogniteResour
         self._file_io = FileMetadataIO(client)
         self._timeseries_io = TimeSeriesIO(client)
         self._event_io = EventIO(client)
-        self._io_by_resource_type: dict[str, BaseAssetCentricIO] = {
-            self._asset_io.RESOURCE_TYPE: self._asset_io,
-            self._file_io.RESOURCE_TYPE: self._file_io,
-            self._timeseries_io.RESOURCE_TYPE: self._timeseries_io,
-            self._event_io.RESOURCE_TYPE: self._event_io,
+        self._io_by_kind: dict[str, BaseAssetCentricIO] = {
+            self._asset_io.KIND: self._asset_io,
+            self._file_io.KIND: self._file_io,
+            self._timeseries_io.KIND: self._timeseries_io,
+            self._event_io.KIND: self._event_io,
         }
 
     def as_id(self, item: dict[str, JsonVal] | object) -> int:
@@ -506,4 +508,4 @@ class HierarchyIO(ConfigurableStorageIO[int, AssetCentricSelector, CogniteResour
     def _get_io(self, selector: AssetCentricSelector) -> BaseAssetCentricIO:
         if not isinstance(selector, AssetSubtreeSelector | DataSetSelector):
             raise ToolkitNotImplementedError(f"Selector type {type(selector)} not supported for {type(self).__name__}.")
-        return self._io_by_resource_type[selector.kind]
+        return self._io_by_kind[selector.kind]
