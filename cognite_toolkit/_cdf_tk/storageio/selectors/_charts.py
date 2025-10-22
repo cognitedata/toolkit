@@ -4,7 +4,8 @@ from typing import Literal
 from ._base import DataSelector
 
 
-class ChartSelector(DataSelector, ABC): ...
+class ChartSelector(DataSelector, ABC):
+    kind: Literal["Charts"] = "Charts"
 
 
 class ChartOwnerSelector(ChartSelector):

@@ -6,7 +6,7 @@ from typing import Any, get_args
 import pytest
 
 from cognite_toolkit._cdf_tk.commands._migrate.adapter import MigrationSelector
-from cognite_toolkit._cdf_tk.storageio import AssetIO, ChartIO, InstanceIO, RawIO, StorageIO, get_storage_io
+from cognite_toolkit._cdf_tk.storageio import AssetIO, ChartIO, InstanceIO, RawIO, StorageIO, get_upload_io
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     AllChartsSelector,
     AssetCentricFileSelector,
@@ -54,14 +54,14 @@ def example_selector_data() -> Iterable[tuple]:
         id="InstanceFileSelector",
     )
     yield pytest.param(
-        {"type": "dataSet", "dataSetExternalId": "my_data_set", "resourceType": "asset"},
+        {"type": "dataSet", "dataSetExternalId": "my_data_set", "kind": "Assets"},
         DataSetSelector,
         AssetIO,
         AssetIO.KIND,
         id="DataSetSelector",
     )
     yield pytest.param(
-        {"type": "assetSubtree", "hierarchy": "root/child", "resourceType": "asset"},
+        {"type": "assetSubtree", "hierarchy": "root/child", "kind": "Assets"},
         AssetSubtreeSelector,
         AssetIO,
         AssetIO.KIND,
@@ -82,7 +82,7 @@ def example_selector_data() -> Iterable[tuple]:
         id="AllChartSelector",
     )
     yield pytest.param(
-        {"type": "assetFile", "datafile": "path/to/file.csv"},
+        {"type": "assetFile", "datafile": "path/to/file.csv", "kind": "Assets"},
         AssetCentricFileSelector,
         AssetIO,
         AssetIO.KIND,
@@ -105,11 +105,15 @@ def example_selector_data() -> Iterable[tuple]:
     )
 
 
+@pytest.fixture(scope="module")
+def all_selectors() -> list[type[DataSelector]]:
+    return get_concrete_subclasses(DataSelector)
+
+
 class TestDataSelectors:
     """Test to ensure all data selectors are working as expected."""
 
-    def test_all_selectors_in_union(self) -> None:
-        all_selectors = get_concrete_subclasses(DataSelector)
+    def test_all_selectors_in_union(self, all_selectors: list[type[DataSelector]]) -> None:
         # The migration selectors are not part of the Selector union, they
         # are only used for migration commands.
         migration_selectors = get_concrete_subclasses(MigrationSelector)
@@ -120,8 +124,7 @@ class TestDataSelectors:
             f"missing from the Selector union: {humanize_collection([cls.__name__ for cls in missing])}"
         )
 
-    def test_all_types_are_unique(self) -> None:
-        all_selectors = get_concrete_subclasses(DataSelector)
+    def test_all_types_are_unique(self, all_selectors: list[type[DataSelector]]) -> None:
         types = Counter(cls.model_fields["type"].default for cls in all_selectors)
         duplicates = [t for t, count in types.items() if count > 1]
         assert not duplicates, f"The following DataSelector types are not unique: {humanize_collection(duplicates)}"
@@ -158,8 +161,8 @@ class TestDataSelectors:
         assert instance.group, f"group property not implemented for {type(instance).__name__}"
 
         # Assert correct IO type
-        assert get_storage_io(type(instance), kind) is expected_io, (
-            f"Expected {expected_io.__name__} for selector {type(instance).__name__}, got {get_storage_io(type(instance), kind).__name__}"
+        assert get_upload_io(type(instance), kind) is expected_io, (
+            f"Expected {expected_io.__name__} for selector {type(instance).__name__}, got {get_upload_io(type(instance), kind).__name__}"
         )
 
         # Assert selector is hashable
@@ -175,7 +178,7 @@ class TestDataSelectors:
         assert type(loaded) is type(instance)
 
 
-class TestGetStorageIO:
+class TestGetUploadIO:
     @pytest.mark.parametrize(
         "selector,path,expected_io",
         [
@@ -193,7 +196,7 @@ class TestGetStorageIO:
             ),
         ],
     )
-    def test_get_storage_io_with_path(
+    def test_get_upload_io_with_path(
         self, selector: type[DataSelector], path: Path, expected_io: type[StorageIO]
     ) -> None:
-        assert get_storage_io(selector, path) == expected_io
+        assert get_upload_io(selector, path) == expected_io

@@ -61,7 +61,7 @@ class RawIO(ConfigurableStorageIO[str, RawTableSelector, RowWriteList, RowList])
             )
         )
 
-    def data_to_json_chunk(self, data_chunk: RowList) -> list[dict[str, JsonVal]]:
+    def data_to_json_chunk(self, data_chunk: RowList, selector: RawTableSelector) -> list[dict[str, JsonVal]]:
         return [row.as_write().dump() for row in data_chunk]
 
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> RowWriteList:
