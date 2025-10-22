@@ -76,7 +76,7 @@
         "modules",
         "init",
         "cognite_toolkit",
-        "--library-url=https://github.com/cognitedata/library/raw/refs/heads/packages-menu/packages.zip",
+        "--library-url=https://github.com/cognitedata/library/raw/refs/heads/context/packages.zip",
         "--library-checksum=sha256:772709baf8eebdcd3966d8963b7ca5d48c23fdb5543101e7ff5fa911b64801d1"
       ],
       "console": "integratedTerminal",
