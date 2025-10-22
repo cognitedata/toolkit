@@ -11,13 +11,12 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import StorageIO
+from ._base import UploadableStorageIO
 from .selectors import AllChartsSelector, CanvasSelector, ChartOwnerSelector, ChartSelector
 
 
-class ChartIO(StorageIO[str, ChartSelector, ChartWriteList, ChartList]):
+class ChartIO(UploadableStorageIO[str, ChartSelector, ChartWriteList, ChartList]):
     KIND = "Charts"
-    DISPLAY_NAME = "CDF Charts"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     SUPPORTED_READ_FORMATS = frozenset({".ndjson"})
@@ -74,9 +73,8 @@ class ChartIO(StorageIO[str, ChartSelector, ChartWriteList, ChartList]):
         return ChartWriteList._load(data_chunk)
 
 
-class CanvasIO(StorageIO[str, CanvasSelector, IndustrialCanvasApplyList, IndustrialCanvasList]):
+class CanvasIO(UploadableStorageIO[str, CanvasSelector, IndustrialCanvasApplyList, IndustrialCanvasList]):
     KIND = "IndustrialCanvas"
-    DISPLAY_NAME = "CDF Industrial Canvases"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     SUPPORTED_READ_FORMATS = frozenset({".ndjson"})

@@ -86,7 +86,7 @@ class TestChartIO:
                 "Count should be None since CDF does not provide a way to get the count of charts up front."
             )
             charts_iterator = io.stream_data(selector=selector)
-            json_iterator = (io.data_to_json_chunk(chunk) for chunk in charts_iterator)
+            json_iterator = (io.data_to_json_chunk(chunk, selector) for chunk in charts_iterator)
             chart_data = [io.json_chunk_to_data(chunk) for chunk in json_iterator]
 
             assert len(chart_data) == 1

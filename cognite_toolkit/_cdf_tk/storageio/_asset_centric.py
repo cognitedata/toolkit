@@ -54,7 +54,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, SimpleBodyRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, AssetCentric, JsonVal, T_WritableCogniteResourceList
 
-from ._base import StorageIOConfig, TableStorageIO
+from ._base import ConfigurableStorageIO, StorageIOConfig, TableStorageIO
 from .selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 
 
@@ -166,7 +166,6 @@ class BaseAssetCentricIO(
 
 class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetList]):
     KIND = "Assets"
-    DISPLAY_NAME = "Assets"
     RESOURCE_TYPE = "asset"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
@@ -235,7 +234,6 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
 
 class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, FileMetadataWriteList, FileMetadataList]):
     KIND = "FileMetadata"
-    DISPLAY_NAME = "file metadata"
     RESOURCE_TYPE = "file"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
@@ -323,7 +321,6 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
 
 class TimeSeriesIO(BaseAssetCentricIO[str, TimeSeriesWrite, TimeSeries, TimeSeriesWriteList, TimeSeriesList]):
     KIND = "TimeSeries"
-    DISPLAY_NAME = "time series"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
@@ -393,7 +390,6 @@ class TimeSeriesIO(BaseAssetCentricIO[str, TimeSeriesWrite, TimeSeries, TimeSeri
 
 class EventIO(BaseAssetCentricIO[str, EventWrite, Event, EventWriteList, EventList]):
     KIND = "Events"
-    DISPLAY_NAME = "events"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
@@ -461,14 +457,11 @@ class EventIO(BaseAssetCentricIO[str, EventWrite, Event, EventWriteList, EventLi
         return self.client.events.retrieve_multiple(ids)
 
 
-class HierarchyIO(TableStorageIO[int, AssetCentricSelector, CogniteResourceList, WriteableCogniteResourceList]):
+class HierarchyIO(ConfigurableStorageIO[int, AssetCentricSelector, CogniteResourceList, WriteableCogniteResourceList]):
     CHUNK_SIZE = 1000
     BASE_SELECTOR = AssetCentricSelector
-    KIND = "Hierarchy"
-    DISPLAY_NAME = "hierarchy"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
-    SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
 
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
@@ -496,15 +489,6 @@ class HierarchyIO(TableStorageIO[int, AssetCentricSelector, CogniteResourceList,
         io = self._get_io(selector)
         yield from io.stream_data(selector, limit)
 
-    def get_schema(self, selector: AssetCentricSelector) -> list[SchemaColumn]:
-        io = self._get_io(selector)
-        return io.get_schema(selector)
-
-    def _get_io(self, selector: AssetCentricSelector) -> BaseAssetCentricIO:
-        if not isinstance(selector, AssetSubtreeSelector | DataSetSelector):
-            raise ToolkitNotImplementedError(f"Selector type {type(selector)} not supported for {type(self).__name__}.")
-        return self._io_by_resource_type[selector.resource_type]
-
     def count(self, selector: AssetCentricSelector) -> int | None:
         io = self._get_io(selector)
         return io.count(selector)
@@ -515,9 +499,11 @@ class HierarchyIO(TableStorageIO[int, AssetCentricSelector, CogniteResourceList,
         io = self._get_io(selector)
         return io.data_to_json_chunk(data_chunk, selector)
 
-    def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> CogniteResourceList:
-        raise NotImplementedError("HierarchyIO does not support json_chunk_to_data directly.")
-
     def configurations(self, selector: AssetCentricSelector) -> Iterable[StorageIOConfig]:
         io = self._get_io(selector)
         yield from io.configurations(selector)
+
+    def _get_io(self, selector: AssetCentricSelector) -> BaseAssetCentricIO:
+        if not isinstance(selector, AssetSubtreeSelector | DataSetSelector):
+            raise ToolkitNotImplementedError(f"Selector type {type(selector)} not supported for {type(self).__name__}.")
+        return self._io_by_resource_type[selector.kind]

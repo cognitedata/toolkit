@@ -18,7 +18,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMigrationError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.storageio import StorageIO
+from cognite_toolkit._cdf_tk.storageio import UploadableStorageIO
 from cognite_toolkit._cdf_tk.storageio._base import T_CogniteResourceList, T_Selector, T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.utils import humanize_collection, safe_write, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
@@ -44,7 +44,7 @@ class MigrationCommand(ToolkitCommand):
     def migrate(
         self,
         selected: T_Selector,
-        data: StorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
+        data: UploadableStorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
         mapper: DataMapper[T_Selector, T_WritableCogniteResourceList, T_CogniteResourceList],
         log_dir: Path,
         dry_run: bool = False,
@@ -67,7 +67,7 @@ class MigrationCommand(ToolkitCommand):
         console = Console()
         tracker = ProgressTracker[T_ID](self.Steps.list())
         with (
-            NDJsonWriter(log_dir, kind=f"{data.KIND}MigrationIssues", compression=Uncompressed) as log_file,
+            NDJsonWriter(log_dir, kind=f"{selected.kind}MigrationIssues", compression=Uncompressed) as log_file,
             HTTPClient(config=data.client.config) as write_client,
         ):
             executor = ProducerWorkerExecutor[T_WritableCogniteResourceList, T_CogniteResourceList](
@@ -76,7 +76,7 @@ class MigrationCommand(ToolkitCommand):
                 write=self._upload(write_client, data, tracker, log_file, dry_run),
                 iteration_count=iteration_count,
                 max_queue_size=10,
-                download_description=f"Downloading {data.DISPLAY_NAME}",
+                download_description=f"Downloading {selected.display_name}",
                 process_description="Converting",
                 write_description="Uploading",
                 console=console,
@@ -86,10 +86,10 @@ class MigrationCommand(ToolkitCommand):
             total = executor.total_items
 
         self._print_table(tracker.aggregate(), console)
-        self._print_csv(tracker, log_dir, f"{data.KIND}Items", console)
+        self._print_csv(tracker, log_dir, f"{selected.kind}Items", console)
         executor.raise_on_error()
         action = "Would migrate" if dry_run else "Migrating"
-        console.print(f"{action} {total:,} {data.DISPLAY_NAME} to instances.")
+        console.print(f"{action} {total:,} {selected.display_name} to instances.")
         return tracker
 
     def _print_table(self, results: dict[tuple[str, Status], int], console: Console) -> None:
@@ -137,7 +137,7 @@ class MigrationCommand(ToolkitCommand):
     def _download_iterable(
         self,
         selected: T_Selector,
-        data: StorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
+        data: UploadableStorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
         tracker: ProgressTracker[T_ID],
     ) -> Iterable[T_WritableCogniteResourceList]:
         for chunk in data.stream_data(selected):
@@ -148,7 +148,7 @@ class MigrationCommand(ToolkitCommand):
     def _convert(
         self,
         mapper: DataMapper[T_Selector, T_WritableCogniteResourceList, T_CogniteResourceList],
-        data: StorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
+        data: UploadableStorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
         tracker: ProgressTracker[T_ID],
         log_file: NDJsonWriter,
     ) -> Callable[[T_WritableCogniteResourceList], T_CogniteResourceList]:
@@ -166,7 +166,7 @@ class MigrationCommand(ToolkitCommand):
     def _upload(
         self,
         write_client: HTTPClient,
-        target: StorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
+        target: UploadableStorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
         tracker: ProgressTracker[T_ID],
         log_file: NDJsonWriter,
         dry_run: bool,

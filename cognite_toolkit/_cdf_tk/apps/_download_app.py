@@ -243,9 +243,9 @@ class DownloadApp(typer.Typer):
 
         selectors: list[AssetCentricSelector] = []
         if data_sets:
-            selectors.extend([DataSetSelector(data_set_external_id=ds, resource_type="asset") for ds in data_sets])
+            selectors.extend([DataSetSelector(data_set_external_id=ds, kind="Assets") for ds in data_sets])
         if hierarchy:
-            selectors.extend([AssetSubtreeSelector(hierarchy=h, resource_type="asset") for h in hierarchy])
+            selectors.extend([AssetSubtreeSelector(hierarchy=h, kind="Assets") for h in hierarchy])
         cmd = DownloadCommand()
         cmd.run(
             lambda: cmd.download(
@@ -319,8 +319,9 @@ class DownloadApp(typer.Typer):
             hierarchy = selector.select_hierarchy(allow_empty=False)
 
         selectors = [
-            AssetSubtreeSelector(hierarchy=hierarchy, resource_type=resource_type)
-            for resource_type in ["asset", "event", "file", "timeseries"]
+            # MyPy cannot see that resource_type is one of the allowed literals.
+            AssetSubtreeSelector(hierarchy=hierarchy, kind=resource_type)  # type: ignore[arg-type]
+            for resource_type in ["Asset", "Events", "FileMetadata", "TimeSeries"]
         ]
         cmd.run(
             lambda: cmd.download(

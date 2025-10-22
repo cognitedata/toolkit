@@ -67,7 +67,7 @@ class TestMigrateAssetsCommand:
 
         cmd = MigrationCommand(skip_tracking=True, silent=True)
         cmd.migrate(
-            selected=MigrationCSVFileSelector(datafile=input_file, resource_type="asset"),
+            selected=MigrationCSVFileSelector(datafile=input_file, kind="asset"),
             data=AssetCentricMigrationIOAdapter(client, AssetIO(client)),
             mapper=AssetCentricMapper(client),
             log_dir=tmp_path / "logs",

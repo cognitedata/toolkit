@@ -57,7 +57,7 @@ class TestAssetCentricMapper:
             + "\n".join(f"{1000 + i},my_space,asset_{i},cdf_asset_mapping" for i in range(asset_count))
         )
 
-        selected = MigrationCSVFileSelector(datafile=mapping_file, resource_type="asset")
+        selected = MigrationCSVFileSelector(datafile=mapping_file, kind="asset")
 
         with monkeypatch_toolkit_client() as client:
             client.migration.resource_view_mapping.retrieve.return_value = NodeList[ResourceViewMapping](
@@ -163,7 +163,7 @@ class TestAssetCentricMapper:
         mapping_file = tmp_path / "mapping.csv"
         mapping_file.write_text("id,space,externalId,ingestionView\n1001,my_space,asset_1,missing_view_source")
 
-        selected = MigrationCSVFileSelector(datafile=mapping_file, resource_type="asset")
+        selected = MigrationCSVFileSelector(datafile=mapping_file, kind="asset")
 
         with monkeypatch_toolkit_client() as client:
             # Return empty list to simulate missing view source
@@ -181,7 +181,7 @@ class TestAssetCentricMapper:
         mapping_file = tmp_path / "mapping.csv"
         mapping_file.write_text("id,space,externalId,ingestionView\n1001,my_space,asset_1,cdf_asset_mapping")
 
-        selected = MigrationCSVFileSelector(datafile=mapping_file, resource_type="asset")
+        selected = MigrationCSVFileSelector(datafile=mapping_file, kind="asset")
 
         with monkeypatch_toolkit_client() as client:
             # Return view source but empty view list to simulate missing view in Data Modeling
