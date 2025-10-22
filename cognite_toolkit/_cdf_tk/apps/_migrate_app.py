@@ -116,7 +116,7 @@ class MigrateApp(typer.Typer):
         cmd = MigrationCommand()
         cmd.run(
             lambda: cmd.migrate(
-                selected=MigrationCSVFileSelector(datafile=mapping_file, resource_type="asset"),
+                selected=MigrationCSVFileSelector(datafile=mapping_file, kind="asset"),
                 data=AssetCentricMigrationIOAdapter(client, AssetIO(client)),
                 mapper=AssetCentricMapper(client),
                 log_dir=log_dir,
