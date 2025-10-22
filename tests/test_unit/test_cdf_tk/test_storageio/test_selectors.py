@@ -54,14 +54,14 @@ def example_selector_data() -> Iterable[tuple]:
         id="InstanceFileSelector",
     )
     yield pytest.param(
-        {"type": "dataSet", "dataSetExternalId": "my_data_set", "resourceType": "asset"},
+        {"type": "dataSet", "dataSetExternalId": "my_data_set", "kind": "asset"},
         DataSetSelector,
         AssetIO,
         AssetIO.KIND,
         id="DataSetSelector",
     )
     yield pytest.param(
-        {"type": "assetSubtree", "hierarchy": "root/child", "resourceType": "asset"},
+        {"type": "assetSubtree", "hierarchy": "root/child", "kind": "asset"},
         AssetSubtreeSelector,
         AssetIO,
         AssetIO.KIND,
