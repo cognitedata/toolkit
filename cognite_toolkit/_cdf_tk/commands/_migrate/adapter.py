@@ -118,7 +118,6 @@ class AssetCentricMigrationIOAdapter(
     StorageIO[AssetCentricId, MigrationSelector, InstanceApplyList, AssetCentricMappingList],
 ):
     KIND = "AssetCentricMigration"
-    DISPLAY_NAME = "Asset-Centric Migration"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})

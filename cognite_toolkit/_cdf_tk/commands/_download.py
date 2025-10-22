@@ -45,7 +45,7 @@ class DownloadCommand(ToolkitCommand):
         for selector in selectors:
             target_dir = output_dir / selector.group
             if verbose:
-                console.print(f"Downloading {io.DISPLAY_NAME} '{selector!s}' to {target_dir.as_posix()!r}")
+                console.print(f"Downloading {selector.display_name} '{selector!s}' to {target_dir.as_posix()!r}")
 
             iteration_count = self._get_iteration_count(io, selector, limit)
             filestem = sanitize_filename(str(selector))

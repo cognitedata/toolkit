@@ -76,7 +76,7 @@ class MigrationCommand(ToolkitCommand):
                 write=self._upload(write_client, data, tracker, log_file, dry_run),
                 iteration_count=iteration_count,
                 max_queue_size=10,
-                download_description=f"Downloading {data.DISPLAY_NAME}",
+                download_description=f"Downloading {selected.display_name}",
                 process_description="Converting",
                 write_description="Uploading",
                 console=console,
@@ -89,7 +89,7 @@ class MigrationCommand(ToolkitCommand):
         self._print_csv(tracker, log_dir, f"{data.KIND}Items", console)
         executor.raise_on_error()
         action = "Would migrate" if dry_run else "Migrating"
-        console.print(f"{action} {total:,} {data.DISPLAY_NAME} to instances.")
+        console.print(f"{action} {total:,} {selected.display_name} to instances.")
         return tracker
 
     def _print_table(self, results: dict[tuple[str, Status], int], console: Console) -> None:

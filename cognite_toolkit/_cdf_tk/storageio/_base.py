@@ -30,28 +30,21 @@ T_Selector = TypeVar("T_Selector", bound=DataSelector)
 class StorageIO(ABC, Generic[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList]):
     """This is a base class for all storage classes in Cognite Toolkit
 
-    It defines the interface for interacting with storage items in CDF, such as downloading,
-    uploading, and managing configurations. Each storage type (e.g., RAW, asset-centric)
-    should implement this interface to provide specific functionality.
+    It defines the interface for downloading data from CDF. Note this can also be used for multiple
+    types of resources, for example, a hierarchy of assets/files/events/time series.
 
-    Attributes:
-        KIND: The type of storage (e.g., 'raw', 'assets').
-        DISPLAY_NAME: A human-readable name for the storage item.
+    Attributes
         SUPPORTED_DOWNLOAD_FORMATS: A set of formats that the storage item supports for downloading.
         SUPPORTED_COMPRESSIONS: A set of compression formats that the storage item supports.
-        SUPPORTED_READ_FORMATS: A set of formats that the storage item supports for reading.
         CHUNK_SIZE: The size of the data chunks to be processed during download and upload operations.
+
+    Args:
         client: An instance of ToolkitClient to interact with the CDF API.
     """
 
-    KIND: str
-    DISPLAY_NAME: str
     SUPPORTED_DOWNLOAD_FORMATS: frozenset[str]
     SUPPORTED_COMPRESSIONS: frozenset[str]
-    SUPPORTED_READ_FORMATS: frozenset[str]
     CHUNK_SIZE: int
-    UPLOAD_ENDPOINT: ClassVar[str]
-    UPLOAD_EXTRA_ARGS: ClassVar[Mapping[str, JsonVal] | None] = None
     BASE_SELECTOR: ClassVar[type[DataSelector]]
 
     def __init__(self, client: ToolkitClient) -> None:
@@ -92,6 +85,37 @@ class StorageIO(ABC, Generic[T_ID, T_Selector, T_CogniteResourceList, T_Writable
         """
         raise NotImplementedError()
 
+    def data_to_json_chunk(
+        self, data_chunk: T_WritableCogniteResourceList, selector: T_Selector
+    ) -> list[dict[str, JsonVal]]:
+        """Convert a chunk of data to a JSON-compatible format.
+
+        Args:
+            data_chunk: The chunk of data to convert, which should be a writable Cognite resource list.
+            selector: The selection criteria to identify the data.
+
+        Returns:
+            A list of dictionaries representing the data in a JSON-compatible format.
+
+        """
+        return data_chunk.as_write().dump(camel_case=True)
+
+
+class UploadableStorageIO(StorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList], ABC):
+    """A base class for storage items that support uploading data to CDF.
+
+    Attributes:
+        KIND: The kind of storage item (e.g., "RAW", "AssetCentric").
+        SUPPORTED_READ_FORMATS: A set of formats that the storage item supports for reading.
+        UPLOAD_ENDPOINT: The API endpoint for uploading data to the storage item.
+        UPLOAD_EXTRA_ARGS: Additional arguments to include in the upload request.
+    """
+
+    KIND: str
+    SUPPORTED_READ_FORMATS: frozenset[str]
+    UPLOAD_ENDPOINT: ClassVar[str]
+    UPLOAD_EXTRA_ARGS: ClassVar[Mapping[str, JsonVal] | None] = None
+
     def upload_items(
         self, data_chunk: T_CogniteResourceList, http_client: HTTPClient, selector: T_Selector | None = None
     ) -> Sequence[HTTPMessage]:
@@ -122,18 +146,6 @@ class StorageIO(ABC, Generic[T_ID, T_Selector, T_CogniteResourceList, T_Writable
             )
         )
 
-    def data_to_json_chunk(self, data_chunk: T_WritableCogniteResourceList) -> list[dict[str, JsonVal]]:
-        """Convert a chunk of data to a JSON-compatible format.
-
-        Args:
-            data_chunk: The chunk of data to convert, which should be a writable Cognite resource list.
-
-        Returns:
-            A list of dictionaries representing the data in a JSON-compatible format.
-
-        """
-        return data_chunk.as_write().dump(camel_case=True)
-
     @abstractmethod
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> T_CogniteResourceList:
         """Convert a JSON-compatible chunk of data back to a writable Cognite resource list.
@@ -146,7 +158,11 @@ class StorageIO(ABC, Generic[T_ID, T_Selector, T_CogniteResourceList, T_Writable
         raise NotImplementedError()
 
 
-class ConfigurableStorageIO(StorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList], ABC):
+class ConfigurableStorageIO(
+    UploadableStorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList], ABC
+):
+    """A base class for storage items that support configurations for different storage items."""
+
     @abstractmethod
     def configurations(self, selector: T_Selector) -> Iterable[StorageIOConfig]:
         """Return configurations for the storage item."""
@@ -156,6 +172,8 @@ class ConfigurableStorageIO(StorageIO[T_ID, T_Selector, T_CogniteResourceList, T
 class TableStorageIO(
     ConfigurableStorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList], ABC
 ):
+    """A base class for storage items that support table schemas."""
+
     @abstractmethod
     def get_schema(self, selector: T_Selector) -> list[SchemaColumn]:
         """Get the schema of the table associated with the given selector.
