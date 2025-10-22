@@ -51,7 +51,13 @@ from cognite_toolkit._cdf_tk.utils.aggregators import (
 )
 from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, SimpleBodyRequest
+from cognite_toolkit._cdf_tk.utils.http_client import (
+    FailedItem,
+    FailedResponse,
+    HTTPClient,
+    HTTPMessage,
+    SimpleBodyRequest,
+)
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, AssetCentric, JsonVal, T_WritableCogniteResourceList
 
 from ._base import ConfigurableStorageIO, StorageIOConfig, TableStorageIO, UploadableStorageIO
@@ -320,7 +326,11 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
                     body_content=item.dump(camel_case=True),
                 )
             )
-            results.extend(file_result)
+            for message in file_result:
+                if isinstance(message, FailedResponse):
+                    results.append(FailedItem(status_code=message.status_code, id=-1, error=message.error))
+                else:
+                    results.append(message)
         return results
 
     def retrieve(self, ids: Sequence[int]) -> FileMetadataList:
