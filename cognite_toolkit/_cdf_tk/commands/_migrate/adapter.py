@@ -34,13 +34,11 @@ from cognite_toolkit._cdf_tk.storageio import (
     BaseAssetCentricIO,
     FileMetadataIO,
     InstanceIO,
-    StorageIO,
+    UploadableStorageIO,
 )
 from cognite_toolkit._cdf_tk.storageio._base import T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.storageio.selectors import (
-    AssetCentricSelector,
     DataSelector,
-    InstanceSelector,
 )
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest, SuccessItem
@@ -52,9 +50,6 @@ from .data_model import INSTANCE_SOURCE_VIEW_ID
 
 
 class MigrationSelector(DataSelector, ABC):
-    source_resource: AssetCentricSelector
-    instance: InstanceSelector
-
     @abstractmethod
     def get_ingestion_views(self) -> list[str]:
         raise NotImplementedError()
@@ -71,19 +66,13 @@ class MigrationCSVFileSelector(MigrationSelector):
     def __str__(self) -> str:
         return f"file_{self.datafile.name}"
 
-    def get_schema_spaces(self) -> list[str] | None:
-        return None
-
-    def get_instance_spaces(self) -> list[str] | None:
-        return sorted({item.instance_id.space for item in self.items})
-
     def get_ingestion_views(self) -> list[str]:
         views = {item.get_ingestion_view() for item in self.items}
         return sorted(views)
 
     @cached_property
     def items(self) -> MigrationMappingList:
-        return MigrationMappingList.read_csv_file(self.datafile, resource_type=self.resource_type)
+        return MigrationMappingList.read_csv_file(self.datafile, resource_type=self.kind)
 
 
 @dataclass
@@ -115,7 +104,7 @@ class AssetCentricMappingList(
 
 class AssetCentricMigrationIOAdapter(
     Generic[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
-    StorageIO[AssetCentricId, MigrationSelector, InstanceApplyList, AssetCentricMappingList],
+    UploadableStorageIO[AssetCentricId, MigrationSelector, InstanceApplyList, AssetCentricMappingList],
 ):
     KIND = "AssetCentricMigration"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
@@ -194,10 +183,14 @@ class AssetCentricMigrationIOAdapter(
                 yield AssetCentricMappingList(chunk)
                 chunk = []
 
-    def count(self, selector: AssetCentricSelector) -> int | None:
-        return self.base.count(selector)
+    def count(self, selector: MigrationSelector) -> int | None:
+        if not isinstance(selector, MigrationCSVFileSelector):
+            raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for count")
+        return len(selector.items)
 
-    def data_to_json_chunk(self, data_chunk: AssetCentricMappingList) -> list[dict[str, JsonVal]]:
+    def data_to_json_chunk(
+        self, data_chunk: AssetCentricMappingList, selector: MigrationSelector
+    ) -> list[dict[str, JsonVal]]:
         return data_chunk.dump()
 
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> InstanceApplyList:
