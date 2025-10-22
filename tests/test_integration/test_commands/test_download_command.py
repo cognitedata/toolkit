@@ -28,7 +28,9 @@ class TestDownloadCommand:
         chunks = list(NDJsonReader(downloaded_files[0]).read_chunks())
         assert len(chunks) == TIMESERIES_COUNT, f"Expected {TIMESERIES_COUNT} chunks, got {len(chunks)}."
         config_files = [file for file in tmp_path.rglob("*.yaml") if not file.stem.endswith(DATA_MANIFEST_STEM)]
-        assert len(config_files) == 2, f"Expected 2 configuration files (table and database), but found {len(config_files)}."
+        assert len(config_files) == 2, (
+            f"Expected 2 configuration files (table and database), but found {len(config_files)}."
+        )
         table_file = next((file for file in config_files if file.stem.endswith("Table")), None)
         assert table_file is not None, "Table configuration file not found."
         dumped = read_yaml_file(table_file, "dict")
