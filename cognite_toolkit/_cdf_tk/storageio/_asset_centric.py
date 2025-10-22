@@ -80,6 +80,9 @@ class BaseAssetCentricIO(
         if isinstance(item, dict) and isinstance(item.get("id"), int):
             # MyPy checked above.
             return item["id"]  # type: ignore[return-value]
+        elif isinstance(item, dict) and "externalId" in item:
+            # This is write version of the resource.
+            return -1
         raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
 
     @abstractmethod
@@ -175,8 +178,11 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
     UPLOAD_ENDPOINT = "/assets"
 
     def as_id(self, item: dict[str, JsonVal] | object) -> int:
-        if isinstance(item, Asset | AssetWrite) and item.id is not None:  # type: ignore[union-attr]
-            return item.id  # type: ignore[union-attr]
+        if isinstance(item, Asset) and item.id is not None:
+            return item.id
+        elif isinstance(item, AssetWrite):
+            # Not yet created asset
+            return -1
         return super().as_id(item)
 
     def _get_loader(self) -> AssetCRUD:
@@ -245,6 +251,9 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
     def as_id(self, item: dict[str, JsonVal] | object) -> int:
         if isinstance(item, FileMetadata) and item.id is not None:
             return item.id
+        elif isinstance(item, FileMetadataWrite):
+            # Not yet created file
+            return -1
         return super().as_id(item)
 
     def _get_loader(self) -> FileMetadataCRUD:
@@ -332,6 +341,9 @@ class TimeSeriesIO(BaseAssetCentricIO[str, TimeSeriesWrite, TimeSeries, TimeSeri
     def as_id(self, item: dict[str, JsonVal] | object) -> int:
         if isinstance(item, TimeSeries) and item.id is not None:
             return item.id
+        elif isinstance(item, TimeSeriesWrite):
+            # Not yet created time series
+            return -1
         return super().as_id(item)
 
     def _get_loader(self) -> TimeSeriesCRUD:
@@ -401,6 +413,9 @@ class EventIO(BaseAssetCentricIO[str, EventWrite, Event, EventWriteList, EventLi
     def as_id(self, item: dict[str, JsonVal] | object) -> int:
         if isinstance(item, Event) and item.id is not None:
             return item.id
+        elif isinstance(item, EventWrite):
+            # Not yet created event
+            return -1
         return super().as_id(item)
 
     def _get_loader(self) -> EventCRUD:
