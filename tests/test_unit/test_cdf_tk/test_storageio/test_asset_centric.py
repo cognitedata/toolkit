@@ -57,7 +57,7 @@ class TestAssetIO:
     ) -> None:
         config = toolkit_config
         asset_by_external_id = {asset.external_id: asset for asset in some_asset_data if asset.external_id is not None}
-        selector = AssetSubtreeSelector(hierarchy="test_hierarchy", kind="asset")
+        selector = AssetSubtreeSelector(hierarchy="test_hierarchy", kind="Assets")
 
         def create_callback(request: httpx.Request) -> httpx.Response:
             payload = json.loads(request.content)
@@ -86,7 +86,7 @@ class TestAssetIO:
             source = io.stream_data(selector)
             json_chunks: list[list[dict[str, JsonVal]]] = []
             for chunk in source:
-                json_chunk = io.data_to_json_chunk(chunk)
+                json_chunk = io.data_to_json_chunk(chunk, selector)
                 assert isinstance(json_chunk, list)
                 assert len(json_chunk) == 10
                 for item in json_chunk:
@@ -130,7 +130,7 @@ class TestAssetIO:
 
         respx_mock.post(config.create_api_url("/assets")).mock(side_effect=asset_create_callback)
 
-        selector = AssetSubtreeSelector(hierarchy="test_hierarchy", kind="asset")
+        selector = AssetSubtreeSelector(hierarchy="test_hierarchy", kind="Assets")
         with monkeypatch_toolkit_client() as client:
             client.config = config
             client.verify.authorization.return_value = []
@@ -215,7 +215,7 @@ class TestFileMetadataIO:
             )
 
         respx_mock.post(config.create_api_url("/files")).mock(side_effect=create_callback)
-        selector = DataSetSelector(data_set_external_id="DataSetSelector", kind="file")
+        selector = DataSetSelector(data_set_external_id="DataSetSelector", kind="FileMetadata")
 
         with monkeypatch_toolkit_client() as client:
             client.config = config
@@ -233,7 +233,7 @@ class TestFileMetadataIO:
             source = io.stream_data(selector)
             json_chunks: list[list[dict[str, JsonVal]]] = []
             for chunk in source:
-                json_chunk = io.data_to_json_chunk(chunk)
+                json_chunk = io.data_to_json_chunk(chunk, selector)
                 assert isinstance(json_chunk, list)
                 assert len(json_chunk) == 10
                 for item in json_chunk:
@@ -286,7 +286,7 @@ class TestTimeSeriesIO:
     ) -> None:
         config = toolkit_config
         ts_by_external_id = {ts.external_id: ts for ts in some_timeseries_data if ts.external_id is not None}
-        selector = DataSetSelector(data_set_external_id="DataSetSelector", kind="timeseries")
+        selector = DataSetSelector(data_set_external_id="DataSetSelector", kind="TimeSeries")
 
         def create_callback(request: httpx.Request) -> httpx.Response:
             payload = json.loads(request.content)
@@ -317,7 +317,7 @@ class TestTimeSeriesIO:
             source = io.stream_data(selector)
             json_chunks: list[list[dict[str, JsonVal]]] = []
             for chunk in source:
-                json_chunk = io.data_to_json_chunk(chunk)
+                json_chunk = io.data_to_json_chunk(chunk, selector)
                 assert isinstance(json_chunk, list)
                 assert len(json_chunk) == 10
                 for item in json_chunk:
@@ -368,7 +368,7 @@ class TestEventIO:
     ) -> None:
         config = toolkit_config
         event_by_external_id = {event.external_id: event for event in some_event_data if event.external_id is not None}
-        selector = DataSetSelector(data_set_external_id="DataSetSelector", kind="event")
+        selector = DataSetSelector(data_set_external_id="DataSetSelector", kind="Events")
 
         def create_callback(request: httpx.Request) -> httpx.Response:
             payload = json.loads(request.content)
@@ -399,7 +399,7 @@ class TestEventIO:
             source = io.stream_data(selector)
             json_chunks: list[list[dict[str, JsonVal]]] = []
             for chunk in source:
-                json_chunk = io.data_to_json_chunk(chunk)
+                json_chunk = io.data_to_json_chunk(chunk, selector)
                 assert isinstance(json_chunk, list)
                 assert len(json_chunk) == 10
                 for item in json_chunk:
