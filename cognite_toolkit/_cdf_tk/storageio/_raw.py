@@ -2,7 +2,7 @@ from collections.abc import Iterable, Sequence
 
 from cognite.client.data_classes import Row, RowList, RowWrite, RowWriteList
 
-from cognite_toolkit._cdf_tk.cruds import RawTableCRUD
+from cognite_toolkit._cdf_tk.cruds import RawDatabaseCRUD, RawTableCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
@@ -68,6 +68,11 @@ class RawIO(ConfigurableStorageIO[str, RawTableSelector, RowWriteList, RowList])
         return RowWriteList([RowWrite._load(row) for row in data_chunk])
 
     def configurations(self, selector: RawTableSelector) -> Iterable[StorageIOConfig]:
+        yield StorageIOConfig(
+            kind=RawDatabaseCRUD.kind,
+            folder_name=RawDatabaseCRUD.folder_name,
+            value={"db_name": selector.table.db_name},
+        )
         yield StorageIOConfig(
             kind=RawTableCRUD.kind, folder_name=RawTableCRUD.folder_name, value=selector.table.model_dump(by_alias=True)
         )
