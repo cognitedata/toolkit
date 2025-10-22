@@ -39,6 +39,7 @@ from cognite_toolkit._cdf_tk.storageio import (
 from cognite_toolkit._cdf_tk.storageio._base import T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     AssetCentricSelector,
+    DataSelector,
     InstanceSelector,
 )
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
@@ -50,7 +51,10 @@ from .data_classes import MigrationMapping, MigrationMappingList
 from .data_model import INSTANCE_SOURCE_VIEW_ID
 
 
-class MigrationSelector(AssetCentricSelector, InstanceSelector, ABC):
+class MigrationSelector(DataSelector, ABC):
+    source_resource: AssetCentricSelector
+    instance: InstanceSelector
+
     @abstractmethod
     def get_ingestion_views(self) -> list[str]:
         raise NotImplementedError()
@@ -59,11 +63,10 @@ class MigrationSelector(AssetCentricSelector, InstanceSelector, ABC):
 class MigrationCSVFileSelector(MigrationSelector):
     type: Literal["migrationCSVFile"] = "migrationCSVFile"
     datafile: Path
-    resource_type: str
 
     @property
     def group(self) -> str:
-        return f"Migration_{self.resource_type}"
+        return f"Migration_{self.kind}"
 
     def __str__(self) -> str:
         return f"file_{self.datafile.name}"

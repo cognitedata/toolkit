@@ -66,7 +66,7 @@ class DownloadCommand(ToolkitCommand):
                 )
 
             with FileWriter.create_from_format(
-                file_format, target_dir, io.KIND, compression_cls, columns=columns
+                file_format, target_dir, selector.kind or io.KIND, compression_cls, columns=columns
             ) as writer:
                 executor = ProducerWorkerExecutor[T_WritableCogniteResourceList, list[dict[str, JsonVal]]](
                     download_iterable=io.stream_data(selector, limit),

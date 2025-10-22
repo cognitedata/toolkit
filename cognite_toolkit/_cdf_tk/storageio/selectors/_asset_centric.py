@@ -5,7 +5,8 @@ from typing import Any, Literal
 from ._base import DataSelector
 
 
-class AssetCentricSelector(DataSelector, ABC): ...
+class AssetCentricSelector(DataSelector, ABC):
+    kind: Literal["Assets", "Events", "TimeSeries", "FileMetadata"]
 
 
 class DataSetSelector(AssetCentricSelector):
@@ -14,7 +15,6 @@ class DataSetSelector(AssetCentricSelector):
     type: Literal["dataSet"] = "dataSet"
 
     data_set_external_id: str
-    kind: str
 
     @property
     def group(self) -> str:
@@ -32,7 +32,6 @@ class AssetSubtreeSelector(AssetCentricSelector):
 
     type: Literal["assetSubtree"] = "assetSubtree"
     hierarchy: str
-    kind: str
 
     @property
     def group(self) -> str:
