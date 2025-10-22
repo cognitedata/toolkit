@@ -58,3 +58,35 @@ def sanitize_spreadsheet_title(title: str) -> str:
         return "Sheet"
     sanitized_title = INVALID_TITLE_REGEX.sub("", title)
     return sanitized_title if sanitized_title else "Sheet"
+
+
+def to_sentence_case(text: str) -> str:
+    """Converts a string to sentence case.
+
+    Args:
+        text: The original string to convert.
+
+    Returns:
+        str: The string converted to sentence case.
+
+    >>> to_sentence_case("hello world")
+    'hello world'
+    >>> to_sentence_case("PYTHON programming")
+    'python programming'
+    >>> to_sentence_case("")
+    ''
+    >>> to_sentence_case("snake_case_string")
+    'snake case string'
+    >>> to_sentence_case("MIXED_case STRING")
+    'mixed case string'
+    >>> to_sentence_case("camelCaseString")
+    'camel case string'
+    """
+    if not text:
+        return text
+    # Replace underscores with spaces
+    text = text.replace("_", " ")
+    # Insert spaces before uppercase letters that are preceded by lowercase letters
+    text = re.sub(r"(?<=[a-z])([A-Z])", r" \1", text)
+    # Convert to lowercase
+    return text.casefold()

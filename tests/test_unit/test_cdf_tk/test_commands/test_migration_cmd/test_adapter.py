@@ -21,7 +21,7 @@ class TestAssetCentricMigrationIOAdapter:
 
         csv_file = tmp_path / "files.csv"
         csv_file.write_text("id,space,externalId\n" + "\n".join(f"{i},mySpace,asset_{i}" for i in range(N)))
-        selector = MigrationCSVFileSelector(datafile=csv_file, resource_type="asset")
+        selector = MigrationCSVFileSelector(datafile=csv_file, kind="asset")
         adapter = AssetCentricMigrationIOAdapter(client, AssetIO(client))
         downloaded = list(adapter.stream_data(selector))
         assert len(downloaded) == 2

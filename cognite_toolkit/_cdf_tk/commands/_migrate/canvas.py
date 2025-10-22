@@ -124,10 +124,11 @@ class MigrationCanvasCommand(BaseMigrateCommand):
     ) -> FdmInstanceContainerReferenceApply:
         """Migrate a single container reference by replacing the asset-centric ID with the data model instance ID."""
         consumer_view = source.consumer_view()
-        new_external_id = f"{canvas_external_id}_{uuid4()}"
+        new_id = str(uuid4())
+        new_external_id = f"{canvas_external_id}_{new_id}"
         return FdmInstanceContainerReferenceApply(
             external_id=new_external_id,
-            id_=reference.id_,
+            id_=new_id,
             container_reference_type="fdmInstance",
             instance_space=source.space,
             instance_external_id=source.external_id,

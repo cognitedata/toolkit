@@ -237,9 +237,9 @@ class DownloadApp(typer.Typer):
 
         selectors: list[AssetCentricSelector] = []
         if data_sets:
-            selectors.extend([DataSetSelector(data_set_external_id=ds, resource_type="asset") for ds in data_sets])
+            selectors.extend([DataSetSelector(data_set_external_id=ds, kind="Assets") for ds in data_sets])
         if hierarchy:
-            selectors.extend([AssetSubtreeSelector(hierarchy=h, resource_type="asset") for h in hierarchy])
+            selectors.extend([AssetSubtreeSelector(hierarchy=h, kind="Assets") for h in hierarchy])
         cmd = DownloadCommand()
         cmd.run(
             lambda: cmd.download(
