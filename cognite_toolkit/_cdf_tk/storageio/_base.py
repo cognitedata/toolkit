@@ -42,9 +42,9 @@ class StorageIO(ABC, Generic[T_ID, T_Selector, T_CogniteResourceList, T_Writable
         client: An instance of ToolkitClient to interact with the CDF API.
     """
 
-    SUPPORTED_DOWNLOAD_FORMATS: frozenset[str]
-    SUPPORTED_COMPRESSIONS: frozenset[str]
-    CHUNK_SIZE: int
+    SUPPORTED_DOWNLOAD_FORMATS: ClassVar[frozenset[str]]
+    SUPPORTED_COMPRESSIONS: ClassVar[frozenset[str]]
+    CHUNK_SIZE: ClassVar[int]
     BASE_SELECTOR: ClassVar[type[DataSelector]]
 
     def __init__(self, client: ToolkitClient) -> None:
@@ -111,8 +111,8 @@ class UploadableStorageIO(StorageIO[T_ID, T_Selector, T_CogniteResourceList, T_W
         UPLOAD_EXTRA_ARGS: Additional arguments to include in the upload request.
     """
 
-    KIND: str
-    SUPPORTED_READ_FORMATS: frozenset[str]
+    KIND: ClassVar[str]
+    SUPPORTED_READ_FORMATS: ClassVar[frozenset[str]]
     UPLOAD_ENDPOINT: ClassVar[str]
     UPLOAD_EXTRA_ARGS: ClassVar[Mapping[str, JsonVal] | None] = None
 
