@@ -4,6 +4,7 @@ from cognite.client.data_classes import Row, RowList, RowWrite, RowWriteList
 
 from cognite_toolkit._cdf_tk.cruds import RawDatabaseCRUD, RawTableCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
@@ -72,6 +73,7 @@ class RawIO(ConfigurableStorageIO[str, RawTableSelector, RowWriteList, RowList])
             kind=RawDatabaseCRUD.kind,
             folder_name=RawDatabaseCRUD.folder_name,
             value={"db_name": selector.table.db_name},
+            filename=sanitize_filename(selector.table.db_name),
         )
         yield StorageIOConfig(
             kind=RawTableCRUD.kind, folder_name=RawTableCRUD.folder_name, value=selector.table.model_dump(by_alias=True)
