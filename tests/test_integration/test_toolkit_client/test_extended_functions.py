@@ -54,4 +54,4 @@ class TestExtendedFunctions:
             assert created.file_id == function_code_file_id
             assert created.name == my_function.name
         finally:
-            toolkit_client.functions.delete(external_id=my_function.external_id)
+            toolkit_client.functions.delete_with_429_retry(external_id=[my_function.external_id])
