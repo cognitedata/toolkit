@@ -6,6 +6,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.config import ToolkitClientConfig
+from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, SimpleBodyRequest
 
 
@@ -56,8 +57,18 @@ class ExtendedFunctionsAPI(FunctionsAPI):
 
         Args:
             external_id (SequenceNotStr[str]): The external IDs of the functions to delete.
+            console (Console | None): The rich console to use for printing warnings.
 
         Returns:
             None
         """
-        raise NotImplementedError()
+        for chunk in chunker(external_id, self._DELETE_LIMIT):
+            self._toolkit_http_client.request_with_retries(
+                message=SimpleBodyRequest(
+                    endpoint_url=self._toolkit_config.create_api_url("/functions/delete"),
+                    method="POST",
+                    body_content={"items": [{"externalId": eid} for eid in chunk]},
+                ),
+                console=console,
+            ).raise_for_status()
+        return None
