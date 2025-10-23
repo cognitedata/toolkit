@@ -56,7 +56,7 @@ class UploadItem(Generic[T_WriteCogniteResource]):
 class UploadItemsRequest(Generic[T_WriteCogniteResource], ItemsRequest[str]):
     """Request message for uploading items identified by string IDs."""
 
-    items: list[UploadItem[T_WriteCogniteResource]]
+    items: list[UploadItem[T_WriteCogniteResource]] = field(default_factory=list)
     extra_body_fields: dict[str, JsonVal] = field(default_factory=dict)
     as_id: Callable[[T_WriteCogniteResource], str] = UploadItem.as_id
 

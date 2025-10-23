@@ -52,13 +52,15 @@ from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, SimpleBodyRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, AssetCentric, JsonVal, T_WritableCogniteResourceList
 
-from ._base import StorageIOConfig, TableStorageIO
+from ._base import ConfigurableStorageIO, StorageIOConfig, TableStorageIO, UploadableStorageIO
 from .selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 
 
 class BaseAssetCentricIO(
     Generic[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
-    TableStorageIO[int, AssetCentricSelector, T_CogniteResourceList, T_WritableCogniteResourceList],
+    TableStorageIO[AssetCentricSelector, T_WritableCogniteResource],
+    ConfigurableStorageIO[AssetCentricSelector, T_WritableCogniteResource],
+    UploadableStorageIO[AssetCentricSelector, T_WritableCogniteResource, T_WriteClass],
     ABC,
 ):
     RESOURCE_TYPE: ClassVar[AssetCentric]
