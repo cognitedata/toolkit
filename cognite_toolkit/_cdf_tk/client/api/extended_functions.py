@@ -45,7 +45,8 @@ class ExtendedFunctionsAPI(FunctionsAPI):
             console=console,
         )
         result.raise_for_status()
-        return Function._load(result.get_first_body())
+        # We assume the API response is one item on a successful creation
+        return Function._load(result.get_first_body()["items"][0], cognite_client=self._cognite_client)  # type: ignore[arg-type,index]
 
     def delete_with_429_retry(self, external_id: SequenceNotStr[str], console: Console | None = None) -> None:
         """Delete one or more functions with manual retry handling for 429 Too Many Requests responses.
