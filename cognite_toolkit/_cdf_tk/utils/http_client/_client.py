@@ -228,11 +228,11 @@ class HTTPClient:
             return splits
 
         retry_after = self._get_retry_after_in_header(response)
-        if retry_after is not None and response.status_code == 429:
+        if retry_after is not None and response.status_code == 429 and request.status_attempt < self._max_retries:
             if console is not None:
                 short_url = request.endpoint_url.removeprefix(self.config.base_api_url)
                 HighSeverityWarning(
-                    f"Rate limit exceeded for {short_url}. Retrying after {retry_after} seconds."
+                    f"Rate limit exceeded for the {short_url!r} endpoint. Retrying after {retry_after} seconds."
                 ).print_warning(console=console)
             request.status_attempt += 1
             time.sleep(retry_after)
