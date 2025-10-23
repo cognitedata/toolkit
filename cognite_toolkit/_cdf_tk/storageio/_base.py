@@ -9,6 +9,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest
+from cognite_toolkit._cdf_tk.utils.http_client._tracker import ItemsRequestTracker
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from .selectors import DataSelector
@@ -71,6 +72,50 @@ class UploadItemsRequest(Generic[T_WriteCogniteResource], ItemsRequest[str]):
             # thus the MyPy ignore here.
             return {"items": upload_items, **self.extra_body_fields}  # type: ignore[dict-item]
         return {"items": upload_items}  # type: ignore[dict-item]
+
+    def split(self, status_attempts: int) -> "list[UploadItemsRequest]":  # type: ignore[override]
+        """Splits the request into two smaller requests.
+
+        This is useful for retrying requests that fail due to size limits or timeouts.
+
+        Args:
+            status_attempts: The number of status attempts to set for the new requests. This is used when the
+                request failed with a 5xx status code and we want to track the number of attempts. For 4xx errors,
+                there is at least one item causing the error, so we do not increment the status attempts, but
+                instead essentially do a binary search to find the problematic item(s).
+
+        Returns:
+            A list containing two new ItemsRequest instances, each with half of the original items.
+
+        """
+        mid = len(self.items) // 2
+        if mid == 0:
+            return [self]
+        tracker = self.tracker or ItemsRequestTracker(self.max_failures_before_abort)
+        tracker.register_failure()
+        first_half = UploadItemsRequest[T_WriteCogniteResource](
+            endpoint_url=self.endpoint_url,
+            method=self.method,
+            items=self.items[:mid],
+            extra_body_fields=self.extra_body_fields,
+            as_id=self.as_id,
+            connect_attempt=self.connect_attempt,
+            read_attempt=self.read_attempt,
+            status_attempt=status_attempts,
+        )
+        first_half.tracker = tracker
+        second_half = UploadItemsRequest[T_WriteCogniteResource](
+            endpoint_url=self.endpoint_url,
+            method=self.method,
+            items=self.items[mid:],
+            extra_body_fields=self.extra_body_fields,
+            as_id=self.as_id,
+            connect_attempt=self.connect_attempt,
+            read_attempt=self.read_attempt,
+            status_attempt=status_attempts,
+        )
+        second_half.tracker = tracker
+        return [first_half, second_half]
 
 
 class StorageIO(ABC, Generic[T_Selector, T_CogniteResource]):

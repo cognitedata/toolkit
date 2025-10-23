@@ -51,7 +51,7 @@ class TestRawStorageIO:
             source = io.stream_data(selector, limit=100)
             json_chunks: list[list[dict[str, JsonVal]]] = []
             for chunk in source:
-                json_chunk = io.data_to_json_chunk(chunk, selector)
+                json_chunk = io.data_to_json_chunk(chunk.items)
                 assert isinstance(json_chunk, list)
                 assert len(json_chunk) == 10
                 for item in json_chunk:
@@ -59,9 +59,9 @@ class TestRawStorageIO:
                 json_chunks.append(json_chunk)
 
             with HTTPClient(config) as upload_client:
-                data_chunks = (io.json_chunk_to_data(chunk) for chunk in json_chunks)
+                data_chunks = (io.json_chunk_to_data([("id", item) for item in chunk]) for chunk in json_chunks)
                 for data_chunk in data_chunks:
-                    io.upload_items(data_chunk, upload_client, selector)
+                    io.upload_items(list(data_chunk), upload_client, selector)
 
             assert respx_mock.calls.call_count == 10  # 100 rows in chunks of 10
             uploaded_rows = []

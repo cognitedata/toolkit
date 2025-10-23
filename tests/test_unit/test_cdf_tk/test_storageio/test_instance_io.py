@@ -8,9 +8,9 @@ import respx
 from cognite.client.data_classes.data_modeling import EdgeApply, Node, NodeApply
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList, InstanceList
+from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceList
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
-from cognite_toolkit._cdf_tk.storageio import InstanceIO
+from cognite_toolkit._cdf_tk.storageio import InstanceIO, UploadItem
 from cognite_toolkit._cdf_tk.storageio.selectors import InstanceSpaceSelector, InstanceViewSelector, SelectedView
 from cognite_toolkit._cdf_tk.utils.http_client import FailedItem, HTTPClient, SuccessItem
 
@@ -70,9 +70,10 @@ class TestInstanceIO:
         client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
         instance_count = 12
         with HTTPClient(config) as http_client:
-            instances = InstanceApplyList(
-                [
-                    NodeApply(
+            instances = [
+                UploadItem(
+                    source_id=f"intance_{i}",
+                    item=NodeApply(
                         space="my_space",
                         external_id=f"instance_{i}",
                     )
@@ -83,10 +84,10 @@ class TestInstanceIO:
                         type=("schema_space", "edge_type"),
                         start_node=("my_space", f"instance_{i - 1}"),
                         end_node=("my_space", f"instance_{i + 1}"),
-                    )
-                    for i in range(instance_count)
-                ]
-            )
+                    ),
+                )
+                for i in range(instance_count)
+            ]
 
             def hate_edges(request: httpx.Request) -> httpx.Response:
                 # Check request body content
@@ -117,6 +118,7 @@ class TestInstanceIO:
             with respx.mock() as rsps:
                 rsps.post(url).mock(side_effect=hate_edges)
                 io = InstanceIO(client)
+
                 results = io.upload_items(instances, http_client)
 
             assert len(results) == instance_count
