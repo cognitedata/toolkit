@@ -23,12 +23,13 @@ from .api.verify import VerifyAPI
 class ToolkitClient(CogniteClient):
     def __init__(self, config: ToolkitClientConfig | None = None, enable_set_pending_ids: bool = False) -> None:
         super().__init__(config=config)
+        toolkit_config = ToolkitClientConfig.from_client_config(self.config)
         self.search = SearchAPI(self._config, self._API_VERSION, self)
         self.robotics = RoboticsAPI(self._config, self._API_VERSION, self)
         self.dml = DMLAPI(self._config, self._API_VERSION, self)
         self.verify = VerifyAPI(self._config, self._API_VERSION, self)
         self.lookup = LookUpGroup(self._config, self._API_VERSION, self)
-        self.functions: ExtendedFunctionsAPI = ExtendedFunctionsAPI(self._config, self._API_VERSION, self)
+        self.functions: ExtendedFunctionsAPI = ExtendedFunctionsAPI(toolkit_config, self._API_VERSION, self)
         self.data_modeling: ExtendedDataModelingAPI = ExtendedDataModelingAPI(self._config, self._API_VERSION, self)
         if enable_set_pending_ids:
             self.time_series: ExtendedTimeSeriesAPI = ExtendedTimeSeriesAPI(self._config, self._API_VERSION, self)
@@ -38,8 +39,7 @@ class ToolkitClient(CogniteClient):
         self.migration = MigrationAPI(self.data_modeling.instances)
         self.token = TokenAPI(self)
         self.charts = ChartsAPI(self._config, self._API_VERSION, self)
-        if config is not None:
-            self.project = ProjectAPI(config=config, cognite_client=self)
+        self.project = ProjectAPI(config=toolkit_config, cognite_client=self)
 
     @property
     def config(self) -> ToolkitClientConfig:

@@ -34,6 +34,22 @@ class ToolkitClientConfig(ClientConfig):
         )
         self.is_strict_validation = is_strict_validation
 
+    @classmethod
+    def from_client_config(cls, config: ClientConfig, is_strict_validation: bool = True) -> "ToolkitClientConfig":
+        return cls(
+            client_name=config.client_name,
+            project=config.project,
+            credentials=config.credentials,
+            api_subversion=config.api_subversion,
+            base_url=config.base_url,
+            max_workers=config.max_workers,
+            headers=config.headers,
+            timeout=config.timeout,
+            file_transfer_timeout=config.file_transfer_timeout,
+            debug=config.debug,
+            is_strict_validation=is_strict_validation,
+        )
+
     @property
     def cloud_provider(self) -> Literal["azure", "aws", "gcp", "unknown"]:
         cdf_cluster = self.cdf_cluster
@@ -60,6 +76,10 @@ class ToolkitClientConfig(ClientConfig):
         subdomain = self.base_url.split("cognitedata.com", maxsplit=1)[0]
         return "plink" in subdomain
 
+    @property
+    def base_api_url(self) -> str:
+        return f"{self.base_url}/api/v1/projects/{self.project}"
+
     def create_api_url(self, endpoint: str) -> str:
         """Create a full API URL for the given endpoint.
 
@@ -76,7 +96,7 @@ class ToolkitClientConfig(ClientConfig):
         """
         if not endpoint.startswith("/"):
             endpoint = f"/{endpoint}"
-        return f"{self.base_url}/api/v1/projects/{self.project}{endpoint}"
+        return f"{self.base_api_url}{endpoint}"
 
     def create_app_url(self, endpoint: str) -> str:
         """Create a full App URL for the given endpoint.

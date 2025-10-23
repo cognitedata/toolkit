@@ -53,4 +53,4 @@ class TestExtendedFunctions:
             assert created is not None
         finally:
             if created:
-                toolkit_client.functions.delete(id=created.id)
+                toolkit_client.functions.delete(created.id)

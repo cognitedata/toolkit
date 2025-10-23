@@ -1,16 +1,12 @@
-from typing import TYPE_CHECKING
-
 from cognite.client import CogniteClient
 
+from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.project import ProjectStatusList
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ParamRequest
 
-if TYPE_CHECKING:
-    from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
-
 
 class ProjectAPI:
-    def __init__(self, config: "ToolkitClientConfig", cognite_client: CogniteClient) -> None:
+    def __init__(self, config: ToolkitClientConfig, cognite_client: CogniteClient) -> None:
         self._config = config
         self._cognite_client = cognite_client
         self._http_client = HTTPClient(config, split_items_status_codes=set())
