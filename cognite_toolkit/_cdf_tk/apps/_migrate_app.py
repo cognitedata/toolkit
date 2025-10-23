@@ -2,6 +2,7 @@ from datetime import date
 from pathlib import Path
 from typing import Annotated, Any
 
+import questionary
 import typer
 
 from cognite_toolkit._cdf_tk.commands import (
@@ -12,9 +13,11 @@ from cognite_toolkit._cdf_tk.commands import (
 )
 from cognite_toolkit._cdf_tk.commands._migrate import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.adapter import AssetCentricMigrationIOAdapter, MigrationCSVFileSelector
+from cognite_toolkit._cdf_tk.commands._migrate.creators import InstanceSpaceCreator, SourceSystemCreator
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
 from cognite_toolkit._cdf_tk.storageio import AssetIO
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.interactive_select import AssetInteractiveSelect, DataModelingSelect
 
 TODAY = date.today()
 
@@ -24,6 +27,8 @@ class MigrateApp(typer.Typer):
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.main)
         self.command("prepare")(self.prepare)
+        self.command("data-sets")(self.data_sets)
+        self.command("source-system")(self.source_system)
         # Uncomment when command is ready.
         # self.command("assets")(self.assets)
         self.command("timeseries")(self.timeseries)
@@ -68,6 +73,144 @@ class MigrateApp(typer.Typer):
         cmd.run(
             lambda: cmd.deploy_cognite_migration(
                 client,
+                dry_run=dry_run,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def data_sets(
+        ctx: typer.Context,
+        data_set: Annotated[
+            list[str] | None,
+            typer.Argument(
+                help="The name or external ID of the data set to create Instance Spaces for. If not provided, an "
+                "interactive selection will be performed to select the data sets to create Instance Spaces for."
+            ),
+        ] = None,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Path to the directory where the instance space definitions will be dumped. It is recommended "
+                "to govern these configurations in a git repository.",
+            ),
+        ] = Path("tmp"),
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-d",
+                help="If set, the migration will not be executed, but only a report of what would be done is printed.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """Creates Instance Spaces for all selected data sets."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        if data_set is None:
+            # Interactive model
+            selector = AssetInteractiveSelect(client, "migrate")
+            data_set = selector.select_data_sets()
+            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).ask()
+            output_dir = questionary.path(
+                "Specify output directory for instance space definitions:", default=str(output_dir)
+            ).ask()
+            verbose = questionary.confirm("Do you want verbose output?", default=verbose).ask()
+            if any(res is None for res in [dry_run, output_dir, verbose]):
+                raise typer.Abort()
+            output_dir = Path(output_dir)
+
+        cmd = MigrationCommand()
+        cmd.run(
+            lambda: cmd.create(
+                client,
+                creator=InstanceSpaceCreator(client, data_set_external_ids=data_set),
+                output_dir=output_dir,
+                dry_run=dry_run,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def source_system(
+        ctx: typer.Context,
+        data_set: Annotated[
+            str | None,
+            typer.Argument(
+                help="The external ID of the data set to lookup source system for. If not provided, an interactive "
+                "selection will be performed to select the data sets to create instance spaces for."
+            ),
+        ] = None,
+        instance_space: Annotated[
+            str | None,
+            typer.Option(
+                "--instance-space",
+                "-s",
+                help="The instance space were you want to create the source system.",
+            ),
+        ] = None,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Path to the directory where the instance space definitions will be dumped. It is recommended "
+                "to govern these configurations in a git repository.",
+            ),
+        ] = Path("tmp"),
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-d",
+                help="If set, the migration will not be executed, but only a report of what would be done is printed.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """Creates source systems from the 'source' property of classic resources (assets, events, files)."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        if data_set is None and instance_space is None:
+            # Interactive model
+            ds_selector = AssetInteractiveSelect(client, "migrate")
+            data_set = ds_selector.select_data_set()
+            dm_selector = DataModelingSelect(client, "migrate")
+            instance_space = dm_selector.select_instance_space(
+                multiselect=False, message="In which instance space do you want to create the source system?"
+            )
+            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).ask()
+            output_dir = questionary.path(
+                "Specify output directory for instance space definitions:", default=str(output_dir)
+            ).ask()
+            verbose = questionary.confirm("Do you want verbose output?", default=verbose).ask()
+            if any(res is None for res in [instance_space, dry_run, output_dir, verbose]):
+                raise typer.Abort()
+            output_dir = Path(output_dir)
+        elif data_set is None or instance_space is None:
+            raise typer.BadParameter("Both data_set and instance_space must be provided together.")
+
+        cmd = MigrationCommand()
+        cmd.run(
+            lambda: cmd.create(
+                client,
+                creator=SourceSystemCreator(client, data_set_external_id=data_set, instance_space=instance_space),
+                output_dir=output_dir,
                 dry_run=dry_run,
                 verbose=verbose,
             )

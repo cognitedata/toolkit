@@ -2,6 +2,7 @@ from collections.abc import Callable, Iterable, Sequence
 from enum import Enum
 from pathlib import Path
 
+from rich import print
 from rich.console import Console
 from rich.table import Table
 
@@ -250,8 +251,6 @@ class MigrationCommand(ToolkitCommand):
         deploy_cmd = DeployCommand(self.print_warning, silent=self.silent)
         deploy_cmd.tracker = self.tracker
 
-        verb = "Would deploy" if dry_run else "Deploying"
-        self.console(f"{verb} {creator.DISPLAY_NAME} to CDF.")
         crud_cls = creator.CRUD
         resource_list = creator.create_resources()
 
@@ -271,6 +270,7 @@ class MigrationCommand(ToolkitCommand):
                 store_count = creator.store_lineage(resource_list)
                 self.console(f"Stored lineage for {store_count:,} {creator.DISPLAY_NAME}.")
 
+        verb = "Would deploy" if dry_run else "Deploying"
         self.console(f"{verb} {creator.DISPLAY_NAME} to CDF.")
 
         resource_configs = creator.resource_configs(resource_list)

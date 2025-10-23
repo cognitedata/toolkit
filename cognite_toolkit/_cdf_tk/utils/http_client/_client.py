@@ -4,12 +4,14 @@ import sys
 import time
 from collections import deque
 from collections.abc import MutableMapping, Sequence, Set
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 import httpx
 from cognite.client import global_config
 from cognite.client.utils import _json
+from rich.console import Console
 
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils.auxiliary import get_current_toolkit_version, get_user_agent
 from cognite_toolkit._cdf_tk.utils.http_client._data_classes import (
     BodyRequest,
@@ -28,8 +30,7 @@ if sys.version_info >= (3, 11):
 else:
     from typing_extensions import Self
 
-if TYPE_CHECKING:
-    from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.config import ToolkitClientConfig
 
 
 class HTTPClient:
@@ -52,7 +53,7 @@ class HTTPClient:
 
     def __init__(
         self,
-        config: "ToolkitClientConfig",
+        config: ToolkitClientConfig,
         max_retries: int = 10,
         pool_connections: int = 10,
         pool_maxsize: int = 20,
@@ -79,11 +80,12 @@ class HTTPClient:
         self.session.close()
         return False  # Do not suppress exceptions
 
-    def request(self, message: RequestMessage) -> Sequence[HTTPMessage]:
+    def request(self, message: RequestMessage, console: Console | None = None) -> Sequence[HTTPMessage]:
         """Send an HTTP request and return the response.
 
         Args:
             message (RequestMessage): The request message to send.
+            console (Console | None): The rich console to use for printing warnings.
 
         Returns:
             Sequence[HTTPMessage]: The response message(s). This can also
@@ -96,12 +98,12 @@ class HTTPClient:
             return message.create_failed_request(error_msg)
         try:
             response = self._make_request(message)
-            results = self._handle_response(response, message)
+            results = self._handle_response(response, message, console)
         except Exception as e:
             results = self._handle_error(e, message)
         return results
 
-    def request_with_retries(self, message: RequestMessage) -> ResponseList:
+    def request_with_retries(self, message: RequestMessage, console: Console | None = None) -> ResponseList:
         """Send an HTTP request and handle retries.
 
         This method will keep retrying the request until it either succeeds or
@@ -112,6 +114,7 @@ class HTTPClient:
 
         Args:
             message (RequestMessage): The request message to send.
+            console (Console | None): The rich console to use for printing warnings.
 
         Returns:
             Sequence[ResponseMessage | FailedRequestMessage]: The final response
@@ -124,7 +127,7 @@ class HTTPClient:
         final_responses = ResponseList([])
         while pending_requests:
             current_request = pending_requests.popleft()
-            results = self.request(current_request)
+            results = self.request(current_request, console)
 
             for result in results:
                 if isinstance(result, RequestMessage):
@@ -200,9 +203,7 @@ class HTTPClient:
         )
 
     def _handle_response(
-        self,
-        response: httpx.Response,
-        request: RequestMessage,
+        self, response: httpx.Response, request: RequestMessage, console: Console | None = None
     ) -> Sequence[HTTPMessage]:
         try:
             body = response.json()
@@ -211,7 +212,7 @@ class HTTPClient:
 
         if 200 <= response.status_code < 300:
             return request.create_responses(response, body)
-        elif (
+        if (
             isinstance(request, ItemsRequest)
             and len(request.items) > 1
             and response.status_code in self._split_items_status_codes
@@ -225,13 +226,35 @@ class HTTPClient:
             if splits[0].tracker and splits[0].tracker.limit_reached():
                 return request.create_responses(response, body, self._get_error_message(body, response.text))
             return splits
-        elif request.status_attempt < self._max_retries and response.status_code in self._retry_status_codes:
+
+        retry_after = self._get_retry_after_in_header(response)
+        if retry_after is not None and response.status_code == 429 and request.status_attempt < self._max_retries:
+            if console is not None:
+                short_url = request.endpoint_url.removeprefix(self.config.base_api_url)
+                HighSeverityWarning(
+                    f"Rate limit exceeded for the {short_url!r} endpoint. Retrying after {retry_after} seconds."
+                ).print_warning(console=console)
+            request.status_attempt += 1
+            time.sleep(retry_after)
+            return [request]
+
+        if request.status_attempt < self._max_retries and response.status_code in self._retry_status_codes:
             request.status_attempt += 1
             time.sleep(self._backoff_time(request.total_attempts))
             return [request]
         else:
             # Permanent failure
             return request.create_responses(response, body, self._get_error_message(body, response.text))
+
+    @staticmethod
+    def _get_retry_after_in_header(response: httpx.Response) -> float | None:
+        if "Retry-After" not in response.headers:
+            return None
+        try:
+            return float(response.headers["Retry-After"])
+        except ValueError:
+            # Ignore invalid Retry-After header
+            return None
 
     @staticmethod
     def _get_error_message(body: JsonVal, default: str) -> str:
