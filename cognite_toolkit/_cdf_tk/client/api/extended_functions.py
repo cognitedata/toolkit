@@ -53,13 +53,14 @@ class ExtendedFunctionsAPI(FunctionsAPI):
     def delete_with_429_retry(
         self, external_id: SequenceNotStr[str], ignore_unknown_ids: bool = False, console: Console | None = None
     ) -> None:
-        """Delete one or more functions with manual retry handling for 429 Too Many Requests responses.
+        """Delete one or more functions with retry handling for 429 Too Many Requests responses.
 
         This method is an improvement over the standard delete method in the FunctionsAPI.
 
 
         Args:
             external_id (SequenceNotStr[str]): The external IDs of the functions to delete.
+            ignore_unknown_ids (bool): Ignore IDs and external IDs that are not found.
             console (Console | None): The rich console to use for printing warnings.
 
         Returns:
