@@ -11,7 +11,6 @@ from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ..utils.http_client._data_classes import UploadItemsRequest
 from .selectors import DataSelector
 
 
@@ -31,6 +30,26 @@ class Page(Generic[T_CogniteResource]):
     worker_id: str
     items: Sequence[T_CogniteResource]
     next_cursor: str | None = None
+
+
+T_WriteCogniteResource = TypeVar("T_WriteCogniteResource", bound=CogniteResource)
+
+
+@dataclass
+class UploadItem(Generic[T_WriteCogniteResource]):
+    """An item to be uploaded to CDF, consisting of a source ID and the writable Cognite resource.
+
+    Attributes:
+        source_id: The source identifier for the item. For example, the line number in a CSV file.
+        item: The writable Cognite resource to be uploaded.
+    """
+
+    source_id: str
+    item: T_WriteCogniteResource
+
+    @classmethod
+    def as_id(cls, upload_item: "UploadItem[T_WriteCogniteResource]") -> str:
+        return upload_item.source_id
 
 
 class StorageIO(ABC, Generic[T_Selector, T_CogniteResource]):
@@ -109,26 +128,6 @@ class StorageIO(ABC, Generic[T_Selector, T_CogniteResource]):
         raise NotImplementedError()
 
 
-T_WriteCogniteResource = TypeVar("T_WriteCogniteResource", bound=CogniteResource)
-
-
-@dataclass
-class UploadItem(Generic[T_WriteCogniteResource]):
-    """An item to be uploaded to CDF, consisting of a source ID and the writable Cognite resource.
-
-    Attributes:
-        source_id: The source identifier for the item. For example, the line number in a CSV file.
-        item: The writable Cognite resource to be uploaded.
-    """
-
-    source_id: str
-    item: T_WriteCogniteResource
-
-    @classmethod
-    def as_id(cls, upload_item: "UploadItem[T_WriteCogniteResource]") -> str:
-        return upload_item.source_id
-
-
 @dataclass
 class UploadItemsRequest(Generic[T_WriteCogniteResource], ItemsRequest[str]):
     """Request message for uploading items identified by string IDs."""
@@ -162,7 +161,10 @@ class UploadableStorageIO(
     UPLOAD_EXTRA_ARGS: ClassVar[Mapping[str, JsonVal] | None] = None
 
     def upload_items(
-        self, data_chunk: list[UploadItem], http_client: HTTPClient, selector: T_Selector | None = None
+        self,
+        data_chunk: list[UploadItem[T_WriteCogniteResource]],
+        http_client: HTTPClient,
+        selector: T_Selector | None = None,
     ) -> Sequence[HTTPMessage]:
         """Upload a chunk of data to the storage using a custom HTTP client.
         This ensures that even if one item in the chunk fails, the rest will still be uploaded.
@@ -189,14 +191,30 @@ class UploadableStorageIO(
             )
         )
 
-    @abstractmethod
-    def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> Sequence[T_WriteCogniteResource]:
+    def json_chunk_to_data(
+        self, data_chunk: list[tuple[str, dict[str, JsonVal]]]
+    ) -> Sequence[UploadItem[T_WriteCogniteResource]]:
         """Convert a JSON-compatible chunk of data back to a writable Cognite resource list.
 
         Args:
             data_chunk: A list of dictionaries representing the data in a JSON-compatible format.
         Returns:
             A writable Cognite resource list representing the data.
+        """
+        result: list[UploadItem[T_WriteCogniteResource]] = []
+        for source_id, item_json in data_chunk:
+            item = self.json_to_resource(item_json)
+            result.append(UploadItem(source_id=source_id, item=item))
+        return result
+
+    @abstractmethod
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> T_WriteCogniteResource:
+        """Convert a JSON-compatible dictionary back to a writable Cognite resource.
+
+        Args:
+            item_json: A dictionary representing the data in a JSON-compatible format.
+        Returns:
+            A writable Cognite resource representing the data.
         """
         raise NotImplementedError()
 
