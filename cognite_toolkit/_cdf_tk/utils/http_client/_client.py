@@ -51,7 +51,7 @@ class HTTPClient:
 
     def __init__(
         self,
-        config: "ToolkitClientConfig",
+        config: ToolkitClientConfig,
         max_retries: int = 10,
         pool_connections: int = 10,
         pool_maxsize: int = 20,
