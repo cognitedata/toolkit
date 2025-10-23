@@ -2,13 +2,13 @@ from collections.abc import Hashable
 from functools import partial
 from pathlib import Path
 
-from cognite.client.data_classes._base import CogniteResourceList, T_CogniteResourceList
+from cognite.client.data_classes._base import T_CogniteResourceList
 from pydantic import ValidationError
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM, DATA_RESOURCE_DIR
-from cognite_toolkit._cdf_tk.storageio import T_Selector, UploadableStorageIO, are_same_kind, get_upload_io
+from cognite_toolkit._cdf_tk.storageio import T_Selector, UploadableStorageIO, UploadItem, are_same_kind, get_upload_io
 from cognite_toolkit._cdf_tk.storageio.selectors import Selector, SelectorAdapter
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
@@ -178,8 +178,11 @@ class UploadCommand(ToolkitCommand):
                         console.print(f"{action} {selector.display_name} from {file_display.as_posix()!r}")
                     reader = FileReader.from_filepath(data_file)
                     tracker = ProgressTracker[Hashable]([self._UPLOAD])
-                    executor = ProducerWorkerExecutor[list[dict[str, JsonVal]], CogniteResourceList](
-                        download_iterable=chunker(reader.read_chunks(), io.CHUNK_SIZE),
+                    executor = ProducerWorkerExecutor[list[tuple[str, dict[str, JsonVal]]], list[UploadItem]](
+                        download_iterable=chunker(
+                            ((f"line {line_no}", item) for line_no, item in enumerate(reader.read_chunks(), 1)),
+                            io.CHUNK_SIZE,
+                        ),
                         process=io.json_chunk_to_data,
                         write=partial(
                             self._upload_items,
@@ -231,9 +234,9 @@ class UploadCommand(ToolkitCommand):
     @classmethod
     def _upload_items(
         cls,
-        data_chunk: T_CogniteResourceList,
+        data_chunk: list[UploadItem],
         upload_client: HTTPClient,
-        io: UploadableStorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
+        io: UploadableStorageIO[T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
         selector: T_Selector,
         dry_run: bool,
         tracker: ProgressTracker[T_ID],
@@ -241,7 +244,7 @@ class UploadCommand(ToolkitCommand):
     ) -> None:
         if dry_run:
             for item in data_chunk:
-                tracker.set_progress(io.as_id(item), cls._UPLOAD, "success")
+                tracker.set_progress(item.source_id, cls._UPLOAD, "success")
             return
         results = io.upload_items(data_chunk, upload_client, selector)
         for item in results:

@@ -49,10 +49,18 @@ from cognite_toolkit._cdf_tk.utils.aggregators import (
 )
 from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, SimpleBodyRequest
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, AssetCentric, JsonVal, T_WritableCogniteResourceList
 
-from ._base import ConfigurableStorageIO, Page, StorageIOConfig, TableStorageIO, UploadableStorageIO
+from ._base import (
+    ConfigurableStorageIO,
+    Page,
+    StorageIOConfig,
+    TableStorageIO,
+    UploadableStorageIO,
+    UploadItem,
+    UploadItemsRequest,
+)
 from .selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 
 
@@ -284,7 +292,10 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
             yield Page(worker_id="-1", items=file_list)
 
     def upload_items(
-        self, data_chunk: FileMetadataWriteList, http_client: HTTPClient, selector: AssetCentricSelector | None = None
+        self,
+        data_chunk: list[UploadItem[FileMetadataWrite]],
+        http_client: HTTPClient,
+        selector: AssetCentricSelector | None = None,
     ) -> Sequence[HTTPMessage]:
         # The /files endpoint only supports creating one file at a time, so we override the default chunked
         # upload behavior to upload one by one.
@@ -292,10 +303,11 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
         results: MutableSequence[HTTPMessage] = []
         for item in data_chunk:
             file_result = http_client.request_with_retries(
-                message=SimpleBodyRequest(
+                message=UploadItemsRequest(
                     endpoint_url=config.create_api_url(self.UPLOAD_ENDPOINT),
                     method="POST",
-                    body_content=item.dump(camel_case=True),
+                    items=[item],
+                    extra_body_fields=dict(self.UPLOAD_EXTRA_ARGS or {}),
                 )
             )
             results.extend(file_result)

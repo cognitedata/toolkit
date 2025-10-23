@@ -56,15 +56,18 @@ class UploadItem(Generic[T_WriteCogniteResource]):
 class UploadItemsRequest(Generic[T_WriteCogniteResource], ItemsRequest[str]):
     """Request message for uploading items identified by string IDs."""
 
-    items: list[UploadItem[T_WriteCogniteResource]] = field(default_factory=list)
+    # MyPy does not like the override of the items field here.
+    items: list[UploadItem[T_WriteCogniteResource]] = field(default_factory=list)  # type: ignore[assignment]
     extra_body_fields: dict[str, JsonVal] = field(default_factory=dict)
-    as_id: Callable[[T_WriteCogniteResource], str] = UploadItem.as_id
+    as_id: Callable[[T_WriteCogniteResource], str] = UploadItem.as_id  # type: ignore[assignment]
 
     def body(self) -> dict[str, JsonVal]:
         upload_items = [item.item.dump(camel_case=True) for item in self.items]
         if self.extra_body_fields:
-            return {"items": upload_items, **self.extra_body_fields}
-        return {"items": upload_items}
+            # The Cognite-SDK always dump valid json, but that is not captured in the type hint.
+            # thus the MyPy ignore here.
+            return {"items": upload_items, **self.extra_body_fields}  # type: ignore[dict-item]
+        return {"items": upload_items}  # type: ignore[dict-item]
 
 
 class StorageIO(ABC, Generic[T_Selector, T_CogniteResource]):
