@@ -418,7 +418,7 @@ class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function, FunctionWriteList,
     def delete(self, ids: SequenceNotStr[str]) -> int:
         functions = self.retrieve(ids)
 
-        self.client.functions.delete(external_id=ids)
+        self.client.functions.delete_with_429_retry(external_id=ids, ignore_unknown_ids=True, console=self.console)
         file_ids = {func.file_id for func in functions if func.file_id}
         self.client.files.delete(id=list(file_ids), ignore_unknown_ids=True)
         return len(ids)
