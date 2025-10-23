@@ -52,7 +52,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, SimpleBodyRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, AssetCentric, JsonVal, T_WritableCogniteResourceList
 
-from ._base import ConfigurableStorageIO, StorageIOConfig, TableStorageIO, UploadableStorageIO
+from ._base import ConfigurableStorageIO, Page, StorageIOConfig, TableStorageIO, UploadableStorageIO
 from .selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 
 
@@ -73,12 +73,6 @@ class BaseAssetCentricIO(
         self._aggregator = self._get_aggregator()
         self._downloaded_data_sets_by_selector: dict[AssetCentricSelector, set[int]] = defaultdict(set)
         self._downloaded_labels_by_selector: dict[AssetCentricSelector, set[str]] = defaultdict(set)
-
-    def as_id(self, item: dict[str, JsonVal] | object) -> int:
-        if isinstance(item, dict) and isinstance(item.get("id"), int):
-            # MyPy checked above.
-            return item["id"]  # type: ignore[return-value]
-        raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
 
     @abstractmethod
     def _get_loader(
@@ -103,9 +97,7 @@ class BaseAssetCentricIO(
             return self._aggregator.count(hierarchy=selector.hierarchy)
         return None
 
-    def data_to_json_chunk(
-        self, data_chunk: T_WritableCogniteResourceList, selector: AssetCentricSelector
-    ) -> list[dict[str, JsonVal]]:
+    def data_to_json_chunk(self, data_chunk: Sequence[T_WritableCogniteResource]) -> list[dict[str, JsonVal]]:
         return [self._loader.dump_resource(item) for item in data_chunk]
 
     def configurations(self, selector: AssetCentricSelector) -> Iterable[StorageIOConfig]:
@@ -161,6 +153,9 @@ class BaseAssetCentricIO(
             value=[loader.dump_resource(item) for item in items],  # type: ignore[arg-type]
         )
 
+    def _create_identifier(self, internal_id: int) -> str:
+        return f"INTERNAL_ID_project_{self.client.config.project}_{internal_id!s}"
+
 
 class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetList]):
     KIND = "Assets"
@@ -170,10 +165,8 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
     SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
     UPLOAD_ENDPOINT = "/assets"
 
-    def as_id(self, item: dict[str, JsonVal] | object) -> int:
-        if isinstance(item, Asset | AssetWrite) and item.id is not None:  # type: ignore[union-attr]
-            return item.id  # type: ignore[union-attr]
-        return super().as_id(item)
+    def as_id(self, item: Asset) -> str:
+        return item.external_id if item.external_id is not None else self._create_identifier(item.id)
 
     def _get_loader(self) -> AssetCRUD:
         return AssetCRUD.create_loader(self.client)
@@ -212,7 +205,7 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
         ]
         return asset_schema + metadata_schema
 
-    def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[AssetList]:
+    def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[Page[Asset]]:
         asset_subtree_external_ids, data_set_external_ids = self._get_hierarchy_dataset_pair(selector)
         for asset_list in self.client.assets(
             chunk_size=self.CHUNK_SIZE,
@@ -221,10 +214,10 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
             data_set_external_ids=data_set_external_ids,
         ):
             self._collect_dependencies(asset_list, selector)
-            yield asset_list
+            yield Page(worker_id="-1", items=asset_list)
 
-    def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> AssetWriteList:
-        return AssetWriteList([self._loader.load_resource(item) for item in data_chunk])
+    def json_to_resource(self, json_item: dict[str, JsonVal]) -> AssetWrite:
+        return self._loader.load_resource(json_item)
 
     def retrieve(self, ids: Sequence[int]) -> AssetList:
         return self.client.assets.retrieve_multiple(ids)
@@ -238,10 +231,8 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
     SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     UPLOAD_ENDPOINT = "/files"
 
-    def as_id(self, item: dict[str, JsonVal] | object) -> int:
-        if isinstance(item, FileMetadata) and item.id is not None:
-            return item.id
-        return super().as_id(item)
+    def as_id(self, item: FileMetadata) -> str:
+        return item.external_id if item.external_id is not None else self._create_identifier(item.id)
 
     def _get_loader(self) -> FileMetadataCRUD:
         return FileMetadataCRUD.create_loader(self.client)
@@ -281,7 +272,7 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
         ]
         return file_schema + metadata_schema
 
-    def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[FileMetadataList]:
+    def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[Page[FileMetadata]]:
         asset_subtree_external_ids, data_set_external_ids = self._get_hierarchy_dataset_pair(selector)
         for file_list in self.client.files(
             chunk_size=self.CHUNK_SIZE,
@@ -290,7 +281,7 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
             data_set_external_ids=data_set_external_ids,
         ):
             self._collect_dependencies(file_list, selector)
-            yield file_list
+            yield Page(worker_id="-1", items=file_list)
 
     def upload_items(
         self, data_chunk: FileMetadataWriteList, http_client: HTTPClient, selector: AssetCentricSelector | None = None
@@ -313,8 +304,8 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
     def retrieve(self, ids: Sequence[int]) -> FileMetadataList:
         return self.client.files.retrieve_multiple(ids)
 
-    def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> FileMetadataWriteList:
-        return FileMetadataWriteList([self._loader.load_resource(item) for item in data_chunk])
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> FileMetadataWrite:
+        return self._loader.load_resource(item_json)
 
 
 class TimeSeriesIO(BaseAssetCentricIO[str, TimeSeriesWrite, TimeSeries, TimeSeriesWriteList, TimeSeriesList]):
@@ -324,10 +315,8 @@ class TimeSeriesIO(BaseAssetCentricIO[str, TimeSeriesWrite, TimeSeries, TimeSeri
     SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     UPLOAD_ENDPOINT = "/timeseries"
 
-    def as_id(self, item: dict[str, JsonVal] | object) -> int:
-        if isinstance(item, TimeSeries) and item.id is not None:
-            return item.id
-        return super().as_id(item)
+    def as_id(self, item: TimeSeries) -> str:
+        return item.external_id if item.external_id is not None else self._create_identifier(item.id)
 
     def _get_loader(self) -> TimeSeriesCRUD:
         return TimeSeriesCRUD.create_loader(self.client)
@@ -338,7 +327,7 @@ class TimeSeriesIO(BaseAssetCentricIO[str, TimeSeriesWrite, TimeSeries, TimeSeri
     def retrieve(self, ids: Sequence[int]) -> TimeSeriesList:
         return self.client.time_series.retrieve_multiple(ids=ids)
 
-    def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[TimeSeriesList]:
+    def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[Page[TimeSeries]]:
         asset_subtree_external_ids, data_set_external_ids = self._get_hierarchy_dataset_pair(selector)
         for ts_list in self.client.time_series(
             chunk_size=self.CHUNK_SIZE,
@@ -347,10 +336,10 @@ class TimeSeriesIO(BaseAssetCentricIO[str, TimeSeriesWrite, TimeSeries, TimeSeri
             data_set_external_ids=data_set_external_ids,
         ):
             self._collect_dependencies(ts_list, selector)
-            yield ts_list
+            yield Page(worker_id="-1", items=ts_list)
 
-    def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> TimeSeriesWriteList:
-        return self._loader.list_write_cls([self._loader.load_resource(item) for item in data_chunk])
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> TimeSeriesWrite:
+        return self._loader.load_resource(item_json)
 
     def get_schema(self, selector: AssetCentricSelector) -> list[SchemaColumn]:
         data_set_ids: list[int] = []
@@ -392,10 +381,8 @@ class EventIO(BaseAssetCentricIO[str, EventWrite, Event, EventWriteList, EventLi
     SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     UPLOAD_ENDPOINT = "/events"
 
-    def as_id(self, item: dict[str, JsonVal] | object) -> int:
-        if isinstance(item, Event) and item.id is not None:
-            return item.id
-        return super().as_id(item)
+    def as_id(self, item: Event) -> str:
+        return item.external_id if item.external_id is not None else self._create_identifier(item.id)
 
     def _get_loader(self) -> EventCRUD:
         return EventCRUD.create_loader(self.client)
@@ -435,7 +422,7 @@ class EventIO(BaseAssetCentricIO[str, EventWrite, Event, EventWriteList, EventLi
         ]
         return event_schema + metadata_schema
 
-    def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[EventList]:
+    def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[Page[Event]]:
         asset_subtree_external_ids, data_set_external_ids = self._get_hierarchy_dataset_pair(selector)
         for event_list in self.client.events(
             chunk_size=self.CHUNK_SIZE,
@@ -444,10 +431,10 @@ class EventIO(BaseAssetCentricIO[str, EventWrite, Event, EventWriteList, EventLi
             data_set_external_ids=data_set_external_ids,
         ):
             self._collect_dependencies(event_list, selector)
-            yield event_list
+            yield Page(worker_id="-1", items=event_list)
 
-    def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> EventWriteList:
-        return EventWriteList([self._loader.load_resource(item) for item in data_chunk])
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> EventWrite:
+        return self._loader.load_resource(item_json)
 
     def retrieve(self, ids: Sequence[int]) -> EventList:
         return self.client.events.retrieve_multiple(ids)
