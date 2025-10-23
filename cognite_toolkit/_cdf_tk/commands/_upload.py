@@ -9,6 +9,7 @@ from rich.console import Console
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.storageio import T_Selector, UploadableStorageIO, UploadItem, are_same_kind, get_upload_io
+from cognite_toolkit._cdf_tk.storageio._base import T_WriteCogniteResource
 from cognite_toolkit._cdf_tk.storageio.selectors import Selector, SelectorAdapter
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
@@ -22,7 +23,6 @@ from cognite_toolkit._cdf_tk.utils.progress_tracker import ProgressTracker
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 
-from ..storageio._base import T_WriteCogniteResource
 from ._base import ToolkitCommand
 from .deploy import DeployCommand
 
