@@ -6,13 +6,10 @@ from pathlib import Path
 from typing import Generic, Literal
 
 from cognite.client.data_classes import (
-    Asset,
-    Event,
     FileMetadata,
     FileMetadataList,
     FileMetadataWrite,
     FileMetadataWriteList,
-    TimeSeries,
 )
 from cognite.client.data_classes._base import (
     T_CogniteResourceList,
@@ -21,12 +18,10 @@ from cognite.client.data_classes._base import (
     WriteableCogniteResource,
     WriteableCogniteResourceList,
 )
-from cognite.client.data_classes.data_modeling import EdgeApply, EdgeId, InstanceApply, NodeApply, NodeId
-from cognite.client.utils._identifier import InstanceId
+from cognite.client.data_classes.data_modeling import InstanceApply, NodeId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList
-from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.client.data_classes.pending_instances_ids import PendingInstanceId
 from cognite_toolkit._cdf_tk.cruds._base_cruds import T_ID
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
@@ -34,16 +29,15 @@ from cognite_toolkit._cdf_tk.storageio import (
     BaseAssetCentricIO,
     FileMetadataIO,
     InstanceIO,
+    Page,
     UploadableStorageIO,
 )
-from cognite_toolkit._cdf_tk.storageio._base import T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     DataSelector,
 )
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest, SuccessItem
-from cognite_toolkit._cdf_tk.utils.thread_safe_dict import ThreadSafeDict
-from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
+from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal, T_WritableCogniteResourceList
 
 from .data_classes import MigrationMapping, MigrationMappingList
 from .data_model import INSTANCE_SOURCE_VIEW_ID
@@ -102,10 +96,7 @@ class AssetCentricMappingList(
         return InstanceApplyList([item.as_write() for item in self])
 
 
-class AssetCentricMigrationIOAdapter(
-    Generic[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
-    UploadableStorageIO[AssetCentricId, MigrationSelector, InstanceApplyList, AssetCentricMappingList],
-):
+class AssetCentricMigrationIOAdapter(UploadableStorageIO[MigrationSelector, AssetCentricMapping, InstanceApply]):
     KIND = "AssetCentricMigration"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
@@ -124,51 +115,11 @@ class AssetCentricMigrationIOAdapter(
         self.base = base
         # Used to cache the mapping between instance IDs and asset-centric IDs.
         # This is used in the as_id method to track the same object as it is converted to an instance.
-        self._id_by_instance_id = ThreadSafeDict[InstanceId, int]()
 
-    def _get_id(self, item: dict[str, JsonVal]) -> AssetCentricId | None:
-        if "id" in item and isinstance(item["id"], int):
-            return AssetCentricId(self.base.RESOURCE_TYPE, item["id"])
-        return None
+    def as_id(self, item: AssetCentricMapping) -> str:
+        return f"{item.mapping.resource_type}_{item.mapping.id}"
 
-    @staticmethod
-    def _get_instance_id(item: dict[str, JsonVal]) -> InstanceId | None:
-        space, external_id, instance_type = (
-            item.get("space"),
-            item.get("externalId"),
-            item.get("instanceType"),
-        )
-        if isinstance(space, str) and isinstance(external_id, str) and isinstance(instance_type, str):
-            if instance_type == "node":
-                return NodeId(space=space, external_id=external_id)
-            elif instance_type == "edge":
-                return EdgeId(space=space, external_id=external_id)
-        return None
-
-    def as_id(self, item: dict[str, JsonVal] | object) -> AssetCentricId:
-        # When multiple threads are accessing this class, they will always operate on different ids
-        if isinstance(item, AssetCentricMapping):
-            instance_id = item.mapping.instance_id
-            self._id_by_instance_id.setdefault(instance_id, item.mapping.id)
-            return AssetCentricId(self.base.RESOURCE_TYPE, self._id_by_instance_id[instance_id])
-        elif isinstance(item, Event | Asset | TimeSeries | FileMetadata | PendingInstanceId):
-            if item.id is None:
-                raise TypeError(f"Resource of type {type(item).__name__!r} is missing an 'id'.")
-            return AssetCentricId(self.base.RESOURCE_TYPE, item.id)
-        elif isinstance(item, NodeApply | EdgeApply):
-            instance_id_ = item.as_id()
-            if instance_id_ not in self._id_by_instance_id:
-                raise ValueError(f"Missing mapping for instance {instance_id_!r}")
-            return AssetCentricId(self.base.RESOURCE_TYPE, self._id_by_instance_id[instance_id_])
-        elif isinstance(item, dict) and (id_int := self._get_id(item)):
-            return id_int
-        elif isinstance(item, dict) and (parsed_instance_id := self._get_instance_id(item)):
-            if parsed_instance_id not in self._id_by_instance_id:
-                raise ValueError(f"Missing mapping for instance {parsed_instance_id!r}")
-            return AssetCentricId(self.base.RESOURCE_TYPE, self._id_by_instance_id[parsed_instance_id])
-        raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
-
-    def stream_data(self, selector: MigrationSelector, limit: int | None = None) -> Iterator[AssetCentricMappingList]:
+    def stream_data(self, selector: MigrationSelector, limit: int | None = None) -> Iterator[Page[AssetCentricMapping]]:
         if not isinstance(selector, MigrationCSVFileSelector):
             raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for stream_data")
         items = selector.items
@@ -180,7 +131,7 @@ class AssetCentricMigrationIOAdapter(
             for mapping, resource in zip(current_batch, resources, strict=True):
                 chunk.append(AssetCentricMapping(mapping=mapping, resource=resource))
             if chunk:
-                yield AssetCentricMappingList(chunk)
+                yield Page(worker_id="-1", items=AssetCentricMappingList(chunk))
                 chunk = []
 
     def count(self, selector: MigrationSelector) -> int | None:
@@ -188,12 +139,10 @@ class AssetCentricMigrationIOAdapter(
             raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for count")
         return len(selector.items)
 
-    def data_to_json_chunk(
-        self, data_chunk: AssetCentricMappingList, selector: MigrationSelector
-    ) -> list[dict[str, JsonVal]]:
-        return data_chunk.dump()
+    def data_to_json_chunk(self, data_chunk: Sequence[AssetCentricMapping]) -> list[dict[str, JsonVal]]:
+        raise NotImplementedError()
 
-    def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> InstanceApplyList:
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> InstanceApply:
         raise NotImplementedError()
 
 

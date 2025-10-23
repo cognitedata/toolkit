@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence, Sized
 from dataclasses import dataclass, field
 from typing import ClassVar, Generic, TypeVar
 
@@ -26,10 +26,13 @@ T_Selector = TypeVar("T_Selector", bound=DataSelector)
 
 
 @dataclass
-class Page(Generic[T_CogniteResource]):
+class Page(Generic[T_CogniteResource], Sized):
     worker_id: str
     items: Sequence[T_CogniteResource]
     next_cursor: str | None = None
+
+    def __len__(self) -> int:
+        return len(self.items)
 
 
 T_WriteCogniteResource = TypeVar("T_WriteCogniteResource", bound=CogniteResource)
