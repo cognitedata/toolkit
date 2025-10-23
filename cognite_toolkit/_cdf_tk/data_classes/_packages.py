@@ -3,7 +3,9 @@ from collections.abc import ItemsView, Iterable, Iterator, KeysView, Mapping, Mu
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
+from cognite_toolkit._cdf_tk.tk_warnings.base import ToolkitWarning, WarningList
+from cognite_toolkit._cdf_tk.tk_warnings.other import LowSeverityWarning
 
 from ._module_directories import ModuleDirectories, ModuleLocation
 
@@ -51,13 +53,22 @@ class Package:
 
 
 class Packages(dict, MutableMapping[str, Package]):
-    def __init__(self, packages: Iterable[Package] | Mapping[str, Package] | None = None) -> None:
+    warnings: WarningList[ToolkitWarning] | None = None
+
+    def __init__(
+        self,
+        packages: Iterable[Package] | Mapping[str, Package] | None = None,
+        warnings: WarningList[ToolkitWarning] | None = None,
+    ) -> None:
         if packages is None:
             super().__init__()
         elif isinstance(packages, Mapping):
             super().__init__(packages)
         else:
             super().__init__({p.name: p for p in packages})
+
+        if warnings:
+            self.warnings = warnings
 
     @classmethod
     def load(
@@ -85,20 +96,23 @@ class Packages(dict, MutableMapping[str, Package]):
 
         packages_with_modules: dict[str, Package] = {}
 
+        warnings = WarningList[ToolkitWarning]()
+
         for package_name, package_definition in package_definitions.items():
             packages_with_modules[package_name] = Package.load(package_name, package_definition)
             if modules := package_definition.get("modules"):
                 if isinstance(modules, list) and modules:
                     for module_path in modules:
                         if (module := module_by_relative_path.get(Path(module_path))) is None:
-                            available = sorted(str(m.relative_path) for m in module_directories)
-                            raise ToolkitValueError(
-                                f"Module '{module_path}' not found in the module directories.\n"
-                                f"Available modules: {available}"
+                            warnings.append(
+                                LowSeverityWarning(
+                                    f"Unable to load module '{module_path}'. The path may be wrong or the module may require an alpha flag that is not set."
+                                )
                             )
+                            continue
                         packages_with_modules[package_name].modules.append(module)
 
-        return cls(packages_with_modules)
+        return cls(packages_with_modules, warnings)
 
     # The methods are overloads to provide type hints for the methods.
     def items(self) -> ItemsView[str, Package]:  # type: ignore[override]
