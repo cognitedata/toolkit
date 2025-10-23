@@ -41,7 +41,8 @@ class ExtendedFunctionsAPI(FunctionsAPI):
                 endpoint_url=self._toolkit_config.create_api_url("/functions"),
                 method="POST",
                 body_content={"items": [function.dump(camel_case=True)]},
-            )
+            ),
+            console=console,
         )
         result.raise_for_status()
         return Function._load(result.get_first_body())
