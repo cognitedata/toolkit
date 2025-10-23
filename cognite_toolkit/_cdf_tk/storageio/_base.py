@@ -52,6 +52,21 @@ class UploadItem(Generic[T_WriteCogniteResource]):
         return upload_item.source_id
 
 
+@dataclass
+class UploadItemsRequest(Generic[T_WriteCogniteResource], ItemsRequest[str]):
+    """Request message for uploading items identified by string IDs."""
+
+    items: list[UploadItem[T_WriteCogniteResource]]
+    extra_body_fields: dict[str, JsonVal] = field(default_factory=dict)
+    as_id: Callable[[T_WriteCogniteResource], str] = UploadItem.as_id
+
+    def body(self) -> dict[str, JsonVal]:
+        upload_items = [item.item.dump(camel_case=True) for item in self.items]
+        if self.extra_body_fields:
+            return {"items": upload_items, **self.extra_body_fields}
+        return {"items": upload_items}
+
+
 class StorageIO(ABC, Generic[T_Selector, T_CogniteResource]):
     """This is a base class for all storage classes in Cognite Toolkit
 
@@ -126,21 +141,6 @@ class StorageIO(ABC, Generic[T_Selector, T_CogniteResource]):
 
         """
         raise NotImplementedError()
-
-
-@dataclass
-class UploadItemsRequest(Generic[T_WriteCogniteResource], ItemsRequest[str]):
-    """Request message for uploading items identified by string IDs."""
-
-    items: list[UploadItem[T_WriteCogniteResource]]
-    extra_body_fields: dict[str, JsonVal] = field(default_factory=dict)
-    as_id: Callable[[T_WriteCogniteResource], str] = UploadItem.as_id
-
-    def body(self) -> dict[str, JsonVal]:
-        upload_items = [item.item.dump(camel_case=True) for item in self.items]
-        if self.extra_body_fields:
-            return {"items": upload_items, **self.extra_body_fields}
-        return {"items": upload_items}
 
 
 class UploadableStorageIO(
