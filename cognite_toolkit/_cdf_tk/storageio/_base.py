@@ -3,7 +3,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence, Sized
 from dataclasses import dataclass, field
 from typing import ClassVar, Generic, TypeVar
 
-from cognite.client.data_classes._base import CogniteResource, T_CogniteResource
+from cognite.client.data_classes._base import CogniteObject, T_CogniteResource
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
@@ -35,7 +35,7 @@ class Page(Generic[T_CogniteResource], Sized):
         return len(self.items)
 
 
-T_WriteCogniteResource = TypeVar("T_WriteCogniteResource", bound=CogniteResource)
+T_WriteCogniteResource = TypeVar("T_WriteCogniteResource", bound=CogniteObject)
 
 
 @dataclass

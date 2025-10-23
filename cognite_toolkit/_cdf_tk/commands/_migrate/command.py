@@ -2,6 +2,7 @@ from collections.abc import Callable, Iterable, Sequence
 from enum import Enum
 from pathlib import Path
 
+from cognite.client.data_classes._base import T_CogniteResource
 from rich import print
 from rich.console import Console
 from rich.table import Table
@@ -19,8 +20,8 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMigrationError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.storageio import UploadableStorageIO
-from cognite_toolkit._cdf_tk.storageio._base import T_CogniteResourceList, T_Selector, T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.storageio import T_Selector, UploadableStorageIO
+from cognite_toolkit._cdf_tk.storageio._base import T_WriteCogniteResource
 from cognite_toolkit._cdf_tk.utils import humanize_collection, safe_write, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import Chunk, CSVWriter, NDJsonWriter, SchemaColumn, Uncompressed
@@ -45,8 +46,8 @@ class MigrationCommand(ToolkitCommand):
     def migrate(
         self,
         selected: T_Selector,
-        data: UploadableStorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
-        mapper: DataMapper[T_Selector, T_WritableCogniteResourceList, T_CogniteResourceList],
+        data: UploadableStorageIO[T_Selector, T_CogniteResource, T_WriteCogniteResource],
+        mapper: DataMapper[T_Selector, T_CogniteResource, T_WriteCogniteResource],
         log_dir: Path,
         dry_run: bool = False,
         verbose: bool = False,
@@ -71,7 +72,7 @@ class MigrationCommand(ToolkitCommand):
             NDJsonWriter(log_dir, kind=f"{selected.kind}MigrationIssues", compression=Uncompressed) as log_file,
             HTTPClient(config=data.client.config) as write_client,
         ):
-            executor = ProducerWorkerExecutor[T_WritableCogniteResourceList, T_CogniteResourceList](
+            executor = ProducerWorkerExecutor[Sequence[T_CogniteResource], Sequence[T_WriteCogniteResource]](
                 download_iterable=self._download_iterable(selected, data, tracker),
                 process=self._convert(mapper, data, tracker, log_file),
                 write=self._upload(write_client, data, tracker, log_file, dry_run),
@@ -138,18 +139,18 @@ class MigrationCommand(ToolkitCommand):
     def _download_iterable(
         self,
         selected: T_Selector,
-        data: UploadableStorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
+        data: UploadableStorageIO[T_Selector, T_CogniteResource, T_WriteCogniteResource],
         tracker: ProgressTracker[T_ID],
-    ) -> Iterable[T_WritableCogniteResourceList]:
+    ) -> Iterable[Sequence[T_CogniteResource]]:
         for chunk in data.stream_data(selected):
-            for item in chunk:
+            for item in chunk.items:
                 tracker.set_progress(data.as_id(item), self.Steps.DOWNLOAD, "success")
-            yield chunk
+            yield chunk.items
 
     def _convert(
         self,
-        mapper: DataMapper[T_Selector, T_WritableCogniteResourceList, T_CogniteResourceList],
-        data: UploadableStorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
+        mapper: DataMapper[T_Selector, T_CogniteResource, T_WriteCogniteResource],
+        data: UploadableStorageIO[T_Selector, T_CogniteResource, T_WriteCogniteResource],
         tracker: ProgressTracker[T_ID],
         log_file: NDJsonWriter,
     ) -> Callable[[T_WritableCogniteResourceList], T_CogniteResourceList]:
@@ -167,7 +168,7 @@ class MigrationCommand(ToolkitCommand):
     def _upload(
         self,
         write_client: HTTPClient,
-        target: UploadableStorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
+        target: UploadableStorageIO[T_Selector, T_CogniteResource, T_WriteCogniteResource],
         tracker: ProgressTracker[T_ID],
         log_file: NDJsonWriter,
         dry_run: bool,

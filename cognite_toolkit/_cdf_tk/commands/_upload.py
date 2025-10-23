@@ -1,8 +1,8 @@
-from collections.abc import Hashable
+from collections.abc import Sequence
 from functools import partial
 from pathlib import Path
 
-from cognite.client.data_classes._base import T_CogniteResourceList
+from cognite.client.data_classes._base import T_CogniteResource
 from pydantic import ValidationError
 from rich.console import Console
 
@@ -19,9 +19,10 @@ from cognite_toolkit._cdf_tk.utils.fileio import FileReader
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ItemIDMessage, SuccessItem
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.progress_tracker import ProgressTracker
-from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal, T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 
+from ..storageio._base import T_WriteCogniteResource
 from ._base import ToolkitCommand
 from .deploy import DeployCommand
 
@@ -177,8 +178,8 @@ class UploadCommand(ToolkitCommand):
                     if verbose:
                         console.print(f"{action} {selector.display_name} from {file_display.as_posix()!r}")
                     reader = FileReader.from_filepath(data_file)
-                    tracker = ProgressTracker[Hashable]([self._UPLOAD])
-                    executor = ProducerWorkerExecutor[list[tuple[str, dict[str, JsonVal]]], list[UploadItem]](
+                    tracker = ProgressTracker[str]([self._UPLOAD])
+                    executor = ProducerWorkerExecutor[list[tuple[str, dict[str, JsonVal]]], Sequence[UploadItem]](
                         download_iterable=chunker(
                             ((f"line {line_no}", item) for line_no, item in enumerate(reader.read_chunks(), 1)),
                             io.CHUNK_SIZE,
@@ -234,23 +235,23 @@ class UploadCommand(ToolkitCommand):
     @classmethod
     def _upload_items(
         cls,
-        data_chunk: list[UploadItem],
+        data_chunk: Sequence[UploadItem],
         upload_client: HTTPClient,
-        io: UploadableStorageIO[T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
+        io: UploadableStorageIO[T_Selector, T_CogniteResource, T_WriteCogniteResource],
         selector: T_Selector,
         dry_run: bool,
-        tracker: ProgressTracker[T_ID],
+        tracker: ProgressTracker[str],
         console: Console,
     ) -> None:
         if dry_run:
             for item in data_chunk:
                 tracker.set_progress(item.source_id, cls._UPLOAD, "success")
             return
-        results = io.upload_items(data_chunk, upload_client, selector)
-        for item in results:
-            if isinstance(item, SuccessItem):
-                tracker.set_progress(item.id, step=cls._UPLOAD, status="success")
-            elif isinstance(item, ItemIDMessage):
-                tracker.set_progress(item.id, step=cls._UPLOAD, status="failed")
+        results = io.upload_items(list(data_chunk), upload_client, selector)
+        for message in results:
+            if isinstance(message, SuccessItem):
+                tracker.set_progress(message.id, step=cls._UPLOAD, status="success")
+            elif isinstance(message, ItemIDMessage):
+                tracker.set_progress(message.id, step=cls._UPLOAD, status="failed")
             else:
-                console.log(f"[red]Unexpected result from upload: {str(item)!r}[/red]")
+                console.log(f"[red]Unexpected result from upload: {str(message)!r}[/red]")

@@ -5,12 +5,6 @@ from functools import cached_property
 from pathlib import Path
 from typing import Generic, Literal
 
-from cognite.client.data_classes import (
-    FileMetadata,
-    FileMetadataList,
-    FileMetadataWrite,
-    FileMetadataWriteList,
-)
 from cognite.client.data_classes._base import (
     T_CogniteResourceList,
     T_WritableCogniteResource,
@@ -31,12 +25,14 @@ from cognite_toolkit._cdf_tk.storageio import (
     InstanceIO,
     Page,
     UploadableStorageIO,
+    UploadItem,
+    UploadItemsRequest,
 )
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     DataSelector,
 )
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest, SuccessItem
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, SuccessItem
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal, T_WritableCogniteResourceList
 
 from .data_classes import MigrationMapping, MigrationMappingList
@@ -125,7 +121,7 @@ class AssetCentricMigrationIOAdapter(UploadableStorageIO[MigrationSelector, Asse
         items = selector.items
         if limit is not None:
             items = MigrationMappingList(items[:limit])
-        chunk: list[AssetCentricMapping[T_WritableCogniteResource]] = []
+        chunk: list[AssetCentricMapping] = []
         for current_batch in chunker_sequence(items, self.CHUNK_SIZE):
             resources = self.base.retrieve(current_batch.get_ids())
             for mapping, resource in zip(current_batch, resources, strict=True):
@@ -146,15 +142,7 @@ class AssetCentricMigrationIOAdapter(UploadableStorageIO[MigrationSelector, Asse
         raise NotImplementedError()
 
 
-class FileMetaAdapter(
-    AssetCentricMigrationIOAdapter[
-        str,
-        FileMetadataWrite,
-        FileMetadata,
-        FileMetadataWriteList,
-        FileMetadataList,
-    ]
-):
+class FileMetaAdapter(AssetCentricMigrationIOAdapter):
     """Adapter for migrating file metadata to data model instances.
 
     This is necessary to link asset-centric FileMetadata to their new CogniteFile instances using the
@@ -179,27 +167,32 @@ class FileMetaAdapter(
         )
 
     def upload_items(
-        self, data_chunk: InstanceApplyList, http_client: HTTPClient, selector: MigrationSelector | None = None
+        self,
+        data_chunk: list[UploadItem[InstanceApply]],
+        http_client: HTTPClient,
+        selector: MigrationSelector | None = None,
     ) -> Sequence[HTTPMessage]:
-        """Upload items by first linking them using files/set-pending-instance-ids and then uploading the instances."""
         config = http_client.config
         results: list[HTTPMessage] = []
         successful_linked: set[int] = set()
         for batch in chunker_sequence(data_chunk, self.CHUNK_SIZE):
             batch_results = http_client.request_with_retries(
-                message=ItemsRequest(
+                message=UploadItemsRequest(
                     endpoint_url=config.create_api_url("files/set-pending-instance-ids"),
                     method="POST",
                     api_version="alpha",
-                    items=[self.as_pending_instance_id(item).dump() for item in batch],
-                    as_id=self.as_id,
+                    items=[
+                        UploadItem(source_id=item.source_id, item=self.as_pending_instance_id(item.item))
+                        for item in batch
+                    ],
+                    extra_body_fields=dict(self.UPLOAD_EXTRA_ARGS or {}),
                 )
             )
             for res in batch_results:
                 if isinstance(res, SuccessItem):
                     successful_linked.add(res.id)
             results.extend(batch_results)
-        to_upload = [item for item in data_chunk if self.as_id(item) in successful_linked]
+        to_upload = [item for item in data_chunk if item.source_id in successful_linked]
         if to_upload:
-            results.extend(list(super().upload_items(InstanceApplyList(to_upload), http_client, selector)))
+            results.extend(list(super().upload_items(to_upload, http_client, selector)))
         return results

@@ -109,7 +109,7 @@ class TestAssetCentricMapper:
 
             mapper.prepare(selected)
 
-            mapped, issues = mapper.map_chunk(source)
+            mapped, issues = mapper.map(source)
 
             # We do not assert the exact content of mapped, as that is tested in the
             # tests for the asset_centric_to_dm function.
@@ -156,7 +156,7 @@ class TestAssetCentricMapper:
                 RuntimeError,
                 match=r"Failed to lookup mapping or view for ingestion view 'cdf_asset_mapping'. Did you forget to call .prepare()?",
             ):
-                mapper.map_chunk(source)
+                mapper.map(source)
 
     def test_prepare_missing_view_source_raises_error(self, tmp_path: Path) -> None:
         """Test that prepare raises ToolkitValueError when view source is not found."""
