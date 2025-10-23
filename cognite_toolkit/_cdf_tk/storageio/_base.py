@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import ClassVar, Generic, Literal, TypeVar
+from typing import ClassVar, Generic, TypeVar
 
 from cognite.client.data_classes._base import CogniteResource, T_CogniteResource
 
@@ -126,15 +126,11 @@ class StorageIO(ABC, Generic[T_Selector, T_CogniteResource]):
         raise NotImplementedError()
 
     @abstractmethod
-    def data_to_json_chunk(
-        self, data_chunk: Sequence[T_CogniteResource], selector: T_Selector, format: Literal["json", "table"] = "json"
-    ) -> list[dict[str, JsonVal]]:
+    def data_to_json_chunk(self, data_chunk: Sequence[T_CogniteResource]) -> list[dict[str, JsonVal]]:
         """Convert a chunk of data to a JSON-compatible format.
 
         Args:
             data_chunk: The chunk of data to convert, which should be a writable Cognite resource list.
-            selector: The selection criteria to identify the data.
-            format: The format to convert the data to, either "json" or "table".
 
         Returns:
             A list of dictionaries representing the data in a JSON-compatible format.

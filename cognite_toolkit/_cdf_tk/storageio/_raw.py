@@ -1,20 +1,23 @@
 from collections.abc import Iterable, Sequence
+from typing import cast
 
-from cognite.client.data_classes import Row, RowList, RowWrite, RowWriteList
+from cognite.client.data_classes import Row, RowWrite
 
 from cognite_toolkit._cdf_tk.cruds import RawDatabaseCRUD, RawTableCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import ConfigurableStorageIO, StorageIOConfig
+from ._base import ConfigurableStorageIO, Page, StorageIOConfig, UploadableStorageIO, UploadItem, UploadItemsRequest
 from .selectors import RawTableSelector
 
 
-class RawIO(ConfigurableStorageIO[str, RawTableSelector, RowWriteList, RowList]):
+class RawIO(
+    ConfigurableStorageIO[RawTableSelector, Row],
+    UploadableStorageIO[RawTableSelector, Row, RowWrite],
+):
     KIND = "RawRows"
-    DISPLAY_NAME = "Raw Rows"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".yaml", ".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson", ".yaml"})
@@ -22,51 +25,56 @@ class RawIO(ConfigurableStorageIO[str, RawTableSelector, RowWriteList, RowList])
     UPLOAD_ENDPOINT = "/raw/dbs/{dbName}/tables/{tableName}/rows"
     BASE_SELECTOR = RawTableSelector
 
-    def as_id(self, item: dict[str, JsonVal] | object) -> str:
-        if isinstance(item, RowWrite | Row) and item.key is not None:
-            return item.key
-        elif isinstance(item, dict) and "key" in item and isinstance(item["key"], str):
-            return item["key"]
-        raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
+    def as_id(self, item: Row) -> str:
+        return cast(str, item.key)
 
     def count(self, selector: RawTableSelector) -> int | None:
         # Raw tables do not support aggregation queries, so we do not know the count
         # up front.
         return None
 
-    def stream_data(self, selector: RawTableSelector, limit: int | None = None) -> Iterable[RowList]:
-        yield from self.client.raw.rows(
-            db_name=selector.table.db_name,
-            table_name=selector.table.table_name,
-            limit=limit,
-            # We cannot use partitions here as it is not thread safe. This spawn multiple threads
-            # that are not shut down until all data is downloaded. We need to be able to abort.
-            partitions=None,
-            chunk_size=self.CHUNK_SIZE,
-        )
-
-    def upload_items(
-        self, data_chunk: RowWriteList, http_client: HTTPClient, selector: RawTableSelector | None = None
-    ) -> Sequence[HTTPMessage]:
-        if selector is None:
-            raise ToolkitValueError("Selector must be provided for RawIO upload_items")
-        url = self.UPLOAD_ENDPOINT.format(dbName=selector.table.db_name, tableName=selector.table.table_name)
-        config = http_client.config
-        return http_client.request_with_retries(
-            message=ItemsRequest(
-                endpoint_url=config.create_api_url(url),
-                method="POST",
-                # The dump method from the PySDK always returns JsonVal, but mypy cannot infer that
-                items=data_chunk.dump(camel_case=True),  # type: ignore[arg-type]
-                as_id=self.as_id,
+    def stream_data(self, selector: RawTableSelector, limit: int | None = None) -> Iterable[Page[Row]]:
+        yield from (
+            Page(worker_id="-1", items=rows)
+            for rows in self.client.raw.rows(
+                db_name=selector.table.db_name,
+                table_name=selector.table.table_name,
+                limit=limit,
+                # We cannot use partitions here as it is not thread safe. This spawn multiple threads
+                # that are not shut down until all data is downloaded. We need to be able to abort.
+                partitions=None,
+                chunk_size=self.CHUNK_SIZE,
             )
         )
 
-    def data_to_json_chunk(self, data_chunk: RowList, selector: RawTableSelector) -> list[dict[str, JsonVal]]:
+    def upload_items(
+        self,
+        data_chunk: list[UploadItem[RowWrite]],
+        http_client: HTTPClient,
+        selector: RawTableSelector | None = None,
+    ) -> Sequence[HTTPMessage]:
+        if selector is None:
+            raise ToolkitValueError("Selector must be provided for RawIO upload_items")
+
+        if len(data_chunk) > self.CHUNK_SIZE:
+            raise ValueError(f"Data chunk size {len(data_chunk)} exceeds the maximum CHUNK_SIZE of {self.CHUNK_SIZE}.")
+
+        url = self.UPLOAD_ENDPOINT.format(dbName=selector.table.db_name, tableName=selector.table.table_name)
+        config = http_client.config
+        return http_client.request_with_retries(
+            message=UploadItemsRequest(
+                endpoint_url=config.create_api_url(url),
+                method="POST",
+                items=data_chunk,
+                extra_body_fields=dict(self.UPLOAD_EXTRA_ARGS or {}),
+            )
+        )
+
+    def data_to_json_chunk(self, data_chunk: Sequence[Row]) -> list[dict[str, JsonVal]]:
         return [row.as_write().dump() for row in data_chunk]
 
-    def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> RowWriteList:
-        return RowWriteList([RowWrite._load(row) for row in data_chunk])
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> RowWrite:
+        return RowWrite._load(item_json)
 
     def configurations(self, selector: RawTableSelector) -> Iterable[StorageIOConfig]:
         yield StorageIOConfig(
