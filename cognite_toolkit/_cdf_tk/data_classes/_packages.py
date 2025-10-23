@@ -104,7 +104,11 @@ class Packages(dict, MutableMapping[str, Package]):
                 if isinstance(modules, list) and modules:
                     for module_path in modules:
                         if (module := module_by_relative_path.get(Path(module_path))) is None:
-                            warnings.append(LowSeverityWarning(f"Unable to load module '{module_path}'."))
+                            warnings.append(
+                                LowSeverityWarning(
+                                    f"Unable to load module '{module_path}'. The path may be wrong or the module may require an alpha flag that is not set."
+                                )
+                            )
                             continue
                         packages_with_modules[package_name].modules.append(module)
 
