@@ -35,7 +35,7 @@ class TestDownloadCommand:
         assert table_file is not None, "Table configuration file not found."
         dumped = read_yaml_file(table_file, "dict")
         assert dumped == table.dump()["table"]
-        database_file = next((file for file in config_files if file.stem == table.table.db_name), None)
+        database_file = next((file for file in config_files if file.stem.endswith("Database")), None)
         assert database_file is not None, f"Database configuration file not found. Found config files: {config_files}"
         dumped_db = read_yaml_file(database_file, "dict")
         assert dumped_db == {"dbName": table.table.db_name}
