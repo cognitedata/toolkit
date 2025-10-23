@@ -1,3 +1,4 @@
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -147,3 +148,46 @@ class TestExtendedFunctionsAPI:
             client.functions.create_with_429_retry(fun)
 
         assert "Object 43j of type <class 'complex'> can't be serialized by the JSON encoder" in str(exc_info.value)
+
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_delete_function_200(self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig) -> None:
+        config = toolkit_config
+        client = ToolkitClient(config=config, enable_set_pending_ids=True)
+        url = config.create_api_url("/functions/delete")
+
+        respx_mock.post(url).mock(return_value=Response(status_code=200, json={}))
+
+        # Should not raise any exception
+        client.functions.delete_with_429_retry(["test_function"], ignore_unknown_ids=True)
+
+        assert len(respx_mock.calls) == 1
+        call = respx_mock.calls[0]
+        assert call.request.url == url
+        assert json.loads(call.request.content) == {
+            "items": [{"externalId": "test_function"}],
+            "ignoreUnknownIds": True,
+        }
+
+    def test_delete_function_429_succeed(
+        self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig
+    ) -> None:
+        config = toolkit_config
+        client = ToolkitClient(config=config, enable_set_pending_ids=True)
+        url = config.create_api_url("/functions/delete")
+        console = MagicMock(spec=Console)
+
+        with patch(f"{HTTPClient.__module__}.time"):
+            # Add multiple 429 responses followed by a success response
+            responses = [
+                Response(status_code=429, json={"error": "Too many requests"}, headers={"Retry-After": "42"})
+                for _ in range(global_config.max_retries - 1)
+            ]
+            responses.append(Response(status_code=200, json={}))
+            respx_mock.post(url).mock(side_effect=responses)
+
+            # Should not raise any exception
+            client.functions.delete_with_429_retry(["test_function"], ignore_unknown_ids=True, console=console)
+        assert console.print.call_count == global_config.max_retries - 1
+        assert console.print.call_args.args[1] == (
+            "Rate limit exceeded for the '/functions/delete' endpoint. Retrying after 42.0 seconds."
+        )
