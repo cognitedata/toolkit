@@ -4,7 +4,7 @@ import sys
 import time
 from collections import deque
 from collections.abc import MutableMapping, Sequence, Set
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 import httpx
 from cognite.client import global_config
@@ -28,8 +28,7 @@ if sys.version_info >= (3, 11):
 else:
     from typing_extensions import Self
 
-if TYPE_CHECKING:
-    from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.config import ToolkitClientConfig
 
 
 class HTTPClient:
