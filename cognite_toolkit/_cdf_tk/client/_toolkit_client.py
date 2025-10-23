@@ -2,7 +2,6 @@ from typing import cast
 
 from cognite.client import CogniteClient
 
-from . import ToolkitClientConfig
 from .api.canvas import CanvasAPI
 from .api.charts import ChartsAPI
 from .api.dml import DMLAPI
@@ -18,6 +17,7 @@ from .api.robotics import RoboticsAPI
 from .api.search import SearchAPI
 from .api.token import TokenAPI
 from .api.verify import VerifyAPI
+from .config import ToolkitClientConfig
 
 
 class ToolkitClient(CogniteClient):

@@ -1,6 +1,6 @@
 from cognite.client import CogniteClient
 
-from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.config import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.project import ProjectStatusList
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ParamRequest
 
