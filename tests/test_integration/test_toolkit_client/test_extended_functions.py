@@ -2,7 +2,7 @@ import time
 
 import pytest
 from cognite.client import CogniteClient
-from cognite.client.data_classes import FileMetadataWrite, Function, FunctionWrite
+from cognite.client.data_classes import FileMetadataWrite, FunctionWrite
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 
@@ -47,10 +47,11 @@ class TestExtendedFunctions:
             external_id="test_function_retry_429",
             file_id=function_code_file_id,
         )
-        created: Function | None = None
         try:
             created = toolkit_client.functions.create_with_429_retry(my_function)
             assert created is not None
+            assert created.external_id == my_function.external_id
+            assert created.file_id == function_code_file_id
+            assert created.name == my_function.name
         finally:
-            if created:
-                toolkit_client.functions.delete(created.id)
+            toolkit_client.functions.delete(external_id=my_function.external_id)
