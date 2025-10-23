@@ -49,7 +49,7 @@ from cognite_toolkit._cdf_tk.utils.aggregators import (
 )
 from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, SimpleBodyRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, AssetCentric, JsonVal, T_WritableCogniteResourceList
 
 from ._base import (
@@ -59,7 +59,6 @@ from ._base import (
     TableStorageIO,
     UploadableStorageIO,
     UploadItem,
-    UploadItemsRequest,
 )
 from .selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 
@@ -303,11 +302,10 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
         results: MutableSequence[HTTPMessage] = []
         for item in data_chunk:
             file_result = http_client.request_with_retries(
-                message=UploadItemsRequest(
+                message=SimpleBodyRequest(
                     endpoint_url=config.create_api_url(self.UPLOAD_ENDPOINT),
                     method="POST",
-                    items=[item],
-                    extra_body_fields=dict(self.UPLOAD_EXTRA_ARGS or {}),
+                    body_content=item.item.dump(),
                 )
             )
             results.extend(file_result)
