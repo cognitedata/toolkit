@@ -782,12 +782,12 @@ class ResourceViewMappingInteractiveSelect:
         self.operation = operation
 
     def select_resource_view_mapping(self, resource_type: str) -> ResourceViewMapping:
-        """Select one or more Resource View Mappings interactively.
+        """Select a Resource View Mapping interactively.
 
         Args:
             resource_type: The resource type to filter Resource View Mappings by.
         Returns:
-            The selected Resource View Mappings.
+            The selected Resource View Mapping.
         """
         mappings = self.client.migration.resource_view_mapping.list(resource_type=resource_type, limit=-1)
         if not mappings:
