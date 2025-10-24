@@ -4,6 +4,7 @@ from typing import Annotated, Any
 
 import questionary
 import typer
+from cognite.client.data_classes.data_modeling import ContainerId
 
 from cognite_toolkit._cdf_tk.commands import (
     MigrateFilesCommand,
@@ -22,7 +23,12 @@ from cognite_toolkit._cdf_tk.commands._migrate.creators import InstanceSpaceCrea
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
 from cognite_toolkit._cdf_tk.storageio import AssetIO
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
-from cognite_toolkit._cdf_tk.utils.interactive_select import AssetInteractiveSelect, DataModelingSelect
+from cognite_toolkit._cdf_tk.utils.interactive_select import (
+    AssetInteractiveSelect,
+    DataModelingSelect,
+    ResourceViewMappingInteractiveSelect,
+)
+from cognite_toolkit._cdf_tk.utils.parse_cli_args import parse_view_str
 
 TODAY = date.today()
 
@@ -294,12 +300,36 @@ class MigrateApp(typer.Typer):
         elif mapping_file is not None:
             selected: MigrationSelector = MigrationCSVFileSelector(datafile=mapping_file, kind="Assets")
         elif data_set_id is not None:
-            selected = MigrateDataSetSelector(data_set_external_id=data_set_id, kind="Assets")
+            parsed_view = parse_view_str(consumption_view) if consumption_view is not None else None
+            selected = MigrateDataSetSelector(
+                data_set_external_id=data_set_id,
+                kind="Assets",
+                ingestion_view=ingestion_mapping,
+                preferred_consumer_view=parsed_view,
+            )
         else:
             # Interactive selection of data set.
             selector = AssetInteractiveSelect(client, "migrate")
             selected_data_set_id = selector.select_data_set(allow_empty=False)
-            selected = MigrateDataSetSelector(data_set_external_id=selected_data_set_id, kind="Assets")
+            asset_mapping = ResourceViewMappingInteractiveSelect(client, "migrate").select_resource_view_mapping(
+                "asset"
+            )
+            preferred_consumer_view = (
+                DataModelingSelect(client, "migrate")
+                .select_view(
+                    multiselect=False,
+                    include_global=True,
+                    instance_type="node",
+                    mapped_container=ContainerId("cdf_cdm", "CogniteAsset"),
+                )
+                .as_id()
+            )
+            selected = MigrateDataSetSelector(
+                data_set_external_id=selected_data_set_id,
+                kind="Assets",
+                ingestion_view=asset_mapping.external_id,
+                preferred_consumer_view=preferred_consumer_view,
+            )
             dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).ask()
             verbose = questionary.confirm("Do you want verbose output?", default=verbose).ask()
             if any(res is None for res in [dry_run, verbose]):
