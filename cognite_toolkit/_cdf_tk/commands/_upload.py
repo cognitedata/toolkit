@@ -1,8 +1,8 @@
-from collections.abc import Hashable
+from collections.abc import Sequence
 from functools import partial
 from pathlib import Path
 
-from cognite.client.data_classes._base import CogniteResourceList, T_CogniteResourceList
+from cognite.client.data_classes._base import CogniteResourceList, T_CogniteResource
 from pydantic import ValidationError
 from rich.console import Console
 
@@ -19,9 +19,10 @@ from cognite_toolkit._cdf_tk.utils.fileio import FileReader
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ItemMessage, SuccessResponseItems
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.progress_tracker import ProgressTracker
-from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal, T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 
+from ..storageio._base import T_WriteCogniteResource
 from ._base import ToolkitCommand
 from .deploy import DeployCommand
 
@@ -177,7 +178,7 @@ class UploadCommand(ToolkitCommand):
                     if verbose:
                         console.print(f"{action} {selector.display_name} from {file_display.as_posix()!r}")
                     reader = FileReader.from_filepath(data_file)
-                    tracker = ProgressTracker[Hashable]([self._UPLOAD])
+                    tracker = ProgressTracker[str]([self._UPLOAD])
                     executor = ProducerWorkerExecutor[list[dict[str, JsonVal]], CogniteResourceList](
                         download_iterable=chunker(reader.read_chunks(), io.CHUNK_SIZE),
                         process=io.json_chunk_to_data,
@@ -231,9 +232,9 @@ class UploadCommand(ToolkitCommand):
     @classmethod
     def _upload_items(
         cls,
-        data_chunk: T_CogniteResourceList,
+        data_chunk: Sequence[T_CogniteResource],
         upload_client: HTTPClient,
-        io: UploadableStorageIO[T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
+        io: UploadableStorageIO[T_Selector, T_CogniteResource, T_WriteCogniteResource],
         selector: T_Selector,
         dry_run: bool,
         tracker: ProgressTracker[T_ID],

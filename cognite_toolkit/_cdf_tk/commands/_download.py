@@ -2,7 +2,7 @@ from collections.abc import Iterable
 from functools import partial
 from pathlib import Path
 
-from cognite.client.data_classes._base import T_CogniteResource, T_CogniteResourceList
+from cognite.client.data_classes._base import T_CogniteResource
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM, DATA_RESOURCE_DIR
@@ -70,7 +70,7 @@ class DownloadCommand(ToolkitCommand):
             ) as writer:
                 executor = ProducerWorkerExecutor[T_WritableCogniteResourceList, list[dict[str, JsonVal]]](
                     download_iterable=io.stream_data(selector, limit),
-                    process=partial(io.data_to_json_chunk, selector=selector),
+                    process=io.data_to_json_chunk,
                     write=partial(writer.write_chunks, filestem=filestem),
                     iteration_count=iteration_count,
                     # Limit queue size to avoid filling up memory before the workers can write to disk.
