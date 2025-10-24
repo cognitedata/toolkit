@@ -23,11 +23,14 @@ from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from . import StorageIOConfig
-from ._base import ConfigurableStorageIO
+from ._base import ConfigurableStorageIO, UploadableStorageIO
 from .selectors import InstanceFileSelector, InstanceSelector, InstanceSpaceSelector, InstanceViewSelector
 
 
-class InstanceIO(ConfigurableStorageIO[InstanceId, InstanceSelector, InstanceApplyList, InstanceList]):
+class InstanceIO(
+    ConfigurableStorageIO[InstanceId, InstanceSelector, InstanceApplyList, InstanceList],
+    UploadableStorageIO[InstanceId, InstanceSelector, InstanceApplyList, InstanceList],
+):
     """This class provides functionality to interact with instances in Cognite Data Fusion (CDF).
 
     It is used to download, upload, and purge instances, as well as spaces,views, and containers related to instances.

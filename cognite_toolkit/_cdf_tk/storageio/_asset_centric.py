@@ -24,9 +24,11 @@ from cognite.client.data_classes import (
     TimeSeriesWriteList,
 )
 from cognite.client.data_classes._base import (
+    CogniteResourceList,
     T_CogniteResourceList,
     T_WritableCogniteResource,
     T_WriteClass,
+    WriteableCogniteResourceList,
 )
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -49,16 +51,24 @@ from cognite_toolkit._cdf_tk.utils.aggregators import (
 )
 from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, SimpleBodyRequest
+from cognite_toolkit._cdf_tk.utils.http_client import (
+    FailedItem,
+    FailedResponse,
+    HTTPClient,
+    HTTPMessage,
+    SimpleBodyRequest,
+)
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, AssetCentric, JsonVal, T_WritableCogniteResourceList
 
-from ._base import StorageIOConfig, TableStorageIO
+from ._base import ConfigurableStorageIO, StorageIOConfig, TableStorageIO, UploadableStorageIO
 from .selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 
 
 class BaseAssetCentricIO(
     Generic[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
     TableStorageIO[int, AssetCentricSelector, T_CogniteResourceList, T_WritableCogniteResourceList],
+    ConfigurableStorageIO[int, AssetCentricSelector, T_CogniteResourceList, T_WritableCogniteResourceList],
+    UploadableStorageIO[int, AssetCentricSelector, T_CogniteResourceList, T_WritableCogniteResourceList],
     ABC,
 ):
     RESOURCE_TYPE: ClassVar[AssetCentric]
@@ -76,6 +86,9 @@ class BaseAssetCentricIO(
         if isinstance(item, dict) and isinstance(item.get("id"), int):
             # MyPy checked above.
             return item["id"]  # type: ignore[return-value]
+        elif isinstance(item, dict) and "externalId" in item:
+            # This is write version of the resource.
+            return -1
         raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
 
     @abstractmethod
@@ -125,7 +138,9 @@ class BaseAssetCentricIO(
             asset_subtree_external_ids = [selector.hierarchy]
         else:
             # This selector is for uploads, not for downloading from CDF.
-            raise ToolkitNotImplementedError(f"Selector type {type(selector)} not supported for {type(self).__name__}.")
+            raise ToolkitNotImplementedError(
+                f"Selector type {type(selector).__name__} not supported for {type(self).__name__}."
+            )
         return asset_subtree_external_ids, data_set_external_ids
 
     def _collect_dependencies(
@@ -169,8 +184,11 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
     UPLOAD_ENDPOINT = "/assets"
 
     def as_id(self, item: dict[str, JsonVal] | object) -> int:
-        if isinstance(item, Asset | AssetWrite) and item.id is not None:  # type: ignore[union-attr]
-            return item.id  # type: ignore[union-attr]
+        if isinstance(item, Asset) and item.id is not None:
+            return item.id
+        elif isinstance(item, AssetWrite):
+            # Not yet created asset
+            return -1
         return super().as_id(item)
 
     def _get_loader(self) -> AssetCRUD:
@@ -239,6 +257,9 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
     def as_id(self, item: dict[str, JsonVal] | object) -> int:
         if isinstance(item, FileMetadata) and item.id is not None:
             return item.id
+        elif isinstance(item, FileMetadataWrite):
+            # Not yet created file
+            return -1
         return super().as_id(item)
 
     def _get_loader(self) -> FileMetadataCRUD:
@@ -305,7 +326,11 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
                     body_content=item.dump(camel_case=True),
                 )
             )
-            results.extend(file_result)
+            for message in file_result:
+                if isinstance(message, FailedResponse):
+                    results.append(FailedItem(status_code=message.status_code, id=-1, error=message.error))
+                else:
+                    results.append(message)
         return results
 
     def retrieve(self, ids: Sequence[int]) -> FileMetadataList:
@@ -321,10 +346,14 @@ class TimeSeriesIO(BaseAssetCentricIO[str, TimeSeriesWrite, TimeSeries, TimeSeri
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     UPLOAD_ENDPOINT = "/timeseries"
+    RESOURCE_TYPE = "timeseries"
 
     def as_id(self, item: dict[str, JsonVal] | object) -> int:
         if isinstance(item, TimeSeries) and item.id is not None:
             return item.id
+        elif isinstance(item, TimeSeriesWrite):
+            # Not yet created time series
+            return -1
         return super().as_id(item)
 
     def _get_loader(self) -> TimeSeriesCRUD:
@@ -389,10 +418,14 @@ class EventIO(BaseAssetCentricIO[str, EventWrite, Event, EventWriteList, EventLi
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     UPLOAD_ENDPOINT = "/events"
+    RESOURCE_TYPE = "event"
 
     def as_id(self, item: dict[str, JsonVal] | object) -> int:
         if isinstance(item, Event) and item.id is not None:
             return item.id
+        elif isinstance(item, EventWrite):
+            # Not yet created event
+            return -1
         return super().as_id(item)
 
     def _get_loader(self) -> EventCRUD:
@@ -449,3 +482,55 @@ class EventIO(BaseAssetCentricIO[str, EventWrite, Event, EventWriteList, EventLi
 
     def retrieve(self, ids: Sequence[int]) -> EventList:
         return self.client.events.retrieve_multiple(ids)
+
+
+class HierarchyIO(ConfigurableStorageIO[int, AssetCentricSelector, CogniteResourceList, WriteableCogniteResourceList]):
+    CHUNK_SIZE = 1000
+    BASE_SELECTOR = AssetCentricSelector
+    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
+    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
+
+    def __init__(self, client: ToolkitClient) -> None:
+        super().__init__(client)
+        self._asset_io = AssetIO(client)
+        self._file_io = FileMetadataIO(client)
+        self._timeseries_io = TimeSeriesIO(client)
+        self._event_io = EventIO(client)
+        self._io_by_kind: dict[str, BaseAssetCentricIO] = {
+            self._asset_io.KIND: self._asset_io,
+            self._file_io.KIND: self._file_io,
+            self._timeseries_io.KIND: self._timeseries_io,
+            self._event_io.KIND: self._event_io,
+        }
+
+    def as_id(self, item: dict[str, JsonVal] | object) -> int:
+        if hasattr(item, "id") and isinstance(item.id, int):
+            return item.id
+        if isinstance(item, dict) and isinstance(item.get("id"), int):
+            return item["id"]  # type: ignore[return-value]
+        raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
+
+    def stream_data(
+        self, selector: AssetCentricSelector, limit: int | None = None
+    ) -> Iterable[WriteableCogniteResourceList]:
+        io = self._get_io(selector)
+        yield from io.stream_data(selector, limit)
+
+    def count(self, selector: AssetCentricSelector) -> int | None:
+        io = self._get_io(selector)
+        return io.count(selector)
+
+    def data_to_json_chunk(
+        self, data_chunk: CogniteResourceList, selector: AssetCentricSelector
+    ) -> list[dict[str, JsonVal]]:
+        io = self._get_io(selector)
+        return io.data_to_json_chunk(data_chunk, selector)
+
+    def configurations(self, selector: AssetCentricSelector) -> Iterable[StorageIOConfig]:
+        io = self._get_io(selector)
+        yield from io.configurations(selector)
+
+    def _get_io(self, selector: AssetCentricSelector) -> BaseAssetCentricIO:
+        if not isinstance(selector, AssetSubtreeSelector | DataSetSelector):
+            raise ToolkitNotImplementedError(f"Selector type {type(selector)} not supported for {type(self).__name__}.")
+        return self._io_by_kind[selector.kind]

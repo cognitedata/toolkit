@@ -158,9 +158,7 @@ class UploadableStorageIO(StorageIO[T_ID, T_Selector, T_CogniteResourceList, T_W
         raise NotImplementedError()
 
 
-class ConfigurableStorageIO(
-    UploadableStorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList], ABC
-):
+class ConfigurableStorageIO(StorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList], ABC):
     """A base class for storage items that support configurations for different storage items."""
 
     @abstractmethod
@@ -169,9 +167,7 @@ class ConfigurableStorageIO(
         raise NotImplementedError()
 
 
-class TableStorageIO(
-    ConfigurableStorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList], ABC
-):
+class TableStorageIO(StorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList], ABC):
     """A base class for storage items that support table schemas."""
 
     @abstractmethod
