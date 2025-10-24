@@ -781,7 +781,7 @@ class ResourceViewMappingInteractiveSelect:
         self.client = client
         self.operation = operation
 
-    def select_resource_view_mappings(self, resource_type: str) -> ResourceViewMapping:
+    def select_resource_view_mapping(self, resource_type: str) -> ResourceViewMapping:
         """Select one or more Resource View Mappings interactively.
 
         Args:
