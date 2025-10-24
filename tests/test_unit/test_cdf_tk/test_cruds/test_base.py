@@ -452,8 +452,8 @@ class TestResourceCRUDs:
         # the 'get_write_cls_parameter_spec' must be updated in the loader. See, for example, the DataModelLoader.
         assert sorted(extra) == []
 
-    @pytest.mark.skip(reason="Skipping until we decide if it is useful to test this")
     @pytest.mark.parametrize("loader_cls, content", list(cognite_module_files_with_loader()))
+    @pytest.mark.skip(reason="Skipping until we decide if it is useful to test this")
     def test_write_cls_spec_against_cognite_modules(self, loader_cls: type[ResourceCRUD], content: dict) -> None:
         spec = loader_cls.get_write_cls_parameter_spec()
 
