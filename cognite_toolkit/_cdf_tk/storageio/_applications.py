@@ -11,13 +11,12 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import StorageIO
+from ._base import UploadableStorageIO
 from .selectors import AllChartsSelector, CanvasSelector, ChartOwnerSelector, ChartSelector
 
 
-class ChartIO(StorageIO[str, ChartSelector, ChartWriteList, ChartList]):
+class ChartIO(UploadableStorageIO[str, ChartSelector, ChartWriteList, ChartList]):
     KIND = "Charts"
-    DISPLAY_NAME = "CDF Charts"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     SUPPORTED_READ_FORMATS = frozenset({".ndjson"})
@@ -67,16 +66,15 @@ class ChartIO(StorageIO[str, ChartSelector, ChartWriteList, ChartList]):
         # There is no way to get the count of charts up front.
         return None
 
-    def data_to_json_chunk(self, data_chunk: ChartList) -> list[dict[str, JsonVal]]:
+    def data_to_json_chunk(self, data_chunk: ChartList, selector: ChartSelector) -> list[dict[str, JsonVal]]:
         return [chart.as_write().dump() for chart in data_chunk]
 
     def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> ChartWriteList:
         return ChartWriteList._load(data_chunk)
 
 
-class CanvasIO(StorageIO[str, CanvasSelector, IndustrialCanvasApplyList, IndustrialCanvasList]):
+class CanvasIO(UploadableStorageIO[str, CanvasSelector, IndustrialCanvasApplyList, IndustrialCanvasList]):
     KIND = "IndustrialCanvas"
-    DISPLAY_NAME = "CDF Industrial Canvases"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     SUPPORTED_READ_FORMATS = frozenset({".ndjson"})
@@ -110,7 +108,9 @@ class CanvasIO(StorageIO[str, CanvasSelector, IndustrialCanvasApplyList, Industr
     def count(self, selector: CanvasSelector) -> int | None:
         raise ToolkitNotImplementedError("Counting canvases is not implemented yet.")
 
-    def data_to_json_chunk(self, data_chunk: IndustrialCanvasList) -> list[dict[str, JsonVal]]:
+    def data_to_json_chunk(
+        self, data_chunk: IndustrialCanvasList, selector: CanvasSelector
+    ) -> list[dict[str, JsonVal]]:
         # Need to do lookup to get external IDs for all asset-centric resources.
         raise ToolkitNotImplementedError("Exporting canvases is not implemented yet.")
 

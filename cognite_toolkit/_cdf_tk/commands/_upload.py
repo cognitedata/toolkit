@@ -8,7 +8,7 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM, DATA_RESOURCE_DIR
-from cognite_toolkit._cdf_tk.storageio import StorageIO, T_Selector, are_same_kind, get_storage_io
+from cognite_toolkit._cdf_tk.storageio import T_Selector, UploadableStorageIO, are_same_kind, get_upload_io
 from cognite_toolkit._cdf_tk.storageio.selectors import Selector, SelectorAdapter
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
@@ -175,7 +175,7 @@ class UploadCommand(ToolkitCommand):
                 for data_file in datafiles:
                     file_display = self._path_as_display_name(data_file)
                     if verbose:
-                        console.print(f"{action} {io.DISPLAY_NAME} from {file_display.as_posix()!r}")
+                        console.print(f"{action} {selector.display_name} from {file_display.as_posix()!r}")
                     reader = FileReader.from_filepath(data_file)
                     tracker = ProgressTracker[Hashable]([self._UPLOAD])
                     executor = ProducerWorkerExecutor[list[dict[str, JsonVal]], CogniteResourceList](
@@ -194,7 +194,7 @@ class UploadCommand(ToolkitCommand):
                         max_queue_size=self._MAX_QUEUE_SIZE,
                         download_description=f"Reading {file_count:,}/{total_file_count + 1:,}: {file_display.as_posix()!s}",
                         process_description="Processing",
-                        write_description=f"{action} {io.DISPLAY_NAME!r}",
+                        write_description=f"{action} {selector.display_name!r}",
                         console=console,
                     )
                     executor.run()
@@ -208,7 +208,7 @@ class UploadCommand(ToolkitCommand):
                     if failed > 0:
                         suffix += f", {failed:,} failed"
                     console.print(
-                        f"{final_action} {success:,} {io.DISPLAY_NAME} from {file_display.as_posix()!r}{suffix}."
+                        f"{final_action} {success:,} {selector.display_name} from {file_display.as_posix()!r}{suffix}."
                     )
 
     @staticmethod
@@ -218,9 +218,11 @@ class UploadCommand(ToolkitCommand):
             display_name = input_path.relative_to(cwd)
         return display_name
 
-    def _create_selected_io(self, selector: Selector, data_file: Path, client: ToolkitClient) -> StorageIO | None:
+    def _create_selected_io(
+        self, selector: Selector, data_file: Path, client: ToolkitClient
+    ) -> UploadableStorageIO | None:
         try:
-            io_cls = get_storage_io(type(selector), kind=data_file)
+            io_cls = get_upload_io(type(selector), kind=data_file)
         except ValueError as e:
             self.warn(HighSeverityWarning(f"Could not find StorageIO for selector {selector}: {e}"))
             return None
@@ -231,7 +233,7 @@ class UploadCommand(ToolkitCommand):
         cls,
         data_chunk: T_CogniteResourceList,
         upload_client: HTTPClient,
-        io: StorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
+        io: UploadableStorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
         selector: T_Selector,
         dry_run: bool,
         tracker: ProgressTracker[T_ID],

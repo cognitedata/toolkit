@@ -6,6 +6,7 @@ from pydantic.alias_generators import to_camel
 
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM
 from cognite_toolkit._cdf_tk.utils.file import safe_write, sanitize_filename, yaml_safe_dump
+from cognite_toolkit._cdf_tk.utils.text import to_sentence_case
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 
@@ -19,9 +20,14 @@ class DataSelector(SelectorObject, ABC):
     """A selector gives instructions on what data to select from CDF.
 
     For example, for instances it can be a view or container, while for assets it can be a data set or asset subtree.
+
+    Args:
+        type: The type of selector.
+        kind: The kind of data the selector is for (e.g., 'RawRows', 'Assets').
     """
 
     type: str
+    kind: str
 
     def dump(self) -> dict[str, JsonVal]:
         return self.model_dump(by_alias=True)
@@ -51,6 +57,11 @@ class DataSelector(SelectorObject, ABC):
         would be the table name.
         """
         raise NotImplementedError()
+
+    @property
+    def display_name(self) -> str:
+        """A human-readable name for the selector."""
+        return to_sentence_case(self.kind)
 
     def __str__(self) -> str:
         # We want to force subclasses to implement __str__

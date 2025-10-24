@@ -43,6 +43,8 @@ class SelectedView(SelectorObject):
 
 
 class InstanceSelector(DataSelector, ABC):
+    kind: Literal["Instances"] = "Instances"
+
     @abstractmethod
     def get_schema_spaces(self) -> list[str] | None:
         raise NotImplementedError()

@@ -21,6 +21,7 @@ exit-on-warning = true
 upload = true
 function-cognite-file = true
 external-libraries = true
+v07 = true
 
 [plugins]
 run = true

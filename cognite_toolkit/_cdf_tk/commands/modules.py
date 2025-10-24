@@ -797,6 +797,9 @@ default_organization_dir = "{organization_dir.name}"''',
                     self._validate_checksum(library.checksum, file_path)
                     self._unpack(file_path)
                     packages = Packages().load(file_path.parent)
+                    if packages.warnings:
+                        for warning in packages.warnings:
+                            self.warn(warning)
                     self._validate_packages(packages, f"library {library_name}")
 
                     # Track deployment pack download for each package and module

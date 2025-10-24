@@ -141,7 +141,7 @@ def iterate_instances(
 
 @overload
 def read_auth(
-    authentication: object,
+    authentication: Any,
     client_config: ToolkitClientConfig,
     identifier: Hashable,
     resource_name: str,
@@ -152,7 +152,7 @@ def read_auth(
 
 @overload
 def read_auth(
-    authentication: object,
+    authentication: Any,
     client_config: ToolkitClientConfig,
     identifier: Hashable,
     resource_name: str,
@@ -162,7 +162,7 @@ def read_auth(
 
 
 def read_auth(
-    authentication: object,
+    authentication: Any,
     client_config: ToolkitClientConfig,
     identifier: Hashable,
     resource_name: str,

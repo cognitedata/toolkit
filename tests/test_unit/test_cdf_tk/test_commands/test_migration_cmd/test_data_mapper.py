@@ -5,6 +5,8 @@ import pytest
 from cognite.client.data_classes import Asset
 from cognite.client.data_classes.data_modeling import (
     ContainerId,
+    DirectRelation,
+    DirectRelationReference,
     MappedProperty,
     NodeId,
     NodeList,
@@ -13,7 +15,7 @@ from cognite.client.data_classes.data_modeling import (
     ViewId,
 )
 
-from cognite_toolkit._cdf_tk.client.data_classes.migration import ResourceViewMapping
+from cognite_toolkit._cdf_tk.client.data_classes.migration import CreatedSourceSystem, ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.adapter import (
     AssetCentricMapping,
@@ -41,6 +43,7 @@ class TestAssetCentricMapper:
                     resource=Asset(
                         id=1000 + i,
                         name=f"Asset {i}",
+                        source="sap",
                         # Half of the assets will be missing description and thus have a conversion issue.
                         description=f"Description {i}" if i % 2 == 0 else None,
                     ),
@@ -54,7 +57,7 @@ class TestAssetCentricMapper:
             + "\n".join(f"{1000 + i},my_space,asset_{i},cdf_asset_mapping" for i in range(asset_count))
         )
 
-        selected = MigrationCSVFileSelector(datafile=mapping_file, resource_type="asset")
+        selected = MigrationCSVFileSelector(datafile=mapping_file, kind="asset")
 
         with monkeypatch_toolkit_client() as client:
             client.migration.resource_view_mapping.retrieve.return_value = NodeList[ResourceViewMapping](
@@ -66,11 +69,24 @@ class TestAssetCentricMapper:
                         property_mapping={
                             "name": "name",
                             "description": "description",
+                            "source": "source",
                         },
                         last_updated_time=1,
                         created_time=0,
                         version=1,
                     )
+                ]
+            )
+            client.migration.created_source_system.list.return_value = NodeList[CreatedSourceSystem](
+                [
+                    CreatedSourceSystem(
+                        space="source_systems",
+                        external_id="SAP",
+                        source="sap",
+                        last_updated_time=1,
+                        created_time=0,
+                        version=1,
+                    ),
                 ]
             )
             # Mocking the view to avoid setting all properties we don't use
@@ -81,6 +97,9 @@ class TestAssetCentricMapper:
                 ),
                 "description": MappedProperty(
                     ContainerId("cdf_cdm", "CogniteDescribable"), "description", Text(), True, False, False
+                ),
+                "source": MappedProperty(
+                    ContainerId("cdf_cdm", "CogniteSourceable"), "source", DirectRelation(False), True, False, False
                 ),
             }
             cognite_asset.as_id.return_value = ViewId("cdf_cdm", "CogniteAsset", "v1")
@@ -100,9 +119,12 @@ class TestAssetCentricMapper:
             first_issue = issues[0]
             assert isinstance(first_issue, ConversionIssue)
             assert first_issue.missing_asset_centric_properties == ["description"]
+            first_asset = mapped[0]
+            assert first_asset.sources[0].properties["source"] == DirectRelationReference("source_systems", "SAP")
 
             assert client.migration.resource_view_mapping.retrieve.call_count == 1
             client.migration.resource_view_mapping.retrieve.assert_called_with(["cdf_asset_mapping"])
+            assert client.migration.created_source_system.list.call_count == 1
             assert client.data_modeling.views.retrieve.call_count == 1
             client.data_modeling.views.retrieve.assert_called_with([ViewId("cdf_cdm", "CogniteAsset", "v1")])
 
@@ -141,7 +163,7 @@ class TestAssetCentricMapper:
         mapping_file = tmp_path / "mapping.csv"
         mapping_file.write_text("id,space,externalId,ingestionView\n1001,my_space,asset_1,missing_view_source")
 
-        selected = MigrationCSVFileSelector(datafile=mapping_file, resource_type="asset")
+        selected = MigrationCSVFileSelector(datafile=mapping_file, kind="asset")
 
         with monkeypatch_toolkit_client() as client:
             # Return empty list to simulate missing view source
@@ -159,7 +181,7 @@ class TestAssetCentricMapper:
         mapping_file = tmp_path / "mapping.csv"
         mapping_file.write_text("id,space,externalId,ingestionView\n1001,my_space,asset_1,cdf_asset_mapping")
 
-        selected = MigrationCSVFileSelector(datafile=mapping_file, resource_type="asset")
+        selected = MigrationCSVFileSelector(datafile=mapping_file, kind="asset")
 
         with monkeypatch_toolkit_client() as client:
             # Return view source but empty view list to simulate missing view in Data Modeling
