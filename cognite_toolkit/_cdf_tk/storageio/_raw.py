@@ -8,11 +8,14 @@ from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import ConfigurableStorageIO, Page, StorageIOConfig, UploadItem
+from ._base import ConfigurableStorageIO, Page, StorageIOConfig, UploadableStorageIO, UploadItem
 from .selectors import RawTableSelector
 
 
-class RawIO(ConfigurableStorageIO[RawTableSelector, Row]):
+class RawIO(
+    ConfigurableStorageIO[RawTableSelector, Row],
+    UploadableStorageIO[RawTableSelector, Row, RowWrite],
+):
     KIND = "RawRows"
     DISPLAY_NAME = "Raw Rows"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".yaml", ".ndjson"})

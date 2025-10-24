@@ -52,13 +52,15 @@ from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, SimpleBodyRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, AssetCentric, JsonVal, T_WritableCogniteResourceList
 
-from ._base import Page, StorageIOConfig, TableStorageIO
+from ._base import ConfigurableStorageIO, Page, StorageIOConfig, TableStorageIO, UploadableStorageIO, UploadItem
 from .selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 
 
 class BaseAssetCentricIO(
     Generic[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
     TableStorageIO[AssetCentricSelector, T_WritableCogniteResource],
+    ConfigurableStorageIO[AssetCentricSelector, T_WritableCogniteResource],
+    UploadableStorageIO[AssetCentricSelector, T_WritableCogniteResource, T_WriteClass],
     ABC,
 ):
     RESOURCE_TYPE: ClassVar[AssetCentric]
@@ -283,7 +285,7 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
 
     def upload_items(
         self,
-        data_chunk: Sequence[FileMetadataWrite],
+        data_chunk: Sequence[UploadItem[FileMetadataWrite]],
         http_client: HTTPClient,
         selector: AssetCentricSelector | None = None,
     ) -> Sequence[HTTPMessage]:
@@ -296,7 +298,8 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
                 message=SimpleBodyRequest(
                     endpoint_url=config.create_api_url(self.UPLOAD_ENDPOINT),
                     method="POST",
-                    body_content=item.dump(camel_case=True),
+                    # MyPy does not understand that .dump is valid json
+                    body_content=item.dump(),  # type: ignore[arg-type]
                 )
             )
             results.extend(file_result)
