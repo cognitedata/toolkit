@@ -7,12 +7,12 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.storageio import ConfigurableStorageIO, StorageIO, T_Selector, TableStorageIO
+from cognite_toolkit._cdf_tk.storageio import ConfigurableStorageIO, Page, StorageIO, T_Selector, TableStorageIO
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils.file import safe_write, sanitize_filename, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import TABLE_WRITE_CLS_BY_FORMAT, Compression, FileWriter, SchemaColumn
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
-from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal, T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import ToolkitCommand
 
@@ -68,9 +68,9 @@ class DownloadCommand(ToolkitCommand):
             with FileWriter.create_from_format(
                 file_format, target_dir, selector.kind, compression_cls, columns=columns
             ) as writer:
-                executor = ProducerWorkerExecutor[T_WritableCogniteResourceList, list[dict[str, JsonVal]]](
+                executor = ProducerWorkerExecutor[Page[T_CogniteResource], list[dict[str, JsonVal]]](
                     download_iterable=io.stream_data(selector, limit),
-                    process=io.data_to_json_chunk,
+                    process=partial(self.process_data_chunk, io=io),
                     write=partial(writer.write_chunks, filestem=filestem),
                     iteration_count=iteration_count,
                     # Limit queue size to avoid filling up memory before the workers can write to disk.
@@ -123,3 +123,19 @@ class DownloadCommand(ToolkitCommand):
                 return True
 
         return False
+
+    @staticmethod
+    def process_data_chunk(
+        data_page: Page[T_CogniteResource],
+        io: StorageIO[T_Selector, T_CogniteResource],
+    ) -> list[dict[str, JsonVal]]:
+        """Processes a chunk of data by converting it to a JSON-compatible format.
+
+        Args:
+            data_page: The page of data to process.
+            io: The StorageIO instance that defines how to process the data.
+
+        Returns:
+            A list of dictionaries representing the processed data in a JSON-compatible format.
+        """
+        return io.data_to_json_chunk(data_page.items)
