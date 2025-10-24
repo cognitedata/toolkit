@@ -216,6 +216,18 @@ class SpaceSourceAPI:
         self._RETRIEVE_LIMIT = 1000
         self._view_id = SpaceSource.get_source()
 
+    @overload
+    def retrieve(self, data_set_id: int) -> SpaceSource | None: ...
+
+    @overload
+    def retrieve(self, data_set_id: Sequence[int]) -> NodeList[SpaceSource]: ...
+
+    @overload
+    def retrieve(self, *, data_set_external_id: str) -> SpaceSource | None: ...
+
+    @overload
+    def retrieve(self, *, data_set_external_id: SequenceNotStr[str]) -> NodeList[SpaceSource]: ...
+
     def retrieve(
         self,
         data_set_id: int | Sequence[int] | None = None,
