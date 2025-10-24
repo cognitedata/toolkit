@@ -69,7 +69,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
 from cognite_toolkit._cdf_tk.client.data_classes.sequences import ToolkitSequenceRows
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, read_yaml_file
-from cognite_toolkit._cdf_tk.utils.http_client._data_classes import RequestItem
+from cognite_toolkit._cdf_tk.utils.http_client._data_classes import T_COVARIANT_ID, RequestItem
 from tests.data import COMPLETE_ORG
 
 UNION_TYPES = {typing.Union, UnionType}
@@ -461,11 +461,11 @@ class FakeCogniteResourceGenerator:
             return self.create_instance(selected)
         elif isinstance(type_, enum.EnumMeta):
             return self._random.choice(list(type_))
-        elif isinstance(type_, TypeVar):
+        elif isinstance(type_, TypeVar) and type_.__bound__ is not None:
             return self.create_value(type_.__bound__)
         elif inspect.isclass(type_) and issubclass(type_, CogniteResourceList):
             return type_([self.create_value(type_._RESOURCE) for _ in range(self._random.randint(1, 3))])
-        elif type_ is Hashable:
+        elif type_ is Hashable or type_ is T_COVARIANT_ID:
             return "my_hashable"
         elif inspect.isclass(type_):
             return self.create_instance(type_)
