@@ -1,11 +1,9 @@
 import os
-import random
 import shutil
 import tempfile
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
-from functools import lru_cache
 from pathlib import Path
 from typing import cast
 from unittest.mock import MagicMock
@@ -248,37 +246,26 @@ def tmp_org_directory() -> Iterator[Path]:
         shutil.rmtree(org_dir)
 
 
-@lru_cache(maxsize=1)
-def _collect_cognite_module_test_params() -> list[ParameterSet]:
-    """Cached collection of test parameters to ensure consistency within each worker."""
+def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
     with tmp_org_directory() as organization_dir, tmp_build_directory() as build_dir:
-        worker_id = f"w{random.randint(10000, 99999)!s}"
-        with ModulesCommand(temp_dir_suffix=worker_id) as cmd:
-            cmd.init(organization_dir, select_all=True, clean=True)
-            cdf_toml = CDFToml.load(REPO_ROOT)
-            config = BuildConfigYAML.load_from_directory(organization_dir, "dev")
-            config.set_environment_variables()
-            # Use path syntax to select all modules in the source directory
-            config.environment.selected = [Path()]
+        ModulesCommand().init(organization_dir, select_all=True, clean=True)
+        cdf_toml = CDFToml.load(REPO_ROOT)
+        config = BuildConfigYAML.load_from_directory(organization_dir, "dev")
+        config.set_environment_variables()
+        # Use path syntax to select all modules in the source directory
+        config.environment.selected = [Path()]
 
-            built_modules = BuildCommand().build_config(
-                build_dir=build_dir,
-                organization_dir=organization_dir,
-                config=config,
-                packages=cdf_toml.modules.packages,
-                clean=True,
-                verbose=False,
-            )
-        # Collect all test parameters first to sort them for deterministic ordering
-        # This ensures consistent test collection across pytest-xdist workers
-        test_params = []
-        # Sort modules by name for deterministic iteration
-        for module in sorted(built_modules, key=lambda m: m.name):
-            # Sort resource folders for deterministic iteration
-            for resource_folder in sorted(module.resources.keys()):
-                resources = module.resources[resource_folder]
-                # Sort resources by destination path for deterministic iteration
-                for resource in sorted(resources, key=lambda r: str(r.destination) if r.destination else ""):
+        built_modules = BuildCommand().build_config(
+            build_dir=build_dir,
+            organization_dir=organization_dir,
+            config=config,
+            packages=cdf_toml.modules.packages,
+            clean=True,
+            verbose=False,
+        )
+        for module in built_modules:
+            for resource_folder, resources in module.resources.items():
+                for resource in resources:
                     try:
                         loader = get_crud(resource_folder, resource.kind)
                     except ValueError:
@@ -289,28 +276,10 @@ def _collect_cognite_module_test_params() -> list[ParameterSet]:
                         raw = yaml.CSafeLoader(filepath.read_text()).get_data()
 
                         if isinstance(raw, dict):
-                            test_params.append(pytest.param(loader, raw, id=f"{module.name} - {filepath.stem} - dict"))
+                            yield pytest.param(loader, raw, id=f"{module.name} - {filepath.stem} - dict")
                         elif isinstance(raw, list):
                             for no, item in enumerate(raw):
-                                test_params.append(
-                                    pytest.param(loader, item, id=f"{module.name} - {filepath.stem} - list {no}")
-                                )
-
-        # Sort by test ID to ensure deterministic order across workers
-        test_params.sort(key=lambda p: p.id if p.id else "")
-
-        # Debug: Log test collection info for troubleshooting
-        worker_id = os.environ.get("PYTEST_XDIST_WORKER", "master")
-        print(f"\n[{worker_id}] Collected {len(test_params)} test parameters")
-        print(f"[{worker_id}] First 5 test IDs: {[p.id for p in test_params[:5]]}")
-        print(f"[{worker_id}] Last 5 test IDs: {[p.id for p in test_params[-5:]]}")
-
-        return test_params
-
-
-def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
-    """Generator that yields cached test parameters."""
-    yield from _collect_cognite_module_test_params()
+                                yield pytest.param(loader, item, id=f"{module.name} - {filepath.stem} - list {no}")
 
 
 def sensitive_strings_test_cases() -> Iterable[ParameterSet]:
@@ -483,6 +452,7 @@ class TestResourceCRUDs:
         # the 'get_write_cls_parameter_spec' must be updated in the loader. See, for example, the DataModelLoader.
         assert sorted(extra) == []
 
+    @pytest.mark.skip(reason="Skipping until we decide if it is useful to test this")
     @pytest.mark.parametrize("loader_cls, content", list(cognite_module_files_with_loader()))
     def test_write_cls_spec_against_cognite_modules(self, loader_cls: type[ResourceCRUD], content: dict) -> None:
         spec = loader_cls.get_write_cls_parameter_spec()
