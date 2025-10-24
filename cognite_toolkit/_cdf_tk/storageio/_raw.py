@@ -6,10 +6,10 @@ from cognite.client.data_classes import Row, RowWrite
 from cognite_toolkit._cdf_tk.cruds import RawDatabaseCRUD, RawTableCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import ConfigurableStorageIO, Page, StorageIOConfig, UploadableStorageIO, UploadItem, UploadItemsRequest
+from ._base import ConfigurableStorageIO, Page, StorageIOConfig, UploadableStorageIO, UploadItem
 from .selectors import RawTableSelector
 
 
@@ -49,7 +49,7 @@ class RawIO(
 
     def upload_items(
         self,
-        data_chunk: list[UploadItem[RowWrite]],
+        data_chunk: Sequence[UploadItem[RowWrite]],
         http_client: HTTPClient,
         selector: RawTableSelector | None = None,
     ) -> Sequence[HTTPMessage]:
@@ -62,11 +62,12 @@ class RawIO(
         url = self.UPLOAD_ENDPOINT.format(dbName=selector.table.db_name, tableName=selector.table.table_name)
         config = http_client.config
         return http_client.request_with_retries(
-            message=UploadItemsRequest(
+            message=ItemsRequest(
                 endpoint_url=config.create_api_url(url),
                 method="POST",
                 items=data_chunk,
                 extra_body_fields=dict(self.UPLOAD_EXTRA_ARGS or {}),
+                as_id=UploadItem.as_id,
             )
         )
 

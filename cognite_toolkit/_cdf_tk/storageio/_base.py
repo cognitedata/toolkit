@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Iterable, Mapping, Sequence, Sized
-from dataclasses import dataclass, field
-from typing import ClassVar, Generic, TypeVar
+from collections.abc import Iterable, Mapping, Sequence, Sized
+from dataclasses import dataclass
+from typing import Any, ClassVar, Generic, TypeVar
 
 from cognite.client.data_classes._base import CogniteObject, T_CogniteResource
 
@@ -9,7 +9,6 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest
-from cognite_toolkit._cdf_tk.utils.http_client._tracker import ItemsRequestTracker
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from .selectors import DataSelector
@@ -52,70 +51,13 @@ class UploadItem(Generic[T_WriteCogniteResource]):
     item: T_WriteCogniteResource
 
     @classmethod
-    def as_id(cls, upload_item: "UploadItem[T_WriteCogniteResource]") -> str:
+    def as_id(cls, upload_item: Any) -> str:
+        if not isinstance(upload_item, UploadItem):
+            raise ToolkitNotImplementedError("as_id method only supports UploadItem instances.")
         return upload_item.source_id
 
-
-@dataclass
-class UploadItemsRequest(Generic[T_WriteCogniteResource], ItemsRequest[str]):
-    """Request message for uploading items identified by string IDs."""
-
-    # MyPy does not like the override of the items field here.
-    items: list[UploadItem[T_WriteCogniteResource]] = field(default_factory=list)  # type: ignore[assignment]
-    extra_body_fields: dict[str, JsonVal] = field(default_factory=dict)
-    as_id: Callable[[T_WriteCogniteResource], str] = UploadItem.as_id  # type: ignore[assignment]
-
-    def body(self) -> dict[str, JsonVal]:
-        upload_items = [item.item.dump(camel_case=True) for item in self.items]
-        if self.extra_body_fields:
-            # The Cognite-SDK always dump valid json, but that is not captured in the type hint.
-            # thus the MyPy ignore here.
-            return {"items": upload_items, **self.extra_body_fields}  # type: ignore[dict-item]
-        return {"items": upload_items}  # type: ignore[dict-item]
-
-    def split(self, status_attempts: int) -> "list[UploadItemsRequest]":  # type: ignore[override]
-        """Splits the request into two smaller requests.
-
-        This is useful for retrying requests that fail due to size limits or timeouts.
-
-        Args:
-            status_attempts: The number of status attempts to set for the new requests. This is used when the
-                request failed with a 5xx status code and we want to track the number of attempts. For 4xx errors,
-                there is at least one item causing the error, so we do not increment the status attempts, but
-                instead essentially do a binary search to find the problematic item(s).
-
-        Returns:
-            A list containing two new ItemsRequest instances, each with half of the original items.
-
-        """
-        mid = len(self.items) // 2
-        if mid == 0:
-            return [self]
-        tracker = self.tracker or ItemsRequestTracker(self.max_failures_before_abort)
-        tracker.register_failure()
-        first_half = UploadItemsRequest[T_WriteCogniteResource](
-            endpoint_url=self.endpoint_url,
-            method=self.method,
-            items=self.items[:mid],
-            extra_body_fields=self.extra_body_fields,
-            as_id=self.as_id,
-            connect_attempt=self.connect_attempt,
-            read_attempt=self.read_attempt,
-            status_attempt=status_attempts,
-        )
-        first_half.tracker = tracker
-        second_half = UploadItemsRequest[T_WriteCogniteResource](
-            endpoint_url=self.endpoint_url,
-            method=self.method,
-            items=self.items[mid:],
-            extra_body_fields=self.extra_body_fields,
-            as_id=self.as_id,
-            connect_attempt=self.connect_attempt,
-            read_attempt=self.read_attempt,
-            status_attempt=status_attempts,
-        )
-        second_half.tracker = tracker
-        return [first_half, second_half]
+    def dump(self) -> JsonVal:
+        return self.item.dump(camel_case=True)
 
 
 class StorageIO(ABC, Generic[T_Selector, T_CogniteResource]):
@@ -209,7 +151,7 @@ class UploadableStorageIO(
 
     def upload_items(
         self,
-        data_chunk: list[UploadItem[T_WriteCogniteResource]],
+        data_chunk: Sequence[UploadItem[T_WriteCogniteResource]],
         http_client: HTTPClient,
         selector: T_Selector | None = None,
     ) -> Sequence[HTTPMessage]:
@@ -230,11 +172,12 @@ class UploadableStorageIO(
 
         config = http_client.config
         return http_client.request_with_retries(
-            message=UploadItemsRequest(
+            message=ItemsRequest(
                 endpoint_url=config.create_api_url(self.UPLOAD_ENDPOINT),
                 method="POST",
                 items=data_chunk,
                 extra_body_fields=dict(self.UPLOAD_EXTRA_ARGS or {}),
+                as_id=UploadItem.as_id,
             )
         )
 

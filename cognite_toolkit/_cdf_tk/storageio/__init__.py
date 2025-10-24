@@ -14,7 +14,6 @@ from ._base import (
     TableStorageIO,
     UploadableStorageIO,
     UploadItem,
-    UploadItemsRequest,
 )
 from ._data_classes import InstanceIdCSVList, InstanceIdRow, ModelList
 from ._instances import InstanceIO
@@ -64,7 +63,6 @@ __all__ = [
     "TableStorageIO",
     "TimeSeriesIO",
     "UploadItem",
-    "UploadItemsRequest",
     "UploadableStorageIO",
     "are_same_kind",
     "get_upload_io",

@@ -26,13 +26,12 @@ from cognite_toolkit._cdf_tk.storageio import (
     Page,
     UploadableStorageIO,
     UploadItem,
-    UploadItemsRequest,
 )
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     DataSelector,
 )
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, SuccessItem
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest, SuccessItem
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal, T_WritableCogniteResourceList
 
 from .data_classes import MigrationMapping, MigrationMappingList
@@ -168,7 +167,7 @@ class FileMetaAdapter(AssetCentricMigrationIOAdapter):
 
     def upload_items(
         self,
-        data_chunk: list[UploadItem[InstanceApply]],
+        data_chunk: Sequence[UploadItem[InstanceApply]],
         http_client: HTTPClient,
         selector: MigrationSelector | None = None,
     ) -> Sequence[HTTPMessage]:
@@ -177,7 +176,7 @@ class FileMetaAdapter(AssetCentricMigrationIOAdapter):
         successful_linked: set[int] = set()
         for batch in chunker_sequence(data_chunk, self.CHUNK_SIZE):
             batch_results = http_client.request_with_retries(
-                message=UploadItemsRequest(
+                message=ItemsRequest(
                     endpoint_url=config.create_api_url("files/set-pending-instance-ids"),
                     method="POST",
                     api_version="alpha",
@@ -186,6 +185,7 @@ class FileMetaAdapter(AssetCentricMigrationIOAdapter):
                         for item in batch
                     ],
                     extra_body_fields=dict(self.UPLOAD_EXTRA_ARGS or {}),
+                    as_id=UploadItem.as_id,
                 )
             )
             for res in batch_results:

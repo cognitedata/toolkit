@@ -292,7 +292,7 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
 
     def upload_items(
         self,
-        data_chunk: list[UploadItem[FileMetadataWrite]],
+        data_chunk: Sequence[UploadItem[FileMetadataWrite]],
         http_client: HTTPClient,
         selector: AssetCentricSelector | None = None,
     ) -> Sequence[HTTPMessage]:
