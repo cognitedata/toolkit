@@ -245,6 +245,7 @@ def tmp_org_directory() -> Iterator[Path]:
 
 def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
     with tmp_org_directory() as organization_dir, tmp_build_directory() as build_dir:
+        # todo check temp path
         ModulesCommand().init(organization_dir, select_all=True, clean=True)
         cdf_toml = CDFToml.load(REPO_ROOT)
         config = BuildConfigYAML.load_from_directory(organization_dir, "dev")
@@ -260,6 +261,9 @@ def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
             clean=True,
             verbose=False,
         )
+        # Collect all test parameters first to sort them for deterministic ordering
+        # This ensures consistent test collection across pytest-xdist workers
+        test_params = []
         for module in built_modules:
             for resource_folder, resources in module.resources.items():
                 for resource in resources:
@@ -273,10 +277,16 @@ def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
                         raw = yaml.CSafeLoader(filepath.read_text()).get_data()
 
                         if isinstance(raw, dict):
-                            yield pytest.param(loader, raw, id=f"{module.name} - {filepath.stem} - dict")
+                            test_params.append(pytest.param(loader, raw, id=f"{module.name} - {filepath.stem} - dict"))
                         elif isinstance(raw, list):
                             for no, item in enumerate(raw):
-                                yield pytest.param(loader, item, id=f"{module.name} - {filepath.stem} - list {no}")
+                                test_params.append(
+                                    pytest.param(loader, item, id=f"{module.name} - {filepath.stem} - list {no}")
+                                )
+
+        # Sort by test ID to ensure deterministic order across workers
+        test_params.sort(key=lambda p: p.id if p.id else "")
+        yield from test_params
 
 
 def sensitive_strings_test_cases() -> Iterable[ParameterSet]:
