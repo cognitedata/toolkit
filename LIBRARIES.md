@@ -62,6 +62,7 @@ toolkit-version = ">=0.6.0" # Recommended version of the Toolkit required to use
 canCherryPick = true # Set to false if the user should not be able to pick individual modules in this package
 
 [packages.quickstart]
+id = "tk:quickstart"
 title = "Quickstart"
 description = "Get started with Cognite Data Fusion in minutes."
 canCherryPick = false
@@ -79,6 +80,7 @@ modules = [
 
 [packages.infield]
 title = "InField"
+id = "infield"
 description = "Put real-time data into the hands of every field worker."
 modules = [
     "infield/cdf_infield_location",
@@ -98,6 +100,8 @@ The **module.toml** file should contain the following information:
 [module]
 title = "OSIsoft/AVEVA PI Data Source" # Title displayed to the user
 is_selected_by_default = false # If true, the checkbox is selected by default
+id = "aveva"
+package_id = "quickstart"
 
 [dependencies]
 modules = [] # List of modules that this module depends on

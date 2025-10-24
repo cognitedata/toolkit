@@ -5,12 +5,13 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+import yaml
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client.data_classes.data_modeling import DataModelId, Space
 
 from cognite_toolkit._cdf_tk.commands.build_cmd import BuildCommand
 from cognite_toolkit._cdf_tk.cruds import TransformationCRUD
-from cognite_toolkit._cdf_tk.data_classes import BuildVariables, Environment
+from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, BuildVariables, Environment, Packages
 from cognite_toolkit._cdf_tk.data_classes._module_directories import ModuleDirectories
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMissingModuleError,
@@ -185,6 +186,31 @@ externalId: some_external_id
             )
         )
         assert cmd._additional_tracking_info == {
-            "packageId": ["rmdm"],
+            "packageIds": ["rmdm"],
             "moduleIds": ["agent", "data_model"],
         }
+
+    def test_track_module_build_with_package_info(self, tmp_path: Path) -> None:
+        cmd = BuildCommand(print_warning=True, skip_tracking=True)
+        cmd.build_config(
+            build_dir=tmp_path,
+            organization_dir=data.EXTERNAL_PACKAGE,
+            config=BuildConfigYAML(
+                filepath=Path("config.dev.yaml"),
+                environment=Environment(
+                    name="dev", project="my_project", validation_type="dev", selected=["external_module_1"]
+                ),
+            ),
+            packages=Packages.load(data.EXTERNAL_PACKAGE),
+            clean=False,
+            verbose=False,
+            client=None,
+            progress_bar=False,
+            on_error="continue",
+        )
+
+        with open(tmp_path / "_build_environment.yaml") as file:
+            _build_file = yaml.safe_load(file)
+        assert _build_file is not None
+        assert _build_file["read_modules"][0]["package_id"] == "rmdm"
+        assert _build_file["read_modules"][0]["module_id"] == "data_model"

@@ -144,7 +144,9 @@ class BuildCommand(ToolkitCommand):
             config.environment.selected = parse_user_selected_modules(selected, organization_dir)
 
         # tracking which project the module is being built for to trace promotion
-        self._additional_tracking_info["project"] = config.environment.project
+        if client:
+            self._additional_tracking_info["project"] = client.config.project
+            self._additional_tracking_info["cluster"] = client.config.cdf_cluster
 
         directory_name = "current directory" if organization_dir == Path(".") else f"project '{organization_dir!s}'"
         root_modules = [
@@ -332,7 +334,7 @@ class BuildCommand(ToolkitCommand):
                 build.append(built_module)
 
                 if module.package_id:
-                    package_ids = self._additional_tracking_info.setdefault("packageId", [])
+                    package_ids = self._additional_tracking_info.setdefault("packageIds", [])
                     if module.package_id not in package_ids:
                         package_ids.append(module.package_id)
 
@@ -340,7 +342,6 @@ class BuildCommand(ToolkitCommand):
                     module_ids = self._additional_tracking_info.setdefault("moduleIds", [])
                     module_ids.append(module.module_id)
 
-                self.tracker.track_module_build(built_module)
         return build
 
     def _build_module_resources(
