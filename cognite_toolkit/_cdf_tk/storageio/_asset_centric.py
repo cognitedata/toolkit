@@ -52,13 +52,13 @@ from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, SimpleBodyRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, AssetCentric, JsonVal, T_WritableCogniteResourceList
 
-from ._base import StorageIOConfig, TableStorageIO
+from ._base import Page, StorageIOConfig, TableStorageIO
 from .selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 
 
 class BaseAssetCentricIO(
     Generic[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
-    TableStorageIO[int, AssetCentricSelector, T_CogniteResourceList, T_WritableCogniteResourceList],
+    TableStorageIO[AssetCentricSelector, T_WritableCogniteResource],
     ABC,
 ):
     RESOURCE_TYPE: ClassVar[AssetCentric]
@@ -101,9 +101,7 @@ class BaseAssetCentricIO(
             return self._aggregator.count(hierarchy=selector.hierarchy)
         return None
 
-    def data_to_json_chunk(
-        self, data_chunk: T_WritableCogniteResourceList, selector: AssetCentricSelector
-    ) -> list[dict[str, JsonVal]]:
+    def data_to_json_chunk(self, data_chunk: Sequence[T_WritableCogniteResource]) -> list[dict[str, JsonVal]]:
         return [self._loader.dump_resource(item) for item in data_chunk]
 
     def configurations(self, selector: AssetCentricSelector) -> Iterable[StorageIOConfig]:
@@ -212,7 +210,7 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
         ]
         return asset_schema + metadata_schema
 
-    def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[AssetList]:
+    def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[Page]:
         asset_subtree_external_ids, data_set_external_ids = self._get_hierarchy_dataset_pair(selector)
         for asset_list in self.client.assets(
             chunk_size=self.CHUNK_SIZE,
@@ -221,10 +219,10 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
             data_set_external_ids=data_set_external_ids,
         ):
             self._collect_dependencies(asset_list, selector)
-            yield asset_list
+            yield Page(worker_id="main", items=asset_list)
 
-    def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> AssetWriteList:
-        return AssetWriteList([self._loader.load_resource(item) for item in data_chunk])
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> AssetWrite:
+        return self._loader.load_resource(item_json)
 
     def retrieve(self, ids: Sequence[int]) -> AssetList:
         return self.client.assets.retrieve_multiple(ids)
@@ -281,7 +279,7 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
         ]
         return file_schema + metadata_schema
 
-    def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[FileMetadataList]:
+    def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[Page]:
         asset_subtree_external_ids, data_set_external_ids = self._get_hierarchy_dataset_pair(selector)
         for file_list in self.client.files(
             chunk_size=self.CHUNK_SIZE,
@@ -290,10 +288,13 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
             data_set_external_ids=data_set_external_ids,
         ):
             self._collect_dependencies(file_list, selector)
-            yield file_list
+            yield Page(worker_id="main", items=file_list)
 
     def upload_items(
-        self, data_chunk: FileMetadataWriteList, http_client: HTTPClient, selector: AssetCentricSelector | None = None
+        self,
+        data_chunk: Sequence[FileMetadataWrite],
+        http_client: HTTPClient,
+        selector: AssetCentricSelector | None = None,
     ) -> Sequence[HTTPMessage]:
         # The /files endpoint only supports creating one file at a time, so we override the default chunked
         # upload behavior to upload one by one.
@@ -313,8 +314,8 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
     def retrieve(self, ids: Sequence[int]) -> FileMetadataList:
         return self.client.files.retrieve_multiple(ids)
 
-    def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> FileMetadataWriteList:
-        return FileMetadataWriteList([self._loader.load_resource(item) for item in data_chunk])
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> FileMetadataWrite:
+        return self._loader.load_resource(item_json)
 
 
 class TimeSeriesIO(BaseAssetCentricIO[str, TimeSeriesWrite, TimeSeries, TimeSeriesWriteList, TimeSeriesList]):
@@ -340,7 +341,7 @@ class TimeSeriesIO(BaseAssetCentricIO[str, TimeSeriesWrite, TimeSeries, TimeSeri
     def retrieve(self, ids: Sequence[int]) -> TimeSeriesList:
         return self.client.time_series.retrieve_multiple(ids=ids)
 
-    def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[TimeSeriesList]:
+    def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[Page]:
         asset_subtree_external_ids, data_set_external_ids = self._get_hierarchy_dataset_pair(selector)
         for ts_list in self.client.time_series(
             chunk_size=self.CHUNK_SIZE,
@@ -349,10 +350,10 @@ class TimeSeriesIO(BaseAssetCentricIO[str, TimeSeriesWrite, TimeSeries, TimeSeri
             data_set_external_ids=data_set_external_ids,
         ):
             self._collect_dependencies(ts_list, selector)
-            yield ts_list
+            yield Page(worker_id="main", items=ts_list)
 
-    def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> TimeSeriesWriteList:
-        return self._loader.list_write_cls([self._loader.load_resource(item) for item in data_chunk])
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> TimeSeriesWrite:
+        return self._loader.load_resource(item_json)
 
     def get_schema(self, selector: AssetCentricSelector) -> list[SchemaColumn]:
         data_set_ids: list[int] = []
@@ -439,7 +440,7 @@ class EventIO(BaseAssetCentricIO[str, EventWrite, Event, EventWriteList, EventLi
         ]
         return event_schema + metadata_schema
 
-    def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[EventList]:
+    def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[Page]:
         asset_subtree_external_ids, data_set_external_ids = self._get_hierarchy_dataset_pair(selector)
         for event_list in self.client.events(
             chunk_size=self.CHUNK_SIZE,
@@ -448,10 +449,10 @@ class EventIO(BaseAssetCentricIO[str, EventWrite, Event, EventWriteList, EventLi
             data_set_external_ids=data_set_external_ids,
         ):
             self._collect_dependencies(event_list, selector)
-            yield event_list
+            yield Page(worker_id="main", items=event_list)
 
-    def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> EventWriteList:
-        return EventWriteList([self._loader.load_resource(item) for item in data_chunk])
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> EventWrite:
+        return self._loader.load_resource(item_json)
 
     def retrieve(self, ids: Sequence[int]) -> EventList:
         return self.client.events.retrieve_multiple(ids)

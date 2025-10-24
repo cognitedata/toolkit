@@ -1,4 +1,4 @@
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from types import MappingProxyType
 from typing import ClassVar
 
@@ -15,7 +15,7 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.utils._identifier import InstanceId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList, InstanceList
+from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceList
 from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, SpaceCRUD, ViewCRUD
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
@@ -23,11 +23,11 @@ from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from . import StorageIOConfig
-from ._base import ConfigurableStorageIO
+from ._base import ConfigurableStorageIO, Page
 from .selectors import InstanceFileSelector, InstanceSelector, InstanceSpaceSelector, InstanceViewSelector
 
 
-class InstanceIO(ConfigurableStorageIO[InstanceId, InstanceSelector, InstanceApplyList, InstanceList]):
+class InstanceIO(ConfigurableStorageIO[InstanceSelector, Node | Edge]):
     """This class provides functionality to interact with instances in Cognite Data Fusion (CDF).
 
     It is used to download, upload, and purge instances, as well as spaces,views, and containers related to instances.
@@ -63,7 +63,7 @@ class InstanceIO(ConfigurableStorageIO[InstanceId, InstanceSelector, InstanceApp
             return item.as_id()
         raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
 
-    def stream_data(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[InstanceList]:
+    def stream_data(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[Page]:
         if isinstance(selector, InstanceViewSelector | InstanceSpaceSelector):
             chunk = InstanceList([])
             total = 0
@@ -73,15 +73,21 @@ class InstanceIO(ConfigurableStorageIO[InstanceId, InstanceSelector, InstanceApp
                 total += 1
                 chunk.append(instance)
                 if len(chunk) >= self.CHUNK_SIZE:
-                    yield chunk
+                    yield Page(worker_id="main", items=chunk)
                     chunk = InstanceList([])
             if chunk:
-                yield chunk
+                yield Page(worker_id="main", items=chunk)
         elif isinstance(selector, InstanceFileSelector):
             for node_chunk in chunker_sequence(selector.node_ids, self.CHUNK_SIZE):
-                yield InstanceList(self.client.data_modeling.instances.retrieve(nodes=node_chunk).nodes)
+                yield Page(
+                    worker_id="main",
+                    items=InstanceList(self.client.data_modeling.instances.retrieve(nodes=node_chunk).nodes),
+                )
             for edge_chunk in chunker_sequence(selector.edge_ids, self.CHUNK_SIZE):
-                yield InstanceList(self.client.data_modeling.instances.retrieve(edges=edge_chunk).edges)
+                yield Page(
+                    worker_id="main",
+                    items=InstanceList(self.client.data_modeling.instances.retrieve(edges=edge_chunk).edges),
+                )
         else:
             raise NotImplementedError()
 
@@ -92,7 +98,7 @@ class InstanceIO(ConfigurableStorageIO[InstanceId, InstanceSelector, InstanceApp
                 instances_to_yield = instances_to_yield[:limit]
             yield from chunker_sequence(instances_to_yield, self.CHUNK_SIZE)
         else:
-            yield from ([instance.as_id() for instance in chunk] for chunk in self.stream_data(selector, limit))  # type: ignore[attr-defined]
+            yield from ([instance.as_id() for instance in chunk.items] for chunk in self.stream_data(selector, limit))  # type: ignore[attr-defined]
 
     def count(self, selector: InstanceSelector) -> int | None:
         if isinstance(selector, InstanceViewSelector) or (
@@ -120,21 +126,22 @@ class InstanceIO(ConfigurableStorageIO[InstanceId, InstanceSelector, InstanceApp
             return len(selector.instance_ids)
         raise NotImplementedError()
 
-    def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> InstanceApplyList:
+    def data_to_json_chunk(self, data_chunk: Sequence[Node | Edge]) -> list[dict[str, JsonVal]]:
+        return [instance.as_write().dump(camel_case=True) for instance in data_chunk]
+
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> NodeApply | EdgeApply:
         # There is a bug in the SDK where InstanceApply._load turns all keys to snake_case.
         # So we cannot use InstanceApplyList._load here.
-        output = InstanceApplyList([])
-        for item in data_chunk:
-            instance_type = item.get("instanceType")
-            if self._remove_existing_version and "existingVersion" in item:
-                del item["existingVersion"]
-            if instance_type == "node":
-                output.append(NodeApply._load(item, cognite_client=self.client))
-            elif instance_type == "edge":
-                output.append(EdgeApply._load(item, cognite_client=self.client))
-            else:
-                raise ValueError(f"Unknown instance type {instance_type!r}")
-        return output
+        instance_type = item_json.get("instanceType")
+        item_to_load = dict(item_json)
+        if self._remove_existing_version and "existingVersion" in item_to_load:
+            del item_to_load["existingVersion"]
+        if instance_type == "node":
+            return NodeApply._load(item_to_load, cognite_client=self.client)
+        elif instance_type == "edge":
+            return EdgeApply._load(item_to_load, cognite_client=self.client)
+        else:
+            raise ValueError(f"Unknown instance type {instance_type!r}")
 
     def configurations(self, selector: InstanceSelector) -> Iterable[StorageIOConfig]:
         if not isinstance(selector, InstanceViewSelector | InstanceSpaceSelector):
