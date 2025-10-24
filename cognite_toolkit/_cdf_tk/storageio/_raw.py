@@ -22,12 +22,8 @@ class RawIO(ConfigurableStorageIO[RawTableSelector, Row]):
     UPLOAD_ENDPOINT = "/raw/dbs/{dbName}/tables/{tableName}/rows"
     BASE_SELECTOR = RawTableSelector
 
-    def as_id(self, item: dict[str, JsonVal] | object) -> str:
-        if isinstance(item, RowWrite | Row) and item.key is not None:
-            return item.key
-        elif isinstance(item, dict) and "key" in item and isinstance(item["key"], str):
-            return item["key"]
-        raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
+    def as_id(self, item: Row) -> str:
+        return str(item.key)
 
     def count(self, selector: RawTableSelector) -> int | None:
         # Raw tables do not support aggregation queries, so we do not know the count

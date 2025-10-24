@@ -72,12 +72,6 @@ class BaseAssetCentricIO(
         self._downloaded_data_sets_by_selector: dict[AssetCentricSelector, set[int]] = defaultdict(set)
         self._downloaded_labels_by_selector: dict[AssetCentricSelector, set[str]] = defaultdict(set)
 
-    def as_id(self, item: dict[str, JsonVal] | object) -> int:
-        if isinstance(item, dict) and isinstance(item.get("id"), int):
-            # MyPy checked above.
-            return item["id"]  # type: ignore[return-value]
-        raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
-
     @abstractmethod
     def _get_loader(
         self,
@@ -157,6 +151,9 @@ class BaseAssetCentricIO(
             value=[loader.dump_resource(item) for item in items],  # type: ignore[arg-type]
         )
 
+    def _create_identifier(self, internal_id: int) -> str:
+        return f"INTERNAL_ID_project_{self.client.config.project}_{internal_id!s}"
+
 
 class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetList]):
     KIND = "Assets"
@@ -166,12 +163,8 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
     SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
     UPLOAD_ENDPOINT = "/assets"
 
-    def as_id(self, item: dict[str, JsonVal] | object) -> int:
-        if isinstance(item, Asset) and item.id is not None:
-            return item.id
-        elif isinstance(item, AssetWrite):
-            return hash(item.external_id)
-        return super().as_id(item)
+    def as_id(self, item: Asset) -> str:
+        return item.external_id if item.external_id is not None else self._create_identifier(item.id)
 
     def _get_loader(self) -> AssetCRUD:
         return AssetCRUD.create_loader(self.client)
@@ -236,10 +229,8 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
     SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     UPLOAD_ENDPOINT = "/files"
 
-    def as_id(self, item: dict[str, JsonVal] | object) -> int:
-        if isinstance(item, FileMetadata) and item.id is not None:
-            return item.id
-        return super().as_id(item)
+    def as_id(self, item: FileMetadata) -> str:
+        return item.external_id if item.external_id is not None else self._create_identifier(item.id)
 
     def _get_loader(self) -> FileMetadataCRUD:
         return FileMetadataCRUD.create_loader(self.client)
@@ -325,12 +316,8 @@ class TimeSeriesIO(BaseAssetCentricIO[str, TimeSeriesWrite, TimeSeries, TimeSeri
     SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     UPLOAD_ENDPOINT = "/timeseries"
 
-    def as_id(self, item: dict[str, JsonVal] | object) -> int:
-        if isinstance(item, TimeSeries) and item.id is not None:
-            return item.id
-        elif isinstance(item, TimeSeriesWrite):
-            return hash(item.external_id)
-        return super().as_id(item)
+    def as_id(self, item: TimeSeries) -> str:
+        return item.external_id if item.external_id is not None else self._create_identifier(item.id)
 
     def _get_loader(self) -> TimeSeriesCRUD:
         return TimeSeriesCRUD.create_loader(self.client)
@@ -395,12 +382,8 @@ class EventIO(BaseAssetCentricIO[str, EventWrite, Event, EventWriteList, EventLi
     SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     UPLOAD_ENDPOINT = "/events"
 
-    def as_id(self, item: dict[str, JsonVal] | object) -> int:
-        if isinstance(item, Event) and item.id is not None:
-            return item.id
-        elif isinstance(item, EventWrite):
-            return hash(item.external_id)
-        return super().as_id(item)
+    def as_id(self, item: Event) -> str:
+        return item.external_id if item.external_id is not None else self._create_identifier(item.id)
 
     def _get_loader(self) -> EventCRUD:
         return EventCRUD.create_loader(self.client)

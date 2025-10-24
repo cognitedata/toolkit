@@ -12,6 +12,7 @@ from cognite.client.data_classes.data_modeling import (
     SpaceList,
     ViewList,
 )
+from cognite.client.data_classes.data_modeling.instances import Instance, InstanceApply
 from cognite.client.utils._identifier import InstanceId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -23,11 +24,14 @@ from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from . import StorageIOConfig
-from ._base import ConfigurableStorageIO, Page
+from ._base import ConfigurableStorageIO, Page, UploadableStorageIO
 from .selectors import InstanceFileSelector, InstanceSelector, InstanceSpaceSelector, InstanceViewSelector
 
 
-class InstanceIO(ConfigurableStorageIO[InstanceSelector, Node | Edge]):
+class InstanceIO(
+    ConfigurableStorageIO[InstanceSelector, Instance],
+    UploadableStorageIO[InstanceSelector, Instance, InstanceApply],
+):
     """This class provides functionality to interact with instances in Cognite Data Fusion (CDF).
 
     It is used to download, upload, and purge instances, as well as spaces,views, and containers related to instances.
@@ -53,15 +57,8 @@ class InstanceIO(ConfigurableStorageIO[InstanceSelector, Node | Edge]):
         super().__init__(client)
         self._remove_existing_version = remove_existing_version
 
-    def as_id(self, item: dict[str, JsonVal] | object) -> InstanceId:
-        if isinstance(item, dict) and isinstance(item.get("space"), str) and isinstance(item.get("externalId"), str):
-            # MyPy checked above.
-            return InstanceId(space=item["space"], external_id=item["externalId"])  # type: ignore[arg-type]
-        if isinstance(item, InstanceId):
-            return item
-        elif isinstance(item, Node | Edge | NodeApply | EdgeApply):
-            return item.as_id()
-        raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
+    def as_id(self, item: Instance) -> str:
+        return f"{item.space}:{item.external_id}"
 
     def stream_data(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[Page]:
         if isinstance(selector, InstanceViewSelector | InstanceSpaceSelector):
@@ -98,7 +95,7 @@ class InstanceIO(ConfigurableStorageIO[InstanceSelector, Node | Edge]):
                 instances_to_yield = instances_to_yield[:limit]
             yield from chunker_sequence(instances_to_yield, self.CHUNK_SIZE)
         else:
-            yield from ([instance.as_id() for instance in chunk.items] for chunk in self.stream_data(selector, limit))  # type: ignore[attr-defined]
+            yield from ([instance.as_id() for instance in chunk.items] for chunk in self.stream_data(selector, limit))
 
     def count(self, selector: InstanceSelector) -> int | None:
         if isinstance(selector, InstanceViewSelector) or (
