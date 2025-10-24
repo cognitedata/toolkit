@@ -12,7 +12,17 @@ from cognite.client.data_classes import (
     UserProfileList,
 )
 from cognite.client.data_classes.aggregations import CountValue
-from cognite.client.data_classes.data_modeling import NodeList, Space, SpaceList, View, ViewId, ViewList
+from cognite.client.data_classes.data_modeling import (
+    ContainerId,
+    MappedProperty,
+    NodeList,
+    Space,
+    SpaceList,
+    Text,
+    View,
+    ViewId,
+    ViewList,
+)
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics, SpaceStatisticsList
 from cognite.client.data_classes.raw import Database, DatabaseList, Table, TableList
 from questionary import Choice
@@ -672,6 +682,43 @@ class TestDataModelingInteractiveSelect:
         else:
             assert isinstance(selected_view, View)
             assert selected_view.external_id == expected
+
+    def test_select_view_mapped_container(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        space = Space(space="space1", **self.DEFAULT_SPACE_ARGS)
+        default_view_args = dict(self.DEFAULT_VIEW_ARGS)
+        default_view_args["properties"] = {
+            "name": MappedProperty(
+                container=ContainerId(space="space1", external_id="container1"),
+                container_property_identifier="name",
+                type=Text(),
+                nullable=True,
+                immutable=False,
+                auto_increment=False,
+            )
+        }
+        views = [
+            View(space="space1", external_id="view1", version="1", **self.DEFAULT_VIEW_ARGS),
+            View(space="space1", external_id="view2", version="1", **default_view_args),
+        ]
+        space_stats = SpaceStatisticsList([SpaceStatistics(space.space, 0, 1, 0, 0, 0, 0, 0)])
+
+        def select_view(choices: list[Choice]) -> View:
+            assert len(choices) == 1, "Expected one view to be filtered out."
+            return choices[0].value
+
+        answers = [space, select_view]
+
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(DataModelingSelect.__module__, monkeypatch, answers),
+        ):
+            client.data_modeling.spaces.list.return_value = SpaceList([space])
+            client.data_modeling.statistics.spaces.list.return_value = space_stats
+            client.data_modeling.views.list.return_value = ViewList(views)
+            selector = DataModelingSelect(client, "test_operation")
+            selected_view = selector.select_view(mapped_container=ContainerId("space1", "container1"))
+
+        assert selected_view.external_id == "view2"
 
     def test_select_no_schema_space_found(self, monkeypatch) -> None:
         space = Space(space="space1", **self.DEFAULT_SPACE_ARGS)
