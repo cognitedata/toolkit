@@ -201,6 +201,7 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
     items: Sequence[JsonVal | RequestItem] = field(default_factory=list)
     extra_body_fields: dict[str, JsonVal] = field(default_factory=dict)
     as_id: Callable[[JsonVal | RequestItem], T_ID] | None = None
+    as_id_response: Callable[[JsonVal], T_ID] | None = None
     max_failures_before_abort: int = 50
     tracker: ItemsRequestTracker | None = field(default=None, init=False)
 
@@ -216,6 +217,9 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
         if self.as_id is not None:
             # We cannot serialize functions
             del output["as_id"]
+        if self.as_id_response is not None:
+            # We cannot serialize functions
+            del output["as_id_response"]
         if self.tracker is not None:
             # We cannot serialize the tracker
             del output["tracker"]
@@ -256,6 +260,7 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
             items=self.items[:mid],
             extra_body_fields=self.extra_body_fields,
             as_id=self.as_id,
+            as_id_response=self.as_id_response,
             connect_attempt=self.connect_attempt,
             read_attempt=self.read_attempt,
             status_attempt=status_attempts,
@@ -267,6 +272,7 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
             items=self.items[mid:],
             extra_body_fields=self.extra_body_fields,
             as_id=self.as_id,
+            as_id_response=self.as_id_response,
             connect_attempt=self.connect_attempt,
             read_attempt=self.read_attempt,
             status_attempt=status_attempts,
@@ -336,9 +342,12 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
         request_items_by_id: dict[T_ID, JsonVal],
     ) -> None:
         """Processes each item in the response body and categorizes them based on their status."""
+        as_id_function = self.as_id_response or self.as_id
+        if as_id_function is None:
+            raise ValueError("as_id or as_id_response function must be provided to process response items")
         for response_item in response_body["items"]:  # type: ignore[union-attr]
             try:
-                item_id = self.as_id(response_item)  # type: ignore[misc]
+                item_id = as_id_function(response_item)
             except Exception as e:
                 responses.append(
                     UnknownResponseItem(

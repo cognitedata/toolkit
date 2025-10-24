@@ -68,6 +68,9 @@ class RawIO(
                 items=data_chunk,
                 extra_body_fields=dict(self.UPLOAD_EXTRA_ARGS or {}),
                 as_id=UploadItem.as_id,
+                as_id_response=lambda res: str(res.get("key", "<missing_key>"))
+                if isinstance(res, dict)
+                else "<invalid_response>",
             )
         )
 

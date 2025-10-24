@@ -178,8 +178,17 @@ class UploadableStorageIO(
                 items=data_chunk,
                 extra_body_fields=dict(self.UPLOAD_EXTRA_ARGS or {}),
                 as_id=UploadItem.as_id,
+                as_id_response=self._as_id_response,
             )
         )
+
+    @staticmethod
+    def _as_id_response(item: JsonVal) -> str:
+        if not isinstance(item, dict):
+            raise ValueError(f"Unexpected response item type: {type(item).__name__!r}")
+        space = item.get("space", "<missing_space>")
+        external_id = item.get("externalId", "<missing_externalId>")
+        return f"{space}:{external_id}"
 
     def json_chunk_to_data(
         self, data_chunk: list[tuple[str, dict[str, JsonVal]]]

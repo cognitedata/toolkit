@@ -165,6 +165,17 @@ class FileMetaAdapter(AssetCentricMigrationIOAdapter):
             id=id_,
         )
 
+    @staticmethod
+    def _as_id_response(item: JsonVal) -> str:
+        if not isinstance(item, dict):
+            raise ValueError(f"Unexpected response item type: {type(item).__name__!r}")
+        pending_id = item.get("pendingInstanceId", {})
+        if not isinstance(pending_id, dict):
+            pending_id = {}
+        space = pending_id.get("space", "<missing_space>")
+        external_id = pending_id.get("externalId", "<missing_externalId>")
+        return f"{space!s}:{external_id!s}"
+
     def upload_items(
         self,
         data_chunk: Sequence[UploadItem[InstanceApply]],
@@ -186,6 +197,7 @@ class FileMetaAdapter(AssetCentricMigrationIOAdapter):
                     ],
                     extra_body_fields=dict(self.UPLOAD_EXTRA_ARGS or {}),
                     as_id=UploadItem.as_id,
+                    as_id_response=self._as_id_response,
                 )
             )
             for res in batch_results:
