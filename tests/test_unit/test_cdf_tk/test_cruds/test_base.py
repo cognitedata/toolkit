@@ -1,4 +1,5 @@
 import os
+import random
 import shutil
 import tempfile
 from collections import Counter, defaultdict
@@ -251,7 +252,7 @@ def tmp_org_directory() -> Iterator[Path]:
 def _collect_cognite_module_test_params() -> list[ParameterSet]:
     """Cached collection of test parameters to ensure consistency within each worker."""
     with tmp_org_directory() as organization_dir, tmp_build_directory() as build_dir:
-        worker_id = os.environ.get("PYTEST_XDIST_WORKER", "master")
+        worker_id = f"w{random.randint(10000, 99999)!s}"
         with ModulesCommand(temp_dir_suffix=worker_id) as cmd:
             cmd.init(organization_dir, select_all=True, clean=True)
             cdf_toml = CDFToml.load(REPO_ROOT)
