@@ -21,6 +21,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.migration import (
     InstanceSource,
     ResourceViewMapping,
     ResourceViewMappingApply,
+    SpaceSource,
 )
 from cognite_toolkit._cdf_tk.constants import COGNITE_MIGRATION_SPACE
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
@@ -209,8 +210,79 @@ class CreatedSourceSystemAPI:
         return self._instance_api.list(instance_type=CreatedSourceSystem, limit=limit)
 
 
+class SpaceSourceAPI:
+    def __init__(self, instance_api: ExtendedInstancesAPI) -> None:
+        self._instance_api = instance_api
+        self._RETRIEVE_LIMIT = 1000
+        self._view_id = SpaceSource.get_source()
+
+    def retrieve(
+        self,
+        data_set_id: int | Sequence[int] | None = None,
+        data_set_external_id: str | SequenceNotStr[str] | None = None,
+    ) -> SpaceSource | NodeList[SpaceSource] | None:
+        """Retrieve a space source by its space name."""
+        if data_set_id is not None:
+            return self._retrieve_by_data_set_id(data_set_id)
+        elif data_set_external_id is not None:
+            return self._retrieve_by_data_set_external_id(data_set_external_id)
+        else:
+            raise ValueError("One of data_set_id or data_set_external_id must be provided.")
+
+    def _retrieve_by_data_set_id(self, data_set_id: int | Sequence[int]) -> SpaceSource | NodeList[SpaceSource] | None:
+        data_set_ids = [data_set_id] if isinstance(data_set_id, int) else list(data_set_id)
+        results: NodeList[SpaceSource] = NodeList[SpaceSource]([])
+        for chunk in chunker_sequence(data_set_ids, self._RETRIEVE_LIMIT):
+            retrieve_query = query.Query(
+                with_={
+                    "spaceSource": query.NodeResultSetExpression(
+                        filter=filters.And(
+                            filters.HasData(views=[self._view_id]),
+                            filters.In(self._view_id.as_property_ref("dataSetId"), chunk),
+                        ),
+                        limit=len(chunk),
+                    ),
+                },
+                select={"spaceSource": query.Select([query.SourceSelector(self._view_id, ["*"])])},
+            )
+            chunk_response = self._instance_api.query(retrieve_query)
+            items = chunk_response.get("spaceSource", [])
+            results.extend([SpaceSource._load(item.dump()) for item in items])
+        if isinstance(data_set_id, int):
+            return results[0] if results else None
+        return results
+
+    def _retrieve_by_data_set_external_id(
+        self, data_set_external_id: str | SequenceNotStr[str]
+    ) -> SpaceSource | NodeList[SpaceSource] | None:
+        data_set_external_ids = (
+            [data_set_external_id] if isinstance(data_set_external_id, str) else list(data_set_external_id)
+        )
+        results: NodeList[SpaceSource] = NodeList[SpaceSource]([])
+        for chunk in chunker_sequence(data_set_external_ids, self._RETRIEVE_LIMIT):
+            retrieve_query = query.Query(
+                with_={
+                    "spaceSource": query.NodeResultSetExpression(
+                        filter=filters.And(
+                            filters.HasData(views=[self._view_id]),
+                            filters.In(self._view_id.as_property_ref("classicExternalId"), chunk),
+                        ),
+                        limit=len(chunk),
+                    ),
+                },
+                select={"spaceSource": query.Select([query.SourceSelector(self._view_id, ["*"])])},
+            )
+            chunk_response = self._instance_api.query(retrieve_query)
+            items = chunk_response.get("spaceSource", [])
+            results.extend([SpaceSource._load(item.dump()) for item in items])
+        if isinstance(data_set_external_id, str):
+            return results[0] if results else None
+        return results
+
+
 class MigrationAPI:
     def __init__(self, instance_api: ExtendedInstancesAPI) -> None:
         self.instance_source = InstanceSourceAPI(instance_api)
         self.resource_view_mapping = ResourceViewMappingAPI(instance_api)
         self.created_source_system = CreatedSourceSystemAPI(instance_api)
+        self.space_source = SpaceSourceAPI(instance_api)
