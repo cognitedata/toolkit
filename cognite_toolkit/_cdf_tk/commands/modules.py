@@ -92,10 +92,18 @@ _FILE_DOWNLOADERS_BY_TYPE: dict[str, type[FileDownloader]] = {
 
 
 class ModulesCommand(ToolkitCommand):
-    def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False):
+    def __init__(
+        self,
+        print_warning: bool = True,
+        skip_tracking: bool = False,
+        silent: bool = False,
+        temp_dir_suffix: str | None = None,
+    ):
         super().__init__(print_warning, skip_tracking, silent)
         self._builtin_modules_path = Path(resources.files(cognite_toolkit.__name__)) / BUILTIN_MODULES  # type: ignore [arg-type]
-        self._temp_download_dir = Path(tempfile.gettempdir()) / MODULES
+        # Use suffix to make temp directory unique (useful for parallel test execution)
+        modules_dir_name = f"{MODULES}.{temp_dir_suffix}" if temp_dir_suffix else MODULES
+        self._temp_download_dir = Path(tempfile.gettempdir()) / modules_dir_name
         if not self._temp_download_dir.exists():
             self._temp_download_dir.mkdir(parents=True, exist_ok=True)
 

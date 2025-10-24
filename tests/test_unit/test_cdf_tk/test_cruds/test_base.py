@@ -245,7 +245,8 @@ def tmp_org_directory() -> Iterator[Path]:
 
 def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
     with tmp_org_directory() as organization_dir, tmp_build_directory() as build_dir:
-        ModulesCommand().init(organization_dir, select_all=True, clean=True)
+        worker_id = os.environ.get("PYTEST_XDIST_WORKER", "master")
+        ModulesCommand(temp_dir_suffix=worker_id).init(organization_dir, select_all=True, clean=True)
         cdf_toml = CDFToml.load(REPO_ROOT)
         config = BuildConfigYAML.load_from_directory(organization_dir, "dev")
         config.set_environment_variables()
