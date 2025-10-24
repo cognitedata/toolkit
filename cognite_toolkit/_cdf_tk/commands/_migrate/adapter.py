@@ -18,7 +18,7 @@ from cognite.client.data_classes._base import (
     WriteableCogniteResource,
     WriteableCogniteResourceList,
 )
-from cognite.client.data_classes.data_modeling import InstanceApply, NodeId
+from cognite.client.data_classes.data_modeling import InstanceApply, NodeId, ViewId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList
@@ -34,6 +34,7 @@ from cognite_toolkit._cdf_tk.storageio import (
 from cognite_toolkit._cdf_tk.storageio._base import Page, UploadItem
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     DataSelector,
+    DataSetSelector,
 )
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest, SuccessResponseItems
@@ -71,15 +72,17 @@ class MigrationCSVFileSelector(MigrationSelector):
 
 class MigrateDataSetSelector(MigrationSelector):
     type: Literal["migrateDataSet"] = "migrateDataSet"
+    kind: Literal["Assets", "Events", "TimeSeries", "FileMetadata"]
     data_set_external_id: str
-    resource_type: str
+    ingestion_view: str | None = None
+    preferred_consumer_view: ViewId | None = None
 
     @property
     def group(self) -> str:
         return f"DataSet_{self.data_set_external_id}"
 
     def __str__(self) -> str:
-        return self.resource_type
+        return self.kind
 
     def get_schema_spaces(self) -> list[str] | None:
         return None
@@ -143,8 +146,17 @@ class AssetCentricMigrationIOAdapter(
         return f"{item.mapping.resource_type}_{item.mapping.id}"
 
     def stream_data(self, selector: MigrationSelector, limit: int | None = None) -> Iterator[Page]:
-        if not isinstance(selector, MigrationCSVFileSelector):
+        if isinstance(selector, MigrationCSVFileSelector):
+            iterator = self._stream_from_csv(selector, limit)
+        elif isinstance(selector, MigrateDataSetSelector):
+            iterator = self._stream_given_dataset(selector, limit)
+        else:
             raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for stream_data")
+        yield from (Page(worker_id="main", items=items) for items in iterator)
+
+    def _stream_from_csv(
+        self, selector: MigrationCSVFileSelector, limit: int | None = None
+    ) -> Iterator[Sequence[AssetCentricMapping[T_WritableCogniteResource]]]:
         items = selector.items
         if limit is not None:
             items = MigrationMappingList(items[:limit])
@@ -154,46 +166,49 @@ class AssetCentricMigrationIOAdapter(
             for mapping, resource in zip(current_batch, resources, strict=True):
                 chunk.append(AssetCentricMapping(mapping=mapping, resource=resource))
             if chunk:
-                yield Page(worker_id="main", items=AssetCentricMappingList(chunk))
+                yield chunk
                 chunk = []
 
     def count(self, selector: MigrationSelector) -> int | None:
-        if not isinstance(selector, MigrationCSVFileSelector):
+        if isinstance(selector, MigrationCSVFileSelector):
+            return len(selector.items)
+        elif isinstance(selector, MigrateDataSetSelector):
+            asset_centric_selector = self._get_asset_centric_selector(selector)
+            return self.base.count(asset_centric_selector)
+        else:
             raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for count")
-        return len(selector.items)
 
-    def _stream_given_dataset(self, selector: MigrateDataSetSelector, limit: int | None = None) -> Iterator[AssetCentricMappingList]:
-        asset_centric_selector = DataSetSelector(
+    def _get_asset_centric_selector(self, selector: MigrateDataSetSelector) -> DataSetSelector:
+        return DataSetSelector(
             data_set_external_id=selector.data_set_external_id,
-            resource_type=selector.resource_type,
+            kind=selector.kind,
         )
+
+    def _stream_given_dataset(
+        self, selector: MigrateDataSetSelector, limit: int | None = None
+    ) -> Iterator[Sequence[AssetCentricMapping[T_WritableCogniteResource]]]:
+        asset_centric_selector = self._get_asset_centric_selector(selector)
         for data_chunk in self.base.stream_data(asset_centric_selector, limit):
-            mapping_chunk = MigrationMappingList(
-                [
-                    MigrationMapping(
-                        resource_type=selector.resource_type,
-                        instance_id=NodeId(
-                            self.prepare_instance_spaec(item.data_set_id),
-                            item=item.external_id,
-                        ),
-                        id=item.id,
-                        data_set_id=item.data_set_id,
-                        ingestion_view=item.ingestion_view,
-                        preferred_consumer_view=ViewId,
-                    )
-                    for item in data_chunk
-                ]
-            )
-            combined_chunk = AssetCentricMappingList(
-                [
+            mapping_list = AssetCentricMappingList[T_WritableCogniteResource]([])
+            for resource in data_chunk.items:
+                mapping = MigrationMapping(
+                    resource_type=selector.kind.lower(),
+                    instance_id=NodeId(
+                        space=self.client.lookup.data_sets.instance_space(selector.data_set_external_id),
+                        external_id=resource.external_id,
+                    ),
+                    id=resource.id,
+                    data_set_id=resource.data_set_id,
+                    ingestion_view=selector.ingestion_view,
+                    preferred_consumer_view=selector.preferred_consumer_view,
+                )
+                mapping_list.append(
                     AssetCentricMapping(
                         mapping=mapping,
                         resource=resource,
                     )
-                    for mapping, resource in zip(mapping_chunk, data_chunk, strict=True)
-                ]
-            )
-            yield combined_chunk
+                )
+            yield mapping_list
 
     def data_to_json_chunk(
         self, data_chunk: Sequence[AssetCentricMapping[T_WritableCogniteResource]]
