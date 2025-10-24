@@ -1,21 +1,19 @@
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.data_classes.canvas import (
     IndustrialCanvas,
     IndustrialCanvasApply,
-    IndustrialCanvasApplyList,
-    IndustrialCanvasList,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList, ChartWrite, ChartWriteList
+from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList, ChartWrite
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import UploadableStorageIO
+from ._base import Page, UploadableStorageIO
 from .selectors import AllChartsSelector, CanvasSelector, ChartOwnerSelector, ChartSelector
 
 
-class ChartIO(UploadableStorageIO[str, ChartSelector, ChartWriteList, ChartList]):
+class ChartIO(UploadableStorageIO[ChartSelector, Chart, ChartWrite]):
     KIND = "Charts"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
@@ -23,15 +21,10 @@ class ChartIO(UploadableStorageIO[str, ChartSelector, ChartWriteList, ChartList]
     CHUNK_SIZE = 10
     BASE_SELECTOR = ChartSelector
 
-    def as_id(self, item: dict[str, JsonVal] | object) -> str:
-        if isinstance(item, dict) and isinstance(item.get("externalId"), str):
-            # MyPy checked above.
-            return item["externalId"]  # type: ignore[return-value]
-        if isinstance(item, ChartWrite | Chart):
-            return item.external_id
-        raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
+    def as_id(self, item: Chart) -> str:
+        return item.external_id
 
-    def stream_data(self, selector: ChartSelector, limit: int | None = None) -> Iterable[ChartList]:
+    def stream_data(self, selector: ChartSelector, limit: int | None = None) -> Iterable[Page]:
         selected_charts = self.client.charts.list(visibility="PUBLIC")
         if isinstance(selector, AllChartsSelector):
             ...
@@ -60,20 +53,20 @@ class ChartIO(UploadableStorageIO[str, ChartSelector, ChartWriteList, ChartList]
                     for ts_ref in chart.data.time_series_collection or []:
                         if ts_ref.ts_id in id_to_external_id:
                             ts_ref.ts_external_id = id_to_external_id[ts_ref.ts_id]
-            yield chunk
+            yield Page(worker_id="main", items=chunk)
 
     def count(self, selector: ChartSelector) -> int | None:
         # There is no way to get the count of charts up front.
         return None
 
-    def data_to_json_chunk(self, data_chunk: ChartList, selector: ChartSelector) -> list[dict[str, JsonVal]]:
+    def data_to_json_chunk(self, data_chunk: Sequence[Chart]) -> list[dict[str, JsonVal]]:
         return [chart.as_write().dump() for chart in data_chunk]
 
-    def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> ChartWriteList:
-        return ChartWriteList._load(data_chunk)
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> ChartWrite:
+        return ChartWrite._load(item_json)
 
 
-class CanvasIO(UploadableStorageIO[str, CanvasSelector, IndustrialCanvasApplyList, IndustrialCanvasList]):
+class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialCanvasApply]):
     KIND = "IndustrialCanvas"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
@@ -81,39 +74,19 @@ class CanvasIO(UploadableStorageIO[str, CanvasSelector, IndustrialCanvasApplyLis
     CHUNK_SIZE = 10
     BASE_SELECTOR = CanvasSelector
 
-    @staticmethod
-    def _get_id_from_dict(item: dict[str, JsonVal] | object) -> str | None:
-        if not isinstance(item, dict):
-            return None
-        if "canvas" not in item:
-            return None
-        canvas = item["canvas"]
-        if not isinstance(canvas, dict):
-            return None
-        external_id = canvas.get("externalId")
-        if not isinstance(external_id, str):
-            return None
-        return external_id
+    def as_id(self, item: IndustrialCanvas) -> str:
+        return item.as_id()
 
-    def as_id(self, item: dict[str, JsonVal] | object) -> str:
-        if canvas_id := self._get_id_from_dict(item):
-            return canvas_id
-        if isinstance(item, IndustrialCanvas | IndustrialCanvasApply):
-            return item.as_id()
-        raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
-
-    def stream_data(self, selector: CanvasSelector, limit: int | None = None) -> Iterable[IndustrialCanvasList]:
+    def stream_data(self, selector: CanvasSelector, limit: int | None = None) -> Iterable[Page]:
         raise ToolkitNotImplementedError("Streaming canvases is not implemented yet.")
 
     def count(self, selector: CanvasSelector) -> int | None:
         raise ToolkitNotImplementedError("Counting canvases is not implemented yet.")
 
-    def data_to_json_chunk(
-        self, data_chunk: IndustrialCanvasList, selector: CanvasSelector
-    ) -> list[dict[str, JsonVal]]:
+    def data_to_json_chunk(self, data_chunk: Sequence[IndustrialCanvas]) -> list[dict[str, JsonVal]]:
         # Need to do lookup to get external IDs for all asset-centric resources.
         raise ToolkitNotImplementedError("Exporting canvases is not implemented yet.")
 
-    def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> IndustrialCanvasApplyList:
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> IndustrialCanvasApply:
         # Need to do lookup to get external IDs for all asset-centric resources.
         raise ToolkitNotImplementedError("Importing canvases is not implemented yet.")
