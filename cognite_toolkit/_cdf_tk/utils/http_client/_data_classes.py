@@ -9,7 +9,7 @@ from cognite.client.utils import _json
 
 from cognite_toolkit._cdf_tk.utils.http_client._exception import ToolkitAPIError
 from cognite_toolkit._cdf_tk.utils.http_client._tracker import ItemsRequestTracker
-from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal, PrimitiveType
+from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal, PrimitiveType, T_ID
 
 StatusCode: TypeAlias = int
 
@@ -45,6 +45,8 @@ class ErrorDetails:
     def from_response(cls, response: httpx.Response) -> "ErrorDetails":
         try:
             error_data = response.json()["error"]
+            if not isinstance(error_data, dict):
+                return cls(code=response.status_code, message=str(error_data))
             return cls(
                 code=error_data["code"],
                 message=error_data["message"],
@@ -151,39 +153,35 @@ class SimpleBodyRequest(SimpleRequest, BodyRequest):
         return _dump_body(self.body_content)
 
 
-T_COVARIANT_ID = TypeVar("T_COVARIANT_ID", bound=Hashable, covariant=True)
 
 
 @dataclass
 class ItemMessage(Generic[T_COVARIANT_ID], ABC):
     """Base class for message related to a specific item identified by an ID"""
 
-    ids: list[T_COVARIANT_ID] = field(default_factory=list)
+    ids: list[T_ID] = field(default_factory=list)
 
 
 @dataclass
-class SuccessResponseItems(ItemMessage[T_COVARIANT_ID], SuccessResponse): ...
+class SuccessResponseItems(ItemMessage[T_ID], SuccessResponse): ...
 
 
 @dataclass
-class FailedResponseItems(ItemMessage[T_COVARIANT_ID], FailedResponse): ...
+class FailedResponseItems(ItemMessage[T_ID], FailedResponse): ...
 
 
 @dataclass
-class FailedRequestItems(ItemMessage[T_COVARIANT_ID], FailedRequestMessage): ...
+class FailedRequestItems(ItemMessage[T_ID], FailedRequestMessage): ...
 
 
-class RequestItem(Generic[T_COVARIANT_ID], Protocol):
+class RequestItem(Generic[T_ID], Protocol):
     def dump(self) -> JsonVal: ...
 
-    def as_id(self) -> T_COVARIANT_ID: ...
-
-
-T_RequestItem = TypeVar("T_RequestItem", bound=RequestItem)
+    def as_id(self) -> T_ID: ...
 
 
 @dataclass
-class ItemsRequest(Generic[T_COVARIANT_ID, T_RequestItem], BodyRequest):
+class ItemsRequest(Generic[T_ID], BodyRequest):
     """Requests message for endpoints that accept multiple items in a single request.
 
     This class provides functionality to split large requests into smaller ones, handle responses for each item,
@@ -196,7 +194,7 @@ class ItemsRequest(Generic[T_COVARIANT_ID, T_RequestItem], BodyRequest):
 
     """
 
-    items: list[T_RequestItem] = field(default_factory=list)
+    items: list[RequestItem[T_ID]] = field(default_factory=list)
     extra_body_fields: dict[str, JsonVal] = field(default_factory=dict)
     max_failures_before_abort: int = 50
     tracker: ItemsRequestTracker | None = field(default=None, init=False)

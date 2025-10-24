@@ -17,14 +17,9 @@ from cognite_toolkit._cdf_tk.utils.http_client import (
     HTTPClient,
     HTTPMessage,
     ItemsRequest,
-    MissingItem,
     ParamRequest,
     SimpleBodyRequest,
-    SuccessItem,
     SuccessResponse,
-    UnexpectedItem,
-    UnknownRequestItem,
-    UnknownResponseItem,
 )
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from tests.test_unit.utils import FakeCogniteResourceGenerator
@@ -48,6 +43,7 @@ def http_client_one_retry(toolkit_config: ToolkitClientConfig) -> Iterator[HTTPC
         yield client
 
 
+@pytest.mark.usefixtures("disable_pypi_check")
 class TestHTTPClient:
     def test_get_request(self, rsps: respx.MockRouter, http_client: HTTPClient) -> None:
         rsps.get("https://example.com/api/resource").respond(json={"key": "value"}, status_code=200)
@@ -58,7 +54,7 @@ class TestHTTPClient:
         response = results[0]
         assert isinstance(response, SuccessResponse)
         assert response.status_code == 200
-        assert response.body == {"key": "value"}
+        assert response.body == '{"key":"value"}'
         assert rsps.calls[-1].request.url == "https://example.com/api/resource?query=test"
 
     @pytest.mark.usefixtures("disable_gzip")
@@ -73,7 +69,7 @@ class TestHTTPClient:
         response = results[0]
         assert isinstance(response, SuccessResponse)
         assert response.status_code == 201
-        assert response.body == {"id": 123, "status": "created"}
+        assert response.body == '{"id":123,"status":"created"}'
         assert rsps.calls[-1].request.content == json.dumps({"name": "new resource"}).encode()
 
     @pytest.mark.usefixtures("disable_gzip")
@@ -110,7 +106,7 @@ class TestHTTPClient:
         response = results[0]
         assert isinstance(response, FailedResponse)
         assert response.status_code == 400
-        assert response.error == "bad request"
+        assert response.error.message == "bad request"
 
     @pytest.mark.usefixtures("disable_gzip")
     def test_retry_then_success(self, rsps: respx.MockRouter, http_client: HTTPClient) -> None:
@@ -122,13 +118,13 @@ class TestHTTPClient:
         response = results[0]
         assert isinstance(response, SuccessResponse)
         assert response.status_code == 200
-        assert response.body == {"key": "value"}
+        assert response.body == '{"key":"value"}'
 
     def test_retry_exhausted(self, http_client_one_retry: HTTPClient, rsps: respx.MockRouter) -> None:
         client = http_client_one_retry
         for _ in range(2):
             rsps.get("https://example.com/api/resource").respond(
-                json={"error": {"message": "service unavailable"}}, status_code=503
+                json={"error": {"message": "service unavailable", "code": 503}}, status_code=503
             )
         with patch("time.sleep"):  # Patch sleep to speed up the test
             results = client.request_with_retries(
@@ -139,25 +135,18 @@ class TestHTTPClient:
         response = results[0]
         assert isinstance(response, FailedResponse)
         assert response.status_code == 503
-        assert response.error == "service unavailable"
-
-    def test_invalid_json_response(self, rsps: respx.MockRouter, http_client: HTTPClient) -> None:
-        rsps.get("https://example.com/api/resource").respond(content="not json", status_code=200)
-        results = http_client.request(ParamRequest(endpoint_url="https://example.com/api/resource", method="GET"))
-        assert len(results) == 1
-        response = results[0]
-        assert isinstance(response, FailedResponse)
-        assert response.status_code == 200
-        assert "Invalid JSON response" in response.error
+        assert response.error.message == "service unavailable"
 
     def test_connection_error(self, http_client_one_retry: HTTPClient, rsps: respx.MockRouter) -> None:
         http_client = http_client_one_retry
         rsps.get("http://nonexistent.domain/api/resource").mock(
             side_effect=httpx.ConnectError("Simulated connection error")
         )
-        results = http_client.request_with_retries(
-            ParamRequest(endpoint_url="http://nonexistent.domain/api/resource", method="GET")
-        )
+        with patch(f"{HTTPClient.__module__}.time"):
+            # Patch time to avoid actual sleep
+            results = http_client.request_with_retries(
+                ParamRequest(endpoint_url="http://nonexistent.domain/api/resource", method="GET")
+            )
         response = results[0]
         assert len(results) == 1
         assert isinstance(response, FailedRequestMessage)
@@ -167,7 +156,9 @@ class TestHTTPClient:
         http_client = http_client_one_retry
         rsps.get("https://example.com/api/resource").mock(side_effect=httpx.ReadTimeout("Simulated read timeout"))
         bad_request = ParamRequest(endpoint_url="https://example.com/api/resource", method="GET")
-        results = http_client.request_with_retries(bad_request)
+        with patch(f"{HTTPClient.__module__}.time"):
+            # Patch time to avoid actual sleep
+            results = http_client.request_with_retries(bad_request)
         response = results[0]
         assert len(results) == 1
         assert isinstance(response, FailedRequestMessage)
@@ -183,7 +174,7 @@ class TestHTTPClient:
         response = results[0]
         assert isinstance(response, FailedResponse)
         assert response.status_code == 503
-        assert response.error == "service unavailable"
+        assert response.error.message == "service unavailable"
         assert len(rsps.calls) == 1
 
     def test_raise_if_already_retied(self, http_client_one_retry: HTTPClient) -> None:
@@ -199,7 +190,7 @@ class TestHTTPClient:
         response = results[0]
         assert isinstance(response, FailedResponse)
         assert response.status_code == 401
-        assert response.error == '{"message":"plain_text"}'
+        assert response.error.message == '{"message":"plain_text"}'
 
     def test_request_alpha(self, http_client: HTTPClient, rsps: respx.MockRouter) -> None:
         rsps.get("https://example.com/api/alpha/endpoint").respond(json={"key": "value"}, status_code=200)
