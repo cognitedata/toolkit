@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
 from cognite_toolkit._cdf_tk.utils.fileio import FileReader
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ItemIDMessage, SuccessItem
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ItemMessage, SuccessResponseItems
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.progress_tracker import ProgressTracker
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal, T_WritableCogniteResourceList
@@ -245,9 +245,11 @@ class UploadCommand(ToolkitCommand):
             return
         results = io.upload_items(data_chunk, upload_client, selector)
         for item in results:
-            if isinstance(item, SuccessItem):
-                tracker.set_progress(item.id, step=cls._UPLOAD, status="success")
-            elif isinstance(item, ItemIDMessage):
-                tracker.set_progress(item.id, step=cls._UPLOAD, status="failed")
+            if isinstance(item, SuccessResponseItems):
+                for id_ in item.ids:
+                    tracker.set_progress(id_, step=cls._UPLOAD, status="success")
+            elif isinstance(item, ItemMessage):
+                for id_ in item.ids:
+                    tracker.set_progress(id_, step=cls._UPLOAD, status="failed")
             else:
                 console.log(f"[red]Unexpected result from upload: {str(item)!r}[/red]")

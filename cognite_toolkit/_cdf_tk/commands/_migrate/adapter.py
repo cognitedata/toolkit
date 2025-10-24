@@ -41,7 +41,7 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     DataSelector,
 )
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest, SuccessItem
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest
 from cognite_toolkit._cdf_tk.utils.thread_safe_dict import ThreadSafeDict
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 

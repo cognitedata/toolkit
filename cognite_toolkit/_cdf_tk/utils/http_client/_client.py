@@ -8,7 +8,6 @@ from typing import Literal
 
 import httpx
 from cognite.client import global_config
-from cognite.client.utils import _json
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
@@ -23,7 +22,6 @@ from cognite_toolkit._cdf_tk.utils.http_client._data_classes import (
     ResponseList,
     ResponseMessage,
 )
-from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -162,28 +160,6 @@ class HTTPClient:
             headers["Content-Encoding"] = "gzip"
         return headers
 
-    @staticmethod
-    def _prepare_payload(item: BodyRequest) -> str | bytes:
-        """
-        Prepare the payload for the HTTP request.
-        This method should be overridden in subclasses to customize the payload format.
-        """
-        data: str | bytes
-        try:
-            data = _json.dumps(item.body(), allow_nan=False)
-        except ValueError as e:
-            # A lot of work to give a more human friendly error message when nans and infs are present:
-            msg = "Out of range float values are not JSON compliant"
-            if msg in str(e):  # exc. might e.g. contain an extra ": nan", depending on build (_json.make_encoder)
-                raise ValueError(f"{msg}. Make sure your data does not contain NaN(s) or +/- Inf!").with_traceback(
-                    e.__traceback__
-                ) from None
-            raise
-
-        if not global_config.disable_gzip:
-            data = gzip.compress(data.encode())
-        return data
-
     def _make_request(self, item: RequestMessage) -> httpx.Response:
         headers = self._create_headers(item.api_version)
         params: dict[str, str] | None = None
@@ -191,7 +167,9 @@ class HTTPClient:
             params = item.parameters
         data: str | bytes | None = None
         if isinstance(item, BodyRequest):
-            data = self._prepare_payload(item)
+            data = item.data()
+            if not global_config.disable_gzip:
+                data = gzip.compress(data.encode("utf-8"))
         return self.session.request(
             method=item.method,
             url=item.endpoint_url,
@@ -205,14 +183,9 @@ class HTTPClient:
     def _handle_response(
         self, response: httpx.Response, request: RequestMessage, console: Console | None = None
     ) -> Sequence[HTTPMessage]:
-        try:
-            body = response.json()
-        except ValueError as e:
-            return request.create_responses(response, error_message=f"Invalid JSON response: {e!s}")
-
         if 200 <= response.status_code < 300:
-            return request.create_responses(response, body)
-        if (
+            return request.create_success_response(response)
+        elif (
             isinstance(request, ItemsRequest)
             and len(request.items) > 1
             and response.status_code in self._split_items_status_codes
@@ -224,7 +197,7 @@ class HTTPClient:
                 status_attempts += 1
             splits = request.split(status_attempts=status_attempts)
             if splits[0].tracker and splits[0].tracker.limit_reached():
-                return request.create_responses(response, body, self._get_error_message(body, response.text))
+                return request.create_failure_response(response)
             return splits
 
         retry_after = self._get_retry_after_in_header(response)
@@ -244,7 +217,7 @@ class HTTPClient:
             return [request]
         else:
             # Permanent failure
-            return request.create_responses(response, body, self._get_error_message(body, response.text))
+            return request.create_failure_response(response)
 
     @staticmethod
     def _get_retry_after_in_header(response: httpx.Response) -> float | None:
@@ -255,20 +228,6 @@ class HTTPClient:
         except ValueError:
             # Ignore invalid Retry-After header
             return None
-
-    @staticmethod
-    def _get_error_message(body: JsonVal, default: str) -> str:
-        error = default
-        if not isinstance(body, dict):
-            return error
-        if "error" not in body:
-            return error
-        error_nested = body["error"]
-        if isinstance(error_nested, str):
-            return error_nested
-        if isinstance(error_nested, dict) and "message" in error_nested and isinstance(error_nested["message"], str):
-            return error_nested["message"]
-        return error
 
     @staticmethod
     def _backoff_time(attempts: int) -> float:

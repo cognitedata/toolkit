@@ -10,10 +10,10 @@ import respx
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.http_client import (
-    FailedItem,
-    FailedRequestItem,
+    FailedRequestItems,
     FailedRequestMessage,
     FailedResponse,
+    FailedResponseItems,
     HTTPClient,
     HTTPMessage,
     ItemsRequest,
@@ -282,7 +282,7 @@ class TestHTTPClientItemRequests:
             SuccessItem(status_code=200, id="success", item={"externalId": "success", "data": 123}),
             UnexpectedItem(status_code=200, id="unexpected", item={"externalId": "unexpected", "data": 999}),
             MissingItem(status_code=200, id="missing"),
-            FailedItem(status_code=400, id="fail", error="Item failed"),
+            FailedResponseItems(status_code=400, id="fail", error="Item failed"),
         ]
         assert len(rsps.calls) == 5  # Three requests made
         first, second, third, fourth, fifth = rsps.calls
@@ -316,8 +316,8 @@ class TestHTTPClientItemRequests:
             )
         )
         assert results == [
-            FailedItem(status_code=401, id=1, error="Unauthorized"),
-            FailedItem(status_code=401, id=2, error="Unauthorized"),
+            FailedResponseItems(status_code=401, id=1, error="Unauthorized"),
+            FailedResponseItems(status_code=401, id=2, error="Unauthorized"),
         ]
 
         assert len(rsps.calls) == 1  # Only one request made
@@ -344,7 +344,7 @@ class TestHTTPClientItemRequests:
         )
         assert results == [
             UnknownRequestItem(error="Error extracting ID: 'externalId'", item={"id": 1}),
-            FailedRequestItem(id="duplicate", error="Duplicate item ID: 'duplicate'"),
+            FailedRequestItems(id="duplicate", error="Duplicate item ID: 'duplicate'"),
             SuccessItem(status_code=200, id="duplicate", item={"externalId": "duplicate", "data": 123}),
         ]
 
@@ -398,7 +398,7 @@ class TestHTTPClientItemRequests:
                 )
             )
         assert results == [
-            FailedRequestItem(id=1, error="RequestException after 1 attempts (read error): Simulated timeout error")
+            FailedRequestItems(id=1, error="RequestException after 1 attempts (read error): Simulated timeout error")
         ]
 
     @pytest.mark.usefixtures("disable_gzip")
@@ -423,8 +423,8 @@ class TestHTTPClientItemRequests:
         assert actual_items_per_request == [1000, 500, 500, 250, 250]  # Splits in half each time
         failures = Counter([type(results) for results in results])
         assert failures == {
-            FailedItem: 250,  # 250 items keeps the original error message.
-            FailedRequestItem: 750,  # 750 items get the early abort message.
+            FailedResponseItems: 250,  # 250 items keeps the original error message.
+            FailedRequestItems: 750,  # 750 items get the early abort message.
         }
 
     @pytest.mark.usefixtures("disable_gzip")
@@ -444,7 +444,7 @@ class TestHTTPClientItemRequests:
             )
         )
         actual_failure_types = Counter([type(results) for results in results])
-        assert actual_failure_types == {FailedItem: 1000}
+        assert actual_failure_types == {FailedResponseItems: 1000}
         assert len(rsps.calls) == 1
         actual_items_per_request = [len(json.loads(call.request.content)["items"]) for call in rsps.calls]
         assert actual_items_per_request == [1000]
@@ -466,7 +466,7 @@ class TestHTTPClientItemRequests:
             )
         )
         actual_failure_types = Counter([type(results) for results in results])
-        assert actual_failure_types == {FailedItem: 500, FailedRequestItem: 500}
+        assert actual_failure_types == {FailedResponseItems: 500, FailedRequestItems: 500}
         assert len(rsps.calls) == 2
         actual_items_per_request = [len(json.loads(call.request.content)["items"]) for call in rsps.calls]
         assert actual_items_per_request == [1000, 500]
@@ -488,7 +488,7 @@ class TestHTTPClientItemRequests:
             )
         )
         actual_failure_types = Counter([type(results) for results in results])
-        assert actual_failure_types == {FailedItem: 100}
+        assert actual_failure_types == {FailedResponseItems: 100}
         assert len(rsps.calls) == 199
 
     @pytest.mark.usefixtures("disable_gzip")
@@ -523,7 +523,7 @@ class TestHTTPClientItemRequests:
                 )
             )
         failures = Counter([type(results) for results in results])
-        assert failures == {FailedItem: 3, SuccessItem: 997}
+        assert failures == {FailedResponseItems: 3, SuccessItem: 997}
 
 
 class TestHTTPMessage:

@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyL
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
 from cognite_toolkit._cdf_tk.storageio import InstanceIO
 from cognite_toolkit._cdf_tk.storageio.selectors import InstanceSpaceSelector, InstanceViewSelector, SelectedView
-from cognite_toolkit._cdf_tk.utils.http_client import FailedItem, HTTPClient, SuccessItem
+from cognite_toolkit._cdf_tk.utils.http_client import FailedResponseItems, HTTPClient, SuccessItem
 
 
 class TestInstanceIO:
@@ -120,7 +120,7 @@ class TestInstanceIO:
                 results = io.upload_items(instances, http_client)
 
             assert len(results) == instance_count
-            failed_items = [res for res in results if isinstance(res, FailedItem)]
+            failed_items = [res for res in results if isinstance(res, FailedResponseItems)]
             assert len(failed_items) == instance_count // 2
             success_items = [res for res in results if isinstance(res, SuccessItem)]
             assert len(success_items) == instance_count // 2
