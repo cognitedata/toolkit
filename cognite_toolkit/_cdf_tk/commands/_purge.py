@@ -53,9 +53,11 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.http_client import (
+    FailedRequestItems,
+    FailedResponseItems,
     HTTPClient,
     ItemsRequest,
-    SuccessResponseItems, FailedResponseItems, FailedRequestItems,
+    SuccessResponseItems,
 )
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
@@ -69,6 +71,7 @@ class DeleteResults:
     deleted: int = 0
     failed: int = 0
 
+
 @dataclasses.dataclass
 class DeleteItem:
     item: JsonVal
@@ -79,8 +82,6 @@ class DeleteItem:
 
     def as_id(self) -> Hashable:
         return self.as_id_fun(self.item)
-
-
 
 
 class PurgeCommand(ToolkitCommand):
@@ -768,7 +769,8 @@ class PurgeCommand(ToolkitCommand):
             ItemsRequest(
                 delete_client.config.create_api_url("/models/instances/delete"),
                 method="POST",
-                items=[DeleteItem(item=item, as_id_fun=InstanceId.load) for item in items],
+                # MyPy does not understand that InstanceId.load handles dict[str, JsonVal]
+                items=[DeleteItem(item=item, as_id_fun=InstanceId.load) for item in items],  # type: ignore[arg-type]
             )
         )
         for response in responses:
