@@ -169,8 +169,10 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
     UPLOAD_ENDPOINT = "/assets"
 
     def as_id(self, item: dict[str, JsonVal] | object) -> int:
-        if isinstance(item, Asset | AssetWrite) and item.id is not None:  # type: ignore[union-attr]
-            return item.id  # type: ignore[union-attr]
+        if isinstance(item, Asset) and item.id is not None:
+            return item.id
+        elif isinstance(item, AssetWrite):
+            return hash(item.external_id)
         return super().as_id(item)
 
     def _get_loader(self) -> AssetCRUD:
@@ -325,6 +327,8 @@ class TimeSeriesIO(BaseAssetCentricIO[str, TimeSeriesWrite, TimeSeries, TimeSeri
     def as_id(self, item: dict[str, JsonVal] | object) -> int:
         if isinstance(item, TimeSeries) and item.id is not None:
             return item.id
+        elif isinstance(item, TimeSeriesWrite):
+            return hash(item.external_id)
         return super().as_id(item)
 
     def _get_loader(self) -> TimeSeriesCRUD:
@@ -393,6 +397,8 @@ class EventIO(BaseAssetCentricIO[str, EventWrite, Event, EventWriteList, EventLi
     def as_id(self, item: dict[str, JsonVal] | object) -> int:
         if isinstance(item, Event) and item.id is not None:
             return item.id
+        elif isinstance(item, EventWrite):
+            return hash(item.external_id)
         return super().as_id(item)
 
     def _get_loader(self) -> EventCRUD:
