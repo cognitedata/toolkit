@@ -1,8 +1,10 @@
+import os
 import shutil
 import tempfile
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
+from functools import lru_cache
 from pathlib import Path
 from typing import cast
 from unittest.mock import MagicMock
@@ -236,14 +238,18 @@ def test_resource_types_is_up_to_date() -> None:
 
 @contextmanager
 def tmp_org_directory() -> Iterator[Path]:
-    org_dir = Path(tempfile.mkdtemp(prefix="orgdir.", suffix=".tmp", dir=Path.cwd()))
+    # Include worker ID to ensure each pytest-xdist worker has its own temp directory
+    worker_id = os.environ.get("PYTEST_XDIST_WORKER", "master")
+    org_dir = Path(tempfile.mkdtemp(prefix=f"orgdir.{worker_id}.", suffix=".tmp", dir=Path.cwd()))
     try:
         yield org_dir
     finally:
         shutil.rmtree(org_dir)
 
 
-def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
+@lru_cache(maxsize=1)
+def _collect_cognite_module_test_params() -> list[ParameterSet]:
+    """Cached collection of test parameters to ensure consistency within each worker."""
     with tmp_org_directory() as organization_dir, tmp_build_directory() as build_dir:
         worker_id = os.environ.get("PYTEST_XDIST_WORKER", "master")
         ModulesCommand(temp_dir_suffix=worker_id).init(organization_dir, select_all=True, clean=True)
@@ -261,9 +267,16 @@ def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
             clean=True,
             verbose=False,
         )
-        for module in built_modules:
-            for resource_folder, resources in module.resources.items():
-                for resource in resources:
+        # Collect all test parameters first to sort them for deterministic ordering
+        # This ensures consistent test collection across pytest-xdist workers
+        test_params = []
+        # Sort modules by name for deterministic iteration
+        for module in sorted(built_modules, key=lambda m: m.name):
+            # Sort resource folders for deterministic iteration
+            for resource_folder in sorted(module.resources.keys()):
+                resources = module.resources[resource_folder]
+                # Sort resources by destination path for deterministic iteration
+                for resource in sorted(resources, key=lambda r: str(r.destination) if r.destination else ""):
                     try:
                         loader = get_crud(resource_folder, resource.kind)
                     except ValueError:
@@ -274,10 +287,28 @@ def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
                         raw = yaml.CSafeLoader(filepath.read_text()).get_data()
 
                         if isinstance(raw, dict):
-                            yield pytest.param(loader, raw, id=f"{module.name} - {filepath.stem} - dict")
+                            test_params.append(pytest.param(loader, raw, id=f"{module.name} - {filepath.stem} - dict"))
                         elif isinstance(raw, list):
                             for no, item in enumerate(raw):
-                                yield pytest.param(loader, item, id=f"{module.name} - {filepath.stem} - list {no}")
+                                test_params.append(
+                                    pytest.param(loader, item, id=f"{module.name} - {filepath.stem} - list {no}")
+                                )
+
+        # Sort by test ID to ensure deterministic order across workers
+        test_params.sort(key=lambda p: p.id if p.id else "")
+
+        # Debug: Log test collection info for troubleshooting
+        worker_id = os.environ.get("PYTEST_XDIST_WORKER", "master")
+        print(f"\n[{worker_id}] Collected {len(test_params)} test parameters")
+        print(f"[{worker_id}] First 5 test IDs: {[p.id for p in test_params[:5]]}")
+        print(f"[{worker_id}] Last 5 test IDs: {[p.id for p in test_params[-5:]]}")
+
+        return test_params
+
+
+def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
+    """Generator that yields cached test parameters."""
+    yield from _collect_cognite_module_test_params()
 
 
 def sensitive_strings_test_cases() -> Iterable[ParameterSet]:
