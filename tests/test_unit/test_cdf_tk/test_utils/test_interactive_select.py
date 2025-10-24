@@ -30,6 +30,7 @@ from questionary import Choice
 from cognite_toolkit._cdf_tk.client.data_classes.canvas import CANVAS_INSTANCE_SPACE, Canvas
 from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList
 from cognite_toolkit._cdf_tk.client.data_classes.charts_data import ChartData
+from cognite_toolkit._cdf_tk.client.data_classes.migration import ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
@@ -43,6 +44,7 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
     InteractiveCanvasSelect,
     InteractiveChartSelect,
     RawTableInteractiveSelect,
+    ResourceViewMappingInteractiveSelect,
     TimeSeriesInteractiveSelect,
 )
 from tests.test_unit.utils import MockQuestionary
@@ -1014,3 +1016,43 @@ class TestDataModelingInteractiveSelect:
                 selector.select_instance_space()
 
             assert "No instances found in any space" in str(exc_info.value)
+
+
+class TestResourceViewMappingInteractiveSelect:
+    def test_interactive_select_resource_view_mapping(self, monkeypatch) -> None:
+        def select_resource_view_mapping(choices: list[Choice]) -> ResourceViewMapping:
+            assert len(choices) == 2
+            selection = choices[1].value
+            return selection
+
+        answers = [select_resource_view_mapping]
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(ResourceViewMappingInteractiveSelect.__module__, monkeypatch, answers),
+        ):
+            selector = ResourceViewMappingInteractiveSelect(client, "test_operation")
+            client.migration.resource_view_mapping.list.return_value = NodeList[ResourceViewMapping](
+                [
+                    ResourceViewMapping(
+                        external_id="mapping1",
+                        resource_type="asset",
+                        view_id=ViewId("space1", "view1", "1"),
+                        property_mapping={},
+                        last_updated_time=1,
+                        created_time=0,
+                        version=1,
+                    ),
+                    ResourceViewMapping(
+                        external_id="mapping2",
+                        resource_type="asset",
+                        view_id=ViewId("space2", "view2", "1"),
+                        property_mapping={},
+                        last_updated_time=1,
+                        created_time=0,
+                        version=1,
+                    ),
+                ]
+            )
+
+            result = selector.select_resource_view_mapping("asset")
+        assert result.external_id == "mapping2"
