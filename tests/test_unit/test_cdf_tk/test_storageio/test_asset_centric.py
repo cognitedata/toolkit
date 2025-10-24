@@ -86,7 +86,9 @@ class TestAssetIO:
             source = io.stream_data(selector)
             json_chunks: list[list[dict[str, JsonVal]]] = []
             for chunk in source:
-                json_chunk = io.data_to_json_chunk(chunk, selector)
+                json_chunk = io.data_to_json_chunk(
+                    chunk,
+                )
                 assert isinstance(json_chunk, list)
                 assert len(json_chunk) == 10
                 for item in json_chunk:

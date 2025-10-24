@@ -2,7 +2,7 @@ import pytest
 import responses
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList, ChartWriteList
+from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList
 from cognite_toolkit._cdf_tk.client.data_classes.charts_data import ChartData
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.storageio import ChartIO
@@ -86,19 +86,18 @@ class TestChartIO:
                 "Count should be None since CDF does not provide a way to get the count of charts up front."
             )
             charts_iterator = io.stream_data(selector=selector)
-            json_iterator = (io.data_to_json_chunk(chunk, selector) for chunk in charts_iterator)
-            chart_data = [io.json_chunk_to_data(chunk) for chunk in json_iterator]
+            json_iterator = (io.data_to_json_chunk(chunk.items) for chunk in charts_iterator)
+            chart_data = [io.json_chunk_to_data([("id", item) for item in chunk]) for chunk in json_iterator]
 
             assert len(chart_data) == 1
             chart_list = chart_data[0]
-            assert isinstance(chart_list, ChartWriteList)
             assert len(chart_list) == 2
             first = chart_list[0]
-            assert first.data.time_series_collection[0].ts_external_id == "ts_1"
-            assert first.data.time_series_collection[1].ts_external_id == "ts_2"
+            assert first.item.data.time_series_collection[0].ts_external_id == "ts_1"
+            assert first.item.data.time_series_collection[1].ts_external_id == "ts_2"
             second = chart_list[1]
-            assert second.data.time_series_collection[0].ts_external_id == "ts_4"
-            assert second.data.time_series_collection[1].ts_external_id == "ts_3"
+            assert second.item.data.time_series_collection[0].ts_external_id == "ts_4"
+            assert second.item.data.time_series_collection[1].ts_external_id == "ts_3"
 
     @pytest.mark.parametrize(
         "limit,selector,expected_external_ids",
@@ -134,5 +133,5 @@ class TestChartIO:
             chunks = list(io.stream_data(selector=selector, limit=limit))
             all_charts = ChartList([])
             for chunk in chunks:
-                all_charts.extend(chunk)
+                all_charts.extend(chunk.items)
             assert [chart.external_id for chart in all_charts] == expected_external_ids
