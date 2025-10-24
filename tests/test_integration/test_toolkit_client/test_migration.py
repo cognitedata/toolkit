@@ -7,7 +7,9 @@ from cognite_toolkit._cdf_tk.client.data_classes.migration import (
     InstanceSource,
     ResourceViewMapping,
     ResourceViewMappingApply,
+    SpaceSource,
 )
+from cognite_toolkit._cdf_tk.commands._migrate.data_model import SPACE
 from cognite_toolkit._cdf_tk.tk_warnings import IgnoredValueWarning, catch_warnings
 
 
@@ -131,3 +133,45 @@ class TestCreatedSourceSystemAPI:
         node = retrieved[0]
         assert node.external_id == created_source_system
         assert node.source == created_source_system
+
+
+@pytest.fixture(scope="session")
+def space_source(toolkit_client) -> SpaceSource:
+    node = NodeApply(
+        space=SPACE.space,
+        external_id="toolkit_test_space_source_instance",
+        sources=[
+            NodeOrEdgeData(
+                SpaceSource.get_source(),
+                {
+                    "instanceSpace": "the_instance_space",
+                    "dataSetId": 12345,
+                    "classicExternalId": "the_classic_data_set",
+                },
+            )
+        ],
+    )
+    if not toolkit_client.data_modeling.instances.retrieve_nodes([node.as_id()]):
+        _ = toolkit_client.data_modeling.instances.apply(node)
+    retrieved = toolkit_client.data_modeling.instances.retrieve_nodes([node.as_id()], node_cls=SpaceSource)
+    return retrieved[0]
+
+
+class TestSpaceSourceAPI:
+    def test_retrieve_data_set_id(self, space_source: SpaceSource, toolkit_client: ToolkitClient) -> None:
+        retrieved = toolkit_client.migration.space_source.retrieve(data_set_id=space_source.data_set_id)
+        assert retrieved is not None
+        assert retrieved.dump() == space_source.dump(), "Failed to retrieve space source by data set ID"
+
+    def test_retrieve_data_set_external_id(self, space_source: SpaceSource, toolkit_client: ToolkitClient) -> None:
+        retrieved = toolkit_client.migration.space_source.retrieve(
+            data_set_external_id=space_source.classic_external_id
+        )
+
+        assert retrieved is not None
+        assert retrieved.dump() == space_source.dump(), "Failed to retrieve space source by classic external ID"
+
+    @pytest.mark.usefixtures("space_source")
+    def test_list(self, toolkit_client: ToolkitClient) -> None:
+        listed = toolkit_client.migration.space_source.list(limit=1)
+        assert len(listed) == 1
