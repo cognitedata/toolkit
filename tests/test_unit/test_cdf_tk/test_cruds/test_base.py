@@ -252,21 +252,22 @@ def _collect_cognite_module_test_params() -> list[ParameterSet]:
     """Cached collection of test parameters to ensure consistency within each worker."""
     with tmp_org_directory() as organization_dir, tmp_build_directory() as build_dir:
         worker_id = os.environ.get("PYTEST_XDIST_WORKER", "master")
-        ModulesCommand(temp_dir_suffix=worker_id).init(organization_dir, select_all=True, clean=True)
-        cdf_toml = CDFToml.load(REPO_ROOT)
-        config = BuildConfigYAML.load_from_directory(organization_dir, "dev")
-        config.set_environment_variables()
-        # Use path syntax to select all modules in the source directory
-        config.environment.selected = [Path()]
+        with ModulesCommand(temp_dir_suffix=worker_id) as cmd:
+            cmd.init(organization_dir, select_all=True, clean=True)
+            cdf_toml = CDFToml.load(REPO_ROOT)
+            config = BuildConfigYAML.load_from_directory(organization_dir, "dev")
+            config.set_environment_variables()
+            # Use path syntax to select all modules in the source directory
+            config.environment.selected = [Path()]
 
-        built_modules = BuildCommand().build_config(
-            build_dir=build_dir,
-            organization_dir=organization_dir,
-            config=config,
-            packages=cdf_toml.modules.packages,
-            clean=True,
-            verbose=False,
-        )
+            built_modules = BuildCommand().build_config(
+                build_dir=build_dir,
+                organization_dir=organization_dir,
+                config=config,
+                packages=cdf_toml.modules.packages,
+                clean=True,
+                verbose=False,
+            )
         # Collect all test parameters first to sort them for deterministic ordering
         # This ensures consistent test collection across pytest-xdist workers
         test_params = []
