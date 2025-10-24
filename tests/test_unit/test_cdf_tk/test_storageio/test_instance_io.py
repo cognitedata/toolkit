@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyL
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
 from cognite_toolkit._cdf_tk.storageio import InstanceIO
 from cognite_toolkit._cdf_tk.storageio.selectors import InstanceSpaceSelector, InstanceViewSelector, SelectedView
-from cognite_toolkit._cdf_tk.utils.http_client import FailedResponseItems, HTTPClient, SuccessItem
+from cognite_toolkit._cdf_tk.utils.http_client import FailedResponseItems, HTTPClient, SuccessResponseItems
 
 
 class TestInstanceIO:
@@ -120,9 +120,9 @@ class TestInstanceIO:
                 results = io.upload_items(instances, http_client)
 
             assert len(results) == instance_count
-            failed_items = [res for res in results if isinstance(res, FailedResponseItems)]
+            failed_items = [id for res in results if isinstance(res, FailedResponseItems) for id in res.ids]
             assert len(failed_items) == instance_count // 2
-            success_items = [res for res in results if isinstance(res, SuccessItem)]
+            success_items = [id for res in results if isinstance(res, SuccessResponseItems) for id in res.ids]
             assert len(success_items) == instance_count // 2
 
     @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
