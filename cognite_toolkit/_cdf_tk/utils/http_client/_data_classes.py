@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from collections import UserList
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from typing import Generic, Literal, TypeAlias
+from typing import Generic, Literal, Protocol, TypeAlias, runtime_checkable
 
 import httpx
 
@@ -178,6 +178,11 @@ class UnknownResponseItem(ItemMessage, ResponseMessage):
     item: JsonVal | None = None
 
 
+@runtime_checkable
+class RequestItem(Protocol):
+    def dump(self) -> JsonVal: ...
+
+
 @dataclass
 class ItemsRequest(Generic[T_ID], BodyRequest):
     """Requests message for endpoints that accept multiple items in a single request.
@@ -193,9 +198,9 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
 
     """
 
-    items: list[JsonVal] = field(default_factory=list)
+    items: Sequence[JsonVal | RequestItem] = field(default_factory=list)
     extra_body_fields: dict[str, JsonVal] = field(default_factory=dict)
-    as_id: Callable[[JsonVal], T_ID] | None = None
+    as_id: Callable[[JsonVal | RequestItem], T_ID] | None = None
     max_failures_before_abort: int = 50
     tracker: ItemsRequestTracker | None = field(default=None, init=False)
 
@@ -214,12 +219,16 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
         if self.tracker is not None:
             # We cannot serialize the tracker
             del output["tracker"]
+        output["items"] = self.dump_items()
         return output
+
+    def dump_items(self) -> list[JsonVal]:
+        return [item.dump() if isinstance(item, RequestItem) else item for item in self.items]
 
     def body(self) -> dict[str, JsonVal]:
         if self.extra_body_fields:
-            return {"items": self.items, **self.extra_body_fields}
-        return {"items": self.items}
+            return {"items": self.dump_items(), **self.extra_body_fields}
+        return {"items": self.dump_items()}
 
     def split(self, status_attempts: int) -> "list[ItemsRequest]":
         """Splits the request into two smaller requests.
@@ -371,12 +380,16 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
             try:
                 item_id = self.as_id(item)
             except Exception as e:
-                errors.append(UnknownRequestItem(error=f"Error extracting ID: {e!s}", item=item))
+                errors.append(
+                    UnknownRequestItem(
+                        error=f"Error extracting ID: {e!s}", item=item.dump() if isinstance(item, RequestItem) else item
+                    )
+                )
                 continue
             if item_id in items_by_id:
                 errors.append(FailedRequestItem(id=item_id, error=f"Duplicate item ID: {item_id!r}"))
             else:
-                items_by_id[item_id] = item
+                items_by_id[item_id] = item.dump() if isinstance(item, RequestItem) else item
         return items_by_id, errors
 
     @staticmethod
