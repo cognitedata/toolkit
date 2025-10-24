@@ -9,7 +9,9 @@ from typing import ClassVar, Literal, TypeVar, get_args, overload
 import questionary
 from cognite.client.data_classes import (
     Asset,
+    AssetList,
     DataSet,
+    DataSetList,
     UserProfileList,
     filters,
 )
@@ -42,7 +44,7 @@ from .useful_types import AssetCentricDestinationType
 T_Type = TypeVar("T_Type", bound=Asset | DataSet)
 
 
-class AssetCentricInteractiveSelect(ABC):
+class AssetCentricBaseSelect(ABC):
     def __init__(self, client: ToolkitClient, operation: str) -> None:
         self.client = client
         self.operation = operation
@@ -220,22 +222,22 @@ class AssetCentricInteractiveSelect(ABC):
         return selected
 
 
-class AssetInteractiveSelect(AssetCentricInteractiveSelect):
+class AssetInteractiveSelect(AssetCentricBaseSelect):
     def _get_aggregator(self, client: ToolkitClient) -> AssetCentricAggregator:
         return AssetAggregator(self.client)
 
 
-class FileMetadataInteractiveSelect(AssetCentricInteractiveSelect):
+class FileMetadataInteractiveSelect(AssetCentricBaseSelect):
     def _get_aggregator(self, client: ToolkitClient) -> AssetCentricAggregator:
         return FileAggregator(self.client)
 
 
-class TimeSeriesInteractiveSelect(AssetCentricInteractiveSelect):
+class TimeSeriesInteractiveSelect(AssetCentricBaseSelect):
     def _get_aggregator(self, client: ToolkitClient) -> AssetCentricAggregator:
         return TimeSeriesAggregator(self.client)
 
 
-class EventInteractiveSelect(AssetCentricInteractiveSelect):
+class EventInteractiveSelect(AssetCentricBaseSelect):
     def _get_aggregator(self, client: ToolkitClient) -> AssetCentricAggregator:
         return EventAggregator(self.client)
 
@@ -773,3 +775,99 @@ class DataModelingSelect:
         if include_global:
             return self._available_spaces
         return SpaceList([space for space in self._available_spaces if not space.is_global])
+
+
+T_Option = TypeVar("T_Option", bound=DataSet | Asset)
+
+
+class AssetCentricInteractive:
+    def __init__(self, client: ToolkitClient, operation: str) -> None:
+        self.client = client
+        self.operation = operation
+
+    @overload
+    def select_data_set(
+        self, multi: Literal[False], allow_empty: Literal[True] = True, include_resource_counts: bool = True
+    ) -> DataSet | None: ...
+
+    @overload
+    def select_data_set(
+        self, multi: Literal[False], allow_empty: Literal[False] = False, include_resource_counts: bool = True
+    ) -> DataSet: ...
+
+    @overload
+    def select_data_set(
+        self, multi: Literal[True], allow_empty: bool, include_resource_counts: bool = True
+    ) -> DataSetList: ...
+
+    def select_data_set(
+        self, multi: bool, allow_empty: bool = False, include_resource_counts: bool = True
+    ) -> DataSet | DataSetList | None:
+        datasets = self.client.data_sets.list(limit=-1)
+        selected = self._select(
+            datasets, "data set", "data_set_external_id", multi, allow_empty, include_resource_counts
+        )
+        if isinstance(selected, list):
+            return DataSetList(selected)
+        return selected
+
+    @overload
+    def select_hierarchy(
+        self, multi: Literal[False], allow_empty: Literal[True] = True, include_resource_counts: bool = True
+    ) -> Asset | None: ...
+
+    @overload
+    def select_hierarchy(
+        self, multi: Literal[False], allow_empty: Literal[False] = False, include_resource_counts: bool = True
+    ) -> Asset: ...
+
+    @overload
+    def select_hierarchy(self, multi: Literal[True], allow_empty: bool, include_resource_counts: bool) -> AssetList: ...
+
+    def select_hierarchy(
+        self, multi: bool, allow_empty: bool = False, include_resource_counts: bool = True
+    ) -> Asset | AssetList | None:
+        hierarchies = self.client.assets.list(root=True, limit=-1)
+        selected = self._select(hierarchies, "hierarchy", "hierarchy", multi, allow_empty, include_resource_counts)
+        if isinstance(selected, list):
+            return AssetList(selected)
+        return selected
+
+    def _select(
+        self,
+        options: Sequence[T_Option],
+        display_name: str,
+        count_arg: Literal["data_set_external_id", "hierarchy"],
+        multi: bool,
+        allow_empty: bool = False,
+        include_resource_counts: bool = True,
+    ) -> T_Option | list[T_Option] | None:
+        if not options and not allow_empty:
+            raise ToolkitValueError(f"No {display_name} is available to select.")
+        choices: list[questionary.Choice] = []
+        for option in sorted(options, key=lambda o: o.name or o.external_id or ""):
+            title = f"{option.name} ({option.external_id})" if option.name != option.external_id else f"{option.name}"
+            if include_resource_counts and option.external_id:
+                kwargs = {count_arg: option.external_id}
+
+                # MyPy fails to recognize that kwargs has string keys here.
+                asset_count = AssetAggregator(self.client).count(**kwargs)  # type: ignore[misc]
+                event_count = EventAggregator(self.client).count(**kwargs)  # type: ignore[misc]
+                file_count = FileAggregator(self.client).count(**kwargs)  # type: ignore[misc]
+                time_series_count = TimeSeriesAggregator(self.client).count(**kwargs)  # type: ignore[misc]
+                title += (
+                    f"[Assets: {asset_count:,}, Events: {event_count:,}, "
+                    f"Files: {file_count:,}, Time Series: {time_series_count:,}]"
+                )
+            choices.append(questionary.Choice(title=title, value=option))
+
+        message = f"Select a {display_name} to {self.operation} listed as 'name (external_id)'"
+        if include_resource_counts:
+            message += " [Assets: x, Events: x, Files: x, Time Series: x]"
+        if multi:
+            selected = questionary.checkbox(message, choices=choices).ask()
+        else:
+            selected = questionary.select(message, choices=choices).ask()
+        if selected is None and not allow_empty:
+            raise ToolkitValueError(f"No {display_name} selected. Aborting.")
+        return selected
