@@ -1,9 +1,10 @@
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import ClassVar, Generic, TypeVar
+from typing import Any, ClassVar, Generic, TypeVar
 
 from cognite.client.data_classes._base import (
+    CogniteObject,
     T_CogniteResourceList,
 )
 
@@ -22,6 +23,18 @@ class StorageIOConfig:
     folder_name: str
     value: JsonVal
     filename: str | None = None
+
+
+@dataclass
+class TmpUploadItem(Generic[T_ID]):
+    data: CogniteObject
+    as_id_fun: Callable[[CogniteObject], T_ID]
+
+    def dump(self) -> Any:
+        return self.data.dump()
+
+    def as_id(self) -> T_ID:
+        return self.as_id_fun(self.data)
 
 
 T_Selector = TypeVar("T_Selector", bound=DataSelector)
@@ -139,10 +152,8 @@ class UploadableStorageIO(StorageIO[T_ID, T_Selector, T_CogniteResourceList, T_W
             message=ItemsRequest(
                 endpoint_url=config.create_api_url(self.UPLOAD_ENDPOINT),
                 method="POST",
-                # The dump method from the PySDK always returns JsonVal, but mypy cannot infer that
-                items=data_chunk.dump(camel_case=True),  # type: ignore[arg-type]
+                items=[TmpUploadItem(item, as_id_fun=self.as_id) for item in data_chunk],
                 extra_body_fields=dict(self.UPLOAD_EXTRA_ARGS or {}),
-                as_id=self.as_id,
             )
         )
 

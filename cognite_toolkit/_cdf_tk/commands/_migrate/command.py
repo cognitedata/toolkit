@@ -24,7 +24,7 @@ from cognite_toolkit._cdf_tk.storageio._base import T_CogniteResourceList, T_Sel
 from cognite_toolkit._cdf_tk.utils import humanize_collection, safe_write, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import Chunk, CSVWriter, NDJsonWriter, SchemaColumn, Uncompressed
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemIDMessage, SuccessItem
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemMessage, SuccessResponseItems
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.progress_tracker import AVAILABLE_STATUS, ProgressTracker, Status
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
@@ -177,17 +177,20 @@ class MigrationCommand(ToolkitCommand):
                 return None
             results: Sequence[HTTPMessage]
             if dry_run:
-                results = [SuccessItem(200, target.as_id(item)) for item in data_chunk]
+                results = [SuccessResponseItems(200, "", [target.as_id(item) for item in data_chunk])]
             else:
                 results = target.upload_items(data_chunk=data_chunk, http_client=write_client, selector=None)
 
             issues: list[Chunk] = []
             for item in results:
-                if isinstance(item, SuccessItem):
-                    tracker.set_progress(item.id, step=self.Steps.UPLOAD, status="success")
-                elif isinstance(item, ItemIDMessage):
-                    tracker.set_progress(item.id, step=self.Steps.UPLOAD, status="failed")
-                if not isinstance(item, SuccessItem):
+                if isinstance(item, SuccessResponseItems):
+                    for success_id in item.ids:
+                        tracker.set_progress(success_id, step=self.Steps.UPLOAD, status="success")
+                elif isinstance(item, ItemMessage):
+                    for failed_id in item.ids:
+                        tracker.set_progress(failed_id, step=self.Steps.UPLOAD, status="failed")
+
+                if not isinstance(item, SuccessResponseItems):
                     # MyPy fails to understand that dict[str, JsonVal] is a Chunk
                     issues.append(item.dump())  # type: ignore[arg-type]
             if issues:

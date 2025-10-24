@@ -53,9 +53,11 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.http_client import (
+    FailedRequestItems,
+    FailedResponseItems,
     HTTPClient,
     ItemsRequest,
-    SuccessItem,
+    SuccessResponseItems,
 )
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
@@ -68,6 +70,18 @@ from ._base import ToolkitCommand
 class DeleteResults:
     deleted: int = 0
     failed: int = 0
+
+
+@dataclasses.dataclass
+class DeleteItem:
+    item: JsonVal
+    as_id_fun: Callable[[JsonVal], Hashable]
+
+    def dump(self) -> JsonVal:
+        return self.item
+
+    def as_id(self) -> Hashable:
+        return self.as_id_fun(self.item)
 
 
 class PurgeCommand(ToolkitCommand):
@@ -239,15 +253,14 @@ class PurgeCommand(ToolkitCommand):
                 ItemsRequest(
                     endpoint_url=delete_url,
                     method="POST",
-                    items=items,
-                    as_id=crud.get_id,
+                    items=[DeleteItem(item=item, as_id_fun=crud.get_id) for item in items],
                 )
             )
             for response in responses:
-                if isinstance(response, SuccessItem):
-                    result.deleted += 1
+                if isinstance(response, SuccessResponseItems):
+                    result.deleted += len(response.ids)
                 else:
-                    result.unchanged += 1
+                    result.unchanged += len(items)
 
         return process
 
@@ -756,17 +769,17 @@ class PurgeCommand(ToolkitCommand):
             ItemsRequest(
                 delete_client.config.create_api_url("/models/instances/delete"),
                 method="POST",
-                # MyPy fails to understand that dict[str, JsonVal] is compatible with JsonVal
-                items=items,  # type: ignore[arg-type]
-                # The PySDK does not use the JsonVal type hint, but we know these are correct
-                as_id=InstanceId.load,  # type: ignore[arg-type]
+                # MyPy does not understand that InstanceId.load handles dict[str, JsonVal]
+                items=[DeleteItem(item=item, as_id_fun=InstanceId.load) for item in items],  # type: ignore[arg-type]
             )
         )
         for response in responses:
-            if isinstance(response, SuccessItem):
-                results.deleted += 1
+            if isinstance(response, SuccessResponseItems):
+                results.deleted += len(response.ids)
+            elif isinstance(response, FailedResponseItems | FailedRequestItems):
+                results.failed += len(response.ids)
             else:
-                results.failed += 1
+                results.failed += len(items)
 
     @staticmethod
     def _unlink_timeseries(

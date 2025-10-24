@@ -36,12 +36,12 @@ from cognite_toolkit._cdf_tk.storageio import (
     InstanceIO,
     UploadableStorageIO,
 )
-from cognite_toolkit._cdf_tk.storageio._base import T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.storageio._base import T_WritableCogniteResourceList, TmpUploadItem
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     DataSelector,
 )
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest, SuccessItem
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest, SuccessResponseItems
 from cognite_toolkit._cdf_tk.utils.thread_safe_dict import ThreadSafeDict
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
@@ -242,13 +242,12 @@ class FileMetaAdapter(
                     endpoint_url=config.create_api_url("files/set-pending-instance-ids"),
                     method="POST",
                     api_version="alpha",
-                    items=[self.as_pending_instance_id(item).dump() for item in batch],
-                    as_id=self.as_id,
+                    items=[TmpUploadItem(self.as_pending_instance_id(item), as_id_fun=self.as_id) for item in batch],
                 )
             )
             for res in batch_results:
-                if isinstance(res, SuccessItem):
-                    successful_linked.add(res.id)
+                if isinstance(res, SuccessResponseItems):
+                    successful_linked.update(res.ids)
             results.extend(batch_results)
         to_upload = [item for item in data_chunk if self.as_id(item) in successful_linked]
         if to_upload:

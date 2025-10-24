@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import ConfigurableStorageIO, StorageIOConfig
+from ._base import ConfigurableStorageIO, StorageIOConfig, TmpUploadItem
 from .selectors import RawTableSelector
 
 
@@ -56,9 +56,7 @@ class RawIO(ConfigurableStorageIO[str, RawTableSelector, RowWriteList, RowList])
             message=ItemsRequest(
                 endpoint_url=config.create_api_url(url),
                 method="POST",
-                # The dump method from the PySDK always returns JsonVal, but mypy cannot infer that
-                items=data_chunk.dump(camel_case=True),  # type: ignore[arg-type]
-                as_id=self.as_id,
+                items=[TmpUploadItem(item, as_id_fun=self.as_id) for item in data_chunk],
             )
         )
 
