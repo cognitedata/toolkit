@@ -9,6 +9,7 @@ from rich.console import Console
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.storageio import T_Selector, UploadableStorageIO, are_same_kind, get_upload_io
+from cognite_toolkit._cdf_tk.storageio._base import T_WriteCogniteResource
 from cognite_toolkit._cdf_tk.storageio.selectors import Selector, SelectorAdapter
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
@@ -19,10 +20,9 @@ from cognite_toolkit._cdf_tk.utils.fileio import FileReader
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ItemMessage, SuccessResponseItems
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.progress_tracker import ProgressTracker
-from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal
+from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 
-from ..storageio._base import T_WriteCogniteResource
 from ._base import ToolkitCommand
 from .deploy import DeployCommand
 
@@ -237,14 +237,18 @@ class UploadCommand(ToolkitCommand):
         io: UploadableStorageIO[T_Selector, T_CogniteResource, T_WriteCogniteResource],
         selector: T_Selector,
         dry_run: bool,
-        tracker: ProgressTracker[T_ID],
+        tracker: ProgressTracker[str],
         console: Console,
     ) -> None:
         if dry_run:
             for item in data_chunk:
                 tracker.set_progress(io.as_id(item), cls._UPLOAD, "success")
             return
-        results = io.upload_items(data_chunk, upload_client, selector)
+        # Convert items to UploadItems with source_id
+        from cognite_toolkit._cdf_tk.storageio._base import UploadItem
+
+        upload_items_list = [UploadItem(source_id=io.as_id(item), item=item) for item in data_chunk]  # type: ignore[arg-type]
+        results = io.upload_items(upload_items_list, upload_client, selector)  # type: ignore[arg-type]
         for item in results:
             if isinstance(item, SuccessResponseItems):
                 for id_ in item.ids:

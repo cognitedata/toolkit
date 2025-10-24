@@ -145,27 +145,27 @@ class AssetCentricMigrationIOAdapter(
                 return EdgeId(space=space, external_id=external_id)
         return None
 
-    def as_id(self, item: dict[str, JsonVal] | object) -> AssetCentricId:
+    def as_id(self, item: dict[str, JsonVal] | object) -> str:
         # When multiple threads are accessing this class, they will always operate on different ids
         if isinstance(item, AssetCentricMapping):
             instance_id = item.mapping.instance_id
             self._id_by_instance_id.setdefault(instance_id, item.mapping.id)
-            return AssetCentricId(self.base.RESOURCE_TYPE, self._id_by_instance_id[instance_id])
+            return str(AssetCentricId(self.base.RESOURCE_TYPE, self._id_by_instance_id[instance_id]))
         elif isinstance(item, Event | Asset | TimeSeries | FileMetadata | PendingInstanceId):
             if item.id is None:
                 raise TypeError(f"Resource of type {type(item).__name__!r} is missing an 'id'.")
-            return AssetCentricId(self.base.RESOURCE_TYPE, item.id)
+            return str(AssetCentricId(self.base.RESOURCE_TYPE, item.id))
         elif isinstance(item, NodeApply | EdgeApply):
             instance_id_ = item.as_id()
             if instance_id_ not in self._id_by_instance_id:
                 raise ValueError(f"Missing mapping for instance {instance_id_!r}")
-            return AssetCentricId(self.base.RESOURCE_TYPE, self._id_by_instance_id[instance_id_])
+            return str(AssetCentricId(self.base.RESOURCE_TYPE, self._id_by_instance_id[instance_id_]))
         elif isinstance(item, dict) and (id_int := self._get_id(item)):
-            return id_int
+            return str(id_int)
         elif isinstance(item, dict) and (parsed_instance_id := self._get_instance_id(item)):
             if parsed_instance_id not in self._id_by_instance_id:
                 raise ValueError(f"Missing mapping for instance {parsed_instance_id!r}")
-            return AssetCentricId(self.base.RESOURCE_TYPE, self._id_by_instance_id[parsed_instance_id])
+            return str(AssetCentricId(self.base.RESOURCE_TYPE, self._id_by_instance_id[parsed_instance_id]))
         raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
 
     def stream_data(self, selector: MigrationSelector, limit: int | None = None) -> Iterator[Page]:
