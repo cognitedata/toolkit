@@ -104,7 +104,7 @@ class AssetCentricMappingList(
 
 class AssetCentricMigrationIOAdapter(
     Generic[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
-    UploadableStorageIO[AssetCentricId, MigrationSelector, InstanceApplyList, AssetCentricMappingList],
+    UploadableStorageIO[MigrationSelector, AssetCentricMappingList, InstanceApplyList],
 ):
     KIND = "AssetCentricMigration"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})

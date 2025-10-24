@@ -95,7 +95,7 @@ class DownloadCommand(ToolkitCommand):
 
     @staticmethod
     def _get_iteration_count(
-        io: StorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
+        io: StorageIO[T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
         selector: T_Selector,
         limit: int | None,
     ) -> int | None:
