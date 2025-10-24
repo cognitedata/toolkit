@@ -242,6 +242,25 @@ class MigrateApp(typer.Typer):
                 "If neither is provided, the default data set for the project is used.",
             ),
         ] = None,
+        ingestion_mapping: Annotated[
+            str | None,
+            typer.Option(
+                "--ingestion-mapping",
+                "-i",
+                help="The ingestion mapping to use for the migrated CogniteAssets. If not provided, "
+                "the default mapping to CogniteAsset in CogniteCore will be used.",
+            ),
+        ] = None,
+        consumption_view: Annotated[
+            str | None,
+            typer.Option(
+                "--consumption-view",
+                "-c",
+                help="The consumption view(s) to assign to the migrated assets Given as space:externalId/version. "
+                "This will be used in Canvas to select which view to use when migrating assets. If not provided, "
+                "CogniteAsset in CogniteCore will be used.",
+            ),
+        ] = None,
         log_dir: Annotated[
             Path,
             typer.Option(
