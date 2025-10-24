@@ -26,6 +26,7 @@ from rich.console import Console
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.canvas import Canvas
 from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList, Visibility
+from cognite_toolkit._cdf_tk.client.data_classes.migration import ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.exceptions import AuthorizationError, ToolkitMissingResourceError, ToolkitValueError
 
@@ -773,3 +774,39 @@ class DataModelingSelect:
         if include_global:
             return self._available_spaces
         return SpaceList([space for space in self._available_spaces if not space.is_global])
+
+
+class ResourceViewMappingInteractiveSelect:
+    def __init__(self, client: ToolkitClient, operation: str) -> None:
+        self.client = client
+        self.operation = operation
+
+    def select_resource_view_mappings(self, resource_type: str) -> ResourceViewMapping:
+        """Select one or more Resource View Mappings interactively.
+
+        Args:
+            resource_type: The resource type to filter Resource View Mappings by.
+        Returns:
+            The selected Resource View Mappings.
+        """
+        mappings = self.client.migration.resource_view_mapping.list(resource_type=resource_type, limit=-1)
+        if not mappings:
+            raise ToolkitMissingResourceError(f"No Resource View Mappings found for resource type {resource_type!r}.")
+        choices = [
+            Choice(
+                title=f"{mapping.external_id} ({mapping.view_id!r})",
+                value=mapping,
+            )
+            for mapping in mappings
+        ]
+        selected_mapping = questionary.select(
+            f"Which Resource View Mapping do you want to use to {self.operation}? [identifier] (ingestion view)",
+            choices=choices,
+        ).ask()
+        if selected_mapping is None:
+            raise ToolkitValueError("No Resource View Mapping selected.")
+        if not isinstance(selected_mapping, ResourceViewMapping):
+            raise ToolkitValueError(
+                f"Selected Resource View Mapping is not a valid ResourceViewMapping object: {selected_mapping!r}"
+            )
+        return selected_mapping
