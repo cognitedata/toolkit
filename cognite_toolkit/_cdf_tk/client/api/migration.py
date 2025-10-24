@@ -215,6 +215,9 @@ class SpaceSourceAPI:
         self._instance_api = instance_api
         self._RETRIEVE_LIMIT = 1000
         self._view_id = SpaceSource.get_source()
+        # Cache for space sources by data set ID and external ID
+        self._cache_by_id: dict[int, SpaceSource] = {}
+        self._cache_by_external_id: dict[str, SpaceSource] = {}
 
     @overload
     def retrieve(self, data_set_id: int) -> SpaceSource | None: ...
@@ -233,21 +236,85 @@ class SpaceSourceAPI:
         data_set_id: int | Sequence[int] | None = None,
         data_set_external_id: str | SequenceNotStr[str] | None = None,
     ) -> SpaceSource | NodeList[SpaceSource] | None:
-        """Retrieve a space source by data set ID or external ID."""
+        """Retrieve a space source by data set ID or external ID.
+
+        This method uses caching to avoid redundant API calls. If a space source
+        has been retrieved before, it will be returned from cache.
+        """
         if data_set_id is not None:
-            return self._retrieve_by_property(
-                property_name="dataSetId",
-                value=data_set_id,
-                is_single=isinstance(data_set_id, int),
-            )
+            is_single = isinstance(data_set_id, int)
+            ids = [data_set_id] if is_single else list(data_set_id)
+
+            # Check cache for all requested IDs
+            cached_results: list[SpaceSource] = []
+            missing_ids: list[int] = []
+            for id_ in ids:
+                if id_ in self._cache_by_id:
+                    cached_results.append(self._cache_by_id[id_])
+                else:
+                    missing_ids.append(id_)
+
+            # Fetch missing IDs from API
+            if missing_ids:
+                fetched = self._retrieve_by_property(
+                    property_name="dataSetId",
+                    value=missing_ids[0] if len(missing_ids) == 1 else missing_ids,
+                    is_single=len(missing_ids) == 1,
+                )
+                if fetched is not None:
+                    if isinstance(fetched, SpaceSource):
+                        self._add_to_cache(fetched)
+                        cached_results.append(fetched)
+                    else:
+                        for item in fetched:
+                            self._add_to_cache(item)
+                            cached_results.append(item)
+
+            if is_single:
+                return cached_results[0] if cached_results else None
+            return NodeList[SpaceSource](cached_results)
+
         elif data_set_external_id is not None:
-            return self._retrieve_by_property(
-                property_name="classicExternalId",
-                value=data_set_external_id,
-                is_single=isinstance(data_set_external_id, str),
-            )
+            is_single = isinstance(data_set_external_id, str)
+            ext_ids = [data_set_external_id] if is_single else list(data_set_external_id)
+
+            # Check cache for all requested external IDs
+            cached_results: list[SpaceSource] = []
+            missing_ext_ids: list[str] = []
+            for ext_id in ext_ids:
+                if ext_id in self._cache_by_external_id:
+                    cached_results.append(self._cache_by_external_id[ext_id])
+                else:
+                    missing_ext_ids.append(ext_id)
+
+            # Fetch missing external IDs from API
+            if missing_ext_ids:
+                fetched = self._retrieve_by_property(
+                    property_name="classicExternalId",
+                    value=missing_ext_ids[0] if len(missing_ext_ids) == 1 else missing_ext_ids,
+                    is_single=len(missing_ext_ids) == 1,
+                )
+                if fetched is not None:
+                    if isinstance(fetched, SpaceSource):
+                        self._add_to_cache(fetched)
+                        cached_results.append(fetched)
+                    else:
+                        for item in fetched:
+                            self._add_to_cache(item)
+                            cached_results.append(item)
+
+            if is_single:
+                return cached_results[0] if cached_results else None
+            return NodeList[SpaceSource](cached_results)
         else:
             raise ValueError("One of data_set_id or data_set_external_id must be provided.")
+
+    def _add_to_cache(self, space_source: SpaceSource) -> None:
+        """Add a space source to both caches."""
+        if space_source.data_set_id is not None:
+            self._cache_by_id[space_source.data_set_id] = space_source
+        if space_source.classic_external_id is not None:
+            self._cache_by_external_id[space_source.classic_external_id] = space_source
 
     def _retrieve_by_property(
         self,
@@ -280,8 +347,16 @@ class SpaceSourceAPI:
         return results
 
     def list(self, limit: int = -1) -> NodeList[SpaceSource]:
-        """Lists all space sources."""
-        return self._instance_api.list(instance_type=SpaceSource, limit=limit)
+        """Lists all space sources and populates the cache.
+
+        Note: This method always fetches from the API and does not use the cache,
+        but it will populate the cache with all retrieved space sources.
+        """
+        results = self._instance_api.list(instance_type=SpaceSource, limit=limit)
+        # Populate cache with all retrieved space sources
+        for space_source in results:
+            self._add_to_cache(space_source)
+        return results
 
 
 class MigrationAPI:
