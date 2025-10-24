@@ -221,24 +221,38 @@ class SpaceSourceAPI:
         data_set_id: int | Sequence[int] | None = None,
         data_set_external_id: str | SequenceNotStr[str] | None = None,
     ) -> SpaceSource | NodeList[SpaceSource] | None:
-        """Retrieve a space source by its space name."""
-        if data_set_id is not None and data_set_external_id is None:
-            return self._retrieve_by_data_set_id(data_set_id)
-        elif data_set_external_id is not None and data_set_id is None:
-            return self._retrieve_by_data_set_external_id(data_set_external_id)
+        """Retrieve a space source by data set ID or external ID."""
+        if data_set_id is not None:
+            return self._retrieve_by_property(
+                property_name="dataSetId",
+                value=data_set_id,
+                is_single=isinstance(data_set_id, int),
+            )
+        elif data_set_external_id is not None:
+            return self._retrieve_by_property(
+                property_name="classicExternalId",
+                value=data_set_external_id,
+                is_single=isinstance(data_set_external_id, str),
+            )
         else:
             raise ValueError("One of data_set_id or data_set_external_id must be provided.")
 
-    def _retrieve_by_data_set_id(self, data_set_id: int | Sequence[int]) -> SpaceSource | NodeList[SpaceSource] | None:
-        data_set_ids = [data_set_id] if isinstance(data_set_id, int) else list(data_set_id)
+    def _retrieve_by_property(
+        self,
+        property_name: str,
+        value: int | str | Sequence[int] | SequenceNotStr[str],
+        is_single: bool,
+    ) -> SpaceSource | NodeList[SpaceSource] | None:
+        """Retrieve space sources by filtering on a specific property."""
+        values = [value] if is_single else list(value)  # type: ignore[arg-type]
         results: NodeList[SpaceSource] = NodeList[SpaceSource]([])
-        for chunk in chunker_sequence(data_set_ids, self._RETRIEVE_LIMIT):
+        for chunk in chunker_sequence(values, self._RETRIEVE_LIMIT):
             retrieve_query = query.Query(
                 with_={
                     "spaceSource": query.NodeResultSetExpression(
                         filter=filters.And(
                             filters.HasData(views=[self._view_id]),
-                            filters.In(self._view_id.as_property_ref("dataSetId"), chunk),
+                            filters.In(self._view_id.as_property_ref(property_name), chunk),  # type: ignore[arg-type]
                         ),
                         limit=len(chunk),
                     ),
@@ -248,36 +262,14 @@ class SpaceSourceAPI:
             chunk_response = self._instance_api.query(retrieve_query)
             items = chunk_response.get("spaceSource", [])
             results.extend([SpaceSource._load(item.dump()) for item in items])
-        if isinstance(data_set_id, int):
+
+        if is_single:
             return results[0] if results else None
         return results
 
-    def _retrieve_by_data_set_external_id(
-        self, data_set_external_id: str | SequenceNotStr[str]
-    ) -> SpaceSource | NodeList[SpaceSource] | None:
-        data_set_external_ids = (
-            [data_set_external_id] if isinstance(data_set_external_id, str) else list(data_set_external_id)
-        )
-        results: NodeList[SpaceSource] = NodeList[SpaceSource]([])
-        for chunk in chunker_sequence(data_set_external_ids, self._RETRIEVE_LIMIT):
-            retrieve_query = query.Query(
-                with_={
-                    "spaceSource": query.NodeResultSetExpression(
-                        filter=filters.And(
-                            filters.HasData(views=[self._view_id]),
-                            filters.In(self._view_id.as_property_ref("classicExternalId"), chunk),
-                        ),
-                        limit=len(chunk),
-                    ),
-                },
-                select={"spaceSource": query.Select([query.SourceSelector(self._view_id, ["*"])])},
-            )
-            chunk_response = self._instance_api.query(retrieve_query)
-            items = chunk_response.get("spaceSource", [])
-            results.extend([SpaceSource._load(item.dump()) for item in items])
-        if isinstance(data_set_external_id, str):
-            return results[0] if results else None
-        return results
+    def list(self, limit: int = -1) -> NodeList[SpaceSource]:
+        """Lists all space sources."""
+        return self._instance_api.list(instance_type=SpaceSource, limit=limit)
 
 
 class MigrationAPI:
