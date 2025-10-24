@@ -124,7 +124,7 @@ class TestMigrateFilesCommand:
 
         cmd = MigrationCommand(skip_tracking=True, silent=True)
         results = cmd.migrate(
-            selected=MigrationCSVFileSelector(datafile=input_file, resource_type="file"),
+            selected=MigrationCSVFileSelector(datafile=input_file, kind="file"),
             data=FileMetaAdapter(client),
             mapper=AssetCentricMapper(client),
             log_dir=tmp_path / "logs",

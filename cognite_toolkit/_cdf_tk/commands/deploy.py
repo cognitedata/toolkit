@@ -290,7 +290,7 @@ class DeployCommand(ToolkitCommand):
         read_modules: list[ReadModule] | None = None
         if build is not None:
             read_modules = build.read_modules
-        output_results = results or DeployResults([], "deploy", dry_run=dry_run)
+        output_results = DeployResults([], "deploy", dry_run=dry_run) if results is None else results
         for loader_cls in ordered_loaders:
             loader = loader_cls.create_loader(client, build_dir)
             resource_result: DeployResult | None

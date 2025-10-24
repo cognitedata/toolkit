@@ -110,8 +110,57 @@ def cognite_migration_model(
     yield rsps
 
 
+@pytest.fixture
+def mock_statistics(
+    toolkit_config: ToolkitClientConfig,
+    rsps: responses.RequestsMock,
+) -> Iterator[responses.RequestsMock]:
+    config = toolkit_config
+    stats_response = {
+        "spaces": {
+            "count": 0,
+            "limit": 1_000,
+        },
+        "containers": {
+            "count": 0,
+            "limit": 10_000,
+        },
+        "views": {
+            "count": 0,
+            "limit": 100_000,
+        },
+        "dataModels": {
+            "count": 1,
+            "limit": 10_000,
+        },
+        "containerProperties": {
+            "count": 0,
+            "limit": 1_000_000,
+        },
+        "instances": {
+            "nodes": 1000,
+            "edges": 0,
+            "softDeletedNodes": 0,
+            "softDeletedEdges": 0,
+            "instancesLimit": 5_000_000,
+            "softDeletedInstancesLimit": 100_000_000,
+            "instances": 1000,
+            "softDeletedInstances": 0,
+        },
+        "concurrentReadLimit": 50,
+        "concurrentWriteLimit": 20,
+        "concurrentDeleteLimit": 10,
+    }
+    rsps.get(
+        config.create_api_url("/models/statistics"),
+        json=stats_response,
+        status=200,
+    )
+    yield rsps
+
+
 class TestMigrationCommand:
-    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
+    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check", "mock_statistics")
     def test_migrate_assets(
         self,
         toolkit_config: ToolkitClientConfig,
@@ -146,6 +195,12 @@ class TestMigrationCommand:
             json={"items": [asset.dump() for asset in assets]},
             status=200,
         )
+        # Lookup CogniteSourceSystem (no source systems defined)
+        rsps.post(
+            config.create_api_url("/models/instances/list"),
+            json={"items": []},
+            status=200,
+        )
         # Instance creation
         respx.post(
             config.create_api_url("/models/instances"),
@@ -168,7 +223,6 @@ class TestMigrationCommand:
                 },
             )
         )
-
         csv_file = tmp_path / "migration.csv"
         csv_file.write_text(csv_content, encoding="utf-8")
 
@@ -176,7 +230,7 @@ class TestMigrationCommand:
         command = MigrationCommand(silent=True)
 
         result = command.migrate(
-            selected=MigrationCSVFileSelector(datafile=csv_file, resource_type="asset"),
+            selected=MigrationCSVFileSelector(datafile=csv_file, kind="asset"),
             data=AssetCentricMigrationIOAdapter(client, AssetIO(client)),
             mapper=AssetCentricMapper(client),
             log_dir=tmp_path / "logs",

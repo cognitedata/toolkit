@@ -347,3 +347,48 @@ class ResourceViewMapping(_ResourceViewMapping, TypedNode):
             "viewId": self.view_id.dump(),
             "propertyMapping": self.property_mapping,
         }
+
+
+class CreatedSourceSystem(TypedNode):
+    """This represents the reading format of instance source.
+
+    It is used to when data is read from CDF.
+
+    The source of the instance in asset-centric resources.
+
+    Args:
+        space: The space where the node is located.
+        external_id: The external id of the instance source.
+        version (int): DMS version.
+        last_updated_time (int): The number of milliseconds since 00:00:00 Thursday, 1 January 1970,
+            Coordinated Universal Time (UTC), minus leap seconds.
+        created_time (int): The number of milliseconds since 00:00:00 Thursday, 1 January 1970,
+            Coordinated Universal Time (UTC), minus leap seconds.
+        source: The source string from the asset-centric Asset, Event, or FileMetadata source property.
+        type: Direct relation pointing to the type node.
+        deleted_time: The number of milliseconds since 00:00:00 Thursday, 1 January 1970, Coordinated Universal Time
+            (UTC), minus leap seconds. Timestamp when the instance was soft deleted. Note that deleted instances
+            are filtered out of query results, but present in sync results
+    """
+
+    def __init__(
+        self,
+        space: str,
+        external_id: str,
+        version: int,
+        last_updated_time: int,
+        created_time: int,
+        *,
+        source: str,
+        type: DirectRelationReference | None = None,
+        deleted_time: int | None = None,
+    ) -> None:
+        TypedNode.__init__(self, space, external_id, version, last_updated_time, created_time, deleted_time, type)
+        self.source = source
+
+    @classmethod
+    def get_source(cls) -> ViewId:
+        return ViewId("cognite_migration", "CreatedSourceSystem", "v1")
+
+    def as_direct_relation_reference(self) -> DirectRelationReference:
+        return DirectRelationReference(space=self.space, external_id=self.external_id)

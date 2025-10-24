@@ -12,6 +12,7 @@ class SelectedTable(SelectorObject):
 
 class RawTableSelector(DataSelector):
     type: Literal["rawTable"] = "rawTable"
+    kind: Literal["RawRows"] = "RawRows"
     table: SelectedTable
 
     @property

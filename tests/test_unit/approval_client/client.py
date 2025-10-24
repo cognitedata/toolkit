@@ -62,7 +62,7 @@ from cognite.client.utils._text import to_camel_case
 from cognite.client.utils.useful_types import SequenceNotStr
 from requests import Response
 
-from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import GraphQLDataModelWrite
 from cognite_toolkit._cdf_tk.client.data_classes.project import ProjectStatus, ProjectStatusList
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase
@@ -245,9 +245,9 @@ class ApprovalToolkitClient:
                     method_dict[resource.resource_cls.__name__].append(method)
 
     @property
-    def client(self) -> CogniteClient:
-        """Returns a mock CogniteClient"""
-        return cast(CogniteClient, self.mock_client)
+    def client(self) -> ToolkitClient:
+        """Returns a mock ToolkitClient"""
+        return cast(ToolkitClient, self.mock_client)
 
     @property
     def return_verify_resources(self) -> bool:
