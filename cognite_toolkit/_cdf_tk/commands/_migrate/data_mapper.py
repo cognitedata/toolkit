@@ -13,7 +13,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.adapter import (
     MigrationSelector,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import asset_centric_to_dm
-from cognite_toolkit._cdf_tk.commands._migrate.issues import MigrationIssue
+from cognite_toolkit._cdf_tk.commands._migrate.issues import ConversionIssue, MigrationIssue
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio._base import T_Selector, T_WriteCogniteResource
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -80,7 +80,7 @@ class AssetCentricMapper(DataMapper[MigrationSelector, AssetCentricMapping, Inst
             source_system.source: source_system.as_direct_relation_reference() for source_system in source_systems
         }
 
-    def map(self, source: AssetCentricMapping) -> tuple[InstanceApply, MigrationIssue]:
+    def map(self, source: AssetCentricMapping) -> tuple[InstanceApply, ConversionIssue]:
         """Map a chunk of asset-centric data to InstanceApplyList format."""
         mapping = source.mapping
         ingestion_view = mapping.get_ingestion_view()
