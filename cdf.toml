@@ -33,6 +33,6 @@ dump = true
 # It will be updated by the 'cdf modules upgrade' command.
 version = "0.0.0"
 
-[library.cognite]
-url = "https://github.com/cognitedata/library/releases/download/latest/packages.zip"
-checksum = "sha256:9eb177a092228157c7779b3e8d33ba49c17db732cbe2b36787ad67db0baeb49a"
+[library.cognite-data]
+url = "https://github.com/cognitedata/toolkit-data/releases/download/latest/packages.zip"
+checksum = "sha256:b70c207a78d6c94e0977a733571420b250ca641ac8802d8310f1ffe05bf7b2eb"
