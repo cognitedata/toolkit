@@ -58,6 +58,19 @@ class ErrorDetails:
             # Fallback if response is not JSON or does not have expected structure
             return cls(code=response.status_code, message=response.text)
 
+    def dump(self) -> dict[str, JsonVal]:
+        output: dict[str, JsonVal] = {
+            "code": self.code,
+            "message": self.message,
+        }
+        if self.missing is not None:
+            output["missing"] = self.missing
+        if self.duplicated is not None:
+            output["duplicated"] = self.duplicated
+        if self.is_auto_retryable is not None:
+            output["isAutoRetryable"] = self.is_auto_retryable
+        return output
+
 
 @dataclass
 class FailedRequestMessage(HTTPMessage):
@@ -106,6 +119,11 @@ class SuccessResponse(ResponseMessage):
 class FailedResponse(ResponseMessage):
     body: str
     error: ErrorDetails
+
+    def dump(self) -> dict[str, JsonVal]:
+        output = super().dump()
+        output["error"] = self.error.dump()
+        return output
 
 
 @dataclass

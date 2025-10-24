@@ -69,6 +69,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
 from cognite_toolkit._cdf_tk.client.data_classes.sequences import ToolkitSequenceRows
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, read_yaml_file
+from cognite_toolkit._cdf_tk.utils.http_client._data_classes import RequestItem
 from tests.data import COMPLETE_ORG
 
 UNION_TYPES = {typing.Union, UnionType}
@@ -401,6 +402,17 @@ class FakeCogniteResourceGenerator:
                 [self.create_value(first_not_none) for _ in range(self._random.randint(1, 3))],
                 cursor=self.create_value(str),
             )
+        elif container_type is RequestItem:
+
+            @dataclasses.dataclass
+            class FakeRequestItem(RequestItem):
+                def dump(self) -> dict[str, Any]:
+                    return {"key": "value"}
+
+                def as_id(self) -> str:
+                    return "identifier"
+
+            return FakeRequestItem()
 
         if var_name == "external_id" and type_ is str:
             return self._random_string(50, sample_from=string.ascii_uppercase + string.digits)
