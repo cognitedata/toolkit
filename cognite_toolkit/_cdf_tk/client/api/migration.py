@@ -222,9 +222,9 @@ class SpaceSourceAPI:
         data_set_external_id: str | SequenceNotStr[str] | None = None,
     ) -> SpaceSource | NodeList[SpaceSource] | None:
         """Retrieve a space source by its space name."""
-        if data_set_id is not None:
+        if data_set_id is not None and data_set_external_id is None:
             return self._retrieve_by_data_set_id(data_set_id)
-        elif data_set_external_id is not None:
+        elif data_set_external_id is not None and data_set_id is None:
             return self._retrieve_by_data_set_external_id(data_set_external_id)
         else:
             raise ValueError("One of data_set_id or data_set_external_id must be provided.")
