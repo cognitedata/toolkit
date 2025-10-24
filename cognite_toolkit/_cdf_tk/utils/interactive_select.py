@@ -17,7 +17,7 @@ from cognite.client.data_classes.aggregations import Count
 from cognite.client.data_classes.capabilities import (
     UserProfilesAcl,
 )
-from cognite.client.data_classes.data_modeling import NodeList, Space, SpaceList, View, ViewId, ViewList
+from cognite.client.data_classes.data_modeling import ContainerId, NodeList, Space, SpaceList, View, ViewId, ViewList
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from cognite.client.utils import ms_to_datetime
 from questionary import Choice
@@ -513,6 +513,7 @@ class DataModelingSelect:
         space: str | None = None,
         message: str | None = None,
         instance_type: Literal["node", "edge", "all"] | None = None,
+        mapped_container: ContainerId | None = None,
     ) -> View: ...
 
     @overload
@@ -523,6 +524,7 @@ class DataModelingSelect:
         space: str | None = None,
         message: str | None = None,
         instance_type: Literal["node", "edge", "all"] | None = None,
+        mapped_container: ContainerId | None = None,
     ) -> ViewList: ...
 
     def select_view(
@@ -532,6 +534,7 @@ class DataModelingSelect:
         space: str | None = None,
         message: str | None = None,
         instance_type: Literal["node", "edge", "all"] | None = None,
+        mapped_container: ContainerId | None = None,
     ) -> View | ViewList:
         """Select one or more views interactively.
 
@@ -543,6 +546,7 @@ class DataModelingSelect:
             message: The message to display when prompting for a view. If None, a default message
                 will be used.
             instance_type: If 'node' or 'edge', only views of that type will be shown.
+            mapped_container: Only selects view(s) that are mapping the given container.
 
         Returns:
             The selected view(s).
@@ -566,7 +570,14 @@ class DataModelingSelect:
             limit=-1,
             include_global=include_global,
         )
-        views = ViewList([view for view in views if instance_type in (None, "all", view.used_for)])
+        views = ViewList(
+            [
+                view
+                for view in views
+                if instance_type in (None, "all", view.used_for)
+                and (mapped_container is None or mapped_container in view.referenced_containers())
+            ]
+        )
         if not views:
             raise ToolkitMissingResourceError(f"No views found in space {selected_space!r}.")
         question = message or f"Which view do you want to use to select instances to {self.operation}?"
