@@ -54,7 +54,7 @@ class MigrationCommand(ToolkitCommand):
         dry_run: bool = False,
         verbose: bool = False,
     ) -> ProgressTracker[str]:
-        if log_dir.exists():
+        if log_dir.exists() and any(log_dir.iterdir()):
             raise ToolkitFileExistsError(
                 f"Log directory {log_dir} already exists. Please remove it or choose another directory."
             )
