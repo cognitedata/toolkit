@@ -1,15 +1,15 @@
 from abc import ABC, abstractmethod
 from collections import UserList
-from collections.abc import Hashable, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Generic, Literal, Protocol, TypeAlias, TypeVar
+from typing import Generic, Literal, Protocol, TypeAlias
 
 import httpx
 from cognite.client.utils import _json
 
 from cognite_toolkit._cdf_tk.utils.http_client._exception import ToolkitAPIError
 from cognite_toolkit._cdf_tk.utils.http_client._tracker import ItemsRequestTracker
-from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal, PrimitiveType, T_ID
+from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, JsonVal, PrimitiveType
 
 StatusCode: TypeAlias = int
 
@@ -153,10 +153,8 @@ class SimpleBodyRequest(SimpleRequest, BodyRequest):
         return _dump_body(self.body_content)
 
 
-
-
 @dataclass
-class ItemMessage(Generic[T_COVARIANT_ID], ABC):
+class ItemMessage(Generic[T_ID], ABC):
     """Base class for message related to a specific item identified by an ID"""
 
     ids: list[T_ID] = field(default_factory=list)
@@ -250,7 +248,7 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
             return [self]
         tracker = self.tracker or ItemsRequestTracker(self.max_failures_before_abort)
         tracker.register_failure()
-        first_half = ItemsRequest[T_COVARIANT_ID, T_RequestItem](
+        first_half = ItemsRequest[T_ID](
             endpoint_url=self.endpoint_url,
             method=self.method,
             items=self.items[:mid],
@@ -260,7 +258,7 @@ class ItemsRequest(Generic[T_ID], BodyRequest):
             status_attempt=status_attempts,
         )
         first_half.tracker = tracker
-        second_half = ItemsRequest[T_COVARIANT_ID, T_RequestItem](
+        second_half = ItemsRequest[T_ID](
             endpoint_url=self.endpoint_url,
             method=self.method,
             items=self.items[mid:],
