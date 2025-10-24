@@ -183,7 +183,8 @@ class UploadableStorageIO(
         """Convert a JSON-compatible chunk of data back to a writable Cognite resource list.
 
         Args:
-            data_chunk: A list of dictionaries representing the data in a JSON-compatible format.
+            data_chunk: A list of tuples, each containing a source ID and a dictionary representing
+                the data in a JSON-compatible format.
         Returns:
             A writable Cognite resource list representing the data.
         """
