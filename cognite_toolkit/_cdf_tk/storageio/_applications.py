@@ -21,13 +21,8 @@ class ChartIO(UploadableStorageIO[ChartSelector, Chart, ChartWrite]):
     CHUNK_SIZE = 10
     BASE_SELECTOR = ChartSelector
 
-    def as_id(self, item: dict[str, JsonVal] | object) -> str:
-        if isinstance(item, dict) and isinstance(item.get("externalId"), str):
-            # MyPy checked above.
-            return item["externalId"]  # type: ignore[return-value]
-        if isinstance(item, ChartWrite | Chart):
-            return item.external_id
-        raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
+    def as_id(self, item: Chart) -> str:
+        return item.external_id
 
     def stream_data(self, selector: ChartSelector, limit: int | None = None) -> Iterable[Page]:
         selected_charts = self.client.charts.list(visibility="PUBLIC")
@@ -79,26 +74,8 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
     CHUNK_SIZE = 10
     BASE_SELECTOR = CanvasSelector
 
-    @staticmethod
-    def _get_id_from_dict(item: dict[str, JsonVal] | object) -> str | None:
-        if not isinstance(item, dict):
-            return None
-        if "canvas" not in item:
-            return None
-        canvas = item["canvas"]
-        if not isinstance(canvas, dict):
-            return None
-        external_id = canvas.get("externalId")
-        if not isinstance(external_id, str):
-            return None
-        return external_id
-
-    def as_id(self, item: dict[str, JsonVal] | object) -> str:
-        if canvas_id := self._get_id_from_dict(item):
-            return canvas_id
-        if isinstance(item, IndustrialCanvas | IndustrialCanvasApply):
-            return item.as_id()
-        raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
+    def as_id(self, item: IndustrialCanvas) -> str:
+        return item.as_id()
 
     def stream_data(self, selector: CanvasSelector, limit: int | None = None) -> Iterable[Page]:
         raise ToolkitNotImplementedError("Streaming canvases is not implemented yet.")

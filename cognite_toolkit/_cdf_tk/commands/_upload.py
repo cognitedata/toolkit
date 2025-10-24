@@ -233,7 +233,7 @@ class UploadCommand(ToolkitCommand):
         cls,
         data_chunk: T_CogniteResourceList,
         upload_client: HTTPClient,
-        io: UploadableStorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
+        io: UploadableStorageIO[T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
         selector: T_Selector,
         dry_run: bool,
         tracker: ProgressTracker[T_ID],

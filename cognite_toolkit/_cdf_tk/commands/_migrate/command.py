@@ -19,8 +19,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMigrationError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.storageio import UploadableStorageIO
-from cognite_toolkit._cdf_tk.storageio._base import T_CogniteResourceList, T_Selector, T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.storageio import T_Selector, UploadableStorageIO
 from cognite_toolkit._cdf_tk.utils import humanize_collection, safe_write, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import Chunk, CSVWriter, NDJsonWriter, SchemaColumn, Uncompressed
@@ -45,7 +44,7 @@ class MigrationCommand(ToolkitCommand):
     def migrate(
         self,
         selected: T_Selector,
-        data: UploadableStorageIO[T_ID, T_Selector, T_CogniteResourceList, T_WritableCogniteResourceList],
+        data: UploadableStorageIO[T_Selector, T_CogniteResource, T_W],
         mapper: DataMapper[T_Selector, T_WritableCogniteResourceList, T_CogniteResourceList],
         log_dir: Path,
         dry_run: bool = False,

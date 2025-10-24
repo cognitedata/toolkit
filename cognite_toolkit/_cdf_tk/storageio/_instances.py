@@ -5,9 +5,7 @@ from typing import ClassVar
 from cognite.client.data_classes.aggregations import Count
 from cognite.client.data_classes.data_modeling import (
     ContainerList,
-    Edge,
     EdgeApply,
-    Node,
     NodeApply,
     SpaceList,
     ViewList,

@@ -36,14 +36,14 @@ from cognite_toolkit._cdf_tk.storageio import (
     InstanceIO,
     UploadableStorageIO,
 )
-from cognite_toolkit._cdf_tk.storageio._base import T_WritableCogniteResourceList, TmpUploadItem
+from cognite_toolkit._cdf_tk.storageio._base import Page, UploadItem
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     DataSelector,
 )
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest, SuccessResponseItems
 from cognite_toolkit._cdf_tk.utils.thread_safe_dict import ThreadSafeDict
-from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
+from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal, T_WritableCogniteResourceList
 
 from .data_classes import MigrationMapping, MigrationMappingList
 from .data_model import INSTANCE_SOURCE_VIEW_ID
@@ -104,7 +104,7 @@ class AssetCentricMappingList(
 
 class AssetCentricMigrationIOAdapter(
     Generic[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
-    UploadableStorageIO[MigrationSelector, AssetCentricMappingList, InstanceApplyList],
+    UploadableStorageIO[MigrationSelector, AssetCentricMapping[T_WritableCogniteResource], InstanceApply],
 ):
     KIND = "AssetCentricMigration"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
@@ -168,7 +168,7 @@ class AssetCentricMigrationIOAdapter(
             return AssetCentricId(self.base.RESOURCE_TYPE, self._id_by_instance_id[parsed_instance_id])
         raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
 
-    def stream_data(self, selector: MigrationSelector, limit: int | None = None) -> Iterator[AssetCentricMappingList]:
+    def stream_data(self, selector: MigrationSelector, limit: int | None = None) -> Iterator[Page]:
         if not isinstance(selector, MigrationCSVFileSelector):
             raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for stream_data")
         items = selector.items
@@ -180,7 +180,7 @@ class AssetCentricMigrationIOAdapter(
             for mapping, resource in zip(current_batch, resources, strict=True):
                 chunk.append(AssetCentricMapping(mapping=mapping, resource=resource))
             if chunk:
-                yield AssetCentricMappingList(chunk)
+                yield Page(worker_id="main", items=AssetCentricMappingList(chunk))
                 chunk = []
 
     def count(self, selector: MigrationSelector) -> int | None:
@@ -189,11 +189,11 @@ class AssetCentricMigrationIOAdapter(
         return len(selector.items)
 
     def data_to_json_chunk(
-        self, data_chunk: AssetCentricMappingList, selector: MigrationSelector
+        self, data_chunk: Sequence[AssetCentricMapping[T_WritableCogniteResource]]
     ) -> list[dict[str, JsonVal]]:
-        return data_chunk.dump()
+        return [item.dump() for item in data_chunk]
 
-    def json_chunk_to_data(self, data_chunk: list[dict[str, JsonVal]]) -> InstanceApplyList:
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> InstanceApply:
         raise NotImplementedError()
 
 
@@ -230,26 +230,32 @@ class FileMetaAdapter(
         )
 
     def upload_items(
-        self, data_chunk: InstanceApplyList, http_client: HTTPClient, selector: MigrationSelector | None = None
+        self,
+        data_chunk: Sequence[UploadItem[InstanceApply]],
+        http_client: HTTPClient,
+        selector: MigrationSelector | None = None,
     ) -> Sequence[HTTPMessage]:
         """Upload items by first linking them using files/set-pending-instance-ids and then uploading the instances."""
         config = http_client.config
         results: list[HTTPMessage] = []
-        successful_linked: set[int] = set()
+        successful_linked: set[str] = set()
         for batch in chunker_sequence(data_chunk, self.CHUNK_SIZE):
             batch_results = http_client.request_with_retries(
                 message=ItemsRequest(
                     endpoint_url=config.create_api_url("files/set-pending-instance-ids"),
                     method="POST",
                     api_version="alpha",
-                    items=[TmpUploadItem(self.as_pending_instance_id(item), as_id_fun=self.as_id) for item in batch],
+                    items=[
+                        UploadItem(source_id=item.source_id, item=self.as_pending_instance_id(item.item))
+                        for item in batch
+                    ],
                 )
             )
             for res in batch_results:
                 if isinstance(res, SuccessResponseItems):
                     successful_linked.update(res.ids)
             results.extend(batch_results)
-        to_upload = [item for item in data_chunk if self.as_id(item) in successful_linked]
+        to_upload = [item for item in data_chunk if item.source_id in successful_linked]
         if to_upload:
-            results.extend(list(super().upload_items(InstanceApplyList(to_upload), http_client, selector)))
+            results.extend(list(super().upload_items(to_upload, http_client, selector)))
         return results
