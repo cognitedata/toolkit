@@ -21,7 +21,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMigrationError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.storageio import T_Selector, UploadableStorageIO
+from cognite_toolkit._cdf_tk.storageio import T_Selector, UploadableStorageIO, UploadItem
 from cognite_toolkit._cdf_tk.utils import humanize_collection, safe_write, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import Chunk, CSVWriter, NDJsonWriter, SchemaColumn, Uncompressed
@@ -74,7 +74,9 @@ class MigrationCommand(ToolkitCommand):
             NDJsonWriter(log_dir, kind=f"{selected.kind}MigrationIssues", compression=Uncompressed) as log_file,
             HTTPClient(config=data.client.config) as write_client,
         ):
-            executor = ProducerWorkerExecutor[T_CogniteResource, T_WriteCogniteResource](
+            executor = ProducerWorkerExecutor[
+                Sequence[T_CogniteResource], Sequence[UploadItem[T_WriteCogniteResource]]
+            ](
                 download_iterable=self._download_iterable(selected, data, tracker),
                 process=self._convert(mapper, data, tracker, log_file),
                 write=self._upload(write_client, data, tracker, log_file, dry_run),
@@ -143,11 +145,11 @@ class MigrationCommand(ToolkitCommand):
         selected: T_Selector,
         data: UploadableStorageIO[T_Selector, T_CogniteResource, T_WriteCogniteResource],
         tracker: ProgressTracker[str],
-    ) -> Iterable[T_CogniteResource]:
+    ) -> Iterable[Sequence[T_CogniteResource]]:
         for page in data.stream_data(selected):
             for item in page.items:
                 tracker.set_progress(data.as_id(item), self.Steps.DOWNLOAD, "success")
-                yield item
+            yield page.items
 
     def _convert(
         self,
@@ -155,13 +157,20 @@ class MigrationCommand(ToolkitCommand):
         data: UploadableStorageIO[T_Selector, T_CogniteResource, T_WriteCogniteResource],
         tracker: ProgressTracker[str],
         log_file: NDJsonWriter,
-    ) -> Callable[[T_CogniteResource], T_WriteCogniteResource]:
-        def track_mapping(source: T_CogniteResource) -> T_WriteCogniteResource:
-            target, issues = mapper.map(source)
-            tracker.set_progress(data.as_id(source), step=self.Steps.CONVERT, status="success")
+    ) -> Callable[[Sequence[T_CogniteResource]], Sequence[UploadItem[T_WriteCogniteResource]]]:
+        def track_mapping(source: Sequence[T_CogniteResource]) -> list[UploadItem[T_WriteCogniteResource]]:
+            issues: list[Chunk] = []
+            targets: list[UploadItem[T_WriteCogniteResource]] = []
+            for item in source:
+                target, issue = mapper.map(item)
+                id_ = data.as_id(item)
+                tracker.set_progress(id_, step=self.Steps.CONVERT, status="success")
+                # MyPy fails to understand that dict[str, JsonVal] is a Chunk
+                issues.append(issue.dump())  # type: ignore[arg-type]
+                targets.append(UploadItem(source_id=id_, item=target))
             if issues:
-                log_file.write_chunks([issues.dump()])  # type: ignore[list-item]
-            return target
+                log_file.write_chunks(issues)
+            return targets
 
         return track_mapping
 
@@ -172,22 +181,18 @@ class MigrationCommand(ToolkitCommand):
         tracker: ProgressTracker[str],
         log_file: NDJsonWriter,
         dry_run: bool,
-    ) -> Callable[[T_WriteCogniteResource], None]:
-        def upload_items(data_item: T_WriteCogniteResource) -> None:
+    ) -> Callable[[Sequence[UploadItem[T_WriteCogniteResource]]], None]:
+        def upload_items(data_item: Sequence[UploadItem[T_WriteCogniteResource]]) -> None:
             if not data_item:
                 return None
-            from cognite_toolkit._cdf_tk.storageio._base import UploadItem
-
-            results: Sequence[HTTPMessage]
-            item_id = target.as_id(data_item)
+            responses: Sequence[HTTPMessage]
             if dry_run:
-                results = [SuccessResponseItems(200, "", [item_id])]
+                responses = [SuccessResponseItems(200, "", [item.source_id for item in data_item])]
             else:
-                upload_item = UploadItem(source_id=item_id, item=data_item)
-                results = target.upload_items(data_chunk=[upload_item], http_client=write_client, selector=None)  # type: ignore[list-item]
+                responses = target.upload_items(data_chunk=data_item, http_client=write_client, selector=None)
 
             issues: list[Chunk] = []
-            for item in results:
+            for item in responses:
                 if isinstance(item, SuccessResponseItems):
                     for success_id in item.ids:
                         tracker.set_progress(success_id, step=self.Steps.UPLOAD, status="success")
