@@ -202,7 +202,9 @@ class MigrateApp(typer.Typer):
             data_set = ds_selector.select_data_set()
             dm_selector = DataModelingSelect(client, "migrate")
             instance_space = dm_selector.select_instance_space(
-                multiselect=False, message="In which instance space do you want to create the source system?"
+                multiselect=False,
+                message="In which instance space do you want to create the source system?",
+                include_emtpy=True,
             )
             dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).ask()
             output_dir = questionary.path(
