@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.adapter import (
 )
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import asset_centric_to_dm
 from cognite_toolkit._cdf_tk.commands._migrate.issues import ConversionIssue, MigrationIssue
+from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio._base import T_Selector, T_WriteCogniteResource
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -99,6 +100,9 @@ class AssetCentricMapper(DataMapper[MigrationSelector, AssetCentricMapping, Inst
             asset_instance_id_by_id=self._asset_mapping_by_id,
             source_instance_id_by_external_id=self._source_system_mapping_by_id,
         )
+        if mapping.instance_id.space == MISSING_INSTANCE_SPACE:
+            conversion_issue.missing_instance_space = f"Missing instance space for dataset ID {mapping.data_set_id!r}"
+
         if mapping.resource_type == "asset":
             self._asset_mapping_by_id[mapping.id] = DirectRelationReference(
                 space=mapping.instance_id.space, external_id=mapping.instance_id.external_id

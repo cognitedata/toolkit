@@ -23,6 +23,7 @@ from cognite.client.data_classes.data_modeling import InstanceApply, NodeId, Vie
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList
 from cognite_toolkit._cdf_tk.client.data_classes.pending_instances_ids import PendingInstanceId
+from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
 from cognite_toolkit._cdf_tk.cruds._base_cruds import T_ID
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.storageio import (
@@ -199,7 +200,7 @@ class AssetCentricMigrationIOAdapter(
             for resource in data_chunk.items:
                 instance_space = self.client.migration.space_source.retrieve(data_set_id=resource.data_set_id)
                 if instance_space is None:
-                    instance_space = "<InstanceSpaceMissing>"
+                    instance_space = MISSING_INSTANCE_SPACE
                 mapping = MigrationMapping(
                     resource_type=self._kind_to_resource_type(selector.kind),
                     instance_id=NodeId(
