@@ -197,6 +197,8 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                     Panel(
                         self.error_traceback,
                         title="Traceback",
+                        expand=False,
+                        border_style="red",
                     )
                 )
             raise ToolkitRuntimeError(f"An error occurred during execution: {self.error_message}")
