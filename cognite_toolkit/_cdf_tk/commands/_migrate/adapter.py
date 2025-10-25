@@ -178,7 +178,8 @@ class AssetCentricMigrationIOAdapter(
         else:
             raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for count")
 
-    def _get_asset_centric_selector(self, selector: MigrateDataSetSelector) -> DataSetSelector:
+    @staticmethod
+    def _get_asset_centric_selector(selector: MigrateDataSetSelector) -> DataSetSelector:
         return DataSetSelector(
             data_set_external_id=selector.data_set_external_id,
             kind=selector.kind,
@@ -194,7 +195,7 @@ class AssetCentricMigrationIOAdapter(
                 mapping = MigrationMapping(
                     resource_type=selector.kind.lower(),
                     instance_id=NodeId(
-                        space=self.client.lookup.data_sets.instance_space(selector.data_set_external_id),
+                        space=self.client.migration.space_source.retrieve(data_set_id=resource.data_set_id),
                         external_id=resource.external_id,
                     ),
                     id=resource.id,
