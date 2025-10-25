@@ -54,12 +54,12 @@ class MigrationCommand(ToolkitCommand):
         dry_run: bool = False,
         verbose: bool = False,
     ) -> ProgressTracker[str]:
-        if log_dir.exists():
+        if log_dir.exists() and any(log_dir.iterdir()):
             raise ToolkitFileExistsError(
                 f"Log directory {log_dir} already exists. Please remove it or choose another directory."
             )
         self.validate_migration_model_available(data.client)
-        log_dir.mkdir(parents=True, exist_ok=False)
+        log_dir.mkdir(parents=True, exist_ok=True)
         mapper.prepare(selected)
 
         iteration_count: int | None = None
@@ -86,6 +86,7 @@ class MigrationCommand(ToolkitCommand):
                 process_description="Converting",
                 write_description="Uploading",
                 console=console,
+                verbose=verbose,
             )
 
             executor.run()

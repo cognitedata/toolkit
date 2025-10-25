@@ -45,6 +45,7 @@ def create_default_mappings() -> list[ResourceViewMappingApply]:
                 "description": "description",
                 "source": "source",
                 "labels": "tags",
+                "parentId": "parent",
             },
         ),
         ResourceViewMappingApply(

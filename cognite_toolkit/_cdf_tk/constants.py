@@ -165,3 +165,6 @@ CDF_UNIT_SPACE = "cdf_cdm_units"
 DATA_DEFAULT_DIR = "data"
 DATA_RESOURCE_DIR = "resources"
 DATA_MANIFEST_STEM = "Manifest"
+
+# Migration Constants
+MISSING_INSTANCE_SPACE = "<InstanceSpaceMissing>"

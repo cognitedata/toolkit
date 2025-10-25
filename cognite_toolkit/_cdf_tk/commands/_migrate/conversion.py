@@ -48,6 +48,7 @@ class DirectRelationCache:
         ("file", "assetIds"),
         ("event", "assetIds"),
         ("sequence", "assetId"),
+        ("asset", "parentId"),
     }
     SOURCE_REFERENCE_PROPERTIES: ClassVar[Set[tuple[AssetCentric, str]]] = {
         ("asset", "source"),

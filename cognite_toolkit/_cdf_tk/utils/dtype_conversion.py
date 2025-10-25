@@ -318,8 +318,13 @@ class _SourceConverter(_SpecialCaseConverter, ABC):
         self.direct_relation_lookup = direct_relation_lookup
 
     def convert(self, value: str | int | float | bool | dict | list | None) -> DirectRelationReference:
-        if isinstance(value, str | int) and value in self.direct_relation_lookup:
-            return self.direct_relation_lookup[value]
+        if isinstance(value, str | int):
+            if value in self.direct_relation_lookup:
+                return self.direct_relation_lookup[value]
+            elif isinstance(value, str) and value.casefold() in self.direct_relation_lookup:
+                # The aggregate endpoint used to create source system lowercases all sources, thus
+                # we do a case-insensitive lookup as a fallback.
+                return self.direct_relation_lookup[value.casefold()]
         raise ValueError(
             f"Cannot convert {value!r} to DirectRelationReference. Invalid data type or missing in lookup."
         )
