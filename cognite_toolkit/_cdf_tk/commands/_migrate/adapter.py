@@ -46,7 +46,7 @@ from .data_model import INSTANCE_SOURCE_VIEW_ID
 
 class MigrationSelector(DataSelector, ABC):
     @abstractmethod
-    def get_ingestion_views(self) -> list[str]:
+    def get_ingestion_mappings(self) -> list[str]:
         raise NotImplementedError()
 
 
@@ -61,7 +61,7 @@ class MigrationCSVFileSelector(MigrationSelector):
     def __str__(self) -> str:
         return f"file_{self.datafile.name}"
 
-    def get_ingestion_views(self) -> list[str]:
+    def get_ingestion_mappings(self) -> list[str]:
         views = {item.get_ingestion_view() for item in self.items}
         return sorted(views)
 
@@ -90,8 +90,8 @@ class MigrateDataSetSelector(MigrationSelector):
     def get_instance_spaces(self) -> list[str] | None:
         return None
 
-    def get_ingestion_views(self) -> list[str]:
-        return []
+    def get_ingestion_mappings(self) -> list[str]:
+        return [self.ingestion_mapping] if self.ingestion_mapping else []
 
 
 @dataclass
