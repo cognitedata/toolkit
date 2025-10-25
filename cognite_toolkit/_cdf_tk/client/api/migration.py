@@ -1,7 +1,7 @@
 import warnings
 from collections.abc import Sequence
 from itertools import groupby
-from typing import overload
+from typing import TypeVar, overload
 
 from cognite.client._constants import DEFAULT_LIMIT_READ
 from cognite.client.data_classes.data_modeling import (
@@ -210,6 +210,9 @@ class CreatedSourceSystemAPI:
         return self._instance_api.list(instance_type=CreatedSourceSystem, limit=limit)
 
 
+_T = TypeVar("_T", bound=int | str)
+
+
 class SpaceSourceAPI:
     def __init__(self, instance_api: ExtendedInstancesAPI) -> None:
         self._instance_api = instance_api
@@ -250,7 +253,8 @@ class SpaceSourceAPI:
             )
         elif data_set_external_id is not None:
             return self._retrieve_with_cache(
-                value=data_set_external_id,
+                # MyPy is confused by SequenceNotStr
+                value=data_set_external_id,  # type: ignore[arg-type]
                 property_name="dataSetExternalId",
                 cache=self._cache_by_external_id,
                 is_single=isinstance(data_set_external_id, str),
@@ -260,35 +264,30 @@ class SpaceSourceAPI:
 
     def _retrieve_with_cache(
         self,
-        value: int | str | Sequence[int] | SequenceNotStr[str],
+        value: _T | Sequence[_T],
         property_name: str,
-        cache: dict[int, SpaceSource] | dict[str, SpaceSource],
+        cache: dict[_T, SpaceSource],
         is_single: bool,
     ) -> SpaceSource | NodeList[SpaceSource] | None:
         """Retrieve space sources with caching support."""
-        values = [value] if is_single else list(value)  # type: ignore[arg-type]
+        # MyPy does not understand that if is_single is True, value is _T, else Sequence[_T].
+        values: list[_T] = [value] if is_single else list(value)  # type: ignore[arg-type, list-item]
 
         # Check cache for all requested values
         cached_results: list[SpaceSource] = []
-        missing_values: list[int | str] = []
+        missing_values: list[_T] = []
         for val in values:
             if val in cache:
-                cached_results.append(cache[val])  # type: ignore[index]
+                cached_results.append(cache[val])
             else:
-                missing_values.append(val)  # type: ignore[arg-type]
+                missing_values.append(val)
 
         # Fetch missing values from API
         if missing_values:
-            fetched = self._retrieve_by_property(
-                property_name=property_name,
-                value=missing_values[0] if len(missing_values) == 1 else missing_values,  # type: ignore[arg-type]
-                is_single=len(missing_values) == 1,
-            )
-            if fetched is not None:
-                items = [fetched] if isinstance(fetched, SpaceSource) else fetched
-                for item in items:
-                    self._add_to_cache(item)
-                    cached_results.append(item)
+            fetched = self._retrieve_by_property(property_name=property_name, values=missing_values)
+            for item in fetched:
+                self._add_to_cache(item)
+                cached_results.append(item)
 
         if is_single:
             return cached_results[0] if cached_results else None
@@ -296,7 +295,7 @@ class SpaceSourceAPI:
 
     def _add_to_cache(self, space_source: SpaceSource) -> None:
         """Add a space source to both caches."""
-        if space_source.data_set_id is not None:
+        if space_source.data_set_id:
             self._cache_by_id[space_source.data_set_id] = space_source
         if space_source.data_set_external_id is not None:
             self._cache_by_external_id[space_source.data_set_external_id] = space_source
@@ -304,11 +303,9 @@ class SpaceSourceAPI:
     def _retrieve_by_property(
         self,
         property_name: str,
-        value: int | str | Sequence[int] | SequenceNotStr[str],
-        is_single: bool,
-    ) -> SpaceSource | NodeList[SpaceSource] | None:
+        values: Sequence[_T],
+    ) -> NodeList[SpaceSource]:
         """Retrieve space sources by filtering on a specific property."""
-        values = [value] if is_single else list(value)  # type: ignore[arg-type]
         results: NodeList[SpaceSource] = NodeList[SpaceSource]([])
         for chunk in chunker_sequence(values, self._RETRIEVE_LIMIT):
             retrieve_query = query.Query(
@@ -316,7 +313,7 @@ class SpaceSourceAPI:
                     "spaceSource": query.NodeResultSetExpression(
                         filter=filters.And(
                             filters.HasData(views=[self._view_id]),
-                            filters.In(self._view_id.as_property_ref(property_name), chunk),  # type: ignore[arg-type]
+                            filters.In(self._view_id.as_property_ref(property_name), chunk),
                         ),
                         limit=len(chunk),
                     ),
@@ -327,8 +324,6 @@ class SpaceSourceAPI:
             items = chunk_response.get("spaceSource", [])
             results.extend([SpaceSource._load(item.dump()) for item in items])
 
-        if is_single:
-            return results[0] if results else None
         return results
 
     def list(self, limit: int = -1) -> NodeList[SpaceSource]:
