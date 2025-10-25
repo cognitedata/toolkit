@@ -81,6 +81,11 @@ class AssetCentricMapper(DataMapper[MigrationSelector, AssetCentricMapping, Inst
             source_system.source: source_system.as_direct_relation_reference() for source_system in source_systems
         }
 
+        # We look-up all existing asset mappings to be able to create direct relations to already mapped assets.
+        # This is needed in case the migration is run multiple times, or if assets are mapped
+        asset_mappings = self.client.migration.instance_source.list(resource_type="asset", limit=-1)
+        self._asset_mapping_by_id = {mapping.id_: mapping.as_direct_relation_reference() for mapping in asset_mappings}
+
     def map(self, source: AssetCentricMapping) -> tuple[InstanceApply, ConversionIssue]:
         """Map a chunk of asset-centric data to InstanceApplyList format."""
         mapping = source.mapping
