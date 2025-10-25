@@ -86,6 +86,7 @@ class MigrationCommand(ToolkitCommand):
                 process_description="Converting",
                 write_description="Uploading",
                 console=console,
+                verbose=verbose,
             )
 
             executor.run()
