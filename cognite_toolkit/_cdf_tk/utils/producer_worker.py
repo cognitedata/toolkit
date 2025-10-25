@@ -2,11 +2,13 @@ import queue
 import sys
 import threading
 import time
+import traceback
 import typing
 from collections.abc import Callable, Iterable, Sized
 from typing import Any, Generic, TypeVar
 
 from rich.console import Console
+from rich.panel import Panel
 from rich.progress import (
     BarColumn,
     Progress,
@@ -89,6 +91,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         process_description: str = "Processing",
         write_description: str = "Writing",
         console: Console | None = None,
+        verbose: bool = False,
     ) -> None:
         self._download_iterable = download_iterable
         self._process = process
@@ -106,6 +109,8 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         self.write_queue: queue.Queue[T_Processed] = queue.Queue(maxsize=max_queue_size)
         self.total_items = 0
         self.error_message = ""
+        self.error_traceback = ""
+        self.verbose = verbose
 
     @property
     def error_occurred(self) -> bool:
@@ -187,6 +192,13 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
     def raise_on_error(self) -> None:
         """Raises an exception if an error occurred during execution."""
         if self._error_event.is_set():
+            if self.verbose and self.error_traceback:
+                self.console.print(
+                    Panel(
+                        self.error_traceback,
+                        title="Traceback",
+                    )
+                )
             raise ToolkitRuntimeError(f"An error occurred during execution: {self.error_message}")
         if self._stop_event.is_set():
             raise ToolkitRuntimeError("Execution was stopped by the user.")
@@ -217,6 +229,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
             except Exception as e:
                 self._error_event.set()
                 self.error_message = str(e)
+                self.error_traceback = traceback.format_exc()
                 self.console.print(f"[red]Error[/red] occurred while {self.download_description}: {self.error_message}")
                 break
         self._put_with_error_check(PROCESS_FINISH_SENTINEL, self.process_queue)  # type: ignore[misc]
@@ -256,6 +269,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
             except Exception as e:
                 self._error_event.set()
                 self.error_message = str(e)
+                self.error_traceback = traceback.format_exc()
                 self.console.print(f"[red]Error[/red] occurred while {self.process_description}: {self.error_message}")
                 break
 
@@ -277,6 +291,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
             except Exception as e:
                 self._error_event.set()
                 self.error_message = str(e)
+                self.error_traceback = traceback.format_exc()
                 self.console.print(f"[red]Error[/red] occurred while {self.write_description}: {self.error_message}")
                 break
 
