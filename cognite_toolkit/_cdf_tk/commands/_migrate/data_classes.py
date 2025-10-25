@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.storageio._data_classes import ModelList
 
 
-class MigrationMapping(BaseModel, alias_generator=to_camel_case, extra="ignore"):
+class MigrationMapping(BaseModel, alias_generator=to_camel_case, extra="ignore", populate_by_name=True):
     """The mapping between an asset-centric ID and a data modeling instance ID.
     Args
         resource_type (str): The asset-centric type of the resource (e.g., "asset", "event", "timeseries").

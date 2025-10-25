@@ -193,7 +193,7 @@ class AssetCentricMigrationIOAdapter(
             mapping_list = AssetCentricMappingList[T_WritableCogniteResource]([])
             for resource in data_chunk.items:
                 instance_space = self.client.migration.space_source.retrieve(data_set_id=resource.data_set_id)
-                if instance_space:
+                if instance_space is None:
                     instance_space = "<InstanceSpaceMissing>"
                 mapping = MigrationMapping(
                     resource_type=selector.kind.lower(),
@@ -206,12 +206,7 @@ class AssetCentricMigrationIOAdapter(
                     ingestion_view=selector.ingestion_mapping,
                     preferred_consumer_view=selector.preferred_consumer_view,
                 )
-                mapping_list.append(
-                    AssetCentricMapping(
-                        mapping=mapping,
-                        resource=resource,
-                    )
-                )
+                mapping_list.append(AssetCentricMapping(mapping=mapping, resource=resource))
             yield mapping_list
 
     def data_to_json_chunk(
