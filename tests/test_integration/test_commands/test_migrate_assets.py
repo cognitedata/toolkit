@@ -90,7 +90,7 @@ class TestMigrateAssetsCommand:
         client = toolkit_client
         hierarchy = migration_hierarchy_minimal
         cmd = MigrationCommand(skip_tracking=True, silent=True)
-        results = cmd.migrate(
+        progress = cmd.migrate(
             selected=MigrateDataSetSelector(
                 kind="Assets",
                 data_set_external_id=hierarchy.dataset.external_id,
@@ -102,5 +102,6 @@ class TestMigrateAssetsCommand:
             log_dir=tmp_path,
             dry_run=True,
         )
-
-        assert results["assets"].total == len(hierarchy.assets), "Dry run did not find all assets to migrate."
+        results = progress.aggregate()
+        expected_results = {(step, "success"): 2 for step in cmd.Steps.list()}
+        assert results == expected_results
