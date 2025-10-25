@@ -38,7 +38,12 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
 )
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest, SuccessResponseItems
-from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal, T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.utils.useful_types import (
+    AssetCentric,
+    AssetCentricKind,
+    JsonVal,
+    T_WritableCogniteResourceList,
+)
 
 from .data_classes import MigrationMapping, MigrationMappingList
 from .data_model import INSTANCE_SOURCE_VIEW_ID
@@ -72,7 +77,7 @@ class MigrationCSVFileSelector(MigrationSelector):
 
 class MigrateDataSetSelector(MigrationSelector):
     type: Literal["migrateDataSet"] = "migrateDataSet"
-    kind: Literal["Assets", "Events", "TimeSeries", "FileMetadata"]
+    kind: AssetCentricKind
     data_set_external_id: str
     ingestion_mapping: str | None = None
     preferred_consumer_view: ViewId | None = None
@@ -196,7 +201,7 @@ class AssetCentricMigrationIOAdapter(
                 if instance_space is None:
                     instance_space = "<InstanceSpaceMissing>"
                 mapping = MigrationMapping(
-                    resource_type=selector.kind.lower(),
+                    resource_type=self._kind_to_resource_type(selector.kind),
                     instance_id=NodeId(
                         space=instance_space,
                         external_id=resource.external_id,
@@ -208,6 +213,19 @@ class AssetCentricMigrationIOAdapter(
                 )
                 mapping_list.append(AssetCentricMapping(mapping=mapping, resource=resource))
             yield mapping_list
+
+    @staticmethod
+    def _kind_to_resource_type(kind: AssetCentricKind) -> AssetCentric:
+        mapping: dict[AssetCentricKind, AssetCentric] = {
+            "Assets": "asset",
+            "Events": "file",
+            "TimeSeries": "timeseries",
+            "FileMetadata": "file",
+        }
+        try:
+            return mapping[kind]
+        except KeyError as e:
+            raise ToolkitNotImplementedError(f"Kind '{kind}' is not supported") from e
 
     def data_to_json_chunk(
         self, data_chunk: Sequence[AssetCentricMapping[T_WritableCogniteResource]]

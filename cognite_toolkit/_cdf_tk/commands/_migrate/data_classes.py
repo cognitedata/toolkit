@@ -12,6 +12,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.storageio._data_classes import ModelList
+from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentric
 
 
 class MigrationMapping(BaseModel, alias_generator=to_camel_case, extra="ignore", populate_by_name=True):
@@ -27,7 +28,7 @@ class MigrationMapping(BaseModel, alias_generator=to_camel_case, extra="ignore",
            for example, the Canvas migration to determine which view to use for the resource.
     """
 
-    resource_type: str
+    resource_type: AssetCentric
     instance_id: NodeId
     id: int
     data_set_id: int | None = None
@@ -46,7 +47,7 @@ class MigrationMapping(BaseModel, alias_generator=to_camel_case, extra="ignore",
         raise ToolkitValueError(f"No default ingestion view specified for resource type '{self.resource_type}'")
 
     def as_asset_centric_id(self) -> AssetCentricId:
-        return AssetCentricId(resource_type=self.resource_type, id_=self.id)  # type: ignore[arg-type]
+        return AssetCentricId(resource_type=self.resource_type, id_=self.id)
 
     @model_validator(mode="before")
     def _handle_flat_dict(cls, values: Any) -> Any:
