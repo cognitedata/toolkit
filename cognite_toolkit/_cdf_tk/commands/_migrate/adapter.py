@@ -218,7 +218,7 @@ class AssetCentricMigrationIOAdapter(
     def _kind_to_resource_type(kind: AssetCentricKind) -> AssetCentric:
         mapping: dict[AssetCentricKind, AssetCentric] = {
             "Assets": "asset",
-            "Events": "file",
+            "Events": "event",
             "TimeSeries": "timeseries",
             "FileMetadata": "file",
         }
