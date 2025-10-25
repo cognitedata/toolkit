@@ -171,6 +171,14 @@ class TestSpaceSourceAPI:
         assert retrieved is not None
         assert retrieved.dump() == space_source.dump(), "Failed to retrieve space source by classic external ID"
 
+    def test_retrieve_not_found(self, toolkit_client: ToolkitClient) -> None:
+        retrieved = toolkit_client.migration.space_source.retrieve(data_set_id=999999999)
+        assert retrieved is None, "Expected None when retrieving non-existing space source"
+
+    def test_retrieve_data_external_id_not_found(self, toolkit_client: ToolkitClient) -> None:
+        retrieved = toolkit_client.migration.space_source.retrieve(data_set_external_id="non_existing_external_id")
+        assert retrieved is None, "Expected None when retrieving non-existing space source by external ID"
+
     @pytest.mark.usefixtures("space_source")
     def test_list(self, toolkit_client: ToolkitClient) -> None:
         listed = toolkit_client.migration.space_source.list(limit=1)
