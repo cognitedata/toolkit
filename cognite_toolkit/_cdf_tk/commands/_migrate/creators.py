@@ -112,7 +112,7 @@ class InstanceSpaceCreator(MigrationCreator[SpaceApplyList]):
                             properties={
                                 "instanceSpace": space.space,
                                 "dataSetId": data_set_by_external_id[space.space].id,
-                                "classicExternalId": data_set_by_external_id[space.space].external_id,
+                                "dataSetExternalId": data_set_by_external_id[space.space].external_id,
                             },
                         )
                     ],
