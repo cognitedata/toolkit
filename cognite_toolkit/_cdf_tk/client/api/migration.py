@@ -76,12 +76,10 @@ class InstanceSourceAPI:
         return filters.Or(*to_or_filters)
 
     def list(self, resource_type: AssetCentric, limit: int | None = DEFAULT_LIMIT_READ) -> NodeList[InstanceSource]:
-        """List instance sources optionally filtered by resource type"""
+        """List instance sources filtered by resource type"""
         is_selected = filters.Equals(self._view_id.as_property_ref("resourceType"), resource_type)
 
-        nodes = self._instance_api.list(
-            instance_type="node", filter=is_selected, limit=limit, space=COGNITE_MIGRATION_SPACE, sources=self._view_id
-        )
+        nodes = self._instance_api.list(instance_type="node", filter=is_selected, limit=limit, sources=self._view_id)
         return NodeList[InstanceSource]([InstanceSource._load(node.dump()) for node in nodes])
 
 
