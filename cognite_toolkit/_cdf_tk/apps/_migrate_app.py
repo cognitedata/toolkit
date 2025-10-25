@@ -39,7 +39,7 @@ class MigrateApp(typer.Typer):
         self.callback(invoke_without_command=True)(self.main)
         self.command("prepare")(self.prepare)
         self.command("data-sets")(self.data_sets)
-        self.command("source-system")(self.source_system)
+        self.command("source-systems")(self.source_systems)
         self.command("assets")(self.assets)
         self.command("timeseries")(self.timeseries)
         self.command("files")(self.files)
@@ -151,7 +151,7 @@ class MigrateApp(typer.Typer):
         )
 
     @staticmethod
-    def source_system(
+    def source_systems(
         ctx: typer.Context,
         data_set: Annotated[
             str | None,
