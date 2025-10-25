@@ -253,7 +253,7 @@ class MigrateApp(typer.Typer):
             typer.Option(
                 "--ingestion-mapping",
                 "-i",
-                help="The ingestion mapping to use for the migrated CogniteAssets. If not provided, "
+                help="The ingestion mapping to use for the migrated assets. If not provided, "
                 "the default mapping to CogniteAsset in CogniteCore will be used.",
             ),
         ] = None,
@@ -304,7 +304,7 @@ class MigrateApp(typer.Typer):
             selected = MigrateDataSetSelector(
                 data_set_external_id=data_set_id,
                 kind="Assets",
-                ingestion_view=ingestion_mapping,
+                ingestion_mapping=ingestion_mapping,
                 preferred_consumer_view=parsed_view,
             )
         else:
@@ -327,7 +327,7 @@ class MigrateApp(typer.Typer):
             selected = MigrateDataSetSelector(
                 data_set_external_id=selected_data_set_id,
                 kind="Assets",
-                ingestion_view=asset_mapping.external_id,
+                ingestion_mapping=asset_mapping.external_id,
                 preferred_consumer_view=preferred_consumer_view,
             )
             dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).ask()

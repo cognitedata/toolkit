@@ -74,7 +74,7 @@ class MigrateDataSetSelector(MigrationSelector):
     type: Literal["migrateDataSet"] = "migrateDataSet"
     kind: Literal["Assets", "Events", "TimeSeries", "FileMetadata"]
     data_set_external_id: str
-    ingestion_view: str | None = None
+    ingestion_mapping: str | None = None
     preferred_consumer_view: ViewId | None = None
 
     @property
@@ -203,7 +203,7 @@ class AssetCentricMigrationIOAdapter(
                     ),
                     id=resource.id,
                     data_set_id=resource.data_set_id,
-                    ingestion_view=selector.ingestion_view,
+                    ingestion_view=selector.ingestion_mapping,
                     preferred_consumer_view=selector.preferred_consumer_view,
                 )
                 mapping_list.append(

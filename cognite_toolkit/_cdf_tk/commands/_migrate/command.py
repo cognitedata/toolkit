@@ -59,7 +59,7 @@ class MigrationCommand(ToolkitCommand):
                 f"Log directory {log_dir} already exists. Please remove it or choose another directory."
             )
         self.validate_migration_model_available(data.client)
-        log_dir.mkdir(parents=True, exist_ok=False)
+        log_dir.mkdir(parents=True, exist_ok=True)
         mapper.prepare(selected)
 
         iteration_count: int | None = None
