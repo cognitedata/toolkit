@@ -23,12 +23,12 @@ from cognite_toolkit._cdf_tk.commands._migrate.creators import InstanceSpaceCrea
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
 from cognite_toolkit._cdf_tk.storageio import AssetIO
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.cli_args import parse_view_str
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
     AssetInteractiveSelect,
     DataModelingSelect,
     ResourceViewMappingInteractiveSelect,
 )
-from cognite_toolkit._cdf_tk.utils.parse_cli_args import parse_view_str
 
 TODAY = date.today()
 
