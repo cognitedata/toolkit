@@ -411,7 +411,7 @@ class SpaceSource(TypedNode):
             Coordinated Universal Time (UTC), minus leap seconds.
         instance_space (str): The instance space name.
         data_set_id: The data set id associated with the instance space.
-        classic_external_id: The classic external id associated with the instance space.
+        data_set_external_id: The classic external id associated with the instance space.
         type: Direct relation pointing to the type node.
         deleted_time: The number of milliseconds since 00:00:00 Thursday, 1 January 1970, Coordinated Universal Time
             (UTC), minus leap seconds. Timestamp when the instance was soft deleted. Note that deleted instances
@@ -420,7 +420,7 @@ class SpaceSource(TypedNode):
 
     instance_space = PropertyOptions("instanceSpace")
     data_set_id = PropertyOptions("dataSetId")
-    classic_external_id = PropertyOptions("classicExternalId")
+    data_set_external_id = PropertyOptions("dataSetExternalId")
 
     def __init__(
         self,
@@ -432,14 +432,14 @@ class SpaceSource(TypedNode):
         *,
         instance_space: str,
         data_set_id: int,
-        classic_external_id: str | None = None,
+        data_set_external_id: str | None = None,
         type: DirectRelationReference | None = None,
         deleted_time: int | None = None,
     ) -> None:
         TypedNode.__init__(self, space, external_id, version, last_updated_time, created_time, deleted_time, type)
         self.instance_space = instance_space
         self.data_set_id = data_set_id
-        self.classic_external_id = classic_external_id
+        self.data_set_external_id = data_set_external_id
 
     @classmethod
     def get_source(cls) -> ViewId:

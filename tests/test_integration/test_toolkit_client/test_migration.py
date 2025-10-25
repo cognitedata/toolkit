@@ -146,12 +146,12 @@ def space_source(toolkit_client) -> SpaceSource:
                 {
                     "instanceSpace": "the_instance_space",
                     "dataSetId": 12345,
-                    "classicExternalId": "the_classic_data_set",
+                    "dataSetExternalId": "the_classic_data_set",
                 },
             )
         ],
     )
-    if not toolkit_client.data_modeling.instances.retrieve_nodes([node.as_id()]):
+    if not toolkit_client.data_modeling.instances.retrieve_nodes([node.as_id()], node_cls=SpaceSource):
         _ = toolkit_client.data_modeling.instances.apply(node)
     retrieved = toolkit_client.data_modeling.instances.retrieve_nodes([node.as_id()], node_cls=SpaceSource)
     return retrieved[0]
@@ -165,7 +165,7 @@ class TestSpaceSourceAPI:
 
     def test_retrieve_data_set_external_id(self, space_source: SpaceSource, toolkit_client: ToolkitClient) -> None:
         retrieved = toolkit_client.migration.space_source.retrieve(
-            data_set_external_id=space_source.classic_external_id
+            data_set_external_id=space_source.data_set_external_id
         )
 
         assert retrieved is not None
