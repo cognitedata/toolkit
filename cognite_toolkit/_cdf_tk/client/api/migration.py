@@ -251,7 +251,7 @@ class SpaceSourceAPI:
         elif data_set_external_id is not None:
             return self._retrieve_with_cache(
                 value=data_set_external_id,
-                property_name="classicExternalId",
+                property_name="datSetExternalId",
                 cache=self._cache_by_external_id,
                 is_single_type=str,
             )
@@ -299,8 +299,8 @@ class SpaceSourceAPI:
         """Add a space source to both caches."""
         if space_source.data_set_id is not None:
             self._cache_by_id[space_source.data_set_id] = space_source
-        if space_source.classic_external_id is not None:
-            self._cache_by_external_id[space_source.classic_external_id] = space_source
+        if space_source.data_set_external_id is not None:
+            self._cache_by_external_id[space_source.data_set_external_id] = space_source
 
     def _retrieve_by_property(
         self,
