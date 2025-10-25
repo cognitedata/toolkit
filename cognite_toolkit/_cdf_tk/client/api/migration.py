@@ -241,32 +241,31 @@ class SpaceSourceAPI:
         This method uses caching to avoid redundant API calls. If a space source
         has been retrieved before, it will be returned from cache.
         """
-        if data_set_id is not None:
+        if data_set_id is not None and data_set_external_id is None:
             return self._retrieve_with_cache(
                 value=data_set_id,
                 property_name="dataSetId",
                 cache=self._cache_by_id,
-                is_single_type=int,
+                is_single=isinstance(data_set_id, int),
             )
         elif data_set_external_id is not None:
             return self._retrieve_with_cache(
                 value=data_set_external_id,
-                property_name="datSetExternalId",
+                property_name="dataSetExternalId",
                 cache=self._cache_by_external_id,
-                is_single_type=str,
+                is_single=isinstance(data_set_external_id, str),
             )
         else:
-            raise ValueError("One of data_set_id or data_set_external_id must be provided.")
+            raise ValueError("Either data_set_id or data_set_external_id must be provided, but not both.")
 
     def _retrieve_with_cache(
         self,
         value: int | str | Sequence[int] | SequenceNotStr[str],
         property_name: str,
         cache: dict[int, SpaceSource] | dict[str, SpaceSource],
-        is_single_type: type[int] | type[str],
+        is_single: bool,
     ) -> SpaceSource | NodeList[SpaceSource] | None:
         """Retrieve space sources with caching support."""
-        is_single = isinstance(value, is_single_type)
         values = [value] if is_single else list(value)  # type: ignore[arg-type]
 
         # Check cache for all requested values
