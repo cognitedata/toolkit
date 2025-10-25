@@ -129,6 +129,7 @@ class MigrationMappingList(ModelList[MigrationMapping]):
             "asset": AssetMigrationMappingList,
             "timeseries": TimeSeriesMigrationMappingList,
             "file": FileMigrationMappingList,
+            "event": EventMigrationMappingList,
         }
         if resource_type not in cls_by_resource_type:
             raise ToolkitValueError(
@@ -139,6 +140,10 @@ class MigrationMappingList(ModelList[MigrationMapping]):
 
 class AssetMapping(MigrationMapping):
     resource_type: Literal["asset"] = "asset"
+
+
+class EventMapping(MigrationMapping):
+    resource_type: Literal["event"] = "event"
 
 
 class TimeSeriesMapping(MigrationMapping):
@@ -153,6 +158,12 @@ class AssetMigrationMappingList(MigrationMappingList):
     @classmethod
     def _get_base_model_cls(cls) -> type[AssetMapping]:
         return AssetMapping
+
+
+class EventMigrationMappingList(MigrationMappingList):
+    @classmethod
+    def _get_base_model_cls(cls) -> type[EventMapping]:
+        return EventMapping
 
 
 class FileMigrationMappingList(MigrationMappingList):
