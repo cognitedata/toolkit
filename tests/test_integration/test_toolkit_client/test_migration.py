@@ -114,7 +114,7 @@ def created_source_system(toolkit_client: ToolkitClient, toolkit_space: Space) -
             )
         ],
     )
-    if not toolkit_client.data_modeling.instances.retrieve_nodes([node.as_id()]):
+    if not toolkit_client.data_modeling.instances.retrieve_nodes([node.as_id()], node_cls=CreatedSourceSystem):
         _ = toolkit_client.data_modeling.instances.apply(node)
     return source
 
