@@ -198,7 +198,8 @@ class AssetCentricMigrationIOAdapter(
         for data_chunk in self.base.stream_data(asset_centric_selector, limit):
             mapping_list = AssetCentricMappingList[T_WritableCogniteResource]([])
             for resource in data_chunk.items:
-                instance_space = self.client.migration.space_source.retrieve(data_set_id=resource.data_set_id)
+                space_source = self.client.migration.space_source.retrieve(data_set_id=resource.data_set_id)
+                instance_space = space_source.instance_space if space_source else None
                 if instance_space is None:
                     instance_space = MISSING_INSTANCE_SPACE
                 mapping = MigrationMapping(
