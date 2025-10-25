@@ -204,7 +204,7 @@ class MigrateApp(typer.Typer):
             instance_space = dm_selector.select_instance_space(
                 multiselect=False,
                 message="In which instance space do you want to create the source system?",
-                include_emtpy=True,
+                include_empty=True,
             )
             dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).ask()
             output_dir = questionary.path(
