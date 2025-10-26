@@ -24,6 +24,7 @@ from cognite.client.data_classes import (
     TimeSeriesWriteList,
 )
 from cognite.client.data_classes._base import (
+    CogniteResource,
     CogniteResourceList,
     T_CogniteResourceList,
     T_WritableCogniteResource,
@@ -52,7 +53,7 @@ from cognite_toolkit._cdf_tk.utils.aggregators import (
 from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, SimpleBodyRequest
-from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, AssetCentric, JsonVal, T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, AssetCentricType, JsonVal, T_WritableCogniteResourceList
 
 from ._base import ConfigurableStorageIO, Page, StorageIOConfig, TableStorageIO, UploadableStorageIO, UploadItem
 from .selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
@@ -65,7 +66,7 @@ class BaseAssetCentricIO(
     UploadableStorageIO[AssetCentricSelector, T_WritableCogniteResource, T_WriteClass],
     ABC,
 ):
-    RESOURCE_TYPE: ClassVar[AssetCentric]
+    RESOURCE_TYPE: ClassVar[AssetCentricType]
     CHUNK_SIZE = 1000
     BASE_SELECTOR = AssetCentricSelector
 
@@ -448,7 +449,7 @@ class EventIO(BaseAssetCentricIO[str, EventWrite, Event, EventWriteList, EventLi
         return self.client.events.retrieve_multiple(ids)
 
 
-class HierarchyIO(ConfigurableStorageIO[int, AssetCentricSelector, CogniteResourceList, WriteableCogniteResourceList]):
+class HierarchyIO(ConfigurableStorageIO[AssetCentricSelector, CogniteResource]):
     CHUNK_SIZE = 1000
     BASE_SELECTOR = AssetCentricSelector
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
@@ -467,7 +468,7 @@ class HierarchyIO(ConfigurableStorageIO[int, AssetCentricSelector, CogniteResour
             self._event_io.KIND: self._event_io,
         }
 
-    def as_id(self, item: dict[str, JsonVal] | object) -> int:
+    def as_id(self, item: CogniteResource) -> int:
         if hasattr(item, "id") and isinstance(item.id, int):
             return item.id
         if isinstance(item, dict) and isinstance(item.get("id"), int):
