@@ -340,8 +340,6 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
                     results.append(FailedRequestItems(ids=[item.as_id()], error=message.error))
                 else:
                     results.append(message)
-
-            results.extend(responses)
         return results
 
     def retrieve(self, ids: Sequence[int]) -> FileMetadataList:
