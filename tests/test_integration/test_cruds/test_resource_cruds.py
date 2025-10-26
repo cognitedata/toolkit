@@ -555,15 +555,6 @@ def schema_space(toolkit_client: ToolkitClient) -> dm.Space:
 
 
 @pytest.fixture(scope="module")
-def instance_space(toolkit_client: ToolkitClient) -> dm.Space:
-    return toolkit_client.data_modeling.spaces.apply(
-        dm.SpaceApply(
-            space=f"sp_instances_{RUN_UNIQUE_ID}",
-        )
-    )
-
-
-@pytest.fixture(scope="module")
 def a_container(toolkit_client: ToolkitClient, schema_space: dm.Space) -> dm.Container:
     return toolkit_client.data_modeling.containers.apply(
         dm.ContainerApply(
@@ -673,10 +664,10 @@ def cognite_file_extension(
 
 
 class TestCogniteFileLoader:
-    def test_create_update_retrieve_delete(self, toolkit_client: ToolkitClient, instance_space: dm.Space) -> None:
+    def test_create_update_retrieve_delete(self, toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> None:
         loader = CogniteFileCRUD(toolkit_client, None)
         # Loading from YAML to test the loading of extra properties as well
-        file = ExtendableCogniteFileApply.load(f"""space: {instance_space.space}
+        file = ExtendableCogniteFileApply.load(f"""space: {toolkit_space.space}
 externalId: tmp_test_create_update_delete_file_{RUN_UNIQUE_ID}
 name: My file
 description: Original description
@@ -705,12 +696,12 @@ description: Original description
 
     @pytest.mark.skip("For now, we do not support creating extensions")
     def test_create_update_retrieve_delete_extension(
-        self, toolkit_client: ToolkitClient, cognite_file_extension: dm.View, instance_space: dm.Space
+        self, toolkit_client: ToolkitClient, cognite_file_extension: dm.View, toolkit_space: dm.Space
     ) -> None:
         loader = CogniteFileCRUD(toolkit_client, None)
         view_id = cognite_file_extension.as_id()
         # Loading from YAML to test the loading of extra properties as well
-        file = ExtendableCogniteFileApply.load(f"""space: {instance_space.space}
+        file = ExtendableCogniteFileApply.load(f"""space: {toolkit_space.space}
 externalId: tmp_test_create_update_delete_file_extension_{RUN_UNIQUE_ID}
 name: MyExtendedFile
 description: Original description
@@ -974,11 +965,11 @@ authentication:
 
 
 class TestNodeLoader:
-    def test_update_existing_node(self, toolkit_client: ToolkitClient, instance_space: dm.Space) -> None:
+    def test_update_existing_node(self, toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> None:
         loader = NodeCRUD(toolkit_client, None)
         view_id = dm.ViewId("cdf_cdm", "CogniteDescribable", "v1")
         existing_node = dm.NodeApply(
-            space=instance_space.space,
+            space=toolkit_space.space,
             external_id=f"toolkit_test_update_existing_node_{RUN_UNIQUE_ID}",
             sources=[
                 dm.NodeOrEdgeData(
