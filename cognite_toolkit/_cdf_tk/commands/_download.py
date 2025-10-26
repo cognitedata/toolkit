@@ -70,7 +70,7 @@ class DownloadCommand(ToolkitCommand):
             ) as writer:
                 executor = ProducerWorkerExecutor[Page[T_CogniteResource], list[dict[str, JsonVal]]](
                     download_iterable=io.stream_data(selector, limit),
-                    process=partial(self.process_data_chunk, io=io),
+                    process=partial(self.process_data_chunk, io=io, selector=selector),
                     write=partial(writer.write_chunks, filestem=filestem),
                     iteration_count=iteration_count,
                     # Limit queue size to avoid filling up memory before the workers can write to disk.
@@ -128,14 +128,16 @@ class DownloadCommand(ToolkitCommand):
     def process_data_chunk(
         data_page: Page[T_CogniteResource],
         io: StorageIO[T_Selector, T_CogniteResource],
+        selector: T_Selector,
     ) -> list[dict[str, JsonVal]]:
         """Processes a chunk of data by converting it to a JSON-compatible format.
 
         Args:
             data_page: The page of data to process.
             io: The StorageIO instance that defines how to process the data.
+            selector: The selection criteria used to identify the data.
 
         Returns:
             A list of dictionaries representing the processed data in a JSON-compatible format.
         """
-        return io.data_to_json_chunk(data_page.items)
+        return io.data_to_json_chunk(data_page.items, selector)

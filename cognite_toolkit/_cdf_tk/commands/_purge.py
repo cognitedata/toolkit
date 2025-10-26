@@ -29,6 +29,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     GroupCRUD,
     GroupResourceScopedCRUD,
     HostedExtractorDestinationCRUD,
+    InfieldV1CRUD,
     LocationFilterCRUD,
     NodeCRUD,
     ResourceCRUD,
@@ -329,6 +330,7 @@ class PurgeCommand(ToolkitCommand):
                 HostedExtractorDestinationCRUD,
                 FunctionCRUD,
                 LocationFilterCRUD,
+                InfieldV1CRUD,
             },
         )
         is_purged = self._purge(client, loaders, selected_data_set=selected_dataset, dry_run=dry_run, verbose=verbose)

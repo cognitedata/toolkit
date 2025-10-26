@@ -49,7 +49,17 @@ from cognite_toolkit._cdf_tk.utils.aggregators import (
 )
 from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, SimpleBodyRequest
+from cognite_toolkit._cdf_tk.utils.http_client import (
+    FailedRequestItems,
+    FailedRequestMessage,
+    FailedResponse,
+    FailedResponseItems,
+    HTTPClient,
+    HTTPMessage,
+    SimpleBodyRequest,
+    SuccessResponse,
+    SuccessResponseItems,
+)
 from cognite_toolkit._cdf_tk.utils.useful_types import (
     T_ID,
     AssetCentricResource,
@@ -306,7 +316,7 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
         config = http_client.config
         results: MutableSequence[HTTPMessage] = []
         for item in data_chunk:
-            file_result = http_client.request_with_retries(
+            responses = http_client.request_with_retries(
                 message=SimpleBodyRequest(
                     endpoint_url=config.create_api_url(self.UPLOAD_ENDPOINT),
                     method="POST",
@@ -314,7 +324,24 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
                     body_content=item.dump(),  # type: ignore[arg-type]
                 )
             )
-            results.extend(file_result)
+            # Convert the responses to per-item responses
+            for message in responses:
+                if isinstance(message, SuccessResponse):
+                    results.append(
+                        SuccessResponseItems(status_code=message.status_code, ids=[item.as_id()], body=message.body)
+                    )
+                elif isinstance(message, FailedResponse):
+                    results.append(
+                        FailedResponseItems(
+                            status_code=message.status_code, ids=[item.as_id()], body=message.body, error=message.error
+                        )
+                    )
+                elif isinstance(message, FailedRequestMessage):
+                    results.append(FailedRequestItems(ids=[item.as_id()], error=message.error))
+                else:
+                    results.append(message)
+
+            results.extend(responses)
         return results
 
     def retrieve(self, ids: Sequence[int]) -> FileMetadataList:
