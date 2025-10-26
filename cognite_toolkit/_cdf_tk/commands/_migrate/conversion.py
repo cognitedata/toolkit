@@ -15,7 +15,7 @@ from cognite_toolkit._cdf_tk.utils.collection import flatten_dict_json_path
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     asset_centric_convert_to_primary_property,
 )
-from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentric
+from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricType
 
 from .data_model import INSTANCE_SOURCE_VIEW_ID
 from .issues import ConversionIssue, FailedConversion, InvalidPropertyDataType
@@ -43,13 +43,13 @@ class DirectRelationCache:
 
     """
 
-    ASSET_REFERENCE_PROPERTIES: ClassVar[Set[tuple[AssetCentric, str]]] = {
+    ASSET_REFERENCE_PROPERTIES: ClassVar[Set[tuple[AssetCentricType, str]]] = {
         ("timeseries", "assetId"),
         ("file", "assetIds"),
         ("event", "assetIds"),
         ("sequence", "assetId"),
     }
-    SOURCE_REFERENCE_PROPERTIES: ClassVar[Set[tuple[AssetCentric, str]]] = {
+    SOURCE_REFERENCE_PROPERTIES: ClassVar[Set[tuple[AssetCentricType, str]]] = {
         ("asset", "source"),
         ("event", "source"),
         ("file", "source"),
@@ -58,7 +58,7 @@ class DirectRelationCache:
     asset: Mapping[int, DirectRelationReference]
     source: Mapping[str, DirectRelationReference]
 
-    def get(self, resource_type: AssetCentric, property_id: str) -> Mapping[str | int, DirectRelationReference]:
+    def get(self, resource_type: AssetCentricType, property_id: str) -> Mapping[str | int, DirectRelationReference]:
         if (resource_type, property_id) in self.ASSET_REFERENCE_PROPERTIES:
             return self.asset  # type: ignore[return-value]
         if (resource_type, property_id) in self.SOURCE_REFERENCE_PROPERTIES:
@@ -133,8 +133,8 @@ def asset_centric_to_dm(
     return node, issue
 
 
-def _lookup_resource_type(resource_type: type[CogniteResource]) -> AssetCentric:
-    resource_type_map: dict[type[CogniteResource], AssetCentric] = {
+def _lookup_resource_type(resource_type: type[CogniteResource]) -> AssetCentricType:
+    resource_type_map: dict[type[CogniteResource], AssetCentricType] = {
         Asset: "asset",
         FileMetadata: "file",
         Event: "event",
@@ -153,7 +153,7 @@ def create_properties(
     dumped: dict[str, Any],
     view_properties: dict[str, ViewProperty],
     property_mapping: dict[str, str],
-    resource_type: AssetCentric,
+    resource_type: AssetCentricType,
     issue: ConversionIssue,
     direct_relation_cache: DirectRelationCache,
 ) -> dict[str, PropertyValueWrite]:
