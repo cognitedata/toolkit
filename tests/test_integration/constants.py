@@ -5,6 +5,9 @@ import sys
 # This is needed as we run tests for two different versions of Python in parallel.
 # The platform.system() is not used, but is here in case we start testing on Windows as well.
 # The random number is to avoid conflicts when running tests in parallel (for example, two PRs).
+# CAUTION: This should only be used for ephemeral test resources that are cleaned up after the test run. It should
+# not be used for resources that are expected to persist beyond the test run. For example, a data modeling space,
+# that is used to host other resources, should not use this constant as part of its name.
 RUN_UNIQUE_ID = (
     f"{platform.system()}_{sys.version_info.major}_{sys.version_info.minor}_{random.randint(0, 100_000_000)!s}"
 )
