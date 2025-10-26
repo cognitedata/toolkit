@@ -27,10 +27,10 @@ class TestAssetCentricMigrationIOAdapter:
         assert len(downloaded) == 2
         assert sum(len(chunk) for chunk in downloaded) == N
         unexpected_space = [
-            item for chunk in downloaded for item in chunk if item.mapping.instance_id.space != "mySpace"
+            item for chunk in downloaded for item in chunk.items if item.mapping.instance_id.space != "mySpace"
         ]
         assert not unexpected_space, f"Found items with unexpected space: {unexpected_space}"
-        first_item = downloaded[0][0]
+        first_item = downloaded[0].items[0]
         assert first_item.dump() == {
             "mapping": {"id": 0, "instanceId": {"space": "mySpace", "externalId": "asset_0"}, "resourceType": "asset"},
             "resource": {"id": 0, "externalId": "asset_0"},

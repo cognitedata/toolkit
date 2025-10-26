@@ -24,6 +24,11 @@ class MigrationIssue(MigrationObject):
         dumped["type"] = self.type
         return dumped
 
+    @property
+    def has_issues(self) -> bool:
+        """Check if there are any issues recorded in this MigrationIssue."""
+        return True
+
 
 class ReadIssue(MigrationIssue):
     """Represents a read issue encountered during migration."""

@@ -12,7 +12,17 @@ from cognite.client.data_classes import (
     UserProfileList,
 )
 from cognite.client.data_classes.aggregations import CountValue
-from cognite.client.data_classes.data_modeling import NodeList, Space, SpaceList, View, ViewId, ViewList
+from cognite.client.data_classes.data_modeling import (
+    ContainerId,
+    MappedProperty,
+    NodeList,
+    Space,
+    SpaceList,
+    Text,
+    View,
+    ViewId,
+    ViewList,
+)
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics, SpaceStatisticsList
 from cognite.client.data_classes.raw import Database, DatabaseList, Table, TableList
 from questionary import Choice
@@ -20,6 +30,7 @@ from questionary import Choice
 from cognite_toolkit._cdf_tk.client.data_classes.canvas import CANVAS_INSTANCE_SPACE, Canvas
 from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList
 from cognite_toolkit._cdf_tk.client.data_classes.charts_data import ChartData
+from cognite_toolkit._cdf_tk.client.data_classes.migration import ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
@@ -33,6 +44,7 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
     InteractiveCanvasSelect,
     InteractiveChartSelect,
     RawTableInteractiveSelect,
+    ResourceViewMappingInteractiveSelect,
     TimeSeriesInteractiveSelect,
 )
 from tests.test_unit.utils import MockQuestionary
@@ -673,6 +685,43 @@ class TestDataModelingInteractiveSelect:
             assert isinstance(selected_view, View)
             assert selected_view.external_id == expected
 
+    def test_select_view_mapped_container(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        space = Space(space="space1", **self.DEFAULT_SPACE_ARGS)
+        default_view_args = dict(self.DEFAULT_VIEW_ARGS)
+        default_view_args["properties"] = {
+            "name": MappedProperty(
+                container=ContainerId(space="space1", external_id="container1"),
+                container_property_identifier="name",
+                type=Text(),
+                nullable=True,
+                immutable=False,
+                auto_increment=False,
+            )
+        }
+        views = [
+            View(space="space1", external_id="view1", version="1", **self.DEFAULT_VIEW_ARGS),
+            View(space="space1", external_id="view2", version="1", **default_view_args),
+        ]
+        space_stats = SpaceStatisticsList([SpaceStatistics(space.space, 0, 1, 0, 0, 0, 0, 0)])
+
+        def select_view(choices: list[Choice]) -> View:
+            assert len(choices) == 1, "Expected one view to be filtered out."
+            return choices[0].value
+
+        answers = [space, select_view]
+
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(DataModelingSelect.__module__, monkeypatch, answers),
+        ):
+            client.data_modeling.spaces.list.return_value = SpaceList([space])
+            client.data_modeling.statistics.spaces.list.return_value = space_stats
+            client.data_modeling.views.list.return_value = ViewList(views)
+            selector = DataModelingSelect(client, "test_operation")
+            selected_view = selector.select_view(mapped_container=ContainerId("space1", "container1"))
+
+        assert selected_view.external_id == "view2"
+
     def test_select_no_schema_space_found(self, monkeypatch) -> None:
         space = Space(space="space1", **self.DEFAULT_SPACE_ARGS)
         space_stats = [SpaceStatistics(space.space, 0, 0, 0, 0, 0, 0, 0)]
@@ -967,3 +1016,43 @@ class TestDataModelingInteractiveSelect:
                 selector.select_instance_space()
 
             assert "No instances found in any space" in str(exc_info.value)
+
+
+class TestResourceViewMappingInteractiveSelect:
+    def test_interactive_select_resource_view_mapping(self, monkeypatch) -> None:
+        def select_resource_view_mapping(choices: list[Choice]) -> ResourceViewMapping:
+            assert len(choices) == 2
+            selection = choices[1].value
+            return selection
+
+        answers = [select_resource_view_mapping]
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(ResourceViewMappingInteractiveSelect.__module__, monkeypatch, answers),
+        ):
+            selector = ResourceViewMappingInteractiveSelect(client, "test_operation")
+            client.migration.resource_view_mapping.list.return_value = NodeList[ResourceViewMapping](
+                [
+                    ResourceViewMapping(
+                        external_id="mapping1",
+                        resource_type="asset",
+                        view_id=ViewId("space1", "view1", "1"),
+                        property_mapping={},
+                        last_updated_time=1,
+                        created_time=0,
+                        version=1,
+                    ),
+                    ResourceViewMapping(
+                        external_id="mapping2",
+                        resource_type="asset",
+                        view_id=ViewId("space2", "view2", "1"),
+                        property_mapping={},
+                        last_updated_time=1,
+                        created_time=0,
+                        version=1,
+                    ),
+                ]
+            )
+
+            result = selector.select_resource_view_mapping("asset")
+        assert result.external_id == "mapping2"

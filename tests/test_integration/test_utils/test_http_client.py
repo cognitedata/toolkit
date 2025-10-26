@@ -1,3 +1,5 @@
+import json
+
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ParamRequest, SimpleBodyRequest, SuccessResponse
 
@@ -30,7 +32,7 @@ class TestHttpClient:
         response = result[0]
         assert isinstance(response, SuccessResponse)
         assert response.status_code == 200
-        response_body = response.body
+        response_body = json.loads(response.body)
         assert "items" in response_body
         assert isinstance(response_body["items"], list)
         assert len(response_body["items"]) <= 1

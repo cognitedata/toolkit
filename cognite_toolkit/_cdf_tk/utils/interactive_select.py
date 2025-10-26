@@ -17,7 +17,7 @@ from cognite.client.data_classes.aggregations import Count
 from cognite.client.data_classes.capabilities import (
     UserProfilesAcl,
 )
-from cognite.client.data_classes.data_modeling import NodeList, Space, SpaceList, View, ViewId, ViewList
+from cognite.client.data_classes.data_modeling import ContainerId, NodeList, Space, SpaceList, View, ViewId, ViewList
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from cognite.client.utils import ms_to_datetime
 from questionary import Choice
@@ -26,6 +26,7 @@ from rich.console import Console
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.canvas import Canvas
 from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList, Visibility
+from cognite_toolkit._cdf_tk.client.data_classes.migration import ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.exceptions import AuthorizationError, ToolkitMissingResourceError, ToolkitValueError
 
@@ -512,6 +513,7 @@ class DataModelingSelect:
         space: str | None = None,
         message: str | None = None,
         instance_type: Literal["node", "edge", "all"] | None = None,
+        mapped_container: ContainerId | None = None,
     ) -> View: ...
 
     @overload
@@ -522,6 +524,7 @@ class DataModelingSelect:
         space: str | None = None,
         message: str | None = None,
         instance_type: Literal["node", "edge", "all"] | None = None,
+        mapped_container: ContainerId | None = None,
     ) -> ViewList: ...
 
     def select_view(
@@ -531,6 +534,7 @@ class DataModelingSelect:
         space: str | None = None,
         message: str | None = None,
         instance_type: Literal["node", "edge", "all"] | None = None,
+        mapped_container: ContainerId | None = None,
     ) -> View | ViewList:
         """Select one or more views interactively.
 
@@ -542,6 +546,7 @@ class DataModelingSelect:
             message: The message to display when prompting for a view. If None, a default message
                 will be used.
             instance_type: If 'node' or 'edge', only views of that type will be shown.
+            mapped_container: Only selects view(s) that are mapping the given container.
 
         Returns:
             The selected view(s).
@@ -565,7 +570,14 @@ class DataModelingSelect:
             limit=-1,
             include_global=include_global,
         )
-        views = ViewList([view for view in views if instance_type in (None, "all", view.used_for)])
+        views = ViewList(
+            [
+                view
+                for view in views
+                if instance_type in (None, "all", view.used_for)
+                and (mapped_container is None or mapped_container in view.referenced_containers())
+            ]
+        )
         if not views:
             raise ToolkitMissingResourceError(f"No views found in space {selected_space!r}.")
         question = message or f"Which view do you want to use to select instances to {self.operation}?"
@@ -773,3 +785,39 @@ class DataModelingSelect:
         if include_global:
             return self._available_spaces
         return SpaceList([space for space in self._available_spaces if not space.is_global])
+
+
+class ResourceViewMappingInteractiveSelect:
+    def __init__(self, client: ToolkitClient, operation: str) -> None:
+        self.client = client
+        self.operation = operation
+
+    def select_resource_view_mapping(self, resource_type: str) -> ResourceViewMapping:
+        """Select a Resource View Mapping interactively.
+
+        Args:
+            resource_type: The resource type to filter Resource View Mappings by.
+        Returns:
+            The selected Resource View Mapping.
+        """
+        mappings = self.client.migration.resource_view_mapping.list(resource_type=resource_type, limit=-1)
+        if not mappings:
+            raise ToolkitMissingResourceError(f"No Resource View Mappings found for resource type {resource_type!r}.")
+        choices = [
+            Choice(
+                title=f"{mapping.external_id} ({mapping.view_id!r})",
+                value=mapping,
+            )
+            for mapping in mappings
+        ]
+        selected_mapping = questionary.select(
+            f"Which Resource View Mapping do you want to use to {self.operation}? [identifier] (ingestion view)",
+            choices=choices,
+        ).ask()
+        if selected_mapping is None:
+            raise ToolkitValueError("No Resource View Mapping selected.")
+        if not isinstance(selected_mapping, ResourceViewMapping):
+            raise ToolkitValueError(
+                f"Selected Resource View Mapping is not a valid ResourceViewMapping object: {selected_mapping!r}"
+            )
+        return selected_mapping

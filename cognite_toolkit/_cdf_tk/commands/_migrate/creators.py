@@ -112,7 +112,7 @@ class InstanceSpaceCreator(MigrationCreator[SpaceApplyList]):
                             properties={
                                 "instanceSpace": space.space,
                                 "dataSetId": data_set_by_external_id[space.space].id,
-                                "classicExternalId": data_set_by_external_id[space.space].external_id,
+                                "dataSetExternalId": data_set_by_external_id[space.space].external_id,
                             },
                         )
                     ],
@@ -186,7 +186,7 @@ class SourceSystemCreator(MigrationCreator[NodeApplyList]):
     @cached_property
     def _simple_filter(self) -> dict[str, Any] | None:
         if self.data_set_external_id is not None:
-            return {"dataSetIds": {"externalId": [self.data_set_external_id]}}
+            return {"dataSetIds": [{"externalId": self.data_set_external_id}]}
         if self.hierarchy is not None:
             return {"assetSubtreeIds": [{"externalId": self.hierarchy}]}
         return None
@@ -194,9 +194,11 @@ class SourceSystemCreator(MigrationCreator[NodeApplyList]):
     @cached_property
     def _advanced_filter(self) -> filters.Filter:
         if self.data_set_external_id is not None:
-            return filters.Equals("dataSetId", self.client.lookup.data_sets.id(self.data_set_external_id))
+            return filters.Equals(
+                SourceFileProperty.data_set_id, self.client.lookup.data_sets.id(self.data_set_external_id)
+            )
         if self.hierarchy is not None:
-            return filters.InAssetSubtree("assetExternalIds", [self.hierarchy])
+            return filters.InAssetSubtree(SourceFileProperty.asset_external_ids, [self.hierarchy])
         else:
             raise ValueError("This should not happen.")
 
