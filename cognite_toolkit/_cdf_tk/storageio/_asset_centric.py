@@ -24,12 +24,9 @@ from cognite.client.data_classes import (
     TimeSeriesWriteList,
 )
 from cognite.client.data_classes._base import (
-    CogniteResource,
-    CogniteResourceList,
     T_CogniteResourceList,
     T_WritableCogniteResource,
     T_WriteClass,
-    WriteableCogniteResourceList,
 )
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -53,7 +50,13 @@ from cognite_toolkit._cdf_tk.utils.aggregators import (
 from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, SimpleBodyRequest
-from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, AssetCentricType, JsonVal, T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.utils.useful_types import (
+    T_ID,
+    AssetCentricResource,
+    AssetCentricType,
+    JsonVal,
+    T_WritableCogniteResourceList,
+)
 
 from ._base import ConfigurableStorageIO, Page, StorageIOConfig, TableStorageIO, UploadableStorageIO, UploadItem
 from .selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
@@ -100,7 +103,9 @@ class BaseAssetCentricIO(
             return self._aggregator.count(hierarchy=selector.hierarchy)
         return None
 
-    def data_to_json_chunk(self, data_chunk: Sequence[T_WritableCogniteResource]) -> list[dict[str, JsonVal]]:
+    def data_to_json_chunk(
+        self, data_chunk: Sequence[T_WritableCogniteResource], selector: AssetCentricSelector | None = None
+    ) -> list[dict[str, JsonVal]]:
         return [self._loader.dump_resource(item) for item in data_chunk]
 
     def configurations(self, selector: AssetCentricSelector) -> Iterable[StorageIOConfig]:
@@ -157,7 +162,11 @@ class BaseAssetCentricIO(
         )
 
     def _create_identifier(self, internal_id: int) -> str:
-        return f"INTERNAL_ID_project_{self.client.config.project}_{internal_id!s}"
+        return self.create_internal_identifier(internal_id, self.client.config.project)
+
+    @classmethod
+    def create_internal_identifier(cls, internal_id: int, project: str) -> str:
+        return f"INTERNAL_ID_project_{project}_{internal_id!s}"
 
 
 class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetList]):
@@ -449,7 +458,7 @@ class EventIO(BaseAssetCentricIO[str, EventWrite, Event, EventWriteList, EventLi
         return self.client.events.retrieve_multiple(ids)
 
 
-class HierarchyIO(ConfigurableStorageIO[AssetCentricSelector, CogniteResource]):
+class HierarchyIO(ConfigurableStorageIO[AssetCentricSelector, AssetCentricResource]):
     CHUNK_SIZE = 1000
     BASE_SELECTOR = AssetCentricSelector
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
@@ -468,34 +477,26 @@ class HierarchyIO(ConfigurableStorageIO[AssetCentricSelector, CogniteResource]):
             self._event_io.KIND: self._event_io,
         }
 
-    def as_id(self, item: CogniteResource) -> int:
-        if hasattr(item, "id") and isinstance(item.id, int):
-            return item.id
-        if isinstance(item, dict) and isinstance(item.get("id"), int):
-            return item["id"]  # type: ignore[return-value]
-        raise TypeError(f"Cannot extract ID from item of type {type(item).__name__!r}")
+    def as_id(self, item: AssetCentricResource) -> str:
+        return item.external_id or BaseAssetCentricIO.create_internal_identifier(item.id, self.client.config.project)
 
     def stream_data(
         self, selector: AssetCentricSelector, limit: int | None = None
-    ) -> Iterable[WriteableCogniteResourceList]:
-        io = self._get_io(selector)
-        yield from io.stream_data(selector, limit)
+    ) -> Iterable[Page[AssetCentricResource]]:
+        yield from self._get_io(selector).stream_data(selector, limit)
 
     def count(self, selector: AssetCentricSelector) -> int | None:
-        io = self._get_io(selector)
-        return io.count(selector)
+        return self._get_io(selector).count(selector)
 
     def data_to_json_chunk(
-        self, data_chunk: CogniteResourceList, selector: AssetCentricSelector
+        self, data_chunk: Sequence[AssetCentricResource], selector: AssetCentricSelector | None = None
     ) -> list[dict[str, JsonVal]]:
-        io = self._get_io(selector)
-        return io.data_to_json_chunk(data_chunk, selector)
+        if selector is None:
+            raise ValueError(f"Selector must be provided to convert data to JSON chunk for {type(self).__name__}.)")
+        return self._get_io(selector).data_to_json_chunk(data_chunk, selector)
 
     def configurations(self, selector: AssetCentricSelector) -> Iterable[StorageIOConfig]:
-        io = self._get_io(selector)
-        yield from io.configurations(selector)
+        yield from self._get_io(selector).configurations(selector)
 
     def _get_io(self, selector: AssetCentricSelector) -> BaseAssetCentricIO:
-        if not isinstance(selector, AssetSubtreeSelector | DataSetSelector):
-            raise ToolkitNotImplementedError(f"Selector type {type(selector)} not supported for {type(self).__name__}.")
         return self._io_by_kind[selector.kind]

@@ -63,7 +63,9 @@ class RawIO(
             )
         )
 
-    def data_to_json_chunk(self, data_chunk: Sequence[Row]) -> list[dict[str, JsonVal]]:
+    def data_to_json_chunk(
+        self, data_chunk: Sequence[Row], selector: RawTableSelector | None = None
+    ) -> list[dict[str, JsonVal]]:
         return [row.as_write().dump() for row in data_chunk]
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> RowWrite:

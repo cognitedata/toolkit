@@ -141,7 +141,9 @@ class AssetCentricMigrationIOAdapter(
         return len(selector.items)
 
     def data_to_json_chunk(
-        self, data_chunk: Sequence[AssetCentricMapping[T_WritableCogniteResource]]
+        self,
+        data_chunk: Sequence[AssetCentricMapping[T_WritableCogniteResource]],
+        selector: MigrationSelector | None = None,
     ) -> list[dict[str, JsonVal]]:
         return [item.dump() for item in data_chunk]
 
