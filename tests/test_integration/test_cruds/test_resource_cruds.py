@@ -546,20 +546,11 @@ inputSchema:
 
 
 @pytest.fixture(scope="module")
-def schema_space(toolkit_client: ToolkitClient) -> dm.Space:
-    return toolkit_client.data_modeling.spaces.apply(
-        dm.SpaceApply(
-            space=f"sp_test_resource_loaders_{RUN_UNIQUE_ID}",
-        )
-    )
-
-
-@pytest.fixture(scope="module")
-def a_container(toolkit_client: ToolkitClient, schema_space: dm.Space) -> dm.Container:
+def a_container(toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> dm.Container:
     return toolkit_client.data_modeling.containers.apply(
         dm.ContainerApply(
             name=f"container_test_resource_loaders_{RUN_UNIQUE_ID}",
-            space=schema_space.space,
+            space=toolkit_space.space,
             external_id=f"container_test_resource_loaders_{RUN_UNIQUE_ID}",
             properties={"name": dm.ContainerProperty(type=dm.Text())},
         )
@@ -567,20 +558,20 @@ def a_container(toolkit_client: ToolkitClient, schema_space: dm.Space) -> dm.Con
 
 
 @pytest.fixture(scope="module")
-def two_views(toolkit_client: ToolkitClient, schema_space: dm.Space, a_container: dm.Container) -> dm.ViewList:
+def two_views(toolkit_client: ToolkitClient, toolkit_space: dm.Space, a_container: dm.Container) -> dm.ViewList:
     return toolkit_client.data_modeling.views.apply(
         [
             dm.ViewApply(
-                space=schema_space.space,
-                external_id="first_view",
+                space=toolkit_space.space,
+                external_id=f"first_view{RUN_UNIQUE_ID}",
                 version="1",
                 properties={
                     "name": dm.MappedPropertyApply(container=a_container.as_id(), container_property_identifier="name")
                 },
             ),
             dm.ViewApply(
-                space=schema_space.space,
-                external_id="second_view",
+                space=toolkit_space.space,
+                external_id=f"second_view{RUN_UNIQUE_ID}",
                 version="1",
                 properties={
                     "alsoName": dm.MappedPropertyApply(
@@ -594,7 +585,7 @@ def two_views(toolkit_client: ToolkitClient, schema_space: dm.Space, a_container
 
 class TestDataModelLoader:
     def test_create_update_delete(
-        self, toolkit_client: ToolkitClient, schema_space: dm.Space, two_views: dm.ViewList
+        self, toolkit_client: ToolkitClient, toolkit_space: dm.Space, two_views: dm.ViewList
     ) -> None:
         loader = DataModelCRUD(toolkit_client, None)
         view_list = two_views.as_ids()
@@ -603,7 +594,7 @@ class TestDataModelLoader:
             name="My model",
             description="Original description",
             views=view_list,
-            space=schema_space.space,
+            space=toolkit_space.space,
             external_id=f"tmp_test_create_update_delete_data_model_{RUN_UNIQUE_ID}",
             version="1",
         )
@@ -628,11 +619,11 @@ class TestDataModelLoader:
 
 
 @pytest.fixture
-def custom_file_container(toolkit_client: ToolkitClient, schema_space: dm.Space) -> dm.Container:
+def custom_file_container(toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> dm.Container:
     return toolkit_client.data_modeling.containers.apply(
         dm.ContainerApply(
             name=f"container_test_resource_loaders_{RUN_UNIQUE_ID}",
-            space=schema_space.space,
+            space=toolkit_space.space,
             external_id=f"container_test_resource_loaders_{RUN_UNIQUE_ID}",
             properties={
                 "status": dm.ContainerProperty(type=dm.Text()),
@@ -644,13 +635,13 @@ def custom_file_container(toolkit_client: ToolkitClient, schema_space: dm.Space)
 
 @pytest.fixture
 def cognite_file_extension(
-    toolkit_client: ToolkitClient, custom_file_container: dm.Container, schema_space: dm.Space
+    toolkit_client: ToolkitClient, custom_file_container: dm.Container, toolkit_space: dm.Space
 ) -> dm.View:
     container = custom_file_container.as_id()
     return toolkit_client.data_modeling.views.apply(
         dm.ViewApply(
-            space=schema_space.space,
-            external_id="CogniteFileExtension",
+            space=toolkit_space.space,
+            external_id="CogniteFileExtension}",
             version="v1",
             implements=[CogniteFileApply.get_source()],
             properties={
@@ -1015,10 +1006,10 @@ class TestNodeLoader:
 
 class TestViewLoader:
     def test_no_implement_not_redeployed(
-        self, toolkit_client: ToolkitClient, schema_space: dm.Space, a_container: dm.Container
+        self, toolkit_client: ToolkitClient, toolkit_space: dm.Space, a_container: dm.Container
     ) -> None:
-        definition_yaml = f"""space: {schema_space.space}
-externalId: ToolkitTestNoImplementsNotRedeployed
+        definition_yaml = f"""space: {toolkit_space.space}
+externalId: ToolkitTestNoImplementsNotRedeployed{RUN_UNIQUE_ID}
 version: v1
 implements: []
 properties:
