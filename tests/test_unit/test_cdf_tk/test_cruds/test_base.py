@@ -21,7 +21,6 @@ from cognite.client.data_classes.hosted_extractors import Destination
 from pytest import MonkeyPatch
 from pytest_regressions.data_regression import DataRegressionFixture
 
-from cognite_toolkit._cdf_tk._parameters import ParameterSet
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import GraphQLDataModel
 from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import Streamlit
@@ -242,7 +241,7 @@ def tmp_org_directory() -> Iterator[Path]:
         shutil.rmtree(org_dir)
 
 
-def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
+def cognite_module_files_with_loader() -> Iterable[tuple]:
     with tmp_org_directory() as organization_dir, tmp_build_directory() as build_dir:
         ModulesCommand().init(organization_dir, select_all=True, clean=True)
         cdf_toml = CDFToml.load(REPO_ROOT)
@@ -278,7 +277,7 @@ def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
                                 yield pytest.param(loader, item, id=f"{module.name} - {filepath.stem} - list {no}")
 
 
-def sensitive_strings_test_cases() -> Iterable[ParameterSet]:
+def sensitive_strings_test_cases() -> Iterable[tuple]:
     yield pytest.param(
         WorkflowTriggerCRUD,
         """externalId: my_trigger
