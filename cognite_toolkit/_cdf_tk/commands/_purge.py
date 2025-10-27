@@ -21,6 +21,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     RESOURCE_CRUD_LIST,
     AssetCRUD,
     ContainerCRUD,
+    EventCRUD,
     DataModelCRUD,
     DataSetsCRUD,
     EdgeCRUD,
@@ -45,7 +46,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.storageio import InstanceIO
+from cognite_toolkit._cdf_tk.storageio import InstanceIO, AssetIO
 from cognite_toolkit._cdf_tk.storageio.selectors import InstanceSelector
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
@@ -274,6 +275,120 @@ class PurgeCommand(ToolkitCommand):
             for dep_cls in RESOURCE_CRUD_LIST
             if loader_cls in dep_cls.dependencies and (exclude is None or dep_cls not in exclude)
         }
+
+
+    def dataset_v2(
+        self,
+        client: ToolkitClient,
+        selected_data_set_external_id: str,
+        include_dataset: bool = False,
+        include_data: bool = True,
+        include_configurations: bool = False,
+        dry_run: bool = False,
+        auto_yes: bool = False,
+        verbose: bool = False,
+    ) -> DeployResults:
+        results = DeployResults([], "purge", dry_run=dry_run)
+
+        # Warning Messages
+        if not dry_run:
+            self._print_panel("dataSet", selected_data_set_external_id)
+        if not dry_run and not auto_yes:
+            confirm = questionary.confirm(
+                f"Are you really sure you want to purge the {selected_data_set_external_id!r} dataSet?", default=False
+            ).ask()
+            if not confirm:
+                return results
+
+
+        # ValidateAuth
+        validator = ValidateAccess(client, "purge")
+        if include_data:
+            # Check asset, events, time series, files, and sequences access, relationships, labels, 3D access.
+            validator.data_set(["read", "write"], spaces={selected_data_set_external_id})
+        if include_configurations:
+            # Check workflow, transformations, extraction pipeline access
+            validator.instances(["read", "write"], spaces={selected_data_set_external_id})
+
+
+        config = client.config
+        io = AssetIO(client)
+        io.count(selector(DAtaSetSelctor()))
+        total_by_crud_cls: dict[] = {
+            EventCRUD: (stats.edges, config.create_api_url("/models/instances/delete")),
+            NodeCRUD: (stats.nodes, config.create_api_url("/models/instances/delete")),
+            DataModelCRUD: (stats.data_models, config.create_api_url("/models/datamodels/delete")),
+            ViewCRUD: (stats.views, config.create_api_url("/models/views/delete")),
+            ContainerCRUD: (stats.containers, config.create_api_url("/models/containers/delete")),
+        }
+        console = Console()
+        if dry_run:
+            for crud_cls, (total, _) in total_by_crud_cls.items():
+                crud = crud_cls.create_loader(client)  # type: ignore[attr-defined]
+                results[crud.display_name] = ResourceDeployResult(crud.display_name, deleted=total)
+                space_loader = SpaceCRUD.create_loader(client)
+                results[space_loader.display_name] = ResourceDeployResult(space_loader.display_name, deleted=1)
+        else:
+            with HTTPClient(client.config, max_retries=10) as delete_client:
+                for crud_cls, (total, URL) in total_by_crud_cls.items():
+                    crud = crud_cls.create_loader(client)  # type: ignore[attr-defined]
+                    if total == 0:
+                        results[crud.display_name] = ResourceDeployResult(crud.display_name, deleted=0)
+                        continue
+                    # Two results objects since they are updated concurrently
+                    process_results = ResourceDeployResult(crud.display_name)
+                    write_results = ResourceDeployResult(crud.display_name)
+                    # Containers, DataModels and Views need special handling to avoid type info in the delete call
+                    # While for instance we need the type info in delete.
+                    if isinstance(crud, ContainerCRUD | DataModelCRUD | ViewCRUD):
+                        dump_args = {"include_type": False}
+                    elif isinstance(crud, EdgeCRUD):
+                        dump_args = {"include_instance_type": True}
+                    else:
+                        dump_args = {}
+                    process = partial(self._as_id_batch, dump_args=dump_args)
+                    if isinstance(crud, NodeCRUD):
+                        process = partial(
+                            self._check_data,
+                            client=client,
+                            delete_datapoints=delete_datapoints,
+                            delete_file_content=delete_file_content,
+                            process_results=process_results,
+                            console=console,
+                            verbose=verbose,
+                        )
+
+                    executor = ProducerWorkerExecutor[CogniteResourceList, list[JsonVal]](
+                        download_iterable=self._iterate_batch(crud, selected_space, batch_size=self.BATCH_SIZE_DM),
+                        process=process,
+                        write=self._purge_batch(crud, URL, delete_client, write_results),
+                        max_queue_size=10,
+                        iteration_count=total // self.BATCH_SIZE_DM + (1 if total % self.BATCH_SIZE_DM > 0 else 0),
+                        download_description=f"Downloading {crud.display_name}",
+                        process_description=f"Preparing {crud.display_name} for deletion",
+                        write_description=f"Deleting {crud.display_name}",
+                        console=console,
+                    )
+                    executor.run()
+                    write_results += process_results
+                    results[crud.display_name] = write_results
+
+                    if executor.error_occurred:
+                        self.warn(
+                            HighSeverityWarning(f"Failed to delete all {crud.display_name}. {executor.error_message}")
+                        )
+            if include_space:
+                space_loader = SpaceCRUD.create_loader(client)
+                try:
+                    space_loader.delete([selected_space])
+                    print(f"Space {selected_space} deleted")
+                except CogniteAPIError as e:
+                    self.warn(HighSeverityWarning(f"Failed to delete space {selected_space!r}: {e}"))
+                else:
+                    results[space_loader.display_name] = ResourceDeployResult(space_loader.display_name, deleted=1)
+        print(results.counts_table(exclude_columns={"Created", "Changed", "Total"}))
+        return results
+
 
     def dataset(
         self,
