@@ -17,7 +17,7 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameter_from_init_type_hints
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, EXCL_FILES, USE_SENTRY
+from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, EXCL_FILES
 from cognite_toolkit._cdf_tk.resource_classes import ToolkitResource
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, sanitize_filename
@@ -406,23 +406,6 @@ class ResourceCRUD(
     @classmethod
     def get_ids(cls, items: Sequence[T_WriteClass | T_WritableCogniteResource | dict]) -> list[T_ID]:
         return [cls.get_id(item) for item in items]
-
-    @classmethod
-    def safe_get_write_cls_parameter_spec(cls) -> ParameterSpecSet | None:
-        from sentry_sdk import capture_exception
-
-        api_spec: ParameterSpecSet | None = None
-        try:
-            api_spec = cls.get_write_cls_parameter_spec()
-        except Exception as e:
-            # We don't want to crash the program if we can't get the parameter spec
-            # as we can continue without doing this check. Note that getting the parameter spec
-            # is also fragile as it relies on the type hints in the cognite-sdk which is out of our control.
-            if USE_SENTRY:
-                capture_exception(e)
-            else:
-                raise
-        return api_spec
 
     @classmethod
     def as_str(cls, id: T_ID) -> str:
