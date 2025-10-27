@@ -1,6 +1,5 @@
 import json
 from collections.abc import Hashable, Iterable, Sequence
-from functools import lru_cache
 from itertools import zip_longest
 from pathlib import Path
 from typing import Any, Literal, cast, final
@@ -26,7 +25,6 @@ from cognite.client.data_classes.datapoints_subscriptions import TimeSeriesIDLis
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk._parameters import ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.constants import MAX_TIMESTAMP_MS, MIN_TIMESTAMP_MS
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -177,22 +175,6 @@ class TimeSeriesCRUD(ResourceContainerCRUD[str, TimeSeriesWrite, TimeSeries, Tim
             )
         return count
 
-    @classmethod
-    @lru_cache(maxsize=1)
-    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        spec = super().get_write_cls_parameter_spec()
-        # Added by toolkit
-        spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
-
-        spec.add(ParameterSpec(("securityCategoryNames",), frozenset({"list"}), is_required=False, _is_nullable=False))
-
-        spec.add(
-            ParameterSpec(("securityCategoryNames", ANY_STR), frozenset({"str"}), is_required=False, _is_nullable=False)
-        )
-        spec.add(ParameterSpec(("assetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
-        spec.discard(ParameterSpec(("assetId",), frozenset({"int"}), is_required=False, _is_nullable=False))
-        return spec
-
 
 @final
 class DatapointSubscriptionCRUD(
@@ -241,24 +223,6 @@ class DatapointSubscriptionCRUD(
     @classmethod
     def dump_id(cls, id: str) -> dict[str, Any]:
         return {"externalId": id}
-
-    @classmethod
-    @lru_cache(maxsize=1)
-    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        spec = super().get_write_cls_parameter_spec()
-        # Added by toolkit
-        spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
-        # The Filter class in the SDK class View implementation is deviating from the API.
-        # So we need to modify the spec to match the API.
-        parameter_path = ("filter",)
-        length = len(parameter_path)
-        for item in spec:
-            if len(item.path) >= length + 1 and item.path[:length] == parameter_path[:length]:
-                # Add extra ANY_STR layer
-                # The spec class is immutable, so we use this trick to modify it.
-                object.__setattr__(item, "path", (*item.path[:length], ANY_STR, *item.path[length:]))
-        spec.add(ParameterSpec(("filter", ANYTHING), frozenset({"dict"}), is_required=False, _is_nullable=False))
-        return spec
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
