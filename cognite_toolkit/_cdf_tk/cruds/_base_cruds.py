@@ -2,7 +2,6 @@ import re
 import sys
 from abc import ABC, abstractmethod
 from collections.abc import Hashable, Iterable, Sequence, Set, Sized
-from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
@@ -15,7 +14,6 @@ from cognite.client.data_classes.capabilities import Capability
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameter_from_init_type_hints
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, EXCL_FILES
 from cognite_toolkit._cdf_tk.resource_classes import ToolkitResource
@@ -258,12 +256,6 @@ class ResourceCRUD(
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[T_WritableCogniteResource]:
         raise NotImplementedError
-
-    # The methods below have default implementations that can be overwritten in subclasses
-    @classmethod
-    @lru_cache(maxsize=1)
-    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        return read_parameter_from_init_type_hints(cls.resource_write_cls).as_camel_case()
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> "Iterable[tuple[type[ResourceCRUD], Hashable]]":
