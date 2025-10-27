@@ -12,24 +12,22 @@ import yaml
 from _pytest.monkeypatch import MonkeyPatch
 from questionary import Choice
 
-from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands.modules import ModulesCommand
-from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH
 from cognite_toolkit._cdf_tk.data_classes import Package, Packages
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError
 from cognite_toolkit._cdf_tk.tk_warnings.other import HighSeverityWarning
-from tests.data import EXTERNAL_PACKAGE
+from tests.data import COMPLETE_ORG, EXTERNAL_PACKAGE
 from tests.test_unit.utils import MockQuestionary
 
 
 @pytest.fixture(scope="session")
 def selected_packages() -> Packages:
-    return Packages.load(BUILTIN_MODULES_PATH)
+    return Packages.load(COMPLETE_ORG)
 
 
 @pytest.fixture(scope="session")
 def selected_packages_location() -> Path:
-    return BUILTIN_MODULES_PATH
+    return COMPLETE_ORG
 
 
 class MockResponse:
@@ -66,7 +64,7 @@ class TestModulesCommand:
         )
 
         assert Path(target_path).exists()
-        assert Path(target_path / "modules" / "infield" / "cdf_infield_common").exists()
+        assert Path(target_path / "modules" / "modules" / "my_example_module").exists()
 
     def test_modules_command_with_env(
         self, selected_packages: Packages, selected_packages_location: Path, tmp_path: Path
@@ -102,7 +100,7 @@ class TestModulesCommand:
         )
 
         config = yaml.safe_load(Path(target_path / "config.dev.yaml").read_text())
-        assert config["variables"]["modules"]["infield"]["first_location"] == "oid"
+        assert config["variables"]["modules"]["my_example_module"]["var"] == "one"
 
     def test_config_non_builtin_modules(self, tmp_path: Path) -> None:
         target_path = tmp_path / "repo_root"
@@ -130,8 +128,8 @@ class TestModulesCommand:
         target_path = tmp_path / "repo_root"
         cmd = ModulesCommand(print_warning=True, skip_tracking=True)
 
-        first_batch = Packages({"infield": selected_packages["infield"]})
-        second_batch = Packages({"quickstart": selected_packages["inrobot"]})
+        first_batch = Packages({"small_1": selected_packages["small_1"]})
+        second_batch = Packages({"small_2": selected_packages["small_2"]})
 
         cmd._create(
             organization_dir=target_path,
@@ -156,11 +154,11 @@ class TestModulesCommand:
             )
 
         config = yaml.safe_load(Path(target_path / "config.qa.yaml").read_text())
-        assert config["variables"]["modules"]["infield"]["first_location"] is not None
-        assert (target_path / "modules" / "infield" / "cdf_infield_common").is_dir()
+        assert config["variables"]["modules"]["my_example_module"]["var"] is not None
+        assert (target_path / "modules" / "modules" / "my_example_module").is_dir()
 
-        assert config["variables"]["modules"]["inrobot"]["first_location"] is not None
-        assert (target_path / "modules" / "inrobot" / "cdf_inrobot_common").is_dir()
+        assert config["variables"]["modules"]["my_file_expand_module"]["var"] is not None
+        assert (target_path / "modules" / "modules" / "my_file_expand_module").is_dir()
 
     def test_add_without_config_yaml(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         cmd = ModulesCommand(print_warning=True, skip_tracking=True)
@@ -221,25 +219,6 @@ class TestModulesCommand:
         _CDF_TOML = None
         yield
         _CDF_TOML = None
-
-    def test_library_fallback_if_flag_is_false(self, tmp_path: Path) -> None:
-        valid_toml_content = """
-        [cdf]
-        [modules]
-        version = "0.0.0"
-        [alpha_flags]
-        external_libraries = false
-        [library.valid_url]
-        url = "https://github.com/cognitedata/package.zip"
-        """
-
-        file_path = tmp_path / CDFToml.file_name
-        file_path.write_text(valid_toml_content)
-
-        with ModulesCommand() as cmd:
-            packs, location = cmd._get_available_packages()
-            assert "quickstart" in packs
-            assert location == BUILTIN_MODULES_PATH
 
     def test_download_success(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         dummy_file_content = b"PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
