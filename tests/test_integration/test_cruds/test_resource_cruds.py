@@ -641,7 +641,7 @@ def cognite_file_extension(
     return toolkit_client.data_modeling.views.apply(
         dm.ViewApply(
             space=toolkit_space.space,
-            external_id="CogniteFileExtension}",
+            external_id="CogniteFileExtension",
             version="v1",
             implements=[CogniteFileApply.get_source()],
             properties={
