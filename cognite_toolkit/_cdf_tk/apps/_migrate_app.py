@@ -9,7 +9,6 @@ from cognite.client.data_classes.data_modeling import ContainerId
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import (
     MigrateFilesCommand,
-    MigrateTimeseriesCommand,
     MigrationCanvasCommand,
     MigrationPrepareCommand,
 )
@@ -19,6 +18,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.adapter import (
     MigrateDataSetSelector,
     MigrationCSVFileSelector,
     MigrationSelector,
+    TimeSeriesAdapter,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.creators import InstanceSpaceCreator, SourceSystemCreator
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
@@ -474,11 +474,12 @@ class MigrateApp(typer.Typer):
             )
         )
 
-    @staticmethod
+    @classmethod
     def timeseries(
+        cls,
         ctx: typer.Context,
         mapping_file: Annotated[
-            Path,
+            Path | None,
             typer.Option(
                 "--mapping-file",
                 "-m",
@@ -486,7 +487,7 @@ class MigrateApp(typer.Typer):
                 "This file is expected to have the following columns: [id, dataSetId, space, externalId]."
                 "The dataSetId is optional, and can be skipped. If it is set, it is used to check the access to the dataset.",
             ),
-        ],
+        ] = None,
         data_set_id: Annotated[
             str | None,
             typer.Option(
@@ -549,13 +550,32 @@ class MigrateApp(typer.Typer):
         ] = False,
     ) -> None:
         """Migrate TimeSeries to CogniteTimeSeries."""
-
         client = EnvironmentVariables.create_from_environment().get_client(enable_set_pending_ids=True)
-        cmd = MigrateTimeseriesCommand()
+
+        selected, dry_run, verbose = cls._prepare_asset_centric_arguments(
+            client=client,
+            mapping_file=mapping_file,
+            data_set_id=data_set_id,
+            consumption_view=consumption_view,
+            ingestion_mapping=ingestion_mapping,
+            dry_run=dry_run,
+            verbose=verbose,
+            kind="TimeSeries",
+            resource_type="timeseries",
+            container_id=ContainerId("cdf_cdm", "CogniteTimeSeries"),
+        )
+        if data_set_id is None and mapping_file is None:
+            skip_linking = questionary.confirm(
+                "Do you want to skip linking old and new TimeSeries?", default=skip_linking
+            ).ask()
+
+        cmd = MigrationCommand()
         cmd.run(
-            lambda: cmd.migrate_timeseries(
-                client,
-                mapping_file=mapping_file,
+            lambda: cmd.migrate(
+                selected=selected,
+                data=TimeSeriesAdapter(client, skip_linking=skip_linking),
+                mapper=AssetCentricMapper(client),
+                log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
             )
