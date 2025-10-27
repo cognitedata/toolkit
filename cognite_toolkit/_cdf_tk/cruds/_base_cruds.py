@@ -165,14 +165,18 @@ class ResourceCRUD(
     All resources supported by the cognite_toolkit should implement a CRUD.
 
     Class attributes:
-        resource_write_cls: The write data class for the resource.
-        resource_cls: The read data class for the resource.
-        list_cls: The read list format for this resource.
-        list_write_cls: The write list format for this resource.
+        resource_write_cls: The API write data class for the resource.
+        resource_cls: The API read data class for the resource.
+        list_cls: The API read list format for this resource.
+        list_write_cls: The API write list format for this resource.
+        yaml_cls: The File format for this resource. This is used to validate the user input.
         support_drop: Whether the resource supports the drop flag.
+        support_update: Whether the resource supports the update operation.
         filetypes: The filetypes that are supported by this crud. This should not be set in the subclass, it
             should always be yaml and yml.
         dependencies: A set of other resource cruds that must be loaded before this crud.
+        parent_resource: A set of other resource cruds that are parent resources to this resource. This is used
+            to determine if the iterate method should return any resources when filtering by parent ids.
     """
 
     # Must be set in the subclass
@@ -180,7 +184,7 @@ class ResourceCRUD(
     resource_cls: type[T_WritableCogniteResource]
     list_cls: type[T_WritableCogniteResourceList]
     list_write_cls: type[T_CogniteResourceList]
-    yaml_cls: type[ToolkitResource] | None = None
+    yaml_cls: type[ToolkitResource]
     # Optional to set in the subclass
     support_drop = True
     support_update = True
