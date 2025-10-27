@@ -52,7 +52,6 @@ from cognite_toolkit._cdf_tk.data_classes import (
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.utils import tmp_build_directory
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
-from cognite_toolkit._cdf_tk.validation import validate_resource_yaml
 from tests.constants import REPO_ROOT
 from tests.data import LOAD_DATA, PROJECT_FOR_TEST
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -448,14 +447,6 @@ class TestResourceCRUDs:
         # There can be deviations in the output from the dump. If that is the case,
         # the 'get_write_cls_parameter_spec' must be updated in the loader. See, for example, the DataModelLoader.
         assert sorted(extra) == []
-
-    @pytest.mark.parametrize("loader_cls, content", list(cognite_module_files_with_loader()))
-    def test_write_cls_spec_against_cognite_modules(self, loader_cls: type[ResourceCRUD], content: dict) -> None:
-        spec = loader_cls.get_write_cls_parameter_spec()
-
-        warnings = validate_resource_yaml(content, spec, Path("test.yaml"))
-
-        assert sorted(warnings) == []
 
     @pytest.mark.parametrize("loader_cls", RESOURCE_CRUD_LIST)
     def test_empty_required_capabilities_when_no_items(

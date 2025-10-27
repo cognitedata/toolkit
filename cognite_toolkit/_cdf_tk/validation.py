@@ -26,7 +26,6 @@ __all__ = [
     "humanize_validation_error",
     "validate_data_set_is_set",
     "validate_modules_variables",
-    "validate_resource_yaml",
 ]
 
 
