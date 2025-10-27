@@ -253,21 +253,6 @@ class HostedExtractorDestinationCRUD(
         return self.dump_id(resource.external_id)
 
     @classmethod
-    @lru_cache(maxsize=1)
-    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        spec = super().get_write_cls_parameter_spec()
-        # Handled by Toolkit
-
-        spec.add(ParameterSpec(("credentials", "clientId"), frozenset({"str"}), is_required=False, _is_nullable=True))
-        spec.add(
-            ParameterSpec(("credentials", "clientSecret"), frozenset({"str"}), is_required=False, _is_nullable=True)
-        )
-
-        spec.discard(ParameterSpec(("targetDataSetId",), frozenset({"int"}), is_required=False, _is_nullable=True))
-        spec.add(ParameterSpec(("targetDataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=True))
-        return spec
-
-    @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "targetDataSetId" in item:
             yield DataSetsCRUD, item["targetDataSetId"]
@@ -353,33 +338,6 @@ class HostedExtractorJobCRUD(ResourceCRUD[str, JobWrite, Job, JobWriteList, JobL
         return iter(self.client.hosted_extractors.jobs)
 
     @classmethod
-    @lru_cache(maxsize=1)
-    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        spec = super().get_write_cls_parameter_spec()
-        # Used by the SDK to determine the class to load
-        spec.add(
-            ParameterSpec(
-                (
-                    "format",
-                    "type",
-                ),
-                frozenset({"str"}),
-                is_required=True,
-                _is_nullable=False,
-            )
-        )
-        spec.add(
-            ParameterSpec(
-                ("config", "incrementalLoad", "type"), frozenset({"str"}), is_required=True, _is_nullable=False
-            )
-        )
-        spec.add(
-            ParameterSpec(("config", "pagination", "type"), frozenset({"str"}), is_required=True, _is_nullable=False)
-        )
-
-        return spec
-
-    @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "sourceId" in item:
             yield HostedExtractorSourceCRUD, item["sourceId"]
@@ -453,11 +411,3 @@ class HostedExtractorMappingCRUD(ResourceCRUD[str, MappingWrite, Mapping, Mappin
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Mapping]:
         return iter(self.client.hosted_extractors.mappings)
-
-    @classmethod
-    @lru_cache(maxsize=1)
-    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        spec = super().get_write_cls_parameter_spec()
-        # Used by the SDK to determine the class to load
-        spec.add(ParameterSpec(("input", "type"), frozenset({"str"}), is_required=True, _is_nullable=False))
-        return spec
