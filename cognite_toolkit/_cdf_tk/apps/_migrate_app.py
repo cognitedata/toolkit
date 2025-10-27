@@ -565,8 +565,8 @@ class MigrateApp(typer.Typer):
             container_id=ContainerId("cdf_cdm", "CogniteTimeSeries"),
         )
         if data_set_id is None and mapping_file is None:
-            skip_linking = questionary.confirm(
-                "Do you want to skip linking old and new TimeSeries?", default=skip_linking
+            skip_linking = not questionary.confirm(
+                "Do you want to link old and new TimeSeries?", default=not skip_linking
             ).ask()
 
         cmd = MigrationCommand()
