@@ -324,7 +324,7 @@ class LinkingAdapter(
         return results
 
 
-class FileMetaAdapter(
+class FileMetaIOAdapter(
     LinkingAdapter[
         str,
         FileMetadataWrite,
