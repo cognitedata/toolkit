@@ -4,20 +4,15 @@ from pathlib import Path
 from typing import Any, TypeVar
 
 from cognite.client.data_classes._base import CogniteObject
-from cognite.client.utils._text import to_camel_case, to_snake_case
+from cognite.client.utils._text import to_snake_case
 from pydantic import BaseModel, TypeAdapter, ValidationError
 from pydantic_core import ErrorDetails
 
-from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameters_from_dict
-from cognite_toolkit._cdf_tk.cruds import NodeCRUD
 from cognite_toolkit._cdf_tk.data_classes import BuildVariables
 from cognite_toolkit._cdf_tk.resource_classes import BaseModelResource
 from cognite_toolkit._cdf_tk.tk_warnings import (
-    CaseTypoWarning,
     DataSetMissingWarning,
-    MissingRequiredParameterWarning,
     TemplateVariableWarning,
-    UnusedParameterWarning,
     WarningList,
 )
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
@@ -74,55 +69,6 @@ def validate_data_set_is_set(
     value = raw.get(identifier_key, raw.get(to_snake_case(identifier_key), f"No identifier {identifier_key}"))
     warning_list.append(DataSetMissingWarning(filepath, value, identifier_key, resource_cls.__name__))
     return warning_list
-
-
-def validate_resource_yaml(
-    data: dict | list, spec: ParameterSpecSet, source_file: Path, element: int | None = None
-) -> WarningList:
-    if spec.spec_name == NodeCRUD.__name__:
-        # Special case for NodeLoader as it has options for API call parameters
-        if isinstance(data, list):
-            return _validate_resource_yaml(data, spec, source_file)
-        elif isinstance(data, dict) and "node" in data:
-            return _validate_resource_yaml(data["node"], spec, source_file)
-        elif isinstance(data, dict) and "nodes" in data:
-            return _validate_resource_yaml(data["nodes"], spec, source_file)
-        else:
-            return _validate_resource_yaml(data, spec, source_file)
-    else:
-        return _validate_resource_yaml(data, spec, source_file, element)
-
-
-def _validate_resource_yaml(
-    data: dict | list, spec: ParameterSpecSet, source_file: Path, element: int | None = None
-) -> WarningList:
-    warnings: WarningList = WarningList()
-    if isinstance(data, list):
-        for no, item in enumerate(data, 1):
-            warnings.extend(_validate_resource_yaml(item, spec, source_file, no))
-        return warnings
-    elif not isinstance(data, dict):
-        raise NotImplementedError("Note: This function only supports top-level and lists dictionaries.")
-
-    actual_parameters = read_parameters_from_dict(data)
-    unused_parameters = actual_parameters - spec
-    unused_cased = unused_parameters.as_camel_case() - spec
-    typo_parameters = unused_parameters - unused_cased
-    for parameter in typo_parameters:
-        key = parameter.key
-        warnings.append(CaseTypoWarning(source_file, element, parameter.path, key, to_camel_case(key)))
-
-    unused_parameters = unused_parameters - typo_parameters
-    for parameter in unused_parameters:
-        key = parameter.key
-        warnings.append(UnusedParameterWarning(source_file, element, parameter.path, key))
-
-    # Only checking the top level for now. This can be expanded to check nested parameters.
-    missing = spec.required(level=1) - actual_parameters
-    for spec_param in missing:
-        warnings.append(MissingRequiredParameterWarning(source_file, element, spec_param.path, spec_param.key))
-
-    return warnings
 
 
 def validate_resource_yaml_pydantic(
