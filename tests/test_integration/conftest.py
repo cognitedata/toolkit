@@ -658,8 +658,10 @@ def migration_hierarchy_minimal(toolkit_client: ToolkitClient) -> HierarchyMinim
         data_set_id=data_set.id,
         unit_external_id="temperature:deg_c",
     )
+    created_timeseries = client.time_series.retrieve(external_id=timeseries.external_id)
+    if created_timeseries is None:
+        created_timeseries = client.time_series.create(timeseries)
 
-    created_timeseries = client.time_series.upsert(timeseries, mode="replace")
     if not client.time_series.data.retrieve_latest(external_id=timeseries.external_id):
         client.time_series.data.insert(
             external_id=timeseries.external_id,
@@ -674,3 +676,7 @@ def migration_hierarchy_minimal(toolkit_client: ToolkitClient) -> HierarchyMinim
         timeseries=created_timeseries,
         dataset=data_set,
     )
+
+
+def test_migration_hierarchy(migration_hierarchy_minimal: HierarchyMinimal) -> None:
+    assert True, "Fixture migration_hierarchy_minimal failed"
