@@ -248,6 +248,21 @@ class LinkingAdapter(
         T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
     ]
 ):
+    """Adapter that links asset-centric resources to data model instances before uploading them.
+
+    This is necessary to link asset-centric resources to their new CogniteDataModel instances using the
+    appropriate set-pending-instance-ids endpoint.
+
+    Args:
+        client: ToolkitClient
+            The toolkit client to use for communication with CDF.
+        base: BaseAssetCentricIO
+            The base asset-centric IO to use for retrieving asset-centric resources.
+        skip_linking: bool
+            Whether to skip the linking step and only upload the resources. Essentially creating a copy.
+
+    """
+
     PENDING_INSTANCE_ID_ENDPOINT: ClassVar[str]
 
     def __init__(
