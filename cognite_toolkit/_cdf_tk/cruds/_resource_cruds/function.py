@@ -1,7 +1,7 @@
 import time
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
-from functools import cached_property, lru_cache
+from functools import cached_property
 from pathlib import Path
 from typing import Any, Literal, cast, final
 
@@ -31,7 +31,6 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.functions import FunctionScheduleID
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
@@ -431,16 +430,6 @@ class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function, FunctionWriteList,
     ) -> Iterable[Function]:
         return iter(self.client.functions)
 
-    @classmethod
-    @lru_cache(maxsize=1)
-    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        spec = super().get_write_cls_parameter_spec()
-        # Added by toolkit
-        spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
-        # Replaced by the toolkit
-        spec.discard(ParameterSpec(("fileId",), frozenset({"int"}), is_required=True, _is_nullable=False))
-        return spec
-
 
 @final
 class FunctionScheduleCRUD(
@@ -640,20 +629,6 @@ class FunctionScheduleCRUD(
                 if not isinstance(parent_id, str):
                     continue
                 yield from self.client.functions.schedules(function_external_id=parent_id)
-
-    @classmethod
-    @lru_cache(maxsize=1)
-    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        spec = super().get_write_cls_parameter_spec()
-        # Added by toolkit
-        spec.add(ParameterSpec(("authentication",), frozenset({"dict"}), is_required=False, _is_nullable=False))
-        spec.add(
-            ParameterSpec(("authentication", "clientId"), frozenset({"str"}), is_required=False, _is_nullable=False)
-        )
-        spec.add(
-            ParameterSpec(("authentication", "clientSecret"), frozenset({"str"}), is_required=False, _is_nullable=False)
-        )
-        return spec
 
     def sensitive_strings(self, item: FunctionScheduleWrite) -> Iterable[str]:
         id_ = self.get_id(item)

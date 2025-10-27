@@ -5,61 +5,11 @@ from unittest.mock import MagicMock
 import pytest
 from cognite.client.data_classes import data_modeling as dm
 
-from cognite_toolkit._cdf_tk._parameters import read_parameters_from_dict
 from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, ResourceCRUD, ResourceWorker, SpaceCRUD, ViewCRUD
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
 class TestViewLoader:
-    @pytest.mark.parametrize(
-        "item",
-        [
-            pytest.param(
-                {
-                    "filter": {
-                        "hasData": [
-                            {"type": "container", "space": "sp_my_space", "externalId": "container_id"},
-                            {"type": "view", "space": "sp_my_space", "externalId": "view_id"},
-                        ]
-                    }
-                },
-                id="HasData Filter",
-            ),
-            pytest.param(
-                {
-                    "properties": {
-                        "reverseDirectRelation": {
-                            "connectionType": "multi_reverse_direct_relation",
-                            "source": {
-                                "type": "view",
-                                "space": "sp_my_space",
-                                "externalId": "view_id",
-                                "version": "v42",
-                            },
-                            "through": {
-                                "source": {
-                                    "type": "view",
-                                    "space": "sp_my_space",
-                                    "externalId": "view_id",
-                                    "version": "v42",
-                                },
-                                "identifier": "view_property",
-                            },
-                        }
-                    }
-                },
-                id="Reverse Direct Relation Property",
-            ),
-        ],
-    )
-    def test_valid_spec(self, item: dict):
-        spec = ViewCRUD.get_write_cls_parameter_spec()
-        dumped = read_parameters_from_dict(item)
-
-        extra = dumped - spec
-
-        assert not extra, f"Extra keys: {extra}"
-
     def test_unchanged_view_int_version(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
         loader = ViewCRUD.create_loader(toolkit_client_approval.mock_client)
         raw_file = """- space: sp_space
