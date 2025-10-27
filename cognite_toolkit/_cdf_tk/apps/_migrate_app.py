@@ -6,6 +6,7 @@ import questionary
 import typer
 from cognite.client.data_classes.data_modeling import ContainerId
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import (
     MigrateFilesCommand,
     MigrateTimeseriesCommand,
@@ -29,6 +30,7 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
     DataModelingSelect,
     ResourceViewMappingInteractiveSelect,
 )
+from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricKind
 
 TODAY = date.today()
 
@@ -229,8 +231,9 @@ class MigrateApp(typer.Typer):
             )
         )
 
-    @staticmethod
+    @classmethod
     def assets(
+        cls,
         ctx: typer.Context,
         mapping_file: Annotated[
             Path | None,
@@ -297,47 +300,20 @@ class MigrateApp(typer.Typer):
     ) -> None:
         """Migrate Assets to CogniteAssets."""
         client = EnvironmentVariables.create_from_environment().get_client()
-        cmd = MigrationCommand()
-        if data_set_id is not None and mapping_file is not None:
-            raise typer.BadParameter("Cannot specify both data_set_id and mapping_file")
-        elif mapping_file is not None:
-            selected: MigrationSelector = MigrationCSVFileSelector(datafile=mapping_file, kind="Assets")
-        elif data_set_id is not None:
-            parsed_view = parse_view_str(consumption_view) if consumption_view is not None else None
-            selected = MigrateDataSetSelector(
-                data_set_external_id=data_set_id,
-                kind="Assets",
-                ingestion_mapping=ingestion_mapping,
-                preferred_consumer_view=parsed_view,
-            )
-        else:
-            # Interactive selection of data set.
-            selector = AssetInteractiveSelect(client, "migrate")
-            selected_data_set_id = selector.select_data_set(allow_empty=False)
-            asset_mapping = ResourceViewMappingInteractiveSelect(client, "migrate").select_resource_view_mapping(
-                "asset"
-            )
-            preferred_consumer_view = (
-                DataModelingSelect(client, "migrate")
-                .select_view(
-                    multiselect=False,
-                    include_global=True,
-                    instance_type="node",
-                    mapped_container=ContainerId("cdf_cdm", "CogniteAsset"),
-                )
-                .as_id()
-            )
-            selected = MigrateDataSetSelector(
-                data_set_external_id=selected_data_set_id,
-                kind="Assets",
-                ingestion_mapping=asset_mapping.external_id,
-                preferred_consumer_view=preferred_consumer_view,
-            )
-            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).ask()
-            verbose = questionary.confirm("Do you want verbose output?", default=verbose).ask()
-            if any(res is None for res in [dry_run, verbose]):
-                raise typer.Abort()
+        selected, dry_run, verbose = cls._prepare_asset_centric_arguments(
+            client=client,
+            mapping_file=mapping_file,
+            data_set_id=data_set_id,
+            consumption_view=consumption_view,
+            ingestion_mapping=ingestion_mapping,
+            dry_run=dry_run,
+            verbose=verbose,
+            kind="Assets",
+            resource_type="asset",
+            container_id=ContainerId("cdf_cdm", "CogniteAsset"),
+        )
 
+        cmd = MigrationCommand()
         cmd.run(
             lambda: cmd.migrate(
                 selected=selected,
@@ -350,7 +326,62 @@ class MigrateApp(typer.Typer):
         )
 
     @staticmethod
+    def _prepare_asset_centric_arguments(
+        client: ToolkitClient,
+        mapping_file: Path | None,
+        data_set_id: str | None,
+        consumption_view: str | None,
+        ingestion_mapping: str | None,
+        dry_run: bool,
+        verbose: bool,
+        kind: AssetCentricKind,
+        resource_type: str,
+        container_id: ContainerId,
+    ) -> tuple[MigrationSelector, bool, bool]:
+        if data_set_id is not None and mapping_file is not None:
+            raise typer.BadParameter("Cannot specify both data_set_id and mapping_file")
+        elif mapping_file is not None:
+            selected: MigrationSelector = MigrationCSVFileSelector(datafile=mapping_file, kind=kind)
+        elif data_set_id is not None:
+            parsed_view = parse_view_str(consumption_view) if consumption_view is not None else None
+            selected = MigrateDataSetSelector(
+                data_set_external_id=data_set_id,
+                kind=kind,
+                ingestion_mapping=ingestion_mapping,
+                preferred_consumer_view=parsed_view,
+            )
+        else:
+            # Interactive selection of data set.
+            selector = AssetInteractiveSelect(client, "migrate")
+            selected_data_set_id = selector.select_data_set(allow_empty=False)
+            asset_mapping = ResourceViewMappingInteractiveSelect(client, "migrate").select_resource_view_mapping(
+                resource_type,
+            )
+            preferred_consumer_view = (
+                DataModelingSelect(client, "migrate")
+                .select_view(
+                    multiselect=False,
+                    include_global=True,
+                    instance_type="node",
+                    mapped_container=container_id,
+                )
+                .as_id()
+            )
+            selected = MigrateDataSetSelector(
+                data_set_external_id=selected_data_set_id,
+                kind=kind,
+                ingestion_mapping=asset_mapping.external_id,
+                preferred_consumer_view=preferred_consumer_view,
+            )
+            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).ask()
+            verbose = questionary.confirm("Do you want verbose output?", default=verbose).ask()
+            if any(res is None for res in [dry_run, verbose]):
+                raise typer.Abort()
+        return selected, dry_run, verbose
+
+    @classmethod
     def events(
+        cls,
         ctx: typer.Context,
         mapping_file: Annotated[
             Path | None,
@@ -417,46 +448,20 @@ class MigrateApp(typer.Typer):
     ) -> None:
         """Migrate Events to CogniteActivity."""
         client = EnvironmentVariables.create_from_environment().get_client()
+        selected, dry_run, verbose = MigrateApp._prepare_asset_centric_arguments(
+            client=client,
+            mapping_file=mapping_file,
+            data_set_id=data_set_id,
+            consumption_view=consumption_view,
+            ingestion_mapping=ingestion_mapping,
+            dry_run=dry_run,
+            verbose=verbose,
+            kind="Events",
+            resource_type="event",
+            container_id=ContainerId("cdf_cdm", "CogniteActivity"),
+        )
+
         cmd = MigrationCommand()
-        if data_set_id is not None and mapping_file is not None:
-            raise typer.BadParameter("Cannot specify both data_set_id and mapping_file")
-        elif mapping_file is not None:
-            selected: MigrationSelector = MigrationCSVFileSelector(datafile=mapping_file, kind="Events")
-        elif data_set_id is not None:
-            parsed_view = parse_view_str(consumption_view) if consumption_view is not None else None
-            selected = MigrateDataSetSelector(
-                data_set_external_id=data_set_id,
-                kind="Events",
-                ingestion_mapping=ingestion_mapping,
-                preferred_consumer_view=parsed_view,
-            )
-        else:
-            # Interactive selection of data set.
-            selector = AssetInteractiveSelect(client, "migrate events")
-            selected_data_set_id = selector.select_data_set(allow_empty=False)
-            event_mapping = ResourceViewMappingInteractiveSelect(client, "migrate events").select_resource_view_mapping(
-                "event"
-            )
-            preferred_consumer_view = (
-                DataModelingSelect(client, "migrate")
-                .select_view(
-                    multiselect=False,
-                    include_global=True,
-                    instance_type="node",
-                    mapped_container=ContainerId("cdf_cdm", "CogniteActivity"),
-                )
-                .as_id()
-            )
-            selected = MigrateDataSetSelector(
-                data_set_external_id=selected_data_set_id,
-                kind="Events",
-                ingestion_mapping=event_mapping.external_id,
-                preferred_consumer_view=preferred_consumer_view,
-            )
-            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).ask()
-            verbose = questionary.confirm("Do you want verbose output?", default=verbose).ask()
-            if any(res is None for res in [dry_run, verbose]):
-                raise typer.Abort()
 
         cmd.run(
             lambda: cmd.migrate(
@@ -482,6 +487,50 @@ class MigrateApp(typer.Typer):
                 "The dataSetId is optional, and can be skipped. If it is set, it is used to check the access to the dataset.",
             ),
         ],
+        data_set_id: Annotated[
+            str | None,
+            typer.Option(
+                "--data-set-id",
+                "-s",
+                help="The data set ID to use for the migrated CogniteTimeSeries. If not provided, the dataSetId from the mapping file is used. "
+                "If neither is provided, the default data set for the project is used.",
+            ),
+        ] = None,
+        ingestion_mapping: Annotated[
+            str | None,
+            typer.Option(
+                "--ingestion-mapping",
+                "-i",
+                help="The ingestion mapping to use for the migrated events. If not provided, "
+                "the default mapping to CogniteActivity in CogniteCore will be used.",
+            ),
+        ] = None,
+        consumption_view: Annotated[
+            str | None,
+            typer.Option(
+                "--consumption-view",
+                "-c",
+                help="The consumption view(s) to assign to the migrated events Given as space:externalId/version. "
+                "This will be used in Canvas to select which view to use when migrating events. If not provided, "
+                "CogniteActivity in CogniteCore will be used.",
+            ),
+        ] = None,
+        log_dir: Annotated[
+            Path,
+            typer.Option(
+                "--log-dir",
+                "-l",
+                help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
+            ),
+        ] = Path(f"migration_logs_{TODAY!s}"),
+        skip_linking: Annotated[
+            bool,
+            typer.Option(
+                "--skip-linking",
+                "-x",
+                help="If set, the migration will not create links between the old TimeSeries and the new CogniteTimeSeries.",
+            ),
+        ] = False,
         dry_run: Annotated[
             bool,
             typer.Option(
