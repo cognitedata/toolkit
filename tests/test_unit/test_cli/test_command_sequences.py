@@ -13,7 +13,6 @@ import pytest
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.commands import BuildCommand, CleanCommand, DeployCommand
-from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH
 from cognite_toolkit._cdf_tk.cruds import CRUDS_BY_FOLDER_NAME, Loader
 from cognite_toolkit._cdf_tk.data_classes import ModuleDirectories
 from cognite_toolkit._cdf_tk.feature_flags import Flags
@@ -31,7 +30,7 @@ SNAPSHOTS_DIR_CLEAN.mkdir(exist_ok=True)
 
 
 def find_all_modules() -> Iterator[Path]:
-    for module, _ in iterate_modules(BUILTIN_MODULES_PATH):
+    for module, _ in iterate_modules(COMPLETE_ORG):
         if module.name == "references":  # this particular module should never be built or deployed
             continue
         elif module.name == "search":

@@ -118,16 +118,11 @@ def organization_dir_mutable(
 def capture_print(monkeypatch: MonkeyPatch) -> PrintCapture:
     capture = PrintCapture()
     toolkit_path = REPO_ROOT / "cognite_toolkit"
-    builtin_modules_path = toolkit_path / "_cdf_tk" / "_packages"
     monkeypatch.setattr("cognite_toolkit._cdf.print", capture)
 
     # Monkeypatch all print functions in the toolkit automatically
     for folder in ["_cdf_tk", "_api"]:
         for py_file in (toolkit_path / folder).rglob("*.py"):
-            if py_file.is_relative_to(builtin_modules_path):
-                # Don't monkeypatch the function code of the
-                # builtin modules
-                continue
             file_path = py_file.relative_to(toolkit_path)
             module_path = f"{'.'.join(['cognite_toolkit', *file_path.parts[:-1]])}.{file_path.stem}"
             try:
