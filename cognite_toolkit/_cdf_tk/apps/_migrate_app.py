@@ -493,8 +493,8 @@ class MigrateApp(typer.Typer):
             typer.Option(
                 "--data-set-id",
                 "-s",
-                help="The data set ID to use for the migrated CogniteTimeSeries. If not provided, the dataSetId from the mapping file is used. "
-                "If neither is provided, the default data set for the project is used.",
+                help="The data set ID to select for the timeseries to migrate. If not provided and the mapping file is not provided"
+                "an interactive selection will be performed to select the data set to migrate timeseries from.",
             ),
         ] = None,
         ingestion_mapping: Annotated[
@@ -502,8 +502,8 @@ class MigrateApp(typer.Typer):
             typer.Option(
                 "--ingestion-mapping",
                 "-i",
-                help="The ingestion mapping to use for the migrated events. If not provided, "
-                "the default mapping to CogniteActivity in CogniteCore will be used.",
+                help="The ingestion mapping to use for the migrated timeseries. If not provided, "
+                "the default mapping to CogniteTimeSeries in CogniteCore will be used.",
             ),
         ] = None,
         consumption_view: Annotated[
@@ -511,9 +511,9 @@ class MigrateApp(typer.Typer):
             typer.Option(
                 "--consumption-view",
                 "-c",
-                help="The consumption view(s) to assign to the migrated events Given as space:externalId/version. "
-                "This will be used in Canvas to select which view to use when migrating events. If not provided, "
-                "CogniteActivity in CogniteCore will be used.",
+                help="The consumption view(s) to assign to the migrated timeseries Given as space:externalId/version. "
+                "This will be used in Canvas to select which view to use when migrating timeseries. If not provided, "
+                "CogniteTimeSeries in CogniteCore will be used.",
             ),
         ] = None,
         log_dir: Annotated[
