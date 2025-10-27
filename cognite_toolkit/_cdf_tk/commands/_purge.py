@@ -275,25 +275,6 @@ class PurgeCommand(ToolkitCommand):
             if loader_cls in dep_cls.dependencies and (exclude is None or dep_cls not in exclude)
         }
 
-    @staticmethod
-    def _get_selected_space(space: str | None, client: ToolkitClient) -> str:
-        if space is None:
-            spaces = client.data_modeling.spaces.list(limit=-1, include_global=False)
-            selected_space = questionary.select(
-                "Which space do you want to purge"
-                " (including all data models, views, containers, nodes and edges within that space)?",
-                sorted([space.space for space in spaces]),
-            ).ask()
-        else:
-            retrieved = client.data_modeling.spaces.retrieve(space)
-            if retrieved is None:
-                raise ToolkitMissingResourceError(f"Space {space} does not exist")
-            selected_space = space
-
-        if selected_space is None:
-            raise ToolkitValueError("No space selected")
-        return selected_space
-
     def dataset(
         self,
         client: ToolkitClient,
