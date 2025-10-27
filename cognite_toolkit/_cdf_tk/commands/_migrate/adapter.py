@@ -330,7 +330,7 @@ class FileMetaAdapter(
         super().__init__(client, FileMetadataIO(client), skip_linking)
 
 
-class TimeSeriesAdapter(
+class TimeSeriesIOAdapter(
     LinkingAdapter[
         str,
         TimeSeriesWrite,
