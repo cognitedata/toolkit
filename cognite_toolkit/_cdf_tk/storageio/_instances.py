@@ -121,7 +121,9 @@ class InstanceIO(
             return len(selector.instance_ids)
         raise NotImplementedError()
 
-    def data_to_json_chunk(self, data_chunk: Sequence[Instance]) -> list[dict[str, JsonVal]]:
+    def data_to_json_chunk(
+        self, data_chunk: Sequence[Instance], selector: InstanceSelector | None = None
+    ) -> list[dict[str, JsonVal]]:
         return [instance.as_write().dump(camel_case=True) for instance in data_chunk]
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> InstanceApply:
