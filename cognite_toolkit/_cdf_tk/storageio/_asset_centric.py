@@ -49,8 +49,24 @@ from cognite_toolkit._cdf_tk.utils.aggregators import (
 )
 from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, SimpleBodyRequest
-from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, AssetCentric, JsonVal, T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.utils.http_client import (
+    FailedRequestItems,
+    FailedRequestMessage,
+    FailedResponse,
+    FailedResponseItems,
+    HTTPClient,
+    HTTPMessage,
+    SimpleBodyRequest,
+    SuccessResponse,
+    SuccessResponseItems,
+)
+from cognite_toolkit._cdf_tk.utils.useful_types import (
+    T_ID,
+    AssetCentricResource,
+    AssetCentricType,
+    JsonVal,
+    T_WritableCogniteResourceList,
+)
 
 from ._base import ConfigurableStorageIO, Page, StorageIOConfig, TableStorageIO, UploadableStorageIO, UploadItem
 from .selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
@@ -63,7 +79,7 @@ class BaseAssetCentricIO(
     UploadableStorageIO[AssetCentricSelector, T_WritableCogniteResource, T_WriteClass],
     ABC,
 ):
-    RESOURCE_TYPE: ClassVar[AssetCentric]
+    RESOURCE_TYPE: ClassVar[AssetCentricType]
     CHUNK_SIZE = 1000
     BASE_SELECTOR = AssetCentricSelector
 
@@ -97,7 +113,9 @@ class BaseAssetCentricIO(
             return self._aggregator.count(hierarchy=selector.hierarchy)
         return None
 
-    def data_to_json_chunk(self, data_chunk: Sequence[T_WritableCogniteResource]) -> list[dict[str, JsonVal]]:
+    def data_to_json_chunk(
+        self, data_chunk: Sequence[T_WritableCogniteResource], selector: AssetCentricSelector | None = None
+    ) -> list[dict[str, JsonVal]]:
         return [self._loader.dump_resource(item) for item in data_chunk]
 
     def configurations(self, selector: AssetCentricSelector) -> Iterable[StorageIOConfig]:
@@ -154,7 +172,11 @@ class BaseAssetCentricIO(
         )
 
     def _create_identifier(self, internal_id: int) -> str:
-        return f"INTERNAL_ID_project_{self.client.config.project}_{internal_id!s}"
+        return self.create_internal_identifier(internal_id, self.client.config.project)
+
+    @classmethod
+    def create_internal_identifier(cls, internal_id: int, project: str) -> str:
+        return f"INTERNAL_ID_project_{project}_{internal_id!s}"
 
 
 class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetList]):
@@ -294,7 +316,7 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
         config = http_client.config
         results: MutableSequence[HTTPMessage] = []
         for item in data_chunk:
-            file_result = http_client.request_with_retries(
+            responses = http_client.request_with_retries(
                 message=SimpleBodyRequest(
                     endpoint_url=config.create_api_url(self.UPLOAD_ENDPOINT),
                     method="POST",
@@ -302,7 +324,22 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
                     body_content=item.dump(),  # type: ignore[arg-type]
                 )
             )
-            results.extend(file_result)
+            # Convert the responses to per-item responses
+            for message in responses:
+                if isinstance(message, SuccessResponse):
+                    results.append(
+                        SuccessResponseItems(status_code=message.status_code, ids=[item.as_id()], body=message.body)
+                    )
+                elif isinstance(message, FailedResponse):
+                    results.append(
+                        FailedResponseItems(
+                            status_code=message.status_code, ids=[item.as_id()], body=message.body, error=message.error
+                        )
+                    )
+                elif isinstance(message, FailedRequestMessage):
+                    results.append(FailedRequestItems(ids=[item.as_id()], error=message.error))
+                else:
+                    results.append(message)
         return results
 
     def retrieve(self, ids: Sequence[int]) -> FileMetadataList:
@@ -318,6 +355,7 @@ class TimeSeriesIO(BaseAssetCentricIO[str, TimeSeriesWrite, TimeSeries, TimeSeri
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     UPLOAD_ENDPOINT = "/timeseries"
+    RESOURCE_TYPE = "timeseries"
 
     def as_id(self, item: TimeSeries) -> str:
         return item.external_id if item.external_id is not None else self._create_identifier(item.id)
@@ -384,6 +422,7 @@ class EventIO(BaseAssetCentricIO[str, EventWrite, Event, EventWriteList, EventLi
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     UPLOAD_ENDPOINT = "/events"
+    RESOURCE_TYPE = "event"
 
     def as_id(self, item: Event) -> str:
         return item.external_id if item.external_id is not None else self._create_identifier(item.id)
@@ -442,3 +481,47 @@ class EventIO(BaseAssetCentricIO[str, EventWrite, Event, EventWriteList, EventLi
 
     def retrieve(self, ids: Sequence[int]) -> EventList:
         return self.client.events.retrieve_multiple(ids)
+
+
+class HierarchyIO(ConfigurableStorageIO[AssetCentricSelector, AssetCentricResource]):
+    CHUNK_SIZE = 1000
+    BASE_SELECTOR = AssetCentricSelector
+    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
+    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
+
+    def __init__(self, client: ToolkitClient) -> None:
+        super().__init__(client)
+        self._asset_io = AssetIO(client)
+        self._file_io = FileMetadataIO(client)
+        self._timeseries_io = TimeSeriesIO(client)
+        self._event_io = EventIO(client)
+        self._io_by_kind: dict[str, BaseAssetCentricIO] = {
+            self._asset_io.KIND: self._asset_io,
+            self._file_io.KIND: self._file_io,
+            self._timeseries_io.KIND: self._timeseries_io,
+            self._event_io.KIND: self._event_io,
+        }
+
+    def as_id(self, item: AssetCentricResource) -> str:
+        return item.external_id or BaseAssetCentricIO.create_internal_identifier(item.id, self.client.config.project)
+
+    def stream_data(
+        self, selector: AssetCentricSelector, limit: int | None = None
+    ) -> Iterable[Page[AssetCentricResource]]:
+        yield from self._get_io(selector).stream_data(selector, limit)
+
+    def count(self, selector: AssetCentricSelector) -> int | None:
+        return self._get_io(selector).count(selector)
+
+    def data_to_json_chunk(
+        self, data_chunk: Sequence[AssetCentricResource], selector: AssetCentricSelector | None = None
+    ) -> list[dict[str, JsonVal]]:
+        if selector is None:
+            raise ValueError(f"Selector must be provided to convert data to JSON chunk for {type(self).__name__}.)")
+        return self._get_io(selector).data_to_json_chunk(data_chunk, selector)
+
+    def configurations(self, selector: AssetCentricSelector) -> Iterable[StorageIOConfig]:
+        yield from self._get_io(selector).configurations(selector)
+
+    def _get_io(self, selector: AssetCentricSelector) -> BaseAssetCentricIO:
+        return self._io_by_kind[selector.kind]
