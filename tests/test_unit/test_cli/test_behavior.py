@@ -181,7 +181,6 @@ def test_pull_transformation_sql(
     transformation_yaml = (
         organization_dir_mutable
         / "modules"
-        / "sourcesystem"
         / "cdf_pi"
         / "transformations"
         / "population"

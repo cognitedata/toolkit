@@ -6,9 +6,11 @@ title = "Complete Organization"
 description = "Complete Organization"
 canCherryPick = true
 modules = [
-    "modules/my_example_module",
-    "modules/my_file_expand_module",
-    "modules/populate_model"
+    "my_example_module",
+    "my_file_expand_module",
+    "populate_model",
+    "cdf_common",
+    "cdf_pi"
 ]
 
 [packages.small_1]
@@ -16,7 +18,7 @@ title = "Small package 1"
 description = "Small package 1"
 canCherryPick = true
 modules = [
-    "modules/my_example_module",
+    "my_example_module",
 ]
 
 [packages.small_2]
@@ -24,5 +26,5 @@ title = "Small package 2"
 description = "Small package 2"
 canCherryPick = true
 modules = [
-    "modules/my_file_expand_module",
+    "my_file_expand_module",
 ]

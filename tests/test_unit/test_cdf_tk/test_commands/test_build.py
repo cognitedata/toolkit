@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from _cdf_tk.constants import MODULES
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client.data_classes.data_modeling import DataModelId, Space
 
@@ -91,7 +92,7 @@ class TestBuildCommand:
         tmp_path: Path,
         env_vars_with_client: EnvironmentVariables,
     ) -> None:
-        cmd = BuildCommand(silent=True, skip_tracking=True)
+        cmd = BuildCommand(silent=True, skip_tracking=True, module_source_dir=data.COMPLETE_ORG / MODULES)
         with patch.dict(
             os.environ,
             {"CDF_PROJECT": env_vars_with_client.CDF_PROJECT, "CDF_CLUSTER": env_vars_with_client.CDF_CLUSTER},

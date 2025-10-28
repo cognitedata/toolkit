@@ -13,21 +13,24 @@ from _pytest.monkeypatch import MonkeyPatch
 from questionary import Choice
 
 from cognite_toolkit._cdf_tk.commands.modules import ModulesCommand
+from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.data_classes import Package, Packages
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError
 from cognite_toolkit._cdf_tk.tk_warnings.other import HighSeverityWarning
 from tests.data import COMPLETE_ORG, EXTERNAL_PACKAGE
 from tests.test_unit.utils import MockQuestionary
 
+COMPLETE_ORG_MODULES = COMPLETE_ORG / MODULES
+
 
 @pytest.fixture(scope="session")
 def selected_packages() -> Packages:
-    return Packages.load(COMPLETE_ORG)
+    return Packages.load(COMPLETE_ORG_MODULES)
 
 
 @pytest.fixture(scope="session")
 def selected_packages_location() -> Path:
-    return COMPLETE_ORG
+    return COMPLETE_ORG_MODULES
 
 
 class MockResponse:
@@ -64,7 +67,7 @@ class TestModulesCommand:
         )
 
         assert Path(target_path).exists()
-        assert Path(target_path / "modules" / "modules" / "my_example_module").exists()
+        assert Path(target_path / "modules" / "my_example_module").exists()
 
     def test_modules_command_with_env(
         self, selected_packages: Packages, selected_packages_location: Path, tmp_path: Path
@@ -126,7 +129,7 @@ class TestModulesCommand:
         self, selected_packages: Packages, selected_packages_location: Path, tmp_path: Path, monkeypatch: MonkeyPatch
     ) -> None:
         target_path = tmp_path / "repo_root"
-        cmd = ModulesCommand(print_warning=True, skip_tracking=True)
+        cmd = ModulesCommand(print_warning=True, skip_tracking=True, module_source_dir=COMPLETE_ORG_MODULES)
 
         first_batch = Packages({"small_1": selected_packages["small_1"]})
         second_batch = Packages({"small_2": selected_packages["small_2"]})
@@ -155,13 +158,13 @@ class TestModulesCommand:
 
         config = yaml.safe_load(Path(target_path / "config.qa.yaml").read_text())
         assert config["variables"]["modules"]["my_example_module"]["var"] is not None
-        assert (target_path / "modules" / "modules" / "my_example_module").is_dir()
+        assert (target_path / "modules" / "my_example_module").is_dir()
 
         assert config["variables"]["modules"]["my_file_expand_module"]["var"] is not None
-        assert (target_path / "modules" / "modules" / "my_file_expand_module").is_dir()
+        assert (target_path / "modules" / "my_file_expand_module").is_dir()
 
     def test_add_without_config_yaml(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
-        cmd = ModulesCommand(print_warning=True, skip_tracking=True)
+        cmd = ModulesCommand(print_warning=True, skip_tracking=True, module_source_dir=COMPLETE_ORG_MODULES)
         dummy_resource = "space: my_space"
         my_org = tmp_path / "my_org"
         moules = my_org / "modules"
@@ -207,7 +210,7 @@ class TestModulesCommand:
         assert new_yaml_file_count > yaml_file_count, "Expected new yaml files to be created"
 
     def test_context_manager_scope(self):
-        with ModulesCommand() as cmd:
+        with ModulesCommand(module_source_dir=COMPLETE_ORG_MODULES) as cmd:
             first = Path(cmd._temp_download_dir / "test.txt")
             first.write_text("This is a test file.")
             assert first.exists()
@@ -226,7 +229,7 @@ class TestModulesCommand:
         mock_response = MockResponse(dummy_file_content, status_code=200)
         monkeypatch.setattr(requests, "get", MagicMock(return_value=mock_response))
 
-        cmd = ModulesCommand(print_warning=True, skip_tracking=True)
+        cmd = ModulesCommand(print_warning=True, skip_tracking=True, module_source_dir=COMPLETE_ORG_MODULES)
         output_zip_path = tmp_path / "test_file.zip"
 
         cmd._download(url="http://example.com/test.zip", file_path=output_zip_path)
@@ -248,7 +251,7 @@ class TestModulesCommand:
 
         # Act & Assert
         with pytest.raises(ToolkitError) as excinfo:
-            ModulesCommand()._download(test_url, output_path)
+            ModulesCommand(module_source_dir=COMPLETE_ORG_MODULES)._download(test_url, output_path)
 
         assert isinstance(excinfo.value.__cause__, requests.exceptions.HTTPError)
 
@@ -267,7 +270,7 @@ class TestModulesCommand:
 
         # Act & Assert
         with pytest.raises(ToolkitError) as excinfo:
-            ModulesCommand()._download(test_url, output_path)
+            ModulesCommand(module_source_dir=COMPLETE_ORG_MODULES)._download(test_url, output_path)
 
         assert "Error downloading file" in str(excinfo.value)
         assert isinstance(excinfo.value.__cause__, requests.exceptions.RequestException)
@@ -285,7 +288,7 @@ class TestModulesCommand:
         monkeypatch.setattr(zipfile, "ZipFile", MagicMock(return_value=mock_zipfile_instance))
 
         with pytest.raises(ToolkitError) as excinfo:
-            ModulesCommand()._unpack(output_path)
+            ModulesCommand(module_source_dir=COMPLETE_ORG_MODULES)._unpack(output_path)
 
         assert isinstance(excinfo.value.__cause__, zipfile.BadZipFile)
         assert "File is not a zip file" in str(excinfo.value.__cause__)
@@ -305,7 +308,7 @@ class TestModulesCommand:
         monkeypatch.setattr(zipfile, "ZipFile", MagicMock(return_value=mock_zipfile_ref))
 
         with pytest.raises(ToolkitError) as excinfo:
-            ModulesCommand()._unpack(output_path)
+            ModulesCommand(module_source_dir=COMPLETE_ORG_MODULES)._unpack(output_path)
 
         assert isinstance(excinfo.value.__cause__, OSError)
         assert "No space left on device" in str(excinfo.value.__cause__)
@@ -313,7 +316,9 @@ class TestModulesCommand:
     def test_checksum_format(self, tmp_path: Path) -> None:
         invalid_checksum = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
         with pytest.raises(ToolkitError) as excinfo:
-            ModulesCommand()._validate_checksum(invalid_checksum, Path(tmp_path / "test_file.zip"))
+            ModulesCommand(module_source_dir=COMPLETE_ORG_MODULES)._validate_checksum(
+                invalid_checksum, Path(tmp_path / "test_file.zip")
+            )
 
         assert "Unsupported checksum format" in str(excinfo.value)
 
@@ -324,7 +329,7 @@ class TestModulesCommand:
 
         expected_checksum = f"sha256:{hashlib.sha256(dummy_file_content).hexdigest()}"
 
-        cmd = ModulesCommand(print_warning=True, skip_tracking=True)
+        cmd = ModulesCommand(print_warning=True, skip_tracking=True, module_source_dir=COMPLETE_ORG / MODULES)
         try:
             cmd._validate_checksum(
                 checksum=expected_checksum,
@@ -349,7 +354,7 @@ class TestModulesCommand:
         mock_response = MockResponse(new_content, status_code=200)
         monkeypatch.setattr(requests, "get", MagicMock(return_value=mock_response))
 
-        cmd = ModulesCommand(print_warning=True, skip_tracking=True)
+        cmd = ModulesCommand(print_warning=True, skip_tracking=True, module_source_dir=COMPLETE_ORG / MODULES)
 
         # Call _download - this should delete the existing file and download new content
         cmd._download(url="http://example.com/test.zip", file_path=stale_file_path)
@@ -372,7 +377,7 @@ class TestModulesCommand:
         """
         from cognite_toolkit._cdf_tk.utils.modules import iterate_modules
 
-        cmd = ModulesCommand(print_warning=True, skip_tracking=True)
+        cmd = ModulesCommand(print_warning=True, skip_tracking=True, module_source_dir=COMPLETE_ORG / MODULES)
 
         # Create a mock module structure in the temp download directory
         # This simulates what would happen when modules are downloaded
@@ -414,7 +419,7 @@ class TestModulesCommand:
         # Intentionally use a different checksum than the file's actual hash
         wrong_checksum = "sha256:" + hashlib.sha256(b"some-other-content").hexdigest()
 
-        cmd = ModulesCommand(print_warning=True, skip_tracking=True)
+        cmd = ModulesCommand(print_warning=True, skip_tracking=True, module_source_dir=COMPLETE_ORG / MODULES)
         cmd._validate_checksum(wrong_checksum, file_path)
 
         assert len(cmd.warning_list) == 1

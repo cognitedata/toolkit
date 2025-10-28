@@ -556,6 +556,11 @@ def find_resources(resource: str, resource_dir: str | None = None, base: Path = 
     for path in base.rglob(f"*{resource}.yaml"):
         if resource_dir and resource_dir not in path.parts:
             continue
+
+        # Skip cdf_common module, since it requires variable replacement to be valid
+        if "cdf_common" in path.parts:
+            continue
+
         data = read_yaml_file(path)
         if isinstance(data, dict):
             yield pytest.param(data, id=path.relative_to(base).as_posix())

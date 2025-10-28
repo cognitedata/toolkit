@@ -1,0 +1,7 @@
+name: Annotation to Direct Relations Writer
+externalId: contextualization_connection_writer
+owner: 'Anonymous'
+description: Writes all approved Annotations as direct relations connections.
+functionPath: 'handler.py'
+# Data set id for the zip file with the code that is uploaded.
+dataSetExternalId: {{ dataset }}

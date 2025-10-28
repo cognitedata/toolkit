@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.canvas import IndustrialCanvas
 from cognite_toolkit._cdf_tk.client.data_classes.migration import InstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import ModulesCommand, RepoCommand
+from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.constants import REPO_ROOT
 from tests.data import COMPLETE_ORG
@@ -90,7 +91,7 @@ def organization_dir(
 ) -> Path:
     organization_folder = "pytest-org"
     organization_dir = local_tmp_repo_path / organization_folder
-    ModulesCommand(silent=True, module_source_dir=COMPLETE_ORG).init(
+    ModulesCommand(silent=True, module_source_dir=COMPLETE_ORG / MODULES).init(
         organization_dir,
         select_all=True,
         clean=True,
@@ -106,7 +107,7 @@ def organization_dir_mutable(
     """This is used in tests were the source module files are modified. For example, cdf pull commands."""
     organization_dir = local_tmp_repo_path / "pytest-org-mutable"
 
-    ModulesCommand(silent=True).init(
+    ModulesCommand(silent=True, module_source_dir=COMPLETE_ORG / MODULES).init(
         organization_dir,
         select_all=True,
         clean=True,
