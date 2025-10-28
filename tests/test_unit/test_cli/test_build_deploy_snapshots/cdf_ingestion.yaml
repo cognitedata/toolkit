@@ -242,7 +242,7 @@ Workflow:
 WorkflowTrigger:
 - externalId: ingestion
   metadata:
-    cognite-toolkit-auth-hash: 9d622119
+    cognite-toolkit-auth-hash: 003722e2
   triggerRule:
     cronExpression: 0 4 * * *
     triggerType: schedule
