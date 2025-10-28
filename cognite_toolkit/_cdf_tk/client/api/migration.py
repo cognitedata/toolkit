@@ -26,7 +26,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.migration import (
 from cognite_toolkit._cdf_tk.constants import COGNITE_MIGRATION_SPACE
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
-from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentric
+from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricType
 
 from .extended_data_modeling import ExtendedInstancesAPI
 
@@ -75,7 +75,7 @@ class InstanceSourceAPI:
             to_or_filters.append(filters.And(is_resource, is_id))
         return filters.Or(*to_or_filters)
 
-    def list(self, resource_type: AssetCentric, limit: int | None = DEFAULT_LIMIT_READ) -> NodeList[InstanceSource]:
+    def list(self, resource_type: AssetCentricType, limit: int | None = DEFAULT_LIMIT_READ) -> NodeList[InstanceSource]:
         """List instance sources filtered by resource type"""
         is_selected = filters.Equals(self._view_id.as_property_ref("resourceType"), resource_type)
 

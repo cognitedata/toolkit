@@ -30,7 +30,7 @@ from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     convert_to_primary_property,
     infer_data_type_from_value,
 )
-from cognite_toolkit._cdf_tk.utils.useful_types import AVAILABLE_DATA_TYPES, AssetCentric, DataType
+from cognite_toolkit._cdf_tk.utils.useful_types import AVAILABLE_DATA_TYPES, AssetCentricType, DataType
 
 
 class TestConvertToContainerProperty:
@@ -494,7 +494,7 @@ class TestConvertToContainerProperty:
         value: str | int | float | bool | dict | list,
         type_: PropertyType,
         destination_container_property: tuple[ContainerId, str],
-        source_property: tuple[AssetCentric, str],
+        source_property: tuple[AssetCentricType, str],
         expected: PropertyValueWrite,
     ):
         cache = {
@@ -550,7 +550,7 @@ class TestConvertToContainerProperty:
         value: str | int | float | bool | dict | list,
         type_: PropertyType,
         destination_container_property: tuple[ContainerId, str],
-        source_property: tuple[AssetCentric, str],
+        source_property: tuple[AssetCentricType, str],
         error_message: str,
     ):
         with pytest.raises(ValueError) as exc_info:

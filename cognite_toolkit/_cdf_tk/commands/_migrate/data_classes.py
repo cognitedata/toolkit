@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.storageio._data_classes import ModelList
-from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentric
+from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricType
 
 
 class MigrationMapping(BaseModel, alias_generator=to_camel_case, extra="ignore", populate_by_name=True):
@@ -28,7 +28,7 @@ class MigrationMapping(BaseModel, alias_generator=to_camel_case, extra="ignore",
            for example, the Canvas migration to determine which view to use for the resource.
     """
 
-    resource_type: AssetCentric
+    resource_type: AssetCentricType
     instance_id: NodeId
     id: int
     data_set_id: int | None = None
