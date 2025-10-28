@@ -1,6 +1,5 @@
 import collections.abc
 from collections.abc import Hashable, Iterable
-from functools import lru_cache
 from pathlib import Path
 from typing import Any, final
 
@@ -9,7 +8,6 @@ from cognite.client.data_classes.data_modeling import NodeApplyResultList, NodeI
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client.data_classes.apm_config_v1 import (
     APMConfig,
     APMConfigList,
@@ -118,33 +116,6 @@ class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig, APMConfigWriteL
             self.client, space=space, instance_type="node", source=APMConfig.view_id, console=self.console
         ):
             yield APMConfig.from_node(node)
-
-    @classmethod
-    @lru_cache(maxsize=1)
-    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        spec = super().get_write_cls_parameter_spec()
-        # Added by toolkit
-        spec.add(
-            ParameterSpec(
-                ("featureConfiguration", "rootLocationConfiguration", "dataSetExternalId"),
-                frozenset({"str"}),
-                is_required=False,
-                _is_nullable=False,
-            )
-        )
-        spec.discard(
-            ParameterSpec(
-                (
-                    "featureConfiguration",
-                    "rootLocationConfiguration",
-                    "dataSetId",
-                ),
-                frozenset({"int"}),
-                is_required=False,
-                _is_nullable=False,
-            )
-        )
-        return spec
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
