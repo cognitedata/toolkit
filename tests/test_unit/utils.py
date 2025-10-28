@@ -557,8 +557,8 @@ def find_resources(resource: str, resource_dir: str | None = None, base: Path = 
         if resource_dir and resource_dir not in path.parts:
             continue
 
-        # Skip cdf_common module, since it requires variable replacement to be valid
-        if "cdf_common" in path.parts:
+        # Skip cdf_common module, since it requires variable replacement to be validated by Pydantic
+        if "cdf_common" in path.parts or "cdf_pi" in path.parts:
             continue
 
         data = read_yaml_file(path)

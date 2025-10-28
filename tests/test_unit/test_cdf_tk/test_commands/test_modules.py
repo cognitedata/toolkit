@@ -167,45 +167,41 @@ class TestModulesCommand:
         cmd = ModulesCommand(print_warning=True, skip_tracking=True, module_source_dir=COMPLETE_ORG_MODULES)
         dummy_resource = "space: my_space"
         my_org = tmp_path / "my_org"
-        moules = my_org / "modules"
-        filepath = moules / "my_module" / "data_models" / "my.Space.yaml"
+        modules = my_org / "modules"
+        filepath = modules / "my_module" / "data_models" / "my.Space.yaml"
         filepath.parent.mkdir(parents=True, exist_ok=True)
         filepath.write_text(dummy_resource)
 
-        def select_source_system(choices: list[Choice]) -> Package:
-            selected_package = next((c for c in choices if "source system" in c.title.lower()), None)
+        def select_package(choices: list[Choice]) -> Package:
+            selected_package = next((c for c in choices if "complete organization" in c.title.lower()), None)
             assert selected_package is not None
             return selected_package.value
 
-        def select_sap_events(choices: list[Choice]) -> list:
-            selected_module = next(
-                (c for c in choices if "sap" in c.title.lower() and "event" in c.title.lower()), None
-            )
+        def select_first_module(choices: list[Choice]) -> list:
+            selected_module = next((c for c in choices if "my_example_module" == c.title), None)
             assert selected_module is not None
             return [selected_module.value]
 
-        answers = [select_source_system, select_sap_events, False, False]
+        answers = [select_package, select_first_module, False, False]
 
         with MockQuestionary(ModulesCommand.__module__, monkeypatch, answers):
             cmd.add(my_org)
 
-        yaml_file_count = len(list(moules.rglob("*.yaml")))
+        yaml_file_count = len(list(modules.rglob("*.yaml")))
 
         assert yaml_file_count > 1, "Expected new yaml files to b created"
 
-        def select_sap_assets(choices: list[Choice]) -> list:
-            selected_module = next(
-                (c for c in choices if "sap" in c.title.lower() and "asset" in c.title.lower()), None
-            )
+        def select_second_module(choices: list[Choice]) -> list:
+            selected_module = next((c for c in choices if "my_file_expand_module" == c.title), None)
             assert selected_module is not None
             return [selected_module.value]
 
-        answers = [select_source_system, select_sap_assets, False, False]
+        answers = [select_package, select_second_module, False, False]
 
         with MockQuestionary(ModulesCommand.__module__, monkeypatch, answers):
             cmd.add(my_org)
 
-        new_yaml_file_count = len(list(moules.rglob("*.yaml")))
+        new_yaml_file_count = len(list(modules.rglob("*.yaml")))
 
         assert new_yaml_file_count > yaml_file_count, "Expected new yaml files to be created"
 
