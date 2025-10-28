@@ -790,7 +790,10 @@ default_organization_dir = "{organization_dir.name}"''',
             raise ValueError("No valid libraries found.")
         else:
             if self._module_source_dir is None:
-                raise ValueError("No external libraries and no local module source directory specified.")
+                self.warn(
+                    MediumSeverityWarning("No external libraries and no local module source directory specified.")
+                )
+                return Packages(), Path(".")
             packages = Packages.load(self._module_source_dir)
             self._validate_packages(packages, self._module_source_dir.name)
             return packages, self._module_source_dir
