@@ -4,7 +4,6 @@ import tempfile
 import zipfile
 from collections import Counter
 from hashlib import sha256
-from importlib import resources
 from pathlib import Path
 from types import TracebackType
 from typing import Any, Literal
@@ -23,7 +22,6 @@ from rich.rule import Rule
 from rich.table import Table
 from rich.tree import Tree
 
-import cognite_toolkit
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import _cli_commands as CLICommands
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
@@ -37,8 +35,8 @@ from cognite_toolkit._cdf_tk.commands._changes import (
     UpdateModuleVersion,
 )
 from cognite_toolkit._cdf_tk.constants import (
-    BUILTIN_MODULES,
     MODULES,
+    RESOURCES_PATH,
     SUPPORT_MODULE_UPGRADE_FROM_VERSION,
     EnvType,
 )
@@ -92,9 +90,15 @@ _FILE_DOWNLOADERS_BY_TYPE: dict[str, type[FileDownloader]] = {
 
 
 class ModulesCommand(ToolkitCommand):
-    def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False):
+    def __init__(
+        self,
+        print_warning: bool = True,
+        skip_tracking: bool = False,
+        silent: bool = False,
+        module_source_dir: Path | None = None,
+    ):
         super().__init__(print_warning, skip_tracking, silent)
-        self._builtin_modules_path = Path(resources.files(cognite_toolkit.__name__)) / BUILTIN_MODULES  # type: ignore [arg-type]
+        self._module_source_dir: Path | None = module_source_dir
         self._temp_download_dir = Path(tempfile.gettempdir()) / MODULES
         if not self._temp_download_dir.exists():
             self._temp_download_dir.mkdir(parents=True, exist_ok=True)
@@ -282,7 +286,7 @@ class ModulesCommand(ToolkitCommand):
             destination.write_text(cdf_toml_content, encoding="utf-8")
 
     def create_cdf_toml(self, organization_dir: Path, env: EnvType = "dev") -> str:
-        cdf_toml_content = safe_read(self._builtin_modules_path / CDFToml.file_name)
+        cdf_toml_content = safe_read(RESOURCES_PATH / CDFToml.file_name)
         if organization_dir != Path.cwd():
             cdf_toml_content = cdf_toml_content.replace(
                 "#<PLACEHOLDER>",
@@ -785,9 +789,11 @@ default_organization_dir = "{organization_dir.name}"''',
             # If no libraries are specified or the flag is not enabled, load the built-in modules
             raise ValueError("No valid libraries found.")
         else:
-            packages = Packages.load(self._builtin_modules_path)
-            self._validate_packages(packages, "built-in modules")
-            return packages, self._builtin_modules_path
+            if self._module_source_dir is None:
+                raise ValueError("No external libraries and no local module source directory specified.")
+            packages = Packages.load(self._module_source_dir)
+            self._validate_packages(packages, self._module_source_dir.name)
+            return packages, self._module_source_dir
 
     def _validate_packages(self, packages: Packages, source_name: str) -> None:
         """

@@ -8,7 +8,7 @@ canCherryPick = true
 modules = [
     "modules/my_example_module",
     "modules/my_file_expand_module",
-    "modules/populate_module"
+    "modules/populate_model"
 ]
 
 [packages.small_1]

@@ -21,6 +21,7 @@ from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import ModulesCommand, RepoCommand
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.constants import REPO_ROOT
+from tests.data import COMPLETE_ORG
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import PrintCapture
 
@@ -89,7 +90,7 @@ def organization_dir(
 ) -> Path:
     organization_folder = "pytest-org"
     organization_dir = local_tmp_repo_path / organization_folder
-    ModulesCommand(silent=True).init(
+    ModulesCommand(silent=True, module_source_dir=COMPLETE_ORG).init(
         organization_dir,
         select_all=True,
         clean=True,
