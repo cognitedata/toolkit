@@ -315,3 +315,4 @@ tests/**/cdf.toml
 
 *.xlsx
 data/
+migration_logs*/

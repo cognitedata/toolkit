@@ -66,6 +66,11 @@ class TestInstanceSourceAPI:
             "Expected last item to have no preferred consumer view"
         )
 
+    def test_list_mappings(self, toolkit_client: ToolkitClient, three_sources: NodeList[InstanceSource]) -> None:
+        assert all(source.resource_type == "asset" for source in three_sources)
+        listed = toolkit_client.migration.instance_source.list("asset", limit=10)
+        assert len(listed) >= 3, "Expected at least 3 instance sources to be listed"
+
 
 class TestResourceViewMappingAPI:
     def test_create_retrieve_list_delete(self, toolkit_client: ToolkitClient) -> None:

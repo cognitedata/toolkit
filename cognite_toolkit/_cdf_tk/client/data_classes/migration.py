@@ -97,7 +97,7 @@ class InstanceSource(_InstanceSourceProperties, TypedNode):
         last_updated_time: int,
         created_time: int,
         *,
-        resource_type: Literal["asset", "event", "file", "sequence", "timeseries"],
+        resource_type: AssetCentricType,
         id_: int,
         data_set_id: int | None = None,
         classic_external_id: str | None = None,
@@ -150,6 +150,9 @@ class InstanceSource(_InstanceSourceProperties, TypedNode):
             "timeseries": "CogniteTimeSeries",
         }[self.resource_type]
         return ViewId("cdf_cdm", external_id, "v1")
+
+    def as_direct_relation_reference(self) -> DirectRelationReference:
+        return DirectRelationReference(space=self.space, external_id=self.external_id)
 
 
 class _ResourceViewMapping:
