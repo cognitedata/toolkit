@@ -9,8 +9,6 @@ modules = [
     "my_example_module",
     "my_file_expand_module",
     "populate_model",
-    "cdf_common",
-    "cdf_pi"
 ]
 
 [packages.small_1]

@@ -17,6 +17,59 @@ ExtractionPipeline:
 ExtractionPipelineConfig:
 - config: "data:\n  debug: True\n"
   externalId: springfield_aveva_pi_extractors
+Group:
+- capabilities:
+  - projectsAcl:
+      actions:
+      - LIST
+      scope:
+        all: {}
+  - groupsAcl:
+      actions:
+      - LIST
+      scope:
+        all: {}
+  - sessionsAcl:
+      actions:
+      - CREATE
+      scope:
+        all: {}
+  - rawAcl:
+      actions:
+      - READ
+      scope:
+        tableScope:
+          dbsToTables:
+            ingestion:
+              tables: []
+  - dataModelInstancesAcl:
+      actions:
+      - READ
+      - WRITE
+      - WRITE_PROPERTIES
+      scope:
+        spaceIdScope:
+          spaceIds:
+          - springfield_instances
+  - dataModelInstancesAcl:
+      actions:
+      - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+          - cdf_cdm_units
+  - dataModelsAcl:
+      actions:
+      - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+          - sp_enterprise_process_industry
+          - cdf_cdm_units
+  metadata:
+    origin: Cognite Toolkit
+  name: gp_transformations_springfield_aveva_pi
+  sourceId: <not set>
 Table:
 - createdTime: 1
   name: timeseries_metadata
@@ -37,4 +90,31 @@ Transformation:
   query: "select \n  externalId as externalId,\n  name as name,\n  'numeric' as type,\n\
     \  false as isStep,\n  if(try_get_unit(`unit`) IS NOT NULL, node_reference('cdf_cdm_units',\
     \ try_get_unit(`unit`)), NULL) as unit,\n  `unit` as sourceUnit\n  \nfrom `ingestion`.`timeseries_metadata`\n"
+Workflow:
+- dataSetId: 316416785021717804
+  description: This workflow populates Cognite Data Fusion with data from Springfield
+    AVEVA PI.
+  externalId: aveva_pi_population
+WorkflowTrigger:
+- externalId: aveva_pi_population_trigger
+  metadata:
+    cognite-toolkit-auth-hash: 9d622119
+  triggerRule:
+    cronExpression: 0 4 * * MON
+    triggerType: schedule
+  workflowExternalId: aveva_pi_population
+  workflowVersion: v1
+WorkflowVersion:
+- version: v1
+  workflowDefinition:
+    tasks:
+    - externalId: pi_timeseries_springfield_aveva_pi
+      onFailure: abortWorkflow
+      parameters:
+        transformation:
+          concurrencyPolicy: fail
+          externalId: pi_timeseries_springfield_aveva_pi
+          useTransformationCredentials: false
+      type: transformation
+  workflowExternalId: aveva_pi_population
 deleted: {}

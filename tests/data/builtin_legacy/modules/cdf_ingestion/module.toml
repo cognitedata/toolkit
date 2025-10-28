@@ -1,0 +1,9 @@
+[module]
+title = "Ingestion Workflow"
+is_selected_by_default = true
+
+[dependencies]
+modules = []
+
+[[extra_resources]]
+location = "cdf_common/data_sets/demo.DataSet.yaml"
