@@ -618,7 +618,7 @@ class MigrateApp(typer.Typer):
             typer.Option(
                 "--consumption-view",
                 "-c",
-                help="The consumption view(s) to assign to the migrated files Given as space:externalId/version. "
+                help="The consumption view to assign to the migrated files Given as space:externalId/version. "
                 "This will be used in Canvas to select which view to use when migrating timeseries. If not provided, "
                 "CogniteFile in CogniteCore will be used.",
             ),
