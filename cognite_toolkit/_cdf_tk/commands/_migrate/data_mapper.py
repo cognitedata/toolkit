@@ -8,12 +8,10 @@ from cognite.client.data_classes.data_modeling import DirectRelationReference, I
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.migration import ResourceViewMapping
-from cognite_toolkit._cdf_tk.commands._migrate.adapter import (
-    AssetCentricMapping,
-    MigrationSelector,
-)
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import asset_centric_to_dm
+from cognite_toolkit._cdf_tk.commands._migrate.data_classes import AssetCentricMapping
 from cognite_toolkit._cdf_tk.commands._migrate.issues import ConversionIssue, MigrationIssue
+from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationSelector
 from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio._base import T_Selector, T_WriteCogniteResource

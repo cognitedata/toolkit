@@ -1,9 +1,5 @@
-from abc import ABC, abstractmethod
 from collections.abc import Iterator, Sequence
-from dataclasses import dataclass
-from functools import cached_property
-from pathlib import Path
-from typing import ClassVar, Generic, Literal
+from typing import ClassVar, Generic
 
 from cognite.client.data_classes import (
     FileMetadata,
@@ -19,13 +15,10 @@ from cognite.client.data_classes._base import (
     T_CogniteResourceList,
     T_WritableCogniteResource,
     T_WriteClass,
-    WriteableCogniteResource,
-    WriteableCogniteResourceList,
 )
-from cognite.client.data_classes.data_modeling import InstanceApply, NodeId, ViewId
+from cognite.client.data_classes.data_modeling import InstanceApply, NodeId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList
 from cognite_toolkit._cdf_tk.client.data_classes.pending_instances_ids import PendingInstanceId
 from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
 from cognite_toolkit._cdf_tk.cruds._base_cruds import T_ID
@@ -39,7 +32,6 @@ from cognite_toolkit._cdf_tk.storageio import (
 )
 from cognite_toolkit._cdf_tk.storageio._base import Page, UploadItem
 from cognite_toolkit._cdf_tk.storageio.selectors import (
-    DataSelector,
     DataSetSelector,
 )
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
@@ -51,85 +43,9 @@ from cognite_toolkit._cdf_tk.utils.useful_types import (
     T_WritableCogniteResourceList,
 )
 
-from .data_classes import MigrationMapping, MigrationMappingList
+from .data_classes import AssetCentricMapping, AssetCentricMappingList, MigrationMapping, MigrationMappingList
 from .data_model import INSTANCE_SOURCE_VIEW_ID
-
-
-class MigrationSelector(DataSelector, ABC):
-    @abstractmethod
-    def get_ingestion_mappings(self) -> list[str]:
-        raise NotImplementedError()
-
-
-class MigrationCSVFileSelector(MigrationSelector):
-    type: Literal["migrationCSVFile"] = "migrationCSVFile"
-    datafile: Path
-
-    @property
-    def group(self) -> str:
-        return f"Migration_{self.kind}"
-
-    def __str__(self) -> str:
-        return f"file_{self.datafile.name}"
-
-    def get_ingestion_mappings(self) -> list[str]:
-        views = {item.get_ingestion_view() for item in self.items}
-        return sorted(views)
-
-    @cached_property
-    def items(self) -> MigrationMappingList:
-        return MigrationMappingList.read_csv_file(self.datafile, resource_type=self.kind)
-
-
-class MigrateDataSetSelector(MigrationSelector):
-    type: Literal["migrateDataSet"] = "migrateDataSet"
-    kind: AssetCentricKind
-    data_set_external_id: str
-    ingestion_mapping: str | None = None
-    preferred_consumer_view: ViewId | None = None
-
-    @property
-    def group(self) -> str:
-        return f"DataSet_{self.data_set_external_id}"
-
-    def __str__(self) -> str:
-        return self.kind
-
-    def get_schema_spaces(self) -> list[str] | None:
-        return None
-
-    def get_instance_spaces(self) -> list[str] | None:
-        return None
-
-    def get_ingestion_mappings(self) -> list[str]:
-        return [self.ingestion_mapping] if self.ingestion_mapping else []
-
-
-@dataclass
-class AssetCentricMapping(Generic[T_WritableCogniteResource], WriteableCogniteResource[InstanceApply]):
-    mapping: MigrationMapping
-    resource: T_WritableCogniteResource
-
-    def as_write(self) -> InstanceApply:
-        raise NotImplementedError()
-
-    def dump(self, camel_case: bool = True) -> dict[str, JsonVal]:
-        mapping = self.mapping.model_dump(exclude_unset=True, by_alias=camel_case)
-        # Ensure that resource type is always included, even if unset.
-        mapping["resourceType" if camel_case else "resource_type"] = self.mapping.resource_type
-        return {
-            "mapping": mapping,
-            "resource": self.resource.dump(camel_case=camel_case),
-        }
-
-
-class AssetCentricMappingList(
-    WriteableCogniteResourceList[InstanceApply, AssetCentricMapping[T_WritableCogniteResource]]
-):
-    _RESOURCE: type = AssetCentricMapping
-
-    def as_write(self) -> InstanceApplyList:
-        return InstanceApplyList([item.as_write() for item in self])
+from .selectors import MigrateDataSetSelector, MigrationCSVFileSelector, MigrationSelector
 
 
 class AssetCentricMigrationIOAdapter(

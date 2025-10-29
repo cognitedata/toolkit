@@ -15,13 +15,15 @@ from cognite_toolkit._cdf_tk.commands._migrate import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.adapter import (
     AssetCentricMigrationIOAdapter,
     FileMetaIOAdapter,
-    MigrateDataSetSelector,
-    MigrationCSVFileSelector,
-    MigrationSelector,
     TimeSeriesIOAdapter,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.creators import InstanceSpaceCreator, SourceSystemCreator
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
+from cognite_toolkit._cdf_tk.commands._migrate.selectors import (
+    MigrateDataSetSelector,
+    MigrationCSVFileSelector,
+    MigrationSelector,
+)
 from cognite_toolkit._cdf_tk.storageio import AssetIO, EventIO
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.cli_args import parse_view_str
