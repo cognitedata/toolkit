@@ -5,11 +5,11 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from _cdf_tk.constants import MODULES
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client.data_classes.data_modeling import DataModelId, Space
 
 from cognite_toolkit._cdf_tk.commands.build_cmd import BuildCommand
+from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds import TransformationCRUD
 from cognite_toolkit._cdf_tk.data_classes import BuildVariables, Environment
 from cognite_toolkit._cdf_tk.data_classes._module_directories import ModuleDirectories
