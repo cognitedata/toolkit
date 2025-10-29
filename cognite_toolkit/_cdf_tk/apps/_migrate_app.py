@@ -268,7 +268,7 @@ class MigrateApp(typer.Typer):
             typer.Option(
                 "--consumption-view",
                 "-c",
-                help="The consumption view(s) to assign to the migrated assets Given as space:externalId/version. "
+                help="The consumption view to assign to the migrated assets Given as space:externalId/version. "
                 "This will be used in Canvas to select which view to use when migrating assets. If not provided, "
                 "CogniteAsset in CogniteCore will be used.",
             ),
@@ -416,7 +416,7 @@ class MigrateApp(typer.Typer):
             typer.Option(
                 "--consumption-view",
                 "-c",
-                help="The consumption view(s) to assign to the migrated events Given as space:externalId/version. "
+                help="The consumption view to assign to the migrated events Given as space:externalId/version. "
                 "This will be used in Canvas to select which view to use when migrating events. If not provided, "
                 "CogniteActivity in CogniteCore will be used.",
             ),
