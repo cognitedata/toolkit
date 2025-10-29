@@ -3,13 +3,17 @@ from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import Generic, Literal
+from typing import ClassVar, Generic, Literal
 
 from cognite.client.data_classes import (
     FileMetadata,
     FileMetadataList,
     FileMetadataWrite,
     FileMetadataWriteList,
+    TimeSeries,
+    TimeSeriesList,
+    TimeSeriesWrite,
+    TimeSeriesWriteList,
 )
 from cognite.client.data_classes._base import (
     T_CogniteResourceList,
@@ -30,6 +34,7 @@ from cognite_toolkit._cdf_tk.storageio import (
     BaseAssetCentricIO,
     FileMetadataIO,
     InstanceIO,
+    TimeSeriesIO,
     UploadableStorageIO,
 )
 from cognite_toolkit._cdf_tk.storageio._base import Page, UploadItem
@@ -240,23 +245,38 @@ class AssetCentricMigrationIOAdapter(
         raise NotImplementedError()
 
 
-class FileMetaAdapter(
+class LinkingAdapter(
     AssetCentricMigrationIOAdapter[
-        str,
-        FileMetadataWrite,
-        FileMetadata,
-        FileMetadataWriteList,
-        FileMetadataList,
+        T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
     ]
 ):
-    """Adapter for migrating file metadata to data model instances.
+    """Adapter that links asset-centric resources to data model instances before uploading them.
 
-    This is necessary to link asset-centric FileMetadata to their new CogniteFile instances using the
-    files/set-pending-instance-ids.
+    This is necessary to link asset-centric resources to their new CogniteDataModel instances using the
+    appropriate set-pending-instance-ids endpoint.
+
+    Args:
+        client: ToolkitClient
+            The toolkit client to use for communication with CDF.
+        base: BaseAssetCentricIO
+            The base asset-centric IO to use for retrieving asset-centric resources.
+        skip_linking: bool
+            Whether to skip the linking step and only upload the resources. Essentially creating a copy.
+
     """
 
-    def __init__(self, client: ToolkitClient) -> None:
-        super().__init__(client, FileMetadataIO(client))
+    PENDING_INSTANCE_ID_ENDPOINT: ClassVar[str]
+
+    def __init__(
+        self,
+        client: ToolkitClient,
+        base: BaseAssetCentricIO[
+            T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
+        ],
+        skip_linking: bool = False,
+    ) -> None:
+        super().__init__(client, base)
+        self.skip_linking = skip_linking
 
     @staticmethod
     def as_pending_instance_id(item: InstanceApply) -> PendingInstanceId:
@@ -279,13 +299,15 @@ class FileMetaAdapter(
         selector: MigrationSelector | None = None,
     ) -> Sequence[HTTPMessage]:
         """Upload items by first linking them using files/set-pending-instance-ids and then uploading the instances."""
+        if self.skip_linking:
+            return list(super().upload_items(data_chunk, http_client, selector))
         config = http_client.config
         results: list[HTTPMessage] = []
         successful_linked: set[str] = set()
         for batch in chunker_sequence(data_chunk, self.CHUNK_SIZE):
             batch_results = http_client.request_with_retries(
                 message=ItemsRequest(
-                    endpoint_url=config.create_api_url("files/set-pending-instance-ids"),
+                    endpoint_url=config.create_api_url(self.PENDING_INSTANCE_ID_ENDPOINT),
                     method="POST",
                     api_version="alpha",
                     items=[
@@ -302,3 +324,45 @@ class FileMetaAdapter(
         if to_upload:
             results.extend(list(super().upload_items(to_upload, http_client, selector)))
         return results
+
+
+class FileMetaAdapter(
+    LinkingAdapter[
+        str,
+        FileMetadataWrite,
+        FileMetadata,
+        FileMetadataWriteList,
+        FileMetadataList,
+    ]
+):
+    """Adapter for migrating file metadata to data model instances.
+
+    This is necessary to link asset-centric FileMetadata to their new CogniteFile instances using the
+    files/set-pending-instance-ids.
+    """
+
+    PENDING_INSTANCE_ID_ENDPOINT: ClassVar[str] = "/files/set-pending-instance-ids"
+
+    def __init__(self, client: ToolkitClient, skip_linking: bool) -> None:
+        super().__init__(client, FileMetadataIO(client), skip_linking)
+
+
+class TimeSeriesIOAdapter(
+    LinkingAdapter[
+        str,
+        TimeSeriesWrite,
+        TimeSeries,
+        TimeSeriesWriteList,
+        TimeSeriesList,
+    ]
+):
+    """Adapter for migrating time series to data model instances.
+
+    This is necessary to link asset-centric TimeSeries to their new CogniteTimeSeries instances using the
+    timeseries/set-pending-instance-ids.
+    """
+
+    PENDING_INSTANCE_ID_ENDPOINT: ClassVar[str] = "/timeseries/set-pending-instance-ids"
+
+    def __init__(self, client: ToolkitClient, skip_linking: bool) -> None:
+        super().__init__(client, TimeSeriesIO(client), skip_linking)

@@ -24,6 +24,7 @@ def create_default_mappings() -> list[ResourceViewMappingApply]:
         "isString": "type",
         "unit": "sourceUnit",
         "unitExternalId": "unit",
+        "assetId": "assets",
     }
     file_property_mapping = {
         "name": "name",
