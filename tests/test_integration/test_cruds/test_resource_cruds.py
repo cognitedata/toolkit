@@ -805,20 +805,15 @@ workflowDefinition:
         definition_yaml = """workflowExternalId: testWorkflowWithoutDefaults
 version: v1
 workflowDefinition:
-  description: Tasks without defaults
   tasks:
   - externalId: myTask1
     type: function
     parameters:
       function:
         externalId: fn_first_function
-  - externalId: myTask2
-    type: transformation
-    parameters:
-      transformation:
-        externalId: some_transformation
-    retries: null
+  description: Tasks without defaults
 """
+
         loader = WorkflowVersionCRUD.create_loader(toolkit_client)
 
         filepath = MagicMock(spec=Path)

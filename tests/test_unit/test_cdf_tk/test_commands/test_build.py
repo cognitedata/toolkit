@@ -9,7 +9,6 @@ from _pytest.monkeypatch import MonkeyPatch
 from cognite.client.data_classes.data_modeling import DataModelId, Space
 
 from cognite_toolkit._cdf_tk.commands.build_cmd import BuildCommand
-from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds import TransformationCRUD
 from cognite_toolkit._cdf_tk.data_classes import BuildVariables, Environment
 from cognite_toolkit._cdf_tk.data_classes._module_directories import ModuleDirectories
@@ -92,7 +91,7 @@ class TestBuildCommand:
         tmp_path: Path,
         env_vars_with_client: EnvironmentVariables,
     ) -> None:
-        cmd = BuildCommand(silent=True, skip_tracking=True, module_source_dir=data.COMPLETE_ORG / MODULES)
+        cmd = BuildCommand(silent=True, skip_tracking=True)
         with patch.dict(
             os.environ,
             {"CDF_PROJECT": env_vars_with_client.CDF_PROJECT, "CDF_CLUSTER": env_vars_with_client.CDF_CLUSTER},

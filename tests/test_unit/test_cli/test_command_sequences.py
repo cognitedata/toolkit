@@ -18,7 +18,7 @@ from cognite_toolkit._cdf_tk.data_classes import ModuleDirectories
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils import humanize_collection, iterate_modules
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
-from tests.data import BUILTIN_LEGACY, COMPLETE_ORG, COMPLETE_ORG_ALPHA_FLAGS
+from tests.data import BUILDABLE_PACKAGE, COMPLETE_ORG, COMPLETE_ORG_ALPHA_FLAGS
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import mock_read_yaml_file
 
@@ -30,7 +30,7 @@ SNAPSHOTS_DIR_CLEAN.mkdir(exist_ok=True)
 
 
 def find_all_modules() -> Iterator[Path]:
-    for module, _ in iterate_modules(BUILTIN_LEGACY):
+    for module, _ in iterate_modules(BUILDABLE_PACKAGE):
         if module.name == "references":  # this particular module should never be built or deployed
             continue
         elif module.name == "search":

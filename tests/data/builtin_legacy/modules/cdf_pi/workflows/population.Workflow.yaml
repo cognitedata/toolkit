@@ -1,3 +1,0 @@
-externalId: {{ workflow }}
-description: This workflow populates Cognite Data Fusion with data from {{ sourceName }}.
-dataSetExternalId: {{ dataset }}

@@ -22,7 +22,7 @@ from cognite_toolkit._cdf_tk.commands import ModulesCommand, RepoCommand
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.constants import REPO_ROOT
-from tests.data import BUILTIN_LEGACY, COMPLETE_ORG
+from tests.data import BUILDABLE_PACKAGE, COMPLETE_ORG
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import PrintCapture
 
@@ -115,7 +115,7 @@ def complete_org_dir_mutable(
 @pytest.fixture(scope="session")
 def builtin_legacy_org_dir(local_tmp_repo_path: Path) -> Path:
     organization_dir = local_tmp_repo_path / "legacy-pytest-org"
-    init_organization_dir(organization_dir, BUILTIN_LEGACY / MODULES)
+    init_organization_dir(organization_dir, BUILDABLE_PACKAGE / MODULES)
     return organization_dir
 
 
@@ -125,7 +125,7 @@ def builtin_legacy_org_dir_mutable(
 ) -> Path:
     """This is used in tests were the source module files are modified. For example, cdf pull commands."""
     organization_dir = local_tmp_repo_path / "legacy-pytest-org-mutable"
-    init_organization_dir(organization_dir, BUILTIN_LEGACY / MODULES)
+    init_organization_dir(organization_dir, BUILDABLE_PACKAGE / MODULES)
     return organization_dir
 
 

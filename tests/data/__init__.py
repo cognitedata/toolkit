@@ -19,14 +19,14 @@ BUILD_GROUP_WITH_UNKNOWN_ACL = DATA_FOLDER / "build_group_with_unknown_acl"
 COMPLETE_ORG = DATA_FOLDER / "complete_org"
 COMPLETE_ORG_ALPHA_FLAGS = DATA_FOLDER / "complete_org_alpha_flags"
 COMPLETE_ORG_ONLY_IDENTIFIER = DATA_FOLDER / "complete_org_only_identifier"
-BUILTIN_LEGACY = DATA_FOLDER / "builtin_legacy"
+BUILDABLE_PACKAGE = DATA_FOLDER / "buildable_package"
 CDF_TOML_DATA = DATA_FOLDER / "cdf_toml_data"
 STRONGLY_COUPLED_MODEL = DATA_FOLDER / "strongly_coupled_model"
 
 __all__ = [
     "AUTH_DATA",
+    "BUILDABLE_PACKAGE",
     "BUILD_GROUP_WITH_UNKNOWN_ACL",
-    "BUILTIN_LEGACYDATA_FOLDER",
     "CDF_TOML_DATA",
     "COMPLETE_ORG",
     "DESCRIPTIONS_FOLDER",
