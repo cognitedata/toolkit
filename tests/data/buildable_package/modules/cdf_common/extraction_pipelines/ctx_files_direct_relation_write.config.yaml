@@ -1,0 +1,28 @@
+externalId: '{{ directRelationJob }}'
+config:
+  state:
+    rawDatabase: {{ rawStateDatabase }}
+    rawTable: {{ rawStateTable }}
+  data:
+    annotationSpace: '{{ annotationSpace }}'
+    directRelationMappings:
+      - startNodeView:
+          space: {{ schemaSpace }}
+          externalId: CogniteFile
+          version: v1
+          directRelationProperty: assets
+        endNodeView:
+          space: {{ schemaSpace }}
+          externalId: CogniteAsset
+          version: v1
+      - startNodeView:
+          type: view
+          space: {{ schemaSpace }}
+          externalId: CogniteFile
+          version: v1
+        endNodeView:
+          type: viewProperty
+          space: {{ schemaSpace }}
+          externalId: CogniteEquipment
+          version: v1
+          directRelationProperty: files
