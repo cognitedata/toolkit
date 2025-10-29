@@ -1,10 +1,17 @@
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Generic, Literal
 
-from cognite.client.data_classes.data_modeling import NodeId, ViewId
+from cognite.client.data_classes._base import (
+    T_WritableCogniteResource,
+    WriteableCogniteResource,
+    WriteableCogniteResourceList,
+)
+from cognite.client.data_classes.data_modeling import InstanceApply, NodeId, ViewId
 from cognite.client.utils._text import to_camel_case
 from pydantic import BaseModel, field_validator, model_validator
 
+from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList
 from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.client.data_classes.pending_instances_ids import PendingInstanceId
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import create_default_mappings
@@ -12,7 +19,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.storageio._data_classes import ModelList
-from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricType
+from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricType, JsonVal
 
 
 class MigrationMapping(BaseModel, alias_generator=to_camel_case, extra="ignore", populate_by_name=True):
@@ -176,3 +183,30 @@ class TimeSeriesMigrationMappingList(MigrationMappingList):
     @classmethod
     def _get_base_model_cls(cls) -> type[TimeSeriesMapping]:
         return TimeSeriesMapping
+
+
+@dataclass
+class AssetCentricMapping(Generic[T_WritableCogniteResource], WriteableCogniteResource[InstanceApply]):
+    mapping: MigrationMapping
+    resource: T_WritableCogniteResource
+
+    def as_write(self) -> InstanceApply:
+        raise NotImplementedError()
+
+    def dump(self, camel_case: bool = True) -> dict[str, JsonVal]:
+        mapping = self.mapping.model_dump(exclude_unset=True, by_alias=camel_case)
+        # Ensure that resource type is always included, even if unset.
+        mapping["resourceType" if camel_case else "resource_type"] = self.mapping.resource_type
+        return {
+            "mapping": mapping,
+            "resource": self.resource.dump(camel_case=camel_case),
+        }
+
+
+class AssetCentricMappingList(
+    WriteableCogniteResourceList[InstanceApply, AssetCentricMapping[T_WritableCogniteResource]]
+):
+    _RESOURCE: type = AssetCentricMapping
+
+    def as_write(self) -> InstanceApplyList:
+        return InstanceApplyList([item.as_write() for item in self])

@@ -11,8 +11,6 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._migrate.adapter import (
     AssetCentricMigrationIOAdapter,
     FileMetaIOAdapter,
-    MigrateDataSetSelector,
-    MigrationCSVFileSelector,
     TimeSeriesIOAdapter,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
@@ -23,6 +21,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
     FILE_METADATA_ID,
     TIME_SERIES_ID,
 )
+from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrateDataSetSelector, MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.storageio import AssetIO, EventIO
 from tests.test_integration.conftest import HierarchyMinimal
 from tests.test_integration.constants import RUN_UNIQUE_ID

@@ -5,8 +5,8 @@ import responses
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.commands._migrate.adapter import (
     AssetCentricMigrationIOAdapter,
-    MigrationCSVFileSelector,
 )
+from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.storageio import AssetIO
 
 
