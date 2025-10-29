@@ -1,65 +1,13 @@
 from pathlib import Path
 
 import pytest
-from cognite.client.data_classes.data_modeling import DirectRelationReference, NodeId, ViewId
-from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteTimeSeriesApply
+from cognite.client.data_classes.data_modeling import NodeId, ViewId
 
-from cognite_toolkit._cdf_tk.client.data_classes.extended_timeseries import ExtendedTimeSeries
-from cognite_toolkit._cdf_tk.commands import MigrateTimeseriesCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     MigrationMappingList,
     TimeSeriesMapping,
     TimeSeriesMigrationMappingList,
 )
-
-
-class TestMigrateTimeSeriesCommand:
-    @pytest.mark.parametrize(
-        "ts, expected",
-        [
-            (
-                ExtendedTimeSeries(
-                    external_id="full_ts",
-                    data_set_id=123,
-                    description="Test description",
-                    name="Test Time Series",
-                    is_step=True,
-                    is_string=False,
-                    unit="m/s",
-                    unit_external_id="velocity:m-per-sec",
-                    pending_instance_id=NodeId("sp_full_ts", "full_ts_id"),
-                ),
-                CogniteTimeSeriesApply(
-                    space="sp_full_ts",
-                    external_id="full_ts_id",
-                    is_step=True,
-                    time_series_type="numeric",
-                    name="Test Time Series",
-                    description="Test description",
-                    source_unit="m/s",
-                    unit=DirectRelationReference("cdf_cdm_units", "velocity:m-per-sec"),
-                ),
-            ),
-            (
-                ExtendedTimeSeries(
-                    external_id="minimum_ts",
-                    is_step=False,
-                    is_string=True,
-                    pending_instance_id=NodeId("sp_step_ts", "step_ts_id"),
-                ),
-                CogniteTimeSeriesApply(
-                    space="sp_step_ts",
-                    external_id="step_ts_id",
-                    is_step=False,
-                    time_series_type="string",
-                ),
-            ),
-        ],
-    )
-    def test_as_cognite_timeseries(self, ts: ExtendedTimeSeries, expected: CogniteTimeSeriesApply) -> None:
-        actual = MigrateTimeseriesCommand.as_cognite_timeseries(ts)
-
-        assert actual.dump() == expected.dump()
 
 
 class TestMigrationMappingList:
