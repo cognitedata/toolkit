@@ -1,9 +1,8 @@
 from collections.abc import Callable, Iterable, Sequence
 from enum import Enum
 from pathlib import Path
-from typing import TypeVar
 
-from cognite.client.data_classes._base import CogniteResource
+from cognite.client.data_classes._base import T_CogniteResource
 from rich import print
 from rich.console import Console
 from rich.table import Table
@@ -28,11 +27,9 @@ from cognite_toolkit._cdf_tk.utils.fileio import Chunk, CSVWriter, NDJsonWriter,
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemMessage, SuccessResponseItems
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.progress_tracker import AVAILABLE_STATUS, ProgressTracker, Status
+from cognite_toolkit._cdf_tk.utils.useful_types import T_WriteCogniteResource
 
 from .data_model import INSTANCE_SOURCE_VIEW_ID, MODEL_ID, RESOURCE_VIEW_MAPPING_VIEW_ID
-
-T_CogniteResource = TypeVar("T_CogniteResource", bound=CogniteResource)
-T_WriteCogniteResource = TypeVar("T_WriteCogniteResource", bound=CogniteResource)
 
 
 class MigrationCommand(ToolkitCommand):
