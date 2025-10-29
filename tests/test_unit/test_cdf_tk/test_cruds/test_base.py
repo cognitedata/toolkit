@@ -21,7 +21,6 @@ from cognite.client.data_classes.hosted_extractors import Destination
 from pytest import MonkeyPatch
 from pytest_regressions.data_regression import DataRegressionFixture
 
-from cognite_toolkit._cdf_tk._parameters import ParameterSet, read_parameters_from_dict
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import GraphQLDataModel
 from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import Streamlit
@@ -53,7 +52,6 @@ from cognite_toolkit._cdf_tk.data_classes import (
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.utils import tmp_build_directory
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
-from cognite_toolkit._cdf_tk.validation import validate_resource_yaml
 from tests.constants import REPO_ROOT
 from tests.data import COMPLETE_ORG, LOAD_DATA, PROJECT_FOR_TEST
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -244,7 +242,7 @@ def tmp_org_directory() -> Iterator[Path]:
         shutil.rmtree(org_dir)
 
 
-def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
+def cognite_module_files_with_loader() -> Iterable[tuple]:
     with tmp_org_directory() as organization_dir, tmp_build_directory() as build_dir:
         ModulesCommand(module_source_dir=COMPLETE_ORG / MODULES).init(organization_dir, select_all=True, clean=True)
         cdf_toml = CDFToml.load(REPO_ROOT)
@@ -280,7 +278,7 @@ def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
                                 yield pytest.param(loader, item, id=f"{module.name} - {filepath.stem} - list {no}")
 
 
-def sensitive_strings_test_cases() -> Iterable[ParameterSet]:
+def sensitive_strings_test_cases() -> Iterable[tuple]:
     yield pytest.param(
         WorkflowTriggerCRUD,
         """externalId: my_trigger
@@ -418,46 +416,6 @@ authentication:
 
 
 class TestResourceCRUDs:
-    # The HostedExtractorSourceLoader does not support parameter spec.
-    @pytest.mark.parametrize(
-        "loader_cls",
-        [loader_cls for loader_cls in RESOURCE_CRUD_LIST if loader_cls is not HostedExtractorSourceCRUD],
-    )
-    def test_get_write_cls_spec(self, loader_cls: type[ResourceCRUD]) -> None:
-        resource = FakeCogniteResourceGenerator(seed=1337, max_list_dict_items=1).create_instance(
-            loader_cls.resource_write_cls
-        )
-        resource_dump = resource.dump(camel_case=True)
-        # These are handled by the toolkit
-        resource_dump.pop("dataSetId", None)
-        resource_dump.pop("targetDataSetId", None)
-        resource_dump.pop("fileId", None)
-        resource_dump.pop("assetIds", None)
-        resource_dump.pop("assetId", None)
-        resource_dump.pop("parentId", None)
-        dumped = read_parameters_from_dict(resource_dump)
-        spec = loader_cls.get_write_cls_parameter_spec()
-
-        for param in list(dumped):
-            # Required for Location Filter
-            if "dataSetIds" in param.path:
-                dumped.discard(param)
-
-        extra = dumped - spec
-
-        # The spec is calculated based on the resource class __init__ method.
-        # There can be deviations in the output from the dump. If that is the case,
-        # the 'get_write_cls_parameter_spec' must be updated in the loader. See, for example, the DataModelLoader.
-        assert sorted(extra) == []
-
-    @pytest.mark.parametrize("loader_cls, content", list(cognite_module_files_with_loader()))
-    def test_write_cls_spec_against_cognite_modules(self, loader_cls: type[ResourceCRUD], content: dict) -> None:
-        spec = loader_cls.get_write_cls_parameter_spec()
-
-        warnings = validate_resource_yaml(content, spec, Path("test.yaml"))
-
-        assert sorted(warnings) == []
-
     @pytest.mark.parametrize("loader_cls", RESOURCE_CRUD_LIST)
     def test_empty_required_capabilities_when_no_items(
         self, loader_cls: type[ResourceCRUD], env_vars_with_client: EnvironmentVariables

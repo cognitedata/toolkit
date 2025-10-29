@@ -24,6 +24,7 @@ def create_default_mappings() -> list[ResourceViewMappingApply]:
         "isString": "type",
         "unit": "sourceUnit",
         "unitExternalId": "unit",
+        "assetId": "assets",
     }
     file_property_mapping = {
         "name": "name",
@@ -31,6 +32,7 @@ def create_default_mappings() -> list[ResourceViewMappingApply]:
         "labels": "tags",
         "mimeType": "mimeType",
         "directory": "directory",
+        "assetIds": "assets",
         "sourceCreatedTime": "sourceCreatedTime",
         "sourceModifiedTime": "sourceUpdatedTime",
     }
@@ -45,6 +47,7 @@ def create_default_mappings() -> list[ResourceViewMappingApply]:
                 "description": "description",
                 "source": "source",
                 "labels": "tags",
+                "parentId": "parent",
             },
         ),
         ResourceViewMappingApply(
@@ -57,6 +60,7 @@ def create_default_mappings() -> list[ResourceViewMappingApply]:
                 "description": "description",
                 "source": "source",
                 "labels": "tags",
+                "assetIds": "assets",
             },
         ),
         ResourceViewMappingApply(

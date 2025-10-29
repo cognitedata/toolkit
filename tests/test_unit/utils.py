@@ -61,7 +61,6 @@ from cognite.client.testing import CogniteClientMock
 from cognite.client.utils.useful_types import SequenceNotStr
 from questionary import Choice
 
-from cognite_toolkit._cdf_tk._parameters.get_type_hints import _TypeHints
 from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
     LocationFilter,
     LocationFilterScene,
@@ -71,6 +70,7 @@ from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, read_yaml_file
 from cognite_toolkit._cdf_tk.utils.http_client._data_classes import T_COVARIANT_ID, RequestItem
 from tests.data import COMPLETE_ORG
+from tests.test_unit.get_type_hints import _TypeHints
 
 UNION_TYPES = {typing.Union, UnionType}
 

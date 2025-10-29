@@ -5,7 +5,7 @@ from typing import Any, get_args
 
 import pytest
 
-from cognite_toolkit._cdf_tk.commands._migrate.adapter import MigrationSelector
+from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationSelector
 from cognite_toolkit._cdf_tk.storageio import AssetIO, ChartIO, InstanceIO, RawIO, StorageIO, get_upload_io
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     AllChartsSelector,

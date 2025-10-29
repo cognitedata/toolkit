@@ -1,7 +1,5 @@
 from ._download import DownloadCommand
 from ._migrate import (
-    MigrateFilesCommand,
-    MigrateTimeseriesCommand,
     MigrationCanvasCommand,
     MigrationPrepareCommand,
 )
@@ -34,8 +32,6 @@ __all__ = [
     "DumpResourceCommand",
     "FeatureFlagCommand",
     "InitCommand",
-    "MigrateFilesCommand",
-    "MigrateTimeseriesCommand",
     "MigrationCanvasCommand",
     "MigrationPrepareCommand",
     "ModulesCommand",

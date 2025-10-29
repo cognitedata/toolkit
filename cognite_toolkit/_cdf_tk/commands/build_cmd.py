@@ -90,7 +90,6 @@ from cognite_toolkit._cdf_tk.utils.modules import parse_user_selected_modules
 from cognite_toolkit._cdf_tk.validation import (
     validate_data_set_is_set,
     validate_modules_variables,
-    validate_resource_yaml,
     validate_resource_yaml_pydantic,
 )
 from cognite_toolkit._version import __version__
@@ -614,8 +613,7 @@ class BuildCommand(ToolkitCommand):
     ) -> tuple[WarningList[FileReadWarning], list[tuple[Hashable, str]]]:
         warning_list = WarningList[FileReadWarning]()
 
-        if loader.yaml_cls:
-            warning_list.extend(validate_resource_yaml_pydantic(parsed, loader.yaml_cls, source.path))
+        warning_list.extend(validate_resource_yaml_pydantic(parsed, loader.yaml_cls, source.path))
 
         is_dict_item = isinstance(parsed, dict)
         items = [parsed] if isinstance(parsed, dict) else parsed
@@ -667,12 +665,6 @@ class BuildCommand(ToolkitCommand):
                     )
                 for dependency in dependencies:
                     self._dependencies_by_required[dependency].append((identifier, source.path))
-
-            api_spec = item_loader.safe_get_write_cls_parameter_spec()
-            if api_spec is not None and item_loader.yaml_cls is None:
-                # If we have a yaml cls this is already validated on the file as a whole.
-                resource_warnings = validate_resource_yaml(parsed, api_spec, source.path, element_no)
-                warning_list.extend(resource_warnings)
 
             data_set_warnings = validate_data_set_is_set(items, loader.resource_cls, source.path)
             warning_list.extend(data_set_warnings)

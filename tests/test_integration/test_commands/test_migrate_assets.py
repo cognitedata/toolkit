@@ -3,15 +3,27 @@ from pathlib import Path
 
 import pytest
 from cognite.client.data_classes import AssetList, AssetWrite, AssetWriteList
-from cognite.client.data_classes.data_modeling import NodeId, Space
+from cognite.client.data_classes.data_modeling import NodeId, Space, ViewId
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteAsset
 from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.commands._migrate.adapter import AssetCentricMigrationIOAdapter, MigrationCSVFileSelector
+from cognite_toolkit._cdf_tk.commands._migrate.adapter import (
+    AssetCentricMigrationIOAdapter,
+    FileMetaIOAdapter,
+    TimeSeriesIOAdapter,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
-from cognite_toolkit._cdf_tk.storageio import AssetIO
+from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
+    ASSET_ID,
+    EVENT_ID,
+    FILE_METADATA_ID,
+    TIME_SERIES_ID,
+)
+from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrateDataSetSelector, MigrationCSVFileSelector
+from cognite_toolkit._cdf_tk.storageio import AssetIO, EventIO
+from tests.test_integration.conftest import HierarchyMinimal
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
 
@@ -77,3 +89,97 @@ class TestMigrateAssetsCommand:
         node_ids = [NodeId(space, a.external_id) for a in three_assets]
         migrated_assets = client.data_modeling.instances.retrieve_nodes(node_ids, CogniteAsset)
         assert len(migrated_assets) == len(three_assets), "Not all assets were migrated successfully."
+
+    def test_migrate_assets_by_dataset_dry_run(
+        self, toolkit_client: ToolkitClient, migration_hierarchy_minimal: HierarchyMinimal, tmp_path: Path
+    ) -> None:
+        client = toolkit_client
+        hierarchy = migration_hierarchy_minimal
+        cmd = MigrationCommand(skip_tracking=True, silent=True)
+        progress = cmd.migrate(
+            selected=MigrateDataSetSelector(
+                kind="Assets",
+                data_set_external_id=hierarchy.dataset.external_id,
+                ingestion_mapping=ASSET_ID,
+                preferred_consumer_view=ViewId("cdf_cdm", "CogniteAsset", "v1"),
+            ),
+            data=AssetCentricMigrationIOAdapter(client, AssetIO(client)),
+            mapper=AssetCentricMapper(client),
+            log_dir=tmp_path,
+            dry_run=True,
+        )
+        results = progress.aggregate()
+        expected_results = {(step, "success"): 2 for step in cmd.Steps.list()}
+        assert results == expected_results
+
+
+class TestMigrateEventsCommand:
+    def test_migrate_events_by_dataset_dry_run(
+        self, toolkit_client: ToolkitClient, migration_hierarchy_minimal: HierarchyMinimal, tmp_path: Path
+    ) -> None:
+        client = toolkit_client
+        hierarchy = migration_hierarchy_minimal
+        cmd = MigrationCommand(skip_tracking=True, silent=True)
+        progress = cmd.migrate(
+            selected=MigrateDataSetSelector(
+                kind="Events",
+                data_set_external_id=hierarchy.dataset.external_id,
+                ingestion_mapping=EVENT_ID,
+                preferred_consumer_view=ViewId("cdf_cdm", "CogniteActivity", "v1"),
+            ),
+            data=AssetCentricMigrationIOAdapter(client, EventIO(client)),
+            mapper=AssetCentricMapper(client),
+            log_dir=tmp_path,
+            dry_run=True,
+        )
+        results = progress.aggregate()
+        expected_results = {(step, "success"): 1 for step in cmd.Steps.list()}
+        assert results == expected_results
+
+
+class TestMigrateTimeSeriesCommand:
+    def test_migrate_time_series_by_dataset_dry_run(
+        self, toolkit_client: ToolkitClient, migration_hierarchy_minimal: HierarchyMinimal, tmp_path: Path
+    ) -> None:
+        client = toolkit_client
+        hierarchy = migration_hierarchy_minimal
+        cmd = MigrationCommand(skip_tracking=True, silent=True)
+        progress = cmd.migrate(
+            selected=MigrateDataSetSelector(
+                kind="TimeSeries",
+                data_set_external_id=hierarchy.dataset.external_id,
+                ingestion_mapping=TIME_SERIES_ID,
+                preferred_consumer_view=ViewId("cdf_cdm", "CogniteTimeSeries", "v1"),
+            ),
+            data=TimeSeriesIOAdapter(client, skip_linking=True),
+            mapper=AssetCentricMapper(client),
+            log_dir=tmp_path,
+            dry_run=True,
+        )
+        results = progress.aggregate()
+        expected_results = {(step, "success"): 1 for step in cmd.Steps.list()}
+        assert results == expected_results
+
+
+class TestMigrateFileMetadataCommand:
+    def test_migrate_file_metadata_by_dataset_dry_run(
+        self, toolkit_client: ToolkitClient, migration_hierarchy_minimal: HierarchyMinimal, tmp_path: Path
+    ) -> None:
+        client = toolkit_client
+        hierarchy = migration_hierarchy_minimal
+        cmd = MigrationCommand(skip_tracking=True, silent=True)
+        progress = cmd.migrate(
+            selected=MigrateDataSetSelector(
+                kind="FileMetadata",
+                data_set_external_id=hierarchy.dataset.external_id,
+                ingestion_mapping=FILE_METADATA_ID,
+                preferred_consumer_view=ViewId("cdf_cdm", "CogniteFile", "v1"),
+            ),
+            data=FileMetaIOAdapter(client, skip_linking=False),
+            mapper=AssetCentricMapper(client),
+            log_dir=tmp_path,
+            dry_run=True,
+        )
+        results = progress.aggregate()
+        expected_results = {(step, "success"): 1 for step in cmd.Steps.list()}
+        assert results == expected_results

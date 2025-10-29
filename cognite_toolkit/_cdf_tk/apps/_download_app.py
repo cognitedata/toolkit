@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.commands import DownloadCommand
 from cognite_toolkit._cdf_tk.constants import DATA_DEFAULT_DIR
 from cognite_toolkit._cdf_tk.storageio import (
     AssetIO,
+    HierarchyIO,
     InstanceIO,
     RawIO,
 )
@@ -41,6 +42,10 @@ class AssetCentricFormats(str, Enum):
     ndjson = "ndjson"
 
 
+class HierarchyFormats(str, Enum):
+    ndjson = "ndjson"
+
+
 class InstanceFormats(str, Enum):
     ndjson = "ndjson"
 
@@ -64,6 +69,7 @@ class DownloadApp(typer.Typer):
         self.callback(invoke_without_command=True)(self.download_main)
         self.command("raw")(self.download_raw_cmd)
         self.command("assets")(self.download_assets_cmd)
+        self.command("hierarchy")(self.download_hierarchy_cmd)
         self.command("instances")(self.download_instances_cmd)
 
     @staticmethod
@@ -245,6 +251,82 @@ class DownloadApp(typer.Typer):
             lambda: cmd.download(
                 selectors=selectors,
                 io=AssetIO(client),
+                output_dir=output_dir,
+                file_format=f".{file_format.value}",
+                compression=compression.value,
+                limit=limit if limit != -1 else None,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def download_hierarchy_cmd(
+        ctx: typer.Context,
+        hierarchy: Annotated[
+            str | None,
+            typer.Argument(
+                help="The asset hierarchy to download.",
+            ),
+        ] = None,
+        file_format: Annotated[
+            HierarchyFormats,
+            typer.Option(
+                "--format",
+                "-f",
+                help="Format for downloading the asset hierarchy.",
+            ),
+        ] = HierarchyFormats.ndjson,
+        compression: Annotated[
+            CompressionFormat,
+            typer.Option(
+                "--compression",
+                "-z",
+                help="Compression format to use when downloading the assets.",
+            ),
+        ] = CompressionFormat.none,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to download the asset hierarchy.",
+                allow_dash=True,
+            ),
+        ] = DEFAULT_DOWNLOAD_DIR,
+        limit: Annotated[
+            int,
+            typer.Option(
+                "--limit",
+                "-l",
+                help="The maximum number of resources to download for each type. Use -1 to download all assets.",
+            ),
+        ] = 100_000,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will download an asset hierarchy from CDF into a temporary directory."""
+        cmd = DownloadCommand()
+
+        client = EnvironmentVariables.create_from_environment().get_client()
+        if hierarchy is None:
+            selector = AssetInteractiveSelect(client, "download")
+            hierarchy = selector.select_hierarchy(allow_empty=False)
+
+        selectors = [
+            # MyPy cannot see that resource_type is one of the allowed literals.
+            AssetSubtreeSelector(hierarchy=hierarchy, kind=resource_type)  # type: ignore[arg-type]
+            for resource_type in ["Assets", "Events", "FileMetadata", "TimeSeries"]
+        ]
+        cmd.run(
+            lambda: cmd.download(
+                selectors=selectors,
+                io=HierarchyIO(client),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,

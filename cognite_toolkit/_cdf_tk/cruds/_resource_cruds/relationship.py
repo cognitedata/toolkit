@@ -1,5 +1,4 @@
 from collections.abc import Hashable, Iterable, Sequence
-from functools import lru_cache
 from typing import Any, final
 
 from cognite.client.data_classes import (
@@ -13,7 +12,6 @@ from cognite.client.data_classes.capabilities import Capability
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk._parameters import ANY_INT, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import RelationshipYAML
 
@@ -106,20 +104,6 @@ class RelationshipCRUD(ResourceCRUD[str, RelationshipWrite, Relationship, Relati
         return iter(
             self.client.relationships(data_set_external_ids=[data_set_external_id] if data_set_external_id else None)
         )
-
-    @classmethod
-    @lru_cache(maxsize=1)
-    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        spec = super().get_write_cls_parameter_spec()
-        # Added by toolkit
-        spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
-        spec.discard(ParameterSpec(("dataSetId",), frozenset({"int"}), is_required=False, _is_nullable=False))
-
-        # Failure from generation of spec
-        spec.add(
-            ParameterSpec(("labels", ANY_INT, "externalId"), frozenset({"str"}), is_required=False, _is_nullable=False)
-        )
-        return spec
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:

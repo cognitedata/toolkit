@@ -18,14 +18,14 @@ from cognite.client.data_classes.data_modeling import (
 
 from cognite_toolkit._cdf_tk.client.data_classes.migration import CreatedSourceSystem, ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.commands._migrate.adapter import (
+from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     AssetCentricMapping,
     AssetCentricMappingList,
-    MigrationCSVFileSelector,
+    MigrationMapping,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.data_classes import MigrationMapping
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
 from cognite_toolkit._cdf_tk.commands._migrate.issues import ConversionIssue, MigrationIssue
+from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 
 

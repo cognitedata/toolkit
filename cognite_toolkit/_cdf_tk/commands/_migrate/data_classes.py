@@ -1,10 +1,17 @@
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Generic, Literal
 
-from cognite.client.data_classes.data_modeling import NodeId, ViewId
+from cognite.client.data_classes._base import (
+    T_WritableCogniteResource,
+    WriteableCogniteResource,
+    WriteableCogniteResourceList,
+)
+from cognite.client.data_classes.data_modeling import InstanceApply, NodeId, ViewId
 from cognite.client.utils._text import to_camel_case
 from pydantic import BaseModel, field_validator, model_validator
 
+from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList
 from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.client.data_classes.pending_instances_ids import PendingInstanceId
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import create_default_mappings
@@ -12,9 +19,10 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.storageio._data_classes import ModelList
+from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricType, JsonVal
 
 
-class MigrationMapping(BaseModel, alias_generator=to_camel_case, extra="ignore"):
+class MigrationMapping(BaseModel, alias_generator=to_camel_case, extra="ignore", populate_by_name=True):
     """The mapping between an asset-centric ID and a data modeling instance ID.
     Args
         resource_type (str): The asset-centric type of the resource (e.g., "asset", "event", "timeseries").
@@ -27,7 +35,7 @@ class MigrationMapping(BaseModel, alias_generator=to_camel_case, extra="ignore")
            for example, the Canvas migration to determine which view to use for the resource.
     """
 
-    resource_type: str
+    resource_type: AssetCentricType
     instance_id: NodeId
     id: int
     data_set_id: int | None = None
@@ -46,7 +54,7 @@ class MigrationMapping(BaseModel, alias_generator=to_camel_case, extra="ignore")
         raise ToolkitValueError(f"No default ingestion view specified for resource type '{self.resource_type}'")
 
     def as_asset_centric_id(self) -> AssetCentricId:
-        return AssetCentricId(resource_type=self.resource_type, id_=self.id)  # type: ignore[arg-type]
+        return AssetCentricId(resource_type=self.resource_type, id_=self.id)
 
     @model_validator(mode="before")
     def _handle_flat_dict(cls, values: Any) -> Any:
@@ -128,6 +136,7 @@ class MigrationMappingList(ModelList[MigrationMapping]):
             "asset": AssetMigrationMappingList,
             "timeseries": TimeSeriesMigrationMappingList,
             "file": FileMigrationMappingList,
+            "event": EventMigrationMappingList,
         }
         if resource_type not in cls_by_resource_type:
             raise ToolkitValueError(
@@ -138,6 +147,10 @@ class MigrationMappingList(ModelList[MigrationMapping]):
 
 class AssetMapping(MigrationMapping):
     resource_type: Literal["asset"] = "asset"
+
+
+class EventMapping(MigrationMapping):
+    resource_type: Literal["event"] = "event"
 
 
 class TimeSeriesMapping(MigrationMapping):
@@ -154,6 +167,12 @@ class AssetMigrationMappingList(MigrationMappingList):
         return AssetMapping
 
 
+class EventMigrationMappingList(MigrationMappingList):
+    @classmethod
+    def _get_base_model_cls(cls) -> type[EventMapping]:
+        return EventMapping
+
+
 class FileMigrationMappingList(MigrationMappingList):
     @classmethod
     def _get_base_model_cls(cls) -> type[FileMapping]:
@@ -164,3 +183,30 @@ class TimeSeriesMigrationMappingList(MigrationMappingList):
     @classmethod
     def _get_base_model_cls(cls) -> type[TimeSeriesMapping]:
         return TimeSeriesMapping
+
+
+@dataclass
+class AssetCentricMapping(Generic[T_WritableCogniteResource], WriteableCogniteResource[InstanceApply]):
+    mapping: MigrationMapping
+    resource: T_WritableCogniteResource
+
+    def as_write(self) -> InstanceApply:
+        raise NotImplementedError()
+
+    def dump(self, camel_case: bool = True) -> dict[str, JsonVal]:
+        mapping = self.mapping.model_dump(exclude_unset=True, by_alias=camel_case)
+        # Ensure that resource type is always included, even if unset.
+        mapping["resourceType" if camel_case else "resource_type"] = self.mapping.resource_type
+        return {
+            "mapping": mapping,
+            "resource": self.resource.dump(camel_case=camel_case),
+        }
+
+
+class AssetCentricMappingList(
+    WriteableCogniteResourceList[InstanceApply, AssetCentricMapping[T_WritableCogniteResource]]
+):
+    _RESOURCE: type = AssetCentricMapping
+
+    def as_write(self) -> InstanceApplyList:
+        return InstanceApplyList([item.as_write() for item in self])

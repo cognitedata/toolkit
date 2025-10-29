@@ -8,12 +8,11 @@ from cognite.client.data_classes.data_modeling import DirectRelationReference, I
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.migration import ResourceViewMapping
-from cognite_toolkit._cdf_tk.commands._migrate.adapter import (
-    AssetCentricMapping,
-    MigrationSelector,
-)
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import asset_centric_to_dm
+from cognite_toolkit._cdf_tk.commands._migrate.data_classes import AssetCentricMapping
 from cognite_toolkit._cdf_tk.commands._migrate.issues import ConversionIssue, MigrationIssue
+from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationSelector
+from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio._base import T_Selector, T_WriteCogniteResource
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -55,7 +54,7 @@ class AssetCentricMapper(DataMapper[MigrationSelector, AssetCentricMapping, Inst
         self._source_system_mapping_by_id: dict[str, DirectRelationReference] = {}
 
     def prepare(self, source_selector: MigrationSelector) -> None:
-        ingestion_view_ids = source_selector.get_ingestion_views()
+        ingestion_view_ids = source_selector.get_ingestion_mappings()
         ingestion_views = self.client.migration.resource_view_mapping.retrieve(ingestion_view_ids)
         self._view_mapping_by_id = {view.external_id: view for view in ingestion_views}
         missing_mappings = set(ingestion_view_ids) - set(self._view_mapping_by_id.keys())
@@ -80,6 +79,11 @@ class AssetCentricMapper(DataMapper[MigrationSelector, AssetCentricMapping, Inst
             source_system.source: source_system.as_direct_relation_reference() for source_system in source_systems
         }
 
+        # We look-up all existing asset mappings to be able to create direct relations to already mapped assets.
+        # This is needed in case the migration is run multiple times, or if assets are mapped
+        asset_mappings = self.client.migration.instance_source.list(resource_type="asset", limit=-1)
+        self._asset_mapping_by_id = {mapping.id_: mapping.as_direct_relation_reference() for mapping in asset_mappings}
+
     def map(self, source: AssetCentricMapping) -> tuple[InstanceApply, ConversionIssue]:
         """Map a chunk of asset-centric data to InstanceApplyList format."""
         mapping = source.mapping
@@ -99,6 +103,9 @@ class AssetCentricMapper(DataMapper[MigrationSelector, AssetCentricMapping, Inst
             asset_instance_id_by_id=self._asset_mapping_by_id,
             source_instance_id_by_external_id=self._source_system_mapping_by_id,
         )
+        if mapping.instance_id.space == MISSING_INSTANCE_SPACE:
+            conversion_issue.missing_instance_space = f"Missing instance space for dataset ID {mapping.data_set_id!r}"
+
         if mapping.resource_type == "asset":
             self._asset_mapping_by_id[mapping.id] = DirectRelationReference(
                 space=mapping.instance_id.space, external_id=mapping.instance_id.external_id
