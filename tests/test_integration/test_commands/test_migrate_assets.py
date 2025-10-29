@@ -10,13 +10,19 @@ from cognite.client.exceptions import CogniteAPIError
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._migrate.adapter import (
     AssetCentricMigrationIOAdapter,
+    FileMetaIOAdapter,
     MigrateDataSetSelector,
     MigrationCSVFileSelector,
     TimeSeriesIOAdapter,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
-from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import ASSET_ID, EVENT_ID, TIME_SERIES_ID
+from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
+    ASSET_ID,
+    EVENT_ID,
+    FILE_METADATA_ID,
+    TIME_SERIES_ID,
+)
 from cognite_toolkit._cdf_tk.storageio import AssetIO, EventIO
 from tests.test_integration.conftest import HierarchyMinimal
 from tests.test_integration.constants import RUN_UNIQUE_ID
@@ -147,6 +153,30 @@ class TestMigrateTimeSeriesCommand:
                 preferred_consumer_view=ViewId("cdf_cdm", "CogniteTimeSeries", "v1"),
             ),
             data=TimeSeriesIOAdapter(client, skip_linking=True),
+            mapper=AssetCentricMapper(client),
+            log_dir=tmp_path,
+            dry_run=True,
+        )
+        results = progress.aggregate()
+        expected_results = {(step, "success"): 1 for step in cmd.Steps.list()}
+        assert results == expected_results
+
+
+class TestMigrateFileMetadataCommand:
+    def test_migrate_file_metadata_by_dataset_dry_run(
+        self, toolkit_client: ToolkitClient, migration_hierarchy_minimal: HierarchyMinimal, tmp_path: Path
+    ) -> None:
+        client = toolkit_client
+        hierarchy = migration_hierarchy_minimal
+        cmd = MigrationCommand(skip_tracking=True, silent=True)
+        progress = cmd.migrate(
+            selected=MigrateDataSetSelector(
+                kind="FileMetadata",
+                data_set_external_id=hierarchy.dataset.external_id,
+                ingestion_mapping=FILE_METADATA_ID,
+                preferred_consumer_view=ViewId("cdf_cdm", "CogniteFile", "v1"),
+            ),
+            data=FileMetaIOAdapter(client, skip_linking=False),
             mapper=AssetCentricMapper(client),
             log_dir=tmp_path,
             dry_run=True,

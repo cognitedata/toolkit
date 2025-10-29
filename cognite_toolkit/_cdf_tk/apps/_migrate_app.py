@@ -8,13 +8,13 @@ from cognite.client.data_classes.data_modeling import ContainerId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import (
-    MigrateFilesCommand,
     MigrationCanvasCommand,
     MigrationPrepareCommand,
 )
 from cognite_toolkit._cdf_tk.commands._migrate import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.adapter import (
     AssetCentricMigrationIOAdapter,
+    FileMetaIOAdapter,
     MigrateDataSetSelector,
     MigrationCSVFileSelector,
     MigrationSelector,
@@ -581,11 +581,12 @@ class MigrateApp(typer.Typer):
             )
         )
 
-    @staticmethod
+    @classmethod
     def files(
+        cls,
         ctx: typer.Context,
         mapping_file: Annotated[
-            Path,
+            Path | None,
             typer.Option(
                 "--mapping-file",
                 "-m",
@@ -593,7 +594,51 @@ class MigrateApp(typer.Typer):
                 "This file is expected to have the following columns: [id, dataSetId, space, externalId]."
                 "The dataSetId is optional, and can be skipped. If it is set, it is used to check the access to the dataset.",
             ),
-        ],
+        ] = None,
+        data_set_id: Annotated[
+            str | None,
+            typer.Option(
+                "--data-set-id",
+                "-s",
+                help="The data set ID to select for the files to migrate. If not provided, the dataSetId from the mapping file is used. "
+                "If neither is provided, the default data set for the project is used.",
+            ),
+        ] = None,
+        ingestion_mapping: Annotated[
+            str | None,
+            typer.Option(
+                "--ingestion-mapping",
+                "-i",
+                help="The ingestion mapping to use for the migrated files. If not provided, "
+                "the default mapping to CogniteFile in CogniteCore will be used.",
+            ),
+        ] = None,
+        consumption_view: Annotated[
+            str | None,
+            typer.Option(
+                "--consumption-view",
+                "-c",
+                help="The consumption view to assign to the migrated files Given as space:externalId/version. "
+                "This will be used in Canvas to select which view to use when migrating timeseries. If not provided, "
+                "CogniteFile in CogniteCore will be used.",
+            ),
+        ] = None,
+        log_dir: Annotated[
+            Path,
+            typer.Option(
+                "--log-dir",
+                "-l",
+                help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
+            ),
+        ] = Path(f"migration_logs_{TODAY!s}"),
+        skip_linking: Annotated[
+            bool,
+            typer.Option(
+                "--skip-linking",
+                "-x",
+                help="If set, the migration will not create links between the old FileMetadata and the new CogniteFile.",
+            ),
+        ] = False,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -612,13 +657,33 @@ class MigrateApp(typer.Typer):
         ] = False,
     ) -> None:
         """Migrate Files to CogniteFiles."""
-
         client = EnvironmentVariables.create_from_environment().get_client(enable_set_pending_ids=True)
-        cmd = MigrateFilesCommand()
+
+        selected, dry_run, verbose = cls._prepare_asset_centric_arguments(
+            client=client,
+            mapping_file=mapping_file,
+            data_set_id=data_set_id,
+            consumption_view=consumption_view,
+            ingestion_mapping=ingestion_mapping,
+            dry_run=dry_run,
+            verbose=verbose,
+            kind="FileMetadata",
+            resource_type="file",
+            container_id=ContainerId("cdf_cdm", "CogniteFile"),
+        )
+        cmd = MigrationCommand()
+
+        if data_set_id is None:
+            skip_linking = not questionary.confirm(
+                "Do you want to link old and new Files?", default=not skip_linking
+            ).ask()
+
         cmd.run(
-            lambda: cmd.migrate_files(
-                client,
-                mapping_file=mapping_file,
+            lambda: cmd.migrate(
+                selected=selected,
+                data=FileMetaIOAdapter(client, skip_linking=skip_linking),
+                mapper=AssetCentricMapper(client),
+                log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
             )

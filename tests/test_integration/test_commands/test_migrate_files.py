@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.extended_timeseries import ExtendedTimeSeriesList
 from cognite_toolkit._cdf_tk.commands import MigrateFilesCommand
 from cognite_toolkit._cdf_tk.commands._migrate.adapter import (
-    FileMetaAdapter,
+    FileMetaIOAdapter,
     MigrationCSVFileSelector,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
@@ -124,7 +124,7 @@ class TestMigrateFilesCommand:
         cmd = MigrationCommand(skip_tracking=True, silent=True)
         results = cmd.migrate(
             selected=MigrationCSVFileSelector(datafile=input_file, kind="file"),
-            data=FileMetaAdapter(client, skip_linking=False),
+            data=FileMetaIOAdapter(client, skip_linking=False),
             mapper=AssetCentricMapper(client),
             log_dir=tmp_path / "logs",
             dry_run=False,
