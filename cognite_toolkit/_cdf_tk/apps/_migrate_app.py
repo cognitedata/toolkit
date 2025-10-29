@@ -268,7 +268,7 @@ class MigrateApp(typer.Typer):
             typer.Option(
                 "--consumption-view",
                 "-c",
-                help="The consumption view(s) to assign to the migrated assets Given as space:externalId/version. "
+                help="The consumption view to assign to the migrated assets Given as space:externalId/version. "
                 "This will be used in Canvas to select which view to use when migrating assets. If not provided, "
                 "CogniteAsset in CogniteCore will be used.",
             ),
@@ -416,7 +416,7 @@ class MigrateApp(typer.Typer):
             typer.Option(
                 "--consumption-view",
                 "-c",
-                help="The consumption view(s) to assign to the migrated events Given as space:externalId/version. "
+                help="The consumption view to assign to the migrated events Given as space:externalId/version. "
                 "This will be used in Canvas to select which view to use when migrating events. If not provided, "
                 "CogniteActivity in CogniteCore will be used.",
             ),
@@ -448,7 +448,7 @@ class MigrateApp(typer.Typer):
     ) -> None:
         """Migrate Events to CogniteActivity."""
         client = EnvironmentVariables.create_from_environment().get_client()
-        selected, dry_run, verbose = MigrateApp._prepare_asset_centric_arguments(
+        selected, dry_run, verbose = cls._prepare_asset_centric_arguments(
             client=client,
             mapping_file=mapping_file,
             data_set_id=data_set_id,
@@ -511,7 +511,7 @@ class MigrateApp(typer.Typer):
             typer.Option(
                 "--consumption-view",
                 "-c",
-                help="The consumption view(s) to assign to the migrated timeseries Given as space:externalId/version. "
+                help="The consumption view to assign to the migrated timeseries Given as space:externalId/version. "
                 "This will be used in Canvas to select which view to use when migrating timeseries. If not provided, "
                 "CogniteTimeSeries in CogniteCore will be used.",
             ),

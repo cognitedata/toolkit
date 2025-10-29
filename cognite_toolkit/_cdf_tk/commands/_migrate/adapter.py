@@ -45,8 +45,8 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest, SuccessResponseItems
 from cognite_toolkit._cdf_tk.utils.useful_types import (
-    AssetCentric,
     AssetCentricKind,
+    AssetCentricType,
     JsonVal,
     T_WritableCogniteResourceList,
 )
@@ -222,8 +222,8 @@ class AssetCentricMigrationIOAdapter(
             yield mapping_list
 
     @staticmethod
-    def _kind_to_resource_type(kind: AssetCentricKind) -> AssetCentric:
-        mapping: dict[AssetCentricKind, AssetCentric] = {
+    def _kind_to_resource_type(kind: AssetCentricKind) -> AssetCentricType:
+        mapping: dict[AssetCentricKind, AssetCentricType] = {
             "Assets": "asset",
             "Events": "event",
             "TimeSeries": "timeseries",
@@ -235,7 +235,9 @@ class AssetCentricMigrationIOAdapter(
             raise ToolkitNotImplementedError(f"Kind '{kind}' is not supported") from e
 
     def data_to_json_chunk(
-        self, data_chunk: Sequence[AssetCentricMapping[T_WritableCogniteResource]]
+        self,
+        data_chunk: Sequence[AssetCentricMapping[T_WritableCogniteResource]],
+        selector: MigrationSelector | None = None,
     ) -> list[dict[str, JsonVal]]:
         return [item.dump() for item in data_chunk]
 
