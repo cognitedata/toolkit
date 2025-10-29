@@ -3,7 +3,7 @@ from pathlib import Path
 import responses
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.commands._migrate.adapter import (
+from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     AssetCentricMigrationIOAdapter,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector

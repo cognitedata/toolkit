@@ -24,7 +24,6 @@ from cognite.client.data_classes.data_modeling.statistics import InstanceStatist
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.commands._migrate.adapter import AssetCentricMigrationIOAdapter
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import (
@@ -34,6 +33,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_model import (
     RESOURCE_VIEW_MAPPING_VIEW_ID,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import ASSET_ID, create_default_mappings
+from cognite_toolkit._cdf_tk.commands._migrate.migration_io import AssetCentricMigrationIOAdapter
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio import AssetIO

@@ -8,11 +8,6 @@ from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteAsset
 from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.commands._migrate.adapter import (
-    AssetCentricMigrationIOAdapter,
-    FileMetaIOAdapter,
-    TimeSeriesIOAdapter,
-)
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
@@ -20,6 +15,11 @@ from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
     EVENT_ID,
     FILE_METADATA_ID,
     TIME_SERIES_ID,
+)
+from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
+    AssetCentricMigrationIOAdapter,
+    FileMetaIOAdapter,
+    TimeSeriesIOAdapter,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrateDataSetSelector, MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.storageio import AssetIO, EventIO

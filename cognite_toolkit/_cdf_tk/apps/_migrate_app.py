@@ -12,13 +12,13 @@ from cognite_toolkit._cdf_tk.commands import (
     MigrationPrepareCommand,
 )
 from cognite_toolkit._cdf_tk.commands._migrate import MigrationCommand
-from cognite_toolkit._cdf_tk.commands._migrate.adapter import (
+from cognite_toolkit._cdf_tk.commands._migrate.creators import InstanceSpaceCreator, SourceSystemCreator
+from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
+from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     AssetCentricMigrationIOAdapter,
     FileMetaIOAdapter,
     TimeSeriesIOAdapter,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.creators import InstanceSpaceCreator, SourceSystemCreator
-from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import (
     MigrateDataSetSelector,
     MigrationCSVFileSelector,
