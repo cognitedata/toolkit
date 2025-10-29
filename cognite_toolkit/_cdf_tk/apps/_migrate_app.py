@@ -586,7 +586,7 @@ class MigrateApp(typer.Typer):
         cls,
         ctx: typer.Context,
         mapping_file: Annotated[
-            Path,
+            Path | None,
             typer.Option(
                 "--mapping-file",
                 "-m",
@@ -594,7 +594,7 @@ class MigrateApp(typer.Typer):
                 "This file is expected to have the following columns: [id, dataSetId, space, externalId]."
                 "The dataSetId is optional, and can be skipped. If it is set, it is used to check the access to the dataset.",
             ),
-        ],
+        ] = None,
         data_set_id: Annotated[
             str | None,
             typer.Option(
