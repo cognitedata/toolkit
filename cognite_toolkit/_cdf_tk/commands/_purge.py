@@ -31,18 +31,28 @@ from cognite_toolkit._cdf_tk.cruds import (
     DataModelCRUD,
     DataSetsCRUD,
     EdgeCRUD,
+    EventCRUD,
+    ExtractionPipelineCRUD,
+    FileMetadataCRUD,
     FunctionCRUD,
     GroupAllScopedCRUD,
     GroupCRUD,
     GroupResourceScopedCRUD,
     HostedExtractorDestinationCRUD,
     InfieldV1CRUD,
+    LabelCRUD,
     LocationFilterCRUD,
     NodeCRUD,
+    RelationshipCRUD,
     ResourceCRUD,
+    SequenceCRUD,
     SpaceCRUD,
     StreamlitCRUD,
+    ThreeDModelCRUD,
+    TimeSeriesCRUD,
+    TransformationCRUD,
     ViewCRUD,
+    WorkflowCRUD,
 )
 from cognite_toolkit._cdf_tk.data_classes import DeployResults, ResourceDeployResult
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -60,6 +70,15 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     MediumSeverityWarning,
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils.aggregators import (
+    AssetAggregator,
+    EventAggregator,
+    FileAggregator,
+    LabelCountAggregator,
+    RelationshipAggregator,
+    SequenceAggregator,
+    TimeSeriesAggregator,
+)
 from cognite_toolkit._cdf_tk.utils.http_client import (
     FailedRequestItems,
     FailedResponseItems,
@@ -164,6 +183,28 @@ class NodesToDelete(ToDelete):
             return result
 
         return check_for_data
+
+
+@dataclass
+class IdResourceToDelete(ToDelete):
+    def get_process_function(
+        self, client: ToolkitClient, console: Console, verbose: bool, process_results: ResourceDeployResult
+    ) -> Callable[[CogniteResourceList], list[JsonVal]]:
+        def as_id(chunk: CogniteResourceList) -> list[JsonVal]:
+            return [{"id": item.id} for item in chunk]
+
+        return as_id
+
+
+@dataclass
+class ExternalIdToDelete(ToDelete):
+    def get_process_function(
+        self, client: ToolkitClient, console: Console, verbose: bool, process_results: ResourceDeployResult
+    ) -> Callable[[CogniteResourceList], list[JsonVal]]:
+        def as_external_id(chunk: CogniteResourceList) -> list[JsonVal]:
+            return [{"externalId": item.external_id} for item in chunk]
+
+        return as_external_id
 
 
 class PurgeCommand(ToolkitCommand):
@@ -356,13 +397,29 @@ class PurgeCommand(ToolkitCommand):
         self,
         client: ToolkitClient,
         selected_data_set_external_id: str,
-        include_dataset: bool = False,
+        archive_dataset: bool = False,
         include_data: bool = True,
         include_configurations: bool = False,
         dry_run: bool = False,
         auto_yes: bool = False,
         verbose: bool = False,
     ) -> DeployResults:
+        """Purge a dataset and all its content
+
+        Args:
+            client: The ToolkitClient to use
+            selected_data_set_external_id:  The external ID of the dataset to purge
+            archive_dataset:  Whether to archive the dataset itself after the purge
+            include_data: Whether to include data (assets, events, time series, files, sequences, 3D models, relationships, labels) in the purge
+            include_configurations: Whether to include configurations (workflows, transformations, extraction pipelines) in the purge
+            dry_run: Whether to perform a dry run
+            auto_yes:  Whether to automatically confirm the purge
+            verbose:  Whether to print verbose output
+
+        Returns:
+            DeployResults: The results of the purge operation
+
+        """
         # Warning Messages
         if not dry_run:
             self._print_panel("dataSet", selected_data_set_external_id)
@@ -388,6 +445,7 @@ class PurgeCommand(ToolkitCommand):
             client,
             include_data,
             include_configurations,
+            selected_data_set_external_id,
         )
         if dry_run:
             results = DeployResults([], "purge", dry_run=True)
@@ -396,7 +454,7 @@ class PurgeCommand(ToolkitCommand):
         else:
             results = self._delete_resources(to_delete, client, verbose, None, selected_data_set_external_id)
         print(results.counts_table(exclude_columns={"Created", "Changed", "Total"}))
-        if include_dataset and not dry_run:
+        if archive_dataset and not dry_run:
             self._archive_dataset(client, selected_data_set_external_id)
         return results
 
@@ -411,12 +469,82 @@ class PurgeCommand(ToolkitCommand):
         print(f"DataSet {data_set} archived")
 
     def _create_to_delete_list_purge_dataset(
-        self,
-        client: ToolkitClient,
-        include_data: bool,
-        include_configurations: bool,
+        self, client: ToolkitClient, include_data: bool, include_configurations: bool, data_set_external_id: str
     ) -> list[ToDelete]:
-        raise NotImplementedError()
+        config = client.config
+        to_delete: list[ToDelete] = []
+
+        if include_data:
+            three_d_crud = ThreeDModelCRUD.create_loader(client)
+            to_delete.extend(
+                [
+                    IdResourceToDelete(
+                        EventCRUD.create_loader(client),
+                        EventAggregator(client).count(data_set_external_id=data_set_external_id),
+                        config.create_api_url("/events/delete"),
+                    ),
+                    IdResourceToDelete(
+                        FileMetadataCRUD.create_loader(client),
+                        FileAggregator(client).count(data_set_external_id=data_set_external_id),
+                        config.create_api_url("/files/delete"),
+                    ),
+                    IdResourceToDelete(
+                        TimeSeriesCRUD.create_loader(client),
+                        TimeSeriesAggregator(client).count(data_set_external_id=data_set_external_id),
+                        config.create_api_url("/timeseries/delete"),
+                    ),
+                    IdResourceToDelete(
+                        SequenceCRUD.create_loader(client),
+                        SequenceAggregator(client).count(data_set_external_id=data_set_external_id),
+                        config.create_api_url("/sequences/delete"),
+                    ),
+                    IdResourceToDelete(
+                        AssetCRUD.create_loader(client),
+                        AssetAggregator(client).count(data_set_external_id=data_set_external_id),
+                        config.create_api_url("/assets/delete"),
+                    ),
+                    ExternalIdToDelete(
+                        RelationshipCRUD.create_loader(client),
+                        RelationshipAggregator(client).count(data_set_external_id=data_set_external_id),
+                        config.create_api_url("/relationships/delete"),
+                    ),
+                    ExternalIdToDelete(
+                        LabelCRUD.create_loader(client),
+                        LabelCountAggregator(client).count(data_set_external_id=data_set_external_id),
+                        config.create_api_url("/labels/delete"),
+                    ),
+                    IdResourceToDelete(
+                        three_d_crud,
+                        sum(1 for _ in three_d_crud.iterate(data_set_external_id=data_set_external_id)),
+                        config.create_api_url("/3d/models/delete"),
+                    ),
+                ]
+            )
+        if include_configurations:
+            transformation_crud = TransformationCRUD.create_loader(client)
+            workflow_crud = WorkflowCRUD.create_loader(client)
+            extraction_pipeline_crud = ExtractionPipelineCRUD.create_loader(client)
+
+            to_delete.extend(
+                [
+                    IdResourceToDelete(
+                        transformation_crud,
+                        sum(1 for _ in transformation_crud.iterate(data_set_external_id=data_set_external_id)),
+                        config.create_api_url("/transformations/delete"),
+                    ),
+                    ExternalIdToDelete(
+                        workflow_crud,
+                        sum(1 for _ in workflow_crud.iterate(data_set_external_id=data_set_external_id)),
+                        config.create_api_url("/workflows/delete"),
+                    ),
+                    IdResourceToDelete(
+                        extraction_pipeline_crud,
+                        sum(1 for _ in extraction_pipeline_crud.iterate(data_set_external_id=data_set_external_id)),
+                        config.create_api_url("/extpipes/delete"),
+                    ),
+                ]
+            )
+        return to_delete
 
     def dataset(
         self,
