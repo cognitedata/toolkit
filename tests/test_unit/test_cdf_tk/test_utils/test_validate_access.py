@@ -562,6 +562,39 @@ class TestValidateAccess:
             result = validator.dataset_configurations(["read"], dataset_ids=dataset_ids)
             assert result == expected_result
 
+    @pytest.mark.parametrize(
+        "capabilities, expected_error",
+        [
+            pytest.param(
+                [],
+                (
+                    "You have no permission to read extraction pipelines, transformations and workflows. "
+                    "This is required to test the operation."
+                ),
+                id="No capabilities",
+            ),
+            pytest.param(
+                [
+                    TransformationsAcl([TransformationsAcl.Action.Read], TransformationsAcl.Scope.All()),
+                ],
+                (
+                    "You have no permission to read extraction pipelines and workflows. "
+                    "This is required to test the operation."
+                ),
+                id="Partial capabilities",
+            ),
+        ],
+    )
+    def test_dataset_no_configuration_access(self, capabilities: list[Capability], expected_error: str) -> None:
+        inspection = self._create_inspection_obj(capabilities)
+
+        with monkeypatch_toolkit_client() as client:
+            client.iam.token.inspect.return_value = inspection
+            validator = ValidateAccess(client, "test the operation")
+            with pytest.raises(AuthorizationError) as exc:
+                validator.dataset_configurations(["read"], dataset_ids={1, 2})
+            assert str(exc.value) == expected_error
+
     @staticmethod
     def _create_inspection_obj(capabilities: list[Capability]) -> TokenInspection:
         inspection = TokenInspection(
