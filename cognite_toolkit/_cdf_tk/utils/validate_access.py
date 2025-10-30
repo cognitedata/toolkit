@@ -104,6 +104,28 @@ class ValidateAccess:
         dataset_ids: set[int] | None = None,
         operation: str | None = None,
     ) -> list[int] | None:
+        """Validate access to dataset data.
+
+        Dataset data resources are:
+        - Assets
+        - Events
+        - Time series
+        - Files
+        - Sequences
+        - Relationships
+        - Labels
+        - 3D models
+
+        Args:
+            action (Sequence[Literal["read", "write"]]): The actions to validate access for
+            dataset_ids (Set[int] | None): The dataset IDs to check access for. If None, checks access for all datasets.
+            operation (str | None): The operation being performed, used for error messages.
+        Returns:
+            list[int] | None: Returns a list of dataset IDs if access is limited to these datasets, or None if access is granted to all datasets.
+        Raises:
+            ValueError: If the client.token.get_scope() returns an unexpected dataset data scope type.
+            AuthorizationError: If the user does not have permission to perform the specified action on the given dataset.
+        """
         raise NotImplementedError()
 
     def dataset_configurations(
@@ -112,7 +134,23 @@ class ValidateAccess:
         dataset_ids: set[int] | None = None,
         operation: str | None = None,
     ) -> list[int] | None:
-        """Validate access configuration resources"""
+        """Validate access configuration resources.
+
+        Configuration resources are:
+        - Transformations
+        - Workflows
+        - Extraction pipelines
+
+        Args:
+            action (Sequence[Literal["read", "write"]]): The actions to validate access for
+            dataset_ids (Set[int] | None): The dataset IDs to check access for. If None, checks access for all datasets.
+            operation (str | None): The operation being performed, used for error messages.
+        Returns:
+            list[int] | None: Returns a list of dataset IDs if access is limited to these datasets, or None if access is granted to all datasets.
+        Raises:
+            ValueError: If the client.token.get_scope() returns an unexpected dataset configuration scope type.
+            AuthorizationError: If the user does not have permission to perform the specified action on the given dataset.
+        """
         raise NotImplementedError()
 
     def timeseries(
