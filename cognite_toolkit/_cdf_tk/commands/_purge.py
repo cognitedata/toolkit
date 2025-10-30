@@ -256,8 +256,9 @@ class PurgeCommand(ToolkitCommand):
         print(results.counts_table(exclude_columns={"Created", "Changed", "Total"}))
         return results
 
+    @staticmethod
     def _create_to_delete_list_purge_space(
-        self, client: ToolkitClient, delete_datapoints: bool, delete_file_content: bool, stats: SpaceStatistics
+        client: ToolkitClient, delete_datapoints: bool, delete_file_content: bool, stats: SpaceStatistics
     ) -> list[ToDelete]:
         config = client.config
         to_delete = [
@@ -389,7 +390,7 @@ class PurgeCommand(ToolkitCommand):
 
         return process
 
-    def dataset_v2(
+    def dataset(
         self,
         client: ToolkitClient,
         selected_data_set_external_id: str,

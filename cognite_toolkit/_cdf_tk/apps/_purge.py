@@ -157,7 +157,7 @@ class PurgeApp(typer.Typer):
             asset_recursive = False
 
         cmd.run(
-            lambda: cmd.dataset_v2(
+            lambda: cmd.dataset(
                 client,
                 external_id,
                 archive_dataset,

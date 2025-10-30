@@ -288,7 +288,7 @@ class TestPurge:
         populated = populated_dataset
         purge = PurgeCommand(silent=True)
 
-        _ = purge.dataset_v2(
+        _ = purge.dataset(
             client,
             selected_data_set_external_id=populated.dataset.external_id,
             archive_dataset=False,
