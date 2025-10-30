@@ -508,20 +508,20 @@ class HierarchyIO(ConfigurableStorageIO[AssetCentricSelector, AssetCentricResour
     def stream_data(
         self, selector: AssetCentricSelector, limit: int | None = None
     ) -> Iterable[Page[AssetCentricResource]]:
-        yield from self._get_io(selector).stream_data(selector, limit)
+        yield from self.get_resource_io(selector.kind).stream_data(selector, limit)
 
     def count(self, selector: AssetCentricSelector) -> int | None:
-        return self._get_io(selector).count(selector)
+        return self.get_resource_io(selector.kind).count(selector)
 
     def data_to_json_chunk(
         self, data_chunk: Sequence[AssetCentricResource], selector: AssetCentricSelector | None = None
     ) -> list[dict[str, JsonVal]]:
         if selector is None:
             raise ValueError(f"Selector must be provided to convert data to JSON chunk for {type(self).__name__}.)")
-        return self._get_io(selector).data_to_json_chunk(data_chunk, selector)
+        return self.get_resource_io(selector.kind).data_to_json_chunk(data_chunk, selector)
 
     def configurations(self, selector: AssetCentricSelector) -> Iterable[StorageIOConfig]:
-        yield from self._get_io(selector).configurations(selector)
+        yield from self.get_resource_io(selector.kind).configurations(selector)
 
-    def _get_io(self, selector: AssetCentricSelector) -> BaseAssetCentricIO:
-        return self._io_by_kind[selector.kind]
+    def get_resource_io(self, kind: str) -> BaseAssetCentricIO:
+        return self._io_by_kind[kind]

@@ -3,7 +3,7 @@ from datetime import date, datetime
 from typing import Any, Literal, TypeAlias, TypeVar, get_args
 
 from cognite.client.data_classes import Asset, Event, FileMetadata, Sequence, TimeSeries
-from cognite.client.data_classes._base import WriteableCogniteResourceList
+from cognite.client.data_classes._base import CogniteObject, WriteableCogniteResourceList
 
 JsonVal: TypeAlias = None | str | int | float | bool | dict[str, "JsonVal"] | list["JsonVal"]
 
@@ -20,3 +20,5 @@ T_ID = TypeVar("T_ID", bound=Hashable)
 T_WritableCogniteResourceList = TypeVar("T_WritableCogniteResourceList", bound=WriteableCogniteResourceList)
 T_Value = TypeVar("T_Value")
 PrimitiveType: TypeAlias = str | int | float | bool
+
+T_WriteCogniteResource = TypeVar("T_WriteCogniteResource", bound=CogniteObject)
