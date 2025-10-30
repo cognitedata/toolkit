@@ -313,7 +313,7 @@ class PurgeCommand(ToolkitCommand):
 
         config = client.config
         io = AssetIO(client)
-        io.count(selector(DAtaSetSelctor()))
+        io.count(selector(DataSetSelctor()))
         total_by_crud_cls: dict[] = {
             EventCRUD: (stats.edges, config.create_api_url("/models/instances/delete")),
             NodeCRUD: (stats.nodes, config.create_api_url("/models/instances/delete")),
