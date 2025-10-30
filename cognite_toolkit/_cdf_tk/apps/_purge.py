@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     SelectedView,
 )
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
-from cognite_toolkit._cdf_tk.utils.interactive_select import DataModelingSelect
+from cognite_toolkit._cdf_tk.utils.interactive_select import AssetInteractiveSelect, DataModelingSelect
 
 
 class InstanceTypeEnum(str, Enum):
@@ -38,8 +38,8 @@ class PurgeApp(typer.Typer):
         if ctx.invoked_subcommand is None:
             print("Use [bold yellow]cdf purge --help[/] for more information.")
 
+    @staticmethod
     def purge_dataset(
-        self,
         ctx: typer.Context,
         external_id: Annotated[
             str | None,
@@ -52,7 +52,44 @@ class PurgeApp(typer.Typer):
             typer.Option(
                 "--include-dataset",
                 "-i",
-                help="Include dataset in the purge. This will also archive the dataset.",
+                help="Whether to archive the dataset itself after purging its contents.",
+            ),
+        ] = False,
+        archive_dataset: Annotated[
+            bool,
+            typer.Option(
+                "--archive-dataset",
+                help="Whether to archive the dataset itself after purging its contents.",
+                hidden=not Flags.v07.is_enabled(),
+            ),
+        ] = False,
+        skip_data: Annotated[
+            bool,
+            typer.Option(
+                "--skip-data",
+                "-s",
+                help="Skip deleting the data in the dataset, only delete configurations. The resources that are "
+                "considered data are: time series, event, files, assets, sequences, relationships, "
+                "labels, and 3D Models",
+                hidden=not Flags.v07.is_enabled(),
+            ),
+        ] = False,
+        include_configurations: Annotated[
+            bool,
+            typer.Option(
+                "--include-configurations",
+                "-c",
+                help="Include configurations, workflows, extraction pipelines and transformations in the purge.",
+                hidden=not Flags.v07.is_enabled(),
+            ),
+        ] = False,
+        asset_recursive: Annotated[
+            bool,
+            typer.Option(
+                "--asset-recursive",
+                "-a",
+                help="When deleting assets, delete all child assets recursively.",
+                hidden=not Flags.v07.is_enabled(),
             ),
         ] = False,
         dry_run: Annotated[
@@ -83,11 +120,50 @@ class PurgeApp(typer.Typer):
         """This command will delete the contents of the specified dataset"""
         cmd = PurgeCommand()
         client = EnvironmentVariables.create_from_environment().get_client()
+
+        if external_id is None:
+            # Is Interactive
+            interactive = AssetInteractiveSelect(client, operation="purge")
+            external_id = interactive.select_data_set(allow_empty=False)
+            if Flags.v07.is_enabled():
+                skip_data = not questionary.confirm(
+                    "Delete data in the dataset (time series, events, files, assets, sequences, relationships, labels, 3D models)?",
+                    default=True,
+                ).ask()
+                include_configurations = questionary.confirm(
+                    "Delete configurations (workflows, extraction pipelines and transformations) in the dataset?",
+                    default=False,
+                ).ask()
+                asset_recursive = questionary.confirm(
+                    "When deleting assets, delete all child assets recursively?", default=True
+                ).ask()
+            archive_dataset = questionary.confirm("Archive the dataset itself after purging?", default=False).ask()
+            dry_run = questionary.confirm("Dry run?", default=True).ask()
+            verbose = questionary.confirm("Verbose?", default=True).ask()
+
+            user_options = [archive_dataset, dry_run, verbose]
+            if Flags.v07.is_enabled():
+                user_options.extend([skip_data, include_configurations, asset_recursive])
+
+            if any(selected is None for selected in user_options):
+                raise typer.Abort("Aborted by user.")
+
+        else:
+            archive_dataset = archive_dataset if Flags.v07.is_enabled() else include_dataset
+
+        if not Flags.v07.is_enabled():
+            skip_data = False
+            include_configurations = True
+            asset_recursive = False
+
         cmd.run(
-            lambda: cmd.dataset(
+            lambda: cmd.dataset_v2(
                 client,
                 external_id,
-                include_dataset,
+                archive_dataset,
+                not skip_data,
+                include_configurations,
+                asset_recursive,
                 dry_run,
                 auto_yes,
                 verbose,
