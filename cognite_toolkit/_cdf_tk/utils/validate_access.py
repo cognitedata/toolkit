@@ -2,10 +2,12 @@ from collections.abc import Sequence
 from typing import Literal, TypeAlias, overload
 
 from cognite.client.data_classes.capabilities import (
+    AllScope,
     AssetsAcl,
     Capability,
     DataModelInstancesAcl,
     DataModelsAcl,
+    DataSetScope,
     EventsAcl,
     ExtractionPipelinesAcl,
     FilesAcl,
@@ -270,22 +272,12 @@ class ValidateAccess:
                 continue
             # First check for 'all' scope
             for scope in scopes:
-                if isinstance(
-                    scope,
-                    TransformationsAcl.Scope.All
-                    | WorkflowOrchestrationAcl.Scope.All
-                    | ExtractionPipelinesAcl.Scope.All,
-                ):
+                if isinstance(scope, AllScope):
                     break
             else:
                 # No 'all' scope found, check dataset scopes
                 for scope in scopes:
-                    if isinstance(
-                        scope,
-                        TransformationsAcl.Scope.DataSet
-                        | WorkflowOrchestrationAcl.Scope.DataSet
-                        | ExtractionPipelinesAcl.Scope.DataSet,
-                    ):
+                    if isinstance(scope, DataSetScope):
                         if need_access_to is None:
                             output[name] = scope.ids
                             break
