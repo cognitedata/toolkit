@@ -103,6 +103,7 @@ class ValidateAccess:
         action: Sequence[Literal["read", "write"]],
         dataset_ids: set[int] | None = None,
         operation: str | None = None,
+        missing: Literal["raise", "warn"] = "raise",
     ) -> list[int] | None:
         """Validate access to dataset data.
 
@@ -119,7 +120,9 @@ class ValidateAccess:
         Args:
             action (Sequence[Literal["read", "write"]]): The actions to validate access for
             dataset_ids (Set[int] | None): The dataset IDs to check access for. If None, checks access for all datasets.
-            operation (str | None): The operation being performed, used for error messages.
+            operation (str | None): The operation being performed, used for error and warning messages.
+            missing (Literal["raise", "warn"]): Whether to raise an error or warn when access is missing for specified datasets.
+
         Returns:
             list[int] | None: Returns a list of dataset IDs if access is limited to these datasets, or None if access is granted to all datasets.
         Raises:
@@ -133,6 +136,7 @@ class ValidateAccess:
         action: Sequence[Literal["read", "write"]],
         dataset_ids: set[int] | None = None,
         operation: str | None = None,
+        missing: Literal["raise", "warn"] = "raise",
     ) -> list[int] | None:
         """Validate access configuration resources.
 
@@ -144,7 +148,8 @@ class ValidateAccess:
         Args:
             action (Sequence[Literal["read", "write"]]): The actions to validate access for
             dataset_ids (Set[int] | None): The dataset IDs to check access for. If None, checks access for all datasets.
-            operation (str | None): The operation being performed, used for error messages.
+            operation (str | None): The operation being performed, used for error and warning messages.
+            missing (Literal["raise", "warn"]): Whether to raise an error or warn when access is missing for specified datasets.
         Returns:
             list[int] | None: Returns a list of dataset IDs if access is limited to these datasets, or None if access is granted to all datasets.
         Raises:
