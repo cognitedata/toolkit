@@ -5,6 +5,7 @@ from cognite.client.data_classes.capabilities import (
     DataModelInstancesAcl,
     DataModelsAcl,
     EventsAcl,
+    ExtractionPipelinesAcl,
     FilesAcl,
     LabelsAcl,
     ProjectCapability,
@@ -13,6 +14,8 @@ from cognite.client.data_classes.capabilities import (
     SequencesAcl,
     ThreeDAcl,
     TimeSeriesAcl,
+    TransformationsAcl,
+    WorkflowOrchestrationAcl,
 )
 from cognite.client.data_classes.iam import TokenInspection
 
@@ -499,6 +502,65 @@ class TestValidateAccess:
             with pytest.raises(AuthorizationError) as exc:
                 validator.dataset_data(["read"], dataset_ids={1, 2})
             assert str(exc.value) == expected_error
+
+    @pytest.mark.parametrize(
+        "capabilities, dataset_ids, expected_result",
+        [
+            pytest.param(
+                [
+                    TransformationsAcl([TransformationsAcl.Action.Read], TransformationsAcl.Scope.DataSet([1, 2])),
+                    WorkflowOrchestrationAcl(
+                        [WorkflowOrchestrationAcl.Action.Read], WorkflowOrchestrationAcl.Scope.DataSet([1, 2])
+                    ),
+                    ExtractionPipelinesAcl(
+                        [ExtractionPipelinesAcl.Action.Read], ExtractionPipelinesAcl.Scope.DataSet([1])
+                    ),
+                ],
+                {1},
+                None,
+                id="Dataset match",
+            ),
+            pytest.param(
+                [
+                    TransformationsAcl([TransformationsAcl.Action.Read], TransformationsAcl.Scope.All()),
+                    WorkflowOrchestrationAcl(
+                        [WorkflowOrchestrationAcl.Action.Read], WorkflowOrchestrationAcl.Scope.All()
+                    ),
+                    ExtractionPipelinesAcl([ExtractionPipelinesAcl.Action.Read], ExtractionPipelinesAcl.Scope.All()),
+                ],
+                None,
+                None,
+                id="All scope",
+            ),
+            pytest.param(
+                [
+                    TransformationsAcl([TransformationsAcl.Action.Read], TransformationsAcl.Scope.DataSet([1, 2])),
+                    WorkflowOrchestrationAcl(
+                        [WorkflowOrchestrationAcl.Action.Read], WorkflowOrchestrationAcl.Scope.DataSet([1, 3])
+                    ),
+                    ExtractionPipelinesAcl(
+                        [ExtractionPipelinesAcl.Action.Read], ExtractionPipelinesAcl.Scope.DataSet([1, 4])
+                    ),
+                ],
+                None,
+                {
+                    "transformations": [1, 2],
+                    "workflows": [1, 3],
+                    "extraction pipelines": [1, 4],
+                },
+                id="Limited list of datasets",
+            ),
+        ],
+    )
+    def test_dataset_configuration_access(
+        self, capabilities: list[Capability], dataset_ids: set[int] | None, expected_result: dict | None
+    ) -> None:
+        inspection = self._create_inspection_obj(capabilities)
+        with monkeypatch_toolkit_client() as client:
+            client.iam.token.inspect.return_value = inspection
+            validator = ValidateAccess(client, "test the operation")
+            result = validator.dataset_configurations(["read"], dataset_ids=dataset_ids)
+            assert result == expected_result
 
     @staticmethod
     def _create_inspection_obj(capabilities: list[Capability]) -> TokenInspection:
