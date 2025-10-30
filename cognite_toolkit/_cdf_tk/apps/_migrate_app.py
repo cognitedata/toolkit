@@ -54,7 +54,7 @@ class MigrateApp(typer.Typer):
         self.command("files")(self.files)
         self.command("canvas")(self.canvas)
         # Uncomment when infield v2 config migration is ready
-        # self.command("infield-config")(self.infield_config)
+        # self.command("infield-configs")(self.infield_configs)
 
     def main(self, ctx: typer.Context) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
