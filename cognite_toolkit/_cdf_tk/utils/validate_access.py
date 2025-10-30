@@ -302,7 +302,7 @@ class ValidateAccess:
                 HighSeverityWarning(f"{message}. You will have limited functionality to {operation}.").print_warning()
         elif dataset_ids is not None:
             return None
-        return output
+        return output or None
 
     def timeseries(
         self,

@@ -4,9 +4,14 @@ from cognite.client.data_classes.capabilities import (
     Capability,
     DataModelInstancesAcl,
     DataModelsAcl,
+    EventsAcl,
     FilesAcl,
+    LabelsAcl,
     ProjectCapability,
     ProjectCapabilityList,
+    RelationshipsAcl,
+    SequencesAcl,
+    ThreeDAcl,
     TimeSeriesAcl,
 )
 from cognite.client.data_classes.iam import TokenInspection
@@ -390,6 +395,110 @@ class TestValidateAccess:
             validator = ValidateAccess(client, "test the operation")
             result = validator.assets(["read"], dataset_ids=dataset_ids)
             assert result == expected_result
+
+    @pytest.mark.parametrize(
+        "capabilities, dataset_ids, expected_result",
+        [
+            pytest.param(
+                [
+                    AssetsAcl([AssetsAcl.Action.Read], AssetsAcl.Scope.DataSet([1, 2])),
+                    FilesAcl([FilesAcl.Action.Read], FilesAcl.Scope.DataSet([1, 2])),
+                    TimeSeriesAcl([TimeSeriesAcl.Action.Read], TimeSeriesAcl.Scope.DataSet([1])),
+                    EventsAcl([EventsAcl.Action.Read], EventsAcl.Scope.DataSet([1])),
+                    RelationshipsAcl([RelationshipsAcl.Action.Read], RelationshipsAcl.Scope.DataSet([1, 2])),
+                    SequencesAcl([SequencesAcl.Action.Read], SequencesAcl.Scope.DataSet([1, 2])),
+                    ThreeDAcl([ThreeDAcl.Action.Read], ThreeDAcl.Scope.DataSet([1])),
+                    LabelsAcl([LabelsAcl.Action.Read], LabelsAcl.Scope.DataSet([1])),
+                ],
+                {1},
+                None,
+                id="Dataset match",
+            ),
+            pytest.param(
+                [
+                    AssetsAcl([AssetsAcl.Action.Read], AssetsAcl.Scope.All()),
+                    FilesAcl([FilesAcl.Action.Read], FilesAcl.Scope.All()),
+                    TimeSeriesAcl([TimeSeriesAcl.Action.Read], TimeSeriesAcl.Scope.All()),
+                    EventsAcl([EventsAcl.Action.Read], EventsAcl.Scope.All()),
+                    RelationshipsAcl([RelationshipsAcl.Action.Read], RelationshipsAcl.Scope.All()),
+                    SequencesAcl([SequencesAcl.Action.Read], SequencesAcl.Scope.All()),
+                    ThreeDAcl([ThreeDAcl.Action.Read], ThreeDAcl.Scope.All()),
+                    LabelsAcl([LabelsAcl.Action.Read], LabelsAcl.Scope.All()),
+                ],
+                None,
+                None,
+                id="All scope",
+            ),
+            pytest.param(
+                [
+                    AssetsAcl([AssetsAcl.Action.Read], AssetsAcl.Scope.DataSet([1, 2])),
+                    FilesAcl([FilesAcl.Action.Read], FilesAcl.Scope.DataSet([1, 3])),
+                    TimeSeriesAcl([TimeSeriesAcl.Action.Read], TimeSeriesAcl.Scope.DataSet([1, 4])),
+                    EventsAcl([EventsAcl.Action.Read], EventsAcl.Scope.DataSet([1, 2])),
+                    RelationshipsAcl([RelationshipsAcl.Action.Read], RelationshipsAcl.Scope.DataSet([1, 2])),
+                    SequencesAcl([SequencesAcl.Action.Read], SequencesAcl.Scope.DataSet([1, 9])),
+                    ThreeDAcl([ThreeDAcl.Action.Read], ThreeDAcl.Scope.DataSet([1, 3])),
+                    LabelsAcl([LabelsAcl.Action.Read], LabelsAcl.Scope.DataSet([1, 3])),
+                ],
+                None,
+                {
+                    "3D models": [1, 3],
+                    "assets": [1, 2],
+                    "events": [1, 2],
+                    "files": [1, 3],
+                    "labels": [1, 3],
+                    "relationships": [1, 2],
+                    "sequences": [1, 9],
+                    "time series": [1, 4],
+                },
+                id="Limited list of datasets",
+            ),
+        ],
+    )
+    def test_dataset_data_access(
+        self, capabilities: list[Capability], dataset_ids: set[int] | None, expected_result: dict | None
+    ) -> None:
+        inspection = self._create_inspection_obj(capabilities)
+        with monkeypatch_toolkit_client() as client:
+            client.iam.token.inspect.return_value = inspection
+            validator = ValidateAccess(client, "test the operation")
+            result = validator.dataset_data(["read"], dataset_ids=dataset_ids)
+            assert result == expected_result
+
+    @pytest.mark.parametrize(
+        "capabilities, expected_error",
+        [
+            pytest.param(
+                [],
+                (
+                    "You have no permission to read 3D models, assets, events, files, labels, "
+                    "relationships, sequences and time series. This is required to test the "
+                    "operation."
+                ),
+                id="No capabilities",
+            ),
+            pytest.param(
+                [
+                    AssetsAcl([AssetsAcl.Action.Read], AssetsAcl.Scope.All()),
+                    FilesAcl([FilesAcl.Action.Read], FilesAcl.Scope.All()),
+                ],
+                (
+                    "You have no permission to read 3D models, events, labels, relationships, "
+                    "sequences and time series. This is required to test the operation."
+                ),
+                id="Partial capabilities",
+            ),
+        ],
+    )
+    def test_dataset_no_data_access(self, capabilities: list[Capability], expected_error: str) -> None:
+        inspection = self._create_inspection_obj(capabilities)
+
+        with monkeypatch_toolkit_client() as client:
+            client.iam.token.inspect.return_value = inspection
+            validator = ValidateAccess(client, "test the operation")
+            with pytest.raises(AuthorizationError) as exc:
+                validator.dataset_data(["read"], dataset_ids={1, 2})
+            assert str(exc.value) == expected_error
 
     @staticmethod
     def _create_inspection_obj(capabilities: list[Capability]) -> TokenInspection:
