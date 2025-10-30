@@ -475,8 +475,8 @@ class TestValidateAccess:
                 [],
                 (
                     "You have no permission to read 3D models, assets, events, files, labels, "
-                    "relationships, sequences and time series. This is required to test the "
-                    "operation."
+                    "relationships, sequences and time series on datasets 1 and 2. This is "
+                    "required to test the operation."
                 ),
                 id="No capabilities",
             ),
@@ -487,7 +487,8 @@ class TestValidateAccess:
                 ],
                 (
                     "You have no permission to read 3D models, events, labels, relationships, "
-                    "sequences and time series. This is required to test the operation."
+                    "sequences and time series on datasets 1 and 2. This is required to test the "
+                    "operation."
                 ),
                 id="Partial capabilities",
             ),
@@ -496,8 +497,12 @@ class TestValidateAccess:
     def test_dataset_no_data_access(self, capabilities: list[Capability], expected_error: str) -> None:
         inspection = self._create_inspection_obj(capabilities)
 
+        def external_id_lookup(ids: list[int]) -> list[str]:
+            return [str(id_) for id_ in ids]
+
         with monkeypatch_toolkit_client() as client:
             client.iam.token.inspect.return_value = inspection
+            client.lookup.data_sets.external_id.side_effect = external_id_lookup
             validator = ValidateAccess(client, "test the operation")
             with pytest.raises(AuthorizationError) as exc:
                 validator.dataset_data(["read"], dataset_ids={1, 2})
