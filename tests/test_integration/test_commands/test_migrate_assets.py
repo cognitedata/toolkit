@@ -16,13 +16,8 @@ from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
     FILE_METADATA_ID,
     TIME_SERIES_ID,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
-    AssetCentricMigrationIO,
-    FileMetaMigrationIO,
-    TimeSeriesMigrationIO,
-)
+from cognite_toolkit._cdf_tk.commands._migrate.migration_io import AssetCentricMigrationIO
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrateDataSetSelector, MigrationCSVFileSelector
-from cognite_toolkit._cdf_tk.storageio import AssetIO, EventIO
 from tests.test_integration.conftest import HierarchyMinimal
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
@@ -79,8 +74,8 @@ class TestMigrateAssetsCommand:
 
         cmd = MigrationCommand(skip_tracking=True, silent=True)
         cmd.migrate(
-            selected=MigrationCSVFileSelector(datafile=input_file, kind="asset"),
-            data=AssetCentricMigrationIO(client, AssetIO(client)),
+            selected=MigrationCSVFileSelector(datafile=input_file, kind="Assets"),
+            data=AssetCentricMigrationIO(client),
             mapper=AssetCentricMapper(client),
             log_dir=tmp_path / "logs",
             dry_run=False,
@@ -103,7 +98,7 @@ class TestMigrateAssetsCommand:
                 ingestion_mapping=ASSET_ID,
                 preferred_consumer_view=ViewId("cdf_cdm", "CogniteAsset", "v1"),
             ),
-            data=AssetCentricMigrationIO(client, AssetIO(client)),
+            data=AssetCentricMigrationIO(client),
             mapper=AssetCentricMapper(client),
             log_dir=tmp_path,
             dry_run=True,
@@ -127,7 +122,7 @@ class TestMigrateEventsCommand:
                 ingestion_mapping=EVENT_ID,
                 preferred_consumer_view=ViewId("cdf_cdm", "CogniteActivity", "v1"),
             ),
-            data=AssetCentricMigrationIO(client, EventIO(client)),
+            data=AssetCentricMigrationIO(client),
             mapper=AssetCentricMapper(client),
             log_dir=tmp_path,
             dry_run=True,
@@ -151,7 +146,7 @@ class TestMigrateTimeSeriesCommand:
                 ingestion_mapping=TIME_SERIES_ID,
                 preferred_consumer_view=ViewId("cdf_cdm", "CogniteTimeSeries", "v1"),
             ),
-            data=TimeSeriesMigrationIO(client, skip_linking=True),
+            data=AssetCentricMigrationIO(client, skip_linking=True),
             mapper=AssetCentricMapper(client),
             log_dir=tmp_path,
             dry_run=True,
@@ -175,7 +170,7 @@ class TestMigrateFileMetadataCommand:
                 ingestion_mapping=FILE_METADATA_ID,
                 preferred_consumer_view=ViewId("cdf_cdm", "CogniteFile", "v1"),
             ),
-            data=FileMetaMigrationIO(client, skip_linking=False),
+            data=AssetCentricMigrationIO(client, skip_linking=False),
             mapper=AssetCentricMapper(client),
             log_dir=tmp_path,
             dry_run=True,
