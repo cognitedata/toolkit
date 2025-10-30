@@ -20,6 +20,7 @@ from cognite.client.data_classes.documents import SourceFileProperty
 from cognite.client.data_classes.events import EventProperty
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.data_classes.apm_config_v1 import APMConfig, APMConfigList
 from cognite_toolkit._cdf_tk.cruds import NodeCRUD, ResourceCRUD, SpaceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -34,10 +35,11 @@ class ResourceConfig:
 
 
 class MigrationCreator(ABC, Generic[T_CogniteResourceList]):
-    """Base class for migration resources configurations that are created from asset-centric resources."""
+    """Base class for migration resources configurations that are created resources."""
 
     CRUD: type[ResourceCRUD]
     DISPLAY_NAME: str
+    HAS_LINEAGE: bool = True
 
     def __init__(self, client: ToolkitClient) -> None:
         self.client = client
@@ -50,7 +52,6 @@ class MigrationCreator(ABC, Generic[T_CogniteResourceList]):
     def resource_configs(self, resources: T_CogniteResourceList) -> list[ResourceConfig]:
         raise NotImplementedError("Subclasses should implement this method")
 
-    @abstractmethod
     def store_lineage(self, resources: T_CogniteResourceList) -> int:
         """Store lineage information for the created resources.
 
@@ -65,6 +66,7 @@ class InstanceSpaceCreator(MigrationCreator[SpaceApplyList]):
 
     CRUD = SpaceCRUD
     DISPLAY_NAME = "Instance Space"
+    HAS_LINEAGE = True
 
     def __init__(
         self, client: ToolkitClient, datasets: DataSetList | None = None, data_set_external_ids: list[str] | None = None
@@ -205,3 +207,25 @@ class SourceSystemCreator(MigrationCreator[NodeApplyList]):
     def store_lineage(self, resources: NodeApplyList) -> int:
         # We already store lineage when creating the resources.
         return len(resources)
+
+
+class InfieldV2ConfigCreator(MigrationCreator[NodeApplyList]):
+    CRUD = NodeCRUD
+    DISPLAY_NAME = "Infield V2 Configuration"
+    HAS_LINEAGE = False
+
+    def create_resources(self) -> NodeApplyList:
+        apm_config_nodes = self.client.data_modeling.instances.list(instance_type="node", sources=APMConfig.view_id)
+        apm_config = APMConfigList.from_nodes(apm_config_nodes)
+
+        new_config_nodes = NodeApplyList([])
+        for config in apm_config:
+            new_config = self._create_infield_v2_config(config)
+            new_config_nodes.append(new_config)
+        return new_config_nodes
+
+    def resource_configs(self, resources: NodeApplyList) -> list[ResourceConfig]:
+        return [ResourceConfig(filestem=node.external_id, data=node.dump()) for node in resources]
+
+    def _create_infield_v2_config(self, config: APMConfig) -> NodeApply:
+        raise NotImplementedError("To be implemented")
