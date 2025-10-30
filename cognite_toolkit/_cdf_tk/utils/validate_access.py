@@ -296,6 +296,10 @@ class ValidateAccess:
         operation = operation or self.default_operation
         if no_access:
             message = f"You have no permission to {humanize_collection(action)} {humanize_collection(no_access)}."
+            if dataset_ids:
+                dataset_external_ids = self.client.lookup.data_sets.external_id(list(dataset_ids))
+                plural = "s" if len(dataset_external_ids) > 1 else ""
+                message = f"{message[:-1]} on dataset{plural} {humanize_collection(dataset_external_ids)}."
             if missing_access == "raise":
                 raise AuthorizationError(f"{message} This is required to {operation}.")
             else:

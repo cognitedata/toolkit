@@ -568,8 +568,8 @@ class TestValidateAccess:
             pytest.param(
                 [],
                 (
-                    "You have no permission to read extraction pipelines, transformations and workflows. "
-                    "This is required to test the operation."
+                    "You have no permission to read extraction pipelines, transformations "
+                    "and workflows on datasets 1 and 2. This is required to test the operation."
                 ),
                 id="No capabilities",
             ),
@@ -578,18 +578,38 @@ class TestValidateAccess:
                     TransformationsAcl([TransformationsAcl.Action.Read], TransformationsAcl.Scope.All()),
                 ],
                 (
-                    "You have no permission to read extraction pipelines and workflows. "
+                    "You have no permission to read extraction pipelines and workflows on datasets 1 and 2. "
                     "This is required to test the operation."
                 ),
                 id="Partial capabilities",
+            ),
+            pytest.param(
+                [
+                    TransformationsAcl([TransformationsAcl.Action.Read], TransformationsAcl.Scope.All()),
+                    WorkflowOrchestrationAcl(
+                        [WorkflowOrchestrationAcl.Action.Read], WorkflowOrchestrationAcl.Scope.All()
+                    ),
+                    ExtractionPipelinesAcl(
+                        [ExtractionPipelinesAcl.Action.Read], ExtractionPipelinesAcl.Scope.DataSet([1])
+                    ),
+                ],
+                (
+                    "You have no permission to read extraction pipelines on datasets 1 and 2. "
+                    "This is required to test the operation."
+                ),
+                id="Missing dataset access",
             ),
         ],
     )
     def test_dataset_no_configuration_access(self, capabilities: list[Capability], expected_error: str) -> None:
         inspection = self._create_inspection_obj(capabilities)
 
+        def external_id_lookup(ids: list[int]) -> list[str]:
+            return [str(id_) for id_ in ids]
+
         with monkeypatch_toolkit_client() as client:
             client.iam.token.inspect.return_value = inspection
+            client.lookup.data_sets.external_id.side_effect = external_id_lookup
             validator = ValidateAccess(client, "test the operation")
             with pytest.raises(AuthorizationError) as exc:
                 validator.dataset_configurations(["read"], dataset_ids={1, 2})
