@@ -19,7 +19,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.storageio._data_classes import ModelList
-from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricType, JsonVal
+from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricKind, AssetCentricType, JsonVal
 
 
 class MigrationMapping(BaseModel, alias_generator=to_camel_case, extra="ignore", populate_by_name=True):
@@ -129,14 +129,14 @@ class MigrationMappingList(ModelList[MigrationMapping]):
         return {mapping.id: mapping for mapping in self}
 
     @classmethod
-    def read_csv_file(cls, filepath: Path, resource_type: str | None = None) -> "MigrationMappingList":
+    def read_csv_file(cls, filepath: Path, resource_type: AssetCentricKind | None = None) -> "MigrationMappingList":
         if cls is not MigrationMappingList or resource_type is None:
             return super().read_csv_file(filepath)
         cls_by_resource_type: dict[str, type[MigrationMappingList]] = {
-            "asset": AssetMigrationMappingList,
-            "timeseries": TimeSeriesMigrationMappingList,
-            "file": FileMigrationMappingList,
-            "event": EventMigrationMappingList,
+            "Assets": AssetMigrationMappingList,
+            "TimeSeries": TimeSeriesMigrationMappingList,
+            "FileMetadata": FileMigrationMappingList,
+            "Events": EventMigrationMappingList,
         }
         if resource_type not in cls_by_resource_type:
             raise ToolkitValueError(

@@ -3,8 +3,8 @@ from pathlib import Path
 import responses
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.commands._migrate.adapter import (
-    AssetCentricMigrationIOAdapter,
+from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
+    AssetCentricMigrationIO,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.storageio import AssetIO
@@ -21,8 +21,8 @@ class TestAssetCentricMigrationIOAdapter:
 
         csv_file = tmp_path / "files.csv"
         csv_file.write_text("id,space,externalId\n" + "\n".join(f"{i},mySpace,asset_{i}" for i in range(N)))
-        selector = MigrationCSVFileSelector(datafile=csv_file, kind="asset")
-        adapter = AssetCentricMigrationIOAdapter(client, AssetIO(client))
+        selector = MigrationCSVFileSelector(datafile=csv_file, kind="Assets")
+        adapter = AssetCentricMigrationIO(client)
         downloaded = list(adapter.stream_data(selector))
         assert len(downloaded) == 2
         assert sum(len(chunk) for chunk in downloaded) == N
