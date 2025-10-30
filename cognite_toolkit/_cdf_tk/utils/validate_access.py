@@ -1,17 +1,21 @@
 from collections.abc import Sequence
-from typing import Literal, TypeAlias
+from typing import Literal, TypeAlias, overload
 
 from cognite.client.data_classes.capabilities import (
     AssetsAcl,
     Capability,
     DataModelInstancesAcl,
     DataModelsAcl,
+    ExtractionPipelinesAcl,
     FilesAcl,
     TimeSeriesAcl,
+    TransformationsAcl,
+    WorkflowOrchestrationAcl,
 )
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 Action: TypeAlias = Literal["read", "write"]
@@ -135,13 +139,29 @@ class ValidateAccess:
         """
         raise NotImplementedError()
 
+    @overload
+    def dataset_configurations(
+        self,
+        action: Sequence[Action],
+        dataset_ids: set[int],
+        operation: str | None = None,
+    ) -> None: ...
+
+    @overload
+    def dataset_configurations(
+        self,
+        action: Sequence[Action],
+        dataset_ids: None = None,
+        operation: str | None = None,
+    ) -> dict[Literal["transformations", "workflows", "extraction pipelines"], list[int]]: ...
+
     def dataset_configurations(
         self,
         action: Sequence[Action],
         dataset_ids: set[int] | None = None,
         operation: str | None = None,
         missing: Literal["raise", "warn"] = "raise",
-    ) -> list[int] | None:
+    ) -> dict[Literal["transformations", "workflows", "extraction pipelines"], list[int]] | None:
         """Validate access configuration resources.
 
         Configuration resources are:
@@ -154,13 +174,65 @@ class ValidateAccess:
             dataset_ids (Set[int] | None): The dataset IDs to check access for. If None, checks access for all datasets.
             operation (str | None): The operation being performed, used for error and warning messages.
             missing (Literal["raise", "warn"]): Whether to raise an error or warn when access is missing for specified datasets.
+
         Returns:
-            list[int] | None: Returns a list of dataset IDs if access is limited to these datasets, or None if access is granted to all datasets.
+            dict[Literal["transformations", "workflows", "extraction pipelines"], list[int] | None]:
+                If dataset_ids is None, returns a dictionary with keys as configuration resource names and values as lists of dataset IDs the user has access to.
+                If dataset_ids is provided, returns None if the user has access to all specified datasets for all configuration resources.
+
         Raises:
             ValueError: If the client.token.get_scope() returns an unexpected dataset configuration scope type.
             AuthorizationError: If the user does not have permission to perform the specified action on the given dataset.
         """
-        raise NotImplementedError()
+        need_access_to = set(dataset_ids) if dataset_ids is not None else None
+        no_access: list[str] = []
+        output: dict[Literal["transformations", "workflows", "extraction pipelines"], list[int]] = {}
+        name: Literal["transformations", "workflows", "extraction pipelines"]
+        for name, read_action, write_action in [  # type: ignore[assignment]
+            ("transformations", TransformationsAcl.Action.Read, TransformationsAcl.Action.Write),
+            ("workflows", WorkflowOrchestrationAcl.Action.Read, WorkflowOrchestrationAcl.Action.Write),
+            ("extraction pipelines", ExtractionPipelinesAcl.Action.Read, ExtractionPipelinesAcl.Action.Write),
+        ]:
+            actions = [{"read": read_action, "write": write_action}[a] for a in action]
+            scopes = self.client.token.get_scope(actions)
+            if scopes is None:
+                no_access.append(name)
+                continue
+            # First check for 'all' scope
+            for scope in scopes:
+                if isinstance(
+                    scope,
+                    TransformationsAcl.Scope.All
+                    | WorkflowOrchestrationAcl.Scope.All
+                    | ExtractionPipelinesAcl.Scope.All,
+                ):
+                    break
+            else:
+                # No 'all' scope found, check dataset scopes
+                for scope in scopes:
+                    if isinstance(
+                        scope,
+                        TransformationsAcl.Scope.DataSet
+                        | WorkflowOrchestrationAcl.Scope.DataSet
+                        | ExtractionPipelinesAcl.Scope.DataSet,
+                    ):
+                        if need_access_to is None:
+                            output[name] = scope.ids
+                            break
+                        missing_data_set = need_access_to - set(scope.ids)
+                        if missing_data_set:
+                            no_access.append(name)
+                            break
+        operation = operation or self.default_operation
+        if no_access:
+            message = f"You have no permission to {humanize_collection(action)} {humanize_collection(no_access)}."
+            if missing == "raise":
+                raise AuthorizationError(f"{message} This is required to {operation}.")
+            else:
+                HighSeverityWarning(f"{message}. You will have limited functionality to {operation}.").print_warning()
+        elif dataset_ids is not None:
+            return None
+        return output
 
     def timeseries(
         self,
