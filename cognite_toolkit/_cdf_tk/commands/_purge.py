@@ -367,12 +367,19 @@ class PurgeCommand(ToolkitCommand):
     def _purge_batch(
         crud: ResourceCRUD, delete_url: str, delete_client: HTTPClient, result: ResourceDeployResult
     ) -> Callable[[list[JsonVal]], None]:
+        def as_id(item: JsonVal) -> Hashable:
+            try:
+                return crud.get_id(item)
+            except KeyError:
+                # Fallback to internal ID
+                return crud.get_internal_id(item)
+
         def process(items: list[JsonVal]) -> None:
             responses = delete_client.request_with_retries(
                 ItemsRequest(
                     endpoint_url=delete_url,
                     method="POST",
-                    items=[DeleteItem(item=item, as_id_fun=crud.get_id) for item in items],
+                    items=[DeleteItem(item=item, as_id_fun=as_id) for item in items],
                 )
             )
             for response in responses:
