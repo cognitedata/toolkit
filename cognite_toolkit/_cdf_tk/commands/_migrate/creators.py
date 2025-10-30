@@ -225,10 +225,7 @@ class InfieldV2ConfigCreator(MigrationCreator[NodeApplyList]):
         return new_config_nodes
 
     def resource_configs(self, resources: NodeApplyList) -> list[ResourceConfig]:
-        output: list[ResourceConfig] = []
-        for node in resources:
-            output.append(ResourceConfig(filestem=node.external_id, data=node.dump()))
-        return output
+        return [ResourceConfig(filestem=node.external_id, data=node.dump()) for node in resources]
 
     def _create_infield_v2_config(self, config: APMConfig) -> NodeApply:
         raise NotImplementedError("To be implemented")
