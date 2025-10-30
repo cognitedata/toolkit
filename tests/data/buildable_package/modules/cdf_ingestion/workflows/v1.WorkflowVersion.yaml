@@ -1,0 +1,150 @@
+workflowExternalId: {{ workflow }}
+version: 'v1'
+workflowDefinition:
+  tasks:
+    # Population of the transformation tasks
+    - externalId: {{ timeseriesTransformationExternalId }}
+      type: transformation
+      parameters:
+        transformation:
+          externalId: {{ timeseriesTransformationExternalId }}
+          concurrencyPolicy: fail
+      onFailure: abortWorkflow
+    - externalId: {{ assetTransformationExternalId}}
+      type: transformation
+      parameters:
+        transformation:
+          externalId: {{ assetTransformationExternalId}}
+          concurrencyPolicy: fail
+      onFailure: abortWorkflow
+    - externalId: {{ equipmentTransformationExternalId }}
+      type: transformation
+      parameters:
+        transformation:
+          externalId: {{ equipmentTransformationExternalId }}
+          concurrencyPolicy: fail
+      onFailure: abortWorkflow
+    - externalId: {{ equipmentToAssetTransformationExternalId}}
+      type: transformation
+      parameters:
+        transformation:
+          externalId: {{ equipmentToAssetTransformationExternalId}}
+          concurrencyPolicy: fail
+      onFailure: abortWorkflow
+      dependsOn:
+        - externalId: {{ assetTransformationExternalId }}
+        - externalId: {{ equipmentTransformationExternalId }}
+    - externalId: {{ maintenanceOrderTransformationExternalId }}
+      type: transformation
+      parameters:
+        transformation:
+          externalId: {{ maintenanceOrderTransformationExternalId }}
+          concurrencyPolicy: fail
+      onFailure: abortWorkflow
+    - externalId: {{ operationTransformationExternalId }}
+      type: transformation
+      parameters:
+        transformation:
+          externalId: {{ operationTransformationExternalId }}
+          concurrencyPolicy: fail
+      onFailure: abortWorkflow
+    - externalId: {{ operationToMaintenanceOrderTransformationExternalId}}
+      type: transformation
+      parameters:
+        transformation:
+          externalId: {{ operationToMaintenanceOrderTransformationExternalId }}
+          concurrencyPolicy: fail
+      onFailure: abortWorkflow
+      dependsOn:
+        - externalId: {{ maintenanceOrderTransformationExternalId }}
+        - externalId: {{ operationTransformationExternalId }}
+    - externalId: {{ fileTransformationExternalId }}
+      type: transformation
+      parameters:
+        transformation:
+          externalId: {{ fileTransformationExternalId }}
+          concurrencyPolicy: fail
+      onFailure: abortWorkflow
+    # Contextualization tasks
+    - externalId: {{ activityToAssetTransformationExternalId }}
+      type: transformation
+      parameters:
+        transformation:
+          externalId: {{ activityToAssetTransformationExternalId }}
+          concurrencyPolicy: fail
+      onFailure: abortWorkflow
+      dependsOn:
+        - externalId: {{ assetTransformationExternalId }}
+        - externalId: {{ maintenanceOrderTransformationExternalId }}
+        - externalId: {{ operationTransformationExternalId }}
+        - externalId: {{ operationToMaintenanceOrderTransformationExternalId }}
+    - externalId: {{ activityToEquipmentTransformationExternalId }}
+      type: transformation
+      parameters:
+        transformation:
+          externalId: {{ activityToEquipmentTransformationExternalId }}
+          concurrencyPolicy: fail
+      onFailure: abortWorkflow
+      dependsOn:
+        - externalId: {{ equipmentTransformationExternalId }}
+        - externalId: {{ maintenanceOrderTransformationExternalId }}
+        - externalId: {{ operationTransformationExternalId }}
+        - externalId: {{ equipmentToAssetTransformationExternalId }}
+        - externalId: {{ operationToMaintenanceOrderTransformationExternalId }}
+    - externalId: {{ activityToTimeSeriesTransformationExternalId }}
+      type: transformation
+      parameters:
+        transformation:
+          externalId: {{ activityToTimeSeriesTransformationExternalId }}
+          concurrencyPolicy: fail
+      onFailure: abortWorkflow
+      dependsOn:
+        - externalId: {{ timeseriesTransformationExternalId }}
+        - externalId: {{ maintenanceOrderTransformationExternalId }}
+        - externalId: {{ operationTransformationExternalId }}
+        - externalId: {{ operationToMaintenanceOrderTransformationExternalId }}
+    - externalId: {{ timeSeriesToAssetTransformationExternalId }}
+      type: transformation
+      parameters:
+        transformation:
+          externalId: {{ timeSeriesToAssetTransformationExternalId }}
+          concurrencyPolicy: fail
+      onFailure: abortWorkflow
+      dependsOn:
+        - externalId: {{ timeseriesTransformationExternalId }}
+        - externalId: {{ assetTransformationExternalId }}
+    - externalId: {{ timeSeriesToEquipmentTransformationExternalId }}
+      type: transformation
+      parameters:
+        transformation:
+          externalId: {{ timeSeriesToEquipmentTransformationExternalId }}
+          concurrencyPolicy: fail
+      onFailure: abortWorkflow
+      dependsOn:
+        - externalId: {{ timeseriesTransformationExternalId }}
+        - externalId: {{ equipmentTransformationExternalId }}
+        - externalId: {{ equipmentToAssetTransformationExternalId }}
+    - externalId: {{ pandidContextualizationFunction }}
+      type: function
+      parameters:
+        function:
+          externalId: {{ pandidContextualizationFunction}}
+          data:
+            logLevel: INFO
+      onFailure: skipTask
+      dependsOn:
+        - externalId: {{ assetTransformationExternalId }}
+        - externalId: {{ equipmentTransformationExternalId }}
+        - externalId: {{ timeseriesTransformationExternalId }}
+        - externalId: {{ fileTransformationExternalId }}
+
+    - externalId: {{ contextualization_connection_writer}}
+      type: function
+      parameters:
+        function:
+          externalId: {{ contextualization_connection_writer }}
+          data:
+            logLevel: INFO
+      onFailure: abortWorkflow
+      dependsOn:
+        - externalId: {{ pandidContextualizationFunction}}

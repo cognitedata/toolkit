@@ -53,7 +53,6 @@ dev = [
     "pytest-cov >=6.0.0",
     "setuptools >=75.0.0",
     "fastparquet >=2024.5.0",
-    "pyperclip >=1.9.0",
     "types-requests >=2.32.0.20241016",
     "types-python-dateutil>=2.9.0.20250708",
     "marko >=2.1.2",

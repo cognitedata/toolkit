@@ -139,7 +139,7 @@ jobs:
       - name: "Not collect metrics"
         run: uv run cdf collect opt-out
       - name: Initialize project
-        run: uv run cdf modules init demo_project --clean --all
+        run: uv run cdf modules init demo_project --clean --all --library-url "https://github.com/cognitedata/toolkit-data/releases/download/latest/packages.zip" --library-checksum "sha256:b70c207a78d6c94e0977a733571420b250ca641ac8802d8310f1ffe05bf7b2eb"
       - name: "Pre-processing for demo environment"
         run: uv run python ./demo/preproc.py --modules all
       - name: "Build the templates"

@@ -1,0 +1,3 @@
+externalId: {{ workflow }}
+description: This runs the full ingestion with population and contextualization
+dataSetExternalId: {{ dataset }}

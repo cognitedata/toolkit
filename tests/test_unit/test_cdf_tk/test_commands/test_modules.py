@@ -12,24 +12,25 @@ import yaml
 from _pytest.monkeypatch import MonkeyPatch
 from questionary import Choice
 
-from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands.modules import ModulesCommand
-from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH
+from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.data_classes import Package, Packages
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError
 from cognite_toolkit._cdf_tk.tk_warnings.other import HighSeverityWarning
-from tests.data import EXTERNAL_PACKAGE
+from tests.data import COMPLETE_ORG, EXTERNAL_PACKAGE
 from tests.test_unit.utils import MockQuestionary
+
+COMPLETE_ORG_MODULES = COMPLETE_ORG / MODULES
 
 
 @pytest.fixture(scope="session")
 def selected_packages() -> Packages:
-    return Packages.load(BUILTIN_MODULES_PATH)
+    return Packages.load(COMPLETE_ORG_MODULES)
 
 
 @pytest.fixture(scope="session")
 def selected_packages_location() -> Path:
-    return BUILTIN_MODULES_PATH
+    return COMPLETE_ORG_MODULES
 
 
 class MockResponse:
@@ -66,7 +67,7 @@ class TestModulesCommand:
         )
 
         assert Path(target_path).exists()
-        assert Path(target_path / "modules" / "infield" / "cdf_infield_common").exists()
+        assert Path(target_path / "modules" / "my_example_module").exists()
 
     def test_modules_command_with_env(
         self, selected_packages: Packages, selected_packages_location: Path, tmp_path: Path
@@ -102,9 +103,9 @@ class TestModulesCommand:
         )
 
         config = yaml.safe_load(Path(target_path / "config.dev.yaml").read_text())
-        assert config["variables"]["modules"]["infield"]["first_location"] == "oid"
+        assert config["variables"]["modules"]["my_example_module"]["var"] == "one"
 
-    def test_config_non_builtin_modules(self, tmp_path: Path) -> None:
+    def test_config_external_modules(self, tmp_path: Path) -> None:
         target_path = tmp_path / "repo_root"
 
         selected_packages = Packages.load(EXTERNAL_PACKAGE)
@@ -128,10 +129,10 @@ class TestModulesCommand:
         self, selected_packages: Packages, selected_packages_location: Path, tmp_path: Path, monkeypatch: MonkeyPatch
     ) -> None:
         target_path = tmp_path / "repo_root"
-        cmd = ModulesCommand(print_warning=True, skip_tracking=True)
+        cmd = ModulesCommand(print_warning=True, skip_tracking=True, module_source_dir=COMPLETE_ORG_MODULES)
 
-        first_batch = Packages({"infield": selected_packages["infield"]})
-        second_batch = Packages({"quickstart": selected_packages["inrobot"]})
+        first_batch = Packages({"small_1": selected_packages["small_1"]})
+        second_batch = Packages({"small_2": selected_packages["small_2"]})
 
         cmd._create(
             organization_dir=target_path,
@@ -156,60 +157,56 @@ class TestModulesCommand:
             )
 
         config = yaml.safe_load(Path(target_path / "config.qa.yaml").read_text())
-        assert config["variables"]["modules"]["infield"]["first_location"] is not None
-        assert (target_path / "modules" / "infield" / "cdf_infield_common").is_dir()
+        assert config["variables"]["modules"]["my_example_module"]["var"] is not None
+        assert (target_path / "modules" / "my_example_module").is_dir()
 
-        assert config["variables"]["modules"]["inrobot"]["first_location"] is not None
-        assert (target_path / "modules" / "inrobot" / "cdf_inrobot_common").is_dir()
+        assert config["variables"]["modules"]["my_file_expand_module"]["var"] is not None
+        assert (target_path / "modules" / "my_file_expand_module").is_dir()
 
     def test_add_without_config_yaml(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
-        cmd = ModulesCommand(print_warning=True, skip_tracking=True)
+        cmd = ModulesCommand(print_warning=True, skip_tracking=True, module_source_dir=COMPLETE_ORG_MODULES)
         dummy_resource = "space: my_space"
         my_org = tmp_path / "my_org"
-        moules = my_org / "modules"
-        filepath = moules / "my_module" / "data_models" / "my.Space.yaml"
+        modules = my_org / "modules"
+        filepath = modules / "my_module" / "data_models" / "my.Space.yaml"
         filepath.parent.mkdir(parents=True, exist_ok=True)
         filepath.write_text(dummy_resource)
 
-        def select_source_system(choices: list[Choice]) -> Package:
-            selected_package = next((c for c in choices if "source system" in c.title.lower()), None)
+        def select_package(choices: list[Choice]) -> Package:
+            selected_package = next((c for c in choices if "complete organization" in c.title.lower()), None)
             assert selected_package is not None
             return selected_package.value
 
-        def select_sap_events(choices: list[Choice]) -> list:
-            selected_module = next(
-                (c for c in choices if "sap" in c.title.lower() and "event" in c.title.lower()), None
-            )
+        def select_first_module(choices: list[Choice]) -> list:
+            selected_module = next((c for c in choices if "my_example_module" == c.title), None)
             assert selected_module is not None
             return [selected_module.value]
 
-        answers = [select_source_system, select_sap_events, False, False]
+        answers = [select_package, select_first_module, False, False]
 
         with MockQuestionary(ModulesCommand.__module__, monkeypatch, answers):
             cmd.add(my_org)
 
-        yaml_file_count = len(list(moules.rglob("*.yaml")))
+        yaml_file_count = len(list(modules.rglob("*.yaml")))
 
         assert yaml_file_count > 1, "Expected new yaml files to b created"
 
-        def select_sap_assets(choices: list[Choice]) -> list:
-            selected_module = next(
-                (c for c in choices if "sap" in c.title.lower() and "asset" in c.title.lower()), None
-            )
+        def select_second_module(choices: list[Choice]) -> list:
+            selected_module = next((c for c in choices if "my_file_expand_module" == c.title), None)
             assert selected_module is not None
             return [selected_module.value]
 
-        answers = [select_source_system, select_sap_assets, False, False]
+        answers = [select_package, select_second_module, False, False]
 
         with MockQuestionary(ModulesCommand.__module__, monkeypatch, answers):
             cmd.add(my_org)
 
-        new_yaml_file_count = len(list(moules.rglob("*.yaml")))
+        new_yaml_file_count = len(list(modules.rglob("*.yaml")))
 
         assert new_yaml_file_count > yaml_file_count, "Expected new yaml files to be created"
 
     def test_context_manager_scope(self):
-        with ModulesCommand() as cmd:
+        with ModulesCommand(module_source_dir=COMPLETE_ORG_MODULES) as cmd:
             first = Path(cmd._temp_download_dir / "test.txt")
             first.write_text("This is a test file.")
             assert first.exists()
@@ -222,32 +219,13 @@ class TestModulesCommand:
         yield
         _CDF_TOML = None
 
-    def test_library_fallback_if_flag_is_false(self, tmp_path: Path) -> None:
-        valid_toml_content = """
-        [cdf]
-        [modules]
-        version = "0.0.0"
-        [alpha_flags]
-        external_libraries = false
-        [library.valid_url]
-        url = "https://github.com/cognitedata/package.zip"
-        """
-
-        file_path = tmp_path / CDFToml.file_name
-        file_path.write_text(valid_toml_content)
-
-        with ModulesCommand() as cmd:
-            packs, location = cmd._get_available_packages()
-            assert "quickstart" in packs
-            assert location == BUILTIN_MODULES_PATH
-
     def test_download_success(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         dummy_file_content = b"PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 
         mock_response = MockResponse(dummy_file_content, status_code=200)
         monkeypatch.setattr(requests, "get", MagicMock(return_value=mock_response))
 
-        cmd = ModulesCommand(print_warning=True, skip_tracking=True)
+        cmd = ModulesCommand(print_warning=True, skip_tracking=True, module_source_dir=COMPLETE_ORG_MODULES)
         output_zip_path = tmp_path / "test_file.zip"
 
         cmd._download(url="http://example.com/test.zip", file_path=output_zip_path)
@@ -269,7 +247,7 @@ class TestModulesCommand:
 
         # Act & Assert
         with pytest.raises(ToolkitError) as excinfo:
-            ModulesCommand()._download(test_url, output_path)
+            ModulesCommand(module_source_dir=COMPLETE_ORG_MODULES)._download(test_url, output_path)
 
         assert isinstance(excinfo.value.__cause__, requests.exceptions.HTTPError)
 
@@ -288,7 +266,7 @@ class TestModulesCommand:
 
         # Act & Assert
         with pytest.raises(ToolkitError) as excinfo:
-            ModulesCommand()._download(test_url, output_path)
+            ModulesCommand(module_source_dir=COMPLETE_ORG_MODULES)._download(test_url, output_path)
 
         assert "Error downloading file" in str(excinfo.value)
         assert isinstance(excinfo.value.__cause__, requests.exceptions.RequestException)
@@ -306,7 +284,7 @@ class TestModulesCommand:
         monkeypatch.setattr(zipfile, "ZipFile", MagicMock(return_value=mock_zipfile_instance))
 
         with pytest.raises(ToolkitError) as excinfo:
-            ModulesCommand()._unpack(output_path)
+            ModulesCommand(module_source_dir=COMPLETE_ORG_MODULES)._unpack(output_path)
 
         assert isinstance(excinfo.value.__cause__, zipfile.BadZipFile)
         assert "File is not a zip file" in str(excinfo.value.__cause__)
@@ -326,7 +304,7 @@ class TestModulesCommand:
         monkeypatch.setattr(zipfile, "ZipFile", MagicMock(return_value=mock_zipfile_ref))
 
         with pytest.raises(ToolkitError) as excinfo:
-            ModulesCommand()._unpack(output_path)
+            ModulesCommand(module_source_dir=COMPLETE_ORG_MODULES)._unpack(output_path)
 
         assert isinstance(excinfo.value.__cause__, OSError)
         assert "No space left on device" in str(excinfo.value.__cause__)
@@ -334,7 +312,9 @@ class TestModulesCommand:
     def test_checksum_format(self, tmp_path: Path) -> None:
         invalid_checksum = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
         with pytest.raises(ToolkitError) as excinfo:
-            ModulesCommand()._validate_checksum(invalid_checksum, Path(tmp_path / "test_file.zip"))
+            ModulesCommand(module_source_dir=COMPLETE_ORG_MODULES)._validate_checksum(
+                invalid_checksum, Path(tmp_path / "test_file.zip")
+            )
 
         assert "Unsupported checksum format" in str(excinfo.value)
 
@@ -345,7 +325,7 @@ class TestModulesCommand:
 
         expected_checksum = f"sha256:{hashlib.sha256(dummy_file_content).hexdigest()}"
 
-        cmd = ModulesCommand(print_warning=True, skip_tracking=True)
+        cmd = ModulesCommand(print_warning=True, skip_tracking=True, module_source_dir=COMPLETE_ORG / MODULES)
         try:
             cmd._validate_checksum(
                 checksum=expected_checksum,
@@ -370,7 +350,7 @@ class TestModulesCommand:
         mock_response = MockResponse(new_content, status_code=200)
         monkeypatch.setattr(requests, "get", MagicMock(return_value=mock_response))
 
-        cmd = ModulesCommand(print_warning=True, skip_tracking=True)
+        cmd = ModulesCommand(print_warning=True, skip_tracking=True, module_source_dir=COMPLETE_ORG / MODULES)
 
         # Call _download - this should delete the existing file and download new content
         cmd._download(url="http://example.com/test.zip", file_path=stale_file_path)
@@ -393,7 +373,7 @@ class TestModulesCommand:
         """
         from cognite_toolkit._cdf_tk.utils.modules import iterate_modules
 
-        cmd = ModulesCommand(print_warning=True, skip_tracking=True)
+        cmd = ModulesCommand(print_warning=True, skip_tracking=True, module_source_dir=COMPLETE_ORG / MODULES)
 
         # Create a mock module structure in the temp download directory
         # This simulates what would happen when modules are downloaded
@@ -435,7 +415,7 @@ class TestModulesCommand:
         # Intentionally use a different checksum than the file's actual hash
         wrong_checksum = "sha256:" + hashlib.sha256(b"some-other-content").hexdigest()
 
-        cmd = ModulesCommand(print_warning=True, skip_tracking=True)
+        cmd = ModulesCommand(print_warning=True, skip_tracking=True, module_source_dir=COMPLETE_ORG / MODULES)
         cmd._validate_checksum(wrong_checksum, file_path)
 
         assert len(cmd.warning_list) == 1

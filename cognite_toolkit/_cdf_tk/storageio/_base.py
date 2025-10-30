@@ -3,13 +3,13 @@ from collections.abc import Iterable, Mapping, Sequence, Sized
 from dataclasses import dataclass
 from typing import ClassVar, Generic, TypeVar
 
-from cognite.client.data_classes._base import CogniteObject, T_CogniteResource
+from cognite.client.data_classes._base import T_CogniteResource
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest
-from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
+from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal, T_WriteCogniteResource
 
 from .selectors import DataSelector
 
@@ -33,9 +33,6 @@ class Page(Generic[T_CogniteResource], Sized):
 
     def __len__(self) -> int:
         return len(self.items)
-
-
-T_WriteCogniteResource = TypeVar("T_WriteCogniteResource", bound=CogniteObject)
 
 
 @dataclass
