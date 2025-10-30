@@ -38,6 +38,7 @@ from cognite_toolkit._cdf_tk.commands._changes import (
     UpdateDockerImageVersion,
     UpdateModuleVersion,
 )
+from cognite_toolkit._cdf_tk.commands._utils import format_type_annotation
 from cognite_toolkit._cdf_tk.constants import (
     BUILTIN_MODULES,
     MODULES,
@@ -1022,7 +1023,13 @@ default_organization_dir = "{organization_dir.name}"''',
         yaml_skeleton: dict[str, str] = {}
         for name, field in yaml_cls.model_fields.items():
             name = field.alias or name
-            yaml_skeleton[name] = field.description or ""
+            type_str = format_type_annotation(field.annotation)
+            # Remove optional indicators
+            type_str = type_str.replace("| None", "").replace(" | None", "").strip()
+            yaml_skeleton[name] = f"Type - {type_str}"
+            yaml_skeleton[name] = (
+                f"{yaml_skeleton[name]}, {field.description}" if field.description else yaml_skeleton[name]
+            )
             if field.is_required():
                 yaml_skeleton[name] = f"(Required) {yaml_skeleton[name]}"
         return yaml_skeleton
