@@ -26,6 +26,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import Grap
 from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import Streamlit
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, ModulesCommand
+from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds import (
     CRUD_LIST,
     CRUDS_BY_FOLDER_NAME,
@@ -52,7 +53,7 @@ from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.utils import tmp_build_directory
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.constants import REPO_ROOT
-from tests.data import LOAD_DATA, PROJECT_FOR_TEST
+from tests.data import COMPLETE_ORG, LOAD_DATA, PROJECT_FOR_TEST
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.test_cdf_tk.constants import BUILD_DIR, SNAPSHOTS_DIR_ALL
 from tests.test_unit.utils import FakeCogniteResourceGenerator
@@ -243,7 +244,7 @@ def tmp_org_directory() -> Iterator[Path]:
 
 def cognite_module_files_with_loader() -> Iterable[tuple]:
     with tmp_org_directory() as organization_dir, tmp_build_directory() as build_dir:
-        ModulesCommand().init(organization_dir, select_all=True, clean=True)
+        ModulesCommand(module_source_dir=COMPLETE_ORG / MODULES).init(organization_dir, select_all=True, clean=True)
         cdf_toml = CDFToml.load(REPO_ROOT)
         config = BuildConfigYAML.load_from_directory(organization_dir, "dev")
         config.set_environment_variables()

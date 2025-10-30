@@ -1,0 +1,833 @@
+Asset:
+- dataSetId: 7982613576047462211
+  externalId: MyAsset
+  name: MyAsset
+  source: doctrino
+- dataSetId: 7982613576047462211
+  externalId: MyAsset2
+  name: MyAsset2
+  source: doctrino
+- dataSetId: 7982613576047462211
+  description: The root asset in the SAP hierarchy
+  externalId: my_root_asset
+  metadata:
+    origin: cdf-toolkit
+  name: SAP hierarchy
+  source: SAP
+- dataSetId: 7982613576047462211
+  description: This is the root asset
+  externalId: root
+  metadata:
+    key: value
+    key2: value2
+  name: RootAsset
+  source: doctrino
+Container:
+- constraints: {}
+  description: Container with a description property
+  externalId: DescriptionContainer
+  indexes: {}
+  properties:
+    description:
+      immutable: false
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_schema
+  usedFor: node
+- constraints: {}
+  externalId: MyFileExtension
+  indexes: {}
+  properties:
+    fileCategory:
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+    status:
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_schema
+  usedFor: node
+- constraints: {}
+  description: Container with a name property
+  externalId: NameContainer
+  indexes: {}
+  properties:
+    direct:
+      immutable: false
+      type:
+        list: false
+        type: direct
+    name:
+      immutable: false
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_schema
+  usedFor: node
+- constraints: {}
+  externalId: myContainer
+  indexes: {}
+  properties:
+    myContainerProperty:
+      immutable: false
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_schema
+  usedFor: edge
+DataModel:
+- externalId: DataModelLocation
+  space: DataModelSpace
+  version: '1_0_0'
+  views:
+  - externalId: CogniteFile
+    space: cdf_cdm
+    type: view
+    version: v1
+DataPostProcessing:
+- description: Original Description
+  externalId: read_dial_gauge
+  inputSchema:
+    $schema: http://json-schema.org/draft-07/schema#
+    additionalProperties: false
+    id: robotics/schemas/0.1.0/capabilities/ptz
+    properties:
+      method:
+        type: string
+      parameters:
+        properties:
+          pan:
+            maximum: 180
+            minimum: -180
+            type: number
+          tilt:
+            maximum: 90
+            minimum: -90
+            type: number
+          zoom:
+            maximum: 100
+            minimum: 0
+            type: number
+        required:
+        - tilt
+        - pan
+        - zoom
+        type: object
+    required:
+    - method
+    - parameters
+    title: PTZ camera capability input
+    type: object
+  method: read_dial_gauge
+  name: Read dial gauge
+DataSet:
+- description: This dataset is used for all the resources in the complete_org.
+  externalId: ds_complete_org
+  name: Example dataset.
+- description: This is an example dataset used to demonstrate how to create a custom
+    module in the Cognite Data Fusion Toolkit.
+  externalId: ds_timeseries_{{ example_variable }}
+  name: Example dataset.
+Database:
+- name: db_complete_org
+DatapointSubscription:
+- dataSetId: 7982613576047462211
+  description: All timeseries with externalId starting with ts_value
+  externalId: my_subscription
+  filter:
+    prefix:
+      property:
+      - externalId
+      value: ts_value
+  name: My Subscription
+  partitionCount: 1
+Datapoints:
+- args: []
+  dataframe:
+    empty_count: 0
+    first_row:
+      cdf_tooklit:example_timeseries: 0.943
+      cdf_tooklit:example_timeseries:2: 0.9213
+    index_name: timestamp
+    last_row:
+      cdf_tooklit:example_timeseries: 0.9356
+      cdf_tooklit:example_timeseries:2: 0.9153
+    nan_count: 1
+    null_count: 1
+    shape: 5x2
+  kwargs: {}
+  name: missing
+Destination:
+- credentials:
+    nonce: dummy-nonce
+  externalId: EventHubTarget
+  targetDataSetId: 7982613576047462211
+Edge:
+- endNode:
+    externalId: endNode
+    space: sp_instance
+  externalId: MyEdge
+  instanceType: edge
+  sources:
+  - properties:
+      myProperty: myValue
+    source:
+      externalId: MyView
+      space: sp_schema
+      type: view
+      version: v1
+  space: sp_instance
+  startNode:
+    externalId: startNode
+    space: sp_instance
+  type:
+    externalId: AnEdgeType
+    space: sp_schema
+Event:
+- assetIds:
+  - 13458544937205513867
+  - 221232397997127486
+  dataSetId: 7982613576047462211
+  description: My event description
+  endTime: 1732959346052
+  externalId: MyEvent
+  metadata:
+    key: value
+  source: my_source
+  startTime: 1732959346052
+  subtype: info
+  type: success
+ExtractionPipeline:
+- createdBy: unknown
+  dataSetId: 7982613576047462211
+  description: Asset source extraction pipeline with configuration for a DB extractor
+    reading data from Hamburg SAP
+  documentation: Extracts data from SAP for the asset hierarchy in Hamburg Location
+  externalId: ep_src_asset_hamburg_sap
+  name: src:asset:hamburg:sap
+  rawTables:
+  - dbName: db_complete_org
+    tableName: asset
+  source: doctrino
+ExtractionPipelineConfig:
+- config: "logger:\n  console:\n    level: INFO\n  file:\n    level: INFO\n    path:\
+    \ file.log\n    user: domain\\\\user\n# List of databases\ndatabases:\n- type:\
+    \ odbc\n  name: postgres\n  connection-string: DSN={MyPostgresDsn}\n# List of\
+    \ queries\nqueries:\n- name: test-postgres\n  database: postgres\n  query: SELECT\n"
+  description: DB extractor config reading data from Hamburg SAP
+  externalId: ep_src_asset_hamburg_sap
+FileCRUD:
+- externalId: MyVanillaFile
+  filehash: 0f18a9c5
+  space: sp_nodes
+- external_id: classicFileMetadata
+  filehash: de91f3a0
+- external_id: myapp
+  filehash: c59dc2b6
+FileMetadata:
+- dataSetId: 7982613576047462211
+  directory: /files
+  externalId: classicFileMetadata
+  metadata:
+    origin: cognite-toolkit
+  mimeType: text/plain
+  name: classicfile.txt
+  source: doctrino
+- data_set_id: 13045366179566211942
+  external_id: fn_first_function
+  id: 64
+  name: first_example_function.zip
+  overwrite: true
+- dataSetId: 7982613576047462211
+  directory: /streamlit-apps/
+  externalId: myapp
+  metadata:
+    cdf-toolkit-app-hash: c59dc2b6
+    creator: doctrino@github.com
+    description: This is a super app
+    entrypoint: main.py
+    name: MySuperApp
+    published: true
+    theme: Light
+    thumbnail: data:image/webp;base64,....
+  name: MySuperApp-source.json
+Frame:
+- externalId: rootCoordinateFrame
+  name: Root coordinate frame
+Function:
+- cpu: 0.6
+  description: Returns the input data, secrets, and function info.
+  envVars:
+    CDF_ENV: dev
+    ENV_TYPE: dev
+  externalId: fn_first_function
+  fileId: 64
+  functionPath: ./src/handler.py
+  indexUrl: https://pypi.org/simple
+  memory: 0.6
+  metadata:
+    cdf-toolkit-secret-hash: d218376a8813e2bb96b70b9f3df07157b0b58f18f3667c64e500032095f4f2cb0f1679ed7034189009131ce2e77cc363d840b478d94d8525cad7d9830a78e129
+    cognite-toolkit-hash: /=a6372056;arbitrary.yaml=a66557f5;handler.py=c2bdf618;requirements.txt=f6da09a3;src/__init__.py=e3b0c442;src/handler.py=28ebbc99
+    version: '1'
+  name: first:example:function
+  owner: Anonymous
+  runtime: py311
+  secrets:
+    mysecret: ${ENVIRONMENT_SECRET}
+FunctionSchedule:
+- cronExpression: 0 8 * * *
+  data:
+    breakfast: 'today: peanut butter sandwich and coffee'
+    dinner: 'today: steak and red wine'
+    lunch: 'today: greek salad and water'
+  description: 'Run every day at 8am UTC cdf-auth: def5e2e0'
+  functionId: 16394514322001950830
+  name: daily-8am-utc
+  nonce: dummy-nonce
+Group:
+- capabilities:
+  - projectsAcl:
+      actions:
+      - LIST
+      - READ
+      scope:
+        all: {}
+  metadata:
+    origin: cognite-toolkit
+  name: gp_all_scoped_complete_org
+  sourceId: '1234567890123456'
+- capabilities:
+  - timeSeriesAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        datasetScope:
+          ids:
+          - 7982613576047462211
+  - securityCategoriesAcl:
+      actions:
+      - LIST
+      - MEMBEROF
+      scope:
+        idscope:
+          ids:
+          - 12263997670725665908
+  - timeSeriesAcl:
+      actions:
+      - READ
+      scope:
+        idscope:
+          ids:
+          - 8000473161398881718
+  - locationFiltersAcl:
+      actions:
+      - READ
+      scope:
+        idScope:
+          ids:
+          - 2013659761282392869
+  metadata:
+    origin: cognite-toolkit
+  name: gp_resource_scoped_complete_org
+  sourceId: '1234567890123456789'
+Job:
+- destinationId: EventHubTarget
+  externalId: myJob
+  format:
+    compression: gzip
+    encoding: utf16
+    type: value
+  sourceId: my_eventhub
+LabelDefinition:
+- dataSetId: 7982613576047462211
+  description: Labels used for relationships that represent flows
+  externalId: label_flow
+  name: Flows
+- dataSetId: 7982613576047462211
+  description: Pump label
+  externalId: label_pump
+  name: Pump
+Location:
+- description: Original Description
+  externalId: waterTreatmentPlant1_Windows_3_11_8
+  name: Water treatment plant
+LocationFilter:
+- assetCentric:
+    dataSetIds:
+    - 0
+  dataModels:
+  - externalId: DataModelLocation
+    space: DataModelSpace
+    version: '1_0_0'
+  description: LocationFilter for DataModel
+  externalId: DataModelLocationFilter
+  name: LocationFilter for DataModel
+- externalId: child-location-1
+  name: Child 1
+  parentId: 17153903781108366294
+- externalId: child-location-2
+  name: Child 2
+  parentId: 12078427450105880526
+- description: A location filter for the Fornebu location
+  externalId: fornebu_location_filter
+  instanceSpaces:
+  - DataModelSpace
+  name: Fornebu location filter
+  views:
+  - externalId: CogniteAsset
+    representsEntity: ASSET
+    space: cdf_cdm
+    version: v1
+- description: This is a description of the location.
+  externalId: main-location
+  name: Main location name
+Map:
+- description: Original Description
+  externalId: robotMap
+  mapType: POINTCLOUD
+  name: Robot navigation map
+Mapping:
+- externalId: MyMapping
+  input:
+    delimiter: ','
+    type: csv
+  mapping:
+    expression: '[{ "type": "datapoint", "timestamp": to_unix_timestamp(input.timestamp,
+      "%Y-%m-%dT%H:%M:%S"), "value": try_float(input.value, null), "externalId": input.tag
+      }].filter(datapoint => datapoint.value is not null)'
+  published: true
+Node:
+- externalId: AnEdgeType
+  instanceType: node
+  space: sp_schema
+- externalId: MyNodeType
+  instanceType: node
+  space: sp_schema
+- externalId: MyOtherNodeType
+  instanceType: node
+  space: sp_schema
+- externalId: MyVanillaFile
+  instanceType: node
+  sources:
+  - properties:
+      aliases: null
+      assets: null
+      category: null
+      description: null
+      directory: null
+      mimeType: text/plain
+      name: filecontent.txt
+      source: null
+      sourceContext: null
+      sourceCreatedTime: '2020-01-01T00:00:00.000+00:00'
+      sourceCreatedUser: MySelf
+      sourceId: null
+      sourceUpdatedTime: '2021-01-01T00:00:00.000+00:00'
+      sourceUpdatedUser: Me
+      tags:
+      - tag1
+      - tag2
+    source:
+      externalId: CogniteFile
+      space: cdf_cdm
+      type: view
+      version: v1
+  space: sp_nodes
+- externalId: endNode
+  instanceType: node
+  space: sp_instance
+- externalId: startNode
+  instanceType: node
+  space: sp_instance
+Relationship:
+- confidence: 0.42
+  dataSetId: 7982613576047462211
+  externalId: MyRelationship
+  sourceExternalId: MyAsset
+  sourceType: asset
+  targetExternalId: MyEvent
+  targetType: event
+RobotCapability:
+- dataHandlingSchema:
+    $schema: http://json-schema.org/draft-07/schema#
+    id: robotics/schemas/0.1.0/data_handling/ptz
+    properties:
+      uploadInstructions:
+        additionalProperties: false
+        properties:
+          image:
+            additionalProperties: false
+            properties:
+              method:
+                const: uploadFile
+              parameters:
+                properties:
+                  filenamePrefix:
+                    type: string
+                required:
+                - filenamePrefix
+                type: object
+            required:
+            - method
+            - parameters
+            type: object
+        type: object
+    required:
+    - uploadInstructions
+    type: object
+  description: Original Description
+  externalId: ptz
+  inputSchema:
+    $schema: http://json-schema.org/draft-07/schema#
+    additionalProperties: false
+    id: robotics/schemas/0.1.0/capabilities/ptz
+    properties:
+      method:
+        type: string
+      parameters:
+        properties:
+          pan:
+            maximum: 180
+            minimum: -180
+            type: number
+          tilt:
+            maximum: 90
+            minimum: -90
+            type: number
+          zoom:
+            maximum: 100
+            minimum: 0
+            type: number
+        required:
+        - tilt
+        - pan
+        - zoom
+        type: object
+    required:
+    - method
+    - parameters
+    title: PTZ camera capability input
+    type: object
+  method: ptz
+  name: ptz
+Row:
+- args: []
+  dataframe:
+    empty_count: 0
+    first_row:
+      categoryId: 1
+      description: This is an example
+      name: Example 1
+    index_name: key
+    last_row:
+      categoryId: 2
+      description: This is a third example
+      name: Example 3
+    nan_count: 0
+    null_count: 0
+    shape: 3x3
+  kwargs:
+    db_name: db_complete_org
+    ensure_parent: false
+    table_name: asset
+  name: db_complete_org_asset_False
+SecurityCategory:
+- name: sc_demo_category
+Sequence:
+- columns:
+  - description: The wind speed
+    externalId: wind_speed
+    name: Wind Speed
+    valueType: DOUBLE
+  - description: The power production
+    externalId: power
+    name: Power
+    valueType: DOUBLE
+  dataSetId: 7982613576047462211
+  description: A power curve sequence
+  externalId: SequenceWithRows
+  name: SequenceWithRows
+- columns:
+  - description: Epoch time
+    externalId: mySequenceTime
+    name: Time
+    valueType: DOUBLE
+  - description: The value of the sequence
+    externalId: mySequenceValue
+    name: value
+    valueType: DOUBLE
+  dataSetId: 7982613576047462211
+  description: A sequence of numbers
+  externalId: mySequence
+  name: mySequence
+SequenceRows:
+- columns:
+  - externalId: wind_speed
+    valueType: Double
+  - externalId: power
+    valueType: Double
+  externalId: SequenceWithRows
+  rows:
+  - rowNumber: 1
+    values:
+    - 0.0
+    - 0.0
+  - rowNumber: 2
+    values:
+    - 5.0
+    - 309000.0
+  - rowNumber: 3
+    values:
+    - 10.0
+    - 2693000.0
+  - rowNumber: 4
+    values:
+    - 15.0
+    - 3450000.0
+  - rowNumber: 5
+    values:
+    - 20.0
+    - 3450000.0
+  - rowNumber: 6
+    values:
+    - 25.0
+    - 3450000.0
+Source:
+- eventHubName: The name of the event hub
+  externalId: my_eventhub
+  host: myHost
+  keyName: The name of the key
+  keyValue: SuperSecretKeyValue
+  type: eventhub
+Space:
+- space: DataModelSpace
+- space: sp_instance
+- space: sp_nodes
+- space: sp_schema
+Table:
+- createdTime: 1
+  name: asset
+ThreeDModel:
+- createdTime: 1
+  dataSetId: 7982613576047462211
+  metadata:
+    origin: cognite-toolkit
+  name: my_3Dmodel
+TimeSeries:
+- dataSetId: 12442375928886344717
+  description: This is an example timeseries used to demonstrate how to create a custom
+    module in the Cognite Data Fusion Toolkit.
+  externalId: cdf_tooklit:example_timeseries
+  isStep: false
+  isString: false
+  metadata:
+    foo: bar
+  name: CDF Toolkit Example Timeseries
+- dataSetId: 12442375928886344717
+  description: This is an example timeseries used to demonstrate how to create a custom
+    module in the Cognite Data Fusion Toolkit.
+  externalId: cdf_tooklit:example_timeseries:2
+  isStep: false
+  isString: false
+  metadata:
+    bar: foo
+  name: CDF Toolkit Example Timeseries 2
+Transformation:
+- conflictMode: upsert
+  dataSetId: 7982613576047462211
+  destination:
+    type: assets
+  externalId: inlined_transformation
+  ignoreNullFields: true
+  isPublic: true
+  name: Example of an inlined transformation
+  query: select "fpso_uny" as externalId, UNY as uid, UNY as description from some_database.some_table
+    where UNY is not null
+- conflictMode: upsert
+  dataSetId: 7982613576047462211
+  destination:
+    type: assets
+  destinationNonce:
+    cdfProjectName: pytest-project
+    nonce: dummy-nonce
+    sessionId: 42
+  externalId: tr_first_transformation
+  ignoreNullFields: true
+  isPublic: true
+  name: example:first:transformation
+  query: "-- cdf-auth: f164c472\nselect\n  cast(`externalId` as STRING) as externalId\n\
+    from\n  `db_{{ example_variable }}`.`table_{{ example_variable }}`;\n-- this is\
+    \ a comment with an ← Unicode character\n"
+  sourceNonce:
+    cdfProjectName: pytest-project
+    nonce: dummy-nonce
+    sessionId: 42
+TransformationNotification:
+- destination: jane.smith@example.com
+  transformationExternalId: tr_first_transformation
+- destination: john.smith@example.com
+  transformationExternalId: tr_first_transformation
+TransformationSchedule:
+- externalId: tr_first_transformation
+  interval: 7 * * * *
+  isPaused: true
+View:
+- externalId: ChildView
+  implements:
+  - externalId: ParentView
+    space: sp_schema
+    type: view
+    version: v1
+  properties:
+    description:
+      container:
+        externalId: DescriptionContainer
+        space: sp_schema
+        type: container
+      containerPropertyIdentifier: description
+    directFile:
+      container:
+        externalId: NameContainer
+        space: sp_schema
+        type: container
+      containerPropertyIdentifier: direct
+      source:
+        externalId: MyFileExtension
+        space: sp_schema
+        type: view
+        version: v1
+    fileView:
+      connectionType: multi_edge_connection
+      direction: outwards
+      source:
+        externalId: MyFileExtension
+        space: sp_schema
+        type: view
+        version: v1
+      type:
+        externalId: FileType
+        space: sp_schema
+  space: sp_schema
+  version: v1
+- externalId: MyFileExtension
+  implements:
+  - externalId: CogniteFile
+    space: cdf_cdm
+    type: view
+    version: v1
+  properties:
+    fileCategory:
+      container:
+        externalId: MyFileExtension
+        space: sp_schema
+        type: container
+      containerPropertyIdentifier: fileCategory
+    status:
+      container:
+        externalId: MyFileExtension
+        space: sp_schema
+        type: container
+      containerPropertyIdentifier: status
+  space: sp_schema
+  version: v1
+- externalId: MyView
+  implements: []
+  properties:
+    myProperty:
+      container:
+        externalId: myContainer
+        space: sp_schema
+        type: container
+      containerPropertyIdentifier: myContainerProperty
+  space: sp_schema
+  version: v1
+- externalId: ParentView
+  implements: []
+  properties:
+    directFile:
+      container:
+        externalId: NameContainer
+        space: sp_schema
+        type: container
+      containerPropertyIdentifier: direct
+      source:
+        externalId: CogniteFile
+        space: cdf_cdm
+        type: view
+        version: v1
+    fileView:
+      connectionType: multi_edge_connection
+      direction: outwards
+      source:
+        externalId: CogniteFile
+        space: cdf_cdm
+        type: view
+        version: v1
+      type:
+        externalId: FileType
+        space: sp_schema
+    name:
+      container:
+        externalId: NameContainer
+        space: sp_schema
+        type: container
+      containerPropertyIdentifier: name
+  space: sp_schema
+  version: v1
+Workflow:
+- dataSetId: 7982613576047462211
+  description: A workflow for processing data
+  externalId: baz
+WorkflowTrigger:
+- externalId: MyTrigger
+  metadata:
+    cognite-toolkit-auth-hash: def5e2e0
+  triggerRule:
+    cronExpression: 5 4 * * *
+    triggerType: schedule
+  workflowExternalId: baz
+  workflowVersion: '1'
+WorkflowVersion:
+- version: '1'
+  workflowDefinition:
+    description: Execute tasks in sequence
+    tasks:
+    - description: Task One Ipsum lorem dolor sit amet
+      externalId: baz_function_task
+      name: Task One
+      onFailure: abortWorkflow
+      parameters:
+        function:
+          externalId: fn_first_function
+        isAsyncComplete: false
+      retries: 3
+      timeout: 3600
+      type: function
+    - dependsOn:
+      - externalId: baz_function_task
+      description: Task Two Ipsum lorem dolor sit amet
+      externalId: baz_transformation_task
+      name: Task Two
+      onFailure: skipTask
+      parameters:
+        transformation:
+          concurrencyPolicy: fail
+          externalId: tr_first_transformation
+          useTransformationCredentials: false
+      retries: 3
+      timeout: 3600
+      type: transformation
+  workflowExternalId: baz
+deleted: {}

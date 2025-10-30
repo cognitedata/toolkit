@@ -19,8 +19,10 @@ from cognite_toolkit._cdf_tk.client.data_classes.canvas import IndustrialCanvas
 from cognite_toolkit._cdf_tk.client.data_classes.migration import InstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import ModulesCommand, RepoCommand
+from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.constants import REPO_ROOT
+from tests.data import BUILDABLE_PACKAGE, COMPLETE_ORG
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import PrintCapture
 
@@ -83,34 +85,47 @@ def local_tmp_repo_path() -> Iterator[Path]:
     shutil.rmtree(repo_path, ignore_errors=True)
 
 
-@pytest.fixture(scope="session")
-def organization_dir(
-    local_tmp_repo_path: Path,
-) -> Path:
-    organization_folder = "pytest-org"
-    organization_dir = local_tmp_repo_path / organization_folder
-    ModulesCommand(silent=True).init(
+def init_organization_dir(organization_dir: Path, module_source_dir: Path) -> None:
+    ModulesCommand(silent=True, module_source_dir=module_source_dir).init(
         organization_dir,
         select_all=True,
         clean=True,
     )
 
+
+@pytest.fixture(scope="session")
+def complete_org_dir(
+    local_tmp_repo_path: Path,
+) -> None:
+    organization_dir = local_tmp_repo_path / "pytest-org"
+    init_organization_dir(organization_dir, COMPLETE_ORG / MODULES)
     return organization_dir
 
 
-@pytest.fixture
-def organization_dir_mutable(
+@pytest.fixture(scope="session")
+def complete_org_dir_mutable(
     local_tmp_repo_path: Path,
 ) -> Path:
     """This is used in tests were the source module files are modified. For example, cdf pull commands."""
     organization_dir = local_tmp_repo_path / "pytest-org-mutable"
+    init_organization_dir(organization_dir, COMPLETE_ORG / MODULES)
+    return organization_dir
 
-    ModulesCommand(silent=True).init(
-        organization_dir,
-        select_all=True,
-        clean=True,
-    )
 
+@pytest.fixture(scope="session")
+def buildable_modules(local_tmp_repo_path: Path) -> Path:
+    organization_dir = local_tmp_repo_path / "legacy-pytest-org"
+    init_organization_dir(organization_dir, BUILDABLE_PACKAGE / MODULES)
+    return organization_dir
+
+
+@pytest.fixture
+def buildable_modules_mutable(
+    local_tmp_repo_path: Path,
+) -> Path:
+    """This is used in tests were the source module files are modified. For example, cdf pull commands."""
+    organization_dir = local_tmp_repo_path / "legacy-pytest-org-mutable"
+    init_organization_dir(organization_dir, BUILDABLE_PACKAGE / MODULES)
     return organization_dir
 
 
@@ -118,16 +133,11 @@ def organization_dir_mutable(
 def capture_print(monkeypatch: MonkeyPatch) -> PrintCapture:
     capture = PrintCapture()
     toolkit_path = REPO_ROOT / "cognite_toolkit"
-    builtin_modules_path = toolkit_path / "_cdf_tk" / "_packages"
     monkeypatch.setattr("cognite_toolkit._cdf.print", capture)
 
     # Monkeypatch all print functions in the toolkit automatically
     for folder in ["_cdf_tk", "_api"]:
         for py_file in (toolkit_path / folder).rglob("*.py"):
-            if py_file.is_relative_to(builtin_modules_path):
-                # Don't monkeypatch the function code of the
-                # builtin modules
-                continue
             file_path = py_file.relative_to(toolkit_path)
             module_path = f"{'.'.join(['cognite_toolkit', *file_path.parts[:-1]])}.{file_path.stem}"
             try:

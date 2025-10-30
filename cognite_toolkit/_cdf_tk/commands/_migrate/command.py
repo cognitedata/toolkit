@@ -279,7 +279,7 @@ class MigrationCommand(ToolkitCommand):
             result = deploy_cmd.dry_run_deploy(resources, crud, False, False)
         else:
             result = deploy_cmd.actual_deploy(resources, crud)
-            if result.calculated_total > 0:
+            if result.calculated_total > 0 and creator.HAS_LINEAGE:
                 store_count = creator.store_lineage(resource_list)
                 self.console(f"Stored lineage for {store_count:,} {creator.DISPLAY_NAME}.")
 

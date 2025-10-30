@@ -1,0 +1,28 @@
+[library]
+title = "tests"
+
+[packages.complete_org]
+title = "Complete Organization" 
+description = "Complete Organization"
+canCherryPick = true
+modules = [
+    "my_example_module",
+    "my_file_expand_module",
+    "populate_model",
+]
+
+[packages.small_1]
+title = "Small package 1" 
+description = "Small package 1"
+canCherryPick = true
+modules = [
+    "my_example_module",
+]
+
+[packages.small_2]
+title = "Small package 2"
+description = "Small package 2"
+canCherryPick = true
+modules = [
+    "my_file_expand_module",
+]

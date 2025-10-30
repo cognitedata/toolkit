@@ -1,0 +1,202 @@
+Container:
+- constraints: {}
+  externalId: PrimitiveNullable
+  indexes: {}
+  name: PrimitiveNullable
+  properties:
+    boolean:
+      autoIncrement: false
+      immutable: false
+      name: text
+      nullable: true
+      type:
+        list: false
+        type: boolean
+    date:
+      autoIncrement: false
+      immutable: false
+      name: date
+      nullable: true
+      type:
+        list: false
+        type: date
+    direct:
+      autoIncrement: false
+      immutable: false
+      name: direct
+      nullable: true
+      type:
+        list: false
+        type: direct
+    enum:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        type: enum
+        unknownValue: Unknown
+        values:
+          Running:
+            description: Running
+            name: Running
+          Stopped:
+            description: Stopped
+            name: Stopped
+          Unknown:
+            description: Unknown
+            name: Unknown
+    float32:
+      autoIncrement: false
+      immutable: false
+      name: float32
+      nullable: true
+      type:
+        list: false
+        type: float32
+    float64:
+      autoIncrement: false
+      immutable: false
+      name: float64
+      nullable: true
+      type:
+        list: false
+        type: float64
+    int32:
+      autoIncrement: false
+      immutable: false
+      name: int32
+      nullable: true
+      type:
+        list: false
+        type: int32
+    int64:
+      autoIncrement: false
+      immutable: false
+      name: int64
+      nullable: true
+      type:
+        list: false
+        type: int64
+    json:
+      autoIncrement: false
+      immutable: false
+      name: json
+      nullable: true
+      type:
+        list: false
+        type: json
+    text:
+      autoIncrement: false
+      immutable: false
+      name: text
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+    timestamp:
+      autoIncrement: false
+      immutable: false
+      name: timestamp
+      nullable: true
+      type:
+        list: false
+        type: timestamp
+  space: population_model
+  usedFor: node
+DataModel:
+- externalId: PopulationTestModel
+  space: population_model
+  version: v1
+  views:
+  - externalId: PrimitiveNullable
+    space: population_model
+    type: view
+    version: v1
+Space:
+- space: population_instance_space
+- space: population_model
+View:
+- externalId: PrimitiveNullable
+  implements: []
+  name: PrimitiveNullable
+  properties:
+    boolean:
+      container:
+        externalId: PrimitiveNullable
+        space: population_model
+        type: container
+      containerPropertyIdentifier: boolean
+      name: text
+    date:
+      container:
+        externalId: PrimitiveNullable
+        space: population_model
+        type: container
+      containerPropertyIdentifier: date
+      name: date
+    direct:
+      container:
+        externalId: PrimitiveNullable
+        space: population_model
+        type: container
+      containerPropertyIdentifier: direct
+      name: direct
+    enum:
+      container:
+        externalId: PrimitiveNullable
+        space: population_model
+        type: container
+      containerPropertyIdentifier: enum
+      name: enum
+    float32:
+      container:
+        externalId: PrimitiveNullable
+        space: population_model
+        type: container
+      containerPropertyIdentifier: float32
+      name: float32
+    float64:
+      container:
+        externalId: PrimitiveNullable
+        space: population_model
+        type: container
+      containerPropertyIdentifier: float64
+      name: float64
+    int32:
+      container:
+        externalId: PrimitiveNullable
+        space: population_model
+        type: container
+      containerPropertyIdentifier: int32
+      name: int32
+    int64:
+      container:
+        externalId: PrimitiveNullable
+        space: population_model
+        type: container
+      containerPropertyIdentifier: int64
+      name: int64
+    json:
+      container:
+        externalId: PrimitiveNullable
+        space: population_model
+        type: container
+      containerPropertyIdentifier: json
+      name: json
+    text:
+      container:
+        externalId: PrimitiveNullable
+        space: population_model
+        type: container
+      containerPropertyIdentifier: text
+      name: text
+    timestamp:
+      container:
+        externalId: PrimitiveNullable
+        space: population_model
+        type: container
+      containerPropertyIdentifier: timestamp
+      name: timestamp
+  space: population_model
+  version: v1
