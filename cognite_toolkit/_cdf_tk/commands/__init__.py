@@ -3,7 +3,6 @@ from ._migrate import (
     MigrationCanvasCommand,
     MigrationPrepareCommand,
 )
-from ._populate import PopulateCommand
 from ._profile import ProfileAssetCentricCommand, ProfileAssetCommand, ProfileRawCommand, ProfileTransformationCommand
 from ._purge import PurgeCommand
 from ._upload import UploadCommand
@@ -35,7 +34,6 @@ __all__ = [
     "MigrationCanvasCommand",
     "MigrationPrepareCommand",
     "ModulesCommand",
-    "PopulateCommand",
     "ProfileAssetCentricCommand",
     "ProfileAssetCommand",
     "ProfileRawCommand",

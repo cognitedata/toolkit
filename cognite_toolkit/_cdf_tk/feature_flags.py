@@ -29,10 +29,6 @@ class Flags(Enum):
         visible=True,
         description="Enables the support for repeating modules in the config file",
     )
-    POPULATE = FlagMetadata(
-        visible=True,
-        description="Enables support for the populate command",
-    )
     AGENTS = FlagMetadata(
         visible=True,
         description="Enables support for Atlas Agents and Agent Tools",
