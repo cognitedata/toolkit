@@ -478,6 +478,11 @@ class PurgeCommand(ToolkitCommand):
             three_d_crud = ThreeDModelCRUD.create_loader(client)
             to_delete.extend(
                 [
+                    ExternalIdToDelete(
+                        RelationshipCRUD.create_loader(client),
+                        RelationshipAggregator(client).count(data_set_external_id=data_set_external_id),
+                        config.create_api_url("/relationships/delete"),
+                    ),
                     IdResourceToDelete(
                         EventCRUD.create_loader(client),
                         EventAggregator(client).count(data_set_external_id=data_set_external_id),
@@ -499,24 +504,19 @@ class PurgeCommand(ToolkitCommand):
                         config.create_api_url("/sequences/delete"),
                     ),
                     IdResourceToDelete(
+                        three_d_crud,
+                        sum(1 for _ in three_d_crud.iterate(data_set_external_id=data_set_external_id)),
+                        config.create_api_url("/3d/models/delete"),
+                    ),
+                    IdResourceToDelete(
                         AssetCRUD.create_loader(client),
                         AssetAggregator(client).count(data_set_external_id=data_set_external_id),
                         config.create_api_url("/assets/delete"),
                     ),
                     ExternalIdToDelete(
-                        RelationshipCRUD.create_loader(client),
-                        RelationshipAggregator(client).count(data_set_external_id=data_set_external_id),
-                        config.create_api_url("/relationships/delete"),
-                    ),
-                    ExternalIdToDelete(
                         LabelCRUD.create_loader(client),
                         LabelCountAggregator(client).count(data_set_external_id=data_set_external_id),
                         config.create_api_url("/labels/delete"),
-                    ),
-                    IdResourceToDelete(
-                        three_d_crud,
-                        sum(1 for _ in three_d_crud.iterate(data_set_external_id=data_set_external_id)),
-                        config.create_api_url("/3d/models/delete"),
                     ),
                 ]
             )
