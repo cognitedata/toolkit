@@ -127,6 +127,9 @@ class ToDelete(ABC):
     ) -> Callable[[CogniteResourceList], list[JsonVal]]:
         raise NotImplementedError()
 
+    def get_extra_fields(self) -> dict[str, JsonVal]:
+        return {}
+
 
 @dataclass
 class DataModelingToDelete(ToDelete):
@@ -205,6 +208,14 @@ class ExternalIdToDelete(ToDelete):
             return [{"externalId": item.external_id} for item in chunk]
 
         return as_external_id
+
+
+@dataclass
+class AssetToDelete(IdResourceToDelete):
+    recursive: bool
+
+    def get_extra_fields(self) -> dict[str, JsonVal]:
+        return {"recursive": self.recursive}
 
 
 class PurgeCommand(ToolkitCommand):
@@ -331,7 +342,7 @@ class PurgeCommand(ToolkitCommand):
                         item.crud, space, data_set_external_id, batch_size=self.BATCH_SIZE_DM
                     ),
                     process=item.get_process_function(client, console, verbose, process_results),
-                    write=self._purge_batch(item.crud, item.delete_url, delete_client, write_results),
+                    write=self._purge_batch(item, item.delete_url, delete_client, write_results),
                     max_queue_size=10,
                     iteration_count=iteration_count,
                     download_description=f"Downloading {item.display_name}",
@@ -365,8 +376,10 @@ class PurgeCommand(ToolkitCommand):
 
     @staticmethod
     def _purge_batch(
-        crud: ResourceCRUD, delete_url: str, delete_client: HTTPClient, result: ResourceDeployResult
+        delete_item: ToDelete, delete_url: str, delete_client: HTTPClient, result: ResourceDeployResult
     ) -> Callable[[list[JsonVal]], None]:
+        crud = delete_item.crud
+
         def as_id(item: JsonVal) -> Hashable:
             try:
                 return crud.get_id(item)
@@ -380,6 +393,7 @@ class PurgeCommand(ToolkitCommand):
                     endpoint_url=delete_url,
                     method="POST",
                     items=[DeleteItem(item=item, as_id_fun=as_id) for item in items],
+                    extra_body_fields=delete_item.get_extra_fields(),
                 )
             )
             for response in responses:
@@ -407,6 +421,7 @@ class PurgeCommand(ToolkitCommand):
         archive_dataset: bool = False,
         include_data: bool = True,
         include_configurations: bool = False,
+        asset_recursive: bool = False,
         dry_run: bool = False,
         auto_yes: bool = False,
         verbose: bool = False,
@@ -419,6 +434,7 @@ class PurgeCommand(ToolkitCommand):
             archive_dataset:  Whether to archive the dataset itself after the purge
             include_data: Whether to include data (assets, events, time series, files, sequences, 3D models, relationships, labels) in the purge
             include_configurations: Whether to include configurations (workflows, transformations, extraction pipelines) in the purge
+            asset_recursive: Whether to recursively delete assets.
             dry_run: Whether to perform a dry run
             auto_yes:  Whether to automatically confirm the purge
             verbose:  Whether to print verbose output
@@ -453,6 +469,7 @@ class PurgeCommand(ToolkitCommand):
             include_data,
             include_configurations,
             selected_data_set_external_id,
+            asset_recursive,
         )
         if dry_run:
             results = DeployResults([], "purge", dry_run=True)
@@ -476,7 +493,12 @@ class PurgeCommand(ToolkitCommand):
         print(f"DataSet {data_set} archived")
 
     def _create_to_delete_list_purge_dataset(
-        self, client: ToolkitClient, include_data: bool, include_configurations: bool, data_set_external_id: str
+        self,
+        client: ToolkitClient,
+        include_data: bool,
+        include_configurations: bool,
+        data_set_external_id: str,
+        asset_recursive: bool,
     ) -> list[ToDelete]:
         config = client.config
         to_delete: list[ToDelete] = []
@@ -515,10 +537,11 @@ class PurgeCommand(ToolkitCommand):
                         sum(1 for _ in three_d_crud.iterate(data_set_external_id=data_set_external_id)),
                         config.create_api_url("/3d/models/delete"),
                     ),
-                    IdResourceToDelete(
+                    AssetToDelete(
                         AssetCRUD.create_loader(client),
                         AssetAggregator(client).count(data_set_external_id=data_set_external_id),
                         config.create_api_url("/assets/delete"),
+                        recursive=asset_recursive,
                     ),
                     ExternalIdToDelete(
                         LabelCRUD.create_loader(client),
