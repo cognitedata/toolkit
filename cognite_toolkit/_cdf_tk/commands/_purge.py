@@ -165,17 +165,6 @@ class NodesToDelete(ToDelete):
         return check_for_data
 
 
-@dataclass
-class IdResourceToDelete(ToDelete):
-    def get_process_function(
-        self, client: ToolkitClient, console: Console, verbose: bool, process_results: ResourceDeployResult
-    ) -> Callable[[CogniteResourceList], list[JsonVal]]:
-        def as_id(chunk: CogniteResourceList) -> list[JsonVal]:
-            return [{"id": item.id} for item in chunk]
-
-        return as_id
-
-
 class PurgeCommand(ToolkitCommand):
     BATCH_SIZE_DM = 1000
 
