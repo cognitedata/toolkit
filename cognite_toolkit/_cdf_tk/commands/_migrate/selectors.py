@@ -7,6 +7,7 @@ from cognite.client.data_classes.data_modeling import ViewId
 
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import MigrationMappingList
 from cognite_toolkit._cdf_tk.storageio import DataSelector
+from cognite_toolkit._cdf_tk.storageio.selectors import DataSetSelector
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricKind
 
 
@@ -58,3 +59,6 @@ class MigrateDataSetSelector(MigrationSelector):
 
     def get_ingestion_mappings(self) -> list[str]:
         return [self.ingestion_mapping] if self.ingestion_mapping else []
+
+    def as_asset_centric_selector(self) -> DataSetSelector:
+        return DataSetSelector(data_set_external_id=self.data_set_external_id, kind=self.kind)

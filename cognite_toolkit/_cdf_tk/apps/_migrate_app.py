@@ -15,9 +15,9 @@ from cognite_toolkit._cdf_tk.commands._migrate import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.creators import InstanceSpaceCreator, SourceSystemCreator
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
-    AssetCentricMigrationIOAdapter,
-    FileMetaIOAdapter,
-    TimeSeriesIOAdapter,
+    AssetCentricMigrationIO,
+    FileMetaMigrationIO,
+    TimeSeriesMigratoinIO,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import (
     MigrateDataSetSelector,
@@ -319,7 +319,7 @@ class MigrateApp(typer.Typer):
         cmd.run(
             lambda: cmd.migrate(
                 selected=selected,
-                data=AssetCentricMigrationIOAdapter(client, AssetIO(client)),
+                data=AssetCentricMigrationIO(client, AssetIO(client)),
                 mapper=AssetCentricMapper(client),
                 log_dir=log_dir,
                 dry_run=dry_run,
@@ -468,7 +468,7 @@ class MigrateApp(typer.Typer):
         cmd.run(
             lambda: cmd.migrate(
                 selected=selected,
-                data=AssetCentricMigrationIOAdapter(client, EventIO(client)),
+                data=AssetCentricMigrationIO(client, EventIO(client)),
                 mapper=AssetCentricMapper(client),
                 log_dir=log_dir,
                 dry_run=dry_run,
@@ -575,7 +575,7 @@ class MigrateApp(typer.Typer):
         cmd.run(
             lambda: cmd.migrate(
                 selected=selected,
-                data=TimeSeriesIOAdapter(client, skip_linking=skip_linking),
+                data=TimeSeriesMigratoinIO(client, skip_linking=skip_linking),
                 mapper=AssetCentricMapper(client),
                 log_dir=log_dir,
                 dry_run=dry_run,
@@ -683,7 +683,7 @@ class MigrateApp(typer.Typer):
         cmd.run(
             lambda: cmd.migrate(
                 selected=selected,
-                data=FileMetaIOAdapter(client, skip_linking=skip_linking),
+                data=FileMetaMigrationIO(client, skip_linking=skip_linking),
                 mapper=AssetCentricMapper(client),
                 log_dir=log_dir,
                 dry_run=dry_run,

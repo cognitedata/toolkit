@@ -33,7 +33,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_model import (
     RESOURCE_VIEW_MAPPING_VIEW_ID,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import ASSET_ID, create_default_mappings
-from cognite_toolkit._cdf_tk.commands._migrate.migration_io import AssetCentricMigrationIOAdapter
+from cognite_toolkit._cdf_tk.commands._migrate.migration_io import AssetCentricMigrationIO
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio import AssetIO
@@ -231,7 +231,7 @@ class TestMigrationCommand:
 
         result = command.migrate(
             selected=MigrationCSVFileSelector(datafile=csv_file, kind="asset"),
-            data=AssetCentricMigrationIOAdapter(client, AssetIO(client)),
+            data=AssetCentricMigrationIO(client, AssetIO(client)),
             mapper=AssetCentricMapper(client),
             log_dir=tmp_path / "logs",
             dry_run=False,
