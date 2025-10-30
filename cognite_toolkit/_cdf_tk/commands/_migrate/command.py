@@ -76,7 +76,7 @@ class MigrationCommand(ToolkitCommand):
             ](
                 download_iterable=self._download_iterable(selected, data, tracker),
                 process=self._convert(mapper, data, tracker, log_file),
-                write=self._upload(write_client, data, tracker, log_file, dry_run),
+                write=self._upload(selected, write_client, data, tracker, log_file, dry_run),
                 iteration_count=iteration_count,
                 max_queue_size=10,
                 download_description=f"Downloading {selected.display_name}",
@@ -176,6 +176,7 @@ class MigrationCommand(ToolkitCommand):
 
     def _upload(
         self,
+        selected: T_Selector,
         write_client: HTTPClient,
         target: UploadableStorageIO[T_Selector, T_CogniteResource, T_WriteCogniteResource],
         tracker: ProgressTracker[str],
@@ -189,7 +190,7 @@ class MigrationCommand(ToolkitCommand):
             if dry_run:
                 responses = [SuccessResponseItems(200, "", [item.source_id for item in data_item])]
             else:
-                responses = target.upload_items(data_chunk=data_item, http_client=write_client, selector=None)
+                responses = target.upload_items(data_chunk=data_item, http_client=write_client, selector=selected)
 
             issues: list[Chunk] = []
             for item in responses:
