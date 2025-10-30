@@ -29,8 +29,8 @@ def _cleanup_temp_dirs() -> None:
         if temp_dir.exists():
             try:
                 shutil.rmtree(temp_dir, ignore_errors=True)
-            except Exception:
-                pass  # Best effort cleanup
+            except Exception as e:
+                print(f"Warning: Failed to clean up temp directory {temp_dir}: {e}")
 
 
 # Register cleanup handler
