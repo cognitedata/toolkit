@@ -307,8 +307,8 @@ def modules_command_with_cached_download(
                 try:
                     if any(unpacked_dir.iterdir()):
                         return  # Already unpacked, skip
-                except OSError:
-                    pass
+                except OSError as e:
+                    print(f"Warning: Could not check unpacked directory {unpacked_dir}: {e}")
 
             # Proceed with unpack
             original_unpack(self, file_path)
