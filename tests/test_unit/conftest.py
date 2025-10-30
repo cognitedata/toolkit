@@ -113,14 +113,14 @@ def complete_org_dir_mutable(
 
 
 @pytest.fixture(scope="session")
-def builtin_legacy_org_dir(local_tmp_repo_path: Path) -> Path:
+def buildable_modules(local_tmp_repo_path: Path) -> Path:
     organization_dir = local_tmp_repo_path / "legacy-pytest-org"
     init_organization_dir(organization_dir, BUILDABLE_PACKAGE / MODULES)
     return organization_dir
 
 
 @pytest.fixture
-def builtin_legacy_org_dir_mutable(
+def buildable_modules_mutable(
     local_tmp_repo_path: Path,
 ) -> Path:
     """This is used in tests were the source module files are modified. For example, cdf pull commands."""

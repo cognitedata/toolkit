@@ -63,12 +63,12 @@ def test_build_deploy_module(
     monkeypatch: MonkeyPatch,
     toolkit_client_approval: ApprovalToolkitClient,
     env_vars_with_client: EnvironmentVariables,
-    builtin_legacy_org_dir: Path,
+    buildable_modules: Path,
     data_regression,
 ) -> None:
     BuildCommand(skip_tracking=True, silent=True).execute(
         verbose=False,
-        organization_dir=builtin_legacy_org_dir,
+        organization_dir=buildable_modules,
         build_dir=build_tmp_path,
         selected=[module_path.name],
         build_env_name="dev",
@@ -112,12 +112,12 @@ def test_build_deploy_with_dry_run(
     monkeypatch: MonkeyPatch,
     toolkit_client_approval: ApprovalToolkitClient,
     env_vars_with_client: EnvironmentVariables,
-    builtin_legacy_org_dir: Path,
+    buildable_modules: Path,
 ) -> None:
     mock_environments_yaml_file(module_path, monkeypatch)
 
     BuildCommand(skip_tracking=True, silent=True).execute(
-        organization_dir=builtin_legacy_org_dir,
+        organization_dir=buildable_modules,
         build_dir=build_tmp_path,
         selected=None,
         build_env_name="dev",
@@ -151,14 +151,14 @@ def test_init_build_clean(
     monkeypatch: MonkeyPatch,
     toolkit_client_approval: ApprovalToolkitClient,
     env_vars_with_client: EnvironmentVariables,
-    builtin_legacy_org_dir: Path,
+    buildable_modules: Path,
     data_regression,
 ) -> None:
     mock_environments_yaml_file(module_path, monkeypatch)
 
     BuildCommand(silent=True, skip_tracking=True).execute(
         verbose=False,
-        organization_dir=builtin_legacy_org_dir,
+        organization_dir=buildable_modules,
         build_dir=build_tmp_path,
         selected=None,
         no_clean=False,
