@@ -15,6 +15,7 @@ from cognite.client.data_classes.data_modeling import (
     NodeList,
     ViewId,
 )
+from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils._identifier import InstanceId
 from rich import print
@@ -197,10 +198,30 @@ class PurgeCommand(ToolkitCommand):
         # ValidateAuth
         validator = ValidateAccess(client, "purge")
         if include_space or (stats.containers + stats.views + stats.data_models) > 0:
+            # We check for write even in dry-run mode. This is because dry-run is expected to fail
+            # if the user cannot perform the purge.
             validator.data_model(["read", "write"], spaces={selected_space})
         if (stats.nodes + stats.edges) > 0:
             validator.instances(["read", "write"], spaces={selected_space})
 
+        to_delete = self._create_to_delete_list_purge_space(client, delete_datapoints, delete_file_content, stats)
+        if dry_run:
+            results = DeployResults([], "purge", dry_run=True)
+            for item in to_delete:
+                results[item.display_name] = ResourceDeployResult(item.display_name, deleted=item.total)
+            if include_space:
+                space_loader = SpaceCRUD.create_loader(client)
+                results[space_loader.display_name] = ResourceDeployResult(space_loader.display_name, deleted=1)
+        else:
+            results = self._delete_resources(to_delete, client, verbose, selected_space, None)
+            if include_space:
+                self._delete_space(client, selected_space, results)
+        print(results.counts_table(exclude_columns={"Created", "Changed", "Total"}))
+        return results
+
+    def _create_to_delete_list_purge_space(
+        self, client: ToolkitClient, delete_datapoints: bool, delete_file_content: bool, stats: SpaceStatistics
+    ) -> list[ToDelete]:
         config = client.config
         to_delete = [
             EdgeToDelete(
@@ -229,19 +250,7 @@ class PurgeCommand(ToolkitCommand):
                 config.create_api_url("/models/containers/delete"),
             ),
         ]
-        if dry_run:
-            results = DeployResults([], "purge", dry_run=True)
-            for item in to_delete:
-                results[item.display_name] = ResourceDeployResult(item.display_name, deleted=item.total)
-            if include_space:
-                space_loader = SpaceCRUD.create_loader(client)
-                results[space_loader.display_name] = ResourceDeployResult(space_loader.display_name, deleted=1)
-        else:
-            results = self._delete_resources(to_delete, client, verbose, selected_space, None)
-            if include_space:
-                self._delete_space(client, selected_space, results)
-        print(results.counts_table(exclude_columns={"Created", "Changed", "Total"}))
-        return results
+        return to_delete
 
     def _delete_space(self, client: ToolkitClient, selected_space: str, results: DeployResults) -> None:
         space_loader = SpaceCRUD.create_loader(client)
@@ -375,19 +384,20 @@ class PurgeCommand(ToolkitCommand):
             # Check workflow, transformations, extraction pipeline access
             validator.dataset_configurations(action, dataset_ids={data_set_id})
 
-        to_delete: list[ToDelete] = []
-
+        to_delete: list[ToDelete] = self._create_to_delete_list_purge_dataset(
+            client,
+            include_data,
+            include_configurations,
+        )
         if dry_run:
             results = DeployResults([], "purge", dry_run=True)
             for item in to_delete:
                 results[item.display_name] = ResourceDeployResult(item.display_name, deleted=item.total)
-                space_loader = SpaceCRUD.create_loader(client)
-                results[space_loader.display_name] = ResourceDeployResult(space_loader.display_name, deleted=1)
         else:
             results = self._delete_resources(to_delete, client, verbose, None, selected_data_set_external_id)
-            if include_dataset:
-                self._archive_dataset(client, selected_data_set_external_id)
         print(results.counts_table(exclude_columns={"Created", "Changed", "Total"}))
+        if include_dataset and not dry_run:
+            self._archive_dataset(client, selected_data_set_external_id)
         return results
 
     def _archive_dataset(self, client: ToolkitClient, data_set: str) -> None:
@@ -399,6 +409,14 @@ class PurgeCommand(ToolkitCommand):
         )
         client.data_sets.update(archived)
         print(f"DataSet {data_set} archived")
+
+    def _create_to_delete_list_purge_dataset(
+        self,
+        client: ToolkitClient,
+        include_data: bool,
+        include_configurations: bool,
+    ) -> list[ToDelete]:
+        raise NotImplementedError()
 
     def dataset(
         self,
