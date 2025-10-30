@@ -16,15 +16,12 @@ from cognite_toolkit._cdf_tk.commands._migrate.creators import InstanceSpaceCrea
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     AssetCentricMigrationIO,
-    FileMetaMigrationIO,
-    TimeSeriesMigrationIO,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import (
+    AssetCentricMigrationSelector,
     MigrateDataSetSelector,
     MigrationCSVFileSelector,
-    MigrationSelector,
 )
-from cognite_toolkit._cdf_tk.storageio import AssetIO, EventIO
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.cli_args import parse_view_str
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
@@ -319,7 +316,7 @@ class MigrateApp(typer.Typer):
         cmd.run(
             lambda: cmd.migrate(
                 selected=selected,
-                data=AssetCentricMigrationIO(client, AssetIO(client)),
+                data=AssetCentricMigrationIO(client),
                 mapper=AssetCentricMapper(client),
                 log_dir=log_dir,
                 dry_run=dry_run,
@@ -339,11 +336,11 @@ class MigrateApp(typer.Typer):
         kind: AssetCentricKind,
         resource_type: str,
         container_id: ContainerId,
-    ) -> tuple[MigrationSelector, bool, bool]:
+    ) -> tuple[AssetCentricMigrationSelector, bool, bool]:
         if data_set_id is not None and mapping_file is not None:
             raise typer.BadParameter("Cannot specify both data_set_id and mapping_file")
         elif mapping_file is not None:
-            selected: MigrationSelector = MigrationCSVFileSelector(datafile=mapping_file, kind=kind)
+            selected: AssetCentricMigrationSelector = MigrationCSVFileSelector(datafile=mapping_file, kind=kind)
         elif data_set_id is not None:
             parsed_view = parse_view_str(consumption_view) if consumption_view is not None else None
             selected = MigrateDataSetSelector(
@@ -468,7 +465,7 @@ class MigrateApp(typer.Typer):
         cmd.run(
             lambda: cmd.migrate(
                 selected=selected,
-                data=AssetCentricMigrationIO(client, EventIO(client)),
+                data=AssetCentricMigrationIO(client),
                 mapper=AssetCentricMapper(client),
                 log_dir=log_dir,
                 dry_run=dry_run,
@@ -575,7 +572,7 @@ class MigrateApp(typer.Typer):
         cmd.run(
             lambda: cmd.migrate(
                 selected=selected,
-                data=TimeSeriesMigrationIO(client, skip_linking=skip_linking),
+                data=AssetCentricMigrationIO(client, skip_linking=skip_linking),
                 mapper=AssetCentricMapper(client),
                 log_dir=log_dir,
                 dry_run=dry_run,
@@ -683,7 +680,7 @@ class MigrateApp(typer.Typer):
         cmd.run(
             lambda: cmd.migrate(
                 selected=selected,
-                data=FileMetaMigrationIO(client, skip_linking=skip_linking),
+                data=AssetCentricMigrationIO(client, skip_linking=skip_linking),
                 mapper=AssetCentricMapper(client),
                 log_dir=log_dir,
                 dry_run=dry_run,

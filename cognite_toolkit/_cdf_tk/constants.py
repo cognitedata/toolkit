@@ -168,3 +168,4 @@ DATA_MANIFEST_STEM = "Manifest"
 
 # Migration Constants
 MISSING_INSTANCE_SPACE = "<InstanceSpaceMissing>"
+MISSING_EXTERNAL_ID = "INTERNAL_ID_project_id"

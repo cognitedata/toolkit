@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.migration import ResourceViewMa
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import asset_centric_to_dm
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import AssetCentricMapping
 from cognite_toolkit._cdf_tk.commands._migrate.issues import ConversionIssue, MigrationIssue
-from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationSelector
+from cognite_toolkit._cdf_tk.commands._migrate.selectors import AssetCentricMigrationSelector
 from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio._base import T_Selector, T_WriteCogniteResource
@@ -43,7 +43,7 @@ class DataMapper(Generic[T_Selector, T_CogniteResource, T_WriteCogniteResource],
         raise NotImplementedError("Subclasses must implement this method.")
 
 
-class AssetCentricMapper(DataMapper[MigrationSelector, AssetCentricMapping, InstanceApply]):
+class AssetCentricMapper(DataMapper[AssetCentricMigrationSelector, AssetCentricMapping, InstanceApply]):
     def __init__(self, client: ToolkitClient) -> None:
         self.client = client
         self._ingestion_view_by_id: dict[ViewId, View] = {}
@@ -53,7 +53,7 @@ class AssetCentricMapper(DataMapper[MigrationSelector, AssetCentricMapping, Inst
         self._asset_mapping_by_id: dict[int, DirectRelationReference] = {}
         self._source_system_mapping_by_id: dict[str, DirectRelationReference] = {}
 
-    def prepare(self, source_selector: MigrationSelector) -> None:
+    def prepare(self, source_selector: AssetCentricMigrationSelector) -> None:
         ingestion_view_ids = source_selector.get_ingestion_mappings()
         ingestion_views = self.client.migration.resource_view_mapping.retrieve(ingestion_view_ids)
         self._view_mapping_by_id = {view.external_id: view for view in ingestion_views}

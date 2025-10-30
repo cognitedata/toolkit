@@ -1,5 +1,5 @@
-from collections.abc import Iterator, Sequence
-from typing import ClassVar
+from collections.abc import Iterator, Mapping, Sequence
+from typing import ClassVar, cast
 
 from cognite.client.data_classes._base import (
     T_WritableCogniteResource,
@@ -8,13 +8,11 @@ from cognite.client.data_classes.data_modeling import InstanceApply, NodeId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.pending_instances_ids import PendingInstanceId
-from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
+from cognite_toolkit._cdf_tk.constants import MISSING_EXTERNAL_ID, MISSING_INSTANCE_SPACE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.storageio import (
-    FileMetadataIO,
     HierarchyIO,
     InstanceIO,
-    TimeSeriesIO,
     UploadableStorageIO,
 )
 from cognite_toolkit._cdf_tk.storageio._base import Page, UploadItem
@@ -28,11 +26,11 @@ from cognite_toolkit._cdf_tk.utils.useful_types import (
 
 from .data_classes import AssetCentricMapping, AssetCentricMappingList, MigrationMapping, MigrationMappingList
 from .data_model import INSTANCE_SOURCE_VIEW_ID
-from .selectors import MigrateDataSetSelector, MigrationCSVFileSelector, MigrationSelector
+from .selectors import AssetCentricMigrationSelector, MigrateDataSetSelector, MigrationCSVFileSelector
 
 
 class AssetCentricMigrationIO(
-    UploadableStorageIO[MigrationSelector, AssetCentricMapping[T_WritableCogniteResource], InstanceApply]
+    UploadableStorageIO[AssetCentricMigrationSelector, AssetCentricMapping[T_WritableCogniteResource], InstanceApply]
 ):
     KIND = "AssetCentricMigration"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
@@ -41,17 +39,20 @@ class AssetCentricMigrationIO(
     CHUNK_SIZE = 1000
     UPLOAD_ENDPOINT = InstanceIO.UPLOAD_ENDPOINT
 
+    PENDING_INSTANCE_ID_ENDPOINT_BY_KIND: ClassVar[Mapping[AssetCentricKind, str]] = {
+        "TimeSeries": "/timeseries/set-pending-instance-ids",
+        "FileMetadata": "/files/set-pending-instance-ids",
+    }
+
     def __init__(self, client: ToolkitClient, skip_linking: bool = True) -> None:
         super().__init__(client)
         self.hierarchy = HierarchyIO(client)
-        # Overwriting the IO to include linking.
-        self.hierarchy._io_by_kind["TimeSeries"] = TimeSeriesMigrationIO(client, skip_linking)
-        self.hierarchy._io_by_kind["FileMetadata"] = FileMetaMigrationIO(client, skip_linking)
+        self.skip_linking = skip_linking
 
     def as_id(self, item: AssetCentricMapping) -> str:
         return f"{item.mapping.resource_type}_{item.mapping.id}"
 
-    def stream_data(self, selector: MigrationSelector, limit: int | None = None) -> Iterator[Page]:
+    def stream_data(self, selector: AssetCentricMigrationSelector, limit: int | None = None) -> Iterator[Page]:
         if isinstance(selector, MigrationCSVFileSelector):
             iterator = self._stream_from_csv(selector, limit)
         elif isinstance(selector, MigrateDataSetSelector):
@@ -75,7 +76,7 @@ class AssetCentricMigrationIO(
                 yield chunk
                 chunk = []
 
-    def count(self, selector: MigrationSelector) -> int | None:
+    def count(self, selector: AssetCentricMigrationSelector) -> int | None:
         if isinstance(selector, MigrationCSVFileSelector):
             return len(selector.items)
         elif isinstance(selector, MigrateDataSetSelector):
@@ -90,15 +91,20 @@ class AssetCentricMigrationIO(
         for data_chunk in self.hierarchy.stream_data(asset_centric_selector, limit):
             mapping_list = AssetCentricMappingList[T_WritableCogniteResource]([])
             for resource in data_chunk.items:
-                space_source = self.client.migration.space_source.retrieve(data_set_id=resource.data_set_id)
+                # We know data_set_id is here as we are using a DataSetSelector
+                data_set_id = cast(int, resource.data_set_id)
+                space_source = self.client.migration.space_source.retrieve(data_set_id=data_set_id)
                 instance_space = space_source.instance_space if space_source else None
                 if instance_space is None:
                     instance_space = MISSING_INSTANCE_SPACE
+                external_id = resource.external_id
+                if external_id is None:
+                    external_id = MISSING_EXTERNAL_ID.format(project=self.client.config.project, id=resource.id)
                 mapping = MigrationMapping(
                     resource_type=self._kind_to_resource_type(selector.kind),
                     instance_id=NodeId(
                         space=instance_space,
-                        external_id=resource.external_id,
+                        external_id=external_id,
                     ),
                     id=resource.id,
                     data_set_id=resource.data_set_id,
@@ -124,90 +130,33 @@ class AssetCentricMigrationIO(
     def data_to_json_chunk(
         self,
         data_chunk: Sequence[AssetCentricMapping[T_WritableCogniteResource]],
-        selector: MigrationSelector | None = None,
+        selector: AssetCentricMigrationSelector | None = None,
     ) -> list[dict[str, JsonVal]]:
         return [item.dump() for item in data_chunk]
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> InstanceApply:
         raise NotImplementedError()
 
-
-class FileMetaMigrationIO(FileMetadataIO):
-    """Adapter for migrating file metadata to data model instances.
-
-    This is necessary to link asset-centric FileMetadata to their new CogniteFile instances using the
-    files/set-pending-instance-ids.
-    """
-
-    PENDING_INSTANCE_ID_ENDPOINT: ClassVar[str] = "/files/set-pending-instance-ids"
-
-    def __init__(self, client: ToolkitClient, skip_linking: bool) -> None:
-        super().__init__(client)
-        self.skip_linking = skip_linking
-
     def upload_items(
         self,
         data_chunk: Sequence[UploadItem[InstanceApply]],
         http_client: HTTPClient,
-        selector: MigrationSelector | None = None,
+        selector: AssetCentricMigrationSelector | None = None,
     ) -> Sequence[HTTPMessage]:
         """Upload items by first linking them using files/set-pending-instance-ids and then uploading the instances."""
         if self.skip_linking:
-            return list(super().upload_items(data_chunk, http_client, selector))
+            return list(super().upload_items(data_chunk, http_client, None))
+        elif selector is None:
+            raise ToolkitNotImplementedError(f"Selector must be provided for uploading {self.KIND} items.")
+        elif selector.kind not in self.PENDING_INSTANCE_ID_ENDPOINT_BY_KIND:
+            return list(super().upload_items(data_chunk, http_client, None))
+
+        pending_instance_id_endpoint = self.PENDING_INSTANCE_ID_ENDPOINT_BY_KIND[selector.kind]
         results: list[HTTPMessage] = []
-        to_upload = _LinkMethods.link_asset_centric(
-            data_chunk, http_client, results, self.CHUNK_SIZE, self.PENDING_INSTANCE_ID_ENDPOINT
-        )
+        to_upload = self.link_asset_centric(data_chunk, http_client, results, pending_instance_id_endpoint)
         if to_upload:
-            results.extend(list(super().upload_items(to_upload, http_client, selector)))
+            results.extend(list(super().upload_items(to_upload, http_client, None)))
         return results
-
-
-class TimeSeriesMigrationIO(TimeSeriesIO):
-    """Adapter for migrating time series to data model instances.
-
-    This is necessary to link asset-centric TimeSeries to their new CogniteTimeSeries instances using the
-    timeseries/set-pending-instance-ids.
-    """
-
-    PENDING_INSTANCE_ID_ENDPOINT: ClassVar[str] = "/timeseries/set-pending-instance-ids"
-
-    def __init__(self, client: ToolkitClient, skip_linking: bool) -> None:
-        super().__init__(client)
-        self.skip_linking = skip_linking
-
-    def upload_items(
-        self,
-        data_chunk: Sequence[UploadItem[InstanceApply]],
-        http_client: HTTPClient,
-        selector: MigrationSelector | None = None,
-    ) -> Sequence[HTTPMessage]:
-        """Upload items by first linking them using files/set-pending-instance-ids and then uploading the instances."""
-        if self.skip_linking:
-            return list(super().upload_items(data_chunk, http_client, selector))
-        results: list[HTTPMessage] = []
-        to_upload = _LinkMethods.link_asset_centric(
-            data_chunk, http_client, results, self.CHUNK_SIZE, self.PENDING_INSTANCE_ID_ENDPOINT
-        )
-        if to_upload:
-            results.extend(list(super().upload_items(to_upload, http_client, selector)))
-        return results
-
-
-class _LinkMethods:
-    @staticmethod
-    def as_pending_instance_id(item: InstanceApply) -> PendingInstanceId:
-        """Convert an InstanceApply to a PendingInstanceId for linking."""
-        source = next((source for source in item.sources if source.source == INSTANCE_SOURCE_VIEW_ID), None)
-        if source is None:
-            raise ValueError(f"Cannot extract ID from item of type {type(item).__name__!r}")
-        if not isinstance(source.properties["id"], int):
-            raise ValueError(f"Unexpected ID type: {type(source.properties['id']).__name__!r}")
-        id_ = source.properties["id"]
-        return PendingInstanceId(
-            pending_instance_id=NodeId(item.space, item.external_id),
-            id=id_,
-        )
 
     @classmethod
     def link_asset_centric(
@@ -215,13 +164,12 @@ class _LinkMethods:
         data_chunk: Sequence[UploadItem[InstanceApply]],
         http_client: HTTPClient,
         results: list[HTTPMessage],
-        chunk_size: int,
         pending_instance_id_endpoint: str,
     ) -> Sequence[UploadItem[InstanceApply]]:
         """Links asset-centric resources to their (uncreated) instances using the pending-instance-ids endpoint."""
         config = http_client.config
         successful_linked: set[str] = set()
-        for batch in chunker_sequence(data_chunk, chunk_size):
+        for batch in chunker_sequence(data_chunk, cls.CHUNK_SIZE):
             batch_results = http_client.request_with_retries(
                 message=ItemsRequest(
                     endpoint_url=config.create_api_url(pending_instance_id_endpoint),
@@ -239,3 +187,17 @@ class _LinkMethods:
             results.extend(batch_results)
         to_upload = [item for item in data_chunk if item.source_id in successful_linked]
         return to_upload
+
+    @staticmethod
+    def as_pending_instance_id(item: InstanceApply) -> PendingInstanceId:
+        """Convert an InstanceApply to a PendingInstanceId for linking."""
+        source = next((source for source in item.sources if source.source == INSTANCE_SOURCE_VIEW_ID), None)
+        if source is None:
+            raise ValueError(f"Cannot extract ID from item of type {type(item).__name__!r}")
+        if not isinstance(source.properties["id"], int):
+            raise ValueError(f"Unexpected ID type: {type(source.properties['id']).__name__!r}")
+        id_ = source.properties["id"]
+        return PendingInstanceId(
+            pending_instance_id=NodeId(item.space, item.external_id),
+            id=id_,
+        )

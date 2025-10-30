@@ -5,7 +5,7 @@ from typing import Any, get_args
 
 import pytest
 
-from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationSelector
+from cognite_toolkit._cdf_tk.commands._migrate.selectors import AssetCentricMigrationSelector
 from cognite_toolkit._cdf_tk.storageio import AssetIO, ChartIO, InstanceIO, RawIO, StorageIO, get_upload_io
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     AllChartsSelector,
@@ -116,7 +116,7 @@ class TestDataSelectors:
     def test_all_selectors_in_union(self, all_selectors: list[type[DataSelector]]) -> None:
         # The migration selectors are not part of the Selector union, they
         # are only used for migration commands.
-        migration_selectors = get_concrete_subclasses(MigrationSelector)
+        migration_selectors = get_concrete_subclasses(AssetCentricMigrationSelector)
         all_union_selectors = get_args(Selector.__args__[0])
         missing = set(all_selectors) - set(all_union_selectors) - set(migration_selectors)
         assert not missing, (
@@ -130,7 +130,7 @@ class TestDataSelectors:
         assert not duplicates, f"The following DataSelector types are not unique: {humanize_collection(duplicates)}"
 
     def test_example_data_is_complete(self) -> None:
-        migration_selectors = get_concrete_subclasses(MigrationSelector)
+        migration_selectors = get_concrete_subclasses(AssetCentricMigrationSelector)
         # Migration selectors are not part of the Selector union, and are not
         # required to have example data here.
         all_selectors = [cls for cls in get_concrete_subclasses(DataSelector) if cls not in migration_selectors]
