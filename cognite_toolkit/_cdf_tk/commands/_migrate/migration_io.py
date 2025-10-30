@@ -45,7 +45,7 @@ class AssetCentricMigrationIO(
         super().__init__(client)
         self.hierarchy = HierarchyIO(client)
         # Overwriting the IO to include linking.
-        self.hierarchy._io_by_kind["TimeSeries"] = TimeSeriesMigratoinIO(client, skip_linking)
+        self.hierarchy._io_by_kind["TimeSeries"] = TimeSeriesMigrationIO(client, skip_linking)
         self.hierarchy._io_by_kind["FileMetadata"] = FileMetaMigrationIO(client, skip_linking)
 
     def as_id(self, item: AssetCentricMapping) -> str:
@@ -163,7 +163,7 @@ class FileMetaMigrationIO(FileMetadataIO):
         return results
 
 
-class TimeSeriesMigratoinIO(TimeSeriesIO):
+class TimeSeriesMigrationIO(TimeSeriesIO):
     """Adapter for migrating time series to data model instances.
 
     This is necessary to link asset-centric TimeSeries to their new CogniteTimeSeries instances using the

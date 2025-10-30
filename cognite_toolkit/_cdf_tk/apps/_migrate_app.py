@@ -17,7 +17,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMa
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     AssetCentricMigrationIO,
     FileMetaMigrationIO,
-    TimeSeriesMigratoinIO,
+    TimeSeriesMigrationIO,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import (
     MigrateDataSetSelector,
@@ -575,7 +575,7 @@ class MigrateApp(typer.Typer):
         cmd.run(
             lambda: cmd.migrate(
                 selected=selected,
-                data=TimeSeriesMigratoinIO(client, skip_linking=skip_linking),
+                data=TimeSeriesMigrationIO(client, skip_linking=skip_linking),
                 mapper=AssetCentricMapper(client),
                 log_dir=log_dir,
                 dry_run=dry_run,

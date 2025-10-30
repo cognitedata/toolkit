@@ -19,7 +19,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     AssetCentricMigrationIO,
     FileMetaMigrationIO,
-    TimeSeriesMigratoinIO,
+    TimeSeriesMigrationIO,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrateDataSetSelector, MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.storageio import AssetIO, EventIO
@@ -151,7 +151,7 @@ class TestMigrateTimeSeriesCommand:
                 ingestion_mapping=TIME_SERIES_ID,
                 preferred_consumer_view=ViewId("cdf_cdm", "CogniteTimeSeries", "v1"),
             ),
-            data=TimeSeriesMigratoinIO(client, skip_linking=True),
+            data=TimeSeriesMigrationIO(client, skip_linking=True),
             mapper=AssetCentricMapper(client),
             log_dir=tmp_path,
             dry_run=True,
