@@ -180,18 +180,21 @@ class DeployResults(UserDict):
 
             row = [item.name]
             if exclude_columns is None or "Created" not in exclude_columns:
-                row.append(f"{item.created:,}")
+                row.append(self._add_cell(item.created))
             if exclude_columns is None or "Deleted" not in exclude_columns:
-                row.append(f"{item.deleted:,}")
+                row.append(self._add_cell(item.deleted))
             if exclude_columns is None or "Changed" not in exclude_columns:
-                row.append(f"{item.changed:,}")
+                row.append(self._add_cell(item.changed))
             if exclude_columns is None or "Untouched" not in exclude_columns:
                 row.append(f"{item.unchanged:,}" if is_deploy else "-")
             if exclude_columns is None or "Total" not in exclude_columns:
-                row.append(f"{item.total:,}")
+                row.append(self._add_cell(item.total))
             table.add_row(*row)
 
         return table
+
+    def _add_cell(self, value: int) -> str:
+        return f"{value:,}" if value > 0 else "unknown"
 
     def uploads_table(self) -> Table:
         table = Table(title=f"Summary of Data {self.action.title()} operation (data is always uploaded):")
