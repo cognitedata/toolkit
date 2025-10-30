@@ -105,6 +105,15 @@ class AssetCentricAggregator(ABC):
                 seen.add(int_id)
         return ids
 
+    def _to_dataset_id(self, data_set_external_id: str | list[str] | None) -> list[int] | None:
+        """Converts data set external IDs to data set IDs."""
+        dataset_id: list[int] | None = None
+        if data_set_external_id is not None:
+            if isinstance(data_set_external_id, str):
+                data_set_external_id = [data_set_external_id]
+            dataset_id = self.client.lookup.data_sets.id(data_set_external_id, allow_empty=False)
+        return dataset_id
+
 
 class MetadataAggregator(AssetCentricAggregator, ABC, Generic[T_CogniteFilter]):
     filter_cls: type[T_CogniteFilter]
@@ -359,9 +368,10 @@ class RelationshipAggregator(AssetCentricAggregator):
     def count(
         self, hierarchy: str | list[str] | None = None, data_set_external_id: str | list[str] | None = None
     ) -> int:
-        if hierarchy is not None or data_set_external_id is not None:
+        if hierarchy is not None:
             raise NotImplementedError()
-        results = relationship_aggregate_count(self.client)
+        dataset_id = self._to_dataset_id(data_set_external_id)
+        results = relationship_aggregate_count(self.client, dataset_id)
         return sum(result.count for result in results)
 
     def used_data_sets(self, hierarchy: str | None = None) -> list[str]:
@@ -378,9 +388,10 @@ class LabelCountAggregator(AssetCentricAggregator):
     def count(
         self, hierarchy: str | list[str] | None = None, data_set_external_id: str | list[str] | None = None
     ) -> int:
-        if hierarchy is not None or data_set_external_id is not None:
+        if hierarchy is not None:
             raise NotImplementedError()
-        return label_aggregate_count(self.client)
+        data_set_id = self._to_dataset_id(data_set_external_id)
+        return label_aggregate_count(self.client, data_set_id)
 
     def used_data_sets(self, hierarchy: str | None = None) -> list[str]:
         raise NotImplementedError()
