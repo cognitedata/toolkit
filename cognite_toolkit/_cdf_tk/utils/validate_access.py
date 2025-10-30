@@ -160,7 +160,7 @@ class ValidateAccess:
         action: Sequence[Action],
         dataset_ids: set[int] | None = None,
         operation: str | None = None,
-        missing: Literal["raise", "warn"] = "raise",
+        missing_access: Literal["raise", "warn"] = "raise",
     ) -> dict[Literal["transformations", "workflows", "extraction pipelines"], list[int]] | None:
         """Validate access configuration resources.
 
@@ -173,7 +173,7 @@ class ValidateAccess:
             action (Sequence[Action]): The actions to validate access for
             dataset_ids (Set[int] | None): The dataset IDs to check access for. If None, checks access for all datasets.
             operation (str | None): The operation being performed, used for error and warning messages.
-            missing (Literal["raise", "warn"]): Whether to raise an error or warn when access is missing for specified datasets.
+            missing_access (Literal["raise", "warn"]): Whether to raise an error or warn when access is missing for specified datasets.
 
         Returns:
             dict[Literal["transformations", "workflows", "extraction pipelines"], list[int] | None]:
@@ -184,15 +184,32 @@ class ValidateAccess:
             ValueError: If the client.token.get_scope() returns an unexpected dataset configuration scope type.
             AuthorizationError: If the user does not have permission to perform the specified action on the given dataset.
         """
-        need_access_to = set(dataset_ids) if dataset_ids is not None else None
-        no_access: list[str] = []
-        output: dict[Literal["transformations", "workflows", "extraction pipelines"], list[int]] = {}
-        name: Literal["transformations", "workflows", "extraction pipelines"]
-        for name, read_action, write_action in [  # type: ignore[assignment]
+        acls = [
             ("transformations", TransformationsAcl.Action.Read, TransformationsAcl.Action.Write),
             ("workflows", WorkflowOrchestrationAcl.Action.Read, WorkflowOrchestrationAcl.Action.Write),
             ("extraction pipelines", ExtractionPipelinesAcl.Action.Read, ExtractionPipelinesAcl.Action.Write),
-        ]:
+        ]
+        # MyPy does not understand that with the acl above, we get the correct return value.
+        return self._dataset_access_check(  # type: ignore[return-value]
+            action,
+            dataset_ids=dataset_ids,
+            operation=operation,
+            acls=acls,
+            missing_access=missing_access,
+        )
+
+    def _dataset_access_check(
+        self,
+        action: Sequence[Action],
+        dataset_ids: set[int] | None,
+        operation: str | None,
+        missing_access: Literal["raise", "warn"],
+        acls: Sequence[tuple[str, Capability.Action, Capability.Action]],
+    ) -> dict[str, list[int]] | None:
+        need_access_to = set(dataset_ids) if dataset_ids is not None else None
+        no_access: list[str] = []
+        output: dict[str, list[int]] = {}
+        for name, read_action, write_action in acls:
             actions = [{"read": read_action, "write": write_action}[a] for a in action]
             scopes = self.client.token.get_scope(actions)
             if scopes is None:
@@ -226,7 +243,7 @@ class ValidateAccess:
         operation = operation or self.default_operation
         if no_access:
             message = f"You have no permission to {humanize_collection(action)} {humanize_collection(no_access)}."
-            if missing == "raise":
+            if missing_access == "raise":
                 raise AuthorizationError(f"{message} This is required to {operation}.")
             else:
                 HighSeverityWarning(f"{message}. You will have limited functionality to {operation}.").print_warning()
