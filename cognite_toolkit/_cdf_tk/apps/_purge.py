@@ -53,6 +53,7 @@ class PurgeApp(typer.Typer):
                 "--include-dataset",
                 "-i",
                 help="Whether to archive the dataset itself after purging its contents.",
+                hidden=Flags.v07.is_enabled(),
             ),
         ] = False,
         archive_dataset: Annotated[
