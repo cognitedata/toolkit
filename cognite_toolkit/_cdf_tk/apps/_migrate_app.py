@@ -17,7 +17,11 @@ from cognite_toolkit._cdf_tk.commands._migrate.adapter import (
     FileMetaIOAdapter,
     TimeSeriesIOAdapter,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.creators import InstanceSpaceCreator, SourceSystemCreator
+from cognite_toolkit._cdf_tk.commands._migrate.creators import (
+    InfieldV2ConfigCreator,
+    InstanceSpaceCreator,
+    SourceSystemCreator,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import (
     MigrateDataSetSelector,
@@ -732,6 +736,49 @@ class MigrateApp(typer.Typer):
             lambda: cmd.migrate_canvas(
                 client,
                 external_ids=external_id,
+                dry_run=dry_run,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def infield_config(
+        ctx: typer.Context,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Path to the directory where the Infield V2 configuration definitions will be dumped. It is recommended "
+                "to govern these configurations in a git repository.",
+            ),
+        ] = Path("tmp"),
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-d",
+                help="If set, the migration will not be executed, but only a report of what would be done is printed.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """Creates Infield V2 configurations from existing APM Configurations in CDF."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+
+        cmd = MigrationCommand()
+        cmd.run(
+            lambda: cmd.create(
+                client,
+                creator=InfieldV2ConfigCreator(client),
+                output_dir=output_dir,
                 dry_run=dry_run,
                 verbose=verbose,
             )
