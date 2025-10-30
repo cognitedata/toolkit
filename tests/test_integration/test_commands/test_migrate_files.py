@@ -12,9 +12,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import FILE_METADATA_ID
-from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
-    FileMetaMigrationIO,
-)
+from cognite_toolkit._cdf_tk.commands._migrate.migration_io import AssetCentricMigrationIO
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 
 
@@ -72,8 +70,8 @@ class TestMigrateFilesCommand:
 
         cmd = MigrationCommand(skip_tracking=True, silent=True)
         results = cmd.migrate(
-            selected=MigrationCSVFileSelector(datafile=input_file, kind="file"),
-            data=FileMetaMigrationIO(client, skip_linking=False),
+            selected=MigrationCSVFileSelector(datafile=input_file, kind="FileMetadata"),
+            data=AssetCentricMigrationIO(client, skip_linking=False),
             mapper=AssetCentricMapper(client),
             log_dir=tmp_path / "logs",
             dry_run=False,
