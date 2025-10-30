@@ -261,11 +261,11 @@ def modules_command_with_cached_download(
     from cognite_toolkit._cdf_tk.commands.modules import ModulesCommand
 
     worker_id = get_worker_id()
-    cache_dir = external_library_cache_root / f"modules-{worker_id}"
+    cache_dir = external_library_cache_root / worker_id / "modules"
     cache_dir.mkdir(parents=True, exist_ok=True)
 
     # Create lock file for this worker's cache directory
-    lock_file = external_library_cache_root / f"modules-{worker_id}.lock"
+    lock_file = external_library_cache_root / worker_id / "modules.lock"
 
     # Store original methods (before any other patches)
     original_init = ModulesCommand.__init__

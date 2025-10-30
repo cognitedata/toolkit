@@ -163,8 +163,12 @@ class TestModulesCommand:
         assert config["variables"]["modules"]["my_file_expand_module"]["var"] is not None
         assert (target_path / "modules" / "my_file_expand_module").is_dir()
 
-    def test_add_without_config_yaml(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
-        cmd = ModulesCommand(print_warning=True, skip_tracking=True, module_source_dir=COMPLETE_ORG_MODULES)
+    def test_add_without_config_yaml(
+        self, tmp_path: Path, monkeypatch: MonkeyPatch, modules_command_with_cached_download
+    ) -> None:
+        cmd = modules_command_with_cached_download(
+            print_warning=True, skip_tracking=True, module_source_dir=COMPLETE_ORG_MODULES
+        )
         dummy_resource = "space: my_space"
         my_org = tmp_path / "my_org"
         modules = my_org / "modules"

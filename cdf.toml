@@ -21,6 +21,7 @@ exit-on-warning = true
 upload = true
 function-cognite-file = true
 v07 = true
+external-libraries = true
 
 [plugins]
 run = true
@@ -31,3 +32,8 @@ dump = true
 # This is the version of the modules. It should not be changed manually.
 # It will be updated by the 'cdf modules upgrade' command.
 version = "0.0.0"
+
+
+[library.toolkit-data]
+url = "https://github.com/cognitedata/toolkit-data/releases/download/latest/packages.zip" 
+checksum = "sha256:b70c207a78d6c94e0977a733571420b250ca641ac8802d8310f1ffe05bf7b2eb"
