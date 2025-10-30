@@ -129,9 +129,10 @@ class ValidateAccess:
         dataset_ids: None = None,
         operation: str | None = None,
         missing_access: Literal["raise", "warn"] = "raise",
-    ) -> dict[
-        Literal["assets", "events", "time series", "files", "relationships", "labels", "3D models"], list[int]
-    ]: ...
+    ) -> (
+        dict[Literal["assets", "events", "time series", "files", "relationships", "labels", "3D models"], list[int]]
+        | None
+    ): ...
 
     def dataset_data(
         self,
@@ -162,7 +163,11 @@ class ValidateAccess:
             missing_access (Literal["raise", "warn"]): Whether to raise an error or warn when access is missing for specified datasets.
 
         Returns:
-            list[int] | None: Returns a list of dataset IDs if access is limited to these datasets, or None if access is granted to all datasets.
+            dict[
+                Literal["assets", "events", "time series", "files", "relationships", "labels", "3D models"], list[int]
+            ] | None:
+                If dataset_ids is None, returns a dictionary with keys as dataset data resource names and values as lists of dataset IDs the user has access to.
+                If dataset_ids is provided, returns None if the user has access to all specified datasets for all dataset data resources.
         Raises:
             ValueError: If the client.token.get_scope() returns an unexpected dataset data scope type.
             AuthorizationError: If the user does not have permission to perform the specified action on the given dataset.
@@ -206,7 +211,7 @@ class ValidateAccess:
         dataset_ids: None = None,
         operation: str | None = None,
         missing_access: Literal["raise", "warn"] = "raise",
-    ) -> dict[Literal["transformations", "workflows", "extraction pipelines"], list[int]]: ...
+    ) -> dict[Literal["transformations", "workflows", "extraction pipelines"], list[int]] | None: ...
 
     def dataset_configurations(
         self,
