@@ -98,6 +98,23 @@ class ValidateAccess:
                 f"Unexpected data model instance scope type: {type(instance_scope)}. Expected SpaceID or All."
             )
 
+    def dataset_data(
+        self,
+        action: Sequence[Literal["read", "write"]],
+        dataset_ids: set[int] | None = None,
+        operation: str | None = None,
+    ) -> list[int] | None:
+        raise NotImplementedError()
+
+    def dataset_configurations(
+        self,
+        action: Sequence[Literal["read", "write"]],
+        dataset_ids: set[int] | None = None,
+        operation: str | None = None,
+    ) -> list[int] | None:
+        """Validate access configuration resources"""
+        raise NotImplementedError()
+
     def timeseries(
         self,
         action: Sequence[Literal["read", "write"]],

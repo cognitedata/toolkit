@@ -1,14 +1,20 @@
-import dataclasses
 import uuid
-from collections.abc import Callable, Hashable, Iterable
+from abc import ABC, abstractmethod
+from collections.abc import Callable, Hashable, Iterable, Sequence
+from dataclasses import dataclass
 from functools import partial
 from graphlib import TopologicalSorter
-from typing import Any, cast
+from typing import Literal, cast
 
 import questionary
 from cognite.client.data_classes import AggregateResultItem, DataSetUpdate
 from cognite.client.data_classes._base import CogniteResourceList
-from cognite.client.data_classes.data_modeling import NodeId, NodeList, ViewId
+from cognite.client.data_classes.data_modeling import (
+    EdgeList,
+    NodeId,
+    NodeList,
+    ViewId,
+)
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils._identifier import InstanceId
 from rich import print
@@ -21,7 +27,6 @@ from cognite_toolkit._cdf_tk.cruds import (
     RESOURCE_CRUD_LIST,
     AssetCRUD,
     ContainerCRUD,
-    EventCRUD,
     DataModelCRUD,
     DataSetsCRUD,
     EdgeCRUD,
@@ -46,7 +51,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.storageio import InstanceIO, AssetIO
+from cognite_toolkit._cdf_tk.storageio import InstanceIO
 from cognite_toolkit._cdf_tk.storageio.selectors import InstanceSelector
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
@@ -68,13 +73,13 @@ from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
 from ._base import ToolkitCommand
 
 
-@dataclasses.dataclass
+@dataclass
 class DeleteResults:
     deleted: int = 0
     failed: int = 0
 
 
-@dataclasses.dataclass
+@dataclass
 class DeleteItem:
     item: JsonVal
     as_id_fun: Callable[[JsonVal], Hashable]
@@ -84,6 +89,91 @@ class DeleteItem:
 
     def as_id(self) -> Hashable:
         return self.as_id_fun(self.item)
+
+
+@dataclass
+class ToDelete(ABC):
+    crud: ResourceCRUD
+    total: int
+    delete_url: str
+
+    @property
+    def display_name(self) -> str:
+        return self.crud.display_name
+
+    @abstractmethod
+    def get_process_function(
+        self, client: ToolkitClient, console: Console, verbose: bool, process_results: ResourceDeployResult
+    ) -> Callable[[CogniteResourceList], list[JsonVal]]:
+        raise NotImplementedError()
+
+
+@dataclass
+class DataModelingToDelete(ToDelete):
+    def get_process_function(
+        self, client: ToolkitClient, console: Console, verbose: bool, process_results: ResourceDeployResult
+    ) -> Callable[[CogniteResourceList], list[JsonVal]]:
+        def as_id(chunk: CogniteResourceList) -> list[JsonVal]:
+            return [item.as_id().dump(include_type=False) for item in chunk]
+
+        return as_id
+
+
+@dataclass
+class EdgeToDelete(ToDelete):
+    def get_process_function(
+        self, client: ToolkitClient, console: Console, verbose: bool, process_results: ResourceDeployResult
+    ) -> Callable[[CogniteResourceList], list[JsonVal]]:
+        def as_id(chunk: CogniteResourceList) -> list[JsonVal]:
+            return [
+                {"space": item.space, "externalId": item.external_id, "instanceType": "edge"}
+                for item in cast(EdgeList, chunk)
+            ]
+
+        return as_id
+
+
+@dataclass
+class NodesToDelete(ToDelete):
+    delete_datapoints: bool
+    delete_file_content: bool
+
+    def get_process_function(
+        self, client: ToolkitClient, console: Console, verbose: bool, process_results: ResourceDeployResult
+    ) -> Callable[[CogniteResourceList], list[JsonVal]]:
+        def check_for_data(chunk: CogniteResourceList) -> list[JsonVal]:
+            node_ids = cast(NodeList, chunk).as_ids()
+            found_ids: set[InstanceId] = set()
+            if not self.delete_datapoints:
+                timeseries = client.time_series.retrieve_multiple(instance_ids=node_ids, ignore_unknown_ids=True)
+                found_ids |= {ts.instance_id for ts in timeseries if ts.instance_id is not None}
+            if not self.delete_file_content:
+                files = client.files.retrieve_multiple(instance_ids=node_ids, ignore_unknown_ids=True)
+                found_ids |= {f.instance_id for f in files if f.instance_id is not None}
+            if found_ids and verbose:
+                console.print(f"Skipping {found_ids} nodes as they have datapoints or file content")
+            process_results.unchanged += len(found_ids)
+            result: list[JsonVal] = []
+            for node_id in (n for n in node_ids if n not in found_ids):
+                dumped = node_id.dump(include_instance_type=True)
+                # The delete endpoint expects "instanceType" instead of "type"
+                dumped["instanceType"] = dumped.pop("type")
+                # MyPy think complains about invariant here, even though dict[str, str] is a type of JsonVal
+                result.append(dumped)  # type: ignore[arg-type]
+            return result
+
+        return check_for_data
+
+
+@dataclass
+class IdResourceToDelete(ToDelete):
+    def get_process_function(
+        self, client: ToolkitClient, console: Console, verbose: bool, process_results: ResourceDeployResult
+    ) -> Callable[[CogniteResourceList], list[JsonVal]]:
+        def as_id(chunk: CogniteResourceList) -> list[JsonVal]:
+            return [{"id": item.id} for item in chunk]
+
+        return as_id
 
 
 class PurgeCommand(ToolkitCommand):
@@ -100,17 +190,16 @@ class PurgeCommand(ToolkitCommand):
         auto_yes: bool = False,
         verbose: bool = False,
     ) -> DeployResults:
-        results = DeployResults([], "purge", dry_run=dry_run)
-
         # Warning Messages
         if not dry_run:
             self._print_panel("space", selected_space)
+
         if not dry_run and not auto_yes:
             confirm = questionary.confirm(
                 f"Are you really sure you want to purge the {selected_space!r} space?", default=False
             ).ask()
             if not confirm:
-                return results
+                return DeployResults([], "purge", dry_run=dry_run)
 
         stats = client.data_modeling.statistics.spaces.retrieve(selected_space)
         if stats is None:
@@ -124,127 +213,116 @@ class PurgeCommand(ToolkitCommand):
             validator.instances(["read", "write"], spaces={selected_space})
 
         config = client.config
-        total_by_crud_cls = {
-            EdgeCRUD: (stats.edges, config.create_api_url("/models/instances/delete")),
-            NodeCRUD: (stats.nodes, config.create_api_url("/models/instances/delete")),
-            DataModelCRUD: (stats.data_models, config.create_api_url("/models/datamodels/delete")),
-            ViewCRUD: (stats.views, config.create_api_url("/models/views/delete")),
-            ContainerCRUD: (stats.containers, config.create_api_url("/models/containers/delete")),
-        }
-        console = Console()
+        to_delete = [
+            EdgeToDelete(
+                EdgeCRUD.create_loader(client), stats.edges, config.create_api_url("/models/instances/delete")
+            ),
+            NodesToDelete(
+                NodeCRUD.create_loader(client),
+                stats.nodes,
+                config.create_api_url(
+                    "/models/instances/delete",
+                ),
+                delete_datapoints=delete_datapoints,
+                delete_file_content=delete_file_content,
+            ),
+            DataModelingToDelete(
+                DataModelCRUD.create_loader(client),
+                stats.data_models,
+                config.create_api_url("/models/datamodels/delete"),
+            ),
+            DataModelingToDelete(
+                ViewCRUD.create_loader(client), stats.views, config.create_api_url("/models/views/delete")
+            ),
+            DataModelingToDelete(
+                ContainerCRUD.create_loader(client),
+                stats.containers,
+                config.create_api_url("/models/containers/delete"),
+            ),
+        ]
         if dry_run:
-            for crud_cls, (total, _) in total_by_crud_cls.items():
-                crud = crud_cls.create_loader(client)  # type: ignore[attr-defined]
-                results[crud.display_name] = ResourceDeployResult(crud.display_name, deleted=total)
+            results = DeployResults([], "purge", dry_run=True)
+            for item in to_delete:
+                results[item.display_name] = ResourceDeployResult(item.display_name, deleted=item.total)
             if include_space:
                 space_loader = SpaceCRUD.create_loader(client)
                 results[space_loader.display_name] = ResourceDeployResult(space_loader.display_name, deleted=1)
         else:
-            with HTTPClient(client.config, max_retries=10) as delete_client:
-                for crud_cls, (total, URL) in total_by_crud_cls.items():
-                    crud = crud_cls.create_loader(client)  # type: ignore[attr-defined]
-                    if total == 0:
-                        results[crud.display_name] = ResourceDeployResult(crud.display_name, deleted=0)
-                        continue
-                    # Two results objects since they are updated concurrently
-                    process_results = ResourceDeployResult(crud.display_name)
-                    write_results = ResourceDeployResult(crud.display_name)
-                    # Containers, DataModels and Views need special handling to avoid type info in the delete call
-                    # While for instance we need the type info in delete.
-                    if isinstance(crud, ContainerCRUD | DataModelCRUD | ViewCRUD):
-                        dump_args = {"include_type": False}
-                    elif isinstance(crud, EdgeCRUD):
-                        dump_args = {"include_instance_type": True}
-                    else:
-                        dump_args = {}
-                    process = partial(self._as_id_batch, dump_args=dump_args)
-                    if isinstance(crud, NodeCRUD):
-                        process = partial(
-                            self._check_data,
-                            client=client,
-                            delete_datapoints=delete_datapoints,
-                            delete_file_content=delete_file_content,
-                            process_results=process_results,
-                            console=console,
-                            verbose=verbose,
-                        )
-
-                    executor = ProducerWorkerExecutor[CogniteResourceList, list[JsonVal]](
-                        download_iterable=self._iterate_batch(crud, selected_space, batch_size=self.BATCH_SIZE_DM),
-                        process=process,
-                        write=self._purge_batch(crud, URL, delete_client, write_results),
-                        max_queue_size=10,
-                        iteration_count=total // self.BATCH_SIZE_DM + (1 if total % self.BATCH_SIZE_DM > 0 else 0),
-                        download_description=f"Downloading {crud.display_name}",
-                        process_description=f"Preparing {crud.display_name} for deletion",
-                        write_description=f"Deleting {crud.display_name}",
-                        console=console,
-                    )
-                    executor.run()
-                    write_results += process_results
-                    results[crud.display_name] = write_results
-
-                    if executor.error_occurred:
-                        self.warn(
-                            HighSeverityWarning(f"Failed to delete all {crud.display_name}. {executor.error_message}")
-                        )
+            results = self._delete_resources(to_delete, client, verbose, selected_space, None)
             if include_space:
-                space_loader = SpaceCRUD.create_loader(client)
-                try:
-                    space_loader.delete([selected_space])
-                    print(f"Space {selected_space} deleted")
-                except CogniteAPIError as e:
-                    self.warn(HighSeverityWarning(f"Failed to delete space {selected_space!r}: {e}"))
-                else:
-                    results[space_loader.display_name] = ResourceDeployResult(space_loader.display_name, deleted=1)
+                self._delete_space(client, selected_space, results)
         print(results.counts_table(exclude_columns={"Created", "Changed", "Total"}))
         return results
 
+    def _delete_space(self, client: ToolkitClient, selected_space: str, results: DeployResults) -> None:
+        space_loader = SpaceCRUD.create_loader(client)
+        try:
+            space_loader.delete([selected_space])
+            print(f"Space {selected_space} deleted")
+        except CogniteAPIError as e:
+            self.warn(HighSeverityWarning(f"Failed to delete space {selected_space!r}: {e}"))
+        else:
+            results[space_loader.display_name] = ResourceDeployResult(space_loader.display_name, deleted=1)
+
+    def _delete_resources(
+        self,
+        to_delete: list[ToDelete],
+        client: ToolkitClient,
+        verbose: bool,
+        space: str | None,
+        data_set_external_id: str | None,
+    ) -> DeployResults:
+        results = DeployResults([], "purge", dry_run=False)
+        console = Console()
+        with HTTPClient(client.config, max_retries=10) as delete_client:
+            for item in to_delete:
+                if item.total == 0:
+                    results[item.display_name] = ResourceDeployResult(item.display_name, deleted=0)
+                    continue
+                # Two results objects since they are updated concurrently
+                process_results = ResourceDeployResult(item.display_name)
+                write_results = ResourceDeployResult(item.display_name)
+                iteration_count: int | None = None
+                if item.total > 0:
+                    iteration_count = item.total // self.BATCH_SIZE_DM + (
+                        1 if item.total % self.BATCH_SIZE_DM > 0 else 0
+                    )
+                executor = ProducerWorkerExecutor[CogniteResourceList, list[JsonVal]](
+                    download_iterable=self._iterate_batch(
+                        item.crud, space, data_set_external_id, batch_size=self.BATCH_SIZE_DM
+                    ),
+                    process=item.get_process_function(client, console, verbose, process_results),
+                    write=self._purge_batch(item.crud, item.delete_url, delete_client, write_results),
+                    max_queue_size=10,
+                    iteration_count=iteration_count,
+                    download_description=f"Downloading {item.display_name}",
+                    process_description=f"Preparing {item.display_name} for deletion",
+                    write_description=f"Deleting {item.display_name}",
+                    console=console,
+                )
+                executor.run()
+                write_results += process_results
+                results[item.display_name] = write_results
+                if executor.error_occurred:
+                    if verbose and executor.error_traceback:
+                        executor.print_traceback()
+                    self.warn(
+                        HighSeverityWarning(f"Failed to delete all {item.display_name}. {executor.error_message}")
+                    )
+        return results
+
     @staticmethod
-    def _iterate_batch(crud: ResourceCRUD, selected_space: str, batch_size: int) -> Iterable[CogniteResourceList]:
+    def _iterate_batch(
+        crud: ResourceCRUD, selected_space: str | None, data_set_external_id: str | None, batch_size: int
+    ) -> Iterable[CogniteResourceList]:
         batch = crud.list_cls([])
-        for resource in crud.iterate(space=selected_space):
+        for resource in crud.iterate(space=selected_space, data_set_external_id=data_set_external_id):
             batch.append(resource)
             if len(batch) >= batch_size:
                 yield batch
                 batch = crud.list_cls([])
         if batch:
             yield batch
-
-    @staticmethod
-    def _as_id_batch(chunk: CogniteResourceList, dump_args: dict[str, Any]) -> list[JsonVal]:
-        return [item.as_id().dump(**dump_args) for item in chunk]
-
-    @staticmethod
-    def _check_data(
-        chunk: NodeList,
-        client: ToolkitClient,
-        delete_datapoints: bool,
-        delete_file_content: bool,
-        process_results: ResourceDeployResult,
-        console: Console,
-        verbose: bool,
-    ) -> list[JsonVal]:
-        """Check if the node has timeseries or files and delete the data if requested."""
-        node_ids = chunk.as_ids()
-        found_ids: set[InstanceId] = set()
-        if not delete_datapoints:
-            timeseries = client.time_series.retrieve_multiple(instance_ids=node_ids, ignore_unknown_ids=True)
-            found_ids |= {ts.instance_id for ts in timeseries if ts.instance_id is not None}
-        if not delete_file_content:
-            files = client.files.retrieve_multiple(instance_ids=node_ids, ignore_unknown_ids=True)
-            found_ids |= {f.instance_id for f in files if f.instance_id is not None}
-        if found_ids and verbose:
-            console.print(f"Skipping {found_ids} nodes as they have datapoints or file content")
-        process_results.unchanged += len(found_ids)
-        result: list[JsonVal] = []
-        for node_id in (n for n in node_ids if n not in found_ids):
-            dumped = node_id.dump(include_instance_type=True)
-            # The delete endpoint expects "instanceType" instead of "type"
-            dumped["instanceType"] = dumped.pop("type")
-            # MyPy think complains about invariant here, even though dict[str, str] is a type of JsonVal
-            result.append(dumped)  # type: ignore[arg-type]
-        return result
 
     @staticmethod
     def _purge_batch(
@@ -276,7 +354,6 @@ class PurgeCommand(ToolkitCommand):
             if loader_cls in dep_cls.dependencies and (exclude is None or dep_cls not in exclude)
         }
 
-
     def dataset_v2(
         self,
         client: ToolkitClient,
@@ -288,8 +365,6 @@ class PurgeCommand(ToolkitCommand):
         auto_yes: bool = False,
         verbose: bool = False,
     ) -> DeployResults:
-        results = DeployResults([], "purge", dry_run=dry_run)
-
         # Warning Messages
         if not dry_run:
             self._print_panel("dataSet", selected_data_set_external_id)
@@ -298,97 +373,43 @@ class PurgeCommand(ToolkitCommand):
                 f"Are you really sure you want to purge the {selected_data_set_external_id!r} dataSet?", default=False
             ).ask()
             if not confirm:
-                return results
+                return DeployResults([], "purge", dry_run=dry_run)
 
-
-        # ValidateAuth
+        # Validate Auth
         validator = ValidateAccess(client, "purge")
+        data_set_id = client.lookup.data_sets.id(selected_data_set_external_id)
+        action = cast(Sequence[Literal["read", "write"]], ["read"] if dry_run else ["read", "write"])
         if include_data:
             # Check asset, events, time series, files, and sequences access, relationships, labels, 3D access.
-            validator.data_set(["read", "write"], spaces={selected_data_set_external_id})
+            validator.dataset_data(action, dataset_ids={data_set_id})
         if include_configurations:
             # Check workflow, transformations, extraction pipeline access
-            validator.instances(["read", "write"], spaces={selected_data_set_external_id})
+            validator.dataset_configurations(action, dataset_ids={data_set_id})
 
+        to_delete: list[ToDelete] = []
 
-        config = client.config
-        io = AssetIO(client)
-        io.count(selector(DataSetSelctor()))
-        total_by_crud_cls: dict[] = {
-            EventCRUD: (stats.edges, config.create_api_url("/models/instances/delete")),
-            NodeCRUD: (stats.nodes, config.create_api_url("/models/instances/delete")),
-            DataModelCRUD: (stats.data_models, config.create_api_url("/models/datamodels/delete")),
-            ViewCRUD: (stats.views, config.create_api_url("/models/views/delete")),
-            ContainerCRUD: (stats.containers, config.create_api_url("/models/containers/delete")),
-        }
-        console = Console()
         if dry_run:
-            for crud_cls, (total, _) in total_by_crud_cls.items():
-                crud = crud_cls.create_loader(client)  # type: ignore[attr-defined]
-                results[crud.display_name] = ResourceDeployResult(crud.display_name, deleted=total)
+            results = DeployResults([], "purge", dry_run=True)
+            for item in to_delete:
+                results[item.display_name] = ResourceDeployResult(item.display_name, deleted=item.total)
                 space_loader = SpaceCRUD.create_loader(client)
                 results[space_loader.display_name] = ResourceDeployResult(space_loader.display_name, deleted=1)
         else:
-            with HTTPClient(client.config, max_retries=10) as delete_client:
-                for crud_cls, (total, URL) in total_by_crud_cls.items():
-                    crud = crud_cls.create_loader(client)  # type: ignore[attr-defined]
-                    if total == 0:
-                        results[crud.display_name] = ResourceDeployResult(crud.display_name, deleted=0)
-                        continue
-                    # Two results objects since they are updated concurrently
-                    process_results = ResourceDeployResult(crud.display_name)
-                    write_results = ResourceDeployResult(crud.display_name)
-                    # Containers, DataModels and Views need special handling to avoid type info in the delete call
-                    # While for instance we need the type info in delete.
-                    if isinstance(crud, ContainerCRUD | DataModelCRUD | ViewCRUD):
-                        dump_args = {"include_type": False}
-                    elif isinstance(crud, EdgeCRUD):
-                        dump_args = {"include_instance_type": True}
-                    else:
-                        dump_args = {}
-                    process = partial(self._as_id_batch, dump_args=dump_args)
-                    if isinstance(crud, NodeCRUD):
-                        process = partial(
-                            self._check_data,
-                            client=client,
-                            delete_datapoints=delete_datapoints,
-                            delete_file_content=delete_file_content,
-                            process_results=process_results,
-                            console=console,
-                            verbose=verbose,
-                        )
-
-                    executor = ProducerWorkerExecutor[CogniteResourceList, list[JsonVal]](
-                        download_iterable=self._iterate_batch(crud, selected_space, batch_size=self.BATCH_SIZE_DM),
-                        process=process,
-                        write=self._purge_batch(crud, URL, delete_client, write_results),
-                        max_queue_size=10,
-                        iteration_count=total // self.BATCH_SIZE_DM + (1 if total % self.BATCH_SIZE_DM > 0 else 0),
-                        download_description=f"Downloading {crud.display_name}",
-                        process_description=f"Preparing {crud.display_name} for deletion",
-                        write_description=f"Deleting {crud.display_name}",
-                        console=console,
-                    )
-                    executor.run()
-                    write_results += process_results
-                    results[crud.display_name] = write_results
-
-                    if executor.error_occurred:
-                        self.warn(
-                            HighSeverityWarning(f"Failed to delete all {crud.display_name}. {executor.error_message}")
-                        )
-            if include_space:
-                space_loader = SpaceCRUD.create_loader(client)
-                try:
-                    space_loader.delete([selected_space])
-                    print(f"Space {selected_space} deleted")
-                except CogniteAPIError as e:
-                    self.warn(HighSeverityWarning(f"Failed to delete space {selected_space!r}: {e}"))
-                else:
-                    results[space_loader.display_name] = ResourceDeployResult(space_loader.display_name, deleted=1)
+            results = self._delete_resources(to_delete, client, verbose, None, selected_data_set_external_id)
+            if include_dataset:
+                self._archive_dataset(client, selected_data_set_external_id)
         print(results.counts_table(exclude_columns={"Created", "Changed", "Total"}))
         return results
 
+    def _archive_dataset(self, client: ToolkitClient, data_set: str) -> None:
+        archived = (
+            DataSetUpdate(external_id=data_set)
+            .external_id.set(str(uuid.uuid4()))
+            .metadata.add({"archived": "true"})
+            .write_protected.set(True)
+        )
+        client.data_sets.update(archived)
+        print(f"DataSet {data_set} archived")
 
     def dataset(
         self,
