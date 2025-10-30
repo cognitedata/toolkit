@@ -74,7 +74,7 @@ class TestHTTPClient:
         assert isinstance(response, SuccessResponse)
         assert response.status_code == 201
         assert response.body == '{"id":123,"status":"created"}'
-        assert rsps.calls[-1].request.content == json.dumps({"name": "new resource"}).encode()
+        assert rsps.calls[-1].request.content == b'{"name":"new resource"}'
 
     @pytest.mark.usefixtures("disable_gzip")
     @pytest.mark.parametrize(
