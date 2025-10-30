@@ -323,9 +323,8 @@ default_organization_dir = "{organization_dir.name}"''',
 
         if library_url:
             if not library_checksum:
-                raise typer.BadParameter(
-                    "The '--library-checksum' is required when '--library-url' is provided.",
-                    param_hint="--library-checksum",
+                raise ToolkitRequiredValueError(
+                    "The '--library-checksum' is required when '--library-url' is provided."
                 )
 
             user_library = Library(url=library_url, checksum=library_checksum)
