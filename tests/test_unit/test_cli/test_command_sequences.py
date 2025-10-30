@@ -13,13 +13,12 @@ import pytest
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.commands import BuildCommand, CleanCommand, DeployCommand
-from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH
 from cognite_toolkit._cdf_tk.cruds import CRUDS_BY_FOLDER_NAME, Loader
 from cognite_toolkit._cdf_tk.data_classes import ModuleDirectories
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils import humanize_collection, iterate_modules
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
-from tests.data import COMPLETE_ORG, COMPLETE_ORG_ALPHA_FLAGS
+from tests.data import BUILDABLE_PACKAGE, COMPLETE_ORG, COMPLETE_ORG_ALPHA_FLAGS
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import mock_read_yaml_file
 
@@ -31,7 +30,7 @@ SNAPSHOTS_DIR_CLEAN.mkdir(exist_ok=True)
 
 
 def find_all_modules() -> Iterator[Path]:
-    for module, _ in iterate_modules(BUILTIN_MODULES_PATH):
+    for module, _ in iterate_modules(BUILDABLE_PACKAGE):
         if module.name == "references":  # this particular module should never be built or deployed
             continue
         elif module.name == "search":
@@ -64,12 +63,12 @@ def test_build_deploy_module(
     monkeypatch: MonkeyPatch,
     toolkit_client_approval: ApprovalToolkitClient,
     env_vars_with_client: EnvironmentVariables,
-    organization_dir: Path,
+    buildable_modules: Path,
     data_regression,
 ) -> None:
     BuildCommand(skip_tracking=True, silent=True).execute(
         verbose=False,
-        organization_dir=organization_dir,
+        organization_dir=buildable_modules,
         build_dir=build_tmp_path,
         selected=[module_path.name],
         build_env_name="dev",
@@ -113,12 +112,12 @@ def test_build_deploy_with_dry_run(
     monkeypatch: MonkeyPatch,
     toolkit_client_approval: ApprovalToolkitClient,
     env_vars_with_client: EnvironmentVariables,
-    organization_dir: Path,
+    buildable_modules: Path,
 ) -> None:
     mock_environments_yaml_file(module_path, monkeypatch)
 
     BuildCommand(skip_tracking=True, silent=True).execute(
-        organization_dir=organization_dir,
+        organization_dir=buildable_modules,
         build_dir=build_tmp_path,
         selected=None,
         build_env_name="dev",
@@ -152,14 +151,14 @@ def test_init_build_clean(
     monkeypatch: MonkeyPatch,
     toolkit_client_approval: ApprovalToolkitClient,
     env_vars_with_client: EnvironmentVariables,
-    organization_dir: Path,
+    buildable_modules: Path,
     data_regression,
 ) -> None:
     mock_environments_yaml_file(module_path, monkeypatch)
 
     BuildCommand(silent=True, skip_tracking=True).execute(
         verbose=False,
-        organization_dir=organization_dir,
+        organization_dir=buildable_modules,
         build_dir=build_tmp_path,
         selected=None,
         no_clean=False,

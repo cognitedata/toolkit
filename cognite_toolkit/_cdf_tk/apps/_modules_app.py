@@ -6,6 +6,7 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import ModulesCommand, PullCommand
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._version import __version__
 
@@ -51,6 +52,24 @@ class ModulesApp(typer.Typer):
                 help="Clean target directory if it exists",
             ),
         ] = False,
+        library_url: Annotated[
+            str | None,
+            typer.Option(
+                "--library-url",
+                "-u",
+                help="URL of the library to add to the project.",
+                hidden=not Flags.EXTERNAL_LIBRARIES.is_enabled(),
+            ),
+        ] = None,
+        library_checksum: Annotated[
+            str | None,
+            typer.Option(
+                "--library-checksum",
+                "-c",
+                help="Checksum of the library to add to the project.",
+                hidden=not Flags.EXTERNAL_LIBRARIES.is_enabled(),
+            ),
+        ] = None,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -62,12 +81,20 @@ class ModulesApp(typer.Typer):
     ) -> None:
         """Initialize or upgrade a new CDF project with templates interactively."""
 
+        if library_url and not library_checksum:
+            raise typer.BadParameter(
+                "--library-checksum must be provided when --library-url is specified.",
+                param_hint="--library-checksum",
+            )
+
         with ModulesCommand() as cmd:
             cmd.run(
                 lambda: cmd.init(
                     organization_dir=organization_dir,
                     select_all=all,
                     clean=clean,
+                    library_url=library_url,
+                    library_checksum=library_checksum,
                 )
             )
 

@@ -38,6 +38,7 @@ MODULES = "modules"
 REPO_FILES_DIR = "_repo_files"
 DOCKER_IMAGE_NAME = "cognite/toolkit"
 BUILD_FOLDER_ENCODING = "utf-8"
+RESOURCES = "_resources"
 
 ROOT_MODULES = [MODULES, CUSTOM_MODULES, COGNITE_MODULES, EXTERNAL_PACKAGE]
 MODULE_PATH_SEP = "/"
@@ -61,6 +62,7 @@ ROOT_PATH = Path(__file__).parent.parent
 COGNITE_MODULES_PATH = ROOT_PATH / COGNITE_MODULES
 MODULES_PATH = ROOT_PATH / MODULES
 BUILTIN_MODULES_PATH = ROOT_PATH / BUILTIN_MODULES
+RESOURCES_PATH = ROOT_PATH / RESOURCES
 SUPPORT_MODULE_UPGRADE_FROM_VERSION = "0.2.0"
 # This is used in the build directory to keep track of order and flatten the
 # module directory structure with accounting for duplicated names.

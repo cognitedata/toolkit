@@ -1,0 +1,9 @@
+externalId: ingestion
+triggerRule:
+  triggerType: schedule
+  cronExpression: "0 4 * * *"
+workflowExternalId: {{ workflow }}
+workflowVersion: v1
+authentication:
+  clientId: {{ ingestionClientId }}
+  clientSecret: {{ ingestionClientSecret }}
