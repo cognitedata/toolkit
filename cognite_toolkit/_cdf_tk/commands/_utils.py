@@ -1,3 +1,6 @@
+import re
+from typing import Any
+
 from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableCogniteResource, T_WriteClass
 from cognite.client.utils.useful_types import SequenceNotStr
 
@@ -33,3 +36,36 @@ def _remove_duplicates(
         else:
             duplicates.append(identifier)
     return output, duplicates
+
+
+def format_type_annotation(annotation: Any) -> str:
+    """
+    Format a type annotation to show simplified type names without full module paths.
+
+    Examples:
+        cognite_toolkit._cdf_tk.data_classes.search_config.ViewId -> search_config.ViewId
+        list[cognite_toolkit._cdf_tk.data_classes.search_config.PropertyConfig] -> list[search_config.PropertyConfig]
+        str -> str
+    """
+    # Convert annotation to string
+    type_str = str(annotation)
+
+    # Remove 'typing.' prefix for generic types
+    type_str = type_str.replace("typing.", "")
+
+    # Pattern to match full module paths like cognite_toolkit._cdf_tk.data_classes.search_config.ViewId
+    # We want to keep only the last two parts (search_config.ViewId)
+    pattern = r"cognite_toolkit\._cdf_tk\.data_classes\.(\w+)\.(\w+)"
+    type_str = re.sub(pattern, r"\1.\2", type_str)
+
+    # Also handle other cognite_toolkit paths by keeping only last two parts
+    pattern = r"cognite_toolkit\.(?:[^.]+\.)*(\w+)\.(\w+)"
+    type_str = re.sub(pattern, r"\1.\2", type_str)
+
+    # Remove quotes that might be added by str()
+    type_str = type_str.replace("'", "").replace('"', "")
+
+    # Clean up class representation markers
+    type_str = type_str.replace("<class ", "").replace(">", "")
+
+    return type_str

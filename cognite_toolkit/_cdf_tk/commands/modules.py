@@ -1,3 +1,4 @@
+import difflib
 import shutil
 import sys
 import tempfile
@@ -14,6 +15,7 @@ import requests
 import typer
 from packaging.version import Version
 from packaging.version import parse as parse_version
+from questionary import Choice
 from rich import print
 from rich.markdown import Markdown
 from rich.padding import Padding
@@ -36,16 +38,26 @@ from cognite_toolkit._cdf_tk.commands._changes import (
     UpdateDockerImageVersion,
     UpdateModuleVersion,
 )
+from cognite_toolkit._cdf_tk.commands._utils import format_type_annotation
 from cognite_toolkit._cdf_tk.constants import (
     BUILTIN_MODULES,
     MODULES,
     SUPPORT_MODULE_UPGRADE_FROM_VERSION,
     EnvType,
 )
+from cognite_toolkit._cdf_tk.cruds import (
+    CRUDS_BY_FOLDER_NAME,
+    RESOURCE_CRUD_LIST,
+    ContainerCRUD,
+    NodeCRUD,
+    ResourceCRUD,
+    ViewCRUD,
+)
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
     Environment,
     InitConfigYAML,
+    ModuleDirectories,
     ModuleLocation,
     ModuleResources,
     Package,
@@ -54,6 +66,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitRequiredValueError, ToolkitValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
+from cognite_toolkit._cdf_tk.resource_classes import ToolkitResource
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.tk_warnings.other import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection, read_yaml_file
@@ -901,6 +914,170 @@ default_organization_dir = "{organization_dir.name}"''',
         except Exception as e:
             raise ToolkitError(f"An unexpected error occurred while unpacking {file_path}: {e}") from e
 
+    def _display_name_for_resource(self, crud_cls: type[ResourceCRUD]) -> str:
+        """
+        Helper function to return the display name for a resource.
+        """
+        try:
+            return " ".join(str(crud_cls.display_name.fget(crud_cls)).strip().split())  # type: ignore[attr-defined]
+        except AttributeError:
+            return crud_cls.folder_name
+
+    def _get_module_name(self, module: str, organization_dir: Path) -> str:
+        """
+        Helper function to return the module name.
+        """
+        present_modules = ModuleDirectories.load(organization_dir, None)
+
+        for mod in present_modules:
+            if mod.name.casefold() == module.casefold():
+                return mod.name
+
+        if questionary.confirm(f"{module} module not found. Do you want to create a new one?").ask():
+            return module
+
+        print("[red]Aborting as no existing module selected and user did not want to create a new one...[/red]")
+        raise typer.Exit()
+
+    def _get_subfolder(self, resource_crud: type[ResourceCRUD]) -> str | None:
+        """
+        Helper function to return the subfolder for a resource if it requires one.
+        """
+        resources_subfolder_mapping = {
+            ContainerCRUD: "containers",
+            NodeCRUD: "nodes",
+            ViewCRUD: "views",
+        }
+        return resources_subfolder_mapping.get(resource_crud, None)
+
+    def _create_default_file_name(self, resource_crud: type[ResourceCRUD]) -> str:
+        """
+        Helper function to return the default file name for a resource.
+        """
+        return f"my_{self._display_name_for_resource(resource_crud).lower().replace(' ', '_')}"
+
+    def _get_resource_cruds(
+        self,
+        resources: tuple[str, ...] | None,
+        available_resources: dict[str, type[ResourceCRUD]],
+        file_names: tuple[str, ...] | None,
+    ) -> tuple[tuple[type[ResourceCRUD], str], ...]:
+        """
+        Helper function to return the resource cruds and default file names.
+        """
+        if resources:
+            resource_crud: type[ResourceCRUD] | None = available_resources.get(resources[0].lower(), None)
+            if not resource_crud:
+                msg = f"'{resources[0]}' resource type does not exist..."
+                if match := difflib.get_close_matches(resources[0], available_resources.keys()):
+                    msg += f"\nDid you mean {humanize_collection(match, bind_word='or')}?"
+                print(f"[red]{msg}[/red]")
+                raise typer.Exit()
+
+            if not file_names:
+                file_names = (self._create_default_file_name(resource_crud),)
+
+            return tuple([(resource_crud, file_names[0])])
+
+        choices = [
+            Choice(title=folder_name, value=(folder_name, cruds))
+            for folder_name, cruds in sorted(CRUDS_BY_FOLDER_NAME.items(), key=lambda x: x[0])
+        ]
+        resource_dirs: list[tuple[str, list[type[ResourceCRUD]]]] | None = questionary.checkbox(
+            "Select resources directories", choices=choices
+        ).ask()
+        if not resource_dirs:
+            print("[red]No resource directories selected... Aborting...[/red]")
+            raise typer.Exit()
+
+        resource_cruds: list[type[ResourceCRUD]] = []
+        for resource_dir, cruds in resource_dirs:
+            choices = [
+                Choice(title=self._display_name_for_resource(crud), value=crud)
+                for crud in cruds
+                if crud in RESOURCE_CRUD_LIST
+            ]
+            if choices and len(choices) == 1:
+                resource_cruds.append(choices[0].value)  # type: ignore[arg-type]
+                continue
+
+            resource_cruds.extend(
+                questionary.checkbox(
+                    f"What resources would you like to create in {resource_dir}?", choices=choices
+                ).ask()
+                or []
+            )
+
+        if not resource_cruds:
+            print("[red]No resource selected... Aborting...[/red]")
+            raise typer.Exit()
+
+        return tuple(
+            [(resource_crud, self._create_default_file_name(resource_crud)) for resource_crud in resource_cruds]
+        )
+
+    def _create_resource_yaml_skeleton(self, yaml_cls: type[ToolkitResource]) -> dict[str, str]:
+        """
+        Build a lightweight YAML skeleton from a Pydantic model class using field descriptions.
+        """
+        yaml_skeleton: dict[str, str] = {}
+        for name, field in yaml_cls.model_fields.items():
+            name = field.alias or name
+            type_str = format_type_annotation(field.annotation)
+            # Remove optional indicators
+            type_str = type_str.replace("| None", "").replace(" | None", "").strip()
+            yaml_skeleton[name] = f"Type - {type_str}"
+            yaml_skeleton[name] = (
+                f"{yaml_skeleton[name]}, {field.description}" if field.description else yaml_skeleton[name]
+            )
+            if field.is_required():
+                yaml_skeleton[name] = f"(Required) {yaml_skeleton[name]}"
+        return yaml_skeleton
+
+    def _get_resource_yaml_content(self, resource_crud: type[ResourceCRUD]) -> str:
+        """
+        Creates a new resource in the specified module using the resource_crud.yaml_cls.
+        """
+        if not resource_crud.yaml_cls:
+            print(
+                f"[red]Resource {self._display_name_for_resource(resource_crud)} does not have a yaml_cls. Contact Toolkit team for assistance.[/red]"
+            )
+            raise typer.Exit()
+        yaml_header = (
+            f"# API docs: {resource_crud.doc_url()}\n"
+            f"# YAML reference: https://docs.cognite.com/cdf/deploy/cdf_toolkit/references/resource_library"
+        )
+        yaml_skeleton = self._create_resource_yaml_skeleton(resource_crud.yaml_cls)
+        yaml_contents = yaml_safe_dump(yaml_skeleton)
+        return yaml_header + "\n\n" + yaml_contents
+
+    def _create_resource_yaml(
+        self,
+        module_dir: Path,
+        resource_crud: type[ResourceCRUD],
+        file_name: str,
+    ) -> Path | None:
+        """
+        Helper to create and write yaml content to specified file path.
+        """
+        resource_dir: Path = module_dir / resource_crud.folder_name
+        subfolder: str | None = self._get_subfolder(resource_crud)
+        if subfolder:
+            resource_dir = resource_dir / subfolder
+
+        if not resource_dir.exists():
+            resource_dir.mkdir(parents=True, exist_ok=True)
+
+        file_path: Path = resource_dir / f"{file_name}.{resource_crud.kind}.yaml"
+
+        if file_path.exists() and not questionary.confirm(f"{file_path.name} file already exists. Overwrite?").ask():
+            print("[red]Skipping...[/red]")
+            return None
+
+        yaml_content: str = self._get_resource_yaml_content(resource_crud)
+        file_path.write_text(yaml_content)
+        return file_path
+
     def resource_create(
         self,
         organization_dir: Path,
@@ -911,6 +1088,38 @@ default_organization_dir = "{organization_dir.name}"''',
         """
         Create a new resource in the specified module.
         """
-        print(organization_dir, module, resources, file_names)
-        print("[red]Command work is in progress.[/red]")
-        raise typer.Exit()
+        module = self._get_module_name(module, organization_dir)
+
+        available_resources: dict[str, type[ResourceCRUD]] = {
+            self._display_name_for_resource(crud).lower(): crud for crud in RESOURCE_CRUD_LIST
+        }
+        resource_cruds: tuple[tuple[type[ResourceCRUD], str], ...] = self._get_resource_cruds(
+            resources, available_resources, file_names
+        )
+
+        if not file_names and not questionary.confirm("Use default file name for resources?").ask():
+            resource_cruds = tuple(
+                [
+                    (
+                        resource_crud,
+                        questionary.text(
+                            f"What is the name of the new {self._display_name_for_resource(resource_crud)} resource file?"
+                        ).ask(),
+                    )
+                    for resource_crud, _ in resource_cruds
+                ]
+            )
+
+        module_dir: Path = organization_dir / MODULES / module
+        created_files: list[str] = []
+
+        for resource_crud, file_name in resource_cruds:
+            file_path: Path | None = self._create_resource_yaml(module_dir, resource_crud, file_name)
+            if file_path:
+                created_files.append(
+                    f"Resource [green]{self._display_name_for_resource(resource_crud)}[/green] created at "
+                    f"[green][link={file_path.resolve().as_uri()}]/{file_path.relative_to(organization_dir).as_posix()}[/link][/green]"
+                )
+
+        if created_files:
+            print("\n".join(created_files))
