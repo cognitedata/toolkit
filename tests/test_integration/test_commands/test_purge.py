@@ -1,3 +1,4 @@
+import contextlib
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
@@ -33,6 +34,7 @@ from cognite.client.data_classes import (
 )
 from cognite.client.data_classes.data_modeling import NodeId, Space
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply, CogniteTimeSeriesApply
+from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils import datetime_to_ms
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -231,12 +233,14 @@ def populated_dataset(toolkit_client: ToolkitClient) -> Iterable[PopulatedDataSe
     client.sequences.delete(id=created_sequence.id, ignore_unknown_ids=True)
     client.time_series.delete(id=created_timeseries.id, ignore_unknown_ids=True)
     client.files.delete(id=created_file.id, ignore_unknown_ids=True)
-    client.labels.delete(id=created_label.id, ignore_unknown_ids=True)
-    client.relationships.delete(id=created_relationship.id, ignore_unknown_ids=True)
-    client.three_d.models.delete(id=created_three_d.id)
-    client.workflows.delete(id=created_workflow.id, ignore_unknown_ids=True)
+    client.labels.delete(external_id=created_label.external_id)
+    client.relationships.delete(external_id=created_relationship.external_id, ignore_unknown_ids=True)
+    with contextlib.suppress(CogniteAPIError):
+        client.three_d.models.delete(id=created_three_d.id)
+    client.workflows.delete(external_id=created_workflow.external_id, ignore_unknown_ids=True)
     client.transformations.delete(id=created_transformation.id, ignore_unknown_ids=True)
-    client.extraction_pipelines.delete(id=created_extraction_pipeline.id, ignore_unknown_ids=True)
+    with contextlib.suppress(CogniteNotFoundError):
+        client.extraction_pipelines.delete(id=created_extraction_pipeline.id)
 
 
 class TestPurge:
@@ -300,7 +304,9 @@ class TestPurge:
         assert client.sequences.retrieve(external_id=populated.sequence.external_id) is None
         assert client.time_series.retrieve(external_id=populated.timeseries.external_id) is None
         assert client.files.retrieve(external_id=populated.file.external_id) is None
-        assert client.labels.retrieve(external_id=populated.label.external_id, ignore_unknown_ids=True) is None
+        # Labels are not deleted, they are still available on direct look-up.
+        # However, they should not be listed under the dataset anymore.
+        assert len(client.labels.list(data_set_external_ids=populated.dataset.external_id)) == 0
         relationships = client.relationships.list(source_external_ids=[populated.asset.external_id])
         assert len(relationships) == 0
         assert client.three_d.models.retrieve(id=populated.three_d.id) is None
