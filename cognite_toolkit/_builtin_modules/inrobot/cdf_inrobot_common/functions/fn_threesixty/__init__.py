@@ -1,1 +1,0 @@
-"""Three sixty image processing."""
