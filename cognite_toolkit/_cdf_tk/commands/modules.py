@@ -22,7 +22,7 @@ from rich.rule import Rule
 from rich.table import Table
 from rich.tree import Tree
 
-from cognite_toolkit._cdf_tk.cdf_toml import CDFToml, Library
+from cognite_toolkit._cdf_tk.cdf_toml import CDFToml, Library, _read_toml
 from cognite_toolkit._cdf_tk.commands import _cli_commands as CLICommands
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._changes import (
@@ -321,16 +321,21 @@ default_organization_dir = "{organization_dir.name}"''',
 
         modules_root_dir = organization_dir / MODULES
 
+        # Determine which library to use (if any)
+        library: Library | None = None
         if library_url:
             if not library_checksum:
                 raise ToolkitRequiredValueError(
                     "The '--library-checksum' is required when '--library-url' is provided."
                 )
+            library = Library(url=library_url, checksum=library_checksum)
+        elif not (organization_dir / CDFToml.file_name).exists():
+            # Load default library from resources when cdf.toml doesn't exist
+            default_toml_data = _read_toml(RESOURCES_PATH / CDFToml.file_name)
+            library_info = default_toml_data["library"]["toolkit-data"]
+            library = Library(url=library_info["url"], checksum=library_info["checksum"])
 
-            user_library = Library(url=library_url, checksum=library_checksum)
-            packages, modules_source_path = self._get_available_packages(user_library)
-        else:
-            packages, modules_source_path = self._get_available_packages()
+        packages, modules_source_path = self._get_available_packages(library)
 
         if select_all:
             print(Panel("Instantiating all available modules"))
