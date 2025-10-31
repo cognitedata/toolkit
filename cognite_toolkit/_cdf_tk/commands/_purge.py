@@ -13,7 +13,6 @@ from cognite.client.data_classes.data_modeling import (
     EdgeList,
     NodeId,
     NodeList,
-    ViewId,
 )
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from cognite.client.exceptions import CogniteAPIError
