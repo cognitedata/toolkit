@@ -69,8 +69,15 @@ from cognite_toolkit._cdf_tk.utils.useful_types import (
     T_WritableCogniteResourceList,
 )
 
-from . import T_Selector
-from ._base import ConfigurableStorageIO, Page, StorageIOConfig, TableStorageIO, UploadableStorageIO, UploadItem
+from ._base import (
+    ConfigurableStorageIO,
+    Page,
+    StorageIOConfig,
+    T_Selector,
+    TableStorageIO,
+    UploadableStorageIO,
+    UploadItem,
+)
 from .selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 
 

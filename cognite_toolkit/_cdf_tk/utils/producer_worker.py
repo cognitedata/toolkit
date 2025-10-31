@@ -194,7 +194,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         if self._error_event.is_set():
             if self.verbose and self.error_traceback:
                 self.print_traceback()
-            raise ToolkitRuntimeError(f"An error occurred during execution: {self.error_message}")
+            raise ToolkitRuntimeError(f"An error occurred during execution: {self.error_message}: ")
         if self._stop_event.is_set():
             raise ToolkitRuntimeError("Execution was stopped by the user.")
 
@@ -235,7 +235,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 break
             except Exception as e:
                 self._error_event.set()
-                self.error_message = str(e)
+                self.error_message = f"{type(e).__name__}: {e!s}"
                 self.error_traceback = traceback.format_exc()
                 self.console.print(f"[red]Error[/red] occurred while {self.download_description}: {self.error_message}")
                 break
@@ -275,7 +275,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 continue
             except Exception as e:
                 self._error_event.set()
-                self.error_message = str(e)
+                self.error_message = f"{type(e).__name__}: {e!s}"
                 self.error_traceback = traceback.format_exc()
                 self.console.print(f"[red]Error[/red] occurred while {self.process_description}: {self.error_message}")
                 break
@@ -297,7 +297,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 continue
             except Exception as e:
                 self._error_event.set()
-                self.error_message = str(e)
+                self.error_message = f"{type(e).__name__}: {e!s}"
                 self.error_traceback = traceback.format_exc()
                 self.console.print(f"[red]Error[/red] occurred while {self.write_description}: {self.error_message}")
                 break
