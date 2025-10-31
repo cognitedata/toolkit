@@ -180,9 +180,10 @@ class UploadCommand(ToolkitCommand):
                     reader = FileReader.from_filepath(data_file)
                     is_table = reader.format in TABLE_READ_CLS_BY_FORMAT
                     tracker = ProgressTracker[str]([self._UPLOAD])
+                    data_name = "row" if is_table else "line"
                     executor = ProducerWorkerExecutor[list[tuple[str, dict[str, JsonVal]]], Sequence[UploadItem]](
                         download_iterable=chunker(
-                            ((f"line {line_no}", item) for line_no, item in enumerate(reader.read_chunks(), 1)),
+                            ((f"{data_name} {line_no}", item) for line_no, item in enumerate(reader.read_chunks(), 1)),
                             io.CHUNK_SIZE,
                         ),
                         process=partial(io.rows_to_data, selector=selector)
