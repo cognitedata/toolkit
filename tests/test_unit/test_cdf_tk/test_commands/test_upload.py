@@ -68,7 +68,7 @@ def raw_mock_client(
 
 class TestUploadCommand:
     @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
-    def test_upload_raw_rows(
+    def test_upload_raw_rows_from_ndjson(
         self,
         raw_mock_client: tuple[ToolkitClient, respx.MockRouter],
         raw_json_directory: Path,
