@@ -67,6 +67,10 @@ class ResourceViewMappingCRUD(
             actions=actions, scope=capabilities.DataModelInstancesAcl.Scope.SpaceID([COGNITE_MIGRATION_SPACE])
         )
 
+    def are_prerequisite_present(self) -> bool:
+        views = self.client.data_modeling.views.retrieve(ResourceViewMapping.get_source())
+        return len(views) > 0
+
     def create(self, items: NodeApplyList) -> Sized:
         return self.client.migration.resource_view_mapping.upsert(items)
 
