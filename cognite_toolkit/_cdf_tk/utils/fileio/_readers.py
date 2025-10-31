@@ -87,7 +87,10 @@ class FailedParsing:
     error: str
 
 
-class CSVReader(FileReader):
+class TableReader(FileReader, ABC): ...
+
+
+class CSVReader(TableReader):
     """Reads CSV files and yields each row as a dictionary.
 
     Args:
@@ -229,7 +232,7 @@ class CSVReader(FileReader):
             yield from csv.DictReader(file)
 
 
-class ParquetReader(FileReader):
+class ParquetReader(TableReader):
     format = ".parquet"
 
     def read_chunks(self) -> Iterator[dict[str, JsonVal]]:
@@ -257,6 +260,7 @@ class ParquetReader(FileReader):
 
 
 FILE_READ_CLS_BY_FORMAT: Mapping[str, type[FileReader]] = {}
+TABLE_READ_CLS_BY_FORMAT: Mapping[str, type[TableReader]] = {}
 for subclass in get_concrete_subclasses(FileReader):  # type: ignore[type-abstract]
     if not getattr(subclass, "format", None):
         continue
@@ -267,3 +271,10 @@ for subclass in get_concrete_subclasses(FileReader):  # type: ignore[type-abstra
         )
     # We know we have a dict, but we want to expose FILE_READ_CLS_BY_FORMAT as a Mapping
     FILE_READ_CLS_BY_FORMAT[subclass.format] = subclass  # type: ignore[index]
+    if issubclass(subclass, TableReader):
+        if subclass.format in TABLE_READ_CLS_BY_FORMAT:
+            raise TypeError(
+                f"Duplicate table file format {subclass.format!r} found for classes "
+                f"{TABLE_READ_CLS_BY_FORMAT[subclass.format].__name__!r} and {subclass.__name__!r}."
+            )
+        TABLE_READ_CLS_BY_FORMAT[subclass.format] = subclass  # type: ignore[index]

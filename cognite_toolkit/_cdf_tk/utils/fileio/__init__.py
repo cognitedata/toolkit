@@ -8,6 +8,7 @@ from ._compression import (
 )
 from ._readers import (
     FILE_READ_CLS_BY_FORMAT,
+    TABLE_READ_CLS_BY_FORMAT,
     CSVReader,
     FailedParsing,
     FileReader,
@@ -32,6 +33,7 @@ __all__ = [
     "COMPRESSION_BY_SUFFIX",
     "FILE_READ_CLS_BY_FORMAT",
     "FILE_WRITE_CLS_BY_FORMAT",
+    "TABLE_READ_CLS_BY_FORMAT",
     "TABLE_WRITE_CLS_BY_FORMAT",
     "CSVReader",
     "CSVWriter",
