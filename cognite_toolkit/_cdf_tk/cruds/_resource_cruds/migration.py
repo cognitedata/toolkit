@@ -67,6 +67,13 @@ class ResourceViewMappingCRUD(
             actions=actions, scope=capabilities.DataModelInstancesAcl.Scope.SpaceID([COGNITE_MIGRATION_SPACE])
         )
 
+    def prerequisite_warning(self) -> str | None:
+        view_id = ResourceViewMapping.get_source()
+        views = self.client.data_modeling.views.retrieve(view_id)
+        if len(views) > 0:
+            return None
+        return f"{self.display_name} requires the {view_id!r} to be deployed. run `cdf migrate prepare` to deploy it."
+
     def create(self, items: NodeApplyList) -> Sized:
         return self.client.migration.resource_view_mapping.upsert(items)
 
