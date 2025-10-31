@@ -442,7 +442,7 @@ class AuthCommand(ToolkitCommand):
         project_type = client.project.status().this_project.data_modeling_status
         for crud_cls in cruds.RESOURCE_CRUD_LIST:
             crud = crud_cls.create_loader(client)
-            if not crud.prerequisite_warning():
+            if crud.prerequisite_warning() is not None:
                 continue
             capability = crud_cls.get_required_capability(None, read_only=False)
             capabilities = capability if isinstance(capability, list) else [capability]

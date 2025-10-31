@@ -38,12 +38,8 @@ class MigrationPrepareCommand(ToolkitCommand):
             (ResourceViewMappingCRUD, create_default_mappings()),
         ]:
             crud = crud_cls.create_loader(client)
-            if not crud.prerequisite_warning():
-                self.warn(
-                    HighSeverityWarning(
-                        f"Prerequisites for deploying {crud.display_name!r} are not available. Skipping."
-                    )
-                )
+            if warning := crud.prerequisite_warning():
+                self.warn(HighSeverityWarning(warning))
                 continue
             worker = ResourceWorker(crud, "deploy")
             # MyPy does not understand that `loader` has a `get_id` method.
