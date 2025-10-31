@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Literal, overload
 
 from cognite_toolkit._cdf_tk.constants import (
-    BUILTIN_MODULES,
     MODULE_PATH_SEP,
     ROOT_MODULES,
 )
@@ -21,9 +20,6 @@ def iterate_modules(root_dir: Path) -> Iterator[tuple[Path, list[Path]]]:
 
     """
     if root_dir.name in ROOT_MODULES:
-        yield from _iterate_modules(root_dir)
-        return
-    elif root_dir.name == BUILTIN_MODULES:
         yield from _iterate_modules(root_dir)
         return
     for root_module in ROOT_MODULES:
