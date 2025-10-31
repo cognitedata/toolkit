@@ -1,11 +1,12 @@
 import json
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
 import respx
 from cognite.client.data_classes.raw import RowWrite, Table, TableList
 
-from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable, RawTableList
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import UploadCommand
@@ -46,40 +47,49 @@ def raw_json_directory(tmp_path: Path) -> Path:
     return tmp_path
 
 
+@pytest.fixture
+def raw_mock_client(
+    toolkit_config: ToolkitClientConfig,
+    respx_mock: respx.MockRouter,
+    monkeypatch: pytest.MonkeyPatch,
+) -> Iterator[tuple[ToolkitClient, respx.MockRouter]]:
+    config = toolkit_config
+    insert_url = config.create_api_url("/raw/dbs/test_db/tables/test_table/rows")
+    respx_mock.post(url=insert_url).respond(status_code=200)
+    monkeypatch.setenv("CDF_CLUSTER", config.cdf_cluster)
+    monkeypatch.setenv("CDF_PROJECT", config.project)
+    with monkeypatch_toolkit_client() as client:
+        client.verify.authorization.return_value = []
+        client.raw.tables.list.return_value = RawTableList([])
+        client.raw.tables.create.return_value = TableList([Table(name="test_table")])
+        client.config = config
+        yield client, respx_mock
+
+
 class TestUploadCommand:
     @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
     def test_upload_raw_rows(
         self,
-        toolkit_config: ToolkitClientConfig,
+        raw_mock_client: tuple[ToolkitClient, respx.MockRouter],
         raw_json_directory: Path,
-        respx_mock: respx.MockRouter,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        config = toolkit_config
-        insert_url = config.create_api_url("/raw/dbs/test_db/tables/test_table/rows")
-        respx_mock.post(insert_url).respond(status_code=200)
+        client, respx_mock = raw_mock_client
 
         cmd = UploadCommand(silent=True, skip_tracking=True)
-        monkeypatch.setenv("CDF_CLUSTER", config.cdf_cluster)
-        monkeypatch.setenv("CDF_PROJECT", config.project)
-        with monkeypatch_toolkit_client() as client:
-            client.verify.authorization.return_value = []
-            client.raw.tables.list.return_value = RawTableList([])
-            client.raw.tables.create.return_value = TableList([Table(name="test_table")])
-            client.config = config
-            cmd.upload(raw_json_directory, client, deploy_resources=True, dry_run=False, verbose=False)
+        cmd.upload(raw_json_directory, client, deploy_resources=True, dry_run=False, verbose=False)
 
-            assert len(respx_mock.calls) == 1
-            call = respx_mock.calls[0]
-            assert call.request.url == insert_url
-            body = json.loads(call.request.content)["items"]
-            assert isinstance(body, list)
-            assert len(body) == 1_000
+        assert len(respx_mock.calls) == 1
+        call = respx_mock.calls[0]
+        assert str(call.request.url).endswith("/raw/dbs/test_db/tables/test_table/rows")
+        body = json.loads(call.request.content)["items"]
+        assert isinstance(body, list)
+        assert len(body) == 1_000
 
-            client.raw.tables.create.assert_called_once()
-            _, table_kwargs = client.raw.tables.create.call_args
-            assert table_kwargs["db_name"] == "test_db"
-            assert table_kwargs["name"] == ["test_table"]
+        client.raw.tables.create.assert_called_once()
+        _, table_kwargs = client.raw.tables.create.call_args
+        assert table_kwargs["db_name"] == "test_db"
+        assert table_kwargs["name"] == ["test_table"]
 
     def test_upload_raw_rows_dry_run(
         self, toolkit_config: ToolkitClientConfig, raw_json_directory: Path, monkeypatch: pytest.MonkeyPatch
