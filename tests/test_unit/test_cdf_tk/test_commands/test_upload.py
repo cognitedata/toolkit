@@ -17,7 +17,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
 
 
 @pytest.fixture
-def raw_directory(tmp_path: Path) -> Path:
+def raw_json_directory(tmp_path: Path) -> Path:
     """Fixture to create a temporary folder with a sample NDJSON file."""
     configfile = tmp_path / DATA_RESOURCE_DIR / RawTableCRUD.folder_name / f"test_table.{RawTableCRUD.kind}.yaml"
     configfile.parent.mkdir(parents=True, exist_ok=True)
@@ -51,7 +51,7 @@ class TestUploadCommand:
     def test_upload_raw_rows(
         self,
         toolkit_config: ToolkitClientConfig,
-        raw_directory: Path,
+        raw_json_directory: Path,
         respx_mock: respx.MockRouter,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
@@ -67,7 +67,7 @@ class TestUploadCommand:
             client.raw.tables.list.return_value = RawTableList([])
             client.raw.tables.create.return_value = TableList([Table(name="test_table")])
             client.config = config
-            cmd.upload(raw_directory, client, deploy_resources=True, dry_run=False, verbose=False)
+            cmd.upload(raw_json_directory, client, deploy_resources=True, dry_run=False, verbose=False)
 
             assert len(respx_mock.calls) == 1
             call = respx_mock.calls[0]
@@ -82,7 +82,7 @@ class TestUploadCommand:
             assert table_kwargs["name"] == ["test_table"]
 
     def test_upload_raw_rows_dry_run(
-        self, toolkit_config: ToolkitClientConfig, raw_directory: Path, monkeypatch: pytest.MonkeyPatch
+        self, toolkit_config: ToolkitClientConfig, raw_json_directory: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         config = toolkit_config
         cmd = UploadCommand(silent=True, skip_tracking=True)
@@ -90,7 +90,7 @@ class TestUploadCommand:
         monkeypatch.setenv("CDF_PROJECT", config.project)
         with monkeypatch_toolkit_client() as client:
             client.verify.authorization.return_value = []
-            cmd.upload(raw_directory, client, deploy_resources=True, dry_run=True, verbose=False)
+            cmd.upload(raw_json_directory, client, deploy_resources=True, dry_run=True, verbose=False)
 
             client.raw.rows.insert.assert_not_called()
             client.raw.databases.create.assert_not_called()
