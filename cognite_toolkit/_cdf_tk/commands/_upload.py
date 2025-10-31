@@ -9,14 +9,14 @@ from rich.console import Console
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.storageio import T_Selector, UploadableStorageIO, are_same_kind, get_upload_io
-from cognite_toolkit._cdf_tk.storageio._base import T_WriteCogniteResource, UploadItem
+from cognite_toolkit._cdf_tk.storageio._base import T_WriteCogniteResource, TableUploadableStorageIO, UploadItem
 from cognite_toolkit._cdf_tk.storageio.selectors import Selector, SelectorAdapter
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
-from cognite_toolkit._cdf_tk.utils.fileio import FileReader
+from cognite_toolkit._cdf_tk.utils.fileio import TABLE_READ_CLS_BY_FORMAT, FileReader
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ItemMessage, SuccessResponseItems
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.progress_tracker import ProgressTracker
@@ -178,14 +178,16 @@ class UploadCommand(ToolkitCommand):
                     if verbose:
                         console.print(f"{action} {selector.display_name} from {file_display.as_posix()!r}")
                     reader = FileReader.from_filepath(data_file)
-
+                    is_table = reader.format in TABLE_READ_CLS_BY_FORMAT
                     tracker = ProgressTracker[str]([self._UPLOAD])
                     executor = ProducerWorkerExecutor[list[tuple[str, dict[str, JsonVal]]], Sequence[UploadItem]](
                         download_iterable=chunker(
                             ((f"line {line_no}", item) for line_no, item in enumerate(reader.read_chunks(), 1)),
                             io.CHUNK_SIZE,
                         ),
-                        process=io.json_chunk_to_data,
+                        process=partial(io.rows_to_data, selector=selector)
+                        if is_table and isinstance(io, TableUploadableStorageIO)
+                        else io.json_chunk_to_data,
                         write=partial(
                             self._upload_items,
                             upload_client=upload_client,
