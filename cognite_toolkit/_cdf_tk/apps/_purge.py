@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     SelectedView,
 )
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.cli_args import parse_view_str
 from cognite_toolkit._cdf_tk.utils.interactive_select import AssetInteractiveSelect, DataModelingSelect
 
 
@@ -89,7 +90,8 @@ class PurgeApp(typer.Typer):
             typer.Option(
                 "--asset-recursive",
                 "-a",
-                help="When deleting assets, delete all child assets recursively.",
+                help="When deleting assets, delete all child assets recursively. CAVEAT: This can lead to assets"
+                " not in the selected dataset being deleted if they are children of assets in the dataset.",
                 hidden=not Flags.v07.is_enabled(),
             ),
         ] = False,
@@ -136,7 +138,9 @@ class PurgeApp(typer.Typer):
                     default=False,
                 ).ask()
                 asset_recursive = questionary.confirm(
-                    "When deleting assets, delete all child assets recursively?", default=True
+                    "When deleting assets, delete all child assets recursively? (CAVEAT: This can lead "
+                    "to assets not in the selected dataset being deleted if they are children of assets in the dataset.)",
+                    default=False,
                 ).ask()
             archive_dataset = questionary.confirm("Archive the dataset itself after purging?", default=False).ask()
             dry_run = questionary.confirm("Dry run?", default=True).ask()
@@ -268,10 +272,10 @@ class PurgeApp(typer.Typer):
     @staticmethod
     def purge_instances(
         view: Annotated[
-            list[str] | None,
+            str | None,
             typer.Argument(
                 help="Purge instances with properties in the specified view. Expected format is "
-                "'space externalId version'. For example 'cdf_cdm CogniteTimeSeries v1' will purge all nodes"
+                "'space:externalId/version'. For example 'cdf_cdm:CogniteTimeSeries/v1' will purge all nodes"
                 "that have properties in the CogniteTimeSeries view. If not provided and no "
                 "instance list is provided, interactive mode will be used.",
             ),
@@ -368,7 +372,7 @@ class PurgeApp(typer.Typer):
         elif instance_list is not None:
             selector = InstanceFileSelector(datafile=instance_list)
         elif view is not None:
-            view_id = cmd.get_selected_view_id(view)  # Will raise if not exactly one view
+            view_id = parse_view_str(view)
             selector = InstanceViewSelector(
                 view=SelectedView(
                     space=view_id.space, external_id=view_id.external_id, version=cast(str, view_id.version)
