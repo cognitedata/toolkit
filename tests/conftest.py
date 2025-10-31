@@ -5,8 +5,6 @@ This module provides worker-scoped fixtures for external library caching to avoi
 race conditions and expensive repeated downloads when running tests with pytest-xdist.
 """
 
-from __future__ import annotations
-
 import atexit
 import hashlib
 import os
@@ -18,6 +16,9 @@ from pathlib import Path
 
 import pytest
 from filelock import FileLock
+
+from cognite_toolkit._cdf_tk.commands.modules import ModulesCommand
+from cognite_toolkit._cdf_tk.utils import sanitize_filename
 
 # Global registry to track temp directories for cleanup
 _TEMP_DIRS_TO_CLEANUP: set[Path] = set()
@@ -45,7 +46,7 @@ def get_worker_id() -> str:
     """
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", "master")
     # Sanitize the worker ID to be filesystem-safe
-    return worker_id.replace("/", "_").replace("\\", "_")
+    return sanitize_filename(worker_id)
 
 
 @contextmanager
@@ -100,7 +101,7 @@ def get_unique_run_id() -> str:
             parts.append(run_attempt)
         if job_id:
             # Sanitize job ID to be filesystem-safe
-            job_id_safe = job_id.replace("/", "_").replace("\\", "_").replace(" ", "_")
+            job_id_safe = sanitize_filename(job_id)
             parts.append(job_id_safe)
         return "-".join(parts)
 
@@ -258,7 +259,6 @@ def modules_command_with_cached_download(
         However, all tests share the same cache directory (per worker), so downloads
         are cached across tests.
     """
-    from cognite_toolkit._cdf_tk.commands.modules import ModulesCommand
 
     worker_id = get_worker_id()
     cache_dir = external_library_cache_root / worker_id / "modules"
