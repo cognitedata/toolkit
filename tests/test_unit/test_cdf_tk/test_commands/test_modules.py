@@ -12,9 +12,8 @@ import yaml
 from _pytest.monkeypatch import MonkeyPatch
 from questionary import Choice
 
-from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands.modules import ModulesCommand
-from cognite_toolkit._cdf_tk.constants import MODULES, RESOURCES_PATH
+from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.data_classes import Package, Packages
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError
 from cognite_toolkit._cdf_tk.tk_warnings.other import HighSeverityWarning
@@ -429,14 +428,3 @@ class TestModulesCommand:
         # Expect: two SHA256 hex hashes in the message, one for provided and one for calculated
         pattern = r"^The provided checksum sha256:[0-9a-f]{64} does not match downloaded file hash sha256:[0-9a-f]{64}"
         assert re.search(pattern, warning.message_raw)
-
-    def test_init_loads_default_cdf_toml_when_missing(
-        self, tmp_path: Path, monkeypatch: MonkeyPatch, modules_command_with_cached_download
-    ) -> None:
-        from cognite_toolkit._cdf_tk.cdf_toml import _read_toml
-
-        expected_toml_data = _read_toml(RESOURCES_PATH / CDFToml.file_name)
-        assert expected_toml_data["library"]["toolkit-data"]["url"].startswith(
-            "https://github.com/cognitedata/toolkit-data"
-        )
-        assert expected_toml_data["library"]["toolkit-data"]["checksum"].startswith("sha256:")

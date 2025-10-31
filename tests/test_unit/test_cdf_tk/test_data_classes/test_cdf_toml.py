@@ -4,7 +4,8 @@ from pathlib import Path
 import pytest
 
 from cognite_toolkit import _version
-from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
+from cognite_toolkit._cdf_tk.cdf_toml import CDFToml, _read_toml
+from cognite_toolkit._cdf_tk.constants import RESOURCES_PATH
 from cognite_toolkit._cdf_tk.exceptions import ToolkitTOMLFormatError
 from tests.constants import REPO_ROOT
 
@@ -115,3 +116,23 @@ class TestCDFToml:
 
         config = CDFToml.load(cwd=tmp_path, use_singleton=False)
         assert config.libraries["valid_url"].url == "https://github.com/cognitedata/package/archive/refs/tags/0.0.1.zip"
+
+    def test_default_resources_cdf_toml_has_valid_library_config(self) -> None:
+        """Test that the default cdf.toml in resources has valid library configuration."""
+        default_toml_data = _read_toml(RESOURCES_PATH / CDFToml.file_name)
+
+        # Verify the structure matches what the code expects
+        assert "library" in default_toml_data
+        assert "toolkit-data" in default_toml_data["library"]
+        assert "url" in default_toml_data["library"]["toolkit-data"]
+        assert "checksum" in default_toml_data["library"]["toolkit-data"]
+
+        # Verify the URL is a valid HTTPS URL pointing to toolkit-data
+        url = default_toml_data["library"]["toolkit-data"]["url"]
+        assert url.startswith("https://github.com/cognitedata/toolkit-data")
+        assert url.endswith(".zip")
+
+        # Verify the checksum has the correct format
+        checksum = default_toml_data["library"]["toolkit-data"]["checksum"]
+        assert checksum.startswith("sha256:")
+        assert len(checksum) == 73  # "sha256:" + 64 hex characters
