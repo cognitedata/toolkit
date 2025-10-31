@@ -230,3 +230,19 @@ class TableStorageIO(StorageIO[T_Selector, T_CogniteResource], ABC):
 
         """
         raise NotImplementedError()
+
+    @abstractmethod
+    def data_to_row(
+        self, data_chunk: Sequence[T_CogniteResource], selector: T_Selector | None = None
+    ) -> list[dict[str, JsonVal]]:
+        """Convert a chunk of data to a row-based JSON-compatible format.
+
+        Args:
+            data_chunk: The chunk of data to convert, which should be a writable Cognite resource list.
+            selector: Optional selection criteria to identify the data. This is required for some storage types.
+
+        Returns:
+            A list of dictionaries representing the data in a JSON-compatible format.
+
+        """
+        raise NotImplementedError()

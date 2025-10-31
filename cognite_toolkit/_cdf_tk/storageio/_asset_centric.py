@@ -68,7 +68,14 @@ from cognite_toolkit._cdf_tk.utils.useful_types import (
     T_WritableCogniteResourceList,
 )
 
-from ._base import ConfigurableStorageIO, Page, StorageIOConfig, TableStorageIO, UploadableStorageIO, UploadItem
+from ._base import (
+    ConfigurableStorageIO,
+    Page,
+    StorageIOConfig,
+    TableStorageIO,
+    UploadableStorageIO,
+    UploadItem,
+)
 from .selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 
 
@@ -177,6 +184,19 @@ class BaseAssetCentricIO(
     @classmethod
     def create_internal_identifier(cls, internal_id: int, project: str) -> str:
         return f"INTERNAL_ID_project_{project}_{internal_id!s}"
+
+    def data_to_row(
+        self, data_chunk: Sequence[T_WritableCogniteResource], selector: AssetCentricSelector | None = None
+    ) -> list[dict[str, JsonVal]]:
+        rows: list[dict[str, JsonVal]] = []
+        for chunk in self.data_to_json_chunk(data_chunk, selector):
+            if "metadata" in chunk and isinstance(chunk["metadata"], dict):
+                metadata = chunk.pop("metadata")
+                # MyPy does understand that metadata is a dict here due to the check above.
+                for key, value in metadata.items():  # type: ignore[union-attr]
+                    chunk[f"metadata.{key}"] = value
+            rows.append(chunk)
+        return rows
 
 
 class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetList]):

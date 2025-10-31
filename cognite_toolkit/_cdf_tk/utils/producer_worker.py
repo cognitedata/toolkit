@@ -235,7 +235,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 break
             except Exception as e:
                 self._error_event.set()
-                self.error_message = str(e)
+                self.error_message = f"{type(e).__name__} {e!s}"
                 self.error_traceback = traceback.format_exc()
                 self.console.print(f"[red]Error[/red] occurred while {self.download_description}: {self.error_message}")
                 break
@@ -275,7 +275,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 continue
             except Exception as e:
                 self._error_event.set()
-                self.error_message = str(e)
+                self.error_message = f"{type(e).__name__} {e!s}"
                 self.error_traceback = traceback.format_exc()
                 self.console.print(f"[red]Error[/red] occurred while {self.process_description}: {self.error_message}")
                 break
@@ -297,7 +297,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 continue
             except Exception as e:
                 self._error_event.set()
-                self.error_message = str(e)
+                self.error_message = f"{type(e).__name__} {e!s}"
                 self.error_traceback = traceback.format_exc()
                 self.console.print(f"[red]Error[/red] occurred while {self.write_description}: {self.error_message}")
                 break
