@@ -131,16 +131,7 @@ class DownloadCommand(ToolkitCommand):
         selector: T_Selector,
         is_table: bool,
     ) -> Callable[[Page[T_CogniteResource]], list[dict[str, JsonVal]]]:
-        """Processes a chunk of data by converting it to a JSON-compatible format.
-
-        Args:
-            io: The StorageIO instance that defines how to process the data.
-            selector: The selection criteria used to identify the data.
-            is_table: A boolean indicating whether the data is in table format.
-
-        Returns:
-            A list of dictionaries representing the processed data in a JSON-compatible format.
-        """
+        """Creates a data processing function based on the IO type and whether the output is a table."""
         if is_table and isinstance(io, TableStorageIO):
 
             def row_data_process(chunk: Page[T_CogniteResource]) -> list[dict[str, JsonVal]]:
