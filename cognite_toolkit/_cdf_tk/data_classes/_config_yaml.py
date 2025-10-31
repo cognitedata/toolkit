@@ -497,7 +497,9 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
         adds them to the config.yaml file.
 
         Args:
-            cognite_root_module: The root module for all cognite modules.
+            cognite_root_module: Path to the root directory containing all Cognite modules.
+            defaults_files: List of paths to default.config.yaml files to load.
+            ignore_patterns: Optional list of tuples containing patterns to ignore when loading defaults.
 
         Returns:
             self
@@ -510,6 +512,10 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
             raw_file = safe_read(default_config)
             file_comments = self._extract_comments(raw_file, key_prefix=tuple(parts))
             file_data = cast(dict, read_yaml_content(raw_file))
+
+            # a file may exist, but contain just comments, thus the file_data is None
+            if file_data is None:
+                continue
             for key, value in file_data.items():
                 if len(parts) >= 1 and parts[0] in ROOT_MODULES:
                     key_path = (self._variables, *parts, key)

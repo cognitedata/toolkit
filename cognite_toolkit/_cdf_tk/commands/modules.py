@@ -1,3 +1,4 @@
+import importlib.resources as resources
 import shutil
 import sys
 import tempfile
@@ -22,6 +23,7 @@ from rich.rule import Rule
 from rich.table import Table
 from rich.tree import Tree
 
+import cognite_toolkit
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml, Library
 from cognite_toolkit._cdf_tk.commands import _cli_commands as CLICommands
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
@@ -35,6 +37,7 @@ from cognite_toolkit._cdf_tk.commands._changes import (
     UpdateModuleVersion,
 )
 from cognite_toolkit._cdf_tk.constants import (
+    BUILTIN_MODULES,
     MODULES,
     RESOURCES_PATH,
     SUPPORT_MODULE_UPGRADE_FROM_VERSION,
@@ -95,11 +98,16 @@ class ModulesCommand(ToolkitCommand):
         print_warning: bool = True,
         skip_tracking: bool = False,
         silent: bool = False,
+        temp_dir_suffix: str | None = None,
         module_source_dir: Path | None = None,
     ):
         super().__init__(print_warning, skip_tracking, silent)
         self._module_source_dir: Path | None = module_source_dir
-        self._temp_download_dir = Path(tempfile.gettempdir()) / MODULES
+        if module_source_dir is None:
+            self._builtin_modules_path = Path(resources.files(cognite_toolkit.__name__)) / BUILTIN_MODULES  # type: ignore [arg-type]
+        # Use suffix to make temp directory unique (useful for parallel test execution)
+        modules_dir_name = f"{MODULES}.{temp_dir_suffix}" if temp_dir_suffix else MODULES
+        self._temp_download_dir = Path(tempfile.gettempdir()) / modules_dir_name
         if not self._temp_download_dir.exists():
             self._temp_download_dir.mkdir(parents=True, exist_ok=True)
 
@@ -170,6 +178,13 @@ class ModulesCommand(ToolkitCommand):
             print(f"{INDENT}[{'yellow' if mode == 'clean' else 'green'}]Creating {package_name}[/]")
 
             for module in package.modules:
+                installed_module_ids = self._additional_tracking_info.setdefault("installedModuleIds", [])
+                installed_package_ids = self._additional_tracking_info.setdefault("installedPackageIds", [])
+                if module.module_id and module.module_id not in installed_module_ids:
+                    installed_module_ids.append(module.module_id)
+                if module.package_id and module.package_id not in installed_package_ids:
+                    installed_package_ids.append(module.package_id)
+
                 if module.dir in seen_modules:
                     # A module can be part of multiple packages
                     continue
@@ -767,7 +782,7 @@ default_organization_dir = "{organization_dir.name}"''',
         """
 
         cdf_toml = CDFToml.load()
-        if Flags.EXTERNAL_LIBRARIES.is_enabled() or user_library:
+        if (Flags.EXTERNAL_LIBRARIES.is_enabled() or user_library) and self._module_source_dir is None:
             libraries = {"userdefined": user_library} if user_library else cdf_toml.libraries
 
             for library_name, library in libraries.items():
@@ -826,10 +841,9 @@ default_organization_dir = "{organization_dir.name}"''',
                 )
 
             if self._module_source_dir is None:
-                self.warn(
-                    MediumSeverityWarning("No external libraries and no local module source directory specified.")
-                )
-                return Packages(), Path(".")
+                packages = Packages.load(self._builtin_modules_path)
+                self._validate_packages(packages, "built-in modules")
+                return packages, self._builtin_modules_path
             packages = Packages.load(self._module_source_dir)
             self._validate_packages(packages, self._module_source_dir.name)
             return packages, self._module_source_dir
