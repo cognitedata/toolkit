@@ -178,6 +178,7 @@ class UploadCommand(ToolkitCommand):
                     if verbose:
                         console.print(f"{action} {selector.display_name} from {file_display.as_posix()!r}")
                     reader = FileReader.from_filepath(data_file)
+
                     tracker = ProgressTracker[str]([self._UPLOAD])
                     executor = ProducerWorkerExecutor[list[tuple[str, dict[str, JsonVal]]], Sequence[UploadItem]](
                         download_iterable=chunker(

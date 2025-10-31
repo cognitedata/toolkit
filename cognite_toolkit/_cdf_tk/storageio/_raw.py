@@ -1,4 +1,5 @@
 from collections.abc import Iterable, Sequence
+from uuid import uuid4
 
 from cognite.client.data_classes import Row, RowWrite
 
@@ -8,13 +9,19 @@ from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import ConfigurableStorageIO, Page, StorageIOConfig, UploadableStorageIO, UploadItem
+from ._base import (
+    ConfigurableStorageIO,
+    Page,
+    StorageIOConfig,
+    TableUploadableStorageIO,
+    UploadItem,
+)
 from .selectors import RawTableSelector
 
 
 class RawIO(
     ConfigurableStorageIO[RawTableSelector, Row],
-    UploadableStorageIO[RawTableSelector, Row, RowWrite],
+    TableUploadableStorageIO[RawTableSelector, Row, RowWrite],
 ):
     KIND = "RawRows"
     DISPLAY_NAME = "Raw Rows"
@@ -81,3 +88,9 @@ class RawIO(
         yield StorageIOConfig(
             kind=RawTableCRUD.kind, folder_name=RawTableCRUD.folder_name, value=selector.table.model_dump(by_alias=True)
         )
+
+    def row_to_resource(self, row: dict[str, JsonVal], selector: RawTableSelector | None = None) -> RowWrite:
+        key = str(uuid4())
+        if selector is not None and selector.key is not None and selector.key in row:
+            key = str(row.pop(selector.key))
+        return RowWrite(key=key, columns=row)
