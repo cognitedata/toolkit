@@ -194,7 +194,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         if self._error_event.is_set():
             if self.verbose and self.error_traceback:
                 self.print_traceback()
-            raise ToolkitRuntimeError(f"An error occurred during execution: {self.error_message}: ")
+            raise ToolkitRuntimeError(f"An error occurred during execution: {self.error_message}")
         if self._stop_event.is_set():
             raise ToolkitRuntimeError("Execution was stopped by the user.")
 
