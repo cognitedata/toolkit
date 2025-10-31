@@ -48,6 +48,26 @@ def raw_json_directory(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
+def raw_csv_directory(tmp_path: Path) -> Path:
+    """Fixture to create a temporary folder with a sample CSV file."""
+    configfile = tmp_path / DATA_RESOURCE_DIR / RawTableCRUD.folder_name / f"test_table.{RawTableCRUD.kind}.yaml"
+    configfile.parent.mkdir(parents=True, exist_ok=True)
+    table = RawTable(db_name="test_db", table_name="test_table")
+    configfile.write_text(table.dump_yaml())
+    csv_file = tmp_path / "test_table.csv"
+    with csv_file.open("w") as f:
+        f.write("index,column1,column2,column3\n")
+        for i in range(1, 1001):
+            f.write(f"key{i},value{i},{i},{i % 2 == 0}\n")
+
+    selector = RawTableSelector(
+        table=SelectedTable(db_name=table.db_name, table_name=table.table_name), type="rawTable", key="index"
+    )
+    selector.dump_to_file(tmp_path)
+    return tmp_path
+
+
+@pytest.fixture
 def raw_mock_client(
     toolkit_config: ToolkitClientConfig,
     respx_mock: respx.MockRouter,
@@ -79,6 +99,23 @@ class TestUploadCommand:
         cmd = UploadCommand(silent=True, skip_tracking=True)
         cmd.upload(raw_json_directory, client, deploy_resources=True, dry_run=False, verbose=False)
 
+        self.assert_raw_rows_uploaded(client, respx_mock)
+
+    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
+    def test_upload_raw_rows_from_csv(
+        self,
+        raw_mock_client: tuple[ToolkitClient, respx.MockRouter],
+        raw_csv_directory: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        client, respx_mock = raw_mock_client
+
+        cmd = UploadCommand(silent=True, skip_tracking=True)
+        cmd.upload(raw_csv_directory, client, deploy_resources=True, dry_run=False, verbose=False)
+
+        self.assert_raw_rows_uploaded(client, respx_mock)
+
+    def assert_raw_rows_uploaded(self, client: ToolkitClient, respx_mock: respx.MockRouter) -> None:
         assert len(respx_mock.calls) == 1
         call = respx_mock.calls[0]
         assert str(call.request.url).endswith("/raw/dbs/test_db/tables/test_table/rows")
