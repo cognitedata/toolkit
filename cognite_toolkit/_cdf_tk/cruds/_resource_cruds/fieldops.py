@@ -75,6 +75,10 @@ class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig, APMConfigWriteL
 
         return DataModelInstancesAcl(actions, DataModelInstancesAcl.Scope.SpaceID([APMConfig.space]))
 
+    def are_prerequisite_present(self) -> bool:
+        views = self.client.data_modeling.views.retrieve(APMConfig.view_id)
+        return len(views) > 0
+
     def create(self, items: APMConfigWriteList) -> NodeApplyResultList:
         result = self.client.data_modeling.instances.apply(
             nodes=items.as_nodes(), auto_create_direct_relations=True, replace=False
