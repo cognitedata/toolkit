@@ -38,7 +38,7 @@ class MigrationPrepareCommand(ToolkitCommand):
             (ResourceViewMappingCRUD, create_default_mappings()),
         ]:
             crud = crud_cls.create_loader(client)
-            if not crud.are_prerequisite_present():
+            if not crud.prerequisite_warning():
                 self.warn(
                     HighSeverityWarning(
                         f"Prerequisites for deploying {crud.display_name!r} are not available. Skipping."
