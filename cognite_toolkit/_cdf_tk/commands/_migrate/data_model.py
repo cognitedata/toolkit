@@ -97,7 +97,7 @@ SPACE_SOURCE = dm.ContainerApply(
             type=dm.data_types.Int64(),
             nullable=False,
         ),
-        "classicExternalId": dm.ContainerProperty(
+        "dataSetExternalId": dm.ContainerProperty(
             type=dm.Text(max_text_size=256),
             nullable=True,
         ),
@@ -105,6 +105,7 @@ SPACE_SOURCE = dm.ContainerApply(
     indexes={
         "space": BTreeIndex(["instanceSpace"], cursorable=True),
         "dataSetId": BTreeIndex(["dataSetId"], cursorable=True),
+        "dataSetExternalId": BTreeIndex(["dataSetExternalId"], cursorable=True),
     },
     constraints={
         "dataSetIdUnique": dm.UniquenessConstraint(["dataSetId"]),
@@ -201,9 +202,9 @@ SPACE_SOURCE_VIEW = dm.ViewApply(
             container_property_identifier="dataSetId",
             description="The dataSetId the space was created from.",
         ),
-        "classicExternalId": dm.MappedPropertyApply(
+        "dataSetExternalId": dm.MappedPropertyApply(
             container=SPACE_SOURCE.as_id(),
-            container_property_identifier="classicExternalId",
+            container_property_identifier="dataSetExternalId",
             description="The externalId of the dataSet (if present) the space was created from.",
         ),
     },

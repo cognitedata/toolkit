@@ -66,7 +66,7 @@ class TestTimeSeriesLoader:
 def node_container(cognite_client: CogniteClient, integration_space: dm.Space) -> dm.Container:
     container = dm.ContainerApply(
         space=integration_space.space,
-        external_id=f"test_create_populate_count_drop_data{RUN_UNIQUE_ID}",
+        external_id="test_create_populate_count_drop_data",
         name="Test Container",
         description="Container used for running integration test",
         used_for="node",
@@ -79,7 +79,7 @@ def node_container(cognite_client: CogniteClient, integration_space: dm.Space) -
 def edge_container(cognite_client: CogniteClient, integration_space: dm.Space) -> dm.Container:
     container = dm.ContainerApply(
         space=integration_space.space,
-        external_id=f"test_create_populate_count_drop_data_edge{RUN_UNIQUE_ID}",
+        external_id="test_create_populate_count_drop_data_edge",
         name="Test Container Edge",
         description="Container used for running integration test",
         used_for="edge",

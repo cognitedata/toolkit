@@ -15,7 +15,6 @@
 
 import re
 from collections.abc import Hashable, Iterable, Sequence
-from functools import lru_cache
 from pathlib import Path
 from typing import Any, final
 
@@ -39,7 +38,6 @@ from cognite.client.data_classes.extractionpipelines import (
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk._parameters import ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
@@ -213,16 +211,6 @@ class ExtractionPipelineCRUD(
         for pipeline in self.client.extraction_pipelines:
             if pipeline.data_set_id == data_set.id:
                 yield pipeline
-
-    @classmethod
-    @lru_cache(maxsize=1)
-    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        spec = super().get_write_cls_parameter_spec()
-        # Added by toolkit
-        spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
-        # Set on deploy time by toolkit
-        spec.discard(ParameterSpec(("dataSetId",), frozenset({"int"}), is_required=True, _is_nullable=False))
-        return spec
 
 
 @final
@@ -436,11 +424,3 @@ class ExtractionPipelineConfigCRUD(
             except CogniteAPIError as e:
                 if e.code == 404 and "There is no config stored" in e.message:
                     continue
-
-    @classmethod
-    @lru_cache(maxsize=1)
-    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        spec = super().get_write_cls_parameter_spec()
-        # Added by toolkit
-        spec.add(ParameterSpec(("config", ANYTHING), frozenset({"dict"}), is_required=True, _is_nullable=False))
-        return spec

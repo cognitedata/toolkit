@@ -17,7 +17,6 @@ import difflib
 from collections import defaultdict
 from collections.abc import Callable, Hashable, Iterable, Sequence
 from dataclasses import dataclass
-from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal, cast, final
 
@@ -43,7 +42,6 @@ from rich import print
 from rich.console import Console
 from rich.markup import escape
 
-from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
@@ -456,32 +454,6 @@ class GroupCRUD(ResourceCRUD[str, GroupWrite, Group, GroupWriteList, GroupList])
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Group]:
         return self.client.iam.groups.list(all=True)
-
-    @classmethod
-    @lru_cache(maxsize=1)
-    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        spec = super().get_write_cls_parameter_spec()
-        # The Capability class in the SDK class Group implementation is deviating from the API.
-        # So we need to modify the spec to match the API.
-        for item in spec:
-            if item.path[0] == "capabilities" and len(item.path) > 2:
-                # Add extra ANY_STR layer
-                # The spec class is immutable, so we use this trick to modify it.
-                object.__setattr__(item, "path", (*item.path[:2], ANY_STR, *item.path[2:]))
-        spec.add(
-            ParameterSpec(
-                ("capabilities", ANY_INT, ANY_STR), frozenset({"dict"}), is_required=False, _is_nullable=False
-            )
-        )
-        spec.add(
-            ParameterSpec(
-                ("capabilities", ANY_INT, ANY_STR, "scope", ANYTHING),
-                frozenset({"dict"}),
-                is_required=True,
-                _is_nullable=False,
-            )
-        )
-        return spec
 
     def diff_list(
         self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]

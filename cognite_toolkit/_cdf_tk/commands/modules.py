@@ -1,10 +1,10 @@
+import importlib.resources as resources
 import shutil
 import sys
 import tempfile
 import zipfile
 from collections import Counter
 from hashlib import sha256
-from importlib import resources
 from pathlib import Path
 from types import TracebackType
 from typing import Any, Literal
@@ -39,6 +39,7 @@ from cognite_toolkit._cdf_tk.commands._changes import (
 from cognite_toolkit._cdf_tk.constants import (
     BUILTIN_MODULES,
     MODULES,
+    RESOURCES_PATH,
     SUPPORT_MODULE_UPGRADE_FROM_VERSION,
     EnvType,
 )
@@ -98,9 +99,12 @@ class ModulesCommand(ToolkitCommand):
         skip_tracking: bool = False,
         silent: bool = False,
         temp_dir_suffix: str | None = None,
+        module_source_dir: Path | None = None,
     ):
         super().__init__(print_warning, skip_tracking, silent)
-        self._builtin_modules_path = Path(resources.files(cognite_toolkit.__name__)) / BUILTIN_MODULES  # type: ignore [arg-type]
+        self._module_source_dir: Path | None = module_source_dir
+        if module_source_dir is None:
+            self._builtin_modules_path = Path(resources.files(cognite_toolkit.__name__)) / BUILTIN_MODULES  # type: ignore [arg-type]
         # Use suffix to make temp directory unique (useful for parallel test execution)
         modules_dir_name = f"{MODULES}.{temp_dir_suffix}" if temp_dir_suffix else MODULES
         self._temp_download_dir = Path(tempfile.gettempdir()) / modules_dir_name
@@ -297,7 +301,7 @@ class ModulesCommand(ToolkitCommand):
             destination.write_text(cdf_toml_content, encoding="utf-8")
 
     def create_cdf_toml(self, organization_dir: Path, env: EnvType = "dev") -> str:
-        cdf_toml_content = safe_read(self._builtin_modules_path / CDFToml.file_name)
+        cdf_toml_content = safe_read(RESOURCES_PATH / CDFToml.file_name)
         if organization_dir != Path.cwd():
             cdf_toml_content = cdf_toml_content.replace(
                 "#<PLACEHOLDER>",
@@ -334,9 +338,8 @@ default_organization_dir = "{organization_dir.name}"''',
 
         if library_url:
             if not library_checksum:
-                raise typer.BadParameter(
-                    "The '--library-checksum' is required when '--library-url' is provided.",
-                    param_hint="--library-checksum",
+                raise ToolkitRequiredValueError(
+                    "The '--library-checksum' is required when '--library-url' is provided."
                 )
 
             user_library = Library(url=library_url, checksum=library_checksum)
@@ -779,13 +782,9 @@ default_organization_dir = "{organization_dir.name}"''',
         """
 
         cdf_toml = CDFToml.load()
-        if Flags.EXTERNAL_LIBRARIES.is_enabled():
-            if user_library:
-                libraries = {"userdefined": user_library}
-            else:
-                libraries = cdf_toml.libraries
+        if Flags.EXTERNAL_LIBRARIES.is_enabled() or user_library:
+            libraries = {"userdefined": user_library} if user_library else cdf_toml.libraries
 
-            downloaded_package_ids = []
             for library_name, library in libraries.items():
                 try:
                     additional_tracking_info = self._additional_tracking_info.setdefault("downloadedLibraryIds", [])
@@ -841,9 +840,13 @@ default_organization_dir = "{organization_dir.name}"''',
                     )
                 )
 
-            packages = Packages.load(self._builtin_modules_path)
-            self._validate_packages(packages, "built-in modules")
-            return packages, self._builtin_modules_path
+            if self._module_source_dir is None:
+                packages = Packages.load(self._builtin_modules_path)
+                self._validate_packages(packages, "built-in modules")
+                return packages, self._builtin_modules_path
+            packages = Packages.load(self._module_source_dir)
+            self._validate_packages(packages, self._module_source_dir.name)
+            return packages, self._module_source_dir
 
     def _validate_packages(self, packages: Packages, source_name: str) -> None:
         """

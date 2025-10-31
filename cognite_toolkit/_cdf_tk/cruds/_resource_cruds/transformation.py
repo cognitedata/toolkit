@@ -30,7 +30,6 @@ import warnings
 from collections import defaultdict
 from collections.abc import Callable, Hashable, Iterable, Sequence
 from copy import deepcopy
-from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal, cast, final
 
@@ -66,7 +65,6 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk._parameters import ANY_INT, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
@@ -465,43 +463,6 @@ class TransformationCRUD(
         return iter(
             self.client.transformations(data_set_external_ids=[data_set_external_id] if data_set_external_id else None)
         )
-
-    @classmethod
-    @lru_cache(maxsize=1)
-    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        spec = super().get_write_cls_parameter_spec()
-        spec.update(
-            ParameterSpecSet(
-                {
-                    # Added by toolkit
-                    ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False),
-                    ParameterSpec(("authentication",), frozenset({"dict"}), is_required=False, _is_nullable=False),
-                    ParameterSpec(
-                        ("authentication", "clientId"), frozenset({"str"}), is_required=True, _is_nullable=False
-                    ),
-                    ParameterSpec(
-                        ("authentication", "clientSecret"), frozenset({"str"}), is_required=True, _is_nullable=False
-                    ),
-                    ParameterSpec(
-                        ("authentication", "scopes"), frozenset({"str"}), is_required=False, _is_nullable=False
-                    ),
-                    ParameterSpec(
-                        ("authentication", "scopes", ANY_INT), frozenset({"str"}), is_required=False, _is_nullable=False
-                    ),
-                    ParameterSpec(
-                        ("authentication", "tokenUri"), frozenset({"str"}), is_required=True, _is_nullable=False
-                    ),
-                    ParameterSpec(
-                        ("authentication", "cdfProjectName"), frozenset({"str"}), is_required=True, _is_nullable=False
-                    ),
-                    ParameterSpec(
-                        ("authentication", "audience"), frozenset({"str"}), is_required=False, _is_nullable=False
-                    ),
-                    ParameterSpec(("queryFile",), frozenset({"str"}), is_required=False, _is_nullable=False),
-                }
-            )
-        )
-        return spec
 
     def sensitive_strings(self, item: TransformationWrite) -> Iterable[str]:
         if item.source_oidc_credentials:

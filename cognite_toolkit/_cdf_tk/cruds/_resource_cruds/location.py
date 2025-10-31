@@ -1,5 +1,4 @@
 from collections.abc import Hashable, Iterable, Sequence
-from functools import lru_cache
 from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from typing import Any, final
@@ -8,7 +7,6 @@ from cognite.client.data_classes.capabilities import Capability, LocationFilters
 from cognite.client.data_classes.data_modeling import DataModelId, ViewId
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk._parameters import ANY_INT, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
     LocationFilter,
     LocationFilterList,
@@ -239,123 +237,6 @@ class LocationFilterCRUD(
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[LocationFilter]:
         return iter(self.client.search.locations)
-
-    @classmethod
-    @lru_cache(maxsize=1)
-    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        spec = super().get_write_cls_parameter_spec()
-        # Added by toolkit
-        spec.add(
-            ParameterSpec(
-                ("parentExternalId",),
-                frozenset({"str"}),
-                is_required=False,
-                _is_nullable=True,
-            )
-        )
-        spec.discard(
-            ParameterSpec(
-                ("parentId",),
-                frozenset({"int"}),
-                is_required=False,
-                _is_nullable=True,
-            )
-        )
-        spec.add(
-            ParameterSpec(
-                (
-                    "assetCentric",
-                    "dataSetExternalIds",
-                ),
-                frozenset({"list"}),
-                is_required=False,
-                _is_nullable=False,
-            )
-        )
-        spec.add(
-            ParameterSpec(
-                (
-                    "assetCentric",
-                    "dataSetExternalIds",
-                    ANY_INT,
-                ),
-                frozenset({"str"}),
-                is_required=False,
-                _is_nullable=False,
-            )
-        )
-        spec.discard(
-            ParameterSpec(
-                (
-                    "assetCentric",
-                    "dataSetIds",
-                ),
-                frozenset({"list"}),
-                is_required=False,
-                _is_nullable=False,
-            )
-        )
-        spec.discard(
-            ParameterSpec(
-                (
-                    "assetCentric",
-                    "dataSetIds",
-                    ANY_INT,
-                ),
-                frozenset({"int"}),
-                is_required=False,
-                _is_nullable=False,
-            )
-        )
-        spec.discard(
-            ParameterSpec(
-                ("assetCentric", "assetSubtreeIds", ANY_INT, "externalId"), frozenset({"str", "int"}), False, False
-            )
-        )
-        spec.add(
-            ParameterSpec(("assetCentric", "assetSubtreeIds", ANY_INT, "externalId"), frozenset({"str"}), False, False)
-        )
-        spec.add(ParameterSpec(("assetCentric", "assetSubtreeIds", ANY_INT, "id"), frozenset({"int"}), False, False))
-        for subfilter_name in cls.subfilter_names:
-            spec.discard(
-                ParameterSpec(
-                    ("assetCentric", subfilter_name, "assetSubtreeIds", ANY_INT, "externalId"),
-                    frozenset({"str", "int"}),
-                    False,
-                    False,
-                )
-            )
-            spec.add(
-                ParameterSpec(
-                    ("assetCentric", subfilter_name, "assetSubtreeIds", ANY_INT, "externalId"),
-                    frozenset({"str"}),
-                    False,
-                    False,
-                )
-            )
-            spec.add(
-                ParameterSpec(
-                    ("assetCentric", subfilter_name, "assetSubtreeIds", ANY_INT, "id"), frozenset({"int"}), False, False
-                )
-            )
-            spec.add(
-                ParameterSpec(("assetCentric", subfilter_name, "dataSetExternalIds"), frozenset({"list"}), False, False)
-            )
-            spec.add(
-                ParameterSpec(
-                    ("assetCentric", subfilter_name, "dataSetExternalIds", ANY_INT), frozenset({"str"}), False, False
-                )
-            )
-            spec.discard(
-                ParameterSpec(("assetCentric", subfilter_name, "dataSetIds"), frozenset({"list"}), False, False)
-            )
-            spec.discard(
-                ParameterSpec(("assetCentric", subfilter_name, "dataSetIds", ANY_INT), frozenset({"int"}), False, False)
-            )
-
-        spec.add(ParameterSpec(("dataModels", ANY_INT, "type"), frozenset({"str"}), False, False))
-        spec.add(ParameterSpec(("views", ANY_INT, "type"), frozenset({"str"}), False, False))
-        return spec
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:

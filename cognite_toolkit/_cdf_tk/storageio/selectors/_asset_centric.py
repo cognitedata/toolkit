@@ -2,11 +2,13 @@ from abc import ABC
 from pathlib import Path
 from typing import Any, Literal
 
+from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricKind
+
 from ._base import DataSelector
 
 
 class AssetCentricSelector(DataSelector, ABC):
-    kind: Literal["Assets", "Events", "TimeSeries", "FileMetadata"]
+    kind: AssetCentricKind
 
 
 class DataSetSelector(AssetCentricSelector):

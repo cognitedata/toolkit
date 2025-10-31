@@ -1,0 +1,12 @@
+[library]
+title = "tests"
+
+[packages.legacy]
+title = "Builtin Modules" 
+description = "Builtin Modules for Legacy Tests"
+canCherryPick = true
+modules = [
+    "cdf_common",
+    "cdf_ingestion",
+    "cdf_pi"
+]

@@ -1,7 +1,6 @@
 import collections.abc
 import io
 from collections.abc import Hashable, Iterable
-from functools import lru_cache
 from pathlib import Path
 from typing import Any, final
 
@@ -26,7 +25,6 @@ from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk._parameters import ANY_INT, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.sequences import (
     ToolkitSequenceRows,
@@ -143,23 +141,6 @@ class AssetCRUD(ResourceCRUD[str, AssetWrite, Asset, AssetWriteList, AssetList])
                 aggregated_properties=["depth", "child_count", "path"],
             )
         )
-
-    @classmethod
-    @lru_cache(maxsize=1)
-    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        spec = super().get_write_cls_parameter_spec()
-        # Added by toolkit
-        spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
-        spec.discard(ParameterSpec(("dataSetId",), frozenset({"int"}), is_required=False, _is_nullable=False))
-
-        # Failed to be inferred from the AssetWrite.__init__ method.
-        spec.add(
-            ParameterSpec(("labels", ANY_INT, "externalId"), frozenset({"str"}), is_required=True, _is_nullable=True)
-        )
-
-        # Should not be used, used for parentExternalId instead
-        spec.discard(ParameterSpec(("parentId",), frozenset({"int"}), is_required=False, _is_nullable=False))
-        return spec
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -357,17 +338,6 @@ class SequenceCRUD(ResourceCRUD[str, SequenceWrite, Sequence, SequenceWriteList,
         return iter(
             self.client.sequences(data_set_external_ids=[data_set_external_id] if data_set_external_id else None)
         )
-
-    @classmethod
-    @lru_cache(maxsize=1)
-    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        spec = super().get_write_cls_parameter_spec()
-        # Added by toolkit
-        spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
-        spec.discard(ParameterSpec(("dataSetId",), frozenset({"int"}), is_required=False, _is_nullable=False))
-        spec.add(ParameterSpec(("assetExternalId",), frozenset({"int"}), is_required=False, _is_nullable=False))
-        spec.discard(ParameterSpec(("assetId",), frozenset({"int"}), is_required=False, _is_nullable=False))
-        return spec
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -598,22 +568,6 @@ class EventCRUD(ResourceCRUD[str, EventWrite, Event, EventWriteList, EventList])
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Event]:
         return iter(self.client.events(data_set_external_ids=[data_set_external_id] if data_set_external_id else None))
-
-    @classmethod
-    @lru_cache(maxsize=1)
-    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        spec = super().get_write_cls_parameter_spec()
-        # Added by toolkit
-        spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
-        spec.discard(ParameterSpec(("dataSetId",), frozenset({"int"}), is_required=False, _is_nullable=False))
-
-        spec.add(ParameterSpec(("assetExternalIds",), frozenset({"list"}), is_required=False, _is_nullable=False))
-        spec.add(
-            ParameterSpec(("assetExternalIds", ANY_INT), frozenset({"str"}), is_required=False, _is_nullable=False)
-        )
-        spec.discard(ParameterSpec(("assetIds",), frozenset({"int"}), is_required=False, _is_nullable=False))
-        spec.discard(ParameterSpec(("assetIds", ANY_INT), frozenset({"int"}), is_required=False, _is_nullable=False))
-        return spec
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:

@@ -15,7 +15,6 @@
 
 import json
 from collections.abc import Hashable, Iterable, Sequence
-from functools import lru_cache
 from typing import Any, final
 
 from cognite.client.data_classes import (
@@ -36,7 +35,6 @@ from cognite.client.data_classes.labels import LabelDefinitionWriteList
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk._parameters import ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
@@ -158,18 +156,6 @@ class DataSetsCRUD(ResourceCRUD[str, DataSetWrite, DataSet, DataSetWriteList, Da
     ) -> Iterable[DataSet]:
         return iter(self.client.data_sets)
 
-    @classmethod
-    @lru_cache(maxsize=1)
-    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        spec = super().get_write_cls_parameter_spec()
-        # Added by toolkit, toolkit will automatically convert metadata to json
-        spec.add(
-            ParameterSpec(
-                ("metadata", ANY_STR, ANYTHING), frozenset({"unknown"}), is_required=False, _is_nullable=False
-            )
-        )
-        return spec
-
 
 @final
 class LabelCRUD(
@@ -249,14 +235,6 @@ class LabelCRUD(
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[LabelDefinition]:
         return iter(self.client.labels(data_set_external_ids=[data_set_external_id] if data_set_external_id else None))
-
-    @classmethod
-    @lru_cache(maxsize=1)
-    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        spec = super().get_write_cls_parameter_spec()
-        # Added by toolkit
-        spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
-        return spec
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:

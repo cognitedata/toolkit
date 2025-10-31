@@ -24,6 +24,11 @@ class MigrationIssue(MigrationObject):
         dumped["type"] = self.type
         return dumped
 
+    @property
+    def has_issues(self) -> bool:
+        """Check if there are any issues recorded in this MigrationIssue."""
+        return True
+
 
 class ReadIssue(MigrationIssue):
     """Represents a read issue encountered during migration."""
@@ -112,6 +117,7 @@ class ConversionIssue(MigrationIssue):
     invalid_instance_property_types: list[InvalidPropertyDataType] = Field(default_factory=list)
     failed_conversions: list[FailedConversion] = Field(default_factory=list)
     ignored_asset_centric_properties: list[str] = Field(default_factory=list)
+    missing_instance_space: str | None = None
 
     @property
     def has_issues(self) -> bool:
@@ -121,6 +127,7 @@ class ConversionIssue(MigrationIssue):
             or self.missing_instance_properties
             or self.invalid_instance_property_types
             or self.failed_conversions
+            or self.missing_instance_space
         )
 
     @field_serializer("instance_id")

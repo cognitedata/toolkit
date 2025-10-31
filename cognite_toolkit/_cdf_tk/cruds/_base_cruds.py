@@ -2,7 +2,6 @@ import re
 import sys
 from abc import ABC, abstractmethod
 from collections.abc import Hashable, Iterable, Sequence, Set, Sized
-from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
@@ -15,9 +14,8 @@ from cognite.client.data_classes.capabilities import Capability
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameter_from_init_type_hints
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, EXCL_FILES, USE_SENTRY
+from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, EXCL_FILES
 from cognite_toolkit._cdf_tk.resource_classes import ToolkitResource
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, sanitize_filename
@@ -165,14 +163,18 @@ class ResourceCRUD(
     All resources supported by the cognite_toolkit should implement a CRUD.
 
     Class attributes:
-        resource_write_cls: The write data class for the resource.
-        resource_cls: The read data class for the resource.
-        list_cls: The read list format for this resource.
-        list_write_cls: The write list format for this resource.
+        resource_write_cls: The API write data class for the resource.
+        resource_cls: The API read data class for the resource.
+        list_cls: The API read list format for this resource.
+        list_write_cls: The API write list format for this resource.
+        yaml_cls: The File format for this resource. This is used to validate the user input.
         support_drop: Whether the resource supports the drop flag.
+        support_update: Whether the resource supports the update operation.
         filetypes: The filetypes that are supported by this crud. This should not be set in the subclass, it
             should always be yaml and yml.
         dependencies: A set of other resource cruds that must be loaded before this crud.
+        parent_resource: A set of other resource cruds that are parent resources to this resource. This is used
+            to determine if the iterate method should return any resources when filtering by parent ids.
     """
 
     # Must be set in the subclass
@@ -180,7 +182,7 @@ class ResourceCRUD(
     resource_cls: type[T_WritableCogniteResource]
     list_cls: type[T_WritableCogniteResourceList]
     list_write_cls: type[T_CogniteResourceList]
-    yaml_cls: type[ToolkitResource] | None = None
+    yaml_cls: type[ToolkitResource]
     # Optional to set in the subclass
     support_drop = True
     support_update = True
@@ -254,12 +256,6 @@ class ResourceCRUD(
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[T_WritableCogniteResource]:
         raise NotImplementedError
-
-    # The methods below have default implementations that can be overwritten in subclasses
-    @classmethod
-    @lru_cache(maxsize=1)
-    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        return read_parameter_from_init_type_hints(cls.resource_write_cls).as_camel_case()
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> "Iterable[tuple[type[ResourceCRUD], Hashable]]":
@@ -402,23 +398,6 @@ class ResourceCRUD(
     @classmethod
     def get_ids(cls, items: Sequence[T_WriteClass | T_WritableCogniteResource | dict]) -> list[T_ID]:
         return [cls.get_id(item) for item in items]
-
-    @classmethod
-    def safe_get_write_cls_parameter_spec(cls) -> ParameterSpecSet | None:
-        from sentry_sdk import capture_exception
-
-        api_spec: ParameterSpecSet | None = None
-        try:
-            api_spec = cls.get_write_cls_parameter_spec()
-        except Exception as e:
-            # We don't want to crash the program if we can't get the parameter spec
-            # as we can continue without doing this check. Note that getting the parameter spec
-            # is also fragile as it relies on the type hints in the cognite-sdk which is out of our control.
-            if USE_SENTRY:
-                capture_exception(e)
-            else:
-                raise
-        return api_spec
 
     @classmethod
     def as_str(cls, id: T_ID) -> str:

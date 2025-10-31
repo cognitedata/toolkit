@@ -20,7 +20,7 @@ from dateutil import parser
 from cognite_toolkit._cdf_tk.constants import CDF_UNIT_SPACE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
-from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentric, DataType, JsonVal, PythonTypes
+from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricType, DataType, JsonVal, PythonTypes
 
 from .collection import humanize_collection
 
@@ -35,7 +35,7 @@ def asset_centric_convert_to_primary_property(
     type_: PropertyType,
     nullable: bool,
     destination_container_property: tuple[ContainerId, str],
-    source_property: tuple[AssetCentric, str],
+    source_property: tuple[AssetCentricType, str],
     direct_relation_lookup: Mapping[str | int, DirectRelationReference] | None = None,
 ) -> PropertyValueWrite:
     if (source_property, destination_container_property) in SPECIAL_CONVERTER_BY_SOURCE_DESTINATION:
@@ -251,7 +251,7 @@ class _ValueConverter(_Converter, ABC):
 class _SpecialCaseConverter(_Converter, ABC):
     """Abstract base class for converters handling special cases."""
 
-    source_property: ClassVar[tuple[AssetCentric, str]]
+    source_property: ClassVar[tuple[AssetCentricType, str]]
     destination_container_property: ClassVar[tuple[ContainerId, str]]
 
 
@@ -318,8 +318,13 @@ class _SourceConverter(_SpecialCaseConverter, ABC):
         self.direct_relation_lookup = direct_relation_lookup
 
     def convert(self, value: str | int | float | bool | dict | list | None) -> DirectRelationReference:
-        if isinstance(value, str | int) and value in self.direct_relation_lookup:
-            return self.direct_relation_lookup[value]
+        if isinstance(value, str | int):
+            if value in self.direct_relation_lookup:
+                return self.direct_relation_lookup[value]
+            elif isinstance(value, str) and value.casefold() in self.direct_relation_lookup:
+                # The aggregate endpoint used to create source system lowercases all sources, thus
+                # we do a case-insensitive lookup as a fallback.
+                return self.direct_relation_lookup[value.casefold()]
         raise ValueError(
             f"Cannot convert {value!r} to DirectRelationReference. Invalid data type or missing in lookup."
         )
@@ -552,7 +557,7 @@ CONVERTER_BY_DTYPE: Mapping[str, type[_ValueConverter]] = {
     for cls_ in _ValueConverter.__subclasses__()
 }
 SPECIAL_CONVERTER_BY_SOURCE_DESTINATION: Mapping[
-    tuple[tuple[AssetCentric, str], tuple[ContainerId, str]],
+    tuple[tuple[AssetCentricType, str], tuple[ContainerId, str]],
     type[_SpecialCaseConverter],
 ] = {
     (subclass.source_property, subclass.destination_container_property): subclass

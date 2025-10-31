@@ -74,7 +74,7 @@ class QueryKnowledgeGraphConfig(BaseModelResource):
     )
     instance_spaces: AgentInstanceSpaces
     version: Literal["v1", "v2"] = Field(
-        "v1",
+        "v2",
         description="The version of the query generation strategy to use. "
         "A higher number does not necessarily mean a better query.",
     )

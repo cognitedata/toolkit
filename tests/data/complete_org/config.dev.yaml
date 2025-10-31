@@ -28,3 +28,12 @@ variables:
 
     example_variable: foo
     example_secret: '${ENVIRONMENT_SECRET}'
+
+    dataset: ingestion
+    rawSourceDatabase: ingestion
+    sourceId: 0000-000000-000000  
+    sourceName: idp-group
+    instanceSpace: springfield
+    organization: foo
+    schemaSpace: springfield
+    

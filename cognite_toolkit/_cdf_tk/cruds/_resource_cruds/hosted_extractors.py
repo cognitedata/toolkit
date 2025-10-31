@@ -1,5 +1,4 @@
 from collections.abc import Hashable, Iterable, Sequence
-from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -35,7 +34,6 @@ from cognite.client.data_classes.hosted_extractors.sources import (
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk._parameters import ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
@@ -115,14 +113,6 @@ class HostedExtractorSourceCRUD(ResourceCRUD[str, SourceWrite, Source, SourceWri
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Source]:
         return iter(self.client.hosted_extractors.sources)
-
-    @classmethod
-    @lru_cache(maxsize=1)
-    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        # parameterspec is highly dependent on type of source, so we accept any parameter
-        return ParameterSpecSet(
-            [ParameterSpec((ANYTHING,), frozenset({"dict"}), is_required=False, _is_nullable=False)]
-        )
 
     def dump_resource(self, resource: Source, local: dict[str, Any] | None = None) -> dict[str, Any]:
         HighSeverityWarning(
@@ -253,21 +243,6 @@ class HostedExtractorDestinationCRUD(
         return self.dump_id(resource.external_id)
 
     @classmethod
-    @lru_cache(maxsize=1)
-    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        spec = super().get_write_cls_parameter_spec()
-        # Handled by Toolkit
-
-        spec.add(ParameterSpec(("credentials", "clientId"), frozenset({"str"}), is_required=False, _is_nullable=True))
-        spec.add(
-            ParameterSpec(("credentials", "clientSecret"), frozenset({"str"}), is_required=False, _is_nullable=True)
-        )
-
-        spec.discard(ParameterSpec(("targetDataSetId",), frozenset({"int"}), is_required=False, _is_nullable=True))
-        spec.add(ParameterSpec(("targetDataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=True))
-        return spec
-
-    @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "targetDataSetId" in item:
             yield DataSetsCRUD, item["targetDataSetId"]
@@ -353,33 +328,6 @@ class HostedExtractorJobCRUD(ResourceCRUD[str, JobWrite, Job, JobWriteList, JobL
         return iter(self.client.hosted_extractors.jobs)
 
     @classmethod
-    @lru_cache(maxsize=1)
-    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        spec = super().get_write_cls_parameter_spec()
-        # Used by the SDK to determine the class to load
-        spec.add(
-            ParameterSpec(
-                (
-                    "format",
-                    "type",
-                ),
-                frozenset({"str"}),
-                is_required=True,
-                _is_nullable=False,
-            )
-        )
-        spec.add(
-            ParameterSpec(
-                ("config", "incrementalLoad", "type"), frozenset({"str"}), is_required=True, _is_nullable=False
-            )
-        )
-        spec.add(
-            ParameterSpec(("config", "pagination", "type"), frozenset({"str"}), is_required=True, _is_nullable=False)
-        )
-
-        return spec
-
-    @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "sourceId" in item:
             yield HostedExtractorSourceCRUD, item["sourceId"]
@@ -453,11 +401,3 @@ class HostedExtractorMappingCRUD(ResourceCRUD[str, MappingWrite, Mapping, Mappin
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Mapping]:
         return iter(self.client.hosted_extractors.mappings)
-
-    @classmethod
-    @lru_cache(maxsize=1)
-    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        spec = super().get_write_cls_parameter_spec()
-        # Used by the SDK to determine the class to load
-        spec.add(ParameterSpec(("input", "type"), frozenset({"str"}), is_required=True, _is_nullable=False))
-        return spec

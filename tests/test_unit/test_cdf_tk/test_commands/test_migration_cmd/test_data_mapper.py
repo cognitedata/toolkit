@@ -7,6 +7,7 @@ from cognite.client.data_classes.data_modeling import (
     ContainerId,
     DirectRelation,
     DirectRelationReference,
+    InstanceApply,
     MappedProperty,
     NodeId,
     NodeList,
@@ -17,14 +18,14 @@ from cognite.client.data_classes.data_modeling import (
 
 from cognite_toolkit._cdf_tk.client.data_classes.migration import CreatedSourceSystem, ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.commands._migrate.adapter import (
+from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     AssetCentricMapping,
     AssetCentricMappingList,
-    MigrationCSVFileSelector,
+    MigrationMapping,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.data_classes import MigrationMapping
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
-from cognite_toolkit._cdf_tk.commands._migrate.issues import ConversionIssue
+from cognite_toolkit._cdf_tk.commands._migrate.issues import ConversionIssue, MigrationIssue
+from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 
 
@@ -57,7 +58,7 @@ class TestAssetCentricMapper:
             + "\n".join(f"{1000 + i},my_space,asset_{i},cdf_asset_mapping" for i in range(asset_count))
         )
 
-        selected = MigrationCSVFileSelector(datafile=mapping_file, kind="asset")
+        selected = MigrationCSVFileSelector(datafile=mapping_file, kind="Assets")
 
         with monkeypatch_toolkit_client() as client:
             client.migration.resource_view_mapping.retrieve.return_value = NodeList[ResourceViewMapping](
@@ -109,7 +110,13 @@ class TestAssetCentricMapper:
 
             mapper.prepare(selected)
 
-            mapped, issues = mapper.map_chunk(source)
+            mapped: list[InstanceApply] = []
+            issues: list[MigrationIssue] = []
+            for item in source:
+                target, item_issue = mapper.map(item)
+                mapped.append(target)
+                if not isinstance(item_issue, ConversionIssue) or item_issue.has_issues:
+                    issues.append(item_issue)
 
             # We do not assert the exact content of mapped, as that is tested in the
             # tests for the asset_centric_to_dm function.
@@ -130,22 +137,18 @@ class TestAssetCentricMapper:
 
     def test_map_chunk_before_prepare_raises_error(self, tmp_path: Path) -> None:
         """Test that calling map_chunk before prepare raises a RuntimeError."""
-        source = AssetCentricMappingList(
-            [
-                AssetCentricMapping(
-                    mapping=MigrationMapping(
-                        resourceType="asset",
-                        instanceId=NodeId(space="my_space", external_id="asset_1"),
-                        id=1001,
-                        ingestionView="cdf_asset_mapping",
-                    ),
-                    resource=Asset(
-                        id=1001,
-                        name="Asset 1",
-                        description="Description 1",
-                    ),
-                )
-            ]
+        source = AssetCentricMapping(
+            mapping=MigrationMapping(
+                resourceType="asset",
+                instanceId=NodeId(space="my_space", external_id="asset_1"),
+                id=1001,
+                ingestionView="cdf_asset_mapping",
+            ),
+            resource=Asset(
+                id=1001,
+                name="Asset 1",
+                description="Description 1",
+            ),
         )
 
         with monkeypatch_toolkit_client() as client:
@@ -156,14 +159,14 @@ class TestAssetCentricMapper:
                 RuntimeError,
                 match=r"Failed to lookup mapping or view for ingestion view 'cdf_asset_mapping'. Did you forget to call .prepare()?",
             ):
-                mapper.map_chunk(source)
+                mapper.map(source)
 
     def test_prepare_missing_view_source_raises_error(self, tmp_path: Path) -> None:
         """Test that prepare raises ToolkitValueError when view source is not found."""
         mapping_file = tmp_path / "mapping.csv"
         mapping_file.write_text("id,space,externalId,ingestionView\n1001,my_space,asset_1,missing_view_source")
 
-        selected = MigrationCSVFileSelector(datafile=mapping_file, kind="asset")
+        selected = MigrationCSVFileSelector(datafile=mapping_file, kind="Assets")
 
         with monkeypatch_toolkit_client() as client:
             # Return empty list to simulate missing view source
@@ -181,7 +184,7 @@ class TestAssetCentricMapper:
         mapping_file = tmp_path / "mapping.csv"
         mapping_file.write_text("id,space,externalId,ingestionView\n1001,my_space,asset_1,cdf_asset_mapping")
 
-        selected = MigrationCSVFileSelector(datafile=mapping_file, kind="asset")
+        selected = MigrationCSVFileSelector(datafile=mapping_file, kind="Assets")
 
         with monkeypatch_toolkit_client() as client:
             # Return view source but empty view list to simulate missing view in Data Modeling

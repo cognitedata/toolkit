@@ -1,0 +1,34 @@
+FileCRUD:
+- externalId: filecontent.txt
+  filehash: 9aaf2409
+  space: sp_complete_org_files
+Node:
+- externalId: filecontent.txt
+  instanceType: node
+  sources:
+  - properties:
+      aliases: null
+      assets: null
+      category: null
+      description: null
+      directory: null
+      mimeType: text/plain
+      name: filecontent.txt
+      source: null
+      sourceContext: null
+      sourceCreatedTime: null
+      sourceCreatedUser: null
+      sourceId: null
+      sourceUpdatedTime: null
+      sourceUpdatedUser: null
+      tags:
+      - tag1
+      - tag2
+    source:
+      externalId: CogniteFile
+      space: cdf_cdm
+      type: view
+      version: v1
+  space: sp_complete_org_files
+Space:
+- space: sp_complete_org_files

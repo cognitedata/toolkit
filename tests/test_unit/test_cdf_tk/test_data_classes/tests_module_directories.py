@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES
+from cognite_toolkit._cdf_tk.constants import COMPLETE_ORG
 from cognite_toolkit._cdf_tk.data_classes import ModuleDirectories, ModuleLocation
 from tests import data
 
 
 class TestModuleDirectories:
     def test_load(self) -> None:
-        cognite_modules = Path(BUILTIN_MODULES)
+        cognite_modules = Path(COMPLETE_ORG)
         expected = ModuleDirectories(
             [
                 ModuleLocation(

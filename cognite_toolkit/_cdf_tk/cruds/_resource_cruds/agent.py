@@ -1,5 +1,4 @@
 from collections.abc import Hashable, Iterable, Sequence
-from functools import lru_cache
 from typing import Any
 
 from cognite.client.data_classes.agents import Agent, AgentList, AgentUpsert, AgentUpsertList
@@ -7,8 +6,6 @@ from cognite.client.data_classes.capabilities import Capability
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk._parameters.constants import ANY_INT, ANYTHING
-from cognite_toolkit._cdf_tk._parameters.data_classes import ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import AgentYAML
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
@@ -41,21 +38,6 @@ class AgentCRUD(ResourceCRUD[str, AgentUpsert, Agent, AgentUpsertList, AgentList
         cls, items: Sequence[AgentUpsert] | None, read_only: bool
     ) -> Capability | list[Capability]:
         return []
-
-    @classmethod
-    @lru_cache(maxsize=1)
-    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        spec = super().get_write_cls_parameter_spec()
-        # Tool configuration is a dict where the accepted keys depend on the tool type.
-        spec.add(
-            ParameterSpec(
-                ("tools", ANY_INT, "configuration", ANYTHING),
-                frozenset({"dict"}),
-                is_required=False,
-                _is_nullable=False,
-            )
-        )
-        return spec
 
     def create(self, items: AgentUpsertList) -> AgentList:
         return self.client.agents.upsert(items)

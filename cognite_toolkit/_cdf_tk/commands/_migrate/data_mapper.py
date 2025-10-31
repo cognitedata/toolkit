@@ -2,25 +2,23 @@ from abc import ABC, abstractmethod
 from typing import Generic
 
 from cognite.client.data_classes._base import (
-    T_CogniteResourceList,
+    T_CogniteResource,
 )
-from cognite.client.data_classes.data_modeling import DirectRelationReference, View, ViewId
+from cognite.client.data_classes.data_modeling import DirectRelationReference, InstanceApply, View, ViewId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList
 from cognite_toolkit._cdf_tk.client.data_classes.migration import ResourceViewMapping
-from cognite_toolkit._cdf_tk.commands._migrate.adapter import (
-    AssetCentricMappingList,
-    MigrationSelector,
-)
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import asset_centric_to_dm
-from cognite_toolkit._cdf_tk.commands._migrate.issues import MigrationIssue
+from cognite_toolkit._cdf_tk.commands._migrate.data_classes import AssetCentricMapping
+from cognite_toolkit._cdf_tk.commands._migrate.issues import ConversionIssue, MigrationIssue
+from cognite_toolkit._cdf_tk.commands._migrate.selectors import AssetCentricMigrationSelector
+from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.storageio._base import T_Selector, T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.storageio._base import T_Selector, T_WriteCogniteResource
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 
-class DataMapper(Generic[T_Selector, T_WritableCogniteResourceList, T_CogniteResourceList], ABC):
+class DataMapper(Generic[T_Selector, T_CogniteResource, T_WriteCogniteResource], ABC):
     def prepare(self, source_selector: T_Selector) -> None:
         """Prepare the data mapper with the given source selector.
 
@@ -32,7 +30,7 @@ class DataMapper(Generic[T_Selector, T_WritableCogniteResourceList, T_CogniteRes
         pass
 
     @abstractmethod
-    def map_chunk(self, source: T_WritableCogniteResourceList) -> tuple[T_CogniteResourceList, list[MigrationIssue]]:
+    def map(self, source: T_CogniteResource) -> tuple[T_WriteCogniteResource, MigrationIssue]:
         """Map a chunk of source data to the target format.
 
         Args:
@@ -45,7 +43,7 @@ class DataMapper(Generic[T_Selector, T_WritableCogniteResourceList, T_CogniteRes
         raise NotImplementedError("Subclasses must implement this method.")
 
 
-class AssetCentricMapper(DataMapper[MigrationSelector, AssetCentricMappingList, InstanceApplyList]):
+class AssetCentricMapper(DataMapper[AssetCentricMigrationSelector, AssetCentricMapping, InstanceApply]):
     def __init__(self, client: ToolkitClient) -> None:
         self.client = client
         self._ingestion_view_by_id: dict[ViewId, View] = {}
@@ -55,8 +53,8 @@ class AssetCentricMapper(DataMapper[MigrationSelector, AssetCentricMappingList, 
         self._asset_mapping_by_id: dict[int, DirectRelationReference] = {}
         self._source_system_mapping_by_id: dict[str, DirectRelationReference] = {}
 
-    def prepare(self, source_selector: MigrationSelector) -> None:
-        ingestion_view_ids = source_selector.get_ingestion_views()
+    def prepare(self, source_selector: AssetCentricMigrationSelector) -> None:
+        ingestion_view_ids = source_selector.get_ingestion_mappings()
         ingestion_views = self.client.migration.resource_view_mapping.retrieve(ingestion_view_ids)
         self._view_mapping_by_id = {view.external_id: view for view in ingestion_views}
         missing_mappings = set(ingestion_view_ids) - set(self._view_mapping_by_id.keys())
@@ -81,35 +79,35 @@ class AssetCentricMapper(DataMapper[MigrationSelector, AssetCentricMappingList, 
             source_system.source: source_system.as_direct_relation_reference() for source_system in source_systems
         }
 
-    def map_chunk(self, source: AssetCentricMappingList) -> tuple[InstanceApplyList, list[MigrationIssue]]:
+        # We look-up all existing asset mappings to be able to create direct relations to already mapped assets.
+        # This is needed in case the migration is run multiple times, or if assets are mapped
+        asset_mappings = self.client.migration.instance_source.list(resource_type="asset", limit=-1)
+        self._asset_mapping_by_id = {mapping.id_: mapping.as_direct_relation_reference() for mapping in asset_mappings}
+
+    def map(self, source: AssetCentricMapping) -> tuple[InstanceApply, ConversionIssue]:
         """Map a chunk of asset-centric data to InstanceApplyList format."""
-        instances = InstanceApplyList([])
-        issues: list[MigrationIssue] = []
-        for item in source:
-            mapping = item.mapping
-            ingestion_view = mapping.get_ingestion_view()
-            try:
-                view_source = self._view_mapping_by_id[ingestion_view]
-                view_properties = self._ingestion_view_by_id[view_source.view_id].properties
-            except KeyError as e:
-                raise RuntimeError(
-                    f"Failed to lookup mapping or view for ingestion view '{ingestion_view}'. Did you forget to call .prepare()?"
-                ) from e
-            instance, conversion_issue = asset_centric_to_dm(
-                item.resource,
-                instance_id=mapping.instance_id,
-                view_source=view_source,
-                view_properties=view_properties,
-                asset_instance_id_by_id=self._asset_mapping_by_id,
-                source_instance_id_by_external_id=self._source_system_mapping_by_id,
+        mapping = source.mapping
+        ingestion_view = mapping.get_ingestion_view()
+        try:
+            view_source = self._view_mapping_by_id[ingestion_view]
+            view_properties = self._ingestion_view_by_id[view_source.view_id].properties
+        except KeyError as e:
+            raise RuntimeError(
+                f"Failed to lookup mapping or view for ingestion view '{ingestion_view}'. Did you forget to call .prepare()?"
+            ) from e
+        instance, conversion_issue = asset_centric_to_dm(
+            source.resource,
+            instance_id=mapping.instance_id,
+            view_source=view_source,
+            view_properties=view_properties,
+            asset_instance_id_by_id=self._asset_mapping_by_id,
+            source_instance_id_by_external_id=self._source_system_mapping_by_id,
+        )
+        if mapping.instance_id.space == MISSING_INSTANCE_SPACE:
+            conversion_issue.missing_instance_space = f"Missing instance space for dataset ID {mapping.data_set_id!r}"
+
+        if mapping.resource_type == "asset":
+            self._asset_mapping_by_id[mapping.id] = DirectRelationReference(
+                space=mapping.instance_id.space, external_id=mapping.instance_id.external_id
             )
-
-            instances.append(instance)
-            if conversion_issue.has_issues:
-                issues.append(conversion_issue)
-
-            if mapping.resource_type == "asset":
-                self._asset_mapping_by_id[mapping.id] = DirectRelationReference(
-                    space=mapping.instance_id.space, external_id=mapping.instance_id.external_id
-                )
-        return instances, issues
+        return instance, conversion_issue

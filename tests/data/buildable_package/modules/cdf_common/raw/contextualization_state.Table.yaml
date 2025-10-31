@@ -1,0 +1,2 @@
+dbName: {{ rawStateDatabase }}
+tableName: {{ rawStateTable }}

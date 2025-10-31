@@ -18,7 +18,6 @@ import sys
 import time
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
-from functools import lru_cache
 from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from time import sleep
@@ -75,7 +74,6 @@ from rich.console import Console
 from rich.markup import escape
 from rich.panel import Panel
 
-from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import (
     GraphQLDataModel,
@@ -432,59 +430,6 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerApply, Container
         return (seq[pos : pos + size] for pos in range(0, len(seq), size))
 
     @classmethod
-    @lru_cache(maxsize=1)
-    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        output = super().get_write_cls_parameter_spec()
-        # In the SDK this is called isList, while in the API it is called list.
-        output.discard(
-            ParameterSpec(
-                ("properties", ANY_STR, "type", "isList"), frozenset({"bool"}), is_required=True, _is_nullable=False
-            )
-        )
-        output.add(
-            ParameterSpec(
-                ("properties", ANY_STR, "type", "list"), frozenset({"bool"}), is_required=True, _is_nullable=False
-            )
-        )
-        # The parameters below are used by the SDK to load the correct class, and ase thus not part of the init
-        # that the spec is created from, so we need to add them manually.
-        output.update(
-            ParameterSpecSet(
-                {
-                    ParameterSpec(
-                        ("properties", ANY_STR, "type", "type"),
-                        frozenset({"str"}),
-                        is_required=True,
-                        _is_nullable=False,
-                    ),
-                    ParameterSpec(
-                        # direct relations with constraint
-                        ("properties", ANY_STR, "type", "container", "type"),
-                        frozenset({"str"}),
-                        is_required=True,
-                        _is_nullable=False,
-                    ),
-                    ParameterSpec(
-                        ("constraints", ANY_STR, "constraintType"),
-                        frozenset({"str"}),
-                        is_required=True,
-                        _is_nullable=False,
-                    ),
-                    ParameterSpec(
-                        ("constraints", ANY_STR, "require", "type"),
-                        frozenset({"str"}),
-                        is_required=True,
-                        _is_nullable=False,
-                    ),
-                    ParameterSpec(
-                        ("indexes", ANY_STR, "indexType"), frozenset({"str"}), is_required=True, _is_nullable=False
-                    ),
-                }
-            )
-        )
-        return output
-
-    @classmethod
     def as_str(cls, id: ContainerId) -> str:
         return sanitize_filename(f"{id.space}_{id.external_id}")
 
@@ -712,92 +657,6 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View, ViewApplyList, ViewList]):
         return iter(self.client.data_modeling.views(space=space))
 
     @classmethod
-    @lru_cache(maxsize=1)
-    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        spec = super().get_write_cls_parameter_spec()
-        # The Filter class in the SDK class View implementation is deviating from the API.
-        # So we need to modify the spec to match the API.
-        parameter_path = ("filter",)
-        length = len(parameter_path)
-        for item in spec:
-            if len(item.path) >= length + 1 and item.path[:length] == parameter_path[:length]:
-                # Add extra ANY_STR layer
-                # The spec class is immutable, so we use this trick to modify it.
-                is_has_data_filter = item.path[1] in ["containers", "views"]
-                if is_has_data_filter:
-                    # Special handling of the HasData filter that deviates in SDK implementation from API Spec.
-                    object.__setattr__(item, "path", (*item.path[:length], ANY_STR, item.path[length + 1 :]))
-                else:
-                    object.__setattr__(item, "path", (*item.path[:length], ANY_STR, *item.path[length:]))
-
-        spec.add(ParameterSpec(("filter", ANY_STR), frozenset({"dict"}), is_required=False, _is_nullable=False))
-        # The following types are used by the SDK to load the correct class. They are not part of the init,
-        # so we need to add it manually.
-        spec.update(
-            ParameterSpecSet(
-                {
-                    ParameterSpec(
-                        ("implements", ANY_INT, "type"), frozenset({"str"}), is_required=True, _is_nullable=False
-                    ),
-                    ParameterSpec(
-                        ("properties", ANY_STR, "connectionType"),
-                        frozenset({"str"}),
-                        is_required=True,
-                        _is_nullable=False,
-                    ),
-                    ParameterSpec(
-                        ("properties", ANY_STR, "source", "type"),
-                        frozenset({"str"}),
-                        is_required=True,
-                        _is_nullable=False,
-                    ),
-                    ParameterSpec(
-                        ("properties", ANY_STR, "container", "type"),
-                        frozenset({"str"}),
-                        is_required=True,
-                        _is_nullable=False,
-                    ),
-                    ParameterSpec(
-                        ("properties", ANY_STR, "edgeSource", "type"),
-                        frozenset({"str"}),
-                        is_required=True,
-                        _is_nullable=False,
-                    ),
-                    ParameterSpec(
-                        ("properties", ANY_STR, "through", "source", "type"),
-                        frozenset({"str"}),
-                        is_required=True,
-                        _is_nullable=False,
-                    ),
-                    ParameterSpec(
-                        # In the SDK, this is called "property"
-                        ("properties", ANY_STR, "through", "identifier"),
-                        frozenset({"str"}),
-                        is_required=True,
-                        _is_nullable=False,
-                    ),
-                    # Filters are complex, so we do not attempt to give any more specific spec.
-                    ParameterSpec(
-                        ("filter", ANYTHING),
-                        frozenset({"str"}),
-                        is_required=True,
-                        _is_nullable=False,
-                    ),
-                }
-            )
-        )
-        spec.discard(
-            ParameterSpec(
-                # The API spec calls this "identifier", while the SDK calls it "property".
-                ("properties", ANY_STR, "through", "property"),
-                frozenset({"str"}),
-                is_required=True,
-                _is_nullable=False,
-            )
-        )
-        return spec
-
-    @classmethod
     def as_str(cls, id: ViewId) -> str:
         return sanitize_filename(id.external_id)
 
@@ -957,15 +816,6 @@ class DataModelCRUD(ResourceCRUD[DataModelId, DataModelApply, DataModel, DataMod
         return iter(self.client.data_modeling.data_models(space=space, include_global=False))
 
     @classmethod
-    @lru_cache(maxsize=1)
-    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        spec = super().get_write_cls_parameter_spec()
-        # ViewIds have the type set in the API Spec, but this is hidden in the SDK classes,
-        # so we need to add it manually.
-        spec.add(ParameterSpec(("views", ANY_INT, "type"), frozenset({"str"}), is_required=True, _is_nullable=False))
-        return spec
-
-    @classmethod
     def as_str(cls, id: DataModelId) -> str:
         return sanitize_filename(id.external_id)
 
@@ -1121,22 +971,6 @@ class NodeCRUD(ResourceContainerCRUD[NodeId, NodeApply, Node, NodeApplyList, Nod
     def drop_data(self, ids: SequenceNotStr[NodeId]) -> int:
         # Nodes will be deleted in .delete call.
         return 0
-
-    @classmethod
-    @lru_cache(maxsize=1)
-    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        node_spec = super().get_write_cls_parameter_spec()
-        # This is a deviation between the SDK and the API
-        node_spec.add(ParameterSpec(("instanceType",), frozenset({"str"}), is_required=False, _is_nullable=False))
-        node_spec.add(
-            ParameterSpec(
-                ("sources", ANY_INT, "source", "type"),
-                frozenset({"str"}),
-                is_required=True,
-                _is_nullable=False,
-            )
-        )
-        return ParameterSpecSet(node_spec, spec_name=cls.__name__)
 
     @classmethod
     def as_str(cls, id: NodeId) -> str:
@@ -1482,22 +1316,6 @@ class EdgeCRUD(ResourceContainerCRUD[EdgeId, EdgeApply, Edge, EdgeApplyList, Edg
     def drop_data(self, ids: SequenceNotStr[EdgeId]) -> int:
         # Edges will be deleted in .delete call.
         return 0
-
-    @classmethod
-    @lru_cache(maxsize=1)
-    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        node_spec = super().get_write_cls_parameter_spec()
-        # This is a deviation between the SDK and the API
-        node_spec.add(ParameterSpec(("instanceType",), frozenset({"str"}), is_required=False, _is_nullable=False))
-        node_spec.add(
-            ParameterSpec(
-                ("sources", ANY_INT, "source", "type"),
-                frozenset({"str"}),
-                is_required=True,
-                _is_nullable=False,
-            )
-        )
-        return ParameterSpecSet(node_spec, spec_name=cls.__name__)
 
     def diff_list(
         self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]

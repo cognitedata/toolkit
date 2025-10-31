@@ -58,9 +58,9 @@ def test_inject_custom_environmental_variables(
     monkeypatch: MonkeyPatch,
     toolkit_client_approval: ApprovalToolkitClient,
     env_vars_with_client: EnvironmentVariables,
-    organization_dir: Path,
+    buildable_modules: Path,
 ) -> None:
-    config_yaml = yaml.safe_load((organization_dir / "config.dev.yaml").read_text())
+    config_yaml = yaml.safe_load((buildable_modules / "config.dev.yaml").read_text())
     config_yaml["variables"]["modules"]["cdf_common"]["dataset"] = "${MY_ENVIRONMENT_VARIABLE}"
     # Selecting the cdf_common module to be built
     config_yaml["environment"]["selected"] = ["cdf_common"]
@@ -73,7 +73,7 @@ def test_inject_custom_environmental_variables(
     )
     monkeypatch.setenv("MY_ENVIRONMENT_VARIABLE", "my_environment_variable_value")
     BuildCommand(silent=True).execute(
-        organization_dir=organization_dir,
+        organization_dir=buildable_modules,
         build_dir=build_tmp_path,
         selected=None,
         build_env_name="dev",
@@ -122,10 +122,10 @@ def test_pull_dataset(
     build_tmp_path: Path,
     toolkit_client_approval: ApprovalToolkitClient,
     env_vars_with_client: EnvironmentVariables,
-    organization_dir_mutable: Path,
+    buildable_modules_mutable: Path,
 ) -> None:
     # Loading a selected dataset to be pulled
-    dataset_yaml = organization_dir_mutable / MODULES / "cdf_common" / "data_sets" / "demo.DataSet.yaml"
+    dataset_yaml = buildable_modules_mutable / MODULES / "cdf_common" / "data_sets" / "demo.DataSet.yaml"
     dataset = DataSet.load(dataset_yaml.read_text().replace("{{ dataset }}", "ingestion"))
     dataset.description = "New description"
     toolkit_client_approval.append(DataSet, dataset)
@@ -133,7 +133,7 @@ def test_pull_dataset(
     cmd = PullCommand(silent=True)
     cmd.pull_module(
         module_name_or_path=dataset_yaml,
-        organization_dir=organization_dir_mutable,
+        organization_dir=buildable_modules_mutable,
         env="dev",
         dry_run=False,
         verbose=False,
@@ -148,19 +148,19 @@ def test_pull_dataset_relative_path(
     build_tmp_path: Path,
     toolkit_client_approval: ApprovalToolkitClient,
     env_vars_with_client: EnvironmentVariables,
-    organization_dir_mutable: Path,
+    buildable_modules_mutable: Path,
 ) -> None:
     # Loading a selected dataset to be pulled
-    dataset_yaml = organization_dir_mutable / MODULES / "cdf_common" / "data_sets" / "demo.DataSet.yaml"
+    dataset_yaml = buildable_modules_mutable / MODULES / "cdf_common" / "data_sets" / "demo.DataSet.yaml"
     dataset = DataSet.load(dataset_yaml.read_text().replace("{{ dataset }}", "ingestion"))
     dataset.description = "New description"
     toolkit_client_approval.append(DataSet, dataset)
 
-    with chdir(organization_dir_mutable):
+    with chdir(buildable_modules_mutable):
         cmd = PullCommand(silent=True)
         cmd.pull_module(
             module_name_or_path=f"{MODULES}/cdf_common/data_sets/demo.DataSet.yaml",
-            organization_dir=organization_dir_mutable,
+            organization_dir=buildable_modules_mutable,
             env="dev",
             dry_run=False,
             verbose=False,
@@ -175,13 +175,12 @@ def test_pull_transformation_sql(
     build_tmp_path: Path,
     toolkit_client_approval: ApprovalToolkitClient,
     env_vars_with_client: EnvironmentVariables,
-    organization_dir_mutable: Path,
+    buildable_modules_mutable: Path,
 ) -> None:
     # Loading a selected transformation to be pulled
     transformation_yaml = (
-        organization_dir_mutable
+        buildable_modules_mutable
         / "modules"
-        / "sourcesystem"
         / "cdf_pi"
         / "transformations"
         / "population"
@@ -201,7 +200,7 @@ from `ingestion`.`timeseries_metadata`"""
     cmd = PullCommand(silent=True)
     cmd.pull_module(
         module_name_or_path=transformation_yaml,
-        organization_dir=organization_dir_mutable,
+        organization_dir=buildable_modules_mutable,
         env="dev",
         dry_run=False,
         verbose=False,
@@ -243,11 +242,11 @@ def test_pull_workflow_trigger_with_environment_variables(
     build_tmp_path: Path,
     toolkit_client_approval: ApprovalToolkitClient,
     env_vars_with_client: EnvironmentVariables,
-    organization_dir_mutable: Path,
+    buildable_modules_mutable: Path,
 ) -> None:
     # Loading a selected workflow trigger to be pulled
     yaml_filepath = (
-        organization_dir_mutable / "modules" / "cdf_ingestion" / "workflows" / "trigger.WorkflowTrigger.yaml"
+        buildable_modules_mutable / "modules" / "cdf_ingestion" / "workflows" / "trigger.WorkflowTrigger.yaml"
     )
     source_yaml = yaml_filepath.read_text()
     vars_replaced = source_yaml
@@ -267,7 +266,7 @@ def test_pull_workflow_trigger_with_environment_variables(
     cmd = PullCommand(silent=True)
     cmd.pull_module(
         module_name_or_path=yaml_filepath,
-        organization_dir=organization_dir_mutable,
+        organization_dir=buildable_modules_mutable,
         env="dev",
         dry_run=False,
         verbose=False,

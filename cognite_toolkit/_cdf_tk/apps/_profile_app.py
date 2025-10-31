@@ -58,9 +58,9 @@ class ProfileApp(typer.Typer):
         cmd = ProfileAssetCommand(output_spreadsheet)
         cmd.run(
             lambda: cmd.assets(
-                client,
-                hierarchy,
-                verbose,
+                client=client,
+                hierarchy=hierarchy,
+                verbose=verbose,
             )
         )
 

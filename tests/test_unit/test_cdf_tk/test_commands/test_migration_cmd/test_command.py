@@ -23,9 +23,7 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, ProjectStatistics
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.commands._migrate.adapter import AssetCentricMigrationIOAdapter, MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import (
@@ -35,8 +33,9 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_model import (
     RESOURCE_VIEW_MAPPING_VIEW_ID,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import ASSET_ID, create_default_mappings
+from cognite_toolkit._cdf_tk.commands._migrate.migration_io import AssetCentricMigrationIO
+from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
-from cognite_toolkit._cdf_tk.storageio import AssetIO
 from cognite_toolkit._cdf_tk.utils.fileio import CSVReader
 
 
@@ -230,8 +229,8 @@ class TestMigrationCommand:
         command = MigrationCommand(silent=True)
 
         result = command.migrate(
-            selected=MigrationCSVFileSelector(datafile=csv_file, kind="asset"),
-            data=AssetCentricMigrationIOAdapter(client, AssetIO(client)),
+            selected=MigrationCSVFileSelector(datafile=csv_file, kind="Assets"),
+            data=AssetCentricMigrationIO(client),
             mapper=AssetCentricMapper(client),
             log_dir=tmp_path / "logs",
             dry_run=False,
@@ -269,14 +268,14 @@ class TestMigrationCommand:
             for asset in assets
         ]
         assert actual_instances == expected_instance
-        actual_results = [result.get_progress(AssetCentricId("asset", asset.id)) for asset in assets]
+        actual_results = [result.get_progress(f"asset_{asset.id}") for asset in assets]
         expected_results = [{"download": "success", "convert": "success", "upload": "success"} for _ in assets]
         assert actual_results == expected_results
         csv_file = next((tmp_path / "logs").glob("*.csv"), None)
         assert csv_file is not None, "Expected a CSV log file to be created"
         csv_results = list(CSVReader(csv_file).read_chunks_unprocessed())
         assert csv_results == [
-            {"ID": f"asset(id={asset.id})", "download": "success", "convert": "success", "upload": "success"}
+            {"ID": f"asset_{asset.id}", "download": "success", "convert": "success", "upload": "success"}
             for asset in assets
         ]
 

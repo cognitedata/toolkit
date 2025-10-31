@@ -13,7 +13,6 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from packaging.requirements import Requirement
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import (
     Streamlit,
@@ -197,12 +196,3 @@ class StreamlitCRUD(ResourceCRUD[str, StreamlitWrite, Streamlit, StreamlitWriteL
         for file in self.client.files:
             if file.directory == "/streamlit-apps/":
                 yield Streamlit.from_file(file)
-
-    @classmethod
-    @lru_cache(maxsize=1)
-    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        spec = super().get_write_cls_parameter_spec()
-        # Added by toolkit
-        spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=True))
-        spec.discard(ParameterSpec(("dataSetId",), frozenset({"int"}), is_required=False, _is_nullable=True))
-        return spec
