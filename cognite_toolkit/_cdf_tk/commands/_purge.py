@@ -13,7 +13,6 @@ from cognite.client.data_classes.data_modeling import (
     EdgeList,
     NodeId,
     NodeList,
-    ViewId,
 )
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from cognite.client.exceptions import CogniteAPIError
@@ -942,10 +941,3 @@ class PurgeCommand(ToolkitCommand):
             elif verbose and files:
                 console.print(f"Would have unlinked {len(files)} files from their blob content.")
         return instances
-
-    @staticmethod
-    def get_selected_view_id(view: list[str]) -> ViewId:
-        if not (isinstance(view, list) and len(view) == 3):
-            raise ToolkitValueError(f"Invalid view format: {view}. Expected format is 'space externalId version'.")
-
-        return ViewId.load(tuple(view))  # type: ignore[arg-type]
