@@ -73,7 +73,7 @@ from ._base import (
     Page,
     StorageIOConfig,
     TableStorageIO,
-    UploadableStorageIO,
+    TableUploadableStorageIO,
     UploadItem,
 )
 from .selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
@@ -83,7 +83,7 @@ class BaseAssetCentricIO(
     Generic[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
     TableStorageIO[AssetCentricSelector, T_WritableCogniteResource],
     ConfigurableStorageIO[AssetCentricSelector, T_WritableCogniteResource],
-    UploadableStorageIO[AssetCentricSelector, T_WritableCogniteResource, T_WriteClass],
+    TableUploadableStorageIO[AssetCentricSelector, T_WritableCogniteResource, T_WriteClass],
     ABC,
 ):
     RESOURCE_TYPE: ClassVar[AssetCentricType]
@@ -197,6 +197,19 @@ class BaseAssetCentricIO(
                     chunk[f"metadata.{key}"] = value
             rows.append(chunk)
         return rows
+
+    def row_to_resource(self, row: dict[str, JsonVal], selector: AssetCentricSelector | None = None) -> T_WriteClass:
+        metadata: dict[str, JsonVal] = {}
+        cleaned_row: dict[str, JsonVal] = {}
+        for key, value in row.items():
+            if key.startswith("metadata."):
+                metadata_key = key[len("metadata.") :]
+                metadata[metadata_key] = value
+            else:
+                cleaned_row[key] = value
+        if metadata:
+            cleaned_row["metadata"] = metadata
+        return self.json_to_resource(cleaned_row)
 
 
 class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetList]):
