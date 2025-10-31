@@ -257,6 +257,15 @@ class ResourceCRUD(
     ) -> Iterable[T_WritableCogniteResource]:
         raise NotImplementedError
 
+    ### These methods can be optionally overwritten in the subclass ###
+    def prerequisite_warning(self) -> str | None:
+        """ "Returns a warning message if there are any prerequisites that must be met before using this CRUD.
+
+        This is used for special resource CRUDs that for example require data models/views to be deployed in CDF
+        to work. For example, the InfieldV1CRUD and the ResourceViewMappingCRUD.
+        """
+        return None
+
     @classmethod
     def get_dependent_items(cls, item: dict) -> "Iterable[tuple[type[ResourceCRUD], Hashable]]":
         """Returns all items that this item requires.
