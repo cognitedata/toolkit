@@ -24,6 +24,7 @@ from cognite.client.data_classes import (
     TimeSeriesWriteList,
 )
 from cognite.client.data_classes._base import (
+    T_CogniteResource,
     T_CogniteResourceList,
     T_WritableCogniteResource,
     T_WriteClass,
@@ -68,6 +69,7 @@ from cognite_toolkit._cdf_tk.utils.useful_types import (
     T_WritableCogniteResourceList,
 )
 
+from . import T_Selector
 from ._base import ConfigurableStorageIO, Page, StorageIOConfig, TableStorageIO, UploadableStorageIO, UploadItem
 from .selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 
@@ -177,6 +179,11 @@ class BaseAssetCentricIO(
     @classmethod
     def create_internal_identifier(cls, internal_id: int, project: str) -> str:
         return f"INTERNAL_ID_project_{project}_{internal_id!s}"
+
+    def data_to_row(
+        self, data_chunk: Sequence[T_CogniteResource], selector: T_Selector | None = None
+    ) -> list[dict[str, JsonVal]]:
+        raise NotImplementedError()
 
 
 class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetList]):
