@@ -30,8 +30,8 @@ def _cleanup_temp_dirs() -> None:
         if temp_dir.exists():
             try:
                 shutil.rmtree(temp_dir, ignore_errors=True)
-            except Exception:
-                pass  # Best effort cleanup
+            except Exception as e:
+                print(f"Warning: Failed to clean up temp directory {temp_dir}: {e}")
 
 
 # Register cleanup handler
@@ -291,8 +291,8 @@ def modules_command_with_cached_download(
                 try:
                     if any(unpacked_dir.iterdir()):
                         return  # Already unpacked, skip download
-                except OSError:
-                    pass
+                except OSError as e:
+                    print(f"Warning: Could not check unpacked directory {unpacked_dir}: {e}")
 
             # File doesn't exist or is invalid, proceed with download
             original_download(self, url, file_path)
@@ -307,8 +307,8 @@ def modules_command_with_cached_download(
                 try:
                     if any(unpacked_dir.iterdir()):
                         return  # Already unpacked, skip
-                except OSError:
-                    pass
+                except OSError as e:
+                    print(f"Warning: Could not check unpacked directory {unpacked_dir}: {e}")
 
             # Proceed with unpack
             original_unpack(self, file_path)
