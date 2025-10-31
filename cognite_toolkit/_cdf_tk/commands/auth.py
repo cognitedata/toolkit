@@ -440,9 +440,11 @@ class AuthCommand(ToolkitCommand):
         loaders_by_capability_tuple: dict[tuple, list[str]] = defaultdict(list)
         capability_by_id: dict[frozenset[tuple], Capability] = {}
         project_type = client.project.status().this_project.data_modeling_status
-        for loader_cls in cruds.RESOURCE_CRUD_LIST:
-            loader = loader_cls.create_loader(client)
-            capability = loader_cls.get_required_capability(None, read_only=False)
+        for crud_cls in cruds.RESOURCE_CRUD_LIST:
+            crud = crud_cls.create_loader(client)
+            if not crud.are_prerequisite_present():
+                continue
+            capability = crud_cls.get_required_capability(None, read_only=False)
             capabilities = capability if isinstance(capability, list) else [capability]
             for cap in capabilities:
                 if project_type == "DATA_MODELING_ONLY" and isinstance(cap, AssetsAcl | RelationshipsAcl):
@@ -451,7 +453,7 @@ class AuthCommand(ToolkitCommand):
                 if id_ not in capability_by_id:
                     capability_by_id[id_] = cap
                 for cap_tuple in cap.as_tuples():
-                    loaders_by_capability_tuple[cap_tuple].append(loader.display_name)
+                    loaders_by_capability_tuple[cap_tuple].append(crud.display_name)
         return list(capability_by_id.values()), loaders_by_capability_tuple
 
     def check_has_any_access(self, client: ToolkitClient) -> TokenInspection:
