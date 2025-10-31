@@ -193,17 +193,22 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         """Raises an exception if an error occurred during execution."""
         if self._error_event.is_set():
             if self.verbose and self.error_traceback:
-                self.console.print(
-                    Panel(
-                        self.error_traceback,
-                        title="Traceback",
-                        expand=False,
-                        border_style="red",
-                    )
-                )
+                self.print_traceback()
             raise ToolkitRuntimeError(f"An error occurred during execution: {self.error_message}")
         if self._stop_event.is_set():
             raise ToolkitRuntimeError("Execution was stopped by the user.")
+
+    def print_traceback(self) -> None:
+        """Prints the traceback if an error occurred during execution."""
+        if self.error_traceback:
+            self.console.print(
+                Panel(
+                    self.error_traceback,
+                    title="Traceback",
+                    expand=False,
+                    border_style="red",
+                )
+            )
 
     def _download_worker(self, progress: Progress, download_task: TaskID) -> None:
         """Worker thread for downloading data."""
