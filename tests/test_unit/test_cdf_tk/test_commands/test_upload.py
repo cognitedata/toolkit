@@ -54,7 +54,7 @@ def raw_csv_directory(tmp_path: Path) -> Path:
     configfile.parent.mkdir(parents=True, exist_ok=True)
     table = RawTable(db_name="test_db", table_name="test_table")
     configfile.write_text(table.dump_yaml())
-    csv_file = tmp_path / "test_table.csv"
+    csv_file = tmp_path / f"test_table.{RawIO.KIND}.csv"
     with csv_file.open("w") as f:
         f.write("index,column1,column2,column3\n")
         for i in range(1, 1001):
