@@ -51,6 +51,17 @@ class LookUpAPI(ToolkitAPI, ABC):
     def id(
         self, external_id: str | SequenceNotStr[str], is_dry_run: bool = False, allow_empty: bool = False
     ) -> int | list[int]:
+        """Lookup internal IDs for given external IDs.
+
+        Args:
+            external_id: A string external ID or a sequence of string external IDs to look up.
+            is_dry_run: If True, return a predefined dry run ID for missing external IDs instead of raising an error.
+            allow_empty: If True, allow empty string external IDs and return 0 for them.
+
+        Returns:
+            The corresponding internal ID as an integer if a single external ID is provided,
+            or a list of internal IDs if a sequence of external IDs is provided.
+        """
         ids = [external_id] if isinstance(external_id, str) else external_id
         missing = [id for id in ids if id not in self._cache]
         if allow_empty and "" in missing:
