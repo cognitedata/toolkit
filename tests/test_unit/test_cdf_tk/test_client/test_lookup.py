@@ -14,13 +14,13 @@ from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
 from tests.test_unit.utils import FakeCogniteResourceGenerator
 
 
+@pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
 class TestLookup:
     CASES: Sequence[ParameterSet] = [
         pytest.param("events", Event, EventsAcl, id="events"),
         pytest.param("files", FileMetadata, FilesAcl, id="files"),
     ]
 
-    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
     @pytest.mark.parametrize("endpoint,resource_cls,cap_cls", CASES)
     def test_lookup_id(
         self,
@@ -46,7 +46,6 @@ class TestLookup:
         single_id = lookup_api.id(external_id=resources[0].external_id)
         assert single_id == resources[0].id
 
-    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
     @pytest.mark.parametrize("endpoint,resource_cls,cap_cls", CASES)
     def test_lookup_external_id(
         self,
@@ -73,7 +72,6 @@ class TestLookup:
         multiple_external_ids = lookup_api.external_id(id=[resource.id for resource in resources])
         assert multiple_external_ids == [resource.external_id for resource in resources]
 
-    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
     @pytest.mark.parametrize("endpoint,resource_cls,cap_cls", CASES)
     def test_missing_access(
         self,
@@ -103,6 +101,25 @@ class TestLookup:
             lookup_api.id(external_id="non-existing")
 
         assert cap_cls.__name__ in str(exc_info.value)
+
+    def test_lookup_external_id_missing(
+        self,
+        toolkit_config: ToolkitClientConfig,
+        rsps: responses.RequestsMock,
+    ) -> None:
+        config = toolkit_config
+        rsps.post(
+            config.create_api_url("assets/byids"),
+            status=200,
+            json={"items": []},
+        )
+        client = ToolkitClient(config=config)
+        result = client.lookup.assets.external_id([1, 2, 3])
+        assert result == []
+        result2 = client.lookup.assets.external_id([1, 2, 3])
+        assert result2 == []
+
+        assert len(rsps.calls) == 1  # Cached result used for second call
 
     @staticmethod
     def _create_resources(resource_cls: type[CogniteResource], N: int) -> list[CogniteResource]:
