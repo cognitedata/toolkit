@@ -20,7 +20,6 @@ from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.api_client import ToolkitAPI
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID
-from cognite_toolkit._cdf_tk.exceptions import ResourceRetrievalError
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
@@ -63,35 +62,42 @@ class LookUpAPI(ToolkitAPI, ABC):
             or a list of internal IDs if a sequence of external IDs is provided.
         """
         ids = [external_id] if isinstance(external_id, str) else external_id
-        missing = [id for id in ids if id not in self._cache]
-        if allow_empty and "" in missing:
+        need_lookup = [id for id in ids if id not in self._cache]
+        if allow_empty and "" in need_lookup:
             # Note we do not want to put empty string in the cache. It is a special case that
             # as of 01/02/2025 only applies to LocationFilters
-            missing.remove("")
-        if missing:
-            try:
-                lookup = self._id(missing)
-            except CogniteAPIError as e:
-                if 400 <= e.code < 500:
-                    missing_capabilities = self._toolkit_client.verify.authorization(self._read_acl())
-                    if missing_capabilities:
-                        raise self._toolkit_client.verify.create_error(
-                            missing_capabilities,
-                            f"lookup {self.resource_name} with external_id {missing}",
-                        )
-                # Raise the original error if it's not a 400 or the user has access to read the resource.from
-                raise
-            self._cache.update(lookup)
-            self._reverse_cache.update({v: k for k, v in lookup.items()})
-            if len(missing) != len(lookup) and not is_dry_run:
-                raise ResourceRetrievalError(
-                    f"Failed to retrieve {self.resource_name} with external_id {missing}. Have you created it?", missing
-                )
+            need_lookup.remove("")
+        if need_lookup:
+            self._do_lookup_external_ids(need_lookup, is_dry_run)
         return (
             self._get_id_from_cache(external_id, is_dry_run, allow_empty)
             if isinstance(external_id, str)
             else [self._get_id_from_cache(id, is_dry_run, allow_empty) for id in ids]
         )
+
+    def _do_lookup_external_ids(self, external_ids: list[str], is_dry_run: bool) -> None:
+        try:
+            ids_by_external_id = self._id(external_ids)
+        except CogniteAPIError as e:
+            if 400 <= e.code < 500:
+                missing_capabilities = self._toolkit_client.verify.authorization(self._read_acl())
+                if missing_capabilities:
+                    raise self._toolkit_client.verify.create_error(
+                        missing_capabilities,
+                        f"lookup {self.resource_name} with external_id {external_ids}",
+                    )
+            # Raise the original error if it's not a 400 or the user has access to read the resource.from
+            raise
+        self._cache.update(ids_by_external_id)
+        self._reverse_cache.update({v: k for k, v in ids_by_external_id.items()})
+        missing_external_ids = [ext_id for ext_id in external_ids if ext_id not in ids_by_external_id]
+        if missing_external_ids and not is_dry_run:
+            plural = "s" if len(missing_external_ids) > 1 else ""
+            plural2 = "They do" if len(missing_external_ids) > 1 else "It does"
+            MediumSeverityWarning(
+                f"Failed to retrieve {self.resource_name} with external_id{plural} "
+                f"{humanize_collection(missing_external_ids)}. {plural2} not exist in CDF"
+            ).print_warning()
 
     def _get_id_from_cache(self, external_id: str, is_dry_run: bool = False, allow_empty: bool = False) -> int:
         if allow_empty and external_id == "":
