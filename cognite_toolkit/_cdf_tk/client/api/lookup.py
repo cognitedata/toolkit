@@ -96,34 +96,48 @@ class LookUpAPI(ToolkitAPI, ABC):
     def external_id(self, id: Sequence[int]) -> list[str]: ...
 
     def external_id(self, id: int | Sequence[int]) -> str | None | list[str]:
+        """Lookup external IDs for given internal IDs.
+
+        Args:
+            id: An integer ID or a sequence of integer IDs to look up. Note that an ID of 0 corresponds
+                to an empty string external ID.
+
+        Returns:
+            The corresponding external ID as a string if a single ID is provided,
+            or a list of external IDs if a sequence of IDs is provided.
+            If an ID does not exist, None is returned for that ID.
+
+        """
         ids = [id] if isinstance(id, int) else id
-        missing = [id_ for id_ in ids if id_ not in self._reverse_cache]
-        if 0 in missing:
-            missing.remove(0)
-        if missing:
-            try:
-                lookup = self._external_id(missing)
-            except CogniteAPIError as e:
-                if 400 <= e.code < 500:
-                    missing_capabilities = self._toolkit_client.verify.authorization(self._read_acl())
-                    if missing_capabilities:
-                        raise self._toolkit_client.verify.create_error(
-                            missing_capabilities,
-                            f"lookup {self.resource_name} with id {missing}",
-                        )
-                # Raise the original error if it's not a 400 or the user has access to read the resource.from
-                raise
-            self._reverse_cache.update(lookup)
-            self._cache.update({v: k for k, v in lookup.items()})
-            if len(missing) != len(lookup):
-                MediumSeverityWarning(
-                    f"Failed to retrieve {self.resource_name} with id {missing}. It does not exist in CDF"
-                ).print_warning()
+        need_lookup = [id_ for id_ in ids if id_ not in self._reverse_cache if id_ != 0]
+        if need_lookup:
+            self._do_lookup_internal_ids(need_lookup)
+
         if isinstance(id, int):
             return self._get_external_id_from_cache(id)
         else:
-            external_ids = (self._get_external_id_from_cache(id) for id in ids)
-            return [id for id in external_ids if id is not None]
+            external_ids = (self._get_external_id_from_cache(id_) for id_ in ids)
+            return [id_ for id_ in external_ids if id_ is not None]
+
+    def _do_lookup_internal_ids(self, ids: list[int]) -> None:
+        try:
+            found_by_id = self._external_id(ids)
+        except CogniteAPIError as e:
+            if 400 <= e.code < 500:
+                missing_capabilities = self._toolkit_client.verify.authorization(self._read_acl())
+                if missing_capabilities:
+                    raise self._toolkit_client.verify.create_error(
+                        missing_capabilities,
+                        f"lookup {self.resource_name} with id {ids}",
+                    )
+            # Raise the original error if it's not a 400 or the user has access to read the resource.from
+            raise
+        self._reverse_cache.update(found_by_id)
+        self._cache.update({v: k for k, v in found_by_id.items()})
+        if len(ids) != len(found_by_id):
+            MediumSeverityWarning(
+                f"Failed to retrieve {self.resource_name} with id {ids}. It does not exist in CDF"
+            ).print_warning()
 
     def _get_external_id_from_cache(self, id: int) -> str | None:
         if id == 0:
