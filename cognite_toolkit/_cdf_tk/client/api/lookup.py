@@ -139,8 +139,10 @@ class LookUpAPI(ToolkitAPI, ABC):
         if not missing_ids:
             return None
         plural = "s" if len(missing_ids) > 1 else ""
+        plural2 = "They do" if len(missing_ids) > 1 else "It does"
         MediumSeverityWarning(
-            f"Failed to retrieve {self.resource_name} with id{plural} {humanize_collection(missing_ids)}. It does not exist in CDF"
+            f"Failed to retrieve {self.resource_name} with id{plural} "
+            f"{humanize_collection(missing_ids)}. {plural2} not exist in CDF"
         ).print_warning()
         # Cache the missing IDs with None to avoid repeated lookups
         self._reverse_cache.update({missing_id: None for missing_id in missing_ids})
