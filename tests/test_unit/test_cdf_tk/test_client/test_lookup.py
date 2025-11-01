@@ -111,13 +111,13 @@ class TestLookup:
         rsps.post(
             config.create_api_url("assets/byids"),
             status=200,
-            json={"items": []},
+            json={"items": [{"id": 1, "externalId": "ext-1"}]},
         )
         client = ToolkitClient(config=config)
         result = client.lookup.assets.external_id([1, 2, 3])
-        assert result == []
+        assert result == ["ext-1"]
         result2 = client.lookup.assets.external_id([1, 2, 3])
-        assert result2 == []
+        assert result2 == ["ext-1"]
 
         assert len(rsps.calls) == 1  # Cached result used for second call
 
