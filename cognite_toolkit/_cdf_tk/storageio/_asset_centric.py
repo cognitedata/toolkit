@@ -227,6 +227,11 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
     def data_to_json_chunk(
         self, data_chunk: Sequence[Asset], selector: AssetCentricSelector | None = None
     ) -> list[dict[str, JsonVal]]:
+        # Ensure data sets are looked up to populate cache.
+        # This is to avoid looking up each data set id individually in the .dump_resource call.
+        data_set_ids = [item.data_set_id for item in data_chunk if item.data_set_id is not None]
+        self.client.lookup.data_sets.external_id(data_set_ids)
+
         return [self._crud.dump_resource(item) for item in data_chunk]
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> AssetWrite:
@@ -340,6 +345,17 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
     def data_to_json_chunk(
         self, data_chunk: Sequence[FileMetadata], selector: AssetCentricSelector | None = None
     ) -> list[dict[str, JsonVal]]:
+        # Ensure data sets/assets/security-categories are looked up to populate cache.
+        # This is to avoid looking up each data set id individually in the .dump_resource call
+        data_set_ids = [item.data_set_id for item in data_chunk if item.data_set_id is not None]
+        self.client.lookup.data_sets.external_id(data_set_ids)
+        asset_ids = [asset_id for item in data_chunk if item.asset_ids for asset_id in item.asset_ids]
+        self.client.lookup.assets.external_id(asset_ids)
+        security_category_ids = [
+            sc_id for item in data_chunk if item.security_categories for sc_id in item.security_categories
+        ]
+        self.client.lookup.security_categories.external_id(security_category_ids)
+
         return [self._crud.dump_resource(item) for item in data_chunk]
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> FileMetadataWrite:
@@ -381,6 +397,16 @@ class TimeSeriesIO(BaseAssetCentricIO[str, TimeSeriesWrite, TimeSeries, TimeSeri
     def data_to_json_chunk(
         self, data_chunk: Sequence[TimeSeries], selector: AssetCentricSelector | None = None
     ) -> list[dict[str, JsonVal]]:
+        # Ensure data sets/assets/security categories are looked up to populate cache.
+        data_set_ids = [item.data_set_id for item in data_chunk if item.data_set_id is not None]
+        self.client.lookup.data_sets.external_id(data_set_ids)
+        asset_ids = [item.asset_id for item in data_chunk if item.asset_id is not None]
+        self.client.lookup.assets.external_id(asset_ids)
+        security_category_ids = [
+            sc_id for item in data_chunk if item.security_categories for sc_id in item.security_categories
+        ]
+        self.client.lookup.security_categories.external_id(security_category_ids)
+
         return [self._crud.dump_resource(item) for item in data_chunk]
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> TimeSeriesWrite:
@@ -483,6 +509,12 @@ class EventIO(BaseAssetCentricIO[str, EventWrite, Event, EventWriteList, EventLi
     def data_to_json_chunk(
         self, data_chunk: Sequence[Event], selector: AssetCentricSelector | None = None
     ) -> list[dict[str, JsonVal]]:
+        # Ensure data sets/assets are looked up to populate cache.
+        data_set_ids = [item.data_set_id for item in data_chunk if item.data_set_id is not None]
+        self.client.lookup.data_sets.external_id(data_set_ids)
+        asset_ids = [asset_id for item in data_chunk if item.asset_ids for asset_id in item.asset_ids]
+        self.client.lookup.assets.external_id(asset_ids)
+
         return [self._crud.dump_resource(item) for item in data_chunk]
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> EventWrite:
