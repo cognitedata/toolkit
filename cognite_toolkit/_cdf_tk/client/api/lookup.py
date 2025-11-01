@@ -22,6 +22,7 @@ from cognite_toolkit._cdf_tk.client.api_client import ToolkitAPI
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID
 from cognite_toolkit._cdf_tk.exceptions import ResourceRetrievalError
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
@@ -33,7 +34,7 @@ class LookUpAPI(ToolkitAPI, ABC):
     def __init__(self, config: ClientConfig, api_version: str | None, cognite_client: "ToolkitClient") -> None:
         super().__init__(config, api_version, cognite_client)
         self._cache: dict[str, int] = {}
-        self._reverse_cache: dict[int, str] = {}
+        self._reverse_cache: dict[int, str | None] = {}
 
     @property
     def resource_name(self) -> str:
@@ -134,10 +135,16 @@ class LookUpAPI(ToolkitAPI, ABC):
             raise
         self._reverse_cache.update(found_by_id)
         self._cache.update({v: k for k, v in found_by_id.items()})
-        if len(ids) != len(found_by_id):
-            MediumSeverityWarning(
-                f"Failed to retrieve {self.resource_name} with id {ids}. It does not exist in CDF"
-            ).print_warning()
+        missing_ids = [id for id in ids if id not in found_by_id]
+        if not missing_ids:
+            return None
+        plural = "s" if len(missing_ids) > 1 else ""
+        MediumSeverityWarning(
+            f"Failed to retrieve {self.resource_name} with id{plural} {humanize_collection(missing_ids)}. It does not exist in CDF"
+        ).print_warning()
+        # Cache the missing IDs with None to avoid repeated lookups
+        self._reverse_cache.update({missing_id: None for missing_id in missing_ids})
+        return None
 
     def _get_external_id_from_cache(self, id: int) -> str | None:
         if id == 0:
@@ -342,7 +349,8 @@ class AllLookUpAPI(LookUpAPI, ABC):
         if not self._has_looked_up:
             self._lookup()
             self._has_looked_up = True
-        return {id: self._reverse_cache[id] for id in id}
+        found_pairs = ((id_, self._reverse_cache[id_]) for id_ in id if id_ in self._reverse_cache)
+        return {k: v for k, v in found_pairs if v is not None}
 
 
 class SecurityCategoriesLookUpAPI(AllLookUpAPI):
