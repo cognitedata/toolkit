@@ -36,7 +36,6 @@ from cognite_toolkit._cdf_tk.cruds import (
     EventCRUD,
     FileMetadataCRUD,
     LabelCRUD,
-    ResourceCRUD,
     TimeSeriesCRUD,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
@@ -85,18 +84,9 @@ class BaseAssetCentricIO(
 
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
-        self._loader = self._get_loader()
         self._aggregator = self._get_aggregator()
         self._downloaded_data_sets_by_selector: dict[AssetCentricSelector, set[int]] = defaultdict(set)
         self._downloaded_labels_by_selector: dict[AssetCentricSelector, set[str]] = defaultdict(set)
-
-    @abstractmethod
-    def _get_loader(
-        self,
-    ) -> ResourceCRUD[
-        T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
-    ]:
-        raise NotImplementedError()
 
     @abstractmethod
     def _get_aggregator(self) -> AssetCentricAggregator:
@@ -112,11 +102,6 @@ class BaseAssetCentricIO(
         elif isinstance(selector, AssetSubtreeSelector):
             return self._aggregator.count(hierarchy=selector.hierarchy)
         return None
-
-    def data_to_json_chunk(
-        self, data_chunk: Sequence[T_WritableCogniteResource], selector: AssetCentricSelector | None = None
-    ) -> list[dict[str, JsonVal]]:
-        return [self._loader.dump_resource(item) for item in data_chunk]
 
     def configurations(self, selector: AssetCentricSelector) -> Iterable[StorageIOConfig]:
         data_set_ids = self._downloaded_data_sets_by_selector[selector]
@@ -187,11 +172,12 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
     SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
     UPLOAD_ENDPOINT = "/assets"
 
+    def __init__(self, client: ToolkitClient) -> None:
+        super().__init__(client)
+        self._crud = AssetCRUD.create_loader(self.client)
+
     def as_id(self, item: Asset) -> str:
         return item.external_id if item.external_id is not None else self._create_identifier(item.id)
-
-    def _get_loader(self) -> AssetCRUD:
-        return AssetCRUD.create_loader(self.client)
 
     def _get_aggregator(self) -> AssetCentricAggregator:
         return AssetAggregator(self.client)
@@ -238,8 +224,13 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
             self._collect_dependencies(asset_list, selector)
             yield Page(worker_id="main", items=asset_list)
 
+    def data_to_json_chunk(
+        self, data_chunk: Sequence[Asset], selector: AssetCentricSelector | None = None
+    ) -> list[dict[str, JsonVal]]:
+        return [self._crud.dump_resource(item) for item in data_chunk]
+
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> AssetWrite:
-        return self._loader.load_resource(item_json)
+        return self._crud.load_resource(item_json)
 
     def retrieve(self, ids: Sequence[int]) -> AssetList:
         return self.client.assets.retrieve_multiple(ids)
@@ -253,11 +244,12 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
     SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     UPLOAD_ENDPOINT = "/files"
 
+    def __init__(self, client: ToolkitClient) -> None:
+        super().__init__(client)
+        self._crud = FileMetadataCRUD.create_loader(self.client)
+
     def as_id(self, item: FileMetadata) -> str:
         return item.external_id if item.external_id is not None else self._create_identifier(item.id)
-
-    def _get_loader(self) -> FileMetadataCRUD:
-        return FileMetadataCRUD.create_loader(self.client)
 
     def _get_aggregator(self) -> AssetCentricAggregator:
         return FileAggregator(self.client)
@@ -345,8 +337,13 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
     def retrieve(self, ids: Sequence[int]) -> FileMetadataList:
         return self.client.files.retrieve_multiple(ids)
 
+    def data_to_json_chunk(
+        self, data_chunk: Sequence[FileMetadata], selector: AssetCentricSelector | None = None
+    ) -> list[dict[str, JsonVal]]:
+        return [self._crud.dump_resource(item) for item in data_chunk]
+
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> FileMetadataWrite:
-        return self._loader.load_resource(item_json)
+        return self._crud.load_resource(item_json)
 
 
 class TimeSeriesIO(BaseAssetCentricIO[str, TimeSeriesWrite, TimeSeries, TimeSeriesWriteList, TimeSeriesList]):
@@ -357,11 +354,12 @@ class TimeSeriesIO(BaseAssetCentricIO[str, TimeSeriesWrite, TimeSeries, TimeSeri
     UPLOAD_ENDPOINT = "/timeseries"
     RESOURCE_TYPE = "timeseries"
 
+    def __init__(self, client: ToolkitClient) -> None:
+        super().__init__(client)
+        self._crud = TimeSeriesCRUD.create_loader(self.client)
+
     def as_id(self, item: TimeSeries) -> str:
         return item.external_id if item.external_id is not None else self._create_identifier(item.id)
-
-    def _get_loader(self) -> TimeSeriesCRUD:
-        return TimeSeriesCRUD.create_loader(self.client)
 
     def _get_aggregator(self) -> AssetCentricAggregator:
         return TimeSeriesAggregator(self.client)
@@ -380,8 +378,13 @@ class TimeSeriesIO(BaseAssetCentricIO[str, TimeSeriesWrite, TimeSeries, TimeSeri
             self._collect_dependencies(ts_list, selector)
             yield Page(worker_id="main", items=ts_list)
 
+    def data_to_json_chunk(
+        self, data_chunk: Sequence[TimeSeries], selector: AssetCentricSelector | None = None
+    ) -> list[dict[str, JsonVal]]:
+        return [self._crud.dump_resource(item) for item in data_chunk]
+
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> TimeSeriesWrite:
-        return self._loader.load_resource(item_json)
+        return self._crud.load_resource(item_json)
 
     def get_schema(self, selector: AssetCentricSelector) -> list[SchemaColumn]:
         data_set_ids: list[int] = []
@@ -424,11 +427,12 @@ class EventIO(BaseAssetCentricIO[str, EventWrite, Event, EventWriteList, EventLi
     UPLOAD_ENDPOINT = "/events"
     RESOURCE_TYPE = "event"
 
+    def __init__(self, client: ToolkitClient) -> None:
+        super().__init__(client)
+        self._crud = EventCRUD.create_loader(self.client)
+
     def as_id(self, item: Event) -> str:
         return item.external_id if item.external_id is not None else self._create_identifier(item.id)
-
-    def _get_loader(self) -> EventCRUD:
-        return EventCRUD.create_loader(self.client)
 
     def _get_aggregator(self) -> AssetCentricAggregator:
         return EventAggregator(self.client)
@@ -476,8 +480,13 @@ class EventIO(BaseAssetCentricIO[str, EventWrite, Event, EventWriteList, EventLi
             self._collect_dependencies(event_list, selector)
             yield Page(worker_id="main", items=event_list)
 
+    def data_to_json_chunk(
+        self, data_chunk: Sequence[Event], selector: AssetCentricSelector | None = None
+    ) -> list[dict[str, JsonVal]]:
+        return [self._crud.dump_resource(item) for item in data_chunk]
+
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> EventWrite:
-        return self._loader.load_resource(item_json)
+        return self._crud.load_resource(item_json)
 
     def retrieve(self, ids: Sequence[int]) -> EventList:
         return self.client.events.retrieve_multiple(ids)
