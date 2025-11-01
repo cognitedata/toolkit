@@ -32,7 +32,7 @@ class LookUpAPI(ToolkitAPI, ABC):
 
     def __init__(self, config: ClientConfig, api_version: str | None, cognite_client: "ToolkitClient") -> None:
         super().__init__(config, api_version, cognite_client)
-        self._cache: dict[str, int] = {}
+        self._cache: dict[str, int | None] = {}
         self._reverse_cache: dict[int, str | None] = {}
 
     @property
@@ -40,7 +40,7 @@ class LookUpAPI(ToolkitAPI, ABC):
         return type(self).__name__.removesuffix("LookUpAPI")
 
     @overload
-    def id(self, external_id: str, is_dry_run: bool = False, allow_empty: bool = False) -> int: ...
+    def id(self, external_id: str, is_dry_run: bool = False, allow_empty: bool = False) -> int | None: ...
 
     @overload
     def id(
@@ -49,7 +49,7 @@ class LookUpAPI(ToolkitAPI, ABC):
 
     def id(
         self, external_id: str | SequenceNotStr[str], is_dry_run: bool = False, allow_empty: bool = False
-    ) -> int | list[int]:
+    ) -> int | None | list[int]:
         """Lookup internal IDs for given external IDs.
 
         Args:
@@ -69,11 +69,14 @@ class LookUpAPI(ToolkitAPI, ABC):
             need_lookup.remove("")
         if need_lookup:
             self._do_lookup_external_ids(need_lookup, is_dry_run)
-        return (
-            self._get_id_from_cache(external_id, is_dry_run, allow_empty)
-            if isinstance(external_id, str)
-            else [self._get_id_from_cache(id, is_dry_run, allow_empty) for id in ids]
-        )
+
+        if isinstance(external_id, str):
+            return self._get_id_from_cache(external_id, is_dry_run, allow_empty)
+        else:
+            internal_ids = (
+                self._get_id_from_cache(external_id, is_dry_run, allow_empty) for external_id in external_id
+            )
+            return [id_ for id_ in internal_ids if id_ is not None]
 
     def _do_lookup_external_ids(self, external_ids: list[str], is_dry_run: bool) -> None:
         try:
@@ -98,8 +101,9 @@ class LookUpAPI(ToolkitAPI, ABC):
                 f"Failed to retrieve {self.resource_name} with external_id{plural} "
                 f"{humanize_collection(missing_external_ids)}. {plural2} not exist in CDF"
             ).print_warning()
+            self._cache.update({ext_id: None for ext_id in missing_external_ids})
 
-    def _get_id_from_cache(self, external_id: str, is_dry_run: bool = False, allow_empty: bool = False) -> int:
+    def _get_id_from_cache(self, external_id: str, is_dry_run: bool = False, allow_empty: bool = False) -> int | None:
         if allow_empty and external_id == "":
             return 0
         elif is_dry_run:
