@@ -153,7 +153,15 @@ class MetadataAggregator(AssetCentricAggregator, ABC, Generic[T_CogniteFilter]):
                 raise ToolkitMissingResourceError(f"Cannot {operation}. Asset with external ID {hierarchy!r} not found")
             hierarchy_ids = (asset_id,)
         elif isinstance(hierarchy, list) and all(isinstance(item, str) for item in hierarchy):
-            hierarchy_ids = tuple(sorted(self.client.lookup.assets.id(external_id=hierarchy, allow_empty=False)))
+            asset_ids = self.client.lookup.assets.id(external_id=hierarchy, allow_empty=False)
+            if len(asset_ids) != len(hierarchy):
+                missing = set(hierarchy) - set(
+                    self.client.lookup.assets.external_id([id_ for id_ in asset_ids if id_ is not None])
+                )
+                raise ToolkitMissingResourceError(
+                    f"Cannot {operation}. Assets with external IDs {sorted(missing)!r} not found"
+                )
+            hierarchy_ids = tuple(sorted(asset_ids))
 
         data_set_ids: tuple[int, ...] | None = None
         if isinstance(data_sets, str):
@@ -164,7 +172,15 @@ class MetadataAggregator(AssetCentricAggregator, ABC, Generic[T_CogniteFilter]):
                 )
             data_set_ids = (data_set_id,)
         elif isinstance(data_sets, list) and all(isinstance(item, str) for item in data_sets):
-            data_set_ids = tuple(sorted(self.client.lookup.data_sets.id(external_id=data_sets, allow_empty=False)))
+            data_set_ids_list = self.client.lookup.data_sets.id(external_id=data_sets, allow_empty=False)
+            if len(data_set_ids_list) != len(data_sets):
+                missing = set(data_sets) - set(
+                    self.client.lookup.data_sets.external_id([id_ for id_ in data_set_ids_list if id_ is not None])
+                )
+                raise ToolkitMissingResourceError(
+                    f"Cannot {operation}. Data sets with external IDs {sorted(missing)!r} not found"
+                )
+            data_set_ids = tuple(sorted(data_set_ids_list))
 
         return hierarchy_ids, data_set_ids
 
