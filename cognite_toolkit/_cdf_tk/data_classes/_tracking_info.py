@@ -34,10 +34,4 @@ class CommandTrackingInfo(BaseModel):
     downloaded_module_ids: set[str] = Field(default_factory=set, alias="downloadedModuleIds")
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert the tracking info to a dictionary for Mixpanel.
-
-        Returns:
-            A dictionary with camelCase keys matching Mixpanel's expected format.
-        """
-
         return self.model_dump(by_alias=True)
