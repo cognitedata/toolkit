@@ -17,6 +17,7 @@ from cognite.client.data_classes.capabilities import (
 )
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.api_client import ToolkitAPI
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID
@@ -30,8 +31,11 @@ if TYPE_CHECKING:
 class LookUpAPI(ToolkitAPI, ABC):
     dry_run_id: int = DRY_RUN_ID
 
-    def __init__(self, config: ClientConfig, api_version: str | None, cognite_client: "ToolkitClient") -> None:
+    def __init__(
+        self, config: ClientConfig, api_version: str | None, cognite_client: "ToolkitClient", console: Console
+    ) -> None:
         super().__init__(config, api_version, cognite_client)
+        self._console = console
         self._cache: dict[str, int | None] = {}
         self._reverse_cache: dict[int, str | None] = {}
 
@@ -100,7 +104,7 @@ class LookUpAPI(ToolkitAPI, ABC):
             MediumSeverityWarning(
                 f"Failed to retrieve {self.resource_name} with external_id{plural} "
                 f"{humanize_collection(missing_external_ids)}. {plural2} not exist in CDF"
-            ).print_warning()
+            ).print_warning(console=self._console)
             self._cache.update({ext_id: None for ext_id in missing_external_ids})
 
     def _get_id_from_cache(self, external_id: str, is_dry_run: bool = False, allow_empty: bool = False) -> int | None:
@@ -164,7 +168,7 @@ class LookUpAPI(ToolkitAPI, ABC):
         MediumSeverityWarning(
             f"Failed to retrieve {self.resource_name} with id{plural} "
             f"{humanize_collection(missing_ids)}. {plural2} not exist in CDF"
-        ).print_warning()
+        ).print_warning(console=self._console)
         # Cache the missing IDs with None to avoid repeated lookups
         self._reverse_cache.update({missing_id: None for missing_id in missing_ids})
         return None
@@ -355,8 +359,10 @@ class FunctionLookUpAPI(LookUpAPI):
 
 
 class AllLookUpAPI(LookUpAPI, ABC):
-    def __init__(self, config: ClientConfig, api_version: str | None, cognite_client: "ToolkitClient") -> None:
-        super().__init__(config, api_version, cognite_client)
+    def __init__(
+        self, config: ClientConfig, api_version: str | None, cognite_client: "ToolkitClient", console: Console
+    ) -> None:
+        super().__init__(config, api_version, cognite_client, console)
         self._has_looked_up = False
 
     @abstractmethod
@@ -414,14 +420,16 @@ class LocationFiltersLookUpAPI(AllLookUpAPI):
 
 
 class LookUpGroup(ToolkitAPI):
-    def __init__(self, config: ClientConfig, api_version: str | None, cognite_client: "ToolkitClient") -> None:
+    def __init__(
+        self, config: ClientConfig, api_version: str | None, cognite_client: "ToolkitClient", console: Console
+    ) -> None:
         super().__init__(config, api_version, cognite_client)
-        self.data_sets = DataSetLookUpAPI(config, api_version, cognite_client)
-        self.assets = AssetLookUpAPI(config, api_version, cognite_client)
-        self.time_series = TimeSeriesLookUpAPI(config, api_version, cognite_client)
-        self.files = FileMetadataLookUpAPI(config, api_version, cognite_client)
-        self.events = EventLookUpAPI(config, api_version, cognite_client)
-        self.security_categories = SecurityCategoriesLookUpAPI(config, api_version, cognite_client)
-        self.location_filters = LocationFiltersLookUpAPI(config, api_version, cognite_client)
-        self.extraction_pipelines = ExtractionPipelineLookUpAPI(config, api_version, cognite_client)
-        self.functions = FunctionLookUpAPI(config, api_version, cognite_client)
+        self.data_sets = DataSetLookUpAPI(config, api_version, cognite_client, console)
+        self.assets = AssetLookUpAPI(config, api_version, cognite_client, console)
+        self.time_series = TimeSeriesLookUpAPI(config, api_version, cognite_client, console)
+        self.files = FileMetadataLookUpAPI(config, api_version, cognite_client, console)
+        self.events = EventLookUpAPI(config, api_version, cognite_client, console)
+        self.security_categories = SecurityCategoriesLookUpAPI(config, api_version, cognite_client, console)
+        self.location_filters = LocationFiltersLookUpAPI(config, api_version, cognite_client, console)
+        self.extraction_pipelines = ExtractionPipelineLookUpAPI(config, api_version, cognite_client, console)
+        self.functions = FunctionLookUpAPI(config, api_version, cognite_client, console)
