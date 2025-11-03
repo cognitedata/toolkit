@@ -18,6 +18,7 @@ from cognite.client.data_classes.sequences import SequenceProperty
 from cognite.client.data_classes.time_series import TimeSeriesProperty
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError
 from cognite_toolkit._cdf_tk.utils.cdf import (
     label_aggregate_count,
     label_count,
@@ -125,7 +126,9 @@ class MetadataAggregator(AssetCentricAggregator, ABC, Generic[T_CogniteFilter]):
         self, hierarchy: str | list[str] | None = None, data_sets: str | list[str] | None = None
     ) -> list[tuple[str, int]]:
         """Returns a list of metadata keys and their counts."""
-        hierarchy_ids, data_set_ids = self._lookup_hierarchy_data_set_pair(hierarchy, data_sets)
+        hierarchy_ids, data_set_ids = self._lookup_hierarchy_data_set_pair(
+            hierarchy, data_sets, operation="find metadata keys"
+        )
         return self._used_metadata_keys(hierarchy=hierarchy_ids, data_sets=data_set_ids)
 
     @lru_cache(maxsize=1)
@@ -140,22 +143,44 @@ class MetadataAggregator(AssetCentricAggregator, ABC, Generic[T_CogniteFilter]):
         )
 
     def _lookup_hierarchy_data_set_pair(
-        self, hierarchy: str | list[str] | None = None, data_sets: str | list[str] | None = None
+        self, hierarchy: str | list[str] | None, data_sets: str | list[str] | None, operation: str
     ) -> tuple[tuple[int, ...] | None, tuple[int, ...] | None]:
         """Returns a tuple of hierarchy and data sets."""
         hierarchy_ids: tuple[int, ...] | None = None
         if isinstance(hierarchy, str):
             asset_id = self.client.lookup.assets.id(external_id=hierarchy, allow_empty=False)
+            if asset_id is None:
+                raise ToolkitMissingResourceError(f"Cannot {operation}. Asset with external ID {hierarchy!r} not found")
             hierarchy_ids = (asset_id,)
         elif isinstance(hierarchy, list) and all(isinstance(item, str) for item in hierarchy):
-            hierarchy_ids = tuple(sorted(self.client.lookup.assets.id(external_id=hierarchy, allow_empty=False)))
+            asset_ids = self.client.lookup.assets.id(external_id=hierarchy, allow_empty=False)
+            if len(asset_ids) != len(hierarchy):
+                missing = set(hierarchy) - set(
+                    self.client.lookup.assets.external_id([id_ for id_ in asset_ids if id_ is not None])
+                )
+                raise ToolkitMissingResourceError(
+                    f"Cannot {operation}. Assets with external IDs {sorted(missing)!r} not found"
+                )
+            hierarchy_ids = tuple(sorted(asset_ids))
 
         data_set_ids: tuple[int, ...] | None = None
         if isinstance(data_sets, str):
             data_set_id = self.client.lookup.data_sets.id(external_id=data_sets, allow_empty=False)
+            if data_set_id is None:
+                raise ToolkitMissingResourceError(
+                    f"Cannot {operation}. Data set with external ID {data_sets!r} not found"
+                )
             data_set_ids = (data_set_id,)
         elif isinstance(data_sets, list) and all(isinstance(item, str) for item in data_sets):
-            data_set_ids = tuple(sorted(self.client.lookup.data_sets.id(external_id=data_sets, allow_empty=False)))
+            data_set_ids_list = self.client.lookup.data_sets.id(external_id=data_sets, allow_empty=False)
+            if len(data_set_ids_list) != len(data_sets):
+                missing = set(data_sets) - set(
+                    self.client.lookup.data_sets.external_id([id_ for id_ in data_set_ids_list if id_ is not None])
+                )
+                raise ToolkitMissingResourceError(
+                    f"Cannot {operation}. Data sets with external IDs {sorted(missing)!r} not found"
+                )
+            data_set_ids = tuple(sorted(data_set_ids_list))
 
         return hierarchy_ids, data_set_ids
 
@@ -201,7 +226,9 @@ class LabelAggregator(MetadataAggregator, ABC, Generic[T_CogniteFilter]):
         self, hierarchy: str | list[str] | None = None, data_sets: str | list[str] | None = None
     ) -> list[tuple[str, int]]:
         """Returns a list of labels and their counts."""
-        hierarchy_ids, data_set_ids = self._lookup_hierarchy_data_set_pair(hierarchy, data_sets)
+        hierarchy_ids, data_set_ids = self._lookup_hierarchy_data_set_pair(
+            hierarchy, data_sets, operation="find labels"
+        )
         return self._used_labels(hierarchy=hierarchy_ids, data_sets=data_set_ids)
 
     @lru_cache(maxsize=1)

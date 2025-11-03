@@ -36,10 +36,9 @@ from cognite_toolkit._cdf_tk.cruds import (
     EventCRUD,
     FileMetadataCRUD,
     LabelCRUD,
-    ResourceCRUD,
     TimeSeriesCRUD,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.utils.aggregators import (
     AssetAggregator,
     AssetCentricAggregator,
@@ -85,18 +84,9 @@ class BaseAssetCentricIO(
 
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
-        self._loader = self._get_loader()
         self._aggregator = self._get_aggregator()
         self._downloaded_data_sets_by_selector: dict[AssetCentricSelector, set[int]] = defaultdict(set)
         self._downloaded_labels_by_selector: dict[AssetCentricSelector, set[str]] = defaultdict(set)
-
-    @abstractmethod
-    def _get_loader(
-        self,
-    ) -> ResourceCRUD[
-        T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
-    ]:
-        raise NotImplementedError()
 
     @abstractmethod
     def _get_aggregator(self) -> AssetCentricAggregator:
@@ -112,11 +102,6 @@ class BaseAssetCentricIO(
         elif isinstance(selector, AssetSubtreeSelector):
             return self._aggregator.count(hierarchy=selector.hierarchy)
         return None
-
-    def data_to_json_chunk(
-        self, data_chunk: Sequence[T_WritableCogniteResource], selector: AssetCentricSelector | None = None
-    ) -> list[dict[str, JsonVal]]:
-        return [self._loader.dump_resource(item) for item in data_chunk]
 
     def configurations(self, selector: AssetCentricSelector) -> Iterable[StorageIOConfig]:
         data_set_ids = self._downloaded_data_sets_by_selector[selector]
@@ -178,6 +163,22 @@ class BaseAssetCentricIO(
     def create_internal_identifier(cls, internal_id: int, project: str) -> str:
         return f"INTERNAL_ID_project_{project}_{internal_id!s}"
 
+    def _populate_data_set_cache(self, chunk: Sequence[Asset | FileMetadata | TimeSeries | Event]) -> None:
+        data_set_ids = {item.data_set_id for item in chunk if item.data_set_id is not None}
+        self.client.lookup.data_sets.external_id(list(data_set_ids))
+
+    def _populate_security_category_cache(self, chunk: Sequence[FileMetadata | TimeSeries]) -> None:
+        security_category_ids: set[int] = set()
+        for item in chunk:
+            security_category_ids.update(item.security_categories or [])
+        self.client.lookup.security_categories.external_id(list(security_category_ids))
+
+    def _populate_asset_cache(self, chunk: Sequence[FileMetadata | Event]) -> None:
+        asset_ids: set[int] = set()
+        for item in chunk:
+            asset_ids.update(item.asset_ids or [])
+        self.client.lookup.assets.external_id(list(asset_ids))
+
 
 class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetList]):
     KIND = "Assets"
@@ -187,11 +188,12 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
     SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
     UPLOAD_ENDPOINT = "/assets"
 
+    def __init__(self, client: ToolkitClient) -> None:
+        super().__init__(client)
+        self._crud = AssetCRUD.create_loader(self.client)
+
     def as_id(self, item: Asset) -> str:
         return item.external_id if item.external_id is not None else self._create_identifier(item.id)
-
-    def _get_loader(self) -> AssetCRUD:
-        return AssetCRUD.create_loader(self.client)
 
     def _get_aggregator(self) -> AssetCentricAggregator:
         return AssetAggregator(self.client)
@@ -199,10 +201,18 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
     def get_schema(self, selector: AssetCentricSelector) -> list[SchemaColumn]:
         data_set_ids: list[int] = []
         if isinstance(selector, DataSetSelector):
-            data_set_ids.append(self.client.lookup.data_sets.id(selector.data_set_external_id))
+            data_set_id = self.client.lookup.data_sets.id(selector.data_set_external_id)
+            if data_set_id is None:
+                raise ToolkitMissingResourceError(
+                    f"Data set with external ID {selector.data_set_external_id} not found."
+                )
+            data_set_ids.append(data_set_id)
         hierarchy: list[int] = []
         if isinstance(selector, AssetSubtreeSelector):
-            hierarchy.append(self.client.lookup.assets.id(selector.hierarchy))
+            asset_id = self.client.lookup.assets.id(selector.hierarchy)
+            if asset_id is None:
+                raise ToolkitMissingResourceError(f"Asset with external ID {selector.hierarchy} not found.")
+            hierarchy.append(asset_id)
 
         if hierarchy or data_set_ids:
             metadata_keys = metadata_key_counts(
@@ -238,8 +248,17 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
             self._collect_dependencies(asset_list, selector)
             yield Page(worker_id="main", items=asset_list)
 
+    def data_to_json_chunk(
+        self, data_chunk: Sequence[Asset], selector: AssetCentricSelector | None = None
+    ) -> list[dict[str, JsonVal]]:
+        # Ensure data sets are looked up to populate cache.
+        # This is to avoid looking up each data set id individually in the .dump_resource call.
+        self._populate_data_set_cache(data_chunk)
+
+        return [self._crud.dump_resource(item) for item in data_chunk]
+
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> AssetWrite:
-        return self._loader.load_resource(item_json)
+        return self._crud.load_resource(item_json)
 
     def retrieve(self, ids: Sequence[int]) -> AssetList:
         return self.client.assets.retrieve_multiple(ids)
@@ -253,11 +272,12 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
     SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     UPLOAD_ENDPOINT = "/files"
 
+    def __init__(self, client: ToolkitClient) -> None:
+        super().__init__(client)
+        self._crud = FileMetadataCRUD.create_loader(self.client)
+
     def as_id(self, item: FileMetadata) -> str:
         return item.external_id if item.external_id is not None else self._create_identifier(item.id)
-
-    def _get_loader(self) -> FileMetadataCRUD:
-        return FileMetadataCRUD.create_loader(self.client)
 
     def _get_aggregator(self) -> AssetCentricAggregator:
         return FileAggregator(self.client)
@@ -265,7 +285,12 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
     def get_schema(self, selector: AssetCentricSelector) -> list[SchemaColumn]:
         data_set_ids: list[int] = []
         if isinstance(selector, DataSetSelector):
-            data_set_ids.append(self.client.lookup.data_sets.id(selector.data_set_external_id))
+            data_set_id = self.client.lookup.data_sets.id(selector.data_set_external_id)
+            if data_set_id is None:
+                raise ToolkitMissingResourceError(
+                    f"Data set with external ID {selector.data_set_external_id} not found."
+                )
+            data_set_ids.append(data_set_id)
         if isinstance(selector, AssetSubtreeSelector):
             raise ToolkitNotImplementedError(f"Selector type {type(selector)} not supported for FileIO.")
 
@@ -345,8 +370,19 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
     def retrieve(self, ids: Sequence[int]) -> FileMetadataList:
         return self.client.files.retrieve_multiple(ids)
 
+    def data_to_json_chunk(
+        self, data_chunk: Sequence[FileMetadata], selector: AssetCentricSelector | None = None
+    ) -> list[dict[str, JsonVal]]:
+        # Ensure data sets/assets/security-categories are looked up to populate cache.
+        # This is to avoid looking up each data set id individually in the .dump_resource call
+        self._populate_data_set_cache(data_chunk)
+        self._populate_asset_cache(data_chunk)
+        self._populate_security_category_cache(data_chunk)
+
+        return [self._crud.dump_resource(item) for item in data_chunk]
+
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> FileMetadataWrite:
-        return self._loader.load_resource(item_json)
+        return self._crud.load_resource(item_json)
 
 
 class TimeSeriesIO(BaseAssetCentricIO[str, TimeSeriesWrite, TimeSeries, TimeSeriesWriteList, TimeSeriesList]):
@@ -357,11 +393,12 @@ class TimeSeriesIO(BaseAssetCentricIO[str, TimeSeriesWrite, TimeSeries, TimeSeri
     UPLOAD_ENDPOINT = "/timeseries"
     RESOURCE_TYPE = "timeseries"
 
+    def __init__(self, client: ToolkitClient) -> None:
+        super().__init__(client)
+        self._crud = TimeSeriesCRUD.create_loader(self.client)
+
     def as_id(self, item: TimeSeries) -> str:
         return item.external_id if item.external_id is not None else self._create_identifier(item.id)
-
-    def _get_loader(self) -> TimeSeriesCRUD:
-        return TimeSeriesCRUD.create_loader(self.client)
 
     def _get_aggregator(self) -> AssetCentricAggregator:
         return TimeSeriesAggregator(self.client)
@@ -380,13 +417,29 @@ class TimeSeriesIO(BaseAssetCentricIO[str, TimeSeriesWrite, TimeSeries, TimeSeri
             self._collect_dependencies(ts_list, selector)
             yield Page(worker_id="main", items=ts_list)
 
+    def data_to_json_chunk(
+        self, data_chunk: Sequence[TimeSeries], selector: AssetCentricSelector | None = None
+    ) -> list[dict[str, JsonVal]]:
+        # Ensure data sets/assets/security categories are looked up to populate cache.
+        self._populate_data_set_cache(data_chunk)
+        self._populate_security_category_cache(data_chunk)
+        asset_ids = {item.asset_id for item in data_chunk if item.asset_id is not None}
+        self.client.lookup.assets.external_id(list(asset_ids))
+
+        return [self._crud.dump_resource(item) for item in data_chunk]
+
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> TimeSeriesWrite:
-        return self._loader.load_resource(item_json)
+        return self._crud.load_resource(item_json)
 
     def get_schema(self, selector: AssetCentricSelector) -> list[SchemaColumn]:
         data_set_ids: list[int] = []
         if isinstance(selector, DataSetSelector):
-            data_set_ids.append(self.client.lookup.data_sets.id(selector.data_set_external_id))
+            data_set_id = self.client.lookup.data_sets.id(selector.data_set_external_id)
+            if data_set_id is None:
+                raise ToolkitMissingResourceError(
+                    f"Data set with external ID {selector.data_set_external_id} not found."
+                )
+            data_set_ids.append(data_set_id)
         elif isinstance(selector, AssetSubtreeSelector):
             raise ToolkitNotImplementedError(f"Selector type {type(selector)} not supported for {type(self).__name__}.")
 
@@ -424,11 +477,12 @@ class EventIO(BaseAssetCentricIO[str, EventWrite, Event, EventWriteList, EventLi
     UPLOAD_ENDPOINT = "/events"
     RESOURCE_TYPE = "event"
 
+    def __init__(self, client: ToolkitClient) -> None:
+        super().__init__(client)
+        self._crud = EventCRUD.create_loader(self.client)
+
     def as_id(self, item: Event) -> str:
         return item.external_id if item.external_id is not None else self._create_identifier(item.id)
-
-    def _get_loader(self) -> EventCRUD:
-        return EventCRUD.create_loader(self.client)
 
     def _get_aggregator(self) -> AssetCentricAggregator:
         return EventAggregator(self.client)
@@ -436,7 +490,12 @@ class EventIO(BaseAssetCentricIO[str, EventWrite, Event, EventWriteList, EventLi
     def get_schema(self, selector: AssetCentricSelector) -> list[SchemaColumn]:
         data_set_ids: list[int] = []
         if isinstance(selector, DataSetSelector):
-            data_set_ids.append(self.client.lookup.data_sets.id(selector.data_set_external_id))
+            data_set_id = self.client.lookup.data_sets.id(selector.data_set_external_id)
+            if data_set_id is None:
+                raise ToolkitMissingResourceError(
+                    f"Data set with external ID {selector.data_set_external_id} not found."
+                )
+            data_set_ids.append(data_set_id)
         hierarchy: list[int] = []
         if isinstance(selector, AssetSubtreeSelector):
             raise ToolkitNotImplementedError(f"Selector type {type(selector)} not supported for {type(self).__name__}.")
@@ -476,8 +535,17 @@ class EventIO(BaseAssetCentricIO[str, EventWrite, Event, EventWriteList, EventLi
             self._collect_dependencies(event_list, selector)
             yield Page(worker_id="main", items=event_list)
 
+    def data_to_json_chunk(
+        self, data_chunk: Sequence[Event], selector: AssetCentricSelector | None = None
+    ) -> list[dict[str, JsonVal]]:
+        # Ensure data sets/assets are looked up to populate cache.
+        self._populate_data_set_cache(data_chunk)
+        self._populate_asset_cache(data_chunk)
+
+        return [self._crud.dump_resource(item) for item in data_chunk]
+
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> EventWrite:
-        return self._loader.load_resource(item_json)
+        return self._crud.load_resource(item_json)
 
     def retrieve(self, ids: Sequence[int]) -> EventList:
         return self.client.events.retrieve_multiple(ids)

@@ -1,6 +1,7 @@
 from typing import cast
 
 from cognite.client import CogniteClient
+from rich.console import Console
 
 from .api.canvas import CanvasAPI
 from .api.charts import ChartsAPI
@@ -24,11 +25,12 @@ class ToolkitClient(CogniteClient):
     def __init__(self, config: ToolkitClientConfig | None = None, enable_set_pending_ids: bool = False) -> None:
         super().__init__(config=config)
         toolkit_config = ToolkitClientConfig.from_client_config(self.config)
+        self.console = Console()
         self.search = SearchAPI(self._config, self._API_VERSION, self)
         self.robotics = RoboticsAPI(self._config, self._API_VERSION, self)
         self.dml = DMLAPI(self._config, self._API_VERSION, self)
         self.verify = VerifyAPI(self._config, self._API_VERSION, self)
-        self.lookup = LookUpGroup(self._config, self._API_VERSION, self)
+        self.lookup = LookUpGroup(self._config, self._API_VERSION, self, self.console)
         self.functions: ExtendedFunctionsAPI = ExtendedFunctionsAPI(toolkit_config, self._API_VERSION, self)
         self.data_modeling: ExtendedDataModelingAPI = ExtendedDataModelingAPI(self._config, self._API_VERSION, self)
         if enable_set_pending_ids:
