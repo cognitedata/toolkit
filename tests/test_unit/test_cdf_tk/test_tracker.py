@@ -51,10 +51,10 @@ class TestTracker:
 
         cmd = MockToolkitCommand()
         with patch.object(cmd.tracker, "_track", return_value=True) as mock_track_internal:
-            cmd._additional_tracking_info.downloaded_library_ids = ["test"]
+            cmd._additional_tracking_info.downloaded_library_ids.add("test")
             cmd.run(cmd.execute)
 
             mock_track_internal.assert_called_once()
             _, event_information = mock_track_internal.call_args.args
             assert "userInput" in event_information
-            assert event_information["downloadedLibraryIds"] == ["test"]
+            assert event_information["downloadedLibraryIds"] == {"test"}
