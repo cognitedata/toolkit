@@ -3,11 +3,10 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Hashable, Iterable, Sequence
 from dataclasses import dataclass
 from functools import partial
-from graphlib import TopologicalSorter
 from typing import Literal, cast
 
 import questionary
-from cognite.client.data_classes import AggregateResultItem, DataSetUpdate
+from cognite.client.data_classes import DataSetUpdate
 from cognite.client.data_classes._base import CogniteResourceList
 from cognite.client.data_classes.data_modeling import (
     EdgeList,
@@ -20,45 +19,49 @@ from cognite.client.utils._identifier import InstanceId
 from rich import print
 from rich.console import Console
 from rich.panel import Panel
-from rich.status import Status
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.cruds import (
-    RESOURCE_CRUD_LIST,
     AssetCRUD,
     ContainerCRUD,
     DataModelCRUD,
-    DataSetsCRUD,
     EdgeCRUD,
-    FunctionCRUD,
-    GroupAllScopedCRUD,
-    GroupCRUD,
-    GroupResourceScopedCRUD,
-    HostedExtractorDestinationCRUD,
-    InfieldV1CRUD,
-    LocationFilterCRUD,
+    EventCRUD,
+    ExtractionPipelineCRUD,
+    FileMetadataCRUD,
+    LabelCRUD,
     NodeCRUD,
+    RelationshipCRUD,
     ResourceCRUD,
+    SequenceCRUD,
     SpaceCRUD,
-    StreamlitCRUD,
+    ThreeDModelCRUD,
+    TimeSeriesCRUD,
+    TransformationCRUD,
     ViewCRUD,
+    WorkflowCRUD,
 )
 from cognite_toolkit._cdf_tk.data_classes import DeployResults, ResourceDeployResult
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthorizationError,
-    CDFAPIError,
     ToolkitMissingResourceError,
-    ToolkitRequiredValueError,
-    ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.storageio import InstanceIO
 from cognite_toolkit._cdf_tk.storageio.selectors import InstanceSelector
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
     LimitedAccessWarning,
-    MediumSeverityWarning,
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils.aggregators import (
+    AssetAggregator,
+    EventAggregator,
+    FileAggregator,
+    LabelCountAggregator,
+    RelationshipAggregator,
+    SequenceAggregator,
+    TimeSeriesAggregator,
+)
 from cognite_toolkit._cdf_tk.utils.http_client import (
     FailedRequestItems,
     FailedResponseItems,
@@ -106,6 +109,9 @@ class ToDelete(ABC):
         self, client: ToolkitClient, console: Console, verbose: bool, process_results: ResourceDeployResult
     ) -> Callable[[CogniteResourceList], list[JsonVal]]:
         raise NotImplementedError()
+
+    def get_extra_fields(self) -> dict[str, JsonVal]:
+        return {}
 
 
 @dataclass
@@ -165,6 +171,36 @@ class NodesToDelete(ToDelete):
         return check_for_data
 
 
+@dataclass
+class IdResourceToDelete(ToDelete):
+    def get_process_function(
+        self, client: ToolkitClient, console: Console, verbose: bool, process_results: ResourceDeployResult
+    ) -> Callable[[CogniteResourceList], list[JsonVal]]:
+        def as_id(chunk: CogniteResourceList) -> list[JsonVal]:
+            return [{"id": item.id} for item in chunk]
+
+        return as_id
+
+
+@dataclass
+class ExternalIdToDelete(ToDelete):
+    def get_process_function(
+        self, client: ToolkitClient, console: Console, verbose: bool, process_results: ResourceDeployResult
+    ) -> Callable[[CogniteResourceList], list[JsonVal]]:
+        def as_external_id(chunk: CogniteResourceList) -> list[JsonVal]:
+            return [{"externalId": item.external_id} for item in chunk]
+
+        return as_external_id
+
+
+@dataclass
+class AssetToDelete(IdResourceToDelete):
+    recursive: bool
+
+    def get_extra_fields(self) -> dict[str, JsonVal]:
+        return {"recursive": self.recursive}
+
+
 class PurgeCommand(ToolkitCommand):
     BATCH_SIZE_DM = 1000
 
@@ -218,8 +254,9 @@ class PurgeCommand(ToolkitCommand):
         print(results.counts_table(exclude_columns={"Created", "Changed", "Total"}))
         return results
 
+    @staticmethod
     def _create_to_delete_list_purge_space(
-        self, client: ToolkitClient, delete_datapoints: bool, delete_file_content: bool, stats: SpaceStatistics
+        client: ToolkitClient, delete_datapoints: bool, delete_file_content: bool, stats: SpaceStatistics
     ) -> list[ToDelete]:
         config = client.config
         to_delete = [
@@ -289,7 +326,7 @@ class PurgeCommand(ToolkitCommand):
                         item.crud, space, data_set_external_id, batch_size=self.BATCH_SIZE_DM
                     ),
                     process=item.get_process_function(client, console, verbose, process_results),
-                    write=self._purge_batch(item.crud, item.delete_url, delete_client, write_results),
+                    write=self._purge_batch(item, item.delete_url, delete_client, write_results),
                     max_queue_size=10,
                     iteration_count=iteration_count,
                     download_description=f"Downloading {item.display_name}",
@@ -323,14 +360,24 @@ class PurgeCommand(ToolkitCommand):
 
     @staticmethod
     def _purge_batch(
-        crud: ResourceCRUD, delete_url: str, delete_client: HTTPClient, result: ResourceDeployResult
+        delete_item: ToDelete, delete_url: str, delete_client: HTTPClient, result: ResourceDeployResult
     ) -> Callable[[list[JsonVal]], None]:
+        crud = delete_item.crud
+
+        def as_id(item: JsonVal) -> Hashable:
+            try:
+                return crud.get_id(item)
+            except KeyError:
+                # Fallback to internal ID
+                return crud.get_internal_id(item)
+
         def process(items: list[JsonVal]) -> None:
             responses = delete_client.request_with_retries(
                 ItemsRequest(
                     endpoint_url=delete_url,
                     method="POST",
-                    items=[DeleteItem(item=item, as_id_fun=crud.get_id) for item in items],
+                    items=[DeleteItem(item=item, as_id_fun=as_id) for item in items],
+                    extra_body_fields=delete_item.get_extra_fields(),
                 )
             )
             for response in responses:
@@ -341,27 +388,35 @@ class PurgeCommand(ToolkitCommand):
 
         return process
 
-    @staticmethod
-    def _get_dependencies(
-        loader_cls: type[ResourceCRUD], exclude: set[type[ResourceCRUD]] | None = None
-    ) -> dict[type[ResourceCRUD], frozenset[type[ResourceCRUD]]]:
-        return {
-            dep_cls: dep_cls.dependencies
-            for dep_cls in RESOURCE_CRUD_LIST
-            if loader_cls in dep_cls.dependencies and (exclude is None or dep_cls not in exclude)
-        }
-
-    def dataset_v2(
+    def dataset(
         self,
         client: ToolkitClient,
         selected_data_set_external_id: str,
-        include_dataset: bool = False,
+        archive_dataset: bool = False,
         include_data: bool = True,
         include_configurations: bool = False,
+        asset_recursive: bool = False,
         dry_run: bool = False,
         auto_yes: bool = False,
         verbose: bool = False,
     ) -> DeployResults:
+        """Purge a dataset and all its content
+
+        Args:
+            client: The ToolkitClient to use
+            selected_data_set_external_id:  The external ID of the dataset to purge
+            archive_dataset:  Whether to archive the dataset itself after the purge
+            include_data: Whether to include data (assets, events, time series, files, sequences, 3D models, relationships, labels) in the purge
+            include_configurations: Whether to include configurations (workflows, transformations, extraction pipelines) in the purge
+            asset_recursive: Whether to recursively delete assets.
+            dry_run: Whether to perform a dry run
+            auto_yes:  Whether to automatically confirm the purge
+            verbose:  Whether to print verbose output
+
+        Returns:
+            DeployResults: The results of the purge operation
+
+        """
         # Warning Messages
         if not dry_run:
             self._print_panel("dataSet", selected_data_set_external_id)
@@ -389,6 +444,8 @@ class PurgeCommand(ToolkitCommand):
             client,
             include_data,
             include_configurations,
+            selected_data_set_external_id,
+            asset_recursive,
         )
         if dry_run:
             results = DeployResults([], "purge", dry_run=True)
@@ -397,11 +454,12 @@ class PurgeCommand(ToolkitCommand):
         else:
             results = self._delete_resources(to_delete, client, verbose, None, selected_data_set_external_id)
         print(results.counts_table(exclude_columns={"Created", "Changed", "Total"}))
-        if include_dataset and not dry_run:
+        if archive_dataset and not dry_run:
             self._archive_dataset(client, selected_data_set_external_id)
         return results
 
-    def _archive_dataset(self, client: ToolkitClient, data_set: str) -> None:
+    @staticmethod
+    def _archive_dataset(client: ToolkitClient, data_set: str) -> None:
         archived = (
             DataSetUpdate(external_id=data_set)
             .external_id.set(str(uuid.uuid4()))
@@ -411,77 +469,92 @@ class PurgeCommand(ToolkitCommand):
         client.data_sets.update(archived)
         print(f"DataSet {data_set} archived")
 
+    @staticmethod
     def _create_to_delete_list_purge_dataset(
-        self,
         client: ToolkitClient,
         include_data: bool,
         include_configurations: bool,
+        data_set_external_id: str,
+        asset_recursive: bool,
     ) -> list[ToDelete]:
-        raise NotImplementedError()
+        config = client.config
+        to_delete: list[ToDelete] = []
 
-    def dataset(
-        self,
-        client: ToolkitClient,
-        external_id: str | None = None,
-        include_dataset: bool = False,
-        dry_run: bool = False,
-        auto_yes: bool = False,
-        verbose: bool = False,
-    ) -> None:
-        """Purge a dataset and all its content"""
-        selected_dataset = self._get_selected_dataset(external_id, client)
-        if external_id is None:
-            # Interactive mode
-            include_dataset = questionary.confirm(
-                "Do you want to archive the dataset itself after the purge?", default=False
-            ).ask()
-            dry_run = questionary.confirm("Dry run?", default=True).ask()
-        if not dry_run:
-            self._print_panel("dataset", selected_dataset)
-            if not auto_yes:
-                confirm = questionary.confirm(
-                    f"Are you really sure you want to purge the {selected_dataset!r} dataset?", default=False
-                ).ask()
-                if not confirm:
-                    return
-
-        loaders = self._get_dependencies(
-            DataSetsCRUD,
-            exclude={
-                GroupCRUD,
-                GroupResourceScopedCRUD,
-                GroupAllScopedCRUD,
-                StreamlitCRUD,
-                HostedExtractorDestinationCRUD,
-                FunctionCRUD,
-                LocationFilterCRUD,
-                InfieldV1CRUD,
-            },
-        )
-        is_purged = self._purge(client, loaders, selected_data_set=selected_dataset, dry_run=dry_run, verbose=verbose)
-        if include_dataset and is_purged:
-            if dry_run:
-                print(f"Would have archived {selected_dataset}")
-            else:
-                archived = (
-                    DataSetUpdate(external_id=selected_dataset)
-                    .external_id.set(str(uuid.uuid4()))
-                    .metadata.add({"archived": "true"})
-                    .write_protected.set(True)
-                )
-                client.data_sets.update(archived)
-                print(f"DataSet {selected_dataset} archived")
-        elif include_dataset:
-            self.warn(
-                HighSeverityWarning(f"DataSet {selected_dataset} was not archived due to errors during the purge")
+        if include_data:
+            three_d_crud = ThreeDModelCRUD.create_loader(client)
+            to_delete.extend(
+                [
+                    ExternalIdToDelete(
+                        RelationshipCRUD.create_loader(client),
+                        RelationshipAggregator(client).count(data_set_external_id=data_set_external_id),
+                        config.create_api_url("/relationships/delete"),
+                    ),
+                    IdResourceToDelete(
+                        EventCRUD.create_loader(client),
+                        EventAggregator(client).count(data_set_external_id=data_set_external_id),
+                        config.create_api_url("/events/delete"),
+                    ),
+                    IdResourceToDelete(
+                        FileMetadataCRUD.create_loader(client),
+                        FileAggregator(client).count(data_set_external_id=data_set_external_id),
+                        config.create_api_url("/files/delete"),
+                    ),
+                    IdResourceToDelete(
+                        TimeSeriesCRUD.create_loader(client),
+                        TimeSeriesAggregator(client).count(data_set_external_id=data_set_external_id),
+                        config.create_api_url("/timeseries/delete"),
+                    ),
+                    IdResourceToDelete(
+                        SequenceCRUD.create_loader(client),
+                        SequenceAggregator(client).count(data_set_external_id=data_set_external_id),
+                        config.create_api_url("/sequences/delete"),
+                    ),
+                    IdResourceToDelete(
+                        three_d_crud,
+                        sum(1 for _ in three_d_crud.iterate(data_set_external_id=data_set_external_id)),
+                        config.create_api_url("/3d/models/delete"),
+                    ),
+                    AssetToDelete(
+                        AssetCRUD.create_loader(client),
+                        AssetAggregator(client).count(data_set_external_id=data_set_external_id),
+                        config.create_api_url("/assets/delete"),
+                        recursive=asset_recursive,
+                    ),
+                    ExternalIdToDelete(
+                        LabelCRUD.create_loader(client),
+                        LabelCountAggregator(client).count(data_set_external_id=data_set_external_id),
+                        config.create_api_url("/labels/delete"),
+                    ),
+                ]
             )
+        if include_configurations:
+            transformation_crud = TransformationCRUD.create_loader(client)
+            workflow_crud = WorkflowCRUD.create_loader(client)
+            extraction_pipeline_crud = ExtractionPipelineCRUD.create_loader(client)
 
-        if not dry_run and is_purged:
-            print(f"Purged dataset {selected_dataset!r} completed")
-        elif not dry_run:
-            print(f"Purged dataset {selected_dataset!r} partly completed. See warnings for details.")
+            to_delete.extend(
+                [
+                    IdResourceToDelete(
+                        transformation_crud,
+                        sum(1 for _ in transformation_crud.iterate(data_set_external_id=data_set_external_id)),
+                        config.create_api_url("/transformations/delete"),
+                    ),
+                    ExternalIdToDelete(
+                        workflow_crud,
+                        sum(1 for _ in workflow_crud.iterate(data_set_external_id=data_set_external_id)),
+                        config.create_api_url("/workflows/delete"),
+                    ),
+                    IdResourceToDelete(
+                        extraction_pipeline_crud,
+                        sum(1 for _ in extraction_pipeline_crud.iterate(data_set_external_id=data_set_external_id)),
+                        config.create_api_url("/extpipes/delete"),
+                    ),
+                ]
+            )
+        return to_delete
 
-    def _print_panel(self, resource_type: str, resource: str) -> None:
+    @staticmethod
+    def _print_panel(resource_type: str, resource: str) -> None:
         print(
             Panel(
                 f"[red]WARNING:[/red] This operation [bold]cannot be undone[/bold]! "
@@ -493,256 +566,6 @@ class PurgeCommand(ToolkitCommand):
                 expand=False,
             )
         )
-
-    @staticmethod
-    def _get_selected_dataset(external_id: str | None, client: ToolkitClient) -> str:
-        if external_id is None:
-            datasets = client.data_sets.list(limit=-1)
-            selected_dataset: str = questionary.select(
-                "Which space are you going to purge (delete all resources in dataset)?",
-                sorted([dataset.external_id for dataset in datasets if dataset.external_id]),
-            ).ask()
-        else:
-            retrieved = client.data_sets.retrieve(external_id=external_id)
-            if retrieved is None:
-                raise ToolkitMissingResourceError(f"DataSet {external_id!r} does not exist")
-            selected_dataset = external_id
-
-        if selected_dataset is None:
-            raise ToolkitValueError("No space selected")
-        return selected_dataset
-
-    def _purge(
-        self,
-        client: ToolkitClient,
-        loaders: dict[type[ResourceCRUD], frozenset[type[ResourceCRUD]]],
-        selected_space: str | None = None,
-        selected_data_set: str | None = None,
-        dry_run: bool = False,
-        verbose: bool = False,
-        batch_size: int = 1000,
-    ) -> bool:
-        is_purged = True
-        results = DeployResults([], "purge", dry_run=dry_run)
-        loader_cls: type[ResourceCRUD]
-        has_purged_views = False
-        with Console().status("...", spinner="aesthetic", speed=0.4) as status:
-            for loader_cls in reversed(list(TopologicalSorter(loaders).static_order())):
-                if loader_cls not in loaders:
-                    # Dependency that is included
-                    continue
-                loader = loader_cls.create_loader(client, console=status.console)
-                status_prefix = "Would have deleted" if dry_run else "Deleted"
-                if isinstance(loader, ViewCRUD) and not dry_run:
-                    status_prefix = "Expected deleted"  # Views are not always deleted immediately
-                    has_purged_views = True
-
-                if not dry_run and isinstance(loader, AssetCRUD):
-                    # Special handling of assets as we must ensure all children are deleted before the parent.
-                    # In dry-run mode, we are not deleting the assets, so we can skip this.
-                    deleted_assets = self._purge_assets(loader, status, selected_data_set)
-                    results[loader.display_name] = ResourceDeployResult(
-                        loader.display_name, deleted=deleted_assets, total=deleted_assets
-                    )
-                    continue
-
-                # Child loaders are, for example, WorkflowTriggerLoader, WorkflowVersionLoader for WorkflowLoader
-                # These must delete all resources that are connected to the resource that the loader is deleting
-                # Exclude loaders that we are already iterating over
-                child_loader_classes = self._get_dependencies(loader_cls, exclude=set(loaders))
-                child_loaders = [
-                    child_loader.create_loader(client)
-                    for child_loader in reversed(list(TopologicalSorter(child_loader_classes).static_order()))
-                    # Necessary as the topological sort includes dependencies that are not in the loaders
-                    if child_loader in child_loader_classes
-                ]
-                count = 0
-                status.update(f"{status_prefix} {count:,} {loader.display_name}...")
-                batch_ids: list[Hashable] = []
-                for resource in loader.iterate(data_set_external_id=selected_data_set, space=selected_space):
-                    try:
-                        batch_ids.append(loader.get_id(resource))
-                    except (ToolkitRequiredValueError, KeyError) as e:
-                        try:
-                            batch_ids.append(loader.get_internal_id(resource))
-                        except (AttributeError, NotImplementedError):
-                            self.warn(
-                                HighSeverityWarning(
-                                    f"Cannot delete {type(resource).__name__}. Failed to obtain ID: {e}"
-                                ),
-                                console=status.console,
-                            )
-                            is_purged = False
-                            continue
-
-                    if len(batch_ids) >= batch_size:
-                        child_deletion = self._delete_children(
-                            batch_ids, child_loaders, dry_run, status.console, verbose
-                        )
-                        batch_delete, batch_size = self._delete_batch(
-                            batch_ids, dry_run, loader, batch_size, status.console, verbose
-                        )
-                        count += batch_delete
-                        status.update(f"{status_prefix} {count:,} {loader.display_name}...")
-                        batch_ids = []
-                        # The DeployResults is overloaded such that the below accumulates the counts
-                        for name, child_count in child_deletion.items():
-                            results[name] = ResourceDeployResult(name, deleted=child_count, total=child_count)
-
-                if batch_ids:
-                    child_deletion = self._delete_children(batch_ids, child_loaders, dry_run, status.console, verbose)
-                    batch_delete, batch_size = self._delete_batch(
-                        batch_ids, dry_run, loader, batch_size, status.console, verbose
-                    )
-                    count += batch_delete
-                    status.update(f"{status_prefix} {count:,} {loader.display_name}...")
-                    for name, child_count in child_deletion.items():
-                        results[name] = ResourceDeployResult(name, deleted=child_count, total=child_count)
-                if count > 0:
-                    status.console.print(f"{status_prefix} {count:,} {loader.display_name}.")
-                results[loader.display_name] = ResourceDeployResult(
-                    name=loader.display_name,
-                    deleted=count,
-                    total=count,
-                )
-        print(results.counts_table(exclude_columns={"Created", "Changed", "Untouched", "Total"}))
-        if has_purged_views:
-            print("You might need to run the purge command multiple times to delete all views.")
-        return is_purged
-
-    def _delete_batch(
-        self,
-        batch_ids: list[Hashable],
-        dry_run: bool,
-        loader: ResourceCRUD,
-        batch_size: int,
-        console: Console,
-        verbose: bool,
-    ) -> tuple[int, int]:
-        if dry_run:
-            deleted = len(batch_ids)
-        else:
-            try:
-                deleted = loader.delete(batch_ids)
-            except CogniteAPIError as delete_error:
-                if (
-                    delete_error.code == 408
-                    and "timed out" in delete_error.message.casefold()
-                    and batch_size > 1
-                    and (len(batch_ids) > 1)
-                ):
-                    self.warn(
-                        MediumSeverityWarning(
-                            f"Timed out deleting {loader.display_name}. Trying again with a smaller batch size."
-                        ),
-                        include_timestamp=True,
-                        console=console,
-                    )
-                    new_batch_size = len(batch_ids) // 2
-                    first = batch_ids[:new_batch_size]
-                    second = batch_ids[new_batch_size:]
-                    first_deleted, first_batch_size = self._delete_batch(
-                        first, dry_run, loader, new_batch_size, console, verbose
-                    )
-                    second_deleted, second_batch_size = self._delete_batch(
-                        second, dry_run, loader, new_batch_size, console, verbose
-                    )
-                    return first_deleted + second_deleted, min(first_batch_size, second_batch_size)
-                else:
-                    raise delete_error
-
-        if verbose:
-            prefix = "Would delete" if dry_run else "Finished purging"
-            console.print(f"{prefix} {deleted:,} {loader.display_name}")
-        return deleted, batch_size
-
-    @staticmethod
-    def _delete_children(
-        parent_ids: list[Hashable], child_loaders: list[ResourceCRUD], dry_run: bool, console: Console, verbose: bool
-    ) -> dict[str, int]:
-        child_deletion: dict[str, int] = {}
-        for child_loader in child_loaders:
-            child_ids = set()
-            for child in child_loader.iterate(parent_ids=parent_ids):
-                child_ids.add(child_loader.get_id(child))
-            count = 0
-            if child_ids:
-                if dry_run:
-                    count = len(child_ids)
-                else:
-                    count = child_loader.delete(list(child_ids))
-
-                if verbose:
-                    prefix = "Would delete" if dry_run else "Deleted"
-                    console.print(f"{prefix} {count:,} {child_loader.display_name}")
-            child_deletion[child_loader.display_name] = count
-        return child_deletion
-
-    def _purge_assets(
-        self,
-        loader: AssetCRUD,
-        status: Status,
-        selected_data_set: str | None = None,
-        batch_size: int = 1000,
-    ) -> int:
-        # Using sets to avoid duplicates
-        children_ids: set[int] = set()
-        parent_ids: set[int] = set()
-        is_first = True
-        last_failed = False
-        count = level = depth = last_parent_count = 0
-        total_asset_count: int | None = None
-        # Iterate through the asset hierarchy once per depth level. This is to delete all children before the parent.
-        while is_first or level < depth:
-            for asset in loader.iterate(data_set_external_id=selected_data_set):
-                aggregates = cast(AggregateResultItem, asset.aggregates)
-                if is_first and aggregates.depth is not None:
-                    depth = max(depth, aggregates.depth)
-
-                if aggregates.child_count == 0:
-                    children_ids.add(asset.id)
-                else:
-                    parent_ids.add(asset.id)
-
-                if len(children_ids) >= batch_size:
-                    count += loader.delete(list(children_ids))
-                    if total_asset_count:
-                        status.update(f"Deleted {count:,}/{total_asset_count:,} {loader.display_name}...")
-                    else:
-                        status.update(f"Deleted {count:,} {loader.display_name}...")
-                    children_ids = set()
-
-            if is_first:
-                total_asset_count = count + len(parent_ids) + len(children_ids)
-            if children_ids:
-                count += loader.delete(list(children_ids))
-                status.update(f"Deleted {count:,}/{total_asset_count:,} {loader.display_name}...")
-                children_ids = set()
-
-            if len(parent_ids) == last_parent_count and last_failed:
-                try:
-                    # Just try to delete them all at once
-                    count += loader.delete(list(parent_ids))
-                except CogniteAPIError as e:
-                    raise CDFAPIError(
-                        f"Failed to delete {len(parent_ids)} assets. This could be due to a parent-child cycle or an "
-                        "eventual consistency issue. Wait a few seconds and try again. An alternative is to use the "
-                        "Python-SDK to delete the asset hierarchy "
-                        "`client.assets.delete(external_id='my_root_asset', recursive=True)`"
-                    ) from e
-                else:
-                    status.update(f"Deleted {count:,}/{total_asset_count:,} {loader.display_name}...")
-                    break
-            elif len(parent_ids) == last_parent_count:
-                last_failed = True
-            else:
-                last_failed = False
-            level += 1
-            last_parent_count = len(parent_ids)
-            parent_ids.clear()
-            is_first = False
-        status.console.print(f"Finished purging {loader.display_name}.")
-        return count
 
     def instances(
         self,
