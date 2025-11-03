@@ -36,7 +36,6 @@ from cognite_toolkit._cdf_tk.client.data_classes.functions import FunctionSchedu
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
-    ResourceRetrievalError,
     ToolkitRequiredValueError,
 )
 from cognite_toolkit._cdf_tk.feature_flags import Flags
@@ -565,22 +564,7 @@ class FunctionScheduleCRUD(
 
     def create(self, items: FunctionScheduleWriteList) -> FunctionSchedulesList:
         created_list = FunctionSchedulesList([], cognite_client=self.client)
-        functions_to_lookup = list({item.function_external_id for item in items if item.function_external_id})
-        function_id_by_external_id: dict[str, int] = {}
-        if functions_to_lookup:
-            try:
-                function_ids = self.client.lookup.functions.id(functions_to_lookup)
-            except ResourceRetrievalError as e:
-                failed_items = self.get_ids(items)
-                missing_functions = functions_to_lookup
-                if e.resources:
-                    missing_functions = list(e.resources)
-                    failed_items = [id_ for id_ in failed_items if id_.function_external_id in set(missing_functions)]
-                raise ResourceCreationError(
-                    f"Failed to create function schedule(s) {humanize_collection(failed_items)}. "
-                    f"Could not find function(s) {humanize_collection(missing_functions)!r}"
-                ) from e
-            function_id_by_external_id = dict(zip(functions_to_lookup, function_ids))
+        function_id_by_external_id = self._get_function_ids_by_external_id(items)
 
         for item in items:
             id_ = self.get_id(item)
@@ -606,6 +590,30 @@ class FunctionScheduleCRUD(
 
             created_list.append(created)
         return created_list
+
+    def _get_function_ids_by_external_id(self, items: FunctionScheduleWriteList) -> dict[str, int]:
+        functions_to_lookup = list({item.function_external_id for item in items if item.function_external_id})
+        function_id_by_external_id: dict[str, int] = {}
+        if functions_to_lookup:
+            function_ids = self.client.lookup.functions.id(functions_to_lookup)
+            if len(function_ids) < len(functions_to_lookup):
+                # The lookup API is cached, so it is cheap to do individual lookups to find the missing ones.
+                lookup_pair = (
+                    (function_external_id, self.client.lookup.functions.id(function_external_id))
+                    for function_external_id in functions_to_lookup
+                )
+                missing_functions = {func for func, func_id in lookup_pair if func_id is None}
+                failed_schedules = [
+                    self.get_id(item) for item in items if item.function_external_id in missing_functions
+                ]
+                plural_schedules = "s" if len(failed_schedules) > 1 else ""
+                plural_fun = "s" if len(missing_functions) > 1 else ""
+                raise ResourceCreationError(
+                    f"Failed to create function schedule{plural_schedules} {humanize_collection(failed_schedules)}. "
+                    f"Could not find function{plural_fun} {humanize_collection(missing_functions)!r}"
+                )
+            function_id_by_external_id = dict(zip(functions_to_lookup, function_ids))
+        return function_id_by_external_id
 
     def delete(self, ids: SequenceNotStr[FunctionScheduleID]) -> int:
         schedules = self.retrieve(ids)
