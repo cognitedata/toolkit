@@ -1,14 +1,14 @@
 """Data class for command tracking information."""
 
-from dataclasses import dataclass, field
 from typing import Any
 
+from pydantic import BaseModel, Field
 
-@dataclass
-class CommandTrackingInfo:
+
+class CommandTrackingInfo(BaseModel):
     """Structured tracking information for CLI commands.
 
-    This dataclass provides type-safe tracking information that can be collected
+    This model provides type-safe tracking information that can be collected
     during command execution and sent to Mixpanel for analytics.
 
     Attributes:
@@ -23,15 +23,15 @@ class CommandTrackingInfo:
         downloaded_module_ids: List of module IDs that were downloaded.
     """
 
-    project: str | None = None
-    cluster: str | None = None
-    module_ids: list[str] = field(default_factory=list)
-    package_ids: list[str] = field(default_factory=list)
-    installed_module_ids: list[str] = field(default_factory=list)
-    installed_package_ids: list[str] = field(default_factory=list)
-    downloaded_library_ids: list[str] = field(default_factory=list)
-    downloaded_package_ids: list[str] = field(default_factory=list)
-    downloaded_module_ids: list[str] = field(default_factory=list)
+    project: str | None = Field(default=None)
+    cluster: str | None = Field(default=None)
+    module_ids: set[str] = Field(default_factory=set)
+    package_ids: set[str] = Field(default_factory=set)
+    installed_module_ids: set[str] = Field(default_factory=set, alias="installedModuleIds")
+    installed_package_ids: set[str] = Field(default_factory=set, alias="installedPackageIds")
+    downloaded_library_ids: set[str] = Field(default_factory=set, alias="downloadedLibraryIds")
+    downloaded_package_ids: set[str] = Field(default_factory=set, alias="downloadedPackageIds")
+    downloaded_module_ids: set[str] = Field(default_factory=set, alias="downloadedModuleIds")
 
     def to_dict(self) -> dict[str, Any]:
         """Convert the tracking info to a dictionary for Mixpanel.
@@ -39,23 +39,5 @@ class CommandTrackingInfo:
         Returns:
             A dictionary with camelCase keys matching Mixpanel's expected format.
         """
-        result: dict[str, Any] = {}
-        if self.project is not None:
-            result["project"] = self.project
-        if self.cluster is not None:
-            result["cluster"] = self.cluster
-        if self.module_ids:
-            result["moduleIds"] = self.module_ids
-        if self.package_ids:
-            result["packageIds"] = self.package_ids
-        if self.installed_module_ids:
-            result["installedModuleIds"] = self.installed_module_ids
-        if self.installed_package_ids:
-            result["installedPackageIds"] = self.installed_package_ids
-        if self.downloaded_library_ids:
-            result["downloadedLibraryIds"] = self.downloaded_library_ids
-        if self.downloaded_package_ids:
-            result["downloadedPackageIds"] = self.downloaded_package_ids
-        if self.downloaded_module_ids:
-            result["downloadedModuleIds"] = self.downloaded_module_ids
-        return result
+
+        return self.model_dump(by_alias=True)

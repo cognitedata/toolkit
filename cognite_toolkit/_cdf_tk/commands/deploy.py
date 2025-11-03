@@ -86,11 +86,9 @@ class DeployCommand(ToolkitCommand):
         if not dry_run:
             for module in build.read_modules:
                 if module.module_id:
-                    if module.module_id not in self._additional_tracking_info.module_ids:
-                        self._additional_tracking_info.module_ids.append(module.module_id)
+                    self._additional_tracking_info.module_ids.add(module.module_id)
                 if module.package_id:
-                    if module.package_id not in self._additional_tracking_info.package_ids:
-                        self._additional_tracking_info.package_ids.append(module.package_id)
+                    self._additional_tracking_info.package_ids.add(module.package_id)
 
         selected_loaders = self._clean_command.get_selected_loaders(build_dir, build.read_resource_folders, include)
         ordered_loaders = self._order_loaders(selected_loaders, build_dir)
