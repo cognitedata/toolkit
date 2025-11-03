@@ -339,7 +339,8 @@ class BuildCommand(ToolkitCommand):
 
                 if module.module_id:
                     module_ids = self._additional_tracking_info.setdefault("moduleIds", [])
-                    module_ids.append(module.module_id)
+                    if module.module_id not in module_ids:
+                        module_ids.append(module.module_id)
 
         return build
 
