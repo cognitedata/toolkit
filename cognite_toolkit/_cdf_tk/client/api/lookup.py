@@ -366,7 +366,8 @@ class AllLookUpAPI(LookUpAPI, ABC):
     def _id(self, external_id: SequenceNotStr[str]) -> dict[str, int]:
         if not self._has_looked_up:
             self._lookup()
-        return {external_id: self._cache[external_id] for external_id in external_id if external_id in self._cache}
+        found_pairs = ((ext_id, self._cache[ext_id]) for ext_id in external_id if ext_id in self._cache)
+        return {k: v for k, v in found_pairs if v is not None}
 
     def _external_id(self, id: Sequence[int]) -> dict[int, str]:
         if not self._has_looked_up:
@@ -408,7 +409,8 @@ class LocationFiltersLookUpAPI(AllLookUpAPI):
     def _id(self, external_id: SequenceNotStr[str]) -> dict[str, int]:
         if not self._has_looked_up:
             self._lookup()
-        return {external_id: self._cache[external_id] for external_id in external_id if external_id in self._cache}
+        found_pairs = ((ext_id, self._cache[ext_id]) for ext_id in external_id if ext_id in self._cache)
+        return {k: v for k, v in found_pairs if v is not None}
 
 
 class LookUpGroup(ToolkitAPI):

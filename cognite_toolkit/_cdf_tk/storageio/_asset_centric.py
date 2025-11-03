@@ -38,7 +38,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     LabelCRUD,
     TimeSeriesCRUD,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.utils.aggregators import (
     AssetAggregator,
     AssetCentricAggregator,
@@ -201,10 +201,18 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
     def get_schema(self, selector: AssetCentricSelector) -> list[SchemaColumn]:
         data_set_ids: list[int] = []
         if isinstance(selector, DataSetSelector):
-            data_set_ids.append(self.client.lookup.data_sets.id(selector.data_set_external_id))
+            data_set_id = self.client.lookup.data_sets.id(selector.data_set_external_id)
+            if data_set_id is None:
+                raise ToolkitMissingResourceError(
+                    f"Data set with external ID {selector.data_set_external_id} not found."
+                )
+            data_set_ids.append(data_set_id)
         hierarchy: list[int] = []
         if isinstance(selector, AssetSubtreeSelector):
-            hierarchy.append(self.client.lookup.assets.id(selector.hierarchy))
+            asset_id = self.client.lookup.assets.id(selector.hierarchy)
+            if asset_id is None:
+                raise ToolkitMissingResourceError(f"Asset with external ID {selector.hierarchy} not found.")
+            hierarchy.append(asset_id)
 
         if hierarchy or data_set_ids:
             metadata_keys = metadata_key_counts(
@@ -277,7 +285,12 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
     def get_schema(self, selector: AssetCentricSelector) -> list[SchemaColumn]:
         data_set_ids: list[int] = []
         if isinstance(selector, DataSetSelector):
-            data_set_ids.append(self.client.lookup.data_sets.id(selector.data_set_external_id))
+            data_set_id = self.client.lookup.data_sets.id(selector.data_set_external_id)
+            if data_set_id is None:
+                raise ToolkitMissingResourceError(
+                    f"Data set with external ID {selector.data_set_external_id} not found."
+                )
+            data_set_ids.append(data_set_id)
         if isinstance(selector, AssetSubtreeSelector):
             raise ToolkitNotImplementedError(f"Selector type {type(selector)} not supported for FileIO.")
 
@@ -421,7 +434,12 @@ class TimeSeriesIO(BaseAssetCentricIO[str, TimeSeriesWrite, TimeSeries, TimeSeri
     def get_schema(self, selector: AssetCentricSelector) -> list[SchemaColumn]:
         data_set_ids: list[int] = []
         if isinstance(selector, DataSetSelector):
-            data_set_ids.append(self.client.lookup.data_sets.id(selector.data_set_external_id))
+            data_set_id = self.client.lookup.data_sets.id(selector.data_set_external_id)
+            if data_set_id is None:
+                raise ToolkitMissingResourceError(
+                    f"Data set with external ID {selector.data_set_external_id} not found."
+                )
+            data_set_ids.append(data_set_id)
         elif isinstance(selector, AssetSubtreeSelector):
             raise ToolkitNotImplementedError(f"Selector type {type(selector)} not supported for {type(self).__name__}.")
 
@@ -472,7 +490,12 @@ class EventIO(BaseAssetCentricIO[str, EventWrite, Event, EventWriteList, EventLi
     def get_schema(self, selector: AssetCentricSelector) -> list[SchemaColumn]:
         data_set_ids: list[int] = []
         if isinstance(selector, DataSetSelector):
-            data_set_ids.append(self.client.lookup.data_sets.id(selector.data_set_external_id))
+            data_set_id = self.client.lookup.data_sets.id(selector.data_set_external_id)
+            if data_set_id is None:
+                raise ToolkitMissingResourceError(
+                    f"Data set with external ID {selector.data_set_external_id} not found."
+                )
+            data_set_ids.append(data_set_id)
         hierarchy: list[int] = []
         if isinstance(selector, AssetSubtreeSelector):
             raise ToolkitNotImplementedError(f"Selector type {type(selector)} not supported for {type(self).__name__}.")

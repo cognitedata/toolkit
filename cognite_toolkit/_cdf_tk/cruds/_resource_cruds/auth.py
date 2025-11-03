@@ -60,7 +60,7 @@ class _ReplaceMethod:
     """This is a small helper class used in the
     lookup and replace in the ACL scoped ids"""
 
-    lookup_method: Callable[[str, bool], int]
+    lookup_method: Callable[[str, bool], int | None]
     reverse_lookup_method: Callable[[int], str | None]
     id_name: str
 
