@@ -375,6 +375,8 @@ class PurgeCommand(ToolkitCommand):
         # Validate Auth
         validator = ValidateAccess(client, "purge")
         data_set_id = client.lookup.data_sets.id(selected_data_set_external_id)
+        if data_set_id is None:
+            raise ToolkitMissingResourceError(f"DataSet {selected_data_set_external_id!r} does not exist")
         action = cast(Sequence[Literal["read", "write"]], ["read"] if dry_run else ["read", "write"])
         if include_data:
             # Check asset, events, time series, files, and sequences access, relationships, labels, 3D access.

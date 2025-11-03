@@ -330,7 +330,7 @@ authentication:
                 loader.create(FunctionScheduleWriteList([schedule]))
 
             assert (
-                "Failed to create function schedule(s) "
+                "Failed to create function schedule "
                 "FunctionScheduleID(function_external_id='fn_non_existent_function', name='daily-8am-utc'). "
-                "Could not find function(s) 'fn_non_existent_function'"
+                "Could not find function 'fn_non_existent_function'"
             ) in str(exc_val.value)

@@ -15,7 +15,6 @@ from rich import print
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
     BUILD_ENVIRONMENT_FILE,
-    BUILTIN_MODULES,
     DEFAULT_CONFIG_FILE,
     DEFAULT_ENV,
     MODULES,
@@ -468,7 +467,7 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
         """Loads all default.config.yaml files in the cognite root module."""
 
         default_files_iterable: Iterable[Path]
-        if cognite_root_module.name in ROOT_MODULES or cognite_root_module.name == BUILTIN_MODULES:
+        if cognite_root_module.name in ROOT_MODULES:
             default_files_iterable = cognite_root_module.glob(f"**/{DEFAULT_CONFIG_FILE}")
         else:
             default_files_iterable = itertools.chain(

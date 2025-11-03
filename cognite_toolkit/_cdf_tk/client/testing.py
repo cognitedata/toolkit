@@ -9,6 +9,7 @@ from cognite.client._api.functions import FunctionCallsAPI, FunctionSchedulesAPI
 from cognite.client._api.raw import RawDatabasesAPI, RawRowsAPI, RawTablesAPI
 from cognite.client._api.synthetic_time_series import SyntheticDatapointsAPI
 from cognite.client.testing import CogniteClientMock
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
 
@@ -58,6 +59,7 @@ class ToolkitClientMock(CogniteClientMock):
             super().__init__(*args, **kwargs)
             return None
         super().__init__(*args, **kwargs)
+        self.console = Console()
         # Developer note:
         # - Please add your mocked APIs in chronological order
         # - For nested APIs:
