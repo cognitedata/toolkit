@@ -206,6 +206,41 @@ class UploadableStorageIO(
         raise NotImplementedError()
 
 
+class TableUploadableStorageIO(UploadableStorageIO[T_Selector, T_CogniteResource, T_WriteCogniteResource], ABC):
+    """A base class for storage items that support uploading data with table schemas."""
+
+    def rows_to_data(
+        self, rows: list[tuple[str, dict[str, JsonVal]]], selector: T_Selector | None = None
+    ) -> Sequence[UploadItem[T_WriteCogniteResource]]:
+        """Convert a row-based JSON-compatible chunk of data back to a writable Cognite resource list.
+
+        Args:
+            rows: A list of tuples, each containing a source ID and a dictionary representing
+                the data in a JSON-compatible format.
+            selector: Optional selection criteria to identify where to upload the data. This is required for some storage types.
+
+        Returns:
+            A writable Cognite resource list representing the data.
+        """
+        result: list[UploadItem[T_WriteCogniteResource]] = []
+        for source_id, row in rows:
+            item = self.row_to_resource(row, selector=selector)
+            result.append(UploadItem(source_id=source_id, item=item))
+        return result
+
+    @abstractmethod
+    def row_to_resource(self, row: dict[str, JsonVal], selector: T_Selector | None = None) -> T_WriteCogniteResource:
+        """Convert a row-based JSON-compatible dictionary back to a writable Cognite resource.
+
+        Args:
+            row: A dictionary representing the data in a JSON-compatible format.
+            selector: Optional selection criteria to identify where to upload the data. This is required for some storage types.
+        Returns:
+            A writable Cognite resource representing the data.
+        """
+        raise NotImplementedError()
+
+
 class ConfigurableStorageIO(StorageIO[T_Selector, T_CogniteResource], ABC):
     """A base class for storage items that support configurations for different storage items."""
 

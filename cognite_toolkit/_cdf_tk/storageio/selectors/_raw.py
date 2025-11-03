@@ -14,6 +14,7 @@ class RawTableSelector(DataSelector):
     type: Literal["rawTable"] = "rawTable"
     kind: Literal["RawRows"] = "RawRows"
     table: SelectedTable
+    key: str | None = None
 
     @property
     def group(self) -> str:
