@@ -14,6 +14,7 @@ from mixpanel import Consumer, Mixpanel, MixpanelException
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.constants import IN_BROWSER
+from cognite_toolkit._cdf_tk.data_classes import CommandTrackingInfo
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning, WarningList
 from cognite_toolkit._cdf_tk.utils import get_cicd_environment
 from cognite_toolkit._version import __version__
@@ -48,7 +49,7 @@ class Tracker:
         warning_list: WarningList[ToolkitWarning],
         result: str | Exception,
         cmd: str,
-        additional_tracking_info: dict[str, Any] | None = None,
+        additional_tracking_info: CommandTrackingInfo | None = None,
     ) -> bool:
         warning_count = Counter([type(w).__name__ for w in warning_list])
 
@@ -75,7 +76,7 @@ class Tracker:
         }
 
         if additional_tracking_info:
-            event_information.update(additional_tracking_info)
+            event_information.update(additional_tracking_info.to_dict())
 
         return self._track(f"command{cmd.capitalize()}", event_information)
 

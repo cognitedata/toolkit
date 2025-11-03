@@ -5,6 +5,7 @@ from typing import Any
 from rich import print
 from rich.console import Console
 
+from cognite_toolkit._cdf_tk.data_classes import CommandTrackingInfo
 from cognite_toolkit._cdf_tk.tk_warnings import (
     ToolkitWarning,
     WarningList,
@@ -20,7 +21,7 @@ class ToolkitCommand:
         self.silent = silent
         self.warning_list = WarningList[ToolkitWarning]()
         self.tracker = Tracker(skip_tracking)
-        self._additional_tracking_info: dict[str, Any] = {}
+        self._additional_tracking_info = CommandTrackingInfo()
 
     @property
     def print_warning(self) -> bool:

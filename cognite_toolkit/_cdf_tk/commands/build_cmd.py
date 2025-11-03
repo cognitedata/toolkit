@@ -144,8 +144,8 @@ class BuildCommand(ToolkitCommand):
 
         # tracking which project the module is being built for to trace promotion
         if client:
-            self._additional_tracking_info["project"] = client.config.project
-            self._additional_tracking_info["cluster"] = client.config.cdf_cluster
+            self._additional_tracking_info.project = client.config.project
+            self._additional_tracking_info.cluster = client.config.cdf_cluster
 
         directory_name = "current directory" if organization_dir == Path(".") else f"project '{organization_dir!s}'"
         root_modules = [
@@ -333,13 +333,12 @@ class BuildCommand(ToolkitCommand):
                 build.append(built_module)
 
                 if module.package_id:
-                    package_ids = self._additional_tracking_info.setdefault("packageIds", [])
-                    if module.package_id not in package_ids:
-                        package_ids.append(module.package_id)
+                    if module.package_id not in self._additional_tracking_info.package_ids:
+                        self._additional_tracking_info.package_ids.append(module.package_id)
 
                 if module.module_id:
-                    module_ids = self._additional_tracking_info.setdefault("moduleIds", [])
-                    module_ids.append(module.module_id)
+                    if module.module_id not in self._additional_tracking_info.module_ids:
+                        self._additional_tracking_info.module_ids.append(module.module_id)
 
         return build
 

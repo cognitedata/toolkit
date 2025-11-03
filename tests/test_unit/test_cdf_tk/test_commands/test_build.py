@@ -185,10 +185,8 @@ externalId: some_external_id
                 verbose=False,
             )
         )
-        assert cmd._additional_tracking_info == {
-            "packageIds": ["rmdm"],
-            "moduleIds": ["agent", "data_model"],
-        }
+        assert cmd._additional_tracking_info.package_ids == ["rmdm"]
+        assert cmd._additional_tracking_info.module_ids == ["agent", "data_model"]
 
     def test_track_module_build_with_package_info(self, tmp_path: Path) -> None:
         cmd = BuildCommand(print_warning=True, skip_tracking=True)

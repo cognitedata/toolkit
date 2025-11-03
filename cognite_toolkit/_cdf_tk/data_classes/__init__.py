@@ -32,6 +32,7 @@ from ._deploy_results import (
 from ._module_directories import ModuleDirectories, ModuleLocation
 from ._module_resources import ModuleResources
 from ._packages import Package, Packages
+from ._tracking_info import CommandTrackingInfo
 from ._yaml_comments import YAMLComments
 
 __all__ = [
@@ -47,6 +48,7 @@ __all__ = [
     "BuiltResource",
     "BuiltResourceFull",
     "BuiltResourceList",
+    "CommandTrackingInfo",
     "ConfigEntry",
     "ConfigYAMLs",
     "DatapointDeployResult",

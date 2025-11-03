@@ -173,12 +173,10 @@ class ModulesCommand(ToolkitCommand):
             print(f"{INDENT}[{'yellow' if mode == 'clean' else 'green'}]Creating {package_name}[/]")
 
             for module in package.modules:
-                installed_module_ids = self._additional_tracking_info.setdefault("installedModuleIds", [])
-                installed_package_ids = self._additional_tracking_info.setdefault("installedPackageIds", [])
-                if module.module_id and module.module_id not in installed_module_ids:
-                    installed_module_ids.append(module.module_id)
-                if module.package_id and module.package_id not in installed_package_ids:
-                    installed_package_ids.append(module.package_id)
+                if module.module_id and module.module_id not in self._additional_tracking_info.installed_module_ids:
+                    self._additional_tracking_info.installed_module_ids.append(module.module_id)
+                if module.package_id and module.package_id not in self._additional_tracking_info.installed_package_ids:
+                    self._additional_tracking_info.installed_package_ids.append(module.package_id)
 
                 if module.dir in seen_modules:
                     # A module can be part of multiple packages
@@ -787,9 +785,8 @@ default_organization_dir = "{organization_dir.name}"''',
 
             for library_name, library in libraries.items():
                 try:
-                    additional_tracking_info = self._additional_tracking_info.setdefault("downloadedLibraryIds", [])
-                    if library_name not in additional_tracking_info:
-                        additional_tracking_info.append(library_name)
+                    if library_name not in self._additional_tracking_info.downloaded_library_ids:
+                        self._additional_tracking_info.downloaded_library_ids.append(library_name)
 
                     print(f"[green]Adding library {library_name} from {library.url}[/]")
                     # Extract filename from URL, fallback to library_name.zip if no filename found
@@ -811,14 +808,15 @@ default_organization_dir = "{organization_dir.name}"''',
 
                     # Track deployment pack download for each package and module
                     for package in packages.values():
-                        downloaded_package_ids = self._additional_tracking_info.setdefault("downloadedPackageIds", [])
-                        if package.id and package.id not in downloaded_package_ids:
-                            downloaded_package_ids.append(package.id)
+                        if package.id and package.id not in self._additional_tracking_info.downloaded_package_ids:
+                            self._additional_tracking_info.downloaded_package_ids.append(package.id)
 
-                        downloaded_module_ids = self._additional_tracking_info.setdefault("downloadedModuleIds", [])
                         for module in package.modules:
-                            if module.module_id and module.module_id not in downloaded_module_ids:
-                                downloaded_module_ids.append(module.module_id)
+                            if (
+                                module.module_id
+                                and module.module_id not in self._additional_tracking_info.downloaded_module_ids
+                            ):
+                                self._additional_tracking_info.downloaded_module_ids.append(module.module_id)
 
                     return packages, file_path.parent
                 except Exception as e:
