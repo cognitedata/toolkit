@@ -9,14 +9,11 @@ from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
     LocationFilterWriteList,
 )
 
+from .constants import LOCATION_CONFIG_VIEW_ID, TARGET_SPACE
 from .location_filter.fields import apply_location_filter_fields
-from .types import (
-    InFieldLocationConfigProperties,
-    RootLocationConfiguration,
-)
+from .types_new import InFieldLocationConfigProperties
+from .types_old import RootLocationConfiguration
 from .utils import (
-    TARGET_SPACE,
-    LOCATION_CONFIG_VIEW_ID,
     get_location_config_external_id,
     get_location_filter_external_id,
 )

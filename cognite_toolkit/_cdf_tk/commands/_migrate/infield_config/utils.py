@@ -3,12 +3,6 @@
 import uuid
 from typing import Any
 
-from cognite.client.data_classes.data_modeling import ViewId
-
-# View IDs for the new format
-LOCATION_CONFIG_VIEW_ID = ViewId("infield_cdm_source_desc_sche_asset_file_ts", "InFieldLocationConfig", "v1")
-TARGET_SPACE = "APM_Config"
-
 
 def get_original_external_id(location_dict: dict[str, Any]) -> str:
     """Extract the original external ID from a location configuration dict.

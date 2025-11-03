@@ -1,12 +1,12 @@
-"""Type definitions for InField V2 config migration.
+"""Type definitions for old APM Config format.
 
-This module contains TypedDict definitions for both the old APM Config format
-and the new InField V2 configuration format.
+This module contains TypedDict definitions for the legacy APM Config format
+that is being migrated to InField V2 configuration format.
 """
 
 from typing import Literal, TypedDict
 
-# Type definitions for old APM Config (camelCase matching dump() output)
+
 class ViewReference(TypedDict, total=False):
     """Reference to a view."""
     externalId: str
@@ -206,27 +206,4 @@ class AppConfig(TypedDict, total=False):
     customerDataSpaceVersion: str
     viewMappings: ViewMappings
     featureConfiguration: FeatureConfiguration
-
-
-# Type definitions for InField V2 configuration nodes
-class LocationFilterDTOProperties(TypedDict, total=False):
-    """Properties for LocationFilterDTO node.
-    
-    Currently migrated fields:
-    - name: The name of the location filter
-    - description: Description indicating this was migrated from old location
-    """
-    externalId: str
-    name: str
-    description: str
-    instanceSpaces: list[str]
-
-
-class InFieldLocationConfigProperties(TypedDict, total=False):
-    """Properties for InFieldLocationConfig node.
-    
-    Currently migrated fields:
-    - rootLocationExternalId: Reference to the LocationFilterDTO external ID
-    """
-    rootLocationExternalId: str
 
