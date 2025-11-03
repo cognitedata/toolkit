@@ -138,7 +138,7 @@ class PurgeApp(typer.Typer):
                     default=False,
                 ).ask()
                 asset_recursive = questionary.confirm(
-                    "When deleting assets, delete all child assets recursively? (CAVEAT: This can lead "
+                    "When deleting assets, delete all child assets recursively? (WARNING: This can lead "
                     "to assets not in the selected dataset being deleted if they are children of assets in the dataset.)",
                     default=False,
                 ).ask()
