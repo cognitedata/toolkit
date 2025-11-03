@@ -1,3 +1,0 @@
-space: sp_{{ first_location}}_source_data
-name: sp:inrobot:{{ first_location}}:source
-description: Space for InRobot {{first_location}} Source Data

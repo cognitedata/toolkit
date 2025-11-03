@@ -1,2 +1,0 @@
-- space: {{ instance_space1 }}
-- space: {{ instance_space2 }}

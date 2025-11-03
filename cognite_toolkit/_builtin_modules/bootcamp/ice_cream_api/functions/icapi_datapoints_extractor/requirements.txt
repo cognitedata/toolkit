@@ -1,3 +1,0 @@
-cognite-sdk
-orjson >= 3.10.5
-guppy3

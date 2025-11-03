@@ -75,6 +75,15 @@ class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig, APMConfigWriteL
 
         return DataModelInstancesAcl(actions, DataModelInstancesAcl.Scope.SpaceID([APMConfig.space]))
 
+    def prerequisite_warning(self) -> str | None:
+        views = self.client.data_modeling.views.retrieve(APMConfig.view_id)
+        if len(views) > 0:
+            return None
+        return (
+            f"{self.display_name} requires the {APMConfig.view_id!r} to be deployed. "
+            f"Install the infield options with cdf modules init/add to deploy it."
+        )
+
     def create(self, items: APMConfigWriteList) -> NodeApplyResultList:
         result = self.client.data_modeling.instances.apply(
             nodes=items.as_nodes(), auto_create_direct_relations=True, replace=False
