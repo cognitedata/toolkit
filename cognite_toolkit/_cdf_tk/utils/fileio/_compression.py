@@ -67,7 +67,7 @@ class GzipCompression(Compression):
     def open_binary(self, mode: Literal["rb", "wb"]) -> BinaryIO:
         """Open the gzip compressed file in binary mode."""
         # MyPy (or gzip) fails to recognize that gzip.open returns a BinaryIO
-        return gzip.open(self.filepath, mode=mode)
+        return gzip.open(self.filepath, mode=mode)  # type: ignore[return-value]
 
 
 _all_compression_types: list[type[Compression]] = get_concrete_subclasses(Compression)  # type: ignore[type-abstract]

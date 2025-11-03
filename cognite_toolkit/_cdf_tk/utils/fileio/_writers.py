@@ -1,8 +1,10 @@
 import csv
 import importlib.util
 import json
+import sqlite3
 import sys
 import threading
+from _typeshed import ReadableBuffer
 from abc import ABC, abstractmethod
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
@@ -11,7 +13,7 @@ from functools import lru_cache
 from io import IOBase, TextIOWrapper
 from pathlib import Path
 from types import TracebackType
-from typing import TYPE_CHECKING, Generic
+from typing import TYPE_CHECKING, Generic, IO, overload, AnyStr
 
 import yaml
 
@@ -21,7 +23,7 @@ from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.table_writers import DataType
 
-from ._base import T_IO, CellValue, Chunk, FileIO, SchemaColumn
+from ._base import DEFAULT_TABLE_NAME, T_IO, CellValue, Chunk, FileIO, SchemaColumn
 from ._compression import Compression, Uncompressed
 
 if sys.version_info >= (3, 11):
@@ -100,6 +102,8 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
 
     def _is_above_file_size_limit(self, filepath: Path, writer: T_IO) -> bool:
         """Check if the file size is above the limit."""
+        if self.max_file_size_bytes < 0:
+            return False
         try:
             writer.flush()
         except (AttributeError, ValueError):
@@ -153,14 +157,15 @@ class TableWriter(FileWriter[T_IO], ABC):
         self.columns = columns
 
 
+class _DateTimeEncoder(json.JSONEncoder):
+    def default(self, obj: object) -> object:
+        if isinstance(obj, date | datetime):
+            return obj.isoformat()
+        return super().default(obj)
+
+
 class NDJsonWriter(FileWriter[TextIOWrapper]):
     format = ".ndjson"
-
-    class _DateTimeEncoder(json.JSONEncoder):
-        def default(self, obj: object) -> object:
-            if isinstance(obj, date | datetime):
-                return obj.isoformat()
-            return super().default(obj)
 
     def _create_writer(self, filepath: Path) -> TextIOWrapper:
         """Create a writer for the given file path."""
@@ -168,7 +173,7 @@ class NDJsonWriter(FileWriter[TextIOWrapper]):
 
     def _write(self, writer: TextIOWrapper, chunks: Iterable[Chunk]) -> None:
         writer.writelines(
-            f"{json.dumps(chunk, cls=self._DateTimeEncoder)}{self.compression_cls.newline}" for chunk in chunks
+            f"{json.dumps(chunk, cls=_DateTimeEncoder)}{self.compression_cls.newline}" for chunk in chunks
         )
 
 
@@ -222,7 +227,7 @@ class CSVWriter(TableWriter[TextIOWrapper]):
         value: str | int | float | bool
         for col, cell in row.items():
             if isinstance(cell, list | dict):
-                value = json.dumps(cell, cls=NDJsonWriter._DateTimeEncoder)
+                value = json.dumps(cell, cls=_DateTimeEncoder)
             elif isinstance(cell, date | datetime):
                 value = cell.isoformat()
             elif cell is None:
@@ -408,8 +413,126 @@ class ParquetWriter(TableWriter["pq.ParquetWriter"]):
         return pa_type
 
 
-class SQLiteWriter(TableWriter
+class SQLiteWriter(TableWriter[sqlite3.Connection]):
+    """SQLite writer for writing tabular data to SQLite database files.
 
+    Args:
+        output_dir (Path): The directory where the SQLite files will be saved.
+        kind (str): A string representing the kind of data being written.
+        compression (type[Compression]): The compression class to use for the SQLite files.
+        columns (Sequence[SchemaColumn]): The schema definition for the table.
+        max_file_size_bytes (int, optional): Maximum size of each SQLite file in bytes. Defaults to -1 (no limit),
+            meaning that a single file will be created.
+        table_name (str, optional): The name of the table to create in the SQLite database. Defaults to "DATA".
+
+    """
+
+    format = ".sqlite"
+
+    def __init__(
+        self,
+        output_dir: Path,
+        kind: str,
+        compression: type[Compression],
+        columns: Sequence[SchemaColumn],
+        max_file_size_bytes: int = -1,
+        table_name: str = DEFAULT_TABLE_NAME,
+    ) -> None:
+        super().__init__(output_dir, kind, compression, columns, max_file_size_bytes)
+        self.table_name = table_name
+        self._tables_created: set[sqlite3.Connection] = set()
+
+    def _create_writer(self, filepath: Path) -> sqlite3.Connection:
+        """Create a SQLite database connection and initialize the table."""
+        conn = sqlite3.connect(filepath)
+        self._create_table(conn)
+        self._tables_created.add(conn)
+        return conn
+
+    def _create_table(self, conn: sqlite3.Connection) -> None:
+        """Create the table schema in the database."""
+        cursor = conn.cursor()
+
+        # Build column definitions
+        column_defs = []
+        for col in self.columns:
+            sql_type = self._get_sql_type(col.type)
+            column_defs.append(f"{col.name} {sql_type}")
+
+        columns_sql = ", ".join(column_defs)
+        cursor.execute(f"CREATE TABLE IF NOT EXISTS {self.table_name} ({columns_sql})")
+        conn.commit()
+
+    def _write(self, writer: sqlite3.Connection, chunks: Iterable[Chunk]) -> None:
+        """Write chunks to the SQLite database."""
+        cursor = writer.cursor()
+
+        # Ensure table exists
+        if writer not in self._tables_created:
+            self._create_table(writer)
+            self._tables_created.add(writer)
+
+        # Prepare column names for INSERT statement
+        column_names = [col.name for col in self.columns]
+        placeholders = ", ".join(["?" for _ in column_names])
+        insert_sql = f"INSERT INTO {self.table_name} ({', '.join(column_names)}) VALUES ({placeholders})"
+
+        # Process and insert chunks
+        rows_to_insert = []
+        for chunk in chunks:
+            row = self._prepare_row(chunk)
+            rows_to_insert.append(row)
+
+        if rows_to_insert:
+            cursor.executemany(insert_sql, rows_to_insert)
+            writer.commit()
+
+    def _prepare_row(self, chunk: Chunk) -> tuple[str | float | int | bool | None]:
+        """Prepare a row for insertion into SQLite."""
+        row_values: list[str | float | int | bool | None] = []
+        for col in self.columns:
+            value = chunk.get(col.name)
+
+            if value is None:
+                row_values.append(None)
+            elif isinstance(value, list | dict):
+                # Store complex types as JSON
+                row_values.append(json.dumps(value, cls=_DateTimeEncoder))
+            elif isinstance(value, datetime):
+                # Store datetime as ISO 8601 string
+                row_values.append(value.isoformat())
+            elif isinstance(value, date):
+                # Store date as ISO 8601 string
+                row_values.append(value.isoformat())
+            elif isinstance(value, int | float | bool | str):
+                row_values.append(value)
+            else:
+                # Fallback to string representation
+                row_values.append(str(value))
+
+        return tuple(row_values)
+
+    @staticmethod
+    def _get_sql_type(type_: DataType) -> str:
+        """Map data types to SQLite types."""
+        if type_ == "string":
+            return "TEXT"
+        elif type_ == "integer":
+            return "INTEGER"
+        elif type_ == "float":
+            return "REAL"
+        elif type_ == "boolean":
+            return "INTEGER"  # SQLite uses 0/1 for boolean
+        elif type_ == "date":
+            return "TEXT"  # Store as ISO 8601 string
+        elif type_ == "time":
+            return "TEXT"  # Store as ISO 8601 string
+        elif type_ == "timestamp":
+            return "TEXT"  # Store as ISO 8601 string
+        elif type_ == "json":
+            return "TEXT"  # Store JSON as text
+        else:
+            return "TEXT"  # Default to TEXT
 
 
 FILE_WRITE_CLS_BY_FORMAT: Mapping[str, type[FileWriter]] = {}
