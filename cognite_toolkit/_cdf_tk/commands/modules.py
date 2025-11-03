@@ -321,16 +321,22 @@ default_organization_dir = "{organization_dir.name}"''',
 
         modules_root_dir = organization_dir / MODULES
 
+        # Determine which library to use (if any)
+        library: Library | None = None
         if library_url:
             if not library_checksum:
                 raise ToolkitRequiredValueError(
                     "The '--library-checksum' is required when '--library-url' is provided."
                 )
+            library = Library(url=library_url, checksum=library_checksum)
+        elif not (organization_dir / CDFToml.file_name).exists():
+            # Load default library from resources when cdf.toml doesn't exist
+            default_cdf_toml = CDFToml.load(cwd=RESOURCES_PATH, use_singleton=False)
+            library = default_cdf_toml.libraries.get("toolkit-data")
+            if library is None:
+                raise ToolkitError("Default cdf.toml in resources is missing 'toolkit-data' library configuration.")
 
-            user_library = Library(url=library_url, checksum=library_checksum)
-            packages, modules_source_path = self._get_available_packages(user_library)
-        else:
-            packages, modules_source_path = self._get_available_packages()
+        packages, modules_source_path = self._get_available_packages(library)
 
         if select_all:
             print(Panel("Instantiating all available modules"))
@@ -767,7 +773,7 @@ default_organization_dir = "{organization_dir.name}"''',
         """
 
         cdf_toml = CDFToml.load()
-        if Flags.EXTERNAL_LIBRARIES.is_enabled() or user_library:
+        if (Flags.EXTERNAL_LIBRARIES.is_enabled() or user_library) and self._module_source_dir is None:
             libraries = {"userdefined": user_library} if user_library else cdf_toml.libraries
 
             for library_name, library in libraries.items():

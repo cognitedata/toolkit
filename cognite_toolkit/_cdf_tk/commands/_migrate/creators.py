@@ -22,7 +22,7 @@ from cognite.client.data_classes.events import EventProperty
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.apm_config_v1 import APMConfig, APMConfigList
 from cognite_toolkit._cdf_tk.cruds import NodeCRUD, ResourceCRUD, SpaceCRUD
-from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 from .data_model import CREATED_SOURCE_SYSTEM_VIEW_ID, SPACE, SPACE_SOURCE_VIEW_ID
@@ -196,9 +196,10 @@ class SourceSystemCreator(MigrationCreator[NodeApplyList]):
     @cached_property
     def _advanced_filter(self) -> filters.Filter:
         if self.data_set_external_id is not None:
-            return filters.Equals(
-                SourceFileProperty.data_set_id, self.client.lookup.data_sets.id(self.data_set_external_id)
-            )
+            data_set_id = self.client.lookup.data_sets.id(self.data_set_external_id)
+            if data_set_id is None:
+                raise ToolkitMissingResourceError(f"Data set with external ID '{self.data_set_external_id}' not found.")
+            return filters.Equals(SourceFileProperty.data_set_id, data_set_id)
         if self.hierarchy is not None:
             return filters.InAssetSubtree(SourceFileProperty.asset_external_ids, [self.hierarchy])
         else:

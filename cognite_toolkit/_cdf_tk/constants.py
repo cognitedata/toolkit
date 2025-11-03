@@ -30,7 +30,6 @@ CONFIG_FILE_SUFFIX = "config.yaml"
 # The global config file
 GLOBAL_CONFIG_FILE = "global.yaml"
 
-BUILTIN_MODULES = "_builtin_modules"
 COGNITE_MODULES = "cognite_modules"
 CUSTOM_MODULES = "custom_modules"
 EXTERNAL_PACKAGE = "external_package"
@@ -61,7 +60,6 @@ TABLE_FORMATS = frozenset([".csv", ".parquet"])
 ROOT_PATH = Path(__file__).parent.parent
 COGNITE_MODULES_PATH = ROOT_PATH / COGNITE_MODULES
 MODULES_PATH = ROOT_PATH / MODULES
-BUILTIN_MODULES_PATH = ROOT_PATH / BUILTIN_MODULES
 RESOURCES_PATH = ROOT_PATH / RESOURCES
 SUPPORT_MODULE_UPGRADE_FROM_VERSION = "0.2.0"
 # This is used in the build directory to keep track of order and flatten the

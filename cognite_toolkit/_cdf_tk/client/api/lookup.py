@@ -17,11 +17,12 @@ from cognite.client.data_classes.capabilities import (
 )
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.api_client import ToolkitAPI
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID
-from cognite_toolkit._cdf_tk.exceptions import ResourceRetrievalError
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
@@ -30,17 +31,20 @@ if TYPE_CHECKING:
 class LookUpAPI(ToolkitAPI, ABC):
     dry_run_id: int = DRY_RUN_ID
 
-    def __init__(self, config: ClientConfig, api_version: str | None, cognite_client: "ToolkitClient") -> None:
+    def __init__(
+        self, config: ClientConfig, api_version: str | None, cognite_client: "ToolkitClient", console: Console
+    ) -> None:
         super().__init__(config, api_version, cognite_client)
-        self._cache: dict[str, int] = {}
-        self._reverse_cache: dict[int, str] = {}
+        self._console = console
+        self._cache: dict[str, int | None] = {}
+        self._reverse_cache: dict[int, str | None] = {}
 
     @property
     def resource_name(self) -> str:
         return type(self).__name__.removesuffix("LookUpAPI")
 
     @overload
-    def id(self, external_id: str, is_dry_run: bool = False, allow_empty: bool = False) -> int: ...
+    def id(self, external_id: str, is_dry_run: bool = False, allow_empty: bool = False) -> int | None: ...
 
     @overload
     def id(
@@ -49,39 +53,61 @@ class LookUpAPI(ToolkitAPI, ABC):
 
     def id(
         self, external_id: str | SequenceNotStr[str], is_dry_run: bool = False, allow_empty: bool = False
-    ) -> int | list[int]:
+    ) -> int | None | list[int]:
+        """Lookup internal IDs for given external IDs.
+
+        Args:
+            external_id: A string external ID or a sequence of string external IDs to look up.
+            is_dry_run: If True, return a predefined dry run ID for missing external IDs instead of raising an error.
+            allow_empty: If True, allow empty string external IDs and return 0 for them.
+
+        Returns:
+            The corresponding internal ID as an integer if a single external ID is provided,
+            or a list of internal IDs if a sequence of external IDs is provided.
+        """
         ids = [external_id] if isinstance(external_id, str) else external_id
-        missing = [id for id in ids if id not in self._cache]
-        if allow_empty and "" in missing:
+        need_lookup = [id for id in ids if id not in self._cache]
+        if allow_empty and "" in need_lookup:
             # Note we do not want to put empty string in the cache. It is a special case that
             # as of 01/02/2025 only applies to LocationFilters
-            missing.remove("")
-        if missing:
-            try:
-                lookup = self._id(missing)
-            except CogniteAPIError as e:
-                if 400 <= e.code < 500:
-                    missing_capabilities = self._toolkit_client.verify.authorization(self._read_acl())
-                    if missing_capabilities:
-                        raise self._toolkit_client.verify.create_error(
-                            missing_capabilities,
-                            f"lookup {self.resource_name} with external_id {missing}",
-                        )
-                # Raise the original error if it's not a 400 or the user has access to read the resource.from
-                raise
-            self._cache.update(lookup)
-            self._reverse_cache.update({v: k for k, v in lookup.items()})
-            if len(missing) != len(lookup) and not is_dry_run:
-                raise ResourceRetrievalError(
-                    f"Failed to retrieve {self.resource_name} with external_id {missing}. Have you created it?", missing
-                )
-        return (
-            self._get_id_from_cache(external_id, is_dry_run, allow_empty)
-            if isinstance(external_id, str)
-            else [self._get_id_from_cache(id, is_dry_run, allow_empty) for id in ids]
-        )
+            need_lookup.remove("")
+        if need_lookup:
+            self._do_lookup_external_ids(need_lookup, is_dry_run)
 
-    def _get_id_from_cache(self, external_id: str, is_dry_run: bool = False, allow_empty: bool = False) -> int:
+        if isinstance(external_id, str):
+            return self._get_id_from_cache(external_id, is_dry_run, allow_empty)
+        else:
+            internal_ids = (
+                self._get_id_from_cache(external_id, is_dry_run, allow_empty) for external_id in external_id
+            )
+            return [id_ for id_ in internal_ids if id_ is not None]
+
+    def _do_lookup_external_ids(self, external_ids: list[str], is_dry_run: bool) -> None:
+        try:
+            ids_by_external_id = self._id(external_ids)
+        except CogniteAPIError as e:
+            if 400 <= e.code < 500:
+                missing_capabilities = self._toolkit_client.verify.authorization(self._read_acl())
+                if missing_capabilities:
+                    raise self._toolkit_client.verify.create_error(
+                        missing_capabilities,
+                        f"lookup {self.resource_name} with external_id {external_ids}",
+                    )
+            # Raise the original error if it's not a 400 or the user has access to read the resource.from
+            raise
+        self._cache.update(ids_by_external_id)
+        self._reverse_cache.update({v: k for k, v in ids_by_external_id.items()})
+        missing_external_ids = [ext_id for ext_id in external_ids if ext_id not in ids_by_external_id]
+        if missing_external_ids and not is_dry_run:
+            plural = "s" if len(missing_external_ids) > 1 else ""
+            plural2 = "They do" if len(missing_external_ids) > 1 else "It does"
+            MediumSeverityWarning(
+                f"Failed to retrieve {self.resource_name} with external_id{plural} "
+                f"{humanize_collection(missing_external_ids)}. {plural2} not exist in CDF"
+            ).print_warning(console=self._console)
+            self._cache.update({ext_id: None for ext_id in missing_external_ids})
+
+    def _get_id_from_cache(self, external_id: str, is_dry_run: bool = False, allow_empty: bool = False) -> int | None:
         if allow_empty and external_id == "":
             return 0
         elif is_dry_run:
@@ -96,34 +122,56 @@ class LookUpAPI(ToolkitAPI, ABC):
     def external_id(self, id: Sequence[int]) -> list[str]: ...
 
     def external_id(self, id: int | Sequence[int]) -> str | None | list[str]:
+        """Lookup external IDs for given internal IDs.
+
+        Args:
+            id: An integer ID or a sequence of integer IDs to look up. Note that an ID of 0 corresponds
+                to an empty string external ID.
+
+        Returns:
+            The corresponding external ID as a string if a single ID is provided,
+            or a list of external IDs if a sequence of IDs is provided.
+            If an ID does not exist, None is returned for that ID.
+
+        """
         ids = [id] if isinstance(id, int) else id
-        missing = [id_ for id_ in ids if id_ not in self._reverse_cache]
-        if 0 in missing:
-            missing.remove(0)
-        if missing:
-            try:
-                lookup = self._external_id(missing)
-            except CogniteAPIError as e:
-                if 400 <= e.code < 500:
-                    missing_capabilities = self._toolkit_client.verify.authorization(self._read_acl())
-                    if missing_capabilities:
-                        raise self._toolkit_client.verify.create_error(
-                            missing_capabilities,
-                            f"lookup {self.resource_name} with id {missing}",
-                        )
-                # Raise the original error if it's not a 400 or the user has access to read the resource.from
-                raise
-            self._reverse_cache.update(lookup)
-            self._cache.update({v: k for k, v in lookup.items()})
-            if len(missing) != len(lookup):
-                MediumSeverityWarning(
-                    f"Failed to retrieve {self.resource_name} with id {missing}. It does not exist in CDF"
-                ).print_warning()
+        need_lookup = [id_ for id_ in ids if id_ not in self._reverse_cache if id_ != 0]
+        if need_lookup:
+            self._do_lookup_internal_ids(need_lookup)
+
         if isinstance(id, int):
             return self._get_external_id_from_cache(id)
         else:
-            external_ids = (self._get_external_id_from_cache(id) for id in ids)
-            return [id for id in external_ids if id is not None]
+            external_ids = (self._get_external_id_from_cache(id_) for id_ in ids)
+            return [id_ for id_ in external_ids if id_ is not None]
+
+    def _do_lookup_internal_ids(self, ids: list[int]) -> None:
+        try:
+            found_by_id = self._external_id(ids)
+        except CogniteAPIError as e:
+            if 400 <= e.code < 500:
+                missing_capabilities = self._toolkit_client.verify.authorization(self._read_acl())
+                if missing_capabilities:
+                    raise self._toolkit_client.verify.create_error(
+                        missing_capabilities,
+                        f"lookup {self.resource_name} with id {ids}",
+                    )
+            # Raise the original error if it's not a 400 or the user has access to read the resource.from
+            raise
+        self._reverse_cache.update(found_by_id)
+        self._cache.update({v: k for k, v in found_by_id.items()})
+        missing_ids = [id for id in ids if id not in found_by_id]
+        if not missing_ids:
+            return None
+        plural = "s" if len(missing_ids) > 1 else ""
+        plural2 = "They do" if len(missing_ids) > 1 else "It does"
+        MediumSeverityWarning(
+            f"Failed to retrieve {self.resource_name} with id{plural} "
+            f"{humanize_collection(missing_ids)}. {plural2} not exist in CDF"
+        ).print_warning(console=self._console)
+        # Cache the missing IDs with None to avoid repeated lookups
+        self._reverse_cache.update({missing_id: None for missing_id in missing_ids})
+        return None
 
     def _get_external_id_from_cache(self, id: int) -> str | None:
         if id == 0:
@@ -311,8 +359,10 @@ class FunctionLookUpAPI(LookUpAPI):
 
 
 class AllLookUpAPI(LookUpAPI, ABC):
-    def __init__(self, config: ClientConfig, api_version: str | None, cognite_client: "ToolkitClient") -> None:
-        super().__init__(config, api_version, cognite_client)
+    def __init__(
+        self, config: ClientConfig, api_version: str | None, cognite_client: "ToolkitClient", console: Console
+    ) -> None:
+        super().__init__(config, api_version, cognite_client, console)
         self._has_looked_up = False
 
     @abstractmethod
@@ -322,13 +372,15 @@ class AllLookUpAPI(LookUpAPI, ABC):
     def _id(self, external_id: SequenceNotStr[str]) -> dict[str, int]:
         if not self._has_looked_up:
             self._lookup()
-        return {external_id: self._cache[external_id] for external_id in external_id if external_id in self._cache}
+        found_pairs = ((ext_id, self._cache[ext_id]) for ext_id in external_id if ext_id in self._cache)
+        return {k: v for k, v in found_pairs if v is not None}
 
     def _external_id(self, id: Sequence[int]) -> dict[int, str]:
         if not self._has_looked_up:
             self._lookup()
             self._has_looked_up = True
-        return {id: self._reverse_cache[id] for id in id}
+        found_pairs = ((id_, self._reverse_cache[id_]) for id_ in id if id_ in self._reverse_cache)
+        return {k: v for k, v in found_pairs if v is not None}
 
 
 class SecurityCategoriesLookUpAPI(AllLookUpAPI):
@@ -363,18 +415,21 @@ class LocationFiltersLookUpAPI(AllLookUpAPI):
     def _id(self, external_id: SequenceNotStr[str]) -> dict[str, int]:
         if not self._has_looked_up:
             self._lookup()
-        return {external_id: self._cache[external_id] for external_id in external_id if external_id in self._cache}
+        found_pairs = ((ext_id, self._cache[ext_id]) for ext_id in external_id if ext_id in self._cache)
+        return {k: v for k, v in found_pairs if v is not None}
 
 
 class LookUpGroup(ToolkitAPI):
-    def __init__(self, config: ClientConfig, api_version: str | None, cognite_client: "ToolkitClient") -> None:
+    def __init__(
+        self, config: ClientConfig, api_version: str | None, cognite_client: "ToolkitClient", console: Console
+    ) -> None:
         super().__init__(config, api_version, cognite_client)
-        self.data_sets = DataSetLookUpAPI(config, api_version, cognite_client)
-        self.assets = AssetLookUpAPI(config, api_version, cognite_client)
-        self.time_series = TimeSeriesLookUpAPI(config, api_version, cognite_client)
-        self.files = FileMetadataLookUpAPI(config, api_version, cognite_client)
-        self.events = EventLookUpAPI(config, api_version, cognite_client)
-        self.security_categories = SecurityCategoriesLookUpAPI(config, api_version, cognite_client)
-        self.location_filters = LocationFiltersLookUpAPI(config, api_version, cognite_client)
-        self.extraction_pipelines = ExtractionPipelineLookUpAPI(config, api_version, cognite_client)
-        self.functions = FunctionLookUpAPI(config, api_version, cognite_client)
+        self.data_sets = DataSetLookUpAPI(config, api_version, cognite_client, console)
+        self.assets = AssetLookUpAPI(config, api_version, cognite_client, console)
+        self.time_series = TimeSeriesLookUpAPI(config, api_version, cognite_client, console)
+        self.files = FileMetadataLookUpAPI(config, api_version, cognite_client, console)
+        self.events = EventLookUpAPI(config, api_version, cognite_client, console)
+        self.security_categories = SecurityCategoriesLookUpAPI(config, api_version, cognite_client, console)
+        self.location_filters = LocationFiltersLookUpAPI(config, api_version, cognite_client, console)
+        self.extraction_pipelines = ExtractionPipelineLookUpAPI(config, api_version, cognite_client, console)
+        self.functions = FunctionLookUpAPI(config, api_version, cognite_client, console)

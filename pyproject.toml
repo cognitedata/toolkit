@@ -92,7 +92,6 @@ testpaths = [
     # In the case of doctests.
     "cognite_toolkit",
 ]
-norecursedirs = "cognite_toolkit/_builtin_modules"
 
 markers = [
     "toolkit: big smoke tests",
@@ -106,11 +105,7 @@ follow_imports = "normal"
 ignore_missing_imports = true
 warn_redundant_casts = true
 warn_unused_ignores = true
-exclude = [
-    "cognite_toolkit/_builtin_modules/examples/*",
-    "cognite_toolkit/_builtin_modules/inrobot/*",
-    "cognite_toolkit/_builtin_modules/bootcamp/*",
-]
+exclude = []
 
 [tool.ruff]
 line-length = 120
@@ -119,17 +114,10 @@ line-length = 120
 exclude = [
     # Ruff messes up the docstrings which are expected to be in Markdown format
     "cognite_toolkit/_cdf_tk/commands/_changes.py",
-    "cognite_toolkit/_builtin_modules/inrobot/*",
-    "cognite_toolkit/_builtin_modules/examples/*",
-    "cognite_toolkit/_builtin_modules/bootcamp/*",
 ]
 
 [tool.ruff.lint]
-exclude = [
-    "cognite_toolkit/_builtin_modules/inrobot/*",
-    "cognite_toolkit/_builtin_modules/examples/*",
-    "cognite_toolkit/_builtin_modules/bootcamp/*",
-]
+exclude = []
 
 [build-system]
 requires = ["hatchling"]
