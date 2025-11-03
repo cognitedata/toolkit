@@ -333,8 +333,7 @@ class BuildCommand(ToolkitCommand):
                 build.append(built_module)
 
                 if module.package_id:
-                    if module.package_id not in self._additional_tracking_info.package_ids:
-                        self._additional_tracking_info.package_ids.append(module.package_id)
+                    self._additional_tracking_info.package_ids.add(module.package_id)
 
                 if module.module_id:
                     if module.module_id not in self._additional_tracking_info.module_ids:
