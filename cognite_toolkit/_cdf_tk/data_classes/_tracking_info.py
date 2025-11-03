@@ -39,23 +39,4 @@ class CommandTrackingInfo:
         Returns:
             A dictionary with camelCase keys matching Mixpanel's expected format.
         """
-        result: dict[str, Any] = {}
-        if self.project is not None:
-            result["project"] = self.project
-        if self.cluster is not None:
-            result["cluster"] = self.cluster
-        if self.module_ids:
-            result["moduleIds"] = self.module_ids
-        if self.package_ids:
-            result["packageIds"] = self.package_ids
-        if self.installed_module_ids:
-            result["installedModuleIds"] = self.installed_module_ids
-        if self.installed_package_ids:
-            result["installedPackageIds"] = self.installed_package_ids
-        if self.downloaded_library_ids:
-            result["downloadedLibraryIds"] = self.downloaded_library_ids
-        if self.downloaded_package_ids:
-            result["downloadedPackageIds"] = self.downloaded_package_ids
-        if self.downloaded_module_ids:
-            result["downloadedModuleIds"] = self.downloaded_module_ids
-        return result
+     self.model_dump(mode="json", by_alias=True)
