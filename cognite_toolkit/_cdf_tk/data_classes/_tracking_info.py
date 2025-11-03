@@ -25,8 +25,8 @@ class CommandTrackingInfo(BaseModel):
 
     project: str | None = Field(default=None)
     cluster: str | None = Field(default=None)
-    module_ids: set[str] = Field(default_factory=set)
-    package_ids: set[str] = Field(default_factory=set)
+    module_ids: set[str] = Field(default_factory=set, alias="moduleIds")
+    package_ids: set[str] = Field(default_factory=set, alias="packageIds")
     installed_module_ids: set[str] = Field(default_factory=set, alias="installedModuleIds")
     installed_package_ids: set[str] = Field(default_factory=set, alias="installedPackageIds")
     downloaded_library_ids: set[str] = Field(default_factory=set, alias="downloadedLibraryIds")
@@ -34,4 +34,10 @@ class CommandTrackingInfo(BaseModel):
     downloaded_module_ids: set[str] = Field(default_factory=set, alias="downloadedModuleIds")
 
     def to_dict(self) -> dict[str, Any]:
-        return self.model_dump(by_alias=True)
+        """Convert the tracking info to a dictionary for Mixpanel.
+
+        Returns:
+            A dictionary with camelCase keys matching Mixpanel's expected format.
+            Default values are excluded.
+        """
+        return self.model_dump(by_alias=True, exclude_defaults=True)
