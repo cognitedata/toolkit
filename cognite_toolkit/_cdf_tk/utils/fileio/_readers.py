@@ -1,5 +1,7 @@
 import csv
 import json
+import sqlite3
+import tempfile
 from abc import ABC, abstractmethod
 from collections import Counter, defaultdict
 from collections.abc import Callable, Iterator, Mapping, Sequence
@@ -16,8 +18,8 @@ from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import convert_str_to_data_type, infer_data_type_from_value
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import FileIO, SchemaColumn
-from ._compression import COMPRESSION_BY_SUFFIX, Compression
+from ._base import DEFAULT_TABLE_NAME, FileIO, SchemaColumn
+from ._compression import COMPRESSION_BY_SUFFIX, Compression, Uncompressed
 
 
 class FileReader(FileIO, ABC):
@@ -87,11 +89,8 @@ class FailedParsing:
     error: str
 
 
-class TableReader(FileReader, ABC): ...
-
-
-class CSVReader(TableReader):
-    """Reads CSV files and yields each row as a dictionary.
+class TableReader(FileReader, ABC):
+    """Reads files and yields each row as a dictionary.
 
     Args:
         input_file (Path): The path to the CSV file to read.
@@ -104,8 +103,6 @@ class CSVReader(TableReader):
             `failed_cell` attribute. If False, they will be ignored.
 
     """
-
-    format = ".csv"
 
     def __init__(
         self,
@@ -137,7 +134,7 @@ class CSVReader(TableReader):
         if schema is not None:
             for column in schema:
                 if column.type in {"date", "timestamp"}:
-                    raise ToolkitValueError("CSVReader does not support 'date' or 'timestamp' types.")
+                    raise ToolkitValueError(f"{cls.__name__} does not support 'date' or 'timestamp' types.")
                 parse_function_by_column[column.name] = partial(  # type: ignore[assignment]
                     convert_str_to_data_type, type_=column.type, nullable=True, is_array=False
                 )
@@ -171,47 +168,53 @@ class CSVReader(TableReader):
 
         if not input_file.exists():
             raise ToolkitFileNotFoundError(f"File not found: {input_file.as_posix()!r}.")
-        if input_file.suffix != ".csv":
-            raise ToolkitValueError(f"Expected a .csv file got a {input_file.suffix!r} file instead.")
+        if input_file.suffix != cls.format:
+            raise ToolkitValueError(f"Expected a {cls.format} file got a {input_file.suffix!r} file instead.")
 
-        with input_file.open("r", encoding="utf-8-sig") as file:
-            reader = csv.DictReader(file)
-            column_names = Counter(reader.fieldnames)
-            if duplicated := [name for name, count in column_names.items() if count > 1]:
-                raise ToolkitValueError(f"CSV file contains duplicate headers: {humanize_collection(duplicated)}")
-            sample_rows: list[dict[str, str]] = []
+        sample_rows = cls._sample_rows(input_file, sniff_rows)
+        columns = cls._get_columns(input_file)
+        return cls._infer_schema(sample_rows, columns)
+
+    @classmethod
+    def _sample_rows(cls, input_file: Path, sniff_rows: int) -> list[dict[str, str | int | float | bool | None]]:
+        sample_rows: list[dict[str, str | int | float | bool | None]] = []
+        compression = Compression.from_filepath(input_file)
+        with compression.open("r") as file:
+            reader = cls._iterate_io(file)
             for no, row in enumerate(reader):
                 if no >= sniff_rows:
                     break
                 sample_rows.append(row)
+        if not sample_rows:
+            raise ToolkitValueError(f"No data found in the file: {input_file.as_posix()!r}.")
+        return sample_rows
 
-            if not sample_rows:
-                raise ToolkitValueError(f"No data found in the file: {input_file.as_posix()!r}.")
-
-            schema = []
-            for column_name in reader.fieldnames or []:
-                sample_values = [row[column_name] for row in sample_rows if column_name in row]
-                if not sample_values:
-                    column = SchemaColumn(name=column_name, type="string")
+    @classmethod
+    def _infer_schema(
+        cls, sample_rows: list[dict[str, str | int | float | bool | None]], columns: list[str]
+    ) -> list[SchemaColumn]:
+        schema = []
+        for column_name in columns:
+            sample_values = [row[column_name] for row in sample_rows if column_name in row]
+            if not sample_values:
+                column = SchemaColumn(name=column_name, type="string")
+            else:
+                data_types = Counter(
+                    infer_data_type_from_value(value, dtype="Json")[0] for value in sample_values if value is not None
+                )
+                if not data_types:
+                    inferred_type = "string"
                 else:
-                    data_types = Counter(
-                        infer_data_type_from_value(value, dtype="Json")[0]
-                        for value in sample_values
-                        if value is not None
-                    )
-                    if not data_types:
-                        inferred_type = "string"
-                    else:
-                        inferred_type = data_types.most_common()[0][0]
-                    # Json dtype is a subset of Datatype that SchemaColumn accepts
-                    column = SchemaColumn(name=column_name, type=inferred_type)  # type: ignore[arg-type]
-                schema.append(column)
+                    inferred_type = data_types.most_common()[0][0]
+                # Json dtype is a subset of Datatype that SchemaColumn accepts
+                column = SchemaColumn(name=column_name, type=inferred_type)  # type: ignore[arg-type]
+            schema.append(column)
         return schema
 
     def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[dict[str, JsonVal]]:
         if self.keep_failed_cells and self.failed_cell:
             self.failed_cell.clear()
-        for row_no, row in enumerate(csv.DictReader(file), start=1):
+        for row_no, row in enumerate(self._iterate_io(file), start=1):
             parsed: dict[str, JsonVal] = {}
             for key, value in row.items():
                 if value == "":
@@ -229,11 +232,105 @@ class CSVReader(TableReader):
         """Read chunks from the CSV file without parsing values."""
         compression = Compression.from_filepath(self.input_file)
         with compression.open("r") as file:
-            yield from csv.DictReader(file)
+            yield from self._iterate_io(file)
+
+    @classmethod
+    def _read_columns(cls, input_file: Path) -> list[str]:
+        """Read columns from the file."""
+        columns = cls._get_columns(input_file)
+        column_names = Counter(columns)
+        if duplicated := [name for name, count in column_names.items() if count > 1]:
+            raise ToolkitValueError(
+                f"{input_file.as_posix()!r} contains duplicate headers: {humanize_collection(duplicated)}"
+            )
+        return columns
+
+    @classmethod
+    @abstractmethod
+    def _iterate_io(cls, file: TextIOWrapper) -> Iterator[dict[str, JsonVal]]:
+        """Read chunks from the file."""
+        raise NotImplementedError("This method should be implemented in subclasses.")
+
+    @classmethod
+    @abstractmethod
+    def _get_columns(cls, input_file: Path) -> list[str]:
+        """Get columns from the file."""
+        raise NotImplementedError("This method should be implemented in subclasses.")
+
+
+class CSVReader(TableReader):
+    format = ".csv"
+
+    @classmethod
+    def _iterate_io(cls, file: TextIOWrapper) -> Iterator[dict[str, JsonVal]]:
+        """Read chunks from the CSV file without parsing values."""
+        yield from csv.DictReader(file)
+
+    @classmethod
+    def _get_columns(cls, input_file: Path) -> list[str]:
+        """Get columns from the CSV file."""
+        columns: list[str] = []
+        compression = Compression.from_filepath(input_file)
+        with compression.open("r") as file:
+            reader = csv.DictReader(file)
+            columns = reader.fieldnames or []
+        return columns
+
+
+class SQLLiteReader(TableReader):
+    format = ".sqlite"
+
+    def __init__(
+        self,
+        input_file: Path,
+        sniff_rows: int | None = None,
+        schema: Sequence[SchemaColumn] | None = None,
+        keep_failed_cells: bool = False,
+        table_name: str = DEFAULT_TABLE_NAME,
+        chunk_size_bytes: int = 8192,
+    ) -> None:
+        super().__init__(input_file, sniff_rows, schema, keep_failed_cells)
+        self.table_name = table_name
+        self.chunk_size_bytes = chunk_size_bytes
+
+    def read_chunks(self) -> Iterator[dict[str, JsonVal]]:
+        compression = Compression.from_filepath(self.input_file)
+        if isinstance(compression, Uncompressed):
+            yield from self._read_from_db(self.input_file)
+            return
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as temp_file:
+            with compression.open_binary("rb") as compressed:
+                while chunk := compressed.read(self.chunk_size_bytes):
+                    temp_file.write(chunk)
+            temp_path = Path(temp_file.name)
+
+        try:
+            yield from self._read_from_db(temp_path)
+        finally:
+            Path(temp_path).unlink()
+
+    @classmethod
+    def _iterate_io(cls, file: TextIOWrapper) -> Iterator[dict[str, JsonVal]]:
+        pass
+
+    def _read_from_db(self, db_path: Path) -> Iterator[dict[str, JsonVal]]:
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(f"SELECT * FROM {self.table_name};")
+            columns = [description[0] for description in cursor.description]
+            for row in cursor:
+                yield {columns[i]: row[i] for i in range(len(columns))}
+
+    def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[dict[str, JsonVal]]:
+        raise NotImplementedError("This is not used by SQLiteReader, as it reads directly from the file using sqlite3.")
 
 
 class ParquetReader(TableReader):
     format = ".parquet"
+
+    def __init__(self, input_file: Path) -> None:
+        # Parquet comes with a column schema.
+        super().__init__(input_file, sniff_rows=None, schema=None, keep_failed_cells=False)
 
     def read_chunks(self) -> Iterator[dict[str, JsonVal]]:
         import pyarrow.parquet as pq
