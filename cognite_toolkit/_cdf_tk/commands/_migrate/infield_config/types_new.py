@@ -25,11 +25,34 @@ class LocationFilterDTOProperties(TypedDict, total=False):
     dataModels: list[DataModelId]
 
 
+class ObservationFeatureToggles(TypedDict, total=False):
+    """Feature toggles for observations."""
+    isEnabled: bool
+    isWriteBackEnabled: bool
+    notificationsEndpointExternalId: str
+    attachmentsEndpointExternalId: str
+
+
+class FeatureToggles(TypedDict, total=False):
+    """Feature toggles for InField location configuration."""
+    threeD: bool
+    trends: bool
+    documents: bool
+    workorders: bool
+    notifications: bool
+    media: bool
+    templateChecklistFlow: bool
+    workorderChecklistFlow: bool
+    observations: ObservationFeatureToggles
+
+
 class InFieldLocationConfigProperties(TypedDict, total=False):
     """Properties for InFieldLocationConfig node.
     
     Currently migrated fields:
     - rootLocationExternalId: Reference to the LocationFilterDTO external ID
+    - featureToggles: Feature toggles migrated from old configuration
     """
     rootLocationExternalId: str
+    featureToggles: FeatureToggles
 

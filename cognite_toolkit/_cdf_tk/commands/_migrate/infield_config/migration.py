@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
 )
 
 from .constants import LOCATION_CONFIG_VIEW_ID, TARGET_SPACE
+from .location_config.fields import apply_location_config_fields
 from .location_filter.fields import apply_location_filter_fields
 from .types_new import InFieldLocationConfigProperties
 from .types_old import RootLocationConfiguration
@@ -149,6 +150,10 @@ def create_infield_location_config_nodes(root_location_configs: list[RootLocatio
         location_props: InFieldLocationConfigProperties = {
             "rootLocationExternalId": location_filter_external_id,
         }
+
+        # Apply additional migrated fields (featureToggles, etc.)
+        additional_props = apply_location_config_fields(location_dict)
+        location_props.update(additional_props)
 
         nodes.append(
             NodeApply(
