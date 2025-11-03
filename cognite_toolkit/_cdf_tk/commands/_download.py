@@ -3,7 +3,6 @@ from functools import partial
 from pathlib import Path
 
 from cognite.client.data_classes._base import T_CogniteResource
-from rich.console import Console
 
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
@@ -41,7 +40,7 @@ class DownloadCommand(ToolkitCommand):
         """
         compression_cls = Compression.from_name(compression)
 
-        console = Console()
+        console = io.client.console
         for selector in selectors:
             target_dir = output_dir / sanitize_filename(selector.group)
             if verbose:
