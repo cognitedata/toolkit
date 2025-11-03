@@ -55,4 +55,11 @@ class InFieldLocationConfigProperties(TypedDict, total=False):
     """
     rootLocationExternalId: str
     featureToggles: FeatureToggles
+    # TODO: Add the following fields:
+    # rootAsset: DirectRelation
+    # appInstanceSpace: string
+    # accessManagement: JSON template & checklist admin both list of strings representing CDF group external IDs
+    # disciplines: List[Discipline]
+    # dataFilters: RootLocationDataFilters
+    # dataExplorationConfig: DirectRelation to data exploration config
 
