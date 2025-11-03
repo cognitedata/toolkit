@@ -9,6 +9,8 @@ from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
     LocationFilterWriteList,
 )
 
+from .infield_location_filter_fields import apply_location_filter_fields
+
 # Type definitions for old APM Config (camelCase matching dump() output)
 class ViewReference(TypedDict, total=False):
     """Reference to a view."""
@@ -118,7 +120,7 @@ class RootLocationConfiguration(TypedDict, total=False):
     dataSetId: int
     templateAdmins: list[str]  # list of CDF group names
     checklistAdmins: list[str]  # list of CDF group names
-    appDataInstanceSpace: str
+    sourceDataInstanceSpace: str
     sourceDataInstanceSpace: str
     dataFilters: RootLocationDataFilters
     featureToggles: RootLocationFeatureToggles
@@ -222,6 +224,7 @@ class LocationFilterDTOProperties(TypedDict, total=False):
     externalId: str
     name: str
     description: str
+    instanceSpaces: list[str]
 
 
 class InFieldLocationConfigProperties(TypedDict, total=False):
@@ -368,7 +371,7 @@ def create_location_filters(root_location_configs: list[RootLocationConfiguratio
         # Get name from displayName or assetExternalId
         name = location_dict.get("displayName") or location_dict.get("assetExternalId") or location_filter_external_id
 
-        # Create LocationFilterWrite with minimal fields for now
+        # Create LocationFilterWrite with basic fields
         location_filter = LocationFilterWrite._load(
             {
                 "externalId": location_filter_external_id,
@@ -376,6 +379,10 @@ def create_location_filters(root_location_configs: list[RootLocationConfiguratio
                 "description": "InField location, migrated from old location configuration",
             }
         )
+
+        # Apply additional migrated fields (instanceSpaces, etc.)
+        location_filter = apply_location_filter_fields(location_filter, location_dict)
+
         location_filters.append(location_filter)
 
     return location_filters
