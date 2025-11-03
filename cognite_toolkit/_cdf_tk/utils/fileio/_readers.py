@@ -1,5 +1,7 @@
 import csv
 import json
+import sqlite3
+import tempfile
 from abc import ABC, abstractmethod
 from collections import Counter, defaultdict
 from collections.abc import Callable, Iterator, Mapping, Sequence
@@ -16,8 +18,8 @@ from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import convert_str_to_data_type, infer_data_type_from_value
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import FileIO, SchemaColumn
-from ._compression import COMPRESSION_BY_SUFFIX, Compression
+from ._base import DEFAULT_TABLE_NAME, FileIO, SchemaColumn
+from ._compression import COMPRESSION_BY_SUFFIX, Compression, Uncompressed
 
 
 class FileReader(FileIO, ABC):
@@ -254,6 +256,42 @@ class ParquetReader(FileReader):
             except json.JSONDecodeError:
                 return value
         return value
+
+
+class SQLLiteReader(FileReader):
+    format = ".sqlite"
+
+    def __init__(self, input_file: Path, table_name: str = DEFAULT_TABLE_NAME, chunk_size_bytes: int = 8192) -> None:
+        super().__init__(input_file)
+        self.table_name = table_name
+        self.chunk_size_bytes = chunk_size_bytes
+
+    def read_chunks(self) -> Iterator[dict[str, JsonVal]]:
+        compression = Compression.from_filepath(self.input_file)
+        if isinstance(compression, Uncompressed):
+            yield from self._read_from_db(self.input_file)
+            return
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as temp_file:
+            with compression.open_binary("rb") as compressed:
+                while chunk := compressed.read(self.chunk_size_bytes):
+                    temp_file.write(chunk)
+            temp_path = Path(temp_file.name)
+
+        try:
+            yield from self._read_from_db(temp_path)
+        finally:
+            Path(temp_path).unlink()
+
+    def _read_from_db(self, db_path: Path) -> Iterator[dict[str, JsonVal]]:
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(f"SELECT * FROM {self.table_name};")
+            columns = [description[0] for description in cursor.description]
+            for row in cursor:
+                yield {columns[i]: row[i] for i in range(len(columns))}
+
+    def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[dict[str, JsonVal]]:
+        raise NotImplementedError("This is not used by SQLiteReader, as it reads directly from the file using sqlite3.")
 
 
 FILE_READ_CLS_BY_FORMAT: Mapping[str, type[FileReader]] = {}

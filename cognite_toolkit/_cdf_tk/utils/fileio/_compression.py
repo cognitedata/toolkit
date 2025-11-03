@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from io import TextIOWrapper
 from pathlib import Path
-from typing import ClassVar, Literal
+from typing import BinaryIO, ClassVar, Literal
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -23,6 +23,11 @@ class Compression(ABC):
     def open(self, mode: Literal["r", "w"]) -> TextIOWrapper:
         """Open the compressed file and return a file-like object."""
         raise NotImplementedError("This method should be implemented in subclasses.")
+
+    @abstractmethod
+    def open_binary(self, mode: Literal["rb", "wb"]) -> BinaryIO:
+        """Open the compressed file in binary mode and return a file-like object."""
+        ...
 
     @classmethod
     def from_filepath(cls, filepath: Path) -> "Compression":
@@ -45,6 +50,10 @@ class Uncompressed(Compression):
         """Open the file without compression."""
         return self.filepath.open(mode=mode, encoding=self.encoding, newline=self.newline)
 
+    def open_binary(self, mode: Literal["rb", "wb"]) -> BinaryIO:
+        """Open the file without compression in binary mode."""
+        return self.filepath.open(mode=mode)
+
 
 class GzipCompression(Compression):
     name = "gzip"
@@ -54,6 +63,10 @@ class GzipCompression(Compression):
         """Open the gzip compressed file."""
         # MyPy (or gzip) fails to recognize that gzip.open returns a TextIOWrapper
         return gzip.open(self.filepath, mode=f"{mode}t", encoding=self.encoding, newline=self.newline)  # type: ignore[return-value]
+
+    def open_binary(self, mode: Literal["rb", "wb"]) -> BinaryIO:
+        """Open the gzip compressed file in binary mode."""
+        return gzip.open(self.filepath, mode=mode)
 
 
 _all_compression_types: list[type[Compression]] = get_concrete_subclasses(Compression)  # type: ignore[type-abstract]

@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.utils.useful_types import DataType, JsonVal
 PrimaryCellValue: TypeAlias = datetime | date | JsonVal
 CellValue: TypeAlias = PrimaryCellValue | list[PrimaryCellValue]
 Chunk: TypeAlias = dict[str, CellValue]
-
+DEFAULT_TABLE_NAME = "DATA"
 
 T_IO = TypeVar("T_IO", bound=IO)
 

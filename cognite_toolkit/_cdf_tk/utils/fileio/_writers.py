@@ -408,6 +408,10 @@ class ParquetWriter(TableWriter["pq.ParquetWriter"]):
         return pa_type
 
 
+class SQLiteWriter(TableWriter
+
+
+
 FILE_WRITE_CLS_BY_FORMAT: Mapping[str, type[FileWriter]] = {}
 TABLE_WRITE_CLS_BY_FORMAT: Mapping[str, type[TableWriter]] = {}
 for subclass in get_concrete_subclasses(FileWriter):  # type: ignore[type-abstract]
