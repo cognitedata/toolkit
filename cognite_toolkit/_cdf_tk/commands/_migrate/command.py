@@ -259,15 +259,65 @@ class MigrationCommand(ToolkitCommand):
         verbose: bool = False,
     ) -> DeployResults:
         """This method is used to create migration resource in CDF."""
-        self.validate_migration_model_available(client)
+        # Only validate migration model if the creator uses lineage/mapping
+        # InfieldV2ConfigCreator doesn't use the migration model, so skip validation
+        if creator.HAS_LINEAGE:
+            self.validate_migration_model_available(client)
 
         deploy_cmd = DeployCommand(self.print_warning, silent=self.silent)
         deploy_cmd.tracker = self.tracker
 
+        results = DeployResults([], "deploy", dry_run=dry_run)
+
+        # Special handling for InfieldV2ConfigCreator which creates two different resource types
+        from cognite_toolkit._cdf_tk.commands._migrate.creators import InfieldV2ConfigCreator
+        from cognite_toolkit._cdf_tk.cruds import LocationFilterCRUD
+
+        if isinstance(creator, InfieldV2ConfigCreator):
+            # Deploy LocationFilters using Location Filters API
+            location_filters = creator.create_location_filters()
+            if location_filters:
+                location_filter_crud = LocationFilterCRUD.create_loader(client)
+                location_filter_worker = ResourceWorker(location_filter_crud, "deploy")
+                location_filter_by_id = {
+                    location_filter_crud.get_id(item): (item.dump(), item) for item in location_filters
+                }
+                location_filter_worker.validate_access(location_filter_by_id, is_dry_run=dry_run)
+                cdf_location_filters = location_filter_crud.retrieve(list(location_filter_by_id.keys()))
+                location_filter_resources = location_filter_worker.categorize_resources(
+                    location_filter_by_id, cdf_location_filters, False, verbose
+                )
+
+                if dry_run:
+                    location_filter_result = deploy_cmd.dry_run_deploy(
+                        location_filter_resources, location_filter_crud, False, False
+                    )
+                else:
+                    location_filter_result = deploy_cmd.actual_deploy(location_filter_resources, location_filter_crud)
+
+                verb = "Would deploy" if dry_run else "Deploying"
+                self.console(f"{verb} {len(location_filters)} location filters to CDF.")
+
+                location_filter_configs = creator.location_filter_configs(location_filters)
+                for config in location_filter_configs:
+                    filepath = (
+                        output_dir
+                        / location_filter_crud.folder_name
+                        / f"{sanitize_filename(config.filestem)}.{location_filter_crud.kind}.yaml"
+                    )
+                    filepath.parent.mkdir(parents=True, exist_ok=True)
+                    safe_write(filepath, yaml_safe_dump(config.data))
+                self.console(
+                    f"{len(location_filter_configs)} {location_filter_crud.kind} resource configurations written to {(output_dir / location_filter_crud.folder_name).as_posix()!r}"
+                )
+
+                if location_filter_result:
+                    results[location_filter_result.name] = location_filter_result
+
+        # Deploy InFieldLocationConfig nodes using Data Modeling Instance API
         crud_cls = creator.CRUD
         resource_list = creator.create_resources()
 
-        results = DeployResults([], "deploy", dry_run=dry_run)
         crud = crud_cls.create_loader(client)
         worker = ResourceWorker(crud, "deploy")
         local_by_id = {crud.get_id(item): (item.dump(), item) for item in resource_list}

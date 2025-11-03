@@ -21,11 +21,13 @@ from cognite.client.data_classes.events import EventProperty
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.apm_config_v1 import APMConfig, APMConfigList
-from cognite_toolkit._cdf_tk.cruds import NodeCRUD, ResourceCRUD, SpaceCRUD
+from cognite_toolkit._cdf_tk.client.data_classes.location_filters import LocationFilterWriteList
+from cognite_toolkit._cdf_tk.cruds import LocationFilterCRUD, NodeCRUD, ResourceCRUD, SpaceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 from .data_model import CREATED_SOURCE_SYSTEM_VIEW_ID, SPACE, SPACE_SOURCE_VIEW_ID
+from .infield_config import create_infield_v2_config
 
 
 @dataclass
@@ -215,17 +217,43 @@ class InfieldV2ConfigCreator(MigrationCreator[NodeApplyList]):
     HAS_LINEAGE = False
 
     def create_resources(self) -> NodeApplyList:
+        """Create InFieldLocationConfig nodes (LocationFilters are handled separately)."""
         apm_config_nodes = self.client.data_modeling.instances.list(instance_type="node", sources=APMConfig.view_id)
         apm_config = APMConfigList.from_nodes(apm_config_nodes)
 
         new_config_nodes = NodeApplyList([])
         for config in apm_config:
-            new_config = self._create_infield_v2_config(config)
-            new_config_nodes.append(new_config)
+            if not config.feature_configuration or not config.feature_configuration.root_location_configurations:
+                continue
+
+            feature_config = config.feature_configuration
+            root_location_configs = feature_config.root_location_configurations or []
+            migration_result = create_infield_v2_config(root_location_configs)
+            new_config_nodes.extend(migration_result.all_nodes())
         return new_config_nodes
+
+    def create_location_filters(self) -> LocationFilterWriteList:
+        """Create LocationFilter resources (to be deployed via Location Filters API)."""
+        apm_config_nodes = self.client.data_modeling.instances.list(instance_type="node", sources=APMConfig.view_id)
+        apm_config = APMConfigList.from_nodes(apm_config_nodes)
+
+        all_location_filters = LocationFilterWriteList([])
+        for config in apm_config:
+            if not config.feature_configuration or not config.feature_configuration.root_location_configurations:
+                continue
+
+            feature_config = config.feature_configuration
+            root_location_configs = feature_config.root_location_configurations or []
+            migration_result = create_infield_v2_config(root_location_configs)
+            all_location_filters.extend(migration_result.all_location_filters())
+        return all_location_filters
 
     def resource_configs(self, resources: NodeApplyList) -> list[ResourceConfig]:
         return [ResourceConfig(filestem=node.external_id, data=node.dump()) for node in resources]
 
-    def _create_infield_v2_config(self, config: APMConfig) -> NodeApply:
-        raise NotImplementedError("To be implemented")
+    def location_filter_configs(self, resources: LocationFilterWriteList) -> list[ResourceConfig]:
+        return [ResourceConfig(filestem=location_filter.external_id, data=location_filter.dump()) for location_filter in resources]
+
+    def store_lineage(self, resources: NodeApplyList) -> int:
+        # No lineage to store for Infield V2 configs
+        return 0
