@@ -1,4 +1,4 @@
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from functools import partial
 from pathlib import Path
 
@@ -42,7 +42,7 @@ class DownloadCommand(ToolkitCommand):
 
         console = io.client.console
         for selector in selectors:
-            target_dir = output_dir / selector.group
+            target_dir = output_dir / sanitize_filename(selector.group)
             if verbose:
                 console.print(f"Downloading {selector.display_name} '{selector!s}' to {target_dir.as_posix()!r}")
 
@@ -57,9 +57,10 @@ class DownloadCommand(ToolkitCommand):
 
             selector.dump_to_file(target_dir)
             columns: list[SchemaColumn] | None = None
-            if file_format in TABLE_WRITE_CLS_BY_FORMAT and isinstance(io, TableStorageIO):
+            is_table = file_format in TABLE_WRITE_CLS_BY_FORMAT
+            if is_table and isinstance(io, TableStorageIO):
                 columns = io.get_schema(selector)
-            elif file_format in TABLE_WRITE_CLS_BY_FORMAT:
+            elif is_table:
                 raise ToolkitValueError(
                     f"Cannot download {selector.kind} in {file_format!r} format. The {selector.kind!r} storage type does not support table schemas."
                 )
@@ -69,7 +70,7 @@ class DownloadCommand(ToolkitCommand):
             ) as writer:
                 executor = ProducerWorkerExecutor[Page[T_CogniteResource], list[dict[str, JsonVal]]](
                     download_iterable=io.stream_data(selector, limit),
-                    process=partial(self.process_data_chunk, io=io, selector=selector),
+                    process=self.create_data_process(io=io, selector=selector, is_table=is_table),
                     write=partial(writer.write_chunks, filestem=filestem),
                     iteration_count=iteration_count,
                     # Limit queue size to avoid filling up memory before the workers can write to disk.
@@ -124,19 +125,20 @@ class DownloadCommand(ToolkitCommand):
         return False
 
     @staticmethod
-    def process_data_chunk(
-        data_page: Page[T_CogniteResource],
+    def create_data_process(
         io: StorageIO[T_Selector, T_CogniteResource],
         selector: T_Selector,
-    ) -> list[dict[str, JsonVal]]:
-        """Processes a chunk of data by converting it to a JSON-compatible format.
+        is_table: bool,
+    ) -> Callable[[Page[T_CogniteResource]], list[dict[str, JsonVal]]]:
+        """Creates a data processing function based on the IO type and whether the output is a table."""
+        if is_table and isinstance(io, TableStorageIO):
 
-        Args:
-            data_page: The page of data to process.
-            io: The StorageIO instance that defines how to process the data.
-            selector: The selection criteria used to identify the data.
+            def row_data_process(chunk: Page[T_CogniteResource]) -> list[dict[str, JsonVal]]:
+                return io.data_to_row(chunk.items, selector)
 
-        Returns:
-            A list of dictionaries representing the processed data in a JSON-compatible format.
-        """
-        return io.data_to_json_chunk(data_page.items, selector)
+            return row_data_process
+
+        def chunk_data_process(data_page: Page[T_CogniteResource]) -> list[dict[str, JsonVal]]:
+            return io.data_to_json_chunk(data_page.items, selector)
+
+        return chunk_data_process
