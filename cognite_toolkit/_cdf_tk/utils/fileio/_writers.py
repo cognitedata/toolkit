@@ -4,7 +4,6 @@ import json
 import sqlite3
 import sys
 import threading
-from _typeshed import ReadableBuffer
 from abc import ABC, abstractmethod
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
@@ -13,7 +12,7 @@ from functools import lru_cache
 from io import IOBase, TextIOWrapper
 from pathlib import Path
 from types import TracebackType
-from typing import TYPE_CHECKING, Generic, IO, overload, AnyStr
+from typing import TYPE_CHECKING, Generic
 
 import yaml
 
@@ -487,7 +486,7 @@ class SQLiteWriter(TableWriter[sqlite3.Connection]):
             cursor.executemany(insert_sql, rows_to_insert)
             writer.commit()
 
-    def _prepare_row(self, chunk: Chunk) -> tuple[str | float | int | bool | None]:
+    def _prepare_row(self, chunk: Chunk) -> tuple[str | float | int | bool | None, ...]:
         """Prepare a row for insertion into SQLite."""
         row_values: list[str | float | int | bool | None] = []
         for col in self.columns:
