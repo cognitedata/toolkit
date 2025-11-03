@@ -419,48 +419,6 @@ authentication:
 
 
 class TestResourceCRUDs:
-    # The HostedExtractorSourceLoader does not support parameter spec.
-    @pytest.mark.skip(reason="Skipping until _parameters module is restored or functionality is reimplemented")
-    @pytest.mark.parametrize(
-        "loader_cls",
-        [loader_cls for loader_cls in RESOURCE_CRUD_LIST if loader_cls is not HostedExtractorSourceCRUD],
-    )
-    def test_get_write_cls_spec(self, loader_cls: type[ResourceCRUD]) -> None:
-        resource = FakeCogniteResourceGenerator(seed=1337, max_list_dict_items=1).create_instance(
-            loader_cls.resource_write_cls
-        )
-        resource_dump = resource.dump(camel_case=True)
-        # These are handled by the toolkit
-        resource_dump.pop("dataSetId", None)
-        resource_dump.pop("targetDataSetId", None)
-        resource_dump.pop("fileId", None)
-        resource_dump.pop("assetIds", None)
-        resource_dump.pop("assetId", None)
-        resource_dump.pop("parentId", None)
-        dumped = read_parameters_from_dict(resource_dump)  # noqa: F821
-        spec = loader_cls.get_write_cls_parameter_spec()
-
-        for param in list(dumped):
-            # Required for Location Filter
-            if "dataSetIds" in param.path:
-                dumped.discard(param)
-
-        extra = dumped - spec
-
-        # The spec is calculated based on the resource class __init__ method.
-        # There can be deviations in the output from the dump. If that is the case,
-        # the 'get_write_cls_parameter_spec' must be updated in the loader. See, for example, the DataModelLoader.
-        assert sorted(extra) == []
-
-    # @pytest.mark.parametrize("loader_cls, content", list(cognite_module_files_with_loader()))
-    @pytest.mark.skip(reason="Skipping until we decide if it is useful to test this")
-    def test_write_cls_spec_against_cognite_modules(self, loader_cls: type[ResourceCRUD], content: dict) -> None:
-        spec = loader_cls.get_write_cls_parameter_spec()
-
-        warnings = validate_resource_yaml(content, spec, Path("test.yaml"))  # noqa: F821
-
-        assert sorted(warnings) == []
-
     @pytest.mark.parametrize("loader_cls", RESOURCE_CRUD_LIST)
     def test_empty_required_capabilities_when_no_items(
         self, loader_cls: type[ResourceCRUD], env_vars_with_client: EnvironmentVariables
