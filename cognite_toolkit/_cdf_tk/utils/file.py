@@ -181,9 +181,7 @@ def sanitize_filename(text: str) -> str:
 
 @contextmanager
 def tmp_build_directory() -> typing.Generator[Path, None, None]:
-    # Include worker ID to ensure each pytest-xdist worker has its own temp directory
-    worker_id = os.environ.get("PYTEST_XDIST_WORKER", "master")
-    build_dir = Path(tempfile.mkdtemp(prefix=f"build.{worker_id}.", suffix=".tmp", dir=Path.cwd()))
+    build_dir = Path(tempfile.mkdtemp(prefix="build.", suffix=".tmp", dir=Path.cwd()))
     try:
         yield build_dir
     finally:
