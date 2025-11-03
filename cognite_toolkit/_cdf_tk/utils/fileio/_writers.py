@@ -4,7 +4,6 @@ import json
 import sqlite3
 import sys
 import threading
-from _typeshed import ReadableBuffer
 from abc import ABC, abstractmethod
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
@@ -13,7 +12,7 @@ from functools import lru_cache
 from io import IOBase, TextIOWrapper
 from pathlib import Path
 from types import TracebackType
-from typing import TYPE_CHECKING, Generic, IO, overload, AnyStr
+from typing import TYPE_CHECKING, Generic
 
 import yaml
 
