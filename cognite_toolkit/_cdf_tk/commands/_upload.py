@@ -1,8 +1,16 @@
 from collections.abc import Sequence
 from functools import partial
+from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 
 from cognite.client.data_classes._base import T_CogniteResource
+from cognite.client.data_classes.data_modeling import (
+    ContainerId,
+    DirectRelation,
+    MappedProperty,
+    RequiresConstraint,
+    ViewId,
+)
 from pydantic import ValidationError
 from rich.console import Console
 
@@ -12,6 +20,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio import T_Selector, UploadableStorageIO, are_same_kind, get_upload_io
 from cognite_toolkit._cdf_tk.storageio._base import T_WriteCogniteResource, TableUploadableStorageIO, UploadItem
 from cognite_toolkit._cdf_tk.storageio.selectors import Selector, SelectorAdapter
+from cognite_toolkit._cdf_tk.storageio.selectors._instances import InstanceSpaceSelector, InstanceViewSelector
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
@@ -82,7 +91,161 @@ class UploadCommand(ToolkitCommand):
 
         self._deploy_resource_folder(input_dir / DATA_RESOURCE_DIR, deploy_resources, client, console, dry_run, verbose)
 
+        # Calculate dependency order for data model instances to ensure
+        # that referenced entities are created before entities that reference them
+        view_dependencies = self._calculate_dependency_order(data_files_by_selector, client)
+        if len(view_dependencies) > 0:
+            # Build a lookup map from ViewId to Selector for efficient access
+            selector_by_view: dict[ViewId, Selector] = {}
+            for selector in data_files_by_selector:
+                if isinstance(selector, InstanceViewSelector | InstanceSpaceSelector) and selector.view is not None:
+                    selector_by_view[selector.view.as_id()] = selector
+
+            # Reorder selectors according to the dependency-sorted view list
+            ordered_selectors: dict[Selector, list[Path]] = {}
+            for view_id in view_dependencies:
+                if view_id in selector_by_view:
+                    selector = selector_by_view[view_id]
+                    ordered_selectors[selector] = data_files_by_selector[selector]
+
+            # Preserve selectors that aren't affected by view dependencies
+            # (e.g., raw tables, time series, non-view instance data)
+            for selector in data_files_by_selector.keys():
+                if selector not in ordered_selectors:
+                    ordered_selectors[selector] = data_files_by_selector[selector]
+            data_files_by_selector = ordered_selectors
         self._upload_data(data_files_by_selector, client, dry_run, input_dir, console, verbose)
+
+    def _find_container_dependencies(
+        self,
+        container_id: ContainerId,
+        dependent_containers_path: list[ContainerId],
+        container_dependencies: dict[ContainerId, list[ContainerId]],
+        client: ToolkitClient,
+    ) -> None:
+        """Recursively find all container dependencies based on constraints and direct relations.
+
+        This method traverses the container dependency graph to identify which containers
+        must be populated before others. Dependencies arise from:
+        1. RequiresConstraint: Explicit container requirements.
+        2. DirectRelation properties that have a required type.
+
+        Args:
+            container_id: The container to analyze for dependencies.
+            dependent_containers_path: Chain of containers that depend on this one, used to
+                track the dependency path during recursion.
+            container_dependencies: Dictionary mapping each container to its list of
+                required containers. Updated in-place during traversal.
+            client: ToolkitClient instance for retrieving container metadata.
+        """
+        container = client.data_modeling.containers.retrieve(container_id)
+        if container is None:
+            self.warn(
+                MediumSeverityWarning(
+                    f"Container {container_id} not found or you don't have permission to access it, skipping dependency check."
+                )
+            )
+            return
+        if container_id not in container_dependencies:
+            container_dependencies[container_id] = []
+        required_containers: list[ContainerId] = []
+        for constraint in container.constraints.values():
+            if isinstance(constraint, RequiresConstraint):
+                for dependent_container in dependent_containers_path:
+                    container_dependencies[dependent_container].append(constraint.require)
+                required_containers.append(constraint.require)
+        for property in container.properties.values():
+            if (
+                isinstance(property, MappedProperty)
+                and isinstance(property.type, DirectRelation)
+                and property.type.container is not None
+            ):
+                for dependent_container in dependent_containers_path:
+                    container_dependencies[dependent_container].append(property.type.container)
+                required_containers.append(property.type.container)
+        for required_container_id in required_containers:
+            if required_container_id in container_dependencies:
+                continue
+            self._find_container_dependencies(
+                required_container_id,
+                [*dependent_containers_path, required_container_id],
+                container_dependencies,
+                client,
+            )
+
+    def _calculate_dependency_order(
+        self, data_files_by_selector: dict[Selector, list[Path]], client: ToolkitClient
+    ) -> list[ViewId]:
+        """Calculate the necessary upload order for views based on container constraints.
+
+        This method analyzes the selected views to determine which must be
+        populated before others to satisfy container constraints or required types for direct relations.
+
+        The dependency analysis works as follows:
+        1. Extract all views referenced in selectors
+        2. Map which containers are populated by each view
+        3. Find container dependencies (via _find_container_dependencies)
+        4. Derive the dependency of views on other views from container dependencies
+        5. Topologically sort views to respect dependencies
+
+        Args:
+            data_files_by_selector: Mapping of selectors to their data files.
+            client: ToolkitClient instance for retrieving view and container metadata.
+
+        Returns:
+            list[ViewId]: Ordered list of ViewIds according to dependencies.
+        """
+        view_to_containers: dict[ViewId, list[ContainerId]] = {}
+        container_dependencies: dict[ContainerId, list[ContainerId]] = {}
+        container_to_views: dict[ContainerId, set[ViewId]] = {}
+        view_dependencies: dict[ViewId, set[ViewId]] = {}
+
+        all_view_ids = [selector.view.as_id() for selector in data_files_by_selector if selector.view is not None]
+        if not all_view_ids:
+            return []
+
+        views = client.data_modeling.views.retrieve(all_view_ids)
+        missing_view_ids = set(all_view_ids) - set(views.as_ids())
+        if missing_view_ids:
+            self.warn(
+                MediumSeverityWarning(
+                    f"Views {missing_view_ids} not found or you don't have permission to access them, skipping dependency check."
+                )
+            )
+        for view in views:
+            view_to_containers[view.as_id()] = []
+            for property in view.properties.values():
+                if not isinstance(property, MappedProperty):
+                    continue
+                if property.container not in container_to_views:
+                    container_to_views[property.container] = set()
+                container_to_views[property.container].add(view.as_id())
+                if property.container not in view_to_containers[view.as_id()]:
+                    view_to_containers[view.as_id()].append(property.container)
+
+        for container_id in container_to_views:
+            self._find_container_dependencies(container_id, [container_id], container_dependencies, client)
+
+        for view_id, containers in view_to_containers.items():
+            required_views: set[ViewId] = set()
+            for container_id in containers:
+                for required_container in container_dependencies.get(container_id, []):
+                    if required_container in containers:
+                        continue
+                    views_populated_by_container = container_to_views.get(required_container, set())
+                    required_views.update(views_populated_by_container)
+            view_dependencies[view_id] = required_views
+
+        try:
+            sorted_views = list(TopologicalSorter(view_dependencies).static_order())
+        except CycleError as e:
+            self.warn(
+                MediumSeverityWarning(
+                    f"Circular dependency detected in views: {e}. Upload order may not respect all dependencies."
+                )
+            )
+            sorted_views = list(view_dependencies.keys())
+        return sorted_views
 
     def _find_data_files(
         self,
