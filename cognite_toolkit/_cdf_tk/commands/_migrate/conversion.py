@@ -1,6 +1,6 @@
 from collections.abc import Mapping, Set
 from dataclasses import dataclass
-from typing import Any, ClassVar, Literal, overload
+from typing import Any, ClassVar, overload
 
 from cognite.client.data_classes import Annotation, Asset, Event, FileMetadata, TimeSeries
 from cognite.client.data_classes.data_modeling import (
@@ -179,8 +179,7 @@ def asset_centric_to_dm(
         edge_properties = create_edge_properties(
             dumped, view_source.property_mapping, resource_type, issue, cache, instance_id.space
         )
-        # MyPy complains that literal keys are not string, but they are.
-        instance = EdgeApply(  # type: ignore[misc]
+        instance = EdgeApply(
             space=instance_id.space,
             external_id=instance_id.external_id,
             sources=sources,
@@ -283,9 +282,9 @@ def create_edge_properties(
     issue: ConversionIssue,
     direct_relation_cache: DirectRelationCache,
     default_instance_space: str,
-) -> dict[Literal["start_node", "end_node", "type"], DirectRelationReference]:
+) -> dict[str, DirectRelationReference]:
     flatten_dump = flatten_dict_json_path(dumped)
-    edge_properties: dict[Literal["start_node", "end_node", "type"], DirectRelationReference] = {}
+    edge_properties: dict[str, DirectRelationReference] = {}
     for prop_json_path, prop_id in property_mapping.items():
         if not prop_id.startswith("edge."):
             continue
@@ -316,6 +315,6 @@ def create_edge_properties(
             )
             continue
         # We know that value is DirectRelationReference here
-        edge_properties[edge_prop_id.replace("Node", "_node")] = value  # type: ignore[assignment, index]
+        edge_properties[edge_prop_id.replace("Node", "_node")] = value  # type: ignore[assignment]
 
     return edge_properties
