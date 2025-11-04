@@ -806,6 +806,7 @@ class TestAssetCentricConversion:
             "status": "status",
             "data.assetRef.id": "edge.endNode",
             "data.assetRef.externalId": "edge.endNode",
+            "data.text": "edge.invalidProp",
         },
         version=1,
         last_updated_time=1000000,
@@ -854,7 +855,7 @@ class TestAssetCentricConversion:
                         "creatingAppVersion",
                         "creatingUser",
                     ],
-                    missing_asset_centric_properties=["data.assetRef.externalId"],
+                    missing_asset_centric_properties=["data.assetRef.externalId", "data.text"],
                 ),
                 id="Basic annotation conversion",
             )
@@ -895,7 +896,7 @@ class TestAssetCentricConversion:
             creating_app="app_1",
             creating_app_version="1.0.0",
             status="Approved",
-            data=dict(assetRef=dict(id=123)),
+            data=dict(assetRef=dict(id=123), text="Some annotation text"),
         )
 
         edge, issue = asset_centric_to_dm(
@@ -919,6 +920,9 @@ class TestAssetCentricConversion:
             ],
             missing_asset_centric_properties=["data.assetRef.externalId"],
             missing_instance_properties=[],
+            invalid_instance_property_types=[
+                InvalidPropertyDataType(property_id="edge.invalidProp", expected_type="EdgeProperty")
+            ],
             failed_conversions=[
                 FailedConversion(
                     property_id="annotatedResourceId",

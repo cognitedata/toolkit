@@ -322,7 +322,7 @@ def create_edge_properties(
             value = DirectRelationReference(default_instance_space, str(flatten_dump[prop_json_path]))
         else:
             issue.invalid_instance_property_types.append(
-                InvalidPropertyDataType(property_id=prop_id, expected_type="DirectRelationReference")
+                InvalidPropertyDataType(property_id=prop_id, expected_type="EdgeProperty")
             )
             continue
         # We know that value is DirectRelationReference here
