@@ -11,6 +11,7 @@ from cognite.client.exceptions import CogniteAPIError
 
 from .access_management import migrate_access_management
 from .app_instance_space import migrate_app_instance_space
+from .data_filters import migrate_data_filters
 from .disciplines import migrate_disciplines
 from .feature_toggles import migrate_feature_toggles
 from .root_asset import migrate_root_asset
@@ -31,6 +32,7 @@ def apply_location_config_fields(
     - appInstanceSpace: From appDataInstanceSpace in old configuration
     - accessManagement: From templateAdmins and checklistAdmins in old configuration
     - disciplines: From disciplines in FeatureConfiguration (shared across all locations)
+    - dataFilters: From dataFilters in old configuration
 
     Args:
         location_dict: Location configuration dict (from dump(camel_case=True))
@@ -68,9 +70,13 @@ def apply_location_config_fields(
     if disciplines is not None:
         props["disciplines"] = disciplines
 
+    # Migrate dataFilters
+    data_filters = migrate_data_filters(location_dict)
+    if data_filters is not None:
+        props["dataFilters"] = data_filters
+
     # TODO: Add more field migrations here as they are implemented
     # - threeDConfiguration
-    # - dataFilters
     # - observations
     # etc.
 

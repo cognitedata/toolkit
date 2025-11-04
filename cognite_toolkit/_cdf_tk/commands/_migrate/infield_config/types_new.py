@@ -59,16 +59,34 @@ class Discipline(TypedDict, total=False):
     name: str
 
 
+class ResourceFilters(TypedDict, total=False):
+    """Resource filters."""
+    datasetIds: list[int] | None
+    assetSubtreeExternalIds: list[str] | None
+    rootAssetExternalIds: list[str] | None
+    externalIdPrefix: str | None
+    spaces: list[str] | None
+
+
+class RootLocationDataFilters(TypedDict, total=False):
+    """Data filters for root location."""
+    general: ResourceFilters | None
+    assets: ResourceFilters | None
+    files: ResourceFilters | None
+    timeseries: ResourceFilters | None
+
+
 class InFieldLocationConfigProperties(TypedDict, total=False):
     """Properties for InFieldLocationConfig node.
     
-    Currently migrated fields: s
+    Currently migrated fields:
     - rootLocationExternalId: Reference to the LocationFilterDTO external ID
     - featureToggles: Feature toggles migrated from old configuration
     - rootAsset: Direct relation to the root asset (space and externalId)
     - appInstanceSpace: Application instance space from appDataInstanceSpace
     - accessManagement: Template and checklist admin groups (from templateAdmins and checklistAdmins)
     - disciplines: List of disciplines (from disciplines in FeatureConfiguration)
+    - dataFilters: Data filters for general, assets, files, and timeseries (from dataFilters in old configuration)
     """
     rootLocationExternalId: str
     featureToggles: FeatureToggles
@@ -76,7 +94,7 @@ class InFieldLocationConfigProperties(TypedDict, total=False):
     appInstanceSpace: str
     accessManagement: AccessManagement
     disciplines: list[Discipline]
+    dataFilters: RootLocationDataFilters
     # TODO: Add the following fields:
-    # dataFilters: RootLocationDataFilters
     # dataExplorationConfig: DirectRelation to data exploration config
 
