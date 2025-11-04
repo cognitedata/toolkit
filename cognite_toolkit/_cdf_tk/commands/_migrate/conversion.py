@@ -179,7 +179,7 @@ def asset_centric_to_dm(
         edge_properties = create_edge_properties(
             dumped, view_source.property_mapping, resource_type, issue, cache, instance_id.space
         )
-        if any(key not in ("start_node", "end_node", "type") for key in edge_properties.keys()):
+        if any(key not in edge_properties for key in ("start_node", "end_node", "type")):
             # Failed conversion of edge properties
             return None, issue
         instance = EdgeApply(

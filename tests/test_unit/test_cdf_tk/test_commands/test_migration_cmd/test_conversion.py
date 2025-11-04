@@ -882,3 +882,51 @@ class TestAssetCentricConversion:
 
         assert edge.dump() == expected_edge.dump()
         assert issue.dump() == expected_issue.dump()
+
+    def test_asset_centric_to_annotation_failed(self) -> None:
+        """Testing that asset_centric_to_dm raises conversion issues for annotations with missing required properties."""
+
+        resource = Annotation(
+            id=38,
+            annotated_resource_type="file",
+            annotation_type="diagrams.FileLink",
+            annotated_resource_id=999,  # Missing file instance
+            creating_user="user_1",
+            creating_app="app_1",
+            creating_app_version="1.0.0",
+            status="Approved",
+            data=dict(assetRef=dict(id=123)),
+        )
+
+        edge, issue = asset_centric_to_dm(
+            resource,
+            EdgeId(space="test_space", external_id="annotation_38"),
+            self.ANNOTATION_MAPPING,
+            self.DIAGRAM_ANNOTATION_PROPERTIES,
+            self.ASSET_INSTANCE_ID_BY_ID,
+            {},
+            self.FILE_INSTANCE_BY_ID,
+        )
+
+        expected_issue = ConversionIssue(
+            asset_centric_id=AssetCentricId("fileAnnotation", id_=38),
+            instance_id=EdgeId(space="test_space", external_id="annotation_38"),
+            ignored_asset_centric_properties=[
+                "annotatedResourceType",
+                "creatingApp",
+                "creatingAppVersion",
+                "creatingUser",
+            ],
+            missing_asset_centric_properties=["data.assetRef.externalId"],
+            missing_instance_properties=[],
+            failed_conversions=[
+                FailedConversion(
+                    property_id="annotatedResourceId",
+                    value=999,
+                    error="Cannot convert 999 to DirectRelationReference. Invalid data type or missing in lookup.",
+                )
+            ],
+        )
+
+        assert issue.dump() == expected_issue.dump()
+        assert edge is None
