@@ -3,12 +3,11 @@ from typing import Any
 
 from cognite.client.data_classes import Annotation, AnnotationFilter
 
-from cognite_toolkit._cdf_tk.storageio import Page
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._asset_centric import FileMetadataIO
-from ._base import StorageIO
+from ._base import Page, StorageIO
 from .selectors import AssetCentricSelector
 
 
