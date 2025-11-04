@@ -1,5 +1,11 @@
 from uuid import uuid4
 
+from cognite.client.data_classes.capabilities import (
+    Capability,
+    DataModelInstancesAcl,
+    DataModelsAcl,
+    SpaceIDScope,
+)
 from cognite.client.exceptions import CogniteException
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -10,16 +16,19 @@ from cognite_toolkit._cdf_tk.client.data_classes.canvas import (
     FdmInstanceContainerReferenceApply,
 )
 from cognite_toolkit._cdf_tk.client.data_classes.migration import InstanceSource
-from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError
+from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
+from cognite_toolkit._cdf_tk.commands._migrate.data_model import (
+    INSTANCE_SOURCE_VIEW_ID,
+    MODEL_ID,
+    RESOURCE_VIEW_MAPPING_VIEW_ID,
+)
+from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitMigrationError
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.interactive_select import InteractiveCanvasSelect
 
-from .base import BaseMigrateCommand
-from .data_model import INSTANCE_SOURCE_VIEW_ID
 
-
-class MigrationCanvasCommand(BaseMigrateCommand):
+class MigrationCanvasCommand(ToolkitCommand):
     canvas_schema_space = Canvas.get_source().space
     # Note sequences are not supported in Canvas, so we do not include them here.
     asset_centric_resource_types = frozenset({"asset", "event", "file", "timeseries"})
@@ -144,3 +153,49 @@ class MigrationCanvasCommand(BaseMigrateCommand):
             max_width=reference.max_width,
             max_height=reference.max_height,
         )
+
+    @staticmethod
+    def validate_access(
+        client: ToolkitClient,
+        instance_spaces: list[str] | None = None,
+        schema_spaces: list[str] | None = None,
+    ) -> None:
+        required_capabilities: list[Capability] = []
+        if instance_spaces is not None:
+            required_capabilities.append(
+                DataModelInstancesAcl(
+                    actions=[
+                        DataModelInstancesAcl.Action.Read,
+                        DataModelInstancesAcl.Action.Write,
+                        DataModelInstancesAcl.Action.Write_Properties,
+                    ],
+                    scope=SpaceIDScope(instance_spaces),
+                )
+            )
+        if schema_spaces is not None:
+            required_capabilities.append(
+                DataModelsAcl(actions=[DataModelsAcl.Action.Read], scope=SpaceIDScope(schema_spaces)),
+            )
+        if missing := client.iam.verify_capabilities(required_capabilities):
+            raise AuthenticationError(f"Missing required capabilities: {humanize_collection(missing)}.", missing)
+
+    @staticmethod
+    def validate_migration_model_available(client: ToolkitClient) -> None:
+        models = client.data_modeling.data_models.retrieve([MODEL_ID], inline_views=False)
+        if not models:
+            raise ToolkitMigrationError(
+                f"The migration data model {MODEL_ID!r} does not exist. "
+                "Please run the `cdf migrate prepare` command to deploy the migration data model."
+            )
+        elif len(models) > 1:
+            raise ToolkitMigrationError(
+                f"Multiple migration models {MODEL_ID!r}. "
+                "Please delete the duplicate models before proceeding with the migration."
+            )
+        model = models[0]
+        missing_views = {INSTANCE_SOURCE_VIEW_ID, RESOURCE_VIEW_MAPPING_VIEW_ID} - set(model.views or [])
+        if missing_views:
+            raise ToolkitMigrationError(
+                f"Invalid migration model. Missing views {humanize_collection(missing_views)}. "
+                f"Please run the `cdf migrate prepare` command to deploy the migration data model."
+            )

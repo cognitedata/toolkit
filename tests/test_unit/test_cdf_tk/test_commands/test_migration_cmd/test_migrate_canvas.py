@@ -1,12 +1,27 @@
 from datetime import datetime, timezone
+from unittest.mock import MagicMock
 
-from cognite.client.data_classes.data_modeling import NodeList
+import pytest
+from cognite.client._api.iam import IAMAPI, ComparableCapability
+from cognite.client.data_classes.capabilities import (
+    Capability,
+    DataModelInstancesAcl,
+    DataModelsAcl,
+    ProjectCapabilityList,
+)
+from cognite.client.data_classes.data_modeling import DataModel, DataModelList, NodeList
 
 from cognite_toolkit._cdf_tk.client.data_classes.canvas import Canvas, IndustrialCanvas, IndustrialCanvasApply
 from cognite_toolkit._cdf_tk.client.data_classes.migration import InstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import MigrationCanvasCommand
-from cognite_toolkit._cdf_tk.commands._migrate.data_model import COGNITE_MIGRATION_MODEL
+from cognite_toolkit._cdf_tk.commands._migrate.data_model import (
+    COGNITE_MIGRATION_MODEL,
+    INSTANCE_SOURCE_VIEW_ID,
+    MODEL_ID,
+    RESOURCE_VIEW_MAPPING_VIEW_ID,
+)
+from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitMigrationError
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, ToolkitWarning
 
 
@@ -96,3 +111,96 @@ class TestMigrationCanvasCommand:
         warning = command.warning_list[0]
         assert isinstance(warning, ToolkitWarning)
         assert "Canvas with name 'MyCanvas' does not have any asset-centric references." in str(warning)
+
+    def test_validate_access(self) -> None:
+        expected_missing = [
+            DataModelInstancesAcl(
+                actions=[
+                    DataModelInstancesAcl.Action.Read,
+                ],
+                scope=DataModelInstancesAcl.Scope.SpaceID(["my_instance_space"]),
+            ),
+            DataModelInstancesAcl(
+                actions=[
+                    DataModelInstancesAcl.Action.Write,
+                ],
+                scope=DataModelInstancesAcl.Scope.SpaceID(["my_instance_space"]),
+            ),
+            DataModelInstancesAcl(
+                actions=[
+                    DataModelInstancesAcl.Action.Write_Properties,
+                ],
+                scope=DataModelInstancesAcl.Scope.SpaceID(["my_instance_space"]),
+            ),
+            DataModelsAcl(actions=[DataModelsAcl.Action.Read], scope=DataModelsAcl.Scope.SpaceID(["dummy_space"])),
+        ]
+
+        with monkeypatch_toolkit_client() as client:
+            existing_capabilities = ProjectCapabilityList([], cognite_client=client)
+
+            def verify_capabilities(desired_capabilities: ComparableCapability) -> list[Capability]:
+                return IAMAPI.compare_capabilities(
+                    existing_capabilities,
+                    desired_capabilities,
+                )
+
+            client.iam.verify_capabilities = verify_capabilities
+            with pytest.raises(AuthenticationError) as exc_info:
+                MigrationCanvasCommand.validate_access(client, ["my_instance_space"], ["dummy_space"])
+        error = exc_info.value
+        assert isinstance(error, AuthenticationError)
+        assert "Missing required capabilities" in error.args[0]
+        assert error.args[1] == expected_missing
+
+    def test_validate_migration_model_available(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.data_modeling.data_models.retrieve.return_value = DataModelList([])
+            with pytest.raises(ToolkitMigrationError):
+                MigrationCanvasCommand.validate_migration_model_available(client)
+
+    def test_validate_migration_model_available_multiple_models(self) -> None:
+        """Test that multiple models raises an error."""
+        with monkeypatch_toolkit_client() as client:
+            # Create mock models with the expected MODEL_ID
+            model1 = MagicMock(spec=DataModel)
+            model1.as_id.return_value = MODEL_ID
+            model2 = MagicMock(spec=DataModel)
+            model2.as_id.return_value = MODEL_ID
+
+            client.data_modeling.data_models.retrieve.return_value = DataModelList([model1, model2])
+
+            with pytest.raises(ToolkitMigrationError) as exc_info:
+                MigrationCanvasCommand.validate_migration_model_available(client)
+
+            assert "Multiple migration models" in str(exc_info.value)
+
+    def test_validate_migration_model_available_missing_views(self) -> None:
+        """Test that a model with missing views raises an error."""
+        with monkeypatch_toolkit_client() as client:
+            model = MagicMock(spec=DataModel)
+            model.as_id.return_value = MODEL_ID
+            # Model has views but missing the required ones
+            model.views = [INSTANCE_SOURCE_VIEW_ID]  # Missing VIEW_SOURCE_VIEW_ID
+
+            client.data_modeling.data_models.retrieve.return_value = DataModelList([model])
+
+            with pytest.raises(ToolkitMigrationError, match=r"Invalid migration model. Missing views"):
+                MigrationCanvasCommand.validate_migration_model_available(client)
+
+    def test_validate_migration_model_available_success(self) -> None:
+        """Test that a valid model with all required views succeeds."""
+        with monkeypatch_toolkit_client() as client:
+            # Mocking the migration Model to get a response format of the model.
+            # An alternative would be to write a conversion of write -> read format of the model
+            # which is a significant amount of logic.
+            model = MagicMock(spec=DataModel)
+            model.as_id.return_value = MODEL_ID
+            # Model has all required views
+            model.views = [INSTANCE_SOURCE_VIEW_ID, RESOURCE_VIEW_MAPPING_VIEW_ID]
+
+            client.data_modeling.data_models.retrieve.return_value = DataModelList([model])
+
+            # Should not raise any exception
+            MigrationCanvasCommand.validate_migration_model_available(client)
+
+            client.data_modeling.data_models.retrieve.assert_called_once_with([MODEL_ID], inline_views=False)
