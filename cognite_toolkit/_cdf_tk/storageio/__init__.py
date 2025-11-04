@@ -3,6 +3,7 @@ from pathlib import Path
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.fileio import COMPRESSION_BY_SUFFIX
 
+from ._annotations import FileAnnotationIO
 from ._applications import CanvasIO, ChartIO
 from ._asset_centric import AssetIO, BaseAssetCentricIO, EventIO, FileMetadataIO, HierarchyIO, TimeSeriesIO
 from ._base import (
@@ -50,6 +51,7 @@ __all__ = [
     "ChartIO",
     "ConfigurableStorageIO",
     "EventIO",
+    "FileAnnotationIO",
     "FileMetadataIO",
     "HierarchyIO",
     "InstanceIO",
