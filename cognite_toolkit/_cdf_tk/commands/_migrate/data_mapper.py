@@ -31,7 +31,7 @@ class DataMapper(Generic[T_Selector, T_CogniteResource, T_WriteCogniteResource],
         pass
 
     @abstractmethod
-    def map(self, source: T_CogniteResource) -> tuple[T_WriteCogniteResource, MigrationIssue]:
+    def map(self, source: T_CogniteResource) -> tuple[T_WriteCogniteResource | None, MigrationIssue]:
         """Map a chunk of source data to the target format.
 
         Args:
@@ -87,7 +87,7 @@ class AssetCentricMapper(
         asset_mappings = self.client.migration.instance_source.list(resource_type="asset", limit=-1)
         self._asset_mapping_by_id = {mapping.id_: mapping.as_direct_relation_reference() for mapping in asset_mappings}
 
-    def map(self, source: AssetCentricMapping[T_AssetCentricResource]) -> tuple[InstanceApply, ConversionIssue]:
+    def map(self, source: AssetCentricMapping[T_AssetCentricResource]) -> tuple[InstanceApply | None, ConversionIssue]:
         """Map a chunk of asset-centric data to InstanceApplyList format."""
         mapping = source.mapping
         ingestion_view = mapping.get_ingestion_view()

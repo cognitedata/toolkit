@@ -93,7 +93,7 @@ def asset_centric_to_dm(
     asset_instance_id_by_id: Mapping[int, DirectRelationReference],
     source_instance_id_by_external_id: Mapping[str, DirectRelationReference],
     file_instance_id_by_id: Mapping[int, DirectRelationReference],
-) -> tuple[NodeApply, ConversionIssue]: ...
+) -> tuple[NodeApply | None, ConversionIssue]: ...
 
 
 @overload
@@ -105,7 +105,7 @@ def asset_centric_to_dm(
     asset_instance_id_by_id: Mapping[int, DirectRelationReference],
     source_instance_id_by_external_id: Mapping[str, DirectRelationReference],
     file_instance_id_by_id: Mapping[int, DirectRelationReference],
-) -> tuple[EdgeApply, ConversionIssue]: ...
+) -> tuple[EdgeApply | None, ConversionIssue]: ...
 
 
 def asset_centric_to_dm(
@@ -116,7 +116,7 @@ def asset_centric_to_dm(
     asset_instance_id_by_id: Mapping[int, DirectRelationReference],
     source_instance_id_by_external_id: Mapping[str, DirectRelationReference],
     file_instance_id_by_id: Mapping[int, DirectRelationReference],
-) -> tuple[NodeApply | EdgeApply, ConversionIssue]:
+) -> tuple[NodeApply | EdgeApply | None, ConversionIssue]:
     """Convert an asset-centric resource to a data model instance.
 
     Args:
@@ -179,6 +179,9 @@ def asset_centric_to_dm(
         edge_properties = create_edge_properties(
             dumped, view_source.property_mapping, resource_type, issue, cache, instance_id.space
         )
+        if any(key not in ("start_node", "end_node", "type") for key in edge_properties.keys()):
+            # Failed conversion of edge properties
+            return None, issue
         instance = EdgeApply(
             space=instance_id.space,
             external_id=instance_id.external_id,
