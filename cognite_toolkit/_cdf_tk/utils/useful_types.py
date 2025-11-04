@@ -9,7 +9,8 @@ JsonVal: TypeAlias = None | str | int | float | bool | dict[str, "JsonVal"] | li
 
 AssetCentricDestinationType: TypeAlias = Literal["assets", "files", "events", "timeseries", "sequences"]
 AssetCentricType: TypeAlias = Literal["asset", "file", "event", "timeseries", "sequence", "fileAnnotation"]
-AssetCentricResource: TypeAlias = Asset | FileMetadata | Event | TimeSeries | Annotation
+AssetCentricResource: TypeAlias = Asset | FileMetadata | Event | TimeSeries
+AssetCentricResourceExtended: TypeAlias = Asset | FileMetadata | Event | TimeSeries | Annotation
 AssetCentricKind: TypeAlias = Literal["Assets", "Events", "TimeSeries", "FileMetadata", "FileAnnotations"]
 
 DataType: TypeAlias = Literal["string", "integer", "float", "boolean", "json", "date", "timestamp"]
