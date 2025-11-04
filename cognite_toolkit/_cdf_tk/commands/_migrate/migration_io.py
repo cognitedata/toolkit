@@ -1,5 +1,5 @@
 from collections.abc import Iterator, Mapping, Sequence
-from typing import ClassVar
+from typing import ClassVar, cast
 
 from cognite.client.data_classes.data_modeling import InstanceApply, NodeId
 
@@ -89,7 +89,8 @@ class AssetCentricMigrationIO(
         for data_chunk in self.hierarchy.stream_data(asset_centric_selector, limit):
             mapping_list = AssetCentricMappingList[T_AssetCentricResource]([])
             for resource in data_chunk.items:
-                data_set_id = resource.data_set_id
+                # We got the resource from a dataset selector, so we know it is there
+                data_set_id = cast(int, resource.data_set_id)
                 space_source = self.client.migration.space_source.retrieve(data_set_id=data_set_id)
                 instance_space = space_source.instance_space if space_source else None
                 if instance_space is None:

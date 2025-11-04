@@ -785,7 +785,7 @@ class TestAssetCentricConversion:
         assert expected_issue.dump() == issue.dump()
 
     ANNOTATION_ID = EdgeId(space="test_space", external_id="annotation_123")
-    DEFAULT_PROPERTIES = dict(nullable=True, immutable=False, auto_increment=False)
+    DEFAULT_PROPERTIES: ClassVar[dict[str, Any]] = dict(nullable=True, immutable=False, auto_increment=False)
 
     DIAGRAM_ANNOTATION_PROPERTIES: ClassVar[dict[str, ViewProperty]] = {
         "status": MappedProperty(
