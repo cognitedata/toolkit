@@ -758,6 +758,7 @@ class TestAssetCentricConversion:
             view_properties,
             self.ASSET_INSTANCE_ID_BY_ID,
             self.SOURCE_SYSTEM_INSTANCE_ID_BY_EXTERNAL_ID,
+            {},
         )
 
         # Check the structure of the returned NodeApply
