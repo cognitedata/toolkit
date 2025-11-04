@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from typing import Any, ClassVar
 
 from cognite.client.data_classes import Asset, Event, FileMetadata, Sequence, TimeSeries
-from cognite.client.data_classes._base import CogniteResource
 from cognite.client.data_classes.data_modeling import DirectRelationReference, MappedProperty, NodeApply, NodeId
 from cognite.client.data_classes.data_modeling.instances import NodeOrEdgeData, PropertyValueWrite
 from cognite.client.data_classes.data_modeling.views import ViewProperty
@@ -15,7 +14,7 @@ from cognite_toolkit._cdf_tk.utils.collection import flatten_dict_json_path
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     asset_centric_convert_to_primary_property,
 )
-from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricType
+from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricResource, AssetCentricType
 
 from .data_model import INSTANCE_SOURCE_VIEW_ID
 from .issues import ConversionIssue, FailedConversion, InvalidPropertyDataType
@@ -68,7 +67,7 @@ class DirectRelationCache:
 
 
 def asset_centric_to_dm(
-    resource: CogniteResource,
+    resource: AssetCentricResource,
     instance_id: NodeId,
     view_source: ResourceViewMapping,
     view_properties: dict[str, ViewProperty],
@@ -134,8 +133,8 @@ def asset_centric_to_dm(
     return node, issue
 
 
-def _lookup_resource_type(resource_type: type[CogniteResource]) -> AssetCentricType:
-    resource_type_map: dict[type[CogniteResource], AssetCentricType] = {
+def _lookup_resource_type(resource_type: type[AssetCentricResource]) -> AssetCentricType:
+    resource_type_map: dict[type[AssetCentricResource], AssetCentricType] = {
         Asset: "asset",
         FileMetadata: "file",
         Event: "event",
