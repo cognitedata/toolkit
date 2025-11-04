@@ -178,13 +178,15 @@ class UploadableStorageIO(
         )
 
     def json_chunk_to_data(
-        self, data_chunk: list[tuple[str, dict[str, JsonVal]]]
+        self, data_chunk: list[tuple[str, dict[str, JsonVal]]], selector: T_Selector | None = None
     ) -> Sequence[UploadItem[T_WriteCogniteResource]]:
         """Convert a JSON-compatible chunk of data back to a writable Cognite resource list.
 
         Args:
             data_chunk: A list of tuples, each containing a source ID and a dictionary representing
                 the data in a JSON-compatible format.
+            selector: Optional selection criteria to identify where to upload the data. This is used
+                by some storage types for filtering or validation.
         Returns:
             A writable Cognite resource list representing the data.
         """
