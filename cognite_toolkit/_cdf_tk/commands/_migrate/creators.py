@@ -221,32 +221,56 @@ class InfieldV2ConfigCreator(MigrationCreator[NodeApplyList]):
         apm_config_nodes = self.client.data_modeling.instances.list(instance_type="node", sources=APMConfig.view_id)
         apm_config = APMConfigList.from_nodes(apm_config_nodes)
 
-        new_config_nodes = NodeApplyList([])
+        # Filter configs: prefer APP_CONFIG_V2, fallback to default-config, otherwise skip
+        config_to_migrate = None
         for config in apm_config:
-            if not config.feature_configuration or not config.feature_configuration.root_location_configurations:
-                continue
+            if config.external_id == "APP_CONFIG_V2":
+                config_to_migrate = config
+                break
+        if config_to_migrate is None:
+            for config in apm_config:
+                if config.external_id == "default-config":
+                    config_to_migrate = config
+                    break
 
-            feature_config = config.feature_configuration
-            root_location_configs = feature_config.root_location_configurations or []
-            migration_result = create_infield_v2_config(root_location_configs)
-            new_config_nodes.extend(migration_result.all_nodes())
-        return new_config_nodes
+        if config_to_migrate is None:
+            return NodeApplyList([])
+
+        if not config_to_migrate.feature_configuration or not config_to_migrate.feature_configuration.root_location_configurations:
+            return NodeApplyList([])
+
+        feature_config = config_to_migrate.feature_configuration
+        root_location_configs = feature_config.root_location_configurations or []
+        migration_result = create_infield_v2_config(root_location_configs, client=self.client)
+        return migration_result.all_nodes()
 
     def create_location_filters(self) -> LocationFilterWriteList:
         """Create LocationFilter resources (to be deployed via Location Filters API)."""
         apm_config_nodes = self.client.data_modeling.instances.list(instance_type="node", sources=APMConfig.view_id)
         apm_config = APMConfigList.from_nodes(apm_config_nodes)
 
-        all_location_filters = LocationFilterWriteList([])
+        # Filter configs: prefer APP_CONFIG_V2, fallback to default-config, otherwise skip
+        config_to_migrate = None
         for config in apm_config:
-            if not config.feature_configuration or not config.feature_configuration.root_location_configurations:
-                continue
+            if config.external_id == "APP_CONFIG_V2":
+                config_to_migrate = config
+                break
+        if config_to_migrate is None:
+            for config in apm_config:
+                if config.external_id == "default-config":
+                    config_to_migrate = config
+                    break
 
-            feature_config = config.feature_configuration
-            root_location_configs = feature_config.root_location_configurations or []
-            migration_result = create_infield_v2_config(root_location_configs)
-            all_location_filters.extend(migration_result.all_location_filters())
-        return all_location_filters
+        if config_to_migrate is None:
+            return LocationFilterWriteList([])
+
+        if not config_to_migrate.feature_configuration or not config_to_migrate.feature_configuration.root_location_configurations:
+            return LocationFilterWriteList([])
+
+        feature_config = config_to_migrate.feature_configuration
+        root_location_configs = feature_config.root_location_configurations or []
+        migration_result = create_infield_v2_config(root_location_configs, client=self.client)
+        return migration_result.all_location_filters()
 
     def resource_configs(self, resources: NodeApplyList) -> list[ResourceConfig]:
         return [ResourceConfig(filestem=node.external_id, data=node.dump()) for node in resources]

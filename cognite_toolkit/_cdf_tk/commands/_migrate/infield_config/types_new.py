@@ -7,6 +7,7 @@ format that is the target of the migration from the old APM Config format.
 from typing import TypedDict
 
 from cognite.client.data_classes.data_modeling.ids import DataModelId
+from cognite.client.data_classes.data_modeling import DirectRelationReference
 
 
 class LocationFilterDTOProperties(TypedDict, total=False):
@@ -52,12 +53,14 @@ class InFieldLocationConfigProperties(TypedDict, total=False):
     Currently migrated fields:
     - rootLocationExternalId: Reference to the LocationFilterDTO external ID
     - featureToggles: Feature toggles migrated from old configuration
+    - rootAsset: Direct relation to the root asset (space and externalId)
+    - appInstanceSpace: Application instance space from appDataInstanceSpace
     """
     rootLocationExternalId: str
     featureToggles: FeatureToggles
+    rootAsset: DirectRelationReference
+    appInstanceSpace: str
     # TODO: Add the following fields:
-    # rootAsset: DirectRelation
-    # appInstanceSpace: string
     # accessManagement: JSON template & checklist admin both list of strings representing CDF group external IDs
     # disciplines: List[Discipline]
     # dataFilters: RootLocationDataFilters

@@ -24,11 +24,11 @@ class TestInfieldV2ConfigCreator:
         """Test basic migration of APMConfig to InField V2 format."""
         toolkit_client_approval.append(DataModel, COGNITE_MIGRATION_MODEL)
 
-        # Create a mock APMConfig node
+        # Create a mock APMConfig node (using default-config as it's the fallback)
         apm_config_node = Node._load(
             {
                 "space": "APM_Config",
-                "externalId": "test_config",
+                "externalId": "default-config",
                 "version": 1,
                 "lastUpdatedTime": 1,
                 "createdTime": 1,
@@ -131,7 +131,7 @@ class TestInfieldV2ConfigCreator:
         apm_config_node = Node._load(
             {
                 "space": "APM_Config",
-                "externalId": "multi_location_config",
+                "externalId": "default-config",
                 "version": 1,
                 "lastUpdatedTime": 1,
                 "createdTime": 1,
@@ -285,7 +285,7 @@ class TestInfieldV2ConfigCreator:
         apm_config_node = Node._load(
             {
                 "space": "APM_Config",
-                "externalId": "test_config",
+                "externalId": "default-config",
                 "version": 1,
                 "lastUpdatedTime": 1,
                 "createdTime": 1,
@@ -331,7 +331,7 @@ class TestInfieldV2ConfigCreator:
         apm_config_node = Node._load(
             {
                 "space": "APM_Config",
-                "externalId": "test_config",
+                "externalId": "default-config",
                 "version": 1,
                 "lastUpdatedTime": 1,
                 "createdTime": 1,
@@ -384,7 +384,7 @@ class TestInfieldV2ConfigCreator:
         apm_config_node = Node._load(
             {
                 "space": "APM_Config",
-                "externalId": "test_config",
+                "externalId": "default-config",
                 "version": 1,
                 "lastUpdatedTime": 1,
                 "createdTime": 1,
@@ -420,5 +420,164 @@ class TestInfieldV2ConfigCreator:
         assert len(location_nodes) == 1
         # Should start with infield_location_ prefix
         assert location_nodes[0].external_id.startswith("infield_location_")
+
+    def test_config_selection_prioritizes_app_config_v2(
+        self, toolkit_client_approval: ApprovalToolkitClient, tmp_path: Path
+    ) -> None:
+        """Test that APP_CONFIG_V2 is selected when both APP_CONFIG_V2 and default-config exist."""
+        toolkit_client_approval.append(DataModel, COGNITE_MIGRATION_MODEL)
+
+        # Create two configs: one with APP_CONFIG_V2 and one with default-config
+        app_config_v2_node = Node._load(
+            {
+                "space": "APM_Config",
+                "externalId": "APP_CONFIG_V2",
+                "version": 1,
+                "lastUpdatedTime": 1,
+                "createdTime": 1,
+                "properties": {
+                    "APM_Config": {
+                        "APM_Config/1": {
+                            "featureConfiguration": {
+                                "rootLocationConfigurations": [
+                                    {
+                                        "externalId": "location_from_v2",
+                                        "assetExternalId": "asset_v2",
+                                        "displayName": "Location from V2",
+                                        "appDataInstanceSpace": "app_space_v2",
+                                        "sourceDataInstanceSpace": "source_space_v2",
+                                    }
+                                ],
+                            },
+                        }
+                    }
+                },
+            }
+        )
+
+        default_config_node = Node._load(
+            {
+                "space": "APM_Config",
+                "externalId": "default-config",
+                "version": 1,
+                "lastUpdatedTime": 1,
+                "createdTime": 1,
+                "properties": {
+                    "APM_Config": {
+                        "APM_Config/1": {
+                            "featureConfiguration": {
+                                "rootLocationConfigurations": [
+                                    {
+                                        "externalId": "location_from_default",
+                                        "assetExternalId": "asset_default",
+                                        "displayName": "Location from Default",
+                                        "appDataInstanceSpace": "app_space_default",
+                                        "sourceDataInstanceSpace": "source_space_default",
+                                    }
+                                ],
+                            },
+                        }
+                    }
+                },
+            }
+        )
+
+        toolkit_client_approval.append(Node, app_config_v2_node)
+        toolkit_client_approval.append(Node, default_config_node)
+
+        results = MigrationCommand(silent=True).create(
+            client=toolkit_client_approval.client,
+            creator=InfieldV2ConfigCreator(toolkit_client_approval.client),
+            dry_run=False,
+            verbose=False,
+            output_dir=tmp_path,
+        )
+
+        # Should only migrate from APP_CONFIG_V2, not default-config
+        assert "nodes" in results
+        node_result = results["nodes"]
+        assert node_result.created == 1  # Only one location from APP_CONFIG_V2
+
+        # Verify that only the location from APP_CONFIG_V2 was migrated
+        created_nodes = toolkit_client_approval.created_resources.get("Node", [])
+        assert len(created_nodes) == 1
+        location_node = created_nodes[0]
+        assert location_node.external_id == "location_from_v2"
+
+        # Verify location properties point to APP_CONFIG_V2 data
+        location_props = location_node.sources[0].properties
+        # The rootAsset should reference the asset from APP_CONFIG_V2
+        root_asset = location_props["rootAsset"]
+        assert root_asset.external_id == "asset_v2"
+        assert root_asset.space == "source_space_v2"
+
+        # Verify LocationFilter was also created from APP_CONFIG_V2
+        created_location_filters = toolkit_client_approval.created_resources.get("LocationFilter", [])
+        assert len(created_location_filters) == 1
+        location_filter = created_location_filters[0]
+        assert location_filter.external_id == "location_filter_location_from_v2"
+        assert location_filter.name == "Location from V2"
+
+    def test_config_with_wrong_external_id_not_migrated(
+        self, toolkit_client_approval: ApprovalToolkitClient, tmp_path: Path
+    ) -> None:
+        """Test that configs with externalId other than APP_CONFIG_V2 or default-config are not migrated."""
+        toolkit_client_approval.append(DataModel, COGNITE_MIGRATION_MODEL)
+
+        # Create a config with wrong externalId
+        wrong_config_node = Node._load(
+            {
+                "space": "APM_Config",
+                "externalId": "other-config",
+                "version": 1,
+                "lastUpdatedTime": 1,
+                "createdTime": 1,
+                "properties": {
+                    "APM_Config": {
+                        "APM_Config/1": {
+                            "featureConfiguration": {
+                                "rootLocationConfigurations": [
+                                    {
+                                        "externalId": "location_from_other",
+                                        "assetExternalId": "asset_other",
+                                        "displayName": "Location from Other Config",
+                                        "appDataInstanceSpace": "app_space_other",
+                                        "sourceDataInstanceSpace": "source_space_other",
+                                    }
+                                ],
+                            },
+                        }
+                    }
+                },
+            }
+        )
+
+        toolkit_client_approval.append(Node, wrong_config_node)
+
+        results = MigrationCommand(silent=True).create(
+            client=toolkit_client_approval.client,
+            creator=InfieldV2ConfigCreator(toolkit_client_approval.client),
+            dry_run=False,
+            verbose=False,
+            output_dir=tmp_path,
+        )
+
+        # Should not migrate anything
+        assert "nodes" in results
+        node_result = results["nodes"]
+        assert node_result.created == 0
+
+        # When there's nothing to migrate, "location filters" may not be in results
+        # (it's only added if location_filters list is non-empty)
+        if "location filters" in results:
+            location_filter_result = results["location filters"]
+            assert location_filter_result.created == 0
+
+        # Verify no resources were created
+        created_nodes = toolkit_client_approval.created_resources.get("Node", [])
+        assert len(created_nodes) == 0
+
+        created_location_filters = toolkit_client_approval.created_resources.get("LocationFilter", [])
+        assert len(created_location_filters) == 0
 
 

@@ -40,7 +40,9 @@ class InfieldV2MigrationResult:
         return self.location_filters
 
 
-def create_infield_v2_config(root_location_configs: list[RootLocationConfiguration | Any]) -> InfieldV2MigrationResult:
+def create_infield_v2_config(
+    root_location_configs: list[RootLocationConfiguration | Any], client: Any | None = None
+) -> InfieldV2MigrationResult:
     """Migrate root location configurations to the new InField V2 format.
 
     For now, only migrates basic fields: externalId, name, and description.
@@ -69,7 +71,7 @@ def create_infield_v2_config(root_location_configs: list[RootLocationConfigurati
     location_filters = create_location_filters(root_location_configs)
 
     # Create infield location config nodes (using Data Modeling Instance API)
-    infield_location_config_nodes = create_infield_location_config_nodes(root_location_configs)
+    infield_location_config_nodes = create_infield_location_config_nodes(root_location_configs, client=client)
 
     return InfieldV2MigrationResult(
         location_filters=location_filters,
@@ -122,7 +124,9 @@ def create_location_filters(root_location_configs: list[RootLocationConfiguratio
     return location_filters
 
 
-def create_infield_location_config_nodes(root_location_configs: list[RootLocationConfiguration | Any]) -> NodeApplyList:
+def create_infield_location_config_nodes(
+    root_location_configs: list[RootLocationConfiguration | Any], client: Any | None = None
+) -> NodeApplyList:
     """Create InFieldLocationConfig nodes for each root location configuration.
 
     If the old config does not have externalId but only assetExternalId, adds a postfix with the index
@@ -152,7 +156,7 @@ def create_infield_location_config_nodes(root_location_configs: list[RootLocatio
         }
 
         # Apply additional migrated fields (featureToggles, etc.)
-        additional_props = apply_location_config_fields(location_dict)
+        additional_props = apply_location_config_fields(location_dict, client=client)
         location_props.update(additional_props)
 
         nodes.append(
