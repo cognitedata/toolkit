@@ -271,7 +271,15 @@ def create_properties(
         (set(flatten_dump.keys()) - set(property_mapping.keys())) | ignored_asset_centric_properties
     )
     issue.missing_asset_centric_properties = sorted(set(property_mapping.keys()) - set(flatten_dump.keys()))
-    issue.missing_instance_properties = sorted(set(property_mapping.values()) - set(view_properties.keys()))
+    # Node and edge properties are handled separately
+    issue.missing_instance_properties = sorted(
+        {
+            prop_id
+            for prop_id in property_mapping.values()
+            if not (prop_id.startswith("edge.") or prop_id.startswith("node."))
+        }
+        - set(view_properties.keys())
+    )
     return properties
 
 

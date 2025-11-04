@@ -847,6 +847,13 @@ class TestAssetCentricConversion:
                 ConversionIssue(
                     asset_centric_id=AssetCentricId("fileAnnotation", id_=37),
                     instance_id=EdgeId(space="test_space", external_id="annotation_37"),
+                    ignored_asset_centric_properties=[
+                        "annotatedResourceType",
+                        "creatingApp",
+                        "creatingAppVersion",
+                        "creatingUser",
+                    ],
+                    missing_asset_centric_properties=["data.assetRef.externalId"],
                 ),
                 id="Basic annotation conversion",
             )
