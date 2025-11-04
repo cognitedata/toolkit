@@ -31,13 +31,14 @@ class FileAnnotationIO(StorageIO[AssetCentricSelector, Annotation]):
                     annotated_resource_ids=[{"id": file_metadata.id} for file_metadata in file_chunk.items],
                 )
             )
+            if limit is not None and total + len(results) > limit:
+                results = results[: limit - total]
+
             for chunk in chunker_sequence(results, self.CHUNK_SIZE):
-                if limit is not None and total >= limit:
-                    return
                 yield Page(worker_id="main", items=chunk)
                 total += len(chunk)
-                if limit is not None and total >= limit:
-                    return
+            if limit is not None and total >= limit:
+                break
 
     def count(self, selector: AssetCentricSelector) -> int | None:
         """There is no efficient way to count annotations in CDF."""
