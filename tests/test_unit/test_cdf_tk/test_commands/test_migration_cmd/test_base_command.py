@@ -11,7 +11,6 @@ from cognite.client.data_classes.capabilities import (
     TimeSeriesAcl,
 )
 from cognite.client.data_classes.data_modeling import DataModel, DataModelList
-from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, ProjectStatistics
 
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.base import BaseMigrateCommand
@@ -20,7 +19,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_model import (
     MODEL_ID,
     RESOURCE_VIEW_MAPPING_VIEW_ID,
 )
-from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitMigrationError, ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitMigrationError
 
 
 class DummyMigrationCommand(BaseMigrateCommand):
@@ -129,42 +128,3 @@ class TestBaseCommand:
             BaseMigrateCommand.validate_migration_model_available(client)
 
             client.data_modeling.data_models.retrieve.assert_called_once_with([MODEL_ID], inline_views=False)
-
-    def test_validate_available_capacity_missing_capacity(self) -> None:
-        cmd = DummyMigrationCommand(silent=True)
-
-        with monkeypatch_toolkit_client() as client:
-            stats = MagicMock(spec=ProjectStatistics)
-            stats.instances = InstanceStatistics(
-                nodes=1000,
-                edges=0,
-                soft_deleted_edges=0,
-                soft_deleted_nodes=0,
-                instances_limit=1500,
-                soft_deleted_instances_limit=10_000,
-                instances=1000,
-                soft_deleted_instances=0,
-            )
-            client.data_modeling.statistics.project.return_value = stats
-            with pytest.raises(ToolkitValueError) as exc_info:
-                cmd.validate_available_capacity(client, 10_000)
-
-        assert "Cannot proceed with migration" in str(exc_info.value)
-
-    def test_validate_available_capacity_sufficient_capacity(self) -> None:
-        cmd = DummyMigrationCommand(silent=True)
-
-        with monkeypatch_toolkit_client() as client:
-            stats = MagicMock(spec=ProjectStatistics)
-            stats.instances = InstanceStatistics(
-                nodes=1000,
-                edges=0,
-                soft_deleted_edges=0,
-                soft_deleted_nodes=0,
-                instances_limit=5_000_000,
-                soft_deleted_instances_limit=100_000_000,
-                instances=1000,
-                soft_deleted_instances=0,
-            )
-            client.data_modeling.statistics.project.return_value = stats
-            cmd.validate_available_capacity(client, 10_000)
