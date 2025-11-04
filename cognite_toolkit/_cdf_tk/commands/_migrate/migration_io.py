@@ -1,9 +1,6 @@
 from collections.abc import Iterator, Mapping, Sequence
 from typing import ClassVar, cast
 
-from cognite.client.data_classes._base import (
-    T_WritableCogniteResource,
-)
 from cognite.client.data_classes.data_modeling import InstanceApply, NodeId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -22,6 +19,7 @@ from cognite_toolkit._cdf_tk.utils.useful_types import (
     AssetCentricKind,
     AssetCentricType,
     JsonVal,
+    T_AssetCentricResource,
 )
 
 from .data_classes import AssetCentricMapping, AssetCentricMappingList, MigrationMapping, MigrationMappingList
@@ -30,7 +28,7 @@ from .selectors import AssetCentricMigrationSelector, MigrateDataSetSelector, Mi
 
 
 class AssetCentricMigrationIO(
-    UploadableStorageIO[AssetCentricMigrationSelector, AssetCentricMapping[T_WritableCogniteResource], InstanceApply]
+    UploadableStorageIO[AssetCentricMigrationSelector, AssetCentricMapping[T_AssetCentricResource], InstanceApply]
 ):
     KIND = "AssetCentricMigration"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
@@ -63,11 +61,11 @@ class AssetCentricMigrationIO(
 
     def _stream_from_csv(
         self, selector: MigrationCSVFileSelector, limit: int | None = None
-    ) -> Iterator[Sequence[AssetCentricMapping[T_WritableCogniteResource]]]:
+    ) -> Iterator[Sequence[AssetCentricMapping[T_AssetCentricResource]]]:
         items = selector.items
         if limit is not None:
             items = MigrationMappingList(items[:limit])
-        chunk: list[AssetCentricMapping[T_WritableCogniteResource]] = []
+        chunk: list[AssetCentricMapping[T_AssetCentricResource]] = []
         for current_batch in chunker_sequence(items, self.CHUNK_SIZE):
             resources = self.hierarchy.get_resource_io(selector.kind).retrieve(current_batch.get_ids())
             for mapping, resource in zip(current_batch, resources, strict=True):
@@ -86,10 +84,10 @@ class AssetCentricMigrationIO(
 
     def _stream_given_dataset(
         self, selector: MigrateDataSetSelector, limit: int | None = None
-    ) -> Iterator[Sequence[AssetCentricMapping[T_WritableCogniteResource]]]:
+    ) -> Iterator[Sequence[AssetCentricMapping[T_AssetCentricResource]]]:
         asset_centric_selector = selector.as_asset_centric_selector()
         for data_chunk in self.hierarchy.stream_data(asset_centric_selector, limit):
-            mapping_list = AssetCentricMappingList[T_WritableCogniteResource]([])
+            mapping_list = AssetCentricMappingList[T_AssetCentricResource]([])
             for resource in data_chunk.items:
                 # We know data_set_id is here as we are using a DataSetSelector
                 data_set_id = cast(int, resource.data_set_id)
@@ -129,7 +127,7 @@ class AssetCentricMigrationIO(
 
     def data_to_json_chunk(
         self,
-        data_chunk: Sequence[AssetCentricMapping[T_WritableCogniteResource]],
+        data_chunk: Sequence[AssetCentricMapping[T_AssetCentricResource]],
         selector: AssetCentricMigrationSelector | None = None,
     ) -> list[dict[str, JsonVal]]:
         return [item.dump() for item in data_chunk]

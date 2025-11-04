@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio._base import T_Selector, T_WriteCogniteResource
 from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils.useful_types import T_AssetCentricResource
 
 
 class DataMapper(Generic[T_Selector, T_CogniteResource, T_WriteCogniteResource], ABC):
@@ -43,7 +44,9 @@ class DataMapper(Generic[T_Selector, T_CogniteResource, T_WriteCogniteResource],
         raise NotImplementedError("Subclasses must implement this method.")
 
 
-class AssetCentricMapper(DataMapper[AssetCentricMigrationSelector, AssetCentricMapping, InstanceApply]):
+class AssetCentricMapper(
+    DataMapper[AssetCentricMigrationSelector, AssetCentricMapping[T_AssetCentricResource], InstanceApply]
+):
     def __init__(self, client: ToolkitClient) -> None:
         self.client = client
         self._ingestion_view_by_id: dict[ViewId, View] = {}
@@ -84,7 +87,7 @@ class AssetCentricMapper(DataMapper[AssetCentricMigrationSelector, AssetCentricM
         asset_mappings = self.client.migration.instance_source.list(resource_type="asset", limit=-1)
         self._asset_mapping_by_id = {mapping.id_: mapping.as_direct_relation_reference() for mapping in asset_mappings}
 
-    def map(self, source: AssetCentricMapping) -> tuple[InstanceApply, ConversionIssue]:
+    def map(self, source: AssetCentricMapping[T_AssetCentricResource]) -> tuple[InstanceApply, ConversionIssue]:
         """Map a chunk of asset-centric data to InstanceApplyList format."""
         mapping = source.mapping
         ingestion_view = mapping.get_ingestion_view()

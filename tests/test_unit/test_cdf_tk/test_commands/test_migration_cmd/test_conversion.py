@@ -600,48 +600,48 @@ class TestAssetCentricConversion:
                 id="FileMetadata with no mappings (all ignored)",
             ),
             pytest.param(
-                Sequence(
+                TimeSeries(
                     id=654,
-                    name="Test Sequence",
-                    description="A test sequence",
+                    name="Test TimeSeries",
+                    description="A test timeseries",
                     metadata=None,
                 ),
                 ResourceViewMapping(
-                    external_id="sequence_mapping",
+                    external_id="timeseries_mapping",
                     version=1,
                     last_updated_time=1000000,
                     created_time=1000000,
-                    resource_type="sequence",
+                    resource_type="timeseries",
                     view_id=ViewId("test_space", "test_view", "v1"),
-                    property_mapping={"name": "sequenceName", "metadata.category": "sequenceCategory"},
+                    property_mapping={"name": "timeSeriesName", "metadata.category": "timeSeriesCategory"},
                 ),
                 {
-                    "sequenceName": MappedProperty(
+                    "timeSeriesName": MappedProperty(
                         ContainerId("test_space", "test_container"),
-                        "sequenceName",
+                        "timeSeriesName",
                         dt.Text(),
                         nullable=True,
                         immutable=False,
                         auto_increment=False,
                     ),
-                    "sequenceCategory": MappedProperty(
+                    "timeSeriesCategory": MappedProperty(
                         ContainerId("test_space", "test_container"),
-                        "sequenceCategory",
+                        "timeSeriesCategory",
                         dt.Text(),
                         nullable=True,
                         immutable=False,
                         auto_increment=False,
                     ),
                 },
-                {"sequenceName": "Test Sequence"},
+                {"timeSeriesName": "Test TimeSeries"},
                 ConversionIssue(
-                    asset_centric_id=AssetCentricId("sequence", id_=654),
+                    asset_centric_id=AssetCentricId("timeseries", id_=654),
                     instance_id=INSTANCE_ID,
                     ignored_asset_centric_properties=["description"],
                     missing_asset_centric_properties=["metadata.category"],
                     missing_instance_properties=[],
                 ),
-                id="Sequence with partial mapping",
+                id="TimeSeries with partial mapping",
             ),
             pytest.param(
                 Asset(id=999, external_id="asset_999", name=None, description=None),
