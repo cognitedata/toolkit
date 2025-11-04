@@ -4,10 +4,13 @@ from typing import ClassVar
 
 from cognite.client.data_classes.aggregations import Count
 from cognite.client.data_classes.data_modeling import (
+    ContainerId,
     ContainerList,
     EdgeApply,
+    MappedProperty,
     NodeApply,
     SpaceList,
+    ViewId,
     ViewList,
 )
 from cognite.client.data_classes.data_modeling.instances import Instance, InstanceApply
@@ -22,7 +25,7 @@ from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from . import StorageIOConfig
-from ._base import ConfigurableStorageIO, Page, UploadableStorageIO
+from ._base import ConfigurableStorageIO, Page, UploadableStorageIO, UploadItem
 from .selectors import InstanceFileSelector, InstanceSelector, InstanceSpaceSelector, InstanceViewSelector
 
 
@@ -54,9 +57,92 @@ class InstanceIO(
     def __init__(self, client: ToolkitClient, remove_existing_version: bool = True) -> None:
         super().__init__(client)
         self._remove_existing_version = remove_existing_version
+        # Cache for view to restricted properties mapping
+        self._view_restricted_properties_cache: dict[ViewId, set[str]] = {}
 
     def as_id(self, item: Instance) -> str:
         return f"{item.space}:{item.external_id}"
+
+    def _get_restricted_properties_for_view(self, view_id: ViewId) -> set[str]:
+        """Get the set of restricted property names for a given view.
+
+        This checks if the view writes to the CogniteAsset container in the cdf_cdm space,
+        and if so, returns the view properties that should be filtered out during upload.
+
+        The CogniteAsset container has managed properties for asset hierarchy that should not
+        be directly written:
+        - pathLastUpdatedTime (maps to assetHierarchy_path_last_updated_time)
+        - path (maps to assetHierarchy_path)
+        - root (maps to assetHierarchy_root)
+
+        Args:
+            view_id: The ViewId to check
+
+        Returns:
+            Set of property names that should be filtered from upload data
+        """
+        # Return cached result if available
+        if view_id in self._view_restricted_properties_cache:
+            return self._view_restricted_properties_cache[view_id]
+
+        restricted_properties: set[str] = set()
+
+        # Container properties that are read-only should not be uploaded.
+        RESTRICTED_CONTAINER_PROPERTIES = {
+            ContainerId(space="cdf_cdm", external_id="CogniteAsset"): {
+                "assetHierarchy_path_last_updated_time",
+                "assetHierarchy_path",
+                "assetHierarchy_root",
+            },
+            ContainerId(space="cdf_cdm", external_id="CogniteFile"): {"isUploaded"},
+        }
+
+        # Retrieve the view to check its properties
+        view = self.client.data_modeling.views.retrieve(view_id)
+        if view is None:
+            # Cache empty result
+            self._view_restricted_properties_cache[view_id] = restricted_properties
+            return restricted_properties
+        view = view[-1]
+
+        # Check each property in the view
+        for property_identifier, property in view.properties.items():
+            if isinstance(
+                property, MappedProperty
+            ) and property.container_property_identifier in RESTRICTED_CONTAINER_PROPERTIES.get(
+                property.container, set()
+            ):
+                restricted_properties.add(property_identifier)
+
+        # Cache the result
+        self._view_restricted_properties_cache[view_id] = restricted_properties
+        return restricted_properties
+
+    def _filter_restricted_properties(self, item_json: dict[str, JsonVal], selector: InstanceSelector | None) -> None:
+        """
+        Filter out restricted properties from the item JSON based on the selector's view.
+
+        Args:
+            item_json: The item data as a JSON dictionary
+            selector: The selector containing view information
+        """
+        if (
+            selector is None
+            or not isinstance(selector, InstanceViewSelector | InstanceSpaceSelector)
+            or selector.view is None
+        ):
+            return
+
+        restricted_properties = self._get_restricted_properties_for_view(selector.view.as_id())
+
+        if not restricted_properties:
+            return
+
+        # Filter out restricted properties from the sources
+        for source in item_json.get("sources", []):
+            if isinstance(source, dict) and "properties" in source and isinstance(source["properties"], dict):
+                for restricted_prop in restricted_properties:
+                    source["properties"].pop(restricted_prop, None)
 
     def stream_data(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[Page]:
         if isinstance(selector, InstanceViewSelector | InstanceSpaceSelector):
@@ -125,6 +211,28 @@ class InstanceIO(
         self, data_chunk: Sequence[Instance], selector: InstanceSelector | None = None
     ) -> list[dict[str, JsonVal]]:
         return [instance.as_write().dump(camel_case=True) for instance in data_chunk]
+
+    def json_chunk_to_data(
+        self, data_chunk: list[tuple[str, dict[str, JsonVal]]], selector: InstanceSelector | None = None
+    ) -> Sequence[UploadItem[InstanceApply]]:
+        """Convert a JSON-compatible chunk of data back to a writable Cognite resource list.
+
+        This override adds support for filtering restricted properties based on the selector's view.
+
+        Args:
+            data_chunk: A list of tuples, each containing a source ID and a dictionary representing
+                the data in a JSON-compatible format.
+            selector: Optional selection criteria to identify where to upload the data.
+        Returns:
+            A writable Cognite resource list representing the data.
+        """
+        result: list[UploadItem[InstanceApply]] = []
+        for source_id, item_json in data_chunk:
+            # Filter out restricted properties if applicable
+            self._filter_restricted_properties(item_json, selector)
+            item = self.json_to_resource(item_json)
+            result.append(UploadItem(source_id=source_id, item=item))
+        return result
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> InstanceApply:
         # There is a bug in the SDK where InstanceApply._load turns all keys to snake_case.

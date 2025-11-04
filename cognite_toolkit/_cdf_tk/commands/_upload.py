@@ -191,7 +191,7 @@ class UploadCommand(ToolkitCommand):
                         download_iterable=io.read_chunks(reader),
                         process=partial(io.rows_to_data, selector=selector)
                         if is_table and isinstance(io, TableUploadableStorageIO)
-                        else io.json_chunk_to_data,
+                        else partial(io.json_chunk_to_data, selector=selector),
                         write=partial(
                             self._upload_items,
                             upload_client=upload_client,
