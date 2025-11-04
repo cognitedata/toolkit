@@ -38,6 +38,7 @@ class TestCreateProperties:
     DIRECT_RELATION_CACHE = DirectRelationCache(
         asset={1: DirectRelationReference("instance_space", "MyFirstAsset")},
         source={"sourceA": DirectRelationReference("instance_space", "TheSourceA")},
+        file={},
     )
 
     @pytest.mark.parametrize(
