@@ -83,14 +83,14 @@ class FileAnnotationIO(StorageIO[AssetCentricSelector, Annotation]):
                     id_ = file_ref.get("id")
                     if isinstance(id_, int):
                         external_id = self.client.lookup.files.external_id(file_ref.pop("id"))
-                        data["externalId"] = self.MISSING_ID if external_id is None else external_id
+                        file_ref["externalId"] = self.MISSING_ID if external_id is None else external_id
             if "assetRef" in data:
                 asset_ref = data["assetRef"]
                 if isinstance(asset_ref, dict):
                     id_ = asset_ref.get("id")
                     if isinstance(id_, int):
                         external_id = self.client.lookup.assets.external_id(asset_ref.pop("id"))
-                        data["externalId"] = self.MISSING_ID if external_id is None else external_id
+                        asset_ref["externalId"] = self.MISSING_ID if external_id is None else external_id
         return dumped
 
     @classmethod
