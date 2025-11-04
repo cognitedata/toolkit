@@ -2,7 +2,7 @@ from collections.abc import Mapping, Set
 from dataclasses import dataclass
 from typing import Any, ClassVar
 
-from cognite.client.data_classes import Asset, Event, FileMetadata, Sequence, TimeSeries
+from cognite.client.data_classes import Asset, Event, FileMetadata, TimeSeries
 from cognite.client.data_classes.data_modeling import DirectRelationReference, MappedProperty, NodeApply, NodeId
 from cognite.client.data_classes.data_modeling.instances import NodeOrEdgeData, PropertyValueWrite
 from cognite.client.data_classes.data_modeling.views import ViewProperty
@@ -139,7 +139,6 @@ def _lookup_resource_type(resource_type: type[AssetCentricResource]) -> AssetCen
         FileMetadata: "file",
         Event: "event",
         TimeSeries: "timeseries",
-        Sequence: "sequence",
         ExtendedFileMetadata: "file",
         ExtendedTimeSeries: "timeseries",
     }
