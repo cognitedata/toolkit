@@ -93,7 +93,8 @@ class FileAnnotationIO(StorageIO[AssetCentricSelector, Annotation]):
                         data["externalId"] = self.MISSING_ID if external_id is None else external_id
         return dumped
 
-    def _get_file_id(self, data: dict[str, Any]) -> int | None:
+    @classmethod
+    def _get_file_id(cls, data: dict[str, Any]) -> int | None:
         file_ref = data.get("fileRef")
         if isinstance(file_ref, dict):
             id_ = file_ref.get("id")
@@ -101,7 +102,8 @@ class FileAnnotationIO(StorageIO[AssetCentricSelector, Annotation]):
                 return id_
         return None
 
-    def _get_asset_id(self, data: dict[str, Any]) -> int | None:
+    @classmethod
+    def _get_asset_id(cls, data: dict[str, Any]) -> int | None:
         asset_ref = data.get("assetRef")
         if isinstance(asset_ref, dict):
             id_ = asset_ref.get("id")
