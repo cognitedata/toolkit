@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import Any, Generic, Literal
 
 from cognite.client.data_classes._base import (
-    T_WritableCogniteResource,
     WriteableCogniteResource,
     WriteableCogniteResourceList,
 )
@@ -15,11 +14,14 @@ from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyL
 from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.client.data_classes.pending_instances_ids import PendingInstanceId
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import create_default_mappings
-from cognite_toolkit._cdf_tk.exceptions import (
-    ToolkitValueError,
-)
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio._data_classes import ModelList
-from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricKind, AssetCentricType, JsonVal
+from cognite_toolkit._cdf_tk.utils.useful_types import (
+    AssetCentricKind,
+    AssetCentricType,
+    JsonVal,
+    T_AssetCentricResource,
+)
 
 
 class MigrationMapping(BaseModel, alias_generator=to_camel_case, extra="ignore", populate_by_name=True):
@@ -186,9 +188,9 @@ class TimeSeriesMigrationMappingList(MigrationMappingList):
 
 
 @dataclass
-class AssetCentricMapping(Generic[T_WritableCogniteResource], WriteableCogniteResource[InstanceApply]):
+class AssetCentricMapping(Generic[T_AssetCentricResource], WriteableCogniteResource[InstanceApply]):
     mapping: MigrationMapping
-    resource: T_WritableCogniteResource
+    resource: T_AssetCentricResource
 
     def as_write(self) -> InstanceApply:
         raise NotImplementedError()
@@ -203,9 +205,7 @@ class AssetCentricMapping(Generic[T_WritableCogniteResource], WriteableCogniteRe
         }
 
 
-class AssetCentricMappingList(
-    WriteableCogniteResourceList[InstanceApply, AssetCentricMapping[T_WritableCogniteResource]]
-):
+class AssetCentricMappingList(WriteableCogniteResourceList[InstanceApply, AssetCentricMapping[T_AssetCentricResource]]):
     _RESOURCE: type = AssetCentricMapping
 
     def as_write(self) -> InstanceApplyList:

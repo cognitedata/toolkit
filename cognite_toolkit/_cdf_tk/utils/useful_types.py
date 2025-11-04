@@ -11,6 +11,7 @@ AssetCentricDestinationType: TypeAlias = Literal["assets", "files", "events", "t
 AssetCentricType: TypeAlias = Literal["asset", "file", "event", "timeseries", "sequence"]
 AssetCentricResource: TypeAlias = Asset | FileMetadata | Event | TimeSeries | Sequence
 AssetCentricKind: TypeAlias = Literal["Assets", "Events", "TimeSeries", "FileMetadata"]
+
 DataType: TypeAlias = Literal["string", "integer", "float", "boolean", "json", "date", "timestamp"]
 PythonTypes: TypeAlias = str | int | float | bool | datetime | date | dict[str, Any] | list[Any]
 
@@ -22,3 +23,4 @@ T_Value = TypeVar("T_Value")
 PrimitiveType: TypeAlias = str | int | float | bool
 
 T_WriteCogniteResource = TypeVar("T_WriteCogniteResource", bound=CogniteObject)
+T_AssetCentricResource = TypeVar("T_AssetCentricResource", bound=AssetCentricResource)
