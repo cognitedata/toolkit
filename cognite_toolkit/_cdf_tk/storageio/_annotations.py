@@ -1,4 +1,5 @@
 from collections.abc import Iterable, Sequence
+from typing import Any
 
 from cognite.client.data_classes import Annotation, AnnotationFilter
 
@@ -49,7 +50,15 @@ class FileAnnotationIO(StorageIO[AssetCentricSelector, Annotation]):
     def data_to_json_chunk(
         self, data_chunk: Sequence[Annotation], selector: AssetCentricSelector | None = None
     ) -> list[dict[str, JsonVal]]:
-        raise NotImplementedError("AnnotationIO does not support exporting to JSON.")
+        files_ids = {
+            item.annotated_resource_id
+            for item in data_chunk
+            if item.annotated_resource_type == "file" and item.annotated_resource_id is not None
+        } | {file_id for item in data_chunk if (file_id := self._get_file_id(item.data))}
+        self.client.lookup.files.external_id(list(files_ids))  # Preload file external IDs
+        asset_ids = {asset_id for item in data_chunk if (asset_id := self._get_asset_id(item.data))}
+        self.client.lookup.assets.external_id(list(asset_ids))  # Preload asset external IDs
+        return [self.dump_annotation_to_json(item) for item in data_chunk]
 
     def dump_annotation_to_json(self, annotation: Annotation) -> dict[str, JsonVal]:
         """Dump annotations to a list of JSON serializable dictionaries.
@@ -83,3 +92,19 @@ class FileAnnotationIO(StorageIO[AssetCentricSelector, Annotation]):
                         external_id = self.client.lookup.assets.external_id(asset_ref.pop("id"))
                         data["externalId"] = self.MISSING_ID if external_id is None else external_id
         return dumped
+
+    def _get_file_id(self, data: dict[str, Any]) -> int | None:
+        file_ref = data.get("fileRef")
+        if isinstance(file_ref, dict):
+            id_ = file_ref.get("id")
+            if isinstance(id_, int):
+                return id_
+        return None
+
+    def _get_asset_id(self, data: dict[str, Any]) -> int | None:
+        asset_ref = data.get("assetRef")
+        if isinstance(asset_ref, dict):
+            id_ = asset_ref.get("id")
+            if isinstance(id_, int):
+                return id_
+        return None
