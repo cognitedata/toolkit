@@ -1,10 +1,10 @@
 from collections.abc import Mapping, Set
 from dataclasses import dataclass
-from typing import Any, ClassVar
+from typing import Any, ClassVar, overload
 
 from cognite.client.data_classes import Asset, Event, FileMetadata, TimeSeries
-from cognite.client.data_classes.data_modeling import DirectRelationReference, MappedProperty, NodeApply, NodeId
-from cognite.client.data_classes.data_modeling.instances import NodeOrEdgeData, PropertyValueWrite
+from cognite.client.data_classes.data_modeling import DirectRelationReference, EdgeId, MappedProperty, NodeApply, NodeId
+from cognite.client.data_classes.data_modeling.instances import EdgeApply, NodeOrEdgeData, PropertyValueWrite
 from cognite.client.data_classes.data_modeling.views import ViewProperty
 
 from cognite_toolkit._cdf_tk.client.data_classes.extended_filemetadata import ExtendedFileMetadata
@@ -66,6 +66,7 @@ class DirectRelationCache:
         return {}
 
 
+@overload
 def asset_centric_to_dm(
     resource: AssetCentricResource,
     instance_id: NodeId,
@@ -73,12 +74,33 @@ def asset_centric_to_dm(
     view_properties: dict[str, ViewProperty],
     asset_instance_id_by_id: Mapping[int, DirectRelationReference],
     source_instance_id_by_external_id: Mapping[str, DirectRelationReference],
-) -> tuple[NodeApply, ConversionIssue]:
+) -> tuple[NodeApply, ConversionIssue]: ...
+
+
+@overload
+def asset_centric_to_dm(
+    resource: AssetCentricResource,
+    instance_id: EdgeId,
+    view_source: ResourceViewMapping,
+    view_properties: dict[str, ViewProperty],
+    asset_instance_id_by_id: Mapping[int, DirectRelationReference],
+    source_instance_id_by_external_id: Mapping[str, DirectRelationReference],
+) -> tuple[EdgeApply, ConversionIssue]: ...
+
+
+def asset_centric_to_dm(
+    resource: AssetCentricResource,
+    instance_id: NodeId | EdgeId,
+    view_source: ResourceViewMapping,
+    view_properties: dict[str, ViewProperty],
+    asset_instance_id_by_id: Mapping[int, DirectRelationReference],
+    source_instance_id_by_external_id: Mapping[str, DirectRelationReference],
+) -> tuple[NodeApply | EdgeApply, ConversionIssue]:
     """Convert an asset-centric resource to a data model instance.
 
     Args:
         resource (CogniteResource): The asset-centric resource to convert.
-        instance_id (NodeId): The ID of the instance to create or update.
+        instance_id (NodeId | EdgeApply): The ID of the instance to create or update.
         view_source (ResourceViewMapping): The view source defining how to map the resource to the data model.
         view_properties (dict[str, ViewProperty]): The defined properties referenced in the view source mapping.
         asset_instance_id_by_id (dict[int, DirectRelationReference]): A mapping from asset IDs to their corresponding
@@ -89,7 +111,7 @@ def asset_centric_to_dm(
             that reference sources.
 
     Returns:
-        tuple[NodeApply, ConversionIssue]: A tuple containing the converted NodeApply and any ConversionIssue encountered.
+        tuple[NodeApply | EdgeApply, ConversionIssue]: A tuple containing the converted NodeApply and any ConversionIssue encountered.
     """
     cache = DirectRelationCache(asset=asset_instance_id_by_id, source=source_instance_id_by_external_id)
     resource_type = _lookup_resource_type(type(resource))
