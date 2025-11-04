@@ -49,11 +49,12 @@ class FileAnnotationIO(StorageIO[AssetCentricSelector, Annotation]):
     def data_to_json_chunk(
         self, data_chunk: Sequence[Annotation], selector: AssetCentricSelector | None = None
     ) -> list[dict[str, JsonVal]]:
-        files_ids = {
-            item.annotated_resource_id
-            for item in data_chunk
-            if item.annotated_resource_type == "file" and item.annotated_resource_id is not None
-        } | {file_id for item in data_chunk if (file_id := self._get_file_id(item.data))}
+        files_ids: set[int] = set()
+        for item in data_chunk:
+            if item.annotated_resource_type == "file" and item.annotated_resource_id is not None:
+                files_ids.add(item.annotated_resource_id)
+            if file_id := self._get_file_id(item.data):
+                files_ids.add(file_id)
         self.client.lookup.files.external_id(list(files_ids))  # Preload file external IDs
         asset_ids = {asset_id for item in data_chunk if (asset_id := self._get_asset_id(item.data))}
         self.client.lookup.assets.external_id(list(asset_ids))  # Preload asset external IDs
@@ -69,27 +70,17 @@ class FileAnnotationIO(StorageIO[AssetCentricSelector, Annotation]):
             A list of JSON serializable dictionaries representing the annotations.
         """
         dumped = annotation.as_write().dump()
-        if "annotatedResourceId" in dumped:
-            annotated_resource_id = dumped.pop("annotatedResourceId")
-            if isinstance(annotated_resource_id, int):
-                external_id = self.client.lookup.files.external_id(annotated_resource_id)
-                dumped["annotatedResourceExternalId"] = self.MISSING_ID if external_id is None else external_id
-        data = dumped.get("data")
-        if isinstance(data, dict):
-            if "fileRef" in data:
-                file_ref = data["fileRef"]
-                if isinstance(file_ref, dict):
-                    id_ = file_ref.get("id")
-                    if isinstance(id_, int):
-                        external_id = self.client.lookup.files.external_id(file_ref.pop("id"))
-                        file_ref["externalId"] = self.MISSING_ID if external_id is None else external_id
-            if "assetRef" in data:
-                asset_ref = data["assetRef"]
-                if isinstance(asset_ref, dict):
-                    id_ = asset_ref.get("id")
-                    if isinstance(id_, int):
-                        external_id = self.client.lookup.assets.external_id(asset_ref.pop("id"))
-                        asset_ref["externalId"] = self.MISSING_ID if external_id is None else external_id
+        if isinstance(annotated_resource_id := dumped.pop("annotatedResourceId", None), int):
+            external_id = self.client.lookup.files.external_id(annotated_resource_id)
+            dumped["annotatedResourceExternalId"] = self.MISSING_ID if external_id is None else external_id
+
+        if isinstance(data := dumped.get("data"), dict):
+            if isinstance(file_ref := data.get("fileRef"), dict) and isinstance(file_ref.get("id"), int):
+                external_id = self.client.lookup.files.external_id(file_ref.pop("id"))
+                file_ref["externalId"] = self.MISSING_ID if external_id is None else external_id
+            if isinstance(asset_ref := data.get("assetRef"), dict) and isinstance(asset_ref.get("id"), int):
+                external_id = self.client.lookup.assets.external_id(asset_ref.pop("id"))
+                asset_ref["externalId"] = self.MISSING_ID if external_id is None else external_id
         return dumped
 
     @classmethod
