@@ -9,12 +9,16 @@ from typing import Any
 from cognite.client.data_classes.data_modeling import DirectRelationReference
 from cognite.client.exceptions import CogniteAPIError
 
+from .access_management import migrate_access_management
 from .app_instance_space import migrate_app_instance_space
+from .disciplines import migrate_disciplines
 from .feature_toggles import migrate_feature_toggles
 from .root_asset import migrate_root_asset
 
 
-def apply_location_config_fields(location_dict: dict[str, Any], client: Any = None) -> dict[str, Any]:
+def apply_location_config_fields(
+    location_dict: dict[str, Any], feature_configuration: dict[str, Any] | None = None, client: Any = None
+) -> dict[str, Any]:
     """Apply migrated fields to InFieldLocationConfig properties.
 
     This function applies all migrated fields from the old configuration
@@ -25,9 +29,12 @@ def apply_location_config_fields(location_dict: dict[str, Any], client: Any = No
     - featureToggles: From featureToggles in old configuration
     - rootAsset: Direct relation from sourceDataInstanceSpace and assetExternalId (only if asset exists)
     - appInstanceSpace: From appDataInstanceSpace in old configuration
+    - accessManagement: From templateAdmins and checklistAdmins in old configuration
+    - disciplines: From disciplines in FeatureConfiguration (shared across all locations)
 
     Args:
         location_dict: Location configuration dict (from dump(camel_case=True))
+        feature_configuration: Optional FeatureConfiguration dict (for disciplines)
         client: Optional client to verify asset existence before including rootAsset
 
     Returns:
@@ -50,6 +57,16 @@ def apply_location_config_fields(location_dict: dict[str, Any], client: Any = No
     app_instance_space = migrate_app_instance_space(location_dict)
     if app_instance_space is not None:
         props["appInstanceSpace"] = app_instance_space
+
+    # Migrate accessManagement
+    access_management = migrate_access_management(location_dict)
+    if access_management is not None:
+        props["accessManagement"] = access_management
+
+    # Migrate disciplines (from FeatureConfiguration level)
+    disciplines = migrate_disciplines(feature_configuration)
+    if disciplines is not None:
+        props["disciplines"] = disciplines
 
     # TODO: Add more field migrations here as they are implemented
     # - threeDConfiguration

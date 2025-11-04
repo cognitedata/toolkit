@@ -1,4 +1,4 @@
-"""Tests for rootAsset migration in InField V2 config migration."""
+"""Tests for accessManagement migration in InField V2 config migration."""
 
 from pathlib import Path
 
@@ -11,11 +11,11 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_model import COGNITE_MIGRATI
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
-class TestRootAssetMigration:
-    def test_root_asset_with_both_fields(
+class TestAccessManagementMigration:
+    def test_access_management_with_both_fields(
         self, toolkit_client_approval: ApprovalToolkitClient, tmp_path: Path
     ) -> None:
-        """Test that rootAsset is migrated when both sourceDataInstanceSpace and assetExternalId exist."""
+        """Test that accessManagement is migrated when both templateAdmins and checklistAdmins exist."""
         toolkit_client_approval.append(DataModel, COGNITE_MIGRATION_MODEL)
 
         apm_config_node = Node._load(
@@ -33,7 +33,8 @@ class TestRootAssetMigration:
                                     {
                                         "externalId": "loc1",
                                         "assetExternalId": "asset_123",
-                                        "sourceDataInstanceSpace": "source_space",
+                                        "templateAdmins": ["template_admin_1", "template_admin_2"],
+                                        "checklistAdmins": ["checklist_admin_1"],
                                     }
                                 ],
                             },
@@ -58,19 +59,16 @@ class TestRootAssetMigration:
         location_node = created_nodes[0]
         location_props = location_node.sources[0].properties
 
-        # Note: rootAsset migration is currently commented out
-        # When re-enabled, uncomment the following:
-        # assert "rootAsset" in location_props
-        # root_asset = location_props["rootAsset"]
-        # assert root_asset.space == "source_space"
-        # assert root_asset.external_id == "asset_123"
-        # For now, just verify the node was created
-        assert "rootLocationExternalId" in location_props
+        # Check that accessManagement is present
+        assert "accessManagement" in location_props
+        access_management = location_props["accessManagement"]
+        assert access_management["templateAdmins"] == ["template_admin_1", "template_admin_2"]
+        assert access_management["checklistAdmins"] == ["checklist_admin_1"]
 
-    def test_root_asset_with_missing_source_space(
+    def test_access_management_with_only_template_admins(
         self, toolkit_client_approval: ApprovalToolkitClient, tmp_path: Path
     ) -> None:
-        """Test that rootAsset is not included when sourceDataInstanceSpace is missing."""
+        """Test that accessManagement is migrated when only templateAdmins exist."""
         toolkit_client_approval.append(DataModel, COGNITE_MIGRATION_MODEL)
 
         apm_config_node = Node._load(
@@ -88,7 +86,7 @@ class TestRootAssetMigration:
                                     {
                                         "externalId": "loc1",
                                         "assetExternalId": "asset_123",
-                                        # Missing sourceDataInstanceSpace
+                                        "templateAdmins": ["template_admin_1"],
                                     }
                                 ],
                             },
@@ -113,13 +111,16 @@ class TestRootAssetMigration:
         location_node = created_nodes[0]
         location_props = location_node.sources[0].properties
 
-        # Check that rootAsset is not present when sourceDataInstanceSpace is missing
-        assert "rootAsset" not in location_props
+        # Check that accessManagement is present with only templateAdmins
+        assert "accessManagement" in location_props
+        access_management = location_props["accessManagement"]
+        assert access_management["templateAdmins"] == ["template_admin_1"]
+        assert "checklistAdmins" not in access_management
 
-    def test_root_asset_with_missing_asset_external_id(
+    def test_access_management_with_only_checklist_admins(
         self, toolkit_client_approval: ApprovalToolkitClient, tmp_path: Path
     ) -> None:
-        """Test that rootAsset is not included when assetExternalId is missing."""
+        """Test that accessManagement is migrated when only checklistAdmins exist."""
         toolkit_client_approval.append(DataModel, COGNITE_MIGRATION_MODEL)
 
         apm_config_node = Node._load(
@@ -136,8 +137,8 @@ class TestRootAssetMigration:
                                 "rootLocationConfigurations": [
                                     {
                                         "externalId": "loc1",
-                                        "sourceDataInstanceSpace": "source_space",
-                                        # Missing assetExternalId
+                                        "assetExternalId": "asset_123",
+                                        "checklistAdmins": ["checklist_admin_1", "checklist_admin_2"],
                                     }
                                 ],
                             },
@@ -162,13 +163,16 @@ class TestRootAssetMigration:
         location_node = created_nodes[0]
         location_props = location_node.sources[0].properties
 
-        # Check that rootAsset is not present when assetExternalId is missing
-        assert "rootAsset" not in location_props
+        # Check that accessManagement is present with only checklistAdmins
+        assert "accessManagement" in location_props
+        access_management = location_props["accessManagement"]
+        assert access_management["checklistAdmins"] == ["checklist_admin_1", "checklist_admin_2"]
+        assert "templateAdmins" not in access_management
 
-    def test_root_asset_with_empty_strings(
+    def test_access_management_with_no_fields(
         self, toolkit_client_approval: ApprovalToolkitClient, tmp_path: Path
     ) -> None:
-        """Test that rootAsset is not included when fields are empty strings."""
+        """Test that accessManagement is not included when neither templateAdmins nor checklistAdmins exist."""
         toolkit_client_approval.append(DataModel, COGNITE_MIGRATION_MODEL)
 
         apm_config_node = Node._load(
@@ -185,8 +189,8 @@ class TestRootAssetMigration:
                                 "rootLocationConfigurations": [
                                     {
                                         "externalId": "loc1",
-                                        "assetExternalId": "",  # Empty string
-                                        "sourceDataInstanceSpace": "source_space",
+                                        "assetExternalId": "asset_123",
+                                        # No templateAdmins or checklistAdmins
                                     }
                                 ],
                             },
@@ -211,67 +215,6 @@ class TestRootAssetMigration:
         location_node = created_nodes[0]
         location_props = location_node.sources[0].properties
 
-        # Check that rootAsset is not present when assetExternalId is empty string
-        assert "rootAsset" not in location_props
-
-    def test_root_asset_with_other_fields(
-        self, toolkit_client_approval: ApprovalToolkitClient, tmp_path: Path
-    ) -> None:
-        """Test that rootAsset works together with other migrated fields."""
-        toolkit_client_approval.append(DataModel, COGNITE_MIGRATION_MODEL)
-
-        apm_config_node = Node._load(
-            {
-                "space": "APM_Config",
-                "externalId": "default-config",
-                "version": 1,
-                "lastUpdatedTime": 1,
-                "createdTime": 1,
-                "properties": {
-                    "APM_Config": {
-                        "APM_Config/1": {
-                            "featureConfiguration": {
-                                "rootLocationConfigurations": [
-                                    {
-                                        "externalId": "loc1",
-                                        "assetExternalId": "asset_456",
-                                        "sourceDataInstanceSpace": "source_space",
-                                        "featureToggles": {
-                                            "threeD": True,
-                                        },
-                                    }
-                                ],
-                            },
-                        }
-                    }
-                },
-            }
-        )
-
-        toolkit_client_approval.append(Node, apm_config_node)
-
-        MigrationCommand(silent=True).create(
-            client=toolkit_client_approval.client,
-            creator=InfieldV2ConfigCreator(toolkit_client_approval.client),
-            dry_run=False,
-            verbose=False,
-            output_dir=tmp_path,
-        )
-
-        created_nodes = toolkit_client_approval.created_resources.get("Node", [])
-        assert len(created_nodes) == 1
-        location_node = created_nodes[0]
-        location_props = location_node.sources[0].properties
-
-        # Check that featureToggles is present
-        assert "featureToggles" in location_props
-        # Note: rootAsset migration is currently commented out
-        # When re-enabled, uncomment the following:
-        # assert "rootAsset" in location_props
-        # root_asset = location_props["rootAsset"]
-        # assert root_asset.space == "source_space"
-        # assert root_asset.external_id == "asset_456"
-
-        feature_toggles = location_props["featureToggles"]
-        assert feature_toggles["threeD"] is True
+        # Check that accessManagement is not present
+        assert "accessManagement" not in location_props
 

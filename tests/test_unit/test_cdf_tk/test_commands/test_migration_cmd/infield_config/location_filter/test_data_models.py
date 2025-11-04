@@ -22,7 +22,7 @@ class TestDataModelsMigration:
         apm_config_node = Node._load(
             {
                 "space": "APM_Config",
-                "externalId": "test_config",
+                "externalId": "default-config",
                 "version": 1,
                 "lastUpdatedTime": 1,
                 "createdTime": 1,
@@ -75,7 +75,7 @@ class TestDataModelsMigration:
         apm_config_node = Node._load(
             {
                 "space": "APM_Config",
-                "externalId": "test_config",
+                "externalId": "default-config",
                 "version": 1,
                 "lastUpdatedTime": 1,
                 "createdTime": 1,
@@ -131,7 +131,7 @@ class TestDataModelsMigration:
         apm_config_node = Node._load(
             {
                 "space": "APM_Config",
-                "externalId": "test_config",
+                "externalId": "default-config",
                 "version": 1,
                 "lastUpdatedTime": 1,
                 "createdTime": 1,

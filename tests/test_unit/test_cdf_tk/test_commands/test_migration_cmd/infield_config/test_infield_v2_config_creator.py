@@ -506,10 +506,11 @@ class TestInfieldV2ConfigCreator:
 
         # Verify location properties point to APP_CONFIG_V2 data
         location_props = location_node.sources[0].properties
-        # The rootAsset should reference the asset from APP_CONFIG_V2
-        root_asset = location_props["rootAsset"]
-        assert root_asset.external_id == "asset_v2"
-        assert root_asset.space == "source_space_v2"
+        # Note: rootAsset migration is currently commented out, so we don't check for it here
+        # When re-enabled, uncomment the following:
+        # root_asset = location_props["rootAsset"]
+        # assert root_asset.external_id == "asset_v2"
+        # assert root_asset.space == "source_space_v2"
 
         # Verify LocationFilter was also created from APP_CONFIG_V2
         created_location_filters = toolkit_client_approval.created_resources.get("LocationFilter", [])

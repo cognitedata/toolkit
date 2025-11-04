@@ -32,7 +32,7 @@ class TestInfieldV2ConfigIntegration:
         apm_config_node = Node._load(
             {
                 "space": "APM_Config",
-                "externalId": "complete_config",
+                "externalId": "default-config",
                 "version": 1,
                 "lastUpdatedTime": 1,
                 "createdTime": 1,
@@ -103,7 +103,7 @@ class TestInfieldV2ConfigIntegration:
         apm_config_node = Node._load(
             {
                 "space": "APM_Config",
-                "externalId": "multi_config",
+                "externalId": "default-config",
                 "version": 1,
                 "lastUpdatedTime": 1,
                 "createdTime": 1,

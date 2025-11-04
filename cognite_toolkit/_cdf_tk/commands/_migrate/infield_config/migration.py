@@ -41,7 +41,9 @@ class InfieldV2MigrationResult:
 
 
 def create_infield_v2_config(
-    root_location_configs: list[RootLocationConfiguration | Any], client: Any | None = None
+    root_location_configs: list[RootLocationConfiguration | Any],
+    feature_configuration: dict[str, Any] | None = None,
+    client: Any | None = None,
 ) -> InfieldV2MigrationResult:
     """Migrate root location configurations to the new InField V2 format.
 
@@ -71,7 +73,9 @@ def create_infield_v2_config(
     location_filters = create_location_filters(root_location_configs)
 
     # Create infield location config nodes (using Data Modeling Instance API)
-    infield_location_config_nodes = create_infield_location_config_nodes(root_location_configs, client=client)
+    infield_location_config_nodes = create_infield_location_config_nodes(
+        root_location_configs, feature_configuration=feature_configuration, client=client
+    )
 
     return InfieldV2MigrationResult(
         location_filters=location_filters,
@@ -125,7 +129,9 @@ def create_location_filters(root_location_configs: list[RootLocationConfiguratio
 
 
 def create_infield_location_config_nodes(
-    root_location_configs: list[RootLocationConfiguration | Any], client: Any | None = None
+    root_location_configs: list[RootLocationConfiguration | Any],
+    feature_configuration: dict[str, Any] | None = None,
+    client: Any | None = None,
 ) -> NodeApplyList:
     """Create InFieldLocationConfig nodes for each root location configuration.
 
@@ -156,7 +162,9 @@ def create_infield_location_config_nodes(
         }
 
         # Apply additional migrated fields (featureToggles, etc.)
-        additional_props = apply_location_config_fields(location_dict, client=client)
+        additional_props = apply_location_config_fields(
+            location_dict, feature_configuration=feature_configuration, client=client
+        )
         location_props.update(additional_props)
 
         nodes.append(

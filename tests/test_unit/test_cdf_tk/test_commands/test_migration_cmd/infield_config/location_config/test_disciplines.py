@@ -1,4 +1,4 @@
-"""Tests for rootAsset migration in InField V2 config migration."""
+"""Tests for disciplines migration in InField V2 config migration."""
 
 from pathlib import Path
 
@@ -11,11 +11,11 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_model import COGNITE_MIGRATI
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
-class TestRootAssetMigration:
-    def test_root_asset_with_both_fields(
+class TestDisciplinesMigration:
+    def test_disciplines_with_disciplines(
         self, toolkit_client_approval: ApprovalToolkitClient, tmp_path: Path
     ) -> None:
-        """Test that rootAsset is migrated when both sourceDataInstanceSpace and assetExternalId exist."""
+        """Test that disciplines are migrated when present in FeatureConfiguration."""
         toolkit_client_approval.append(DataModel, COGNITE_MIGRATION_MODEL)
 
         apm_config_node = Node._load(
@@ -33,8 +33,11 @@ class TestRootAssetMigration:
                                     {
                                         "externalId": "loc1",
                                         "assetExternalId": "asset_123",
-                                        "sourceDataInstanceSpace": "source_space",
                                     }
+                                ],
+                                "disciplines": [
+                                    {"externalId": "mechanical", "name": "Mechanical"},
+                                    {"externalId": "electrical", "name": "Electrical"},
                                 ],
                             },
                         }
@@ -58,19 +61,78 @@ class TestRootAssetMigration:
         location_node = created_nodes[0]
         location_props = location_node.sources[0].properties
 
-        # Note: rootAsset migration is currently commented out
-        # When re-enabled, uncomment the following:
-        # assert "rootAsset" in location_props
-        # root_asset = location_props["rootAsset"]
-        # assert root_asset.space == "source_space"
-        # assert root_asset.external_id == "asset_123"
-        # For now, just verify the node was created
-        assert "rootLocationExternalId" in location_props
+        # Check that disciplines are present
+        assert "disciplines" in location_props
+        disciplines = location_props["disciplines"]
+        assert len(disciplines) == 2
+        assert disciplines[0]["externalId"] == "mechanical"
+        assert disciplines[0]["name"] == "Mechanical"
+        assert disciplines[1]["externalId"] == "electrical"
+        assert disciplines[1]["name"] == "Electrical"
 
-    def test_root_asset_with_missing_source_space(
+    def test_disciplines_with_multiple_locations(
         self, toolkit_client_approval: ApprovalToolkitClient, tmp_path: Path
     ) -> None:
-        """Test that rootAsset is not included when sourceDataInstanceSpace is missing."""
+        """Test that disciplines are shared across all locations."""
+        toolkit_client_approval.append(DataModel, COGNITE_MIGRATION_MODEL)
+
+        apm_config_node = Node._load(
+            {
+                "space": "APM_Config",
+                "externalId": "default-config",
+                "version": 1,
+                "lastUpdatedTime": 1,
+                "createdTime": 1,
+                "properties": {
+                    "APM_Config": {
+                        "APM_Config/1": {
+                            "featureConfiguration": {
+                                "rootLocationConfigurations": [
+                                    {
+                                        "externalId": "loc1",
+                                        "assetExternalId": "asset_1",
+                                    },
+                                    {
+                                        "externalId": "loc2",
+                                        "assetExternalId": "asset_2",
+                                    },
+                                ],
+                                "disciplines": [
+                                    {"externalId": "mechanical", "name": "Mechanical"},
+                                ],
+                            },
+                        }
+                    }
+                },
+            }
+        )
+
+        toolkit_client_approval.append(Node, apm_config_node)
+
+        MigrationCommand(silent=True).create(
+            client=toolkit_client_approval.client,
+            creator=InfieldV2ConfigCreator(toolkit_client_approval.client),
+            dry_run=False,
+            verbose=False,
+            output_dir=tmp_path,
+        )
+
+        created_nodes = toolkit_client_approval.created_resources.get("Node", [])
+        assert len(created_nodes) == 2
+
+        # Both locations should have the same disciplines
+        for location_node in created_nodes:
+            location_props = location_node.sources[0].properties
+            assert "disciplines" in location_props
+            disciplines = location_props["disciplines"]
+            assert len(disciplines) == 1
+            assert disciplines[0]["externalId"] == "mechanical"
+            assert disciplines[0]["name"] == "Mechanical"
+
+    def test_disciplines_with_no_disciplines(
+        self, toolkit_client_approval: ApprovalToolkitClient, tmp_path: Path
+    ) -> None:
+        """Test that disciplines are not included when not present in FeatureConfiguration."""
         toolkit_client_approval.append(DataModel, COGNITE_MIGRATION_MODEL)
 
         apm_config_node = Node._load(
@@ -88,9 +150,9 @@ class TestRootAssetMigration:
                                     {
                                         "externalId": "loc1",
                                         "assetExternalId": "asset_123",
-                                        # Missing sourceDataInstanceSpace
                                     }
                                 ],
+                                # No disciplines
                             },
                         }
                     }
@@ -113,13 +175,13 @@ class TestRootAssetMigration:
         location_node = created_nodes[0]
         location_props = location_node.sources[0].properties
 
-        # Check that rootAsset is not present when sourceDataInstanceSpace is missing
-        assert "rootAsset" not in location_props
+        # Check that disciplines is not present
+        assert "disciplines" not in location_props
 
-    def test_root_asset_with_missing_asset_external_id(
+    def test_disciplines_with_empty_list(
         self, toolkit_client_approval: ApprovalToolkitClient, tmp_path: Path
     ) -> None:
-        """Test that rootAsset is not included when assetExternalId is missing."""
+        """Test that disciplines are not included when disciplines is an empty list."""
         toolkit_client_approval.append(DataModel, COGNITE_MIGRATION_MODEL)
 
         apm_config_node = Node._load(
@@ -136,10 +198,10 @@ class TestRootAssetMigration:
                                 "rootLocationConfigurations": [
                                     {
                                         "externalId": "loc1",
-                                        "sourceDataInstanceSpace": "source_space",
-                                        # Missing assetExternalId
+                                        "assetExternalId": "asset_123",
                                     }
                                 ],
+                                "disciplines": [],  # Empty list
                             },
                         }
                     }
@@ -162,116 +224,6 @@ class TestRootAssetMigration:
         location_node = created_nodes[0]
         location_props = location_node.sources[0].properties
 
-        # Check that rootAsset is not present when assetExternalId is missing
-        assert "rootAsset" not in location_props
-
-    def test_root_asset_with_empty_strings(
-        self, toolkit_client_approval: ApprovalToolkitClient, tmp_path: Path
-    ) -> None:
-        """Test that rootAsset is not included when fields are empty strings."""
-        toolkit_client_approval.append(DataModel, COGNITE_MIGRATION_MODEL)
-
-        apm_config_node = Node._load(
-            {
-                "space": "APM_Config",
-                "externalId": "default-config",
-                "version": 1,
-                "lastUpdatedTime": 1,
-                "createdTime": 1,
-                "properties": {
-                    "APM_Config": {
-                        "APM_Config/1": {
-                            "featureConfiguration": {
-                                "rootLocationConfigurations": [
-                                    {
-                                        "externalId": "loc1",
-                                        "assetExternalId": "",  # Empty string
-                                        "sourceDataInstanceSpace": "source_space",
-                                    }
-                                ],
-                            },
-                        }
-                    }
-                },
-            }
-        )
-
-        toolkit_client_approval.append(Node, apm_config_node)
-
-        MigrationCommand(silent=True).create(
-            client=toolkit_client_approval.client,
-            creator=InfieldV2ConfigCreator(toolkit_client_approval.client),
-            dry_run=False,
-            verbose=False,
-            output_dir=tmp_path,
-        )
-
-        created_nodes = toolkit_client_approval.created_resources.get("Node", [])
-        assert len(created_nodes) == 1
-        location_node = created_nodes[0]
-        location_props = location_node.sources[0].properties
-
-        # Check that rootAsset is not present when assetExternalId is empty string
-        assert "rootAsset" not in location_props
-
-    def test_root_asset_with_other_fields(
-        self, toolkit_client_approval: ApprovalToolkitClient, tmp_path: Path
-    ) -> None:
-        """Test that rootAsset works together with other migrated fields."""
-        toolkit_client_approval.append(DataModel, COGNITE_MIGRATION_MODEL)
-
-        apm_config_node = Node._load(
-            {
-                "space": "APM_Config",
-                "externalId": "default-config",
-                "version": 1,
-                "lastUpdatedTime": 1,
-                "createdTime": 1,
-                "properties": {
-                    "APM_Config": {
-                        "APM_Config/1": {
-                            "featureConfiguration": {
-                                "rootLocationConfigurations": [
-                                    {
-                                        "externalId": "loc1",
-                                        "assetExternalId": "asset_456",
-                                        "sourceDataInstanceSpace": "source_space",
-                                        "featureToggles": {
-                                            "threeD": True,
-                                        },
-                                    }
-                                ],
-                            },
-                        }
-                    }
-                },
-            }
-        )
-
-        toolkit_client_approval.append(Node, apm_config_node)
-
-        MigrationCommand(silent=True).create(
-            client=toolkit_client_approval.client,
-            creator=InfieldV2ConfigCreator(toolkit_client_approval.client),
-            dry_run=False,
-            verbose=False,
-            output_dir=tmp_path,
-        )
-
-        created_nodes = toolkit_client_approval.created_resources.get("Node", [])
-        assert len(created_nodes) == 1
-        location_node = created_nodes[0]
-        location_props = location_node.sources[0].properties
-
-        # Check that featureToggles is present
-        assert "featureToggles" in location_props
-        # Note: rootAsset migration is currently commented out
-        # When re-enabled, uncomment the following:
-        # assert "rootAsset" in location_props
-        # root_asset = location_props["rootAsset"]
-        # assert root_asset.space == "source_space"
-        # assert root_asset.external_id == "asset_456"
-
-        feature_toggles = location_props["featureToggles"]
-        assert feature_toggles["threeD"] is True
+        # Check that disciplines is not present when empty
+        assert "disciplines" not in location_props
 

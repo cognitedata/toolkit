@@ -21,7 +21,7 @@ class TestAppInstanceSpaceMigration:
         apm_config_node = Node._load(
             {
                 "space": "APM_Config",
-                "externalId": "test_config",
+                "externalId": "default-config",
                 "version": 1,
                 "lastUpdatedTime": 1,
                 "createdTime": 1,
@@ -70,7 +70,7 @@ class TestAppInstanceSpaceMigration:
         apm_config_node = Node._load(
             {
                 "space": "APM_Config",
-                "externalId": "test_config",
+                "externalId": "default-config",
                 "version": 1,
                 "lastUpdatedTime": 1,
                 "createdTime": 1,
@@ -118,7 +118,7 @@ class TestAppInstanceSpaceMigration:
         apm_config_node = Node._load(
             {
                 "space": "APM_Config",
-                "externalId": "test_config",
+                "externalId": "default-config",
                 "version": 1,
                 "lastUpdatedTime": 1,
                 "createdTime": 1,
@@ -166,7 +166,7 @@ class TestAppInstanceSpaceMigration:
         apm_config_node = Node._load(
             {
                 "space": "APM_Config",
-                "externalId": "test_config",
+                "externalId": "default-config",
                 "version": 1,
                 "lastUpdatedTime": 1,
                 "createdTime": 1,
@@ -210,6 +210,8 @@ class TestAppInstanceSpaceMigration:
         # Check that appInstanceSpace and other fields are present
         assert "appInstanceSpace" in location_props
         assert location_props["appInstanceSpace"] == "app_space_456"
-        assert "rootAsset" in location_props
         assert "featureToggles" in location_props
+        # Note: rootAsset migration is currently commented out
+        # When re-enabled, uncomment the following:
+        # assert "rootAsset" in location_props
 

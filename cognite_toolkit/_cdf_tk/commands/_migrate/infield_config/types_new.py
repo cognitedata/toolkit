@@ -47,22 +47,36 @@ class FeatureToggles(TypedDict, total=False):
     observations: ObservationFeatureToggles
 
 
+class AccessManagement(TypedDict, total=False):
+    """Access management configuration."""
+    templateAdmins: list[str]  # list of CDF group external IDs
+    checklistAdmins: list[str]  # list of CDF group external IDs
+
+
+class Discipline(TypedDict, total=False):
+    """Discipline definition."""
+    externalId: str
+    name: str
+
+
 class InFieldLocationConfigProperties(TypedDict, total=False):
     """Properties for InFieldLocationConfig node.
     
-    Currently migrated fields:
+    Currently migrated fields: s
     - rootLocationExternalId: Reference to the LocationFilterDTO external ID
     - featureToggles: Feature toggles migrated from old configuration
     - rootAsset: Direct relation to the root asset (space and externalId)
     - appInstanceSpace: Application instance space from appDataInstanceSpace
+    - accessManagement: Template and checklist admin groups (from templateAdmins and checklistAdmins)
+    - disciplines: List of disciplines (from disciplines in FeatureConfiguration)
     """
     rootLocationExternalId: str
     featureToggles: FeatureToggles
     rootAsset: DirectRelationReference
     appInstanceSpace: str
+    accessManagement: AccessManagement
+    disciplines: list[Discipline]
     # TODO: Add the following fields:
-    # accessManagement: JSON template & checklist admin both list of strings representing CDF group external IDs
-    # disciplines: List[Discipline]
     # dataFilters: RootLocationDataFilters
     # dataExplorationConfig: DirectRelation to data exploration config
 
