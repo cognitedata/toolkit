@@ -1,3 +1,4 @@
+import os
 import shutil
 import tempfile
 from collections import Counter, defaultdict
@@ -235,7 +236,9 @@ def test_resource_types_is_up_to_date() -> None:
 
 @contextmanager
 def tmp_org_directory() -> Iterator[Path]:
-    org_dir = Path(tempfile.mkdtemp(prefix="orgdir.", suffix=".tmp", dir=Path.cwd()))
+    # Include worker ID to ensure each pytest-xdist worker has its own temp directory
+    worker_id = os.environ.get("PYTEST_XDIST_WORKER", "master")
+    org_dir = Path(tempfile.mkdtemp(prefix=f"orgdir.{worker_id}.", suffix=".tmp", dir=Path.cwd()))
     try:
         yield org_dir
     finally:

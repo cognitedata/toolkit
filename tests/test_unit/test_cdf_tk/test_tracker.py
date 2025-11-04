@@ -36,7 +36,7 @@ class TestTracker:
         with patch.object(cmd.tracker, "track_cli_command") as mock_track:
             cmd.run(cmd.execute)
 
-        mock_track.assert_called_once_with([], "success", "MockToolkit", {})
+        mock_track.assert_called_once_with([], "success", "MockToolkit", cmd._additional_tracking_info)
 
         with patch.object(cmd.tracker, "_track", return_value=True) as mock_track_internal:
             dummy_warnings: list = []
@@ -51,10 +51,10 @@ class TestTracker:
 
         cmd = MockToolkitCommand()
         with patch.object(cmd.tracker, "_track", return_value=True) as mock_track_internal:
-            cmd._additional_tracking_info = {"additional_tracking_info": ["test"]}
+            cmd._additional_tracking_info.downloaded_library_ids.add("test")
             cmd.run(cmd.execute)
 
             mock_track_internal.assert_called_once()
             _, event_information = mock_track_internal.call_args.args
             assert "userInput" in event_information
-            assert event_information["additional_tracking_info"] == ["test"]
+            assert event_information["downloadedLibraryIds"] == {"test"}

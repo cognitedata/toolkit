@@ -14,7 +14,7 @@ from mixpanel import Consumer, Mixpanel, MixpanelException
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.constants import IN_BROWSER
-from cognite_toolkit._cdf_tk.data_classes._built_modules import BuiltModule
+from cognite_toolkit._cdf_tk.data_classes import CommandTrackingInfo
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning, WarningList
 from cognite_toolkit._cdf_tk.utils import get_cicd_environment
 from cognite_toolkit._version import __version__
@@ -49,7 +49,7 @@ class Tracker:
         warning_list: WarningList[ToolkitWarning],
         result: str | Exception,
         cmd: str,
-        additional_tracking_info: dict[str, Any] | None = None,
+        additional_tracking_info: CommandTrackingInfo | None = None,
     ) -> bool:
         warning_count = Counter([type(w).__name__ for w in warning_list])
 
@@ -76,19 +76,9 @@ class Tracker:
         }
 
         if additional_tracking_info:
-            event_information.update(additional_tracking_info)
+            event_information.update(additional_tracking_info.to_dict())
 
         return self._track(f"command{cmd.capitalize()}", event_information)
-
-    def track_module_build(self, module: BuiltModule) -> bool:
-        event_information = {
-            "module": module.name,
-            "location_path": module.location.path.as_posix(),
-            "warning_count": module.warning_count,
-            "status": module.status,
-            **{resource_type: len(resource_build) for resource_type, resource_build in module.resources.items()},
-        }
-        return self._track("moduleBuild", event_information)
 
     def _track(self, event_name: str, event_information: dict[str, Any]) -> bool:
         if self.skip_tracking or not self.opted_in or "PYTEST_CURRENT_TEST" in os.environ:
