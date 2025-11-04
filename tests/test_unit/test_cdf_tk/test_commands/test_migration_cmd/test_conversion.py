@@ -785,7 +785,7 @@ class TestAssetCentricConversion:
 
         assert expected_issue.dump() == issue.dump()
 
-    ANNOTATION_ID = EdgeId(space="test_space", external_id="annotation_123")
+    ANNOTATION_ID = EdgeId(space="test_space", external_id="annotation_37")
     DEFAULT_PROPERTIES: ClassVar[dict[str, Any]] = dict(nullable=True, immutable=False, auto_increment=False)
 
     DIAGRAM_ANNOTATION_PROPERTIES: ClassVar[dict[str, ViewProperty]] = {
@@ -800,7 +800,7 @@ class TestAssetCentricConversion:
         external_id="file_annotation_mapping",
         view_id=ViewId("cdf_cdm", "CogniteDiagramAnnotation", "v1"),
         property_mapping={
-            "annotatedResource.id": "edge.startNode",
+            "annotatedResourceId": "edge.startNode",
             "annotationType": "edge.type.externalId",
             "status": "status",
             "data.assetRef.id": "edge.endNode",
@@ -820,7 +820,7 @@ class TestAssetCentricConversion:
         [
             pytest.param(
                 Annotation(
-                    id=123,
+                    id=37,
                     annotated_resource_type="file",
                     annotation_type="diagrams.FileLink",
                     annotated_resource_id=42,
@@ -828,7 +828,7 @@ class TestAssetCentricConversion:
                     creating_app="app_1",
                     creating_app_version="1.0.0",
                     status="Approved",
-                    data=dict(assetRef=dict(id=789)),
+                    data=dict(assetRef=dict(id=123)),
                 ),
                 ANNOTATION_MAPPING,
                 EdgeApply(
@@ -845,8 +845,8 @@ class TestAssetCentricConversion:
                     ],
                 ),
                 ConversionIssue(
-                    asset_centric_id=AssetCentricId("fileAnnotation", id_=123),
-                    instance_id=EdgeId(space="test_space", external_id="annotation_123"),
+                    asset_centric_id=AssetCentricId("fileAnnotation", id_=37),
+                    instance_id=EdgeId(space="test_space", external_id="annotation_37"),
                 ),
                 id="Basic annotation conversion",
             )

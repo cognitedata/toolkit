@@ -57,11 +57,16 @@ class DirectRelationCache:
         ("event", "assetIds"),
         ("sequence", "assetId"),
         ("asset", "parentId"),
+        ("fileAnnotation", "data.assetRef.id"),
     }
     SOURCE_REFERENCE_PROPERTIES: ClassVar[Set[tuple[AssetCentricType, str]]] = {
         ("asset", "source"),
         ("event", "source"),
         ("file", "source"),
+    }
+    FILE_REFERENCE_PROPERTIES: ClassVar[Set[tuple[AssetCentricType, str]]] = {
+        ("fileAnnotation", "data.fileRef.id"),
+        ("fileAnnotation", "annotatedResourceId"),
     }
 
     asset: Mapping[int, DirectRelationReference]
@@ -69,10 +74,13 @@ class DirectRelationCache:
     file: Mapping[int, DirectRelationReference]
 
     def get(self, resource_type: AssetCentricType, property_id: str) -> Mapping[str | int, DirectRelationReference]:
-        if (resource_type, property_id) in self.ASSET_REFERENCE_PROPERTIES:
+        key = resource_type, property_id
+        if key in self.ASSET_REFERENCE_PROPERTIES:
             return self.asset  # type: ignore[return-value]
-        if (resource_type, property_id) in self.SOURCE_REFERENCE_PROPERTIES:
+        if key in self.SOURCE_REFERENCE_PROPERTIES:
             return self.source  # type: ignore[return-value]
+        if key in self.FILE_REFERENCE_PROPERTIES:
+            return self.file  # type: ignore[return-value]
         return {}
 
 
@@ -168,12 +176,15 @@ def asset_centric_to_dm(
 
     instance: NodeApply | EdgeApply
     if isinstance(instance_id, EdgeId):
-        edge_properties = create_edge_properties(dumped, view_source.property_mapping, resource_type, issue, cache)
-        instance = EdgeApply(
+        edge_properties = create_edge_properties(
+            dumped, view_source.property_mapping, resource_type, issue, cache, instance_id.space
+        )
+        # MyPy complains that literal keys are not string, but they are.
+        instance = EdgeApply(  # type: ignore[misc]
             space=instance_id.space,
             external_id=instance_id.external_id,
             sources=sources,
-            **edge_properties,
+            **edge_properties,  # type: ignore[arg-type]
         )
     elif isinstance(instance_id, NodeId):
         instance = NodeApply(space=instance_id.space, external_id=instance_id.external_id, sources=sources)
@@ -271,6 +282,7 @@ def create_edge_properties(
     resource_type: AssetCentricType,
     issue: ConversionIssue,
     direct_relation_cache: DirectRelationCache,
+    default_instance_space: str,
 ) -> dict[Literal["start_node", "end_node", "type"], DirectRelationReference]:
     flatten_dump = flatten_dict_json_path(dumped)
     edge_properties: dict[Literal["start_node", "end_node", "type"], DirectRelationReference] = {}
@@ -280,18 +292,27 @@ def create_edge_properties(
         if prop_json_path not in flatten_dump:
             continue
         edge_prop_id = prop_id.removeprefix("edge.")
-        if edge_prop_id not in {"startNode", "endNode", "type"}:
-            continue
-        try:
-            value = convert_to_primary_property(
-                flatten_dump[prop_json_path],
-                DirectRelation(),
-                False,
-                direct_relation_lookup=direct_relation_cache.file,
-            )
-        except (ValueError, TypeError, NotImplementedError) as e:
-            issue.failed_conversions.append(
-                FailedConversion(property_id=prop_json_path, value=flatten_dump[prop_json_path], error=str(e))
+        if edge_prop_id in ("startNode", "endNode", "type"):
+            # DirectRelation lookup.
+            try:
+                value = convert_to_primary_property(
+                    flatten_dump[prop_json_path],
+                    DirectRelation(),
+                    False,
+                    direct_relation_lookup=direct_relation_cache.get(resource_type, prop_json_path),
+                )
+            except (ValueError, TypeError, NotImplementedError) as e:
+                issue.failed_conversions.append(
+                    FailedConversion(property_id=prop_json_path, value=flatten_dump[prop_json_path], error=str(e))
+                )
+                continue
+        elif edge_prop_id.endswith(".externalId"):
+            # Just an external ID string.
+            edge_prop_id = edge_prop_id.removesuffix(".externalId")
+            value = DirectRelationReference(default_instance_space, str(flatten_dump[prop_json_path]))
+        else:
+            issue.invalid_instance_property_types.append(
+                InvalidPropertyDataType(property_id=prop_id, expected_type="DirectRelationReference")
             )
             continue
         # We know that value is DirectRelationReference here
