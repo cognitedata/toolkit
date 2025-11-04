@@ -1,18 +1,24 @@
 from collections.abc import Mapping, Set
 from dataclasses import dataclass
-from typing import Any, ClassVar, overload
+from typing import Any, ClassVar, Literal, overload
 
-from cognite.client.data_classes import Asset, Event, FileMetadata, TimeSeries
-from cognite.client.data_classes.data_modeling import DirectRelationReference, EdgeId, MappedProperty, NodeApply, NodeId
+from cognite.client.data_classes import Annotation, Asset, Event, FileMetadata, TimeSeries
+from cognite.client.data_classes.data_modeling import (
+    DirectRelation,
+    DirectRelationReference,
+    EdgeId,
+    MappedProperty,
+    NodeApply,
+    NodeId,
+)
 from cognite.client.data_classes.data_modeling.instances import EdgeApply, NodeOrEdgeData, PropertyValueWrite
 from cognite.client.data_classes.data_modeling.views import ViewProperty
 
-from cognite_toolkit._cdf_tk.client.data_classes.extended_filemetadata import ExtendedFileMetadata
-from cognite_toolkit._cdf_tk.client.data_classes.extended_timeseries import ExtendedTimeSeries
 from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId, ResourceViewMapping
 from cognite_toolkit._cdf_tk.utils.collection import flatten_dict_json_path
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     asset_centric_convert_to_primary_property,
+    convert_to_primary_property,
 )
 from cognite_toolkit._cdf_tk.utils.useful_types import (
     AssetCentricResourceExtended,
@@ -126,7 +132,7 @@ def asset_centric_to_dm(
     cache = DirectRelationCache(
         asset=asset_instance_id_by_id, source=source_instance_id_by_external_id, file=file_instance_id_by_id
     )
-    resource_type = _lookup_resource_type(type(resource))
+    resource_type = _lookup_resource_type(resource)
     dumped = resource.dump()
     try:
         id_ = dumped.pop("id")
@@ -150,36 +156,49 @@ def asset_centric_to_dm(
     sources: list[NodeOrEdgeData] = []
     if properties:
         sources.append(NodeOrEdgeData(source=view_source.view_id, properties=properties))
-    instance_source_properties = {
-        "resourceType": resource_type,
-        "id": id_,
-        "dataSetId": data_set_id,
-        "classicExternalId": external_id,
-    }
-    sources.append(NodeOrEdgeData(source=INSTANCE_SOURCE_VIEW_ID, properties=instance_source_properties))
 
-    node = NodeApply(
-        space=instance_id.space,
-        external_id=instance_id.external_id,
-        sources=sources,
-    )
+    if resource_type != "fileAnnotation":
+        instance_source_properties = {
+            "resourceType": resource_type,
+            "id": id_,
+            "dataSetId": data_set_id,
+            "classicExternalId": external_id,
+        }
+        sources.append(NodeOrEdgeData(source=INSTANCE_SOURCE_VIEW_ID, properties=instance_source_properties))
 
-    return node, issue
+    instance: NodeApply | EdgeApply
+    if isinstance(instance_id, EdgeId):
+        edge_properties = create_edge_properties(dumped, view_source.property_mapping, resource_type, issue, cache)
+        instance = EdgeApply(
+            space=instance_id.space,
+            external_id=instance_id.external_id,
+            sources=sources,
+            **edge_properties,
+        )
+    elif isinstance(instance_id, NodeId):
+        instance = NodeApply(space=instance_id.space, external_id=instance_id.external_id, sources=sources)
+    else:
+        raise RuntimeError("Unexpected instance_id type {type(instance_id)}")
+
+    return instance, issue
 
 
-def _lookup_resource_type(resource_type: type[AssetCentricResourceExtended]) -> AssetCentricType:
-    resource_type_map: dict[type[AssetCentricResourceExtended], AssetCentricType] = {
-        Asset: "asset",
-        FileMetadata: "file",
-        Event: "event",
-        TimeSeries: "timeseries",
-        ExtendedFileMetadata: "file",
-        ExtendedTimeSeries: "timeseries",
-    }
-    try:
-        return resource_type_map[resource_type]
-    except KeyError as e:
-        raise ValueError(f"Unsupported resource type: {resource_type}") from e
+def _lookup_resource_type(resource_type: AssetCentricResourceExtended) -> AssetCentricType:
+    if isinstance(resource_type, Asset):
+        return "asset"
+    elif isinstance(resource_type, FileMetadata):
+        return "file"
+    elif isinstance(resource_type, Event):
+        return "event"
+    elif isinstance(resource_type, TimeSeries):
+        return "timeseries"
+    elif isinstance(resource_type, Annotation):
+        if resource_type.annotated_resource_type == "file" and resource_type.annotation_type in (
+            "diagrams.AssetLink",
+            "diagrams.FileLink",
+        ):
+            return "fileAnnotation"
+    raise ValueError(f"Unsupported resource type: {resource_type}")
 
 
 def create_properties(
@@ -244,3 +263,38 @@ def create_properties(
     issue.missing_asset_centric_properties = sorted(set(property_mapping.keys()) - set(flatten_dump.keys()))
     issue.missing_instance_properties = sorted(set(property_mapping.values()) - set(view_properties.keys()))
     return properties
+
+
+def create_edge_properties(
+    dumped: dict[str, Any],
+    property_mapping: dict[str, str],
+    resource_type: AssetCentricType,
+    issue: ConversionIssue,
+    direct_relation_cache: DirectRelationCache,
+) -> dict[Literal["start_node", "end_node", "type"], DirectRelationReference]:
+    flatten_dump = flatten_dict_json_path(dumped)
+    edge_properties: dict[Literal["start_node", "end_node", "type"], DirectRelationReference] = {}
+    for prop_json_path, prop_id in property_mapping.items():
+        if not prop_id.startswith("edge."):
+            continue
+        if prop_json_path not in flatten_dump:
+            continue
+        edge_prop_id = prop_id.removeprefix("edge.")
+        if edge_prop_id not in {"startNode", "endNode", "type"}:
+            continue
+        try:
+            value = convert_to_primary_property(
+                flatten_dump[prop_json_path],
+                DirectRelation(),
+                False,
+                direct_relation_lookup=direct_relation_cache.file,
+            )
+        except (ValueError, TypeError, NotImplementedError) as e:
+            issue.failed_conversions.append(
+                FailedConversion(property_id=prop_json_path, value=flatten_dump[prop_json_path], error=str(e))
+            )
+            continue
+        # We know that value is DirectRelationReference here
+        edge_properties[edge_prop_id.replace("Node", "_node")] = value  # type: ignore[assignment, index]
+
+    return edge_properties
