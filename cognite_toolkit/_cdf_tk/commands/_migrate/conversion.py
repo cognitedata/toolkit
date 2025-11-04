@@ -14,7 +14,10 @@ from cognite_toolkit._cdf_tk.utils.collection import flatten_dict_json_path
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     asset_centric_convert_to_primary_property,
 )
-from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricResource, AssetCentricType
+from cognite_toolkit._cdf_tk.utils.useful_types import (
+    AssetCentricResourceExtended,
+    AssetCentricType,
+)
 
 from .data_model import INSTANCE_SOURCE_VIEW_ID
 from .issues import ConversionIssue, FailedConversion, InvalidPropertyDataType
@@ -57,6 +60,7 @@ class DirectRelationCache:
 
     asset: Mapping[int, DirectRelationReference]
     source: Mapping[str, DirectRelationReference]
+    file: Mapping[int, DirectRelationReference]
 
     def get(self, resource_type: AssetCentricType, property_id: str) -> Mapping[str | int, DirectRelationReference]:
         if (resource_type, property_id) in self.ASSET_REFERENCE_PROPERTIES:
@@ -68,33 +72,36 @@ class DirectRelationCache:
 
 @overload
 def asset_centric_to_dm(
-    resource: AssetCentricResource,
+    resource: AssetCentricResourceExtended,
     instance_id: NodeId,
     view_source: ResourceViewMapping,
     view_properties: dict[str, ViewProperty],
     asset_instance_id_by_id: Mapping[int, DirectRelationReference],
     source_instance_id_by_external_id: Mapping[str, DirectRelationReference],
+    file_instance_id_by_id: Mapping[int, DirectRelationReference],
 ) -> tuple[NodeApply, ConversionIssue]: ...
 
 
 @overload
 def asset_centric_to_dm(
-    resource: AssetCentricResource,
+    resource: AssetCentricResourceExtended,
     instance_id: EdgeId,
     view_source: ResourceViewMapping,
     view_properties: dict[str, ViewProperty],
     asset_instance_id_by_id: Mapping[int, DirectRelationReference],
     source_instance_id_by_external_id: Mapping[str, DirectRelationReference],
+    file_instance_id_by_id: Mapping[int, DirectRelationReference],
 ) -> tuple[EdgeApply, ConversionIssue]: ...
 
 
 def asset_centric_to_dm(
-    resource: AssetCentricResource,
+    resource: AssetCentricResourceExtended,
     instance_id: NodeId | EdgeId,
     view_source: ResourceViewMapping,
     view_properties: dict[str, ViewProperty],
     asset_instance_id_by_id: Mapping[int, DirectRelationReference],
     source_instance_id_by_external_id: Mapping[str, DirectRelationReference],
+    file_instance_id_by_id: Mapping[int, DirectRelationReference],
 ) -> tuple[NodeApply | EdgeApply, ConversionIssue]:
     """Convert an asset-centric resource to a data model instance.
 
@@ -109,11 +116,16 @@ def asset_centric_to_dm(
         source_instance_id_by_external_id (dict[str, DirectRelationReference]): A mapping from source strings to their
             corresponding DirectRelationReference in the data model. This is used to create direct relations for resources
             that reference sources.
+        file_instance_id_by_id (dict[int, DirectRelationReference]): A mapping from file IDs to their corresponding
+            DirectRelationReference in the data model. This is used to create direct relations for resources that
+            reference files.
 
     Returns:
         tuple[NodeApply | EdgeApply, ConversionIssue]: A tuple containing the converted NodeApply and any ConversionIssue encountered.
     """
-    cache = DirectRelationCache(asset=asset_instance_id_by_id, source=source_instance_id_by_external_id)
+    cache = DirectRelationCache(
+        asset=asset_instance_id_by_id, source=source_instance_id_by_external_id, file=file_instance_id_by_id
+    )
     resource_type = _lookup_resource_type(type(resource))
     dumped = resource.dump()
     try:
@@ -155,8 +167,8 @@ def asset_centric_to_dm(
     return node, issue
 
 
-def _lookup_resource_type(resource_type: type[AssetCentricResource]) -> AssetCentricType:
-    resource_type_map: dict[type[AssetCentricResource], AssetCentricType] = {
+def _lookup_resource_type(resource_type: type[AssetCentricResourceExtended]) -> AssetCentricType:
+    resource_type_map: dict[type[AssetCentricResourceExtended], AssetCentricType] = {
         Asset: "asset",
         FileMetadata: "file",
         Event: "event",

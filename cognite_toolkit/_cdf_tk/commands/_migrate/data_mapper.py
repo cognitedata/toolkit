@@ -105,6 +105,7 @@ class AssetCentricMapper(
             view_properties=view_properties,
             asset_instance_id_by_id=self._asset_mapping_by_id,
             source_instance_id_by_external_id=self._source_system_mapping_by_id,
+            file_instance_id_by_id={},
         )
         if mapping.instance_id.space == MISSING_INSTANCE_SPACE:
             conversion_issue.missing_instance_space = f"Missing instance space for dataset ID {mapping.data_set_id!r}"

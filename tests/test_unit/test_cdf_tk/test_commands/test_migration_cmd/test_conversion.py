@@ -862,7 +862,13 @@ class TestAssetCentricConversion:
         we do not track the linage of annotations."""
 
         edge, issue = asset_centric_to_dm(
-            resource, self.ANNOTATION_ID, mapping, self.DIAGRAM_ANNOTATION_PROPERTIES, self.ASSET_INSTANCE_ID_BY_ID, {}
+            resource,
+            self.ANNOTATION_ID,
+            mapping,
+            self.DIAGRAM_ANNOTATION_PROPERTIES,
+            self.ASSET_INSTANCE_ID_BY_ID,
+            {},
+            self.FILE_INSTANCE_BY_ID,
         )
 
         assert edge.dump() == expected_edge.dump()
