@@ -191,7 +191,7 @@ def asset_centric_to_dm(
     elif isinstance(instance_id, NodeId):
         instance = NodeApply(space=instance_id.space, external_id=instance_id.external_id, sources=sources)
     else:
-        raise RuntimeError("Unexpected instance_id type {type(instance_id)}")
+        raise RuntimeError(f"Unexpected instance_id type {type(instance_id)}")
 
     return instance, issue
 
