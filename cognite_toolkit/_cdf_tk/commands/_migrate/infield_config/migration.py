@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
 )
 
 from .constants import LOCATION_CONFIG_VIEW_ID, TARGET_SPACE
+from .data_exploration_config import create_data_exploration_config_node
 from .location_config.fields import apply_location_config_fields
 from .location_filter.fields import apply_location_filter_fields
 from .types_new import InFieldLocationConfigProperties
@@ -43,6 +44,7 @@ class InfieldV2MigrationResult:
 def create_infield_v2_config(
     root_location_configs: list[RootLocationConfiguration | Any],
     feature_configuration: dict[str, Any] | None = None,
+    config_external_id: str | None = None,
     client: Any | None = None,
 ) -> InfieldV2MigrationResult:
     """Migrate root location configurations to the new InField V2 format.
@@ -72,9 +74,20 @@ def create_infield_v2_config(
     # Create location filters (using Location Filters API)
     location_filters = create_location_filters(root_location_configs)
 
+    # Create DataExplorationConfig node (one per config, shared across all locations)
+    if feature_configuration and config_external_id:
+        data_exploration_node = create_data_exploration_config_node(
+            feature_configuration, config_external_id
+        )
+        if data_exploration_node:
+            data_explorer_config_nodes.append(data_exploration_node)
+
     # Create infield location config nodes (using Data Modeling Instance API)
     infield_location_config_nodes = create_infield_location_config_nodes(
-        root_location_configs, feature_configuration=feature_configuration, client=client
+        root_location_configs,
+        feature_configuration=feature_configuration,
+        config_external_id=config_external_id,
+        client=client,
     )
 
     return InfieldV2MigrationResult(
@@ -131,6 +144,7 @@ def create_location_filters(root_location_configs: list[RootLocationConfiguratio
 def create_infield_location_config_nodes(
     root_location_configs: list[RootLocationConfiguration | Any],
     feature_configuration: dict[str, Any] | None = None,
+    config_external_id: str | None = None,
     client: Any | None = None,
 ) -> NodeApplyList:
     """Create InFieldLocationConfig nodes for each root location configuration.
@@ -163,7 +177,10 @@ def create_infield_location_config_nodes(
 
         # Apply additional migrated fields (featureToggles, etc.)
         additional_props = apply_location_config_fields(
-            location_dict, feature_configuration=feature_configuration, client=client
+            location_dict,
+            feature_configuration=feature_configuration,
+            config_external_id=config_external_id,
+            client=client,
         )
         location_props.update(additional_props)
 

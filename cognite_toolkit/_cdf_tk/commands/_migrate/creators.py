@@ -241,10 +241,13 @@ class InfieldV2ConfigCreator(MigrationCreator[NodeApplyList]):
 
         feature_config = config_to_migrate.feature_configuration
         root_location_configs = feature_config.root_location_configurations or []
-        # Convert feature_config to dict for disciplines migration
+        # Convert feature_config to dict for disciplines and dataExplorationConfig migration
         feature_config_dict = feature_config.dump(camel_case=True) if hasattr(feature_config, "dump") else None
         migration_result = create_infield_v2_config(
-            root_location_configs, feature_configuration=feature_config_dict, client=self.client
+            root_location_configs,
+            feature_configuration=feature_config_dict,
+            config_external_id=config_to_migrate.external_id,
+            client=self.client,
         )
         return migration_result.all_nodes()
 
@@ -273,10 +276,13 @@ class InfieldV2ConfigCreator(MigrationCreator[NodeApplyList]):
 
         feature_config = config_to_migrate.feature_configuration
         root_location_configs = feature_config.root_location_configurations or []
-        # Convert feature_config to dict for disciplines migration (not needed for location filters, but keep consistent)
+        # Convert feature_config to dict (not needed for location filters, but keep consistent)
         feature_config_dict = feature_config.dump(camel_case=True) if hasattr(feature_config, "dump") else None
         migration_result = create_infield_v2_config(
-            root_location_configs, feature_configuration=feature_config_dict, client=self.client
+            root_location_configs,
+            feature_configuration=feature_config_dict,
+            config_external_id=config_to_migrate.external_id,
+            client=self.client,
         )
         return migration_result.all_location_filters()
 

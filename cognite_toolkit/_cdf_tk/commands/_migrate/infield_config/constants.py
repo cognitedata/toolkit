@@ -5,6 +5,7 @@ from cognite.client.data_classes.data_modeling.ids import DataModelId
 
 # View IDs for the new format
 LOCATION_CONFIG_VIEW_ID = ViewId("infield_cdm_source_desc_sche_asset_file_ts", "InFieldLocationConfig", "v1")
+DATA_EXPLORATION_CONFIG_VIEW_ID = ViewId("infield_cdm_source_desc_sche_asset_file_ts", "DataExplorationConfig", "v1")
 
 # Target space for InFieldLocationConfig nodes
 TARGET_SPACE = "APM_Config"

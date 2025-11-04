@@ -9,6 +9,8 @@ from typing import Any
 from cognite.client.data_classes.data_modeling import DirectRelationReference
 from cognite.client.exceptions import CogniteAPIError
 
+from ..data_exploration_config import get_data_exploration_config_external_id
+from ..constants import TARGET_SPACE
 from .access_management import migrate_access_management
 from .app_instance_space import migrate_app_instance_space
 from .data_filters import migrate_data_filters
@@ -18,7 +20,10 @@ from .root_asset import migrate_root_asset
 
 
 def apply_location_config_fields(
-    location_dict: dict[str, Any], feature_configuration: dict[str, Any] | None = None, client: Any = None
+    location_dict: dict[str, Any],
+    feature_configuration: dict[str, Any] | None = None,
+    client: Any = None,
+    config_external_id: str | None = None,
 ) -> dict[str, Any]:
     """Apply migrated fields to InFieldLocationConfig properties.
 
@@ -33,11 +38,13 @@ def apply_location_config_fields(
     - accessManagement: From templateAdmins and checklistAdmins in old configuration
     - disciplines: From disciplines in FeatureConfiguration (shared across all locations)
     - dataFilters: From dataFilters in old configuration
+    - dataExplorationConfig: Direct relation to DataExplorationConfig (shared across all locations)
 
     Args:
         location_dict: Location configuration dict (from dump(camel_case=True))
-        feature_configuration: Optional FeatureConfiguration dict (for disciplines)
+        feature_configuration: Optional FeatureConfiguration dict (for disciplines and dataExplorationConfig)
         client: Optional client to verify asset existence before including rootAsset
+        config_external_id: Optional external ID of the APM Config (for dataExplorationConfig reference)
 
     Returns:
         Dictionary of properties to add to InFieldLocationConfig
@@ -75,9 +82,16 @@ def apply_location_config_fields(
     if data_filters is not None:
         props["dataFilters"] = data_filters
 
+    # Migrate dataExplorationConfig (direct relation to shared DataExplorationConfig node)
+    if config_external_id:
+        data_exploration_external_id = get_data_exploration_config_external_id(config_external_id)
+        props["dataExplorationConfig"] = DirectRelationReference(
+            space=TARGET_SPACE,
+            external_id=data_exploration_external_id,
+        )
+
     # TODO: Add more field migrations here as they are implemented
     # - threeDConfiguration
-    # - observations
     # etc.
 
     return props

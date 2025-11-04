@@ -4,7 +4,7 @@ This module contains TypedDict definitions for the new InField V2 configuration
 format that is the target of the migration from the old APM Config format.
 """
 
-from typing import TypedDict
+from typing import Any, TypedDict
 
 from cognite.client.data_classes.data_modeling.ids import DataModelId
 from cognite.client.data_classes.data_modeling import DirectRelationReference
@@ -76,6 +76,23 @@ class RootLocationDataFilters(TypedDict, total=False):
     timeseries: ResourceFilters | None
 
 
+class DataExplorationConfigProperties(TypedDict, total=False):
+    """Properties for DataExplorationConfig node.
+    
+    Contains configuration for data exploration features:
+    - observations: Observations feature configuration
+    - activities: Activities configuration
+    - documents: Document configuration
+    - notifications: Notifications configuration
+    - assets: Asset page configuration
+    """
+    observations: dict[str, Any]  # ObservationsConfigFeature
+    activities: dict[str, Any]  # ActivitiesConfiguration
+    documents: dict[str, Any]  # DocumentConfiguration
+    notifications: dict[str, Any]  # NotificationsConfiguration
+    assets: dict[str, Any]  # AssetPageConfiguration
+
+
 class InFieldLocationConfigProperties(TypedDict, total=False):
     """Properties for InFieldLocationConfig node.
     
@@ -87,6 +104,7 @@ class InFieldLocationConfigProperties(TypedDict, total=False):
     - accessManagement: Template and checklist admin groups (from templateAdmins and checklistAdmins)
     - disciplines: List of disciplines (from disciplines in FeatureConfiguration)
     - dataFilters: Data filters for general, assets, files, and timeseries (from dataFilters in old configuration)
+    - dataExplorationConfig: Direct relation to the DataExplorationConfig node (shared across all locations)
     """
     rootLocationExternalId: str
     featureToggles: FeatureToggles
@@ -95,6 +113,5 @@ class InFieldLocationConfigProperties(TypedDict, total=False):
     accessManagement: AccessManagement
     disciplines: list[Discipline]
     dataFilters: RootLocationDataFilters
-    # TODO: Add the following fields:
-    # dataExplorationConfig: DirectRelation to data exploration config
+    dataExplorationConfig: DirectRelationReference
 
