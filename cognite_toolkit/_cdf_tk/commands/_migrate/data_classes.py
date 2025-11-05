@@ -139,6 +139,7 @@ class MigrationMappingList(ModelList[MigrationMapping]):
             "TimeSeries": TimeSeriesMigrationMappingList,
             "FileMetadata": FileMigrationMappingList,
             "Events": EventMigrationMappingList,
+            "FileAnnotations": FileAnnotationMigrationMappingList,
         }
         if resource_type not in cls_by_resource_type:
             raise ToolkitValueError(
@@ -163,6 +164,10 @@ class FileMapping(MigrationMapping):
     resource_type: Literal["file"] = "file"
 
 
+class FileAnnotationMapping(MigrationMapping):
+    resource_type: Literal["fileAnnotation"] = "fileAnnotation"
+
+
 class AssetMigrationMappingList(MigrationMappingList):
     @classmethod
     def _get_base_model_cls(cls) -> type[AssetMapping]:
@@ -185,6 +190,12 @@ class TimeSeriesMigrationMappingList(MigrationMappingList):
     @classmethod
     def _get_base_model_cls(cls) -> type[TimeSeriesMapping]:
         return TimeSeriesMapping
+
+
+class FileAnnotationMigrationMappingList(MigrationMappingList):
+    @classmethod
+    def _get_base_model_cls(cls) -> type[FileAnnotationMapping]:
+        return FileAnnotationMapping
 
 
 @dataclass

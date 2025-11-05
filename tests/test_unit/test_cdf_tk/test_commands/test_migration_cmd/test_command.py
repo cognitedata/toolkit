@@ -7,12 +7,11 @@ import httpx
 import pytest
 import responses
 import respx
-from cognite.client.data_classes import Asset, AssetList, Annotation, AnnotationList
+from cognite.client.data_classes import Annotation, AnnotationList, Asset, AssetList
 from cognite.client.data_classes.data_modeling import (
     ContainerId,
     DataModel,
     DataModelList,
-    EdgeApply,
     DirectRelation,
     MappedProperty,
     NodeApply,
@@ -33,7 +32,11 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_model import (
     MODEL_ID,
     RESOURCE_VIEW_MAPPING_VIEW_ID,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import ASSET_ID, create_default_mappings, FILE_ANNOTATIONS_ID
+from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
+    ASSET_ID,
+    FILE_ANNOTATIONS_ID,
+    create_default_mappings,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import AssetCentricMigrationIO
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
@@ -46,21 +49,23 @@ def cognite_migration_model(
 ) -> Iterator[responses.RequestsMock]:
     config = toolkit_config
     mapping_by_id = {mapping.external_id: mapping for mapping in create_default_mappings()}
-    asset_mapping = mapping_by_id[ASSET_ID]
-    # Lookup of the mapping in the Migration Model
-    mapping_node_response = asset_mapping.dump(context="api")
-    mapping_node_response.update({"createdTime": 0, "lastUpdatedTime": 0, "version": 1})
-    sources = mapping_node_response.pop("sources", [])
-    if sources:
-        mapping_view_id = asset_mapping.sources[0].source
-        mapping_node_response["properties"] = {
-            mapping_view_id.space: {
-                f"{mapping_view_id.external_id}/{mapping_view_id.version}": sources[0]["properties"]
+    node_items: list[dict] = []
+    for mapping in mapping_by_id.values():
+        # Lookup of the mapping in the Migration Model
+        mapping_node_response = mapping.dump(context="api")
+        mapping_node_response.update({"createdTime": 0, "lastUpdatedTime": 0, "version": 1})
+        sources = mapping_node_response.pop("sources", [])
+        if sources:
+            mapping_view_id = mapping.sources[0].source
+            mapping_node_response["properties"] = {
+                mapping_view_id.space: {
+                    f"{mapping_view_id.external_id}/{mapping_view_id.version}": sources[0]["properties"]
+                }
             }
-        }
+        node_items.append(mapping_node_response)
     rsps.post(
         config.create_api_url("models/instances/byids"),
-        json={"items": [mapping_node_response]},
+        json={"items": node_items},
         status=200,
     )
 
@@ -296,7 +301,8 @@ class TestMigrationCommand:
                     annotated_resource_type="file",
                     annotated_resource_id=3000 + i,
                     data={
-
+                        "assetRef": {"id": 4000 + i},
+                        "textRegion": {"xMin": 10, "xMax": 100, "yMin": 20, "yMax": 200},
                     },
                     status="approved",
                     creating_user="doctrino",
@@ -311,10 +317,9 @@ class TestMigrationCommand:
         csv_content = "id,space,externalId,ingestionView\n" + "\n".join(
             f"{2000 + i},{space},annotation_{i},{FILE_ANNOTATIONS_ID}" for i in range(len(annotations))
         )
-
         # Annotation retrieve ids
         rsps.post(
-            config.create_api_url("/annotations/byids"),
+            config.create_api_url("/annotations/list"),
             json={"items": [annotation.dump() for annotation in annotations]},
             status=200,
         )
@@ -347,45 +352,22 @@ class TestMigrationCommand:
         command = MigrationCommand(silent=True)
 
         result = command.migrate(
-            selected=MigrationCSVFileSelector(datafile=csv_file, kind="Annotations"),
+            selected=MigrationCSVFileSelector(datafile=csv_file, kind="FileAnnotations"),
             data=AssetCentricMigrationIO(client),
             mapper=AssetCentricMapper(client),
             log_dir=tmp_path / "logs",
             dry_run=False,
             verbose=False,
         )
+        actual_results = [result.get_progress(f"fileAnnotation_{annotation.id}") for annotation in annotations]
+        expected_results = [{"download": "success", "convert": "success", "upload": "success"} for _ in annotations]
+        assert actual_results == expected_results
 
         # Check that the annotations were uploaded
         last_call = respx_mock.calls[-1]
         assert last_call.request.url == config.create_api_url("/models/instances")
         assert last_call.request.method == "POST"
         actual_instances = json.loads(last_call.request.content)["items"]
-        expected_instance = [
-        EdgeApply(
-            space=space,
-            external_id=annotation.external_id,
-            sources=[
-                NodeOrEdgeData(
-                    source=ViewId("cdf_cdm", "CogniteAsset", "v1"),
-                    properties={
-                        "name": annotation.name,
-                        "description": annotation.description,
-                    },
-                ),
-                NodeOrEdgeData(
-                    source=INSTANCE_SOURCE_VIEW_ID,
-                    properties={
-                        "id": annotation.id,
-                        "resourceType": "annotation",
-                        "dataSetId": None,
-                        "classicExternalId": annotation.external_id,
-                    },
-                ),
-            ],
-        )
-
-
-
 
 
 class TestMigrateCommandHelpers:
