@@ -64,7 +64,7 @@ class TestTracker:
         """Verify that subcommands are tracked as a list, not as positionalArg0, positionalArg1, etc."""
         original_argv = sys.argv.copy()
         try:
-            sys.argv = ["cdf-tk", "modules", "upgrade", "--dry-run"]
+            sys.argv = ["cdf", "modules", "upgrade", "--dry-run"]
             with patch("cognite_toolkit._cdf_tk.tracker.Mixpanel"):
                 tracker = Tracker(skip_tracking=False)
                 tracker._opt_status = "opted-in"
