@@ -169,11 +169,12 @@ class TableReader(FileReader, ABC):
         if input_file.suffix != cls.format:
             raise ToolkitValueError(f"Expected a {cls.format} file got a {input_file.suffix!r} file instead.")
 
+        column_names: Sequence[str] = []
         with input_file.open("r", encoding="utf-8-sig") as file:
             reader = csv.DictReader(file)
-            column_names = Counter(reader.fieldnames)
-            if duplicated := [name for name, count in column_names.items() if count > 1]:
-                raise ToolkitValueError(f"CSV file contains duplicate headers: {humanize_collection(duplicated)}")
+            column_names = reader.fieldnames or []
+            cls._check_column_names(column_names)
+
             sample_rows: list[dict[str, str]] = []
             for no, row in enumerate(reader):
                 if no >= sniff_rows:
@@ -183,25 +184,30 @@ class TableReader(FileReader, ABC):
             if not sample_rows:
                 raise ToolkitValueError(f"No data found in the file: {input_file.as_posix()!r}.")
 
-            schema = []
-            for column_name in reader.fieldnames or []:
-                sample_values = [row[column_name] for row in sample_rows if column_name in row]
-                if not sample_values:
-                    column = SchemaColumn(name=column_name, type="string")
+        schema = []
+        for column_name in column_names:
+            sample_values = [row[column_name] for row in sample_rows if column_name in row]
+            if not sample_values:
+                column = SchemaColumn(name=column_name, type="string")
+            else:
+                data_types = Counter(
+                    infer_data_type_from_value(value, dtype="Json")[0] for value in sample_values if value is not None
+                )
+                if not data_types:
+                    inferred_type = "string"
                 else:
-                    data_types = Counter(
-                        infer_data_type_from_value(value, dtype="Json")[0]
-                        for value in sample_values
-                        if value is not None
-                    )
-                    if not data_types:
-                        inferred_type = "string"
-                    else:
-                        inferred_type = data_types.most_common()[0][0]
-                    # Json dtype is a subset of Datatype that SchemaColumn accepts
-                    column = SchemaColumn(name=column_name, type=inferred_type)  # type: ignore[arg-type]
-                schema.append(column)
+                    inferred_type = data_types.most_common()[0][0]
+                # Json dtype is a subset of Datatype that SchemaColumn accepts
+                column = SchemaColumn(name=column_name, type=inferred_type)  # type: ignore[arg-type]
+            schema.append(column)
         return schema
+
+    @classmethod
+    def _check_column_names(cls, column_names: Sequence[str]) -> None:
+        """Check for duplicate column names."""
+        duplicates = [name for name, count in Counter(column_names).items() if count > 1]
+        if duplicates:
+            raise ToolkitValueError(f"Duplicate column names found: {humanize_collection(duplicates)}.")
 
 
 class CSVReader(TableReader):
