@@ -7,11 +7,12 @@ import httpx
 import pytest
 import responses
 import respx
-from cognite.client.data_classes import Asset, AssetList
+from cognite.client.data_classes import Asset, AssetList, Annotation, AnnotationList
 from cognite.client.data_classes.data_modeling import (
     ContainerId,
     DataModel,
     DataModelList,
+    EdgeApply,
     DirectRelation,
     MappedProperty,
     NodeApply,
@@ -32,7 +33,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_model import (
     MODEL_ID,
     RESOURCE_VIEW_MAPPING_VIEW_ID,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import ASSET_ID, create_default_mappings
+from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import ASSET_ID, create_default_mappings, FILE_ANNOTATIONS_ID
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import AssetCentricMigrationIO
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
@@ -278,6 +279,113 @@ class TestMigrationCommand:
             {"ID": f"asset_{asset.id}", "download": "success", "convert": "success", "upload": "success"}
             for asset in assets
         ]
+
+    def test_migrate_annotations(
+        self,
+        toolkit_config: ToolkitClientConfig,
+        cognite_migration_model: responses.RequestsMock,
+        tmp_path: Path,
+        respx_mock: respx.MockRouter,
+    ) -> None:
+        rsps = cognite_migration_model
+        config = toolkit_config
+        annotations = AnnotationList(
+            [
+                Annotation(
+                    id=2000 + i,
+                    annotated_resource_type="file",
+                    annotated_resource_id=3000 + i,
+                    data={
+
+                    },
+                    status="approved",
+                    creating_user="doctrino",
+                    creating_app="my_app",
+                    creating_app_version="v1",
+                    annotation_type="diagrams.AssetLink",
+                )
+                for i in range(2)
+            ]
+        )
+        space = "my_space"
+        csv_content = "id,space,externalId,ingestionView\n" + "\n".join(
+            f"{2000 + i},{space},annotation_{i},{FILE_ANNOTATIONS_ID}" for i in range(len(annotations))
+        )
+
+        # Annotation retrieve ids
+        rsps.post(
+            config.create_api_url("/annotations/byids"),
+            json={"items": [annotation.dump() for annotation in annotations]},
+            status=200,
+        )
+        # Instance creation
+        respx.post(
+            config.create_api_url("/models/instances"),
+        ).mock(
+            return_value=httpx.Response(
+                status_code=200,
+                json={
+                    "items": [
+                        {
+                            "instanceType": "edge",
+                            "space": space,
+                            "externalId": f"annotation_{i}",
+                            "version": 1,
+                            "wasModified": True,
+                            "createdTime": 1,
+                            "lastUpdatedTime": 1,
+                        }
+                        for i in range(len(annotations))
+                    ]
+                },
+            )
+        )
+        csv_file = tmp_path / "migration.csv"
+        csv_file.write_text(csv_content, encoding="utf-8")
+
+        client = ToolkitClient(config)
+        command = MigrationCommand(silent=True)
+
+        result = command.migrate(
+            selected=MigrationCSVFileSelector(datafile=csv_file, kind="Annotations"),
+            data=AssetCentricMigrationIO(client),
+            mapper=AssetCentricMapper(client),
+            log_dir=tmp_path / "logs",
+            dry_run=False,
+            verbose=False,
+        )
+
+        # Check that the annotations were uploaded
+        last_call = respx_mock.calls[-1]
+        assert last_call.request.url == config.create_api_url("/models/instances")
+        assert last_call.request.method == "POST"
+        actual_instances = json.loads(last_call.request.content)["items"]
+        expected_instance = [
+        EdgeApply(
+            space=space,
+            external_id=annotation.external_id,
+            sources=[
+                NodeOrEdgeData(
+                    source=ViewId("cdf_cdm", "CogniteAsset", "v1"),
+                    properties={
+                        "name": annotation.name,
+                        "description": annotation.description,
+                    },
+                ),
+                NodeOrEdgeData(
+                    source=INSTANCE_SOURCE_VIEW_ID,
+                    properties={
+                        "id": annotation.id,
+                        "resourceType": "annotation",
+                        "dataSetId": None,
+                        "classicExternalId": annotation.external_id,
+                    },
+                ),
+            ],
+        )
+
+
+
 
 
 class TestMigrateCommandHelpers:
