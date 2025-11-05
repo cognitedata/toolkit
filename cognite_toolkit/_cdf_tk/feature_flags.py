@@ -85,6 +85,10 @@ class Flags(Enum):
         visible=False,
         description="Enables features planned for Cognite Toolkit version 0.7.0",
     )
+    RESOURCES = FlagMetadata(
+        visible=True,
+        description="Enables support for the resources command",
+    )
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)
