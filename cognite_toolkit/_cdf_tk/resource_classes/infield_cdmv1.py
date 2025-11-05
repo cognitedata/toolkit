@@ -97,7 +97,7 @@ class DataExplorationConfigProperties(BaseModelResource):
     assets: dict[str, Any]  # AssetPageConfiguration
 
 
-class InfieldCDMV1YAML(ToolkitResource):
+class InfieldCDMv1YAML(ToolkitResource):
     """Properties for InFieldLocationConfig node.
 
     Currently migrated fields:
