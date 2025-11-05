@@ -17,6 +17,51 @@ def invalid_test_cases() -> Iterable:
         {"Missing required field: 'externalId'"},
         id="Missing required field: externalId",
     )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "unknownField": "invalid_value",
+            "anotherUnknownField": 123,
+            "featureToggles": {
+                "threeD": True,
+                "invalidToggle": "bad_value",
+            },
+        },
+        {
+            "In featureToggles unused field: 'invalidToggle'",
+            "Unused field: 'anotherUnknownField'",
+            "Unused field: 'unknownField'",
+        },
+        id="Multiple extra fields at different levels",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "featureToggles": {
+                "threeD": "not_a_boolean",
+                "trends": 123,
+                "observations": {
+                    "isEnabled": "not_a_boolean",
+                    "isWriteBackEnabled": ["invalid_type"],
+                },
+            },
+            "accessManagement": {
+                "templateAdmins": "should_be_a_list",
+                "checklistAdmins": 456,
+            },
+        },
+        {
+            "In accessManagement.checklistAdmins input should be a valid list. Got 456.",
+            "In accessManagement.templateAdmins input should be a valid list. Got 'should_be_a_list'.",
+            "In featureToggles.observations.isEnabled input should be a valid boolean. "
+            "Got 'not_a_boolean' of type str.",
+            "In featureToggles.observations.isWriteBackEnabled input should be a valid "
+            "boolean. Got ['invalid_type'] of type list.",
+            "In featureToggles.threeD input should be a valid boolean. Got 'not_a_boolean' of type str.",
+            "In featureToggles.trends input should be a valid boolean. Got 123 of type int.",
+        },
+        id="Multiple type mismatches across nested structures",
+    )
 
 
 class TestInfieldCDMv1YAML:
