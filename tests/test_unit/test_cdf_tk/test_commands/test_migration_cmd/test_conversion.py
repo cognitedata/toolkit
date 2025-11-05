@@ -4,13 +4,15 @@ from datetime import datetime, timezone
 from typing import Any, ClassVar
 
 import pytest
-from cognite.client.data_classes import Asset, Event, FileMetadata, Sequence, TimeSeries
+from cognite.client.data_classes import Annotation, Asset, Event, FileMetadata, Sequence, TimeSeries
 from cognite.client.data_classes.data_modeling import (
+    EdgeApply,
     NodeId,
+    NodeOrEdgeData,
 )
 from cognite.client.data_classes.data_modeling import data_types as dt
 from cognite.client.data_classes.data_modeling.data_types import DirectRelationReference, EnumValue
-from cognite.client.data_classes.data_modeling.ids import ContainerId, ViewId
+from cognite.client.data_classes.data_modeling.ids import ContainerId, EdgeId, ViewId
 from cognite.client.data_classes.data_modeling.instances import PropertyValueWrite
 from cognite.client.data_classes.data_modeling.views import MappedProperty, MultiEdgeConnection, ViewProperty
 
@@ -36,6 +38,7 @@ class TestCreateProperties:
     DIRECT_RELATION_CACHE = DirectRelationCache(
         asset={1: DirectRelationReference("instance_space", "MyFirstAsset")},
         source={"sourceA": DirectRelationReference("instance_space", "TheSourceA")},
+        file={},
     )
 
     @pytest.mark.parametrize(
@@ -755,6 +758,7 @@ class TestAssetCentricConversion:
             view_properties,
             self.ASSET_INSTANCE_ID_BY_ID,
             self.SOURCE_SYSTEM_INSTANCE_ID_BY_EXTERNAL_ID,
+            {},
         )
 
         # Check the structure of the returned NodeApply
@@ -781,3 +785,152 @@ class TestAssetCentricConversion:
             assert instance_source.properties["classicExternalId"] == resource.external_id
 
         assert expected_issue.dump() == issue.dump()
+
+    ANNOTATION_ID = EdgeId(space="test_space", external_id="annotation_37")
+    DEFAULT_PROPERTIES: ClassVar[dict[str, Any]] = dict(nullable=True, immutable=False, auto_increment=False)
+
+    DIAGRAM_ANNOTATION_PROPERTIES: ClassVar[dict[str, ViewProperty]] = {
+        "status": MappedProperty(
+            container=CONTAINER_ID,
+            container_property_identifier="status",
+            type=dt.Enum({"Suggested": EnumValue(), "Approved": EnumValue(), "Rejected": EnumValue()}),
+            **DEFAULT_PROPERTIES,
+        ),
+    }
+    ANNOTATION_MAPPING = ResourceViewMapping(
+        external_id="file_annotation_mapping",
+        view_id=ViewId("cdf_cdm", "CogniteDiagramAnnotation", "v1"),
+        property_mapping={
+            "annotatedResourceId": "edge.startNode",
+            "annotationType": "edge.type.externalId",
+            "status": "status",
+            "data.assetRef.id": "edge.endNode",
+            "data.assetRef.externalId": "edge.endNode",
+            "data.text": "edge.invalidProp",
+        },
+        version=1,
+        last_updated_time=1000000,
+        created_time=1000000,
+        resource_type="fileAnnotation",
+    )
+    FILE_INSTANCE_BY_ID: ClassVar[Mapping[int, DirectRelationReference]] = {
+        42: DirectRelationReference("test_space", "file_456_instance")
+    }
+
+    @pytest.mark.parametrize(
+        "resource,mapping,expected_edge,expected_issue",
+        [
+            pytest.param(
+                Annotation(
+                    id=37,
+                    annotated_resource_type="file",
+                    annotation_type="diagrams.FileLink",
+                    annotated_resource_id=42,
+                    creating_user="user_1",
+                    creating_app="app_1",
+                    creating_app_version="1.0.0",
+                    status="Approved",
+                    data=dict(assetRef=dict(id=123)),
+                ),
+                ANNOTATION_MAPPING,
+                EdgeApply(
+                    space=ANNOTATION_ID.space,
+                    external_id=ANNOTATION_ID.external_id,
+                    start_node=DirectRelationReference("test_space", "file_456_instance"),
+                    end_node=DirectRelationReference("test_space", "asset_123_instance"),
+                    type=DirectRelationReference("test_space", "diagrams.FileLink"),
+                    sources=[
+                        NodeOrEdgeData(
+                            source=ViewId("cdf_cdm", "CogniteDiagramAnnotation", "v1"),
+                            properties={"status": "Approved"},
+                        )
+                    ],
+                ),
+                ConversionIssue(
+                    asset_centric_id=AssetCentricId("fileAnnotation", id_=37),
+                    instance_id=EdgeId(space="test_space", external_id="annotation_37"),
+                    ignored_asset_centric_properties=[
+                        "annotatedResourceType",
+                        "creatingApp",
+                        "creatingAppVersion",
+                        "creatingUser",
+                    ],
+                    missing_asset_centric_properties=["data.assetRef.externalId", "data.text"],
+                ),
+                id="Basic annotation conversion",
+            )
+        ],
+    )
+    def test_asset_centric_to_annotation(
+        self,
+        resource: Annotation,
+        mapping: ResourceViewMapping,
+        expected_edge: EdgeApply,
+        expected_issue: ConversionIssue,
+    ) -> None:
+        """Testing that asset_centric_to_dm raises can convert asset annotations. Note that unlike the other resource types,
+        we do not track the linage of annotations."""
+
+        edge, issue = asset_centric_to_dm(
+            resource,
+            self.ANNOTATION_ID,
+            mapping,
+            self.DIAGRAM_ANNOTATION_PROPERTIES,
+            self.ASSET_INSTANCE_ID_BY_ID,
+            {},
+            self.FILE_INSTANCE_BY_ID,
+        )
+
+        assert edge.dump() == expected_edge.dump()
+        assert issue.dump() == expected_issue.dump()
+
+    def test_asset_centric_to_annotation_failed(self) -> None:
+        """Testing that asset_centric_to_dm raises conversion issues for annotations with missing required properties."""
+
+        resource = Annotation(
+            id=38,
+            annotated_resource_type="file",
+            annotation_type="diagrams.FileLink",
+            annotated_resource_id=999,  # Missing file instance
+            creating_user="user_1",
+            creating_app="app_1",
+            creating_app_version="1.0.0",
+            status="Approved",
+            data=dict(assetRef=dict(id=123), text="Some annotation text"),
+        )
+
+        edge, issue = asset_centric_to_dm(
+            resource,
+            EdgeId(space="test_space", external_id="annotation_38"),
+            self.ANNOTATION_MAPPING,
+            self.DIAGRAM_ANNOTATION_PROPERTIES,
+            self.ASSET_INSTANCE_ID_BY_ID,
+            {},
+            self.FILE_INSTANCE_BY_ID,
+        )
+
+        expected_issue = ConversionIssue(
+            asset_centric_id=AssetCentricId("fileAnnotation", id_=38),
+            instance_id=EdgeId(space="test_space", external_id="annotation_38"),
+            ignored_asset_centric_properties=[
+                "annotatedResourceType",
+                "creatingApp",
+                "creatingAppVersion",
+                "creatingUser",
+            ],
+            missing_asset_centric_properties=["data.assetRef.externalId"],
+            missing_instance_properties=[],
+            invalid_instance_property_types=[
+                InvalidPropertyDataType(property_id="edge.invalidProp", expected_type="EdgeProperty")
+            ],
+            failed_conversions=[
+                FailedConversion(
+                    property_id="annotatedResourceId",
+                    value=999,
+                    error="Cannot convert 999 to DirectRelationReference. Invalid data type or missing in lookup.",
+                )
+            ],
+        )
+
+        assert issue.dump() == expected_issue.dump()
+        assert edge is None
