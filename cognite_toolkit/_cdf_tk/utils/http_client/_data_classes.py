@@ -92,6 +92,8 @@ class RequestMessage(HTTPMessage):
     read_attempt: int = 0
     status_attempt: int = 0
     api_version: str | None = None
+    content_type: str = "application/json"
+    accept: str = "application/json"
 
     @property
     def total_attempts(self) -> int:
