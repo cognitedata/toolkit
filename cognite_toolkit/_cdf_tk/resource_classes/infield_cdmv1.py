@@ -1,26 +1,6 @@
 from typing import Any
 
-from cognite.client.data_classes.data_modeling import DirectRelationReference
-from cognite.client.data_classes.data_modeling.ids import DataModelId
-
 from .base import BaseModelResource, ToolkitResource
-
-
-class LocationFilterDTOProperties(BaseModelResource):
-    """Properties for LocationFilterDTO node.
-
-    Currently migrated fields:
-    - name: The name of the location filter
-    - description: Description indicating this was migrated from old location
-    - instanceSpaces: List of instance spaces from sourceDataInstanceSpace and appDataInstanceSpace
-    - dataModels: List of DataModelId references to data models
-    """
-
-    externalId: str
-    name: str
-    description: str
-    instanceSpaces: list[str]
-    dataModels: list[DataModelId]
 
 
 class ObservationFeatureToggles(BaseModelResource):
@@ -53,13 +33,6 @@ class AccessManagement(BaseModelResource):
     checklistAdmins: list[str]  # list of CDF group external IDs
 
 
-class Discipline(BaseModelResource):
-    """Discipline definition."""
-
-    externalId: str
-    name: str
-
-
 class ResourceFilters(BaseModelResource):
     """Resource filters."""
 
@@ -79,7 +52,7 @@ class RootLocationDataFilters(BaseModelResource):
     timeseries: ResourceFilters | None
 
 
-class DataExplorationConfigProperties(BaseModelResource):
+class DataExplorationConfig(BaseModelResource):
     """Properties for DataExplorationConfig node.
 
     Contains configuration for data exploration features:
@@ -90,6 +63,8 @@ class DataExplorationConfigProperties(BaseModelResource):
     - assets: Asset page configuration
     """
 
+    externalId: str
+
     observations: dict[str, Any]  # ObservationsConfigFeature
     activities: dict[str, Any]  # ActivitiesConfiguration
     documents: dict[str, Any]  # DocumentConfiguration
@@ -97,7 +72,13 @@ class DataExplorationConfigProperties(BaseModelResource):
     assets: dict[str, Any]  # AssetPageConfiguration
 
 
-class InfieldCDMv1YAML(ToolkitResource):
+class ObservationConfig(BaseModelResource):
+    externalId: str
+    root_location_external_ids: list[str]
+    field_configurations: dict[str, Any]
+
+
+class InfieldLocationConfigYAML(ToolkitResource):
     """Properties for InFieldLocationConfig node.
 
     Currently migrated fields:
@@ -111,11 +92,14 @@ class InfieldCDMv1YAML(ToolkitResource):
     - dataExplorationConfig: Direct relation to the DataExplorationConfig node (shared across all locations)
     """
 
+    externalId: str
+
     rootLocationExternalId: str
     featureToggles: FeatureToggles
-    rootAsset: DirectRelationReference
+    classic_asset_external_id: str
     appInstanceSpace: str
+    app_data_set: str
     accessManagement: AccessManagement
-    disciplines: list[Discipline]
     dataFilters: RootLocationDataFilters
-    dataExplorationConfig: DirectRelationReference
+    observation_config: ObservationConfig
+    dataExplorationConfig: DataExplorationConfig
