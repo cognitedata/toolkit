@@ -1,72 +1,72 @@
-external_id: my_location_config_001
+externalId: my_location_config_001
 
-root_location_external_id: location_filter_main_facility
+rootLocationExternalId: location_filter_main_facility
 
-feature_toggles:
-  three_d: true
+featureToggles:
+  threeD: true
   trends: true
   documents: true
   workorders: true
   notifications: true
   media: true
-  template_checklist_flow: true
-  workorder_checklist_flow: false
+  templateChecklistFlow: true
+  workorderChecklistFlow: false
   observations:
-    is_enabled: true
-    is_write_back_enabled: true
-    notifications_endpoint_external_id: notifications_endpoint_001
-    attachments_endpoint_external_id: attachments_endpoint_001
+    isEnabled: true
+    isWriteBackEnabled: true
+    notificationsEndpointExternalId: notifications_endpoint_001
+    attachmentsEndpointExternalId: attachments_endpoint_001
 
-classic_asset_external_id: root_asset_external_id_123
+classicAssetExternalId: root_asset_external_id_123
 
-app_instance_space: my_app_instance_space
+appInstanceSpace: my_app_instance_space
 
-app_data_set: my_infield_dataset
+appDataSet: my_infield_dataset
 
-access_management:
-  template_admins:
+accessManagement:
+  templateAdmins:
     - cdf_group_template_admins
     - cdf_group_superusers
-  checklist_admins:
+  checklistAdmins:
     - cdf_group_checklist_admins
     - cdf_group_superusers
 
-data_filters:
+dataFilters:
   general:
-    dataset_ids:
+    datasetIds:
       - 12345
       - 67890
-    asset_subtree_external_ids:
+    assetSubtreeExternalIds:
       - asset_subtree_001
       - asset_subtree_002
-    root_asset_external_ids:
+    rootAssetExternalIds:
       - root_asset_001
-    external_id_prefix: FACILITY_A_
+    externalIdPrefix: FACILITY_A_
     spaces:
       - my_space_001
       - my_space_002
   assets:
-    dataset_ids:
+    datasetIds:
       - 12345
-    asset_subtree_external_ids:
+    assetSubtreeExternalIds:
       - asset_subtree_001
   files:
-    dataset_ids:
+    datasetIds:
       - 12345
       - 67890
-    external_id_prefix: DOC_
+    externalIdPrefix: DOC_
   timeseries:
-    dataset_ids:
+    datasetIds:
       - 12345
-    root_asset_external_ids:
+    rootAssetExternalIds:
       - root_asset_001
 
-observation_config:
-  external_id: observation_config_001
-  root_location_external_ids:
+observationConfig:
+  externalId: observation_config_001
+  rootLocationExternalIds:
     - location_001
     - location_002
-  field_configurations:
+  fieldConfigurations:
     field_1:
       type: text
       label: Description
@@ -76,22 +76,22 @@ observation_config:
       label: Temperature
       unit: celsius
 
-data_exploration_config:
-  external_id: data_exploration_config_shared
+dataExplorationConfig:
+  externalId: data_exploration_config_shared
   observations:
     enabled: true
-    default_view: list
+    defaultView: list
   activities:
     enabled: true
-    show_completed: true
+    showCompleted: true
   documents:
     enabled: true
-    supported_formats:
+    supportedFormats:
       - pdf
       - docx
   notifications:
     enabled: true
-    push_enabled: false
+    pushEnabled: false
   assets:
     enabled: true
-    show_hierarchy: true
+    showHierarchy: true
