@@ -147,13 +147,15 @@ class HTTPClient:
             timeout=self.config.timeout,
         )
 
-    def _create_headers(self, api_version: str | None = None) -> MutableMapping[str, str]:
+    def _create_headers(
+        self, api_version: str | None = None, content_type: str = "application/json", accept: str = "application/json"
+    ) -> MutableMapping[str, str]:
         headers: MutableMapping[str, str] = {}
         headers["User-Agent"] = f"httpx/{httpx.__version__} {get_user_agent()}"
         auth_name, auth_value = self.config.credentials.authorization_header()
         headers[auth_name] = auth_value
-        headers["content-type"] = "application/json"
-        headers["accept"] = "application/json"
+        headers["content-type"] = content_type
+        headers["accept"] = accept
         headers["x-cdp-sdk"] = f"CogniteToolkit:{get_current_toolkit_version()}"
         headers["x-cdp-app"] = self.config.client_name
         headers["cdf-version"] = api_version or self.config.api_subversion
@@ -162,7 +164,7 @@ class HTTPClient:
         return headers
 
     def _make_request(self, item: RequestMessage) -> httpx.Response:
-        headers = self._create_headers(item.api_version)
+        headers = self._create_headers(item.api_version, item.content_type, item.accept)
         params: dict[str, PrimitiveType] | None = None
         if isinstance(item, ParamRequest):
             params = item.parameters
