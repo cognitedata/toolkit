@@ -6,50 +6,50 @@ from .base import BaseModelResource, ToolkitResource
 class ObservationFeatureToggles(BaseModelResource):
     """Feature toggles for observations."""
 
-    is_enabled: bool
-    is_write_back_enabled: bool
-    notifications_endpoint_external_id: str
-    attachments_endpoint_external_id: str
+    is_enabled: bool | None = None
+    is_write_back_enabled: bool | None = None
+    notifications_endpoint_external_id: str | None = None
+    attachments_endpoint_external_id: str | None = None
 
 
 class FeatureToggles(BaseModelResource):
     """Feature toggles for InField location configuration."""
 
-    three_d: bool
-    trends: bool
-    documents: bool
-    workorders: bool
-    notifications: bool
-    media: bool
-    template_checklist_flow: bool
-    workorder_checklist_flow: bool
-    observations: ObservationFeatureToggles
+    three_d: bool | None = None
+    trends: bool | None = None
+    documents: bool | None = None
+    workorders: bool | None = None
+    notifications: bool | None = None
+    media: bool | None = None
+    template_checklist_flow: bool | None = None
+    workorder_checklist_flow: bool | None = None
+    observations: ObservationFeatureToggles | None = None
 
 
 class AccessManagement(BaseModelResource):
     """Access management configuration."""
 
-    template_admins: list[str]  # list of CDF group external IDs
-    checklist_admins: list[str]  # list of CDF group external IDs
+    template_admins: list[str] | None = None  # list of CDF group external IDs
+    checklist_admins: list[str] | None = None  # list of CDF group external IDs
 
 
 class ResourceFilters(BaseModelResource):
     """Resource filters."""
 
-    dataset_ids: list[int] | None
-    asset_subtree_external_ids: list[str] | None
-    root_asset_external_ids: list[str] | None
-    external_id_prefix: str | None
-    spaces: list[str] | None
+    dataset_ids: list[int] | None = None
+    asset_subtree_external_ids: list[str] | None = None
+    root_asset_external_ids: list[str] | None = None
+    external_id_prefix: str | None = None
+    spaces: list[str] | None = None
 
 
 class RootLocationDataFilters(BaseModelResource):
     """Data filters for root location."""
 
-    general: ResourceFilters | None
-    assets: ResourceFilters | None
-    files: ResourceFilters | None
-    timeseries: ResourceFilters | None
+    general: ResourceFilters | None = None
+    assets: ResourceFilters | None = None
+    files: ResourceFilters | None = None
+    timeseries: ResourceFilters | None = None
 
 
 class DataExplorationConfig(BaseModelResource):
@@ -65,17 +65,17 @@ class DataExplorationConfig(BaseModelResource):
 
     external_id: str
 
-    observations: dict[str, Any]  # ObservationsConfigFeature
-    activities: dict[str, Any]  # ActivitiesConfiguration
-    documents: dict[str, Any]  # DocumentConfiguration
-    notifications: dict[str, Any]  # NotificationsConfiguration
-    assets: dict[str, Any]  # AssetPageConfiguration
+    observations: dict[str, Any] | None = None  # ObservationsConfigFeature
+    activities: dict[str, Any] | None = None  # ActivitiesConfiguration
+    documents: dict[str, Any] | None = None  # DocumentConfiguration
+    notifications: dict[str, Any] | None = None  # NotificationsConfiguration
+    assets: dict[str, Any] | None = None  # AssetPageConfiguration
 
 
 class ObservationConfig(BaseModelResource):
     external_id: str
-    root_location_external_ids: list[str]
-    field_configurations: dict[str, Any]
+    root_location_external_ids: list[str] | None = None
+    field_configurations: dict[str, Any] | None = None
 
 
 class InfieldLocationConfigYAML(ToolkitResource):
@@ -94,12 +94,12 @@ class InfieldLocationConfigYAML(ToolkitResource):
 
     external_id: str
 
-    root_location_external_id: str
-    feature_toggles: FeatureToggles
-    classic_asset_external_id: str
-    app_instance_space: str
-    app_data_set: str
-    access_management: AccessManagement
-    data_filters: RootLocationDataFilters
-    observation_config: ObservationConfig
-    data_exploration_config: DataExplorationConfig
+    root_location_external_id: str | None = None
+    feature_toggles: FeatureToggles | None = None
+    classic_asset_external_id: str | None = None
+    app_instance_space: str | None = None
+    app_data_set: str | None = None
+    access_management: AccessManagement | None = None
+    data_filters: RootLocationDataFilters | None = None
+    observation_config: ObservationConfig | None = None
+    data_exploration_config: DataExplorationConfig | None = None
