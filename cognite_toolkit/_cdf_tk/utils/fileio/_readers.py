@@ -170,20 +170,13 @@ class TableReader(FileReader, ABC):
         if input_file.suffix != cls.format:
             raise ToolkitValueError(f"Expected a {cls.format} file got a {input_file.suffix!r} file instead.")
 
-        column_names: Sequence[str] = []
-        with input_file.open("r", encoding="utf-8-sig") as file:
-            reader = csv.DictReader(file)
-            column_names = reader.fieldnames or []
-            sample_rows: list[dict[str, str]] = []
-            for no, row in enumerate(reader):
-                if no >= sniff_rows:
-                    break
-                sample_rows.append(row)
-
-            if not sample_rows:
-                raise ToolkitValueError(f"No data found in the file: {input_file.as_posix()!r}.")
+        column_names, sample_rows = cls._read_sample_rows(input_file, sniff_rows)
         cls._check_column_names(column_names)
         return cls._infer_schema(sample_rows, column_names)
+
+    @classmethod
+    @abstractmethod
+    def _read_sample_rows(cls, input_file: Path, sniff_rows: int) -> tuple[Sequence[str], list[dict[str, str]]]: ...
 
     @classmethod
     def _infer_schema(cls, sample_rows: list[dict[str, Any]], column_names: Sequence[str]) -> list[SchemaColumn]:
@@ -241,6 +234,23 @@ class CSVReader(TableReader):
         with compression.open("r") as file:
             yield from csv.DictReader(file)
 
+    @classmethod
+    def _read_sample_rows(cls, input_file: Path, sniff_rows: int) -> tuple[Sequence[str], list[dict[str, str]]]:
+        column_names: Sequence[str] = []
+        compression = Compression.from_filepath(input_file)
+        with compression.open("r") as file:
+            reader = csv.DictReader(file)
+            column_names = reader.fieldnames or []
+            sample_rows: list[dict[str, str]] = []
+            for no, row in enumerate(reader):
+                if no >= sniff_rows:
+                    break
+                sample_rows.append(row)
+
+            if not sample_rows:
+                raise ToolkitValueError(f"No data found in the file: {input_file.as_posix()!r}.")
+        return column_names, sample_rows
+
 
 class ParquetReader(TableReader):
     format = ".parquet"
@@ -271,6 +281,28 @@ class ParquetReader(TableReader):
             except json.JSONDecodeError:
                 return value
         return value
+
+    @classmethod
+    def _read_sample_rows(cls, input_file: Path, sniff_rows: int) -> tuple[Sequence[str], list[dict[str, str]]]:
+        import pyarrow.parquet as pq
+
+        column_names: Sequence[str] = []
+        sample_rows: list[dict[str, str]] = []
+        with pq.ParquetFile(input_file) as parquet_file:
+            column_names = parquet_file.schema.names
+            row_count = min(sniff_rows, parquet_file.metadata.num_rows)
+            row_iter = parquet_file.iter_batches(batch_size=row_count)
+            try:
+                batch = next(row_iter)
+                for row in batch.to_pylist():
+                    str_row = {key: (str(value) if value is not None else "") for key, value in row.items()}
+                    sample_rows.append(str_row)
+            except StopIteration:
+                pass
+
+            if not sample_rows:
+                raise ToolkitValueError(f"No data found in the file: {input_file.as_posix()!r}.")
+        return column_names, sample_rows
 
 
 FILE_READ_CLS_BY_FORMAT: Mapping[str, type[FileReader]] = {}
