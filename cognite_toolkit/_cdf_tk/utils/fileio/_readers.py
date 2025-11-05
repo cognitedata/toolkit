@@ -87,25 +87,19 @@ class FailedParsing:
     error: str
 
 
-class TableReader(FileReader, ABC): ...
-
-
-class CSVReader(TableReader):
-    """Reads CSV files and yields each row as a dictionary.
+class TableReader(FileReader, ABC):
+    """Reads table-like files and yields each row as a dictionary.
 
     Args:
-        input_file (Path): The path to the CSV file to read.
+        input_file (Path): The path to the table file to read.
         sniff_rows (int | None): Optional number of rows to sniff for
             schema detection. If None, no schema is detected. If a schema is sniffed
-            from the first `sniff_rows` rows, it will be used to parse the CSV.
+            from the first `sniff_rows` rows, it will be used to parse the table.
         schema (Sequence[SchemaColumn] | None): Optional schema to use for parsing.
             You can either provide a schema or use `sniff_rows` to detect it.
         keep_failed_cells (bool): If True, failed cells will be kept in the
             `failed_cell` attribute. If False, they will be ignored.
-
     """
-
-    format = ".csv"
 
     def __init__(
         self,
@@ -152,18 +146,19 @@ class CSVReader(TableReader):
     @classmethod
     def sniff_schema(cls, input_file: Path, sniff_rows: int = 100) -> list[SchemaColumn]:
         """
-        Sniff the schema from the first `sniff_rows` rows of the CSV file.
+        Sniff the schema from the first `sniff_rows` rows of the file.
 
         Args:
-            input_file (Path): The path to the CSV file.
+            input_file (Path): The path to the tabular file.
             sniff_rows (int): The number of rows to read for sniffing the schema.
 
         Returns:
             list[SchemaColumn]: The inferred schema as a list of SchemaColumn objects.
+
         Raises:
             ValueError: If `sniff_rows` is not a positive integer.
             ToolkitFileNotFoundError: If the file does not exist.
-            ToolkitValueError: If the file is not a CSV file or if there are issues with the content.
+            ToolkitValueError: If the file is not the correct format or if there are issues with the content.
 
         """
         if sniff_rows <= 0:
@@ -171,8 +166,8 @@ class CSVReader(TableReader):
 
         if not input_file.exists():
             raise ToolkitFileNotFoundError(f"File not found: {input_file.as_posix()!r}.")
-        if input_file.suffix != ".csv":
-            raise ToolkitValueError(f"Expected a .csv file got a {input_file.suffix!r} file instead.")
+        if input_file.suffix != cls.format:
+            raise ToolkitValueError(f"Expected a {cls.format} file got a {input_file.suffix!r} file instead.")
 
         with input_file.open("r", encoding="utf-8-sig") as file:
             reader = csv.DictReader(file)
@@ -208,6 +203,12 @@ class CSVReader(TableReader):
                 schema.append(column)
         return schema
 
+
+class CSVReader(TableReader):
+    """Reads CSV files and yields each row as a dictionary."""
+
+    format = ".csv"
+
     def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[dict[str, JsonVal]]:
         if self.keep_failed_cells and self.failed_cell:
             self.failed_cell.clear()
@@ -234,6 +235,10 @@ class CSVReader(TableReader):
 
 class ParquetReader(TableReader):
     format = ".parquet"
+
+    def __init__(self, input_file: Path) -> None:
+        # Parquet files have their own schema, so we don't need to sniff or provide one.
+        super().__init__(input_file, sniff_rows=None, schema=None, keep_failed_cells=False)
 
     def read_chunks(self) -> Iterator[dict[str, JsonVal]]:
         import pyarrow.parquet as pq
