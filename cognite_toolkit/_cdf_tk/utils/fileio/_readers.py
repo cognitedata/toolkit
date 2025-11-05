@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from functools import partial
 from io import TextIOWrapper
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -173,8 +174,6 @@ class TableReader(FileReader, ABC):
         with input_file.open("r", encoding="utf-8-sig") as file:
             reader = csv.DictReader(file)
             column_names = reader.fieldnames or []
-            cls._check_column_names(column_names)
-
             sample_rows: list[dict[str, str]] = []
             for no, row in enumerate(reader):
                 if no >= sniff_rows:
@@ -183,8 +182,12 @@ class TableReader(FileReader, ABC):
 
             if not sample_rows:
                 raise ToolkitValueError(f"No data found in the file: {input_file.as_posix()!r}.")
+        cls._check_column_names(column_names)
+        return cls._infer_schema(sample_rows, column_names)
 
-        schema = []
+    @classmethod
+    def _infer_schema(cls, sample_rows: list[dict[str, Any]], column_names: Sequence[str]) -> list[SchemaColumn]:
+        schema: list[SchemaColumn] = []
         for column_name in column_names:
             sample_values = [row[column_name] for row in sample_rows if column_name in row]
             if not sample_values:
