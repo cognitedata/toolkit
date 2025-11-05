@@ -158,8 +158,8 @@ def mock_statistics(
     yield rsps
 
 
+@pytest.mark.usefixtures("disable_gzip", "disable_pypi_check", "mock_statistics")
 class TestMigrationCommand:
-    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check", "mock_statistics")
     def test_migrate_assets(
         self,
         toolkit_config: ToolkitClientConfig,
@@ -279,6 +279,8 @@ class TestMigrationCommand:
             for asset in assets
         ]
 
+
+class TestMigrateCommandHelpers:
     def test_validate_migration_model_available(self) -> None:
         with monkeypatch_toolkit_client() as client:
             client.data_modeling.data_models.retrieve.return_value = DataModelList([])
