@@ -10,6 +10,7 @@ from ._modules_app import ModulesApp
 from ._profile_app import ProfileApp
 from ._purge import PurgeApp
 from ._repo_app import RepoApp
+from ._resource_app import ResourcesApp
 from ._run import RunApp
 from ._upload_app import UploadApp
 
@@ -26,6 +27,7 @@ __all__ = [
     "ProfileApp",
     "PurgeApp",
     "RepoApp",
+    "ResourcesApp",
     "RunApp",
     "UploadApp",
 ]

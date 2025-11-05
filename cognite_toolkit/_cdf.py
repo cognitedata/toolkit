@@ -33,6 +33,7 @@ from cognite_toolkit._cdf_tk.apps import (
     ProfileApp,
     PurgeApp,
     RepoApp,
+    ResourcesApp,
     RunApp,
 )
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
@@ -118,6 +119,9 @@ if Flags.v07.is_enabled():
 
 _app.add_typer(ModulesApp(**default_typer_kws), name="modules")
 _app.command("init")(landing_app.main_init)
+
+if Flags.RESOURCES.is_enabled():
+    _app.add_typer(ResourcesApp(**default_typer_kws), name="resources")
 
 
 def app() -> NoReturn:
