@@ -162,12 +162,14 @@ class MigrationCommand(ToolkitCommand):
             for item in source:
                 target, issue = mapper.map(item)
                 id_ = data.as_id(item)
-                tracker.set_progress(id_, step=self.Steps.CONVERT, status="success")
+                result: Status = "failed" if target is None else "success"
+                tracker.set_progress(id_, step=self.Steps.CONVERT, status=result)
 
                 if issue.has_issues:
                     # MyPy fails to understand that dict[str, JsonVal] is a Chunk
                     issues.append(issue.dump())  # type: ignore[arg-type]
-                targets.append(UploadItem(source_id=id_, item=target))
+                if target is not None:
+                    targets.append(UploadItem(source_id=id_, item=target))
             if issues:
                 log_file.write_chunks(issues)
             return targets
