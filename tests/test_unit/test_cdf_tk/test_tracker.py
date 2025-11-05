@@ -1,5 +1,6 @@
 """Unit tests for deployment pack tracking functionality in Tracker."""
 
+import sys
 from unittest.mock import patch
 
 import pytest
@@ -58,3 +59,29 @@ class TestTracker:
             _, event_information = mock_track_internal.call_args.args
             assert "userInput" in event_information
             assert event_information["downloadedLibraryIds"] == {"test"}
+
+    def test_subcommands_tracking(self) -> None:
+        """Verify that subcommands are tracked as a list, not as positionalArg0, positionalArg1, etc."""
+        original_argv = sys.argv.copy()
+        try:
+            sys.argv = ["cdf-tk", "modules", "upgrade", "--dry-run"]
+            with patch("cognite_toolkit._cdf_tk.tracker.Mixpanel"):
+                tracker = Tracker(skip_tracking=False)
+                tracker._opt_status = "opted-in"
+
+                with patch.object(tracker, "_track", return_value=True) as mock_track_internal:
+                    tracker.track_cli_command([], "success", "test")
+
+                    mock_track_internal.assert_called_once()
+                    _, event_information = mock_track_internal.call_args.args
+
+                    # Verify subcommands is a list
+                    assert "subcommands" in event_information
+                    assert isinstance(event_information["subcommands"], list)
+                    assert event_information["subcommands"] == ["modules", "upgrade"]
+
+                    # Verify no positionalArg0, positionalArg1, etc. fields exist
+                    assert "positionalArg0" not in event_information
+                    assert "positionalArg1" not in event_information
+        finally:
+            sys.argv = original_argv
