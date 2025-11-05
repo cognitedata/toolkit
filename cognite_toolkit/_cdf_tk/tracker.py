@@ -58,7 +58,7 @@ class Tracker:
             warning_details[f"warningMostCommon{no}Count"] = count
             warning_details[f"warningMostCommon{no}Name"] = warning
 
-        positional_args, optional_args = self._parse_sys_args()
+        subcommands, optional_args = self._parse_sys_args()
         event_information = {
             "userInput": self.user_command,
             "toolkitVersion": __version__,
@@ -69,7 +69,7 @@ class Tracker:
             **warning_details,
             "result": type(result).__name__ if isinstance(result, Exception) else result,
             "error": str(result) if isinstance(result, Exception) else "",
-            **positional_args,
+            "subcommands": subcommands,
             **optional_args,
             "alphaFlags": [name for name, value in self._cdf_toml.alpha_flags.items() if value],
             "plugins": [name for name, value in self._cdf_toml.plugins.items() if value],
@@ -128,9 +128,9 @@ class Tracker:
         return distinct_id
 
     @staticmethod
-    def _parse_sys_args() -> tuple[dict[str, str], dict[str, str | bool]]:
+    def _parse_sys_args() -> tuple[list[str], dict[str, str | bool]]:
         optional_args: dict[str, str | bool] = {}
-        positional_args: dict[str, str] = {}
+        subcommands: list[str] = []
         last_key: str | None = None
         if sys.argv and len(sys.argv) > 1:
             for arg in sys.argv[1:]:
@@ -147,11 +147,11 @@ class Tracker:
                     optional_args[last_key] = arg
                     last_key = None
                 else:
-                    positional_args[f"positionalArg{len(positional_args)}"] = arg
+                    subcommands.append(arg)
 
             if last_key:
                 optional_args[last_key] = True
-        return positional_args, optional_args
+        return subcommands, optional_args
 
     @property
     def _cicd(self) -> str:
