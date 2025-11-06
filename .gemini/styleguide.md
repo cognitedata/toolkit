@@ -64,6 +64,8 @@ def load_config(path: Path) -> dict[str, Any]:
 - **Absolute imports**: Always use absolute imports for clarity
 - **Sort alphabetically** within groups
 - **Type checking imports**: Use `TYPE_CHECKING` for type-only imports
+- **`_cdf_tk` imports**: Always use the full path `cognite_toolkit._cdf_tk`
+when importing from `_cdf_tk`, never use `from _cdf_tk import ...`
 
 ```python
 import json
@@ -75,6 +77,13 @@ from cognite.client import CogniteClient
 from pydantic import BaseModel
 
 from cog_ai.common.types import ModelConfig
+
+# Good - full path for _cdf_tk imports
+from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.commands.repo import RepoCommand
+
+# Bad - don't use relative _cdf_tk imports
+# from _cdf_tk.feature_flags import Flags  # ❌
 
 if TYPE_CHECKING:
     from cog_ai.tools.query.types import QueryCompletion

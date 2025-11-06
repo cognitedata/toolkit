@@ -7,6 +7,7 @@ from collections.abc import Iterator, MutableSequence
 from functools import lru_cache
 from pathlib import Path
 
+from _cdf_tk.cdf_toml import CDFToml
 from packaging.version import Version
 from packaging.version import parse as parse_version
 from rich import print
@@ -362,7 +363,6 @@ After:
 
     def do(self) -> set[Path]:
         # Avoid circular import
-        from .modules import ModulesCommand
 
         system_yaml = self._organization_dir / "_system.yaml"
         if not system_yaml.exists():
@@ -372,11 +372,8 @@ After:
         content = read_yaml_file(system_yaml)
         current_version = content.get("cdf_toolkit_version", __version__)
 
-        cdf_toml_content = ModulesCommand(skip_tracking=True).create_cdf_toml(self._organization_dir)
-        cdf_toml_content = cdf_toml_content.replace(f'version = "{__version__}"', f'version = "{current_version}"')
-
-        cdf_toml_path = Path.cwd() / "cdf.toml"
-        cdf_toml_path.write_text(cdf_toml_content, encoding="utf-8")
+        CDFToml.write(self._organization_dir, version=current_version)
+        cdf_toml_path = self._organization_dir / "cdf.toml"
         system_yaml.unlink()
         return {cdf_toml_path, system_yaml}
 

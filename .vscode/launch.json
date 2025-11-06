@@ -24,6 +24,18 @@
       "justMyCode": false
     },
     {
+      "name": "cdf init",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": [
+        "init",
+        "--dry-run"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
       "name": "cdf collect opt-in",
       "type": "debugpy",
       "request": "launch",
@@ -61,7 +73,7 @@
         "--override-env",
         "modules",
         "init",
-        "cognite_toolkit"
+        //"cognite_toolkit"
       ],
       "console": "integratedTerminal",
       "justMyCode": false
