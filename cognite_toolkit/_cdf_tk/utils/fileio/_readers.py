@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from functools import partial
 from io import TextIOWrapper
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -87,25 +88,19 @@ class FailedParsing:
     error: str
 
 
-class TableReader(FileReader, ABC): ...
-
-
-class CSVReader(TableReader):
-    """Reads CSV files and yields each row as a dictionary.
+class TableReader(FileReader, ABC):
+    """Reads table-like files and yields each row as a dictionary.
 
     Args:
-        input_file (Path): The path to the CSV file to read.
+        input_file (Path): The path to the table file to read.
         sniff_rows (int | None): Optional number of rows to sniff for
             schema detection. If None, no schema is detected. If a schema is sniffed
-            from the first `sniff_rows` rows, it will be used to parse the CSV.
+            from the first `sniff_rows` rows, it will be used to parse the table.
         schema (Sequence[SchemaColumn] | None): Optional schema to use for parsing.
             You can either provide a schema or use `sniff_rows` to detect it.
         keep_failed_cells (bool): If True, failed cells will be kept in the
             `failed_cell` attribute. If False, they will be ignored.
-
     """
-
-    format = ".csv"
 
     def __init__(
         self,
@@ -152,18 +147,19 @@ class CSVReader(TableReader):
     @classmethod
     def sniff_schema(cls, input_file: Path, sniff_rows: int = 100) -> list[SchemaColumn]:
         """
-        Sniff the schema from the first `sniff_rows` rows of the CSV file.
+        Sniff the schema from the first `sniff_rows` rows of the file.
 
         Args:
-            input_file (Path): The path to the CSV file.
+            input_file (Path): The path to the tabular file.
             sniff_rows (int): The number of rows to read for sniffing the schema.
 
         Returns:
             list[SchemaColumn]: The inferred schema as a list of SchemaColumn objects.
+
         Raises:
             ValueError: If `sniff_rows` is not a positive integer.
             ToolkitFileNotFoundError: If the file does not exist.
-            ToolkitValueError: If the file is not a CSV file or if there are issues with the content.
+            ToolkitValueError: If the file is not the correct format or if there are issues with the content.
 
         """
         if sniff_rows <= 0:
@@ -171,42 +167,49 @@ class CSVReader(TableReader):
 
         if not input_file.exists():
             raise ToolkitFileNotFoundError(f"File not found: {input_file.as_posix()!r}.")
-        if input_file.suffix != ".csv":
-            raise ToolkitValueError(f"Expected a .csv file got a {input_file.suffix!r} file instead.")
+        if input_file.suffix != cls.format:
+            raise ToolkitValueError(f"Expected a {cls.format} file got a {input_file.suffix!r} file instead.")
 
-        with input_file.open("r", encoding="utf-8-sig") as file:
-            reader = csv.DictReader(file)
-            column_names = Counter(reader.fieldnames)
-            if duplicated := [name for name, count in column_names.items() if count > 1]:
-                raise ToolkitValueError(f"CSV file contains duplicate headers: {humanize_collection(duplicated)}")
-            sample_rows: list[dict[str, str]] = []
-            for no, row in enumerate(reader):
-                if no >= sniff_rows:
-                    break
-                sample_rows.append(row)
+        column_names, sample_rows = cls._read_sample_rows(input_file, sniff_rows)
+        cls._check_column_names(column_names)
+        return cls._infer_schema(sample_rows, column_names)
 
-            if not sample_rows:
-                raise ToolkitValueError(f"No data found in the file: {input_file.as_posix()!r}.")
+    @classmethod
+    @abstractmethod
+    def _read_sample_rows(cls, input_file: Path, sniff_rows: int) -> tuple[Sequence[str], list[dict[str, str]]]: ...
 
-            schema = []
-            for column_name in reader.fieldnames or []:
-                sample_values = [row[column_name] for row in sample_rows if column_name in row]
-                if not sample_values:
-                    column = SchemaColumn(name=column_name, type="string")
+    @classmethod
+    def _infer_schema(cls, sample_rows: list[dict[str, Any]], column_names: Sequence[str]) -> list[SchemaColumn]:
+        schema: list[SchemaColumn] = []
+        for column_name in column_names:
+            sample_values = [row[column_name] for row in sample_rows if column_name in row]
+            if not sample_values:
+                column = SchemaColumn(name=column_name, type="string")
+            else:
+                data_types = Counter(
+                    infer_data_type_from_value(value, dtype="Json")[0] for value in sample_values if value is not None
+                )
+                if not data_types:
+                    inferred_type = "string"
                 else:
-                    data_types = Counter(
-                        infer_data_type_from_value(value, dtype="Json")[0]
-                        for value in sample_values
-                        if value is not None
-                    )
-                    if not data_types:
-                        inferred_type = "string"
-                    else:
-                        inferred_type = data_types.most_common()[0][0]
-                    # Json dtype is a subset of Datatype that SchemaColumn accepts
-                    column = SchemaColumn(name=column_name, type=inferred_type)  # type: ignore[arg-type]
-                schema.append(column)
+                    inferred_type = data_types.most_common()[0][0]
+                # Json dtype is a subset of Datatype that SchemaColumn accepts
+                column = SchemaColumn(name=column_name, type=inferred_type)  # type: ignore[arg-type]
+            schema.append(column)
         return schema
+
+    @classmethod
+    def _check_column_names(cls, column_names: Sequence[str]) -> None:
+        """Check for duplicate column names."""
+        duplicates = [name for name, count in Counter(column_names).items() if count > 1]
+        if duplicates:
+            raise ToolkitValueError(f"Duplicate column names found: {humanize_collection(duplicates)}.")
+
+
+class CSVReader(TableReader):
+    """Reads CSV files and yields each row as a dictionary."""
+
+    format = ".csv"
 
     def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[dict[str, JsonVal]]:
         if self.keep_failed_cells and self.failed_cell:
@@ -231,9 +234,30 @@ class CSVReader(TableReader):
         with compression.open("r") as file:
             yield from csv.DictReader(file)
 
+    @classmethod
+    def _read_sample_rows(cls, input_file: Path, sniff_rows: int) -> tuple[Sequence[str], list[dict[str, str]]]:
+        column_names: Sequence[str] = []
+        compression = Compression.from_filepath(input_file)
+        with compression.open("r") as file:
+            reader = csv.DictReader(file)
+            column_names = reader.fieldnames or []
+            sample_rows: list[dict[str, str]] = []
+            for no, row in enumerate(reader):
+                if no >= sniff_rows:
+                    break
+                sample_rows.append(row)
+
+            if not sample_rows:
+                raise ToolkitValueError(f"No data found in the file: {input_file.as_posix()!r}.")
+        return column_names, sample_rows
+
 
 class ParquetReader(TableReader):
     format = ".parquet"
+
+    def __init__(self, input_file: Path) -> None:
+        # Parquet files have their own schema, so we don't need to sniff or provide one.
+        super().__init__(input_file, sniff_rows=None, schema=None, keep_failed_cells=False)
 
     def read_chunks(self) -> Iterator[dict[str, JsonVal]]:
         import pyarrow.parquet as pq
@@ -257,6 +281,28 @@ class ParquetReader(TableReader):
             except json.JSONDecodeError:
                 return value
         return value
+
+    @classmethod
+    def _read_sample_rows(cls, input_file: Path, sniff_rows: int) -> tuple[Sequence[str], list[dict[str, str]]]:
+        import pyarrow.parquet as pq
+
+        column_names: Sequence[str] = []
+        sample_rows: list[dict[str, str]] = []
+        with pq.ParquetFile(input_file) as parquet_file:
+            column_names = parquet_file.schema.names
+            row_count = min(sniff_rows, parquet_file.metadata.num_rows)
+            row_iter = parquet_file.iter_batches(batch_size=row_count)
+            try:
+                batch = next(row_iter)
+                for row in batch.to_pylist():
+                    str_row = {key: (str(value) if value is not None else "") for key, value in row.items()}
+                    sample_rows.append(str_row)
+            except StopIteration:
+                pass
+
+            if not sample_rows:
+                raise ToolkitValueError(f"No data found in the file: {input_file.as_posix()!r}.")
+        return column_names, sample_rows
 
 
 FILE_READ_CLS_BY_FORMAT: Mapping[str, type[FileReader]] = {}

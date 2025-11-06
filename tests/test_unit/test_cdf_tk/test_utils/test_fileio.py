@@ -621,7 +621,7 @@ value3,789,"{""key"": ""value3""}",true,1.41
             pytest.param(
                 "header1,header1\nvalue1,value2",
                 "dup_headers.csv",
-                "CSV file contains duplicate headers: header1",
+                "Duplicate column names found: header1.",
                 id="duplicate headers",
             ),
             pytest.param(
