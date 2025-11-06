@@ -22,7 +22,7 @@ class LandingApp(typer.Typer):
         ] = False,
         v7: Annotated[
             bool,
-            typer.Option("--v7", "-v7", help="Emulate v0.7", hidden=True),
+            typer.Option("--seven", "-s", help="Emulate v0.7", hidden=True),
         ] = False,
     ) -> None:
         """Getting started checklist"""
