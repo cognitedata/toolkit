@@ -23,4 +23,6 @@ class LandingApp(typer.Typer):
     ) -> None:
         """Getting started checklist"""
         cmd = InitCommand()
-        cmd.run(lambda: cmd.execute(dry_run=dry_run))
+        # do not track the command with the usual lambda run
+        # construct because we don't want to display the warning message here
+        cmd.execute(dry_run=dry_run)

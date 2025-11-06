@@ -123,7 +123,11 @@ class InitCommand(ToolkitCommand):
                 default="initToml",
             ).ask()
 
-            if selected is None or selected == "__exit__":
+            # User cancelled (Ctrl+C or similar)
+            if selected is None:
+                return
+
+            if selected == "__exit__":
                 if all_mandatory_complete:
                     print("Initialization complete!")
                     print("You can now start using the Cognite Toolkit.")
