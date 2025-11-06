@@ -476,11 +476,16 @@ class TestExecute:
 
         # Verify that the failure message was printed
         # The message format is: "✗ {description} failed: {exception}"
+        # For unexpected errors, we also print the traceback
         messages = " ".join(print_capture.messages)
         assert "failed" in messages.lower(), f"Expected 'failed' in messages, got: {messages}"
         # Verify it's related to authentication
         assert "auth" in messages.lower() or "authentication" in messages.lower(), (
             f"Expected 'auth' in messages, got: {messages}"
+        )
+        # Verify that unexpected error traceback was printed
+        assert "traceback" in messages.lower() or "unexpected error" in messages.lower(), (
+            f"Expected traceback message for unexpected error, got: {messages}"
         )
 
         # Verify that run was called (which calls the lambda, which calls init())

@@ -1,5 +1,6 @@
 import shutil
 import tempfile
+import traceback
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
@@ -17,6 +18,7 @@ from cognite_toolkit._cdf_tk.commands.auth import AuthCommand
 from cognite_toolkit._cdf_tk.commands.collect import CollectCommand
 from cognite_toolkit._cdf_tk.commands.modules import ModulesCommand
 from cognite_toolkit._cdf_tk.commands.repo import RepoCommand
+from cognite_toolkit._cdf_tk.exceptions import ToolkitError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 
 
@@ -171,9 +173,15 @@ class InitCommand(ToolkitCommand):
                 # typer.Exit is used for normal exits, treat as success
                 selected_item.status = InitItemStatus.SUCCESSFUL
                 print(f"✓ {selected_item.description} completed successfully")
-            except Exception as e:
+            except ToolkitError as e:
+                # Catch expected toolkit errors
                 selected_item.status = InitItemStatus.FAILED
                 print(f"✗ {selected_item.description} failed: {e}")
+            except Exception as e:
+                # Catch unexpected errors and log full traceback for debugging
+                selected_item.status = InitItemStatus.FAILED
+                print(f"✗ {selected_item.description} failed: {e}")
+                print(f"Unexpected error occurred. Full traceback:\n{traceback.format_exc()}")
 
     def _init_toml(self, dry_run: bool = False) -> None:
         organization_dir = ModulesCommand._prompt_organization_dir()
