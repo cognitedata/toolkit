@@ -99,6 +99,10 @@ class InitCommand(ToolkitCommand):
             ),
         ]
 
+        if CDFToml.load().is_loaded_from_file:
+            checklist_items[0].status = InitItemStatus.SUCCESSFUL
+            print("cdf.toml configuration file already exists. Skipping creation.")
+
         # Main loop: keep showing checklist until user is done
         while True:
             # Build choices for questionary
