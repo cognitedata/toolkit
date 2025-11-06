@@ -118,7 +118,7 @@ class ResourcesApp(typer.Typer):
                     else None
                 ),
             ),
-        ],
+        ] = None,
         verbose: Annotated[
             bool,
             typer.Option(
