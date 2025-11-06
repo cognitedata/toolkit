@@ -373,7 +373,7 @@ After:
         current_version = content.get("cdf_toolkit_version", __version__)
 
         CDFToml.write(self._organization_dir, version=current_version)
-        cdf_toml_path = self._organization_dir / "cdf.toml"
+        cdf_toml_path = Path.cwd() / CDFToml.file_name
         system_yaml.unlink()
         return {cdf_toml_path, system_yaml}
 
