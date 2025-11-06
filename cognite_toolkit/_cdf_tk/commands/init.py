@@ -54,8 +54,8 @@ class InitChecklistItem:
 
 
 class InitCommand(ToolkitCommand):
-    def execute(self, dry_run: bool = False) -> None:
-        if not Flags.v07.is_enabled():
+    def execute(self, dry_run: bool = False, emulate_dot_seven: bool = False) -> None:
+        if not Flags.v07.is_enabled() and not emulate_dot_seven:
             print("This command is deprecated. Use 'cdf modules init' instead.")
             return
 

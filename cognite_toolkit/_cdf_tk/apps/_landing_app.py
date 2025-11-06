@@ -20,9 +20,13 @@ class LandingApp(typer.Typer):
                 help="Whether to do a dry-run, do dry-run if present.",
             ),
         ] = False,
+        v7: Annotated[
+            bool,
+            typer.Option("--v7", "-v7", help="Emulate v0.7", hidden=True),
+        ] = False,
     ) -> None:
         """Getting started checklist"""
         cmd = InitCommand()
         # do not track the command with the usual lambda run
         # construct because we don't want to display the warning message here
-        cmd.execute(dry_run=dry_run)
+        cmd.execute(dry_run=dry_run, emulate_dot_seven=v7)
