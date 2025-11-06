@@ -96,9 +96,7 @@ class InfieldLocationConfigYAML(ToolkitResource):
 
     root_location_external_id: str | None = None
     feature_toggles: FeatureToggles | None = None
-    classic_asset_external_id: str | None = None
     app_instance_space: str | None = None
-    app_data_set: str | None = None
     access_management: AccessManagement | None = None
     data_filters: RootLocationDataFilters | None = None
     observation_config: ObservationConfig | None = None

@@ -17,11 +17,7 @@ featureToggles:
     notificationsEndpointExternalId: notifications_endpoint_001
     attachmentsEndpointExternalId: attachments_endpoint_001
 
-classicAssetExternalId: root_asset_external_id_123
-
 appInstanceSpace: my_app_instance_space
-
-appDataSet: my_infield_dataset
 
 accessManagement:
   templateAdmins:
