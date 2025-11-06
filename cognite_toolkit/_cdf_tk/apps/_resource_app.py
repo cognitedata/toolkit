@@ -43,7 +43,7 @@ class ResourcesApp(typer.Typer):
             ),
         ],
         file_names: Annotated[
-            list[str] | None,
+            list[str],
             typer.Option(
                 "--file-names",
                 "-f",
@@ -59,7 +59,7 @@ class ResourcesApp(typer.Typer):
                     else None
                 ),
             ),
-        ] = None,
+        ] = [],
         verbose: Annotated[
             bool,
             typer.Option(
@@ -88,7 +88,7 @@ class ResourcesApp(typer.Typer):
                 module_name=module,
                 resource_directory=resource_directory,
                 resources=resources,
-                file_name=file_names,
+                file_name=file_names if file_names else None,
                 verbose=verbose,
             )
         )
