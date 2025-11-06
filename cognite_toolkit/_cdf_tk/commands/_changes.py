@@ -7,12 +7,12 @@ from collections.abc import Iterator, MutableSequence
 from functools import lru_cache
 from pathlib import Path
 
-from _cdf_tk.cdf_toml import CDFToml
 from packaging.version import Version
 from packaging.version import parse as parse_version
 from rich import print
 
 from cognite_toolkit._cdf_tk.builders import get_loader
+from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.constants import DOCKER_IMAGE_NAME
 from cognite_toolkit._cdf_tk.data_classes import ModuleDirectories
 from cognite_toolkit._cdf_tk.utils import iterate_modules, read_yaml_file, safe_read, safe_write
