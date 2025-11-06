@@ -152,7 +152,7 @@ class InitCommand(ToolkitCommand):
                     else "with failure. Retry?"
                 )
                 confirm = questionary.confirm(
-                    f"'{selected_item.name}' was already run {status_text}",
+                    f"'{selected_item.description}' was already run {status_text}",
                     default=False,
                 ).ask()
                 if not confirm:
