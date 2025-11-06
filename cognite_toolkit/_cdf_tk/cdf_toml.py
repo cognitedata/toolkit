@@ -183,7 +183,7 @@ class CDFToml:
             print("cdf.toml file already exists. Skipping creation.")
             return
         cdf_toml_content = (RESOURCES_PATH / CDFToml.file_name).read_text(encoding="utf-8")
-        cdf_toml_content = cdf_toml_content.replace("<VERSION_PLACEHOLDER>", version)
+        cdf_toml_content = cdf_toml_content.replace("0.0.0", version)
         if organization_dir != Path.cwd():
             cdf_toml_content = cdf_toml_content.replace(
                 "#<PLACEHOLDER>",
