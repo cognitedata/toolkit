@@ -346,11 +346,14 @@ class TestExecute:
         print_capture = PrintCapture()
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands.init.print", print_capture)
 
+        # Mock CDFToml.load() to return a non-loaded instance so initToml isn't pre-marked as complete
+        mock_cdf_toml = MagicMock()
+        mock_cdf_toml.is_loaded_from_file = False
+
         # Mock questionary responses:
-        # 1. Organization dir prompt (empty = current dir) - from modules module
-        # 2-6. Select each task in order: initToml, initAuth, initModules, initRepo, initDataCollection - from init module
-        # 7. Confirm opt-in for data collection - from init module
-        # 8. Exit - from init module
+        # 1-5. Select each task in order: initToml, initAuth, initModules, initRepo, initDataCollection - from init module
+        # 6. Confirm opt-in for data collection - from init module
+        # 7. Exit - from init module
         init_answers = [
             "initToml",  # Select initToml
             "initAuth",  # Select initAuth
@@ -360,17 +363,22 @@ class TestExecute:
             True,  # Opt-in to data collection
             "__exit__",  # Exit
         ]
-        modules_answers = [""]  # Organization dir (empty = current dir)
 
-        with patch("cognite_toolkit._cdf_tk.commands.init.AuthCommand", return_value=mock_auth_command):
-            with patch("cognite_toolkit._cdf_tk.commands.init.ModulesCommand", return_value=mock_modules_command):
-                with patch("cognite_toolkit._cdf_tk.commands.init.RepoCommand", return_value=mock_repo_command):
-                    with patch(
-                        "cognite_toolkit._cdf_tk.commands.init.CollectCommand", return_value=mock_collect_command
-                    ):
-                        with MockQuestionary("cognite_toolkit._cdf_tk.commands.modules", monkeypatch, modules_answers):
-                            with MockQuestionary("cognite_toolkit._cdf_tk.commands.init", monkeypatch, init_answers):
-                                init_command.execute()
+        with patch("cognite_toolkit._cdf_tk.commands.init.CDFToml.load", return_value=mock_cdf_toml):
+            with patch("cognite_toolkit._cdf_tk.commands.init.AuthCommand", return_value=mock_auth_command):
+                with patch("cognite_toolkit._cdf_tk.commands.init.ModulesCommand", return_value=mock_modules_command):
+                    with patch("cognite_toolkit._cdf_tk.commands.init.RepoCommand", return_value=mock_repo_command):
+                        with patch(
+                            "cognite_toolkit._cdf_tk.commands.init.CollectCommand", return_value=mock_collect_command
+                        ):
+                            with patch(
+                                "cognite_toolkit._cdf_tk.commands.init.ModulesCommand._prompt_organization_dir",
+                                return_value=Path(""),
+                            ):
+                                with MockQuestionary(
+                                    "cognite_toolkit._cdf_tk.commands.init", monkeypatch, init_answers
+                                ):
+                                    init_command.execute()
 
         # Verify all commands were called
         mock_auth_command.run.assert_called_once()
@@ -394,11 +402,16 @@ class TestExecute:
         print_capture = PrintCapture()
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands.init.print", print_capture)
 
+        # Mock CDFToml.load() to return a non-loaded instance so initToml isn't pre-marked as complete
+        mock_cdf_toml = MagicMock(spec=CDFToml)
+        mock_cdf_toml.is_loaded_from_file = False
+
         # Try to exit without completing initToml
         answers = ["__exit__"]
 
-        with MockQuestionary("cognite_toolkit._cdf_tk.commands.init", monkeypatch, answers):
-            init_command.execute()
+        with patch("cognite_toolkit._cdf_tk.commands.init.CDFToml.load", return_value=mock_cdf_toml):
+            with MockQuestionary("cognite_toolkit._cdf_tk.commands.init", monkeypatch, answers):
+                init_command.execute()
 
         messages = " ".join(print_capture.messages)
         assert "mandatory" in messages.lower() or "required" in messages.lower()
@@ -441,6 +454,10 @@ class TestExecute:
         print_capture = PrintCapture()
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands.init.print", print_capture)
 
+        # Mock CDFToml.load() to return a non-loaded instance so initToml isn't pre-marked as complete
+        mock_cdf_toml = MagicMock(spec=CDFToml)
+        mock_cdf_toml.is_loaded_from_file = False
+
         mock_auth_command = MagicMock(spec=AuthCommand)
         # Make init() raise an exception when called (via the lambda in run())
         mock_auth_command.init.side_effect = Exception("Auth failed")
@@ -467,12 +484,14 @@ class TestExecute:
 
         # Patch AuthCommand to return our mock when instantiated
         # Also patch _prompt_organization_dir to return empty Path (current dir) to avoid questionary issues
-        with patch("cognite_toolkit._cdf_tk.commands.init.AuthCommand", return_value=mock_auth_command):
-            with patch(
-                "cognite_toolkit._cdf_tk.commands.init.ModulesCommand._prompt_organization_dir", return_value=Path("")
-            ):
-                with MockQuestionary("cognite_toolkit._cdf_tk.commands.init", monkeypatch, init_answers.copy()):
-                    init_command.execute()
+        with patch("cognite_toolkit._cdf_tk.commands.init.CDFToml.load", return_value=mock_cdf_toml):
+            with patch("cognite_toolkit._cdf_tk.commands.init.AuthCommand", return_value=mock_auth_command):
+                with patch(
+                    "cognite_toolkit._cdf_tk.commands.init.ModulesCommand._prompt_organization_dir",
+                    return_value=Path(""),
+                ):
+                    with MockQuestionary("cognite_toolkit._cdf_tk.commands.init", monkeypatch, init_answers.copy()):
+                        init_command.execute()
 
         # Verify that the failure message was printed
         # The message format is: "✗ {description} failed: {exception}"
@@ -519,10 +538,12 @@ class TestExecute:
             "initModules",  # Select initModules
             "__exit__",  # Exit
         ]
-        modules_answers = [""]  # Organization dir
 
         with patch("cognite_toolkit._cdf_tk.commands.init.ModulesCommand", return_value=mock_modules_command):
-            with MockQuestionary("cognite_toolkit._cdf_tk.commands.modules", monkeypatch, modules_answers):
+            with patch(
+                "cognite_toolkit._cdf_tk.commands.init.ModulesCommand._prompt_organization_dir",
+                return_value=Path(""),
+            ):
                 with MockQuestionary("cognite_toolkit._cdf_tk.commands.init", monkeypatch, init_answers):
                     init_command.execute()
 
@@ -538,6 +559,10 @@ class TestExecute:
         print_capture = PrintCapture()
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands.init.print", print_capture)
 
+        # Mock CDFToml.load() to return a non-loaded instance so initToml isn't pre-marked as complete
+        mock_cdf_toml = MagicMock(spec=CDFToml)
+        mock_cdf_toml.is_loaded_from_file = False
+
         mock_auth_command = MagicMock(spec=AuthCommand)
         mock_auth_command.init.return_value = None
 
@@ -546,12 +571,14 @@ class TestExecute:
             "__exit__",  # Exit
         ]
 
-        with patch("cognite_toolkit._cdf_tk.commands.init.AuthCommand", return_value=mock_auth_command):
-            with patch(
-                "cognite_toolkit._cdf_tk.commands.init.ModulesCommand._prompt_organization_dir", return_value=Path("")
-            ):
-                with MockQuestionary("cognite_toolkit._cdf_tk.commands.init", monkeypatch, init_answers):
-                    init_command.execute(dry_run=True)
+        with patch("cognite_toolkit._cdf_tk.commands.init.CDFToml.load", return_value=mock_cdf_toml):
+            with patch("cognite_toolkit._cdf_tk.commands.init.AuthCommand", return_value=mock_auth_command):
+                with patch(
+                    "cognite_toolkit._cdf_tk.commands.init.ModulesCommand._prompt_organization_dir",
+                    return_value=Path(""),
+                ):
+                    with MockQuestionary("cognite_toolkit._cdf_tk.commands.init", monkeypatch, init_answers):
+                        init_command.execute(dry_run=True)
 
         # In dry-run, cdf.toml should not be created
         assert not (empty_dir / CDFToml.file_name).exists()
