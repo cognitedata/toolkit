@@ -36,10 +36,6 @@ class AccessManagement(BaseModelResource):
 class ResourceFilters(BaseModelResource):
     """Resource filters."""
 
-    dataset_ids: list[int] | None = None
-    asset_subtree_external_ids: list[str] | None = None
-    root_asset_external_ids: list[str] | None = None
-    external_id_prefix: str | None = None
     spaces: list[str] | None = None
 
 
@@ -72,12 +68,6 @@ class DataExplorationConfig(BaseModelResource):
     assets: dict[str, Any] | None = None  # AssetPageConfiguration
 
 
-class ObservationConfig(BaseModelResource):
-    external_id: str
-    root_location_external_ids: list[str] | None = None
-    field_configurations: dict[str, Any] | None = None
-
-
 class InfieldLocationConfigYAML(ToolkitResource):
     """Properties for InFieldLocationConfig node.
 
@@ -99,5 +89,4 @@ class InfieldLocationConfigYAML(ToolkitResource):
     app_instance_space: str | None = None
     access_management: AccessManagement | None = None
     data_filters: RootLocationDataFilters | None = None
-    observation_config: ObservationConfig | None = None
     data_exploration_config: DataExplorationConfig | None = None

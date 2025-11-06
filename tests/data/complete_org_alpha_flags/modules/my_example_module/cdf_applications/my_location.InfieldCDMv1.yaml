@@ -11,11 +11,6 @@ featureToggles:
   media: true
   templateChecklistFlow: true
   workorderChecklistFlow: false
-  observations:
-    isEnabled: true
-    isWriteBackEnabled: true
-    notificationsEndpointExternalId: notifications_endpoint_001
-    attachmentsEndpointExternalId: attachments_endpoint_001
 
 appInstanceSpace: my_app_instance_space
 
@@ -29,48 +24,9 @@ accessManagement:
 
 dataFilters:
   general:
-    datasetIds:
-      - 12345
-      - 67890
-    assetSubtreeExternalIds:
-      - asset_subtree_001
-      - asset_subtree_002
-    rootAssetExternalIds:
-      - root_asset_001
-    externalIdPrefix: FACILITY_A_
     spaces:
       - my_space_001
       - my_space_002
-  assets:
-    datasetIds:
-      - 12345
-    assetSubtreeExternalIds:
-      - asset_subtree_001
-  files:
-    datasetIds:
-      - 12345
-      - 67890
-    externalIdPrefix: DOC_
-  timeseries:
-    datasetIds:
-      - 12345
-    rootAssetExternalIds:
-      - root_asset_001
-
-observationConfig:
-  externalId: observation_config_001
-  rootLocationExternalIds:
-    - location_001
-    - location_002
-  fieldConfigurations:
-    field_1:
-      type: text
-      label: Description
-      required: true
-    field_2:
-      type: number
-      label: Temperature
-      unit: celsius
 
 dataExplorationConfig:
   externalId: data_exploration_config_shared
