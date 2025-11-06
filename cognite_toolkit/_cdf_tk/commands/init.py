@@ -172,6 +172,9 @@ class InitCommand(ToolkitCommand):
                 print(f"✗ {selected_item.description} failed: {e}")
 
     def _init_toml(self, dry_run: bool = False) -> None:
+        if CDFToml.load().is_loaded_from_file:
+            print("cdf.toml configuration file already exists. Skipping creation.")
+            return
         organization_dir = ModulesCommand._prompt_organization_dir()
         if dry_run:
             print("Would initialize cdf.toml configuration file")
