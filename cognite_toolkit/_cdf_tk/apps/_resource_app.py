@@ -56,7 +56,7 @@ class ResourcesApp(typer.Typer):
                         if item.strip()
                     ]
                     if value
-                    else None
+                    else []
                 ),
             ),
         ] = [],
