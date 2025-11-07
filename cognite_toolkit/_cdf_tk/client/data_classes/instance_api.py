@@ -1,6 +1,6 @@
 from typing import Any, Generic, Literal
 
-from pydantic import ConfigDict, model_serializer
+from pydantic import ConfigDict, JsonValue, model_serializer
 
 from .base import BaseModelObject, Identifier, T_RequestResource
 
@@ -101,3 +101,32 @@ class EdgeRequestItem(InstanceRequestItem[T_RequestResource]):
             space=self.space,
             external_id=self.external_id,
         )
+
+
+class InstanceResponseItem(BaseModelObject):
+    instance_type: str
+    space: str
+    external_id: str
+    version: int
+    type: NodeIdentifier | None = None
+    created_time: int
+    last_updated_time: int
+    deleted_time: int | None = None
+    properties: dict[str, dict[str, dict[str, JsonValue]]] | None = None
+
+    def get_properties_for_source(self, source: ViewReference) -> dict[str, JsonValue]:
+        if not self.properties:
+            return {}
+        if source.space not in self.properties:
+            return {}
+        space_properties = self.properties[source.space]
+        view_version = f"{source.external_id}/{source.version}"
+        return space_properties.get(view_version, {})
+
+
+class NodeResponseItem(InstanceResponseItem):
+    instance_type: Literal["node"] = "node"
+
+
+class EdgeResponseItem(InstanceResponseItem):
+    instance_type: Literal["edge"] = "edge"

@@ -6,6 +6,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.instance_api import (
     InstanceSource,
     NodeIdentifier,
     NodeRequestItem,
+    NodeResponseItem,
     NodeResult,
     ViewReference,
 )
@@ -48,10 +49,17 @@ class InfieldConfigAPI:
                 endpoint_url=self._config.create_api_url(f"{self.ENDPOINT}/byids"),
                 method="POST",
                 items=[NodeIdentifier(space=item.space, external_id=item.external_id) for item in items],
+                extra_body_fields={"sources": [{"source": self.view_id.dump(include_type=True)}]},
             )
         )
         responses.raise_for_status()
-        return PagedResponse[InfieldLocationConfig].model_validate(responses.get_first_body()).items
+        response_items = PagedResponse[NodeResponseItem].model_validate(responses.get_first_body()).items
+        return [
+            InfieldLocationConfig.model_validate(
+                {**item.get_properties_for_source(self.view_id), "space": item.space, "externalId": item.external_id}
+            )
+            for item in response_items
+        ]
 
     def delete(self, items: Sequence[NodeIdentifier]) -> list[NodeIdentifier]:
         if len(items) > 1000:

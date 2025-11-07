@@ -43,7 +43,7 @@ class Identifier(BaseModel):
 
     model_config = ConfigDict(alias_generator=to_camel, extra="ignore", populate_by_name=True, frozen=True)
 
-    def dump(self, include_type: bool = False) -> dict[str, Any]:
+    def dump(self, include_type: bool = True) -> dict[str, Any]:
         """Dump the identifier to a dictionary.
 
         Args:
@@ -52,7 +52,7 @@ class Identifier(BaseModel):
         Returns:
             dict[str, Any]: The dumped identifier.
         """
-        return self.model_dump(mode="json", by_alias=True, exclude_defaults=include_type)
+        return self.model_dump(mode="json", by_alias=True, exclude_defaults=not include_type)
 
     def as_id(self) -> Self:
         return self
