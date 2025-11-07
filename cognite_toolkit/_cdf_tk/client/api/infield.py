@@ -15,7 +15,7 @@ from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ItemsRequest
 
 class InfieldConfigAPI:
     ENDPOINT = "/models/instances"
-    view_id = ViewReference(space="cdf_infield", external_id="InFieldLocationConfig", version="v1")
+    VIEW_ID = ViewReference(space="cdf_infield", external_id="InFieldLocationConfig", version="v1")
 
     def __init__(self, http_client: HTTPClient) -> None:
         self._http_client = http_client
@@ -32,7 +32,7 @@ class InfieldConfigAPI:
                     NodeRequestItem(
                         space=item.space,
                         external_id=item.external_id,
-                        sources=[InstanceSource(source=self.view_id, resource=item)],
+                        sources=[InstanceSource(source=self.VIEW_ID, resource=item)],
                     )
                     for item in items
                 ],
@@ -49,14 +49,14 @@ class InfieldConfigAPI:
                 endpoint_url=self._config.create_api_url(f"{self.ENDPOINT}/byids"),
                 method="POST",
                 items=[NodeIdentifier(space=item.space, external_id=item.external_id) for item in items],
-                extra_body_fields={"sources": [{"source": self.view_id.dump(include_type=True)}]},
+                extra_body_fields={"sources": [{"source": self.VIEW_ID.dump(include_type=True)}]},
             )
         )
         responses.raise_for_status()
         response_items = PagedResponse[NodeResponseItem].model_validate(responses.get_first_body()).items
         return [
             InfieldLocationConfig.model_validate(
-                {**item.get_properties_for_source(self.view_id), "space": item.space, "externalId": item.external_id}
+                {**item.get_properties_for_source(self.VIEW_ID), "space": item.space, "externalId": item.external_id}
             )
             for item in response_items
         ]
