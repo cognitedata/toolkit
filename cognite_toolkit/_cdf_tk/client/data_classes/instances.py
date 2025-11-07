@@ -1,5 +1,5 @@
 from collections.abc import Iterable
-from typing import Any, Literal
+from typing import Any
 
 from cognite.client import CogniteClient
 from cognite.client.data_classes._base import CogniteResourceList, WriteableCogniteResourceList
@@ -11,8 +11,6 @@ from cognite.client.data_classes.data_modeling.instances import (
     InstanceApplyResult,
     NodeApplyResult,
 )
-
-from .base import BaseModelObject, Identifier
 
 
 class InstanceApplyResultAdapter(InstanceApplyResult):
@@ -64,41 +62,3 @@ class InstanceList(WriteableCogniteResourceList[InstanceApply, Instance]):
     def as_write(self) -> InstanceApplyList:
         """Converts the instance list to a list of writeable instances."""
         return InstanceApplyList([item.as_write() for item in self])
-
-
-class InstanceIdentifier(Identifier):
-    """Identifier for an Instance instance."""
-
-    instance_type: str
-    space: str
-    external_id: str
-
-
-class NodeIdentifier(InstanceIdentifier):
-    """Identifier for a NodeId instance."""
-
-    instance_type: Literal["node"] = "node"
-
-
-class EdgeIdentifier(InstanceIdentifier):
-    """Identifier for an EdgeId instance."""
-
-    instance_type: Literal["edge"] = "edge"
-
-
-class InstanceResult(BaseModelObject):
-    instance_type: str
-    version: int
-    was_modified: bool
-    space: str
-    external_id: str
-    created_time: int
-    last_updated_time: int
-
-
-class NodeResult(InstanceResult):
-    instance_type: Literal["node"] = "node"
-
-
-class EdgeResult(InstanceResult):
-    instance_type: Literal["edge"] = "edge"

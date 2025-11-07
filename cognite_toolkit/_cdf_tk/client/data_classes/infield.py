@@ -1,6 +1,7 @@
 from pydantic import JsonValue
 
 from .base import BaseModelObject, RequestResource, ResponseResource
+from .instance_api import NodeIdentifier
 
 
 class DataExplorationConfig(BaseModelObject):
@@ -24,3 +25,6 @@ class InfieldLocationConfig(ResponseResource["InfieldLocationConfig"], RequestRe
 
     def as_request_resource(self) -> "InfieldLocationConfig":
         return self
+
+    def as_id(self) -> NodeIdentifier:
+        return NodeIdentifier(space=self.space, external_id=self.external_id)
