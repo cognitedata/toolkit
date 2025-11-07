@@ -21,6 +21,8 @@ class InfieldConfigAPI:
         self._config = http_client.config
 
     def apply(self, items: Sequence[InfieldLocationConfig]) -> list[NodeResult]:
+        if len(items) > 1000:
+            raise ValueError("Cannot apply more than 1000 InfieldLocationConfig items at once.")
         responses = self._http_client.request_with_retries(
             ItemsRequest(
                 endpoint_url=self._config.create_api_url(self.ENDPOINT),

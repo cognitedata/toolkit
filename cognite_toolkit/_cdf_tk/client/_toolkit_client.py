@@ -3,6 +3,8 @@ from typing import cast
 from cognite.client import CogniteClient
 from rich.console import Console
 
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
+
 from .api.canvas import CanvasAPI
 from .api.charts import ChartsAPI
 from .api.dml import DMLAPI
@@ -11,6 +13,7 @@ from .api.extended_files import ExtendedFileMetadataAPI
 from .api.extended_functions import ExtendedFunctionsAPI
 from .api.extended_raw import ExtendedRawAPI
 from .api.extended_timeseries import ExtendedTimeSeriesAPI
+from .api.infield import InfieldAPI
 from .api.lookup import LookUpGroup
 from .api.migration import MigrationAPI
 from .api.project import ProjectAPI
@@ -24,6 +27,7 @@ from .config import ToolkitClientConfig
 class ToolkitClient(CogniteClient):
     def __init__(self, config: ToolkitClientConfig | None = None, enable_set_pending_ids: bool = False) -> None:
         super().__init__(config=config)
+        http_client = HTTPClient(self.config)
         toolkit_config = ToolkitClientConfig.from_client_config(self.config)
         self.console = Console()
         self.search = SearchAPI(self._config, self._API_VERSION, self)
@@ -42,6 +46,7 @@ class ToolkitClient(CogniteClient):
         self.token = TokenAPI(self)
         self.charts = ChartsAPI(self._config, self._API_VERSION, self)
         self.project = ProjectAPI(config=toolkit_config, cognite_client=self)
+        self.infield = InfieldAPI(http_client)
 
     @property
     def config(self) -> ToolkitClientConfig:
