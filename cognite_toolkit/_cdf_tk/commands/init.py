@@ -64,7 +64,7 @@ class InitCommand(ToolkitCommand):
         print("\n")
         print(
             Panel(
-                "Go throught the following steps to set up the Cognite Toolkit.",
+                "Go through the following steps to set up the Cognite Toolkit.",
                 title="Cognite Toolkit Setup",
                 style="green",
                 padding=(1, 2),
