@@ -3,7 +3,6 @@ Agent:
   externalId: toolkit_demo_agent
   model: azure/gpt-4o
   name: The Toolkit Demo Agent
-  runtimeVersion: 0.9.9
   tools:
   - description: This tool allows you to perform operations on query time series datapoints.
     name: Operations on datapoints tool
