@@ -199,7 +199,7 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
 
                 # For lists in query fields, use SQL-style tuples
                 # For transformation files, ensure SQL conversion is applied to query property variables
-                if (is_in_query_field or (is_transformation_file and is_in_query_field)) and isinstance(replace, list):
+                if is_transformation_file and is_in_query_field and isinstance(replace, list):
                     replace = self._format_list_as_sql_tuple(replace)
                     # Use simple pattern for SQL context (no YAML quoting needed)
                     content = re.sub(_core_pattern, str(replace), content)
@@ -265,7 +265,7 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
     def _is_in_query_field(content: str, variable_key: str) -> bool:
         """Check if a variable is within a query field in YAML.
 
-        This detects various YAML formats for query fields:
+        Assumes query is a top-level property. This detects various YAML formats:
         - query: >-
         - query: |
         - query: "..."
@@ -274,15 +274,13 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
         lines = content.split("\n")
         variable_pattern = rf"{{{{\s*{re.escape(variable_key)}\s*}}}}"
         in_query_field = False
-        query_indent = -1
 
         for line in lines:
-            # Check if this line starts a query field
-            query_match = re.match(r"^(\s*)query\s*:\s*(.*)$", line)
+            # Check if this line starts a top-level query field
+            query_match = re.match(r"^query\s*:\s*(.*)$", line)
             if query_match:
                 in_query_field = True
-                query_indent = len(query_match.group(1))
-                query_content_start = query_match.group(2).strip()
+                query_content_start = query_match.group(1).strip()
 
                 # Check if variable is on the same line as query: declaration
                 if re.search(variable_pattern, line):
@@ -296,21 +294,10 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
 
             # Check if we're still in the query field
             if in_query_field:
-                # Check if this line is at same or greater indent (continuation of query field)
-                current_indent = len(line) - len(line.lstrip())
-
-                # If line is empty or only whitespace, continue in query field
-                if not line.strip():
-                    if re.search(variable_pattern, line):
-                        return True
+                # If we hit another top-level property, we've exited the query field
+                if re.match(r"^\w+\s*:", line):
+                    in_query_field = False
                     continue
-
-                # If line has less indent than query field, we've exited the query field
-                if current_indent <= query_indent and line.strip():
-                    # Check if this is a new top-level key
-                    if re.match(r"^\s*\w+\s*:", line):
-                        in_query_field = False
-                        continue
 
                 # We're still in the query field, check for variable
                 if re.search(variable_pattern, line):
