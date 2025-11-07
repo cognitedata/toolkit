@@ -1,6 +1,6 @@
 from typing import Any, Generic, Literal
 
-from pydantic import model_serializer
+from pydantic import ConfigDict, model_serializer
 
 from .base import BaseModelObject, Identifier, T_RequestResource
 
@@ -38,9 +38,21 @@ class InstanceResult(BaseModelObject):
 class NodeResult(InstanceResult):
     instance_type: Literal["node"] = "node"
 
+    def as_id(self) -> NodeIdentifier:
+        return NodeIdentifier(
+            space=self.space,
+            external_id=self.external_id,
+        )
+
 
 class EdgeResult(InstanceResult):
     instance_type: Literal["edge"] = "edge"
+
+    def as_id(self) -> EdgeIdentifier:
+        return EdgeIdentifier(
+            space=self.space,
+            external_id=self.external_id,
+        )
 
 
 class ViewReference(Identifier):
@@ -63,6 +75,7 @@ class InstanceSource(BaseModelObject, Generic[T_RequestResource]):
 
 
 class InstanceRequestItem(BaseModelObject, Generic[T_RequestResource]):
+    model_config = ConfigDict(populate_by_name=True)
     instance_type: str
     space: str
     external_id: str

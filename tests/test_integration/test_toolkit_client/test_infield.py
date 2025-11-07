@@ -7,22 +7,24 @@ from tests.test_integration.constants import RUN_UNIQUE_ID
 
 class TestInfieldConfig:
     def test_create_retrieve_delete(self, toolkit_client: ToolkitClient, toolkit_space: Space) -> None:
-        config = InfieldLocationConfig.model_validate(f"""
-space: {toolkit_space.space}
-externalId:  test_crud_infield_config_{RUN_UNIQUE_ID}
-rootLocationExternalId: test_crud_infield_config_{RUN_UNIQUE_ID}
-        """)
+        config = InfieldLocationConfig.model_validate(
+            {
+                "space": toolkit_space.space,
+                "externalId": f"test_crud_infield_config_{RUN_UNIQUE_ID}",
+                "rootLocationExternalId": "test_crud_infield_config",
+            }
+        )
 
-        # Create
         try:
-            created = toolkit_client.infield.config.apply(config)
+            created_list = toolkit_client.infield.config.apply([config])
+            assert len(created_list) == 1
+            created = created_list[0]
             assert created.as_id() == config.as_id()
 
             retrieved_configs = toolkit_client.infield.config.retrieve([config.as_id()])
             assert len(retrieved_configs) == 1
             assert retrieved_configs[0].dump() == config.dump()
 
-            # Delete
             toolkit_client.infield.confg.delete([config.as_id()])
             retrieved_configs = toolkit_client.infield.config.retrieve([config.as_id()])
             assert len(retrieved_configs) == 0

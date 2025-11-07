@@ -30,7 +30,7 @@ class InfieldConfigAPI:
                 items=[
                     NodeRequestItem(
                         space=item.space,
-                        external_id=item.space,
+                        external_id=item.external_id,
                         sources=[InstanceSource(source=self.view_id, resource=item)],
                     )
                     for item in items
@@ -41,10 +41,30 @@ class InfieldConfigAPI:
         return PagedResponse[NodeResult].model_validate(responses.get_first_body()).items
 
     def retrieve(self, items: Sequence[NodeIdentifier]) -> list[InfieldLocationConfig]:
-        raise NotImplementedError()
+        if len(items) > 1000:
+            raise ValueError("Cannot retrieve more than 1000 InfieldLocationConfig items at once.")
+        responses = self._http_client.request_with_retries(
+            ItemsRequest(
+                endpoint_url=self._config.create_api_url(f"{self.ENDPOINT}/byids"),
+                method="POST",
+                items=[NodeIdentifier(space=item.space, external_id=item.external_id) for item in items],
+            )
+        )
+        responses.raise_for_status()
+        return PagedResponse[InfieldLocationConfig].model_validate(responses.get_first_body()).items
 
     def delete(self, items: Sequence[NodeIdentifier]) -> list[NodeIdentifier]:
-        raise NotImplementedError()
+        if len(items) > 1000:
+            raise ValueError("Cannot delete more than 1000 InfieldLocationConfig items at once.")
+        responses = self._http_client.request_with_retries(
+            ItemsRequest(
+                endpoint_url=self._config.create_api_url(f"{self.ENDPOINT}/delete"),
+                method="POST",
+                items=[NodeIdentifier(space=item.space, external_id=item.external_id) for item in items],
+            )
+        )
+        responses.raise_for_status()
+        return PagedResponse[NodeIdentifier].model_validate(responses.get_first_body()).items
 
 
 class InfieldAPI:

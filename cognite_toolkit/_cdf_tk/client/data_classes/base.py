@@ -1,8 +1,14 @@
+import sys
 from abc import ABC, abstractmethod
 from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 
 class BaseModelObject(BaseModel):
@@ -47,3 +53,6 @@ class Identifier(BaseModel):
             dict[str, Any]: The dumped identifier.
         """
         return self.model_dump(mode="json", by_alias=True, exclude_defaults=include_type)
+
+    def as_id(self) -> Self:
+        return self
