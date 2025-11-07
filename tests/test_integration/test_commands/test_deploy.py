@@ -184,7 +184,12 @@ def get_changed_source_files(
             _, to_write = cmd._get_to_write(local_resource_by_id, cdf_resource_by_id, file_results, loader)
 
             new_content, extra_files = cmd._to_write_content(
-                original_content, to_write, resources, environment_variables, loader
+                source=original_content,
+                to_write=to_write,
+                resources=resources,
+                environment_variables=environment_variables,
+                loader=loader,
+                source_file=source_file,
             )
             new_content = remove_trailing_newline(new_content)
             if new_content != original_content:
