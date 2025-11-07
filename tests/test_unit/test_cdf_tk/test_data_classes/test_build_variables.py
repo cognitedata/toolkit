@@ -41,7 +41,7 @@ suffix_text: {{ my_suffix_text }}
             selected_modules=set(),
         )
 
-        result = variables.replace(source_yaml, Path("test.yaml"))
+        result = variables.replace(source_yaml, Path("test.Transformation.yaml"))
 
         loaded = yaml.safe_load(result)
         assert loaded == {
@@ -110,7 +110,7 @@ query: >-
             selected_modules=set(),
         )
 
-        result = variables.replace(source_yaml, Path("test.yaml"))
+        result = variables.replace(source_yaml, Path("test.Transformation.yaml"))
 
         loaded = yaml.safe_load(result)
 
@@ -133,7 +133,7 @@ query: |
             selected_modules=set(),
         )
 
-        result = variables.replace(source_yaml, Path("test.yaml"))
+        result = variables.replace(source_yaml, Path("test.Transformation.yaml"))
 
         loaded = yaml.safe_load(result)
         assert "('X', 'Y', 'Z')" in loaded["query"]
@@ -153,7 +153,7 @@ query: >-
             selected_modules=set(),
         )
 
-        result = variables.replace(source_yaml, Path("test.yaml"))
+        result = variables.replace(source_yaml, Path("test.Transformation.yaml"))
 
         loaded = yaml.safe_load(result)
         assert loaded["query"] == "SELECT * FROM table WHERE column IN ('A', 123, NULL, True)"
@@ -174,7 +174,7 @@ query: >-
             selected_modules=set(),
         )
 
-        result = variables.replace(source_yaml, Path("test.yaml"))
+        result = variables.replace(source_yaml, Path("test.Transformation.yaml"))
 
         loaded = yaml.safe_load(result)
         # Tags should be a YAML list, not SQL tuple

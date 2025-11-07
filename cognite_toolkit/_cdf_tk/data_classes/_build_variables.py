@@ -191,9 +191,7 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
                 content = re.sub(_core_pattern, str(replace), content)
             elif file_suffix in {".yaml", ".yml", ".json"}:
                 # Check if this is a transformation file (ends with Transformation.yaml/yml)
-                is_transformation_file = file_path.name.endswith(
-                    f"{TransformationCRUD.kind}.yaml"
-                ) or file_path.name.endswith(f"{TransformationCRUD.kind}.yml")
+                is_transformation_file = f".{TransformationCRUD.kind}." in file_path.name
                 # Check if variable is within a query field (SQL context)
                 is_in_query_field = self._is_in_query_field(content, variable.key)
 
