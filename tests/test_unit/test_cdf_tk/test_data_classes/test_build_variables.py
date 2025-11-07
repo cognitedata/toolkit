@@ -41,7 +41,7 @@ suffix_text: {{ my_suffix_text }}
             selected_modules=set(),
         )
 
-        result = variables.replace(source_yaml, Path("test.Transformation.yaml"))
+        result = variables.replace(source_yaml)
 
         loaded = yaml.safe_load(result)
         assert loaded == {
@@ -174,7 +174,7 @@ query: >-
             selected_modules=set(),
         )
 
-        result = variables.replace(source_yaml, Path("test.Transformation.yaml"))
+        result = variables.replace(source_yaml)
 
         loaded = yaml.safe_load(result)
         # Tags should be a YAML list, not SQL tuple

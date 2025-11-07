@@ -9,10 +9,9 @@ from pathlib import Path
 from typing import Any, Literal, SupportsIndex, overload
 
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.transformation import TransformationCRUD
+from cognite_toolkit._cdf_tk.data_classes._module_directories import ModuleLocation
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-
-from ._module_directories import ModuleLocation
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -162,18 +161,18 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
         ]
 
     @overload
-    def replace(self, content: str, file_path: Path, use_placeholder: Literal[False] = False) -> str: ...
+    def replace(self, content: str, file_path: Path | None = None, use_placeholder: Literal[False] = False) -> str: ...
 
     @overload
     def replace(
-        self, content: str, file_path: Path, use_placeholder: Literal[True] = True
+        self, content: str, file_path: Path | None = None, use_placeholder: Literal[True] = True
     ) -> tuple[str, dict[str, BuildVariable]]: ...
 
     def replace(
-        self, content: str, file_path: Path, use_placeholder: bool = False
+        self, content: str, file_path: Path | None = None, use_placeholder: bool = False
     ) -> str | tuple[str, dict[str, BuildVariable]]:
-        # Extract file suffix from path
-        file_suffix = file_path.suffix if file_path.suffix else ".yaml"
+        # Extract file suffix from path, default to .yaml if not provided
+        file_suffix = file_path.suffix if file_path and file_path.suffix else ".yaml"
 
         variable_by_placeholder: dict[str, BuildVariable] = {}
         for variable in self:
@@ -191,7 +190,7 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
                 content = re.sub(_core_pattern, str(replace), content)
             elif file_suffix in {".yaml", ".yml", ".json"}:
                 # Check if this is a transformation file (ends with Transformation.yaml/yml)
-                is_transformation_file = f".{TransformationCRUD.kind}." in file_path.name
+                is_transformation_file = file_path is not None and f".{TransformationCRUD.kind}." in file_path.name
                 # Check if variable is within a query field (SQL context)
                 is_in_query_field = self._is_in_query_field(content, variable.key)
 
