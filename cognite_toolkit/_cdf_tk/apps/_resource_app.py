@@ -102,7 +102,7 @@ class ResourcesApp(typer.Typer):
             ),
         ],
         resource_directories: Annotated[
-            list[str] | None,
+            list[str],
             typer.Option(
                 "--resource-directories",
                 "-d",
@@ -115,10 +115,10 @@ class ResourcesApp(typer.Typer):
                         if item.strip()
                     ]
                     if value
-                    else None
+                    else []
                 ),
             ),
-        ] = None,
+        ] = [],
         verbose: Annotated[
             bool,
             typer.Option(
