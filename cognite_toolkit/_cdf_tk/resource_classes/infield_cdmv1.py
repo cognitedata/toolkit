@@ -59,7 +59,7 @@ class DataExplorationConfig(BaseModelResource):
     - assets: Asset page configuration
     """
 
-    external_id: str
+    external_id: str | None = None
 
     observations: dict[str, Any] | None = None  # ObservationsConfigFeature
     activities: dict[str, Any] | None = None  # ActivitiesConfiguration
@@ -82,6 +82,7 @@ class InfieldLocationConfigYAML(ToolkitResource):
     - data_exploration_config: Direct relation to the DataExplorationConfig node (shared across all locations)
     """
 
+    space: str
     external_id: str
 
     root_location_external_id: str | None = None
