@@ -190,6 +190,22 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
                     replace = "null"
                 content = re.sub(pattern, str(replace), content)
             else:
+                # For SQL files, convert lists to SQL-style tuples
+                if file_suffix == ".sql" and isinstance(replace, list):
+                    if not replace:
+                        # Empty list becomes empty SQL tuple
+                        replace = "()"
+                    else:
+                        # Format list as SQL tuple: ('A', 'B', 'C')
+                        formatted_items = []
+                        for item in replace:
+                            if item is None:
+                                formatted_items.append("NULL")
+                            elif isinstance(item, str):
+                                formatted_items.append(f"'{item}'")
+                            else:
+                                formatted_items.append(str(item))
+                        replace = f"({', '.join(formatted_items)})"
                 content = re.sub(_core_pattern, str(replace), content)
         if use_placeholder:
             return content, variable_by_placeholder

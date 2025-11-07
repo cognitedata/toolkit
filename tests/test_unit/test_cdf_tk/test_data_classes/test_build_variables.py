@@ -73,6 +73,51 @@ suffix_text: {{ my_suffix_text }}
 
         assert result == "dataset_id('ds_external_id')"
 
+    def test_replace_sql_list_as_tuple(self) -> None:
+        """Test that lists in SQL files are converted to SQL-style tuples."""
+        source_sql = """SELECT * FROM table WHERE column IN {{ my_list }}"""
+        variables = BuildVariables.load_raw(
+            {
+                "my_list": ["A", "B", "C"],
+            },
+            available_modules=set(),
+            selected_modules=set(),
+        )
+
+        result = variables.replace(source_sql, file_suffix=".sql")
+
+        assert result == "SELECT * FROM table WHERE column IN ('A', 'B', 'C')"
+
+    def test_replace_sql_empty_list_as_empty_tuple(self) -> None:
+        """Test that empty lists in SQL files are converted to empty SQL tuples."""
+        source_sql = """SELECT * FROM table WHERE column IN {{ my_list }}"""
+        variables = BuildVariables.load_raw(
+            {
+                "my_list": [],
+            },
+            available_modules=set(),
+            selected_modules=set(),
+        )
+
+        result = variables.replace(source_sql, file_suffix=".sql")
+
+        assert result == "SELECT * FROM table WHERE column IN ()"
+
+    def test_replace_sql_list_with_mixed_types(self) -> None:
+        """Test that lists with mixed types in SQL files are formatted correctly."""
+        source_sql = """SELECT * FROM table WHERE column IN {{ my_list }}"""
+        variables = BuildVariables.load_raw(
+            {
+                "my_list": ["A", 123, None, True],
+            },
+            available_modules=set(),
+            selected_modules=set(),
+        )
+
+        result = variables.replace(source_sql, file_suffix=".sql")
+
+        assert result == "SELECT * FROM table WHERE column IN ('A', 123, NULL, True)"
+
     def test_replace_inline_sql_preserve_double_quotes(self) -> None:
         source_yaml = """externalId: some_id
 name: Some Transformation
