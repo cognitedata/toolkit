@@ -4,14 +4,15 @@ from .base import BaseModelObject, RequestResource, ResponseResource
 
 
 class DataExplorationConfig(BaseModelObject):
-    observations: dict[str, JsonValue]
-    activities: dict[str, JsonValue]
-    documents: dict[str, JsonValue]
-    notifications: dict[str, JsonValue]
-    assets: dict[str, JsonValue]
+    observations: dict[str, JsonValue] | None = None
+    activities: dict[str, JsonValue] | None = None
+    documents: dict[str, JsonValue] | None = None
+    notifications: dict[str, JsonValue] | None = None
+    assets: dict[str, JsonValue] | None = None
 
 
 class InfieldLocationConfig(ResponseResource["InfieldLocationConfig"], RequestResource):
+    space: str
     external_id: str
 
     root_location_external_id: str | None = None
