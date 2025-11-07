@@ -13,6 +13,11 @@ class DataExplorationConfig(BaseModelObject):
 
 
 class InfieldLocationConfig(ResponseResource["InfieldLocationConfig"], RequestResource):
+    """Infield Location Configuration resource class.
+
+    This class is used for both the response and request resource for Infield Location Configuration nodes.
+    """
+
     space: str
     external_id: str
 
