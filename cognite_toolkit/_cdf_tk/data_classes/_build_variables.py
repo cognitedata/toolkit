@@ -8,6 +8,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any, Literal, SupportsIndex, overload
 
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.transformation import TransformationCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 
@@ -161,16 +162,19 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
         ]
 
     @overload
-    def replace(self, content: str, file_suffix: str = ".yaml", use_placeholder: Literal[False] = False) -> str: ...
+    def replace(self, content: str, file_path: Path, use_placeholder: Literal[False] = False) -> str: ...
 
     @overload
     def replace(
-        self, content: str, file_suffix: str = ".yaml", use_placeholder: Literal[True] = True
+        self, content: str, file_path: Path, use_placeholder: Literal[True] = True
     ) -> tuple[str, dict[str, BuildVariable]]: ...
 
     def replace(
-        self, content: str, file_suffix: str = ".yaml", use_placeholder: bool = False
+        self, content: str, file_path: Path, use_placeholder: bool = False
     ) -> str | tuple[str, dict[str, BuildVariable]]:
+        # Extract file suffix from path
+        file_suffix = file_path.suffix if file_path.suffix else ".yaml"
+
         variable_by_placeholder: dict[str, BuildVariable] = {}
         for variable in self:
             if not use_placeholder:
@@ -180,37 +184,139 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
                 variable_by_placeholder[replace] = variable
 
             _core_pattern = rf"{{{{\s*{variable.key}\s*}}}}"
-            if file_suffix in {".yaml", ".yml", ".json"}:
-                # Preserve data types
-                pattern = _core_pattern
-                if isinstance(replace, str) and (replace.isdigit() or replace.endswith(":")):
-                    replace = f'"{replace}"'
-                    pattern = rf"'{_core_pattern}'|{_core_pattern}|" + rf'"{_core_pattern}"'
-                elif replace is None:
-                    replace = "null"
-                content = re.sub(pattern, str(replace), content)
-            else:
+            if file_suffix == ".sql":
                 # For SQL files, convert lists to SQL-style tuples
-                if file_suffix == ".sql" and isinstance(replace, list):
-                    if not replace:
-                        # Empty list becomes empty SQL tuple
-                        replace = "()"
-                    else:
-                        # Format list as SQL tuple: ('A', 'B', 'C')
-                        formatted_items = []
-                        for item in replace:
-                            if item is None:
-                                formatted_items.append("NULL")
-                            elif isinstance(item, str):
-                                formatted_items.append(f"'{item}'")
-                            else:
-                                formatted_items.append(str(item))
-                        replace = f"({', '.join(formatted_items)})"
+                if isinstance(replace, list):
+                    replace = self._format_list_as_sql_tuple(replace)
+                content = re.sub(_core_pattern, str(replace), content)
+            elif file_suffix in {".yaml", ".yml", ".json"}:
+                # Check if this is a transformation file (ends with Transformation.yaml/yml)
+                is_transformation_file = file_path.name.endswith(
+                    f"{TransformationCRUD.kind}.yaml"
+                ) or file_path.name.endswith(f"{TransformationCRUD.kind}.yml")
+                # Check if variable is within a query field (SQL context)
+                is_in_query_field = self._is_in_query_field(content, variable.key)
+
+                # For lists in query fields, use SQL-style tuples
+                # For transformation files, ensure SQL conversion is applied to query property variables
+                if (is_in_query_field or (is_transformation_file and is_in_query_field)) and isinstance(replace, list):
+                    replace = self._format_list_as_sql_tuple(replace)
+                    # Use simple pattern for SQL context (no YAML quoting needed)
+                    content = re.sub(_core_pattern, str(replace), content)
+                else:
+                    # Preserve data types for YAML
+                    pattern = _core_pattern
+                    if isinstance(replace, str) and (replace.isdigit() or replace.endswith(":")):
+                        replace = f'"{replace}"'
+                        pattern = rf"'{_core_pattern}'|{_core_pattern}|" + rf'"{_core_pattern}"'
+                    elif replace is None:
+                        replace = "null"
+                    content = re.sub(pattern, str(replace), content)
+            else:
+                # For other file types, use simple string replacement
                 content = re.sub(_core_pattern, str(replace), content)
         if use_placeholder:
             return content, variable_by_placeholder
         else:
             return content
+
+    @staticmethod
+    def _is_transformation_file(file_path: Path) -> bool:
+        """Check if the file path indicates a transformation YAML file.
+
+        Transformation files are YAML files in the "transformations" folder.
+
+        Args:
+            file_path: The file path to check
+
+        Returns:
+            True if the file is a transformation YAML file
+        """
+        # Check if path contains "transformations" folder and ends with .yaml/.yml
+        path_str = file_path.as_posix().lower()
+        return "transformations" in path_str and file_path.suffix.lower() in {".yaml", ".yml"}
+
+    @staticmethod
+    def _format_list_as_sql_tuple(replace: list[Any]) -> str:
+        """Format a list as a SQL-style tuple string.
+
+        Args:
+            replace: The list to format
+
+        Returns:
+            SQL tuple string, e.g., "('A', 'B', 'C')" or "()" for empty lists
+        """
+        if not replace:
+            # Empty list becomes empty SQL tuple
+            return "()"
+        else:
+            # Format list as SQL tuple: ('A', 'B', 'C')
+            formatted_items = []
+            for item in replace:
+                if item is None:
+                    formatted_items.append("NULL")
+                elif isinstance(item, str):
+                    formatted_items.append(f"'{item}'")
+                else:
+                    formatted_items.append(str(item))
+            return f"({', '.join(formatted_items)})"
+
+    @staticmethod
+    def _is_in_query_field(content: str, variable_key: str) -> bool:
+        """Check if a variable is within a query field in YAML.
+
+        This detects various YAML formats for query fields:
+        - query: >-
+        - query: |
+        - query: "..."
+        - query: ...
+        """
+        lines = content.split("\n")
+        variable_pattern = rf"{{{{\s*{re.escape(variable_key)}\s*}}}}"
+        in_query_field = False
+        query_indent = -1
+
+        for line in lines:
+            # Check if this line starts a query field
+            query_match = re.match(r"^(\s*)query\s*:\s*(.*)$", line)
+            if query_match:
+                in_query_field = True
+                query_indent = len(query_match.group(1))
+                query_content_start = query_match.group(2).strip()
+
+                # Check if variable is on the same line as query: declaration
+                if re.search(variable_pattern, line):
+                    return True
+
+                # If query content starts on same line (not a block scalar), check it
+                if query_content_start and not query_content_start.startswith(("|", ">", "|-", ">-", "|+", ">+")):
+                    if re.search(variable_pattern, query_content_start):
+                        return True
+                continue
+
+            # Check if we're still in the query field
+            if in_query_field:
+                # Check if this line is at same or greater indent (continuation of query field)
+                current_indent = len(line) - len(line.lstrip())
+
+                # If line is empty or only whitespace, continue in query field
+                if not line.strip():
+                    if re.search(variable_pattern, line):
+                        return True
+                    continue
+
+                # If line has less indent than query field, we've exited the query field
+                if current_indent <= query_indent and line.strip():
+                    # Check if this is a new top-level key
+                    if re.match(r"^\s*\w+\s*:", line):
+                        in_query_field = False
+                        continue
+
+                # We're still in the query field, check for variable
+                if re.search(variable_pattern, line):
+                    return True
+
+        return False
 
     # Implemented to get correct type hints
     def __iter__(self) -> Iterator[BuildVariable]:

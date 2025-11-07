@@ -41,7 +41,7 @@ suffix_text: {{ my_suffix_text }}
             selected_modules=set(),
         )
 
-        result = variables.replace(source_yaml)
+        result = variables.replace(source_yaml, Path("test.yaml"))
 
         loaded = yaml.safe_load(result)
         assert loaded == {
@@ -69,41 +69,11 @@ suffix_text: {{ my_suffix_text }}
             selected_modules=set(),
         )
 
-        result = variables.replace(source_yaml, file_suffix=".sql")
+        result = variables.replace(source_yaml, Path("test.sql"))
 
         assert result == "dataset_id('ds_external_id')"
 
-    def test_replace_sql_list_as_tuple(self) -> None:
-        """Test that lists in SQL files are converted to SQL-style tuples."""
-        source_sql = """SELECT * FROM table WHERE column IN {{ my_list }}"""
-        variables = BuildVariables.load_raw(
-            {
-                "my_list": ["A", "B", "C"],
-            },
-            available_modules=set(),
-            selected_modules=set(),
-        )
-
-        result = variables.replace(source_sql, file_suffix=".sql")
-
-        assert result == "SELECT * FROM table WHERE column IN ('A', 'B', 'C')"
-
-    def test_replace_sql_empty_list_as_empty_tuple(self) -> None:
-        """Test that empty lists in SQL files are converted to empty SQL tuples."""
-        source_sql = """SELECT * FROM table WHERE column IN {{ my_list }}"""
-        variables = BuildVariables.load_raw(
-            {
-                "my_list": [],
-            },
-            available_modules=set(),
-            selected_modules=set(),
-        )
-
-        result = variables.replace(source_sql, file_suffix=".sql")
-
-        assert result == "SELECT * FROM table WHERE column IN ()"
-
-    def test_replace_sql_list_with_mixed_types(self) -> None:
+    def test_replace_sql_list(self) -> None:
         """Test that lists with mixed types in SQL files are formatted correctly."""
         source_sql = """SELECT * FROM table WHERE column IN {{ my_list }}"""
         variables = BuildVariables.load_raw(
@@ -114,7 +84,7 @@ suffix_text: {{ my_suffix_text }}
             selected_modules=set(),
         )
 
-        result = variables.replace(source_sql, file_suffix=".sql")
+        result = variables.replace(source_sql, Path("test.sql"))
 
         assert result == "SELECT * FROM table WHERE column IN ('A', 123, NULL, True)"
 
@@ -140,11 +110,75 @@ query: >-
             selected_modules=set(),
         )
 
-        result = variables.replace(source_yaml, file_suffix=".yaml")
+        result = variables.replace(source_yaml, Path("test.yaml"))
 
         loaded = yaml.safe_load(result)
 
         assert loaded["query"] == 'select "fpso_uny" as externalId, "UNY" as uid, "UNY" as description'
+
+    def test_replace_yaml_query_field_list(self) -> None:
+        """Test that lists in multiline query fields are converted to SQL-style tuples."""
+        source_yaml = """externalId: some_id
+name: Some Transformation
+query: |
+  SELECT * FROM table
+  WHERE column IN {{ my_list }}
+  AND other_column = 'value'
+"""
+        variables = BuildVariables.load_raw(
+            {
+                "my_list": ["X", "Y", "Z"],
+            },
+            available_modules=set(),
+            selected_modules=set(),
+        )
+
+        result = variables.replace(source_yaml, Path("test.yaml"))
+
+        loaded = yaml.safe_load(result)
+        assert "('X', 'Y', 'Z')" in loaded["query"]
+
+    def test_replace_yaml_query_field_list_mixed_types(self) -> None:
+        """Test that lists with mixed types in query fields are formatted correctly."""
+        source_yaml = """externalId: some_id
+name: Some Transformation
+query: >-
+  SELECT * FROM table WHERE column IN {{ my_list }}
+"""
+        variables = BuildVariables.load_raw(
+            {
+                "my_list": ["A", 123, None, True],
+            },
+            available_modules=set(),
+            selected_modules=set(),
+        )
+
+        result = variables.replace(source_yaml, Path("test.yaml"))
+
+        loaded = yaml.safe_load(result)
+        assert loaded["query"] == "SELECT * FROM table WHERE column IN ('A', 123, NULL, True)"
+
+    def test_replace_yaml_non_query_field_preserves_list(self) -> None:
+        """Test that lists outside query fields still use YAML list format."""
+        source_yaml = """externalId: some_id
+name: Some Transformation
+tags: {{ my_list }}
+query: >-
+  SELECT * FROM table
+"""
+        variables = BuildVariables.load_raw(
+            {
+                "my_list": ["tag1", "tag2"],
+            },
+            available_modules=set(),
+            selected_modules=set(),
+        )
+
+        result = variables.replace(source_yaml, Path("test.yaml"))
+
+        loaded = yaml.safe_load(result)
+        # Tags should be a YAML list, not SQL tuple
+        assert loaded["tags"] == ["tag1", "tag2"]
 
     def test_get_module_variables_variable_preference_order(self) -> None:
         source_yaml = """
