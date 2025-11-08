@@ -268,6 +268,9 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
             SchemaColumn(name="source", type="string"),
             SchemaColumn(name="labels", type="string", is_array=True),
             SchemaColumn(name="geoLocation", type="json"),
+            SchemaColumn(name="childCount", type="integer"),
+            SchemaColumn(name="depth", type="integer"),
+            SchemaColumn(name="path", type="string", is_array=True),
         ]
         return asset_schema + metadata_schema
 
