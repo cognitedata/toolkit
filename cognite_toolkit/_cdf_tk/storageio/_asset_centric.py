@@ -669,7 +669,7 @@ class AssetFileReaderAdapter(FileReader):
                     depth = int(item.get("depth"))  # type: ignore[arg-type]
                 except (TypeError, ValueError):
                     depth = None
-                if depth is None or depth == self._current_depth:
+                if (depth is None and self._current_depth == 0) or depth == self._current_depth:
                     yield line_number, item
                 elif self._current_depth == 0 and isinstance(depth, int):
                     self._max_depth = max(self._max_depth, depth)
