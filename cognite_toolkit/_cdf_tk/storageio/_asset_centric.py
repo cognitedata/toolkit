@@ -655,25 +655,27 @@ class AssetFileReaderAdapter(FileReader):
     def __init__(self, other_reader: FileReader) -> None:
         super().__init__(other_reader.input_file)
         self._other_reader = other_reader
-        self._max_depth = 0
-        self._current_depth = 0
 
     def read_chunks(self) -> Iterator[dict[str, JsonVal]]:
         """Reads chunks from the file, yielding each chunk, sorted by asset depth."""
         yield from (item for _, item in self.read_chunks_with_line_numbers())
 
     def read_chunks_with_line_numbers(self) -> Iterator[tuple[int, dict[str, JsonVal]]]:
-        while self._current_depth <= self._max_depth:
+        current_depth = max_depth = 0
+        while current_depth <= max_depth:
             for line_number, item in self._other_reader.read_chunks_with_line_numbers():
                 try:
                     depth = int(item.get("depth"))  # type: ignore[arg-type]
                 except (TypeError, ValueError):
-                    depth = None
-                if (depth is None and self._current_depth == 0) or depth == self._current_depth:
+                    if current_depth == 0:
+                        # If depth is not set, we yield it at depth 0
+                        yield line_number, item
+                    continue
+                if depth == current_depth:
                     yield line_number, item
-                elif self._current_depth == 0 and isinstance(depth, int):
-                    self._max_depth = max(self._max_depth, depth)
-            self._current_depth += 1
+                elif current_depth == 0:
+                    max_depth = max(max_depth, depth)
+            current_depth += 1
 
     def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[dict[str, JsonVal]]:
         # This method is not used by AssetFileReaderAdapter as read_chunks is overridden.
