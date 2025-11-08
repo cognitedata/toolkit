@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import httpx
 import pytest
@@ -23,9 +24,10 @@ from cognite.client.data_classes import (
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
-from cognite_toolkit._cdf_tk.storageio import AssetIO, EventIO, FileMetadataIO, TimeSeriesIO
+from cognite_toolkit._cdf_tk.storageio import AssetFileReaderAdapter, AssetIO, EventIO, FileMetadataIO, TimeSeriesIO
 from cognite_toolkit._cdf_tk.storageio.selectors import AssetSubtreeSelector, DataSetSelector
 from cognite_toolkit._cdf_tk.utils.collection import chunker
+from cognite_toolkit._cdf_tk.utils.fileio import FileReader
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
@@ -438,3 +440,23 @@ class TestEventIO:
                 uploaded_events.extend(json.loads(call.request.content)["items"])
 
             assert uploaded_events == some_event_data.as_write().dump()
+
+
+class TestAssetFileReaderAdapter:
+    def test_read_assets_chunks(self) -> None:
+        depth = 10
+        assets = [
+            {
+                "id": i,
+                "depth": i,
+            }
+            for i in range(depth, 0, -1)
+        ]
+        assets_with_line_numbers = list(enumerate(assets, start=1))
+        other_reader = MagicMock(spec=FileReader)
+        other_reader.read_chunks_with_line_numbers.return_value = assets_with_line_numbers
+        other_reader.input_file = Path("mocked_file.csv")
+        reader = AssetFileReaderAdapter(other_reader)
+        output = list(reader.read_chunks_with_line_numbers())
+
+        assert output == list(reversed(assets_with_line_numbers))
