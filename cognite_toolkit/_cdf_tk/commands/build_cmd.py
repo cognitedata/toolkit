@@ -492,7 +492,7 @@ class BuildCommand(ToolkitCommand):
             # which is what we do in the deploy step to verify that the source file has not changed.
             source = SourceLocationEager(source_path, calculate_hash(source_path, shorten=True))
 
-            content = variables.replace(content, source_path.suffix)
+            content = variables.replace(content, source_path)
 
             replace_warnings = self._check_variables_replaced(content, module_dir, source_path)
 
