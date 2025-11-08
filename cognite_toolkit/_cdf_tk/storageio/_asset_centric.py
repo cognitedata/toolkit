@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from collections.abc import Iterable, MutableSequence, Sequence
+from collections.abc import Iterable, Iterator, MutableSequence, Sequence
+from io import TextIOWrapper
 from typing import ClassVar, Generic
 
 from cognite.client.data_classes import (
@@ -48,7 +49,7 @@ from cognite_toolkit._cdf_tk.utils.aggregators import (
     TimeSeriesAggregator,
 )
 from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
-from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
+from cognite_toolkit._cdf_tk.utils.fileio import FileReader, SchemaColumn
 from cognite_toolkit._cdf_tk.utils.http_client import (
     FailedRequestItems,
     FailedRequestMessage,
@@ -639,3 +640,33 @@ class HierarchyIO(ConfigurableStorageIO[AssetCentricSelector, AssetCentricResour
 
     def get_resource_io(self, kind: str) -> BaseAssetCentricIO:
         return self._io_by_kind[kind]
+
+
+class AssetFileReaderAdapter(FileReader):
+    """Adapter of the FileReader to read asset-centric data.
+
+    This is used when uploading assets from files to account for the hierarchical structure. It returns the assets
+    by the depth in the hierarchy, starting from the root assets and going down to the leaf assets.
+
+    Args:
+        other_reader (FileReader): The underlying FileReader to read data from.
+    """
+
+    def __init__(self, other_reader: FileReader) -> None:
+        super().__init__(other_reader.input_file)
+        self._other_reader = other_reader
+        self._max_depth = 0
+        self._current_depth = 0
+
+    def read_chunks_with_line_numbers(self) -> Iterator[tuple[int, dict[str, JsonVal]]]:
+        while self._current_depth <= self._max_depth:
+            for line_number, item in self._other_reader.read_chunks_with_line_numbers():
+                depth = item.get("depth")
+                if depth is None or depth == self._current_depth:
+                    yield line_number, item
+                elif self._current_depth == 0 and isinstance(depth, int):
+                    self._max_depth = max(self._max_depth, depth)
+            self._current_depth += 1
+
+    def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[dict[str, JsonVal]]:
+        return self._other_reader.read_chunks()

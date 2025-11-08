@@ -9,7 +9,14 @@ from rich.console import Console
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.storageio import T_Selector, UploadableStorageIO, are_same_kind, get_upload_io
+from cognite_toolkit._cdf_tk.storageio import (
+    AssetFileReaderAdapter,
+    AssetIO,
+    T_Selector,
+    UploadableStorageIO,
+    are_same_kind,
+    get_upload_io,
+)
 from cognite_toolkit._cdf_tk.storageio._base import T_WriteCogniteResource, TableUploadableStorageIO, UploadItem
 from cognite_toolkit._cdf_tk.storageio.selectors import Selector, SelectorAdapter
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
@@ -182,6 +189,10 @@ class UploadCommand(ToolkitCommand):
                     is_table = reader.format in TABLE_READ_CLS_BY_FORMAT
                     if is_table and not isinstance(io, TableUploadableStorageIO):
                         raise ToolkitValueError(f"{selector.display_name} does not support {reader.format!r} files.")
+                    if isinstance(io, AssetIO):
+                        # Assets needs to be uploaded from the root asset to the leaves. The specialized reader
+                        # handles this by iterating over the file n times, where n is the depth of the asset hierarchy.
+                        reader = AssetFileReaderAdapter(reader)
                     tracker = ProgressTracker[str]([self._UPLOAD])
                     data_name = "row" if is_table else "line"
                     executor = ProducerWorkerExecutor[list[tuple[str, dict[str, JsonVal]]], Sequence[UploadItem]](
