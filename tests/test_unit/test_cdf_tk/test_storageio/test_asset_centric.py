@@ -444,13 +444,12 @@ class TestEventIO:
 
 class TestAssetFileReaderAdapter:
     def test_read_assets_chunks(self) -> None:
-        depth = 10
         assets = [
-            {
-                "id": i,
-                "depth": i,
-            }
-            for i in range(depth, 0, -1)
+            {"id": 1, "depth": 3},
+            {"id": 2, "depth": 2},
+            {"id": 3, "depth": 1},
+            {"id": 4},
+            {"id": 5, "depth": "not_an_int"},
         ]
         assets_with_line_numbers = list(enumerate(assets, start=1))
         other_reader = MagicMock(spec=FileReader)
@@ -459,4 +458,10 @@ class TestAssetFileReaderAdapter:
         reader = AssetFileReaderAdapter(other_reader)
         output = list(reader.read_chunks_with_line_numbers())
 
-        assert output == list(reversed(assets_with_line_numbers))
+        assert output == [
+            (4, {"id": 4}),
+            (5, {"id": 5, "depth": "not_an_int"}),
+            (3, {"id": 3, "depth": 1}),
+            (2, {"id": 2, "depth": 2}),
+            (1, {"id": 1, "depth": 3}),
+        ]
