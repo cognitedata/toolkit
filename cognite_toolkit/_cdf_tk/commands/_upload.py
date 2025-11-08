@@ -186,7 +186,10 @@ class UploadCommand(ToolkitCommand):
                     data_name = "row" if is_table else "line"
                     executor = ProducerWorkerExecutor[list[tuple[str, dict[str, JsonVal]]], Sequence[UploadItem]](
                         download_iterable=chunker(
-                            ((f"{data_name} {line_no}", item) for line_no, item in enumerate(reader.read_chunks(), 1)),
+                            (
+                                (f"{data_name} {line_no}", item)
+                                for line_no, item in reader.read_chunks_with_line_numbers()
+                            ),
                             io.CHUNK_SIZE,
                         ),
                         process=partial(io.rows_to_data, selector=selector)
