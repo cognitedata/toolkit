@@ -658,6 +658,10 @@ class AssetFileReaderAdapter(FileReader):
         self._max_depth = 0
         self._current_depth = 0
 
+    def read_chunks(self) -> Iterator[dict[str, JsonVal]]:
+        """Reads chunks from the file, yielding each chunk, sorted by asset depth."""
+        yield from (item for _, item in self.read_chunks_with_line_numbers())
+
     def read_chunks_with_line_numbers(self) -> Iterator[tuple[int, dict[str, JsonVal]]]:
         while self._current_depth <= self._max_depth:
             for line_number, item in self._other_reader.read_chunks_with_line_numbers():
@@ -672,4 +676,6 @@ class AssetFileReaderAdapter(FileReader):
             self._current_depth += 1
 
     def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[dict[str, JsonVal]]:
-        return self._other_reader.read_chunks()
+        # This method is not used by AssetFileReaderAdapter as read_chunks is overridden.
+        # It is implemented to satisfy the abstract base class, but should not be called.
+        raise NotImplementedError(f"{type(self).__name__} does not implement '_read_chunks_from_file'.")
