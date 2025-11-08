@@ -661,7 +661,10 @@ class AssetFileReaderAdapter(FileReader):
     def read_chunks_with_line_numbers(self) -> Iterator[tuple[int, dict[str, JsonVal]]]:
         while self._current_depth <= self._max_depth:
             for line_number, item in self._other_reader.read_chunks_with_line_numbers():
-                depth = item.get("depth")
+                try:
+                    depth = int(item.get("depth"))  # type: ignore[arg-type]
+                except (TypeError, ValueError):
+                    depth = None
                 if depth is None or depth == self._current_depth:
                     yield line_number, item
                 elif self._current_depth == 0 and isinstance(depth, int):
