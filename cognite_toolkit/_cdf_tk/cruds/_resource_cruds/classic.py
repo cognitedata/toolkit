@@ -6,6 +6,7 @@ from typing import Any, final
 
 import pandas as pd
 from cognite.client.data_classes import (
+    AggregateResultItem,
     Asset,
     AssetList,
     AssetWrite,
@@ -213,6 +214,17 @@ class AssetCRUD(ResourceCRUD[str, AssetWrite, Asset, AssetWriteList, AssetList])
             dumped.pop("metadata", None)
         if "parentId" in dumped and "parentId" not in local:
             dumped.pop("parentId")
+        if resource.aggregates:
+            # This is only included when the asset is downloaded/migrated with aggregated properties
+            aggregates = (
+                resource.aggregates.dump()
+                if isinstance(resource.aggregates, AggregateResultItem)
+                else resource.aggregates
+            )
+            if "path" in aggregates:
+                path = aggregates.pop("path")
+                aggregates["path"] = self.client.lookup.assets.external_id([segment["id"] for segment in path])
+            dumped.update(aggregates)
         return dumped
 
 
