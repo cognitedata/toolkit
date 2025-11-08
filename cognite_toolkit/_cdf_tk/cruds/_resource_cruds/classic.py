@@ -222,8 +222,11 @@ class AssetCRUD(ResourceCRUD[str, AssetWrite, Asset, AssetWriteList, AssetList])
                 else resource.aggregates
             )
             if "path" in aggregates:
-                path = aggregates.pop("path")
-                aggregates["path"] = self.client.lookup.assets.external_id([segment["id"] for segment in path])
+                path = aggregates.pop("path", [])
+                if path:
+                    aggregates["path"] = self.client.lookup.assets.external_id(
+                        [segment["id"] for segment in path if "id" in segment]
+                    )
             dumped.update(aggregates)
         return dumped
 
