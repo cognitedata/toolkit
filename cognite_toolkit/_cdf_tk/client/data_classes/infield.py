@@ -1,3 +1,5 @@
+from collections import UserList
+from collections.abc import MutableSequence
 from typing import Any, ClassVar, Literal
 
 from pydantic import JsonValue, field_validator
@@ -56,3 +58,22 @@ class InfieldLocationConfig(ResponseResource["InfieldLocationConfig"], InstanceR
                 candidate = f"{external_id}_data_exploration_config"
                 value["externalId"] = sanitize_instance_external_id(candidate)
         return value
+
+
+class InfieldLocationConfigList(UserList, MutableSequence[InfieldLocationConfig]):
+    """A list of InfieldLocationConfig objects."""
+
+    data: list[InfieldLocationConfig]
+
+    def __init__(self, initlist: list[InfieldLocationConfig] | None = None) -> None:
+        super().__init__(initlist or [])
+
+    def dump(self) -> list[dict[str, Any]]:
+        """Serialize the list of InfieldLocationConfig objects to a list of dictionaries."""
+        return [item.dump() for item in self.data]
+
+    @classmethod
+    def load(cls, data: list[dict[str, Any]]) -> "InfieldLocationConfigList":
+        """Deserialize a list of dictionaries to an InfieldLocationConfigList."""
+        items = [InfieldLocationConfig.model_validate(item) for item in data]
+        return cls(items)
