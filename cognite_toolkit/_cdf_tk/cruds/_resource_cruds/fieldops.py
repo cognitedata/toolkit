@@ -290,6 +290,22 @@ class InfieldCDMV1CRUD(
 
         return DataModelInstancesAcl(actions, DataModelInstancesAcl.Scope.SpaceID(instance_spaces))
 
+    def dump_resource(self, resource: InfieldLocationConfig, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.dump()
+        local = local or {}
+        dumped.pop("instanceType", None)
+        if isinstance(cdf_dec := dumped.get("dataExplorationConfig"), dict):
+            cdf_dec.pop("instanceType", None)
+            if isinstance(local_dec := local.get("dataExplorationConfig"), dict):
+                if "space" in cdf_dec and "space" not in local_dec:
+                    # Default space is used for the data exploration config if not specified locally.
+                    cdf_dec.pop("space")
+                if "externalId" in cdf_dec and "externalId" not in local_dec:
+                    # Default externalId is used for the data exploration config if not specified locally.
+                    cdf_dec.pop("externalId")
+
+        return dumped
+
     def create(self, items: InfieldLocationConfigList) -> list[InstanceResult]:
         created = self.client.infield.config.apply(items)
         config_ids = {config.as_id() for config in items}
@@ -318,3 +334,16 @@ class InfieldCDMV1CRUD(
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[InfieldLocationConfig]:
         raise NotImplementedError(f"Iteration over {self.display_name} is not supported.")
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path == ("accessManagement", "templateAdmins"):
+            return diff_list_hashable(local, cdf)
+        elif json_path == ("accessManagement", "checklistAdmins"):
+            return diff_list_hashable(local, cdf)
+        elif json_path == ("dataFilters", "general", "spaces"):
+            return diff_list_hashable(local, cdf)
+        elif json_path == ("dataExplorationConfig", "documents", "supportedFormats"):
+            return diff_list_hashable(local, cdf)
+        return super().diff_list(local, cdf, json_path)
