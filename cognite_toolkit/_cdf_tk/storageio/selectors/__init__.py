@@ -6,6 +6,7 @@ from ._asset_centric import AssetCentricFileSelector, AssetCentricSelector, Asse
 from ._base import DataSelector
 from ._canvas import CanvasSelector
 from ._charts import AllChartsSelector, ChartOwnerSelector, ChartSelector
+from ._datapoints import DataPointsFileSelector
 from ._instances import (
     InstanceFileSelector,
     InstanceSelector,
@@ -24,7 +25,8 @@ Selector = Annotated[
     | ChartOwnerSelector
     | AssetSubtreeSelector
     | AssetCentricFileSelector
-    | DataSetSelector,
+    | DataSetSelector
+    | DataPointsFileSelector,
     Field(discriminator="type"),
 ]
 
@@ -39,6 +41,7 @@ __all__ = [
     "CanvasSelector",
     "ChartOwnerSelector",
     "ChartSelector",
+    "DataPointsFileSelector",
     "DataSelector",
     "DataSetSelector",
     "InstanceFileSelector",
