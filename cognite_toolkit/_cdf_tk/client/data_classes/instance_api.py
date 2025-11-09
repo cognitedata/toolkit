@@ -53,7 +53,16 @@ class ViewReference(Identifier):
     version: str
 
 
+######################################################
+# The classes below are helper classes for making instances request/responses.
+# By using these, we can avoid having to include the instances specific classes in the DTO classes
+# that are instance. Instead, these classes can now only have the properties they need to define.
+#######################################################
+
+
 class InstanceRequestResource(RequestResource):
+    """This is a base class for resources that are Instances."""
+
     VIEW_ID: ClassVar[ViewReference]
     instance_type: InstanceType
     space: str
