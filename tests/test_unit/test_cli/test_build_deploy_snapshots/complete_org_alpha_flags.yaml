@@ -92,6 +92,54 @@ GraphQLDataModel:
   preserveDml: true
   space: sp_schema
   version: '3_0_2'
+InfieldLocationConfig:
+- accessManagement:
+    checklistAdmins:
+    - cdf_group_checklist_admins
+    - cdf_group_superusers
+    templateAdmins:
+    - cdf_group_template_admins
+    - cdf_group_superusers
+  appInstanceSpace: my_app_instance_space
+  dataExplorationConfig:
+    activities:
+      enabled: true
+      showCompleted: true
+    assets:
+      enabled: true
+      showHierarchy: true
+    documents:
+      enabled: true
+      supportedFormats:
+      - pdf
+      - docx
+    externalId: data_exploration_config_shared
+    instanceType: node
+    notifications:
+      enabled: true
+      pushEnabled: false
+    observations:
+      defaultView: list
+      enabled: true
+    space: sp_instance
+  dataFilters:
+    general:
+      spaces:
+      - my_space_001
+      - my_space_002
+  externalId: my_location_config_001
+  featureToggles:
+    documents: true
+    media: true
+    notifications: true
+    templateChecklistFlow: true
+    threeD: true
+    trends: true
+    workorderChecklistFlow: false
+    workorders: true
+  instanceType: node
+  rootLocationExternalId: location_filter_main_facility
+  space: sp_instance
 Node:
 - externalId: MyExtendedFile
   instanceType: node
