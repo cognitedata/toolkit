@@ -1,14 +1,8 @@
-import sys
 from typing import Any, ClassVar, Literal, TypeAlias
 
 from pydantic import ConfigDict, JsonValue, model_serializer
 
 from .base import BaseModelObject, Identifier, RequestResource
-
-if sys.version_info >= (3, 11):
-    pass
-else:
-    pass
 
 InstanceType: TypeAlias = Literal["node", "edge"]
 
@@ -92,7 +86,7 @@ class InstanceSource(BaseModelObject):
     def serialize_resource(self) -> dict[str, Any]:
         properties: dict[str, JsonValue] = {}
         for field_id, field in type(self.resource).model_fields.items():
-            if field_id in set(InstanceRequestResource.model_fields.keys()):
+            if field_id in InstanceRequestResource.model_fields:
                 # Skip space, external_id, instance_type
                 continue
             key = field.alias or field_id
@@ -104,7 +98,7 @@ class InstanceSource(BaseModelObject):
         }
 
     @classmethod
-    def _serialize_property(cls, value: JsonValue) -> JsonValue:
+    def _serialize_property(cls, value: Any) -> JsonValue:
         """Handles serialization of direct relations."""
         if isinstance(value, InstanceRequestResource):
             return {"space": value.space, "externalId": value.external_id}

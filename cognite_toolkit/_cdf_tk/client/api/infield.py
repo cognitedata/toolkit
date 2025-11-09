@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import cast
+from typing import Any, cast
 
 from rich.console import Console
 
@@ -82,7 +82,7 @@ class InfieldConfigAPI:
         return PagedResponse[NodeIdentifier].model_validate(responses.get_first_body()).items
 
     @classmethod
-    def _retrieve_query(cls, items: Sequence[NodeIdentifier]) -> dict:
+    def _retrieve_query(cls, items: Sequence[NodeIdentifier]) -> dict[str, Any]:
         return {
             "with": {
                 cls.LOCATION_REF: {
