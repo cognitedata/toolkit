@@ -174,6 +174,7 @@ __all__ = [
     "HostedExtractorJobCRUD",
     "HostedExtractorMappingCRUD",
     "HostedExtractorSourceCRUD",
+    "InfieldCDMV1CRUD",
     "LabelCRUD",
     "LocationFilterCRUD",
     "NodeCRUD",
