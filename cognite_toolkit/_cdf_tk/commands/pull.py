@@ -555,7 +555,7 @@ class PullCommand(ToolkitCommand):
         environment_variables: dict[str, str | None],
     ) -> ResourceDeployResult:
         cdf_resources = loader.retrieve(resources.identifiers)
-        cdf_resource_by_id: dict[T_ID, T_ResourceResponseList] = {loader.get_id(r): r for r in cdf_resources}
+        cdf_resource_by_id: dict[T_ID, T_ResourceResponse] = {loader.get_id(r): r for r in cdf_resources}
 
         resources_by_file = resources.by_file()
         file_results = ResourceDeployResult(loader.display_name)
@@ -579,7 +579,7 @@ class PullCommand(ToolkitCommand):
     def _get_to_write(
         self,
         local_resource_by_id: dict[T_ID, dict[str, Any]],
-        cdf_resource_by_id: dict[T_ID, T_ResourceResponseList],
+        cdf_resource_by_id: dict[T_ID, T_ResourceResponse],
         file_results: ResourceDeployResult,
         loader: ResourceCRUD[
             T_ID, T_ResourceRequest, T_ResourceResponse, T_ResourceRequestList, T_ResourceResponseList

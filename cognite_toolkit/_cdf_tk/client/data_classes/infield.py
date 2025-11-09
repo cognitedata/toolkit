@@ -1,14 +1,20 @@
+import sys
 from collections import UserList
-from collections.abc import MutableSequence
 from typing import Any, ClassVar, Literal
 
 from pydantic import JsonValue, field_validator
 from pydantic_core.core_schema import ValidationInfo
 
+from cognite_toolkit._cdf_tk.cruds.protocols import ResourceRequestListProtocol, ResourceResponseListProtocol
 from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
 
 from .base import ResponseResource
 from .instance_api import InstanceRequestResource, ViewReference
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 INFIELD_LOCATION_CONFIG_VIEW_ID = ViewReference(space="cdf_infield", external_id="InFieldLocationConfig", version="v1")
 DATA_EXPLORATION_CONFIG_VIEW_ID = ViewReference(space="cdf_infield", external_id="DataExplorationConfig", version="v1")
@@ -63,7 +69,11 @@ class InfieldLocationConfig(
         return value
 
 
-class InfieldLocationConfigList(UserList, MutableSequence[InfieldLocationConfig]):
+class InfieldLocationConfigList(
+    UserList[InfieldLocationConfig],
+    ResourceResponseListProtocol,
+    ResourceRequestListProtocol,
+):
     """A list of InfieldLocationConfig objects."""
 
     data: list[InfieldLocationConfig]
@@ -76,7 +86,10 @@ class InfieldLocationConfigList(UserList, MutableSequence[InfieldLocationConfig]
         return [item.dump(camel_case) for item in self.data]
 
     @classmethod
-    def load(cls, data: list[dict[str, Any]], **_: Any) -> "InfieldLocationConfigList":
+    def load(cls, data: list[dict[str, Any]]) -> "InfieldLocationConfigList":
         """Deserialize a list of dictionaries to an InfieldLocationConfigList."""
         items = [InfieldLocationConfig.model_validate(item) for item in data]
         return cls(items)
+
+    def as_write(self) -> Self:
+        return self

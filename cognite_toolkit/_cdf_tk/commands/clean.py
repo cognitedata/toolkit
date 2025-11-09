@@ -2,7 +2,6 @@ import traceback
 from graphlib import TopologicalSorter
 from pathlib import Path
 
-from cognite.client.data_classes._base import T_CogniteResourceList
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
@@ -137,7 +136,7 @@ class CleanCommand(ToolkitCommand):
             return ResourceDeployResult(name=loader.display_name)
 
     def _delete_resources(
-        self, loaded_resources: T_CogniteResourceList, loader: ResourceCRUD, dry_run: bool, verbose: bool
+        self, loaded_resources: T_ResourceResponseList, loader: ResourceCRUD, dry_run: bool, verbose: bool
     ) -> int:
         nr_of_deleted = 0
         resource_ids = loader.get_ids(loaded_resources)
@@ -162,7 +161,7 @@ class CleanCommand(ToolkitCommand):
         return nr_of_deleted
 
     def _drop_data(
-        self, loaded_resources: T_CogniteResourceList, loader: ResourceContainerCRUD, dry_run: bool, verbose: bool
+        self, loaded_resources: T_ResourceResponseList, loader: ResourceContainerCRUD, dry_run: bool, verbose: bool
     ) -> int:
         nr_of_dropped = 0
         resource_ids = loader.get_ids(loaded_resources)
