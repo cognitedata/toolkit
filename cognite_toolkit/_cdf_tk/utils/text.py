@@ -104,7 +104,7 @@ def sanitize_instance_external_id(external_id: str) -> str:
         The sanitized external ID.
     """
     # CDF instance external IDs must be between 1 and 256 characters,
-    if not external_id:
+    if not external_id or external_id == "\x00":
         raise ToolkitValueError("External ID cannot be empty.")
     elif len(external_id) <= 256:
         return external_id

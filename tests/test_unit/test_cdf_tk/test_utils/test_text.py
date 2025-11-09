@@ -3,7 +3,12 @@ from unittest.mock import MagicMock
 import pytest
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk.utils.text import sanitize_spreadsheet_title, suffix_description
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.utils.text import (
+    sanitize_instance_external_id,
+    sanitize_spreadsheet_title,
+    suffix_description,
+)
 
 
 class TestSuffixDescription:
@@ -47,3 +52,26 @@ class TestSanitizeSpreadsheetTitle:
     )
     def test_sanitize_spreadsheet_title(self, title: str | None, expected: str) -> None:
         assert sanitize_spreadsheet_title(title) == expected
+
+
+class TestSanitizeInstanceExternalId:
+    @pytest.mark.parametrize(
+        "external_id, expected",
+        [
+            pytest.param("valid_external_id", "valid_external_id", id="valid_external_id"),
+            pytest.param("x" * 257, "x" * 247 + "_15eb95a4", id="too_long"),
+        ],
+    )
+    def test_sanitize_instance_external_id(self, external_id: str, expected: str) -> None:
+        assert sanitize_instance_external_id(external_id) == expected
+
+    @pytest.mark.parametrize(
+        "external_id",
+        [
+            pytest.param("", id="empty_string"),
+            pytest.param("\x00", id="null_character"),
+        ],
+    )
+    def test_sanitize_instance_external_id_raise(self, external_id: str) -> None:
+        with pytest.raises(ToolkitValueError):
+            sanitize_instance_external_id(external_id)
