@@ -1,4 +1,5 @@
 from abc import ABC
+from functools import cached_property
 from typing import Annotated, Literal
 
 from pydantic import Field
@@ -37,6 +38,7 @@ class DataPointsFileSelector(DataSelector):
     type: Literal["datapointsFile"] = "datapointsFile"
     kind: Literal["datapoints"] = "datapoints"
 
+    timestamp_column: str
     columns: tuple[TimeSeriesColumn, ...]
 
     @property
@@ -45,3 +47,7 @@ class DataPointsFileSelector(DataSelector):
 
     def __str__(self) -> str:
         return "datapoints_file"
+
+    @cached_property
+    def id_by_column(self) -> dict[str, TimeSeriesColumn]:
+        return {col.column: col for col in self.columns}
