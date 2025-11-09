@@ -27,7 +27,10 @@ class DataExplorationConfig(InstanceRequestResource):
     assets: dict[str, JsonValue] | None = None
 
 
-class InfieldLocationConfig(ResponseResource["InfieldLocationConfig"], InstanceRequestResource):
+class InfieldLocationConfig(
+    ResponseResource["InfieldLocationConfig"],
+    InstanceRequestResource,
+):
     """Infield Location Configuration resource class.
 
     This class is used for both the response and request resource for Infield Location Configuration nodes.
@@ -58,11 +61,6 @@ class InfieldLocationConfig(ResponseResource["InfieldLocationConfig"], InstanceR
                 candidate = f"{external_id}_data_exploration_config"
                 value["externalId"] = sanitize_instance_external_id(candidate)
         return value
-
-    @classmethod
-    def _load(cls, resource: dict[str, Any], **_: Any) -> "InfieldLocationConfig":
-        """Load method to match CogniteResource signature."""
-        return cls.model_validate(resource)
 
 
 class InfieldLocationConfigList(UserList, MutableSequence[InfieldLocationConfig]):

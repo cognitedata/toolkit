@@ -7,11 +7,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, cast
 
 from cognite.client.data_classes import FunctionWrite
-from cognite.client.data_classes._base import (
-    T_CogniteResourceList,
-    T_WritableCogniteResource,
-    T_WriteClass,
-)
 from cognite.client.data_classes.capabilities import Capability
 from rich import print
 from rich.panel import Panel
@@ -23,27 +18,34 @@ from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarnin
 from cognite_toolkit._cdf_tk.utils import to_diff
 
 from . import FunctionCRUD
-from ._base_cruds import T_ID, ResourceCRUD, T_WritableCogniteResourceList
+from ._base_cruds import (
+    T_ID,
+    ResourceCRUD,
+    T_ResourceRequest,
+    T_ResourceRequestList,
+    T_ResourceResponse,
+    T_ResourceResponseList,
+)
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.data_classes._module_directories import ReadModule
 
 
 @dataclass
-class CategorizedResources(Generic[T_ID, T_CogniteResourceList]):
-    to_create: T_CogniteResourceList
-    to_update: T_CogniteResourceList
+class CategorizedResources(Generic[T_ID, T_ResourceRequestList]):
+    to_create: T_ResourceRequestList
+    to_update: T_ResourceRequestList
     to_delete: list[T_ID]
-    unchanged: T_CogniteResourceList
+    unchanged: T_ResourceRequestList
 
 
 class ResourceWorker(
-    Generic[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList]
+    Generic[T_ID, T_ResourceRequest, T_ResourceResponse, T_ResourceRequestList, T_ResourceResponseList]
 ):
     def __init__(
         self,
         loader: ResourceCRUD[
-            T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
+            T_ID, T_ResourceRequest, T_ResourceResponse, T_ResourceRequestList, T_ResourceResponseList
         ],
         action: str,
     ):
@@ -102,14 +104,14 @@ class ResourceWorker(
         self.validate_access(local_by_id, is_dry_run)
 
         # Lookup the existing resources in CDF
-        cdf_resources: T_WritableCogniteResourceList
+        cdf_resources: T_ResourceResponseList
         cdf_resources = self.loader.retrieve(list(local_by_id.keys()))
         return self.categorize_resources(local_by_id, cdf_resources, force_update, verbose)
 
     def load_resources(
         self, filepaths: list[Path], environment_variables: dict[str, str | None] | None, is_dry_run: bool
-    ) -> dict[T_ID, tuple[dict[str, Any], T_WriteClass]]:
-        local_by_id: dict[T_ID, tuple[dict[str, Any], T_WriteClass]] = {}
+    ) -> dict[T_ID, tuple[dict[str, Any], T_ResourceRequest]]:
+        local_by_id: dict[T_ID, tuple[dict[str, Any], T_ResourceRequest]] = {}
         # Load all resources from files, get ids, and remove duplicates.
         environment_variables = environment_variables or {}
         for filepath in filepaths:
@@ -145,7 +147,9 @@ class ResourceWorker(
                     warning.print_warning()
         return local_by_id
 
-    def validate_access(self, local_by_id: dict[T_ID, tuple[dict[str, Any], T_WriteClass]], is_dry_run: bool) -> None:
+    def validate_access(
+        self, local_by_id: dict[T_ID, tuple[dict[str, Any], T_ResourceRequest]], is_dry_run: bool
+    ) -> None:
         capabilities: Capability | list[Capability]
         if isinstance(self.loader, FunctionCRUD):
             function_loader: FunctionCRUD = self.loader
@@ -160,12 +164,12 @@ class ResourceWorker(
 
     def categorize_resources(
         self,
-        local_by_id: dict[T_ID, tuple[dict[str, Any], T_WriteClass]],
-        cdf_resources: T_WritableCogniteResourceList,
+        local_by_id: dict[T_ID, tuple[dict[str, Any], T_ResourceRequest]],
+        cdf_resources: T_ResourceResponseList,
         force_update: bool,
         verbose: bool,
     ) -> CategorizedResources:
-        resources: CategorizedResources[T_ID, T_CogniteResourceList] = CategorizedResources(
+        resources: CategorizedResources[T_ID, T_ResourceRequestList] = CategorizedResources(
             to_create=self.loader.list_write_cls([]),
             to_update=self.loader.list_write_cls([]),
             to_delete=[],

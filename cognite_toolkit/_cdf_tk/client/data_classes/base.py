@@ -5,6 +5,8 @@ from typing import Any, Generic, TypeVar
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
+from cognite_toolkit._cdf_tk.cruds.protocols import ResourceRequestProtocol, ResourceResponseProtocol
+
 if sys.version_info >= (3, 11):
     from typing import Self
 else:
@@ -24,14 +26,19 @@ class BaseModelObject(BaseModel):
         """
         return self.model_dump(mode="json", by_alias=camel_case)
 
+    @classmethod
+    def _load(cls, resource: dict[str, Any]) -> "Self":
+        """Load method to match CogniteResource signature."""
+        return cls.model_validate(resource)
 
-class RequestResource(BaseModelObject): ...
+
+class RequestResource(BaseModelObject, ResourceRequestProtocol): ...
 
 
 T_RequestResource = TypeVar("T_RequestResource", bound=RequestResource)
 
 
-class ResponseResource(BaseModelObject, Generic[T_RequestResource], ABC):
+class ResponseResource(BaseModelObject, Generic[T_RequestResource], ABC, ResourceResponseProtocol):
     @abstractmethod
     def as_request_resource(self) -> T_RequestResource:
         """Convert the response resource to a request resource."""

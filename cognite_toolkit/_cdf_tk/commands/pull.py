@@ -11,7 +11,6 @@ from typing import Any, Union
 
 import questionary
 import yaml
-from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableCogniteResource, T_WriteClass
 from questionary import Choice
 from rich import print
 from rich.markdown import Markdown
@@ -30,7 +29,13 @@ from cognite_toolkit._cdf_tk.cruds import (
     ResourceCRUD,
     StreamlitCRUD,
 )
-from cognite_toolkit._cdf_tk.cruds._base_cruds import T_ID, T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.cruds._base_cruds import (
+    T_ID,
+    T_ResourceRequest,
+    T_ResourceRequestList,
+    T_ResourceResponse,
+    T_ResourceResponseList,
+)
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
     BuildVariable,
@@ -543,14 +548,14 @@ class PullCommand(ToolkitCommand):
     def _pull_resources(
         self,
         loader: ResourceCRUD[
-            T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
+            T_ID, T_ResourceRequest, T_ResourceResponse, T_ResourceRequestList, T_ResourceResponseList
         ],
         resources: BuiltFullResourceList[T_ID],
         dry_run: bool,
         environment_variables: dict[str, str | None],
     ) -> ResourceDeployResult:
         cdf_resources = loader.retrieve(resources.identifiers)
-        cdf_resource_by_id: dict[T_ID, T_WritableCogniteResource] = {loader.get_id(r): r for r in cdf_resources}
+        cdf_resource_by_id: dict[T_ID, T_ResourceResponseList] = {loader.get_id(r): r for r in cdf_resources}
 
         resources_by_file = resources.by_file()
         file_results = ResourceDeployResult(loader.display_name)
@@ -574,10 +579,10 @@ class PullCommand(ToolkitCommand):
     def _get_to_write(
         self,
         local_resource_by_id: dict[T_ID, dict[str, Any]],
-        cdf_resource_by_id: dict[T_ID, T_WritableCogniteResource],
+        cdf_resource_by_id: dict[T_ID, T_ResourceResponseList],
         file_results: ResourceDeployResult,
         loader: ResourceCRUD[
-            T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
+            T_ID, T_ResourceRequest, T_ResourceResponse, T_ResourceRequestList, T_ResourceResponseList
         ],
     ) -> tuple[bool, dict[T_ID, dict[str, Any]]]:
         to_write: dict[T_ID, dict[str, Any]] = {}
@@ -608,7 +613,7 @@ class PullCommand(ToolkitCommand):
     def _get_local_resource_dict_by_id(
         resources: BuiltFullResourceList[T_ID],
         loader: ResourceCRUD[
-            T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
+            T_ID, T_ResourceRequest, T_ResourceResponse, T_ResourceRequestList, T_ResourceResponseList
         ],
         environment_variables: dict[str, str | None],
     ) -> dict[T_ID, dict[str, Any]]:
@@ -647,7 +652,7 @@ class PullCommand(ToolkitCommand):
         resources: BuiltFullResourceList[T_ID],
         environment_variables: dict[str, str | None],
         loader: ResourceCRUD[
-            T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
+            T_ID, T_ResourceRequest, T_ResourceResponse, T_ResourceRequestList, T_ResourceResponseList
         ],
         source_file: Path,
     ) -> tuple[str, dict[Path, str]]:

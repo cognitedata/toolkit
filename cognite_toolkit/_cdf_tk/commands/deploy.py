@@ -26,7 +26,6 @@ from cognite_toolkit._cdf_tk.cruds import (
     ResourceCRUD,
     ResourceWorker,
 )
-from cognite_toolkit._cdf_tk.cruds._base_cruds import T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.cruds._worker import CategorizedResources
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
