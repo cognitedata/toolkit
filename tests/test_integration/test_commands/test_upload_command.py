@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -50,11 +51,12 @@ class TestDownloadCommand:
             toolkit_client,
             deploy_resources=False,
             dry_run=False,
+            verbose=False,
         )
 
         datapoints = toolkit_client.time_series.data.retrieve_arrays(
             external_id=single_timeseries.external_id,
-            start="2024-01-01T00:00:00Z",
-            end="2024-01-01T00:00:09Z",
+            start=datetime.fromisoformat("2024-01-01T00:00:00Z"),
+            end=datetime.fromisoformat("2024-01-01T00:00:09Z"),
         )
         assert len(datapoints) == 10, f"Expected 10 datapoints, got {len(datapoints)}"

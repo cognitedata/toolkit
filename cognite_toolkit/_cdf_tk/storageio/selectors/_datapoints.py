@@ -30,7 +30,7 @@ class InternalIdColumn(Column):
 
 TimeSeriesColumn = Annotated[
     InstanceColumn | ExternalIdColumn | InternalIdColumn,
-    Field(discriminator="columnType"),
+    Field(discriminator="column_type"),
 ]
 
 
@@ -44,3 +44,6 @@ class DataPointsFileSelector(DataSelector):
     @property
     def group(self) -> str:
         return f"Datapoints_{self.path.stem}"
+
+    def __str__(self) -> str:
+        return f"file_{self.path.name}"
