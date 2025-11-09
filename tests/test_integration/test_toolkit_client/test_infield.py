@@ -28,7 +28,10 @@ class TestInfieldConfig:
             assert len(retrieved_configs) == 1
             assert retrieved_configs[0].dump() == config.dump()
 
-            toolkit_client.infield.config.delete([config.as_id()])
+            deleted = toolkit_client.infield.config.delete([config])
+            assert len(deleted) == 2, (
+                "Expected 2 configs to be deleted (data exploration config and infield location config)"
+            )
             retrieved_configs = toolkit_client.infield.config.retrieve([config.as_id()])
             assert len(retrieved_configs) == 0
         finally:
