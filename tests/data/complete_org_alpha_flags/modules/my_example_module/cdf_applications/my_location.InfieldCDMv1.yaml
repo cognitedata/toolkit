@@ -1,8 +1,6 @@
 space: sp_instance
 externalId: my_location_config_001
-
 rootLocationExternalId: location_filter_main_facility
-
 featureToggles:
   threeD: true
   trends: true
@@ -12,9 +10,7 @@ featureToggles:
   media: true
   templateChecklistFlow: true
   workorderChecklistFlow: false
-
 appInstanceSpace: my_app_instance_space
-
 accessManagement:
   templateAdmins:
   - cdf_group_template_admins
@@ -22,13 +18,11 @@ accessManagement:
   checklistAdmins:
   - cdf_group_checklist_admins
   - cdf_group_superusers
-
 dataFilters:
   general:
     spaces:
     - my_space_001
     - my_space_002
-
 dataExplorationConfig:
   externalId: data_exploration_config_shared
   observations:
@@ -40,8 +34,8 @@ dataExplorationConfig:
   documents:
     enabled: true
     supportedFormats:
-      - pdf
-      - docx
+    - pdf
+    - docx
   notifications:
     enabled: true
     pushEnabled: false
