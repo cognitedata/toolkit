@@ -79,6 +79,7 @@ class InfieldLocationConfigList(
 ):
     """A list of InfieldLocationConfig objects."""
 
+    _RESOURCE = InfieldLocationConfig
     data: list[InfieldLocationConfig]
 
     def __init__(self, initlist: list[InfieldLocationConfig] | None = None, **_: Any) -> None:

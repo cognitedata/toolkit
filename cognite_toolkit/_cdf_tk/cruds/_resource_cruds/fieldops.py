@@ -262,6 +262,7 @@ class InfieldCDMV1CRUD(
     kind = "InfieldCDMv1"
     yaml_cls = InfieldLocationConfigYAML
     dependencies = frozenset({SpaceCRUD, GroupAllScopedCRUD, GroupResourceScopedCRUD})
+    _doc_url = "Instances/operation/applyNodeAndEdges"
 
     @classmethod
     def get_id(cls, item: InfieldLocationConfig | dict) -> NodeIdentifier:
