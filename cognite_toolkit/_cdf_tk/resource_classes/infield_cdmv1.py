@@ -59,6 +59,7 @@ class DataExplorationConfig(BaseModelResource):
     - assets: Asset page configuration
     """
 
+    space: str | None = None
     external_id: str | None = None
 
     observations: dict[str, Any] | None = None  # ObservationsConfigFeature
