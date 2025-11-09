@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from typing import cast
 
 from rich.console import Console
 
@@ -18,7 +19,7 @@ class InfieldConfigAPI:
     LOCATION_REF = "locationConfig"
     EXPLORATION_REF = "explorerConfig"
     # We know that this key exists and it has alias set.
-    DATA_EXPLORATION_PROP_ID = InfieldLocationConfig.model_config["data_exploration_config"].alias  # type: ignore[typeddict-item]
+    DATA_EXPLORATION_PROP_ID = cast(str, InfieldLocationConfig.model_fields["data_exploration_config"].alias)
 
     def __init__(self, http_client: HTTPClient, console: Console) -> None:
         self._http_client = http_client
