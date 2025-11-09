@@ -13,7 +13,7 @@ from .datamodel import (
     ViewCRUD,
 )
 from .extraction_pipeline import ExtractionPipelineConfigCRUD, ExtractionPipelineCRUD
-from .fieldops import InfieldV1CRUD
+from .fieldops import InfieldCDMV1CRUD, InfieldV1CRUD
 from .file import CogniteFileCRUD, FileMetadataCRUD
 from .function import FunctionCRUD, FunctionScheduleCRUD
 from .group_scoped import GroupResourceScopedCRUD
