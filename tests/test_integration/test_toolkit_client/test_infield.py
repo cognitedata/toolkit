@@ -12,12 +12,15 @@ class TestInfieldConfig:
                 "space": toolkit_space.space,
                 "externalId": f"test_crud_infield_config_{RUN_UNIQUE_ID}",
                 "rootLocationExternalId": "test_crud_infield_config",
+                "dataExplorationConfig": {"observations": {"enabled": True}},
             }
         )
 
         try:
             created_list = toolkit_client.infield.config.apply([config])
-            assert len(created_list) == 1
+            assert len(created_list) == 2, (
+                "Expected 2 configs to be created (data exploration config and infield location config)"
+            )
             created = created_list[0]
             assert created.as_id() == config.as_id()
 
@@ -29,4 +32,9 @@ class TestInfieldConfig:
             retrieved_configs = toolkit_client.infield.config.retrieve([config.as_id()])
             assert len(retrieved_configs) == 0
         finally:
-            toolkit_client.data_modeling.instances.delete([(config.space, config.external_id)])
+            toolkit_client.data_modeling.instances.delete(
+                [
+                    (config.space, config.external_id),
+                    (config.data_exploration_config.space, config.data_exploration_config.external_id),
+                ]
+            )

@@ -1,32 +1,36 @@
-from typing import Any, Generic, Literal
+import sys
+from typing import Any, ClassVar, Literal, TypeAlias
 
 from pydantic import ConfigDict, JsonValue, model_serializer
 
-from .base import BaseModelObject, Identifier, T_RequestResource
+from .base import BaseModelObject, Identifier, RequestResource
+
+if sys.version_info >= (3, 11):
+    pass
+else:
+    pass
+
+InstanceType: TypeAlias = Literal["node", "edge"]
 
 
 class InstanceIdentifier(Identifier):
     """Identifier for an Instance instance."""
 
-    instance_type: str
+    instance_type: InstanceType
     space: str
     external_id: str
 
 
 class NodeIdentifier(InstanceIdentifier):
-    """Identifier for a NodeId instance."""
-
     instance_type: Literal["node"] = "node"
 
 
 class EdgeIdentifier(InstanceIdentifier):
-    """Identifier for an EdgeId instance."""
-
     instance_type: Literal["edge"] = "edge"
 
 
 class InstanceResult(BaseModelObject):
-    instance_type: str
+    instance_type: InstanceType
     version: int
     was_modified: bool
     space: str
@@ -34,22 +38,9 @@ class InstanceResult(BaseModelObject):
     created_time: int
     last_updated_time: int
 
-
-class NodeResult(InstanceResult):
-    instance_type: Literal["node"] = "node"
-
-    def as_id(self) -> NodeIdentifier:
-        return NodeIdentifier(
-            space=self.space,
-            external_id=self.external_id,
-        )
-
-
-class EdgeResult(InstanceResult):
-    instance_type: Literal["edge"] = "edge"
-
-    def as_id(self) -> EdgeIdentifier:
-        return EdgeIdentifier(
+    def as_id(self) -> InstanceIdentifier:
+        return InstanceIdentifier(
+            instance_type=self.instance_type,
             space=self.space,
             external_id=self.external_id,
         )
@@ -62,71 +53,102 @@ class ViewReference(Identifier):
     version: str
 
 
-class InstanceSource(BaseModelObject, Generic[T_RequestResource]):
-    source: ViewReference
-    resource: T_RequestResource
-
-    @model_serializer(mode="plain")
-    def serialize_resource(self) -> dict[str, Any]:
-        return {
-            "source": self.source.model_dump(by_alias=True),
-            "properties": self.resource.model_dump(exclude={"space", "external_id"}, by_alias=True),
-        }
-
-
-class InstanceRequestItem(BaseModelObject, Generic[T_RequestResource]):
-    model_config = ConfigDict(populate_by_name=True)
-    instance_type: str
+class InstanceRequestResource(RequestResource):
+    VIEW_ID: ClassVar[ViewReference]
+    instance_type: InstanceType
     space: str
     external_id: str
-    existing_version: int | None = None
-    sources: list[InstanceSource[T_RequestResource]] | None = None
 
-
-class NodeRequestItem(InstanceRequestItem[T_RequestResource]):
-    instance_type: Literal["node"] = "node"
-
-    def as_id(self) -> NodeIdentifier:
-        return NodeIdentifier(
+    def as_id(self) -> InstanceIdentifier:
+        return InstanceIdentifier(
+            instance_type=self.instance_type,
             space=self.space,
             external_id=self.external_id,
         )
 
+    def as_request_item(self) -> "InstanceRequestItem":
+        return InstanceRequestItem(
+            instance_type=self.instance_type,
+            space=self.space,
+            external_id=self.external_id,
+            sources=[InstanceSource(source=self.VIEW_ID, resource=self)],
+        )
 
-class EdgeRequestItem(InstanceRequestItem[T_RequestResource]):
-    instance_type: Literal["edge"] = "edge"
 
-    def as_id(self) -> EdgeIdentifier:
-        return EdgeIdentifier(
+class InstanceSource(BaseModelObject):
+    source: ViewReference
+    resource: InstanceRequestResource
+
+    @model_serializer(mode="plain")
+    def serialize_resource(self) -> dict[str, Any]:
+        properties: dict[str, JsonValue] = {}
+        for field_id, field in type(self.resource).model_fields.items():
+            if field_id in set(InstanceRequestResource.model_fields.keys()):
+                # Skip space, external_id, instance_type
+                continue
+            key = field.alias or field_id
+            properties[key] = self._serialize_property(getattr(self.resource, field_id))
+
+        return {
+            "source": self.source.model_dump(by_alias=True),
+            "properties": properties,
+        }
+
+    @classmethod
+    def _serialize_property(cls, value: JsonValue) -> JsonValue:
+        """Handles serialization of direct relations."""
+        if isinstance(value, InstanceRequestResource):
+            return {"space": value.space, "externalId": value.external_id}
+        elif isinstance(value, list):
+            return [cls._serialize_property(v) for v in value]
+        return value
+
+
+class InstanceRequestItem(BaseModelObject):
+    model_config = ConfigDict(populate_by_name=True)
+    instance_type: InstanceType
+    space: str
+    external_id: str
+    existing_version: int | None = None
+    sources: list[InstanceSource] | None = None
+
+    def as_id(self) -> InstanceIdentifier:
+        return InstanceIdentifier(
+            instance_type=self.instance_type,
             space=self.space,
             external_id=self.external_id,
         )
 
 
 class InstanceResponseItem(BaseModelObject):
-    instance_type: str
+    instance_type: InstanceType
     space: str
     external_id: str
     version: int
-    type: NodeIdentifier | None = None
+    type: InstanceIdentifier | None = None
     created_time: int
     last_updated_time: int
     deleted_time: int | None = None
     properties: dict[str, dict[str, dict[str, JsonValue]]] | None = None
 
-    def get_properties_for_source(self, source: ViewReference) -> dict[str, JsonValue]:
+    def get_properties_for_source(
+        self, source: ViewReference, include_identifier: bool = False
+    ) -> dict[str, JsonValue]:
+        output: dict[str, JsonValue] = (
+            {"space": self.space, "externalId": self.external_id} if include_identifier else {}
+        )
         if not self.properties:
-            return {}
+            return output
         if source.space not in self.properties:
-            return {}
+            return output
         space_properties = self.properties[source.space]
         view_version = f"{source.external_id}/{source.version}"
-        return space_properties.get(view_version, {})
+        output.update(space_properties.get(view_version, {}))
+        return output
 
-
-class NodeResponseItem(InstanceResponseItem):
-    instance_type: Literal["node"] = "node"
-
-
-class EdgeResponseItem(InstanceResponseItem):
-    instance_type: Literal["edge"] = "edge"
+    def as_id(self) -> InstanceIdentifier:
+        return InstanceIdentifier(
+            instance_type=self.instance_type,
+            space=self.space,
+            external_id=self.external_id,
+        )
