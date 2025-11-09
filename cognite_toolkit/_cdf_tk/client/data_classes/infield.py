@@ -55,6 +55,9 @@ class InfieldLocationConfig(
     def as_request_resource(self) -> "InfieldLocationConfig":
         return self
 
+    def as_write(self) -> Self:
+        return self
+
     @field_validator("data_exploration_config", mode="before")
     @classmethod
     def generate_identifier_if_missing(cls, value: Any, info: ValidationInfo) -> Any:

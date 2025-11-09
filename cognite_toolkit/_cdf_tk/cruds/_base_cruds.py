@@ -23,7 +23,7 @@ from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read,
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
 
 if TYPE_CHECKING:
-    pass
+    from cognite_toolkit._cdf_tk.data_classes import BuildEnvironment
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -406,7 +406,9 @@ class ResourceCRUD(
 
     # Helper methods
     @classmethod
-    def get_ids(cls, items: Sequence[T_ResourceRequest | T_ResourceResponse | dict]) -> list[T_ID]:
+    def get_ids(
+        cls, items: Sequence[T_ResourceRequest | T_ResourceResponse | dict] | T_ResourceResponseList
+    ) -> list[T_ID]:
         return [cls.get_id(item) for item in items]
 
     @classmethod

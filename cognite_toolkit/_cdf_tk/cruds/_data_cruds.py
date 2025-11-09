@@ -22,7 +22,7 @@ from ._base_cruds import T_ID, DataCRUD, ResourceCRUD
 from ._resource_cruds import CogniteFileCRUD, FileMetadataCRUD, RawTableCRUD, TimeSeriesCRUD
 
 if TYPE_CHECKING:
-    pass
+    from cognite_toolkit._cdf_tk.data_classes import BuildEnvironment
 
 
 @final
