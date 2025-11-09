@@ -259,7 +259,7 @@ class InfieldCDMV1CRUD(
     resource_write_cls = InfieldLocationConfig
     list_cls = InfieldLocationConfigList
     list_write_cls = InfieldLocationConfigList
-    kind = "InfieldV1"
+    kind = "InfieldCDMv1"
     yaml_cls = InfieldLocationConfigYAML
     dependencies = frozenset({SpaceCRUD, GroupAllScopedCRUD, GroupResourceScopedCRUD})
 

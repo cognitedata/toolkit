@@ -59,21 +59,26 @@ class InfieldLocationConfig(ResponseResource["InfieldLocationConfig"], InstanceR
                 value["externalId"] = sanitize_instance_external_id(candidate)
         return value
 
+    @classmethod
+    def _load(cls, resource: dict[str, Any], **_: Any) -> "InfieldLocationConfig":
+        """Load method to match CogniteResource signature."""
+        return cls.model_validate(resource)
+
 
 class InfieldLocationConfigList(UserList, MutableSequence[InfieldLocationConfig]):
     """A list of InfieldLocationConfig objects."""
 
     data: list[InfieldLocationConfig]
 
-    def __init__(self, initlist: list[InfieldLocationConfig] | None = None) -> None:
+    def __init__(self, initlist: list[InfieldLocationConfig] | None = None, **_: Any) -> None:
         super().__init__(initlist or [])
 
-    def dump(self) -> list[dict[str, Any]]:
+    def dump(self, camel_case: bool = True) -> list[dict[str, Any]]:
         """Serialize the list of InfieldLocationConfig objects to a list of dictionaries."""
-        return [item.dump() for item in self.data]
+        return [item.dump(camel_case) for item in self.data]
 
     @classmethod
-    def load(cls, data: list[dict[str, Any]]) -> "InfieldLocationConfigList":
+    def load(cls, data: list[dict[str, Any]], **_: Any) -> "InfieldLocationConfigList":
         """Deserialize a list of dictionaries to an InfieldLocationConfigList."""
         items = [InfieldLocationConfig.model_validate(item) for item in data]
         return cls(items)

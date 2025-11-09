@@ -17,12 +17,12 @@ class BaseModelObject(BaseModel):
     # We allow extra fields to support forward compatibility.
     model_config = ConfigDict(alias_generator=to_camel, extra="allow")
 
-    def dump(self) -> dict[str, Any]:
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
         """Dump the resource to a dictionary.
 
         This is the default serialization method for request resources.
         """
-        return self.model_dump(mode="json", by_alias=True)
+        return self.model_dump(mode="json", by_alias=camel_case)
 
 
 class RequestResource(BaseModelObject): ...
