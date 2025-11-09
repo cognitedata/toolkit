@@ -1,5 +1,4 @@
 from abc import ABC
-from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import Field
@@ -38,12 +37,11 @@ class DataPointsFileSelector(DataSelector):
     type: Literal["datapointsFile"] = "datapointsFile"
     kind: Literal["datapoints"] = "datapoints"
 
-    path: Path
-    columns: list[TimeSeriesColumn]
+    columns: tuple[TimeSeriesColumn, ...]
 
     @property
     def group(self) -> str:
-        return f"Datapoints_{self.path.stem}"
+        return "Datapoints"
 
     def __str__(self) -> str:
-        return f"file_{self.path.name}"
+        return "datapoints_file"

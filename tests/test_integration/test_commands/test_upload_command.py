@@ -29,13 +29,7 @@ class TestDownloadCommand:
     def test_upload_datapoints(
         self, toolkit_client: ToolkitClient, single_timeseries: TimeSeries, tmp_path: Path
     ) -> None:
-        csv_file = tmp_path / f"datapoints.{DatapointsIO.KIND}.csv"
-        with csv_file.open("w") as f:
-            f.write("timestamp,value\n")
-            for i in range(10):
-                f.write(f"2024-01-01T00:00:{i:02d}Z,{i}\n")
         selector = DataPointsFileSelector(
-            path=csv_file.relative_to(tmp_path),
             columns=[
                 ExternalIdColumn(
                     column="value",
@@ -44,6 +38,12 @@ class TestDownloadCommand:
             ],
         )
         selector.dump_to_file(tmp_path)
+        csv_file = tmp_path / f"{selector!s}.{DatapointsIO.KIND}.csv"
+
+        with csv_file.open("w") as f:
+            f.write("timestamp,value\n")
+            for i in range(10):
+                f.write(f"2024-01-01T00:00:{i:02d}Z,{i}\n")
 
         upload_cmd = UploadCommand(silent=True, skip_tracking=True)
         upload_cmd.upload(
