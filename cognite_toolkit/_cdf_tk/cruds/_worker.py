@@ -168,7 +168,7 @@ class ResourceWorker(
         cdf_resources: T_ResourceResponseList,
         force_update: bool,
         verbose: bool,
-    ) -> CategorizedResources:
+    ) -> CategorizedResources[T_ID, T_ResourceRequestList]:
         resources: CategorizedResources[T_ID, T_ResourceRequestList] = CategorizedResources(
             to_create=self.loader.list_write_cls([]),
             to_update=self.loader.list_write_cls([]),

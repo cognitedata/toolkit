@@ -9,15 +9,20 @@ from cognite.client.data_classes import FileMetadataWrite
 from cognite_toolkit._cdf_tk.client.data_classes.extendable_cognite_file import ExtendableCogniteFileApply
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
+from cognite_toolkit._cdf_tk.protocols import (
+    T_ResourceRequest,
+    T_ResourceRequestList,
+    T_ResourceResponse,
+    T_ResourceResponseList,
+)
 from cognite_toolkit._cdf_tk.utils import read_yaml_content, safe_read
 from cognite_toolkit._cdf_tk.utils.file import read_csv
 
 from ._base_cruds import T_ID, DataCRUD, ResourceCRUD
 from ._resource_cruds import CogniteFileCRUD, FileMetadataCRUD, RawTableCRUD, TimeSeriesCRUD
-from .protocols import T_ResourceRequest, T_ResourceRequestList, T_ResourceResponse, T_ResourceResponseList
 
 if TYPE_CHECKING:
-    from cognite_toolkit._cdf_tk.data_classes import BuildEnvironment
+    pass
 
 
 @final

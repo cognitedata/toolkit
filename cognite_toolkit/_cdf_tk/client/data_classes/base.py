@@ -5,8 +5,6 @@ from typing import Any, Generic, TypeVar
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
-from cognite_toolkit._cdf_tk.cruds.protocols import ResourceRequestProtocol, ResourceResponseProtocol
-
 if sys.version_info >= (3, 11):
     from typing import Self
 else:
@@ -32,13 +30,13 @@ class BaseModelObject(BaseModel):
         return cls.model_validate(resource)
 
 
-class RequestResource(BaseModelObject, ResourceRequestProtocol): ...
+class RequestResource(BaseModelObject): ...
 
 
 T_RequestResource = TypeVar("T_RequestResource", bound=RequestResource)
 
 
-class ResponseResource(BaseModelObject, Generic[T_RequestResource], ABC, ResourceResponseProtocol):
+class ResponseResource(BaseModelObject, Generic[T_RequestResource], ABC):
     @abstractmethod
     def as_request_resource(self) -> T_RequestResource:
         """Convert the response resource to a request resource."""

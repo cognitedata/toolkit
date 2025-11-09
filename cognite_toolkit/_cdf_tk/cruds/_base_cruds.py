@@ -11,15 +11,19 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, EXCL_FILES
+from cognite_toolkit._cdf_tk.protocols import (
+    T_ResourceRequest,
+    T_ResourceRequestList,
+    T_ResourceResponse,
+    T_ResourceResponseList,
+)
 from cognite_toolkit._cdf_tk.resource_classes import ToolkitResource
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
 
-from .protocols import T_ResourceRequest, T_ResourceRequestList, T_ResourceResponse, T_ResourceResponseList
-
 if TYPE_CHECKING:
-    from cognite_toolkit._cdf_tk.data_classes import BuildEnvironment
+    pass
 
 if sys.version_info >= (3, 11):
     from typing import Self

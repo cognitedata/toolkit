@@ -26,12 +26,6 @@ from cognite_toolkit._cdf_tk.cruds import (
     ResourceWorker,
 )
 from cognite_toolkit._cdf_tk.cruds._worker import CategorizedResources
-from cognite_toolkit._cdf_tk.cruds.protocols import (
-    T_ResourceRequest,
-    T_ResourceRequestList,
-    T_ResourceResponse,
-    T_ResourceResponseList,
-)
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
     DatapointDeployResult,
@@ -48,6 +42,12 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitDeployResourceError,
     ToolkitFileNotFoundError,
     ToolkitNotADirectoryError,
+)
+from cognite_toolkit._cdf_tk.protocols import (
+    T_ResourceRequest,
+    T_ResourceRequestList,
+    T_ResourceResponse,
+    T_ResourceResponseList,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning
 from cognite_toolkit._cdf_tk.tk_warnings.base import WarningList, catch_warnings

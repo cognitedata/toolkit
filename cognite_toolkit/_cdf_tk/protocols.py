@@ -1,5 +1,4 @@
 import sys
-from collections.abc import MutableSequence
 from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar
 
 if TYPE_CHECKING:
@@ -26,12 +25,12 @@ T_ResourceRequest = TypeVar("T_ResourceRequest", bound=ResourceRequestProtocol)
 T_ResourceResponse = TypeVar("T_ResourceResponse", bound=ResourceResponseProtocol)
 
 
-class ResourceRequestListProtocol(Protocol, Generic[T_ResourceRequest], MutableSequence[T_ResourceRequest]):  # type: ignore[misc]
+class ResourceRequestListProtocol(Protocol, Generic[T_ResourceRequest]):
     @classmethod
     def load(cls, data: list[dict[str, Any]]) -> Self: ...
 
 
-class ResourceResponseListProtocol(Protocol, Generic[T_ResourceResponse], MutableSequence[T_ResourceResponse]):  # type: ignore[misc]
+class ResourceResponseListProtocol(Protocol, Generic[T_ResourceResponse]):
     def as_write(self) -> ResourceRequestListProtocol: ...
 
     @classmethod
