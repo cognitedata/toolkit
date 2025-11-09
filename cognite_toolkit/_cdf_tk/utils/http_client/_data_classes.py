@@ -172,6 +172,7 @@ class SimpleBodyRequest(SimpleRequest, BodyRequest):
     def data(self) -> str:
         return _dump_body(self.body_content)
 
+
 @dataclass
 class DataBodyRequest(SimpleBodyRequest, BodyRequest):
     body_content: str = ""

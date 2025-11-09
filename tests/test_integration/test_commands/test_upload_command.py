@@ -51,7 +51,7 @@ class TestDownloadCommand:
                 InternalIdColumn(
                     column="value2",
                     internal_id=ts2.id,
-                )
+                ),
             ),
         )
         selector.dump_to_file(tmp_path)
@@ -60,7 +60,7 @@ class TestDownloadCommand:
         with csv_file.open("w") as f:
             f.write("timestamp,value,value2\n")
             for i in range(10):
-                f.write(f"2024-01-01T00:00:{i:02d}Z,{i},{i*10}\n")
+                f.write(f"2024-01-01T00:00:{i:02d}Z,{i},{i * 10}\n")
 
         upload_cmd = UploadCommand(silent=True, skip_tracking=True)
         upload_cmd.upload(
@@ -83,4 +83,3 @@ class TestDownloadCommand:
             end=datetime.fromisoformat("2024-01-01T00:00:09Z"),
         )
         assert len(datapoints2) == 10, f"Expected 10 datapoints, got {len(datapoints2)}"
-
