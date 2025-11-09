@@ -49,6 +49,8 @@ class InfieldConfigAPI:
     def retrieve(self, items: Sequence[NodeIdentifier]) -> list[InfieldLocationConfig]:
         if len(items) > 100:
             raise ValueError("Cannot retrieve more than 100 InfieldLocationConfig items at once.")
+        if not items:
+            return []
         responses = self._http_client.request_with_retries(
             SimpleBodyRequest(
                 # We use the query endpoint to be able to retrieve linked DataExplorationConfig items

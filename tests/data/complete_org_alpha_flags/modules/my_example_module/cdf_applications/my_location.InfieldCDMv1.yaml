@@ -17,17 +17,17 @@ appInstanceSpace: my_app_instance_space
 
 accessManagement:
   templateAdmins:
-    - cdf_group_template_admins
-    - cdf_group_superusers
+  - cdf_group_template_admins
+  - cdf_group_superusers
   checklistAdmins:
-    - cdf_group_checklist_admins
-    - cdf_group_superusers
+  - cdf_group_checklist_admins
+  - cdf_group_superusers
 
 dataFilters:
   general:
     spaces:
-      - my_space_001
-      - my_space_002
+    - my_space_001
+    - my_space_002
 
 dataExplorationConfig:
   externalId: data_exploration_config_shared
