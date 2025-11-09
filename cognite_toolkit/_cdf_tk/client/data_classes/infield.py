@@ -2,6 +2,7 @@ import sys
 from collections import UserList
 from typing import Any, ClassVar, Literal
 
+from cognite.client import CogniteClient
 from pydantic import JsonValue, field_validator
 from pydantic_core.core_schema import ValidationInfo
 
@@ -90,7 +91,9 @@ class InfieldLocationConfigList(
         return [item.dump(camel_case) for item in self.data]
 
     @classmethod
-    def load(cls, data: list[dict[str, Any]]) -> "InfieldLocationConfigList":
+    def load(
+        cls, data: list[dict[str, Any]], cognite_client: CogniteClient | None = None
+    ) -> "InfieldLocationConfigList":
         """Deserialize a list of dictionaries to an InfieldLocationConfigList."""
         items = [InfieldLocationConfig.model_validate(item) for item in data]
         return cls(items)

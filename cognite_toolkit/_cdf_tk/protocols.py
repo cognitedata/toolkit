@@ -2,6 +2,8 @@ import sys
 from collections.abc import Collection, Iterator
 from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar
 
+from cognite.client import CogniteClient
+
 if TYPE_CHECKING:
     pass
 
@@ -56,7 +58,7 @@ class ResourceRequestListProtocol(Protocol, Generic[T_ResourceRequest]):
     def clear(self) -> None: ...
 
     @classmethod
-    def load(cls, data: list[dict[str, Any]]) -> Self: ...
+    def load(cls, data: list[dict[str, Any]], cognite_client: CogniteClient | None = None) -> Self: ...
 
 
 class ResourceResponseListProtocol(Protocol, Generic[T_ResourceResponse]):
@@ -91,7 +93,7 @@ class ResourceResponseListProtocol(Protocol, Generic[T_ResourceResponse]):
     def as_write(self) -> ResourceRequestListProtocol: ...
 
     @classmethod
-    def load(cls, data: list[dict[str, Any]]) -> Self: ...
+    def load(cls, data: list[dict[str, Any]], cognite_client: CogniteClient | None = None) -> Self: ...
 
 
 T_ResourceRequestList = TypeVar("T_ResourceRequestList", bound=ResourceRequestListProtocol)
