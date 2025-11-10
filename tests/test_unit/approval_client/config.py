@@ -158,6 +158,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import (
     GraphQLDataModelWrite,
     GraphQLDataModelWriteList,
 )
+from cognite_toolkit._cdf_tk.client.data_classes.infield import InfieldLocationConfig, InfieldLocationConfigList
 from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
     LocationFilter,
     LocationFilterList,
@@ -830,6 +831,19 @@ API_RESOURCES = [
             "create": [Method(api_class_method="upsert", mock_class_method="create_multiple")],
             "retrieve": [
                 Method(api_class_method="list", mock_class_method="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="infield.config",
+        resource_cls=InfieldLocationConfig,
+        list_cls=InfieldLocationConfigList,
+        _write_cls=InfieldLocationConfig,
+        _write_list_cls=InfieldLocationConfigList,
+        methods={
+            "create": [Method(api_class_method="apply", mock_class_method="create_multiple")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
             ],
         },
     ),

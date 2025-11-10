@@ -3,7 +3,6 @@ from graphlib import TopologicalSorter
 from pathlib import Path
 from typing import overload
 
-from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableCogniteResource, T_WriteClass
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError
 from cognite.client.utils._identifier import T_ID
 from rich import print
@@ -26,7 +25,6 @@ from cognite_toolkit._cdf_tk.cruds import (
     ResourceCRUD,
     ResourceWorker,
 )
-from cognite_toolkit._cdf_tk.cruds._base_cruds import T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.cruds._worker import CategorizedResources
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
@@ -44,6 +42,12 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitDeployResourceError,
     ToolkitFileNotFoundError,
     ToolkitNotADirectoryError,
+)
+from cognite_toolkit._cdf_tk.protocols import (
+    T_ResourceRequest,
+    T_ResourceRequestList,
+    T_ResourceResponse,
+    T_ResourceResponseList,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning
 from cognite_toolkit._cdf_tk.tk_warnings.base import WarningList, catch_warnings
@@ -324,7 +328,7 @@ class DeployCommand(ToolkitCommand):
     def deploy_resource_type(
         self,
         loader: ResourceCRUD[
-            T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
+            T_ID, T_ResourceRequest, T_ResourceResponse, T_ResourceRequestList, T_ResourceResponseList
         ],
         env_vars: EnvironmentVariables,
         read_modules: list[ReadModule] | None = None,
@@ -387,9 +391,9 @@ class DeployCommand(ToolkitCommand):
 
     def actual_deploy(
         self,
-        resources: CategorizedResources[T_ID, T_CogniteResourceList],
+        resources: CategorizedResources[T_ID, T_ResourceResponseList],
         loader: ResourceCRUD[
-            T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
+            T_ID, T_ResourceRequest, T_ResourceResponse, T_ResourceRequestList, T_ResourceResponseList
         ],
         env_var_warnings: WarningList | None = None,
     ) -> ResourceDeployResult:
@@ -421,9 +425,9 @@ class DeployCommand(ToolkitCommand):
 
     @staticmethod
     def dry_run_deploy(
-        resources: CategorizedResources[T_ID, T_CogniteResourceList],
+        resources: CategorizedResources[T_ID, T_ResourceResponseList],
         loader: ResourceCRUD[
-            T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
+            T_ID, T_ResourceRequest, T_ResourceResponse, T_ResourceRequestList, T_ResourceResponseList
         ],
         has_done_drop: bool,
         has_dropped_data: bool,
@@ -455,7 +459,7 @@ class DeployCommand(ToolkitCommand):
 
     @staticmethod
     def _verbose_print(
-        resources: CategorizedResources[T_ID, T_CogniteResourceList],
+        resources: CategorizedResources[T_ID, T_ResourceResponseList],
         loader: ResourceCRUD,
         dry_run: bool,
     ) -> None:
@@ -479,7 +483,7 @@ class DeployCommand(ToolkitCommand):
 
     def _create_resources(
         self,
-        resources: T_CogniteResourceList,
+        resources: T_ResourceResponseList,
         loader: ResourceCRUD,
         environment_variable_warning_by_id: dict[Hashable, EnvironmentVariableMissingWarning],
     ) -> int:
@@ -502,7 +506,7 @@ class DeployCommand(ToolkitCommand):
 
     def _update_resources(
         self,
-        resources: T_CogniteResourceList,
+        resources: T_ResourceResponseList,
         loader: ResourceCRUD,
         environment_variable_warning_by_id: dict[Hashable, EnvironmentVariableMissingWarning],
     ) -> int:
