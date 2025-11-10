@@ -13,13 +13,14 @@ from tests.test_unit.utils import find_resources
 
 def invalid_test_cases() -> Iterable:
     yield pytest.param(
-        {"rootLocationExternalId": "myLocation"},
+        {"rootLocationExternalId": "myLocation", "space": "my_space"},
         {"Missing required field: 'externalId'"},
         id="Missing required field: externalId",
     )
     yield pytest.param(
         {
             "externalId": "my_config",
+            "space": "my_space",
             "unknownField": "invalid_value",
             "anotherUnknownField": 123,
             "featureToggles": {
@@ -37,6 +38,7 @@ def invalid_test_cases() -> Iterable:
     yield pytest.param(
         {
             "externalId": "my_config",
+            "space": "my_space",
             "featureToggles": {
                 "threeD": "not_a_boolean",
                 "trends": 123,
