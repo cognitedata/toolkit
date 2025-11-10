@@ -1,5 +1,5 @@
 import collections.abc
-from collections.abc import Hashable, Iterable
+from collections.abc import Hashable, Iterable, Sequence, Sized
 from pathlib import Path
 from typing import Any, final
 
@@ -14,9 +14,11 @@ from cognite_toolkit._cdf_tk.client.data_classes.apm_config_v1 import (
     APMConfigWrite,
     APMConfigWriteList,
 )
+from cognite_toolkit._cdf_tk.client.data_classes.infield import InfieldLocationConfig, InfieldLocationConfigList
+from cognite_toolkit._cdf_tk.client.data_classes.instance_api import InstanceResult, NodeIdentifier
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
-from cognite_toolkit._cdf_tk.resource_classes import InfieldV1YAML
+from cognite_toolkit._cdf_tk.resource_classes import InfieldLocationConfigYAML, InfieldV1YAML
 from cognite_toolkit._cdf_tk.utils import quote_int_value_by_key_in_yaml, safe_read
 from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, hash_dict
@@ -238,3 +240,110 @@ class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig, APMConfigWriteL
         if not isinstance(feature_configuration, dict):
             return None
         return feature_configuration.get("rootLocationConfigurations")
+
+
+@final
+class InFieldLocationConfigCRUD(
+    ResourceCRUD[
+        NodeIdentifier,
+        InfieldLocationConfig,
+        InfieldLocationConfig,
+        InfieldLocationConfigList,
+        InfieldLocationConfigList,
+    ]
+):
+    folder_name = "cdf_applications"
+    filename_pattern = r"^.*\.InFieldLocationConfig$"
+    filetypes = frozenset({"yaml", "yml"})
+    resource_cls = InfieldLocationConfig
+    resource_write_cls = InfieldLocationConfig
+    list_cls = InfieldLocationConfigList
+    list_write_cls = InfieldLocationConfigList
+    kind = "InFieldLocationConfig"
+    yaml_cls = InfieldLocationConfigYAML
+    dependencies = frozenset({SpaceCRUD, GroupAllScopedCRUD, GroupResourceScopedCRUD})
+    _doc_url = "Instances/operation/applyNodeAndEdges"
+
+    @classmethod
+    def get_id(cls, item: InfieldLocationConfig | dict) -> NodeIdentifier:
+        if isinstance(item, dict):
+            return NodeIdentifier(space=item["space"], external_id=item["externalId"])
+        return NodeIdentifier(space=item.space, external_id=item.external_id)
+
+    @classmethod
+    def dump_id(cls, id: NodeIdentifier) -> dict[str, Any]:
+        return id.dump(include_type=False)
+
+    @classmethod
+    def get_required_capability(
+        cls, items: Sequence[InfieldLocationConfig] | None, read_only: bool
+    ) -> Capability | list[Capability]:
+        if not items or items is None:
+            return []
+
+        actions = (
+            [DataModelInstancesAcl.Action.Read]
+            if read_only
+            else [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write]
+        )
+        instance_spaces = sorted({item.space for item in items})
+
+        return DataModelInstancesAcl(actions, DataModelInstancesAcl.Scope.SpaceID(instance_spaces))
+
+    def dump_resource(self, resource: InfieldLocationConfig, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.dump()
+        local = local or {}
+        dumped.pop("instanceType", None)
+        if isinstance(cdf_dec := dumped.get("dataExplorationConfig"), dict):
+            cdf_dec.pop("instanceType", None)
+            if isinstance(local_dec := local.get("dataExplorationConfig"), dict):
+                if "space" in cdf_dec and "space" not in local_dec:
+                    # Default space is used for the data exploration config if not specified locally.
+                    cdf_dec.pop("space")
+                if "externalId" in cdf_dec and "externalId" not in local_dec:
+                    # Default externalId is used for the data exploration config if not specified locally.
+                    cdf_dec.pop("externalId")
+
+        return dumped
+
+    def create(self, items: InfieldLocationConfigList) -> list[InstanceResult]:
+        created = self.client.infield.config.apply(items)
+        config_ids = {config.as_id() for config in items}
+        # We filter out all the data exploration configs that were created along with the infield location configs
+        # as we only want to count the infield location configs here.
+        return [res for res in created if res.as_id() in config_ids]
+
+    def retrieve(self, ids: SequenceNotStr[NodeIdentifier]) -> InfieldLocationConfigList:
+        return InfieldLocationConfigList(self.client.infield.config.retrieve(list(ids)))
+
+    def update(self, items: InfieldLocationConfigList) -> Sized:
+        return self.create(items)
+
+    def delete(self, ids: SequenceNotStr[NodeIdentifier]) -> int:
+        # We must retrieve the full resource to get hte DataExplorationConfig linked resource deleted as well.
+        retrieved = self.retrieve(list(ids))
+        # Then, we pass the entire resource to the delete method, which will delete both the InfieldLocationConfig
+        # and the linked DataExplorationConfig.
+        _ = self.client.infield.config.delete(retrieved)
+        return len(retrieved)
+
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[InfieldLocationConfig]:
+        raise NotImplementedError(f"Iteration over {self.display_name} is not supported.")
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path == ("accessManagement", "templateAdmins"):
+            return diff_list_hashable(local, cdf)
+        elif json_path == ("accessManagement", "checklistAdmins"):
+            return diff_list_hashable(local, cdf)
+        elif json_path == ("dataFilters", "general", "spaces"):
+            return diff_list_hashable(local, cdf)
+        elif json_path == ("dataExplorationConfig", "documents", "supportedFormats"):
+            return diff_list_hashable(local, cdf)
+        return super().diff_list(local, cdf, json_path)

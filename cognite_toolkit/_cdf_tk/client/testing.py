@@ -21,6 +21,7 @@ from .api.extended_files import ExtendedFileMetadataAPI
 from .api.extended_functions import ExtendedFunctionsAPI
 from .api.extended_raw import ExtendedRawAPI
 from .api.extended_timeseries import ExtendedTimeSeriesAPI
+from .api.infield import InfieldAPI, InfieldConfigAPI
 from .api.location_filters import LocationFiltersAPI
 from .api.lookup import (
     AssetLookUpAPI,
@@ -73,6 +74,8 @@ class ToolkitClientMock(CogniteClientMock):
         self.functions = MagicMock(spec=ExtendedFunctionsAPI)
         self.functions.calls = MagicMock(spec_set=FunctionCallsAPI)
         self.functions.schedules = MagicMock(spec_set=FunctionSchedulesAPI)
+        self.infield = MagicMock(spec=InfieldAPI)
+        self.infield.config = MagicMock(spec_set=InfieldConfigAPI)
 
         self.project = MagicMock(spec_set=ProjectAPI)
 
