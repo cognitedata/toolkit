@@ -173,6 +173,14 @@ class SimpleBodyRequest(SimpleRequest, BodyRequest):
         return _dump_body(self.body_content)
 
 
+@dataclass
+class DataBodyRequest(SimpleRequest):
+    data_content: bytes = b""
+
+    def data(self) -> bytes:
+        return self.data_content
+
+
 T_COVARIANT_ID = TypeVar("T_COVARIANT_ID", covariant=True)
 
 
