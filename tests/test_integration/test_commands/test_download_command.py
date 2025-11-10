@@ -3,10 +3,11 @@ from pathlib import Path
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import DownloadCommand
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM
-from cognite_toolkit._cdf_tk.storageio import RawIO
-from cognite_toolkit._cdf_tk.storageio.selectors import RawTableSelector, SelectedTable
+from cognite_toolkit._cdf_tk.storageio import AssetIO, RawIO
+from cognite_toolkit._cdf_tk.storageio.selectors import DataSetSelector, RawTableSelector, SelectedTable
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
-from cognite_toolkit._cdf_tk.utils.fileio import NDJsonReader
+from cognite_toolkit._cdf_tk.utils.fileio import CSVReader, NDJsonReader
+from tests.test_integration.conftest import HierarchyMinimal
 from tests.test_integration.constants import TIMESERIES_COUNT, TIMESERIES_TABLE
 
 
@@ -39,3 +40,27 @@ class TestDownloadCommand:
         assert database_file is not None, f"Database configuration file not found. Found config files: {config_files}"
         dumped_db = read_yaml_file(database_file, "dict")
         assert dumped_db == {"dbName": table.table.db_name}
+
+    def test_download_assets(
+        self, toolkit_client: ToolkitClient, migration_hierarchy_minimal: HierarchyMinimal, tmp_path: Path
+    ) -> None:
+        cmd = DownloadCommand(silent=True, skip_tracking=True)
+        selected = DataSetSelector(kind="Assets", data_set_external_id=migration_hierarchy_minimal.dataset.external_id)
+        cmd.download(
+            [selected],
+            AssetIO(toolkit_client),
+            output_dir=tmp_path,
+            verbose=False,
+            file_format=".csv",
+            compression="none",
+            limit=None,
+        )
+        downloaded_files = list(tmp_path.rglob("*.csv"))
+        assert len(downloaded_files) == 1, "Expected exactly one file to be downloaded."
+        chunks = list(CSVReader(downloaded_files[0]).read_chunks_unprocessed())
+        assert len(chunks) == 2, f"Expected 2 assets, got {len(chunks)}."
+        columns = set(chunks[0].keys())
+        expected_aggregate_columns = {"depth", "childCount", "path"}
+        assert expected_aggregate_columns <= columns, (
+            f"Expected hierarchy columns missing in downloaded data: {columns}"
+        )
