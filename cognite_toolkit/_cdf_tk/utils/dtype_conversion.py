@@ -229,18 +229,25 @@ class _ValueConverter(_Converter, ABC):
     schema_type: ClassVar[DataType | None] = None
     _handles_list: ClassVar[bool] = False
 
-    def __init__(self, nullable: bool):
+    def __init__(self, nullable: bool, errors: Literal["raise", "catch"] = "raise") -> None:
         self.nullable = nullable
+        self.errors = errors
 
     def convert(self, value: str | int | float | bool | dict | list | None) -> PropertyValueWrite:
-        if value is None and self.nullable is False:
-            raise ValueError("Cannot convert None to a non-nullable property.")
-        elif value is None:
-            return None
-        elif isinstance(value, list) and not self._handles_list:
-            raise ValueError(f"Expected a single value for {self.type_str}, but got a list.")
-        # If the value is a list, we handle it in the subclass if it supports lists.
-        return self._convert(value)  # type: ignore[arg-type]
+        try:
+            if value is None and self.nullable is False:
+                raise ValueError("Cannot convert None to a non-nullable property.")
+            elif value is None:
+                return None
+            elif isinstance(value, list) and not self._handles_list:
+                raise ValueError(f"Expected a single value for {self.type_str}, but got a list.")
+            # If the value is a list, we handle it in the subclass if it supports lists.
+            return self._convert(value)  # type: ignore[arg-type]
+        except ValueError:
+            if self.errors == "raise":
+                raise
+            else:
+                return None
 
     @abstractmethod
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
@@ -473,7 +480,7 @@ class _TimestampConverter(_ValueConverter):
     type_str = "timestamp"
     schema_type = "timestamp"
 
-    def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
+    def _convert(self, value: str | int | float | bool | dict) -> datetime:
         if isinstance(value, int | float):
             try:
                 return ms_to_datetime(value)
@@ -485,6 +492,23 @@ class _TimestampConverter(_ValueConverter):
             except ValueError as e:
                 raise ValueError(f"Cannot convert {value} to timestamp: {e}") from e
         raise ValueError(f"Cannot convert {value} to timestamp.")
+
+
+class _EpochConverter(_ValueConverter):
+    type_str = "epoch"
+    schema_type = "timestamp"
+
+    def _convert(self, value: str | int | float | bool | dict) -> int:
+        if isinstance(value, int | float):
+            return int(value)
+        elif isinstance(value, str):
+            try:
+                dt = parser.isoparse(value)
+                epoch = int(dt.timestamp() * 1000)
+                return epoch
+            except ValueError as e:
+                raise ValueError(f"Cannot convert {value} to epoch timestamp: {e}") from e
+        raise ValueError(f"Cannot convert {value} to epoch timestamp.")
 
 
 class _DateConverter(_ValueConverter):

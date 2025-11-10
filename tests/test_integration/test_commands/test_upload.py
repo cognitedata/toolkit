@@ -14,17 +14,17 @@ from cognite_toolkit._cdf_tk.storageio.selectors._datapoints import ExternalIdCo
 @pytest.fixture(scope="session")
 def two_timeseries(toolkit_client: ToolkitClient, toolkit_dataset: DataSet) -> tuple[TimeSeries, TimeSeries]:
     ts = TimeSeriesWrite(
-        name="Test TimeSeries for Datapoitns IO",
+        name="Test TimeSeries for Datapoints IO",
         external_id="test_timeseries_datapoints_io",
         is_step=False,
         is_string=False,
         data_set_id=toolkit_dataset.id,
     )
     ts2 = TimeSeriesWrite(
-        name="Test TimeSeries 2 for Datapoitns IO",
+        name="Test TimeSeries 2 for Datapoints IO",
         external_id="test_timeseries_2_datapoints_io",
         is_step=False,
-        is_string=False,
+        is_string=True,
         data_set_id=toolkit_dataset.id,
     )
     retrieved1 = toolkit_client.time_series.retrieve(external_id=ts.external_id)
@@ -36,7 +36,7 @@ def two_timeseries(toolkit_client: ToolkitClient, toolkit_dataset: DataSet) -> t
     return retrieved1, retrieved2
 
 
-class TestDownloadCommand:
+class TestUploadCommand:
     def test_upload_datapoints(
         self, toolkit_client: ToolkitClient, two_timeseries: tuple[TimeSeries, TimeSeries], tmp_path: Path
     ) -> None:
@@ -47,10 +47,12 @@ class TestDownloadCommand:
                 ExternalIdColumn(
                     column="value",
                     external_id=ts1.external_id,
+                    dtype="numeric",
                 ),
                 InternalIdColumn(
                     column="value2",
                     internal_id=ts2.id,
+                    dtype="string",
                 ),
             ),
         )
@@ -60,7 +62,7 @@ class TestDownloadCommand:
         with csv_file.open("w") as f:
             f.write("timestamp,value,value2\n")
             for i in range(10):
-                f.write(f"2024-01-01T00:00:{i:02d}Z,{i},{i * 10}\n")
+                f.write(f"2024-01-01T00:00:{i:02d}Z,{i},no_{i * 10}\n")
 
         upload_cmd = UploadCommand(silent=True, skip_tracking=True)
         upload_cmd.upload(
@@ -74,12 +76,12 @@ class TestDownloadCommand:
         datapoints = toolkit_client.time_series.data.retrieve_arrays(
             external_id=ts1.external_id,
             start=datetime.fromisoformat("2024-01-01T00:00:00Z"),
-            end=datetime.fromisoformat("2024-01-01T00:00:09Z"),
+            end=datetime.fromisoformat("2024-01-01T00:00:10Z"),
         )
         assert len(datapoints) == 10, f"Expected 10 datapoints, got {len(datapoints)}"
         datapoints2 = toolkit_client.time_series.data.retrieve_arrays(
             external_id=ts2.external_id,
             start=datetime.fromisoformat("2024-01-01T00:00:00Z"),
-            end=datetime.fromisoformat("2024-01-01T00:00:09Z"),
+            end=datetime.fromisoformat("2024-01-01T00:00:10Z"),
         )
         assert len(datapoints2) == 10, f"Expected 10 datapoints, got {len(datapoints2)}"
