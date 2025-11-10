@@ -4,6 +4,7 @@ from collections.abc import Iterable, MutableSequence, Sequence
 from typing import ClassVar, Generic
 
 from cognite.client.data_classes import (
+    AggregateResultItem,
     Asset,
     AssetList,
     AssetWrite,
@@ -267,6 +268,9 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
             SchemaColumn(name="source", type="string"),
             SchemaColumn(name="labels", type="string", is_array=True),
             SchemaColumn(name="geoLocation", type="json"),
+            SchemaColumn(name="childCount", type="integer"),
+            SchemaColumn(name="depth", type="integer"),
+            SchemaColumn(name="path", type="string", is_array=True),
         ]
         return asset_schema + metadata_schema
 
@@ -277,6 +281,7 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
             limit=limit,
             asset_subtree_external_ids=asset_subtree_external_ids,
             data_set_external_ids=data_set_external_ids,
+            aggregated_properties=["child_count", "path", "depth"],
         ):
             self._collect_dependencies(asset_list, selector)
             yield Page(worker_id="main", items=asset_list)
@@ -287,6 +292,14 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
         # Ensure data sets are looked up to populate cache.
         # This is to avoid looking up each data set id individually in the .dump_resource call.
         self._populate_data_set_cache(data_chunk)
+        asset_ids = {
+            segment["id"]
+            for item in data_chunk
+            if isinstance(item.aggregates, AggregateResultItem)
+            for segment in item.aggregates.path or []
+            if "id" in segment
+        }
+        self.client.lookup.assets.external_id(list(asset_ids))
 
         return [self._crud.dump_resource(item) for item in data_chunk]
 
