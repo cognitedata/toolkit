@@ -376,9 +376,13 @@ FROM `{aggregator_raw_db}`.`{table_name}`""",
     return created
 
 
-@pytest.mark.usefixtures("aggregator_assets")
 @pytest.fixture(scope="session")
-def aggregator_asset_list(toolkit_client: ToolkitClient, aggregator_root_asset: Asset) -> AssetList:
+def aggregator_asset_list(
+    toolkit_client: ToolkitClient,
+    aggregator_root_asset: Asset,
+    aggregator_assets: Transformation,
+    aggregator_two_datasets: DataSetList,
+) -> AssetList:
     return toolkit_client.assets.list(
         asset_subtree_ids=[aggregator_root_asset.id],
     )
@@ -386,7 +390,10 @@ def aggregator_asset_list(toolkit_client: ToolkitClient, aggregator_root_asset: 
 
 @pytest.fixture(scope="session")
 def aggregator_events(
-    toolkit_client: ToolkitClient, aggregator_raw_db: str, aggregator_asset_list: AssetList
+    toolkit_client: ToolkitClient,
+    aggregator_raw_db: str,
+    aggregator_asset_list: AssetList,
+    aggregator_two_datasets: DataSetList,
 ) -> Transformation:
     table_name = EVENT_TABLE
     assets = aggregator_asset_list
