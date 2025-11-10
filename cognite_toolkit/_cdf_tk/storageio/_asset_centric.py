@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from collections.abc import Iterable, Iterator, MutableSequence, Sequence
-from io import TextIOWrapper
+from collections.abc import Iterable, MutableSequence, Sequence
 from typing import ClassVar, Generic
 
 from cognite.client.data_classes import (
@@ -669,44 +668,3 @@ class HierarchyIO(ConfigurableStorageIO[AssetCentricSelector, AssetCentricResour
 
     def get_resource_io(self, kind: str) -> BaseAssetCentricIO:
         return self._io_by_kind[kind]
-
-
-class AssetFileReaderAdapter(FileReader):
-    """Adapter of the FileReader to read asset-centric data.
-
-    This is used when uploading assets from files to account for the hierarchical structure. It returns the assets
-    by the depth in the hierarchy, starting from the root assets and going down to the leaf assets.
-
-    Args:
-        other_reader (FileReader): The underlying FileReader to read data from.
-    """
-
-    def __init__(self, other_reader: FileReader) -> None:
-        super().__init__(other_reader.input_file)
-        self._other_reader = other_reader
-
-    def read_chunks(self) -> Iterator[dict[str, JsonVal]]:
-        """Reads chunks from the file, yielding each chunk, sorted by asset depth."""
-        yield from (item for _, item in self.read_chunks_with_line_numbers())
-
-    def read_chunks_with_line_numbers(self) -> Iterator[tuple[int, dict[str, JsonVal]]]:
-        current_depth = max_depth = 0
-        while current_depth <= max_depth:
-            for line_number, item in self._other_reader.read_chunks_with_line_numbers():
-                try:
-                    depth = int(item.get("depth"))  # type: ignore[arg-type]
-                except (TypeError, ValueError):
-                    if current_depth == 0:
-                        # If depth is not set, we yield it at depth 0
-                        yield line_number, item
-                    continue
-                if depth == current_depth:
-                    yield line_number, item
-                elif current_depth == 0:
-                    max_depth = max(max_depth, depth)
-            current_depth += 1
-
-    def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[dict[str, JsonVal]]:
-        # This method is not used by AssetFileReaderAdapter as read_chunks is overridden.
-        # It is implemented to satisfy the abstract base class, but should not be called.
-        raise NotImplementedError(f"{type(self).__name__} does not implement '_read_chunks_from_file'.")
