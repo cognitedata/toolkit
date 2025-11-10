@@ -13,6 +13,7 @@ from typing import Any
 import pytest
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitValueError
+from cognite_toolkit._cdf_tk.storageio import AssetFileReaderAdapter
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.fileio import (
     COMPRESSION_BY_NAME,
@@ -466,7 +467,11 @@ class TestFileReader:
 
     def test_all_file_readers_registered(self) -> None:
         # YAMLBaseReader is an abstract class, so we exclude it from the expected readers
-        expected_readers = set(get_concrete_subclasses(FileReader)) - {LineReader, YAMLBaseReader}
+        expected_readers = set(get_concrete_subclasses(FileReader)) - {
+            LineReader,
+            YAMLBaseReader,
+            AssetFileReaderAdapter,
+        }
 
         assert set(expected_readers) == set(FILE_READ_CLS_BY_FORMAT.values())
 
