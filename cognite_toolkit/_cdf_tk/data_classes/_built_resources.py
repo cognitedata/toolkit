@@ -158,7 +158,7 @@ class BuiltResourceFull(BuiltResource[T_ID]):
     def load_resource_dict(
         self, environment_variables: dict[str, str | None], validate: bool = False
     ) -> dict[str, Any]:
-        content = self.build_variables.replace(safe_read(self.source.path))
+        content = self.build_variables.replace(safe_read(self.source.path), self.source.path)
         loader = cast(ResourceCRUD, get_crud(self.resource_dir, self.kind))
         raw = load_yaml_inject_variables(
             content,

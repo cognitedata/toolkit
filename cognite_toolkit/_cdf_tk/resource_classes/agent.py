@@ -55,3 +55,4 @@ class AgentYAML(ToolkitResource):
         "azure/gpt-4o-mini", description="The name of the model to use. Defaults to your CDF project's default model."
     )
     tools: list[AgentTool] | None = Field(None, description="A list of tools available to the agent.", max_length=20)
+    runtime_version: str | None = Field(None, description="The runtime version")
