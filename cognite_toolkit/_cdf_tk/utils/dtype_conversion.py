@@ -229,25 +229,18 @@ class _ValueConverter(_Converter, ABC):
     schema_type: ClassVar[DataType | None] = None
     _handles_list: ClassVar[bool] = False
 
-    def __init__(self, nullable: bool, errors: Literal["raise", "catch"] = "raise") -> None:
+    def __init__(self, nullable: bool) -> None:
         self.nullable = nullable
-        self.errors = errors
 
     def convert(self, value: str | int | float | bool | dict | list | None) -> PropertyValueWrite:
-        try:
-            if value is None and self.nullable is False:
-                raise ValueError("Cannot convert None to a non-nullable property.")
-            elif value is None:
-                return None
-            elif isinstance(value, list) and not self._handles_list:
-                raise ValueError(f"Expected a single value for {self.type_str}, but got a list.")
-            # If the value is a list, we handle it in the subclass if it supports lists.
-            return self._convert(value)  # type: ignore[arg-type]
-        except ValueError:
-            if self.errors == "raise":
-                raise
-            else:
-                return None
+        if value is None and self.nullable is False:
+            raise ValueError("Cannot convert None to a non-nullable property.")
+        elif value is None:
+            return None
+        elif isinstance(value, list) and not self._handles_list:
+            raise ValueError(f"Expected a single value for {self.type_str}, but got a list.")
+        # If the value is a list, we handle it in the subclass if it supports lists.
+        return self._convert(value)  # type: ignore[arg-type]
 
     @abstractmethod
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:

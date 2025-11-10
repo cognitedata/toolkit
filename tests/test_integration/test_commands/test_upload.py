@@ -41,6 +41,8 @@ class TestUploadCommand:
         self, toolkit_client: ToolkitClient, two_timeseries: tuple[TimeSeries, TimeSeries], tmp_path: Path
     ) -> None:
         ts1, ts2 = two_timeseries
+        assert ts1.is_string is False
+        assert ts2.is_string is True
         selector = DataPointsFileSelector(
             timestamp_column="timestamp",
             columns=(
@@ -70,7 +72,7 @@ class TestUploadCommand:
             toolkit_client,
             deploy_resources=False,
             dry_run=False,
-            verbose=False,
+            verbose=True,
         )
 
         datapoints = toolkit_client.time_series.data.retrieve_arrays(

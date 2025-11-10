@@ -201,7 +201,9 @@ class BaseAssetCentricIO(
             rows.append(chunk)
         return rows
 
-    def row_to_resource(self, row: dict[str, JsonVal], selector: AssetCentricSelector | None = None) -> T_WriteClass:
+    def row_to_resource(
+        self, source_id: str, row: dict[str, JsonVal], selector: AssetCentricSelector | None = None
+    ) -> T_WriteClass:
         metadata: dict[str, JsonVal] = {}
         cleaned_row: dict[str, JsonVal] = {}
         for key, value in row.items():
