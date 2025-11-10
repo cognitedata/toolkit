@@ -310,6 +310,9 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
     def retrieve(self, ids: Sequence[int]) -> AssetList:
         return self.client.assets.retrieve_multiple(ids)
 
+    def read_chunks(self, reader: FileReader) -> Iterable[list[tuple[str, dict[str, JsonVal]]]]:
+        raise NotImplementedError()
+
 
 class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, FileMetadataWriteList, FileMetadataList]):
     KIND = "FileMetadata"
