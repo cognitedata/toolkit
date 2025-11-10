@@ -154,6 +154,7 @@ class TestExtractionPipelineConfigCRUD:
   tenant-id: ${AZ_ENTRA_TENANT_ID}
   client-id: ${AZ_SERVICE_PRINCIPLE_APPLICATION_ID}
   secret: ${AZ_SERVICE_PRINCIPLE_CLIENT_SECRET}
+  password: !keyvault value-secret-name
 databases:
 -   connection-string:  !keyvault value-secret-name
     name: my_db
