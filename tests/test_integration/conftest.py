@@ -342,7 +342,6 @@ def upsert_transformation_with_run(
     return created
 
 
-@pytest.mark.usefixtures("aggregator_two_datasets")
 @pytest.fixture(scope="session")
 def aggregator_assets(
     toolkit_client: ToolkitClient, aggregator_raw_db: str, aggregator_root_asset: Asset
@@ -385,7 +384,6 @@ def aggregator_asset_list(toolkit_client: ToolkitClient, aggregator_root_asset: 
     )
 
 
-@pytest.mark.usefixtures("aggregator_two_datasets")
 @pytest.fixture(scope="session")
 def aggregator_events(
     toolkit_client: ToolkitClient, aggregator_raw_db: str, aggregator_asset_list: AssetList
