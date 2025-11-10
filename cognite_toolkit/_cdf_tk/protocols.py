@@ -1,11 +1,8 @@
 import sys
 from collections.abc import Collection, Iterator
-from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar
+from typing import Any, Generic, Protocol, TypeVar
 
 from cognite.client import CogniteClient
-
-if TYPE_CHECKING:
-    pass
 
 if sys.version_info >= (3, 11):
     from typing import Self
