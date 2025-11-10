@@ -1,8 +1,10 @@
+import hashlib
 import re
 from collections.abc import Hashable
 
 from rich.console import Console
 
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 
 INVALID_TITLE_REGEX = re.compile(r"[\\*?:/\[\]]")
@@ -90,3 +92,24 @@ def to_sentence_case(text: str) -> str:
     text = re.sub(r"(?<=[a-z])([A-Z])", r" \1", text)
     # Convert to lowercase
     return text.casefold()
+
+
+def sanitize_instance_external_id(external_id: str) -> str:
+    """Sanitize an instance external ID to be compatible with CDF requirements.
+
+    Args:
+        external_id: The external ID to sanitize.
+
+    Returns:
+        The sanitized external ID.
+    """
+    # CDF instance external IDs must be between 1 and 256 characters,
+    if not external_id or external_id == "\x00":
+        raise ToolkitValueError("External ID cannot be empty.")
+    elif len(external_id) <= 256:
+        return external_id
+    hasher = hashlib.sha256()
+    hasher.update(external_id.encode("utf-8"))
+    hash_digest = hasher.hexdigest()[:8]
+    sanitized_external_id = f"{external_id[:247]}_{hash_digest}"
+    return sanitized_external_id

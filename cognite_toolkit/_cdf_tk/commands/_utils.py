@@ -1,10 +1,6 @@
-from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableCogniteResource, T_WriteClass
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk.cruds import (
-    ResourceCRUD,
-)
-from cognite_toolkit._cdf_tk.cruds._base_cruds import T_ID, T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.cruds._base_cruds import T_ID
 
 
 def _print_ids_or_length(resource_ids: SequenceNotStr[T_ID], limit: int = 10) -> str:
@@ -14,22 +10,3 @@ def _print_ids_or_length(resource_ids: SequenceNotStr[T_ID], limit: int = 10) ->
         return f"{resource_ids}"
     else:
         return f"{len(resource_ids)} items"
-
-
-def _remove_duplicates(
-    loaded_resources: T_CogniteResourceList,
-    loader: ResourceCRUD[
-        T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
-    ],
-) -> tuple[T_CogniteResourceList, list[T_ID]]:
-    seen: set[T_ID] = set()
-    output = loader.list_write_cls([])
-    duplicates: list[T_ID] = []
-    for item in loaded_resources:
-        identifier = loader.get_id(item)
-        if identifier not in seen:
-            output.append(item)
-            seen.add(identifier)
-        else:
-            duplicates.append(identifier)
-    return output, duplicates
