@@ -7,7 +7,9 @@ from cognite.client.data_classes._base import T_CogniteResource
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
-from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
+from cognite_toolkit._cdf_tk.utils.collection import chunker
+from cognite_toolkit._cdf_tk.utils.fileio import FileReader, SchemaColumn
+from cognite_toolkit._cdf_tk.utils.fileio._readers import TableReader
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal, T_WriteCogniteResource
 
@@ -204,6 +206,13 @@ class UploadableStorageIO(
             A writable Cognite resource representing the data.
         """
         raise NotImplementedError()
+
+    def read_chunks(self, reader: FileReader) -> Iterable[list[tuple[str, dict[str, JsonVal]]]]:
+        data_name = "row" if isinstance(reader, TableReader) else "line"
+        # Include name of line for better error messages
+        iterable = ((f"{data_name} {line_no}", item) for line_no, item in reader.read_chunks_with_line_numbers())
+
+        yield from chunker(iterable, self.CHUNK_SIZE)
 
 
 class TableUploadableStorageIO(UploadableStorageIO[T_Selector, T_CogniteResource, T_WriteCogniteResource], ABC):
