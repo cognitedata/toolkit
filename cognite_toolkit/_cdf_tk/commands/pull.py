@@ -561,7 +561,7 @@ class PullCommand(ToolkitCommand):
 
             if has_changes and not dry_run:
                 new_content, extra_files = self._to_write_content(
-                    safe_read(source_file), to_write, resources, environment_variables, loader
+                    safe_read(source_file), to_write, resources, environment_variables, loader, source_file
                 )
                 with source_file.open("w", encoding=ENCODING, newline=NEWLINE) as f:
                     f.write(new_content)
@@ -649,6 +649,7 @@ class PullCommand(ToolkitCommand):
         loader: ResourceCRUD[
             T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
         ],
+        source_file: Path,
     ) -> tuple[str, dict[Path, str]]:
         # 1. Replace all variables with placeholders
         # 2. Load source and keep the comments
@@ -682,7 +683,7 @@ class PullCommand(ToolkitCommand):
                     variables_with_environment_list.append(variable)
             variables = BuildVariables(variables_with_environment_list)
 
-        content, value_by_placeholder = variables.replace(source, use_placeholder=True)
+        content, value_by_placeholder = variables.replace(source, source_file, use_placeholder=True)
         comments = YAMLComments.load(source)
         # If there is a variable in the identifier, we need to replace it with the value
         # such that we can look it up in the to_write dict.
@@ -690,10 +691,10 @@ class PullCommand(ToolkitCommand):
             # The safe read in ExtractionPipelineConfigLoader stringifies the config dict,
             # but we need to load it as a dict so we can write it back to the file maintaining
             # the order or the keys.
-            loaded = read_yaml_content(variables.replace(source))
+            loaded = read_yaml_content(variables.replace(source, source_file))
             loaded_with_placeholder = read_yaml_content(content)
         else:
-            loaded = read_yaml_content(loader.safe_read(variables.replace(source)))
+            loaded = read_yaml_content(loader.safe_read(variables.replace(source, source_file)))
             loaded_with_placeholder = read_yaml_content(loader.safe_read(content))
 
         built_by_identifier = {r.identifier: r for r in resources}
@@ -756,7 +757,7 @@ class PullCommand(ToolkitCommand):
             builder = create_builder(built.resource_dir, None)
             for extra in built.extra_sources:
                 extra_content, extra_placeholders = built.build_variables.replace(
-                    safe_read(extra.path), extra.path.suffix, use_placeholder=True
+                    safe_read(extra.path), extra.path, use_placeholder=True
                 )
                 key, _ = builder.load_extra_field(extra_content)
                 if key in item_write:

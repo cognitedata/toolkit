@@ -516,6 +516,7 @@ class TestPullCommand:
             resources=resources,
             environment_variables={},
             loader=DataSetsCRUD.create_loader(toolkit_client_approval.mock_client),
+            source_file=Path("my.Dataset.yaml"),
         )
         assert not extra_files, "This tests does not support testing extra files"
         assert actual.splitlines() == expected.splitlines()
