@@ -489,7 +489,7 @@ class _TimestampConverter(_ValueConverter):
 
 class _EpochConverter(_ValueConverter):
     type_str = "epoch"
-    schema_type = "timestamp"
+    schema_type = "epoch"
 
     def _convert(self, value: str | int | float | bool | dict) -> int:
         if isinstance(value, int | float):

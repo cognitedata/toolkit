@@ -180,6 +180,12 @@ class DataBodyRequest(SimpleRequest):
     def data(self) -> bytes:
         return self.data_content
 
+    def dump(self) -> dict[str, JsonVal]:
+        output = super().dump()
+        # We cannot serialize bytes, so we indicate its presence instead
+        output["data_content"] = "<bytes>"
+        return output
+
 
 T_COVARIANT_ID = TypeVar("T_COVARIANT_ID", covariant=True)
 
