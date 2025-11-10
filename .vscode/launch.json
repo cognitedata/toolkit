@@ -225,6 +225,21 @@
       "justMyCode": false
     },
     {
+      "name": "cdf dump config extraction pipeline",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": [
+        "dump",
+        "config",
+        "extraction-pipeline",
+        "--verbose",
+        "--clean",
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
       "name": "Python: init",
       "type": "debugpy",
       "request": "launch",
