@@ -41,7 +41,7 @@ from ._resource_cruds import (
     HostedExtractorJobCRUD,
     HostedExtractorMappingCRUD,
     HostedExtractorSourceCRUD,
-    InfieldCDMV1CRUD,
+    InFieldLocationConfigCRUD,
     InfieldV1CRUD,
     LabelCRUD,
     LocationFilterCRUD,
@@ -80,7 +80,7 @@ if not FeatureFlag.is_enabled(Flags.AGENTS):
     _EXCLUDED_CRUDS.add(AgentCRUD)
 if not FeatureFlag.is_enabled(Flags.INFIELD):
     _EXCLUDED_CRUDS.add(InfieldV1CRUD)
-    _EXCLUDED_CRUDS.add(InfieldCDMV1CRUD)
+    _EXCLUDED_CRUDS.add(InFieldLocationConfigCRUD)
 if not FeatureFlag.is_enabled(Flags.MIGRATE):
     _EXCLUDED_CRUDS.add(ResourceViewMappingCRUD)
 if not FeatureFlag.is_enabled(Flags.SEARCH_CONFIG):
@@ -174,7 +174,7 @@ __all__ = [
     "HostedExtractorJobCRUD",
     "HostedExtractorMappingCRUD",
     "HostedExtractorSourceCRUD",
-    "InfieldCDMV1CRUD",
+    "InFieldLocationConfigCRUD",
     "LabelCRUD",
     "LocationFilterCRUD",
     "NodeCRUD",

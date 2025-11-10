@@ -243,7 +243,7 @@ class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig, APMConfigWriteL
 
 
 @final
-class InfieldCDMV1CRUD(
+class InFieldLocationConfigCRUD(
     ResourceCRUD[
         NodeIdentifier,
         InfieldLocationConfig,
@@ -253,13 +253,13 @@ class InfieldCDMV1CRUD(
     ]
 ):
     folder_name = "cdf_applications"
-    filename_pattern = r"^.*\.InfieldCDMv1$"
+    filename_pattern = r"^.*\.InFieldLocationConfig$"
     filetypes = frozenset({"yaml", "yml"})
     resource_cls = InfieldLocationConfig
     resource_write_cls = InfieldLocationConfig
     list_cls = InfieldLocationConfigList
     list_write_cls = InfieldLocationConfigList
-    kind = "InfieldCDMv1"
+    kind = "InFieldLocationConfig"
     yaml_cls = InfieldLocationConfigYAML
     dependencies = frozenset({SpaceCRUD, GroupAllScopedCRUD, GroupResourceScopedCRUD})
     _doc_url = "Instances/operation/applyNodeAndEdges"
