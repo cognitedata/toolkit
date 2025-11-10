@@ -88,7 +88,7 @@ class DatapointsIO(TableUploadableStorageIO[DataPointsFileSelector, DataPointLis
         # We assume that the row was read using the read_chunks method.
         rows = cast(dict[str, list[Any]], row)
         if selector.timestamp_column not in rows:
-            raise RuntimeError(f"Timestamp column '{selector.timestamp_column}' not")
+            raise RuntimeError(f"Timestamp column '{selector.timestamp_column}' not found.")
 
         timestamps = list(
             self._convert_values(
@@ -169,18 +169,24 @@ class DatapointsIO(TableUploadableStorageIO[DataPointsFileSelector, DataPointLis
         if not isinstance(reader, TableReader):
             raise RuntimeError("DatapointsIO can only read from TableReader instances.")
         iterator = iter(reader.read_chunks_with_line_numbers())
-        start_row, first = next(iterator)
-        column_count = len(first)
+        try:
+            start_row, first = next(iterator)
+        except StopIteration:
+            # Empty file
+            return
+        column_names = list(first.keys())
         batch: dict[str, list[Any]] = {col: [value] for col, value in first.items()}
         last_row = start_row
         for row_no, chunk in iterator:
             for col, value in chunk.items():
                 batch[col].append(value)
-            if ((len(batch) - 1) * column_count) >= cls.CHUNK_SIZE:
+
+            # The number of datapoints is the number of rows times the number of value columns.
+            if ((len(column_names) - 1) * len(batch[column_names[0]])) >= cls.CHUNK_SIZE:
                 # We cannot guarantee JsonVal here, but that is handled later in the processing pipeline.
                 yield [(f"rows {start_row} to {row_no}", batch)]  # type: ignore[list-item]
                 start_row = row_no + 1
-                batch = {k: [] for k in batch.keys()}
+                batch = {col: [] for col in column_names}
             last_row = row_no
-        if batch:
+        if any(batch.values()):
             yield [(f"rows {start_row} to{last_row}", batch)]  # type: ignore[list-item]
