@@ -50,6 +50,7 @@ from cognite_toolkit._cdf_tk.utils.aggregators import (
 )
 from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
 from cognite_toolkit._cdf_tk.utils.fileio import FileReader, SchemaColumn
+from cognite_toolkit._cdf_tk.utils.fileio._readers import TableReader
 from cognite_toolkit._cdf_tk.utils.http_client import (
     FailedRequestItems,
     FailedRequestMessage,
@@ -310,8 +311,33 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
     def retrieve(self, ids: Sequence[int]) -> AssetList:
         return self.client.assets.retrieve_multiple(ids)
 
-    def read_chunks(self, reader: FileReader) -> Iterable[list[tuple[str, dict[str, JsonVal]]]]:
-        raise NotImplementedError()
+    @classmethod
+    def read_chunks(cls, reader: FileReader) -> Iterable[list[tuple[str, dict[str, JsonVal]]]]:
+        """Assets require special handling when reading data to ensure parent assets are created first."""
+        current_depth = max_depth = 0
+        data_name = "row" if isinstance(reader, TableReader) else "line"
+        batch: list[tuple[str, dict[str, JsonVal]]] = []
+        # We read the file multiple times, once for each depth level, to ensure parents are created before children.
+        while current_depth <= max_depth:
+            for line_number, item in reader.read_chunks_with_line_numbers():
+                try:
+                    depth = int(item.get("depth"))  # type: ignore[arg-type]
+                except (TypeError, ValueError):
+                    if current_depth == 0:
+                        # If depth is not set, we yield it at depth 0
+                        batch.append((f"{data_name} {line_number}", item))
+                else:
+                    if depth == current_depth:
+                        batch.append((f"{data_name} {line_number}", item))
+                    elif current_depth == 0:
+                        max_depth = max(max_depth, depth)
+                if len(batch) >= cls.CHUNK_SIZE:
+                    yield batch
+                    batch = []
+            if batch:
+                yield batch
+                batch = []
+            current_depth += 1
 
 
 class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, FileMetadataWriteList, FileMetadataList]):

@@ -207,12 +207,13 @@ class UploadableStorageIO(
         """
         raise NotImplementedError()
 
-    def read_chunks(self, reader: FileReader) -> Iterable[list[tuple[str, dict[str, JsonVal]]]]:
+    @classmethod
+    def read_chunks(cls, reader: FileReader) -> Iterable[list[tuple[str, dict[str, JsonVal]]]]:
         data_name = "row" if isinstance(reader, TableReader) else "line"
         # Include name of line for better error messages
         iterable = ((f"{data_name} {line_no}", item) for line_no, item in reader.read_chunks_with_line_numbers())
 
-        yield from chunker(iterable, self.CHUNK_SIZE)
+        yield from chunker(iterable, cls.CHUNK_SIZE)
 
 
 class TableUploadableStorageIO(UploadableStorageIO[T_Selector, T_CogniteResource, T_WriteCogniteResource], ABC):
