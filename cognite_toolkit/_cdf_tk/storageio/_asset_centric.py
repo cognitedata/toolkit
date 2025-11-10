@@ -320,8 +320,8 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
         while current_depth <= max_depth:
             for line_number, item in reader.read_chunks_with_line_numbers():
                 try:
-                    depth = int(item.get("depth"))  # type: ignore[arg-type]
-                except (TypeError, ValueError):
+                    depth = int(item["depth"])  # type: ignore[arg-type]
+                except (TypeError, ValueError, KeyError):
                     if current_depth == 0:
                         # If depth is not set, we yield it at depth 0
                         batch.append((f"{data_name} {line_number}", item))
