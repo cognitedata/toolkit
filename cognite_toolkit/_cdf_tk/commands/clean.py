@@ -342,7 +342,7 @@ class CleanCommand(ToolkitCommand):
         )
 
         if not build_dir.is_dir():
-            raise ToolkitNotADirectoryError(f"'{build_dir}'. Did you forget to run `cdf-tk build` first?")
+            raise ToolkitNotADirectoryError(f"'{build_dir}'. Did you forget to run `cdf build` first?")
 
         if Flags.v07.is_enabled():
             selected_modules = (
