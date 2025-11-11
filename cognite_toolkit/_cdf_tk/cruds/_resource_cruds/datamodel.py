@@ -40,6 +40,7 @@ from cognite.client.data_classes.data_modeling import (
     DataModelApply,
     DataModelApplyList,
     DataModelList,
+    DirectRelation,
     Edge,
     EdgeApply,
     EdgeApplyList,
@@ -50,6 +51,7 @@ from cognite.client.data_classes.data_modeling import (
     NodeApplyList,
     NodeApplyResultList,
     NodeList,
+    RequiresConstraint,
     Space,
     SpaceApply,
     SpaceApplyList,
@@ -556,7 +558,9 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View, ViewApplyList, ViewList]):
             # We sort the implements in topological order to ensure that the child view get the order grandparent,
             # parent, such that the parent's source is used.
             try:
-                dumped["implements"] = [view_id.dump() for view_id in self.topological_sort(resource.implements)]
+                dumped["implements"] = [
+                    view_id.dump() for view_id in self.topological_sort_implements(resource.implements)
+                ]
             except ToolkitCycleError as e:
                 warning = MediumSeverityWarning(f"Failed to sort implements for view {resource.as_id()}: {e}")
                 warning.print_warning(console=self.console)
@@ -669,7 +673,7 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View, ViewApplyList, ViewList]):
                 self._view_by_id[view.as_id()] = view
         return {view_id: self._view_by_id[view_id] for view_id in view_ids if view_id in self._view_by_id}
 
-    def topological_sort(self, view_ids: list[ViewId]) -> list[ViewId]:
+    def topological_sort_implements(self, view_ids: list[ViewId]) -> list[ViewId]:
         """Sorts the views in topological order based on their implements and through properties."""
         view_by_ids = self._lookup_views(view_ids)
         parents_by_child: dict[ViewId, set[ViewId]] = {}
@@ -679,6 +683,82 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View, ViewApplyList, ViewList]):
                 parents_by_child[child].add(parent)
         try:
             sorted_views = list(TopologicalSorter(parents_by_child).static_order())
+        except CycleError as e:
+            raise ToolkitCycleError(
+                f"Failed to sort views topologically. This likely due to a cycle in implements. {e.args[1]}"
+            )
+
+        return sorted_views
+
+    def topological_sort_container_constraints(self, view_ids: list[ViewId]) -> list[ViewId]:
+        """Sorts the views in topological order based on their container constraints."""
+        view_to_containers: dict[ViewId, set[ContainerId]] = {}
+
+        view_by_ids = self._lookup_views(view_ids)
+        if missing_view_ids := set(view_ids) - set(view_by_ids.keys()):
+            MediumSeverityWarning(
+                f"Views {missing_view_ids} not found or you don't have permission to access them, skipping dependency check."
+            ).print_warning(console=self.console)
+            return view_ids
+
+        container_to_views: defaultdict[ContainerId, set[ViewId]] = defaultdict(set)
+        for view_id, view in view_by_ids.items():
+            view_to_containers[view_id] = view.referenced_containers()
+            for container_id in view_to_containers[view_id]:
+                container_to_views[container_id].add(view_id)
+
+        container_dependencies: dict[ContainerId, set[ContainerId]] = {}
+        dependent_chain_by_container_id: dict[ContainerId, set[ContainerId]] = {
+            container_id: {container_id} for container_id in container_to_views
+        }
+        container_stack = list(container_to_views.keys())
+
+        while container_stack:
+            current_container_id = container_stack.pop()
+            container_dependencies[current_container_id] = set()
+            container = self.client.data_modeling.containers.retrieve(current_container_id)
+            if container is None:
+                MediumSeverityWarning(
+                    f"Container {current_container_id} not found or you don't have permission to access it, skipping dependency check."
+                ).print_warning(console=self.console)
+                continue
+            for constraint in container.constraints.values():
+                if isinstance(constraint, RequiresConstraint):
+                    container_dependencies[current_container_id].add(constraint.require)
+                    for dependent_container in dependent_chain_by_container_id[current_container_id]:
+                        if dependent_container in container_dependencies:
+                            container_dependencies[dependent_container].add(constraint.require)
+            for property in container.properties.values():
+                if isinstance(property.type, DirectRelation) and property.type.container is not None:
+                    container_dependencies[current_container_id].add(property.type.container)
+                    for dependent_container in dependent_chain_by_container_id[current_container_id]:
+                        if dependent_container in container_dependencies:
+                            container_dependencies[dependent_container].add(property.type.container)
+
+            for required_container_id in list(container_dependencies[current_container_id]):
+                if required_container_id in container_dependencies:
+                    # If already processed, propagate its dependencies to current container instead of revisiting it
+                    container_dependencies[current_container_id].update(container_dependencies[required_container_id])
+                    continue
+                container_stack.append(required_container_id)
+                dependent_chain_by_container_id[required_container_id] = {
+                    required_container_id,
+                    *dependent_chain_by_container_id[current_container_id],
+                }
+
+        view_dependencies: dict[ViewId, set[ViewId]] = {}
+        for view_id, mapped_containers in view_to_containers.items():
+            view_dependencies[view_id] = set()
+            for container_id in mapped_containers:
+                for required_container in container_dependencies[container_id]:
+                    # If the required container is already in the mapped containers for the view
+                    # we skip it, since we assume the view will populate the required container.
+                    if required_container in mapped_containers:
+                        continue
+                    view_dependencies[view_id].update(container_to_views[required_container])
+
+        try:
+            sorted_views = list(TopologicalSorter(view_dependencies).static_order())
         except CycleError as e:
             raise ToolkitCycleError(
                 f"Failed to sort views topologically. This likely due to a cycle in implements. {e.args[1]}"
