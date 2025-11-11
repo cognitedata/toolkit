@@ -386,7 +386,7 @@ class ParquetWriter(TableWriter["pq.ParquetWriter"]):
 
         if type_ == "string":
             pa_type = pa.string()
-        elif type_ == "integer":
+        elif type_ == "integer" or type_ == "epoch":
             pa_type = pa.int64()
         elif type_ == "float":
             pa_type = pa.float64()

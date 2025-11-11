@@ -1,5 +1,6 @@
 from ._client import HTTPClient
 from ._data_classes import (
+    DataBodyRequest,
     ErrorDetails,
     FailedRequestItems,
     FailedRequestMessage,
@@ -19,6 +20,7 @@ from ._data_classes import (
 from ._exception import ToolkitAPIError
 
 __all__ = [
+    "DataBodyRequest",
     "ErrorDetails",
     "FailedRequestItems",
     "FailedRequestMessage",

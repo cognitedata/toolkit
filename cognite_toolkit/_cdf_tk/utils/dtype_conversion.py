@@ -229,7 +229,7 @@ class _ValueConverter(_Converter, ABC):
     schema_type: ClassVar[DataType | None] = None
     _handles_list: ClassVar[bool] = False
 
-    def __init__(self, nullable: bool):
+    def __init__(self, nullable: bool) -> None:
         self.nullable = nullable
 
     def convert(self, value: str | int | float | bool | dict | list | None) -> PropertyValueWrite:
@@ -473,7 +473,7 @@ class _TimestampConverter(_ValueConverter):
     type_str = "timestamp"
     schema_type = "timestamp"
 
-    def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
+    def _convert(self, value: str | int | float | bool | dict) -> datetime:
         if isinstance(value, int | float):
             try:
                 return ms_to_datetime(value)
@@ -485,6 +485,23 @@ class _TimestampConverter(_ValueConverter):
             except ValueError as e:
                 raise ValueError(f"Cannot convert {value} to timestamp: {e}") from e
         raise ValueError(f"Cannot convert {value} to timestamp.")
+
+
+class _EpochConverter(_ValueConverter):
+    type_str = "epoch"
+    schema_type = "epoch"
+
+    def _convert(self, value: str | int | float | bool | dict) -> int:
+        if isinstance(value, int | float):
+            return int(value)
+        elif isinstance(value, str):
+            try:
+                dt = parser.isoparse(value)
+                epoch = int(dt.timestamp() * 1000)
+                return epoch
+            except ValueError as e:
+                raise ValueError(f"Cannot convert {value} to epoch timestamp: {e}") from e
+        raise ValueError(f"Cannot convert {value} to epoch timestamp.")
 
 
 class _DateConverter(_ValueConverter):

@@ -234,16 +234,19 @@ class TableUploadableStorageIO(UploadableStorageIO[T_Selector, T_CogniteResource
         """
         result: list[UploadItem[T_WriteCogniteResource]] = []
         for source_id, row in rows:
-            item = self.row_to_resource(row, selector=selector)
+            item = self.row_to_resource(source_id, row, selector=selector)
             result.append(UploadItem(source_id=source_id, item=item))
         return result
 
     @abstractmethod
-    def row_to_resource(self, row: dict[str, JsonVal], selector: T_Selector | None = None) -> T_WriteCogniteResource:
+    def row_to_resource(
+        self, source_id: str, row: dict[str, JsonVal], selector: T_Selector | None = None
+    ) -> T_WriteCogniteResource:
         """Convert a row-based JSON-compatible dictionary back to a writable Cognite resource.
 
         Args:
             row: A dictionary representing the data in a JSON-compatible format.
+            source_id: The source identifier for the item. For example, the line number in a CSV file.
             selector: Optional selection criteria to identify where to upload the data. This is required for some storage types.
         Returns:
             A writable Cognite resource representing the data.
