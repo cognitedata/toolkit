@@ -45,6 +45,7 @@ from cognite.client.data_classes.data_modeling import (
     EdgeApplyList,
     EdgeApplyResultList,
     EdgeList,
+    MappedProperty,
     Node,
     NodeApply,
     NodeApplyList,
@@ -74,6 +75,7 @@ from rich.console import Console
 from rich.markup import escape
 from rich.panel import Panel
 
+from cognite_toolkit._cdf_tk import constants
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import (
     GraphQLDataModel,
@@ -668,6 +670,26 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View, ViewApplyList, ViewList]):
             for view in retrieved_views:
                 self._view_by_id[view.as_id()] = view
         return {view_id: self._view_by_id[view_id] for view_id in view_ids if view_id in self._view_by_id}
+
+    def get_readonly_properties(self, view_id: ViewId) -> dict[str, MappedProperty]:
+        """Retrieve the set of read-only properties for a given view."""
+
+        readonly_properties: dict[str, MappedProperty] = {}
+
+        # Retrieve the view to check its properties
+        view = self._lookup_views([view_id]).get(view_id)
+        if view is None:
+            return {}
+
+        # Check each property in the view
+        for property_identifier, property in view.properties.items():
+            if isinstance(
+                property, MappedProperty
+            ) and property.container_property_identifier in constants.READONLY_CONTAINER_PROPERTIES.get(
+                property.container, set()
+            ):
+                readonly_properties[property_identifier] = property
+        return readonly_properties
 
     def topological_sort(self, view_ids: list[ViewId]) -> list[ViewId]:
         """Sorts the views in topological order based on their implements and through properties."""

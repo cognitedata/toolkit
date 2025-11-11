@@ -7,7 +7,6 @@ from cognite.client.data_classes.data_modeling import (
     ContainerId,
     ContainerList,
     EdgeApply,
-    MappedProperty,
     NodeApply,
     SpaceList,
     ViewId,
@@ -16,6 +15,7 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.data_classes.data_modeling.instances import Instance, InstanceApply
 from cognite.client.utils._identifier import InstanceId
 
+from cognite_toolkit._cdf_tk import constants
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceList
 from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, SpaceCRUD, ViewCRUD
@@ -57,92 +57,45 @@ class InstanceIO(
     def __init__(self, client: ToolkitClient, remove_existing_version: bool = True) -> None:
         super().__init__(client)
         self._remove_existing_version = remove_existing_version
-        # Cache for view to restricted properties mapping
-        self._view_restricted_properties_cache: dict[ViewId, set[str]] = {}
+        # Cache for view to read-only properties mapping
+        self._view_readonly_properties_cache: dict[ViewId, set[str]] = {}
 
     def as_id(self, item: Instance) -> str:
         return f"{item.space}:{item.external_id}"
 
-    def _get_restricted_properties_for_view(self, view_id: ViewId) -> set[str]:
-        """Get the set of restricted property names for a given view.
-
-        This checks if the view writes to the CogniteAsset container in the cdf_cdm space,
-        and if so, returns the view properties that should be filtered out during upload.
-
-        The CogniteAsset container has managed properties for asset hierarchy that should not
-        be directly written:
-        - pathLastUpdatedTime (maps to assetHierarchy_path_last_updated_time)
-        - path (maps to assetHierarchy_path)
-        - root (maps to assetHierarchy_root)
-
-        Args:
-            view_id: The ViewId to check
-
-        Returns:
-            Set of property names that should be filtered from upload data
+    def _filter_readonly_properties(self, item_json: dict[str, JsonVal]) -> None:
         """
-        # Return cached result if available
-        if view_id in self._view_restricted_properties_cache:
-            return self._view_restricted_properties_cache[view_id]
-
-        restricted_properties: set[str] = set()
-
-        # Container properties that are read-only should not be uploaded.
-        RESTRICTED_CONTAINER_PROPERTIES = {
-            ContainerId(space="cdf_cdm", external_id="CogniteAsset"): {
-                "assetHierarchy_path_last_updated_time",
-                "assetHierarchy_path",
-                "assetHierarchy_root",
-            },
-            ContainerId(space="cdf_cdm", external_id="CogniteFile"): {"isUploaded"},
-        }
-
-        # Retrieve the view to check its properties
-        view = self.client.data_modeling.views.retrieve(view_id)
-        if view is None:
-            # Cache empty result
-            self._view_restricted_properties_cache[view_id] = restricted_properties
-            return restricted_properties
-        view = view[-1]
-
-        # Check each property in the view
-        for property_identifier, property in view.properties.items():
-            if isinstance(
-                property, MappedProperty
-            ) and property.container_property_identifier in RESTRICTED_CONTAINER_PROPERTIES.get(
-                property.container, set()
-            ):
-                restricted_properties.add(property_identifier)
-
-        # Cache the result
-        self._view_restricted_properties_cache[view_id] = restricted_properties
-        return restricted_properties
-
-    def _filter_restricted_properties(self, item_json: dict[str, JsonVal], selector: InstanceSelector | None) -> None:
-        """
-        Filter out restricted properties from the item JSON based on the selector's view.
+        Filter out read-only properties from the item JSON based on the selector's view.
 
         Args:
             item_json: The item data as a JSON dictionary
             selector: The selector containing view information
         """
-        if (
-            selector is None
-            or not isinstance(selector, InstanceViewSelector | InstanceSpaceSelector)
-            or selector.view is None
-        ):
+        if "sources" not in item_json or not isinstance(item_json["sources"], list):
             return
-
-        restricted_properties = self._get_restricted_properties_for_view(selector.view.as_id())
-
-        if not restricted_properties:
-            return
-
-        # Filter out restricted properties from the sources
-        for source in item_json.get("sources", []):
-            if isinstance(source, dict) and "properties" in source and isinstance(source["properties"], dict):
-                for restricted_prop in restricted_properties:
-                    source["properties"].pop(restricted_prop, None)
+        for source in item_json["sources"]:
+            if (
+                not isinstance(source, dict)
+                or "properties" not in source
+                or not isinstance(source["properties"], dict)
+                or "source" not in source
+                or not isinstance(source["source"], dict)
+            ):
+                continue
+            readonly_properties = set()
+            if source["source"].get("type") == "view":
+                view_id = ViewId.load(source["source"])
+                if view_id not in self._view_readonly_properties_cache:
+                    self._view_readonly_properties_cache[view_id] = set(
+                        ViewCRUD.create_loader(self.client).get_readonly_properties(view_id).keys()
+                    )
+                readonly_properties = self._view_readonly_properties_cache[view_id]
+            elif source["source"].get("type") == "container":
+                container_id = ContainerId.load(source["source"])
+                if container_id in constants.READONLY_CONTAINER_PROPERTIES:
+                    readonly_properties = constants.READONLY_CONTAINER_PROPERTIES[container_id]
+            for readonly_property in readonly_properties:
+                source["properties"].pop(readonly_property, None)
 
     def stream_data(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[Page]:
         if isinstance(selector, InstanceViewSelector | InstanceSpaceSelector):
@@ -217,7 +170,7 @@ class InstanceIO(
     ) -> Sequence[UploadItem[InstanceApply]]:
         """Convert a JSON-compatible chunk of data back to a writable Cognite resource list.
 
-        This override adds support for filtering restricted properties based on the selector's view.
+        This override adds support for filtering read-only properties based on the selector's view.
 
         Args:
             data_chunk: A list of tuples, each containing a source ID and a dictionary representing
@@ -228,8 +181,8 @@ class InstanceIO(
         """
         result: list[UploadItem[InstanceApply]] = []
         for source_id, item_json in data_chunk:
-            # Filter out restricted properties if applicable
-            self._filter_restricted_properties(item_json, selector)
+            # Filter out read-only properties if applicable
+            self._filter_readonly_properties(item_json)
             item = self.json_to_resource(item_json)
             result.append(UploadItem(source_id=source_id, item=item))
         return result
