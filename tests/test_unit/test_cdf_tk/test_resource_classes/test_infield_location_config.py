@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from cognite_toolkit._cdf_tk.resource_classes.infield_cdmv1 import InfieldLocationConfigYAML
+from cognite_toolkit._cdf_tk.resource_classes.infield_location_config import InfieldLocationConfigYAML
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
 from tests.data import COMPLETE_ORG_ALPHA_FLAGS
@@ -68,7 +68,8 @@ def invalid_test_cases() -> Iterable:
 
 class TestInfieldCDMv1YAML:
     @pytest.mark.parametrize(
-        "data", list(find_resources("InfieldCDMv1", resource_dir="cdf_applications", base=COMPLETE_ORG_ALPHA_FLAGS))
+        "data",
+        list(find_resources("InFieldLocationConfig", resource_dir="cdf_applications", base=COMPLETE_ORG_ALPHA_FLAGS)),
     )
     def test_load_valid(self, data: dict[str, Any]) -> None:
         loaded = InfieldLocationConfigYAML.model_validate(data)
