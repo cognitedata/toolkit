@@ -209,6 +209,19 @@ class BaseAssetCentricIO(
                 asset_external_id_set.add(asset_external_id)
         self.client.lookup.assets.id(list(asset_external_id_set))
 
+    def _populate_security_category_name_cache(self, chunk: Sequence[dict[str, Any]]) -> None:
+        security_category_names: set[str] = set()
+        for item in chunk:
+            security_category_external_ids_list = item.get("securityCategoryNames")
+            if isinstance(security_category_external_ids_list, list):
+                for security_category_external_id_item in security_category_external_ids_list:
+                    if isinstance(security_category_external_id_item, str):
+                        security_category_names.add(security_category_external_id_item)
+            security_category_external_id = item.get("securityCategoryNames")
+            if isinstance(security_category_external_id, str):
+                security_category_names.add(security_category_external_id)
+        self.client.lookup.security_categories.id(list(security_category_names))
+
     def data_to_row(
         self, data_chunk: Sequence[T_WritableCogniteResource], selector: AssetCentricSelector | None = None
     ) -> list[dict[str, JsonVal]]:
@@ -479,6 +492,15 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
 
         return [self._crud.dump_resource(item) for item in data_chunk]
 
+    def json_chunk_to_data(
+        self, data_chunk: list[tuple[str, dict[str, JsonVal]]]
+    ) -> Sequence[UploadItem[FileMetadataWrite]]:
+        chunks = [item_json for _, item_json in data_chunk]
+        self._populate_asset_external_ids_cache(chunks)
+        self._populate_data_set_external_id_cache(chunks)
+        self._populate_security_category_name_cache(chunks)
+        return super().json_chunk_to_data(data_chunk)
+
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> FileMetadataWrite:
         return self._crud.load_resource(item_json)
 
@@ -525,6 +547,15 @@ class TimeSeriesIO(BaseAssetCentricIO[str, TimeSeriesWrite, TimeSeries, TimeSeri
         self.client.lookup.assets.external_id(list(asset_ids))
 
         return [self._crud.dump_resource(item) for item in data_chunk]
+
+    def json_chunk_to_data(
+        self, data_chunk: list[tuple[str, dict[str, JsonVal]]]
+    ) -> Sequence[UploadItem[TimeSeriesWrite]]:
+        chunks = [item_json for _, item_json in data_chunk]
+        self._populate_asset_external_ids_cache(chunks)
+        self._populate_data_set_external_id_cache(chunks)
+        self._populate_security_category_name_cache(chunks)
+        return super().json_chunk_to_data(data_chunk)
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> TimeSeriesWrite:
         return self._crud.load_resource(item_json)
@@ -641,6 +672,12 @@ class EventIO(BaseAssetCentricIO[str, EventWrite, Event, EventWriteList, EventLi
         self._populate_asset_id_cache(data_chunk)
 
         return [self._crud.dump_resource(item) for item in data_chunk]
+
+    def json_chunk_to_data(self, data_chunk: list[tuple[str, dict[str, JsonVal]]]) -> Sequence[UploadItem[EventWrite]]:
+        chunks = [item_json for _, item_json in data_chunk]
+        self._populate_asset_external_ids_cache(chunks)
+        self._populate_data_set_external_id_cache(chunks)
+        return super().json_chunk_to_data(data_chunk)
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> EventWrite:
         return self._crud.load_resource(item_json)
