@@ -80,7 +80,7 @@ class TestCleanCommandSelectModules:
         result = cmd._select_modules(build_environment, module_str="my_example_module")
 
         assert len(result) == 1
-        assert result[0].name == "my_example_module"
+        assert result[0].dir.name == "my_example_module"
 
     def test_select_no_such_module(
         self,
