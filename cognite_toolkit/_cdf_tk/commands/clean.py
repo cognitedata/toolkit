@@ -301,6 +301,9 @@ class CleanCommand(ToolkitCommand):
         if not selected_modules:
             raise ToolkitValueError("No modules available to clean.")
 
+        # Type narrowing: after the check above, selected_modules is guaranteed to be non-None
+        assert selected_modules is not None
+
         selected_resource_folders = {
             resource_folder for module in selected_modules for resource_folder in module.resource_directories
         }
