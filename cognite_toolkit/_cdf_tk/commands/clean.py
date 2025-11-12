@@ -240,6 +240,7 @@ class CleanCommand(ToolkitCommand):
         dry_run: bool,
         include: list[str] | None,
         module_str: str | None,
+        all_modules: bool,
         verbose: bool,
     ) -> None:
         if not build_dir.exists():
@@ -276,7 +277,14 @@ class CleanCommand(ToolkitCommand):
         if not build_dir.is_dir():
             raise ToolkitNotADirectoryError(f"'{build_dir}'. Did you forget to run `cdf build` first?")
 
-        selected_modules = self._select_modules(clean_state, module_str)
+        selected_modules: list[ReadModule] | None = None
+        if all_modules:
+            selected_modules = clean_state.read_modules
+        elif module_str:
+            selected_modules = self._select_modules(clean_state, module_str)
+        else:
+            selected_modules = self._interactive_module_selection(clean_state.read_modules)
+
         if selected_modules:
             if verbose:
                 print("[bold]Selected modules:[/bold]")

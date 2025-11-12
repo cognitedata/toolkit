@@ -173,6 +173,7 @@ def test_init_build_clean(
         dry_run=False,
         include=None,
         module_str=None,
+        all_modules=True,
         verbose=False,
     )
 
