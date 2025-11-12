@@ -188,6 +188,7 @@
         "clean",
         "--env", 
         "local",
+        "--verbose"
       ],
       "console": "integratedTerminal",
       "justMyCode": false

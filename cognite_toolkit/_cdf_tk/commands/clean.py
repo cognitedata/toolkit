@@ -277,7 +277,12 @@ class CleanCommand(ToolkitCommand):
             raise ToolkitNotADirectoryError(f"'{build_dir}'. Did you forget to run `cdf build` first?")
 
         selected_modules = self._select_modules(clean_state, module_str)
-        if not selected_modules:
+        if selected_modules:
+            if verbose:
+                print("[bold]Selected modules:[/bold]")
+                for module_dir in selected_modules:
+                    print(f"    {module_dir.dir.name}")
+        else:
             available_module_names = {module.dir.name for module in clean_state.read_modules}
             raise ToolkitMissingModuleError(
                 f"No modules matched the selection: {module_str}. Available modules: {sorted(available_module_names)}"
