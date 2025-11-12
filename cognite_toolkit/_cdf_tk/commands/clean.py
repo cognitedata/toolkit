@@ -44,6 +44,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMissingModuleError,
     ToolkitNotADirectoryError,
     ToolkitValidationError,
+    ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import (
@@ -278,22 +279,27 @@ class CleanCommand(ToolkitCommand):
             raise ToolkitNotADirectoryError(f"'{build_dir}'. Did you forget to run `cdf build` first?")
 
         selected_modules: list[ReadModule] | None = None
-        if all_modules:
-            selected_modules = clean_state.read_modules
-        elif module_str:
-            selected_modules = self._select_modules(clean_state, module_str)
+        if Flags.v07.is_enabled():
+            if all_modules:
+                selected_modules = clean_state.read_modules
+            elif module_str:
+                selected_modules = [module for module in clean_state.read_modules if module.dir.name == module_str]
+                if not selected_modules:
+                    available_module_names = {module.dir.name for module in clean_state.read_modules}
+                    raise ToolkitMissingModuleError(
+                        f"No modules matched the selection: {module_str}. Available modules: {sorted(available_module_names)}"
+                    )
+            else:
+                selected_modules = self._interactive_module_selection(clean_state.read_modules)
+                if not selected_modules:
+                    raise ToolkitValueError(
+                        "No module specified with the --module option and no modules selected interactively."
+                    )
         else:
-            selected_modules = self._interactive_module_selection(clean_state.read_modules)
+            selected_modules = clean_state.read_modules
 
-        if selected_modules and verbose:
-            print("[bold]Selected modules:[/bold]")
-            for module_dir in selected_modules:
-                print(f"    {module_dir.dir.name}")
-        elif not selected_modules:
-            available_module_names = {module.dir.name for module in clean_state.read_modules}
-            raise ToolkitMissingModuleError(
-                f"No modules matched the selection: {module_str}. Available modules: {sorted(available_module_names)}"
-            )
+        if not selected_modules:
+            raise ToolkitValueError("No modules available to clean.")
 
         selected_resource_folders = {
             resource_folder for module in selected_modules for resource_folder in module.resource_directories
