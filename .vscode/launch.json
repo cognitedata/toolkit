@@ -280,6 +280,23 @@
       "justMyCode": false
     },
     {
+      "name": "Python: modules init library",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": [
+        "modules", 
+      "init", 
+      ".",
+      "--clean",
+      "--library-url=https://github.com/cognitedata/library/raw/refs/heads/packages-menu/packages.zip",
+      "--library-checksum=sha256:foo"
+    
+    ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
       "name": "Python: modules list",
       "type": "debugpy",
       "request": "launch",
