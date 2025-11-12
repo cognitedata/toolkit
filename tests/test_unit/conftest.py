@@ -18,8 +18,10 @@ from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.canvas import IndustrialCanvas
 from cognite_toolkit._cdf_tk.client.data_classes.migration import InstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.commands import ModulesCommand, RepoCommand
-from cognite_toolkit._cdf_tk.constants import MODULES
+from cognite_toolkit._cdf_tk.commands import BuildCommand, ModulesCommand, RepoCommand
+from cognite_toolkit._cdf_tk.constants import BUILD_ENVIRONMENT_FILE, MODULES
+from cognite_toolkit._cdf_tk.data_classes._config_yaml import BuildEnvironment
+from cognite_toolkit._cdf_tk.utils import read_yaml_file
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.constants import REPO_ROOT
 from tests.data import BUILDABLE_PACKAGE, COMPLETE_ORG
@@ -127,6 +129,26 @@ def buildable_modules_mutable(
     organization_dir = local_tmp_repo_path / "legacy-pytest-org-mutable"
     init_organization_dir(organization_dir, BUILDABLE_PACKAGE / MODULES)
     return organization_dir
+
+
+@pytest.fixture
+def build_environment(
+    build_tmp_path: Path,
+    complete_org_dir: Path,
+    env_vars_with_client: EnvironmentVariables,
+) -> BuildEnvironment:
+    """Fixture that builds modules and returns the BuildEnvironment."""
+    BuildCommand(silent=True, skip_tracking=True).execute(
+        verbose=False,
+        organization_dir=complete_org_dir,
+        build_dir=build_tmp_path,
+        selected=None,
+        no_clean=False,
+        client=env_vars_with_client.get_client(),
+        build_env_name="dev",
+        on_error="raise",
+    )
+    return BuildEnvironment.load(read_yaml_file(build_tmp_path / BUILD_ENVIRONMENT_FILE), "dev", "build")
 
 
 @pytest.fixture

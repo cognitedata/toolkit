@@ -1,4 +1,3 @@
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -6,54 +5,37 @@ from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk import cdf_toml
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
-from cognite_toolkit._cdf_tk.commands import BuildCommand, CleanCommand
-
-# For other flags, use the real implementation
-from cognite_toolkit._cdf_tk.constants import BUILD_ENVIRONMENT_FILE
+from cognite_toolkit._cdf_tk.commands import CleanCommand
 from cognite_toolkit._cdf_tk.data_classes._config_yaml import BuildEnvironment
-from cognite_toolkit._cdf_tk.utils import read_yaml_file
-from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
-
-
-@pytest.fixture
-def build_environment(
-    build_tmp_path: Path,
-    complete_org_dir: Path,
-    env_vars_with_client: EnvironmentVariables,
-) -> BuildEnvironment:
-    BuildCommand(silent=True, skip_tracking=True).execute(
-        verbose=False,
-        organization_dir=complete_org_dir,
-        build_dir=build_tmp_path,
-        selected=None,
-        no_clean=False,
-        client=env_vars_with_client.get_client(),
-        build_env_name="dev",
-        on_error="raise",
-    )
-    return BuildEnvironment.load(read_yaml_file(build_tmp_path / BUILD_ENVIRONMENT_FILE), "dev", "build")
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag
 
 
 @pytest.fixture
 def cdf_toml_v07_disabled(monkeypatch: MonkeyPatch):
     """Fixture that modifies CDFToml singleton to disable v07 flag."""
+    # Clear the cache first to ensure fresh state
+    FeatureFlag.is_enabled.cache_clear()
     my_cdf_toml = CDFToml.load(use_singleton=False)
     my_cdf_toml.alpha_flags["v07"] = False
     monkeypatch.setattr(cdf_toml, "_CDF_TOML", my_cdf_toml)
     yield my_cdf_toml
-    # Cleanup: reset singleton
+    # Cleanup: reset singleton and clear cache
     monkeypatch.setattr(cdf_toml, "_CDF_TOML", None)
+    FeatureFlag.is_enabled.cache_clear()
 
 
 @pytest.fixture
 def cdf_toml_v07_enabled(monkeypatch: MonkeyPatch):
     """Fixture that modifies CDFToml singleton to enable v07 flag."""
+    # Clear the cache first to ensure fresh state
+    FeatureFlag.is_enabled.cache_clear()
     my_cdf_toml = CDFToml.load(use_singleton=False)
     my_cdf_toml.alpha_flags["v07"] = True
     monkeypatch.setattr(cdf_toml, "_CDF_TOML", my_cdf_toml)
     yield my_cdf_toml
-    # Cleanup: reset singleton
+    # Cleanup: reset singleton and clear cache
     monkeypatch.setattr(cdf_toml, "_CDF_TOML", None)
+    FeatureFlag.is_enabled.cache_clear()
 
 
 class TestCleanCommandSelectModules:
