@@ -15,13 +15,6 @@ from cognite_toolkit._cdf_tk.storageio.selectors import InstanceSpaceSelector, I
 from cognite_toolkit._cdf_tk.utils.http_client import FailedResponseItems, HTTPClient, SuccessResponseItems
 
 
-@pytest.fixture
-def instance_io(toolkit_config: ToolkitClientConfig) -> InstanceIO:
-    """Fixture that provides an InstanceIO instance for testing."""
-    client = ToolkitClient(config=toolkit_config)
-    return InstanceIO(client)
-
-
 class TestInstanceIO:
     def test_download_instance_ids(self, rsps: responses.RequestsMock, toolkit_config: ToolkitClientConfig) -> None:
         client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
@@ -335,9 +328,11 @@ class TestInstanceIO:
         ],
     )
     def test_json_to_resource_filters_readonly_properties(
-        self, instance_io: InstanceIO, item_json: dict, expected_properties: dict
+        self, toolkit_config: ToolkitClientConfig, item_json: dict, expected_properties: dict
     ) -> None:
         """Test that json_to_resource filters out read-only properties from containers."""
+        client = ToolkitClient(config=toolkit_config)
+        instance_io = InstanceIO(client)
         instance = instance_io.json_to_resource(item_json)
 
         assert dict(instance.sources[0].properties) == expected_properties
