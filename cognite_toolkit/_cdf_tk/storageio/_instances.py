@@ -166,7 +166,7 @@ class InstanceIO(
         return [instance.as_write().dump(camel_case=True) for instance in data_chunk]
 
     def json_chunk_to_data(
-        self, data_chunk: list[tuple[str, dict[str, JsonVal]]], selector: InstanceSelector | None = None
+        self, data_chunk: list[tuple[str, dict[str, JsonVal]]]
     ) -> Sequence[UploadItem[InstanceApply]]:
         """Convert a JSON-compatible chunk of data back to a writable Cognite resource list.
 
@@ -175,7 +175,6 @@ class InstanceIO(
         Args:
             data_chunk: A list of tuples, each containing a source ID and a dictionary representing
                 the data in a JSON-compatible format.
-            selector: Optional selection criteria to identify where to upload the data.
         Returns:
             A writable Cognite resource list representing the data.
         """
