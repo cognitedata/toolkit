@@ -363,7 +363,7 @@ class CoreApp(typer.Typer):
                 "--all-modules",
                 "-a",
                 help="Clean all modules",
-                hidden=not Flags.v07.is_enabled(),
+                hidden=True,
             ),
         ] = False,
         verbose: Annotated[
