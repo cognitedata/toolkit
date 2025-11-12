@@ -354,7 +354,7 @@ class CoreApp(typer.Typer):
                 "--module",
                 "-m",
                 help="Specify name or path of the module to clean",
-                # hidden=not Flags.v07.is_enabled(),
+                hidden=not Flags.v07.is_enabled(),
             ),
         ] = None,
         verbose: Annotated[
