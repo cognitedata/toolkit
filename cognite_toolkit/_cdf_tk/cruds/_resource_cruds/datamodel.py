@@ -716,7 +716,7 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View, ViewApplyList, ViewList]):
         while container_stack:
             current_container_id = container_stack.pop()
             container_dependencies[current_container_id] = set()
-            container = self.client.data_modeling.containers.retrieve(current_container_id)
+            container = self.client.data_modeling.containers.retrieve(cast(Sequence, [current_container_id]))[0]
             if container is None:
                 MediumSeverityWarning(
                     f"Container {current_container_id} not found or you don't have permission to access it, skipping dependency check."
