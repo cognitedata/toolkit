@@ -6,7 +6,6 @@ from cognite_toolkit._cdf_tk.utils.fileio import COMPRESSION_BY_SUFFIX
 from ._annotations import FileAnnotationIO
 from ._applications import CanvasIO, ChartIO
 from ._asset_centric import (
-    AssetFileReaderAdapter,
     AssetIO,
     BaseAssetCentricIO,
     EventIO,
@@ -25,6 +24,7 @@ from ._base import (
     UploadItem,
 )
 from ._data_classes import InstanceIdCSVList, InstanceIdRow, ModelList
+from ._datapoints import DatapointsIO
 from ._instances import InstanceIO
 from ._raw import RawIO
 from .selectors._base import DataSelector
@@ -53,12 +53,12 @@ def are_same_kind(kind: str, kind_or_path: str | Path, /) -> bool:
 
 
 __all__ = [
-    "AssetFileReaderAdapter",
     "AssetIO",
     "BaseAssetCentricIO",
     "CanvasIO",
     "ChartIO",
     "ConfigurableStorageIO",
+    "DatapointsIO",
     "EventIO",
     "FileAnnotationIO",
     "FileMetadataIO",
