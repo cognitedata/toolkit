@@ -8,7 +8,6 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 from rich.panel import Panel
 
-from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
@@ -58,7 +57,6 @@ from cognite_toolkit._cdf_tk.utils import (
     read_yaml_file,
 )
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
-from cognite_toolkit._cdf_tk.utils.modules import parse_user_selected_modules
 
 from ._utils import _print_ids_or_length
 
@@ -190,96 +188,22 @@ class CleanCommand(ToolkitCommand):
                 self._verbose_print_drop(resource_drop_count, resource_ids, loader, dry_run)
         return nr_of_dropped
 
-    def _filter_read_modules(self, read_modules: list[ReadModule], module_str: str) -> list[ReadModule]:
-        """Filter read_modules based on user selection.
-
-        Args:
-            read_modules: List of all ReadModule objects from build environment
-            selected_modules: User-selected module names or paths
-
-        Returns:
-            Filtered list of ReadModule objects that match the selection
-        """
-
-        # Parse user selection to handle both strings and paths
-        try:
-            cdf_toml = CDFToml.load(Path.cwd())
-            organization_dir = cdf_toml.cdf.default_organization_dir
-        except Exception:
-            # If we can't get organization_dir from CDF_TOML, infer it from read_modules
-            # All modules should be under the same organization directory
-            if read_modules:
-                # Find the common parent directory of all module directories
-                module_dirs = [module.dir for module in read_modules]
-                common_parts = []
-                if module_dirs:
-                    # Get the common path parts
-                    parts_list = [list(dir.parts) for dir in module_dirs]
-                    min_parts = min(len(parts) for parts in parts_list)
-                    for i in range(min_parts):
-                        if all(parts[i] == parts_list[0][i] for parts in parts_list):
-                            common_parts.append(parts_list[0][i])
-                        else:
-                            break
-                    organization_dir = Path(*common_parts) if common_parts else Path.cwd()
-                else:
-                    organization_dir = Path.cwd()
-            else:
-                organization_dir = Path.cwd()
-
-        parsed_selection = parse_user_selected_modules([module_str], organization_dir)
-        user_selected_set = set(parsed_selection)
-
-        filtered_modules: list[ReadModule] = []
-        for module in read_modules:
-            # Match by module name
-            if module.dir.name in user_selected_set:
-                filtered_modules.append(module)
-                continue
-
-            # Match by relative path from organization directory
-            try:
-                relative_path = module.dir.relative_to(organization_dir)
-                if relative_path in user_selected_set or any(
-                    parent in user_selected_set for parent in relative_path.parents
-                ):
-                    filtered_modules.append(module)
-                    continue
-            except ValueError:
-                # module.dir is not relative to organization_dir, try absolute path
-                pass
-
-            # Match by absolute path
-            if module.dir in user_selected_set or any(parent in user_selected_set for parent in module.dir.parents):
-                filtered_modules.append(module)
-                continue
-
-        return filtered_modules
-
-    def _interactive_module_selection(self, read_modules: list[ReadModule] | None) -> list[ReadModule] | None:
-        """Present interactive multiselect for module selection.
-
-        Args:
-            read_modules: List of available ReadModule objects
-
-        Returns:
-            List of selected ReadModule objects, or None if user cancels
-        """
-        if not read_modules:
+    def _interactive_module_selection(self, built_modules: list[ReadModule] | None) -> list[ReadModule] | None:
+        if not built_modules:
             return None
+        choices = [
+            questionary.Choice(title=built_module.dir.name, value=built_module) for built_module in built_modules
+        ]
 
-        # Create choices from module names
-        choices = [questionary.Choice(title=read_module.dir.name, value=read_module) for read_module in read_modules]
-
-        selected = questionary.checkbox(
+        selected_modules = questionary.checkbox(
             "Which modules would you like to clean?",
             instruction="Use arrow up/down, press space to select item(s) and enter to save",
             choices=choices,
         ).ask()
 
-        if not selected:
+        if not selected_modules:
             return None
-        return selected
+        return selected_modules
 
     def _verbose_print_drop(
         self, drop_count: int, resource_ids: SequenceNotStr[T_ID], loader: ResourceContainerCRUD, dry_run: bool
@@ -299,6 +223,14 @@ class CleanCommand(ToolkitCommand):
         else:
             # Count is not supported
             print(f" {prefix} all {loader.item_name} from {loader.display_name}: {_print_ids_or_length(resource_ids)}.")
+
+    def _select_modules(self, clean_state: BuildEnvironment, module_str: str | None) -> list[ReadModule] | None:
+        if Flags.v07.is_enabled():
+            if module_str:
+                return [module for module in clean_state.read_modules if module.dir.name == module_str]
+            return self._interactive_module_selection(clean_state.read_modules)
+        else:
+            return clean_state.read_modules
 
     def execute(
         self,
@@ -344,27 +276,17 @@ class CleanCommand(ToolkitCommand):
         if not build_dir.is_dir():
             raise ToolkitNotADirectoryError(f"'{build_dir}'. Did you forget to run `cdf build` first?")
 
-        if Flags.v07.is_enabled():
-            selected_modules = (
-                self._interactive_module_selection(clean_state.read_modules)
-                if module_str is None
-                else self._filter_read_modules(clean_state.read_modules, module_str)
-            )
-        else:
-            selected_modules = clean_state.read_modules
-
+        selected_modules = self._select_modules(clean_state, module_str)
         if not selected_modules:
             available_module_names = {module.dir.name for module in clean_state.read_modules}
             raise ToolkitMissingModuleError(
                 f"No modules matched the selection: {module_str}. Available modules: {sorted(available_module_names)}"
             )
 
-        # Compute read_resource_folders from filtered modules
-        read_resource_folders = {
+        selected_resource_folders = {
             resource_folder for module in selected_modules for resource_folder in module.resource_directories
         }
-
-        selected_loaders = self.get_selected_loaders(build_dir, read_resource_folders, include)
+        selected_loaders = self.get_selected_loaders(build_dir, selected_resource_folders, include)
 
         results = DeployResults([], "clean", dry_run=dry_run)
 
