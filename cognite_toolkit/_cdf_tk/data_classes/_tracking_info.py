@@ -40,4 +40,4 @@ class CommandTrackingInfo(BaseModel):
             A dictionary with camelCase keys matching Mixpanel's expected format.
             Default values are excluded.
         """
-        return self.model_dump(by_alias=True, exclude_defaults=True)
+        return self.model_dump(mode="json", by_alias=True, exclude_defaults=True)
