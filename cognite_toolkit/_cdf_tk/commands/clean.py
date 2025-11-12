@@ -285,11 +285,10 @@ class CleanCommand(ToolkitCommand):
         else:
             selected_modules = self._interactive_module_selection(clean_state.read_modules)
 
-        if selected_modules:
-            if verbose:
-                print("[bold]Selected modules:[/bold]")
-                for module_dir in selected_modules:
-                    print(f"    {module_dir.dir.name}")
+        if selected_modules and verbose:
+            print("[bold]Selected modules:[/bold]")
+            for module_dir in selected_modules:
+                print(f"    {module_dir.dir.name}")
         else:
             available_module_names = {module.dir.name for module in clean_state.read_modules}
             raise ToolkitMissingModuleError(
