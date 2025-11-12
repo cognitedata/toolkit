@@ -289,7 +289,7 @@ class CleanCommand(ToolkitCommand):
             print("[bold]Selected modules:[/bold]")
             for module_dir in selected_modules:
                 print(f"    {module_dir.dir.name}")
-        else:
+        elif not selected_modules:
             available_module_names = {module.dir.name for module in clean_state.read_modules}
             raise ToolkitMissingModuleError(
                 f"No modules matched the selection: {module_str}. Available modules: {sorted(available_module_names)}"
