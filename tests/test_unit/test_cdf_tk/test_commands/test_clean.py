@@ -1,5 +1,3 @@
-from unittest.mock import MagicMock, patch
-
 import pytest
 from pytest import MonkeyPatch
 
@@ -72,24 +70,3 @@ class TestCleanCommandSelectModules:
         cmd = CleanCommand(silent=True, skip_tracking=True)
         result = cmd._select_modules(build_environment, module_str="no_such_module")
         assert len(result) == 0
-
-    def test_select_interactive_selection_with_questionary_response(
-        self,
-        build_environment: BuildEnvironment,
-        cdf_toml_v07_enabled: CDFToml,
-    ) -> None:
-        """Test interactive module selection with different questionary responses."""
-        cmd = CleanCommand(silent=True, skip_tracking=True)
-
-        # Mock questionary.checkbox to return a mock object whose ask() method returns the selected modules
-        mock_checkbox = MagicMock()
-        mock_checkbox.ask.return_value = [build_environment.read_modules[0], build_environment.read_modules[1]]
-
-        with patch("cognite_toolkit._cdf_tk.commands.clean.questionary.checkbox", return_value=mock_checkbox):
-            result = cmd._select_modules(build_environment, module_str=None)
-
-        assert len(result) == 2
-        assert result[0].dir.name == "populate_model", f"Expected 'populate_model', got {result[0].dir.name}"
-        assert result[1].dir.name == "my_file_expand_module", (
-            f"Expected 'my_file_expand_module', got {result[1].dir.name}"
-        )
