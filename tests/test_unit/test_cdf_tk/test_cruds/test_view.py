@@ -126,6 +126,15 @@ class TestViewLoader:
                 set(),
                 id="Custom container no readonly",
             ),
+            pytest.param(
+                {
+                    "assetName": ("name", "CogniteAsset"),
+                    "assetPath": ("assetHierarchy_path", "CogniteAsset"),
+                    "customProp": ("custom", "CustomContainer"),
+                },
+                {"assetPath"},
+                id="View with custom property identifiers in View filters readonly",
+            ),
         ],
     )
     def test_get_readonly_properties(
