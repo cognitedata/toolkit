@@ -1,17 +1,15 @@
 import json
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import httpx
 import pytest
 import responses
 import respx
-from cognite.client.data_classes.data_modeling import EdgeApply, MappedProperty, Node, NodeApply, ViewId
+from cognite.client.data_classes.data_modeling import EdgeApply, Node, NodeApply
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList, InstanceList
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
-from cognite_toolkit._cdf_tk.cruds import ViewCRUD
 from cognite_toolkit._cdf_tk.storageio import InstanceIO
 from cognite_toolkit._cdf_tk.storageio.selectors import InstanceSpaceSelector, InstanceViewSelector, SelectedView
 from cognite_toolkit._cdf_tk.utils.http_client import FailedResponseItems, HTTPClient, SuccessResponseItems
@@ -296,248 +294,50 @@ class TestInstanceIO:
 
         assert len(respx_mock.calls) == 1
 
-    def test_filter_readonly_properties_from_view(
-        self, instance_io: InstanceIO, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Test that read-only properties are filtered from view sources."""
-
-        # Mock the ViewCRUD.create_loader to return a mock with readonly properties
-        mock_view_crud = MagicMock()
-        mock_view_crud.get_readonly_properties.return_value = {
-            "pathLastUpdatedTime": MagicMock(spec=MappedProperty),
-            "path": MagicMock(spec=MappedProperty),
-        }
-
-        monkeypatch.setattr(ViewCRUD, "create_loader", MagicMock(return_value=mock_view_crud))
-
-        item_json = {
-            "space": "my_space",
-            "externalId": "my_node",
-            "instanceType": "node",
-            "existingVersion": 1,
-            "sources": [
+    @pytest.mark.parametrize(
+        "item_json,expected_properties",
+        [
+            pytest.param(
                 {
-                    "source": {
-                        "type": "view",
-                        "space": "cdf_cdm",
-                        "externalId": "CogniteAsset",
-                        "version": "v1",
-                    },
-                    "properties": {
-                        "name": "My Asset",
-                        "pathLastUpdatedTime": 123456789,
-                        "path": ["asset1", "asset2"],
-                        "description": "Test asset",
-                    },
-                }
-            ],
-        }
-
-        instance_io._filter_readonly_properties(item_json)
-
-        # Verify read-only properties were removed
-        assert "name" in item_json["sources"][0]["properties"]
-        assert "description" in item_json["sources"][0]["properties"]
-        assert "pathLastUpdatedTime" not in item_json["sources"][0]["properties"]
-        assert "path" not in item_json["sources"][0]["properties"]
-
-    def test_filter_readonly_properties_from_container(self, instance_io: InstanceIO) -> None:
-        """Test that read-only properties are filtered from container sources."""
-
-        item_json = {
-            "space": "my_space",
-            "externalId": "my_node",
-            "instanceType": "node",
-            "existingVersion": 1,
-            "sources": [
-                {
-                    "source": {
-                        "type": "container",
-                        "space": "cdf_cdm",
-                        "externalId": "CogniteAsset",
-                    },
-                    "properties": {
-                        "name": "My Asset",
-                        "assetHierarchy_path_last_updated_time": 123456789,
-                        "assetHierarchy_path": ["asset1", "asset2"],
-                        "assetHierarchy_root": "asset1",
-                        "description": "Test asset",
-                    },
-                }
-            ],
-        }
-
-        instance_io._filter_readonly_properties(item_json)
-
-        # Verify read-only properties were removed
-        assert "name" in item_json["sources"][0]["properties"]
-        assert "description" in item_json["sources"][0]["properties"]
-        assert "assetHierarchy_path_last_updated_time" not in item_json["sources"][0]["properties"]
-        assert "assetHierarchy_path" not in item_json["sources"][0]["properties"]
-        assert "assetHierarchy_root" not in item_json["sources"][0]["properties"]
-
-    def test_filter_readonly_properties_cognite_file(self, instance_io: InstanceIO) -> None:
-        """Test that read-only properties are filtered from CogniteFile container."""
-
-        item_json = {
-            "space": "my_space",
-            "externalId": "my_file",
-            "instanceType": "node",
-            "existingVersion": 1,
-            "sources": [
-                {
-                    "source": {
-                        "type": "container",
-                        "space": "cdf_cdm",
-                        "externalId": "CogniteFile",
-                    },
-                    "properties": {
-                        "name": "My File",
-                        "isUploaded": True,
-                        "uploadedTime": 123456789,
-                        "mimeType": "application/pdf",
-                    },
-                }
-            ],
-        }
-
-        instance_io._filter_readonly_properties(item_json)
-
-        # Verify read-only properties were removed
-        assert "name" in item_json["sources"][0]["properties"]
-        assert "mimeType" in item_json["sources"][0]["properties"]
-        assert "isUploaded" not in item_json["sources"][0]["properties"]
-        assert "uploadedTime" not in item_json["sources"][0]["properties"]
-
-    def test_filter_readonly_properties_multiple_sources(
-        self, instance_io: InstanceIO, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Test that read-only properties are filtered from multiple sources."""
-
-        # Mock the ViewCRUD.create_loader to return a mock with readonly properties
-        mock_view_crud = MagicMock()
-        mock_view_crud.get_readonly_properties.return_value = {
-            "pathLastUpdatedTime": MagicMock(spec=MappedProperty),
-            "path": MagicMock(spec=MappedProperty),
-        }
-
-        monkeypatch.setattr(ViewCRUD, "create_loader", MagicMock(return_value=mock_view_crud))
-
-        item_json = {
-            "space": "my_space",
-            "externalId": "my_node",
-            "instanceType": "node",
-            "existingVersion": 2,
-            "sources": [
-                {
-                    "source": {
-                        "type": "view",
-                        "space": "cdf_cdm",
-                        "externalId": "CogniteAsset",
-                        "version": "v1",
-                    },
-                    "properties": {
-                        "name": "My Asset",
-                        "path": ["asset1", "asset2"],
-                    },
+                    "space": "my_space",
+                    "externalId": "asset_node",
+                    "instanceType": "node",
+                    "sources": [
+                        {
+                            "source": {"type": "container", "space": "cdf_cdm", "externalId": "CogniteAsset"},
+                            "properties": {
+                                "name": "Asset",
+                                "assetHierarchy_path": ["root", "child"],
+                                "assetHierarchy_root": "root",
+                                "description": "Test",
+                            },
+                        }
+                    ],
                 },
+                {"name": "Asset", "description": "Test"},
+                id="CogniteAsset container filters readonly props",
+            ),
+            pytest.param(
                 {
-                    "source": {
-                        "type": "container",
-                        "space": "my_space",
-                        "externalId": "CustomContainer",
-                    },
-                    "properties": {
-                        "customProp": "value",
-                    },
+                    "space": "my_space",
+                    "externalId": "file_node",
+                    "instanceType": "node",
+                    "sources": [
+                        {
+                            "source": {"type": "container", "space": "cdf_cdm", "externalId": "CogniteFile"},
+                            "properties": {"name": "File", "isUploaded": True, "uploadedTime": 123, "mimeType": "pdf"},
+                        }
+                    ],
                 },
-            ],
-        }
+                {"name": "File", "mimeType": "pdf"},
+                id="CogniteFile container filters readonly props",
+            ),
+        ],
+    )
+    def test_json_to_resource_filters_readonly_properties(
+        self, instance_io: InstanceIO, item_json: dict, expected_properties: dict
+    ) -> None:
+        """Test that json_to_resource filters out read-only properties from containers."""
+        instance = instance_io.json_to_resource(item_json)
 
-        instance_io._filter_readonly_properties(item_json)
-
-        # Verify read-only properties were removed only from the CogniteAsset source
-        assert "name" in item_json["sources"][0]["properties"]
-        assert "assetHierarchy_path" not in item_json["sources"][0]["properties"]
-        assert "customProp" in item_json["sources"][1]["properties"]
-
-    def test_filter_readonly_properties_no_sources(self, instance_io: InstanceIO) -> None:
-        """Test that filtering handles instances without sources gracefully."""
-
-        item_json = {
-            "space": "my_space",
-            "externalId": "my_node",
-            "instanceType": "node",
-            "existingVersion": 7,
-        }
-
-        # Should not raise an error
-        instance_io._filter_readonly_properties(item_json)
-
-    def test_filter_readonly_properties_empty_sources(self, instance_io: InstanceIO) -> None:
-        """Test that filtering handles instances with an empty sources list gracefully."""
-
-        item_json = {
-            "space": "my_space",
-            "externalId": "my_node",
-            "instanceType": "node",
-            "existingVersion": 7,
-            "sources": [],
-        }
-
-        # Should not raise an error
-        instance_io._filter_readonly_properties(item_json)
-        assert item_json["sources"] == []
-
-    def test_filter_readonly_properties_caching(self, instance_io: InstanceIO, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Test that view readonly properties are cached to avoid redundant lookups."""
-
-        # Mock the ViewCRUD.create_loader to return a mock with readonly properties
-        mock_view_crud = MagicMock()
-        mock_view_crud.get_readonly_properties.return_value = {
-            "readOnlyProp": MagicMock(spec=MappedProperty),
-        }
-
-        monkeypatch.setattr(ViewCRUD, "create_loader", MagicMock(return_value=mock_view_crud))
-
-        view_id = ViewId(space="my_space", external_id="MyView", version="v1")
-
-        item_json_1 = {
-            "space": "my_space",
-            "externalId": "node_1",
-            "instanceType": "node",
-            "existingVersion": 0,
-            "sources": [
-                {
-                    "source": view_id.dump(),
-                    "properties": {"readOnlyProp": "value1", "normalProp": "value2"},
-                }
-            ],
-        }
-
-        item_json_2 = {
-            "space": "my_space",
-            "externalId": "node_2",
-            "instanceType": "node",
-            "existingVersion": 7,
-            "sources": [
-                {
-                    "source": view_id.dump(),
-                    "properties": {"readOnlyProp": "value3", "normalProp": "value4"},
-                }
-            ],
-        }
-
-        # First call should fetch from ViewCRUD
-        instance_io._filter_readonly_properties(item_json_1)
-        assert mock_view_crud.get_readonly_properties.call_count == 1
-
-        # Second call should use cache
-        instance_io._filter_readonly_properties(item_json_2)
-        assert mock_view_crud.get_readonly_properties.call_count == 1  # Still 1, not 2
-
-        # Verify both items were filtered correctly
-        assert "readOnlyProp" not in item_json_1["sources"][0]["properties"]
-        assert "normalProp" in item_json_1["sources"][0]["properties"]
-        assert "readOnlyProp" not in item_json_2["sources"][0]["properties"]
-        assert "normalProp" in item_json_2["sources"][0]["properties"]
+        assert dict(instance.sources[0].properties) == expected_properties

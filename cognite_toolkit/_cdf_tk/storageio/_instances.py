@@ -25,7 +25,7 @@ from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from . import StorageIOConfig
-from ._base import ConfigurableStorageIO, Page, UploadableStorageIO, UploadItem
+from ._base import ConfigurableStorageIO, Page, UploadableStorageIO
 from .selectors import InstanceFileSelector, InstanceSelector, InstanceSpaceSelector, InstanceViewSelector
 
 
@@ -59,43 +59,32 @@ class InstanceIO(
         self._remove_existing_version = remove_existing_version
         # Cache for view to read-only properties mapping
         self._view_readonly_properties_cache: dict[ViewId, set[str]] = {}
+        self._view_crud = ViewCRUD.create_loader(self.client)
 
     def as_id(self, item: Instance) -> str:
         return f"{item.space}:{item.external_id}"
 
-    def _filter_readonly_properties(self, item_json: dict[str, JsonVal]) -> None:
+    def _filter_readonly_properties(self, instance: InstanceApply) -> None:
         """
-        Filter out read-only properties from the item JSON based on the selector's view.
+        Filter out read-only properties from the instance.
 
         Args:
-            item_json: The item data as a JSON dictionary
-            selector: The selector containing view information
+            instance: The instance to filter readonly properties from
         """
-        if "sources" not in item_json or not isinstance(item_json["sources"], list):
-            return
-        for source in item_json["sources"]:
-            if (
-                not isinstance(source, dict)
-                or "properties" not in source
-                or not isinstance(source["properties"], dict)
-                or "source" not in source
-                or not isinstance(source["source"], dict)
-            ):
-                continue
+
+        for source in instance.sources:
             readonly_properties = set()
-            if source["source"].get("type") == "view":
-                view_id = ViewId.load(source["source"])
-                if view_id not in self._view_readonly_properties_cache:
-                    self._view_readonly_properties_cache[view_id] = set(
-                        ViewCRUD.create_loader(self.client).get_readonly_properties(view_id).keys()
+            if isinstance(source.source, ViewId):
+                if source.source not in self._view_readonly_properties_cache:
+                    self._view_readonly_properties_cache[source.source] = set(
+                        self._view_crud.get_readonly_properties(source.source).keys()
                     )
-                readonly_properties = self._view_readonly_properties_cache[view_id]
-            elif source["source"].get("type") == "container":
-                container_id = ContainerId.load(source["source"])
-                if container_id in constants.READONLY_CONTAINER_PROPERTIES:
-                    readonly_properties = constants.READONLY_CONTAINER_PROPERTIES[container_id]
-            for readonly_property in readonly_properties:
-                source["properties"].pop(readonly_property, None)
+                readonly_properties = self._view_readonly_properties_cache[source.source]
+            elif isinstance(source.source, ContainerId):
+                if source.source in constants.READONLY_CONTAINER_PROPERTIES:
+                    readonly_properties = constants.READONLY_CONTAINER_PROPERTIES[source.source]
+
+            source.properties = {k: v for k, v in source.properties.items() if k not in readonly_properties}
 
     def stream_data(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[Page]:
         if isinstance(selector, InstanceViewSelector | InstanceSpaceSelector):
@@ -165,27 +154,6 @@ class InstanceIO(
     ) -> list[dict[str, JsonVal]]:
         return [instance.as_write().dump(camel_case=True) for instance in data_chunk]
 
-    def json_chunk_to_data(
-        self, data_chunk: list[tuple[str, dict[str, JsonVal]]]
-    ) -> Sequence[UploadItem[InstanceApply]]:
-        """Convert a JSON-compatible chunk of data back to a writable Cognite resource list.
-
-        This override adds support for filtering read-only properties based on the selector's view.
-
-        Args:
-            data_chunk: A list of tuples, each containing a source ID and a dictionary representing
-                the data in a JSON-compatible format.
-        Returns:
-            A writable Cognite resource list representing the data.
-        """
-        result: list[UploadItem[InstanceApply]] = []
-        for source_id, item_json in data_chunk:
-            # Filter out read-only properties if applicable
-            self._filter_readonly_properties(item_json)
-            item = self.json_to_resource(item_json)
-            result.append(UploadItem(source_id=source_id, item=item))
-        return result
-
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> InstanceApply:
         # There is a bug in the SDK where InstanceApply._load turns all keys to snake_case.
         # So we cannot use InstanceApplyList._load here.
@@ -193,12 +161,16 @@ class InstanceIO(
         item_to_load = dict(item_json)
         if self._remove_existing_version and "existingVersion" in item_to_load:
             del item_to_load["existingVersion"]
+        instance: InstanceApply
         if instance_type == "node":
-            return NodeApply._load(item_to_load, cognite_client=self.client)
+            instance = NodeApply._load(item_to_load, cognite_client=self.client)
         elif instance_type == "edge":
-            return EdgeApply._load(item_to_load, cognite_client=self.client)
+            instance = EdgeApply._load(item_to_load, cognite_client=self.client)
         else:
             raise ValueError(f"Unknown instance type {instance_type!r}")
+        # Filter out read-only properties if applicable
+        self._filter_readonly_properties(instance)
+        return instance
 
     def configurations(self, selector: InstanceSelector) -> Iterable[StorageIOConfig]:
         if not isinstance(selector, InstanceViewSelector | InstanceSpaceSelector):
