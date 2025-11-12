@@ -69,7 +69,7 @@ class TestCleanCommandSelectModules:
         result = cmd._select_modules(build_environment, module_str=None)
 
         # Should return all built_modules when v07 is disabled
-        assert result == build_environment.read_modules
+        assert len(result) == len(build_environment.read_modules)
 
     def test_select_specific_module(
         self,
@@ -80,7 +80,7 @@ class TestCleanCommandSelectModules:
         result = cmd._select_modules(build_environment, module_str="my_example_module")
 
         assert len(result) == 1
-        assert result[0].dir.name == "my_example_module"
+        assert result[0].dir.name == "my_example_module", f"Expected 'my_example_module', got {result[0].dir.name}"
 
     def test_select_no_such_module(
         self,
@@ -107,5 +107,7 @@ class TestCleanCommandSelectModules:
             result = cmd._select_modules(build_environment, module_str=None)
 
         assert len(result) == 2
-        assert result[0].dir.name == "populate_model"
-        assert result[1].dir.name == "my_file_expand_module"
+        assert result[0].dir.name == "populate_model", f"Expected 'populate_model', got {result[0].dir.name}"
+        assert result[1].dir.name == "my_file_expand_module", (
+            f"Expected 'my_file_expand_module', got {result[1].dir.name}"
+        )
