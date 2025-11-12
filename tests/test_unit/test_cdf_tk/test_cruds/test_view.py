@@ -9,10 +9,43 @@ from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, ResourceCRUD, ResourceW
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
-def _create_test_view(external_id: str, properties: dict) -> dm.View:
-    """Helper to create a View with standard test defaults."""
+def _create_test_container(
+    external_id: str,
+    properties: dict[str, dm.ContainerProperty],
+    constraints: dict | None = None,
+    space: str = "my_space",
+) -> dm.Container:
+    """Helper to create a Container with standard test defaults."""
+    return dm.Container(
+        space=space,
+        external_id=external_id,
+        properties=properties,
+        last_updated_time=1,
+        created_time=1,
+        is_global=False,
+        used_for="node",
+        constraints=constraints or {},
+        description=None,
+        name=None,
+        indexes={},
+    )
+
+
+def _create_test_view(external_id: str, container: dm.Container) -> dm.View:
+    """Helper to create a View that maps to all properties of the given Container."""
+    properties = {}
+    for prop_name, container_prop in container.properties.items():
+        properties[prop_name] = dm.MappedProperty(
+            container=container.as_id(),
+            container_property_identifier=prop_name,
+            type=container_prop.type,
+            nullable=container_prop.nullable,
+            immutable=container_prop.immutable,
+            auto_increment=container_prop.auto_increment,
+        )
+
     return dm.View(
-        space="my_space",
+        space=container.space,
         external_id=external_id,
         version="v1",
         properties=properties,
@@ -154,66 +187,19 @@ class TestViewLoader:
         loader = ViewCRUD.create_loader(toolkit_client_approval.mock_client)
 
         # Container A has no dependencies
-        container_a = dm.Container(
-            space="my_space",
-            external_id="ContainerA",
-            properties={
-                "name": dm.ContainerProperty(type=dm.Text(), nullable=True, immutable=False, auto_increment=False)
-            },
-            last_updated_time=1,
-            created_time=1,
-            is_global=False,
-            used_for="node",
-            constraints={},
-            description=None,
-            name=None,
-            indexes={},
+        container_a = _create_test_container(
+            "ContainerA",
+            {"name": dm.ContainerProperty(type=dm.Text(), nullable=True, immutable=False, auto_increment=False)},
         )
 
         # Container B depends on Container A (via DirectRelation or RequiresConstraint)
-        container_b = dm.Container(
-            space="my_space",
-            external_id="ContainerB",
-            properties=container_b_properties,
-            last_updated_time=1,
-            created_time=1,
-            is_global=False,
-            used_for="node",
-            constraints=container_b_constraints,
-            description=None,
-            name=None,
-            indexes={},
-        )
+        container_b = _create_test_container("ContainerB", container_b_properties, container_b_constraints)
 
         # View A maps to Container A
-        view_a = _create_test_view(
-            external_id="ViewA",
-            properties={
-                "name": dm.MappedProperty(
-                    container=dm.ContainerId("my_space", "ContainerA"),
-                    container_property_identifier="name",
-                    type=dm.Text(),
-                    nullable=True,
-                    immutable=False,
-                    auto_increment=False,
-                )
-            },
-        )
+        view_a = _create_test_view("ViewA", container_a)
 
         # View B maps to Container B (which depends on Container A)
-        view_b = _create_test_view(
-            external_id="ViewB",
-            properties={
-                list(container_b_properties.keys())[0]: dm.MappedProperty(
-                    container=dm.ContainerId("my_space", "ContainerB"),
-                    container_property_identifier=list(container_b_properties.keys())[0],
-                    type=dm.DirectRelation() if constraint_type == "DirectRelation" else dm.Text(),
-                    nullable=True,
-                    immutable=False,
-                    auto_increment=False,
-                )
-            },
-        )
+        view_b = _create_test_view("ViewB", container_b)
 
         toolkit_client_approval.append(dm.View, [view_a, view_b])
         toolkit_client_approval.append(dm.Container, [container_a, container_b])
@@ -232,66 +218,18 @@ class TestViewLoader:
         loader = ViewCRUD.create_loader(toolkit_client_approval.mock_client)
 
         # Two independent containers
-        container_a = dm.Container(
-            space="my_space",
-            external_id="ContainerA",
-            properties={
-                "name": dm.ContainerProperty(type=dm.Text(), nullable=True, immutable=False, auto_increment=False)
-            },
-            last_updated_time=1,
-            created_time=1,
-            is_global=False,
-            used_for="node",
-            constraints={},
-            description=None,
-            name=None,
-            indexes={},
+        container_a = _create_test_container(
+            "ContainerA",
+            {"name": dm.ContainerProperty(type=dm.Text(), nullable=True, immutable=False, auto_increment=False)},
         )
-
-        container_b = dm.Container(
-            space="my_space",
-            external_id="ContainerB",
-            properties={
-                "value": dm.ContainerProperty(type=dm.Int32(), nullable=True, immutable=False, auto_increment=False)
-            },
-            last_updated_time=1,
-            created_time=1,
-            is_global=False,
-            used_for="node",
-            constraints={},
-            description=None,
-            name=None,
-            indexes={},
+        container_b = _create_test_container(
+            "ContainerB",
+            {"value": dm.ContainerProperty(type=dm.Int32(), nullable=True, immutable=False, auto_increment=False)},
         )
 
         # Two independent views
-        view_a = _create_test_view(
-            external_id="ViewA",
-            properties={
-                "name": dm.MappedProperty(
-                    container=dm.ContainerId("my_space", "ContainerA"),
-                    container_property_identifier="name",
-                    type=dm.Text(),
-                    nullable=True,
-                    immutable=False,
-                    auto_increment=False,
-                )
-            },
-        )
-
-        view_b = _create_test_view(
-            external_id="ViewB",
-            properties={
-                "value": dm.MappedProperty(
-                    container=dm.ContainerId("my_space", "ContainerB"),
-                    container_property_identifier="value",
-                    type=dm.Int32(),
-                    nullable=True,
-                    immutable=False,
-                    auto_increment=False,
-                )
-            },
-        )
+        view_a = _create_test_view("ViewA", container_a)
+        view_b = _create_test_view("ViewB", container_b)
 
         toolkit_client_approval.append(dm.View, [view_a, view_b])
         toolkit_client_approval.append(dm.Container, [container_a, container_b])
@@ -310,27 +248,15 @@ class TestViewLoader:
         loader = ViewCRUD.create_loader(toolkit_client_approval.mock_client)
 
         # Container A: No dependencies (root)
-        container_a = dm.Container(
-            space="my_space",
-            external_id="ContainerA",
-            properties={
-                "name": dm.ContainerProperty(type=dm.Text(), nullable=True, immutable=False, auto_increment=False)
-            },
-            last_updated_time=1,
-            created_time=1,
-            is_global=False,
-            used_for="node",
-            constraints={},
-            description=None,
-            name=None,
-            indexes={},
+        container_a = _create_test_container(
+            "ContainerA",
+            {"name": dm.ContainerProperty(type=dm.Text(), nullable=True, immutable=False, auto_increment=False)},
         )
 
         # Container B: Depends on A via DirectRelation
-        container_b = dm.Container(
-            space="my_space",
-            external_id="ContainerB",
-            properties={
+        container_b = _create_test_container(
+            "ContainerB",
+            {
                 "parentA": dm.ContainerProperty(
                     type=dm.DirectRelation(container=dm.ContainerId("my_space", "ContainerA")),
                     nullable=True,
@@ -338,75 +264,19 @@ class TestViewLoader:
                     auto_increment=False,
                 )
             },
-            last_updated_time=1,
-            created_time=1,
-            is_global=False,
-            used_for="node",
-            constraints={},
-            description=None,
-            name=None,
-            indexes={},
         )
 
         # Container C: Depends on B via RequiresConstraint
-        container_c = dm.Container(
-            space="my_space",
-            external_id="ContainerC",
-            properties={
-                "value": dm.ContainerProperty(type=dm.Int32(), nullable=True, immutable=False, auto_increment=False)
-            },
-            last_updated_time=1,
-            created_time=1,
-            is_global=False,
-            used_for="node",
-            constraints={"requiresB": dm.RequiresConstraint(require=dm.ContainerId("my_space", "ContainerB"))},
-            description=None,
-            name=None,
-            indexes={},
+        container_c = _create_test_container(
+            "ContainerC",
+            {"value": dm.ContainerProperty(type=dm.Int32(), nullable=True, immutable=False, auto_increment=False)},
+            {"requiresB": dm.RequiresConstraint(require=dm.ContainerId("my_space", "ContainerB"))},
         )
 
         # Create views
-        view_a = _create_test_view(
-            external_id="ViewA",
-            properties={
-                "name": dm.MappedProperty(
-                    container=dm.ContainerId("my_space", "ContainerA"),
-                    container_property_identifier="name",
-                    type=dm.Text(),
-                    nullable=True,
-                    immutable=False,
-                    auto_increment=False,
-                )
-            },
-        )
-
-        view_b = _create_test_view(
-            external_id="ViewB",
-            properties={
-                "parentA": dm.MappedProperty(
-                    container=dm.ContainerId("my_space", "ContainerB"),
-                    container_property_identifier="parentA",
-                    type=dm.DirectRelation(),
-                    nullable=True,
-                    immutable=False,
-                    auto_increment=False,
-                )
-            },
-        )
-
-        view_c = _create_test_view(
-            external_id="ViewC",
-            properties={
-                "value": dm.MappedProperty(
-                    container=dm.ContainerId("my_space", "ContainerC"),
-                    container_property_identifier="value",
-                    type=dm.Int32(),
-                    nullable=True,
-                    immutable=False,
-                    auto_increment=False,
-                )
-            },
-        )
+        view_a = _create_test_view("ViewA", container_a)
+        view_b = _create_test_view("ViewB", container_b)
+        view_c = _create_test_view("ViewC", container_c)
 
         toolkit_client_approval.append(dm.View, [view_a, view_b, view_c])
         toolkit_client_approval.append(dm.Container, [container_a, container_b, container_c])
@@ -426,27 +296,15 @@ class TestViewLoader:
         loader = ViewCRUD.create_loader(toolkit_client_approval.mock_client)
 
         # Container A: Root
-        container_a = dm.Container(
-            space="my_space",
-            external_id="ContainerA",
-            properties={
-                "name": dm.ContainerProperty(type=dm.Text(), nullable=True, immutable=False, auto_increment=False)
-            },
-            last_updated_time=1,
-            created_time=1,
-            is_global=False,
-            used_for="node",
-            constraints={},
-            description=None,
-            name=None,
-            indexes={},
+        container_a = _create_test_container(
+            "ContainerA",
+            {"name": dm.ContainerProperty(type=dm.Text(), nullable=True, immutable=False, auto_increment=False)},
         )
 
         # Container B: Depends on A
-        container_b = dm.Container(
-            space="my_space",
-            external_id="ContainerB",
-            properties={
+        container_b = _create_test_container(
+            "ContainerB",
+            {
                 "parentA": dm.ContainerProperty(
                     type=dm.DirectRelation(container=dm.ContainerId("my_space", "ContainerA")),
                     nullable=True,
@@ -454,38 +312,19 @@ class TestViewLoader:
                     auto_increment=False,
                 )
             },
-            last_updated_time=1,
-            created_time=1,
-            is_global=False,
-            used_for="node",
-            constraints={},
-            description=None,
-            name=None,
-            indexes={},
         )
 
         # Container C: Also depends on A
-        container_c = dm.Container(
-            space="my_space",
-            external_id="ContainerC",
-            properties={
-                "value": dm.ContainerProperty(type=dm.Int32(), nullable=True, immutable=False, auto_increment=False)
-            },
-            last_updated_time=1,
-            created_time=1,
-            is_global=False,
-            used_for="node",
-            constraints={"requiresA": dm.RequiresConstraint(require=dm.ContainerId("my_space", "ContainerA"))},
-            description=None,
-            name=None,
-            indexes={},
+        container_c = _create_test_container(
+            "ContainerC",
+            {"value": dm.ContainerProperty(type=dm.Int32(), nullable=True, immutable=False, auto_increment=False)},
+            {"requiresA": dm.RequiresConstraint(require=dm.ContainerId("my_space", "ContainerA"))},
         )
 
         # Container D: Depends on both B and C
-        container_d = dm.Container(
-            space="my_space",
-            external_id="ContainerD",
-            properties={
+        container_d = _create_test_container(
+            "ContainerD",
+            {
                 "refB": dm.ContainerProperty(
                     type=dm.DirectRelation(container=dm.ContainerId("my_space", "ContainerB")),
                     nullable=True,
@@ -493,72 +332,14 @@ class TestViewLoader:
                     auto_increment=False,
                 )
             },
-            last_updated_time=1,
-            created_time=1,
-            is_global=False,
-            used_for="node",
-            constraints={"requiresC": dm.RequiresConstraint(require=dm.ContainerId("my_space", "ContainerC"))},
-            description=None,
-            name=None,
-            indexes={},
+            {"requiresC": dm.RequiresConstraint(require=dm.ContainerId("my_space", "ContainerC"))},
         )
 
         # Create views
-        view_a = _create_test_view(
-            external_id="ViewA",
-            properties={
-                "name": dm.MappedProperty(
-                    container=dm.ContainerId("my_space", "ContainerA"),
-                    container_property_identifier="name",
-                    type=dm.Text(),
-                    nullable=True,
-                    immutable=False,
-                    auto_increment=False,
-                )
-            },
-        )
-
-        view_b = _create_test_view(
-            external_id="ViewB",
-            properties={
-                "parentA": dm.MappedProperty(
-                    container=dm.ContainerId("my_space", "ContainerB"),
-                    container_property_identifier="parentA",
-                    type=dm.DirectRelation(),
-                    nullable=True,
-                    immutable=False,
-                    auto_increment=False,
-                )
-            },
-        )
-
-        view_c = _create_test_view(
-            external_id="ViewC",
-            properties={
-                "value": dm.MappedProperty(
-                    container=dm.ContainerId("my_space", "ContainerC"),
-                    container_property_identifier="value",
-                    type=dm.Int32(),
-                    nullable=True,
-                    immutable=False,
-                    auto_increment=False,
-                )
-            },
-        )
-
-        view_d = _create_test_view(
-            external_id="ViewD",
-            properties={
-                "refB": dm.MappedProperty(
-                    container=dm.ContainerId("my_space", "ContainerD"),
-                    container_property_identifier="refB",
-                    type=dm.DirectRelation(),
-                    nullable=True,
-                    immutable=False,
-                    auto_increment=False,
-                )
-            },
-        )
+        view_a = _create_test_view("ViewA", container_a)
+        view_b = _create_test_view("ViewB", container_b)
+        view_c = _create_test_view("ViewC", container_c)
+        view_d = _create_test_view("ViewD", container_d)
 
         toolkit_client_approval.append(dm.View, [view_a, view_b, view_c, view_d])
         toolkit_client_approval.append(dm.Container, [container_a, container_b, container_c, container_d])
@@ -583,26 +364,13 @@ class TestViewLoader:
         loader = ViewCRUD.create_loader(toolkit_client_approval.mock_client)
 
         # First chain: A -> B
-        container_a = dm.Container(
-            space="my_space",
-            external_id="ContainerA",
-            properties={
-                "name": dm.ContainerProperty(type=dm.Text(), nullable=True, immutable=False, auto_increment=False)
-            },
-            last_updated_time=1,
-            created_time=1,
-            is_global=False,
-            used_for="node",
-            constraints={},
-            description=None,
-            name=None,
-            indexes={},
+        container_a = _create_test_container(
+            "ContainerA",
+            {"name": dm.ContainerProperty(type=dm.Text(), nullable=True, immutable=False, auto_increment=False)},
         )
-
-        container_b = dm.Container(
-            space="my_space",
-            external_id="ContainerB",
-            properties={
+        container_b = _create_test_container(
+            "ContainerB",
+            {
                 "parentA": dm.ContainerProperty(
                     type=dm.DirectRelation(container=dm.ContainerId("my_space", "ContainerA")),
                     nullable=True,
@@ -610,37 +378,16 @@ class TestViewLoader:
                     auto_increment=False,
                 )
             },
-            last_updated_time=1,
-            created_time=1,
-            is_global=False,
-            used_for="node",
-            constraints={},
-            description=None,
-            name=None,
-            indexes={},
         )
 
         # Second chain: C -> D
-        container_c = dm.Container(
-            space="my_space",
-            external_id="ContainerC",
-            properties={
-                "value": dm.ContainerProperty(type=dm.Int32(), nullable=True, immutable=False, auto_increment=False)
-            },
-            last_updated_time=1,
-            created_time=1,
-            is_global=False,
-            used_for="node",
-            constraints={},
-            description=None,
-            name=None,
-            indexes={},
+        container_c = _create_test_container(
+            "ContainerC",
+            {"value": dm.ContainerProperty(type=dm.Int32(), nullable=True, immutable=False, auto_increment=False)},
         )
-
-        container_d = dm.Container(
-            space="my_space",
-            external_id="ContainerD",
-            properties={
+        container_d = _create_test_container(
+            "ContainerD",
+            {
                 "parentC": dm.ContainerProperty(
                     type=dm.DirectRelation(container=dm.ContainerId("my_space", "ContainerC")),
                     nullable=True,
@@ -648,72 +395,13 @@ class TestViewLoader:
                     auto_increment=False,
                 )
             },
-            last_updated_time=1,
-            created_time=1,
-            is_global=False,
-            used_for="node",
-            constraints={},
-            description=None,
-            name=None,
-            indexes={},
         )
 
         # Create views
-        view_a = _create_test_view(
-            external_id="ViewA",
-            properties={
-                "name": dm.MappedProperty(
-                    container=dm.ContainerId("my_space", "ContainerA"),
-                    container_property_identifier="name",
-                    type=dm.Text(),
-                    nullable=True,
-                    immutable=False,
-                    auto_increment=False,
-                )
-            },
-        )
-
-        view_b = _create_test_view(
-            external_id="ViewB",
-            properties={
-                "parentA": dm.MappedProperty(
-                    container=dm.ContainerId("my_space", "ContainerB"),
-                    container_property_identifier="parentA",
-                    type=dm.DirectRelation(),
-                    nullable=True,
-                    immutable=False,
-                    auto_increment=False,
-                )
-            },
-        )
-
-        view_c = _create_test_view(
-            external_id="ViewC",
-            properties={
-                "value": dm.MappedProperty(
-                    container=dm.ContainerId("my_space", "ContainerC"),
-                    container_property_identifier="value",
-                    type=dm.Int32(),
-                    nullable=True,
-                    immutable=False,
-                    auto_increment=False,
-                )
-            },
-        )
-
-        view_d = _create_test_view(
-            external_id="ViewD",
-            properties={
-                "parentC": dm.MappedProperty(
-                    container=dm.ContainerId("my_space", "ContainerD"),
-                    container_property_identifier="parentC",
-                    type=dm.DirectRelation(),
-                    nullable=True,
-                    immutable=False,
-                    auto_increment=False,
-                )
-            },
-        )
+        view_a = _create_test_view("ViewA", container_a)
+        view_b = _create_test_view("ViewB", container_b)
+        view_c = _create_test_view("ViewC", container_c)
+        view_d = _create_test_view("ViewD", container_d)
 
         toolkit_client_approval.append(dm.View, [view_a, view_b, view_c, view_d])
         toolkit_client_approval.append(dm.Container, [container_a, container_b, container_c, container_d])
