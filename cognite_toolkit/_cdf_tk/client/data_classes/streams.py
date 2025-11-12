@@ -21,6 +21,9 @@ class StreamRequest(RequestResource):
     external_id: str
     settings: dict[Literal["template"], dict[Literal["name"], StreamTemplateName]]
 
+    def as_id(self) -> str:
+        return self.external_id
+
 
 class StreamRequestList(UserList[StreamRequest], ResourceRequestListProtocol):
     """List of Stream request resources."""
