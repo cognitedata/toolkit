@@ -11,7 +11,7 @@ import responses
 from cognite.client import global_config
 from cognite.client.credentials import Token
 from cognite.client.data_classes import CreatedSession
-from cognite.client.data_classes.data_modeling import NodeList, ViewId
+from cognite.client.data_classes.data_modeling import DataModel, NodeList, View, ViewId
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
@@ -22,7 +22,7 @@ from cognite_toolkit._cdf_tk.commands import ModulesCommand, RepoCommand
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.constants import REPO_ROOT
-from tests.data import BUILDABLE_PACKAGE, COMPLETE_ORG
+from tests.data import BUILDABLE_PACKAGE, COMPLETE_ORG, CORE_NO_3D_YAML
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import PrintCapture
 
@@ -331,3 +331,11 @@ def asset_centric_canvas() -> tuple[IndustrialCanvas, NodeList[InstanceSource]]:
         ]
     )
     return canvas, mapping
+
+
+@pytest.fixture(scope="session")
+def cognite_core_no_3D() -> DataModel[View]:
+    """This is a simplified CogniteCore data model without the 3D views.
+    In addition, CogniteAsset does not implement Visualizable (which is also removed).
+    """
+    return DataModel.load(CORE_NO_3D_YAML.read_text(encoding="utf-8"))
