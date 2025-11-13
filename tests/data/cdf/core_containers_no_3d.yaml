@@ -186,7 +186,12 @@
         space: cdf_cdm
         externalId: CogniteDescribable
         type: container
-      state: current
+      constraintType: requires
+    sourceablePresent:
+      require:
+        space: cdf_cdm
+        externalId: CogniteSourceable
+        type: container
       constraintType: requires
   indexes:
     parent:
