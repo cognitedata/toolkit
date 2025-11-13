@@ -673,14 +673,33 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View, ViewApplyList, ViewList]):
                 self._view_by_id[view.as_id()] = view
         return {view_id: self._view_by_id[view_id] for view_id in view_ids if view_id in self._view_by_id}
 
+    def _build_view_implements_dependencies(
+        self, view_by_ids: dict[ViewId, View], filter_view_ids: set[ViewId] | None = None
+    ) -> dict[ViewId, set[ViewId]]:
+        """Build a dependency graph based on view implements relationships.
+
+        Args:
+            view_by_ids: Mapping of view IDs to View objects
+            filter_view_ids: Optional set of view IDs to filter dependencies to (only include if in this set)
+
+        Returns:
+            Dictionary mapping each view ID to the set of view IDs it depends on (implements)
+        """
+        dependencies: dict[ViewId, set[ViewId]] = {}
+        for view_id, view in view_by_ids.items():
+            dependencies[view_id] = set()
+            if view.implements:
+                for implemented_view_id in view.implements:
+                    # Only add dependency if no filter, or if the implemented view is in the filter set
+                    if filter_view_ids is None or implemented_view_id in filter_view_ids:
+                        dependencies[view_id].add(implemented_view_id)
+        return dependencies
+
     def topological_sort_implements(self, view_ids: list[ViewId]) -> list[ViewId]:
         """Sorts the views in topological order based on their implements and through properties."""
         view_by_ids = self._lookup_views(view_ids)
-        parents_by_child: dict[ViewId, set[ViewId]] = {}
-        for child, view in view_by_ids.items():
-            parents_by_child[child] = set()
-            for parent in view.implements or []:
-                parents_by_child[child].add(parent)
+        parents_by_child = self._build_view_implements_dependencies(view_by_ids)
+
         try:
             sorted_views = list(TopologicalSorter(parents_by_child).static_order())
         except CycleError as e:
@@ -746,15 +765,25 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View, ViewApplyList, ViewList]):
                     *dependent_chain_by_container_id[current_container_id],
                 }
 
-        view_dependencies: dict[ViewId, set[ViewId]] = {}
+        # First, add dependencies based on view implements relationships
+        view_dependencies = self._build_view_implements_dependencies(view_by_ids, set(view_to_containers.keys()))
+
+        # Then, add dependencies based on container constraints
         for view_id, mapped_containers in view_to_containers.items():
-            view_dependencies[view_id] = set()
             for container_id in mapped_containers:
+                # Get all containers this container depends on
+                if container_id not in container_dependencies:
+                    continue
                 for required_container in container_dependencies[container_id]:
-                    # If the required container is already in the mapped containers for the view
-                    # we skip it, since we assume the view will populate the required container.
+                    if required_container not in container_to_views:
+                        continue
+
+                    # If this view already implements the required container, the requirement is self-satisfied
+                    # and we don't need to depend on other views that also implement it (they are peers).
                     if required_container in mapped_containers:
                         continue
+
+                    # This view doesn't implement the required container, so depend on all views that do
                     view_dependencies[view_id].update(container_to_views[required_container])
 
         try:
