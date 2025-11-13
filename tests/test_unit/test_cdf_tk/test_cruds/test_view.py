@@ -101,80 +101,35 @@ class TestViewLoader:
         assert list(actual) == expected
 
     @pytest.mark.parametrize(
-        "view_properties,expected_readonly",
+        "view_id,expected_readonly_props",
         [
             pytest.param(
-                {
-                    "name": ("name", "CogniteAsset"),
-                    "path": ("assetHierarchy_path", "CogniteAsset"),
-                    "root": ("assetHierarchy_root", "CogniteAsset"),
-                },
-                {"path", "root"},
-                id="CogniteAsset readonly properties",
+                dm.ViewId("cdf_cdm", "CogniteAsset", "v1"),
+                {"assetHierarchy_path_last_updated_time", "assetHierarchy_path", "assetHierarchy_root"},
+                id="CogniteAsset_has_readonly_properties",
             ),
             pytest.param(
-                {
-                    "name": ("name", "CogniteFile"),
-                    "isUploaded": ("isUploaded", "CogniteFile"),
-                    "mimeType": ("mimeType", "CogniteFile"),
-                },
-                {"isUploaded"},
-                id="CogniteFile readonly properties",
+                dm.ViewId("cdf_cdm", "CogniteFile", "v1"),
+                {"isUploaded", "uploadedTime"},
+                id="CogniteFile_has_readonly_properties",
             ),
             pytest.param(
-                {"customProp": ("prop", "CustomContainer")},
+                dm.ViewId("cdf_cdm", "CogniteSourceSystem", "v1"),
                 set(),
-                id="Custom container no readonly",
-            ),
-            pytest.param(
-                {
-                    "assetName": ("name", "CogniteAsset"),
-                    "assetPath": ("assetHierarchy_path", "CogniteAsset"),
-                    "customProp": ("custom", "CustomContainer"),
-                },
-                {"assetPath"},
-                id="View with custom property identifiers in View filters readonly",
+                id="CogniteSourceSystem_no_readonly_properties",
             ),
         ],
     )
     def test_get_readonly_properties(
         self,
         toolkit_client_approval: ApprovalToolkitClient,
-        view_properties: dict[str, tuple[str, str]],
-        expected_readonly: set[str],
+        cdf_cdm_views: dm.ViewList,
+        view_id: dm.ViewId,
+        expected_readonly_props: set[str],
     ) -> None:
         """Test that get_readonly_properties identifies readonly properties from containers."""
         loader = ViewCRUD.create_loader(toolkit_client_approval.mock_client)
-        view_id = dm.ViewId(space="test_space", external_id="TestView", version="v1")
-
-        properties = {
-            view_prop: dm.MappedProperty(
-                container=dm.ContainerId(space="cdf_cdm", external_id=container),
-                container_property_identifier=container_prop,
-                type=dm.Text(),
-                nullable=True,
-                immutable=False,
-                auto_increment=False,
-            )
-            for view_prop, (container_prop, container) in view_properties.items()
-        }
-
-        view = dm.View(
-            space="test_space",
-            external_id="TestView",
-            version="v1",
-            last_updated_time=1,
-            created_time=1,
-            description=None,
-            name=None,
-            filter=None,
-            implements=None,
-            writable=True,
-            used_for="node",
-            is_global=False,
-            properties=properties,
-        )
-        toolkit_client_approval.append(dm.View, [view])
+        toolkit_client_approval.append(dm.View, cdf_cdm_views)
 
         readonly_props = loader.get_readonly_properties(view_id)
-        assert set(readonly_props.keys()) == expected_readonly
+        assert set(readonly_props.keys()) == expected_readonly_props

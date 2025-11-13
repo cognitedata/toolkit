@@ -5,7 +5,8 @@ import httpx
 import pytest
 import responses
 import respx
-from cognite.client.data_classes.data_modeling import EdgeApply, Node, NodeApply
+from cognite.client.data_classes import View
+from cognite.client.data_classes.data_modeling import DataModel, EdgeApply, Node, NodeApply
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList, InstanceList
@@ -13,6 +14,7 @@ from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
 from cognite_toolkit._cdf_tk.storageio import InstanceIO
 from cognite_toolkit._cdf_tk.storageio.selectors import InstanceSpaceSelector, InstanceViewSelector, SelectedView
 from cognite_toolkit._cdf_tk.utils.http_client import FailedResponseItems, HTTPClient, SuccessResponseItems
+from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
 class TestInstanceIO:
@@ -325,14 +327,42 @@ class TestInstanceIO:
                 {"name": "File", "mimeType": "pdf"},
                 id="CogniteFile container filters readonly props",
             ),
+            pytest.param(
+                {
+                    "space": "my_space",
+                    "externalId": "asset_node",
+                    "instanceType": "node",
+                    "sources": [
+                        {
+                            "source": {
+                                "type": "view",
+                                "space": "cdf_cdm",
+                                "externalId": "CogniteAsset",
+                                "version": "v1",
+                            },
+                            "properties": {
+                                "name": "Asset",
+                                "path": ["root", "child"],
+                                "pathLastUpdatedTime": 123456789,
+                            },
+                        }
+                    ],
+                },
+                {"name": "Asset"},
+                id="CogniteAsset view filters readonly props",
+            ),
         ],
     )
     def test_json_to_resource_filters_readonly_properties(
-        self, toolkit_config: ToolkitClientConfig, item_json: dict, expected_properties: dict
+        self,
+        toolkit_client_approval: ApprovalToolkitClient,
+        item_json: dict,
+        expected_properties: dict,
+        cognite_core_no_3D: DataModel,
     ) -> None:
         """Test that json_to_resource filters out read-only properties from containers."""
-        client = ToolkitClient(config=toolkit_config)
-        instance_io = InstanceIO(client)
+        toolkit_client_approval.append(View, cognite_core_no_3D.views)
+        instance_io = InstanceIO(toolkit_client_approval.mock_client)
         instance = instance_io.json_to_resource(item_json)
 
         assert dict(instance.sources[0].properties) == expected_properties
