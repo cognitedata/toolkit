@@ -1,9 +1,9 @@
 from collections.abc import Sequence
-from typing import Any, cast
 
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk.client.data_classes.streams import StreamRequest, StreamResponse, StreamResponseList
+from cognite_toolkit._cdf_tk.client.data_classes.api_classes import PagedResponse
+from cognite_toolkit._cdf_tk.client.data_classes.streams import StreamRequest, StreamResponse
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ItemsRequest, ParamRequest
 
 
@@ -32,8 +32,7 @@ class StreamsAPI:
             )
         )
         responses.raise_for_status()
-        stream_data = cast(list[dict[str, Any]], responses.get_first_body().get("items", []))
-        return StreamResponseList.load(stream_data).data
+        return PagedResponse[StreamResponse].model_validate(responses.get_first_body()).items
 
     def delete(self, external_id: str) -> None:
         """Delete stream using its external ID.
@@ -62,9 +61,7 @@ class StreamsAPI:
             )
         )
         responses.raise_for_status()
-        response_body = responses.get_first_body()
-        stream_data = cast(list[dict[str, Any]], response_body.get("items", []))
-        return StreamResponseList.load(stream_data).data
+        return PagedResponse[StreamResponse].model_validate(responses.get_first_body()).items
 
     def retrieve(self, external_id: str, include_statistics: bool = True) -> StreamResponse:
         """Retrieve a stream by its external ID.
