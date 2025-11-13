@@ -92,15 +92,14 @@ class UploadCommand(ToolkitCommand):
 
         self._deploy_resource_folder(input_dir / DATA_RESOURCE_DIR, deploy_resources, client, console, dry_run, verbose)
 
-        data_files_by_selector = self._prepare(data_files_by_selector, client)
+        data_files_by_selector = self._topological_sort_if_instance_selector(data_files_by_selector, client)
 
         self._upload_data(data_files_by_selector, client, dry_run, input_dir, console, verbose)
 
-    def _prepare(
+    def _topological_sort_if_instance_selector(
         self, data_files_by_selector: dict[Selector, list[Path]], client: ToolkitClient
     ) -> dict[Selector, list[Path]]:
-        """Prepares the data files by selector for upload according to the type of selector.
-        Currently only used for InstanceSpaceSelector to determine the order of upload based on container dependencies.
+        """Topologically sorts InstanceSpaceSelectors (if they are present) to determine the order of upload based on container dependencies from the views.
 
         Args:
             data_files_by_selector: A dictionary mapping selectors to their data files.

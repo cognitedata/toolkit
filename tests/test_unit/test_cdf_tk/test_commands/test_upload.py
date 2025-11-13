@@ -151,149 +151,44 @@ class TestUploadCommand:
             client.raw.databases.create.assert_not_called()
             client.raw.tables.create.assert_not_called()
 
-    def test_prepare_sorts_instance_selectors_by_dependencies(
-        self, toolkit_client_approval: ApprovalToolkitClient
+    def test_instance_selector_topological_sorts_and_preserves_selectors(
+        self,
+        toolkit_client_approval: ApprovalToolkitClient,
+        cognite_core_no_3D: dm.DataModel,
+        cognite_core_containers_no_3D: dm.ContainerList,
     ) -> None:
-        """Test that _prepare sorts instance selectors based on container dependencies."""
+        """Test that _topological_sort_if_instance_selector sorts instance selectors by dependencies and preserves non-instance selectors."""
         cmd = UploadCommand(silent=True, skip_tracking=True)
+        toolkit_client_approval.append(dm.View, cognite_core_no_3D.views)
+        toolkit_client_approval.append(dm.Container, cognite_core_containers_no_3D)
 
-        # Create containers with dependencies
-        container_a = dm.Container(
-            space="my_space",
-            external_id="ContainerA",
-            properties={
-                "name": dm.ContainerProperty(type=dm.Text(), nullable=True, immutable=False, auto_increment=False)
-            },
-            last_updated_time=1,
-            created_time=1,
-            is_global=False,
-            used_for="node",
-            constraints={},
-            description=None,
-            name=None,
-            indexes={},
-        )
+        data_files_by_selector: dict[Selector, list[Path]] = {}
+        selector_by_view_external_id: dict[str, Selector] = {}
 
-        container_b = dm.Container(
-            space="my_space",
-            external_id="ContainerB",
-            properties={
-                "parent": dm.ContainerProperty(
-                    type=dm.DirectRelation(container=dm.ContainerId("my_space", "ContainerA")),
-                    nullable=True,
-                    immutable=False,
-                    auto_increment=False,
-                )
-            },
-            last_updated_time=1,
-            created_time=1,
-            is_global=False,
-            used_for="node",
-            constraints={},
-            description=None,
-            name=None,
-            indexes={},
-        )
+        # Create instance selectors in reverse dependency order
+        for view_external_id in ["CogniteAsset", "CogniteSourceSystem"]:
+            selector = InstanceSpaceSelector(
+                instance_space="cdf_cdm",
+                view=SelectedView(space="cdf_cdm", external_id=view_external_id, version="v1"),
+                type="instanceSpace",
+            )
+            data_files_by_selector[selector] = [Path(f"dummy_{view_external_id}.json")]  # type: ignore[reportUnhashable]
+            selector_by_view_external_id[view_external_id] = selector
 
-        # Create views
-        view_a = dm.View(
-            space="my_space",
-            external_id="ViewA",
-            version="v1",
-            properties={
-                "name": dm.MappedProperty(
-                    container=dm.ContainerId("my_space", "ContainerA"),
-                    container_property_identifier="name",
-                    type=dm.Text(),
-                    nullable=True,
-                    immutable=False,
-                    auto_increment=False,
-                )
-            },
-            last_updated_time=1,
-            created_time=1,
-            is_global=False,
-            used_for="node",
-            writable=True,
-            description=None,
-            name=None,
-            filter=None,
-            implements=None,
-        )
-
-        view_b = dm.View(
-            space="my_space",
-            external_id="ViewB",
-            version="v1",
-            properties={
-                "parent": dm.MappedProperty(
-                    container=dm.ContainerId("my_space", "ContainerB"),
-                    container_property_identifier="parent",
-                    type=dm.DirectRelation(),
-                    nullable=True,
-                    immutable=False,
-                    auto_increment=False,
-                )
-            },
-            last_updated_time=1,
-            created_time=1,
-            is_global=False,
-            used_for="node",
-            writable=True,
-            description=None,
-            name=None,
-            filter=None,
-            implements=None,
-        )
-
-        toolkit_client_approval.append(dm.View, [view_a, view_b])
-        toolkit_client_approval.append(dm.Container, [container_a, container_b])
-
-        # Create selectors in reverse dependency order
-        selector_b = InstanceSpaceSelector(
-            instance_space="my_space",
-            view=SelectedView(space="my_space", external_id="ViewB", version="v1"),
-            type="instanceSpace",
-        )
-        selector_a = InstanceSpaceSelector(
-            instance_space="my_space",
-            view=SelectedView(space="my_space", external_id="ViewA", version="v1"),
-            type="instanceSpace",
-        )
-
-        data_files_by_selector: dict[Selector, list[Path]] = {
-            selector_b: [Path("dummy_b.json")],  # type: ignore[reportUnhashable]
-            selector_a: [Path("dummy_a.json")],  # type: ignore[reportUnhashable]
-        }
-
-        result = cmd._prepare(data_files_by_selector, toolkit_client_approval.mock_client)
-
-        # Should be reordered with ViewA before ViewB
-        result_keys = list(result.keys())
-        assert result_keys.index(selector_a) < result_keys.index(selector_b)
-
-    def test_prepare_preserves_non_instance_selectors(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
-        """Test that _prepare preserves selectors that are not InstanceSpaceSelectors."""
-        cmd = UploadCommand(silent=True, skip_tracking=True)
-
-        # Create a mix of instance and raw selectors
+        # Add a non-instance selector
         raw_selector = RawTableSelector(
             table=SelectedTable(db_name="test_db", table_name="test_table"), type="rawTable"
         )
-        instance_selector = InstanceSpaceSelector(
-            instance_space="my_space",
-            view=None,
-            type="instanceSpace",
-        )
+        data_files_by_selector[raw_selector] = [Path("raw_data.json")]  # type: ignore[reportUnhashable]
 
-        data_files_by_selector: dict[Selector, list[Path]] = {
-            raw_selector: [Path("raw_data.json")],  # type: ignore[reportUnhashable]
-            instance_selector: [Path("instance_data.json")],  # type: ignore[reportUnhashable]
-        }
+        result = cmd._topological_sort_if_instance_selector(data_files_by_selector, toolkit_client_approval.mock_client)
 
-        result = cmd._prepare(data_files_by_selector, toolkit_client_approval.mock_client)
+        # Verify instance selectors are sorted by dependencies
+        result_keys = list(result.keys())
+        assert result_keys.index(selector_by_view_external_id["CogniteSourceSystem"]) < result_keys.index(
+            selector_by_view_external_id["CogniteAsset"]
+        ), f"CogniteSourceSystem should come before CogniteAsset due to dependencies, but got order {result_keys}"
 
-        # Both selectors should be preserved
-        assert raw_selector in result
-        assert instance_selector in result
-        assert len(result) == 2
+        # Verify non-instance selectors are preserved
+        assert raw_selector in result, f"Raw selector should be preserved, not found in {result_keys}"
+        assert len(result) == 3, f"Expected 3 selectors, got {len(result)}: {result_keys}"

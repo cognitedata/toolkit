@@ -153,242 +153,101 @@ class TestViewLoader:
         assert list(actual) == expected
 
     @pytest.mark.parametrize(
-        "constraint_type,container_b_properties,container_b_constraints",
+        "view_ids,ordering_constraints,test_description",
         [
             pytest.param(
-                "DirectRelation",
-                {
-                    "parent": dm.ContainerProperty(
-                        type=dm.DirectRelation(container=dm.ContainerId("my_space", "ContainerA")),
-                        nullable=True,
-                        immutable=False,
-                        auto_increment=False,
-                    )
-                },
-                {},
-                id="direct_relation",
+                [
+                    dm.ViewId("cdf_cdm", "CogniteAsset", "v1"),
+                    dm.ViewId("cdf_cdm", "CogniteSourceable", "v1"),
+                    dm.ViewId("cdf_cdm", "CogniteSourceSystem", "v1"),
+                ],
+                [
+                    (
+                        dm.ViewId("cdf_cdm", "CogniteSourceSystem", "v1"),
+                        dm.ViewId("cdf_cdm", "CogniteSourceable", "v1"),
+                    ),
+                    (dm.ViewId("cdf_cdm", "CogniteSourceable", "v1"), dm.ViewId("cdf_cdm", "CogniteAsset", "v1")),
+                ],
+                "Transitive chain: CogniteSourceSystem -> CogniteSourceable -> CogniteAsset",
+                id="transitive_chain",
             ),
             pytest.param(
-                "RequiresConstraint",
-                {"name": dm.ContainerProperty(type=dm.Text(), nullable=True, immutable=False, auto_increment=False)},
-                {"requiresA": dm.RequiresConstraint(require=dm.ContainerId("my_space", "ContainerA"))},
-                id="requires_constraint",
+                [
+                    dm.ViewId("cdf_cdm", "CogniteActivity", "v1"),
+                    dm.ViewId("cdf_cdm", "CogniteSourceable", "v1"),
+                    dm.ViewId("cdf_cdm", "CogniteSchedulable", "v1"),
+                    dm.ViewId("cdf_cdm", "CogniteSourceSystem", "v1"),
+                ],
+                [
+                    (
+                        dm.ViewId("cdf_cdm", "CogniteSourceSystem", "v1"),
+                        dm.ViewId("cdf_cdm", "CogniteSourceable", "v1"),
+                    ),
+                    (dm.ViewId("cdf_cdm", "CogniteSchedulable", "v1"), dm.ViewId("cdf_cdm", "CogniteActivity", "v1")),
+                ],
+                "Multiple independent chains: (CogniteSourceSystem -> CogniteSourceable) and (CogniteSchedulable -> CogniteActivity)",
+                id="multiple_independent_chains",
+            ),
+            pytest.param(
+                [
+                    dm.ViewId("cdf_cdm", "CogniteAsset", "v1"),
+                    dm.ViewId("cdf_cdm", "CogniteAssetClass", "v1"),
+                    dm.ViewId("cdf_cdm", "CogniteAssetType", "v1"),
+                    dm.ViewId("cdf_cdm", "CogniteDescribable", "v1"),
+                ],
+                [
+                    (dm.ViewId("cdf_cdm", "CogniteDescribable", "v1"), dm.ViewId("cdf_cdm", "CogniteAssetType", "v1")),
+                    (dm.ViewId("cdf_cdm", "CogniteDescribable", "v1"), dm.ViewId("cdf_cdm", "CogniteAssetClass", "v1")),
+                    (dm.ViewId("cdf_cdm", "CogniteAssetClass", "v1"), dm.ViewId("cdf_cdm", "CogniteAsset", "v1")),
+                    (dm.ViewId("cdf_cdm", "CogniteAssetType", "v1"), dm.ViewId("cdf_cdm", "CogniteAsset", "v1")),
+                ],
+                "Diamond: CogniteDescribable -> CogniteAssetType/CogniteAssetClass -> CogniteAsset",
+                id="diamond_dependency",
             ),
         ],
     )
-    def test_topological_sort_container_constraints_with_dependencies(
+    def test_topological_sort_container_constraints_dependency_patterns(
         self,
         toolkit_client_approval: ApprovalToolkitClient,
-        constraint_type: str,
-        container_b_properties: dict,
-        container_b_constraints: dict,
+        cognite_core_no_3D: dm.DataModel,
+        cognite_core_containers_no_3D: dm.ContainerList,
+        view_ids: list[dm.ViewId],
+        ordering_constraints: list[tuple[dm.ViewId, dm.ViewId]],
+        test_description: str,
     ) -> None:
-        """Test sorting views by container dependencies (DirectRelation or RequiresConstraint)."""
+        """Test various dependency patterns: transitive chains, independent chains, and diamond dependencies."""
         loader = ViewCRUD.create_loader(toolkit_client_approval.mock_client)
+        toolkit_client_approval.append(dm.View, cognite_core_no_3D.views)
+        toolkit_client_approval.append(dm.Container, cognite_core_containers_no_3D)
 
-        # Container A has no dependencies
-        container_a = _create_test_container(
-            "ContainerA",
-            {"name": dm.ContainerProperty(type=dm.Text(), nullable=True, immutable=False, auto_increment=False)},
-        )
-
-        # Container B depends on Container A (via DirectRelation or RequiresConstraint)
-        container_b = _create_test_container("ContainerB", container_b_properties, container_b_constraints)
-
-        # View A maps to Container A
-        view_a = _create_test_view("ViewA", container_a)
-
-        # View B maps to Container B (which depends on Container A)
-        view_b = _create_test_view("ViewB", container_b)
-
-        toolkit_client_approval.append(dm.View, [view_a, view_b])
-        toolkit_client_approval.append(dm.Container, [container_a, container_b])
-
-        # ViewB depends on ViewA because ContainerB depends on ContainerA
-        view_ids = [view_b.as_id(), view_a.as_id()]
         sorted_views = loader.topological_sort_container_constraints(view_ids)
 
-        # ViewA should come before ViewB
-        assert sorted_views.index(view_a.as_id()) < sorted_views.index(view_b.as_id())
+        # Verify same number of views returned
+        assert len(sorted_views) == len(view_ids), (
+            f"{test_description}: Expected {len(view_ids)} views, got {len(sorted_views)}"
+        )
 
-    def test_topological_sort_container_constraints_no_dependencies(
+        # Verify all ordering constraints
+        for before_view_id, after_view_id in ordering_constraints:
+            before_idx = sorted_views.index(before_view_id)
+            after_idx = sorted_views.index(after_view_id)
+            assert before_idx < after_idx, (
+                f"{test_description}: {before_view_id.external_id} should come before {after_view_id.external_id}"
+            )
+
+    def test_topological_sort_container_constraints_cyclical_dependency(
         self, toolkit_client_approval: ApprovalToolkitClient
     ) -> None:
-        """Test sorting views with no container dependencies maintains any order."""
+        """Test that cyclical dependencies raise ToolkitCycleError."""
+        from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
+
         loader = ViewCRUD.create_loader(toolkit_client_approval.mock_client)
 
-        # Two independent containers
+        # Create three containers that form a cycle: A -> B -> C -> A
         container_a = _create_test_container(
             "ContainerA",
-            {"name": dm.ContainerProperty(type=dm.Text(), nullable=True, immutable=False, auto_increment=False)},
-        )
-        container_b = _create_test_container(
-            "ContainerB",
-            {"value": dm.ContainerProperty(type=dm.Int32(), nullable=True, immutable=False, auto_increment=False)},
-        )
-
-        # Two independent views
-        view_a = _create_test_view("ViewA", container_a)
-        view_b = _create_test_view("ViewB", container_b)
-
-        toolkit_client_approval.append(dm.View, [view_a, view_b])
-        toolkit_client_approval.append(dm.Container, [container_a, container_b])
-
-        view_ids = [view_a.as_id(), view_b.as_id()]
-        sorted_views = loader.topological_sort_container_constraints(view_ids)
-
-        # Both views should be in the result (order doesn't matter since no dependencies)
-        assert set(sorted_views) == set(view_ids)
-        assert len(sorted_views) == 2
-
-    def test_topological_sort_container_constraints_chain_dependency(
-        self, toolkit_client_approval: ApprovalToolkitClient
-    ) -> None:
-        """Test sorting views with transitive chain dependencies: A -> B -> C."""
-        loader = ViewCRUD.create_loader(toolkit_client_approval.mock_client)
-
-        # Container A: No dependencies (root)
-        container_a = _create_test_container(
-            "ContainerA",
-            {"name": dm.ContainerProperty(type=dm.Text(), nullable=True, immutable=False, auto_increment=False)},
-        )
-
-        # Container B: Depends on A via DirectRelation
-        container_b = _create_test_container(
-            "ContainerB",
             {
-                "parentA": dm.ContainerProperty(
-                    type=dm.DirectRelation(container=dm.ContainerId("my_space", "ContainerA")),
-                    nullable=True,
-                    immutable=False,
-                    auto_increment=False,
-                )
-            },
-        )
-
-        # Container C: Depends on B via RequiresConstraint
-        container_c = _create_test_container(
-            "ContainerC",
-            {"value": dm.ContainerProperty(type=dm.Int32(), nullable=True, immutable=False, auto_increment=False)},
-            {"requiresB": dm.RequiresConstraint(require=dm.ContainerId("my_space", "ContainerB"))},
-        )
-
-        # Create views
-        view_a = _create_test_view("ViewA", container_a)
-        view_b = _create_test_view("ViewB", container_b)
-        view_c = _create_test_view("ViewC", container_c)
-
-        toolkit_client_approval.append(dm.View, [view_a, view_b, view_c])
-        toolkit_client_approval.append(dm.Container, [container_a, container_b, container_c])
-
-        # Test with views in reverse order
-        view_ids = [view_c.as_id(), view_b.as_id(), view_a.as_id()]
-        sorted_views = loader.topological_sort_container_constraints(view_ids)
-
-        # ViewA must come before ViewB, ViewB must come before ViewC
-        assert sorted_views.index(view_a.as_id()) < sorted_views.index(view_b.as_id())
-        assert sorted_views.index(view_b.as_id()) < sorted_views.index(view_c.as_id())
-
-    def test_topological_sort_container_constraints_diamond_dependency(
-        self, toolkit_client_approval: ApprovalToolkitClient
-    ) -> None:
-        """Test sorting views with diamond dependencies: A -> B, A -> C, B -> D, C -> D."""
-        loader = ViewCRUD.create_loader(toolkit_client_approval.mock_client)
-
-        # Container A: Root
-        container_a = _create_test_container(
-            "ContainerA",
-            {"name": dm.ContainerProperty(type=dm.Text(), nullable=True, immutable=False, auto_increment=False)},
-        )
-
-        # Container B: Depends on A
-        container_b = _create_test_container(
-            "ContainerB",
-            {
-                "parentA": dm.ContainerProperty(
-                    type=dm.DirectRelation(container=dm.ContainerId("my_space", "ContainerA")),
-                    nullable=True,
-                    immutable=False,
-                    auto_increment=False,
-                )
-            },
-        )
-
-        # Container C: Also depends on A
-        container_c = _create_test_container(
-            "ContainerC",
-            {"value": dm.ContainerProperty(type=dm.Int32(), nullable=True, immutable=False, auto_increment=False)},
-            {"requiresA": dm.RequiresConstraint(require=dm.ContainerId("my_space", "ContainerA"))},
-        )
-
-        # Container D: Depends on both B and C
-        container_d = _create_test_container(
-            "ContainerD",
-            {
-                "refB": dm.ContainerProperty(
-                    type=dm.DirectRelation(container=dm.ContainerId("my_space", "ContainerB")),
-                    nullable=True,
-                    immutable=False,
-                    auto_increment=False,
-                )
-            },
-            {"requiresC": dm.RequiresConstraint(require=dm.ContainerId("my_space", "ContainerC"))},
-        )
-
-        # Create views
-        view_a = _create_test_view("ViewA", container_a)
-        view_b = _create_test_view("ViewB", container_b)
-        view_c = _create_test_view("ViewC", container_c)
-        view_d = _create_test_view("ViewD", container_d)
-
-        toolkit_client_approval.append(dm.View, [view_a, view_b, view_c, view_d])
-        toolkit_client_approval.append(dm.Container, [container_a, container_b, container_c, container_d])
-
-        # Test with views in random order
-        view_ids = [view_d.as_id(), view_b.as_id(), view_c.as_id(), view_a.as_id()]
-        sorted_views = loader.topological_sort_container_constraints(view_ids)
-
-        # ViewA must come before B, C, and D
-        assert sorted_views.index(view_a.as_id()) < sorted_views.index(view_b.as_id())
-        assert sorted_views.index(view_a.as_id()) < sorted_views.index(view_c.as_id())
-        assert sorted_views.index(view_a.as_id()) < sorted_views.index(view_d.as_id())
-
-        # ViewB and ViewC must both come before ViewD
-        assert sorted_views.index(view_b.as_id()) < sorted_views.index(view_d.as_id())
-        assert sorted_views.index(view_c.as_id()) < sorted_views.index(view_d.as_id())
-
-    def test_topological_sort_container_constraints_multiple_independent_chains(
-        self, toolkit_client_approval: ApprovalToolkitClient
-    ) -> None:
-        """Test sorting views with multiple independent dependency chains: (A -> B) and (C -> D)."""
-        loader = ViewCRUD.create_loader(toolkit_client_approval.mock_client)
-
-        # First chain: A -> B
-        container_a = _create_test_container(
-            "ContainerA",
-            {"name": dm.ContainerProperty(type=dm.Text(), nullable=True, immutable=False, auto_increment=False)},
-        )
-        container_b = _create_test_container(
-            "ContainerB",
-            {
-                "parentA": dm.ContainerProperty(
-                    type=dm.DirectRelation(container=dm.ContainerId("my_space", "ContainerA")),
-                    nullable=True,
-                    immutable=False,
-                    auto_increment=False,
-                )
-            },
-        )
-
-        # Second chain: C -> D
-        container_c = _create_test_container(
-            "ContainerC",
-            {"value": dm.ContainerProperty(type=dm.Int32(), nullable=True, immutable=False, auto_increment=False)},
-        )
-        container_d = _create_test_container(
-            "ContainerD",
-            {
-                "parentC": dm.ContainerProperty(
+                "refC": dm.ContainerProperty(
                     type=dm.DirectRelation(container=dm.ContainerId("my_space", "ContainerC")),
                     nullable=True,
                     immutable=False,
@@ -396,23 +255,35 @@ class TestViewLoader:
                 )
             },
         )
+        container_b = _create_test_container(
+            "ContainerB",
+            {
+                "refA": dm.ContainerProperty(
+                    type=dm.DirectRelation(container=dm.ContainerId("my_space", "ContainerA")),
+                    nullable=True,
+                    immutable=False,
+                    auto_increment=False,
+                )
+            },
+        )
+        container_c = _create_test_container(
+            "ContainerC",
+            {
+                "name": dm.ContainerProperty(type=dm.Text(), nullable=True, immutable=False, auto_increment=False),
+            },
+            {
+                "requiresB": dm.RequiresConstraint(require=dm.ContainerId("my_space", "ContainerB")),
+            },
+        )
 
-        # Create views
         view_a = _create_test_view("ViewA", container_a)
         view_b = _create_test_view("ViewB", container_b)
         view_c = _create_test_view("ViewC", container_c)
-        view_d = _create_test_view("ViewD", container_d)
 
-        toolkit_client_approval.append(dm.View, [view_a, view_b, view_c, view_d])
-        toolkit_client_approval.append(dm.Container, [container_a, container_b, container_c, container_d])
+        toolkit_client_approval.append(dm.View, [view_a, view_b, view_c])
+        toolkit_client_approval.append(dm.Container, [container_a, container_b, container_c])
 
-        # Test with views interleaved
-        view_ids = [view_d.as_id(), view_b.as_id(), view_c.as_id(), view_a.as_id()]
-        sorted_views = loader.topological_sort_container_constraints(view_ids)
+        view_ids = [view_a.as_id(), view_b.as_id(), view_c.as_id()]
 
-        # Within each chain, dependencies must be respected
-        assert sorted_views.index(view_a.as_id()) < sorted_views.index(view_b.as_id())
-        assert sorted_views.index(view_c.as_id()) < sorted_views.index(view_d.as_id())
-
-        # All 4 views should be present
-        assert len(sorted_views) == 4
+        with pytest.raises(ToolkitCycleError):
+            loader.topological_sort_container_constraints(view_ids)
