@@ -357,15 +357,6 @@ class CoreApp(typer.Typer):
                 hidden=not Flags.v07.is_enabled(),
             ),
         ] = None,
-        all_modules: Annotated[
-            bool,
-            typer.Option(
-                "--all-modules",
-                "-a",
-                help="Clean all modules",
-                hidden=True,
-            ),
-        ] = False,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -387,7 +378,6 @@ class CoreApp(typer.Typer):
                 dry_run,
                 include,
                 module,
-                all_modules,
                 verbose,
             )
         )

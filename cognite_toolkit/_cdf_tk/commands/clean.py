@@ -241,8 +241,8 @@ class CleanCommand(ToolkitCommand):
         dry_run: bool,
         include: list[str] | None,
         module_str: str | None,
-        all_modules: bool,
         verbose: bool,
+        all_modules: bool = False,
     ) -> None:
         if not build_dir.exists():
             raise ToolkitNotADirectoryError(
