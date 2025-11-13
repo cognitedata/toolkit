@@ -337,5 +337,8 @@ def asset_centric_canvas() -> tuple[IndustrialCanvas, NodeList[InstanceSource]]:
 def cognite_core_no_3D() -> DataModel[View]:
     """This is a simplified CogniteCore data model without the 3D views.
     In addition, CogniteAsset does not implement Visualizable (which is also removed).
+
+    Note if you use this fixture in a tests, ensure that you do not modify the returned
+    data model, as it is shared between tests.
     """
     return DataModel.load(CORE_NO_3D_YAML.read_text(encoding="utf-8"))
