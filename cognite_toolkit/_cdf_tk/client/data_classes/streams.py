@@ -97,13 +97,13 @@ class StreamResponseList(UserList[StreamResponse], ResourceResponseListProtocol)
     """List of Stream response resources."""
 
     _RESOURCE = StreamResponse
-    items: list[StreamResponse]
+    data: list[StreamResponse]
 
     def __init__(self, initlist: list[StreamResponse] | None = None, **_: Any) -> None:
         super().__init__(initlist or [])
 
     def dump(self, camel_case: bool = True) -> list[dict[str, Any]]:
-        return [item.dump(camel_case) for item in self.items]
+        return [item.dump(camel_case) for item in self.data]
 
     @classmethod
     def load(cls, data: list[dict[str, Any]], cognite_client: CogniteClient | None = None) -> "StreamResponseList":
