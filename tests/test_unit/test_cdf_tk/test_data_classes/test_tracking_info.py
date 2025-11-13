@@ -18,7 +18,7 @@ class TestCommandTrackingInfo:
         info.module_ids.add("module1")
         result = info.to_dict()
         assert "moduleIds" in result
-        assert result["moduleIds"] == {"module1"}
+        assert result["moduleIds"] == ["module1"]
         assert "packageIds" not in result
         assert "installedModuleIds" not in result
 
@@ -37,10 +37,10 @@ class TestCommandTrackingInfo:
 
         assert result["project"] == "test_project"
         assert result["cluster"] == "test_cluster"
-        assert result["moduleIds"] == {"module1"}
-        assert result["packageIds"] == {"package1"}
-        assert result["installedModuleIds"] == {"installed1"}
-        assert result["downloadedLibraryIds"] == {"lib1"}
+        assert result["moduleIds"] == ["module1"]
+        assert result["packageIds"] == ["package1"]
+        assert result["installedModuleIds"] == ["installed1"]
+        assert result["downloadedLibraryIds"] == ["lib1"]
         # Empty sets should not be present
         assert "downloadedPackageIds" not in result
         assert "downloadedModuleIds" not in result
