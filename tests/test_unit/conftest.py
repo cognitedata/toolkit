@@ -11,7 +11,7 @@ import responses
 from cognite.client import global_config
 from cognite.client.credentials import Token
 from cognite.client.data_classes import CreatedSession
-from cognite.client.data_classes.data_modeling import NodeList, ViewId
+from cognite.client.data_classes.data_modeling import ContainerList, DataModel, NodeList, View, ViewId
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
@@ -24,7 +24,7 @@ from cognite_toolkit._cdf_tk.data_classes._config_yaml import BuildEnvironment
 from cognite_toolkit._cdf_tk.utils import read_yaml_file
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.constants import REPO_ROOT
-from tests.data import BUILDABLE_PACKAGE, COMPLETE_ORG
+from tests.data import BUILDABLE_PACKAGE, COMPLETE_ORG, CORE_CONTAINERS_NO_3D_YAML, CORE_NO_3D_YAML
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import PrintCapture
 
@@ -353,3 +353,25 @@ def asset_centric_canvas() -> tuple[IndustrialCanvas, NodeList[InstanceSource]]:
         ]
     )
     return canvas, mapping
+
+
+@pytest.fixture(scope="session")
+def cognite_core_no_3D() -> DataModel[View]:
+    """This is a simplified CogniteCore data model without the 3D views.
+    In addition, CogniteAsset does not implement CogniteVisualizable (which is also removed).
+
+    Note if you use this fixture in a test, ensure that you do not modify the returned
+    data model, as it is shared between tests.
+    """
+    return DataModel.load(CORE_NO_3D_YAML.read_text(encoding="utf-8"))
+
+
+@pytest.fixture(scope="session")
+def cognite_core_containers_no_3D() -> ContainerList:
+    """This is a simplified list of containers from the cdf_cdm space without CogniteVisualizable.
+    In addition, the CogniteAsset container does not require CogniteVisualizable.
+
+    Note if you use this fixture in a test, ensure that you do not modify the returned
+    containers, as it is shared between tests.
+    """
+    return ContainerList.load(CORE_CONTAINERS_NO_3D_YAML.read_text(encoding="utf-8"))
