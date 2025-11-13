@@ -73,7 +73,6 @@
         "--override-env",
         "modules",
         "init",
-        //"cognite_toolkit"
       ],
       "console": "integratedTerminal",
       "justMyCode": false

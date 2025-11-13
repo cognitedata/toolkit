@@ -8,7 +8,6 @@ from cognite_toolkit._cdf_tk.commands import InitCommand
 class LandingApp(typer.Typer):
     def __init__(self, *args, **kwargs) -> None:  # type: ignore
         super().__init__(*args, **kwargs)
-        # Command is registered directly in _cdf.py, not here
 
     def main_init(
         self,
