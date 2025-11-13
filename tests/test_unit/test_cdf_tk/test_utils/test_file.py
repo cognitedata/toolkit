@@ -4,7 +4,7 @@ from zipfile import ZipFile
 
 import pytest
 
-from cognite_toolkit._cdf_tk.utils.file import create_temporary_zip, sanitize_filename
+from cognite_toolkit._cdf_tk.utils.file import create_temporary_zip, read_yaml_content, sanitize_filename
 
 
 class TestCreateTemporaryZip:
@@ -56,3 +56,34 @@ class TestSanitizeFilename:
     )
     def test_sanitize_filename(self, filename: str, expected: str) -> None:
         assert sanitize_filename(filename) == expected
+
+
+class TestReadYamlContent:
+    def test_keyvault_tag_preserved_scalar(self) -> None:
+        """Test that !keyvault tag is preserved along with the value."""
+        yaml_content = "password: !keyvault value-secret-name"
+        result = read_yaml_content(yaml_content)
+        assert result == {"password": "!keyvault value-secret-name"}
+
+    def test_keyvault_tag_preserved_in_nested_structure(self) -> None:
+        """Test that !keyvault tag is preserved in nested YAML structures."""
+        yaml_content = """azure-keyvault:
+  authentication-method: client-secret
+  password: !keyvault value-secret-name
+databases:
+-   connection-string: !keyvault db-connection-secret
+    name: my_db"""
+        result = read_yaml_content(yaml_content)
+        assert result["azure-keyvault"]["password"] == "!keyvault value-secret-name"
+        assert result["databases"][0]["connection-string"] == "!keyvault db-connection-secret"
+        assert result["databases"][0]["name"] == "my_db"
+
+    def test_keyvault_tag_preserved_multiple_values(self) -> None:
+        """Test that multiple !keyvault tags are preserved."""
+        yaml_content = """secret1: !keyvault secret-name-1
+secret2: !keyvault secret-name-2
+normal_value: regular-string"""
+        result = read_yaml_content(yaml_content)
+        assert result["secret1"] == "!keyvault secret-name-1"
+        assert result["secret2"] == "!keyvault secret-name-2"
+        assert result["normal_value"] == "regular-string"

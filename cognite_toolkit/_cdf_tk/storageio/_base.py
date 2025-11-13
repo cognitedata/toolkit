@@ -7,7 +7,9 @@ from cognite.client.data_classes._base import T_CogniteResource
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
-from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
+from cognite_toolkit._cdf_tk.utils.collection import chunker
+from cognite_toolkit._cdf_tk.utils.fileio import FileReader, SchemaColumn
+from cognite_toolkit._cdf_tk.utils.fileio._readers import TableReader
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal, T_WriteCogniteResource
 
@@ -205,6 +207,14 @@ class UploadableStorageIO(
         """
         raise NotImplementedError()
 
+    @classmethod
+    def read_chunks(cls, reader: FileReader) -> Iterable[list[tuple[str, dict[str, JsonVal]]]]:
+        data_name = "row" if isinstance(reader, TableReader) else "line"
+        # Include name of line for better error messages
+        iterable = ((f"{data_name} {line_no}", item) for line_no, item in reader.read_chunks_with_line_numbers())
+
+        yield from chunker(iterable, cls.CHUNK_SIZE)
+
 
 class TableUploadableStorageIO(UploadableStorageIO[T_Selector, T_CogniteResource, T_WriteCogniteResource], ABC):
     """A base class for storage items that support uploading data with table schemas."""
@@ -224,16 +234,19 @@ class TableUploadableStorageIO(UploadableStorageIO[T_Selector, T_CogniteResource
         """
         result: list[UploadItem[T_WriteCogniteResource]] = []
         for source_id, row in rows:
-            item = self.row_to_resource(row, selector=selector)
+            item = self.row_to_resource(source_id, row, selector=selector)
             result.append(UploadItem(source_id=source_id, item=item))
         return result
 
     @abstractmethod
-    def row_to_resource(self, row: dict[str, JsonVal], selector: T_Selector | None = None) -> T_WriteCogniteResource:
+    def row_to_resource(
+        self, source_id: str, row: dict[str, JsonVal], selector: T_Selector | None = None
+    ) -> T_WriteCogniteResource:
         """Convert a row-based JSON-compatible dictionary back to a writable Cognite resource.
 
         Args:
             row: A dictionary representing the data in a JSON-compatible format.
+            source_id: The source identifier for the item. For example, the line number in a CSV file.
             selector: Optional selection criteria to identify where to upload the data. This is required for some storage types.
         Returns:
             A writable Cognite resource representing the data.

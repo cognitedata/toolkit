@@ -58,7 +58,7 @@ class TestTracker:
             mock_track_internal.assert_called_once()
             _, event_information = mock_track_internal.call_args.args
             assert "userInput" in event_information
-            assert event_information["downloadedLibraryIds"] == {"test"}
+            assert event_information["downloadedLibraryIds"] == ["test"]
 
     def test_subcommands_tracking(self) -> None:
         """Verify that subcommands are tracked as a list, not as positionalArg0, positionalArg1, etc."""

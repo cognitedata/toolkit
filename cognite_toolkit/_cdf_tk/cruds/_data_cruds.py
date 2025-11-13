@@ -5,15 +5,20 @@ from typing import TYPE_CHECKING, cast, final
 
 import pandas as pd
 from cognite.client.data_classes import FileMetadataWrite
-from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableCogniteResource, T_WriteClass
 
 from cognite_toolkit._cdf_tk.client.data_classes.extendable_cognite_file import ExtendableCogniteFileApply
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
+from cognite_toolkit._cdf_tk.protocols import (
+    T_ResourceRequest,
+    T_ResourceRequestList,
+    T_ResourceResponse,
+    T_ResourceResponseList,
+)
 from cognite_toolkit._cdf_tk.utils import read_yaml_content, safe_read
 from cognite_toolkit._cdf_tk.utils.file import read_csv
 
-from ._base_cruds import T_ID, DataCRUD, ResourceCRUD, T_WritableCogniteResourceList
+from ._base_cruds import T_ID, DataCRUD, ResourceCRUD
 from ._resource_cruds import CogniteFileCRUD, FileMetadataCRUD, RawTableCRUD, TimeSeriesCRUD
 
 if TYPE_CHECKING:
@@ -131,15 +136,13 @@ class FileCRUD(DataCRUD):
     def _read_metadata(
         destination: Path,
         loader: type[
-            ResourceCRUD[
-                T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
-            ]
+            ResourceCRUD[T_ID, T_ResourceRequest, T_ResourceResponse, T_ResourceRequestList, T_ResourceResponseList]
         ],
         identifier: T_ID,
-    ) -> T_WriteClass:
+    ) -> T_ResourceRequest:
         built_content = read_yaml_content(safe_read(destination, encoding=BUILD_FOLDER_ENCODING))
         if isinstance(built_content, dict):
-            return loader.resource_write_cls.load(built_content)
+            return loader.resource_write_cls._load(built_content)
         elif isinstance(built_content, list):
             try:
                 return next(m for m in loader.list_write_cls.load(built_content) if loader.get_id(m) == identifier)
