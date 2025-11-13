@@ -5,7 +5,14 @@ from cognite_toolkit._cdf_tk.utils.fileio import COMPRESSION_BY_SUFFIX
 
 from ._annotations import FileAnnotationIO
 from ._applications import CanvasIO, ChartIO
-from ._asset_centric import AssetIO, BaseAssetCentricIO, EventIO, FileMetadataIO, HierarchyIO, TimeSeriesIO
+from ._asset_centric import (
+    AssetIO,
+    BaseAssetCentricIO,
+    EventIO,
+    FileMetadataIO,
+    HierarchyIO,
+    TimeSeriesIO,
+)
 from ._base import (
     ConfigurableStorageIO,
     Page,
@@ -17,6 +24,7 @@ from ._base import (
     UploadItem,
 )
 from ._data_classes import InstanceIdCSVList, InstanceIdRow, ModelList
+from ._datapoints import DatapointsIO
 from ._instances import InstanceIO
 from ._raw import RawIO
 from .selectors._base import DataSelector
@@ -50,6 +58,7 @@ __all__ = [
     "CanvasIO",
     "ChartIO",
     "ConfigurableStorageIO",
+    "DatapointsIO",
     "EventIO",
     "FileAnnotationIO",
     "FileMetadataIO",

@@ -5,21 +5,22 @@ from collections.abc import Hashable, Iterable, Sequence, Set, Sized
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
-from cognite.client.data_classes._base import (
-    T_CogniteResourceList,
-    T_WritableCogniteResource,
-    T_WriteClass,
-)
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, EXCL_FILES
+from cognite_toolkit._cdf_tk.protocols import (
+    T_ResourceRequest,
+    T_ResourceRequestList,
+    T_ResourceResponse,
+    T_ResourceResponseList,
+)
 from cognite_toolkit._cdf_tk.resource_classes import ToolkitResource
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, sanitize_filename
-from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.data_classes import BuildEnvironment
@@ -151,7 +152,7 @@ T_Loader = TypeVar("T_Loader", bound=Loader)
 class ResourceCRUD(
     Loader,
     ABC,
-    Generic[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
+    Generic[T_ID, T_ResourceRequest, T_ResourceResponse, T_ResourceRequestList, T_ResourceResponseList],
 ):
     """This is the base class for all resource CRUD.
 
@@ -178,10 +179,10 @@ class ResourceCRUD(
     """
 
     # Must be set in the subclass
-    resource_write_cls: type[T_WriteClass]
-    resource_cls: type[T_WritableCogniteResource]
-    list_cls: type[T_WritableCogniteResourceList]
-    list_write_cls: type[T_CogniteResourceList]
+    resource_write_cls: type[T_ResourceRequest]
+    resource_cls: type[T_ResourceResponse]
+    list_cls: type[T_ResourceResponseList]
+    list_write_cls: type[T_ResourceRequestList]
     yaml_cls: type[ToolkitResource]
     # Optional to set in the subclass
     support_drop = True
@@ -196,7 +197,7 @@ class ResourceCRUD(
     # The methods that must be implemented in the subclass
     @classmethod
     @abstractmethod
-    def get_id(cls, item: T_WriteClass | T_WritableCogniteResource | dict) -> T_ID:
+    def get_id(cls, item: T_ResourceRequest | T_ResourceResponse | dict) -> T_ID:
         raise NotImplementedError
 
     @classmethod
@@ -207,19 +208,19 @@ class ResourceCRUD(
     @classmethod
     @abstractmethod
     def get_required_capability(
-        cls, items: Sequence[T_WriteClass] | None, read_only: bool
+        cls, items: Sequence[T_ResourceRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         raise NotImplementedError(f"get_required_capability must be implemented for {cls.__name__}.")
 
     @abstractmethod
-    def create(self, items: T_CogniteResourceList) -> Sized:
+    def create(self, items: T_ResourceRequestList) -> Sized:
         raise NotImplementedError
 
     @abstractmethod
-    def retrieve(self, ids: SequenceNotStr[T_ID]) -> T_WritableCogniteResourceList:
+    def retrieve(self, ids: SequenceNotStr[T_ID]) -> T_ResourceResponseList:
         raise NotImplementedError
 
-    def update(self, items: T_CogniteResourceList) -> Sized:
+    def update(self, items: T_ResourceRequestList) -> Sized:
         raise NotImplementedError(f"Update is not supported for {type(self).__name__}.")
 
     @abstractmethod
@@ -231,7 +232,7 @@ class ResourceCRUD(
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
-    ) -> Iterable[T_WritableCogniteResource]:
+    ) -> Iterable[T_ResourceResponse]:
         if sum([1 for x in [data_set_external_id, space, parent_ids] if x is not None]) > 1:
             raise ValueError("At most one of data_set_external_id, space, or parent_ids must be set.")
         if parent_ids is not None and not self.parent_resource:
@@ -254,7 +255,7 @@ class ResourceCRUD(
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
-    ) -> Iterable[T_WritableCogniteResource]:
+    ) -> Iterable[T_ResourceResponse]:
         raise NotImplementedError
 
     ### These methods can be optionally overwritten in the subclass ###
@@ -297,7 +298,7 @@ class ResourceCRUD(
         return []
 
     @classmethod
-    def get_internal_id(cls, item: T_WritableCogniteResource | dict) -> int:
+    def get_internal_id(cls, item: T_ResourceResponse | dict) -> int:
         raise NotImplementedError(f"{cls.__name__} does not have an internal id.")
 
     @classmethod
@@ -334,18 +335,18 @@ class ResourceCRUD(
         )
         return raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
 
-    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> T_WriteClass:
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> T_ResourceRequest:
         """Loads the resource from a dictionary. Can be overwritten in subclasses."""
         return self.resource_write_cls._load(resource)
 
-    def dump_resource(self, resource: T_WritableCogniteResource, local: dict[str, Any] | None = None) -> dict[str, Any]:
+    def dump_resource(self, resource: T_ResourceResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         """Dumps the resource to a dictionary that matches the write format.
 
         This is intended to be overwritten in subclasses that require special dumping logic, for example,
         replacing dataSetId with dataSetExternalId.
 
         Args:
-            resource (T_WritableCogniteResource): The resource to dump (typically comes from CDF).
+            resource (T_ResourceResponse): The resource to dump (typically comes from CDF).
             local (dict[str, Any] | None): The local resource. When used in a dump/import command, there is no local
                 resource.
         """
@@ -394,7 +395,7 @@ class ResourceCRUD(
             f"Missing implementation for {type(self).__name__} for {'.'.join(map(str, json_path))}."
         )
 
-    def sensitive_strings(self, item: T_WriteClass) -> Iterable[str]:
+    def sensitive_strings(self, item: T_ResourceRequest) -> Iterable[str]:
         """Returns a list of strings that should be masked when printing.
 
         This is used by the loaders with credentials to mask the credentials secrets. For example, the
@@ -405,7 +406,9 @@ class ResourceCRUD(
 
     # Helper methods
     @classmethod
-    def get_ids(cls, items: Sequence[T_WriteClass | T_WritableCogniteResource | dict]) -> list[T_ID]:
+    def get_ids(
+        cls, items: Sequence[T_ResourceRequest | T_ResourceResponse | dict] | T_ResourceResponseList
+    ) -> list[T_ID]:
         return [cls.get_id(item) for item in items]
 
     @classmethod
@@ -418,7 +421,7 @@ class ResourceCRUD(
 
 
 class ResourceContainerCRUD(
-    ResourceCRUD[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
+    ResourceCRUD[T_ID, T_ResourceRequest, T_ResourceResponse, T_ResourceRequestList, T_ResourceResponseList],
     ABC,
 ):
     """This is the base class for all resource CRUD' containers.

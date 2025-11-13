@@ -30,6 +30,10 @@ class FileReader(FileIO, ABC):
         with compression.open("r") as file:
             yield from self._read_chunks_from_file(file)
 
+    def read_chunks_with_line_numbers(self) -> Iterator[tuple[int, dict[str, JsonVal]]]:
+        """Read chunks from the file, yielding each chunk with its corresponding line number."""
+        yield from enumerate(self.read_chunks(), start=1)
+
     @abstractmethod
     def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[dict[str, JsonVal]]:
         """Read chunks from the file."""

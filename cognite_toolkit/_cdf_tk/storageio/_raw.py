@@ -89,7 +89,9 @@ class RawIO(
             kind=RawTableCRUD.kind, folder_name=RawTableCRUD.folder_name, value=selector.table.model_dump(by_alias=True)
         )
 
-    def row_to_resource(self, row: dict[str, JsonVal], selector: RawTableSelector | None = None) -> RowWrite:
+    def row_to_resource(
+        self, source_id: str, row: dict[str, JsonVal], selector: RawTableSelector | None = None
+    ) -> RowWrite:
         key = str(uuid4())
         if selector is not None and selector.key is not None and selector.key in row:
             key = str(row.pop(selector.key))

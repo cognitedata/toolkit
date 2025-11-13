@@ -237,6 +237,21 @@
       "justMyCode": false
     },
     {
+      "name": "cdf dump config extraction pipeline",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": [
+        "dump",
+        "config",
+        "extraction-pipeline",
+        "--verbose",
+        "--clean",
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
       "name": "Python: init",
       "type": "debugpy",
       "request": "launch",
@@ -273,6 +288,23 @@
       "init", 
       "--all",
       "--clean"],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Python: modules init library",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": [
+        "modules", 
+      "init", 
+      ".",
+      "--clean",
+      "--library-url=https://github.com/cognitedata/library/raw/refs/heads/packages-menu/packages.zip",
+      "--library-checksum=sha256:foo"
+    
+    ],
       "console": "integratedTerminal",
       "justMyCode": false
     },

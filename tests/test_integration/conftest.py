@@ -383,7 +383,8 @@ FROM `{aggregator_raw_db}`.`{table_name}`""",
 def aggregator_asset_list(
     toolkit_client: ToolkitClient,
     aggregator_root_asset: Asset,
-    aggregator_assets: Transformation,  # Ensure this fixture runs first
+    aggregator_assets: Transformation,
+    aggregator_two_datasets: DataSetList,
 ) -> AssetList:
     return toolkit_client.assets.list(
         asset_subtree_ids=[aggregator_root_asset.id],
@@ -395,7 +396,7 @@ def aggregator_events(
     toolkit_client: ToolkitClient,
     aggregator_raw_db: str,
     aggregator_asset_list: AssetList,
-    aggregator_two_datasets: DataSetList,  # Ensure this fixture runs first
+    aggregator_two_datasets: DataSetList,
 ) -> Transformation:
     table_name = EVENT_TABLE
     assets = aggregator_asset_list

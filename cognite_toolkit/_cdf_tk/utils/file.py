@@ -145,6 +145,28 @@ _TOTAL_ELAPSED_TIME = 0.0
 _HAS_HINTED = False
 
 
+def keyvault_constructor(loader: yaml.Loader, node: yaml.Node) -> Any:
+    """Constructor to preserve the !keyvault tag along with the value."""
+    if isinstance(node, yaml.ScalarNode):
+        value = loader.construct_scalar(node)
+        return f"!keyvault {value}"
+    elif isinstance(node, yaml.MappingNode):
+        return loader.construct_mapping(node)
+    elif isinstance(node, yaml.SequenceNode):
+        return loader.construct_sequence(node)
+    else:
+        # This should never happen as YAML only has these three node types
+        # But we need this for type checking completeness
+        raise ValueError(f"Unexpected node type: {type(node)}")
+
+
+yaml.SafeLoader.add_constructor("!keyvault", keyvault_constructor)
+
+# Register for the fast CSafeLoader (used directly when libyaml is available)
+if hasattr(yaml, "CSafeLoader"):
+    yaml.CSafeLoader.add_constructor("!keyvault", keyvault_constructor)
+
+
 def read_yaml_content(content: str) -> dict[str, Any] | list[dict[str, Any]]:
     """Read a YAML string and return a dictionary
 
