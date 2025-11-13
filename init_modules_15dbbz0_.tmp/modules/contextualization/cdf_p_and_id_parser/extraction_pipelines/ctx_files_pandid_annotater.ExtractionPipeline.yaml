@@ -1,0 +1,44 @@
+externalId: '{{ annotatorJob }}'
+name: 'P&ID Annotater'
+dataSetExternalId: {{ dataset }}
+description: 'Annotation of P&ID documents'
+documentation: >
+  # P&ID Annotator
+
+  This extraction pipeline is responsible for annotating P&ID diagrams.
+  This means it looks for, for example, assets, equipments, timeseries, and so on,
+  in a PDF file containing a P&ID diagram.
+
+  ## Configuration
+
+  ```yaml
+    parameters:
+      autoApprovalThreshold: # Automatically set the annotation as approved if the confidence is above this threshold
+      autoRejectThreshold: # Automatically reject the annotation if the confidence is below this threshold
+    sourceSystem: # The source system of the annotations written by this pipeline
+      space: <>
+      externalId: <>
+    data:
+      annotationSpace: # The space to write the annotations to
+      instanceSpaces:
+        - # The space to fetch entities such as Assets, Equipment, etc. from
+        - # Another space to fetch entities from
+      annotationJobs:
+        - fileView: # The file view containing the P&ID diagram.
+              # This is expected to be or implement the (cdf_cdm, CogniteFile, v1) view.
+              # In addition, a file should be uploaded and be of mimeType 
+              # 'application/pdf', 'image/jpeg', 'image/png',  or 'image/tiff'.
+            space: <>
+            externalId: <>
+            version: <>
+        entityViews: # The views to find the entities.
+          - space: <view space>
+            externalId: <view external ID>
+            version: <view version>
+            searchProperty: <view property> # The TEXT/STRING property with the 
+              # entity name to search for in the P&ID diagram(s).
+          - space: <>
+            externalId: <>
+            version: <>
+            searchProperty: <>
+  ```

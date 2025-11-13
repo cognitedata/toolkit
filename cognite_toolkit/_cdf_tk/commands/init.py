@@ -64,7 +64,7 @@ class InitCommand(ToolkitCommand):
         print("\n")
         print(
             Panel(
-                "Go through the following steps to set up the Cognite Toolkit.",
+                "Go through the following steps to set up the Cognite Toolkit. You can re-run steps if you need to change something.",
                 title="Cognite Toolkit Setup",
                 style="green",
                 padding=(1, 2),
@@ -75,7 +75,7 @@ class InitCommand(ToolkitCommand):
         checklist_items = [
             InitChecklistItem(
                 name="initToml",
-                description="Basic settings",
+                description="Create toml file",
                 function=lambda: self._init_toml(dry_run=dry_run),
                 mandatory=True,
             ),
@@ -120,13 +120,17 @@ class InitCommand(ToolkitCommand):
             mandatory_items = [item for item in checklist_items if item.mandatory]
             all_mandatory_complete = all(item.status == InitItemStatus.SUCCESSFUL for item in mandatory_items)
 
-            choices.append(Choice(title="> Exit", value="__exit__"))
+            choices.append(Choice(title="> Quit", value="__exit__"))
+
+            # Find the first item with status None to use as default
+            default_item = next((item for item in checklist_items if item.status is None), None)
+            default_value = default_item.name if default_item else "__exit__"
 
             # Show checklist and get user selection
             selected = questionary.select(
                 "Select a task:",
                 choices=choices,
-                default="initToml",
+                default=default_value,
             ).ask()
 
             # User cancelled (Ctrl+C or similar)
@@ -135,14 +139,14 @@ class InitCommand(ToolkitCommand):
 
             if selected == "__exit__":
                 if all_mandatory_complete:
-                    print("Initialization complete!")
+                    print("Setup complete!")
                     print("You can now start using the Cognite Toolkit.")
                     break
                 else:
                     incomplete_mandatory = [
                         item.description for item in mandatory_items if item.status != InitItemStatus.SUCCESSFUL
                     ]
-                    print(f"Warning: mandatory item not completed: {', '.join(incomplete_mandatory)}")
+                    print(f"Warning: recommended item not completed: {', '.join(incomplete_mandatory)}")
                     break
 
             # Find the selected item

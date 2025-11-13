@@ -1,0 +1,7 @@
+[module]
+title = "Search configuration with location filter"
+id = "cdf_search"
+package_id = "tk:industrial_tools"
+
+[[extra_resources]]
+location = "cdf_common/data_models/demo.Space.yaml"

@@ -1,0 +1,27 @@
+name: Toolkit Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-modules:
+    runs-on: ubuntu-latest
+    # refers to the Environment concept in GitHub
+    environment: dev
+    name: Deploy
+    container:
+      image: cognite/toolkit:0.0.0
+      env:
+        CDF_CLUSTER: ${{ vars.CDF_CLUSTER }}
+        CDF_PROJECT: ${{ vars.CDF_PROJECT }}
+        IDP_CLIENT_ID: ${{ vars.IDP_CLIENT_ID }}
+        IDP_CLIENT_SECRET: ${{ secrets.IDP_CLIENT_SECRET }}
+        IDP_TENANT_ID: ${{ vars.IDP_TENANT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the modules
+        run: cdf build
+      - name: Deploy the modules
+        run: cdf deploy

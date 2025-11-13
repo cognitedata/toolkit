@@ -1,0 +1,13 @@
+space: {{ annotationSpace }}
+externalId: {{ contextualizationId }}
+sources:
+  - source:
+      type: view
+      space: cdf_cdm
+      externalId: CogniteSourceSystem
+      version: v1
+    properties:
+      name: '{{ contextualizationName }}'
+      description: 'Creates annotations for P&ID diagrams which are used to connect nodes.'
+      version: "v1"
+      manufacturer: "Cognite"

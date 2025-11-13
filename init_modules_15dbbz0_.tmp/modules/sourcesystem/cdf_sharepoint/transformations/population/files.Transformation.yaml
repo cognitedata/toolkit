@@ -1,0 +1,13 @@
+externalId: {{ fileTransformationExternalId }}
+dataSetExternalId: {{ dataset }}
+name: File Transformations for {{ sourceName }}
+destination:
+  type: nodes
+  view:
+    space: {{ schemaSpace }}
+    externalId: {{ organization }}File
+    version: v1
+  instanceSpace: {{ instanceSpace }}
+ignoreNullFields: true
+isPublic: true
+conflictMode: upsert

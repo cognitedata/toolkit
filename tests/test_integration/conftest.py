@@ -342,10 +342,12 @@ def upsert_transformation_with_run(
     return created
 
 
-@pytest.mark.usefixtures("aggregator_two_datasets")
 @pytest.fixture(scope="session")
 def aggregator_assets(
-    toolkit_client: ToolkitClient, aggregator_raw_db: str, aggregator_root_asset: Asset
+    toolkit_client: ToolkitClient,
+    aggregator_raw_db: str,
+    aggregator_root_asset: Asset,
+    aggregator_two_datasets: DataSetList,  # Ensure this fixture runs first
 ) -> Transformation:
     table_name = ASSET_TABLE
     rows = [
@@ -377,18 +379,23 @@ FROM `{aggregator_raw_db}`.`{table_name}`""",
     return created
 
 
-@pytest.mark.usefixtures("aggregator_assets")
 @pytest.fixture(scope="session")
-def aggregator_asset_list(toolkit_client: ToolkitClient, aggregator_root_asset: Asset) -> AssetList:
+def aggregator_asset_list(
+    toolkit_client: ToolkitClient,
+    aggregator_root_asset: Asset,
+    aggregator_assets: Transformation,  # Ensure this fixture runs first
+) -> AssetList:
     return toolkit_client.assets.list(
         asset_subtree_ids=[aggregator_root_asset.id],
     )
 
 
-@pytest.mark.usefixtures("aggregator_two_datasets")
 @pytest.fixture(scope="session")
 def aggregator_events(
-    toolkit_client: ToolkitClient, aggregator_raw_db: str, aggregator_asset_list: AssetList
+    toolkit_client: ToolkitClient,
+    aggregator_raw_db: str,
+    aggregator_asset_list: AssetList,
+    aggregator_two_datasets: DataSetList,  # Ensure this fixture runs first
 ) -> Transformation:
     table_name = EVENT_TABLE
     assets = aggregator_asset_list

@@ -1,0 +1,4 @@
+[module]
+title = "Example of Minimum Extension of the Cognite Process Industry Model"
+id = "cdf_process_industry_extension"
+package_id = "tk:models"

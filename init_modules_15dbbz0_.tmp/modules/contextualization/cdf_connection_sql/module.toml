@@ -1,0 +1,14 @@
+[module]
+title = "Contextualisation direct relation transformation"
+is_selected_by_default = false
+id = "cdf_connection_sql"
+package_id = "tk:contextualization"
+
+[dependencies]
+modules = []
+
+[[extra_resources]]
+location = "cdf_common/data_sets/demo.DataSet.yaml"
+
+[[extra_resources]]
+location = "cdf_common/data_models/demo.Space.yaml"
