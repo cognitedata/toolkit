@@ -22,7 +22,13 @@ from cognite_toolkit._cdf_tk.commands import ModulesCommand, RepoCommand
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.constants import REPO_ROOT
-from tests.data import BUILDABLE_PACKAGE, COMPLETE_ORG, CORE_CONTAINERS_NO_3D_YAML, CORE_NO_3D_YAML
+from tests.data import (
+    BUILDABLE_PACKAGE,
+    COMPLETE_ORG,
+    CORE_CONTAINERS_NO_3D_YAML,
+    CORE_NO_3D_YAML,
+    EXTRACTOR_VIEWS_YAML,
+)
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import PrintCapture
 
@@ -353,3 +359,13 @@ def cognite_core_containers_no_3D() -> ContainerList:
     containers, as it is shared between tests.
     """
     return ContainerList.load(CORE_CONTAINERS_NO_3D_YAML.read_text(encoding="utf-8"))
+
+
+@pytest.fixture(scope="session")
+def cognite_extractor_views() -> DataModel[View]:
+    """This is a simplified data model containing only the views used by the extractor.
+
+    Note if you use this fixture in a test, ensure that you do not modify the returned
+    data model, as it is shared between tests.
+    """
+    return DataModel.load(EXTRACTOR_VIEWS_YAML.read_text(encoding="utf-8"))
