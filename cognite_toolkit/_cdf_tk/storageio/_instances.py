@@ -76,8 +76,8 @@ class InstanceIO(
             readonly_properties = set()
             if isinstance(source.source, ViewId):
                 if source.source not in self._view_readonly_properties_cache:
-                    self._view_readonly_properties_cache[source.source] = set(
-                        self._view_crud.get_readonly_properties(source.source).keys()
+                    self._view_readonly_properties_cache[source.source] = self._view_crud.get_readonly_properties(
+                        source.source
                     )
                 readonly_properties = self._view_readonly_properties_cache[source.source]
             elif isinstance(source.source, ContainerId):

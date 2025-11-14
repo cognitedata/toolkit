@@ -671,15 +671,15 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View, ViewApplyList, ViewList]):
                 self._view_by_id[view.as_id()] = view
         return {view_id: self._view_by_id[view_id] for view_id in view_ids if view_id in self._view_by_id}
 
-    def get_readonly_properties(self, view_id: ViewId) -> dict[str, MappedProperty]:
+    def get_readonly_properties(self, view_id: ViewId) -> set[str]:
         """Retrieve the set of read-only properties for a given view."""
 
-        readonly_properties: dict[str, MappedProperty] = {}
+        readonly_properties: set[str] = set()
 
         # Retrieve the view to check its properties
         view = self._lookup_views([view_id]).get(view_id)
         if view is None:
-            return {}
+            return readonly_properties
 
         # Check each property in the view
         for property_identifier, property in view.properties.items():
@@ -688,7 +688,7 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View, ViewApplyList, ViewList]):
             ) and property.container_property_identifier in constants.READONLY_CONTAINER_PROPERTIES.get(
                 property.container, set()
             ):
-                readonly_properties[property_identifier] = property
+                readonly_properties.add(property_identifier)
         return readonly_properties
 
     def topological_sort(self, view_ids: list[ViewId]) -> list[ViewId]:

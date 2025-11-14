@@ -132,4 +132,4 @@ class TestViewLoader:
         toolkit_client_approval.append(dm.View, cognite_core_no_3D.views)
 
         readonly_props = loader.get_readonly_properties(view_id)
-        assert set(readonly_props.keys()) == expected_readonly_props
+        assert readonly_props == expected_readonly_props
