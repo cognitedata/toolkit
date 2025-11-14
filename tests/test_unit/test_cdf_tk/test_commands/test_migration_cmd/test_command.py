@@ -288,7 +288,7 @@ class TestMigrationCommand:
         )
         # Annotation retrieve ids
         rsps.post(
-            config.create_api_url("/annotations/list"),
+            config.create_api_url("/annotations/byids"),
             json={"items": [annotation.dump() for annotation in annotations]},
             status=200,
         )

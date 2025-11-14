@@ -1,15 +1,18 @@
 from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.storageio import (
+from cognite_toolkit._cdf_tk.storageio._annotations import FileAnnotationIO
+from cognite_toolkit._cdf_tk.storageio._asset_centric import (
     AssetIO,
     BaseAssetCentricIO,
-    ConfigurableStorageIO,
     EventIO,
     FileMetadataIO,
+    TimeSeriesIO,
+)
+from cognite_toolkit._cdf_tk.storageio._base import (
+    ConfigurableStorageIO,
     Page,
     StorageIOConfig,
-    TimeSeriesIO,
 )
 from cognite_toolkit._cdf_tk.storageio.selectors import AssetCentricSelector
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricResource, JsonVal
@@ -27,11 +30,14 @@ class HierarchyIO(ConfigurableStorageIO[AssetCentricSelector, AssetCentricResour
         self._file_io = FileMetadataIO(client)
         self._timeseries_io = TimeSeriesIO(client)
         self._event_io = EventIO(client)
+        self._annotations_io = FileAnnotationIO(client)
         self._io_by_kind: dict[str, BaseAssetCentricIO] = {
             self._asset_io.KIND: self._asset_io,
             self._file_io.KIND: self._file_io,
             self._timeseries_io.KIND: self._timeseries_io,
             self._event_io.KIND: self._event_io,
+            # Todo: Add a protocol or a shared base class for asset/events/timeseries/files + annotations.
+            self._annotations_io.KIND: self._annotations_io,  # type: ignore[dict-item]
         }
 
     def as_id(self, item: AssetCentricResource) -> str:
