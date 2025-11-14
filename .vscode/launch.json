@@ -36,6 +36,18 @@
       "justMyCode": false
     },
     {
+      "name": "cdf auth init",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": [
+        "auth",
+        "init"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
       "name": "cdf run function local",
       "type": "debugpy",
       "request": "launch",
@@ -188,6 +200,7 @@
         "clean",
         "--env", 
         "local",
+        "--verbose"
       ],
       "console": "integratedTerminal",
       "justMyCode": false
@@ -262,7 +275,7 @@
       "type": "debugpy",
       "request": "launch",
       "program": "./cdf-tk-dev.py",
-      "args": ["modules", "init"],
+      "args": ["modules", "init", "."],
       "console": "integratedTerminal",
       "justMyCode": false
     },
