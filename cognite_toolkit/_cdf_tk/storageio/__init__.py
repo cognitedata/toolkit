@@ -10,7 +10,6 @@ from ._asset_centric import (
     BaseAssetCentricIO,
     EventIO,
     FileMetadataIO,
-    HierarchyIO,
     TimeSeriesIO,
 )
 from ._base import (
@@ -25,6 +24,7 @@ from ._base import (
 )
 from ._data_classes import InstanceIdCSVList, InstanceIdRow, ModelList
 from ._datapoints import DatapointsIO
+from ._hierarchy import HierarchyIO
 from ._instances import InstanceIO
 from ._raw import RawIO
 from .selectors._base import DataSelector

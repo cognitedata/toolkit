@@ -1,27 +1,30 @@
 from collections.abc import Iterable, Sequence
 from typing import Any
 
-from cognite.client.data_classes import Annotation, AnnotationFilter
+from cognite.client.data_classes import Annotation, AnnotationFilter, AnnotationList
 
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._asset_centric import FileMetadataIO
-from ._base import Page, StorageIO
+from ._base import ConfigurableStorageIO, Page, StorageIOConfig
 from .selectors import AssetCentricSelector
 
 
-class FileAnnotationIO(StorageIO[AssetCentricSelector, Annotation]):
+class FileAnnotationIO(ConfigurableStorageIO[AssetCentricSelector, Annotation]):
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     CHUNK_SIZE = 1000
     BASE_SELECTOR = AssetCentricSelector
-
+    KIND = "FileAnnotations"
     MISSING_ID = "<MISSING_RESOURCE_ID>"
 
     def as_id(self, item: Annotation) -> str:
         project = item._cognite_client.config.project
         return f"INTERNAL_ID_project_{project}_{item.id!s}"
+
+    def retrieve(self, ids: Sequence[int]) -> AnnotationList:
+        return self.client.annotations.retrieve_multiple(ids)
 
     def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[Page]:
         total = 0
@@ -100,3 +103,6 @@ class FileAnnotationIO(StorageIO[AssetCentricSelector, Annotation]):
             if isinstance(id_, int):
                 return id_
         return None
+
+    def configurations(self, selector: AssetCentricSelector) -> Iterable[StorageIOConfig]:
+        yield from []

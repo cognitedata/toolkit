@@ -114,7 +114,7 @@ def create_default_mappings() -> list[ResourceViewMappingApply]:
         ResourceViewMappingApply(
             external_id=FILE_ANNOTATIONS_ID,
             resource_type="fileAnnotation",
-            view_id=ViewId("cdf_cdm", "CogniteFileAnnotation", "v1"),
+            view_id=ViewId("cdf_cdm", "CogniteDiagramAnnotation", "v1"),
             property_mapping={
                 "annotatedResource.id": "edge.startNode",
                 "annotationType": "edge.type.externalId",
