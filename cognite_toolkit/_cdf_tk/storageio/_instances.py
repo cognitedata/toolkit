@@ -4,15 +4,18 @@ from typing import ClassVar
 
 from cognite.client.data_classes.aggregations import Count
 from cognite.client.data_classes.data_modeling import (
+    ContainerId,
     ContainerList,
     EdgeApply,
     NodeApply,
     SpaceList,
+    ViewId,
     ViewList,
 )
 from cognite.client.data_classes.data_modeling.instances import Instance, InstanceApply
 from cognite.client.utils._identifier import InstanceId
 
+from cognite_toolkit._cdf_tk import constants
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceList
 from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, SpaceCRUD, ViewCRUD
@@ -54,9 +57,34 @@ class InstanceIO(
     def __init__(self, client: ToolkitClient, remove_existing_version: bool = True) -> None:
         super().__init__(client)
         self._remove_existing_version = remove_existing_version
+        # Cache for view to read-only properties mapping
+        self._view_readonly_properties_cache: dict[ViewId, set[str]] = {}
+        self._view_crud = ViewCRUD.create_loader(self.client)
 
     def as_id(self, item: Instance) -> str:
         return f"{item.space}:{item.external_id}"
+
+    def _filter_readonly_properties(self, instance: InstanceApply) -> None:
+        """
+        Filter out read-only properties from the instance.
+
+        Args:
+            instance: The instance to filter readonly properties from
+        """
+
+        for source in instance.sources:
+            readonly_properties = set()
+            if isinstance(source.source, ViewId):
+                if source.source not in self._view_readonly_properties_cache:
+                    self._view_readonly_properties_cache[source.source] = self._view_crud.get_readonly_properties(
+                        source.source
+                    )
+                readonly_properties = self._view_readonly_properties_cache[source.source]
+            elif isinstance(source.source, ContainerId):
+                if source.source in constants.READONLY_CONTAINER_PROPERTIES:
+                    readonly_properties = constants.READONLY_CONTAINER_PROPERTIES[source.source]
+
+            source.properties = {k: v for k, v in source.properties.items() if k not in readonly_properties}
 
     def stream_data(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[Page]:
         if isinstance(selector, InstanceViewSelector | InstanceSpaceSelector):
@@ -133,12 +161,16 @@ class InstanceIO(
         item_to_load = dict(item_json)
         if self._remove_existing_version and "existingVersion" in item_to_load:
             del item_to_load["existingVersion"]
+        instance: InstanceApply
         if instance_type == "node":
-            return NodeApply._load(item_to_load, cognite_client=self.client)
+            instance = NodeApply._load(item_to_load, cognite_client=self.client)
         elif instance_type == "edge":
-            return EdgeApply._load(item_to_load, cognite_client=self.client)
+            instance = EdgeApply._load(item_to_load, cognite_client=self.client)
         else:
             raise ValueError(f"Unknown instance type {instance_type!r}")
+        # Filter out read-only properties if applicable
+        self._filter_readonly_properties(instance)
+        return instance
 
     def configurations(self, selector: InstanceSelector) -> Iterable[StorageIOConfig]:
         if not isinstance(selector, InstanceViewSelector | InstanceSpaceSelector):
