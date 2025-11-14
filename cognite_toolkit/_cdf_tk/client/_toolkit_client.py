@@ -19,6 +19,7 @@ from .api.migration import MigrationAPI
 from .api.project import ProjectAPI
 from .api.robotics import RoboticsAPI
 from .api.search import SearchAPI
+from .api.streams import StreamsAPI
 from .api.token import TokenAPI
 from .api.verify import VerifyAPI
 from .config import ToolkitClientConfig
@@ -47,6 +48,7 @@ class ToolkitClient(CogniteClient):
         self.charts = ChartsAPI(self._config, self._API_VERSION, self)
         self.project = ProjectAPI(config=toolkit_config, cognite_client=self)
         self.infield = InfieldAPI(http_client, self.console)
+        self.streams = StreamsAPI(http_client, self.console)
 
     @property
     def config(self) -> ToolkitClientConfig:
