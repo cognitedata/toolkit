@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 import responses
+import yaml
 from cognite.client import global_config
 from cognite.client.credentials import Token
 from cognite.client.data_classes import CreatedSession
@@ -362,10 +363,10 @@ def cognite_core_containers_no_3D() -> ContainerList:
 
 
 @pytest.fixture(scope="session")
-def cognite_extractor_views() -> DataModel[View]:
+def cognite_extractor_views() -> list[View]:
     """This is a simplified data model containing only the views used by the extractor.
 
     Note if you use this fixture in a test, ensure that you do not modify the returned
     data model, as it is shared between tests.
     """
-    return DataModel.load(EXTRACTOR_VIEWS_YAML.read_text(encoding="utf-8"))
+    return [View._load(view) for view in yaml.safe_load(EXTRACTOR_VIEWS_YAML.read_text(encoding="utf-8"))]
