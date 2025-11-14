@@ -570,6 +570,7 @@ API_RESOURCES = [
                 Method(api_class_method="list", mock_class_method="return_values"),
                 Method(api_class_method="retrieve_multiple", mock_class_method="return_values"),
             ],
+            "delete": [Method(api_class_method="delete", mock_class_method="delete_id_external_id")],
         },
     ),
     APIResource(
@@ -580,6 +581,7 @@ API_RESOURCES = [
         _write_list_cls=ThreeDModelWriteList,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create_3dmodel")],
+            "delete": [Method(api_class_method="delete", mock_class_method="delete_id_external_id")],
             "retrieve": [
                 Method(api_class_method="__iter__", mock_class_method="iterate_values"),
             ],
