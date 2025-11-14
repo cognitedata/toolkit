@@ -1,7 +1,5 @@
-import pytest
-from cognite_toolkit._cdf_tk.client.data_classes.streams import StreamRequest, StreamResponse
-
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.data_classes.streams import StreamRequest, StreamResponse
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
 
