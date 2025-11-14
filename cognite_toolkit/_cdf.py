@@ -95,9 +95,7 @@ _app.add_typer(RepoApp(**default_typer_kws), name="repo")
 
 if Plugins.run.value.is_enabled():
     if Flags.v07.is_enabled():
-        print(
-            "The run plugin is deprecated and will be replaced by the dev plugin in v0.8.0. Set Enable dev plugin in cdf.toml and 'cdf dev run ...' instead."
-        )
+        print("The run plugin is deprecated and will be replaced by the dev plugin in v0.8.0.")
     _app.add_typer(RunApp(**default_typer_kws), name="run")
 
 if Plugins.dump.value.is_enabled():
