@@ -2,6 +2,7 @@ import traceback
 from graphlib import TopologicalSorter
 from pathlib import Path
 
+import questionary
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
@@ -40,8 +41,10 @@ from cognite_toolkit._cdf_tk.data_classes import (
 from cognite_toolkit._cdf_tk.data_classes._module_directories import ReadModule
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitCleanResourceError,
+    ToolkitMissingModuleError,
     ToolkitNotADirectoryError,
     ToolkitValidationError,
+    ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
     LowSeverityWarning,
@@ -185,6 +188,23 @@ class CleanCommand(ToolkitCommand):
                 self._verbose_print_drop(resource_drop_count, resource_ids, loader, dry_run)
         return nr_of_dropped
 
+    def _interactive_module_selection(self, built_modules: list[ReadModule] | None) -> list[ReadModule] | None:
+        if not built_modules:
+            return None
+        choices = [
+            questionary.Choice(title=built_module.dir.name, value=built_module) for built_module in built_modules
+        ]
+
+        selected_modules = questionary.checkbox(
+            "Which modules would you like to clean?",
+            instruction="Use arrow up/down, press space to select item(s) and enter to save",
+            choices=choices,
+        ).ask()
+
+        if not selected_modules:
+            return None
+        return selected_modules
+
     def _verbose_print_drop(
         self, drop_count: int, resource_ids: SequenceNotStr[T_ID], loader: ResourceContainerCRUD, dry_run: bool
     ) -> None:
@@ -204,6 +224,11 @@ class CleanCommand(ToolkitCommand):
             # Count is not supported
             print(f" {prefix} all {loader.item_name} from {loader.display_name}: {_print_ids_or_length(resource_ids)}.")
 
+    def _select_modules(self, clean_state: BuildEnvironment, module_str: str | None) -> list[ReadModule] | None:
+        if module_str:
+            return [module for module in clean_state.read_modules if module.dir.name == module_str]
+        return self._interactive_module_selection(clean_state.read_modules)
+
     def execute(
         self,
         env_vars: EnvironmentVariables,
@@ -211,7 +236,9 @@ class CleanCommand(ToolkitCommand):
         build_env_name: str | None,
         dry_run: bool,
         include: list[str] | None,
+        module_str: str | None,
         verbose: bool,
+        all_modules: bool = False,
     ) -> None:
         if not build_dir.exists():
             raise ToolkitNotADirectoryError(
@@ -245,9 +272,31 @@ class CleanCommand(ToolkitCommand):
         )
 
         if not build_dir.is_dir():
-            raise ToolkitNotADirectoryError(f"'{build_dir}'. Did you forget to run `cdf-tk build` first?")
+            raise ToolkitNotADirectoryError(f"'{build_dir}'. Did you forget to run `cdf build` first?")
 
-        selected_loaders = self.get_selected_loaders(build_dir, clean_state.read_resource_folders, include)
+        selected_modules: list[ReadModule]
+        if all_modules:
+            selected_modules = clean_state.read_modules or []
+            if not selected_modules:
+                raise ToolkitValueError("No modules available to clean.")
+        elif module_str:
+            selected_modules = [module for module in clean_state.read_modules if module.dir.name == module_str]
+            if not selected_modules:
+                available_module_names = {module.dir.name for module in clean_state.read_modules}
+                raise ToolkitMissingModuleError(
+                    f"No modules matched the selection: {module_str}. Available modules: {sorted(available_module_names)}"
+                )
+        else:
+            selected_modules = self._interactive_module_selection(clean_state.read_modules) or []
+            if not selected_modules:
+                raise ToolkitValueError(
+                    "No module specified with the --module option and no modules selected interactively."
+                )
+
+        selected_resource_folders = {
+            resource_folder for module in selected_modules for resource_folder in module.resource_directories
+        }
+        selected_loaders = self.get_selected_loaders(build_dir, selected_resource_folders, include)
 
         results = DeployResults([], "clean", dry_run=dry_run)
 
@@ -274,7 +323,7 @@ class CleanCommand(ToolkitCommand):
             result = self.clean_resources(
                 loader,
                 env_vars=env_vars,
-                read_modules=clean_state.read_modules,
+                read_modules=selected_modules,
                 drop=True,
                 dry_run=dry_run,
                 drop_data=True,
