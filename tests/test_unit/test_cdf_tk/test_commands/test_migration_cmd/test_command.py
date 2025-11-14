@@ -41,7 +41,10 @@ from cognite_toolkit._cdf_tk.utils.fileio import CSVReader
 
 @pytest.fixture
 def cognite_migration_model(
-    toolkit_config: ToolkitClientConfig, rsps: responses.RequestsMock, cognite_core_no_3D: DataModel[View]
+    toolkit_config: ToolkitClientConfig,
+    rsps: responses.RequestsMock,
+    cognite_core_no_3D: DataModel[View],
+    cognite_extractor_views: list[View],
 ) -> Iterator[responses.RequestsMock]:
     config = toolkit_config
     mapping_by_id = {mapping.external_id: mapping for mapping in create_default_mappings()}
@@ -66,7 +69,10 @@ def cognite_migration_model(
     )
     rsps.post(
         config.create_api_url("models/views/byids"),
-        json={"items": [view.dump() for view in cognite_core_no_3D.views]},
+        json={
+            "items": [view.dump() for view in cognite_core_no_3D.views]
+            + [view.dump() for view in cognite_extractor_views]
+        },
     )
     # Migration model
     migration_model = COGNITE_MIGRATION_MODEL.dump()
