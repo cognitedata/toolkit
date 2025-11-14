@@ -9,14 +9,10 @@ import responses
 import respx
 from cognite.client.data_classes import Annotation, AnnotationList, Asset, AssetList
 from cognite.client.data_classes.data_modeling import (
-    ContainerId,
     DataModel,
     DataModelList,
-    DirectRelation,
-    MappedProperty,
     NodeApply,
     NodeOrEdgeData,
-    Text,
     View,
     ViewId,
 )
@@ -45,7 +41,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import CSVReader
 
 @pytest.fixture
 def cognite_migration_model(
-    toolkit_config: ToolkitClientConfig, rsps: responses.RequestsMock
+    toolkit_config: ToolkitClientConfig, rsps: responses.RequestsMock, cognite_core_no_3D: DataModel[View]
 ) -> Iterator[responses.RequestsMock]:
     config = toolkit_config
     mapping_by_id = {mapping.external_id: mapping for mapping in create_default_mappings()}
@@ -68,42 +64,9 @@ def cognite_migration_model(
         json={"items": node_items},
         status=200,
     )
-
-    # Lookup CogniteAsset, this is not the full model, just the properties we need for the
-    # migration
-    default_prop_args = dict(nullable=True, immutable=False, auto_increment=False)
-    default_view_args = dict(
-        last_updated_time=1,
-        created_time=1,
-        description=None,
-        name=None,
-        implements=[],
-        writable=True,
-        used_for="node",
-        is_global=True,
-        filter=None,
-    )
-    cognite_asset = View(
-        space="cdf_cdm",
-        external_id="CogniteAsset",
-        version="v1",
-        properties={
-            "name": MappedProperty(ContainerId("cdf_cdm", "CogniteDescribable"), "name", Text(), **default_prop_args),
-            "description": MappedProperty(
-                ContainerId("cdf_cdm", "CogniteDescribable"), "description", Text(), **default_prop_args
-            ),
-            "source": MappedProperty(
-                ContainerId("cdf_cdm", "CogniteSourceable"), "name", DirectRelation(), **default_prop_args
-            ),
-            "tags": MappedProperty(
-                ContainerId("cdf_cdm", "CogniteDescribable"), "tags", Text(is_list=True), **default_prop_args
-            ),
-        },
-        **default_view_args,
-    )
     rsps.post(
         config.create_api_url("models/views/byids"),
-        json={"items": [cognite_asset.dump()]},
+        json={"items": [view.dump() for view in cognite_core_no_3D.views]},
     )
     # Migration model
     migration_model = COGNITE_MIGRATION_MODEL.dump()
