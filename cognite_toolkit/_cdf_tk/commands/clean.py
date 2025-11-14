@@ -46,7 +46,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValidationError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import (
     LowSeverityWarning,
     MediumSeverityWarning,
@@ -226,12 +225,9 @@ class CleanCommand(ToolkitCommand):
             print(f" {prefix} all {loader.item_name} from {loader.display_name}: {_print_ids_or_length(resource_ids)}.")
 
     def _select_modules(self, clean_state: BuildEnvironment, module_str: str | None) -> list[ReadModule] | None:
-        if Flags.v07.is_enabled():
-            if module_str:
-                return [module for module in clean_state.read_modules if module.dir.name == module_str]
-            return self._interactive_module_selection(clean_state.read_modules)
-        else:
-            return clean_state.read_modules
+        if module_str:
+            return [module for module in clean_state.read_modules if module.dir.name == module_str]
+        return self._interactive_module_selection(clean_state.read_modules)
 
     def execute(
         self,
@@ -279,24 +275,21 @@ class CleanCommand(ToolkitCommand):
             raise ToolkitNotADirectoryError(f"'{build_dir}'. Did you forget to run `cdf build` first?")
 
         selected_modules: list[ReadModule] | None = None
-        if Flags.v07.is_enabled():
-            if all_modules:
-                selected_modules = clean_state.read_modules
-            elif module_str:
-                selected_modules = [module for module in clean_state.read_modules if module.dir.name == module_str]
-                if not selected_modules:
-                    available_module_names = {module.dir.name for module in clean_state.read_modules}
-                    raise ToolkitMissingModuleError(
-                        f"No modules matched the selection: {module_str}. Available modules: {sorted(available_module_names)}"
-                    )
-            else:
-                selected_modules = self._interactive_module_selection(clean_state.read_modules)
-                if not selected_modules:
-                    raise ToolkitValueError(
-                        "No module specified with the --module option and no modules selected interactively."
-                    )
-        else:
+        if all_modules:
             selected_modules = clean_state.read_modules
+        elif module_str:
+            selected_modules = [module for module in clean_state.read_modules if module.dir.name == module_str]
+            if not selected_modules:
+                available_module_names = {module.dir.name for module in clean_state.read_modules}
+                raise ToolkitMissingModuleError(
+                    f"No modules matched the selection: {module_str}. Available modules: {sorted(available_module_names)}"
+                )
+        else:
+            selected_modules = self._interactive_module_selection(clean_state.read_modules)
+            if not selected_modules:
+                raise ToolkitValueError(
+                    "No module specified with the --module option and no modules selected interactively."
+                )
 
         if not selected_modules:
             raise ToolkitValueError("No modules available to clean.")

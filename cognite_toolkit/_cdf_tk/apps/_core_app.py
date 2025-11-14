@@ -379,5 +379,6 @@ class CoreApp(typer.Typer):
                 include,
                 module,
                 verbose,
+                all_modules=True if not Flags.v07.is_enabled() else False,
             )
         )
