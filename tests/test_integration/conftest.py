@@ -344,10 +344,7 @@ def upsert_transformation_with_run(
 
 @pytest.fixture(scope="session")
 def aggregator_assets(
-    toolkit_client: ToolkitClient,
-    aggregator_raw_db: str,
-    aggregator_root_asset: Asset,
-    aggregator_two_datasets: DataSetList,  # Ensure this fixture runs first
+    toolkit_client: ToolkitClient, aggregator_raw_db: str, aggregator_root_asset: Asset
 ) -> Transformation:
     table_name = ASSET_TABLE
     rows = [
