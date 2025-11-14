@@ -265,7 +265,7 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerApply, Container
         self,
         client: ToolkitClient,
         build_dir: Path | None,
-        console: Console | None,
+        console: Console | None = None,
         topological_sort_implements: bool = False,
     ) -> None:
         super().__init__(client, build_dir, console)
