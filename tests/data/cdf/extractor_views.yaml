@@ -1,0 +1,670 @@
+- space: cdf_extraction_extensions
+  externalId: CogniteExtractorFile
+  implements:
+  - space: cdf_cdm
+    externalId: CogniteDescribable
+    version: v1
+    type: view
+  - space: cdf_cdm
+    externalId: CogniteSourceable
+    version: v1
+    type: view
+  - space: cdf_cdm
+    externalId: CogniteFile
+    version: v1
+    type: view
+  - space: cdf_extraction_extensions
+    externalId: CogniteExtractorData
+    version: v1
+    type: view
+  version: v1
+  writable: true
+  usedFor: node
+  isGlobal: true
+  properties:
+    name:
+      container:
+        space: cdf_cdm
+        externalId: CogniteDescribable
+      containerPropertyIdentifier: name
+      type:
+        list: false
+        collation: ucs_basic
+        type: text
+      immutable: false
+      nullable: true
+      autoIncrement: false
+      description: Name of the instance
+      constraintState: {}
+    description:
+      container:
+        space: cdf_cdm
+        externalId: CogniteDescribable
+      containerPropertyIdentifier: description
+      type:
+        list: false
+        collation: ucs_basic
+        type: text
+      immutable: false
+      nullable: true
+      autoIncrement: false
+      description: Description of the instance
+      constraintState: {}
+    tags:
+      container:
+        space: cdf_cdm
+        externalId: CogniteDescribable
+      containerPropertyIdentifier: tags
+      type:
+        list: true
+        collation: ucs_basic
+        type: text
+      immutable: false
+      nullable: true
+      autoIncrement: false
+      description: Text based labels for generic use, limited to 1000
+      constraintState: {}
+    aliases:
+      container:
+        space: cdf_cdm
+        externalId: CogniteDescribable
+      containerPropertyIdentifier: aliases
+      type:
+        list: true
+        collation: ucs_basic
+        type: text
+      immutable: false
+      nullable: true
+      autoIncrement: false
+      description: Alternative names for the node
+      constraintState: {}
+    sourceId:
+      container:
+        space: cdf_cdm
+        externalId: CogniteSourceable
+      containerPropertyIdentifier: sourceId
+      type:
+        list: false
+        collation: ucs_basic
+        type: text
+      immutable: false
+      nullable: true
+      autoIncrement: false
+      description: Identifier from the source system
+      constraintState: {}
+    sourceContext:
+      container:
+        space: cdf_cdm
+        externalId: CogniteSourceable
+      containerPropertyIdentifier: sourceContext
+      type:
+        list: false
+        collation: ucs_basic
+        type: text
+      immutable: false
+      nullable: true
+      autoIncrement: false
+      description: Context of the source id. For systems where the sourceId is globally
+        unique, the sourceContext is expected to not be set.
+      constraintState: {}
+    source:
+      container:
+        space: cdf_cdm
+        externalId: CogniteSourceable
+      containerPropertyIdentifier: source
+      type:
+        list: false
+        container:
+          space: cdf_cdm
+          externalId: CogniteSourceSystem
+          type: container
+        type: direct
+        source:
+          space: cdf_cdm
+          externalId: CogniteSourceSystem
+          version: v1
+      immutable: false
+      nullable: true
+      autoIncrement: false
+      description: Direct relation to a source system
+      constraintState: {}
+    sourceCreatedTime:
+      container:
+        space: cdf_cdm
+        externalId: CogniteSourceable
+      containerPropertyIdentifier: sourceCreatedTime
+      type:
+        list: false
+        type: timestamp
+      immutable: false
+      nullable: true
+      autoIncrement: false
+      description: When the instance was created in source system (if available)
+      constraintState: {}
+    sourceUpdatedTime:
+      container:
+        space: cdf_cdm
+        externalId: CogniteSourceable
+      containerPropertyIdentifier: sourceUpdatedTime
+      type:
+        list: false
+        type: timestamp
+      immutable: false
+      nullable: true
+      autoIncrement: false
+      description: When the instance was last updated in the source system (if available)
+      constraintState: {}
+    sourceCreatedUser:
+      container:
+        space: cdf_cdm
+        externalId: CogniteSourceable
+      containerPropertyIdentifier: sourceCreatedUser
+      type:
+        list: false
+        collation: ucs_basic
+        type: text
+      immutable: false
+      nullable: true
+      autoIncrement: false
+      description: User identifier from the source system on who created the source
+        data. This identifier is not guaranteed to match the user identifiers in CDF
+      constraintState: {}
+    sourceUpdatedUser:
+      container:
+        space: cdf_cdm
+        externalId: CogniteSourceable
+      containerPropertyIdentifier: sourceUpdatedUser
+      type:
+        list: false
+        collation: ucs_basic
+        type: text
+      immutable: false
+      nullable: true
+      autoIncrement: false
+      description: User identifier from the source system on who last updated the
+        source data. This identifier is not guaranteed to match the user identifiers
+        in CDF
+      constraintState: {}
+    assets:
+      container:
+        space: cdf_cdm
+        externalId: CogniteFile
+      containerPropertyIdentifier: assets
+      type:
+        list: true
+        type: direct
+        source:
+          space: cdf_cdm
+          externalId: CogniteAsset
+          version: v1
+      immutable: false
+      nullable: true
+      autoIncrement: false
+      name: Assets
+      description: A list of assets this file is related to.
+      constraintState: {}
+    mimeType:
+      container:
+        space: cdf_cdm
+        externalId: CogniteFile
+      containerPropertyIdentifier: mimeType
+      type:
+        list: false
+        collation: ucs_basic
+        type: text
+      immutable: false
+      nullable: true
+      autoIncrement: false
+      name: MIME type
+      description: The MIME type of the file.
+      constraintState: {}
+    directory:
+      container:
+        space: cdf_cdm
+        externalId: CogniteFile
+      containerPropertyIdentifier: directory
+      type:
+        list: false
+        collation: ucs_basic
+        type: text
+      immutable: false
+      nullable: true
+      autoIncrement: false
+      name: Directory
+      description: Contains the path elements from the source (if the source system
+        has a file system hierarchy or similar.)
+      constraintState: {}
+    isUploaded:
+      container:
+        space: cdf_cdm
+        externalId: CogniteFile
+      containerPropertyIdentifier: isUploaded
+      type:
+        list: false
+        type: boolean
+      immutable: false
+      nullable: true
+      autoIncrement: false
+      name: Is uploaded
+      defaultValue: false
+      description: Specifies if the file content has been uploaded to Cognite Data
+        Fusion or not.
+      constraintState: {}
+    uploadedTime:
+      container:
+        space: cdf_cdm
+        externalId: CogniteFile
+      containerPropertyIdentifier: uploadedTime
+      type:
+        list: false
+        type: timestamp
+      immutable: false
+      nullable: true
+      autoIncrement: false
+      name: Uploaded time
+      description: The time the file upload completed.
+      constraintState: {}
+    category:
+      container:
+        space: cdf_cdm
+        externalId: CogniteFile
+      containerPropertyIdentifier: category
+      type:
+        list: false
+        type: direct
+        source:
+          space: cdf_cdm
+          externalId: CogniteFileCategory
+          version: v1
+      immutable: false
+      nullable: true
+      autoIncrement: false
+      name: Category
+      description: Specifies the detected category the file belongs to. It's a direct
+        relation to an instance of CogniteFileCategory.
+      constraintState: {}
+    equipment:
+      source:
+        space: cdf_cdm
+        externalId: CogniteEquipment
+        version: v1
+        type: view
+      through:
+        source:
+          space: cdf_cdm
+          externalId: CogniteEquipment
+          version: v1
+          type: view
+        identifier: files
+      name: Equipment
+      description: An automatically updated list of equipment this file is related
+        to.
+      connectionType: multi_reverse_direct_relation
+    extractedData:
+      container:
+        space: cdf_extraction_extensions
+        externalId: CogniteExtractorData
+      containerPropertyIdentifier: extractedData
+      type:
+        list: false
+        type: json
+      immutable: false
+      nullable: true
+      autoIncrement: false
+      description: Unstructured information extracted from source system
+      constraintState: {}
+  lastUpdatedTime: 1724420990920
+  createdTime: 1724420990920
+- space: cdf_extraction_extensions
+  externalId: CogniteExtractorTimeSeries
+  implements:
+  - space: cdf_cdm
+    externalId: CogniteDescribable
+    version: v1
+    type: view
+  - space: cdf_cdm
+    externalId: CogniteSourceable
+    version: v1
+    type: view
+  - space: cdf_cdm
+    externalId: CogniteTimeSeries
+    version: v1
+    type: view
+  - space: cdf_extraction_extensions
+    externalId: CogniteExtractorData
+    version: v1
+    type: view
+  version: v1
+  writable: true
+  usedFor: node
+  isGlobal: true
+  properties:
+    name:
+      container:
+        space: cdf_cdm
+        externalId: CogniteDescribable
+      containerPropertyIdentifier: name
+      type:
+        list: false
+        collation: ucs_basic
+        type: text
+      immutable: false
+      nullable: true
+      autoIncrement: false
+      description: Name of the instance
+      constraintState: {}
+    description:
+      container:
+        space: cdf_cdm
+        externalId: CogniteDescribable
+      containerPropertyIdentifier: description
+      type:
+        list: false
+        collation: ucs_basic
+        type: text
+      immutable: false
+      nullable: true
+      autoIncrement: false
+      description: Description of the instance
+      constraintState: {}
+    tags:
+      container:
+        space: cdf_cdm
+        externalId: CogniteDescribable
+      containerPropertyIdentifier: tags
+      type:
+        list: true
+        collation: ucs_basic
+        type: text
+      immutable: false
+      nullable: true
+      autoIncrement: false
+      description: Text based labels for generic use, limited to 1000
+      constraintState: {}
+    aliases:
+      container:
+        space: cdf_cdm
+        externalId: CogniteDescribable
+      containerPropertyIdentifier: aliases
+      type:
+        list: true
+        collation: ucs_basic
+        type: text
+      immutable: false
+      nullable: true
+      autoIncrement: false
+      description: Alternative names for the node
+      constraintState: {}
+    sourceId:
+      container:
+        space: cdf_cdm
+        externalId: CogniteSourceable
+      containerPropertyIdentifier: sourceId
+      type:
+        list: false
+        collation: ucs_basic
+        type: text
+      immutable: false
+      nullable: true
+      autoIncrement: false
+      description: Identifier from the source system
+      constraintState: {}
+    sourceContext:
+      container:
+        space: cdf_cdm
+        externalId: CogniteSourceable
+      containerPropertyIdentifier: sourceContext
+      type:
+        list: false
+        collation: ucs_basic
+        type: text
+      immutable: false
+      nullable: true
+      autoIncrement: false
+      description: Context of the source id. For systems where the sourceId is globally
+        unique, the sourceContext is expected to not be set.
+      constraintState: {}
+    source:
+      container:
+        space: cdf_cdm
+        externalId: CogniteSourceable
+      containerPropertyIdentifier: source
+      type:
+        list: false
+        container:
+          space: cdf_cdm
+          externalId: CogniteSourceSystem
+          type: container
+        type: direct
+        source:
+          space: cdf_cdm
+          externalId: CogniteSourceSystem
+          version: v1
+      immutable: false
+      nullable: true
+      autoIncrement: false
+      description: Direct relation to a source system
+      constraintState: {}
+    sourceCreatedTime:
+      container:
+        space: cdf_cdm
+        externalId: CogniteSourceable
+      containerPropertyIdentifier: sourceCreatedTime
+      type:
+        list: false
+        type: timestamp
+      immutable: false
+      nullable: true
+      autoIncrement: false
+      description: When the instance was created in source system (if available)
+      constraintState: {}
+    sourceUpdatedTime:
+      container:
+        space: cdf_cdm
+        externalId: CogniteSourceable
+      containerPropertyIdentifier: sourceUpdatedTime
+      type:
+        list: false
+        type: timestamp
+      immutable: false
+      nullable: true
+      autoIncrement: false
+      description: When the instance was last updated in the source system (if available)
+      constraintState: {}
+    sourceCreatedUser:
+      container:
+        space: cdf_cdm
+        externalId: CogniteSourceable
+      containerPropertyIdentifier: sourceCreatedUser
+      type:
+        list: false
+        collation: ucs_basic
+        type: text
+      immutable: false
+      nullable: true
+      autoIncrement: false
+      description: User identifier from the source system on who created the source
+        data. This identifier is not guaranteed to match the user identifiers in CDF
+      constraintState: {}
+    sourceUpdatedUser:
+      container:
+        space: cdf_cdm
+        externalId: CogniteSourceable
+      containerPropertyIdentifier: sourceUpdatedUser
+      type:
+        list: false
+        collation: ucs_basic
+        type: text
+      immutable: false
+      nullable: true
+      autoIncrement: false
+      description: User identifier from the source system on who last updated the
+        source data. This identifier is not guaranteed to match the user identifiers
+        in CDF
+      constraintState: {}
+    isStep:
+      container:
+        space: cdf_cdm
+        externalId: CogniteTimeSeries
+      containerPropertyIdentifier: isStep
+      type:
+        list: false
+        type: boolean
+      immutable: false
+      nullable: false
+      autoIncrement: false
+      name: Is step
+      defaultValue: false
+      description: Specifies whether the time series is a step time series or not.
+      constraintState:
+        nullability: current
+    type:
+      container:
+        space: cdf_cdm
+        externalId: CogniteTimeSeries
+      containerPropertyIdentifier: type
+      type:
+        type: enum
+        values:
+          string:
+            name: string
+            description: Time series with string data points.
+          numeric:
+            name: numeric
+            description: Time series with double floating point data points.
+          state:
+            name: state
+            description: Time series with state data points.
+      immutable: true
+      nullable: false
+      autoIncrement: false
+      name: Type
+      description: Specifies the data type of the data points.
+      constraintState:
+        nullability: current
+    sourceUnit:
+      container:
+        space: cdf_cdm
+        externalId: CogniteTimeSeries
+      containerPropertyIdentifier: sourceUnit
+      type:
+        list: false
+        collation: ucs_basic
+        type: text
+      immutable: false
+      nullable: true
+      autoIncrement: false
+      name: Source unit
+      description: The unit specified in the source system.
+      constraintState: {}
+    unit:
+      container:
+        space: cdf_cdm
+        externalId: CogniteTimeSeries
+      containerPropertyIdentifier: unit
+      type:
+        list: false
+        container:
+          space: cdf_cdm
+          externalId: CogniteUnit
+          type: container
+        type: direct
+        source:
+          space: cdf_cdm
+          externalId: CogniteUnit
+          version: v1
+      immutable: false
+      nullable: true
+      autoIncrement: false
+      name: Unit
+      description: The unit of the time series.
+      constraintState: {}
+    assets:
+      container:
+        space: cdf_cdm
+        externalId: CogniteTimeSeries
+      containerPropertyIdentifier: assets
+      type:
+        list: true
+        maxListSize: 1200
+        type: direct
+        source:
+          space: cdf_cdm
+          externalId: CogniteAsset
+          version: v1
+      immutable: false
+      nullable: true
+      autoIncrement: false
+      name: Assets
+      description: A list of assets the time series is related to.
+      constraintState:
+        maxListSize: current
+    equipment:
+      container:
+        space: cdf_cdm
+        externalId: CogniteTimeSeries
+      containerPropertyIdentifier: equipment
+      type:
+        list: true
+        type: direct
+        source:
+          space: cdf_cdm
+          externalId: CogniteEquipment
+          version: v1
+      immutable: false
+      nullable: true
+      autoIncrement: false
+      name: Equipment
+      description: A list of equipment the time series is related to.
+      constraintState: {}
+    stateSet:
+      container:
+        space: cdf_cdm
+        externalId: CogniteTimeSeries
+      containerPropertyIdentifier: stateSet
+      type:
+        list: false
+        container:
+          space: cdf_cdm
+          externalId: CogniteStateSet
+          type: container
+        type: direct
+      immutable: false
+      nullable: true
+      autoIncrement: false
+      name: State set
+      description: The state set of the time series. It is only in effect when the
+        type is 'state'.
+      constraintState: {}
+    activities:
+      source:
+        space: cdf_cdm
+        externalId: CogniteActivity
+        version: v1
+        type: view
+      through:
+        source:
+          space: cdf_cdm
+          externalId: CogniteActivity
+          version: v1
+          type: view
+        identifier: timeSeries
+      name: Activities
+      description: An automatically updated list of activities the time series is
+        related to.
+      connectionType: multi_reverse_direct_relation
+    extractedData:
+      container:
+        space: cdf_extraction_extensions
+        externalId: CogniteExtractorData
+      containerPropertyIdentifier: extractedData
+      type:
+        list: false
+        type: json
+      immutable: false
+      nullable: true
+      autoIncrement: false
+      description: Unstructured information extracted from source system
+      constraintState: {}
+  lastUpdatedTime: 1724420990920
+  createdTime: 1724420990920
