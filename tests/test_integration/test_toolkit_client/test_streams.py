@@ -1,8 +1,11 @@
+import pytest
+
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.streams import StreamRequest, StreamResponse
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
 
+@pytest.mark.skip("Soft deletes limits stop this from running frequently")
 class TestStreamsAPI:
     def test_create_list_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
         stream = StreamRequest.model_validate(
