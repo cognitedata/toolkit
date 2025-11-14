@@ -45,6 +45,7 @@ from .api.robotics.locations import LocationsAPI as RoboticsLocationsAPI
 from .api.robotics.maps import MapsAPI
 from .api.search import SearchAPI
 from .api.search_config import SearchConfigurationsAPI
+from .api.streams import StreamsAPI
 from .api.token import TokenAPI
 from .api.verify import VerifyAPI
 
@@ -116,6 +117,8 @@ class ToolkitClientMock(CogniteClientMock):
         self.time_series.data = MagicMock(spec=DatapointsAPI)
         self.time_series.data.synthetic = MagicMock(spec_set=SyntheticDatapointsAPI)
         self.time_series.subscriptions = MagicMock(spec_set=DatapointsSubscriptionAPI)
+
+        self.streams = MagicMock(spec=StreamsAPI)
 
         # This is a helper API, not a real API.
         self.token = TokenAPI(self)
