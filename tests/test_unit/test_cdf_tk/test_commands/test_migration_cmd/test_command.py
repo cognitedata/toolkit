@@ -292,6 +292,13 @@ class TestMigrationCommand:
             json={"items": [annotation.dump() for annotation in annotations]},
             status=200,
         )
+        # Lookup CogniteSourceSystem (no source systems defined)
+        rsps.post(
+            config.create_api_url("/models/instances/list"),
+            json={"items": []},
+            status=200,
+        )
+
         # Instance creation
         respx.post(
             config.create_api_url("/models/instances"),
@@ -326,7 +333,7 @@ class TestMigrationCommand:
             mapper=AssetCentricMapper(client),
             log_dir=tmp_path / "logs",
             dry_run=False,
-            verbose=False,
+            verbose=True,
         )
         actual_results = [result.get_progress(f"fileAnnotation_{annotation.id}") for annotation in annotations]
         expected_results = [{"download": "success", "convert": "success", "upload": "success"} for _ in annotations]
@@ -337,6 +344,38 @@ class TestMigrationCommand:
         assert last_call.request.url == config.create_api_url("/models/instances")
         assert last_call.request.method == "POST"
         actual_instances = json.loads(last_call.request.content)["items"]
+        expected_instance = [
+            NodeApply(
+                space=space,
+                external_id=f"annotation_{annotation.id}",
+                sources=[
+                    NodeOrEdgeData(
+                        source=ViewId("cdf_cdm", "CogniteFileAnnotation", "v1"),
+                        properties={
+                            "annotatedResourceType": annotation.annotated_resource_type,
+                            "annotatedResourceId": annotation.annotated_resource_id,
+                            "data": annotation.data,
+                            "status": annotation.status,
+                            "creatingUser": annotation.creating_user,
+                            "creatingApp": annotation.creating_app,
+                            "creatingAppVersion": annotation.creating_app_version,
+                            "annotationType": annotation.annotation_type,
+                        },
+                    ),
+                    NodeOrEdgeData(
+                        source=INSTANCE_SOURCE_VIEW_ID,
+                        properties={
+                            "id": annotation.id,
+                            "resourceType": "fileAnnotation",
+                            "dataSetId": None,
+                            "classicExternalId": f"annotation_{annotation.id}",
+                        },
+                    ),
+                ],
+            ).dump()
+            for annotation in annotations
+        ]
+        assert actual_instances == expected_instance
 
 
 class TestMigrateCommandHelpers:
