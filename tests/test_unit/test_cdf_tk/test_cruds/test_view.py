@@ -99,3 +99,37 @@ class TestViewLoader:
         actual = ViewCRUD.get_dependent_items(item)
 
         assert list(actual) == expected
+
+    @pytest.mark.parametrize(
+        "view_id,expected_readonly_props",
+        [
+            pytest.param(
+                dm.ViewId("cdf_cdm", "CogniteAsset", "v1"),
+                {"pathLastUpdatedTime", "path", "root"},
+                id="CogniteAsset_has_readonly_properties",
+            ),
+            pytest.param(
+                dm.ViewId("cdf_cdm", "CogniteFile", "v1"),
+                {"isUploaded", "uploadedTime"},
+                id="CogniteFile_has_readonly_properties",
+            ),
+            pytest.param(
+                dm.ViewId("cdf_cdm", "CogniteSourceSystem", "v1"),
+                set(),
+                id="CogniteSourceSystem_no_readonly_properties",
+            ),
+        ],
+    )
+    def test_get_readonly_properties(
+        self,
+        toolkit_client_approval: ApprovalToolkitClient,
+        cognite_core_no_3D: dm.DataModel,
+        view_id: dm.ViewId,
+        expected_readonly_props: set[str],
+    ) -> None:
+        """Test that get_readonly_properties identifies readonly properties from containers."""
+        loader = ViewCRUD.create_loader(toolkit_client_approval.mock_client)
+        toolkit_client_approval.append(dm.View, cognite_core_no_3D.views)
+
+        readonly_props = loader.get_readonly_properties(view_id)
+        assert readonly_props == expected_readonly_props
