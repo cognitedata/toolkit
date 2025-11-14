@@ -439,10 +439,10 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerApply, Container
             ):
                 yield instances.as_ids()
 
-    def _lookup_containers(self, container_ids: Iterable[ContainerId]) -> dict[ContainerId, Container]:
-        missing_ids = [container_id for container_id in container_ids if container_id not in self._container_by_id]
-        if missing_ids:
-            retrieved_containers = self.client.data_modeling.containers.retrieve(missing_ids)
+    def _lookup_containers(self, container_ids: Sequence[ContainerId]) -> dict[ContainerId, Container]:
+        ids_to_lookup = [container_id for container_id in container_ids if container_id not in self._container_by_id]
+        if ids_to_lookup:
+            retrieved_containers = self.client.data_modeling.containers.retrieve(ids_to_lookup)
             for container in retrieved_containers:
                 self._container_by_id[container.as_id()] = container
         if missing_container_ids := set(container_ids) - set(self._container_by_id.keys()):
@@ -456,7 +456,7 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerApply, Container
         }
 
     def _find_direct_container_dependencies(
-        self, container_ids: Iterable[ContainerId]
+        self, container_ids: Sequence[ContainerId]
     ) -> dict[ContainerId, set[ContainerId]]:
         containers_by_id = self._lookup_containers(container_ids)
         container_dependencies: dict[ContainerId, set[ContainerId]] = defaultdict(set)
@@ -472,7 +472,7 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerApply, Container
         return container_dependencies
 
     def _propagate_indirect_container_dependencies(
-        self, container_dependencies_by_id: dict[ContainerId, set[ContainerId]], dependants: list[ContainerId]
+        self, container_dependencies_by_id: dict[ContainerId, set[ContainerId]], dependants: Sequence[ContainerId]
     ) -> dict[ContainerId, set[ContainerId]]:
         """Propagate indirect container dependencies using a recursive approach.
 
@@ -497,7 +497,7 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerApply, Container
         return container_dependencies_by_id
 
     def _find_direct_and_indirect_container_dependencies(
-        self, container_ids: Iterable[ContainerId]
+        self, container_ids: Sequence[ContainerId]
     ) -> dict[ContainerId, set[ContainerId]]:
         container_dependencies_by_id = self._find_direct_container_dependencies(container_ids)
         for container_id in list(container_dependencies_by_id.keys()):
@@ -823,7 +823,7 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View, ViewApplyList, ViewList]):
 
         container_crud = ContainerCRUD.create_loader(self.client)
         container_dependencies_by_id = container_crud._find_direct_and_indirect_container_dependencies(
-            container_to_views.keys()
+            list(container_to_views.keys())
         )
 
         # First, add view dependencies based on implements relationships
