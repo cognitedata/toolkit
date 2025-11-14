@@ -274,9 +274,11 @@ class CleanCommand(ToolkitCommand):
         if not build_dir.is_dir():
             raise ToolkitNotADirectoryError(f"'{build_dir}'. Did you forget to run `cdf build` first?")
 
-        selected_modules: list[ReadModule] | None = None
+        selected_modules: list[ReadModule]
         if all_modules:
-            selected_modules = clean_state.read_modules
+            selected_modules = clean_state.read_modules or []
+            if not selected_modules:
+                raise ToolkitValueError("No modules available to clean.")
         elif module_str:
             selected_modules = [module for module in clean_state.read_modules if module.dir.name == module_str]
             if not selected_modules:
@@ -285,17 +287,11 @@ class CleanCommand(ToolkitCommand):
                     f"No modules matched the selection: {module_str}. Available modules: {sorted(available_module_names)}"
                 )
         else:
-            selected_modules = self._interactive_module_selection(clean_state.read_modules)
+            selected_modules = self._interactive_module_selection(clean_state.read_modules) or []
             if not selected_modules:
                 raise ToolkitValueError(
                     "No module specified with the --module option and no modules selected interactively."
                 )
-
-        if not selected_modules:
-            raise ToolkitValueError("No modules available to clean.")
-
-        # Type narrowing: after the check above, selected_modules is guaranteed to be non-None
-        assert selected_modules is not None
 
         selected_resource_folders = {
             resource_folder for module in selected_modules for resource_folder in module.resource_directories
