@@ -180,3 +180,6 @@ DATA_MANIFEST_STEM = "Manifest"
 # Migration Constants
 MISSING_INSTANCE_SPACE = "<InstanceSpaceMissing>"
 MISSING_EXTERNAL_ID = "INTERNAL_ID_project_{project}_id_{id}"
+
+# Stream Template names
+StreamTemplateName: TypeAlias = Literal["ImmutableTestStream", "BasicArchive", "BasicLiveData"]
