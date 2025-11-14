@@ -11,6 +11,7 @@ from cognite.client.data_classes import Annotation, AnnotationList, Asset, Asset
 from cognite.client.data_classes.data_modeling import (
     DataModel,
     DataModelList,
+    EdgeApply,
     NodeApply,
     NodeOrEdgeData,
     View,
@@ -345,12 +346,15 @@ class TestMigrationCommand:
         assert last_call.request.method == "POST"
         actual_instances = json.loads(last_call.request.content)["items"]
         expected_instance = [
-            NodeApply(
+            EdgeApply(
                 space=space,
                 external_id=f"annotation_{annotation.id}",
+                start_node=("", ""),
+                end_node=("", ""),
+                type=(space, ""),
                 sources=[
                     NodeOrEdgeData(
-                        source=ViewId("cdf_cdm", "CogniteFileAnnotation", "v1"),
+                        source=ViewId("cdf_cdm", "CogniteDiagramAnnotation", "v1"),
                         properties={
                             "annotatedResourceType": annotation.annotated_resource_type,
                             "annotatedResourceId": annotation.annotated_resource_id,
@@ -360,15 +364,6 @@ class TestMigrationCommand:
                             "creatingApp": annotation.creating_app,
                             "creatingAppVersion": annotation.creating_app_version,
                             "annotationType": annotation.annotation_type,
-                        },
-                    ),
-                    NodeOrEdgeData(
-                        source=INSTANCE_SOURCE_VIEW_ID,
-                        properties={
-                            "id": annotation.id,
-                            "resourceType": "fileAnnotation",
-                            "dataSetId": None,
-                            "classicExternalId": f"annotation_{annotation.id}",
                         },
                     ),
                 ],
