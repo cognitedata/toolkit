@@ -25,6 +25,7 @@ from cognite_toolkit._cdf_tk.apps import (
     AuthApp,
     CoreApp,
     DataApp,
+    DevApp,
     DumpApp,
     LandingApp,
     MigrateApp,
@@ -89,15 +90,22 @@ user_app = typer.Typer(**default_typer_kws, hidden=True)  # type: ignore [arg-ty
 landing_app = LandingApp(**default_typer_kws)
 
 _app.add_typer(AuthApp(**default_typer_kws), name="auth")
-if Plugins.run.value.is_enabled():
-    _app.add_typer(RunApp(**default_typer_kws), name="run")
 _app.add_typer(RepoApp(**default_typer_kws), name="repo")
+
+
+if Plugins.run.value.is_enabled():
+    if Flags.v07.is_enabled():
+        print("The run plugin is deprecated and will be replaced by the dev plugin in v0.8.0.")
+    _app.add_typer(RunApp(**default_typer_kws), name="run")
 
 if Plugins.dump.value.is_enabled():
     _app.add_typer(DumpApp(**default_typer_kws), name="dump")
 
 if Plugins.purge.value.is_enabled() and not Flags.v07.is_enabled():
     _app.add_typer(PurgeApp(**default_typer_kws), name="purge")
+
+if Plugins.dev.value.is_enabled() and Flags.v07.is_enabled():
+    _app.add_typer(DevApp(**default_typer_kws), name="dev")
 
 if Flags.PROFILE.is_enabled():
     _app.add_typer(ProfileApp(**default_typer_kws), name="profile")
