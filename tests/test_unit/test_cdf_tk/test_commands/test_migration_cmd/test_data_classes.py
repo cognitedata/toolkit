@@ -1,9 +1,10 @@
 from pathlib import Path
 
 import pytest
-from cognite.client.data_classes.data_modeling import NodeId, ViewId
+from cognite.client.data_classes.data_modeling import EdgeId, NodeId, ViewId
 
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
+    AnnotationMapping,
     MigrationMappingList,
     TimeSeriesMapping,
     TimeSeriesMigrationMappingList,
@@ -90,6 +91,19 @@ class TestMigrationMappingList:
                     ]
                 ),
                 id="Mapping with all columns including optional ones",
+            ),
+            pytest.param(
+                "id,space,externalId\n555,annotation_space,annotation_external_id\n",
+                "Annotations",
+                MigrationMappingList(
+                    [
+                        AnnotationMapping(
+                            id=555,
+                            instanceId=EdgeId("annotation_space", "annotation_external_id"),
+                        )
+                    ]
+                ),
+                id="Annotation mapping",
             ),
         ],
     )
