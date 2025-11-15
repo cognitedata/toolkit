@@ -19,7 +19,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest, SuccessResponseItems
 from cognite_toolkit._cdf_tk.utils.useful_types import (
-    AssetCentricKind,
+    AssetCentricKindExtended,
     AssetCentricType,
     JsonVal,
     T_AssetCentricResource,
@@ -46,7 +46,7 @@ class AssetCentricMigrationIO(
     CHUNK_SIZE = 1000
     UPLOAD_ENDPOINT = InstanceIO.UPLOAD_ENDPOINT
 
-    PENDING_INSTANCE_ID_ENDPOINT_BY_KIND: ClassVar[Mapping[AssetCentricKind, str]] = {
+    PENDING_INSTANCE_ID_ENDPOINT_BY_KIND: ClassVar[Mapping[AssetCentricKindExtended, str]] = {
         "TimeSeries": "/timeseries/set-pending-instance-ids",
         "FileMetadata": "/files/set-pending-instance-ids",
     }
@@ -122,8 +122,8 @@ class AssetCentricMigrationIO(
             yield mapping_list
 
     @staticmethod
-    def _kind_to_resource_type(kind: AssetCentricKind) -> AssetCentricType:
-        mapping: dict[AssetCentricKind, AssetCentricType] = {
+    def _kind_to_resource_type(kind: AssetCentricKindExtended) -> AssetCentricType:
+        mapping: dict[AssetCentricKindExtended, AssetCentricType] = {
             "Assets": "asset",
             "Events": "event",
             "TimeSeries": "timeseries",
