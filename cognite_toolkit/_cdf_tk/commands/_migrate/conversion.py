@@ -167,7 +167,7 @@ def asset_centric_to_dm(
     if properties:
         sources.append(NodeOrEdgeData(source=view_source.view_id, properties=properties))
 
-    if resource_type != "fileAnnotation":
+    if resource_type != "annotation":
         instance_source_properties = {
             "resourceType": resource_type,
             "id": id_,
