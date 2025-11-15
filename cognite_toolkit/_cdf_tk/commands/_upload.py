@@ -1,13 +1,18 @@
+from collections import Counter
 from collections.abc import Sequence
 from functools import partial
 from pathlib import Path
 
 from cognite.client.data_classes._base import T_CogniteResource
+from cognite.client.data_classes.data_modeling import (
+    ViewId,
+)
 from pydantic import ValidationError
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM, DATA_RESOURCE_DIR
+from cognite_toolkit._cdf_tk.cruds import ViewCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio import (
     T_Selector,
@@ -17,6 +22,7 @@ from cognite_toolkit._cdf_tk.storageio import (
 )
 from cognite_toolkit._cdf_tk.storageio._base import T_WriteCogniteResource, TableUploadableStorageIO, UploadItem
 from cognite_toolkit._cdf_tk.storageio.selectors import Selector, SelectorAdapter
+from cognite_toolkit._cdf_tk.storageio.selectors._instances import InstanceSpaceSelector
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
@@ -86,7 +92,48 @@ class UploadCommand(ToolkitCommand):
 
         self._deploy_resource_folder(input_dir / DATA_RESOURCE_DIR, deploy_resources, client, console, dry_run, verbose)
 
+        data_files_by_selector = self._topological_sort_if_instance_selector(data_files_by_selector, client)
+
         self._upload_data(data_files_by_selector, client, dry_run, input_dir, console, verbose)
+
+    def _topological_sort_if_instance_selector(
+        self, data_files_by_selector: dict[Selector, list[Path]], client: ToolkitClient
+    ) -> dict[Selector, list[Path]]:
+        """Topologically sorts InstanceSpaceSelectors (if they are present) to determine the order of upload based on container dependencies from the views.
+
+        Args:
+            data_files_by_selector: A dictionary mapping selectors to their data files.
+            client: The cognite client to use for the upload.
+
+        Returns:
+            A dictionary mapping selectors to their data files with necessary preprocessing.
+        """
+        counts = Counter(type(selector) for selector in data_files_by_selector.keys())
+        if counts[InstanceSpaceSelector] <= 1:
+            return data_files_by_selector
+
+        selector_by_view_id: dict[ViewId, Selector] = {}
+        for selector in data_files_by_selector:
+            if isinstance(selector, InstanceSpaceSelector) and selector.view is not None:
+                selector_by_view_id[selector.view.as_id()] = selector
+
+        view_dependencies = ViewCRUD.create_loader(client).topological_sort_container_constraints(
+            list(selector_by_view_id.keys())
+        )
+        prepared_selectors: dict[Selector, list[Path]] = {}
+
+        # Reorder selectors according to the dependency-sorted view list
+        for view_id in view_dependencies:
+            selector = selector_by_view_id[view_id]
+            prepared_selectors[selector] = data_files_by_selector[selector]
+
+        # Preserve selectors that aren't affected by view dependencies
+        # (e.g., raw tables, time series, non-view instance data)
+        for selector in data_files_by_selector.keys():
+            if selector not in prepared_selectors:
+                prepared_selectors[selector] = data_files_by_selector[selector]
+
+        return prepared_selectors
 
     def _find_data_files(
         self,
