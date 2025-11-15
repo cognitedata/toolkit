@@ -13,6 +13,8 @@ AssetCentricTypeExtended: TypeAlias = Literal["asset", "file", "event", "timeser
 AssetCentricResource: TypeAlias = Asset | FileMetadata | Event | TimeSeries
 AssetCentricResourceExtended: TypeAlias = Asset | FileMetadata | Event | TimeSeries | Annotation
 AssetCentricKind: TypeAlias = Literal["Assets", "Events", "TimeSeries", "FileMetadata"]
+AssetCentricKindExtended: TypeAlias = Literal["Assets", "Events", "TimeSeries", "FileMetadata", "Annotations"]
+
 
 DataType: TypeAlias = Literal["string", "integer", "float", "boolean", "json", "date", "timestamp", "epoch"]
 PythonTypes: TypeAlias = str | int | float | bool | datetime | date | dict[str, Any] | list[Any]

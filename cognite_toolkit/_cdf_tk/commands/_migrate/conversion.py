@@ -1,6 +1,6 @@
 from collections.abc import Mapping, Set
 from dataclasses import dataclass
-from typing import Any, ClassVar, overload
+from typing import Any, ClassVar
 
 from cognite.client.data_classes import Annotation, Asset, Event, FileMetadata, TimeSeries
 from cognite.client.data_classes.data_modeling import (
@@ -13,6 +13,7 @@ from cognite.client.data_classes.data_modeling import (
 )
 from cognite.client.data_classes.data_modeling.instances import EdgeApply, NodeOrEdgeData, PropertyValueWrite
 from cognite.client.data_classes.data_modeling.views import ViewProperty
+from cognite.client.utils._identifier import InstanceId
 
 from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId, ResourceViewMapping
 from cognite_toolkit._cdf_tk.utils.collection import flatten_dict_json_path
@@ -86,33 +87,9 @@ class DirectRelationCache:
         return {}
 
 
-@overload
 def asset_centric_to_dm(
     resource: AssetCentricResourceExtended,
-    instance_id: NodeId,
-    view_source: ResourceViewMapping,
-    view_properties: dict[str, ViewProperty],
-    asset_instance_id_by_id: Mapping[int, DirectRelationReference],
-    source_instance_id_by_external_id: Mapping[str, DirectRelationReference],
-    file_instance_id_by_id: Mapping[int, DirectRelationReference],
-) -> tuple[NodeApply | None, ConversionIssue]: ...
-
-
-@overload
-def asset_centric_to_dm(
-    resource: AssetCentricResourceExtended,
-    instance_id: EdgeId,
-    view_source: ResourceViewMapping,
-    view_properties: dict[str, ViewProperty],
-    asset_instance_id_by_id: Mapping[int, DirectRelationReference],
-    source_instance_id_by_external_id: Mapping[str, DirectRelationReference],
-    file_instance_id_by_id: Mapping[int, DirectRelationReference],
-) -> tuple[EdgeApply | None, ConversionIssue]: ...
-
-
-def asset_centric_to_dm(
-    resource: AssetCentricResourceExtended,
-    instance_id: NodeId | EdgeId,
+    instance_id: InstanceId,
     view_source: ResourceViewMapping,
     view_properties: dict[str, ViewProperty],
     asset_instance_id_by_id: Mapping[int, DirectRelationReference],
