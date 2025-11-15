@@ -22,7 +22,7 @@ from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
 )
 from cognite_toolkit._cdf_tk.utils.useful_types import (
     AssetCentricResourceExtended,
-    AssetCentricType,
+    AssetCentricTypeExtended,
 )
 
 from .data_model import INSTANCE_SOURCE_VIEW_ID
@@ -51,29 +51,31 @@ class DirectRelationCache:
 
     """
 
-    ASSET_REFERENCE_PROPERTIES: ClassVar[Set[tuple[AssetCentricType, str]]] = {
+    ASSET_REFERENCE_PROPERTIES: ClassVar[Set[tuple[AssetCentricTypeExtended, str]]] = {
         ("timeseries", "assetId"),
         ("file", "assetIds"),
         ("event", "assetIds"),
         ("sequence", "assetId"),
         ("asset", "parentId"),
-        ("fileAnnotation", "data.assetRef.id"),
+        ("annotation", "data.assetRef.id"),
     }
-    SOURCE_REFERENCE_PROPERTIES: ClassVar[Set[tuple[AssetCentricType, str]]] = {
+    SOURCE_REFERENCE_PROPERTIES: ClassVar[Set[tuple[AssetCentricTypeExtended, str]]] = {
         ("asset", "source"),
         ("event", "source"),
         ("file", "source"),
     }
-    FILE_REFERENCE_PROPERTIES: ClassVar[Set[tuple[AssetCentricType, str]]] = {
-        ("fileAnnotation", "data.fileRef.id"),
-        ("fileAnnotation", "annotatedResourceId"),
+    FILE_REFERENCE_PROPERTIES: ClassVar[Set[tuple[AssetCentricTypeExtended, str]]] = {
+        ("annotation", "data.fileRef.id"),
+        ("annotation", "annotatedResourceId"),
     }
 
     asset: Mapping[int, DirectRelationReference]
     source: Mapping[str, DirectRelationReference]
     file: Mapping[int, DirectRelationReference]
 
-    def get(self, resource_type: AssetCentricType, property_id: str) -> Mapping[str | int, DirectRelationReference]:
+    def get(
+        self, resource_type: AssetCentricTypeExtended, property_id: str
+    ) -> Mapping[str | int, DirectRelationReference]:
         key = resource_type, property_id
         if key in self.ASSET_REFERENCE_PROPERTIES:
             return self.asset  # type: ignore[return-value]
@@ -196,7 +198,7 @@ def asset_centric_to_dm(
     return instance, issue
 
 
-def _lookup_resource_type(resource_type: AssetCentricResourceExtended) -> AssetCentricType:
+def _lookup_resource_type(resource_type: AssetCentricResourceExtended) -> AssetCentricTypeExtended:
     if isinstance(resource_type, Asset):
         return "asset"
     elif isinstance(resource_type, FileMetadata):
@@ -210,7 +212,7 @@ def _lookup_resource_type(resource_type: AssetCentricResourceExtended) -> AssetC
             "diagrams.AssetLink",
             "diagrams.FileLink",
         ):
-            return "fileAnnotation"
+            return "annotation"
     raise ValueError(f"Unsupported resource type: {resource_type}")
 
 
@@ -218,7 +220,7 @@ def create_properties(
     dumped: dict[str, Any],
     view_properties: dict[str, ViewProperty],
     property_mapping: dict[str, str],
-    resource_type: AssetCentricType,
+    resource_type: AssetCentricTypeExtended,
     issue: ConversionIssue,
     direct_relation_cache: DirectRelationCache,
 ) -> dict[str, PropertyValueWrite]:
@@ -289,7 +291,7 @@ def create_properties(
 def create_edge_properties(
     dumped: dict[str, Any],
     property_mapping: dict[str, str],
-    resource_type: AssetCentricType,
+    resource_type: AssetCentricTypeExtended,
     issue: ConversionIssue,
     direct_relation_cache: DirectRelationCache,
     default_instance_space: str,
