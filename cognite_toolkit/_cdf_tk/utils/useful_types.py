@@ -28,3 +28,4 @@ PrimitiveType: TypeAlias = str | int | float | bool
 
 T_WriteCogniteResource = TypeVar("T_WriteCogniteResource", bound=CogniteObject)
 T_AssetCentricResource = TypeVar("T_AssetCentricResource", bound=AssetCentricResource)
+T_AssetCentricResourceExtended = TypeVar("T_AssetCentricResourceExtended", bound=AssetCentricResourceExtended)

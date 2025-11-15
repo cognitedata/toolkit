@@ -1,18 +1,21 @@
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from typing import ClassVar, cast
 
-from cognite.client.data_classes.data_modeling import InstanceApply, NodeId
+from cognite.client.data_classes import Annotation
+from cognite.client.data_classes.data_modeling import EdgeId, InstanceApply, NodeId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.pending_instances_ids import PendingInstanceId
 from cognite_toolkit._cdf_tk.constants import MISSING_EXTERNAL_ID, MISSING_INSTANCE_SPACE
-from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError, ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio import (
+    AnnotationIO,
     HierarchyIO,
     InstanceIO,
     UploadableStorageIO,
 )
 from cognite_toolkit._cdf_tk.storageio._base import Page, UploadItem
+from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest, SuccessResponseItems
 from cognite_toolkit._cdf_tk.utils.useful_types import (
@@ -22,7 +25,13 @@ from cognite_toolkit._cdf_tk.utils.useful_types import (
     T_AssetCentricResource,
 )
 
-from .data_classes import AssetCentricMapping, AssetCentricMappingList, MigrationMapping, MigrationMappingList
+from .data_classes import (
+    AnnotationMapping,
+    AssetCentricMapping,
+    AssetCentricMappingList,
+    MigrationMapping,
+    MigrationMappingList,
+)
 from .data_model import INSTANCE_SOURCE_VIEW_ID
 from .selectors import AssetCentricMigrationSelector, MigrateDataSetSelector, MigrationCSVFileSelector
 
@@ -199,3 +208,88 @@ class AssetCentricMigrationIO(
             pending_instance_id=NodeId(item.space, item.external_id),
             id=id_,
         )
+
+
+class AnnotationMigrationIO(
+    UploadableStorageIO[AssetCentricMigrationSelector, AssetCentricMapping[Annotation], InstanceApply]
+):
+    KIND = "AnnotationMigration"
+    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
+    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
+    SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
+    CHUNK_SIZE = 1000
+    UPLOAD_ENDPOINT = InstanceIO.UPLOAD_ENDPOINT
+
+    def __init__(self, client: ToolkitClient, instance_space: str | None = None) -> None:
+        super().__init__(client)
+        self.annotation_io = AnnotationIO(client)
+        self.instance_space = instance_space
+
+    def as_id(self, item: AssetCentricMapping[Annotation]) -> str:
+        return f"Annotation_{item.mapping.id}"
+
+    def count(self, selector: AssetCentricMigrationSelector) -> int | None:
+        # There is no efficient way to count annotations in CDF.
+        return None
+
+    def stream_data(self, selector: AssetCentricMigrationSelector, limit: int | None = None) -> Iterable[Page]:
+        if isinstance(selector, MigrateDataSetSelector):
+            iterator = self._stream_from_dataset(selector, limit)
+        elif isinstance(selector, MigrationCSVFileSelector):
+            iterator = self._stream_from_csv(selector, limit)
+        else:
+            raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for stream_data")
+        yield from (Page(worker_id="main", items=items) for items in iterator)
+
+    def _stream_from_dataset(
+        self, selector: MigrateDataSetSelector, limit: int | None = None
+    ) -> Iterator[Sequence[AssetCentricMapping[Annotation]]]:
+        if self.instance_space is None:
+            raise ToolkitValueError("Instance space must be provided for dataset-based annotation migration.")
+        asset_centric_selector = selector.as_asset_centric_selector()
+        for data_chunk in self.annotation_io.stream_data(asset_centric_selector, limit):
+            mapping_list = AssetCentricMappingList[Annotation]([])
+            for resource in data_chunk.items:
+                mapping = AnnotationMapping(
+                    instance_id=EdgeId(space=self.instance_space, external_id=f"annotation_{resource.id!r}"),
+                    id=resource.id,
+                    ingestion_view=selector.ingestion_mapping,
+                    preferred_consumer_view=selector.preferred_consumer_view,
+                )
+                mapping_list.append(AssetCentricMapping(mapping=mapping, resource=resource))
+            yield mapping_list
+
+    def _stream_from_csv(
+        self, selector: MigrationCSVFileSelector, limit: int | None = None
+    ) -> Iterator[Sequence[AssetCentricMapping[Annotation]]]:
+        items = selector.items
+        if limit is not None:
+            items = MigrationMappingList(items[:limit])
+        chunk: list[AssetCentricMapping[Annotation]] = []
+        for current_batch in chunker_sequence(items, self.CHUNK_SIZE):
+            resources = self.client.annotations.retrieve_multiple(current_batch.get_ids())
+            resources_by_id = {resource.id: resource for resource in resources}
+            not_found = 0
+            for mapping in current_batch:
+                resource = resources_by_id.get(mapping.id)
+                if resource is None:
+                    not_found += 1
+                    continue
+                chunk.append(AssetCentricMapping(mapping=mapping, resource=resource))
+            if chunk:
+                yield chunk
+                chunk = []
+            if not_found:
+                MediumSeverityWarning(
+                    f"Could not find {not_found} annotations referenced in the CSV file. They will be skipped during migration."
+                ).print_warning(include_timestamp=True, console=self.client.console)
+
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> InstanceApply:
+        raise NotImplementedError("Deserializing Annotation Migrations from JSON is not supported.")
+
+    def data_to_json_chunk(
+        self,
+        data_chunk: Sequence[AssetCentricMapping[Annotation]],
+        selector: AssetCentricMigrationSelector | None = None,
+    ) -> list[dict[str, JsonVal]]:
+        raise NotImplementedError("Serializing Annotation Migrations to JSON is not supported.")

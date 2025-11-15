@@ -20,7 +20,7 @@ from cognite_toolkit._cdf_tk.storageio._data_classes import ModelList
 from cognite_toolkit._cdf_tk.utils.useful_types import (
     AssetCentricKindExtended,
     JsonVal,
-    T_AssetCentricResource,
+    T_AssetCentricResourceExtended,
 )
 
 
@@ -239,9 +239,9 @@ class AnnotationMigrationMappingList(MigrationMappingList):
 
 
 @dataclass
-class AssetCentricMapping(Generic[T_AssetCentricResource], WriteableCogniteResource[InstanceApply]):
+class AssetCentricMapping(Generic[T_AssetCentricResourceExtended], WriteableCogniteResource[InstanceApply]):
     mapping: MigrationMapping
-    resource: T_AssetCentricResource
+    resource: T_AssetCentricResourceExtended
 
     def as_write(self) -> InstanceApply:
         raise NotImplementedError()
@@ -256,7 +256,9 @@ class AssetCentricMapping(Generic[T_AssetCentricResource], WriteableCogniteResou
         }
 
 
-class AssetCentricMappingList(WriteableCogniteResourceList[InstanceApply, AssetCentricMapping[T_AssetCentricResource]]):
+class AssetCentricMappingList(
+    WriteableCogniteResourceList[InstanceApply, AssetCentricMapping[T_AssetCentricResourceExtended]]
+):
     _RESOURCE: type = AssetCentricMapping
 
     def as_write(self) -> InstanceApplyList:
