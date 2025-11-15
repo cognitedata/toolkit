@@ -1,7 +1,7 @@
 from cognite.client.data_classes import Annotation, AnnotationList, FileMetadata
 
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.storageio import FileAnnotationIO
+from cognite_toolkit._cdf_tk.storageio import AnnotationIO
 from cognite_toolkit._cdf_tk.storageio.selectors import DataSetSelector
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
@@ -56,7 +56,7 @@ class TestAnnotationIO:
             )
             approval_client.mock_client.annotations.list.return_value = annotations
 
-            annotation_io = FileAnnotationIO(approval_client.client)
+            annotation_io = AnnotationIO(approval_client.client)
             selector = DataSetSelector(kind="FileMetadata", data_set_external_id="test_data_set")
 
             pages = list(annotation_io.stream_data(selector))

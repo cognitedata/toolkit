@@ -11,7 +11,7 @@ from ._base import Page, StorageIO
 from .selectors import AssetCentricSelector
 
 
-class FileAnnotationIO(StorageIO[AssetCentricSelector, Annotation]):
+class AnnotationIO(StorageIO[AssetCentricSelector, Annotation]):
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     CHUNK_SIZE = 1000
@@ -23,7 +23,7 @@ class FileAnnotationIO(StorageIO[AssetCentricSelector, Annotation]):
         project = item._cognite_client.config.project
         return f"INTERNAL_ID_project_{project}_{item.id!s}"
 
-    def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[Page]:
+    def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[Page[Annotation]]:
         total = 0
         for file_chunk in FileMetadataIO(self.client).stream_data(selector, None):
             # Todo Support pagination. This is missing in the SDK.

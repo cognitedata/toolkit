@@ -1,21 +1,24 @@
 from pathlib import Path
 
 import pytest
-from cognite.client.data_classes.data_modeling import NodeId, ViewId
+from cognite.client.data_classes.data_modeling import EdgeId, NodeId, ViewId
 
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
+    AnnotationMapping,
     MigrationMappingList,
     TimeSeriesMapping,
     TimeSeriesMigrationMappingList,
 )
+from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricKindExtended
 
 
 class TestMigrationMappingList:
     @pytest.mark.parametrize(
-        "content, expected",
+        "content, resource_type, expected",
         [
             pytest.param(
                 "id,dataSetId,space,externalId\n123,123,sp_full_ts,full_ts_id\n3231,,sp_step_ts,step_ts_id\n",
+                "TimeSeries",
                 MigrationMappingList(
                     [
                         TimeSeriesMapping(
@@ -34,6 +37,7 @@ class TestMigrationMappingList:
             ),
             pytest.param(
                 "id,space,externalId\n230,my_space,target_external_id\n",
+                "TimeSeries",
                 MigrationMappingList(
                     [
                         TimeSeriesMapping(
@@ -47,6 +51,7 @@ class TestMigrationMappingList:
             ),
             pytest.param(
                 """\ufeffid,dataSetId,space,externalId\n42,123,sp_full_ts,full_ts_id\n""",
+                "TimeSeries",
                 MigrationMappingList(
                     [
                         TimeSeriesMapping(
@@ -62,6 +67,7 @@ class TestMigrationMappingList:
                 """id,space,externalId,dataSetId,ingestionView,consumerViewSpace,consumerViewExternalId,consumerViewVersion\n
 123,sp_full_ts,full_ts_id,123,ingestion_view_id,consumer_view_space,consumer_view_external_id,1.0\n
 3231,sp_step_ts,step_ts_id,,ingestion_view_id_2,consumer_view_space_2,consumer_view_external_id_2,2.0\n""",
+                "TimeSeries",
                 MigrationMappingList(
                     [
                         TimeSeriesMapping(
@@ -86,12 +92,27 @@ class TestMigrationMappingList:
                 ),
                 id="Mapping with all columns including optional ones",
             ),
+            pytest.param(
+                "id,space,externalId\n555,annotation_space,annotation_external_id\n",
+                "Annotations",
+                MigrationMappingList(
+                    [
+                        AnnotationMapping(
+                            id=555,
+                            instanceId=EdgeId("annotation_space", "annotation_external_id"),
+                        )
+                    ]
+                ),
+                id="Annotation mapping",
+            ),
         ],
     )
-    def test_read_mapping_file(self, content: str, expected: MigrationMappingList, tmp_path: Path) -> None:
+    def test_read_mapping_file(
+        self, content: str, resource_type: AssetCentricKindExtended, expected: MigrationMappingList, tmp_path: Path
+    ) -> None:
         input_file = tmp_path / "mapping_file.csv"
         input_file.write_text(content, encoding="utf-8")
-        actual = TimeSeriesMigrationMappingList.read_csv_file(input_file)
+        actual = MigrationMappingList.read_csv_file(input_file, resource_type)
         assert not actual.invalid_rows
         assert actual == expected
 

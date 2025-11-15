@@ -20,7 +20,13 @@ from dateutil import parser
 from cognite_toolkit._cdf_tk.constants import CDF_UNIT_SPACE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
-from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricType, DataType, JsonVal, PythonTypes
+from cognite_toolkit._cdf_tk.utils.useful_types import (
+    AssetCentricType,
+    AssetCentricTypeExtended,
+    DataType,
+    JsonVal,
+    PythonTypes,
+)
 
 from .collection import humanize_collection
 
@@ -35,7 +41,7 @@ def asset_centric_convert_to_primary_property(
     type_: PropertyType,
     nullable: bool,
     destination_container_property: tuple[ContainerId, str],
-    source_property: tuple[AssetCentricType, str],
+    source_property: tuple[AssetCentricTypeExtended, str],
     direct_relation_lookup: Mapping[str | int, DirectRelationReference] | None = None,
 ) -> PropertyValueWrite:
     if (source_property, destination_container_property) in SPECIAL_CONVERTER_BY_SOURCE_DESTINATION:
@@ -574,7 +580,7 @@ CONVERTER_BY_DTYPE: Mapping[str, type[_ValueConverter]] = {
     for cls_ in _ValueConverter.__subclasses__()
 }
 SPECIAL_CONVERTER_BY_SOURCE_DESTINATION: Mapping[
-    tuple[tuple[AssetCentricType, str], tuple[ContainerId, str]],
+    tuple[tuple[AssetCentricTypeExtended, str], tuple[ContainerId, str]],
     type[_SpecialCaseConverter],
 ] = {
     (subclass.source_property, subclass.destination_container_property): subclass
