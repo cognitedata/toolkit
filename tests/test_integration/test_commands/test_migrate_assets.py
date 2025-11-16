@@ -11,6 +11,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
+    ASSET_ANNOTATIONS_ID,
     ASSET_ID,
     EVENT_ID,
     FILE_METADATA_ID,
@@ -191,6 +192,7 @@ class TestMigrateAnnotations:
             selected=MigrateDataSetSelector(
                 kind="Annotations",
                 data_set_external_id=hierarchy.dataset.external_id,
+                ingestion_mapping=ASSET_ANNOTATIONS_ID,
             ),
             data=AnnotationMigrationIO(client, instance_space="my_annotations_space"),
             mapper=AssetCentricMapper(client),
