@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Generic, Literal
+from typing import Annotated, Any, Generic, Literal
 
 from cognite.client.data_classes._base import (
     WriteableCogniteResource,
@@ -9,7 +9,7 @@ from cognite.client.data_classes._base import (
 from cognite.client.data_classes.data_modeling import EdgeId, InstanceApply, NodeId, ViewId
 from cognite.client.utils._identifier import InstanceId
 from cognite.client.utils._text import to_camel_case
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, BeforeValidator, field_validator, model_validator
 
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList
 from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId
@@ -153,48 +153,30 @@ class MigrationMappingList(ModelList[MigrationMapping]):
         return cls_by_resource_type[resource_type].read_csv_file(filepath, resource_type=None)
 
 
+def _validate_node_id(value: Any) -> Any:
+    if isinstance(value, dict):
+        return NodeId.load(value)
+    return value
+
+
 class AssetMapping(MigrationMapping):
     resource_type: Literal["asset"] = "asset"
-    instance_id: NodeId
-
-    @field_validator("instance_id", mode="before")
-    def _validate_instance_id(cls, v: Any) -> Any:
-        if isinstance(v, dict):
-            return NodeId.load(v)
-        return v
+    instance_id: Annotated[NodeId, BeforeValidator(_validate_node_id)]
 
 
 class EventMapping(MigrationMapping):
     resource_type: Literal["event"] = "event"
-    instance_id: NodeId
-
-    @field_validator("instance_id", mode="before")
-    def _validate_instance_id(cls, v: Any) -> Any:
-        if isinstance(v, dict):
-            return NodeId.load(v)
-        return v
+    instance_id: Annotated[NodeId, BeforeValidator(_validate_node_id)]
 
 
 class TimeSeriesMapping(MigrationMapping):
     resource_type: Literal["timeseries"] = "timeseries"
-    instance_id: NodeId
-
-    @field_validator("instance_id", mode="before")
-    def _validate_instance_id(cls, v: Any) -> Any:
-        if isinstance(v, dict):
-            return NodeId.load(v)
-        return v
+    instance_id: Annotated[NodeId, BeforeValidator(_validate_node_id)]
 
 
 class FileMapping(MigrationMapping):
     resource_type: Literal["file"] = "file"
-    instance_id: NodeId
-
-    @field_validator("instance_id", mode="before")
-    def _validate_instance_id(cls, v: Any) -> Any:
-        if isinstance(v, dict):
-            return NodeId.load(v)
-        return v
+    instance_id: Annotated[NodeId, BeforeValidator(_validate_node_id)]
 
 
 class AnnotationMapping(MigrationMapping):
