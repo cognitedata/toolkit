@@ -28,7 +28,10 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_model import (
     MODEL_ID,
     RESOURCE_VIEW_MAPPING_VIEW_ID,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import ASSET_ID, create_default_mappings
+from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
+    ASSET_ID,
+    create_default_mappings,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import AssetCentricMigrationIO
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
