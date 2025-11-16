@@ -89,7 +89,7 @@ def create_default_mappings() -> list[ResourceViewMappingApply]:
         ),
         ResourceViewMappingApply(
             external_id=ASSET_ANNOTATIONS_ID,
-            resource_type="assetAnnotation",
+            resource_type="annotation",
             view_id=ViewId("cdf_cdm", "CogniteDiagramAnnotation", "v1"),
             property_mapping={
                 # We are ignoring the symbol region in the default mapping.
@@ -113,8 +113,8 @@ def create_default_mappings() -> list[ResourceViewMappingApply]:
         ),
         ResourceViewMappingApply(
             external_id=FILE_ANNOTATIONS_ID,
-            resource_type="fileAnnotation",
-            view_id=ViewId("cdf_cdm", "CogniteFileAnnotation", "v1"),
+            resource_type="annotation",
+            view_id=ViewId("cdf_cdm", "CogniteDiagramAnnotation", "v1"),
             property_mapping={
                 "annotatedResource.id": "edge.startNode",
                 "annotationType": "edge.type.externalId",
