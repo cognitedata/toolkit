@@ -708,20 +708,16 @@ def migration_hierarchy_minimal(toolkit_client: ToolkitClient) -> HierarchyMinim
     existing_annotations = client.annotations.list(
         filter=AnnotationFilter(annotated_resource_ids=[{"id": created_file.id}], annotated_resource_type="file")
     )
-    if len(existing_annotations) == 0:
+    created_file_annotation = next(
+        (a for a in existing_annotations if a.annotation_type == file_annotation.annotation_type), None
+    )
+    if created_file_annotation is None:
         created_file_annotation = client.annotations.create(file_annotation)
+    created_asset_annotation = next(
+        (a for a in existing_annotations if a.annotation_type == asset_annotation.annotation_type), None
+    )
+    if created_asset_annotation is None:
         created_asset_annotation = client.annotations.create(asset_annotation)
-    else:
-        created_file_annotation = next(
-            (a for a in existing_annotations if a.annotation_type == file_annotation.annotation_type), None
-        )
-        if created_file_annotation is None:
-            created_file_annotation = client.annotations.create(file_annotation)
-        created_asset_annotation = next(
-            (a for a in existing_annotations if a.annotation_type == asset_annotation.annotation_type), None
-        )
-        if created_asset_annotation is None:
-            created_asset_annotation = client.annotations.create(asset_annotation)
 
     return HierarchyMinimal(
         root_asset=created_assets[0],
