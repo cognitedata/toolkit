@@ -75,8 +75,8 @@ class TestInstanceSourceAPI:
 class TestLookupAPI:
     def test_asset_lookup(self, toolkit_client: ToolkitClient, three_sources: NodeList[InstanceSource]) -> None:
         client = toolkit_client
-        ids = [instance_source.as_asset_centric_id() for instance_source in three_sources[:2]]
-        instance_id_by_id = client.migration.lookup.assets([ids])
+        ids = [instance_source.id_ for instance_source in three_sources[:2]]
+        instance_id_by_id = client.migration.lookup.assets(ids)
         assert len(instance_id_by_id) == 2, "Expected to lookup 2 asset instance IDs"
         assert set(instance_id_by_id.keys()) == set(ids), "Mismatch in looked up IDs"
 
