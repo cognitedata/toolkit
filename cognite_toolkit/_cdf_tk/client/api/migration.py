@@ -438,11 +438,11 @@ class LookupAPI:
             missing = set(chunk) - set(self._node_id_by_id.keys()) - set(self._node_id_by_external_id.keys())
             if by == "id":
                 for missing_id in cast(set[int], missing):
-                    if missing_id in self._node_id_by_id:
+                    if missing_id not in self._node_id_by_id:
                         self._node_id_by_id[missing_id] = None
             elif by == "classicExternalId":
                 for missing_ext_id in cast(set[str], missing):
-                    if missing_ext_id in self._node_id_by_external_id:
+                    if missing_ext_id not in self._node_id_by_external_id:
                         self._node_id_by_external_id[missing_ext_id] = None
 
 
