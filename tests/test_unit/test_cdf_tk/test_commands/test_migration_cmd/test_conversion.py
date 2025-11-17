@@ -811,7 +811,7 @@ class TestAssetCentricConversion:
         version=1,
         last_updated_time=1000000,
         created_time=1000000,
-        resource_type="fileAnnotation",
+        resource_type="annotation",
     )
     FILE_INSTANCE_BY_ID: ClassVar[Mapping[int, DirectRelationReference]] = {
         42: DirectRelationReference("test_space", "file_456_instance")
@@ -847,7 +847,7 @@ class TestAssetCentricConversion:
                     ],
                 ),
                 ConversionIssue(
-                    asset_centric_id=AssetCentricId("fileAnnotation", id_=37),
+                    asset_centric_id=AssetCentricId("annotation", id_=37),
                     instance_id=EdgeId(space="test_space", external_id="annotation_37"),
                     ignored_asset_centric_properties=[
                         "annotatedResourceType",
@@ -910,7 +910,7 @@ class TestAssetCentricConversion:
         )
 
         expected_issue = ConversionIssue(
-            asset_centric_id=AssetCentricId("fileAnnotation", id_=38),
+            asset_centric_id=AssetCentricId("annotation", id_=38),
             instance_id=EdgeId(space="test_space", external_id="annotation_38"),
             ignored_asset_centric_properties=[
                 "annotatedResourceType",
