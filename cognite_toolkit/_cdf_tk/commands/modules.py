@@ -34,6 +34,7 @@ from cognite_toolkit._cdf_tk.commands._changes import (
     UpdateDockerImageVersion,
     UpdateModuleVersion,
 )
+from cognite_toolkit._cdf_tk.commands._questionary_style import custom_style_fancy
 from cognite_toolkit._cdf_tk.constants import (
     MODULES,
     RESOURCES_PATH,
@@ -64,20 +65,6 @@ if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self
-custom_style_fancy = questionary.Style(
-    [
-        ("qmark", "fg:#673ab7"),  # token in front of the question
-        ("question", "bold"),  # question text
-        ("answer", "fg:#f44336 bold"),  # submitted answer text behind the question
-        ("pointer", "fg:#673ab7 bold"),  # pointer used in select and checkbox prompts
-        ("highlighted", "fg:#673ab7 bold"),  # pointed-at choice in select and checkbox prompts
-        ("selected", "fg:#673ab7"),  # style for a selected item of a checkbox
-        ("separator", "fg:#cc5454"),  # separator in lists
-        ("instruction", ""),  # user instructions for select, rawselect, checkbox
-        ("text", ""),  # plain text
-        ("disabled", "fg:#858585 italic"),  # disabled choices for select and checkbox prompts
-    ]
-)
 
 INDENT = "  "
 POINTER = INDENT + "▶"
@@ -285,26 +272,7 @@ class ModulesCommand(ToolkitCommand):
             )
             safe_write(Path(organization_dir) / f"config.{environment}.yaml", config_init.dump_yaml_with_comments())
 
-        cdf_toml_content = self.create_cdf_toml(organization_dir, environments[0] if environments else "dev")
-
-        destination = Path.cwd() / CDFToml.file_name
-        if destination.exists():
-            print(f"{INDENT}[yellow]cdf.toml file already exists. Skipping creation.")
-        else:
-            destination.write_text(cdf_toml_content, encoding="utf-8")
-
-    def create_cdf_toml(self, organization_dir: Path, env: EnvType = "dev") -> str:
-        cdf_toml_content = safe_read(RESOURCES_PATH / CDFToml.file_name)
-        if organization_dir != Path.cwd():
-            cdf_toml_content = cdf_toml_content.replace(
-                "#<PLACEHOLDER>",
-                f'''
-default_organization_dir = "{organization_dir.name}"''',
-            )
-        else:
-            cdf_toml_content = cdf_toml_content.replace("#<PLACEHOLDER>", "")
-        cdf_toml_content = cdf_toml_content.replace("<DEFAULT_ENV_PLACEHOLDER>", env)
-        return cdf_toml_content
+        CDFToml.write(organization_dir, environments[0] if environments else "dev")
 
     def init(
         self,
@@ -318,14 +286,7 @@ default_organization_dir = "{organization_dir.name}"''',
         library_checksum: str | None = None,
     ) -> None:
         if not organization_dir:
-            new_line = "\n    "
-            message = (
-                f"Which directory would you like to create templates in? (default: current directory){new_line}"
-                f"HINT Use an organization directory if you use the repository for more than Toolkit. "
-                f"If not, use the current (repository root) directory '.':"
-            )
-            organization_dir_raw = questionary.text(message=message, default="").ask()
-            organization_dir = Path(organization_dir_raw.strip())
+            organization_dir = ModulesCommand._prompt_organization_dir()
 
         modules_root_dir = organization_dir / MODULES
 
@@ -452,6 +413,21 @@ default_organization_dir = "{organization_dir.name}"''',
             )
         if not is_interactive:
             raise typer.Exit()
+
+    @staticmethod
+    def _prompt_organization_dir() -> Path:
+        print(
+            "\n".join(
+                [
+                    "Enter an optional subdirectory for Toolkit content.",
+                    "    [bold yellow]HINT[/bold yellow] Use an organization directory if you use the repository for more than Toolkit.",
+                    "    [dim]The current directory is the default.[/dim]",
+                ]
+            )
+        )
+
+        organization_dir_raw = questionary.text(message="", default="").ask()
+        return Path(organization_dir_raw.strip())
 
     @staticmethod
     def _get_download_data(selected: Packages) -> bool:
