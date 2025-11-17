@@ -371,6 +371,16 @@ class LookupAPI:
     def __call__(
         self, id: int | Sequence[int] | None = None, external_id: str | SequenceNotStr[str] | None = None
     ) -> dict[int, NodeId] | dict[str, NodeId] | NodeId | None:
+        """Lookup NodeId by either internal ID or external ID.
+
+        Args:
+            id (int | Sequence[int] | None): The internal ID(s) to lookup.
+            external_id (str | SequenceNotStr[str] | None): The external ID(s) to lookup.
+
+        Returns:
+            NodeId | dict[int, NodeId] | dict[str, NodeId] | None: The corresponding NodeId(s) if found, otherwise None.
+
+        """
         if id is not None and external_id is None:
             return self._lookup_by_id(id)
         elif external_id is not None and id is None:
