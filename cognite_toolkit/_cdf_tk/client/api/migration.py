@@ -352,8 +352,8 @@ class LookupAPI:
         self._instance_api = instance_api
         self._resource_type = resource_type
         self._view_id = InstanceSource.get_source()
-        self._node_id_by_id: dict[int, NodeId] = {}
-        self._node_id_by_external_id: dict[str, NodeId] = {}
+        self._node_id_by_id: dict[int, NodeId | None] = {}
+        self._node_id_by_external_id: dict[str, NodeId | None] = {}
         self._RETRIEVE_LIMIT = 1000
 
     @overload
@@ -396,7 +396,7 @@ class LookupAPI:
             self._fetch_and_cache(missing, by="id")
         if isinstance(id, int):
             return self._node_id_by_id.get(id)
-        return {id_: self._node_id_by_id[id_] for id_ in ids if id_ in self._node_id_by_id}
+        return {id_: node_id for id_ in ids if isinstance(node_id := self._node_id_by_id.get(id_), NodeId)}
 
     def _lookup_by_external_id(self, external_id: str | SequenceNotStr[str]) -> dict[str, NodeId] | NodeId | None:
         external_ids: list[str] = [external_id] if isinstance(external_id, str) else list(external_id)
@@ -407,13 +407,13 @@ class LookupAPI:
         if isinstance(external_id, str):
             return self._node_id_by_external_id.get(external_id)
         return {
-            ext_id: self._node_id_by_external_id[ext_id]
+            ext_id: node_id
             for ext_id in external_ids
-            if ext_id in self._node_id_by_external_id
+            if isinstance(node_id := self._node_id_by_external_id.get(ext_id), NodeId)
         }
 
-    def _fetch_and_cache(self, keys: Sequence[int | str], by: Literal["id", "classicExternalId"]) -> None:
-        for chunk in chunker_sequence(keys, self._RETRIEVE_LIMIT):
+    def _fetch_and_cache(self, identifiers: Sequence[int | str], by: Literal["id", "classicExternalId"]) -> None:
+        for chunk in chunker_sequence(identifiers, self._RETRIEVE_LIMIT):
             retrieve_query = query.Query(
                 with_={
                     "instanceSource": query.NodeResultSetExpression(
@@ -435,6 +435,12 @@ class LookupAPI:
                 self._node_id_by_id[instance_source.id_] = node_id
                 if instance_source.classic_external_id:
                     self._node_id_by_external_id[instance_source.classic_external_id] = node_id
+            missing = set(chunk) - set(self._node_id_by_id.keys()) - set(self._node_id_by_external_id.keys())
+            for missing_id in missing:
+                if isinstance(missing_id, int):
+                    self._node_id_by_id[missing_id] = None
+                elif isinstance(missing_id, str):
+                    self._node_id_by_external_id[missing_id] = None
 
 
 class MigrationLookupAPI:
