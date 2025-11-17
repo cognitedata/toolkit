@@ -420,10 +420,7 @@ class LookupAPI:
                         filter=filters.And(
                             filters.HasData(views=[self._view_id]),
                             filters.Equals(self._view_id.as_property_ref("resourceType"), self._resource_type),
-                            filters.In(
-                                self._view_id.as_property_ref(by),
-                                list(chunk),
-                            ),
+                            filters.In(self._view_id.as_property_ref(by), list(chunk)),
                         ),
                         limit=len(chunk),
                     ),
