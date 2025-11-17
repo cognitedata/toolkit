@@ -1,7 +1,7 @@
 import warnings
 from collections.abc import Sequence
 from itertools import groupby
-from typing import Literal, TypeVar, overload
+from typing import Literal, TypeVar, cast, overload
 
 from cognite.client._constants import DEFAULT_LIMIT_READ
 from cognite.client.data_classes.data_modeling import (
@@ -436,11 +436,14 @@ class LookupAPI:
                 if instance_source.classic_external_id:
                     self._node_id_by_external_id[instance_source.classic_external_id] = node_id
             missing = set(chunk) - set(self._node_id_by_id.keys()) - set(self._node_id_by_external_id.keys())
-            for missing_id in missing:
-                if isinstance(missing_id, int):
-                    self._node_id_by_id[missing_id] = None
-                elif isinstance(missing_id, str):
-                    self._node_id_by_external_id[missing_id] = None
+            if by == "id":
+                for missing_id in cast(set[int], missing):
+                    if missing_id in self._node_id_by_id:
+                        self._node_id_by_id[missing_id] = None
+            elif by == "classicExternalId":
+                for missing_ext_id in cast(set[str], missing):
+                    if missing_ext_id in self._node_id_by_external_id:
+                        self._node_id_by_external_id[missing_ext_id] = None
 
 
 class MigrationLookupAPI:
