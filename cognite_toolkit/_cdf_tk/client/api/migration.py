@@ -1,7 +1,7 @@
 import warnings
 from collections.abc import Sequence
 from itertools import groupby
-from typing import TypeVar, overload
+from typing import Literal, TypeVar, cast, overload
 
 from cognite.client._constants import DEFAULT_LIMIT_READ
 from cognite.client.data_classes.data_modeling import (
@@ -347,9 +347,117 @@ class SpaceSourceAPI:
         return results
 
 
+class LookupAPI:
+    def __init__(self, instance_api: ExtendedInstancesAPI, resource_type: AssetCentricType) -> None:
+        self._instance_api = instance_api
+        self._resource_type = resource_type
+        self._view_id = InstanceSource.get_source()
+        self._node_id_by_id: dict[int, NodeId | None] = {}
+        self._node_id_by_external_id: dict[str, NodeId | None] = {}
+        self._RETRIEVE_LIMIT = 1000
+
+    @overload
+    def __call__(self, id: int, external_id: None = None) -> NodeId | None: ...
+
+    @overload
+    def __call__(self, id: Sequence[int], external_id: None = None) -> dict[int, NodeId]: ...
+
+    @overload
+    def __call__(self, *, external_id: str) -> NodeId | None: ...
+
+    @overload
+    def __call__(self, *, external_id: SequenceNotStr[str]) -> dict[str, NodeId]: ...
+
+    def __call__(
+        self, id: int | Sequence[int] | None = None, external_id: str | SequenceNotStr[str] | None = None
+    ) -> dict[int, NodeId] | dict[str, NodeId] | NodeId | None:
+        """Lookup NodeId by either internal ID or external ID.
+
+        Args:
+            id (int | Sequence[int] | None): The internal ID(s) to lookup.
+            external_id (str | SequenceNotStr[str] | None): The external ID(s) to lookup.
+
+        Returns:
+            NodeId | dict[int, NodeId] | dict[str, NodeId] | None: The corresponding NodeId(s) if found, otherwise None.
+
+        """
+        if id is not None and external_id is None:
+            return self._lookup_by_id(id)
+        elif external_id is not None and id is None:
+            return self._lookup_by_external_id(external_id)
+        else:
+            raise ValueError("Either id or external_id must be provided, but not both.")
+
+    def _lookup_by_id(self, id: int | Sequence[int]) -> dict[int, NodeId] | NodeId | None:
+        ids: list[int] = [id] if isinstance(id, int) else list(id)
+
+        missing = [id_ for id_ in ids if id_ not in self._node_id_by_id]
+        if missing:
+            self._fetch_and_cache(missing, by="id")
+        if isinstance(id, int):
+            return self._node_id_by_id.get(id)
+        return {id_: node_id for id_ in ids if isinstance(node_id := self._node_id_by_id.get(id_), NodeId)}
+
+    def _lookup_by_external_id(self, external_id: str | SequenceNotStr[str]) -> dict[str, NodeId] | NodeId | None:
+        external_ids: list[str] = [external_id] if isinstance(external_id, str) else list(external_id)
+
+        missing = [ext_id for ext_id in external_ids if ext_id not in self._node_id_by_external_id]
+        if missing:
+            self._fetch_and_cache(missing, by="classicExternalId")
+        if isinstance(external_id, str):
+            return self._node_id_by_external_id.get(external_id)
+        return {
+            ext_id: node_id
+            for ext_id in external_ids
+            if isinstance(node_id := self._node_id_by_external_id.get(ext_id), NodeId)
+        }
+
+    def _fetch_and_cache(self, identifiers: Sequence[int | str], by: Literal["id", "classicExternalId"]) -> None:
+        for chunk in chunker_sequence(identifiers, self._RETRIEVE_LIMIT):
+            retrieve_query = query.Query(
+                with_={
+                    "instanceSource": query.NodeResultSetExpression(
+                        filter=filters.And(
+                            filters.HasData(views=[self._view_id]),
+                            filters.Equals(self._view_id.as_property_ref("resourceType"), self._resource_type),
+                            filters.In(self._view_id.as_property_ref(by), list(chunk)),
+                        ),
+                        limit=len(chunk),
+                    ),
+                },
+                select={"instanceSource": query.Select([query.SourceSelector(self._view_id, ["*"])])},
+            )
+            chunk_response = self._instance_api.query(retrieve_query)
+            items = chunk_response.get("instanceSource", [])
+            for item in items:
+                instance_source = InstanceSource._load(item.dump())
+                node_id = instance_source.as_id()
+                self._node_id_by_id[instance_source.id_] = node_id
+                if instance_source.classic_external_id:
+                    self._node_id_by_external_id[instance_source.classic_external_id] = node_id
+            missing = set(chunk) - set(self._node_id_by_id.keys()) - set(self._node_id_by_external_id.keys())
+            if by == "id":
+                for missing_id in cast(set[int], missing):
+                    if missing_id not in self._node_id_by_id:
+                        self._node_id_by_id[missing_id] = None
+            elif by == "classicExternalId":
+                for missing_ext_id in cast(set[str], missing):
+                    if missing_ext_id not in self._node_id_by_external_id:
+                        self._node_id_by_external_id[missing_ext_id] = None
+
+
+class MigrationLookupAPI:
+    def __init__(self, instance_api: ExtendedInstancesAPI) -> None:
+        self.assets = LookupAPI(instance_api, "asset")
+        self.events = LookupAPI(instance_api, "event")
+        self.files = LookupAPI(instance_api, "file")
+        self.time_series = LookupAPI(instance_api, "timeseries")
+
+
 class MigrationAPI:
     def __init__(self, instance_api: ExtendedInstancesAPI) -> None:
         self.instance_source = InstanceSourceAPI(instance_api)
         self.resource_view_mapping = ResourceViewMappingAPI(instance_api)
         self.created_source_system = CreatedSourceSystemAPI(instance_api)
         self.space_source = SpaceSourceAPI(instance_api)
+        self.lookup = MigrationLookupAPI(instance_api)
