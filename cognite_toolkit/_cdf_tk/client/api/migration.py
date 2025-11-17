@@ -347,9 +347,36 @@ class SpaceSourceAPI:
         return results
 
 
+class LookupAPI:
+    def __init__(self, instance_api: ExtendedInstancesAPI, resource_type: AssetCentricType) -> None:
+        self._instance_api = instance_api
+        self._resource_type = resource_type
+        self._view_id = InstanceSource.get_source()
+
+    @overload
+    def __call__(self, ids: Sequence[int], external_ids: None = None) -> dict[int, NodeId]: ...
+
+    @overload
+    def __call__(self, *, external_ids: SequenceNotStr[str]) -> dict[str, NodeId]: ...
+
+    def __call__(
+        self, ids: Sequence[int] | None = None, external_ids: SequenceNotStr[str] | None = None
+    ) -> dict[int, NodeId] | dict[str, NodeId]:
+        raise NotImplementedError()
+
+
+class MigrationLookupAPI:
+    def __init__(self, instance_api: ExtendedInstancesAPI) -> None:
+        self.assets = LookupAPI(instance_api, "asset")
+        self.events = LookupAPI(instance_api, "event")
+        self.files = LookupAPI(instance_api, "file")
+        self.time_series = LookupAPI(instance_api, "timeseries")
+
+
 class MigrationAPI:
     def __init__(self, instance_api: ExtendedInstancesAPI) -> None:
         self.instance_source = InstanceSourceAPI(instance_api)
         self.resource_view_mapping = ResourceViewMappingAPI(instance_api)
         self.created_source_system = CreatedSourceSystemAPI(instance_api)
         self.space_source = SpaceSourceAPI(instance_api)
+        self.lookup = MigrationLookupAPI(instance_api)
