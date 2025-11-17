@@ -354,14 +354,20 @@ class LookupAPI:
         self._view_id = InstanceSource.get_source()
 
     @overload
-    def __call__(self, ids: Sequence[int], external_ids: None = None) -> dict[int, NodeId]: ...
+    def __call__(self, id: int, external_id: None = None) -> NodeId | None: ...
 
     @overload
-    def __call__(self, *, external_ids: SequenceNotStr[str]) -> dict[str, NodeId]: ...
+    def __call__(self, id: Sequence[int], external_id: None = None) -> dict[int, NodeId]: ...
+
+    @overload
+    def __call__(self, *, external_id: str) -> NodeId | None: ...
+
+    @overload
+    def __call__(self, *, external_id: SequenceNotStr[str]) -> dict[str, NodeId]: ...
 
     def __call__(
-        self, ids: Sequence[int] | None = None, external_ids: SequenceNotStr[str] | None = None
-    ) -> dict[int, NodeId] | dict[str, NodeId]:
+        self, id: int | Sequence[int] | None = None, external_id: str | SequenceNotStr[str] | None = None
+    ) -> dict[int, NodeId] | dict[str, NodeId] | NodeId | None:
         raise NotImplementedError()
 
 
