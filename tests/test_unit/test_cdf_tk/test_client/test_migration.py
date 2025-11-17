@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
 import responses
@@ -13,6 +13,23 @@ class TestMigrationLookup:
     EXISTING_ID = 123
     EXISTING_EXTERNAL_ID = "node_123"
     EXISTING_NODE_ID = NodeId(SPACE, "node_123")
+    QUERY_RESPONSE: ClassVar[dict[str, Any]] = {
+        "items": {
+            "instanceSource": [
+                InstanceSource(
+                    space=EXISTING_NODE_ID.space,
+                    external_id=EXISTING_NODE_ID.external_id,
+                    version=1,
+                    last_updated_time=1,
+                    created_time=1,
+                    resource_type="asset",
+                    id_=EXISTING_ID,
+                    classic_external_id=EXISTING_EXTERNAL_ID,
+                ).dump()
+            ]
+        },
+        "nextCursor": {"instanceSource": None},
+    }
 
     @pytest.mark.parametrize(
         "args, expected_return",
@@ -42,23 +59,7 @@ class TestMigrationLookup:
         rsps.add(
             method=responses.POST,
             url=config.create_api_url("models/instances/query"),
-            json={
-                "items": {
-                    "instanceSource": [
-                        InstanceSource(
-                            space=self.EXISTING_NODE_ID.space,
-                            external_id=self.EXISTING_NODE_ID.external_id,
-                            version=1,
-                            last_updated_time=1,
-                            created_time=1,
-                            resource_type="asset",
-                            id_=self.EXISTING_ID,
-                            classic_external_id=self.EXISTING_EXTERNAL_ID,
-                        ).dump()
-                    ]
-                },
-                "nextCursor": {"instanceSource": None},
-            },
+            json=self.QUERY_RESPONSE,
             status=200,
         )
 
@@ -66,3 +67,39 @@ class TestMigrationLookup:
 
         actual_return = client.migration.lookup.assets(**args)
         assert actual_return == expected_return
+
+    def test_multi_lookup_single_api_call(
+        self, toolkit_config: ToolkitClientConfig, rsps: responses.RequestsMock
+    ) -> None:
+        config = toolkit_config
+        rsps.add(
+            method=responses.POST,
+            url=config.create_api_url("models/instances/query"),
+            json=self.QUERY_RESPONSE,
+            status=200,
+        )
+
+        client = ToolkitClient(config=config)
+
+        _ = client.migration.lookup.assets(self.EXISTING_ID)
+        _ = client.migration.lookup.assets(self.EXISTING_ID)
+
+        assert len(rsps.calls) == 1, "Expected only one API call for multiple lookups of the same ID"
+
+    def test_single_api_call_non_existing(
+        self, toolkit_config: ToolkitClientConfig, rsps: responses.RequestsMock
+    ) -> None:
+        config = toolkit_config
+        rsps.add(
+            method=responses.POST,
+            url=config.create_api_url("models/instances/query"),
+            json=self.QUERY_RESPONSE,
+            status=200,
+        )
+
+        client = ToolkitClient(config=config)
+
+        _ = client.migration.lookup.assets(-1)
+        _ = client.migration.lookup.assets(-1)
+
+        assert len(rsps.calls) == 1, "Expected only one API call for multiple lookups of the same non-existing ID"
