@@ -8,11 +8,11 @@ from cognite.client.data_classes.data_modeling import ViewId
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import MigrationMappingList
 from cognite_toolkit._cdf_tk.storageio import DataSelector
 from cognite_toolkit._cdf_tk.storageio.selectors import DataSetSelector
-from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricKind
+from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricKindExtended
 
 
 class AssetCentricMigrationSelector(DataSelector, ABC):
-    kind: AssetCentricKind
+    kind: AssetCentricKindExtended
 
     @abstractmethod
     def get_ingestion_mappings(self) -> list[str]:
@@ -41,7 +41,7 @@ class MigrationCSVFileSelector(AssetCentricMigrationSelector):
 
 class MigrateDataSetSelector(AssetCentricMigrationSelector):
     type: Literal["migrateDataSet"] = "migrateDataSet"
-    kind: AssetCentricKind
+    kind: AssetCentricKindExtended
     data_set_external_id: str
     ingestion_mapping: str | None = None
     preferred_consumer_view: ViewId | None = None
@@ -63,4 +63,9 @@ class MigrateDataSetSelector(AssetCentricMigrationSelector):
         return [self.ingestion_mapping] if self.ingestion_mapping else []
 
     def as_asset_centric_selector(self) -> DataSetSelector:
-        return DataSetSelector(data_set_external_id=self.data_set_external_id, kind=self.kind)
+        if self.kind == "Annotations":
+            # Annotations are connected to file metadata, so we need to download the file metadata
+            # and look up the annotations connected to each file metadata.
+            return DataSetSelector(data_set_external_id=self.data_set_external_id, kind="FileMetadata")
+        else:
+            return DataSetSelector(data_set_external_id=self.data_set_external_id, kind=self.kind)
