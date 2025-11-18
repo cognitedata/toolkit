@@ -5,7 +5,14 @@ from typing import Generic
 from cognite.client.data_classes._base import (
     T_CogniteResource,
 )
-from cognite.client.data_classes.data_modeling import DirectRelationReference, InstanceApply, View, ViewId
+from cognite.client.data_classes.data_modeling import (
+    DirectRelationReference,
+    EdgeApply,
+    InstanceApply,
+    NodeApply,
+    View,
+    ViewId,
+)
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.migration import ResourceViewMapping
@@ -94,34 +101,39 @@ class AssetCentricMapper(
         self, source: Sequence[AssetCentricMapping[T_AssetCentricResource]]
     ) -> Sequence[tuple[InstanceApply | None, ConversionIssue]]:
         """Map a chunk of asset-centric data to InstanceApplyList format."""
+
         output: list[tuple[InstanceApply | None, ConversionIssue]] = []
         for item in source:
-            mapping = item.mapping
-            ingestion_view = mapping.get_ingestion_view()
-            try:
-                view_source = self._view_mapping_by_id[ingestion_view]
-                view_properties = self._ingestion_view_by_id[view_source.view_id].properties
-            except KeyError as e:
-                raise RuntimeError(
-                    f"Failed to lookup mapping or view for ingestion view '{ingestion_view}'. Did you forget to call .prepare()?"
-                ) from e
-            instance, conversion_issue = asset_centric_to_dm(
-                item.resource,
-                instance_id=mapping.instance_id,
-                view_source=view_source,
-                view_properties=view_properties,
-                asset_instance_id_by_id=self._asset_mapping_by_id,
-                source_instance_id_by_external_id=self._source_system_mapping_by_id,
-                file_instance_id_by_id={},  # Todo implement file direct relations
-            )
-            if mapping.instance_id.space == MISSING_INSTANCE_SPACE:
-                conversion_issue.missing_instance_space = (
-                    f"Missing instance space for dataset ID {mapping.data_set_id!r}"
-                )
-
-            if mapping.resource_type == "asset":
-                self._asset_mapping_by_id[mapping.id] = DirectRelationReference(
-                    space=mapping.instance_id.space, external_id=mapping.instance_id.external_id
-                )
+            instance, conversion_issue = self._map_single_item(item)
             output.append((instance, conversion_issue))
         return output
+
+    def _map_single_item(
+        self, item: AssetCentricMapping[T_AssetCentricResource]
+    ) -> tuple[NodeApply | EdgeApply | None, ConversionIssue]:
+        mapping = item.mapping
+        ingestion_view = mapping.get_ingestion_view()
+        try:
+            view_source = self._view_mapping_by_id[ingestion_view]
+            view_properties = self._ingestion_view_by_id[view_source.view_id].properties
+        except KeyError as e:
+            raise RuntimeError(
+                f"Failed to lookup mapping or view for ingestion view '{ingestion_view}'. Did you forget to call .prepare()?"
+            ) from e
+        instance, conversion_issue = asset_centric_to_dm(
+            item.resource,
+            instance_id=mapping.instance_id,
+            view_source=view_source,
+            view_properties=view_properties,
+            asset_instance_id_by_id=self._asset_mapping_by_id,
+            source_instance_id_by_external_id=self._source_system_mapping_by_id,
+            file_instance_id_by_id={},
+        )
+        if mapping.instance_id.space == MISSING_INSTANCE_SPACE:
+            conversion_issue.missing_instance_space = f"Missing instance space for dataset ID {mapping.data_set_id!r}"
+
+        if mapping.resource_type == "asset":
+            self._asset_mapping_by_id[mapping.id] = DirectRelationReference(
+                space=mapping.instance_id.space, external_id=mapping.instance_id.external_id
+            )
+        return instance, conversion_issue
