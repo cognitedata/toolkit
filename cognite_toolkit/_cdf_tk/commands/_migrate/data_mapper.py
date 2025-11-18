@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from typing import Generic
 
 from cognite.client.data_classes._base import (
@@ -31,7 +32,9 @@ class DataMapper(Generic[T_Selector, T_CogniteResource, T_WriteCogniteResource],
         pass
 
     @abstractmethod
-    def map(self, source: T_CogniteResource) -> tuple[T_WriteCogniteResource | None, MigrationIssue]:
+    def map(
+        self, source: Sequence[T_CogniteResource]
+    ) -> Sequence[tuple[T_WriteCogniteResource | None, MigrationIssue]]:
         """Map a chunk of source data to the target format.
 
         Args:
@@ -87,31 +90,38 @@ class AssetCentricMapper(
         asset_mappings = self.client.migration.instance_source.list(resource_type="asset", limit=-1)
         self._asset_mapping_by_id = {mapping.id_: mapping.as_direct_relation_reference() for mapping in asset_mappings}
 
-    def map(self, source: AssetCentricMapping[T_AssetCentricResource]) -> tuple[InstanceApply | None, ConversionIssue]:
+    def map(
+        self, source: Sequence[AssetCentricMapping[T_AssetCentricResource]]
+    ) -> Sequence[tuple[InstanceApply | None, ConversionIssue]]:
         """Map a chunk of asset-centric data to InstanceApplyList format."""
-        mapping = source.mapping
-        ingestion_view = mapping.get_ingestion_view()
-        try:
-            view_source = self._view_mapping_by_id[ingestion_view]
-            view_properties = self._ingestion_view_by_id[view_source.view_id].properties
-        except KeyError as e:
-            raise RuntimeError(
-                f"Failed to lookup mapping or view for ingestion view '{ingestion_view}'. Did you forget to call .prepare()?"
-            ) from e
-        instance, conversion_issue = asset_centric_to_dm(
-            source.resource,
-            instance_id=mapping.instance_id,
-            view_source=view_source,
-            view_properties=view_properties,
-            asset_instance_id_by_id=self._asset_mapping_by_id,
-            source_instance_id_by_external_id=self._source_system_mapping_by_id,
-            file_instance_id_by_id={},  # Todo implement file direct relations
-        )
-        if mapping.instance_id.space == MISSING_INSTANCE_SPACE:
-            conversion_issue.missing_instance_space = f"Missing instance space for dataset ID {mapping.data_set_id!r}"
-
-        if mapping.resource_type == "asset":
-            self._asset_mapping_by_id[mapping.id] = DirectRelationReference(
-                space=mapping.instance_id.space, external_id=mapping.instance_id.external_id
+        output: list[tuple[InstanceApply | None, ConversionIssue]] = []
+        for item in source:
+            mapping = item.mapping
+            ingestion_view = mapping.get_ingestion_view()
+            try:
+                view_source = self._view_mapping_by_id[ingestion_view]
+                view_properties = self._ingestion_view_by_id[view_source.view_id].properties
+            except KeyError as e:
+                raise RuntimeError(
+                    f"Failed to lookup mapping or view for ingestion view '{ingestion_view}'. Did you forget to call .prepare()?"
+                ) from e
+            instance, conversion_issue = asset_centric_to_dm(
+                item.resource,
+                instance_id=mapping.instance_id,
+                view_source=view_source,
+                view_properties=view_properties,
+                asset_instance_id_by_id=self._asset_mapping_by_id,
+                source_instance_id_by_external_id=self._source_system_mapping_by_id,
+                file_instance_id_by_id={},  # Todo implement file direct relations
             )
-        return instance, conversion_issue
+            if mapping.instance_id.space == MISSING_INSTANCE_SPACE:
+                conversion_issue.missing_instance_space = (
+                    f"Missing instance space for dataset ID {mapping.data_set_id!r}"
+                )
+
+            if mapping.resource_type == "asset":
+                self._asset_mapping_by_id[mapping.id] = DirectRelationReference(
+                    space=mapping.instance_id.space, external_id=mapping.instance_id.external_id
+                )
+            output.append((instance, conversion_issue))
+        return output
