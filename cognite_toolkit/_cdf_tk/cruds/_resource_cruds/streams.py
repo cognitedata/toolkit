@@ -23,10 +23,10 @@ class StreamCRUD(ResourceCRUD[str, StreamRequest, StreamResponse, StreamRequestL
     resource_write_cls = StreamRequest
     list_cls = StreamResponseList
     list_write_cls = StreamRequestList
-    kind = "Stream"
+    kind = "Streams"
     yaml_cls = StreamYAML
     dependencies = frozenset()
-    _doc_url = "Streams/operation/createStreams"
+    _doc_url = "Streams/operation/createStream"
     support_update = False
 
     @property
@@ -62,7 +62,12 @@ class StreamCRUD(ResourceCRUD[str, StreamRequest, StreamResponse, StreamRequestL
         return StreamResponseList(created)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> StreamResponseList:
-        retrieved = [self.client.streams.retrieve(_id) for _id in ids]
+        retrieved = []
+        for _id in ids:
+            try:
+                retrieved.append(self.client.streams.retrieve(_id))
+            except Exception:
+                pass
         return StreamResponseList(retrieved)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
