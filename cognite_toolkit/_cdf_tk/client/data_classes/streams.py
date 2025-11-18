@@ -78,19 +78,21 @@ class StreamResponse(ResponseResource["StreamRequest"]):
 
     external_id: str
     created_time: int
-    created_from_template: StreamTemplateName | None = None
+    created_from_template: StreamTemplateName
     type: Literal["Mutable", "Immutable"] | None = None
     settings: StreamSettings | None = None
 
     def as_request_resource(self) -> StreamRequest:
-        template_name = self.created_from_template or "BasicArchive"
         return StreamRequest(
             external_id=self.external_id,
-            settings={"template": {"name": template_name}},
+            settings={"template": {"name": self.created_from_template}},
         )
 
-    def as_write(self) -> Self:
-        return self
+    def as_write(self) -> StreamRequest:
+        return StreamRequest(
+            external_id=self.external_id,
+            settings={"template": {"name": self.created_from_template}},
+        )
 
 
 class StreamResponseList(UserList[StreamResponse], ResourceResponseListProtocol):
