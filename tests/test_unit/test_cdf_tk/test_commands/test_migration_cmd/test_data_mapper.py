@@ -112,8 +112,7 @@ class TestAssetCentricMapper:
 
             mapped: list[InstanceApply] = []
             issues: list[MigrationIssue] = []
-            for item in source:
-                target, item_issue = mapper.map(item)
+            for (target, item_issue), item in zip(mapper.map(source), source):
                 mapped.append(target)
                 if not isinstance(item_issue, ConversionIssue) or item_issue.has_issues:
                     issues.append(item_issue)
@@ -159,7 +158,7 @@ class TestAssetCentricMapper:
                 RuntimeError,
                 match=r"Failed to lookup mapping or view for ingestion view 'cdf_asset_mapping'. Did you forget to call .prepare()?",
             ):
-                mapper.map(source)
+                mapper.map([source])
 
     def test_prepare_missing_view_source_raises_error(self, tmp_path: Path) -> None:
         """Test that prepare raises ToolkitValueError when view source is not found."""
