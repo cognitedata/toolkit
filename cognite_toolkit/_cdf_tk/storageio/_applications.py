@@ -6,11 +6,10 @@ from cognite_toolkit._cdf_tk.client.data_classes.canvas import (
 )
 from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList, ChartWrite
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
-from cognite_toolkit._cdf_tk.storageio import UploadItem
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import Page, UploadableStorageIO
+from ._base import Page, UploadableStorageIO, UploadItem
 from .selectors import AllChartsSelector, CanvasSelector, ChartExternalIdSelector, ChartOwnerSelector, ChartSelector
 
 
