@@ -29,7 +29,6 @@ class StreamRequestList(UserList[StreamRequest], ResourceRequestListProtocol):
     """List of Stream request resources."""
 
     _RESOURCE = StreamRequest
-    data: list[StreamRequest]
 
     def __init__(self, initlist: list[StreamRequest] | None = None, **_: Any) -> None:
         super().__init__(initlist or [])
