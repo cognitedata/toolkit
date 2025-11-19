@@ -274,7 +274,7 @@ SearchConfig:
 Space:
 - space: sp_instance
 - space: sp_schema
-StreamRequest:
+StreamResponse:
 - externalId: my-stream
   settings:
     template:
