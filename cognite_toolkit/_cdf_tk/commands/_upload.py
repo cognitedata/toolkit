@@ -82,9 +82,9 @@ class UploadCommand(ToolkitCommand):
         │   │   └── table2.Table.yaml
         │   └── ...
         ├── datafile1.kind.ndjson # Data file of a specific kind
-        ├── datafile1.Metadata.yaml       # Metadata file for datafile1
+        ├── datafile1.Manifest.yaml       # Manifest for datafile1
         ├── datafile2.kind2.ndjson # Another data file of the same or different kind
-        ├── datafile2.Metadata.yaml       # Metadata file for datafile2
+        ├── datafile2.Manifest.yaml       # Manifest file for datafile2
         └── ...
         """
         console = Console()
