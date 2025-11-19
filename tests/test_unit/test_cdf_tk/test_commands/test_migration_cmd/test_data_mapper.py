@@ -1,17 +1,13 @@
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 from cognite.client.data_classes import Asset
 from cognite.client.data_classes.data_modeling import (
-    ContainerId,
-    DirectRelation,
+    DataModel,
     DirectRelationReference,
     InstanceApply,
-    MappedProperty,
     NodeId,
     NodeList,
-    Text,
     View,
     ViewId,
 )
@@ -30,7 +26,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 
 
 class TestAssetCentricMapper:
-    def test_map_assets(self, tmp_path: Path) -> None:
+    def test_map_assets(self, tmp_path: Path, cognite_core_no_3D: DataModel[View]) -> None:
         asset_count = 10
         source = AssetCentricMappingList(
             [
@@ -78,7 +74,7 @@ class TestAssetCentricMapper:
                     )
                 ]
             )
-            client.migration.created_source_system.list.return_value = NodeList[CreatedSourceSystem](
+            client.migration.created_source_system.retrieve.return_value = NodeList[CreatedSourceSystem](
                 [
                     CreatedSourceSystem(
                         space="source_systems",
@@ -90,21 +86,7 @@ class TestAssetCentricMapper:
                     ),
                 ]
             )
-            # Mocking the view to avoid setting all properties we don't use
-            cognite_asset = MagicMock(spec=View)
-            cognite_asset.properties = {
-                "name": MappedProperty(
-                    ContainerId("cdf_cdm", "CogniteDescribable"), "name", Text(), True, False, False
-                ),
-                "description": MappedProperty(
-                    ContainerId("cdf_cdm", "CogniteDescribable"), "description", Text(), True, False, False
-                ),
-                "source": MappedProperty(
-                    ContainerId("cdf_cdm", "CogniteSourceable"), "source", DirectRelation(False), True, False, False
-                ),
-            }
-            cognite_asset.as_id.return_value = ViewId("cdf_cdm", "CogniteAsset", "v1")
-            client.data_modeling.views.retrieve.return_value = [cognite_asset]
+            client.data_modeling.views.retrieve.return_value = cognite_core_no_3D.views
 
             mapper = AssetCentricMapper(client)
 
@@ -112,8 +94,7 @@ class TestAssetCentricMapper:
 
             mapped: list[InstanceApply] = []
             issues: list[MigrationIssue] = []
-            for item in source:
-                target, item_issue = mapper.map(item)
+            for (target, item_issue), item in zip(mapper.map(source), source):
                 mapped.append(target)
                 if not isinstance(item_issue, ConversionIssue) or item_issue.has_issues:
                     issues.append(item_issue)
@@ -131,7 +112,7 @@ class TestAssetCentricMapper:
 
             assert client.migration.resource_view_mapping.retrieve.call_count == 1
             client.migration.resource_view_mapping.retrieve.assert_called_with(["cdf_asset_mapping"])
-            assert client.migration.created_source_system.list.call_count == 1
+            assert client.migration.created_source_system.retrieve.call_count == 1
             assert client.data_modeling.views.retrieve.call_count == 1
             client.data_modeling.views.retrieve.assert_called_with([ViewId("cdf_cdm", "CogniteAsset", "v1")])
 
@@ -159,7 +140,7 @@ class TestAssetCentricMapper:
                 RuntimeError,
                 match=r"Failed to lookup mapping or view for ingestion view 'cdf_asset_mapping'. Did you forget to call .prepare()?",
             ):
-                mapper.map(source)
+                mapper.map([source])
 
     def test_prepare_missing_view_source_raises_error(self, tmp_path: Path) -> None:
         """Test that prepare raises ToolkitValueError when view source is not found."""
