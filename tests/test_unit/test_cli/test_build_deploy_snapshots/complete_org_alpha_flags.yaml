@@ -274,3 +274,8 @@ SearchConfig:
 Space:
 - space: sp_instance
 - space: sp_schema
+StreamRequest:
+- externalId: my-stream
+  settings:
+    template:
+      name: ImmutableTestStream

@@ -62,10 +62,12 @@ class StreamCRUD(ResourceCRUD[str, StreamRequest, StreamResponse, StreamRequestL
         return StreamResponseList(created)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> StreamResponseList:
-        retrieved = []
+        retrieved: list[StreamResponse] = []
         for _id in ids:
             try:
-                retrieved.append(self.client.streams.retrieve(_id))
+                _resp = self.client.streams.retrieve(_id)
+                if _resp:
+                    retrieved.append(_resp)
             except Exception:
                 pass
         return StreamResponseList(retrieved)

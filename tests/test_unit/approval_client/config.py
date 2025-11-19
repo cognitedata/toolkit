@@ -179,8 +179,6 @@ from cognite_toolkit._cdf_tk.client.data_classes.search_config import (
 from cognite_toolkit._cdf_tk.client.data_classes.streams import (
     StreamRequest,
     StreamRequestList,
-    StreamResponse,
-    StreamResponseList,
 )
 
 from .data_classes import APIResource, Method
@@ -857,8 +855,8 @@ API_RESOURCES = [
     ),
     APIResource(
         api_name="streams",
-        resource_cls=StreamResponse,
-        list_cls=StreamResponseList,
+        resource_cls=StreamRequest,
+        list_cls=StreamRequestList,
         _write_cls=StreamRequest,
         _write_list_cls=StreamRequestList,
         methods={

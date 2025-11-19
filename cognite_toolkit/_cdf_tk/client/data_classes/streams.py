@@ -79,7 +79,7 @@ class StreamResponse(ResponseResource["StreamRequest"]):
     external_id: str
     created_time: int
     created_from_template: StreamTemplateName
-    type: Literal["Mutable", "Immutable"] | None = None
+    type: Literal["Mutable", "Immutable"]
     settings: StreamSettings | None = None
 
     def as_request_resource(self) -> StreamRequest:
