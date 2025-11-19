@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import Page, UploadableStorageIO
-from .selectors import AllChartsSelector, CanvasSelector, ChartOwnerSelector, ChartSelector
+from .selectors import AllChartsSelector, CanvasSelector, ChartExternalIdSelector, ChartOwnerSelector, ChartSelector
 
 
 class ChartIO(UploadableStorageIO[ChartSelector, Chart, ChartWrite]):
@@ -30,6 +30,9 @@ class ChartIO(UploadableStorageIO[ChartSelector, Chart, ChartWrite]):
             ...
         elif isinstance(selector, ChartOwnerSelector):
             selected_charts = ChartList([chart for chart in selected_charts if chart.owner_id == selector.owner_id])
+        elif isinstance(selector, ChartExternalIdSelector):
+            external_id_set = set(selector.external_ids)
+            selected_charts = ChartList([chart for chart in selected_charts if chart.external_id in external_id_set])
         else:
             raise ToolkitNotImplementedError(f"Unsupported selector type {type(selector).__name__!r} for ChartIO")
 
