@@ -32,7 +32,8 @@ Selector = Annotated[
     | AssetSubtreeSelector
     | AssetCentricFileSelector
     | DataSetSelector
-    | DataPointsFileSelector,
+    | DataPointsFileSelector
+    | ChartExternalIdSelector,
     Field(discriminator="type"),
 ]
 
