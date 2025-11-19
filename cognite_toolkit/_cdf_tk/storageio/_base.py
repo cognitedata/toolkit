@@ -146,6 +146,7 @@ class UploadableStorageIO(
     KIND: ClassVar[str]
     SUPPORTED_READ_FORMATS: ClassVar[frozenset[str]]
     UPLOAD_ENDPOINT_TYPE: Literal["app", "api"] = "api"
+    UPLOAD_ENDPOINT_METHOD: Literal["GET", "POST", "PATCH", "DELETE", "PUT"] = "POST"
     UPLOAD_ENDPOINT: ClassVar[str]
     UPLOAD_EXTRA_ARGS: ClassVar[Mapping[str, JsonVal] | None] = None
 
@@ -181,7 +182,7 @@ class UploadableStorageIO(
         return http_client.request_with_retries(
             message=ItemsRequest(
                 endpoint_url=url,
-                method="POST",
+                method=self.UPLOAD_ENDPOINT_METHOD,
                 items=list(data_chunk),
                 extra_body_fields=dict(self.UPLOAD_EXTRA_ARGS or {}),
             )

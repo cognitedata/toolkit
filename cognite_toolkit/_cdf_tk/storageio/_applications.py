@@ -21,6 +21,7 @@ class ChartIO(UploadableStorageIO[ChartSelector, Chart, ChartWrite]):
     CHUNK_SIZE = 10
     BASE_SELECTOR = ChartSelector
     UPLOAD_ENDPOINT_TYPE = "app"
+    UPLOAD_ENDPOINT_METHOD = "PUT"
     UPLOAD_ENDPOINT = "/storage/charts/charts"
 
     def as_id(self, item: Chart) -> str:
