@@ -71,7 +71,8 @@ class StreamCRUD(ResourceCRUD[str, StreamRequest, StreamResponse, StreamRequestL
                 _resp = self.client.streams.retrieve(_id)
             except ToolkitAPIError:
                 print(f"Warning: Error retrieving stream {_id}")
-            if _resp:
+                continue
+            if _resp is not None:
                 retrieved.append(_resp)
         return StreamResponseList(retrieved)
 
