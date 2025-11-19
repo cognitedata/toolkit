@@ -12,6 +12,9 @@ from cognite_toolkit._cdf_tk.client.data_classes.streams import (
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import StreamYAML
+from cognite_toolkit._cdf_tk.utils.http_client import ToolkitAPIError
+
+from .datamodel import ContainerCRUD
 
 
 @final
@@ -25,7 +28,7 @@ class StreamCRUD(ResourceCRUD[str, StreamRequest, StreamResponse, StreamRequestL
     list_write_cls = StreamRequestList
     kind = "Streams"
     yaml_cls = StreamYAML
-    dependencies = frozenset()
+    dependencies = frozenset({ContainerCRUD})
     _doc_url = "Streams/operation/createStream"
     support_update = False
 
@@ -66,10 +69,10 @@ class StreamCRUD(ResourceCRUD[str, StreamRequest, StreamResponse, StreamRequestL
         for _id in ids:
             try:
                 _resp = self.client.streams.retrieve(_id)
-                if _resp:
-                    retrieved.append(_resp)
-            except Exception:
-                pass
+            except ToolkitAPIError:
+                print(f"Warning: Error retrieving stream {_id}")
+            if _resp:
+                retrieved.append(_resp)
         return StreamResponseList(retrieved)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
@@ -77,9 +80,10 @@ class StreamCRUD(ResourceCRUD[str, StreamRequest, StreamResponse, StreamRequestL
         for _id in ids:
             try:
                 self.client.streams.delete(_id)
-                count += 1
-            except Exception:
-                pass
+            except ToolkitAPIError:
+                print(f"Warning: Error deleting stream {_id}")
+                continue
+            count += 1
         return count
 
     def _iterate(
