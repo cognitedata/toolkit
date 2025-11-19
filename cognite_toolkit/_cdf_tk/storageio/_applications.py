@@ -6,6 +6,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.canvas import (
 )
 from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList, ChartWrite
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
+from cognite_toolkit._cdf_tk.storageio import UploadItem
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
@@ -76,6 +77,10 @@ class ChartIO(UploadableStorageIO[ChartSelector, Chart, ChartWrite]):
                     if ts_external_id is not None:
                         item["tsExternalId"] = ts_external_id
         return dumped
+
+    def json_chunk_to_data(self, data_chunk: list[tuple[str, dict[str, JsonVal]]]) -> Sequence[UploadItem[ChartWrite]]:
+        self._populate_timeseries_external_id_cache([item_json for _, item_json in data_chunk])
+        return super().json_chunk_to_data(data_chunk)
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> ChartWrite:
         return self._load_resource(item_json)
