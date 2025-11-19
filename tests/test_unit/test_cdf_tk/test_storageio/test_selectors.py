@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     AllChartsSelector,
     AssetCentricFileSelector,
     AssetSubtreeSelector,
+    ChartExternalIdSelector,
     ChartOwnerSelector,
     DataPointsFileSelector,
     DataSelector,
@@ -136,6 +137,17 @@ def example_selector_data() -> Iterable[tuple]:
         DatapointsIO,
         DatapointsIO.KIND,
         id="DataPointsFileSelector",
+    )
+    yield pytest.param(
+        {
+            "type": "chartExternalId",
+            "kind": "Charts",
+            "externalIds": ["5400ab34-37f1-470d-b965-d81404ac92d8"],
+        },
+        ChartExternalIdSelector,
+        ChartIO,
+        ChartIO.KIND,
+        id="ChartExternalIdSelector",
     )
 
 
