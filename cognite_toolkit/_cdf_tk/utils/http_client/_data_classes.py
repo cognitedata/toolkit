@@ -87,7 +87,7 @@ class RequestMessage(HTTPMessage):
     """Base class for HTTP request messages"""
 
     endpoint_url: str
-    method: Literal["GET", "POST", "PATCH", "DELETE"]
+    method: Literal["GET", "POST", "PATCH", "DELETE", "PUT"]
     connect_attempt: int = 0
     read_attempt: int = 0
     status_attempt: int = 0

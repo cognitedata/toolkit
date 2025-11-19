@@ -157,10 +157,11 @@ class MigrationCommand(ToolkitCommand):
         log_file: NDJsonWriter,
     ) -> Callable[[Sequence[T_CogniteResource]], Sequence[UploadItem[T_WriteCogniteResource]]]:
         def track_mapping(source: Sequence[T_CogniteResource]) -> list[UploadItem[T_WriteCogniteResource]]:
+            mapped = mapper.map(source)
             issues: list[Chunk] = []
             targets: list[UploadItem[T_WriteCogniteResource]] = []
-            for item in source:
-                target, issue = mapper.map(item)
+
+            for (target, issue), item in zip(mapped, source):
                 id_ = data.as_id(item)
                 result: Status = "failed" if target is None else "success"
                 tracker.set_progress(id_, step=self.Steps.CONVERT, status=result)

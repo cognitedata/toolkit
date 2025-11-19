@@ -35,7 +35,14 @@ from .api.lookup import (
     SecurityCategoriesLookUpAPI,
     TimeSeriesLookUpAPI,
 )
-from .api.migration import CreatedSourceSystemAPI, InstanceSourceAPI, MigrationAPI, ResourceViewMappingAPI
+from .api.migration import (
+    CreatedSourceSystemAPI,
+    InstanceSourceAPI,
+    LookupAPI,
+    MigrationAPI,
+    MigrationLookupAPI,
+    ResourceViewMappingAPI,
+)
 from .api.project import ProjectAPI
 from .api.robotics import RoboticsAPI
 from .api.robotics.capabilities import CapabilitiesAPI
@@ -96,6 +103,11 @@ class ToolkitClientMock(CogniteClientMock):
         self.lookup.functions = MagicMock(spec_set=FunctionLookUpAPI)
         self.migration = MagicMock(spec=MigrationAPI)
         self.migration.instance_source = MagicMock(spec_set=InstanceSourceAPI)
+        self.migration.lookup = MagicMock(spec=MigrationLookupAPI)
+        self.migration.lookup.assets = MagicMock(spec_set=LookupAPI)
+        self.migration.lookup.events = MagicMock(spec_set=LookupAPI)
+        self.migration.lookup.files = MagicMock(spec_set=LookupAPI)
+        self.migration.lookup.time_series = MagicMock(spec_set=LookupAPI)
         self.migration.resource_view_mapping = MagicMock(spec_set=ResourceViewMappingAPI)
         self.migration.created_source_system = MagicMock(spec_set=CreatedSourceSystemAPI)
         self.raw = MagicMock(spec=ExtendedRawAPI)

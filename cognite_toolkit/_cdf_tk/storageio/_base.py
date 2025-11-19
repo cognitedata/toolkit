@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Mapping, Sequence, Sized
 from dataclasses import dataclass
-from typing import ClassVar, Generic, TypeVar
+from typing import ClassVar, Generic, Literal, TypeVar
 
 from cognite.client.data_classes._base import T_CogniteResource
 
@@ -145,6 +145,8 @@ class UploadableStorageIO(
 
     KIND: ClassVar[str]
     SUPPORTED_READ_FORMATS: ClassVar[frozenset[str]]
+    UPLOAD_ENDPOINT_TYPE: Literal["app", "api"] = "api"
+    UPLOAD_ENDPOINT_METHOD: Literal["GET", "POST", "PATCH", "DELETE", "PUT"] = "POST"
     UPLOAD_ENDPOINT: ClassVar[str]
     UPLOAD_EXTRA_ARGS: ClassVar[Mapping[str, JsonVal] | None] = None
 
@@ -170,10 +172,17 @@ class UploadableStorageIO(
             raise ValueError(f"Data chunk size {len(data_chunk)} exceeds the maximum CHUNK_SIZE of {self.CHUNK_SIZE}.")
 
         config = http_client.config
+        if self.UPLOAD_ENDPOINT_TYPE == "api":
+            url = config.create_api_url(self.UPLOAD_ENDPOINT)
+        elif self.UPLOAD_ENDPOINT_TYPE == "app":
+            url = config.create_app_url(self.UPLOAD_ENDPOINT)
+        else:
+            raise ToolkitNotImplementedError(f"Unsupported UPLOAD_ENDPOINT_TYPE {self.UPLOAD_ENDPOINT_TYPE!r}.")
+
         return http_client.request_with_retries(
             message=ItemsRequest(
-                endpoint_url=config.create_api_url(self.UPLOAD_ENDPOINT),
-                method="POST",
+                endpoint_url=url,
+                method=self.UPLOAD_ENDPOINT_METHOD,
                 items=list(data_chunk),
                 extra_body_fields=dict(self.UPLOAD_EXTRA_ARGS or {}),
             )

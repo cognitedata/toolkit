@@ -1,6 +1,5 @@
-from collections.abc import Mapping, Set
-from dataclasses import dataclass
-from typing import Any, ClassVar
+from collections.abc import Iterable, Mapping, Set
+from typing import Any, ClassVar, cast
 
 from cognite.client.data_classes import Annotation, Asset, Event, FileMetadata, TimeSeries
 from cognite.client.data_classes.data_modeling import (
@@ -15,6 +14,7 @@ from cognite.client.data_classes.data_modeling.instances import EdgeApply, NodeO
 from cognite.client.data_classes.data_modeling.views import ViewProperty
 from cognite.client.utils._identifier import InstanceId
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId, ResourceViewMapping
 from cognite_toolkit._cdf_tk.utils.collection import flatten_dict_json_path
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
@@ -30,61 +30,134 @@ from .data_model import INSTANCE_SOURCE_VIEW_ID
 from .issues import ConversionIssue, FailedConversion, InvalidPropertyDataType
 
 
-@dataclass
 class DirectRelationCache:
     """Cache for direct relation references to look up target of direct relations.
 
-    This is used when creating direct relations from asset-centric resources to CogniteAsset and CogniteSourceSystem.
-
-    Attributes:
-        asset: Mapping[int, DirectRelationReference]
-            A mapping from asset IDs to their corresponding DirectRelationReference in the data model.
-        source: Mapping[str, DirectRelationReference]
-            A mapping from source strings to their corresponding DirectRelationReference in the data model.
-
-    Methods:
-        get(resource_type: AssetCentric, property_id: str) -> Mapping[str | int, DirectRelationReference]:
-            Get the appropriate mapping based on the resource type and property ID.
-
-    Note:
-        The ASSET_REFERENCE_PROPERTIES and SOURCE_REFERENCE_PROPERTIES class variables define which properties
-        in asset-centric resources reference assets and sources, respectively.
-
+    This is used when creating direct relations from asset-centric resources to assets, files, and source systems.
     """
 
-    ASSET_REFERENCE_PROPERTIES: ClassVar[Set[tuple[AssetCentricTypeExtended, str]]] = {
+    class TableName:
+        ASSET_ID = "assetId"
+        SOURCE_NAME = "source"
+        FILE_ID = "fileId"
+        ASSET_EXTERNAL_ID = "assetExternalId"
+        FILE_EXTERNAL_ID = "fileExternalId"
+
+    ASSET_ID_PROPERTIES: ClassVar[Set[tuple[str, str]]] = {
         ("timeseries", "assetId"),
         ("file", "assetIds"),
         ("event", "assetIds"),
         ("sequence", "assetId"),
-        ("asset", "parentId"),
         ("annotation", "data.assetRef.id"),
+        ("asset", "parentId"),
     }
-    SOURCE_REFERENCE_PROPERTIES: ClassVar[Set[tuple[AssetCentricTypeExtended, str]]] = {
+    SOURCE_NAME_PROPERTIES: ClassVar[Set[tuple[str, str]]] = {
         ("asset", "source"),
         ("event", "source"),
         ("file", "source"),
     }
-    FILE_REFERENCE_PROPERTIES: ClassVar[Set[tuple[AssetCentricTypeExtended, str]]] = {
+    FILE_ID_PROPERTIES: ClassVar[Set[tuple[str, str]]] = {
         ("annotation", "data.fileRef.id"),
         ("annotation", "annotatedResourceId"),
     }
+    ASSET_EXTERNAL_ID_PROPERTIES: ClassVar[Set[tuple[str, str]]] = {("annotation", "data.assetRef.externalId")}
+    FILE_EXTERNAL_ID_PROPERTIES: ClassVar[Set[tuple[str, str]]] = {("annotation", "data.fileRef.externalId")}
 
-    asset: Mapping[int, DirectRelationReference]
-    source: Mapping[str, DirectRelationReference]
-    file: Mapping[int, DirectRelationReference]
+    def __init__(self, client: ToolkitClient) -> None:
+        self._client = client
+        self._cache_map: dict[
+            tuple[str, str] | str, dict[str, DirectRelationReference] | dict[int, DirectRelationReference]
+        ] = {}
+        # Constructing the cache map to be accessed by both table name and property id
+        for table_name, properties in [
+            (self.TableName.ASSET_ID, self.ASSET_ID_PROPERTIES),
+            (self.TableName.SOURCE_NAME, self.SOURCE_NAME_PROPERTIES),
+            (self.TableName.FILE_ID, self.FILE_ID_PROPERTIES),
+            (self.TableName.ASSET_EXTERNAL_ID, self.ASSET_EXTERNAL_ID_PROPERTIES),
+            (self.TableName.FILE_EXTERNAL_ID, self.FILE_EXTERNAL_ID_PROPERTIES),
+        ]:
+            cache: dict[str, DirectRelationReference] | dict[int, DirectRelationReference] = {}
+            self._cache_map[table_name] = cache
+            for key in properties:
+                self._cache_map[key] = cache
 
-    def get(
+    def update(self, resources: Iterable[AssetCentricResourceExtended]) -> None:
+        """Update the cache with direct relation references for the given asset-centric resources.
+
+        This is used to bulk update the cache for a chunk of resources before converting them to data model instances.
+        """
+        asset_ids: set[int] = set()
+        source_ids: set[str] = set()
+        file_ids: set[int] = set()
+        asset_external_ids: set[str] = set()
+        file_external_ids: set[str] = set()
+        for resource in resources:
+            if isinstance(resource, Annotation):
+                if resource.annotated_resource_type == "file" and resource.annotated_resource_id:
+                    file_ids.add(resource.annotated_resource_id)
+                if "assetRef" in resource.data:
+                    asset_ref = resource.data["assetRef"]
+                    if isinstance(asset_id := asset_ref.get("id"), int):
+                        asset_ids.add(asset_id)
+                    if isinstance(asset_external_id := asset_ref.get("externalId"), str):
+                        asset_external_ids.add(asset_external_id)
+                if "fileRef" in resource.data:
+                    file_ref = resource.data["fileRef"]
+                    if isinstance(file_id := file_ref.get("id"), int):
+                        file_ids.add(file_id)
+                    if isinstance(file_external_id := file_ref.get("externalId"), str):
+                        file_external_ids.add(file_external_id)
+            elif isinstance(resource, Asset):
+                if resource.source:
+                    source_ids.add(resource.source)
+                if resource.parent_id is not None:
+                    asset_ids.add(resource.parent_id)
+            elif isinstance(resource, FileMetadata):
+                if resource.source:
+                    source_ids.add(resource.source)
+                if resource.asset_ids:
+                    asset_ids.update(resource.asset_ids)
+            elif isinstance(resource, Event):
+                if resource.source:
+                    source_ids.add(resource.source)
+                if resource.asset_ids:
+                    asset_ids.update(resource.asset_ids)
+            elif isinstance(resource, TimeSeries):
+                if resource.asset_id is not None:
+                    asset_ids.add(resource.asset_id)
+        if asset_ids:
+            self._update_cache(self._client.migration.lookup.assets(id=list(asset_ids)), self.TableName.ASSET_ID)
+        if source_ids:
+            # SourceSystems are not cached in the client, so we have to handle the caching ourselves.
+            cache = cast(dict[str, DirectRelationReference], self._cache_map[self.TableName.SOURCE_NAME])
+            missing = set(source_ids) - set(cache.keys())
+            if missing:
+                source_systems = self._client.migration.created_source_system.retrieve(list(missing))
+                for source_system in source_systems:
+                    cache[source_system.source] = source_system.as_direct_relation_reference()
+        if file_ids:
+            self._update_cache(self._client.migration.lookup.files(id=list(file_ids)), self.TableName.FILE_ID)
+        if asset_external_ids:
+            self._update_cache(
+                self._client.migration.lookup.assets(external_id=list(asset_external_ids)),
+                self.TableName.ASSET_EXTERNAL_ID,
+            )
+        if file_external_ids:
+            self._update_cache(
+                self._client.migration.lookup.files(external_id=list(file_external_ids)),
+                self.TableName.FILE_EXTERNAL_ID,
+            )
+
+    def _update_cache(self, instance_id_by_id: dict[int, NodeId] | dict[str, NodeId], table_name: str) -> None:
+        cache = self._cache_map[table_name]
+        for identifier, instance_id in instance_id_by_id.items():
+            cache[identifier] = DirectRelationReference(space=instance_id.space, external_id=instance_id.external_id)  # type: ignore[index]
+
+    def get_cache(
         self, resource_type: AssetCentricTypeExtended, property_id: str
-    ) -> Mapping[str | int, DirectRelationReference]:
-        key = resource_type, property_id
-        if key in self.ASSET_REFERENCE_PROPERTIES:
-            return self.asset  # type: ignore[return-value]
-        if key in self.SOURCE_REFERENCE_PROPERTIES:
-            return self.source  # type: ignore[return-value]
-        if key in self.FILE_REFERENCE_PROPERTIES:
-            return self.file  # type: ignore[return-value]
-        return {}
+    ) -> Mapping[str | int, DirectRelationReference] | None:
+        """Get the cache for the given resource type and property ID."""
+        return self._cache_map.get((resource_type, property_id))  # type: ignore[return-value]
 
 
 def asset_centric_to_dm(
@@ -92,9 +165,7 @@ def asset_centric_to_dm(
     instance_id: InstanceId,
     view_source: ResourceViewMapping,
     view_properties: dict[str, ViewProperty],
-    asset_instance_id_by_id: Mapping[int, DirectRelationReference],
-    source_instance_id_by_external_id: Mapping[str, DirectRelationReference],
-    file_instance_id_by_id: Mapping[int, DirectRelationReference],
+    direct_relation_cache: DirectRelationCache,
 ) -> tuple[NodeApply | EdgeApply | None, ConversionIssue]:
     """Convert an asset-centric resource to a data model instance.
 
@@ -103,22 +174,11 @@ def asset_centric_to_dm(
         instance_id (NodeId | EdgeApply): The ID of the instance to create or update.
         view_source (ResourceViewMapping): The view source defining how to map the resource to the data model.
         view_properties (dict[str, ViewProperty]): The defined properties referenced in the view source mapping.
-        asset_instance_id_by_id (dict[int, DirectRelationReference]): A mapping from asset IDs to their corresponding
-            DirectRelationReference in the data model. This is used to create direct relations for resources that
-            reference assets.
-        source_instance_id_by_external_id (dict[str, DirectRelationReference]): A mapping from source strings to their
-            corresponding DirectRelationReference in the data model. This is used to create direct relations for resources
-            that reference sources.
-        file_instance_id_by_id (dict[int, DirectRelationReference]): A mapping from file IDs to their corresponding
-            DirectRelationReference in the data model. This is used to create direct relations for resources that
-            reference files.
+        direct_relation_cache (DirectRelationCache): Cache for direct relation references.
 
     Returns:
         tuple[NodeApply | EdgeApply, ConversionIssue]: A tuple containing the converted NodeApply and any ConversionIssue encountered.
     """
-    cache = DirectRelationCache(
-        asset=asset_instance_id_by_id, source=source_instance_id_by_external_id, file=file_instance_id_by_id
-    )
     resource_type = _lookup_resource_type(resource)
     dumped = resource.dump()
     try:
@@ -138,7 +198,7 @@ def asset_centric_to_dm(
         view_source.property_mapping,
         resource_type,
         issue=issue,
-        direct_relation_cache=cache,
+        direct_relation_cache=direct_relation_cache,
     )
     sources: list[NodeOrEdgeData] = []
     if properties:
@@ -156,7 +216,7 @@ def asset_centric_to_dm(
     instance: NodeApply | EdgeApply
     if isinstance(instance_id, EdgeId):
         edge_properties = create_edge_properties(
-            dumped, view_source.property_mapping, resource_type, issue, cache, instance_id.space
+            dumped, view_source.property_mapping, resource_type, issue, direct_relation_cache, instance_id.space
         )
         if any(key not in edge_properties for key in ("start_node", "end_node", "type")):
             # Failed conversion of edge properties
@@ -240,7 +300,7 @@ def create_properties(
                 dm_prop.nullable,
                 destination_container_property=(dm_prop.container, dm_prop.container_property_identifier),
                 source_property=(resource_type, prop_json_path),
-                direct_relation_lookup=direct_relation_cache.get(resource_type, prop_json_path),
+                direct_relation_lookup=direct_relation_cache.get_cache(resource_type, prop_json_path),
             )
         except (ValueError, TypeError, NotImplementedError) as e:
             issue.failed_conversions.append(
@@ -288,7 +348,7 @@ def create_edge_properties(
                     flatten_dump[prop_json_path],
                     DirectRelation(),
                     False,
-                    direct_relation_lookup=direct_relation_cache.get(resource_type, prop_json_path),
+                    direct_relation_lookup=direct_relation_cache.get_cache(resource_type, prop_json_path),
                 )
             except (ValueError, TypeError, NotImplementedError) as e:
                 issue.failed_conversions.append(
