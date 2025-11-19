@@ -65,10 +65,10 @@ class ChartIO(UploadableStorageIO[ChartSelector, Chart, ChartWrite]):
         dumped = chart.as_write().dump()
         if "data" in dumped and "timeSeriesCollection" in dumped["data"]:
             for item in dumped["data"]["timeSeriesCollection"]:
-                ts_id = item.pop("tsId")
+                ts_id = item.pop("tsId", None)
                 if ts_id and item.get("tsExternalId") is None:
                     # We only look-up the externalID if it is missing
-                    ts_external_id = self.client.lookup.time_series.external_id(item["tsId"])
+                    ts_external_id = self.client.lookup.time_series.external_id(ts_id)
                     if ts_external_id is not None:
                         item["tsExternalId"] = ts_external_id
         return dumped
