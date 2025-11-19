@@ -194,12 +194,6 @@ class TestMigrationCommand:
             json={"items": [asset.dump() for asset in assets]},
             status=200,
         )
-        # Lookup CogniteSourceSystem (no source systems defined)
-        rsps.post(
-            config.create_api_url("/models/instances/list"),
-            json={"items": []},
-            status=200,
-        )
         # Instance creation
         respx.post(
             config.create_api_url("/models/instances"),
