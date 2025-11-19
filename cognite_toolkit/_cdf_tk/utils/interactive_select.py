@@ -14,9 +14,6 @@ from cognite.client.data_classes import (
     filters,
 )
 from cognite.client.data_classes.aggregations import Count
-from cognite.client.data_classes.capabilities import (
-    UserProfilesAcl,
-)
 from cognite.client.data_classes.data_modeling import ContainerId, NodeList, Space, SpaceList, View, ViewId, ViewList
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from cognite.client.utils import ms_to_datetime
@@ -28,7 +25,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.canvas import Canvas
 from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList, Visibility
 from cognite_toolkit._cdf_tk.client.data_classes.migration import ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
-from cognite_toolkit._cdf_tk.exceptions import AuthorizationError, ToolkitMissingResourceError, ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
 
 from . import humanize_collection
 from .aggregators import (
@@ -406,13 +403,6 @@ class InteractiveChartSelect:
         return user_response
 
     def _select_external_ids(self, select_filter: ChartFilter) -> list[str]:
-        if not self.client.iam.verify_capabilities(
-            UserProfilesAcl([UserProfilesAcl.Action.Read], scope=UserProfilesAcl.Scope.All())
-        ):
-            raise AuthorizationError(
-                "The current user does not have permission to list user profiles, "
-                "which is required to select Charts owned by a specific user."
-            )
         available_charts = self.client.charts.list(visibility=(select_filter.visibility or "PUBLIC"))
         if select_filter.select_all and select_filter.owned_by is None:
             return [chart.external_id for chart in available_charts]
