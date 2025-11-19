@@ -11,12 +11,13 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
+    ASSET_ANNOTATIONS_ID,
     ASSET_ID,
     EVENT_ID,
     FILE_METADATA_ID,
     TIME_SERIES_ID,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.migration_io import AssetCentricMigrationIO
+from cognite_toolkit._cdf_tk.commands._migrate.migration_io import AnnotationMigrationIO, AssetCentricMigrationIO
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrateDataSetSelector, MigrationCSVFileSelector
 from tests.test_integration.conftest import HierarchyMinimal
 from tests.test_integration.constants import RUN_UNIQUE_ID
@@ -174,6 +175,30 @@ class TestMigrateFileMetadataCommand:
             mapper=AssetCentricMapper(client),
             log_dir=tmp_path,
             dry_run=True,
+        )
+        results = progress.aggregate()
+        expected_results = {(step, "success"): 1 for step in cmd.Steps.list()}
+        assert results == expected_results
+
+
+class TestMigrateAnnotations:
+    def test_migrate_annotations_dry_run(
+        self, toolkit_client: ToolkitClient, tmp_path: Path, migration_hierarchy_minimal: HierarchyMinimal
+    ) -> None:
+        client = toolkit_client
+        hierarchy = migration_hierarchy_minimal
+        cmd = MigrationCommand(skip_tracking=True, silent=True)
+        progress = cmd.migrate(
+            selected=MigrateDataSetSelector(
+                kind="Annotations",
+                data_set_external_id=hierarchy.dataset.external_id,
+                ingestion_mapping=ASSET_ANNOTATIONS_ID,
+            ),
+            data=AnnotationMigrationIO(client, instance_space="my_annotations_space"),
+            mapper=AssetCentricMapper(client),
+            log_dir=tmp_path,
+            dry_run=True,
+            verbose=True,
         )
         results = progress.aggregate()
         expected_results = {(step, "success"): 1 for step in cmd.Steps.list()}
