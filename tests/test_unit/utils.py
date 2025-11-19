@@ -547,8 +547,15 @@ class MockQuestion:
 
 
 class MockQuestionary:
-    def __init__(self, module_target: str, monkeypatch: MonkeyPatch, answers: list[Any]) -> None:
-        self.module_target = module_target
+    def __init__(self, module_target: str | list[str], monkeypatch: MonkeyPatch, answers: list[Any]) -> None:
+        """Initialize MockQuestionary to patch questionary methods for one or more module targets.
+
+        Args:
+            module_target: Single module path string or list of module paths to patch
+            monkeypatch: Pytest monkeypatch fixture
+            answers: List of answers to return for each questionary call
+        """
+        self.module_targets = [module_target] if isinstance(module_target, str) else module_target
         self.answers = answers
         self.monkeypatch = monkeypatch
 
@@ -566,7 +573,8 @@ class MockQuestionary:
 
     def __enter__(self):
         for method in [self.select, self.confirm, self.checkbox, self.text]:
-            self.monkeypatch.setattr(f"{self.module_target}.questionary.{method.__name__}", method)
+            for module_target in self.module_targets:
+                self.monkeypatch.setattr(f"{module_target}.questionary.{method.__name__}", method)
         return self
 
     def __exit__(self, *args):

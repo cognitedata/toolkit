@@ -9,7 +9,7 @@ from typing import Any, ClassVar
 from rich import print
 
 from cognite_toolkit import _version
-from cognite_toolkit._cdf_tk.constants import clean_name
+from cognite_toolkit._cdf_tk.constants import RESOURCES_PATH, EnvType, clean_name
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
     ToolkitTOMLFormatError,
@@ -175,6 +175,25 @@ class CDFToml:
                 plugins={},
                 is_loaded_from_file=False,
             )
+
+    @classmethod
+    def write(cls, organization_dir: Path, env: EnvType = "dev", version: str = _version.__version__) -> None:
+        destination = Path.cwd() / CDFToml.file_name
+        if destination.exists():
+            print("cdf.toml file already exists. Skipping creation.")
+            return
+        cdf_toml_content = (RESOURCES_PATH / CDFToml.file_name).read_text(encoding="utf-8")
+        cdf_toml_content = cdf_toml_content.replace("0.0.0", version)
+        if organization_dir != Path.cwd():
+            cdf_toml_content = cdf_toml_content.replace(
+                "#<PLACEHOLDER>",
+                f'''
+default_organization_dir = "{organization_dir.name}"''',
+            )
+        else:
+            cdf_toml_content = cdf_toml_content.replace("#<PLACEHOLDER>", "")
+        cdf_toml_content = cdf_toml_content.replace("<DEFAULT_ENV_PLACEHOLDER>", env)
+        destination.write_text(cdf_toml_content, encoding="utf-8")
 
 
 def _read_toml(file_path: Path) -> dict[str, Any]:
