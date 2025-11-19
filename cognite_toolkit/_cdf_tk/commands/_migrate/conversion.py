@@ -49,6 +49,7 @@ class DirectRelationCache:
         ("event", "assetIds"),
         ("sequence", "assetId"),
         ("annotation", "data.assetRef.id"),
+        ("asset", "parentId"),
     }
     SOURCE_NAME_PROPERTIES: ClassVar[Set[tuple[str, str]]] = {
         ("asset", "source"),
@@ -109,6 +110,8 @@ class DirectRelationCache:
             elif isinstance(resource, Asset):
                 if resource.source:
                     source_ids.add(resource.source)
+                if resource.parent_id is not None:
+                    asset_ids.add(resource.parent_id)
             elif isinstance(resource, FileMetadata):
                 if resource.source:
                     source_ids.add(resource.source)
