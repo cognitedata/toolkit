@@ -63,8 +63,10 @@ class ChartIO(UploadableStorageIO[ChartSelector, Chart, ChartWrite]):
 
     def _dump_resource(self, chart: Chart) -> dict[str, JsonVal]:
         dumped = chart.as_write().dump()
-        if "data" in dumped and "timeSeriesCollection" in dumped["data"]:
-            for item in dumped["data"]["timeSeriesCollection"]:
+        if isinstance(data := dumped.get("data"), dict) and isinstance(
+            collection := data.get("timeSeriesCollection"), list
+        ):
+            for item in collection:
                 ts_id = item.pop("tsId", None)
                 if ts_id and item.get("tsExternalId") is None:
                     # We only look-up the externalID if it is missing
