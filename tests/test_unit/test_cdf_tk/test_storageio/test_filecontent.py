@@ -36,7 +36,7 @@ class TestFileContent:
             assert "name" in payload
             assert "externalId" in payload
             payload["uploadUrl"] = file_upload_url.format(externalId=payload["externalId"])
-            return httpx.Response(status_code=200, json={"items": [payload]}, headers={})
+            return httpx.Response(status_code=200, json=payload, headers={})
 
         respx_mock.post(config.create_api_url("/files")).mock(side_effect=create_callback)
         upload_endpoints: list[str] = []

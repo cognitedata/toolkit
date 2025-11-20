@@ -111,7 +111,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, FileMetadata, FileM
                 results.extend(responses.as_item_responses(item.as_id()))
                 continue
             try:
-                upload_url = cast(str, body["items"][0]["uploadUrl"])  # type: ignore[index, call-overload]
+                upload_url = cast(str, body["uploadUrl"])
             except (KeyError, IndexError):
                 results.append(
                     FailedResponseItems(
