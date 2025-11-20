@@ -70,7 +70,6 @@ class StreamCRUD(ResourceCRUD[str, StreamRequest, StreamResponse, StreamRequestL
             try:
                 _resp = self.client.streams.retrieve(_id)
             except ToolkitAPIError:
-                print(f"Warning: Error retrieving stream {_id}")
                 continue
             if _resp is not None:
                 retrieved.append(_resp)
@@ -82,7 +81,6 @@ class StreamCRUD(ResourceCRUD[str, StreamRequest, StreamResponse, StreamRequestL
             try:
                 self.client.streams.delete(_id)
             except ToolkitAPIError:
-                print(f"Warning: Error deleting stream {_id}")
                 continue
             count += 1
         return count
