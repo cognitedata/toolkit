@@ -13,7 +13,12 @@ from ._datapoints import (
     InternalIdColumn,
     TimeSeriesColumn,
 )
-from ._file_content import FileContentSelector, FileDataModelingTemplateSelector, FileMetadataTemplateSelector
+from ._file_content import (
+    FileContentSelector,
+    FileDataModelingTemplateSelector,
+    FileMetadataTemplate,
+    FileMetadataTemplateSelector,
+)
 from ._instances import (
     InstanceFileSelector,
     InstanceSelector,
@@ -58,6 +63,7 @@ __all__ = [
     "ExternalIdColumn",
     "FileContentSelector",
     "FileDataModelingTemplateSelector",
+    "FileMetadataTemplate",
     "FileMetadataTemplateSelector",
     "InstanceColumn",
     "InstanceFileSelector",

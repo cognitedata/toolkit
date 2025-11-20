@@ -25,6 +25,7 @@ from ._base import (
 )
 from ._data_classes import InstanceIdCSVList, InstanceIdRow, ModelList
 from ._datapoints import DatapointsIO
+from ._file_content import FileContentIO
 from ._instances import InstanceIO
 from ._raw import RawIO
 from .selectors._base import DataSelector
@@ -61,6 +62,7 @@ __all__ = [
     "ConfigurableStorageIO",
     "DatapointsIO",
     "EventIO",
+    "FileContentIO",
     "FileMetadataIO",
     "HierarchyIO",
     "InstanceIO",
