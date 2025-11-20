@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.storageio import (
     AssetIO,
     ChartIO,
     DatapointsIO,
+    FileContentIO,
     InstanceIO,
     RawIO,
     StorageIO,
@@ -24,6 +25,8 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     DataPointsFileSelector,
     DataSelector,
     DataSetSelector,
+    FileDataModelingTemplateSelector,
+    FileMetadataTemplateSelector,
     InstanceFileSelector,
     InstanceSpaceSelector,
     InstanceViewSelector,
@@ -148,6 +151,42 @@ def example_selector_data() -> Iterable[tuple]:
         ChartIO,
         ChartIO.KIND,
         id="ChartExternalIdSelector",
+    )
+    yield pytest.param(
+        {
+            "type": "fileMetadataTemplate",
+            "kind": "FileContent",
+            "file_directory": "path/to/files",
+            "template": {
+                "name": "$FILENAME",
+                "external_id": "file_$FILENAME",
+                "source": "Uploaded via Toolkit",
+            },
+        },
+        FileMetadataTemplateSelector,
+        FileContentIO,
+        FileContentIO.KIND,
+        id="FileMetadataTemplateSelector",
+    )
+    yield pytest.param(
+        {
+            "type": "fileDataModelingTemplate",
+            "kind": "FileContent",
+            "file_directory": "path/to/files",
+            "viewId": {
+                "space": "cdf_cdm",
+                "externalId": "CogniteFile",
+                "version": "v1",
+            },
+            "template": {
+                "space": "my_space",
+                "external_id": "data_modeling_$FILENAME",
+            },
+        },
+        FileDataModelingTemplateSelector,
+        FileContentIO,
+        FileContentIO.KIND,
+        id="FileDataModelingTemplateSelector",
     )
 
 

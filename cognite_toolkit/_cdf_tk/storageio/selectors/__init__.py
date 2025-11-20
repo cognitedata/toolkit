@@ -40,8 +40,8 @@ Selector = Annotated[
     | DataSetSelector
     | DataPointsFileSelector
     | ChartExternalIdSelector
-    | FileMetadataTemplateSelector,
-    FileDataModelingTemplateSelector,
+    | FileMetadataTemplateSelector
+    | FileDataModelingTemplateSelector,
     Field(discriminator="type"),
 ]
 

@@ -5,6 +5,7 @@ from typing import Literal
 from pydantic import ConfigDict, field_validator
 
 from ._base import DataSelector, SelectorObject
+from ._instances import SelectedView
 
 FILENAME_VARIABLE = "$FILENAME"
 
@@ -48,13 +49,30 @@ class FileMetadataTemplateSelector(FileContentSelector):
         return "metadata_template"
 
 
+class FileDataModelingTemplate(SelectorObject):
+    model_config = ConfigDict(extra="allow")
+    space: str
+    external_id: str
+
+    @field_validator("external_id")
+    @classmethod
+    def _validate_filename_in_fields(cls, v: str) -> str:
+        if FILENAME_VARIABLE not in v:
+            raise ValueError(
+                f"{FILENAME_VARIABLE!s} must be present in 'external_id' field. "
+                f"This allows for dynamic substitution based on the file name."
+            )
+        return v
+
+
 class FileDataModelingTemplateSelector(FileContentSelector):
     type: Literal["fileDataModelingTemplate"] = "fileDataModelingTemplate"
-    template_name: str
+    view_id: SelectedView
+    template: FileDataModelingTemplate
 
     @property
     def group(self) -> str:
-        return f"DataModelingTemplate_{self.template_name}"
+        return "FileDataModeling"
 
     def __str__(self) -> str:
-        return self.template_name
+        return "data_modeling_template"
