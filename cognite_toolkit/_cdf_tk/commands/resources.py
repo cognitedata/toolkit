@@ -12,7 +12,7 @@ class ResourcesCommand(ToolkitCommand):
         organization_dir: Path,
         module_name: str,
         resource_directory: str,
-        resources: list[str],
+        resources: list[str] | None = None,
         file_name: list[str] | None = None,
         verbose: bool = False,
     ) -> None:

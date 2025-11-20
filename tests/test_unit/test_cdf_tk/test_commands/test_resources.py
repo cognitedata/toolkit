@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 import typer
 
-from cognite_toolkit._cdf_tk.apps._resource_app import ResourcesApp
+from cognite_toolkit._cdf_tk.apps import DevApp
 from cognite_toolkit._cdf_tk.commands import ResourcesCommand
 
 
@@ -27,7 +27,7 @@ class TestResourcesCommand:
         """Test that BadParameter error is raised when number of file names doesn't match number of resources."""
         organization_dir = tmp_path / "my_org"
         organization_dir.mkdir(parents=True, exist_ok=True)
-        app = ResourcesApp()
+        app = DevApp()
         with pytest.raises(typer.BadParameter, match="Number of resources must match number of file names"):
             app.create(
                 module="test_module",
