@@ -66,8 +66,9 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import GraphQLDataModelWrite
 from cognite_toolkit._cdf_tk.client.data_classes.project import ProjectStatus, ProjectStatusList
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase
+from cognite_toolkit._cdf_tk.client.data_classes.streams import StreamResponse, StreamResponseList
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
-from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
+from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN, STREAM_IMMUTABLE_TEMPLATE_NAME
 from cognite_toolkit._cdf_tk.cruds import FileCRUD
 from cognite_toolkit._cdf_tk.utils import calculate_hash
 from cognite_toolkit._cdf_tk.utils.auth import CLIENT_NAME
@@ -426,6 +427,21 @@ class ApprovalToolkitClient:
                 # Groups needs special handling to convert the write to read
                 # to account for Unknown ACLs.
                 return resource_list_cls(_group_write_to_read(c) for c in created)
+            if resource_cls is StreamResponse:
+                return StreamResponseList.load(
+                    [
+                        {
+                            "externalId": c.external_id,
+                            "createdTime": 0,
+                            "createdFromTemplate": c.settings["template"]["name"],
+                            "type": "Immutable"
+                            if c.settings["template"]["name"] in STREAM_IMMUTABLE_TEMPLATE_NAME
+                            else "Mutable",
+                        }
+                        for c in created
+                    ],
+                    cognite_client=client,
+                )
 
             read_list = resource_list_cls.load(
                 [

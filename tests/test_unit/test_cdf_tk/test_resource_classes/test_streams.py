@@ -3,9 +3,12 @@ from pathlib import Path
 
 import pytest
 
+from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.resource_classes.streams import StreamYAML
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
+from tests.data import COMPLETE_ORG_ALPHA_FLAGS
+from tests.test_unit.utils import find_resources
 
 
 def invalid_stream_test_cases() -> Iterable:
@@ -97,3 +100,8 @@ class TestStreamYAML:
         assert isinstance(format_warning, ResourceFormatWarning)
 
         assert set(format_warning.errors) == expected_errors
+
+    @pytest.mark.parametrize("data", list(find_resources("Streams", base=COMPLETE_ORG_ALPHA_FLAGS / MODULES)))
+    def test_load_valid_stream(self, data: dict[str, object]) -> None:
+        loaded = StreamYAML.model_validate(data)
+        assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
