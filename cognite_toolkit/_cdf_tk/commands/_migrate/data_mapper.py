@@ -25,7 +25,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio._base import T_Selector, T_WriteCogniteResource
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.useful_types import (
-    T_AssetCentricResource,
+    T_AssetCentricResourceExtended,
 )
 
 
@@ -57,7 +57,7 @@ class DataMapper(Generic[T_Selector, T_CogniteResource, T_WriteCogniteResource],
 
 
 class AssetCentricMapper(
-    DataMapper[AssetCentricMigrationSelector, AssetCentricMapping[T_AssetCentricResource], InstanceApply]
+    DataMapper[AssetCentricMigrationSelector, AssetCentricMapping[T_AssetCentricResourceExtended], InstanceApply]
 ):
     def __init__(self, client: ToolkitClient) -> None:
         self.client = client
@@ -87,7 +87,7 @@ class AssetCentricMapper(
             )
 
     def map(
-        self, source: Sequence[AssetCentricMapping[T_AssetCentricResource]]
+        self, source: Sequence[AssetCentricMapping[T_AssetCentricResourceExtended]]
     ) -> Sequence[tuple[InstanceApply | None, ConversionIssue]]:
         """Map a chunk of asset-centric data to InstanceApplyList format."""
         # We update the direct relation cache in bulk for all resources in the chunk.
@@ -99,7 +99,7 @@ class AssetCentricMapper(
         return output
 
     def _map_single_item(
-        self, item: AssetCentricMapping[T_AssetCentricResource]
+        self, item: AssetCentricMapping[T_AssetCentricResourceExtended]
     ) -> tuple[NodeApply | EdgeApply | None, ConversionIssue]:
         mapping = item.mapping
         ingestion_view = mapping.get_ingestion_view()

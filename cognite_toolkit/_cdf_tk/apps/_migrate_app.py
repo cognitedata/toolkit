@@ -4,6 +4,7 @@ from typing import Annotated, Any
 
 import questionary
 import typer
+from cognite.client.data_classes import Annotation
 from cognite.client.data_classes.data_modeling import ContainerId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -830,10 +831,10 @@ class MigrateApp(typer.Typer):
 
         cmd = MigrationCommand()
         cmd.run(
-            lambda: cmd.migrate(  # type: ignore[misc]
+            lambda: cmd.migrate(
                 selected=selected,
                 data=annotation_io,
-                mapper=AssetCentricMapper(client),
+                mapper=AssetCentricMapper[Annotation](client),
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
