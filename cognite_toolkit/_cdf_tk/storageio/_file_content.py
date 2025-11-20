@@ -9,6 +9,7 @@ from cognite.client.data_classes import FileMetadata, FileMetadataWrite
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.cruds import FileMetadataCRUD
+from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.http_client import (
@@ -21,9 +22,8 @@ from cognite_toolkit._cdf_tk.utils.http_client import (
 )
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from . import T_Selector, UploadItem
-from ._base import Page, UploadableStorageIO
-from .selectors import FileContentSelector
+from ._base import Page, UploadableStorageIO, UploadItem
+from .selectors import FileContentSelector, FileMetadataTemplateSelector
 from .selectors._file_content import FILEPATH
 
 
@@ -92,8 +92,10 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, FileMetadata, FileM
         self,
         data_chunk: Sequence[UploadItem[FileMetadataWrite]],
         http_client: HTTPClient,
-        selector: T_Selector | None = None,
+        selector: FileContentSelector | None = None,
     ) -> Sequence[HTTPMessage]:
+        if not isinstance(selector, FileMetadataTemplateSelector):
+            raise ToolkitNotImplementedError("Only uploading of file metadata is currently supported.")
         config = http_client.config
         results: MutableSequence[HTTPMessage] = []
         for item in cast(Sequence[UploadFileContentItem], data_chunk):
