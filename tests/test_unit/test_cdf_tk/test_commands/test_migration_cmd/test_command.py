@@ -20,9 +20,11 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, ProjectStatistics
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart
+from cognite_toolkit._cdf_tk.client.data_classes.charts_data import ChartData, ChartTimeseries
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
-from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
+from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper, ChartMapper
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import (
     COGNITE_MIGRATION_MODEL,
     INSTANCE_SOURCE_VIEW_ID,
@@ -38,6 +40,8 @@ from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import AnnotationMigrationIO, AssetCentricMigrationIO
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
+from cognite_toolkit._cdf_tk.storageio import ChartIO
+from cognite_toolkit._cdf_tk.storageio.selectors import ChartExternalIdSelector
 from cognite_toolkit._cdf_tk.utils.fileio import CSVReader
 
 
@@ -429,6 +433,51 @@ class TestMigrationCommand:
             ).dump(),
         ]
         assert actual_instances == expected_instance
+
+    @pytest.mark.usefixtures("mock_statistics")
+    def test_migrate_charts(
+        self,
+        toolkit_config: ToolkitClientConfig,
+        cognite_migration_model: responses.RequestsMock,
+        tmp_path: Path,
+        respx_mock: respx.MockRouter,
+    ) -> None:
+        rsps = cognite_migration_model
+        config = toolkit_config
+        charts = [
+            Chart(
+                external_id="my_chart",
+                created_time=1,
+                last_updated_time=1,
+                visibility="PUBLIC",
+                data=ChartData(
+                    name="My Chart",
+                    time_series_collection=[ChartTimeseries(ts_external_id="ts_1"), ChartTimeseries(ts_id=1)],
+                ),
+                owner_id="1234",
+            )
+        ]
+        rsps.add(
+            responses.POST,
+            config.create_app_url("/storage/charts/charts/list"),
+            json={
+                "items": [chart.dump() for chart in charts],
+            },
+            status=200,
+        )
+        client = ToolkitClient(config)
+        command = MigrationCommand(silent=True)
+        result = command.migrate(
+            selected=ChartExternalIdSelector(external_ids=("my_chart",)),
+            data=ChartIO(client),
+            mapper=ChartMapper(client),
+            log_dir=tmp_path / "logs",
+            dry_run=False,
+            verbose=True,
+        )
+        actual = result.get_progress("my_chart")
+        expected = {"download": "success", "convert": "success", "upload": "success"}
+        assert actual == expected
 
     def test_validate_migration_model_available(self) -> None:
         with monkeypatch_toolkit_client() as client:

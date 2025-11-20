@@ -125,5 +125,8 @@ class AssetCentricMapper(
 
 
 class ChartMapper(DataMapper[ChartSelector, Chart, ChartWrite]):
+    def __init__(self, client: ToolkitClient) -> None:
+        self.client = client
+
     def map(self, source: Sequence[Chart]) -> Sequence[tuple[ChartWrite | None, MigrationIssue]]:
-        raise NotImplementedError()
+        raise NotImplementedError("ChartMapper is not implemented yet.")
