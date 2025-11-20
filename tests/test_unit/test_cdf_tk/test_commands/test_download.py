@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from cognite.client.data_classes import Asset, AssetList, TransformationPreviewResult
+from cognite.client.data_classes import AggregateResultItem, Asset, AssetList, TransformationPreviewResult
 
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DownloadCommand
@@ -16,7 +16,17 @@ class TestDownloadCommand:
             dataset = "my/:_data_set"
             client.assets.aggregate_count.return_value = 1
             client.assets.return_value = [
-                AssetList([Asset(id=123, name="asset_123", metadata={"key": "value"}, data_set_id=42)])
+                AssetList(
+                    [
+                        Asset(
+                            id=123,
+                            name="asset_123",
+                            metadata={"key": "value"},
+                            data_set_id=42,
+                            aggregates=AggregateResultItem(1, depth=0),
+                        )
+                    ]
+                )
             ]
             client.lookup.data_sets.id.return_value = 42
             client.lookup.data_sets.external_id.return_value = dataset
@@ -48,5 +58,8 @@ class TestDownloadCommand:
                     "name": "asset_123",
                     "parentExternalId": "",
                     "source": "",
+                    "childCount": "1",
+                    "depth": "0",
+                    "path": "",
                 }
             ]

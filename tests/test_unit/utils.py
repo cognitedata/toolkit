@@ -59,6 +59,7 @@ from cognite.client.data_classes.workflows import (
 )
 from cognite.client.testing import CogniteClientMock
 from cognite.client.utils.useful_types import SequenceNotStr
+from pydantic import BaseModel, JsonValue
 from questionary import Choice
 
 from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
@@ -200,6 +201,9 @@ class FakeCogniteResourceGenerator:
         )
 
     def create_instance(self, resource_cls: type[T_Object], skip_defaulted_args: bool = False) -> T_Object:
+        if issubclass(resource_cls, BaseModel):
+            return self.create_pydantic_instance(resource_cls, skip_defaulted_args)
+
         is_abstract = any(base is abc.ABC for base in resource_cls.__bases__)
         if is_abstract:
             subclasses = all_concrete_subclasses(resource_cls)
@@ -342,6 +346,17 @@ class FakeCogniteResourceGenerator:
             return ZoneInfo("UTC")
         return resource_cls(*positional_arguments, **keyword_arguments)
 
+    def create_pydantic_instance(self, model_cls: type[BaseModel], skip_defaulted_args: bool = False) -> BaseModel:
+        keyword_arguments: dict[str, Any] = {}
+        for field_id, field in model_cls.model_fields.items():
+            if skip_defaulted_args and field.default is not None:
+                continue
+            name = field.alias or field_id
+            value = self.create_value(field.annotation, var_name=field_id)
+            keyword_arguments[name] = value
+
+        return model_cls(**keyword_arguments)
+
     def create_value(self, type_: Any, var_name: str | None = None) -> Any:
         import numpy as np
 
@@ -471,6 +486,19 @@ class FakeCogniteResourceGenerator:
             return self.create_instance(type_)
         elif type(type_) is dataclasses.InitVar:
             return self.create_value(type_.type)
+        elif type_ is JsonValue:
+            return self._random.choice(
+                [
+                    None,
+                    self._random_string(10),
+                    self._random.randint(1, 100),
+                    self._random.random(),
+                    True,
+                    False,
+                    [self._random_string(5) for _ in range(3)],
+                    {self._random_string(5): self._random_string(5) for _ in range(3)},
+                ]
+            )
 
         raise NotImplementedError(f"Unsupported {type_=} or {container_type=}. {self._error_msg}")
 
@@ -519,8 +547,15 @@ class MockQuestion:
 
 
 class MockQuestionary:
-    def __init__(self, module_target: str, monkeypatch: MonkeyPatch, answers: list[Any]) -> None:
-        self.module_target = module_target
+    def __init__(self, module_target: str | list[str], monkeypatch: MonkeyPatch, answers: list[Any]) -> None:
+        """Initialize MockQuestionary to patch questionary methods for one or more module targets.
+
+        Args:
+            module_target: Single module path string or list of module paths to patch
+            monkeypatch: Pytest monkeypatch fixture
+            answers: List of answers to return for each questionary call
+        """
+        self.module_targets = [module_target] if isinstance(module_target, str) else module_target
         self.answers = answers
         self.monkeypatch = monkeypatch
 
@@ -538,7 +573,8 @@ class MockQuestionary:
 
     def __enter__(self):
         for method in [self.select, self.confirm, self.checkbox, self.text]:
-            self.monkeypatch.setattr(f"{self.module_target}.questionary.{method.__name__}", method)
+            for module_target in self.module_targets:
+                self.monkeypatch.setattr(f"{module_target}.questionary.{method.__name__}", method)
         return self
 
     def __exit__(self, *args):

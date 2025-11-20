@@ -6,12 +6,22 @@ from typing import Any, get_args
 import pytest
 
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import AssetCentricMigrationSelector
-from cognite_toolkit._cdf_tk.storageio import AssetIO, ChartIO, InstanceIO, RawIO, StorageIO, get_upload_io
+from cognite_toolkit._cdf_tk.storageio import (
+    AssetIO,
+    ChartIO,
+    DatapointsIO,
+    InstanceIO,
+    RawIO,
+    StorageIO,
+    get_upload_io,
+)
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     AllChartsSelector,
     AssetCentricFileSelector,
     AssetSubtreeSelector,
+    ChartExternalIdSelector,
     ChartOwnerSelector,
+    DataPointsFileSelector,
     DataSelector,
     DataSetSelector,
     InstanceFileSelector,
@@ -102,6 +112,42 @@ def example_selector_data() -> Iterable[tuple]:
         InstanceIO,
         InstanceIO.KIND,
         id="InstanceSpaceSelector",
+    )
+    yield pytest.param(
+        {
+            "type": "datapointsFile",
+            "timestamp_column": "timestamp",
+            "columns": [
+                {
+                    "column_type": "instance",
+                    "column": "ts1",
+                    "dtype": "numeric",
+                    "space": "space1",
+                    "external_id": "extId1",
+                },
+                {
+                    "column_type": "externalId",
+                    "column": "ts2",
+                    "dtype": "string",
+                    "external_id": "extId2",
+                },
+            ],
+        },
+        DataPointsFileSelector,
+        DatapointsIO,
+        DatapointsIO.KIND,
+        id="DataPointsFileSelector",
+    )
+    yield pytest.param(
+        {
+            "type": "chartExternalId",
+            "kind": "Charts",
+            "externalIds": ["5400ab34-37f1-470d-b965-d81404ac92d8"],
+        },
+        ChartExternalIdSelector,
+        ChartIO,
+        ChartIO.KIND,
+        id="ChartExternalIdSelector",
     )
 
 

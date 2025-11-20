@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 import respx
+from cognite.client.data_classes import data_modeling as dm
 from cognite.client.data_classes.raw import RowWrite, Table, TableList
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
@@ -13,8 +14,15 @@ from cognite_toolkit._cdf_tk.commands import UploadCommand
 from cognite_toolkit._cdf_tk.constants import DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.cruds import RawTableCRUD
 from cognite_toolkit._cdf_tk.storageio import RawIO
-from cognite_toolkit._cdf_tk.storageio.selectors import RawTableSelector, SelectedTable
+from cognite_toolkit._cdf_tk.storageio.selectors import (
+    InstanceSpaceSelector,
+    RawTableSelector,
+    SelectedTable,
+    SelectedView,
+    Selector,
+)
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
+from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
 @pytest.fixture
@@ -142,3 +150,45 @@ class TestUploadCommand:
             client.raw.rows.insert.assert_not_called()
             client.raw.databases.create.assert_not_called()
             client.raw.tables.create.assert_not_called()
+
+    def test_instance_selector_topological_sorts_and_preserves_selectors(
+        self,
+        toolkit_client_approval: ApprovalToolkitClient,
+        cognite_core_no_3D: dm.DataModel,
+        cognite_core_containers_no_3D: dm.ContainerList,
+    ) -> None:
+        """Test that _topological_sort_if_instance_selector sorts instance selectors by dependencies and preserves non-instance selectors."""
+        cmd = UploadCommand(silent=True, skip_tracking=True)
+        toolkit_client_approval.append(dm.View, cognite_core_no_3D.views)
+        toolkit_client_approval.append(dm.Container, cognite_core_containers_no_3D)
+
+        data_files_by_selector: dict[Selector, list[Path]] = {}
+        selector_by_view_external_id: dict[str, Selector] = {}
+
+        # Create instance selectors in reverse dependency order
+        for view_external_id in ["CogniteAsset", "CogniteSourceSystem"]:
+            selector = InstanceSpaceSelector(
+                instance_space="cdf_cdm",
+                view=SelectedView(space="cdf_cdm", external_id=view_external_id, version="v1"),
+                type="instanceSpace",
+            )
+            data_files_by_selector[selector] = [Path(f"dummy_{view_external_id}.json")]  # type: ignore[reportUnhashable]
+            selector_by_view_external_id[view_external_id] = selector
+
+        # Add a non-instance selector
+        raw_selector = RawTableSelector(
+            table=SelectedTable(db_name="test_db", table_name="test_table"), type="rawTable"
+        )
+        data_files_by_selector[raw_selector] = [Path("raw_data.json")]  # type: ignore[reportUnhashable]
+
+        result = cmd._topological_sort_if_instance_selector(data_files_by_selector, toolkit_client_approval.mock_client)
+
+        # Verify instance selectors are sorted by dependencies
+        result_keys = list(result.keys())
+        assert result_keys.index(selector_by_view_external_id["CogniteSourceSystem"]) < result_keys.index(
+            selector_by_view_external_id["CogniteAsset"]
+        ), f"CogniteSourceSystem should come before CogniteAsset due to dependencies, but got order {result_keys}"
+
+        # Verify non-instance selectors are preserved
+        assert raw_selector in result, f"Raw selector should be preserved, not found in {result_keys}"
+        assert len(result) == 3, f"Expected 3 selectors, got {len(result)}: {result_keys}"

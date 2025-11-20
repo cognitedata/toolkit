@@ -172,6 +172,8 @@ def test_init_build_clean(
         build_env_name="dev",
         dry_run=False,
         include=None,
+        module_str=module_path.name,
+        all_modules=True,
         verbose=False,
     )
 

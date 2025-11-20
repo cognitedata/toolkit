@@ -87,7 +87,7 @@ class RequestMessage(HTTPMessage):
     """Base class for HTTP request messages"""
 
     endpoint_url: str
-    method: Literal["GET", "POST", "PATCH", "DELETE"]
+    method: Literal["GET", "POST", "PATCH", "DELETE", "PUT"]
     connect_attempt: int = 0
     read_attempt: int = 0
     status_attempt: int = 0
@@ -171,6 +171,20 @@ class SimpleBodyRequest(SimpleRequest, BodyRequest):
 
     def data(self) -> str:
         return _dump_body(self.body_content)
+
+
+@dataclass
+class DataBodyRequest(SimpleRequest):
+    data_content: bytes = b""
+
+    def data(self) -> bytes:
+        return self.data_content
+
+    def dump(self) -> dict[str, JsonVal]:
+        output = super().dump()
+        # We cannot serialize bytes, so we indicate its presence instead
+        output["data_content"] = "<bytes>"
+        return output
 
 
 T_COVARIANT_ID = TypeVar("T_COVARIANT_ID", covariant=True)

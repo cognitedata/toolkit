@@ -8,21 +8,30 @@ from typing import Any
 
 import pytest
 import responses
+import yaml
 from cognite.client import global_config
 from cognite.client.credentials import Token
 from cognite.client.data_classes import CreatedSession
-from cognite.client.data_classes.data_modeling import NodeList, ViewId
+from cognite.client.data_classes.data_modeling import ContainerList, DataModel, NodeList, View, ViewId
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.canvas import IndustrialCanvas
 from cognite_toolkit._cdf_tk.client.data_classes.migration import InstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.commands import ModulesCommand, RepoCommand
-from cognite_toolkit._cdf_tk.constants import MODULES
+from cognite_toolkit._cdf_tk.commands import BuildCommand, ModulesCommand, RepoCommand
+from cognite_toolkit._cdf_tk.constants import BUILD_ENVIRONMENT_FILE, MODULES
+from cognite_toolkit._cdf_tk.data_classes._config_yaml import BuildEnvironment
+from cognite_toolkit._cdf_tk.utils import read_yaml_file
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.constants import REPO_ROOT
-from tests.data import BUILDABLE_PACKAGE, COMPLETE_ORG
+from tests.data import (
+    BUILDABLE_PACKAGE,
+    COMPLETE_ORG,
+    CORE_CONTAINERS_NO_3D_YAML,
+    CORE_NO_3D_YAML,
+    EXTRACTOR_VIEWS_YAML,
+)
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import PrintCapture
 
@@ -127,6 +136,26 @@ def buildable_modules_mutable(
     organization_dir = local_tmp_repo_path / "legacy-pytest-org-mutable"
     init_organization_dir(organization_dir, BUILDABLE_PACKAGE / MODULES)
     return organization_dir
+
+
+@pytest.fixture
+def build_environment(
+    build_tmp_path: Path,
+    complete_org_dir: Path,
+    env_vars_with_client: EnvironmentVariables,
+) -> BuildEnvironment:
+    """Fixture that builds modules and returns the BuildEnvironment."""
+    BuildCommand(silent=True, skip_tracking=True).execute(
+        verbose=False,
+        organization_dir=complete_org_dir,
+        build_dir=build_tmp_path,
+        selected=None,
+        no_clean=False,
+        client=env_vars_with_client.get_client(),
+        build_env_name="dev",
+        on_error="raise",
+    )
+    return BuildEnvironment.load(read_yaml_file(build_tmp_path / BUILD_ENVIRONMENT_FILE), "dev", "build")
 
 
 @pytest.fixture
@@ -331,3 +360,35 @@ def asset_centric_canvas() -> tuple[IndustrialCanvas, NodeList[InstanceSource]]:
         ]
     )
     return canvas, mapping
+
+
+@pytest.fixture(scope="session")
+def cognite_core_no_3D() -> DataModel[View]:
+    """This is a simplified CogniteCore data model without the 3D views.
+    In addition, CogniteAsset does not implement CogniteVisualizable (which is also removed).
+
+    Note if you use this fixture in a test, ensure that you do not modify the returned
+    data model, as it is shared between tests.
+    """
+    return DataModel.load(CORE_NO_3D_YAML.read_text(encoding="utf-8"))
+
+
+@pytest.fixture(scope="session")
+def cognite_core_containers_no_3D() -> ContainerList:
+    """This is a simplified list of containers from the cdf_cdm space without CogniteVisualizable.
+    In addition, the CogniteAsset container does not require CogniteVisualizable.
+
+    Note if you use this fixture in a test, ensure that you do not modify the returned
+    containers, as it is shared between tests.
+    """
+    return ContainerList.load(CORE_CONTAINERS_NO_3D_YAML.read_text(encoding="utf-8"))
+
+
+@pytest.fixture(scope="session")
+def cognite_extractor_views() -> list[View]:
+    """This is a simplified data model containing only the views used by the extractor.
+
+    Note if you use this fixture in a test, ensure that you do not modify the returned
+    data model, as it is shared between tests.
+    """
+    return [View._load(view) for view in yaml.safe_load(EXTRACTOR_VIEWS_YAML.read_text(encoding="utf-8"))]

@@ -158,6 +158,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import (
     GraphQLDataModelWrite,
     GraphQLDataModelWriteList,
 )
+from cognite_toolkit._cdf_tk.client.data_classes.infield import InfieldLocationConfig, InfieldLocationConfigList
 from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
     LocationFilter,
     LocationFilterList,
@@ -380,7 +381,7 @@ API_RESOURCES = [
             "delete": [Method(api_class_method="delete", mock_class_method="delete_data_modeling")],
             "retrieve": [
                 Method(api_class_method="list", mock_class_method="return_values"),
-                Method(api_class_method="retrieve", mock_class_method="return_values"),
+                Method(api_class_method="retrieve", mock_class_method="data_model_retrieve"),
             ],
         },
     ),
@@ -569,6 +570,7 @@ API_RESOURCES = [
                 Method(api_class_method="list", mock_class_method="return_values"),
                 Method(api_class_method="retrieve_multiple", mock_class_method="return_values"),
             ],
+            "delete": [Method(api_class_method="delete", mock_class_method="delete_id_external_id")],
         },
     ),
     APIResource(
@@ -579,6 +581,7 @@ API_RESOURCES = [
         _write_list_cls=ThreeDModelWriteList,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create_3dmodel")],
+            "delete": [Method(api_class_method="delete", mock_class_method="delete_id_external_id")],
             "retrieve": [
                 Method(api_class_method="__iter__", mock_class_method="iterate_values"),
             ],
@@ -830,6 +833,19 @@ API_RESOURCES = [
             "create": [Method(api_class_method="upsert", mock_class_method="create_multiple")],
             "retrieve": [
                 Method(api_class_method="list", mock_class_method="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="infield.config",
+        resource_cls=InfieldLocationConfig,
+        list_cls=InfieldLocationConfigList,
+        _write_cls=InfieldLocationConfig,
+        _write_list_cls=InfieldLocationConfigList,
+        methods={
+            "create": [Method(api_class_method="apply", mock_class_method="create_multiple")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
             ],
         },
     ),

@@ -31,7 +31,7 @@ if TYPE_CHECKING:
     import pyarrow.parquet as pq
 
 FileFormat: TypeAlias = Literal["csv", "parquet", "yaml"]
-DataType: TypeAlias = Literal["string", "integer", "float", "boolean", "json", "date", "timestamp"]
+DataType: TypeAlias = Literal["string", "integer", "float", "boolean", "json", "date", "timestamp", "epoch"]
 PrimaryCellValue: TypeAlias = datetime | date | str | int | float | bool | JsonVal | None
 CellValue: TypeAlias = PrimaryCellValue | list[PrimaryCellValue]
 Rows: TypeAlias = list[dict[str, CellValue]]

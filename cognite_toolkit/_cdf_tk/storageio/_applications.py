@@ -9,8 +9,8 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import Page, UploadableStorageIO
-from .selectors import AllChartsSelector, CanvasSelector, ChartOwnerSelector, ChartSelector
+from ._base import Page, UploadableStorageIO, UploadItem
+from .selectors import AllChartsSelector, CanvasSelector, ChartExternalIdSelector, ChartOwnerSelector, ChartSelector
 
 
 class ChartIO(UploadableStorageIO[ChartSelector, Chart, ChartWrite]):
@@ -20,6 +20,9 @@ class ChartIO(UploadableStorageIO[ChartSelector, Chart, ChartWrite]):
     SUPPORTED_READ_FORMATS = frozenset({".ndjson"})
     CHUNK_SIZE = 10
     BASE_SELECTOR = ChartSelector
+    UPLOAD_ENDPOINT_TYPE = "app"
+    UPLOAD_ENDPOINT_METHOD = "PUT"
+    UPLOAD_ENDPOINT = "/storage/charts/charts"
 
     def as_id(self, item: Chart) -> str:
         return item.external_id
@@ -30,29 +33,15 @@ class ChartIO(UploadableStorageIO[ChartSelector, Chart, ChartWrite]):
             ...
         elif isinstance(selector, ChartOwnerSelector):
             selected_charts = ChartList([chart for chart in selected_charts if chart.owner_id == selector.owner_id])
+        elif isinstance(selector, ChartExternalIdSelector):
+            external_id_set = set(selector.external_ids)
+            selected_charts = ChartList([chart for chart in selected_charts if chart.external_id in external_id_set])
         else:
             raise ToolkitNotImplementedError(f"Unsupported selector type {type(selector).__name__!r} for ChartIO")
 
         if limit is not None:
             selected_charts = ChartList(selected_charts[:limit])
         for chunk in chunker_sequence(selected_charts, self.CHUNK_SIZE):
-            ts_ids_to_lookup = {
-                ts_ref.ts_id
-                for chart in chunk
-                for ts_ref in chart.data.time_series_collection or []
-                if ts_ref.ts_external_id is None and ts_ref.ts_id is not None
-            }
-
-            if ts_ids_to_lookup:
-                retrieved_ts = self.client.time_series.retrieve_multiple(
-                    ids=list(ts_ids_to_lookup), ignore_unknown_ids=True
-                )
-                id_to_external_id = {ts.id: ts.external_id for ts in retrieved_ts}
-
-                for chart in chunk:
-                    for ts_ref in chart.data.time_series_collection or []:
-                        if ts_ref.ts_id in id_to_external_id:
-                            ts_ref.ts_external_id = id_to_external_id[ts_ref.ts_id]
             yield Page(worker_id="main", items=chunk)
 
     def count(self, selector: ChartSelector) -> int | None:
@@ -62,9 +51,68 @@ class ChartIO(UploadableStorageIO[ChartSelector, Chart, ChartWrite]):
     def data_to_json_chunk(
         self, data_chunk: Sequence[Chart], selector: ChartSelector | None = None
     ) -> list[dict[str, JsonVal]]:
-        return [chart.as_write().dump() for chart in data_chunk]
+        self._populate_timeseries_id_cache(data_chunk)
+        return [self._dump_resource(chart) for chart in data_chunk]
+
+    def _populate_timeseries_id_cache(self, data_chunk: Sequence[Chart]) -> None:
+        timeseries_ids: set[int] = set()
+        for chart in data_chunk:
+            for item in chart.data.time_series_collection or []:
+                if item.ts_id is not None and item.ts_external_id is None:
+                    # We only look-up the internalID if the externalId is missing
+                    timeseries_ids.add(item.ts_id)
+        if timeseries_ids:
+            self.client.lookup.time_series.external_id(list(timeseries_ids))
+
+    def _dump_resource(self, chart: Chart) -> dict[str, JsonVal]:
+        dumped = chart.as_write().dump()
+        if isinstance(data := dumped.get("data"), dict) and isinstance(
+            collection := data.get("timeSeriesCollection"), list
+        ):
+            for item in collection:
+                ts_id = item.pop("tsId", None)
+                if ts_id and item.get("tsExternalId") is None:
+                    # We only look-up the externalID if it is missing
+                    ts_external_id = self.client.lookup.time_series.external_id(ts_id)
+                    if ts_external_id is not None:
+                        item["tsExternalId"] = ts_external_id
+        return dumped
+
+    def json_chunk_to_data(self, data_chunk: list[tuple[str, dict[str, JsonVal]]]) -> Sequence[UploadItem[ChartWrite]]:
+        self._populate_timeseries_external_id_cache([item_json for _, item_json in data_chunk])
+        return super().json_chunk_to_data(data_chunk)
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> ChartWrite:
+        return self._load_resource(item_json)
+
+    def _populate_timeseries_external_id_cache(self, item_jsons: Sequence[dict[str, JsonVal]]) -> None:
+        timeseries_external_ids: set[str] = set()
+        for item_json in item_jsons:
+            if isinstance(data := item_json.get("data"), dict) and isinstance(
+                collection := data.get("timeSeriesCollection"), list
+            ):
+                for item in collection:
+                    if not isinstance(item, dict):
+                        continue
+                    ts_external_id = item.get("tsExternalId")
+                    if isinstance(ts_external_id, str):
+                        timeseries_external_ids.add(ts_external_id)
+        if timeseries_external_ids:
+            self.client.lookup.time_series.id(list(timeseries_external_ids))
+
+    def _load_resource(self, item_json: dict[str, JsonVal]) -> ChartWrite:
+        if isinstance(data := item_json.get("data"), dict) and isinstance(
+            collection := data.get("timeSeriesCollection"), list
+        ):
+            for item in collection:
+                if not isinstance(item, dict):
+                    continue
+                ts_external_id = item.get("tsExternalId")
+                if isinstance(ts_external_id, str) and item.get("tsId") is None:
+                    # We only look-up the internalID if it is missing
+                    ts_id = self.client.lookup.time_series.id(ts_external_id)
+                    if ts_id is not None:
+                        item["tsId"] = ts_id
         return ChartWrite._load(item_json)
 
 

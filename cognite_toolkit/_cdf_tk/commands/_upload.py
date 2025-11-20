@@ -1,21 +1,31 @@
+from collections import Counter
 from collections.abc import Sequence
 from functools import partial
 from pathlib import Path
 
 from cognite.client.data_classes._base import T_CogniteResource
+from cognite.client.data_classes.data_modeling import (
+    ViewId,
+)
 from pydantic import ValidationError
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM, DATA_RESOURCE_DIR
+from cognite_toolkit._cdf_tk.cruds import ViewCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.storageio import T_Selector, UploadableStorageIO, are_same_kind, get_upload_io
+from cognite_toolkit._cdf_tk.storageio import (
+    T_Selector,
+    UploadableStorageIO,
+    are_same_kind,
+    get_upload_io,
+)
 from cognite_toolkit._cdf_tk.storageio._base import T_WriteCogniteResource, TableUploadableStorageIO, UploadItem
 from cognite_toolkit._cdf_tk.storageio.selectors import Selector, SelectorAdapter
+from cognite_toolkit._cdf_tk.storageio.selectors._instances import InstanceSpaceSelector
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
-from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
 from cognite_toolkit._cdf_tk.utils.fileio import TABLE_READ_CLS_BY_FORMAT, FileReader
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ItemMessage, SuccessResponseItems
@@ -72,9 +82,9 @@ class UploadCommand(ToolkitCommand):
         │   │   └── table2.Table.yaml
         │   └── ...
         ├── datafile1.kind.ndjson # Data file of a specific kind
-        ├── datafile1.Metadata.yaml       # Metadata file for datafile1
+        ├── datafile1.Manifest.yaml       # Manifest for datafile1
         ├── datafile2.kind2.ndjson # Another data file of the same or different kind
-        ├── datafile2.Metadata.yaml       # Metadata file for datafile2
+        ├── datafile2.Manifest.yaml       # Manifest file for datafile2
         └── ...
         """
         console = Console()
@@ -82,7 +92,48 @@ class UploadCommand(ToolkitCommand):
 
         self._deploy_resource_folder(input_dir / DATA_RESOURCE_DIR, deploy_resources, client, console, dry_run, verbose)
 
+        data_files_by_selector = self._topological_sort_if_instance_selector(data_files_by_selector, client)
+
         self._upload_data(data_files_by_selector, client, dry_run, input_dir, console, verbose)
+
+    def _topological_sort_if_instance_selector(
+        self, data_files_by_selector: dict[Selector, list[Path]], client: ToolkitClient
+    ) -> dict[Selector, list[Path]]:
+        """Topologically sorts InstanceSpaceSelectors (if they are present) to determine the order of upload based on container dependencies from the views.
+
+        Args:
+            data_files_by_selector: A dictionary mapping selectors to their data files.
+            client: The cognite client to use for the upload.
+
+        Returns:
+            A dictionary mapping selectors to their data files with necessary preprocessing.
+        """
+        counts = Counter(type(selector) for selector in data_files_by_selector.keys())
+        if counts[InstanceSpaceSelector] <= 1:
+            return data_files_by_selector
+
+        selector_by_view_id: dict[ViewId, Selector] = {}
+        for selector in data_files_by_selector:
+            if isinstance(selector, InstanceSpaceSelector) and selector.view is not None:
+                selector_by_view_id[selector.view.as_id()] = selector
+
+        view_dependencies = ViewCRUD.create_loader(client).topological_sort_container_constraints(
+            list(selector_by_view_id.keys())
+        )
+        prepared_selectors: dict[Selector, list[Path]] = {}
+
+        # Reorder selectors according to the dependency-sorted view list
+        for view_id in view_dependencies:
+            selector = selector_by_view_id[view_id]
+            prepared_selectors[selector] = data_files_by_selector[selector]
+
+        # Preserve selectors that aren't affected by view dependencies
+        # (e.g., raw tables, time series, non-view instance data)
+        for selector in data_files_by_selector.keys():
+            if selector not in prepared_selectors:
+                prepared_selectors[selector] = data_files_by_selector[selector]
+
+        return prepared_selectors
 
     def _find_data_files(
         self,
@@ -183,12 +234,8 @@ class UploadCommand(ToolkitCommand):
                     if is_table and not isinstance(io, TableUploadableStorageIO):
                         raise ToolkitValueError(f"{selector.display_name} does not support {reader.format!r} files.")
                     tracker = ProgressTracker[str]([self._UPLOAD])
-                    data_name = "row" if is_table else "line"
                     executor = ProducerWorkerExecutor[list[tuple[str, dict[str, JsonVal]]], Sequence[UploadItem]](
-                        download_iterable=chunker(
-                            ((f"{data_name} {line_no}", item) for line_no, item in enumerate(reader.read_chunks(), 1)),
-                            io.CHUNK_SIZE,
-                        ),
+                        download_iterable=io.read_chunks(reader),
                         process=partial(io.rows_to_data, selector=selector)
                         if is_table and isinstance(io, TableUploadableStorageIO)
                         else io.json_chunk_to_data,

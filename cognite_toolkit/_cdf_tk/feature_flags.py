@@ -88,6 +88,9 @@ class Flags(Enum):
     RESOURCES = FlagMetadata(
         visible=True,
         description="Enables support for the resources command",
+    STREAMS = FlagMetadata(
+        visible=True,
+        description="Enables the support for the streams resources",
     )
 
     def is_enabled(self) -> bool:

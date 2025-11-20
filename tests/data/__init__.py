@@ -23,6 +23,10 @@ BUILDABLE_PACKAGE = DATA_FOLDER / "buildable_package"
 CDF_TOML_DATA = DATA_FOLDER / "cdf_toml_data"
 STRONGLY_COUPLED_MODEL = DATA_FOLDER / "strongly_coupled_model"
 
+CORE_NO_3D_YAML = DATA_FOLDER / "cdf" / "core_no_3d.yaml"
+CORE_CONTAINERS_NO_3D_YAML = DATA_FOLDER / "cdf" / "core_containers_no_3d.yaml"
+EXTRACTOR_VIEWS_YAML = DATA_FOLDER / "cdf" / "extractor_views.yaml"
+
 __all__ = [
     "AUTH_DATA",
     "BUILDABLE_PACKAGE",

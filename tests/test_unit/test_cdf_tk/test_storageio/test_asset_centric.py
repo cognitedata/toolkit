@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import httpx
 import pytest
@@ -26,6 +27,7 @@ from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
 from cognite_toolkit._cdf_tk.storageio import AssetIO, EventIO, FileMetadataIO, TimeSeriesIO
 from cognite_toolkit._cdf_tk.storageio.selectors import AssetSubtreeSelector, DataSetSelector
 from cognite_toolkit._cdf_tk.utils.collection import chunker
+from cognite_toolkit._cdf_tk.utils.fileio import FileReader
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
@@ -177,6 +179,27 @@ class TestAssetIO:
             )
 
             assert len(respx_mock.calls) == 1
+
+    def test_read_assets_chunks(self) -> None:
+        assets = [
+            {"id": 1, "depth": 3},
+            {"id": 2, "depth": 2},
+            {"id": 3, "depth": 1},
+            {"id": 4},
+            {"id": 5, "depth": "not_an_int"},
+        ]
+        assets_with_line_numbers = list(enumerate(assets, start=1))
+        other_reader = MagicMock(spec=FileReader)
+        other_reader.read_chunks_with_line_numbers.return_value = assets_with_line_numbers
+        other_reader.input_file = Path("mocked_file.csv")
+        output = list(AssetIO.read_chunks(other_reader))
+
+        assert output == [
+            [("line 4", {"id": 4}), ("line 5", {"id": 5, "depth": "not_an_int"})],
+            [("line 3", {"id": 3, "depth": 1})],
+            [("line 2", {"id": 2, "depth": 2})],
+            [("line 1", {"id": 1, "depth": 3})],
+        ]
 
 
 @pytest.fixture()

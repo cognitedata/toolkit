@@ -3,9 +3,16 @@ from pathlib import Path
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.fileio import COMPRESSION_BY_SUFFIX
 
-from ._annotations import FileAnnotationIO
+from ._annotations import AnnotationIO
 from ._applications import CanvasIO, ChartIO
-from ._asset_centric import AssetIO, BaseAssetCentricIO, EventIO, FileMetadataIO, HierarchyIO, TimeSeriesIO
+from ._asset_centric import (
+    AssetIO,
+    BaseAssetCentricIO,
+    EventIO,
+    FileMetadataIO,
+    HierarchyIO,
+    TimeSeriesIO,
+)
 from ._base import (
     ConfigurableStorageIO,
     Page,
@@ -17,6 +24,7 @@ from ._base import (
     UploadItem,
 )
 from ._data_classes import InstanceIdCSVList, InstanceIdRow, ModelList
+from ._datapoints import DatapointsIO
 from ._instances import InstanceIO
 from ._raw import RawIO
 from .selectors._base import DataSelector
@@ -45,13 +53,14 @@ def are_same_kind(kind: str, kind_or_path: str | Path, /) -> bool:
 
 
 __all__ = [
+    "AnnotationIO",
     "AssetIO",
     "BaseAssetCentricIO",
     "CanvasIO",
     "ChartIO",
     "ConfigurableStorageIO",
+    "DatapointsIO",
     "EventIO",
-    "FileAnnotationIO",
     "FileMetadataIO",
     "HierarchyIO",
     "InstanceIO",

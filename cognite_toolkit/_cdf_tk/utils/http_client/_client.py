@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils.auxiliary import get_current_toolkit_version, get_user_agent
 from cognite_toolkit._cdf_tk.utils.http_client._data_classes import (
     BodyRequest,
+    DataBodyRequest,
     FailedRequestMessage,
     HTTPMessage,
     ItemsRequest,
@@ -173,6 +174,10 @@ class HTTPClient:
             data = item.data()
             if not global_config.disable_gzip:
                 data = gzip.compress(data.encode("utf-8"))
+        elif isinstance(item, DataBodyRequest):
+            data = item.data()
+            if not global_config.disable_gzip:
+                data = gzip.compress(data)
         return self.session.request(
             method=item.method,
             url=item.endpoint_url,

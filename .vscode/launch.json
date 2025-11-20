@@ -24,6 +24,18 @@
       "justMyCode": false
     },
     {
+      "name": "cdf init",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": [
+        "init",
+        "--dry-run"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
       "name": "cdf collect opt-in",
       "type": "debugpy",
       "request": "launch",
@@ -31,6 +43,18 @@
       "args": [
         "collect",
         "opt-in"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "cdf auth init",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": [
+        "auth",
+        "init"
       ],
       "console": "integratedTerminal",
       "justMyCode": false
@@ -61,7 +85,6 @@
         "--override-env",
         "modules",
         "init",
-        "cognite_toolkit"
       ],
       "console": "integratedTerminal",
       "justMyCode": false
@@ -188,6 +211,7 @@
         "clean",
         "--env", 
         "local",
+        "--verbose"
       ],
       "console": "integratedTerminal",
       "justMyCode": false
@@ -225,6 +249,21 @@
       "justMyCode": false
     },
     {
+      "name": "cdf dump config extraction pipeline",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": [
+        "dump",
+        "config",
+        "extraction-pipeline",
+        "--verbose",
+        "--clean",
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
       "name": "Python: init",
       "type": "debugpy",
       "request": "launch",
@@ -247,7 +286,7 @@
       "type": "debugpy",
       "request": "launch",
       "program": "./cdf-tk-dev.py",
-      "args": ["modules", "init"],
+      "args": ["modules", "init", "."],
       "console": "integratedTerminal",
       "justMyCode": false
     },
@@ -261,6 +300,23 @@
       "init", 
       "--all",
       "--clean"],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Python: modules init library",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": [
+        "modules", 
+      "init", 
+      ".",
+      "--clean",
+      "--library-url=https://github.com/cognitedata/library/raw/refs/heads/packages-menu/packages.zip",
+      "--library-checksum=sha256:foo"
+    
+    ],
       "console": "integratedTerminal",
       "justMyCode": false
     },

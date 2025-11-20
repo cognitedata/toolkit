@@ -13,10 +13,15 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.data_classes.data_modeling import data_types as dt
 from cognite.client.data_classes.data_modeling.data_types import DirectRelationReference, EnumValue
 from cognite.client.data_classes.data_modeling.ids import ContainerId, EdgeId, ViewId
-from cognite.client.data_classes.data_modeling.instances import PropertyValueWrite
+from cognite.client.data_classes.data_modeling.instances import NodeList, PropertyValueWrite
 from cognite.client.data_classes.data_modeling.views import MappedProperty, MultiEdgeConnection, ViewProperty
 
-from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId, ResourceViewMapping
+from cognite_toolkit._cdf_tk.client.data_classes.migration import (
+    AssetCentricId,
+    CreatedSourceSystem,
+    ResourceViewMapping,
+)
+from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     DirectRelationCache,
     asset_centric_to_dm,
@@ -29,17 +34,51 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import (
 )
 
 
+@pytest.fixture(scope="module")
+def direct_relation_cache() -> DirectRelationCache:
+    with monkeypatch_toolkit_client() as client:
+        client.migration.lookup.assets.return_value = {
+            123: NodeId("test_space", "asset_123_instance"),
+            1: NodeId("instance_space", "MyFirstAsset"),
+        }
+        client.migration.lookup.files.return_value = {42: NodeId("test_space", "file_456_instance")}
+        client.migration.created_source_system.retrieve.return_value = NodeList[CreatedSourceSystem](
+            [
+                CreatedSourceSystem(
+                    space="test_space",
+                    external_id="source_system_1_instance",
+                    version=1,
+                    last_updated_time=1,
+                    created_time=1,
+                    source="source_system_1",
+                ),
+                CreatedSourceSystem(
+                    space="instance_space",
+                    external_id="TheSourceA",
+                    version=1,
+                    last_updated_time=1,
+                    created_time=1,
+                    source="sourceA",
+                ),
+            ]
+        )
+        cache = DirectRelationCache(client)
+        cache.update(
+            [
+                Event(asset_ids=[123, 1], source="source_system_1"),
+                Asset(source="SourceA"),
+                Annotation("diagrams.FileLink", {}, "Accepted", "app", "app-version", "me", "file", 42, 1),
+            ]
+        )
+    return cache
+
+
 class TestCreateProperties:
     INSTANCE_ID = NodeId(space="test_space", external_id="test_instance")
     CONTAINER_ID = ContainerId("test_space", "test_container")
     DEFAULT_CONTAINER_ARGS: ClassVar = dict(nullable=True, immutable=False, auto_increment=False)
     ASSET_CENTRIC_ID = AssetCentricId(resource_type="asset", id_=123)
     EVENT_CENTRIC_ID = AssetCentricId(resource_type="event", id_=456)
-    DIRECT_RELATION_CACHE = DirectRelationCache(
-        asset={1: DirectRelationReference("instance_space", "MyFirstAsset")},
-        source={"sourceA": DirectRelationReference("instance_space", "TheSourceA")},
-        file={},
-    )
 
     @pytest.mark.parametrize(
         "dumped,view_properties,property_mapping,expected_properties,expected_issue",
@@ -223,11 +262,11 @@ class TestCreateProperties:
         property_mapping: dict[str, str],
         expected_properties: dict[str, PropertyValueWrite],
         expected_issue: ConversionIssue,
+        direct_relation_cache: DirectRelationCache,
     ) -> None:
         issue = ConversionIssue(asset_centric_id=self.ASSET_CENTRIC_ID, instance_id=self.INSTANCE_ID)
-        properties = create_properties(
-            dumped, view_properties, property_mapping, "asset", issue, self.DIRECT_RELATION_CACHE
-        )
+
+        properties = create_properties(dumped, view_properties, property_mapping, "asset", issue, direct_relation_cache)
 
         assert properties == expected_properties
 
@@ -280,11 +319,10 @@ class TestCreateProperties:
         property_mapping: dict[str, str],
         expected_properties: dict[str, PropertyValueWrite],
         expected_issue: ConversionIssue,
+        direct_relation_cache: DirectRelationCache,
     ) -> None:
         issue = ConversionIssue(asset_centric_id=self.EVENT_CENTRIC_ID, instance_id=self.INSTANCE_ID)
-        properties = create_properties(
-            dumped, view_properties, property_mapping, "event", issue, self.DIRECT_RELATION_CACHE
-        )
+        properties = create_properties(dumped, view_properties, property_mapping, "event", issue, direct_relation_cache)
 
         assert properties == expected_properties
 
@@ -750,15 +788,14 @@ class TestAssetCentricConversion:
         view_properties: dict[str, ViewProperty],
         expected_properties: dict[str, str],
         expected_issue: ConversionIssue,
+        direct_relation_cache: DirectRelationCache,
     ) -> None:
         actual, issue = asset_centric_to_dm(
             resource,
             self.INSTANCE_ID,
             view_source,
             view_properties,
-            self.ASSET_INSTANCE_ID_BY_ID,
-            self.SOURCE_SYSTEM_INSTANCE_ID_BY_EXTERNAL_ID,
-            {},
+            direct_relation_cache,
         )
 
         # Check the structure of the returned NodeApply
@@ -811,7 +848,7 @@ class TestAssetCentricConversion:
         version=1,
         last_updated_time=1000000,
         created_time=1000000,
-        resource_type="fileAnnotation",
+        resource_type="annotation",
     )
     FILE_INSTANCE_BY_ID: ClassVar[Mapping[int, DirectRelationReference]] = {
         42: DirectRelationReference("test_space", "file_456_instance")
@@ -847,7 +884,7 @@ class TestAssetCentricConversion:
                     ],
                 ),
                 ConversionIssue(
-                    asset_centric_id=AssetCentricId("fileAnnotation", id_=37),
+                    asset_centric_id=AssetCentricId("annotation", id_=37),
                     instance_id=EdgeId(space="test_space", external_id="annotation_37"),
                     ignored_asset_centric_properties=[
                         "annotatedResourceType",
@@ -867,6 +904,7 @@ class TestAssetCentricConversion:
         mapping: ResourceViewMapping,
         expected_edge: EdgeApply,
         expected_issue: ConversionIssue,
+        direct_relation_cache: DirectRelationCache,
     ) -> None:
         """Testing that asset_centric_to_dm raises can convert asset annotations. Note that unlike the other resource types,
         we do not track the linage of annotations."""
@@ -876,15 +914,13 @@ class TestAssetCentricConversion:
             self.ANNOTATION_ID,
             mapping,
             self.DIAGRAM_ANNOTATION_PROPERTIES,
-            self.ASSET_INSTANCE_ID_BY_ID,
-            {},
-            self.FILE_INSTANCE_BY_ID,
+            direct_relation_cache,
         )
 
-        assert edge.dump() == expected_edge.dump()
         assert issue.dump() == expected_issue.dump()
+        assert edge.dump() == expected_edge.dump()
 
-    def test_asset_centric_to_annotation_failed(self) -> None:
+    def test_asset_centric_to_annotation_failed(self, direct_relation_cache: DirectRelationCache) -> None:
         """Testing that asset_centric_to_dm raises conversion issues for annotations with missing required properties."""
 
         resource = Annotation(
@@ -904,13 +940,11 @@ class TestAssetCentricConversion:
             EdgeId(space="test_space", external_id="annotation_38"),
             self.ANNOTATION_MAPPING,
             self.DIAGRAM_ANNOTATION_PROPERTIES,
-            self.ASSET_INSTANCE_ID_BY_ID,
-            {},
-            self.FILE_INSTANCE_BY_ID,
+            direct_relation_cache,
         )
 
         expected_issue = ConversionIssue(
-            asset_centric_id=AssetCentricId("fileAnnotation", id_=38),
+            asset_centric_id=AssetCentricId("annotation", id_=38),
             instance_id=EdgeId(space="test_space", external_id="annotation_38"),
             ignored_asset_centric_properties=[
                 "annotatedResourceType",

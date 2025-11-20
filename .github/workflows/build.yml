@@ -12,7 +12,7 @@ jobs:
     name: Run linters
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
       - name: Install uv and set the python version
         uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
         with:
@@ -37,7 +37,7 @@ jobs:
     name: Run tests without alpha features
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
       - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
         with:
           python-version: "3.10"
@@ -70,7 +70,7 @@ jobs:
           - "3.12"
           - "3.13"
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
       - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
         with:
           python-version: ${{ matrix.python-version }}
@@ -92,7 +92,7 @@ jobs:
       IDP_CLIENT_SECRET: ${{ secrets.IDP_CLIENT_SECRET }}
       IDP_TOKEN_URL: ${{ vars.IDP_TOKEN_URL }}
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
       - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
         with:
           python-version: 3.11
@@ -126,7 +126,7 @@ jobs:
         LOGIN_FLOW: client_credentials
     name: Dry Run Demo
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
       - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -146,9 +146,9 @@ jobs:
         run: uv run cdf build --env demo -o demo_project
       - name: "Verify and create access rights"
         run: uv run cdf auth verify --no-prompt
-      - name: "Test clean --dry-run"
+      - name: "Test clean --dry-run --module=my_module"
         run: |
-          uv run cdf clean --env demo --dry-run
+          uv run cdf clean --env demo --dry-run -m my_module
       - name: "Deploy the templates --dry-run"
         run: |
           uv run cdf deploy --drop --env demo --dry-run
@@ -157,7 +157,7 @@ jobs:
   Build-image:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
       - id: version
         name: Toolkit Version
         # Read the version from the cognite_toolkit/_version.py file
@@ -191,7 +191,7 @@ jobs:
     name: Validate PR description
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
       - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}

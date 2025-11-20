@@ -21,6 +21,7 @@ from .api.extended_files import ExtendedFileMetadataAPI
 from .api.extended_functions import ExtendedFunctionsAPI
 from .api.extended_raw import ExtendedRawAPI
 from .api.extended_timeseries import ExtendedTimeSeriesAPI
+from .api.infield import InfieldAPI, InfieldConfigAPI
 from .api.location_filters import LocationFiltersAPI
 from .api.lookup import (
     AssetLookUpAPI,
@@ -34,7 +35,14 @@ from .api.lookup import (
     SecurityCategoriesLookUpAPI,
     TimeSeriesLookUpAPI,
 )
-from .api.migration import CreatedSourceSystemAPI, InstanceSourceAPI, MigrationAPI, ResourceViewMappingAPI
+from .api.migration import (
+    CreatedSourceSystemAPI,
+    InstanceSourceAPI,
+    LookupAPI,
+    MigrationAPI,
+    MigrationLookupAPI,
+    ResourceViewMappingAPI,
+)
 from .api.project import ProjectAPI
 from .api.robotics import RoboticsAPI
 from .api.robotics.capabilities import CapabilitiesAPI
@@ -44,6 +52,7 @@ from .api.robotics.locations import LocationsAPI as RoboticsLocationsAPI
 from .api.robotics.maps import MapsAPI
 from .api.search import SearchAPI
 from .api.search_config import SearchConfigurationsAPI
+from .api.streams import StreamsAPI
 from .api.token import TokenAPI
 from .api.verify import VerifyAPI
 
@@ -73,6 +82,8 @@ class ToolkitClientMock(CogniteClientMock):
         self.functions = MagicMock(spec=ExtendedFunctionsAPI)
         self.functions.calls = MagicMock(spec_set=FunctionCallsAPI)
         self.functions.schedules = MagicMock(spec_set=FunctionSchedulesAPI)
+        self.infield = MagicMock(spec=InfieldAPI)
+        self.infield.config = MagicMock(spec_set=InfieldConfigAPI)
 
         self.project = MagicMock(spec_set=ProjectAPI)
 
@@ -92,6 +103,11 @@ class ToolkitClientMock(CogniteClientMock):
         self.lookup.functions = MagicMock(spec_set=FunctionLookUpAPI)
         self.migration = MagicMock(spec=MigrationAPI)
         self.migration.instance_source = MagicMock(spec_set=InstanceSourceAPI)
+        self.migration.lookup = MagicMock(spec=MigrationLookupAPI)
+        self.migration.lookup.assets = MagicMock(spec_set=LookupAPI)
+        self.migration.lookup.events = MagicMock(spec_set=LookupAPI)
+        self.migration.lookup.files = MagicMock(spec_set=LookupAPI)
+        self.migration.lookup.time_series = MagicMock(spec_set=LookupAPI)
         self.migration.resource_view_mapping = MagicMock(spec_set=ResourceViewMappingAPI)
         self.migration.created_source_system = MagicMock(spec_set=CreatedSourceSystemAPI)
         self.raw = MagicMock(spec=ExtendedRawAPI)
@@ -113,6 +129,8 @@ class ToolkitClientMock(CogniteClientMock):
         self.time_series.data = MagicMock(spec=DatapointsAPI)
         self.time_series.data.synthetic = MagicMock(spec_set=SyntheticDatapointsAPI)
         self.time_series.subscriptions = MagicMock(spec_set=DatapointsSubscriptionAPI)
+
+        self.streams = MagicMock(spec=StreamsAPI)
 
         # This is a helper API, not a real API.
         self.token = TokenAPI(self)

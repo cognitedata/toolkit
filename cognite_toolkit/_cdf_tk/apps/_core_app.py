@@ -345,7 +345,16 @@ class CoreApp(typer.Typer):
             list[str] | None,
             typer.Option(
                 "--include",
-                help=f"Specify which resource types to deploy, supported types: {AVAILABLE_DATA_TYPES}",
+                help=f"Specify which resource types to clean, supported types: {AVAILABLE_DATA_TYPES}",
+            ),
+        ] = None,
+        module: Annotated[
+            str | None,
+            typer.Option(
+                "--module",
+                "-m",
+                help="Specify name or path of the module to clean",
+                hidden=not Flags.v07.is_enabled(),
             ),
         ] = None,
         verbose: Annotated[
@@ -368,6 +377,8 @@ class CoreApp(typer.Typer):
                 build_env_name,
                 dry_run,
                 include,
+                module,
                 verbose,
+                all_modules=True if not Flags.v07.is_enabled() else False,
             )
         )

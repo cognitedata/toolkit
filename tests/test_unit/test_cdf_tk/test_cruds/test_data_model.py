@@ -198,7 +198,7 @@ dml: model.graphql
 
 
 @pytest.fixture()
-def parent_grandparent_view() -> dm.ViewlList:
+def parent_grandparent_view() -> dm.ViewList:
     return dm.ViewList(
         [
             dm.View(
@@ -240,7 +240,7 @@ class TestViewLoader:
         with monkeypatch_toolkit_client() as client:
             client.data_modeling.views.retrieve.return_value = parent_grandparent_view
             loader = ViewCRUD(client, Path("build_dir"), None, topological_sort_implements=True)
-            actual = loader.topological_sort(
+            actual = loader.topological_sort_implements(
                 [dm.ViewId("space", "Parent", "v1"), dm.ViewId("space", "GrandParent", "v1")]
             )
 
@@ -252,6 +252,8 @@ class TestViewLoader:
         with monkeypatch_toolkit_client() as client, pytest.raises(ToolkitCycleError) as exc_info:
             client.data_modeling.views.retrieve.return_value = parent_grandparent_view
             loader = ViewCRUD(client, Path("build_dir"), None, topological_sort_implements=True)
-            loader.topological_sort([dm.ViewId("space", "Parent", "v1"), dm.ViewId("space", "GrandParent", "v1")])
+            loader.topological_sort_implements(
+                [dm.ViewId("space", "Parent", "v1"), dm.ViewId("space", "GrandParent", "v1")]
+            )
 
         assert "cycle in implements" in str(exc_info.value)

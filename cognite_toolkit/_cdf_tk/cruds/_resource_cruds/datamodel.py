@@ -40,16 +40,19 @@ from cognite.client.data_classes.data_modeling import (
     DataModelApply,
     DataModelApplyList,
     DataModelList,
+    DirectRelation,
     Edge,
     EdgeApply,
     EdgeApplyList,
     EdgeApplyResultList,
     EdgeList,
+    MappedProperty,
     Node,
     NodeApply,
     NodeApplyList,
     NodeApplyResultList,
     NodeList,
+    RequiresConstraint,
     Space,
     SpaceApply,
     SpaceApplyList,
@@ -74,6 +77,7 @@ from rich.console import Console
 from rich.markup import escape
 from rich.panel import Panel
 
+from cognite_toolkit._cdf_tk import constants
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import (
     GraphQLDataModel,
@@ -259,6 +263,16 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerApply, Container
     yaml_cls = ContainerYAML
     _doc_url = "Containers/operation/ApplyContainers"
 
+    def __init__(
+        self,
+        client: ToolkitClient,
+        build_dir: Path | None,
+        console: Console | None = None,
+        topological_sort_implements: bool = False,
+    ) -> None:
+        super().__init__(client, build_dir, console)
+        self._container_by_id: dict[ContainerId, Container] = {}
+
     @property
     def display_name(self) -> str:
         return "containers"
@@ -425,6 +439,71 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerApply, Container
             ):
                 yield instances.as_ids()
 
+    def _lookup_containers(self, container_ids: Sequence[ContainerId]) -> dict[ContainerId, Container]:
+        ids_to_lookup = [container_id for container_id in container_ids if container_id not in self._container_by_id]
+        if ids_to_lookup:
+            retrieved_containers = self.client.data_modeling.containers.retrieve(ids_to_lookup)
+            for container in retrieved_containers:
+                self._container_by_id[container.as_id()] = container
+        if missing_container_ids := set(container_ids) - set(self._container_by_id.keys()):
+            MediumSeverityWarning(
+                f"Containers {missing_container_ids} not found or you don't have permission to access them."
+            ).print_warning(console=self.console)
+        return {
+            container_id: self._container_by_id[container_id]
+            for container_id in container_ids
+            if container_id in self._container_by_id
+        }
+
+    def _find_direct_container_dependencies(
+        self, container_ids: Sequence[ContainerId]
+    ) -> dict[ContainerId, set[ContainerId]]:
+        containers_by_id = self._lookup_containers(container_ids)
+        container_dependencies: dict[ContainerId, set[ContainerId]] = defaultdict(set)
+        for container_id, container in containers_by_id.items():
+            for constraint in container.constraints.values():
+                if not isinstance(constraint, RequiresConstraint):
+                    continue
+                container_dependencies[container_id].add(constraint.require)
+            for property in container.properties.values():
+                if not isinstance(property.type, DirectRelation) or property.type.container is None:
+                    continue
+                container_dependencies[container_id].add(property.type.container)
+        return container_dependencies
+
+    def _propagate_indirect_container_dependencies(
+        self, container_dependencies_by_id: dict[ContainerId, set[ContainerId]], dependants: Sequence[ContainerId]
+    ) -> dict[ContainerId, set[ContainerId]]:
+        """Propagate indirect container dependencies using a recursive approach.
+
+        Args:
+            container_dependencies_by_id: Mapping of container IDs to their direct dependencies
+            dependants: Chain of dependant containers to propagate dependencies to
+
+        Returns:
+            Updated dictionary mapping each container ID to all its direct and indirect dependencies
+        """
+        current_container_id = dependants[0]
+        dependencies_to_propagate: set[ContainerId] = set()
+        for container_dependency in container_dependencies_by_id[current_container_id]:
+            if container_dependency in container_dependencies_by_id:
+                # If already processed, propagate its dependencies to current container instead of revisiting it
+                dependencies_to_propagate.update(container_dependencies_by_id[container_dependency])
+                continue
+            self._propagate_indirect_container_dependencies(
+                container_dependencies_by_id, [container_dependency, *dependants]
+            )
+        container_dependencies_by_id[current_container_id].update(dependencies_to_propagate)
+        return container_dependencies_by_id
+
+    def _find_direct_and_indirect_container_dependencies(
+        self, container_ids: Sequence[ContainerId]
+    ) -> dict[ContainerId, set[ContainerId]]:
+        container_dependencies_by_id = self._find_direct_container_dependencies(container_ids)
+        for container_id in list(container_dependencies_by_id.keys()):
+            self._propagate_indirect_container_dependencies(container_dependencies_by_id, [container_id])
+        return container_dependencies_by_id
+
     @staticmethod
     def _chunker(seq: Sequence, size: int) -> Iterable[Sequence]:
         return (seq[pos : pos + size] for pos in range(0, len(seq), size))
@@ -556,7 +635,9 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View, ViewApplyList, ViewList]):
             # We sort the implements in topological order to ensure that the child view get the order grandparent,
             # parent, such that the parent's source is used.
             try:
-                dumped["implements"] = [view_id.dump() for view_id in self.topological_sort(resource.implements)]
+                dumped["implements"] = [
+                    view_id.dump() for view_id in self.topological_sort_implements(resource.implements)
+                ]
             except ToolkitCycleError as e:
                 warning = MediumSeverityWarning(f"Failed to sort implements for view {resource.as_id()}: {e}")
                 warning.print_warning(console=self.console)
@@ -669,14 +750,51 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View, ViewApplyList, ViewList]):
                 self._view_by_id[view.as_id()] = view
         return {view_id: self._view_by_id[view_id] for view_id in view_ids if view_id in self._view_by_id}
 
-    def topological_sort(self, view_ids: list[ViewId]) -> list[ViewId]:
+    def get_readonly_properties(self, view_id: ViewId) -> set[str]:
+        """Retrieve the set of read-only properties for a given view."""
+
+        readonly_properties: set[str] = set()
+
+        # Retrieve the view to check its properties
+        view = self._lookup_views([view_id]).get(view_id)
+        if view is None:
+            return readonly_properties
+
+        # Check each property in the view
+        for property_identifier, property in view.properties.items():
+            if isinstance(
+                property, MappedProperty
+            ) and property.container_property_identifier in constants.READONLY_CONTAINER_PROPERTIES.get(
+                property.container, set()
+            ):
+                readonly_properties.add(property_identifier)
+        return readonly_properties
+
+    def _build_view_implements_dependencies(
+        self, view_by_ids: dict[ViewId, View], include: set[ViewId] | None = None
+    ) -> dict[ViewId, set[ViewId]]:
+        """Build a dependency graph based on view implements relationships.
+
+        Args:
+            view_by_ids: Mapping of view IDs to View objects
+            include: Optional set of view IDs to include in the dependencies, if None, all views are included.
+
+        Returns:
+            Dictionary mapping each view ID to the set of view IDs it depends on (implements)
+        """
+        dependencies: dict[ViewId, set[ViewId]] = {}
+        for view_id, view in view_by_ids.items():
+            dependencies[view_id] = set()
+            for implemented_view_id in view.implements or []:
+                if include is None or implemented_view_id in include:
+                    dependencies[view_id].add(implemented_view_id)
+        return dependencies
+
+    def topological_sort_implements(self, view_ids: list[ViewId]) -> list[ViewId]:
         """Sorts the views in topological order based on their implements and through properties."""
         view_by_ids = self._lookup_views(view_ids)
-        parents_by_child: dict[ViewId, set[ViewId]] = {}
-        for child, view in view_by_ids.items():
-            parents_by_child[child] = set()
-            for parent in view.implements or []:
-                parents_by_child[child].add(parent)
+        parents_by_child = self._build_view_implements_dependencies(view_by_ids)
+
         try:
             sorted_views = list(TopologicalSorter(parents_by_child).static_order())
         except CycleError as e:
@@ -684,6 +802,54 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View, ViewApplyList, ViewList]):
                 f"Failed to sort views topologically. This likely due to a cycle in implements. {e.args[1]}"
             )
 
+        return sorted_views
+
+    def topological_sort_container_constraints(self, view_ids: list[ViewId]) -> list[ViewId]:
+        """Sorts the views in topological order based on their container constraints."""
+
+        view_by_ids = self._lookup_views(view_ids)
+        if missing_view_ids := set(view_ids) - set(view_by_ids.keys()):
+            MediumSeverityWarning(
+                f"Views {missing_view_ids} not found or you don't have permission to access them, skipping dependency check."
+            ).print_warning(console=self.console)
+            return view_ids
+
+        view_to_containers: dict[ViewId, set[ContainerId]] = {}
+        container_to_views: defaultdict[ContainerId, set[ViewId]] = defaultdict(set)
+        for view_id, view in view_by_ids.items():
+            view_to_containers[view_id] = view.referenced_containers()
+            for container_id in view_to_containers[view_id]:
+                container_to_views[container_id].add(view_id)
+
+        container_crud = ContainerCRUD.create_loader(self.client)
+        container_dependencies_by_id = container_crud._find_direct_and_indirect_container_dependencies(
+            list(container_to_views.keys())
+        )
+
+        # First, add view dependencies based on implements relationships
+        view_dependencies = self._build_view_implements_dependencies(view_by_ids, set(view_to_containers.keys()))
+
+        # Then, add view dependencies based on mapped container constraints
+        for view_id, mapped_containers in view_to_containers.items():
+            for container_id in mapped_containers:
+                # Get all containers this container depends on
+                if container_id not in container_dependencies_by_id:
+                    continue
+                for required_container in container_dependencies_by_id[container_id]:
+                    if required_container not in container_to_views:
+                        continue
+                    # If this view already implements the required container, the requirement is self-satisfied
+                    # and we don't need to depend on other views that also implement it (they are peers).
+                    if required_container in mapped_containers:
+                        continue
+                    # This view doesn't implement the required container, so depend on all views that do
+                    view_dependencies[view_id].update(container_to_views[required_container])
+        try:
+            sorted_views = list(TopologicalSorter(view_dependencies).static_order())
+        except CycleError as e:
+            raise ToolkitCycleError(
+                f"Failed to sort views topologically. This likely due to a cycle in implements. {e.args[1]}"
+            )
         return sorted_views
 
 

@@ -20,7 +20,13 @@ from dateutil import parser
 from cognite_toolkit._cdf_tk.constants import CDF_UNIT_SPACE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
-from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricType, DataType, JsonVal, PythonTypes
+from cognite_toolkit._cdf_tk.utils.useful_types import (
+    AssetCentricType,
+    AssetCentricTypeExtended,
+    DataType,
+    JsonVal,
+    PythonTypes,
+)
 
 from .collection import humanize_collection
 
@@ -35,7 +41,7 @@ def asset_centric_convert_to_primary_property(
     type_: PropertyType,
     nullable: bool,
     destination_container_property: tuple[ContainerId, str],
-    source_property: tuple[AssetCentricType, str],
+    source_property: tuple[AssetCentricTypeExtended, str],
     direct_relation_lookup: Mapping[str | int, DirectRelationReference] | None = None,
 ) -> PropertyValueWrite:
     if (source_property, destination_container_property) in SPECIAL_CONVERTER_BY_SOURCE_DESTINATION:
@@ -229,7 +235,7 @@ class _ValueConverter(_Converter, ABC):
     schema_type: ClassVar[DataType | None] = None
     _handles_list: ClassVar[bool] = False
 
-    def __init__(self, nullable: bool):
+    def __init__(self, nullable: bool) -> None:
         self.nullable = nullable
 
     def convert(self, value: str | int | float | bool | dict | list | None) -> PropertyValueWrite:
@@ -473,7 +479,7 @@ class _TimestampConverter(_ValueConverter):
     type_str = "timestamp"
     schema_type = "timestamp"
 
-    def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
+    def _convert(self, value: str | int | float | bool | dict) -> datetime:
         if isinstance(value, int | float):
             try:
                 return ms_to_datetime(value)
@@ -485,6 +491,23 @@ class _TimestampConverter(_ValueConverter):
             except ValueError as e:
                 raise ValueError(f"Cannot convert {value} to timestamp: {e}") from e
         raise ValueError(f"Cannot convert {value} to timestamp.")
+
+
+class _EpochConverter(_ValueConverter):
+    type_str = "epoch"
+    schema_type = "epoch"
+
+    def _convert(self, value: str | int | float | bool | dict) -> int:
+        if isinstance(value, int | float):
+            return int(value)
+        elif isinstance(value, str):
+            try:
+                dt = parser.isoparse(value)
+                epoch = int(dt.timestamp() * 1000)
+                return epoch
+            except ValueError as e:
+                raise ValueError(f"Cannot convert {value} to epoch timestamp: {e}") from e
+        raise ValueError(f"Cannot convert {value} to epoch timestamp.")
 
 
 class _DateConverter(_ValueConverter):
@@ -557,7 +580,7 @@ CONVERTER_BY_DTYPE: Mapping[str, type[_ValueConverter]] = {
     for cls_ in _ValueConverter.__subclasses__()
 }
 SPECIAL_CONVERTER_BY_SOURCE_DESTINATION: Mapping[
-    tuple[tuple[AssetCentricType, str], tuple[ContainerId, str]],
+    tuple[tuple[AssetCentricTypeExtended, str], tuple[ContainerId, str]],
     type[_SpecialCaseConverter],
 ] = {
     (subclass.source_property, subclass.destination_container_property): subclass

@@ -161,6 +161,17 @@ COGNITE_TIME_SERIES_CONTAINER = ContainerId("cdf_cdm", "CogniteTimeSeries")
 COGNITE_FILE_CONTAINER = ContainerId("cdf_cdm", "CogniteFile")
 CDF_UNIT_SPACE = "cdf_cdm_units"
 
+
+# Container properties that are read-only in DMS needs to be handled with extra care, as this aspect is not currently exposed by the API.
+READONLY_CONTAINER_PROPERTIES = {
+    ContainerId(space="cdf_cdm", external_id="CogniteAsset"): {
+        "assetHierarchy_path_last_updated_time",
+        "assetHierarchy_path",
+        "assetHierarchy_root",
+    },
+    ContainerId(space="cdf_cdm", external_id="CogniteFile"): {"isUploaded", "uploadedTime"},
+}
+
 # Data Plugin Constants
 DATA_DEFAULT_DIR = "data"
 DATA_RESOURCE_DIR = "resources"
@@ -169,3 +180,6 @@ DATA_MANIFEST_STEM = "Manifest"
 # Migration Constants
 MISSING_INSTANCE_SPACE = "<InstanceSpaceMissing>"
 MISSING_EXTERNAL_ID = "INTERNAL_ID_project_{project}_id_{id}"
+
+# Stream Template names
+StreamTemplateName: TypeAlias = Literal["ImmutableTestStream", "BasicArchive", "BasicLiveData"]
