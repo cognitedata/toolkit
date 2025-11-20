@@ -235,14 +235,14 @@ class AnnotationMigrationIO(
         self,
         client: ToolkitClient,
         instance_space: str | None = None,
-        default_asset_annotation_mapping: str = ASSET_ANNOTATIONS_ID,
-        default_file_annotation_mapping: str = FILE_ANNOTATIONS_ID,
+        default_asset_annotation_mapping: str | None = None,
+        default_file_annotation_mapping: str | None = None,
     ) -> None:
         super().__init__(client)
         self.annotation_io = AnnotationIO(client)
         self.instance_space = instance_space
-        self.default_asset_annotation_mapping = default_asset_annotation_mapping
-        self.default_file_annotation_mapping = default_file_annotation_mapping
+        self.default_asset_annotation_mapping = default_asset_annotation_mapping or ASSET_ANNOTATIONS_ID
+        self.default_file_annotation_mapping = default_file_annotation_mapping or FILE_ANNOTATIONS_ID
 
     def as_id(self, item: AssetCentricMapping[Annotation]) -> str:
         return f"Annotation_{item.mapping.id}"
