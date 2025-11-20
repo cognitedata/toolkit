@@ -29,7 +29,7 @@ class TestFileContent:
             template=FileMetadataTemplate.model_validate(
                 dict(
                     name=FILENAME_VARIABLE,
-                    external_id="my_file_$FILENAME",
+                    external_id=f"my_file_{FILENAME_VARIABLE}",
                     source="Uploaded via Toolkit",
                 )
             ),
