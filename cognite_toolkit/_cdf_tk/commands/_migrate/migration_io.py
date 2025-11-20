@@ -255,6 +255,8 @@ class AnnotationMigrationIO(
                     id=resource.id,
                     ingestion_view=selector.ingestion_mapping,
                     preferred_consumer_view=selector.preferred_consumer_view,
+                    # The PySDK is poorly typed.
+                    annotation_type=resource.annotation_type,  # type: ignore[arg-type]
                 )
                 mapping_list.append(AssetCentricMapping(mapping=mapping, resource=resource))
             yield mapping_list

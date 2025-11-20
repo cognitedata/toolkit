@@ -14,7 +14,11 @@ from pydantic import BaseModel, BeforeValidator, field_validator, model_validato
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList
 from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.client.data_classes.pending_instances_ids import PendingInstanceId
-from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import create_default_mappings
+from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
+    ASSET_ANNOTATIONS_ID,
+    FILE_ANNOTATIONS_ID,
+    create_default_mappings,
+)
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio._data_classes import ModelList
 from cognite_toolkit._cdf_tk.utils.useful_types import (
@@ -182,6 +186,17 @@ class FileMapping(MigrationMapping):
 class AnnotationMapping(MigrationMapping):
     resource_type: Literal["annotation"] = "annotation"
     instance_id: EdgeId
+    annotation_type: Literal["diagrams.AssetLink", "diagrams.FileLink"]
+
+    def get_ingestion_view(self) -> str:
+        """Get the ingestion view for the mapping. If not specified, return the default ingestion view."""
+        if self.ingestion_view:
+            return self.ingestion_view
+        elif self.annotation_type == "diagrams.AssetLink":
+            return ASSET_ANNOTATIONS_ID
+        elif self.annotation_type == "diagrams.FileLink":
+            return FILE_ANNOTATIONS_ID
+        raise ToolkitValueError(f"No default ingestion view specified for annotation type '{self.annotation_type}'")
 
     @field_validator("instance_id", mode="before")
     def _validate_instance_id(cls, v: Any) -> Any:
