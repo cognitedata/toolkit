@@ -9,14 +9,10 @@ import responses
 import respx
 from cognite.client.data_classes import Asset, AssetList
 from cognite.client.data_classes.data_modeling import (
-    ContainerId,
     DataModel,
     DataModelList,
-    DirectRelation,
-    MappedProperty,
     NodeApply,
     NodeOrEdgeData,
-    Text,
     View,
     ViewId,
 )
@@ -32,7 +28,10 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_model import (
     MODEL_ID,
     RESOURCE_VIEW_MAPPING_VIEW_ID,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import ASSET_ID, create_default_mappings
+from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
+    ASSET_ID,
+    create_default_mappings,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import AssetCentricMigrationIO
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
@@ -41,63 +40,38 @@ from cognite_toolkit._cdf_tk.utils.fileio import CSVReader
 
 @pytest.fixture
 def cognite_migration_model(
-    toolkit_config: ToolkitClientConfig, rsps: responses.RequestsMock
+    toolkit_config: ToolkitClientConfig,
+    rsps: responses.RequestsMock,
+    cognite_core_no_3D: DataModel[View],
+    cognite_extractor_views: list[View],
 ) -> Iterator[responses.RequestsMock]:
     config = toolkit_config
     mapping_by_id = {mapping.external_id: mapping for mapping in create_default_mappings()}
-    asset_mapping = mapping_by_id[ASSET_ID]
-    # Lookup of the mapping in the Migration Model
-    mapping_node_response = asset_mapping.dump(context="api")
-    mapping_node_response.update({"createdTime": 0, "lastUpdatedTime": 0, "version": 1})
-    sources = mapping_node_response.pop("sources", [])
-    if sources:
-        mapping_view_id = asset_mapping.sources[0].source
-        mapping_node_response["properties"] = {
-            mapping_view_id.space: {
-                f"{mapping_view_id.external_id}/{mapping_view_id.version}": sources[0]["properties"]
+    node_items: list[dict] = []
+    for mapping in mapping_by_id.values():
+        # Lookup of the mapping in the Migration Model
+        mapping_node_response = mapping.dump(context="api")
+        mapping_node_response.update({"createdTime": 0, "lastUpdatedTime": 0, "version": 1})
+        sources = mapping_node_response.pop("sources", [])
+        if sources:
+            mapping_view_id = mapping.sources[0].source
+            mapping_node_response["properties"] = {
+                mapping_view_id.space: {
+                    f"{mapping_view_id.external_id}/{mapping_view_id.version}": sources[0]["properties"]
+                }
             }
-        }
+        node_items.append(mapping_node_response)
     rsps.post(
         config.create_api_url("models/instances/byids"),
-        json={"items": [mapping_node_response]},
+        json={"items": node_items},
         status=200,
-    )
-
-    # Lookup CogniteAsset, this is not the full model, just the properties we need for the
-    # migration
-    default_prop_args = dict(nullable=True, immutable=False, auto_increment=False)
-    default_view_args = dict(
-        last_updated_time=1,
-        created_time=1,
-        description=None,
-        name=None,
-        implements=[],
-        writable=True,
-        used_for="node",
-        is_global=True,
-        filter=None,
-    )
-    cognite_asset = View(
-        space="cdf_cdm",
-        external_id="CogniteAsset",
-        version="v1",
-        properties={
-            "name": MappedProperty(ContainerId("cdf_cdm", "CogniteDescribable"), "name", Text(), **default_prop_args),
-            "description": MappedProperty(
-                ContainerId("cdf_cdm", "CogniteDescribable"), "description", Text(), **default_prop_args
-            ),
-            "source": MappedProperty(
-                ContainerId("cdf_cdm", "CogniteSourceable"), "name", DirectRelation(), **default_prop_args
-            ),
-            "tags": MappedProperty(
-                ContainerId("cdf_cdm", "CogniteDescribable"), "tags", Text(is_list=True), **default_prop_args
-            ),
-        },
-        **default_view_args,
     )
     rsps.post(
         config.create_api_url("models/views/byids"),
-        json={"items": [cognite_asset.dump()]},
+        json={
+            "items": [view.dump() for view in cognite_core_no_3D.views]
+            + [view.dump() for view in cognite_extractor_views]
+        },
     )
     # Migration model
     migration_model = COGNITE_MIGRATION_MODEL.dump()
@@ -158,8 +132,8 @@ def mock_statistics(
     yield rsps
 
 
+@pytest.mark.usefixtures("disable_gzip", "disable_pypi_check", "mock_statistics")
 class TestMigrationCommand:
-    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check", "mock_statistics")
     def test_migrate_assets(
         self,
         toolkit_config: ToolkitClientConfig,
