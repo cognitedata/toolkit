@@ -27,7 +27,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSever
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
-from cognite_toolkit._cdf_tk.utils.fileio import TABLE_READ_CLS_BY_FORMAT, FileReader
+from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ItemMessage, SuccessResponseItems
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.progress_tracker import ProgressTracker
@@ -214,10 +214,10 @@ class UploadCommand(ToolkitCommand):
         console: Console,
         verbose: bool,
     ) -> None:
-        total_file_count = sum(len(files) for files in data_files_by_selector.values())
+        total_file_selectors = len(data_files_by_selector)
         if verbose:
             input_dir_display = self._path_as_display_name(input_dir)
-            console.print(f"Found {total_file_count} files to upload in {input_dir_display.as_posix()!r}.")
+            console.print(f"Found {total_file_selectors} files to upload in {input_dir_display.as_posix()!r}.")
         action = "Would upload" if dry_run else "Uploading"
         with HTTPClient(config=client.config) as upload_client:
             file_count = 1
@@ -225,50 +225,44 @@ class UploadCommand(ToolkitCommand):
                 io = self._create_selected_io(selector, datafiles[0], client)
                 if io is None:
                     continue
-
-                for data_file in datafiles:
-                    file_display = self._path_as_display_name(data_file)
-                    if verbose:
-                        console.print(f"{action} {selector.display_name} from {file_display.as_posix()!r}")
-                    reader = FileReader.from_filepath(data_file)
-                    is_table = reader.format in TABLE_READ_CLS_BY_FORMAT
-                    if is_table and not isinstance(io, TableUploadableStorageIO):
-                        raise ToolkitValueError(f"{selector.display_name} does not support {reader.format!r} files.")
-                    tracker = ProgressTracker[str]([self._UPLOAD])
-                    executor = ProducerWorkerExecutor[list[tuple[str, dict[str, JsonVal]]], Sequence[UploadItem]](
-                        download_iterable=io.read_chunks(reader),
-                        process=partial(io.rows_to_data, selector=selector)
-                        if is_table and isinstance(io, TableUploadableStorageIO)
-                        else io.json_chunk_to_data,
-                        write=partial(
-                            self._upload_items,
-                            upload_client=upload_client,
-                            io=io,
-                            dry_run=dry_run,
-                            selector=selector,
-                            tracker=tracker,
-                            console=console,
-                        ),
-                        iteration_count=None,
-                        max_queue_size=self._MAX_QUEUE_SIZE,
-                        download_description=f"Reading {file_count:,}/{total_file_count + 1:,}: {file_display.as_posix()!s}",
-                        process_description="Processing",
-                        write_description=f"{action} {selector.display_name!r}",
+                reader = MultiFileReader(datafiles)
+                if reader.is_table and not isinstance(io, TableUploadableStorageIO):
+                    raise ToolkitValueError(f"{selector.display_name} does not support {reader.format!r} files.")
+                tracker = ProgressTracker[str]([self._UPLOAD])
+                executor = ProducerWorkerExecutor[list[tuple[str, dict[str, JsonVal]]], Sequence[UploadItem]](
+                    download_iterable=io.read_chunks(reader),
+                    process=partial(io.rows_to_data, selector=selector)
+                    if reader.is_table and isinstance(io, TableUploadableStorageIO)
+                    else io.json_chunk_to_data,
+                    write=partial(
+                        self._upload_items,
+                        upload_client=upload_client,
+                        io=io,
+                        dry_run=dry_run,
+                        selector=selector,
+                        tracker=tracker,
                         console=console,
-                    )
-                    executor.run()
-                    file_count += 1
-                    executor.raise_on_error()
-                    final_action = "Uploaded" if not dry_run else "Would upload"
-                    suffix = " successfully" if not dry_run else ""
-                    results = tracker.aggregate()
-                    success = results.get((self._UPLOAD, "success"), 0)
-                    failed = results.get((self._UPLOAD, "failed"), 0)
-                    if failed > 0:
-                        suffix += f", {failed:,} failed"
-                    console.print(
-                        f"{final_action} {success:,} {selector.display_name} from {file_display.as_posix()!r}{suffix}."
-                    )
+                    ),
+                    iteration_count=None,
+                    max_queue_size=self._MAX_QUEUE_SIZE,
+                    download_description=f"Reading {selector.display_name!r} files",
+                    process_description="Processing",
+                    write_description=f"{action} {selector.display_name!r}",
+                    console=console,
+                )
+                executor.run()
+                file_count += len(datafiles)
+                executor.raise_on_error()
+                final_action = "Uploaded" if not dry_run else "Would upload"
+                suffix = " successfully" if not dry_run else ""
+                results = tracker.aggregate()
+                success = results.get((self._UPLOAD, "success"), 0)
+                failed = results.get((self._UPLOAD, "failed"), 0)
+                if failed > 0:
+                    suffix += f", {failed:,} failed"
+                console.print(
+                    f"{final_action} {success:,} {selector.display_name} from {len(datafiles)} files{suffix}."
+                )
 
     @staticmethod
     def _path_as_display_name(input_path: Path, cwd: Path = Path.cwd()) -> Path:

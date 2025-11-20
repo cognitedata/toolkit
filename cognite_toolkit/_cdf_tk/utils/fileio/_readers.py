@@ -22,30 +22,6 @@ from ._base import FileIO, SchemaColumn
 from ._compression import COMPRESSION_BY_SUFFIX, Compression
 
 
-class MultiFileReader:
-    """Reads multiple files and yields chunks from each file sequentially.
-
-    Args:
-        input_files (Sequence[Path]): The list of file paths to read.
-    """
-
-    PART_PATTERN = re.compile(r"part-(\d{4})$")
-
-    def __init__(self, input_files: Sequence[Path]) -> None:
-        self.input_files = input_files
-
-    def read_chunks(self) -> Iterator[dict[str, JsonVal]]:
-        for input_file in sorted(self.input_files, key=self._part_no):
-            reader = FileReader.from_filepath(input_file)
-            yield from reader.read_chunks()
-
-    def _part_no(self, path: Path) -> int:
-        match = self.PART_PATTERN.search(path.stem)
-        if match:
-            return int(match.group(1))
-        return 99999
-
-
 class FileReader(FileIO, ABC):
     def __init__(self, input_file: Path) -> None:
         self.input_file = input_file
@@ -65,7 +41,7 @@ class FileReader(FileIO, ABC):
         raise NotImplementedError("This method should be implemented in subclasses.")
 
     @classmethod
-    def from_filepath(cls, filepath: Path) -> "FileReader":
+    def from_filepath(cls, filepath: Path) -> "type[FileReader]":
         if len(filepath.suffixes) == 0:
             raise ToolkitValueError(
                 f"File has no suffix. Available formats: {humanize_collection(FILE_READ_CLS_BY_FORMAT.keys())}."
@@ -80,15 +56,57 @@ class FileReader(FileIO, ABC):
                 )
 
         if suffix in FILE_READ_CLS_BY_FORMAT:
-            return FILE_READ_CLS_BY_FORMAT[suffix](input_file=filepath)
+            return FILE_READ_CLS_BY_FORMAT[suffix]
 
         raise ToolkitValueError(
             f"Unknown file format: {suffix}. Available formats: {humanize_collection(FILE_READ_CLS_BY_FORMAT.keys())}."
         )
 
 
+class MultiFileReader(FileReader):
+    """Reads multiple files and yields chunks from each file sequentially.
+
+    Args:
+        input_files (Sequence[Path]): The list of file paths to read.
+    """
+
+    PART_PATTERN = re.compile(r"part-(\d{4})$")
+
+    def __init__(self, input_files: Sequence[Path]) -> None:
+        super().__init__(input_file=input_files[0])
+        self.input_files = input_files
+        reader_classes = Counter([FileReader.from_filepath(input_file) for input_file in self.input_files])
+        if len(reader_classes) > 1:
+            raise ToolkitValueError(
+                "All input files must be of the same format. "
+                f"Found formats: {humanize_collection([cls.format for cls in reader_classes.keys()])}."
+            )
+        self.reader_class = reader_classes.most_common(1)[0][0]
+
+    @property
+    def is_table(self) -> bool:
+        return issubclass(self.reader_class, TableReader)
+
+    @property
+    def format(self) -> str:
+        return self.reader_class.FORMAT
+
+    def read_chunks(self) -> Iterator[dict[str, JsonVal]]:
+        for input_file in sorted(self.input_files, key=self._part_no):
+            yield from self.reader_class(input_file).read_chunks()
+
+    def _part_no(self, path: Path) -> int:
+        match = self.PART_PATTERN.search(path.stem)
+        if match:
+            return int(match.group(1))
+        return 99999
+
+    def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[dict[str, JsonVal]]:
+        raise NotImplementedError("This method is not used in MultiFileReader.")
+
+
 class NDJsonReader(FileReader):
-    format = ".ndjson"
+    FORMAT = ".ndjson"
 
     def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[dict[str, JsonVal]]:
         for line in file:
@@ -102,11 +120,11 @@ class YAMLBaseReader(FileReader, ABC):
 
 
 class YAMLReader(YAMLBaseReader):
-    format = ".yaml"
+    FORMAT = ".yaml"
 
 
 class YMLReader(YAMLBaseReader):
-    format = ".yml"
+    FORMAT = ".yml"
 
 
 @dataclass
@@ -238,7 +256,7 @@ class TableReader(FileReader, ABC):
 class CSVReader(TableReader):
     """Reads CSV files and yields each row as a dictionary."""
 
-    format = ".csv"
+    FORMAT = ".csv"
 
     def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[dict[str, JsonVal]]:
         if self.keep_failed_cells and self.failed_cell:
@@ -282,7 +300,7 @@ class CSVReader(TableReader):
 
 
 class ParquetReader(TableReader):
-    format = ".parquet"
+    FORMAT = ".parquet"
 
     def __init__(self, input_file: Path) -> None:
         # Parquet files have their own schema, so we don't need to sniff or provide one.
@@ -337,19 +355,19 @@ class ParquetReader(TableReader):
 FILE_READ_CLS_BY_FORMAT: Mapping[str, type[FileReader]] = {}
 TABLE_READ_CLS_BY_FORMAT: Mapping[str, type[TableReader]] = {}
 for subclass in get_concrete_subclasses(FileReader):  # type: ignore[type-abstract]
-    if not getattr(subclass, "format", None):
+    if not getattr(subclass, "FORMAT", None):
         continue
-    if subclass.format in FILE_READ_CLS_BY_FORMAT:
+    if subclass.FORMAT in FILE_READ_CLS_BY_FORMAT:
         raise TypeError(
-            f"Duplicate file format {subclass.format!r} found for classes "
-            f"{FILE_READ_CLS_BY_FORMAT[subclass.format].__name__!r} and {subclass.__name__!r}."
+            f"Duplicate file format {subclass.FORMAT!r} found for classes "
+            f"{FILE_READ_CLS_BY_FORMAT[subclass.FORMAT].__name__!r} and {subclass.__name__!r}."
         )
     # We know we have a dict, but we want to expose FILE_READ_CLS_BY_FORMAT as a Mapping
-    FILE_READ_CLS_BY_FORMAT[subclass.format] = subclass  # type: ignore[index]
+    FILE_READ_CLS_BY_FORMAT[subclass.FORMAT] = subclass  # type: ignore[index]
     if issubclass(subclass, TableReader):
         if subclass.format in TABLE_READ_CLS_BY_FORMAT:
             raise TypeError(
-                f"Duplicate table file format {subclass.format!r} found for classes "
-                f"{TABLE_READ_CLS_BY_FORMAT[subclass.format].__name__!r} and {subclass.__name__!r}."
+                f"Duplicate table file format {subclass.FORMAT!r} found for classes "
+                f"{TABLE_READ_CLS_BY_FORMAT[subclass.FORMAT].__name__!r} and {subclass.__name__!r}."
             )
-        TABLE_READ_CLS_BY_FORMAT[subclass.format] = subclass  # type: ignore[index]
+        TABLE_READ_CLS_BY_FORMAT[subclass.FORMAT] = subclass  # type: ignore[index]
