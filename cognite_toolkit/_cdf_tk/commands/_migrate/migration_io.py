@@ -33,6 +33,7 @@ from .data_classes import (
     MigrationMappingList,
 )
 from .data_model import INSTANCE_SOURCE_VIEW_ID
+from .default_mappings import ASSET_ANNOTATIONS_ID, FILE_ANNOTATIONS_ID
 from .selectors import AssetCentricMigrationSelector, MigrateDataSetSelector, MigrationCSVFileSelector
 
 
@@ -213,6 +214,16 @@ class AssetCentricMigrationIO(
 class AnnotationMigrationIO(
     UploadableStorageIO[AssetCentricMigrationSelector, AssetCentricMapping[Annotation], InstanceApply]
 ):
+    """IO class for migrating Annotations.
+
+    Args:
+        client: The ToolkitClient to use for CDF interactions.
+        instance_space: The instance space to use for the migrated annotations.
+        default_asset_annotation_mapping: The default ingestion mapping to use for asset-linked annotations.
+        default_file_annotation_mapping: The default ingestion mappingto use for file-linked annotations.
+
+    """
+
     KIND = "AnnotationMigration"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
@@ -220,17 +231,28 @@ class AnnotationMigrationIO(
     CHUNK_SIZE = 1000
     UPLOAD_ENDPOINT = InstanceIO.UPLOAD_ENDPOINT
 
-    def __init__(self, client: ToolkitClient, instance_space: str | None = None) -> None:
+    def __init__(
+        self,
+        client: ToolkitClient,
+        instance_space: str | None = None,
+        default_asset_annotation_mapping: str = ASSET_ANNOTATIONS_ID,
+        default_file_annotation_mapping: str = FILE_ANNOTATIONS_ID,
+    ) -> None:
         super().__init__(client)
         self.annotation_io = AnnotationIO(client)
         self.instance_space = instance_space
+        self.default_asset_annotation_mapping = default_asset_annotation_mapping
+        self.default_file_annotation_mapping = default_file_annotation_mapping
 
     def as_id(self, item: AssetCentricMapping[Annotation]) -> str:
         return f"Annotation_{item.mapping.id}"
 
     def count(self, selector: AssetCentricMigrationSelector) -> int | None:
-        # There is no efficient way to count annotations in CDF.
-        return None
+        if isinstance(selector, MigrationCSVFileSelector):
+            return len(selector.items)
+        else:
+            # There is no efficient way to count annotations in CDF.
+            return None
 
     def stream_data(self, selector: AssetCentricMigrationSelector, limit: int | None = None) -> Iterable[Page]:
         if isinstance(selector, MigrateDataSetSelector):
@@ -253,8 +275,10 @@ class AnnotationMigrationIO(
                 mapping = AnnotationMapping(
                     instance_id=EdgeId(space=self.instance_space, external_id=f"annotation_{resource.id!r}"),
                     id=resource.id,
-                    ingestion_view=selector.ingestion_mapping,
+                    ingestion_view=self._get_mapping(selector.ingestion_mapping, resource),
                     preferred_consumer_view=selector.preferred_consumer_view,
+                    # The PySDK is poorly typed.
+                    annotation_type=resource.annotation_type,  # type: ignore[arg-type]
                 )
                 mapping_list.append(AssetCentricMapping(mapping=mapping, resource=resource))
             yield mapping_list
@@ -275,6 +299,7 @@ class AnnotationMigrationIO(
                 if resource is None:
                     not_found += 1
                     continue
+                mapping.ingestion_view = self._get_mapping(mapping.ingestion_view, resource)
                 chunk.append(AssetCentricMapping(mapping=mapping, resource=resource))
             if chunk:
                 yield chunk
@@ -283,6 +308,21 @@ class AnnotationMigrationIO(
                 MediumSeverityWarning(
                     f"Could not find {not_found} annotations referenced in the CSV file. They will be skipped during migration."
                 ).print_warning(include_timestamp=True, console=self.client.console)
+
+    def _get_mapping(self, current_mapping: str | None, resource: Annotation) -> str:
+        try:
+            return (
+                current_mapping
+                or {
+                    "diagrams.AssetLink": self.default_asset_annotation_mapping,
+                    "diagrams.FileLink": self.default_file_annotation_mapping,
+                }[resource.annotation_type]
+            )
+        except KeyError as e:
+            raise ToolkitValueError(
+                f"Could not determine default ingestion view for annotation type '{resource.annotation_type}'. "
+                "Please specify the ingestion view explicitly in the CSV file."
+            ) from e
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> InstanceApply:
         raise NotImplementedError("Deserializing Annotation Migrations from JSON is not supported.")

@@ -8,6 +8,9 @@ import pytest
 from cognite.client import CogniteClient, global_config
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
+    Annotation,
+    AnnotationFilter,
+    AnnotationWrite,
     Asset,
     AssetList,
     AssetWrite,
@@ -591,6 +594,8 @@ class HierarchyMinimal:
     file: FileMetadata
     timeseries: TimeSeries
     dataset: DataSet
+    file_annotation: Annotation
+    asset_annotation: Annotation
 
 
 @pytest.fixture(scope="session")
@@ -672,6 +677,47 @@ def migration_hierarchy_minimal(toolkit_client: ToolkitClient) -> HierarchyMinim
             external_id=timeseries.external_id,
             datapoints=[(1_600_000_000_000, 20.0), (1_600_000_000_500, 21.5)],
         )
+    file_annotation = AnnotationWrite(
+        annotation_type="diagrams.FileLink",
+        data={
+            "fileRef": {"id": created_file.id},
+            "textRegion": {"xMin": 0, "yMin": 0, "xMax": 0.1, "yMax": 0.1},
+        },
+        status="approved",
+        creating_app="toolkit",
+        creating_app_version="1.0.0",
+        creating_user="doctrino",
+        annotated_resource_type="file",
+        annotated_resource_id=created_file.id,
+    )
+
+    asset_annotation = AnnotationWrite(
+        annotation_type="diagrams.AssetLink",
+        data={
+            "assetRef": {"id": child_asset.id},
+            "textRegion": {"xMin": 0, "yMin": 0, "xMax": 0.1, "yMax": 0.1},
+        },
+        status="approved",
+        creating_app="toolkit",
+        creating_app_version="1.0.0",
+        creating_user="doctrino",
+        annotated_resource_type="file",
+        annotated_resource_id=created_file.id,
+    )
+
+    existing_annotations = client.annotations.list(
+        filter=AnnotationFilter(annotated_resource_ids=[{"id": created_file.id}], annotated_resource_type="file")
+    )
+    created_file_annotation = next(
+        (a for a in existing_annotations if a.annotation_type == file_annotation.annotation_type), None
+    )
+    if created_file_annotation is None:
+        created_file_annotation = client.annotations.create(file_annotation)
+    created_asset_annotation = next(
+        (a for a in existing_annotations if a.annotation_type == asset_annotation.annotation_type), None
+    )
+    if created_asset_annotation is None:
+        created_asset_annotation = client.annotations.create(asset_annotation)
 
     return HierarchyMinimal(
         root_asset=created_assets[0],
@@ -680,6 +726,8 @@ def migration_hierarchy_minimal(toolkit_client: ToolkitClient) -> HierarchyMinim
         file=created_file,
         timeseries=created_timeseries,
         dataset=data_set,
+        file_annotation=created_file_annotation,
+        asset_annotation=created_asset_annotation,
     )
 
 
