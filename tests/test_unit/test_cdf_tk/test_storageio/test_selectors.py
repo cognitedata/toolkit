@@ -246,8 +246,8 @@ class TestDataSelectors:
         assert instance.group, f"group property not implemented for {type(instance).__name__}"
 
         # Assert correct IO type
-        assert get_upload_io(type(instance), kind) is expected_io, (
-            f"Expected {expected_io.__name__} for selector {type(instance).__name__}, got {get_upload_io(type(instance), kind).__name__}"
+        assert get_upload_io(type(instance)) is expected_io, (
+            f"Expected {expected_io.__name__} for selector {type(instance).__name__}, got {get_upload_io(type(instance)).__name__}"
         )
 
         # Assert selector is hashable
@@ -284,4 +284,4 @@ class TestGetUploadIO:
     def test_get_upload_io_with_path(
         self, selector: type[DataSelector], path: Path, expected_io: type[StorageIO]
     ) -> None:
-        assert get_upload_io(selector, path) == expected_io
+        assert get_upload_io(selector) == expected_io

@@ -4,7 +4,6 @@ import pytest
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.commands import UploadCommand
-from cognite_toolkit._cdf_tk.storageio import FileContentIO
 from cognite_toolkit._cdf_tk.storageio.selectors import FileMetadataTemplate, FileMetadataTemplateSelector
 from cognite_toolkit._cdf_tk.storageio.selectors._file_content import FILENAME_VARIABLE
 
@@ -42,5 +41,4 @@ class TestFileContent:
             deploy_resources=False,
             dry_run=False,
             verbose=True,
-            kind=FileContentIO.KIND,
         )

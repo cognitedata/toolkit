@@ -17,7 +17,6 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio import (
     T_Selector,
     UploadableStorageIO,
-    are_same_kind,
     get_upload_io,
 )
 from cognite_toolkit._cdf_tk.storageio._base import T_WriteCogniteResource, TableUploadableStorageIO, UploadItem
@@ -88,7 +87,7 @@ class UploadCommand(ToolkitCommand):
         └── ...
         """
         console = client.console
-        data_files_by_selector = self._find_data_files(input_dir, kind)
+        data_files_by_selector = self._find_data_files(input_dir)
 
         self._deploy_resource_folder(input_dir / DATA_RESOURCE_DIR, deploy_resources, client, console, dry_run, verbose)
 
@@ -138,7 +137,6 @@ class UploadCommand(ToolkitCommand):
     def _find_data_files(
         self,
         input_dir: Path,
-        kind: str | None = None,
     ) -> dict[Selector, list[Path]]:
         """Finds data files and their corresponding metadata files in the input directory."""
         data_files_by_metadata: dict[Selector, list[Path]] = {}
@@ -155,10 +153,6 @@ class UploadCommand(ToolkitCommand):
                 )
                 continue
             data_files = selector.find_data_files(input_dir, manifest_file)
-            if kind is not None and data_files:
-                data_files = [data_file for data_file in data_files if are_same_kind(kind, data_file)]
-                if not data_files:
-                    continue
             if not data_files:
                 self.warn(
                     MediumSeverityWarning(
@@ -268,7 +262,7 @@ class UploadCommand(ToolkitCommand):
         self, selector: Selector, data_file: Path, client: ToolkitClient
     ) -> UploadableStorageIO | None:
         try:
-            io_cls = get_upload_io(type(selector), kind=data_file)
+            io_cls = get_upload_io(type(selector))
         except ValueError as e:
             self.warn(HighSeverityWarning(f"Could not find StorageIO for selector {selector}: {e}"))
             return None
