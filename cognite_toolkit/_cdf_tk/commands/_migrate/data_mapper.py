@@ -14,9 +14,10 @@ from cognite.client.data_classes.data_modeling import (
 )
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.migration import ResourceViewMapping
+from cognite_toolkit._cdf_tk.client.data_classes.migration import ResourceViewMappingApply
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import DirectRelationCache, asset_centric_to_dm
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import AssetCentricMapping
+from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import create_default_mappings
 from cognite_toolkit._cdf_tk.commands._migrate.issues import ConversionIssue, MigrationIssue
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import AssetCentricMigrationSelector
 from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
@@ -61,20 +62,22 @@ class AssetCentricMapper(
     def __init__(self, client: ToolkitClient) -> None:
         self.client = client
         self._ingestion_view_by_id: dict[ViewId, View] = {}
-        self._view_mapping_by_id: dict[str, ResourceViewMapping] = {}
+        self._view_mapping_by_id: dict[str, ResourceViewMappingApply] = {}
         self._direct_relation_cache = DirectRelationCache(client)
 
     def prepare(self, source_selector: AssetCentricMigrationSelector) -> None:
         ingestion_view_ids = source_selector.get_ingestion_mappings()
         ingestion_views = self.client.migration.resource_view_mapping.retrieve(ingestion_view_ids)
-        self._view_mapping_by_id = {view.external_id: view for view in ingestion_views}
+        defaults = {mapping.external_id: mapping for mapping in create_default_mappings()}
+        # Override with defaults
+        self._view_mapping_by_id = defaults | {view.external_id: view.as_write() for view in ingestion_views}
         missing_mappings = set(ingestion_view_ids) - set(self._view_mapping_by_id.keys())
         if missing_mappings:
             raise ToolkitValueError(
                 f"The following ingestion views were not found: {humanize_collection(missing_mappings)}"
             )
 
-        view_ids = list({view.view_id for view in ingestion_views})
+        view_ids = list({mapping.view_id for mapping in self._view_mapping_by_id.values()})
         views = self.client.data_modeling.views.retrieve(view_ids)
         self._ingestion_view_by_id = {view.as_id(): view for view in views}
         missing_views = set(view_ids) - set(self._ingestion_view_by_id.keys())
