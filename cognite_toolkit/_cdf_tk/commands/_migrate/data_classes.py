@@ -186,7 +186,7 @@ class FileMapping(MigrationMapping):
 class AnnotationMapping(MigrationMapping):
     resource_type: Literal["annotation"] = "annotation"
     instance_id: EdgeId
-    annotation_type: Literal["diagrams.AssetLink", "diagrams.FileLink"]
+    annotation_type: Literal["diagrams.AssetLink", "diagrams.FileLink"] | None = None
 
     def get_ingestion_view(self) -> str:
         """Get the ingestion view for the mapping. If not specified, return the default ingestion view."""
@@ -196,7 +196,8 @@ class AnnotationMapping(MigrationMapping):
             return ASSET_ANNOTATIONS_ID
         elif self.annotation_type == "diagrams.FileLink":
             return FILE_ANNOTATIONS_ID
-        raise ToolkitValueError(f"No default ingestion view specified for annotation type '{self.annotation_type}'")
+        else:
+            raise ToolkitValueError("Cannot determine default ingestion view for annotation without annotation_type")
 
     @field_validator("instance_id", mode="before")
     def _validate_instance_id(cls, v: Any) -> Any:
