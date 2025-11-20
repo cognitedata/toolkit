@@ -176,6 +176,12 @@ from cognite_toolkit._cdf_tk.client.data_classes.search_config import (
     SearchConfigWrite,
     SearchConfigWriteList,
 )
+from cognite_toolkit._cdf_tk.client.data_classes.streams import (
+    StreamRequest,
+    StreamRequestList,
+    StreamResponse,
+    StreamResponseList,
+)
 
 from .data_classes import APIResource, Method
 
@@ -847,6 +853,21 @@ API_RESOURCES = [
             "retrieve": [
                 Method(api_class_method="retrieve", mock_class_method="return_values"),
             ],
+        },
+    ),
+    APIResource(
+        api_name="streams",
+        resource_cls=StreamResponse,
+        list_cls=StreamResponseList,
+        _write_cls=StreamRequest,
+        _write_list_cls=StreamRequestList,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create_multiple")],
+            "retrieve": [
+                Method(api_class_method="list", mock_class_method="return_values"),
+                Method(api_class_method="retrieve", mock_class_method="return_value"),
+            ],
+            "delete": [Method(api_class_method="delete", mock_class_method="delete_id_external_id")],
         },
     ),
 ]
