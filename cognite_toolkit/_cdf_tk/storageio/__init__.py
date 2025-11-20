@@ -65,6 +65,5 @@ __all__ = [
     "TimeSeriesIO",
     "UploadItem",
     "UploadableStorageIO",
-    "are_same_kind",
     "get_upload_io",
 ]
