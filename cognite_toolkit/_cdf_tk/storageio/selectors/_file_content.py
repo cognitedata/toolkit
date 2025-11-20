@@ -13,6 +13,12 @@ class FileContentSelector(DataSelector, ABC):
     kind: Literal["FileContent"] = "FileContent"
     file_directory: Path
 
+    def find_data_files(self, input_dir: Path, manifest_file: Path) -> list[Path]:
+        file_dir = input_dir / self.file_directory
+        if not file_dir.is_dir():
+            return []
+        return [file for file in file_dir.iterdir() if file.is_file()]
+
 
 class FileMetadataTemplate(SelectorObject):
     model_config = ConfigDict(extra="allow")
