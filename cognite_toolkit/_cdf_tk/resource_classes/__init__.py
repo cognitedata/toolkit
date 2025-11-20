@@ -41,6 +41,7 @@ from .securitycategories import SecurityCategoriesYAML
 from .sequence import SequenceRowYAML, SequenceYAML
 from .space import SpaceYAML
 from .streamlit_ import StreamlitYAML
+from .streams import StreamYAML
 from .threedmodels import ThreeDModelYAML
 from .timeseries import TimeSeriesYAML
 from .transformation_notification import TransformationNotificationYAML
@@ -92,6 +93,7 @@ __all__ = [
     "SequenceRowYAML",
     "SequenceYAML",
     "SpaceYAML",
+    "StreamYAML",
     "StreamlitYAML",
     "TableYAML",
     "ThreeDModelYAML",

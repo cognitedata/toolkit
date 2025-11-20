@@ -60,6 +60,7 @@ from ._resource_cruds import (
     SequenceCRUD,
     SequenceRowCRUD,
     SpaceCRUD,
+    StreamCRUD,
     StreamlitCRUD,
     ThreeDModelCRUD,
     TimeSeriesCRUD,
@@ -85,6 +86,8 @@ if not FeatureFlag.is_enabled(Flags.MIGRATE):
     _EXCLUDED_CRUDS.add(ResourceViewMappingCRUD)
 if not FeatureFlag.is_enabled(Flags.SEARCH_CONFIG):
     _EXCLUDED_CRUDS.add(SearchConfigCRUD)
+if not FeatureFlag.is_enabled(Flags.STREAMS):
+    _EXCLUDED_CRUDS.add(StreamCRUD)
 
 
 CRUDS_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}
@@ -132,6 +135,7 @@ ResourceTypes: TypeAlias = Literal[
     "functions",
     "raw",
     "robotics",
+    "streams",
     "streamlit",
     "workflows",
 ]

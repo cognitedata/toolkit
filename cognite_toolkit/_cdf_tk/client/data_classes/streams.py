@@ -29,13 +29,12 @@ class StreamRequestList(UserList[StreamRequest], ResourceRequestListProtocol):
     """List of Stream request resources."""
 
     _RESOURCE = StreamRequest
-    items: list[StreamRequest]
 
     def __init__(self, initlist: list[StreamRequest] | None = None, **_: Any) -> None:
         super().__init__(initlist or [])
 
     def dump(self, camel_case: bool = True) -> list[dict[str, Any]]:
-        return [item.dump(camel_case) for item in self.items]
+        return [item.dump(camel_case) for item in self.data]
 
     @classmethod
     def load(cls, data: list[dict[str, Any]], cognite_client: CogniteClient | None = None) -> "StreamRequestList":
@@ -78,19 +77,25 @@ class StreamResponse(ResponseResource["StreamRequest"]):
 
     external_id: str
     created_time: int
-    created_from_template: StreamTemplateName | None = None
-    type: Literal["Mutable", "Immutable"] | None = None
+    created_from_template: StreamTemplateName
+    type: Literal["Mutable", "Immutable"]
     settings: StreamSettings | None = None
 
     def as_request_resource(self) -> StreamRequest:
-        template_name = self.created_from_template or "BasicArchive"
-        return StreamRequest(
-            external_id=self.external_id,
-            settings={"template": {"name": template_name}},
+        return StreamRequest.model_validate(
+            {
+                "externalId": self.external_id,
+                "settings": {"template": {"name": self.created_from_template}},
+            }
         )
 
-    def as_write(self) -> Self:
-        return self
+    def as_write(self) -> StreamRequest:
+        return StreamRequest.model_validate(
+            {
+                "externalId": self.external_id,
+                "settings": {"template": {"name": self.created_from_template}},
+            }
+        )
 
 
 class StreamResponseList(UserList[StreamResponse], ResourceResponseListProtocol):
