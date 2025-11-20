@@ -259,38 +259,35 @@ class TestMigrationCommand:
     ) -> None:
         rsps = cognite_migration_model
         config = toolkit_config
-        annotations = AnnotationList(
-            [
-                Annotation(
-                    id=2000,
-                    annotated_resource_type="file",
-                    annotated_resource_id=3000,
-                    data={
-                        "assetRef": {"id": 4000},
-                        "textRegion": {"xMin": 10, "xMax": 100, "yMin": 20, "yMax": 200},
-                    },
-                    status="approved",
-                    creating_user="doctrino",
-                    creating_app="my_app",
-                    creating_app_version="v1",
-                    annotation_type="diagrams.AssetLink",
-                ),
-                Annotation(
-                    id=2001,
-                    annotated_resource_type="file",
-                    annotated_resource_id=3001,
-                    data={
-                        "fileRef": {"id": 5000},
-                        "textRegion": {"xMin": 15, "xMax": 150, "yMin": 25, "yMax": 250},
-                    },
-                    status="approved",
-                    creating_user="doctrino",
-                    creating_app="my_app",
-                    creating_app_version="v1",
-                    annotation_type="diagrams.FileLink",
-                ),
-            ]
+        asset_annotation = Annotation(
+            id=2000,
+            annotated_resource_type="file",
+            annotated_resource_id=3000,
+            data={
+                "assetRef": {"id": 4000},
+                "textRegion": {"xMin": 10.0, "xMax": 100.0, "yMin": 20.0, "yMax": 200.0},
+            },
+            status="Approved",
+            creating_user="doctrino",
+            creating_app="my_app",
+            creating_app_version="v1",
+            annotation_type="diagrams.AssetLink",
         )
+        file_annotation = Annotation(
+            id=2001,
+            annotated_resource_type="file",
+            annotated_resource_id=3001,
+            data={
+                "fileRef": {"id": 5000},
+                "textRegion": {"xMin": 15.0, "xMax": 150.0, "yMin": 25.0, "yMax": 250.0},
+            },
+            status="Approved",
+            creating_user="doctrino",
+            creating_app="my_app",
+            creating_app_version="v1",
+            annotation_type="diagrams.FileLink",
+        )
+        annotations = AnnotationList([asset_annotation, file_annotation])
         space = "my_space"
         csv_content = "id,space,externalId,ingestionView\n" + "\n".join(
             (
@@ -304,6 +301,40 @@ class TestMigrationCommand:
             json={"items": [annotation.dump() for annotation in annotations]},
             status=200,
         )
+        # Lookup asset and file instance ID
+        for items in [
+            [("asset", 4000)],
+            [("file", 5000), ("file", 3000), ("file", 3001)],
+        ]:
+            rsps.post(
+                config.create_api_url("/models/instances/query"),
+                json={
+                    "items": {
+                        "instanceSource": [
+                            {
+                                "instanceType": "node",
+                                "space": space,
+                                "externalId": f"{resource_type}_{resource_id}",
+                                "version": 0,
+                                "createdTime": 0,
+                                "lastUpdatedTime": 0,
+                                "properties": {
+                                    "cognite_migration": {
+                                        "InstanceSource/v1": {
+                                            "id": resource_id,
+                                            "resourceType": resource_type,
+                                        }
+                                    },
+                                },
+                            }
+                            for (resource_type, resource_id) in items
+                        ],
+                    },
+                    "nextCursor": {"instanceSource": None},
+                },
+                status=200,
+            )
+
         # Instance creation
         respx.post(
             config.create_api_url("/models/instances"),
@@ -340,7 +371,7 @@ class TestMigrationCommand:
             dry_run=False,
             verbose=True,
         )
-        actual_results = [result.get_progress(f"fileAnnotation_{annotation.id}") for annotation in annotations]
+        actual_results = [result.get_progress(f"Annotation_{annotation.id}") for annotation in annotations]
         expected_results = [{"download": "success", "convert": "success", "upload": "success"} for _ in annotations]
         assert actual_results == expected_results
 
@@ -352,27 +383,48 @@ class TestMigrationCommand:
         expected_instance = [
             EdgeApply(
                 space=space,
-                external_id=f"annotation_{annotation.id}",
-                start_node=("", ""),
-                end_node=("", ""),
-                type=(space, ""),
+                external_id=f"annotation_{asset_annotation.id}",
+                start_node=(space, f"file_{asset_annotation.annotated_resource_id}"),
+                end_node=(space, f"asset_{asset_annotation.data['assetRef']['id']}"),
+                type=(space, asset_annotation.annotation_type),
                 sources=[
                     NodeOrEdgeData(
                         source=ViewId("cdf_cdm", "CogniteDiagramAnnotation", "v1"),
                         properties={
-                            "annotatedResourceType": annotation.annotated_resource_type,
-                            "annotatedResourceId": annotation.annotated_resource_id,
-                            "data": annotation.data,
-                            "status": annotation.status,
-                            "creatingUser": annotation.creating_user,
-                            "creatingApp": annotation.creating_app,
-                            "creatingAppVersion": annotation.creating_app_version,
-                            "annotationType": annotation.annotation_type,
+                            "sourceContext": asset_annotation.creating_app_version,
+                            "sourceCreatedUser": asset_annotation.creating_user,
+                            "sourceId": asset_annotation.creating_app,
+                            "status": asset_annotation.status,
+                            "startNodeXMax": asset_annotation.data["textRegion"]["xMax"],
+                            "startNodeXMin": asset_annotation.data["textRegion"]["xMin"],
+                            "startNodeYMax": asset_annotation.data["textRegion"]["yMax"],
+                            "startNodeYMin": asset_annotation.data["textRegion"]["yMin"],
                         },
                     ),
                 ],
-            ).dump()
-            for annotation in annotations
+            ).dump(),
+            EdgeApply(
+                space=space,
+                external_id=f"annotation_{file_annotation.id}",
+                start_node=(space, f"file_{file_annotation.annotated_resource_id}"),
+                end_node=(space, f"file_{file_annotation.data['fileRef']['id']}"),
+                type=(space, file_annotation.annotation_type),
+                sources=[
+                    NodeOrEdgeData(
+                        source=ViewId("cdf_cdm", "CogniteDiagramAnnotation", "v1"),
+                        properties={
+                            "sourceContext": file_annotation.creating_app_version,
+                            "sourceCreatedUser": file_annotation.creating_user,
+                            "sourceId": file_annotation.creating_app,
+                            "status": file_annotation.status,
+                            "startNodeXMax": file_annotation.data["textRegion"]["xMax"],
+                            "startNodeXMin": file_annotation.data["textRegion"]["xMin"],
+                            "startNodeYMax": file_annotation.data["textRegion"]["yMax"],
+                            "startNodeYMin": file_annotation.data["textRegion"]["yMin"],
+                        },
+                    ),
+                ],
+            ).dump(),
         ]
         assert actual_instances == expected_instance
 
