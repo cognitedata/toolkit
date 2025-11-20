@@ -56,6 +56,8 @@ class InitChecklistItem:
 
 
 class InitCommand(ToolkitCommand):
+    organization_dir: Path | None
+
     def execute(self, dry_run: bool = False, emulate_dot_seven: bool = False) -> None:
         if not Flags.v07.is_enabled() and not emulate_dot_seven:
             print("This command is deprecated. Use 'cdf modules init' instead.")
@@ -188,12 +190,14 @@ class InitCommand(ToolkitCommand):
                 print(f"Unexpected error occurred. Full traceback:\n{traceback.format_exc()}")
 
     def _init_toml(self, dry_run: bool = False) -> None:
-        organization_dir = ModulesCommand._prompt_organization_dir()
+        if self.organization_dir is None:
+            self.organization_dir = ModulesCommand._prompt_organization_dir()
         if dry_run:
             print("Would initialize cdf.toml configuration file")
             return
-        CDFToml.write(organization_dir, "dev")
-        print(f"cdf.toml configuration file initialized in {organization_dir}")
+        CDFToml.write(self.organization_dir, "dev")
+        CDFToml.load()
+        print(f"cdf.toml configuration file initialized in {self.organization_dir}")
 
     def _init_auth(self, dry_run: bool = False) -> None:
         auth_command = AuthCommand()
@@ -201,12 +205,14 @@ class InitCommand(ToolkitCommand):
 
     def _init_modules(self, dry_run: bool = False) -> None:
         with ModulesCommand() as modules_command:
+            if self.organization_dir is None:
+                self.organization_dir = ModulesCommand._prompt_organization_dir()
             if dry_run:
                 organization_dir = Path(tempfile.mkdtemp(prefix="init_modules_", suffix=".tmp", dir=Path.cwd()))
                 modules_command.run(lambda: modules_command.init(organization_dir=organization_dir))
                 shutil.rmtree(organization_dir)
             else:
-                modules_command.run(lambda: modules_command.init())
+                modules_command.run(lambda: modules_command.init(organization_dir=self.organization_dir))
 
     def _init_repo(self, dry_run: bool = False) -> None:
         repo_command = RepoCommand()
