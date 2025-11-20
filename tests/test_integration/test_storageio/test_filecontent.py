@@ -5,6 +5,8 @@ from cognite.client.data_classes import FileMetadataWrite
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.storageio import FileContentIO
 from cognite_toolkit._cdf_tk.storageio._file_content import UploadFileContentItem
+from cognite_toolkit._cdf_tk.storageio.selectors import FileMetadataTemplate, FileMetadataTemplateSelector
+from cognite_toolkit._cdf_tk.storageio.selectors._file_content import FILENAME_VARIABLE
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
@@ -32,6 +34,10 @@ class TestFileContentIO:
                         )
                     ],
                     http_client,
+                    FileMetadataTemplateSelector(
+                        file_directory=Path("does not matter"),
+                        template=FileMetadataTemplate(name=FILENAME_VARIABLE, external_id=FILENAME_VARIABLE),
+                    ),
                 )
             # Verify upload
             uploaded_file = toolkit_client.files.retrieve(external_id=metadata.external_id)
