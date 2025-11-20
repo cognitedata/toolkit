@@ -347,7 +347,7 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerApply, Container
             for key, type_default in [("list", False), ("collation", "ucs_basic")]:
                 if has_local and cdf_type.get(key) == type_default and key not in local_type:
                     cdf_type.pop(key, None)
-            if has_local and "usedFor" not in local and dumped.get("useFor") == "node":
+            if has_local and "usedFor" not in local and dumped.get("usedFor") == "node":
                 # Only drop if set to default by server.
                 dumped.pop("usedFor", None)
         return dumped
