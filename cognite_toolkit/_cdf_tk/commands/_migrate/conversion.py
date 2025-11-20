@@ -15,7 +15,10 @@ from cognite.client.data_classes.data_modeling.views import ViewProperty
 from cognite.client.utils._identifier import InstanceId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId, ResourceViewMapping
+from cognite_toolkit._cdf_tk.client.data_classes.migration import (
+    AssetCentricId,
+    ResourceViewMappingApply,
+)
 from cognite_toolkit._cdf_tk.utils.collection import flatten_dict_json_path
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     asset_centric_convert_to_primary_property,
@@ -163,7 +166,7 @@ class DirectRelationCache:
 def asset_centric_to_dm(
     resource: AssetCentricResourceExtended,
     instance_id: InstanceId,
-    view_source: ResourceViewMapping,
+    view_source: ResourceViewMappingApply,
     view_properties: dict[str, ViewProperty],
     direct_relation_cache: DirectRelationCache,
 ) -> tuple[NodeApply | EdgeApply | None, ConversionIssue]:
@@ -172,7 +175,7 @@ def asset_centric_to_dm(
     Args:
         resource (CogniteResource): The asset-centric resource to convert.
         instance_id (NodeId | EdgeApply): The ID of the instance to create or update.
-        view_source (ResourceViewMapping): The view source defining how to map the resource to the data model.
+        view_source (ResourceViewMappingApply): The view source defining how to map the resource to the data model.
         view_properties (dict[str, ViewProperty]): The defined properties referenced in the view source mapping.
         direct_relation_cache (DirectRelationCache): Cache for direct relation references.
 
