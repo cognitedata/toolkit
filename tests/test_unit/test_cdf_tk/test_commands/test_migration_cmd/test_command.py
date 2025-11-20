@@ -135,8 +135,9 @@ def mock_statistics(
     yield rsps
 
 
-@pytest.mark.usefixtures("disable_gzip", "disable_pypi_check", "mock_statistics")
+@pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
 class TestMigrationCommand:
+    @pytest.mark.usefixtures("mock_statistics")
     def test_migrate_assets(
         self,
         toolkit_config: ToolkitClientConfig,
@@ -250,6 +251,7 @@ class TestMigrationCommand:
             for asset in assets
         ]
 
+    @pytest.mark.usefixtures("mock_statistics")
     def test_migrate_annotations(
         self,
         toolkit_config: ToolkitClientConfig,
