@@ -69,7 +69,7 @@ class AssetCentricMapper(
         ingestion_view_ids = source_selector.get_ingestion_mappings()
         ingestion_views = self.client.migration.resource_view_mapping.retrieve(ingestion_view_ids)
         defaults = {mapping.external_id: mapping for mapping in create_default_mappings()}
-        # Override with defaults
+        # Custom mappings from CDF override the default mappings
         self._view_mapping_by_id = defaults | {view.external_id: view.as_write() for view in ingestion_views}
         missing_mappings = set(ingestion_view_ids) - set(self._view_mapping_by_id.keys())
         if missing_mappings:
