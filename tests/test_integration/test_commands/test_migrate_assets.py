@@ -199,5 +199,5 @@ class TestMigrateAnnotations:
             verbose=True,
         )
         results = progress.aggregate()
-        expected_results = {(step, "success"): 1 for step in cmd.Steps.list()}
+        expected_results = {(step, "success"): 2 for step in cmd.Steps.list()}
         assert results == expected_results
