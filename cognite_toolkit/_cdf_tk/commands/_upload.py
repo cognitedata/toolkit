@@ -87,7 +87,7 @@ class UploadCommand(ToolkitCommand):
         ├── datafile2.Manifest.yaml       # Manifest file for datafile2
         └── ...
         """
-        console = Console()
+        console = client.console
         data_files_by_selector = self._find_data_files(input_dir, kind)
 
         self._deploy_resource_folder(input_dir / DATA_RESOURCE_DIR, deploy_resources, client, console, dry_run, verbose)
