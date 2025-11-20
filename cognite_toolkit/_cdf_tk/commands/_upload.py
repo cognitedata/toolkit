@@ -214,10 +214,10 @@ class UploadCommand(ToolkitCommand):
         console: Console,
         verbose: bool,
     ) -> None:
-        total_file_selectors = len(data_files_by_selector)
+        total_file_count = sum(len(files) for files in data_files_by_selector.values())
         if verbose:
             input_dir_display = self._path_as_display_name(input_dir)
-            console.print(f"Found {total_file_selectors} files to upload in {input_dir_display.as_posix()!r}.")
+            console.print(f"Found {total_file_count} files to upload in {input_dir_display.as_posix()!r}.")
         action = "Would upload" if dry_run else "Uploading"
         with HTTPClient(config=client.config) as upload_client:
             file_count = 1

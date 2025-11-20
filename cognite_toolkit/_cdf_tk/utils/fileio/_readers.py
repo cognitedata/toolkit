@@ -79,7 +79,7 @@ class MultiFileReader(FileReader):
         if len(reader_classes) > 1:
             raise ToolkitValueError(
                 "All input files must be of the same format. "
-                f"Found formats: {humanize_collection([cls.format for cls in reader_classes.keys()])}."
+                f"Found formats: {humanize_collection([cls.FORMAT for cls in reader_classes.keys()])}."
             )
         self.reader_class = reader_classes.most_common(1)[0][0]
 
@@ -365,7 +365,7 @@ for subclass in get_concrete_subclasses(FileReader):  # type: ignore[type-abstra
     # We know we have a dict, but we want to expose FILE_READ_CLS_BY_FORMAT as a Mapping
     FILE_READ_CLS_BY_FORMAT[subclass.FORMAT] = subclass  # type: ignore[index]
     if issubclass(subclass, TableReader):
-        if subclass.format in TABLE_READ_CLS_BY_FORMAT:
+        if subclass.FORMAT in TABLE_READ_CLS_BY_FORMAT:
             raise TypeError(
                 f"Duplicate table file format {subclass.FORMAT!r} found for classes "
                 f"{TABLE_READ_CLS_BY_FORMAT[subclass.FORMAT].__name__!r} and {subclass.__name__!r}."
