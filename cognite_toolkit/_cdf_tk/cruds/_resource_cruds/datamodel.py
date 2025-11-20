@@ -328,6 +328,7 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerApply, Container
 
     def dump_resource(self, resource: Container, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
+        has_local = local is not None
         local = local or {}
         for key in ["constraints", "indexes"]:
             if not dumped.get(key) and key not in local:
@@ -339,15 +340,16 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerApply, Container
                 continue
             local_prop = local_prop_by_id[prop_id]
             for key, default in [("immutable", False), ("autoIncrement", False), ("nullable", True)]:
-                if cdf_prop.get(key) is default and key not in local_prop:
+                if has_local and cdf_prop.get(key) is default and key not in local_prop:
                     cdf_prop.pop(key, None)
             cdf_type = cdf_prop.get("type", {})
             local_type = local_prop.get("type", {})
             for key, type_default in [("list", False), ("collation", "ucs_basic")]:
-                if cdf_type.get(key) == type_default and key not in local_type:
+                if has_local and cdf_type.get(key) == type_default and key not in local_type:
                     cdf_type.pop(key, None)
-        if "usedFor" not in local:
-            dumped.pop("usedFor", None)
+            if has_local and "usedFor" not in local and dumped.get("useFor") == "node":
+                # Only drop if set to default by server.
+                dumped.pop("usedFor", None)
         return dumped
 
     def create(self, items: Sequence[ContainerApply]) -> ContainerList:
