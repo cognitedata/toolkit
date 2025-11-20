@@ -85,9 +85,6 @@ class Flags(Enum):
         visible=False,
         description="Enables features planned for Cognite Toolkit version 0.7.0",
     )
-    RESOURCES = FlagMetadata(
-        visible=True,
-        description="Enables support for the resources command",
     STREAMS = FlagMetadata(
         visible=True,
         description="Enables the support for the streams resources",
