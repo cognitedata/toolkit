@@ -214,6 +214,16 @@ class AssetCentricMigrationIO(
 class AnnotationMigrationIO(
     UploadableStorageIO[AssetCentricMigrationSelector, AssetCentricMapping[Annotation], InstanceApply]
 ):
+    """IO class for migrating Annotations.
+
+    Args:
+        client: The ToolkitClient to use for CDF interactions.
+        instance_space: The instance space to use for the migrated annotations.
+        default_asset_annotation_mapping: The default ingestion mapping to use for asset-linked annotations.
+        default_file_annotation_mapping: The default ingestion mappingto use for file-linked annotations.
+
+    """
+
     KIND = "AnnotationMigration"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
