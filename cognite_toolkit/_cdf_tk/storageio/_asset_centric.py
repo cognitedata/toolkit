@@ -347,7 +347,9 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
         return self.client.assets.retrieve_multiple(ids)
 
     @classmethod
-    def read_chunks(cls, reader: FileReader) -> Iterable[list[tuple[str, dict[str, JsonVal]]]]:
+    def read_chunks(
+        cls, reader: FileReader, selector: AssetCentricSelector
+    ) -> Iterable[list[tuple[str, dict[str, JsonVal]]]]:
         """Assets require special handling when reading data to ensure parent assets are created first."""
         current_depth = max_depth = 0
         data_name = "row" if isinstance(reader, TableReader) else "line"

@@ -217,7 +217,7 @@ class UploadCommand(ToolkitCommand):
                     raise ToolkitValueError(f"{selector.display_name} does not support {reader.format!r} files.")
                 tracker = ProgressTracker[str]([self._UPLOAD])
                 executor = ProducerWorkerExecutor[list[tuple[str, dict[str, JsonVal]]], Sequence[UploadItem]](
-                    download_iterable=io.read_chunks(reader),
+                    download_iterable=io.read_chunks(reader, selector),
                     process=partial(io.rows_to_data, selector=selector)
                     if reader.is_table and isinstance(io, TableUploadableStorageIO)
                     else io.json_chunk_to_data,

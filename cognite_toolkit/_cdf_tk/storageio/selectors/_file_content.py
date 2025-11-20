@@ -1,6 +1,7 @@
-from abc import ABC
+import json
+from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import ConfigDict, field_validator
 
@@ -8,6 +9,7 @@ from ._base import DataSelector, SelectorObject
 from ._instances import SelectedView
 
 FILENAME_VARIABLE = "$FILENAME"
+FILEPATH = "$FILEPATH"
 
 
 class FileContentSelector(DataSelector, ABC):
@@ -20,9 +22,19 @@ class FileContentSelector(DataSelector, ABC):
             return []
         return [file for file in file_dir.iterdir() if file.is_file()]
 
+    @abstractmethod
+    def create_instance(self, filepath: Path) -> dict[str, Any]: ...
 
-class FileMetadataTemplate(SelectorObject):
+
+class FileTemplate(SelectorObject):
     model_config = ConfigDict(extra="allow")
+
+    def create_instance(self, filename: str) -> dict[str, Any]:
+        json_str = self.model_dump_json(by_alias=True)
+        return json.loads(json_str.replace(FILENAME_VARIABLE, filename))
+
+
+class FileMetadataTemplate(FileTemplate):
     name: str
     external_id: str
 
@@ -48,9 +60,11 @@ class FileMetadataTemplateSelector(FileContentSelector):
     def __str__(self) -> str:
         return "metadata_template"
 
+    def create_instance(self, filepath: Path) -> dict[str, Any]:
+        return self.template.create_instance(filepath.name)
 
-class FileDataModelingTemplate(SelectorObject):
-    model_config = ConfigDict(extra="allow")
+
+class FileDataModelingTemplate(FileTemplate):
     space: str
     external_id: str
 
@@ -76,3 +90,6 @@ class FileDataModelingTemplateSelector(FileContentSelector):
 
     def __str__(self) -> str:
         return "data_modeling_template"
+
+    def create_instance(self, filepath: Path) -> dict[str, Any]:
+        return self.template.create_instance(filepath.name)
