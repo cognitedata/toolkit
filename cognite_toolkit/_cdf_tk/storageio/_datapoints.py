@@ -19,8 +19,7 @@ from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     _TextConverter,
     _ValueConverter,
 )
-from cognite_toolkit._cdf_tk.utils.fileio import FileReader
-from cognite_toolkit._cdf_tk.utils.fileio._readers import TableReader
+from cognite_toolkit._cdf_tk.utils.fileio._readers import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.http_client import DataBodyRequest, HTTPClient, HTTPMessage
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
@@ -165,8 +164,8 @@ class DatapointsIO(TableUploadableStorageIO[DataPointsFileSelector, DataPointLis
         )
 
     @classmethod
-    def read_chunks(cls, reader: FileReader) -> Iterable[list[tuple[str, dict[str, JsonVal]]]]:
-        if not isinstance(reader, TableReader):
+    def read_chunks(cls, reader: MultiFileReader) -> Iterable[list[tuple[str, dict[str, JsonVal]]]]:
+        if not reader.is_table:
             raise RuntimeError("DatapointsIO can only read from TableReader instances.")
         iterator = iter(reader.read_chunks_with_line_numbers())
         try:
