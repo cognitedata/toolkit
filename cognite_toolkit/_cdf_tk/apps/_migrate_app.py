@@ -806,11 +806,12 @@ class MigrateApp(typer.Typer):
             )
             if selected_instance_space is None:
                 raise typer.Abort()
-            mapping_selector = ResourceViewMappingInteractiveSelect(client, "migrate")
-            asset_annotation_mapping = mapping_selector.select_resource_view_mapping(
+            asset_annotations_selector = ResourceViewMappingInteractiveSelect(client, "migrate asset annotations")
+            asset_annotation_mapping = asset_annotations_selector.select_resource_view_mapping(
                 resource_type="assetAnnotation",
             ).external_id
-            file_annotation_mapping = mapping_selector.select_resource_view_mapping(
+            file_annotations_selector = ResourceViewMappingInteractiveSelect(client, "migrate file annotations")
+            file_annotation_mapping = file_annotations_selector.select_resource_view_mapping(
                 resource_type="fileAnnotation",
             ).external_id
 
