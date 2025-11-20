@@ -142,9 +142,9 @@ class ResourcesCommand(ToolkitCommand):
     def _get_resource_cruds(
         self,
         resource_directories: str | list[str],
-        resources: list[str],
-        verbose: bool,
+        resources: list[str] | None = None,
         file_name: list[str] | None = None,
+        verbose: bool = False,
     ) -> list[tuple[type[ResourceCRUD], str]]:
         """
         get the resource cruds for the resource directory.
@@ -155,7 +155,7 @@ class ResourcesCommand(ToolkitCommand):
         self._validate_resource_directories(resource_directories, verbose)
 
         file_name_map: dict[str, str] = {}
-        if file_name:
+        if resources and file_name:
             file_name_map = dict(zip(resources, file_name))
 
         resource_cruds: list[tuple[type[ResourceCRUD], str]] = []
@@ -164,7 +164,9 @@ class ResourcesCommand(ToolkitCommand):
                 [
                     (crud, file_name_map.get(crud.kind, self._create_default_file_name(crud)))
                     for crud in CRUDS_BY_FOLDER_NAME[_dir]
-                    if isinstance(crud, type) and issubclass(crud, ResourceCRUD) and crud.kind in resources
+                    if isinstance(crud, type)
+                    and issubclass(crud, ResourceCRUD)
+                    and (resources is None or crud.kind in resources)
                 ]
             )
         return resource_cruds
@@ -261,7 +263,7 @@ class ResourcesCommand(ToolkitCommand):
         """
         module_path: Path = self._get_module_path(module_name, organization_dir, verbose)
         resource_cruds: list[tuple[type[ResourceCRUD], str]] = self._get_resource_cruds(
-            resource_directory, resources, verbose, file_name
+            resource_directory, resources, file_name, verbose
         )
         for resource_crud, file_name_str in resource_cruds:
             self._create_resource_yaml_file(resource_crud, file_name_str, module_path, verbose)
