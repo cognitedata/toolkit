@@ -214,8 +214,8 @@ class TableReader(FileReader, ABC):
 
         if not input_file.exists():
             raise ToolkitFileNotFoundError(f"File not found: {input_file.as_posix()!r}.")
-        if input_file.suffix != cls.format:
-            raise ToolkitValueError(f"Expected a {cls.format} file got a {input_file.suffix!r} file instead.")
+        if input_file.suffix != cls.FORMAT:
+            raise ToolkitValueError(f"Expected a {cls.FORMAT} file got a {input_file.suffix!r} file instead.")
 
         column_names, sample_rows = cls._read_sample_rows(input_file, sniff_rows)
         cls._check_column_names(column_names)
