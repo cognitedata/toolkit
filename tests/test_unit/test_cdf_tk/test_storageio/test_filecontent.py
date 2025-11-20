@@ -1,6 +1,9 @@
+import json
 from pathlib import Path
 
+import httpx
 import pytest
+import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.commands import UploadCommand
@@ -20,9 +23,29 @@ def file_folder(tmp_path: Path) -> Path:
 
 
 class TestFileContent:
-    def test_upload_filemetadata(self, toolkit_config: ToolkitClientConfig, file_folder: Path) -> None:
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_upload_filemetadata(
+        self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig, file_folder: Path
+    ) -> None:
         config = toolkit_config
         client = ToolkitClient(config)
+        file_upload_url = "https://upload.url/for/testing/{externalId}"
+
+        def create_callback(request: httpx.Request) -> httpx.Response:
+            payload = json.loads(request.content)
+            assert "name" in payload
+            assert "externalId" in payload
+            payload["uploadUrl"] = file_upload_url.format(externalId=payload["externalId"])
+            return httpx.Response(status_code=200, json={"items": [payload]}, headers={})
+
+        respx_mock.post(config.create_api_url("/files")).mock(side_effect=create_callback)
+        upload_endpoints: list[str] = []
+        for filepath in file_folder.iterdir():
+            if filepath.is_file():
+                upload_endpoint = file_upload_url.format(externalId=f"my_file_{filepath.name}")
+                respx_mock.put(upload_endpoint).mock(return_value=httpx.Response(status_code=200))
+                upload_endpoints.append(upload_endpoint)
+
         selector = FileMetadataTemplateSelector(
             file_directory=file_folder,
             template=FileMetadataTemplate.model_validate(
@@ -42,3 +65,7 @@ class TestFileContent:
             dry_run=False,
             verbose=True,
         )
+
+        assert respx_mock.calls.call_count == 10  # 5 for metadata, 5 for content
+        called_endpoints = {str(call.request.url) for call in respx_mock.calls}
+        assert set(upload_endpoints).issubset(called_endpoints)
