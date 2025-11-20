@@ -1,5 +1,6 @@
 import csv
 import json
+import re
 from abc import ABC, abstractmethod
 from collections import Counter, defaultdict
 from collections.abc import Callable, Iterator, Mapping, Sequence
@@ -19,6 +20,30 @@ from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import FileIO, SchemaColumn
 from ._compression import COMPRESSION_BY_SUFFIX, Compression
+
+
+class MultiFileReader:
+    """Reads multiple files and yields chunks from each file sequentially.
+
+    Args:
+        input_files (Sequence[Path]): The list of file paths to read.
+    """
+
+    PART_PATTERN = re.compile(r"part-(\d{4})$")
+
+    def __init__(self, input_files: Sequence[Path]) -> None:
+        self.input_files = input_files
+
+    def read_chunks(self) -> Iterator[dict[str, JsonVal]]:
+        for input_file in sorted(self.input_files, key=self._part_no):
+            reader = FileReader.from_filepath(input_file)
+            yield from reader.read_chunks()
+
+    def _part_no(self, path: Path) -> int:
+        match = self.PART_PATTERN.search(path.stem)
+        if match:
+            return int(match.group(1))
+        return 99999
 
 
 class FileReader(FileIO, ABC):

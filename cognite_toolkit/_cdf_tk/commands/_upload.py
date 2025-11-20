@@ -225,6 +225,7 @@ class UploadCommand(ToolkitCommand):
                 io = self._create_selected_io(selector, datafiles[0], client)
                 if io is None:
                     continue
+
                 for data_file in datafiles:
                     file_display = self._path_as_display_name(data_file)
                     if verbose:

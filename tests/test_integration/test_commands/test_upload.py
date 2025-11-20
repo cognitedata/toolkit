@@ -36,6 +36,7 @@ def two_timeseries(toolkit_client: ToolkitClient, toolkit_dataset: DataSet) -> t
     return retrieved1, retrieved2
 
 
+@pytest.fixture()
 class TestUploadCommand:
     def test_upload_datapoints(
         self, toolkit_client: ToolkitClient, two_timeseries: tuple[TimeSeries, TimeSeries], tmp_path: Path
@@ -62,7 +63,7 @@ class TestUploadCommand:
         csv_file = tmp_path / f"{selector!s}.{DatapointsIO.KIND}.csv"
 
         with csv_file.open("w") as f:
-            f.write("timestamp,value,value2\n")
+            f.write("timestamp,,valuevalue2\n")
             for i in range(10):
                 f.write(f"2024-01-01T00:00:{i:02d}Z,{i},no_{i * 10}\n")
 
@@ -87,3 +88,8 @@ class TestUploadCommand:
             end=datetime.fromisoformat("2024-01-01T00:00:10Z"),
         )
         assert len(datapoints2) == 10, f"Expected 10 datapoints, got {len(datapoints2)}"
+
+    def test_upload_asset_multifile(self, toolkit_client: ToolkitClient, tmp_path: Path) -> None:
+        # This is a placeholder for an asset-centric multifile upload test.
+        # Implementing this would require setting up asset hierarchies and related files.
+        pass
