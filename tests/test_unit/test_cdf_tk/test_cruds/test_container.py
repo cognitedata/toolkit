@@ -7,9 +7,9 @@ from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, ResourceWorker
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
-class TestContainerLoader:
+class TestContainerCRUD:
     def test_unchanged_used_for_not_set(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
-        loader = ContainerCRUD.create_loader(toolkit_client_approval.mock_client)
+        crud = ContainerCRUD.create_loader(toolkit_client_approval.mock_client)
         raw_file = """space: sp_enterprise_process_industry_full
 externalId: Toolkit360Image
 properties:
@@ -42,7 +42,7 @@ indexes: {}
 
         toolkit_client_approval.append(Container, [cdf_container])
 
-        worker = ResourceWorker(loader, "deploy")
+        worker = ResourceWorker(crud, "deploy")
         resources = worker.prepare_resources([file])
         assert {
             "create": len(resources.to_create),
@@ -50,3 +50,6 @@ indexes: {}
             "delete": len(resources.to_delete),
             "unchanged": len(resources.unchanged),
         } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
+
+        dumped_no_local = crud.dump_resource(cdf_container)
+        assert "usedFor" in dumped_no_local
