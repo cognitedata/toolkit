@@ -11,7 +11,7 @@ from pydantic import ValidationError
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM, DATA_RESOURCE_DIR
+from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_SUFFIX, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.cruds import ViewCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio import (
@@ -141,15 +141,20 @@ class UploadCommand(ToolkitCommand):
         kind: str | None = None,
     ) -> dict[Selector, list[Path]]:
         """Finds data files and their corresponding metadata files in the input directory."""
-        manifest_file_endswith = f".{DATA_MANIFEST_STEM}.yaml"
         data_files_by_metadata: dict[Selector, list[Path]] = {}
-        for metadata_file in input_dir.glob(f"*{manifest_file_endswith}"):
-            data_file_prefix = metadata_file.name.removesuffix(manifest_file_endswith)
-            data_files = [
-                file
-                for file in input_dir.glob(f"{data_file_prefix}*")
-                if not file.name.endswith(manifest_file_endswith)
-            ]
+        for manifest_file in input_dir.glob(f"*{DATA_MANIFEST_SUFFIX}"):
+            selector_dict = read_yaml_file(manifest_file, expected_output="dict")
+            try:
+                selector = SelectorAdapter.validate_python(selector_dict)
+            except ValidationError as e:
+                errors = humanize_validation_error(e)
+                self.warn(
+                    ResourceFormatWarning(
+                        manifest_file, tuple(errors), text="Invalid selector in metadata file, skipping."
+                    )
+                )
+                continue
+            data_files = selector.find_data_files(input_dir, manifest_file)
             if kind is not None and data_files:
                 data_files = [data_file for data_file in data_files if are_same_kind(kind, data_file)]
                 if not data_files:
@@ -157,19 +162,7 @@ class UploadCommand(ToolkitCommand):
             if not data_files:
                 self.warn(
                     MediumSeverityWarning(
-                        f"Metadata file {metadata_file.as_posix()!r} has no corresponding data files, skipping.",
-                    )
-                )
-                continue
-
-            selector_dict = read_yaml_file(metadata_file, expected_output="dict")
-            try:
-                selector = SelectorAdapter.validate_python(selector_dict)
-            except ValidationError as e:
-                errors = humanize_validation_error(e)
-                self.warn(
-                    ResourceFormatWarning(
-                        metadata_file, tuple(errors), text="Invalid selector in metadata file, skipping."
+                        f"Metadata file {manifest_file.as_posix()!r} has no corresponding data files, skipping.",
                     )
                 )
                 continue
