@@ -26,6 +26,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import (
     FailedParsing,
     FileReader,
     FileWriter,
+    MultiFileReader,
     SchemaColumn,
     Uncompressed,
 )
@@ -466,7 +467,7 @@ class TestFileReader:
 
     def test_all_file_readers_registered(self) -> None:
         # YAMLBaseReader is an abstract class, so we exclude it from the expected readers
-        expected_readers = set(get_concrete_subclasses(FileReader)) - {LineReader, YAMLBaseReader}
+        expected_readers = set(get_concrete_subclasses(FileReader)) - {LineReader, YAMLBaseReader, MultiFileReader}
 
         assert set(expected_readers) == set(FILE_READ_CLS_BY_FORMAT.values())
 
@@ -512,10 +513,11 @@ class TestFileIO:
         file_path = list(output_dir.rglob(f"*{format}{compression_cls.file_suffix}"))
         assert len(file_path) == 1
 
-        reader = FileReader.from_filepath(file_path[0])
+        reader_cls = FileReader.from_filepath(file_path[0])
         # The Table reader returns all columns, even if they are None, so we filter them out for comparison.
         read_chunks = [
-            {key: value for key, value in chunk.items() if value is not None} for chunk in reader.read_chunks()
+            {key: value for key, value in chunk.items() if value is not None}
+            for chunk in reader_cls(file_path[0]).read_chunks()
         ]
 
         assert read_chunks == chunks
@@ -570,15 +572,17 @@ class TestFileIO:
         file_path = sorted(output_dir.rglob(f"*{format}{compression_cls.file_suffix}"), key=part_number)
         assert len(file_path) == 2
 
-        reader = FileReader.from_filepath(file_path[0])
+        reader_cls = FileReader.from_filepath(file_path[0])
         # The Table reader returns all columns, even if they are None, so we filter them out for comparison.
         read_chunks = [
-            {key: value for key, value in chunk.items() if value is not None} for chunk in reader.read_chunks()
+            {key: value for key, value in chunk.items() if value is not None}
+            for chunk in reader_cls(file_path[0]).read_chunks()
         ]
         assert read_chunks == chunks[:mid]
-        reader = FileReader.from_filepath(file_path[1])
+        reader_cls = FileReader.from_filepath(file_path[1])
         read_chunks = [
-            {key: value for key, value in chunk.items() if value is not None} for chunk in reader.read_chunks()
+            {key: value for key, value in chunk.items() if value is not None}
+            for chunk in reader_cls(file_path[1]).read_chunks()
         ]
         assert read_chunks == chunks[mid:]
 

@@ -154,7 +154,7 @@ class TableWriter(FileWriter[T_IO], ABC):
 
 
 class NDJsonWriter(FileWriter[TextIOWrapper]):
-    format = ".ndjson"
+    FORMAT = ".ndjson"
 
     class _DateTimeEncoder(json.JSONEncoder):
         def default(self, obj: object) -> object:
@@ -181,15 +181,15 @@ class YAMLBaseWriter(FileWriter[TextIOWrapper], ABC):
 
 
 class YAMLWriter(YAMLBaseWriter):
-    format = ".yaml"
+    FORMAT = ".yaml"
 
 
 class YMLWriter(YAMLBaseWriter):
-    format = ".yml"
+    FORMAT = ".yml"
 
 
 class CSVWriter(TableWriter[TextIOWrapper]):
-    format = ".csv"
+    FORMAT = ".csv"
 
     def __init__(
         self,
@@ -241,7 +241,7 @@ class CSVWriter(TableWriter[TextIOWrapper]):
 
 
 class ParquetWriter(TableWriter["pq.ParquetWriter"]):
-    format = ".parquet"
+    FORMAT = ".parquet"
 
     def _create_writer(self, filepath: Path) -> "pq.ParquetWriter":
         import pyarrow.parquet as pq
@@ -411,19 +411,19 @@ class ParquetWriter(TableWriter["pq.ParquetWriter"]):
 FILE_WRITE_CLS_BY_FORMAT: Mapping[str, type[FileWriter]] = {}
 TABLE_WRITE_CLS_BY_FORMAT: Mapping[str, type[TableWriter]] = {}
 for subclass in get_concrete_subclasses(FileWriter):  # type: ignore[type-abstract]
-    if not getattr(subclass, "format", None):
+    if not getattr(subclass, "FORMAT", None):
         continue
-    if subclass.format in FILE_WRITE_CLS_BY_FORMAT:
+    if subclass.FORMAT in FILE_WRITE_CLS_BY_FORMAT:
         raise TypeError(
-            f"Duplicate file format {subclass.format!r} found for classes "
-            f"{FILE_WRITE_CLS_BY_FORMAT[subclass.format].__name__!r} and {subclass.__name__!r}."
+            f"Duplicate file format {subclass.FORMAT!r} found for classes "
+            f"{FILE_WRITE_CLS_BY_FORMAT[subclass.FORMAT].__name__!r} and {subclass.__name__!r}."
         )
     # We know we have a dict, but we want to expose FILE_WRITE_CLS_BY_FORMAT as a Mapping
-    FILE_WRITE_CLS_BY_FORMAT[subclass.format] = subclass  # type: ignore[index]
+    FILE_WRITE_CLS_BY_FORMAT[subclass.FORMAT] = subclass  # type: ignore[index]
     if issubclass(subclass, TableWriter):
-        if subclass.format in TABLE_WRITE_CLS_BY_FORMAT:
+        if subclass.FORMAT in TABLE_WRITE_CLS_BY_FORMAT:
             raise TypeError(
-                f"Duplicate table file format {subclass.format!r} found for classes "
-                f"{TABLE_WRITE_CLS_BY_FORMAT[subclass.format].__name__!r} and {subclass.__name__!r}."
+                f"Duplicate table file format {subclass.FORMAT!r} found for classes "
+                f"{TABLE_WRITE_CLS_BY_FORMAT[subclass.FORMAT].__name__!r} and {subclass.__name__!r}."
             )
-        TABLE_WRITE_CLS_BY_FORMAT[subclass.format] = subclass  # type: ignore[index]
+        TABLE_WRITE_CLS_BY_FORMAT[subclass.FORMAT] = subclass  # type: ignore[index]
