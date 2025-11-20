@@ -58,6 +58,10 @@ class InitChecklistItem:
 class InitCommand(ToolkitCommand):
     organization_dir: Path | None
 
+    def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
+        super().__init__(print_warning, skip_tracking, silent)
+        self.organization_dir = None
+
     def execute(self, dry_run: bool = False, emulate_dot_seven: bool = False) -> None:
         if not Flags.v07.is_enabled() and not emulate_dot_seven:
             print("This command is deprecated. Use 'cdf modules init' instead.")
