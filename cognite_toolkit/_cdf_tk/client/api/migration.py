@@ -404,7 +404,7 @@ class LookupAPI:
                 input_type=str,
             )
         else:
-            raise ValueError("Either id or external_id must be provided, but not both.")
+            raise TypeError("Either id or external_id must be provided, but not both.")
 
     @overload
     def consumer_view(self, id: int, external_id: None = None) -> ViewId | None: ...
@@ -446,7 +446,7 @@ class LookupAPI:
                 input_type=str,
             )
         else:
-            raise ValueError("Either id or external_id must be provided, but not both.")
+            raise TypeError("Either id or external_id must be provided, but not both.")
 
     def _lookup(
         self,

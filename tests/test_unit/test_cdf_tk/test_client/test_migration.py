@@ -91,6 +91,11 @@ class TestMigrationLookup:
 
         assert len(rsps.calls) == 1, "Expected only one API call for multiple lookups of the same non-existing ID"
 
+    def test_invalid_input(self, toolkit_config: ToolkitClientConfig):
+        client = ToolkitClient(config=toolkit_config)
+        with pytest.raises(TypeError):
+            _ = client.migration.lookup.assets(id=self.EXISTING_ID, external_id=self.EXISTING_EXTERNAL_ID)
+
     @pytest.mark.parametrize(
         "args, expected_return",
         [
@@ -133,3 +138,8 @@ class TestMigrationLookup:
         _ = client.migration.lookup.assets.consumer_view(-1)
 
         assert len(rsps.calls) == 1, "Expected only one API call for multiple lookups of the same non-existing ID"
+
+    def test_consumer_view_invalid_input(self, toolkit_config: ToolkitClientConfig):
+        client = ToolkitClient(config=toolkit_config)
+        with pytest.raises(TypeError):
+            _ = client.migration.lookup.assets.consumer_view(id=self.EXISTING_ID, external_id=self.EXISTING_EXTERNAL_ID)
