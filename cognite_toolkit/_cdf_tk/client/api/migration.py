@@ -391,6 +391,18 @@ class LookupAPI:
         else:
             raise ValueError("Either id or external_id must be provided, but not both.")
 
+    @overload
+    def consumer_view(self, id: int, external_id: None = None) -> ViewId | None: ...
+
+    @overload
+    def consumer_view(self, id: Sequence[int], external_id: None = None) -> dict[int, ViewId]: ...
+
+    @overload
+    def consumer_view(self, *, external_id: str) -> ViewId | None: ...
+
+    @overload
+    def consumer_view(self, *, external_id: SequenceNotStr[str]) -> dict[str, ViewId]: ...
+
     def consumer_view(
         self, id: int | Sequence[int] | None = None, external_id: str | SequenceNotStr[str] | None = None
     ) -> dict[int, ViewId] | dict[str, ViewId] | ViewId | None:
