@@ -458,6 +458,7 @@ class LookupAPI:
     ) -> dict[_T, _T_Cached] | _T_Cached | None:
         """Generic lookup method for both NodeId and ViewId by id or external_id."""
         is_single = isinstance(identifier, input_type)
+        # MyPy does not understand that if is_single is True, identifier is _T, else SequenceNotStr[_T].
         identifiers: list[_T] = [identifier] if is_single else list(identifier)  # type: ignore[arg-type, list-item]
 
         missing = [id_ for id_ in identifiers if id_ not in cache]
