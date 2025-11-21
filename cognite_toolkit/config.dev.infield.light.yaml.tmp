@@ -1,0 +1,13 @@
+environment:
+  name: dev
+  project: infield-experimental-test-aws
+  validation-type: dev
+  selected:
+    - modules/eriks-location
+
+variables:
+  modules:
+    eriks-location:
+      - location: erik-infield-light
+        location_name: Eriks InField light toolkit location
+        location_description: Used to test toolkit ingestion for InField light

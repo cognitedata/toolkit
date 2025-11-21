@@ -13,7 +13,7 @@ from .datamodel import (
     ViewCRUD,
 )
 from .extraction_pipeline import ExtractionPipelineConfigCRUD, ExtractionPipelineCRUD
-from .fieldops import InFieldLocationConfigCRUD, InfieldV1CRUD
+from .fieldops import InFieldCDMLocationConfigCRUD, InFieldLocationConfigCRUD, InfieldV1CRUD
 from .file import CogniteFileCRUD, FileMetadataCRUD
 from .function import FunctionCRUD, FunctionScheduleCRUD
 from .group_scoped import GroupResourceScopedCRUD
@@ -64,6 +64,7 @@ __all__ = [
     "HostedExtractorJobCRUD",
     "HostedExtractorMappingCRUD",
     "HostedExtractorSourceCRUD",
+    "InFieldCDMLocationConfigCRUD",
     "InFieldLocationConfigCRUD",
     "InfieldV1CRUD",
     "LabelCRUD",

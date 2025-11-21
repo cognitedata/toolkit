@@ -14,11 +14,20 @@ from cognite_toolkit._cdf_tk.client.data_classes.apm_config_v1 import (
     APMConfigWrite,
     APMConfigWriteList,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.infield import InfieldLocationConfig, InfieldLocationConfigList
+from cognite_toolkit._cdf_tk.client.data_classes.infield import (
+    InFieldCDMLocationConfig,
+    InFieldCDMLocationConfigList,
+    InfieldLocationConfig,
+    InfieldLocationConfigList,
+)
 from cognite_toolkit._cdf_tk.client.data_classes.instance_api import InstanceResult, NodeIdentifier
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
-from cognite_toolkit._cdf_tk.resource_classes import InfieldLocationConfigYAML, InfieldV1YAML
+from cognite_toolkit._cdf_tk.resource_classes import (
+    InFieldCDMLocationConfigYAML,
+    InfieldLocationConfigYAML,
+    InfieldV1YAML,
+)
 from cognite_toolkit._cdf_tk.utils import quote_int_value_by_key_in_yaml, safe_read
 from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, hash_dict
@@ -253,15 +262,15 @@ class InFieldLocationConfigCRUD(
     ]
 ):
     folder_name = "cdf_applications"
-    filename_pattern = r"^.*\.InFieldLocationConfig$"
+    filename_pattern = r"^.*\.InFieldLightConfig$"
     filetypes = frozenset({"yaml", "yml"})
     resource_cls = InfieldLocationConfig
     resource_write_cls = InfieldLocationConfig
     list_cls = InfieldLocationConfigList
     list_write_cls = InfieldLocationConfigList
-    kind = "InFieldLocationConfig"
+    kind = "InFieldLightConfig"
     yaml_cls = InfieldLocationConfigYAML
-    dependencies = frozenset({SpaceCRUD, GroupAllScopedCRUD, GroupResourceScopedCRUD})
+    dependencies = frozenset({SpaceCRUD})
     _doc_url = "Instances/operation/applyNodeAndEdges"
 
     @classmethod
@@ -290,28 +299,38 @@ class InFieldLocationConfigCRUD(
 
         return DataModelInstancesAcl(actions, DataModelInstancesAcl.Scope.SpaceID(instance_spaces))
 
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> InfieldLocationConfig:
+        # If rootLocationExternalId is not provided, use externalId
+        if "rootLocationExternalId" not in resource or resource.get("rootLocationExternalId") is None:
+            resource["rootLocationExternalId"] = resource.get("externalId")
+        # Filter out LocationFilter fields that don't belong to InFieldLocationConfig
+        # These fields (name, description, instanceSpaces, views) are kept in YAML for convenience
+        # but are not sent to the InFieldLocationConfig API
+        filtered_resource = {
+            "space": resource.get("space"),
+            "externalId": resource.get("externalId"),
+            "rootLocationExternalId": resource.get("rootLocationExternalId"),
+            "appInstanceSpace": resource.get("appInstanceSpace"),
+            "featureToggles": resource.get("featureToggles"),
+        }
+        # Remove None values
+        filtered_resource = {k: v for k, v in filtered_resource.items() if v is not None}
+        return InfieldLocationConfig.model_validate(filtered_resource)
+
     def dump_resource(self, resource: InfieldLocationConfig, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.dump()
         local = local or {}
         dumped.pop("instanceType", None)
-        if isinstance(cdf_dec := dumped.get("dataExplorationConfig"), dict):
-            cdf_dec.pop("instanceType", None)
-            if isinstance(local_dec := local.get("dataExplorationConfig"), dict):
-                if "space" in cdf_dec and "space" not in local_dec:
-                    # Default space is used for the data exploration config if not specified locally.
-                    cdf_dec.pop("space")
-                if "externalId" in cdf_dec and "externalId" not in local_dec:
-                    # Default externalId is used for the data exploration config if not specified locally.
-                    cdf_dec.pop("externalId")
+        # Preserve LocationFilter fields from local YAML if they exist
+        # These fields are not part of InFieldLocationConfig but are kept in the YAML file
+        for field in ["name", "description", "instanceSpaces", "views"]:
+            if field in local:
+                dumped[field] = local[field]
 
         return dumped
 
     def create(self, items: InfieldLocationConfigList) -> list[InstanceResult]:
-        created = self.client.infield.config.apply(items)
-        config_ids = {config.as_id() for config in items}
-        # We filter out all the data exploration configs that were created along with the infield location configs
-        # as we only want to count the infield location configs here.
-        return [res for res in created if res.as_id() in config_ids]
+        return self.client.infield.config.apply(items)
 
     def retrieve(self, ids: SequenceNotStr[NodeIdentifier]) -> InfieldLocationConfigList:
         return InfieldLocationConfigList(self.client.infield.config.retrieve(list(ids)))
@@ -320,12 +339,13 @@ class InFieldLocationConfigCRUD(
         return self.create(items)
 
     def delete(self, ids: SequenceNotStr[NodeIdentifier]) -> int:
-        # We must retrieve the full resource to get hte DataExplorationConfig linked resource deleted as well.
-        retrieved = self.retrieve(list(ids))
-        # Then, we pass the entire resource to the delete method, which will delete both the InfieldLocationConfig
-        # and the linked DataExplorationConfig.
-        _ = self.client.infield.config.delete(retrieved)
-        return len(retrieved)
+        if not ids:
+            return 0
+        delete_items = [
+            InfieldLocationConfig(space=identifier.space, external_id=identifier.external_id) for identifier in ids
+        ]
+        self.client.infield.config.delete(delete_items)
+        return len(delete_items)
 
     def _iterate(
         self,
@@ -333,6 +353,123 @@ class InFieldLocationConfigCRUD(
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[InfieldLocationConfig]:
+        raise NotImplementedError(f"Iteration over {self.display_name} is not supported.")
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        return super().diff_list(local, cdf, json_path)
+
+
+@final
+class InFieldCDMLocationConfigCRUD(
+    ResourceCRUD[
+        NodeIdentifier,
+        InFieldCDMLocationConfig,
+        InFieldCDMLocationConfig,
+        InFieldCDMLocationConfigList,
+        InFieldCDMLocationConfigList,
+    ]
+):
+    folder_name = "cdf_applications"
+    filename_pattern = r"^.*\.InFieldLocationConfig$"
+    filetypes = frozenset({"yaml", "yml"})
+    resource_cls = InFieldCDMLocationConfig
+    resource_write_cls = InFieldCDMLocationConfig
+    list_cls = InFieldCDMLocationConfigList
+    list_write_cls = InFieldCDMLocationConfigList
+    kind = "InFieldLocationConfig"
+    yaml_cls = InFieldCDMLocationConfigYAML
+    dependencies = frozenset({SpaceCRUD})
+    _doc_url = "Instances/operation/applyNodeAndEdges"
+
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> InFieldCDMLocationConfig:
+        # The resource dict comes from raw YAML parsing and has camelCase keys
+        # First validate with the YAML class to get proper structure, then convert to data class
+        yaml_instance = self.yaml_cls.model_validate(resource)
+        # Convert YAML instance to dict using snake_case (by_alias=False)
+        yaml_dict = yaml_instance.model_dump(exclude_unset=True, by_alias=False)
+        # Now convert nested Pydantic models to plain dicts
+        filtered_resource = {}
+        for key in ["space", "external_id", "name", "description", "feature_toggles", "app_instance_space", 
+                    "access_management", "data_filters", "data_storage", "view_mappings", "disciplines", 
+                    "data_exploration_config"]:
+            if key in yaml_dict:
+                value = yaml_dict[key]
+                # Convert Pydantic models to dicts
+                if hasattr(value, "model_dump"):
+                    filtered_resource[key] = value.model_dump(exclude_unset=True, by_alias=False)
+                elif isinstance(value, list) and value and hasattr(value[0], "model_dump"):
+                    filtered_resource[key] = [item.model_dump(exclude_unset=True, by_alias=False) if hasattr(item, "model_dump") else item for item in value]
+                else:
+                    filtered_resource[key] = value
+        return InFieldCDMLocationConfig.model_validate(filtered_resource)
+
+    @classmethod
+    def get_id(cls, item: InFieldCDMLocationConfig | dict) -> NodeIdentifier:
+        if isinstance(item, dict):
+            return NodeIdentifier(space=item["space"], external_id=item["externalId"])
+        return NodeIdentifier(space=item.space, external_id=item.external_id)
+
+    @classmethod
+    def dump_id(cls, id: NodeIdentifier) -> dict[str, Any]:
+        return id.dump(include_type=False)
+
+    @classmethod
+    def get_required_capability(
+        cls, items: Sequence[InFieldCDMLocationConfig] | None, read_only: bool
+    ) -> Capability | list[Capability]:
+        if not items or items is None:
+            return []
+
+        actions = (
+            [DataModelInstancesAcl.Action.Read]
+            if read_only
+            else [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write]
+        )
+        instance_spaces = sorted({item.space for item in items})
+
+        return DataModelInstancesAcl(actions, DataModelInstancesAcl.Scope.SpaceID(instance_spaces))
+
+    def dump_resource(self, resource: InFieldCDMLocationConfig, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.dump()
+        local = local or {}
+        dumped.pop("instanceType", None)
+
+        return dumped
+
+    def create(self, items: InFieldCDMLocationConfigList) -> list[InstanceResult]:
+        # Verify we're using the correct view
+        if items and len(items) > 0:
+            first_item = items[0]
+            if self.console:
+                self.console(
+                    f"Creating {len(items)} InFieldCDMLocationConfig item(s) using view: "
+                    f"{first_item.VIEW_ID.space}/{first_item.VIEW_ID.external_id}/{first_item.VIEW_ID.version}"
+                )
+        return self.client.infield.cdm_location_config.apply(items)
+
+    def retrieve(self, ids: SequenceNotStr[NodeIdentifier]) -> InFieldCDMLocationConfigList:
+        return InFieldCDMLocationConfigList(self.client.infield.cdm_location_config.retrieve(list(ids)))
+
+    def update(self, items: InFieldCDMLocationConfigList) -> Sized:
+        return self.create(items)
+
+    def delete(self, ids: SequenceNotStr[NodeIdentifier]) -> int:
+        if not ids:
+            return 0
+        delete_items = [
+            InFieldCDMLocationConfig(space=identifier.space, external_id=identifier.external_id) for identifier in ids
+        ]
+        self.client.infield.cdm_location_config.delete(delete_items)
+        return len(delete_items)
+
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[InFieldCDMLocationConfig]:
         raise NotImplementedError(f"Iteration over {self.display_name} is not supported.")
 
     def diff_list(
