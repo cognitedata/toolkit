@@ -19,7 +19,7 @@ from cognite_toolkit._cdf_tk.commands.collect import CollectCommand
 from cognite_toolkit._cdf_tk.commands.modules import ModulesCommand
 from cognite_toolkit._cdf_tk.commands.repo import RepoCommand
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError
-from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 
 
 class InitItemStatus(Enum):
@@ -146,7 +146,6 @@ class InitCommand(ToolkitCommand):
             if selected == "__exit__":
                 if all_mandatory_complete:
                     print("Setup complete!")
-                    print("You can now start using the Cognite Toolkit.")
                     break
                 else:
                     incomplete_mandatory = [
@@ -200,7 +199,7 @@ class InitCommand(ToolkitCommand):
             print("Would initialize cdf.toml configuration file")
             return
         CDFToml.write(self.organization_dir, "dev")
-        CDFToml.load()
+        FeatureFlag.flush()
         print(f"cdf.toml configuration file initialized in {self.organization_dir}")
 
     def _init_auth(self, dry_run: bool = False) -> None:

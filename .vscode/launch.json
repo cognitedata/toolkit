@@ -30,7 +30,7 @@
       "program": "./cdf-tk-dev.py",
       "args": [
         "init",
-        "--dry-run"
+        "--seven"
       ],
       "console": "integratedTerminal",
       "justMyCode": false
