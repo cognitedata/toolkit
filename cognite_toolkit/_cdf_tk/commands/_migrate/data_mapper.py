@@ -136,18 +136,22 @@ class ChartMapper(DataMapper[ChartSelector, Chart, ChartWrite]):
         for item in source:
             mapped_item, issue = self._map_single_item(item)
             if issue.has_issues:
+                # Skip migrating charts if any timeseries are missing
                 output.append((None, issue))
             else:
                 output.append((mapped_item, issue))
         return output
 
     def _populate_cache(self, source: Sequence[Chart]) -> None:
+        """Populate the internal cache with timeseries from the source charts.
+
+        Note that the consumption views are also cached as part of the timeseries lookup.
+        """
         timeseries_ids: set[int] = set()
         timeseries_external_ids: set[str] = set()
         for chart in source:
             for item in chart.data.time_series_collection or []:
                 if item.ts_id:
-                    # We only look-up the internalID if the externalId is missing
                     timeseries_ids.add(item.ts_id)
                 if item.ts_external_id:
                     timeseries_external_ids.add(item.ts_external_id)
@@ -156,7 +160,7 @@ class ChartMapper(DataMapper[ChartSelector, Chart, ChartWrite]):
         if timeseries_external_ids:
             self.client.migration.lookup.time_series(external_id=list(timeseries_external_ids))
 
-    def _map_single_item(self, item: Chart) -> tuple[ChartWrite | None, ChartMigrationIssue]:
+    def _map_single_item(self, item: Chart) -> tuple[ChartWrite, ChartMigrationIssue]:
         issue = ChartMigrationIssue(chart_external_id=item.external_id)
         timeseries_core_collection: list[ChartCoreTimeseries] = []
         for ts_item in item.data.time_series_collection or []:
