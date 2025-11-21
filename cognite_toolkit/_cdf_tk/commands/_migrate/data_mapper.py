@@ -190,18 +190,24 @@ class ChartMapper(DataMapper[ChartSelector, Chart, ChartWrite]):
                     issue.missing_timeseries_identifier.append(ts_item.id or "unknown")
                 continue
 
-            dumped = ts_item.dump(camel_case=True)
-            for asset_centric_key in ["tsId", "tsExternalId", "originalUnit"]:
-                dumped.pop(asset_centric_key, None)
-
-            dumped["nodeReference"] = node_id
-            dumped["viewReference"] = consumer_view_id
-            new_uuid = uuid4()
-            dumped["id"] = new_uuid
-            dumped["type"] = "coreTimeseries"
-            core_timeseries = ChartCoreTimeseries._load(dumped)
+            core_timeseries = self._create_new_timeseries_core(ts_item, node_id, consumer_view_id)
             timeseries_core_collection.append(core_timeseries)
         return timeseries_core_collection
+
+    def _create_new_timeseries_core(
+        self, ts_item: ChartTimeseries, node_id: NodeId, consumer_view_id: ViewId | None
+    ) -> ChartCoreTimeseries:
+        dumped = ts_item.dump(camel_case=True)
+        for asset_centric_key in ["tsId", "tsExternalId", "originalUnit"]:
+            dumped.pop(asset_centric_key, None)
+
+        dumped["nodeReference"] = node_id
+        dumped["viewReference"] = consumer_view_id
+        new_uuid = uuid4()
+        dumped["id"] = new_uuid
+        dumped["type"] = "coreTimeseries"
+        core_timeseries = ChartCoreTimeseries._load(dumped)
+        return core_timeseries
 
     def _get_node_id_consumer_view_id(self, ts_item: ChartTimeseries) -> tuple[NodeId | None, ViewId | None]:
         """Look up the node ID and consumer view ID for a given timeseries item.
