@@ -90,3 +90,46 @@ class TestMigrationLookup:
         _ = client.migration.lookup.assets(-1)
 
         assert len(rsps.calls) == 1, "Expected only one API call for multiple lookups of the same non-existing ID"
+
+    @pytest.mark.parametrize(
+        "args, expected_return",
+        [
+            pytest.param({"id": EXISTING_ID}, CONSUMER_VIEW, id="Existing single ID"),
+            pytest.param({"external_id": EXISTING_EXTERNAL_ID}, CONSUMER_VIEW, id="Existing single external ID"),
+            pytest.param({"id": -1}, None, id="Non-existing single ID"),
+            pytest.param({"external_id": "non_existing_external_id"}, None, id="Non-existing single external ID"),
+            pytest.param(
+                {"id": {EXISTING_ID, -1}}, {EXISTING_ID: CONSUMER_VIEW}, id="Mixed existing and non-existing IDs"
+            ),
+            pytest.param(
+                {"external_id": [EXISTING_EXTERNAL_ID, "non_existing_external_id"]},
+                {EXISTING_EXTERNAL_ID: CONSUMER_VIEW},
+                id="Mixed existing and non-existing external IDs",
+            ),
+        ],
+    )
+    def test_get_preferred_consumer_view(
+        self,
+        args: dict[str, Any],
+        expected_return: ViewId,
+        lookup_client: tuple[ToolkitClient, responses.RequestsMock],
+    ) -> None:
+        client, _ = lookup_client
+        actual_return = client.migration.lookup.assets.consumer_view(**args)
+        assert actual_return == expected_return
+
+    def test_consumer_view_single_api_call(self, lookup_client: tuple[ToolkitClient, responses.RequestsMock]) -> None:
+        client, rsps = lookup_client
+        _ = client.migration.lookup.assets.consumer_view(self.EXISTING_ID)
+        _ = client.migration.lookup.assets.consumer_view(self.EXISTING_ID)
+
+        assert len(rsps.calls) == 1, "Expected only one API call for multiple lookups of the same ID"
+
+    def test_consumer_view_non_existing_single_api_call(
+        self, lookup_client: tuple[ToolkitClient, responses.RequestsMock]
+    ) -> None:
+        client, rsps = lookup_client
+        _ = client.migration.lookup.assets.consumer_view(-1)
+        _ = client.migration.lookup.assets.consumer_view(-1)
+
+        assert len(rsps.calls) == 1, "Expected only one API call for multiple lookups of the same non-existing ID"
