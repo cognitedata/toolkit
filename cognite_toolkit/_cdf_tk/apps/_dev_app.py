@@ -29,7 +29,7 @@ class DevApp(typer.Typer):
     def create(
         self,
         kind: Annotated[
-            list[str],
+            list[str] | None,
             typer.Argument(
                 help="The kind of resource to create. eg. container, space, view, datamodel, etc.",
                 callback=lambda ctx, param, value: (
@@ -43,7 +43,7 @@ class DevApp(typer.Typer):
                     else []
                 ),
             ),
-        ] = [],
+        ] = None,
         module: Annotated[
             str | None,
             typer.Option(
