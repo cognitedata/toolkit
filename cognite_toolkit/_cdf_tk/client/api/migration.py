@@ -480,11 +480,11 @@ class LookupAPI:
                 instance_source = InstanceSource._load(item.dump())
                 node_id = instance_source.as_id()
                 self._node_id_by_id[instance_source.id_] = node_id
-                self._node_id_by_external_id[instance_source.external_id] = instance_source.preferred_consumer_view_id
+                self._consumer_view_id_by_id[instance_source.id_] = instance_source.consumer_view()
                 if instance_source.classic_external_id:
                     self._node_id_by_external_id[instance_source.classic_external_id] = node_id
-                    self._node_id_by_external_id[instance_source.classic_external_id] = (
-                        instance_source.preferred_consumer_view_id
+                    self._consumer_view_id_by_external_id[instance_source.classic_external_id] = (
+                        instance_source.consumer_view()
                     )
             missing = set(chunk) - set(self._node_id_by_id.keys()) - set(self._node_id_by_external_id.keys())
             if by == "id":
