@@ -391,16 +391,30 @@ class InFieldCDMLocationConfigCRUD(
         yaml_dict = yaml_instance.model_dump(exclude_unset=True, by_alias=False)
         # Now convert nested Pydantic models to plain dicts
         filtered_resource = {}
-        for key in ["space", "external_id", "name", "description", "feature_toggles", "app_instance_space", 
-                    "access_management", "data_filters", "data_storage", "view_mappings", "disciplines", 
-                    "data_exploration_config"]:
+        for key in [
+            "space",
+            "external_id",
+            "name",
+            "description",
+            "feature_toggles",
+            "app_instance_space",
+            "access_management",
+            "data_filters",
+            "data_storage",
+            "view_mappings",
+            "disciplines",
+            "data_exploration_config",
+        ]:
             if key in yaml_dict:
                 value = yaml_dict[key]
                 # Convert Pydantic models to dicts
                 if hasattr(value, "model_dump"):
                     filtered_resource[key] = value.model_dump(exclude_unset=True, by_alias=False)
                 elif isinstance(value, list) and value and hasattr(value[0], "model_dump"):
-                    filtered_resource[key] = [item.model_dump(exclude_unset=True, by_alias=False) if hasattr(item, "model_dump") else item for item in value]
+                    filtered_resource[key] = [
+                        item.model_dump(exclude_unset=True, by_alias=False) if hasattr(item, "model_dump") else item
+                        for item in value
+                    ]
                 else:
                     filtered_resource[key] = value
         return InFieldCDMLocationConfig.model_validate(filtered_resource)

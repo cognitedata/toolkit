@@ -93,7 +93,9 @@ class InfieldLocationConfigYAML(ToolkitResource):
     root_location_external_id: str | None = None
     feature_toggles: FeatureToggles | None = None
     app_instance_space: str | None = None
-    name: str | None = Field(default=None, description="The name of the location filter (used for LocationFilter creation)")
+    name: str | None = Field(
+        default=None, description="The name of the location filter (used for LocationFilter creation)"
+    )
     description: str | None = Field(
         default=None, description="The description of the location filter (used for LocationFilter creation)"
     )
