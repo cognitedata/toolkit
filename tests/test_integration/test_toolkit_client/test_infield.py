@@ -18,9 +18,7 @@ class TestInfieldConfig:
 
         try:
             created_list = toolkit_client.infield.config.apply([config])
-            assert len(created_list) == 2, (
-                "Expected 2 configs to be created (data exploration config and infield location config)"
-            )
+            assert len(created_list) == 1, "Expected 1 InfieldLocationConfig to be created"
             created = created_list[0]
             assert created.as_id() == config.as_id()
 
@@ -29,15 +27,12 @@ class TestInfieldConfig:
             assert retrieved_configs[0].dump() == config.dump()
 
             deleted = toolkit_client.infield.config.delete([config])
-            assert len(deleted) == 2, (
-                "Expected 2 configs to be deleted (data exploration config and infield location config)"
-            )
+            assert len(deleted) == 1, "Expected 1 InfieldLocationConfig to be deleted"
             retrieved_configs = toolkit_client.infield.config.retrieve([config.as_id()])
             assert len(retrieved_configs) == 0
         finally:
             toolkit_client.data_modeling.instances.delete(
                 [
                     (config.space, config.external_id),
-                    (config.data_exploration_config.space, config.data_exploration_config.external_id),
                 ]
             )

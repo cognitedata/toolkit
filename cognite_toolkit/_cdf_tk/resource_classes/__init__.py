@@ -27,7 +27,7 @@ from .hosted_extractor_destination import HostedExtractorDestinationYAML
 from .hosted_extractor_job import HostedExtractorJobYAML
 from .hosted_extractor_mapping import HostedExtractorMappingYAML
 from .hosted_extractor_source import HostedExtractorSourceYAML
-from .infield_location_config import InfieldLocationConfigYAML
+from .infield_location_config import InFieldCDMLocationConfigYAML, InfieldLocationConfigYAML
 from .infield_v1 import InfieldV1YAML
 from .instance import EdgeYAML, NodeYAML
 from .labels import LabelsYAML
@@ -76,6 +76,7 @@ __all__ = [
     "HostedExtractorJobYAML",
     "HostedExtractorMappingYAML",
     "HostedExtractorSourceYAML",
+    "InFieldCDMLocationConfigYAML",
     "InfieldLocationConfigYAML",
     "InfieldV1YAML",
     "LabelsYAML",
