@@ -41,6 +41,7 @@ class ChartMigrationIssue(MigrationIssue):
     chart_external_id: str
     missing_timeseries_ids: list[int] = Field(default_factory=list)
     missing_timeseries_external_ids: list[str] = Field(default_factory=list)
+    missing_timeseries_identifier: list[str] = Field(default_factory=list)
 
     @property
     def has_issues(self) -> bool:

@@ -160,26 +160,30 @@ class ChartMapper(DataMapper[ChartSelector, Chart, ChartWrite]):
         issue = ChartMigrationIssue(chart_external_id=item.external_id)
         timeseries_core_collection: list[ChartCoreTimeseries] = []
         for ts_item in item.data.time_series_collection or []:
-            node_id: NodeId | None = None
-            if ts_item.ts_id:
-                node_id = self.client.migration.lookup.time_series(ts_item.ts_id)
-                if node_id is None and ts_item.ts_external_id:
-                    node_id = self.client.migration.lookup.time_series(external_id=ts_item.ts_external_id)
-                if node_id is None:
+            node_id: NodeId | None
+            consumer_view_id: ViewId | None
+            for id_name, id_value in [("id", ts_item.ts_id), ("external_id", ts_item.ts_external_id)]:
+                arg = {id_name: id_value}
+                node_id = self.client.migration.lookup.time_series(**arg)  # type: ignore[arg-type]
+                consumer_view_id = self.client.migration.lookup.time_series.consumer_view(**arg)  # type: ignore[arg-type]
+                if node_id is not None:
+                    break
+
+            if node_id is None:
+                if ts_item.ts_id is not None:
                     issue.missing_timeseries_ids.append(ts_item.ts_id)
-            elif ts_item.ts_external_id:
-                node_id = self.client.migration.lookup.time_series(external_id=ts_item.ts_external_id)
-                if node_id is None:
+                elif ts_item.ts_external_id is not None:
                     issue.missing_timeseries_external_ids.append(ts_item.ts_external_id)
-            else:
-                node_id = None
+                else:
+                    issue.missing_timeseries_identifier.append(ts_item.id or "unknown")
+                continue
 
             dumped = ts_item.dump(camel_case=True)
-            dumped.pop("tsId", None)
-            dumped.pop("tsExternalId", None)
-            dumped.pop("originalUnit", None)
+            for asset_centric_key in ["tsId", "tsExternalId", "originalUnit"]:
+                dumped.pop(asset_centric_key, None)
+
             dumped["nodeReference"] = node_id
-            dumped["viewReference"] = ...
+            dumped["viewReference"] = consumer_view_id
             core_timeseries = ChartCoreTimeseries._load(dumped)
             timeseries_core_collection.append(core_timeseries)
         mapped_chart = item.as_write()
