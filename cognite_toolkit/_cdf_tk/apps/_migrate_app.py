@@ -18,7 +18,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.creators import (
     InstanceSpaceCreator,
     SourceSystemCreator,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
+from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper, ChartMapper
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     AnnotationMigrationIO,
     AssetCentricMigrationIO,
@@ -28,12 +28,15 @@ from cognite_toolkit._cdf_tk.commands._migrate.selectors import (
     MigrateDataSetSelector,
     MigrationCSVFileSelector,
 )
+from cognite_toolkit._cdf_tk.storageio import ChartIO
+from cognite_toolkit._cdf_tk.storageio.selectors import ChartExternalIdSelector
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.cli_args import parse_view_str
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
     AssetInteractiveSelect,
     DataModelingSelect,
     FileMetadataInteractiveSelect,
+    InteractiveChartSelect,
     ResourceViewMappingInteractiveSelect,
 )
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricKind
@@ -54,6 +57,7 @@ class MigrateApp(typer.Typer):
         self.command("files")(self.files)
         self.command("annotations")(self.annotations)
         self.command("canvas")(self.canvas)
+        self.command("charts")(self.charts)
         # Uncomment when infield v2 config migration is ready
         # self.command("infield-configs")(self.infield_configs)
 
@@ -882,6 +886,68 @@ class MigrateApp(typer.Typer):
             lambda: cmd.migrate_canvas(
                 client,
                 external_ids=external_id,
+                dry_run=dry_run,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def charts(
+        ctx: typer.Context,
+        external_id: Annotated[
+            list[str] | None,
+            typer.Argument(
+                help="The external ID of the Chart to migrate. If not provided, an interactive selection will be "
+                "performed to select the Charts to migrate."
+            ),
+        ] = None,
+        log_dir: Annotated[
+            Path,
+            typer.Option(
+                "--log-dir",
+                "-l",
+                help="Path to the directory where migration logs will be stored.",
+            ),
+        ] = Path(f"migration_logs_{TODAY}"),
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-d",
+                help="If set, the migration will not be executed, but only a report of "
+                "what would be done is printed. This is useful for checking that all time series referenced by the Charts "
+                "have been migrated to the new data modeling resources in CDF.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """Migrate Charts from time series references to data modeling in CDF.
+
+        This command expects that the CogniteMigration data model is already deployed, and that the Mapping view
+        is populated with the mapping from time series to the new data modeling resources.
+        """
+        client = EnvironmentVariables.create_from_environment().get_client()
+
+        selected_external_ids: list[str]
+        if external_id:
+            selected_external_ids = external_id
+        else:
+            selected_external_ids = InteractiveChartSelect(client).select_external_ids()
+
+        cmd = MigrationCommand()
+        cmd.run(
+            lambda: cmd.migrate(
+                selected=ChartExternalIdSelector(external_ids=tuple(selected_external_ids)),
+                data=ChartIO(client),
+                mapper=ChartMapper(client),
+                log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
             )
