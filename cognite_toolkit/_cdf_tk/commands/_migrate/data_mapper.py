@@ -164,9 +164,11 @@ class ChartMapper(DataMapper[ChartSelector, Chart, ChartWrite]):
         issue = ChartMigrationIssue(chart_external_id=item.external_id)
         timeseries_core_collection: list[ChartCoreTimeseries] = []
         for ts_item in item.data.time_series_collection or []:
-            node_id: NodeId | None
-            consumer_view_id: ViewId | None
+            node_id: NodeId | None = None
+            consumer_view_id: ViewId | None = None
             for id_name, id_value in [("id", ts_item.ts_id), ("external_id", ts_item.ts_external_id)]:
+                if id_value is None:
+                    continue
                 arg = {id_name: id_value}
                 node_id = self.client.migration.lookup.time_series(**arg)  # type: ignore[arg-type]
                 consumer_view_id = self.client.migration.lookup.time_series.consumer_view(**arg)  # type: ignore[arg-type]
