@@ -203,7 +203,7 @@ class ChartMapper(DataMapper[ChartSelector, Chart, ChartWrite]):
 
         dumped["nodeReference"] = node_id
         dumped["viewReference"] = consumer_view_id
-        new_uuid = uuid4()
+        new_uuid = str(uuid4())
         dumped["id"] = new_uuid
         dumped["type"] = "coreTimeseries"
         core_timeseries = ChartCoreTimeseries._load(dumped)
