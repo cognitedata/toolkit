@@ -46,7 +46,9 @@ class ChartMigrationIssue(MigrationIssue):
     @property
     def has_issues(self) -> bool:
         """Check if there are any issues recorded in this ChartMigrationIssue."""
-        return bool(self.missing_timeseries_ids or self.missing_timeseries_external_ids)
+        return bool(
+            self.missing_timeseries_ids or self.missing_timeseries_external_ids or self.missing_timeseries_identifier
+        )
 
 
 class ReadIssue(MigrationIssue):
