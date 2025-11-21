@@ -14,7 +14,11 @@ T_IO = TypeVar("T_IO", bound=IO)
 
 
 class FileIO(ABC):
-    format: ClassVar[str]
+    FORMAT: ClassVar[str]
+
+    @property
+    def format(self) -> str:
+        return self.FORMAT
 
 
 @dataclass(frozen=True)
