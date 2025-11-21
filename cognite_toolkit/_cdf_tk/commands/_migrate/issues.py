@@ -30,6 +30,27 @@ class MigrationIssue(MigrationObject):
         return True
 
 
+class ChartMigrationIssue(MigrationIssue):
+    """Represents a chart migration issue encountered during migration.
+
+    Attributes:
+        chart_external_id (str): The external ID of the chart that could not be migrated.
+    """
+
+    type: ClassVar[str] = "chartMigration"
+    chart_external_id: str
+    missing_timeseries_ids: list[int] = Field(default_factory=list)
+    missing_timeseries_external_ids: list[str] = Field(default_factory=list)
+    missing_timeseries_identifier: list[str] = Field(default_factory=list)
+
+    @property
+    def has_issues(self) -> bool:
+        """Check if there are any issues recorded in this ChartMigrationIssue."""
+        return bool(
+            self.missing_timeseries_ids or self.missing_timeseries_external_ids or self.missing_timeseries_identifier
+        )
+
+
 class ReadIssue(MigrationIssue):
     """Represents a read issue encountered during migration."""
 
