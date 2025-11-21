@@ -139,10 +139,10 @@ class ChartCoreTimeseries(BaseChartElement):
         data = super().dump(camel_case=camel_case)
         if self.node_reference:
             key = "nodeReference" if camel_case else "node_reference"
-            data[key] = self.node_reference.dump()
+            data[key] = self.node_reference.dump(include_instance_type=False)
         if self.view_reference:
             key = "viewReference" if camel_case else "view_reference"
-            data[key] = self.view_reference.dump()
+            data[key] = self.view_reference.dump(include_type=False)
         return data
 
     @classmethod
