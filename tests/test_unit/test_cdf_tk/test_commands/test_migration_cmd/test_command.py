@@ -22,6 +22,7 @@ from cognite.client.data_classes.data_modeling.statistics import InstanceStatist
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart
 from cognite_toolkit._cdf_tk.client.data_classes.charts_data import ChartData, ChartTimeseries
+from cognite_toolkit._cdf_tk.client.data_classes.migration import InstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper, ChartMapper
@@ -52,6 +53,26 @@ def cognite_migration_model(
     cognite_core_no_3D: DataModel[View],
     cognite_extractor_views: list[View],
 ) -> Iterator[responses.RequestsMock]:
+    """Mock the Cognite Migration Model in the CDF project."""
+    config = toolkit_config
+    # Migration model
+    migration_model = COGNITE_MIGRATION_MODEL.dump()
+    migration_model["createdTime"] = 1
+    migration_model["lastUpdatedTime"] = 1
+    migration_model["isGlobal"] = False
+    rsps.post(config.create_api_url("models/datamodels/byids"), json={"items": migration_model})
+    yield rsps
+
+
+@pytest.fixture
+def resource_view_mappings(
+    toolkit_config: ToolkitClientConfig,
+    cognite_migration_model: responses.RequestsMock,
+    cognite_core_no_3D: DataModel[View],
+    cognite_extractor_views: list[View],
+) -> Iterator[responses.RequestsMock]:
+    """Mock all the default Resource View Mappings in the Cognite Migration Model."""
+    rsps = cognite_migration_model
     config = toolkit_config
     mapping_by_id = {mapping.external_id: mapping for mapping in create_default_mappings()}
     node_items: list[dict] = []
@@ -80,13 +101,6 @@ def cognite_migration_model(
             + [view.dump() for view in cognite_extractor_views]
         },
     )
-    # Migration model
-    migration_model = COGNITE_MIGRATION_MODEL.dump()
-    migration_model["createdTime"] = 1
-    migration_model["lastUpdatedTime"] = 1
-    migration_model["isGlobal"] = False
-    rsps.post(config.create_api_url("models/datamodels/byids"), json={"items": migration_model})
-
     yield rsps
 
 
@@ -145,11 +159,11 @@ class TestMigrationCommand:
     def test_migrate_assets(
         self,
         toolkit_config: ToolkitClientConfig,
-        cognite_migration_model: responses.RequestsMock,
+        resource_view_mappings: responses.RequestsMock,
         tmp_path: Path,
         respx_mock: respx.MockRouter,
     ) -> None:
-        rsps = cognite_migration_model
+        rsps = resource_view_mappings
         config = toolkit_config
         assets = AssetList(
             [
@@ -259,11 +273,11 @@ class TestMigrationCommand:
     def test_migrate_annotations(
         self,
         toolkit_config: ToolkitClientConfig,
-        cognite_migration_model: responses.RequestsMock,
+        resource_view_mappings: responses.RequestsMock,
         tmp_path: Path,
         respx_mock: respx.MockRouter,
     ) -> None:
-        rsps = cognite_migration_model
+        rsps = resource_view_mappings
         config = toolkit_config
         asset_annotation = Annotation(
             id=2000,
@@ -434,7 +448,6 @@ class TestMigrationCommand:
         ]
         assert actual_instances == expected_instance
 
-    @pytest.mark.usefixtures("mock_statistics")
     def test_migrate_charts(
         self,
         toolkit_config: ToolkitClientConfig,
@@ -457,6 +470,7 @@ class TestMigrationCommand:
                 owner_id="1234",
             )
         ]
+        # Chart retrieve ids
         rsps.add(
             responses.POST,
             config.create_app_url("/storage/charts/charts/list"),
@@ -465,6 +479,47 @@ class TestMigrationCommand:
             },
             status=200,
         )
+        # TimeSeries Instance ID lookup
+        rsps.add(
+            method=responses.POST,
+            url=config.create_api_url("models/instances/query"),
+            json={
+                "items": {
+                    "instanceSource": [
+                        InstanceSource(
+                            space="my_space",
+                            external_id="node_123",
+                            version=1,
+                            last_updated_time=1,
+                            created_time=1,
+                            resource_type="timeseries",
+                            id_=1,
+                            classic_external_id=None,
+                            preferred_consumer_view_id=ViewId("cdf_cdm", "CogniteTimeSeries", "v1"),
+                        ).dump(),
+                        InstanceSource(
+                            space="my_space",
+                            external_id="node_ts_1",
+                            version=1,
+                            last_updated_time=1,
+                            created_time=1,
+                            resource_type="timeseries",
+                            id_=2,
+                            classic_external_id="ts_1",
+                            preferred_consumer_view_id=ViewId("my_schema_space", "MyTimeSeries", "v1"),
+                        ).dump(),
+                    ]
+                },
+                "nextCursor": {"instanceSource": None},
+            },
+            status=200,
+        )
+
+        # Chart upsert
+        respx.put(
+            config.create_app_url("/storage/charts/charts"),
+        ).mock(return_value=httpx.Response(status_code=200, json={"items": [chart.dump() for chart in charts]}))
+
         client = ToolkitClient(config)
         command = MigrationCommand(silent=True)
         result = command.migrate(
@@ -478,6 +533,37 @@ class TestMigrationCommand:
         actual = result.get_progress("my_chart")
         expected = {"download": "success", "convert": "success", "upload": "success"}
         assert actual == expected
+
+        calls = respx_mock.calls
+        assert len(calls) == 1
+        last_call = calls[-1]
+        assert last_call.request.url == config.create_app_url("/storage/charts/charts")
+        assert last_call.request.method == "PUT"
+        actual_charts = json.loads(last_call.request.content)["items"]
+        expected_charts = [
+            {
+                "externalId": "my_chart",
+                "visibility": "PUBLIC",
+                "data": {
+                    "name": "My Chart",
+                    "coreTimeseriesCollection": [
+                        {
+                            "nodeReference": {"space": "my_space", "externalId": "node_ts_1"},
+                            "viewReference": {
+                                "space": "my_schema_space",
+                                "externalId": "MyTimeSeries",
+                                "version": "v1",
+                            },
+                        },
+                        {
+                            "nodeReference": {"space": "my_space", "externalId": "node_123"},
+                            "viewReference": {"space": "cdf_cdm", "externalId": "CogniteTimeSeries", "version": "v1"},
+                        },
+                    ],
+                },
+            }
+        ]
+        assert actual_charts == expected_charts
 
     def test_validate_migration_model_available(self) -> None:
         with monkeypatch_toolkit_client() as client:
