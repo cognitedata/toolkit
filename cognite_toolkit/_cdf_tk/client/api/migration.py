@@ -509,7 +509,7 @@ class LookupAPI:
                 for missing_ext_id in cast(set[str], missing):
                     if missing_ext_id not in self._node_id_by_external_id:
                         self._node_id_by_external_id[missing_ext_id] = None
-                    if missing_ext_id not in self._consumer_view_id_by_id:
+                    if missing_ext_id not in self._consumer_view_id_by_external_id:
                         self._consumer_view_id_by_external_id[missing_ext_id] = None
 
 
