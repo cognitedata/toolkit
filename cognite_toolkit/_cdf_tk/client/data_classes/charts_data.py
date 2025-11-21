@@ -135,6 +135,26 @@ class ChartCoreTimeseries(BaseChartElement):
     view_reference: ViewId | None = None
     display_mode: str | None = None
 
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        data = super().dump(camel_case=camel_case)
+        if self.node_reference:
+            key = "nodeReference" if camel_case else "node_reference"
+            data[key] = self.node_reference.dump()
+        if self.view_reference:
+            key = "viewReference" if camel_case else "view_reference"
+            data[key] = self.view_reference.dump()
+        return data
+
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        """Load a ChartCoreTimeseries object from a dictionary."""
+        instance = super()._load(resource, cognite_client=cognite_client)
+        if "nodeReference" in resource:
+            instance.node_reference = NodeId.load(resource["nodeReference"])
+        if "viewReference" in resource:
+            instance.view_reference = ViewId.load(resource["viewReference"])
+        return instance
+
 
 @dataclass
 class ChartTimeseries(BaseChartElement):
