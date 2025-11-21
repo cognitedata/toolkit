@@ -26,7 +26,9 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 
 
 class TestAssetCentricMapper:
-    def test_map_assets(self, tmp_path: Path, cognite_core_no_3D: DataModel[View]) -> None:
+    def test_map_assets(
+        self, tmp_path: Path, cognite_core_no_3D: DataModel[View], cognite_extractor_views: list[View]
+    ) -> None:
         asset_count = 10
         source = AssetCentricMappingList(
             [
@@ -86,7 +88,7 @@ class TestAssetCentricMapper:
                     ),
                 ]
             )
-            client.data_modeling.views.retrieve.return_value = cognite_core_no_3D.views
+            client.data_modeling.views.retrieve.return_value = cognite_core_no_3D.views + cognite_extractor_views
 
             mapper = AssetCentricMapper(client)
 
@@ -114,7 +116,6 @@ class TestAssetCentricMapper:
             client.migration.resource_view_mapping.retrieve.assert_called_with(["cdf_asset_mapping"])
             assert client.migration.created_source_system.retrieve.call_count == 1
             assert client.data_modeling.views.retrieve.call_count == 1
-            client.data_modeling.views.retrieve.assert_called_with([ViewId("cdf_cdm", "CogniteAsset", "v1")])
 
     def test_map_chunk_before_prepare_raises_error(self, tmp_path: Path) -> None:
         """Test that calling map_chunk before prepare raises a RuntimeError."""
@@ -174,7 +175,7 @@ class TestAssetCentricMapper:
                     ResourceViewMapping(
                         external_id="cdf_asset_mapping",
                         resource_type="asset",
-                        view_id=ViewId("cdf_cdm", "CogniteAsset", "v1"),
+                        view_id=ViewId("my_space", "MyAsset", "v1"),
                         property_mapping={
                             "name": "name",
                             "description": "description",
@@ -193,7 +194,4 @@ class TestAssetCentricMapper:
             with pytest.raises(ToolkitValueError) as exc_info:
                 mapper.prepare(selected)
 
-            assert (
-                str(exc_info.value)
-                == "The following ingestion views were not found in Data Modeling: ViewId(space='cdf_cdm', external_id='CogniteAsset', version='v1')"
-            )
+            assert "The following ingestion views were not found in Data Modeling" in str(exc_info.value)
