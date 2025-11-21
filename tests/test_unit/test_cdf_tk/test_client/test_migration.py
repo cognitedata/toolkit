@@ -2,7 +2,7 @@ from typing import Any, ClassVar
 
 import pytest
 import responses
-from cognite.client.data_classes.data_modeling import NodeId
+from cognite.client.data_classes.data_modeling import NodeId, ViewId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.migration import InstanceSource
@@ -30,6 +30,7 @@ class TestMigrationLookup:
     EXISTING_ID = 123
     EXISTING_EXTERNAL_ID = "node_123"
     EXISTING_NODE_ID = NodeId(SPACE, "node_123")
+    CONSUMER_VIEW = ViewId("cdf_cdm", "CogniteAsset", "v1")
     QUERY_RESPONSE: ClassVar[dict[str, Any]] = {
         "items": {
             "instanceSource": [
@@ -42,6 +43,7 @@ class TestMigrationLookup:
                     resource_type="asset",
                     id_=EXISTING_ID,
                     classic_external_id=EXISTING_EXTERNAL_ID,
+                    preferred_consumer_view_id=CONSUMER_VIEW,
                 ).dump()
             ]
         },

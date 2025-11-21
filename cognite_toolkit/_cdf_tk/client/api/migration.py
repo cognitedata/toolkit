@@ -10,6 +10,7 @@ from cognite.client.data_classes.data_modeling import (
     NodeApplyResultList,
     NodeId,
     NodeList,
+    ViewId,
     filters,
     query,
 )
@@ -354,6 +355,8 @@ class LookupAPI:
         self._view_id = InstanceSource.get_source()
         self._node_id_by_id: dict[int, NodeId | None] = {}
         self._node_id_by_external_id: dict[str, NodeId | None] = {}
+        self._consumer_view_id_by_id: dict[int, ViewId | None] = {}
+        self._consumer_view_id_by_external_id: dict[str, ViewId | None] = {}
         self._RETRIEVE_LIMIT = 1000
 
     @overload
@@ -388,6 +391,24 @@ class LookupAPI:
         else:
             raise ValueError("Either id or external_id must be provided, but not both.")
 
+    def consumer_view(
+        self, id: int | Sequence[int] | None = None, external_id: str | SequenceNotStr[str] | None = None
+    ) -> dict[int, ViewId] | dict[str, ViewId] | ViewId | None:
+        """Lookup Consumer ViewId by either internal ID or external ID.
+
+        Args:
+            id (int | Sequence[int] | None): The internal ID(s) to lookup.
+            external_id (str | SequenceNotStr[str] | None): The external ID(s) to lookup.
+        Returns:
+            ViewId | dict[int, ViewId] | dict[str, ViewId] | None
+        """
+        if id is not None and external_id is None:
+            return self._lookup_consumer_view_by_id(id)
+        elif external_id is not None and id is None:
+            return self._lookup_consumer_view_by_external_id(external_id)
+        else:
+            raise ValueError("Either id or external_id must be provided, but not both.")
+
     def _lookup_by_id(self, id: int | Sequence[int]) -> dict[int, NodeId] | NodeId | None:
         ids: list[int] = [id] if isinstance(id, int) else list(id)
 
@@ -412,6 +433,32 @@ class LookupAPI:
             if isinstance(node_id := self._node_id_by_external_id.get(ext_id), NodeId)
         }
 
+    def _lookup_consumer_view_by_id(self, id: int | Sequence[int]) -> dict[int, ViewId] | ViewId | None:
+        ids: list[int] = [id] if isinstance(id, int) else list(id)
+
+        missing = [id_ for id_ in ids if id_ not in self._consumer_view_id_by_id]
+        if missing:
+            self._fetch_and_cache(missing, by="id")
+        if isinstance(id, int):
+            return self._consumer_view_id_by_id.get(id)
+        return {id_: view_id for id_ in ids if isinstance(view_id := self._consumer_view_id_by_id.get(id_), ViewId)}
+
+    def _lookup_consumer_view_by_external_id(
+        self, external_id: str | SequenceNotStr[str]
+    ) -> dict[str, ViewId] | ViewId | None:
+        external_ids: list[str] = [external_id] if isinstance(external_id, str) else list(external_id)
+
+        missing = [ext_id for ext_id in external_ids if ext_id not in self._consumer_view_id_by_external_id]
+        if missing:
+            self._fetch_and_cache(missing, by="classicExternalId")
+        if isinstance(external_id, str):
+            return self._consumer_view_id_by_external_id.get(external_id)
+        return {
+            ext_id: view_id
+            for ext_id in external_ids
+            if isinstance(view_id := self._consumer_view_id_by_external_id.get(ext_id), ViewId)
+        }
+
     def _fetch_and_cache(self, identifiers: Sequence[int | str], by: Literal["id", "classicExternalId"]) -> None:
         for chunk in chunker_sequence(identifiers, self._RETRIEVE_LIMIT):
             retrieve_query = query.Query(
@@ -433,17 +480,25 @@ class LookupAPI:
                 instance_source = InstanceSource._load(item.dump())
                 node_id = instance_source.as_id()
                 self._node_id_by_id[instance_source.id_] = node_id
+                self._node_id_by_external_id[instance_source.external_id] = instance_source.preferred_consumer_view_id
                 if instance_source.classic_external_id:
                     self._node_id_by_external_id[instance_source.classic_external_id] = node_id
+                    self._node_id_by_external_id[instance_source.classic_external_id] = (
+                        instance_source.preferred_consumer_view_id
+                    )
             missing = set(chunk) - set(self._node_id_by_id.keys()) - set(self._node_id_by_external_id.keys())
             if by == "id":
                 for missing_id in cast(set[int], missing):
                     if missing_id not in self._node_id_by_id:
                         self._node_id_by_id[missing_id] = None
+                    if missing_id not in self._consumer_view_id_by_id:
+                        self._consumer_view_id_by_id[missing_id] = None
             elif by == "classicExternalId":
                 for missing_ext_id in cast(set[str], missing):
                     if missing_ext_id not in self._node_id_by_external_id:
                         self._node_id_by_external_id[missing_ext_id] = None
+                    if missing_ext_id not in self._consumer_view_id_by_id:
+                        self._consumer_view_id_by_external_id[missing_ext_id] = None
 
 
 class MigrationLookupAPI:
