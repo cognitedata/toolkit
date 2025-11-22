@@ -8,6 +8,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList,
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, SimpleBodyRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import Page, UploadableStorageIO, UploadItem
@@ -158,6 +159,28 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
         if not isinstance(selector, CanvasExternalIdSelector):
             raise ToolkitNotImplementedError(f"Unsupported selector type {type(selector).__name__!r} for CanvasIO")
         return len(selector.external_ids)
+
+    def upload_items(
+        self,
+        data_chunk: Sequence[UploadItem[IndustrialCanvasApply]],
+        http_client: HTTPClient,
+        selector: CanvasSelector | None = None,
+    ) -> Sequence[HTTPMessage]:
+        config = http_client.config
+        results: list[HTTPMessage] = []
+        for item in data_chunk:
+            instances = item.item.as_instances()
+            responses = http_client.request_with_retries(
+                message=SimpleBodyRequest(
+                    endpoint_url=config.create_api_url("/models/instances"),
+                    method="POST",
+                    # MyPy does not understand that .dump is valid json
+                    body_content={"items": [instance.dump() for instance in instances]},
+                )
+            )
+            results.extend(responses.as_item_responses(item.source_id))
+
+        return results
 
     def data_to_json_chunk(
         self, data_chunk: Sequence[IndustrialCanvas], selector: CanvasSelector | None = None
