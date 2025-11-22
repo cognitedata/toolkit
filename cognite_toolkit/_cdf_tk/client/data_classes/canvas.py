@@ -957,7 +957,7 @@ class IndustrialCanvasApply(CogniteResource):
     @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
         """Load an IndustrialCanvasApply instance from a resource dictionary."""
-        if not ("canvas" in resource and isinstance(resource["canvas"], (dict, CanvasApply))):
+        if "canvas" not in resource:
             raise ValueError("Resource does not contain a canvas node.")
         canvas_resource = resource["canvas"]
         if isinstance(canvas_resource, dict):
