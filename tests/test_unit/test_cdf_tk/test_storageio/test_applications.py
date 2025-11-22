@@ -1,13 +1,19 @@
+import json
+
 import pytest
 import responses
+from cognite.client.data_classes.data_modeling import NodeList
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.data_classes.canvas import IndustrialCanvas
 from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList
 from cognite_toolkit._cdf_tk.client.data_classes.charts_data import ChartData
+from cognite_toolkit._cdf_tk.client.data_classes.migration import InstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.storageio import ChartIO
+from cognite_toolkit._cdf_tk.storageio import CanvasIO, ChartIO
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     AllChartsSelector,
+    CanvasExternalIdSelector,
     ChartOwnerSelector,
     ChartSelector,
 )
@@ -135,3 +141,53 @@ class TestChartIO:
             for chunk in chunks:
                 all_charts.extend(chunk.items)
             assert [chart.external_id for chart in all_charts] == expected_external_ids
+
+
+class TestCanvasIO:
+    def test_download_iterable(self, asset_centric_canvas: tuple[IndustrialCanvas, NodeList[InstanceSource]]) -> None:
+        canvas, _ = asset_centric_canvas
+        ids = [container_ref.resource_id for container_ref in canvas.container_references or []]
+        assert len(ids) > 0, "Test canvas must have container references for this test to be valid."
+        mapping = {id_: f"external_id_{no}" for no, id_ in enumerate(ids)}
+        reverse = {v: k for k, v in mapping.items()}
+
+        def reverse_lookup(id_: int | list[int]) -> str | list[str]:
+            if isinstance(id_, list):
+                return [mapping[i] for i in id_]
+            return mapping[id_]
+
+        def lookup(external_id: str | list[str]) -> int | list[int]:
+            if isinstance(external_id, list):
+                return [reverse[eid] for eid in external_id]
+            return reverse[external_id]
+
+        selector = CanvasExternalIdSelector(external_ids=(canvas.as_id(),))
+        with monkeypatch_toolkit_client() as client:
+            client.canvas.industrial.retrieve.return_value = canvas
+
+            client.lookup.assets.id.side_effect = lookup
+            client.lookup.events.id.side_effect = lookup
+            client.lookup.time_series.id.side_effect = lookup
+            client.lookup.files.id.side_effect = lookup
+
+            client.lookup.assets.external_id.side_effect = reverse_lookup
+            client.lookup.events.external_id.side_effect = reverse_lookup
+            client.lookup.time_series.external_id.side_effect = reverse_lookup
+            client.lookup.files.external_id.side_effect = reverse_lookup
+
+            io = CanvasIO(client)
+
+            chunks = list(io.stream_data(selector=selector))
+            canvas_list = [canvas for page in chunks for canvas in page.items]
+            assert len(canvas_list) == 1
+
+            json_format = io.data_to_json_chunk(canvas_list, selector)
+            assert len(json_format) == 1
+            json_str = json.dumps(json_format)
+            internal_id_in_json = [id_ for id_ in ids if str(id_) in json_str]
+            assert len(internal_id_in_json) == 0, "Internal IDs should not be present in the JSON export."
+            restored_canvases = io.json_chunk_to_data([("line 1", item) for item in json_format])
+
+            assert len(restored_canvases) == 1
+            restored_canvas = restored_canvases[0]
+            assert restored_canvas.item.dump() == canvas.as_write().dump()

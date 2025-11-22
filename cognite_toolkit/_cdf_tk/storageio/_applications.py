@@ -6,11 +6,19 @@ from cognite_toolkit._cdf_tk.client.data_classes.canvas import (
 )
 from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList, ChartWrite
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
+from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import Page, UploadableStorageIO, UploadItem
-from .selectors import AllChartsSelector, CanvasSelector, ChartExternalIdSelector, ChartOwnerSelector, ChartSelector
+from .selectors import (
+    AllChartsSelector,
+    CanvasExternalIdSelector,
+    CanvasSelector,
+    ChartExternalIdSelector,
+    ChartOwnerSelector,
+    ChartSelector,
+)
 
 
 class ChartIO(UploadableStorageIO[ChartSelector, Chart, ChartWrite]):
@@ -128,17 +136,181 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
         return item.as_id()
 
     def stream_data(self, selector: CanvasSelector, limit: int | None = None) -> Iterable[Page]:
-        raise ToolkitNotImplementedError("Streaming canvases is not implemented yet.")
+        if not isinstance(selector, CanvasExternalIdSelector):
+            raise ToolkitNotImplementedError(f"Unsupported selector type {type(selector).__name__!r} for CanvasIO")
+        canvas_ids = selector.external_ids
+        if limit is not None and len(canvas_ids) > limit:
+            canvas_ids = canvas_ids[:limit]
+
+        for chunk in chunker_sequence(canvas_ids, self.CHUNK_SIZE):
+            items: list[IndustrialCanvas] = []
+            for canvas_id in chunk:
+                canvas = self.client.canvas.industrial.retrieve(canvas_id)
+                if canvas is not None:
+                    items.append(canvas)
+                else:
+                    MediumSeverityWarning("Canvas with external ID {canvas_id!r} not found. Skipping.").print_warning(
+                        console=self.client.console
+                    )
+            yield Page(worker_id="main", items=items)
 
     def count(self, selector: CanvasSelector) -> int | None:
-        raise ToolkitNotImplementedError("Counting canvases is not implemented yet.")
+        if not isinstance(selector, CanvasExternalIdSelector):
+            raise ToolkitNotImplementedError(f"Unsupported selector type {type(selector).__name__!r} for CanvasIO")
+        return len(selector.external_ids)
 
     def data_to_json_chunk(
         self, data_chunk: Sequence[IndustrialCanvas], selector: CanvasSelector | None = None
     ) -> list[dict[str, JsonVal]]:
-        # Need to do lookup to get external IDs for all asset-centric resources.
-        raise ToolkitNotImplementedError("Exporting canvases is not implemented yet.")
+        self._populate_id_cache(data_chunk)
+        return [self._dump_resource(canvas) for canvas in data_chunk]
+
+    def _populate_id_cache(self, data_chunk: Sequence[IndustrialCanvas]) -> None:
+        """Populate the client's lookup cache with all referenced resources in the canvases."""
+        asset_ids: set[int] = set()
+        time_series_ids: set[int] = set()
+        event_ids: set[int] = set()
+        file_ids: set[int] = set()
+        for canvas in data_chunk:
+            for container_ref in canvas.container_references:
+                if container_ref.container_reference_type == "asset":
+                    asset_ids.add(container_ref.resource_id)
+                elif container_ref.container_reference_type == "timeseries":
+                    time_series_ids.add(container_ref.resource_id)
+                elif container_ref.container_reference_type == "event":
+                    event_ids.add(container_ref.resource_id)
+                elif container_ref.container_reference_type == "file":
+                    file_ids.add(container_ref.resource_id)
+        if asset_ids:
+            self.client.lookup.assets.external_id(list(asset_ids))
+        if time_series_ids:
+            self.client.lookup.time_series.external_id(list(time_series_ids))
+        if event_ids:
+            self.client.lookup.events.external_id(list(event_ids))
+        if file_ids:
+            self.client.lookup.files.external_id(list(file_ids))
+
+    def _dump_resource(self, canvas: IndustrialCanvas) -> dict[str, JsonVal]:
+        dumped = canvas.as_write().dump()
+        references = dumped.get("containerReferences", [])
+        if not isinstance(references, list):
+            return dumped
+        for container_ref in references:
+            if not isinstance(container_ref, dict):
+                continue
+            sources = container_ref.get("sources", [])
+            if not isinstance(sources, list) or len(sources) == 0:
+                continue
+            source = sources[0]
+            if not isinstance(source, dict) or "properties" not in source:
+                continue
+            properties = source["properties"]
+            if not isinstance(properties, dict):
+                continue
+            resource_id = properties.pop("resourceId", None)
+            if not isinstance(resource_id, int):
+                continue
+            reference_type = properties.get("containerReferenceType")
+            if reference_type == "asset":
+                external_id = self.client.lookup.assets.external_id(resource_id)
+            elif reference_type == "timeseries":
+                external_id = self.client.lookup.time_series.external_id(resource_id)
+            elif reference_type == "event":
+                external_id = self.client.lookup.events.external_id(resource_id)
+            elif reference_type == "file":
+                external_id = self.client.lookup.files.external_id(resource_id)
+            else:
+                continue
+            if external_id is not None:
+                properties["resourceExternalId"] = external_id
+        return dumped
+
+    def json_chunk_to_data(
+        self, data_chunk: list[tuple[str, dict[str, JsonVal]]]
+    ) -> Sequence[UploadItem[IndustrialCanvasApply]]:
+        self._populate_external_id_cache([item_json for _, item_json in data_chunk])
+        return super().json_chunk_to_data(data_chunk)
+
+    def _populate_external_id_cache(self, item_jsons: Sequence[dict[str, JsonVal]]) -> None:
+        """Populate the client's lookup cache with all referenced resources in the canvases."""
+        asset_external_ids: set[str] = set()
+        time_series_external_ids: set[str] = set()
+        event_external_ids: set[str] = set()
+        file_external_ids: set[str] = set()
+        for item_json in item_jsons:
+            references = item_json.get("containerReferences", [])
+            if not isinstance(references, list):
+                continue
+            for container_ref in references:
+                if not isinstance(container_ref, dict):
+                    continue
+                sources = container_ref.get("sources", [])
+                if not isinstance(sources, list) or len(sources) == 0:
+                    continue
+                source = sources[0]
+                if not isinstance(source, dict) or "properties" not in source:
+                    continue
+                properties = source["properties"]
+                if not isinstance(properties, dict):
+                    continue
+
+                resource_external_id = properties.get("resourceExternalId")
+                if not isinstance(resource_external_id, str):
+                    continue
+
+                reference_type = properties.get("containerReferenceType")
+                if reference_type == "asset":
+                    asset_external_ids.add(resource_external_id)
+                elif reference_type == "timeseries":
+                    time_series_external_ids.add(resource_external_id)
+                elif reference_type == "event":
+                    event_external_ids.add(resource_external_id)
+                elif reference_type == "file":
+                    file_external_ids.add(resource_external_id)
+
+        if asset_external_ids:
+            self.client.lookup.assets.id(list(asset_external_ids))
+        if time_series_external_ids:
+            self.client.lookup.time_series.id(list(time_series_external_ids))
+        if event_external_ids:
+            self.client.lookup.events.id(list(event_external_ids))
+        if file_external_ids:
+            self.client.lookup.files.id(list(file_external_ids))
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> IndustrialCanvasApply:
-        # Need to do lookup to get external IDs for all asset-centric resources.
-        raise ToolkitNotImplementedError("Importing canvases is not implemented yet.")
+        return self._load_resource(item_json)
+
+    def _load_resource(self, item_json: dict[str, JsonVal]) -> IndustrialCanvasApply:
+        references = item_json.get("containerReferences", [])
+        if not isinstance(references, list):
+            return IndustrialCanvasApply._load(item_json)
+        for container_ref in references:
+            if not isinstance(container_ref, dict):
+                continue
+            sources = container_ref.get("sources", [])
+            if not isinstance(sources, list) or len(sources) == 0:
+                continue
+            source = sources[0]
+            if not isinstance(source, dict) or "properties" not in source:
+                continue
+            properties = source["properties"]
+            if not isinstance(properties, dict):
+                continue
+            resource_external_id = properties.pop("resourceExternalId", None)
+            if not isinstance(resource_external_id, str):
+                continue
+            reference_type = properties.get("containerReferenceType")
+            if reference_type == "asset":
+                resource_id = self.client.lookup.assets.id(resource_external_id)
+            elif reference_type == "timeseries":
+                resource_id = self.client.lookup.time_series.id(resource_external_id)
+            elif reference_type == "event":
+                resource_id = self.client.lookup.events.id(resource_external_id)
+            elif reference_type == "file":
+                resource_id = self.client.lookup.files.id(resource_external_id)
+            else:
+                continue
+            if resource_id is not None:
+                properties["resourceId"] = resource_id
+
+        return IndustrialCanvasApply._load(item_json)

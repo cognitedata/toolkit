@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.commands import DownloadCommand
 from cognite_toolkit._cdf_tk.constants import DATA_DEFAULT_DIR
 from cognite_toolkit._cdf_tk.storageio import (
     AssetIO,
+    CanvasIO,
     ChartIO,
     HierarchyIO,
     InstanceIO,
@@ -18,6 +19,8 @@ from cognite_toolkit._cdf_tk.storageio import (
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     AssetCentricSelector,
     AssetSubtreeSelector,
+    CanvasExternalIdSelector,
+    CanvasSelector,
     ChartExternalIdSelector,
     ChartSelector,
     DataSetSelector,
@@ -30,6 +33,7 @@ from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
     AssetInteractiveSelect,
     DataModelingSelect,
+    InteractiveCanvasSelect,
     InteractiveChartSelect,
     RawTableInteractiveSelect,
 )
@@ -58,6 +62,10 @@ class ChartFormats(str, Enum):
     ndjson = "ndjson"
 
 
+class CanvasFormats(str, Enum):
+    ndjson = "ndjson"
+
+
 class InstanceTypes(str, Enum):
     node = "node"
     edge = "edge"
@@ -80,6 +88,7 @@ class DownloadApp(typer.Typer):
         self.command("hierarchy")(self.download_hierarchy_cmd)
         self.command("instances")(self.download_instances_cmd)
         self.command("charts")(self.download_charts_cmd)
+        self.command("canvas")(self.download_canvas_cmd)
 
     @staticmethod
     def download_main(ctx: typer.Context) -> None:
@@ -551,6 +560,79 @@ class DownloadApp(typer.Typer):
             lambda: cmd.download(
                 selectors=[selector],
                 io=ChartIO(client),
+                output_dir=output_dir,
+                file_format=f".{file_format.value}",
+                compression=compression.value,
+                limit=limit if limit != -1 else None,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def download_canvas_cmd(
+        ctx: typer.Context,
+        external_ids: Annotated[
+            list[str] | None,
+            typer.Argument(
+                help="List of canvas external IDs to download. If not provided, an interactive selection will be made.",
+            ),
+        ] = None,
+        file_format: Annotated[
+            CanvasFormats,
+            typer.Option(
+                "--format",
+                "-f",
+                help="Format for downloading the canvas.",
+            ),
+        ] = CanvasFormats.ndjson,
+        compression: Annotated[
+            CompressionFormat,
+            typer.Option(
+                "--compression",
+                "-z",
+                help="Compression format to use when downloading the canvas.",
+            ),
+        ] = CompressionFormat.none,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to download the canvas.",
+                allow_dash=True,
+            ),
+        ] = DEFAULT_DOWNLOAD_DIR,
+        limit: Annotated[
+            int,
+            typer.Option(
+                "--limit",
+                "-l",
+                help="The maximum number of canvas to download. Use -1 to download all canvas.",
+            ),
+        ] = 1000,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will download Canvas from CDF into a temporary directory."""
+        cmd = DownloadCommand()
+        client = EnvironmentVariables.create_from_environment().get_client()
+        selector: CanvasSelector
+        if external_ids is None:
+            selected_external_ids = InteractiveCanvasSelect(client).select_external_ids()
+            selector = CanvasExternalIdSelector(external_ids=tuple(selected_external_ids))
+        else:
+            selector = CanvasExternalIdSelector(external_ids=tuple(external_ids))
+
+        cmd.run(
+            lambda: cmd.download(
+                selectors=[selector],
+                io=CanvasIO(client),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,

@@ -2,7 +2,7 @@ import sys
 from abc import ABC
 from collections.abc import Sequence
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, TypeVar
 from uuid import uuid4
 
 from cognite.client import CogniteClient
@@ -31,6 +31,7 @@ from cognite.client.data_classes.data_modeling.instances import (
 )
 
 from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId
+from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -66,6 +67,9 @@ class ExtendedTypedNodeApply(TypedNodeApply, ABC):
         if not keep_existing_version:
             output.pop("existingVersion" if camel_case else "existing_version", None)
         return output
+
+
+T_ExtendedTypedNodeApply = TypeVar("T_ExtendedTypedNodeApply", bound=ExtendedTypedNodeApply)
 
 
 class _CanvasProperties:
@@ -901,7 +905,7 @@ class IndustrialCanvasApply(CogniteResource):
                 raise TypeError(f"Unexpected instance type: {type(instance)}")
         return ids
 
-    def dump(self, keep_existing_version: bool = True) -> dict[str, object]:
+    def dump(self, keep_existing_version: bool = True) -> dict[str, JsonVal]:
         """Dump the IndustrialCanvasApply to a dictionary."""
         return {
             "canvas": self.canvas.dump(keep_existing_version=keep_existing_version),
@@ -953,7 +957,46 @@ class IndustrialCanvasApply(CogniteResource):
     @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
         """Load an IndustrialCanvasApply instance from a resource dictionary."""
-        raise NotImplementedError("IndustrialCanvasApply cannot be loaded from dict.")
+        if "canvas" not in resource:
+            raise ValueError("Resource does not contain a canvas node.")
+        canvas_resource = resource["canvas"]
+        if isinstance(canvas_resource, dict):
+            canvas = CanvasApply._load(canvas_resource)
+        elif isinstance(canvas_resource, CanvasApply):
+            canvas = canvas_resource
+        elif isinstance(canvas_resource, NodeApply):
+            canvas = CanvasApply._load(canvas_resource.dump())
+        else:
+            raise TypeError(f"Canvas resource {type(canvas_resource)} is not supported.")
+        return cls(
+            canvas=canvas,
+            annotations=cls._load_apply_items(resource.get("annotations"), CanvasAnnotationApply),
+            container_references=cls._load_apply_items(resource.get("containerReferences"), ContainerReferenceApply),
+            fdm_instance_container_references=cls._load_apply_items(
+                resource.get("fdmInstanceContainerReferences"), FdmInstanceContainerReferenceApply
+            ),
+            solution_tags=cls._load_apply_items(resource.get("solutionTags"), CogniteSolutionTagApply),
+        )
+
+    @classmethod
+    def _load_apply_items(
+        cls, items: object | None, node_cls: type[T_ExtendedTypedNodeApply]
+    ) -> list[T_ExtendedTypedNodeApply]:
+        if items is None:
+            return []
+        elif isinstance(items, Sequence):
+            nodes: list[T_ExtendedTypedNodeApply] = []
+            for node in items:
+                if isinstance(node, dict):
+                    nodes.append(node_cls._load(node))
+                elif isinstance(node, node_cls):
+                    nodes.append(node)
+                elif isinstance(node, NodeApply):
+                    nodes.append(node_cls._load(node.dump()))
+                else:
+                    raise TypeError(f"Expected a sequence of {node_cls.__name__}, got {type(node).__name__}")
+            return nodes
+        raise TypeError(f"Expected a sequence of {node_cls.__name__}, got {type(items).__name__}")
 
 
 class IndustrialCanvas(WriteableCogniteResource[IndustrialCanvasApply]):
