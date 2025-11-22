@@ -31,6 +31,7 @@ from cognite.client.data_classes.data_modeling.instances import (
 )
 
 from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId
+from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -901,7 +902,7 @@ class IndustrialCanvasApply(CogniteResource):
                 raise TypeError(f"Unexpected instance type: {type(instance)}")
         return ids
 
-    def dump(self, keep_existing_version: bool = True) -> dict[str, object]:
+    def dump(self, keep_existing_version: bool = True) -> dict[str, JsonVal]:
         """Dump the IndustrialCanvasApply to a dictionary."""
         return {
             "canvas": self.canvas.dump(keep_existing_version=keep_existing_version),
