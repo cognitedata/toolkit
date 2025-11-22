@@ -4,7 +4,7 @@ from pydantic import Field, TypeAdapter
 
 from ._asset_centric import AssetCentricFileSelector, AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 from ._base import DataSelector
-from ._canvas import CanvasSelector
+from ._canvas import CanvasExternalIdSelector, CanvasSelector
 from ._charts import AllChartsSelector, ChartExternalIdSelector, ChartOwnerSelector, ChartSelector
 from ._datapoints import (
     DataPointsFileSelector,
@@ -33,7 +33,8 @@ Selector = Annotated[
     | AssetCentricFileSelector
     | DataSetSelector
     | DataPointsFileSelector
-    | ChartExternalIdSelector,
+    | ChartExternalIdSelector
+    | CanvasExternalIdSelector,
     Field(discriminator="type"),
 ]
 
@@ -45,6 +46,7 @@ __all__ = [
     "AssetCentricFileSelector",
     "AssetCentricSelector",
     "AssetSubtreeSelector",
+    "CanvasExternalIdSelector",
     "CanvasSelector",
     "ChartExternalIdSelector",
     "ChartOwnerSelector",
