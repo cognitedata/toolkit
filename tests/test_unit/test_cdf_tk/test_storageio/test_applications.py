@@ -156,3 +156,11 @@ class TestCanvasIO:
             chunks = list(io.stream_data(selector=selector))
             canvas_list = [canvas for page in chunks for canvas in page.items]
             assert len(canvas_list) == 1
+
+            json_format = io.data_to_json_chunk(canvas_list, selector)
+            assert len(json_format) == 1
+            restored_canvases = io.json_chunk_to_data([("line 1", item) for item in json_format])
+
+            assert len(restored_canvases) == 1
+            restored_canvas = restored_canvases[0]
+            assert restored_canvas.item.dump() == canvas.dump()
