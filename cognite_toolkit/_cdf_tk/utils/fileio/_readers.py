@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from collections import Counter, defaultdict
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
-from functools import partial
+from functools import cached_property, partial
 from io import TextIOWrapper
 from pathlib import Path
 from typing import Any
@@ -75,17 +75,25 @@ class MultiFileReader(FileReader):
     def __init__(self, input_files: Sequence[Path]) -> None:
         super().__init__(input_file=input_files[0])
         self.input_files = input_files
+
+    @cached_property
+    def reader_class(self) -> type[FileReader]:
+        """Determine the reader class based on the input files."""
         reader_classes = Counter([FileReader.from_filepath(input_file) for input_file in self.input_files])
         if len(reader_classes) > 1:
             raise ToolkitValueError(
                 "All input files must be of the same format. "
                 f"Found formats: {humanize_collection([cls.FORMAT for cls in reader_classes.keys()])}."
             )
-        self.reader_class = reader_classes.most_common(1)[0][0]
+        return reader_classes.most_common(1)[0][0]
 
     @property
     def is_table(self) -> bool:
-        return issubclass(self.reader_class, TableReader)
+        try:
+            return issubclass(self.reader_class, TableReader)
+        except ValueError:
+            # The input files are not a known format, so it is not a table.
+            return False
 
     @property
     def format(self) -> str:

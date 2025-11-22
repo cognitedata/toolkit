@@ -13,6 +13,12 @@ from ._datapoints import (
     InternalIdColumn,
     TimeSeriesColumn,
 )
+from ._file_content import (
+    FileContentSelector,
+    FileDataModelingTemplateSelector,
+    FileMetadataTemplate,
+    FileMetadataTemplateSelector,
+)
 from ._instances import (
     InstanceFileSelector,
     InstanceSelector,
@@ -33,7 +39,9 @@ Selector = Annotated[
     | AssetCentricFileSelector
     | DataSetSelector
     | DataPointsFileSelector
-    | ChartExternalIdSelector,
+    | ChartExternalIdSelector
+    | FileMetadataTemplateSelector
+    | FileDataModelingTemplateSelector,
     Field(discriminator="type"),
 ]
 
@@ -53,6 +61,10 @@ __all__ = [
     "DataSelector",
     "DataSetSelector",
     "ExternalIdColumn",
+    "FileContentSelector",
+    "FileDataModelingTemplateSelector",
+    "FileMetadataTemplate",
+    "FileMetadataTemplateSelector",
     "InstanceColumn",
     "InstanceFileSelector",
     "InstanceSelector",

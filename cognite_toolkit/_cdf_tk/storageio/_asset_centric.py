@@ -51,15 +51,9 @@ from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
 from cognite_toolkit._cdf_tk.utils.fileio import FileReader, SchemaColumn
 from cognite_toolkit._cdf_tk.utils.fileio._readers import TableReader
 from cognite_toolkit._cdf_tk.utils.http_client import (
-    FailedRequestItems,
-    FailedRequestMessage,
-    FailedResponse,
-    FailedResponseItems,
     HTTPClient,
     HTTPMessage,
     SimpleBodyRequest,
-    SuccessResponse,
-    SuccessResponseItems,
 )
 from cognite_toolkit._cdf_tk.utils.useful_types import (
     T_ID,
@@ -347,7 +341,9 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
         return self.client.assets.retrieve_multiple(ids)
 
     @classmethod
-    def read_chunks(cls, reader: FileReader) -> Iterable[list[tuple[str, dict[str, JsonVal]]]]:
+    def read_chunks(
+        cls, reader: FileReader, selector: AssetCentricSelector
+    ) -> Iterable[list[tuple[str, dict[str, JsonVal]]]]:
         """Assets require special handling when reading data to ensure parent assets are created first."""
         current_depth = max_depth = 0
         data_name = "row" if isinstance(reader, TableReader) else "line"
@@ -460,22 +456,7 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
                     body_content=item.dump(),  # type: ignore[arg-type]
                 )
             )
-            # Convert the responses to per-item responses
-            for message in responses:
-                if isinstance(message, SuccessResponse):
-                    results.append(
-                        SuccessResponseItems(status_code=message.status_code, ids=[item.as_id()], body=message.body)
-                    )
-                elif isinstance(message, FailedResponse):
-                    results.append(
-                        FailedResponseItems(
-                            status_code=message.status_code, ids=[item.as_id()], body=message.body, error=message.error
-                        )
-                    )
-                elif isinstance(message, FailedRequestMessage):
-                    results.append(FailedRequestItems(ids=[item.as_id()], error=message.error))
-                else:
-                    results.append(message)
+            results.extend(responses.as_item_responses(item.as_id()))
         return results
 
     def retrieve(self, ids: Sequence[int]) -> FileMetadataList:
