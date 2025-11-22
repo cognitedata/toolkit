@@ -244,10 +244,21 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
             for container_ref in references:
                 if not isinstance(container_ref, dict):
                     continue
-                resource_external_id = container_ref.get("resourceExternalId")
+                sources = container_ref.get("sources", [])
+                if not isinstance(sources, list) or len(sources) == 0:
+                    continue
+                source = sources[0]
+                if not isinstance(source, dict) or "properties" not in source:
+                    continue
+                properties = source["properties"]
+                if not isinstance(properties, dict):
+                    continue
+
+                resource_external_id = properties.get("resourceExternalId")
                 if not isinstance(resource_external_id, str):
                     continue
-                reference_type = container_ref.get("containerReferenceType")
+
+                reference_type = properties.get("containerReferenceType")
                 if reference_type == "asset":
                     asset_external_ids.add(resource_external_id)
                 elif reference_type == "timeseries":
@@ -256,6 +267,15 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
                     event_external_ids.add(resource_external_id)
                 elif reference_type == "file":
                     file_external_ids.add(resource_external_id)
+
+        if asset_external_ids:
+            self.client.lookup.assets.id(list(asset_external_ids))
+        if time_series_external_ids:
+            self.client.lookup.time_series.id(list(time_series_external_ids))
+        if event_external_ids:
+            self.client.lookup.events.id(list(event_external_ids))
+        if file_external_ids:
+            self.client.lookup.files.id(list(file_external_ids))
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> IndustrialCanvasApply:
         return self._load_resource(item_json)
