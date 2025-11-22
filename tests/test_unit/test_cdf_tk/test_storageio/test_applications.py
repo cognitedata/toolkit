@@ -1,16 +1,21 @@
 import pytest
 import responses
+from cognite.client.data_classes.data_modeling import NodeList
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.data_classes.canvas import IndustrialCanvas
 from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList
 from cognite_toolkit._cdf_tk.client.data_classes.charts_data import ChartData
+from cognite_toolkit._cdf_tk.client.data_classes.migration import InstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.storageio import ChartIO
+from cognite_toolkit._cdf_tk.storageio import CanvasIO, ChartIO
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     AllChartsSelector,
+    CanvasExternalIdSelector,
     ChartOwnerSelector,
     ChartSelector,
 )
+from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
 @pytest.fixture
@@ -135,3 +140,19 @@ class TestChartIO:
             for chunk in chunks:
                 all_charts.extend(chunk.items)
             assert [chart.external_id for chart in all_charts] == expected_external_ids
+
+
+class TestCanvasIO:
+    def test_download_iterable(
+        self, asset_centric_canvas: tuple[IndustrialCanvas, NodeList[InstanceSource]], toolkit_client_approval
+    ):
+        canvas, _ = asset_centric_canvas
+        selector = CanvasExternalIdSelector(external_ids=(canvas.as_id(),))
+        with monkeypatch_toolkit_client() as client:
+            approval_client = ApprovalToolkitClient(client, allow_reverse_lookup=True)
+            client.canvas.industrial.retrieve.return_value = canvas
+            io = CanvasIO(approval_client.mock_client)
+
+            chunks = list(io.stream_data(selector=selector))
+            canvas_list = [canvas for page in chunks for canvas in page.items]
+            assert len(canvas_list) == 1
