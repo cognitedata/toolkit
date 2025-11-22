@@ -1,3 +1,5 @@
+import json
+
 import pytest
 import responses
 from cognite.client.data_classes.data_modeling import NodeList
@@ -147,6 +149,8 @@ class TestCanvasIO:
         self, asset_centric_canvas: tuple[IndustrialCanvas, NodeList[InstanceSource]], toolkit_client_approval
     ):
         canvas, _ = asset_centric_canvas
+        ids = [container_ref.resource_id for container_ref in canvas.container_references or []]
+        assert len(ids) > 0, "Test canvas must have container references for this test to be valid."
         selector = CanvasExternalIdSelector(external_ids=(canvas.as_id(),))
         with monkeypatch_toolkit_client() as client:
             approval_client = ApprovalToolkitClient(client, allow_reverse_lookup=True)
@@ -159,8 +163,11 @@ class TestCanvasIO:
 
             json_format = io.data_to_json_chunk(canvas_list, selector)
             assert len(json_format) == 1
+            json_str = json.dumps(json_format[0])  # just to verify it is serializable
+            not_removed = [id_ for id_ in ids if str(id_) in json_str]
+            assert len(not_removed) == 0, "All internal IDs should be removed from the JSON export."
             restored_canvases = io.json_chunk_to_data([("line 1", item) for item in json_format])
 
             assert len(restored_canvases) == 1
             restored_canvas = restored_canvases[0]
-            assert restored_canvas.item.dump() == canvas.dump()
+            assert restored_canvas.item.dump() == canvas.as_write().dump()
