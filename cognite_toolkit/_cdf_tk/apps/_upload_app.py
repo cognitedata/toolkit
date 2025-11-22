@@ -13,21 +13,25 @@ DEFAULT_INPUT_DIR = Path.cwd() / DATA_DEFAULT_DIR
 class UploadApp(typer.Typer):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self.callback(invoke_without_command=True)(self.upload_main)
+
+        self.command("all")(self.upload_main)
+
+        # Register upload_raw as a subcommand
+        self.command("raw")(self.upload_raw)
 
     @staticmethod
     def upload_main(
         ctx: typer.Context,
         input_dir: Annotated[
-            Path,
+            Path | None,
             typer.Argument(
-                help="The directory containing the data to upload.",
+                help="The directory containing the data to upload. If not specified, an interactive prompt will ask for the directory.",
                 exists=True,
                 file_okay=False,
                 dir_okay=True,
                 resolve_path=True,
             ),
-        ],
+        ] = None,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -43,7 +47,7 @@ class UploadApp(typer.Typer):
                 "-r",
                 help="If set, the command will look for resource configuration files in adjacent folders and create them if they do not exist.",
             ),
-        ] = True,
+        ] = False,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -54,15 +58,28 @@ class UploadApp(typer.Typer):
         ] = False,
     ) -> None:
         """Commands to upload data to CDF."""
-        cmd = UploadCommand()
+        if ctx.invoked_subcommand is None:
+            cmd = UploadCommand()
 
-        client = EnvironmentVariables.create_from_environment().get_client()
-        cmd.run(
-            lambda: cmd.upload(
-                input_dir=input_dir,
-                dry_run=dry_run,
-                verbose=verbose,
-                deploy_resources=deploy_resources,
-                client=client,
+            if input_dir is None:
+                raise NotImplementedError()
+
+            client = EnvironmentVariables.create_from_environment().get_client()
+            cmd.run(
+                lambda: cmd.upload(
+                    input_dir=input_dir,
+                    dry_run=dry_run,
+                    verbose=verbose,
+                    deploy_resources=deploy_resources,
+                    client=client,
+                )
             )
-        )
+
+    @staticmethod
+    def upload_raw(
+        input_file: Path,
+        dry_run: bool = False,
+        deploy_resources: bool = False,
+        verbose: bool = False,
+    ) -> None:
+        raise NotImplementedError()
