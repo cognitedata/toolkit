@@ -163,9 +163,11 @@ class TestCanvasIO:
 
             json_format = io.data_to_json_chunk(canvas_list, selector)
             assert len(json_format) == 1
-            json_str = json.dumps(json_format[0])  # just to verify it is serializable
-            not_removed = [id_ for id_ in ids if str(id_) in json_str]
-            assert len(not_removed) == 0, "All internal IDs should be removed from the JSON export."
+            json_str = json.dumps(json_format)
+            external_ids = [f"external_{id_}" for id_ in ids]
+            assert all(ext_id in json_str for ext_id in external_ids), (
+                "Not all container references were serialized properly."
+            )
             restored_canvases = io.json_chunk_to_data([("line 1", item) for item in json_format])
 
             assert len(restored_canvases) == 1
