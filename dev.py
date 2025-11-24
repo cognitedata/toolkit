@@ -18,7 +18,6 @@ from rich import print
 
 REPO_ROOT = Path(__file__).parent
 CHANGELOG = REPO_ROOT / "CHANGELOG.cdf-tk.md"
-TBD_HEADING = "## TBD"
 IMAGE_NAME = "cognite/toolkit"
 CDF_TOML = REPO_ROOT / "cdf.toml"
 
