@@ -2,17 +2,13 @@
 
 Please describe the change you have made.
 
-## Changelog
+## Bump
 
 - [ ] Patch
 - [ ] Skip
 
-## cdf
+## Changelog
 
 ### Added/Changed/Improved/Removed/Fixed
 
 - My change
-
-## templates
-
-No changes.
