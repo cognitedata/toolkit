@@ -1,9 +1,13 @@
 import sys
 from abc import ABC, abstractmethod
-from typing import Any, Generic, TypeVar
+from collections import UserList
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
+
+if TYPE_CHECKING:
+    from cognite.client import CogniteClient
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -61,3 +65,23 @@ class Identifier(BaseModel):
 
     def as_id(self) -> Self:
         return self
+
+
+T_Resource = TypeVar("T_Resource", bound=RequestResource | ResponseResource)
+
+
+class BaseResourceList(UserList[T_Resource], Generic[T_Resource]):
+    """Base class for resource lists."""
+
+    _RESOURCE: type[T_Resource]
+
+    def __init__(self, initlist: list[T_Resource] | None = None, **_: Any) -> None:
+        super().__init__(initlist or [])
+
+    def dump(self, camel_case: bool = True) -> list[dict[str, Any]]:
+        return [item.dump(camel_case) for item in self.data]
+
+    @classmethod
+    def load(cls, data: list[dict[str, Any]], cognite_client: "CogniteClient | None" = None) -> Self:
+        items = [cls._RESOURCE.model_validate(item) for item in data]
+        return cls(items)  # type: ignore[arg-type]
