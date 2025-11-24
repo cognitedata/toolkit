@@ -1,10 +1,12 @@
 from pathlib import Path
 from typing import Annotated, Any
 
+import questionary
 import typer
+from questionary import Choice
 
 from cognite_toolkit._cdf_tk.commands import UploadCommand
-from cognite_toolkit._cdf_tk.constants import DATA_DEFAULT_DIR
+from cognite_toolkit._cdf_tk.constants import DATA_DEFAULT_DIR, DATA_MANIFEST_SUFFIX, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 DEFAULT_INPUT_DIR = Path.cwd() / DATA_DEFAULT_DIR
@@ -54,11 +56,30 @@ class UploadApp(typer.Typer):
         ] = False,
     ) -> None:
         """Commands to upload data to CDF."""
-        if ctx.invoked_subcommand is None:
-            cmd = UploadCommand()
-
+        cmd = UploadCommand()
+        if input_dir is None:
+            input_candidate = sorted([p.parent for p in DEFAULT_INPUT_DIR.rglob(f"*/**{DATA_MANIFEST_SUFFIX}")])
+            if not input_candidate:
+                typer.echo(f"No data manifests found in default directory: {DEFAULT_INPUT_DIR}")
+                raise typer.Exit(code=1)
+            input_dir = questionary.select(
+                "Select the input directory containing the data to upload:",
+                choices=[Choice(str(option.name), value=option) for option in input_candidate],
+            ).ask()
             if input_dir is None:
-                raise NotImplementedError()
+                typer.echo("No input directory selected. Exiting.")
+                raise typer.Exit(code=1)
+            dry_run = questionary.confirm("Proceed with dry run?", default=dry_run).ask()
+            if dry_run is None:
+                typer.echo("No selection made for dry run. Exiting.")
+                raise typer.Exit(code=1)
+            if (input_dir / DATA_RESOURCE_DIR).exists():
+                deploy_resources = questionary.confirm(
+                    "Deploy resources found in adjacent folders?", default=deploy_resources
+                ).ask()
+                if deploy_resources is None:
+                    typer.echo("No selection made for deploying resources. Exiting.")
+                    raise typer.Exit(code=1)
 
             client = EnvironmentVariables.create_from_environment().get_client()
             cmd.run(
