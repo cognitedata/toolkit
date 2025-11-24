@@ -155,9 +155,8 @@ class ResourcesCommand(ToolkitCommand):
         if not resource_dir.exists():
             resource_dir.mkdir(parents=True, exist_ok=True)
 
-        file_name = (
-            f"{prefix}.{resource_crud.kind}.yaml" if prefix else f"my_{resource_crud.kind}.{resource_crud.kind}.yaml"
-        )
+        final_prefix = prefix if prefix is not None else f"my_{resource_crud.kind}"
+        file_name = f"{final_prefix}.{resource_crud.kind}.yaml"
         file_path: Path = resource_dir / file_name
 
         if file_path.exists() and not questionary.confirm(f"{file_path.name} file already exists. Overwrite?").ask():

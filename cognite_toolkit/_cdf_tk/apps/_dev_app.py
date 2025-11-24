@@ -32,16 +32,12 @@ class DevApp(typer.Typer):
             list[str] | None,
             typer.Argument(
                 help="The kind of resource to create. eg. container, space, view, datamodel, etc.",
-                callback=lambda ctx, param, value: (
-                    [
-                        item.strip()
-                        for _r in (value if isinstance(value, (list, tuple)) else [value] if value else [])
-                        for item in (_r.replace(" ", "").split(",") if isinstance(_r, str) else [])
-                        if item.strip()
-                    ]
-                    if value
-                    else []
-                ),
+                callback=lambda ctx, param, value: [
+                    stripped_item
+                    for raw_item in (value if isinstance(value, (list, tuple)) else [value] if value else [])
+                    for item in (raw_item.replace(" ", "").split(",") if isinstance(raw_item, str) else [])
+                    if (stripped_item := item.strip())
+                ],
             ),
         ] = None,
         module: Annotated[
