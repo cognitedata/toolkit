@@ -13,11 +13,7 @@ DEFAULT_INPUT_DIR = Path.cwd() / DATA_DEFAULT_DIR
 class UploadApp(typer.Typer):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-
-        self.command("all")(self.upload_main)
-
-        # Register upload_raw as a subcommand
-        self.command("raw")(self.upload_raw)
+        self.command("dir")(self.upload_main)
 
     @staticmethod
     def upload_main(
@@ -74,12 +70,3 @@ class UploadApp(typer.Typer):
                     client=client,
                 )
             )
-
-    @staticmethod
-    def upload_raw(
-        input_file: Path,
-        dry_run: bool = False,
-        deploy_resources: bool = False,
-        verbose: bool = False,
-    ) -> None:
-        raise NotImplementedError()
