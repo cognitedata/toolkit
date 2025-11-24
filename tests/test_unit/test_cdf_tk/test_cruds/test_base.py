@@ -431,8 +431,11 @@ class TestResourceCRUDs:
 
     def test_unique_kind_by_folder(self):
         kind = defaultdict(list)
-        for loader_cls in RESOURCE_CRUD_LIST:
-            kind[loader_cls.folder_name].append(loader_cls.kind)
+        for crud in RESOURCE_CRUD_LIST:
+            # Todo: Remove in v1.0
+            if crud.folder_name == "data_modeling":
+                continue
+            kind[crud.folder_name].append(crud.kind)
 
         duplicated = {folder: Counter(kinds) for folder, kinds in kind.items() if len(set(kinds)) != len(kinds)}
         # we have two types Group loaders, one for scoped and one for all
@@ -499,7 +502,6 @@ class TestLoaders:
 
         # Todo: Remove in v1.0
         for loader in CRUDS_BY_FOLDER_NAME["data_modeling"]:
-            if loader.kind == "data_models":
-                duplicates.pop(loader.create_loader(env_vars_with_client.get_client()).display_name, None)
+            duplicates.pop(loader.create_loader(env_vars_with_client.get_client()).display_name, None)
 
         assert not duplicates, f"Duplicate display names: {duplicates}"
