@@ -123,7 +123,7 @@ ResourceTypes: TypeAlias = Literal[
     "auth",
     "cdf_applications",
     "classic",
-    "data_models",
+    "data_modeling",
     "data_sets",
     "hosted_extractors",
     "locations",
