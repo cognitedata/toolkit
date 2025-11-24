@@ -497,4 +497,9 @@ class TestLoaders:
 
         duplicates = {name: count for name, count in name_by_count.items() if count > 1}
 
+        # Todo: Remove in v1.0
+        for loader in CRUDS_BY_FOLDER_NAME["data_modeling"]:
+            if loader.kind == "data_models":
+                duplicates.pop(loader.create_loader(env_vars_with_client.get_client()).display_name, None)
+
         assert not duplicates, f"Duplicate display names: {duplicates}"

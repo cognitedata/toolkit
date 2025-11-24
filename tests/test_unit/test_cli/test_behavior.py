@@ -532,7 +532,7 @@ def test_build_custom_project(
 ) -> None:
     expected_resources = {
         "timeseries",
-        "data_models",
+        "data_modeling",
         "data_sets",
         "raw",
         "extraction_pipelines",
