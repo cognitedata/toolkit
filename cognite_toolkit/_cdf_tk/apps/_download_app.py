@@ -2,7 +2,9 @@ from enum import Enum
 from pathlib import Path
 from typing import Annotated, Any
 
+import questionary
 import typer
+from questionary import Choice
 from rich import print
 
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
@@ -11,12 +13,14 @@ from cognite_toolkit._cdf_tk.constants import DATA_DEFAULT_DIR
 from cognite_toolkit._cdf_tk.storageio import (
     AssetIO,
     ChartIO,
+    EventIO,
+    FileMetadataIO,
     HierarchyIO,
     InstanceIO,
     RawIO,
+    TimeSeriesIO,
 )
 from cognite_toolkit._cdf_tk.storageio.selectors import (
-    AssetCentricSelector,
     AssetSubtreeSelector,
     ChartExternalIdSelector,
     ChartSelector,
@@ -28,11 +32,16 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
 )
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
+    AssetCentricInteractiveSelect,
     AssetInteractiveSelect,
     DataModelingSelect,
+    EventInteractiveSelect,
+    FileMetadataInteractiveSelect,
     InteractiveChartSelect,
     RawTableInteractiveSelect,
+    TimeSeriesInteractiveSelect,
 )
+from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricKind
 
 
 class RawFormats(str, Enum):
@@ -77,6 +86,9 @@ class DownloadApp(typer.Typer):
         self.callback(invoke_without_command=True)(self.download_main)
         self.command("raw")(self.download_raw_cmd)
         self.command("assets")(self.download_assets_cmd)
+        self.command("timeseries")(self.download_timeseries_cmd)
+        self.command("events")(self.download_events_cmd)
+        self.command("files")(self.download_files_cmd)
         self.command("hierarchy")(self.download_hierarchy_cmd)
         self.command("instances")(self.download_instances_cmd)
         self.command("charts")(self.download_charts_cmd)
@@ -178,23 +190,15 @@ class DownloadApp(typer.Typer):
             )
         )
 
-    @staticmethod
     def download_assets_cmd(
+        self,
         ctx: typer.Context,
         data_sets: Annotated[
             list[str] | None,
             typer.Option(
                 "--data-set",
                 "-d",
-                help="List of data sets to download assets from. If this and hierarchy are not provided, an interactive selection will be made.",
-            ),
-        ] = None,
-        hierarchy: Annotated[
-            list[str] | None,
-            typer.Option(
-                "--hierarchy",
-                "-r",
-                help="List of asset hierarchies to download assets from. If this and data sets are not provided, an interactive selection will be made.",
+                help="List of data sets to download assets from. If this is not provided, an interactive selection will be made.",
             ),
         ] = None,
         file_format: Annotated[
@@ -241,25 +245,303 @@ class DownloadApp(typer.Typer):
     ) -> None:
         """This command will download assets from CDF into a temporary directory."""
         client = EnvironmentVariables.create_from_environment().get_client()
-        is_interactive = not data_sets and not hierarchy
-        if is_interactive:
-            interactive = AssetInteractiveSelect(client, "download assets")
-            selector_type = interactive.select_hierarchies_or_data_sets()
-            if selector_type == "Data Set":
-                data_sets = interactive.select_data_sets()
-            else:
-                hierarchy = interactive.select_hierarchies()
+        if data_sets is None:
+            data_sets, file_format, compression, output_dir, limit = self._asset_centric_interactive(
+                AssetInteractiveSelect(client, "download"),
+                file_format,
+                compression,
+                output_dir,
+                limit,
+                "Assets",
+            )
 
-        selectors: list[AssetCentricSelector] = []
-        if data_sets:
-            selectors.extend([DataSetSelector(data_set_external_id=ds, kind="Assets") for ds in data_sets])
-        if hierarchy:
-            selectors.extend([AssetSubtreeSelector(hierarchy=h, kind="Assets") for h in hierarchy])
+        selectors = [DataSetSelector(kind="Assets", data_set_external_id=data_set) for data_set in data_sets]
         cmd = DownloadCommand()
         cmd.run(
             lambda: cmd.download(
                 selectors=selectors,
                 io=AssetIO(client),
+                output_dir=output_dir,
+                file_format=f".{file_format.value}",
+                compression=compression.value,
+                limit=limit if limit != -1 else None,
+                verbose=verbose,
+            )
+        )
+
+    @classmethod
+    def _asset_centric_interactive(
+        cls,
+        selector: AssetCentricInteractiveSelect,
+        file_format: AssetCentricFormats,
+        compression: CompressionFormat,
+        output_dir: Path,
+        limit: int,
+        kind: AssetCentricKind,
+    ) -> tuple[list[str], AssetCentricFormats, CompressionFormat, Path, int]:
+        data_sets = selector.select_data_sets()
+        display_name = kind.casefold() + "s"
+        file_format = questionary.select(
+            f"Select format to download the {display_name} in:",
+            choices=[Choice(title=format_.value, value=format_) for format_ in AssetCentricFormats],
+            default=file_format,
+        ).ask()
+        compression = questionary.select(
+            f"Select compression format to use when downloading the {display_name}:",
+            choices=[Choice(title=comp.value, value=comp) for comp in CompressionFormat],
+            default=compression,
+        ).ask()
+        output_dir = Path(
+            questionary.path(
+                "Where to download the assets:",
+                default=str(output_dir),
+                only_directories=True,
+            ).ask()
+        )
+        while True:
+            limit_str = questionary.text(
+                f"The maximum number of {display_name} to download from each dataset. Use -1 to download all {display_name}.",
+                default=str(limit),
+            ).ask()
+            if limit_str is None:
+                raise typer.Abort()
+            try:
+                limit = int(limit_str)
+                break
+            except ValueError:
+                print("[red]Please enter a valid integer for the limit.[/]")
+        return data_sets, file_format, compression, output_dir, limit
+
+    def download_timeseries_cmd(
+        self,
+        ctx: typer.Context,
+        data_sets: Annotated[
+            list[str] | None,
+            typer.Option(
+                "--data-set",
+                "-d",
+                help="List of data sets to download time series from. If this is not provided, an interactive selection will be made.",
+            ),
+        ] = None,
+        file_format: Annotated[
+            AssetCentricFormats,
+            typer.Option(
+                "--format",
+                "-f",
+                help="Format to download the time series in.",
+            ),
+        ] = AssetCentricFormats.csv,
+        compression: Annotated[
+            CompressionFormat,
+            typer.Option(
+                "--compression",
+                "-z",
+                help="Compression format to use when downloading the time series.",
+            ),
+        ] = CompressionFormat.none,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to download the time series.",
+                allow_dash=True,
+            ),
+        ] = DEFAULT_DOWNLOAD_DIR,
+        limit: Annotated[
+            int,
+            typer.Option(
+                "--limit",
+                "-l",
+                help="The maximum number of time series to download from each dataset. Use -1 to download all time series.",
+            ),
+        ] = 100_000,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will download time series from CDF into a temporary directory."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        if data_sets is None:
+            data_sets, file_format, compression, output_dir, limit = self._asset_centric_interactive(
+                TimeSeriesInteractiveSelect(client, "download"),
+                file_format,
+                compression,
+                output_dir,
+                limit,
+                "TimeSeries",
+            )
+
+        selectors = [DataSetSelector(kind="TimeSeries", data_set_external_id=data_set) for data_set in data_sets]
+        cmd = DownloadCommand()
+        cmd.run(
+            lambda: cmd.download(
+                selectors=selectors,
+                io=TimeSeriesIO(client),
+                output_dir=output_dir,
+                file_format=f".{file_format.value}",
+                compression=compression.value,
+                limit=limit if limit != -1 else None,
+                verbose=verbose,
+            )
+        )
+
+    def download_events_cmd(
+        self,
+        ctx: typer.Context,
+        data_sets: Annotated[
+            list[str] | None,
+            typer.Option(
+                "--data-set",
+                "-d",
+                help="List of data sets to download events from. If this is not provided, an interactive selection will be made.",
+            ),
+        ] = None,
+        file_format: Annotated[
+            AssetCentricFormats,
+            typer.Option(
+                "--format",
+                "-f",
+                help="Format to download the events in.",
+            ),
+        ] = AssetCentricFormats.csv,
+        compression: Annotated[
+            CompressionFormat,
+            typer.Option(
+                "--compression",
+                "-z",
+                help="Compression format to use when downloading the events.",
+            ),
+        ] = CompressionFormat.none,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to download the events.",
+                allow_dash=True,
+            ),
+        ] = DEFAULT_DOWNLOAD_DIR,
+        limit: Annotated[
+            int,
+            typer.Option(
+                "--limit",
+                "-l",
+                help="The maximum number of events to download from each dataset. Use -1 to download all events.",
+            ),
+        ] = 100_000,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will download events from CDF into a temporary directory."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        if data_sets is None:
+            data_sets, file_format, compression, output_dir, limit = self._asset_centric_interactive(
+                EventInteractiveSelect(client, "download"),
+                file_format,
+                compression,
+                output_dir,
+                limit,
+                "Events",
+            )
+
+        selectors = [DataSetSelector(kind="Events", data_set_external_id=data_set) for data_set in data_sets]
+        cmd = DownloadCommand()
+
+        cmd.run(
+            lambda: cmd.download(
+                selectors=selectors,
+                io=EventIO(client),
+                output_dir=output_dir,
+                file_format=f".{file_format.value}",
+                compression=compression.value,
+                limit=limit if limit != -1 else None,
+                verbose=verbose,
+            )
+        )
+
+    def download_files_cmd(
+        self,
+        ctx: typer.Context,
+        data_sets: Annotated[
+            list[str] | None,
+            typer.Option(
+                "--data-set",
+                "-d",
+                help="List of data sets to download file metadata from. If this is not provided, an interactive selection will be made.",
+            ),
+        ] = None,
+        file_format: Annotated[
+            AssetCentricFormats,
+            typer.Option(
+                "--format",
+                "-f",
+                help="Format to download the file metadata in.",
+            ),
+        ] = AssetCentricFormats.csv,
+        compression: Annotated[
+            CompressionFormat,
+            typer.Option(
+                "--compression",
+                "-z",
+                help="Compression format to use when downloading the file metadata.",
+            ),
+        ] = CompressionFormat.none,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to download the file metadata.",
+                allow_dash=True,
+            ),
+        ] = DEFAULT_DOWNLOAD_DIR,
+        limit: Annotated[
+            int,
+            typer.Option(
+                "--limit",
+                "-l",
+                help="The maximum number of file metadata to download from each dataset. Use -1 to download all file metadata.",
+            ),
+        ] = 100_000,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will download file metadata from CDF into a temporary directory."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        if data_sets is None:
+            data_sets, file_format, compression, output_dir, limit = self._asset_centric_interactive(
+                FileMetadataInteractiveSelect(client, "download"),
+                file_format,
+                compression,
+                output_dir,
+                limit,
+                "FileMetadata",
+            )
+
+        selectors = [DataSetSelector(kind="FileMetadata", data_set_external_id=data_set) for data_set in data_sets]
+        cmd = DownloadCommand()
+        cmd.run(
+            lambda: cmd.download(
+                selectors=selectors,
+                io=FileMetadataIO(client),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,

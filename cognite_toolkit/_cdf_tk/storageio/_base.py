@@ -216,7 +216,9 @@ class UploadableStorageIO(
         raise NotImplementedError()
 
     @classmethod
-    def read_chunks(cls, reader: MultiFileReader) -> Iterable[list[tuple[str, dict[str, JsonVal]]]]:
+    def read_chunks(
+        cls, reader: MultiFileReader, selector: T_Selector
+    ) -> Iterable[list[tuple[str, dict[str, JsonVal]]]]:
         data_name = "row" if reader.is_table else "line"
         # Include name of line for better error messages
         iterable = ((f"{data_name} {line_no}", item) for line_no, item in reader.read_chunks_with_line_numbers())
