@@ -164,7 +164,9 @@ class DatapointsIO(TableUploadableStorageIO[DataPointsFileSelector, DataPointLis
         )
 
     @classmethod
-    def read_chunks(cls, reader: MultiFileReader) -> Iterable[list[tuple[str, dict[str, JsonVal]]]]:
+    def read_chunks(
+        cls, reader: MultiFileReader, selector: DataPointsFileSelector
+    ) -> Iterable[list[tuple[str, dict[str, JsonVal]]]]:
         if not reader.is_table:
             raise RuntimeError("DatapointsIO can only read from TableReader instances.")
         iterator = iter(reader.read_chunks_with_line_numbers())
