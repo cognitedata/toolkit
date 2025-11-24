@@ -106,6 +106,9 @@ for _loader in itertools.chain(
     CRUDS_BY_FOLDER_NAME[_loader.folder_name].append(_loader)  # type: ignore[arg-type, attr-defined]
 del _loader  # cleanup module namespace
 
+# For backwards compatibility
+CRUDS_BY_FOLDER_NAME["data_models"] = CRUDS_BY_FOLDER_NAME["data_modeling"]  # Todo: Remove in v1.0
+
 CRUD_LIST = list(itertools.chain.from_iterable(CRUDS_BY_FOLDER_NAME.values()))
 RESOURCE_CRUD_LIST = [loader for loader in CRUD_LIST if issubclass(loader, ResourceCRUD)]
 RESOURCE_CRUD_CONTAINER_LIST = [loader for loader in CRUD_LIST if issubclass(loader, ResourceContainerCRUD)]
@@ -124,6 +127,7 @@ ResourceTypes: TypeAlias = Literal[
     "cdf_applications",
     "classic",
     "data_modeling",
+    "data_models",  # Todo: Remove in v1.0
     "data_sets",
     "hosted_extractors",
     "locations",
