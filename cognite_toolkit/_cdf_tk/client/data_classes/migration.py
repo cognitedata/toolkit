@@ -114,6 +114,14 @@ class InstanceSource(_InstanceSourceProperties, TypedNode):
         self.preferred_consumer_view_id = preferred_consumer_view_id
         self.ingestion_view = DirectRelationReference.load(ingestion_view) if ingestion_view else None
 
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        output = super().dump(camel_case)
+        if self.preferred_consumer_view_id:
+            output["properties"]["cognite_migration"]["InstanceSource/v1"]["preferredConsumerViewId"] = (
+                self.preferred_consumer_view_id.dump(camel_case=camel_case)
+            )
+        return output
+
     @classmethod
     def _load_properties(cls, resource: dict[str, Any]) -> dict[str, Any]:
         if "preferredConsumerViewId" in resource:

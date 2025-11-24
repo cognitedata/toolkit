@@ -2,7 +2,7 @@ from collections.abc import Hashable, Iterable, Sequence
 from typing import Any
 
 from cognite.client.data_classes.agents import Agent, AgentList, AgentUpsert, AgentUpsertList
-from cognite.client.data_classes.capabilities import Capability
+from cognite.client.data_classes.capabilities import AgentsAcl, Capability
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 
@@ -37,7 +37,12 @@ class AgentCRUD(ResourceCRUD[str, AgentUpsert, Agent, AgentUpsertList, AgentList
     def get_required_capability(
         cls, items: Sequence[AgentUpsert] | None, read_only: bool
     ) -> Capability | list[Capability]:
-        return []
+        if not items and items is not None:
+            return []
+
+        actions = [AgentsAcl.Action.READ] if read_only else [AgentsAcl.Action.READ, AgentsAcl.Action.WRITE]
+
+        return AgentsAcl(actions, AgentsAcl.Scope.All())
 
     def create(self, items: AgentUpsertList) -> AgentList:
         return self.client.agents.upsert(items)

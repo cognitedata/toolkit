@@ -2,7 +2,7 @@ from typing import Any, ClassVar
 
 import pytest
 import responses
-from cognite.client.data_classes.data_modeling import NodeId
+from cognite.client.data_classes.data_modeling import NodeId, ViewId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.migration import InstanceSource
@@ -30,6 +30,7 @@ class TestMigrationLookup:
     EXISTING_ID = 123
     EXISTING_EXTERNAL_ID = "node_123"
     EXISTING_NODE_ID = NodeId(SPACE, "node_123")
+    CONSUMER_VIEW = ViewId("cdf_cdm", "CogniteAsset", "v1")
     QUERY_RESPONSE: ClassVar[dict[str, Any]] = {
         "items": {
             "instanceSource": [
@@ -42,6 +43,7 @@ class TestMigrationLookup:
                     resource_type="asset",
                     id_=EXISTING_ID,
                     classic_external_id=EXISTING_EXTERNAL_ID,
+                    preferred_consumer_view_id=CONSUMER_VIEW,
                 ).dump()
             ]
         },
@@ -88,3 +90,56 @@ class TestMigrationLookup:
         _ = client.migration.lookup.assets(-1)
 
         assert len(rsps.calls) == 1, "Expected only one API call for multiple lookups of the same non-existing ID"
+
+    def test_invalid_input(self, toolkit_config: ToolkitClientConfig):
+        client = ToolkitClient(config=toolkit_config)
+        with pytest.raises(TypeError):
+            _ = client.migration.lookup.assets(id=self.EXISTING_ID, external_id=self.EXISTING_EXTERNAL_ID)
+
+    @pytest.mark.parametrize(
+        "args, expected_return",
+        [
+            pytest.param({"id": EXISTING_ID}, CONSUMER_VIEW, id="Existing single ID"),
+            pytest.param({"external_id": EXISTING_EXTERNAL_ID}, CONSUMER_VIEW, id="Existing single external ID"),
+            pytest.param({"id": -1}, None, id="Non-existing single ID"),
+            pytest.param({"external_id": "non_existing_external_id"}, None, id="Non-existing single external ID"),
+            pytest.param(
+                {"id": {EXISTING_ID, -1}}, {EXISTING_ID: CONSUMER_VIEW}, id="Mixed existing and non-existing IDs"
+            ),
+            pytest.param(
+                {"external_id": [EXISTING_EXTERNAL_ID, "non_existing_external_id"]},
+                {EXISTING_EXTERNAL_ID: CONSUMER_VIEW},
+                id="Mixed existing and non-existing external IDs",
+            ),
+        ],
+    )
+    def test_get_preferred_consumer_view(
+        self,
+        args: dict[str, Any],
+        expected_return: ViewId,
+        lookup_client: tuple[ToolkitClient, responses.RequestsMock],
+    ) -> None:
+        client, _ = lookup_client
+        actual_return = client.migration.lookup.assets.consumer_view(**args)
+        assert actual_return == expected_return
+
+    def test_consumer_view_single_api_call(self, lookup_client: tuple[ToolkitClient, responses.RequestsMock]) -> None:
+        client, rsps = lookup_client
+        _ = client.migration.lookup.assets.consumer_view(self.EXISTING_ID)
+        _ = client.migration.lookup.assets.consumer_view(self.EXISTING_ID)
+
+        assert len(rsps.calls) == 1, "Expected only one API call for multiple lookups of the same ID"
+
+    def test_consumer_view_non_existing_single_api_call(
+        self, lookup_client: tuple[ToolkitClient, responses.RequestsMock]
+    ) -> None:
+        client, rsps = lookup_client
+        _ = client.migration.lookup.assets.consumer_view(-1)
+        _ = client.migration.lookup.assets.consumer_view(-1)
+
+        assert len(rsps.calls) == 1, "Expected only one API call for multiple lookups of the same non-existing ID"
+
+    def test_consumer_view_invalid_input(self, toolkit_config: ToolkitClientConfig):
+        client = ToolkitClient(config=toolkit_config)
+        with pytest.raises(TypeError):
+            _ = client.migration.lookup.assets.consumer_view(id=self.EXISTING_ID, external_id=self.EXISTING_EXTERNAL_ID)

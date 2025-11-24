@@ -26,21 +26,23 @@ class AnnotationIO(StorageIO[AssetCentricSelector, Annotation]):
     def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[Page[Annotation]]:
         total = 0
         for file_chunk in FileMetadataIO(self.client).stream_data(selector, None):
-            # Todo Support pagination. This is missing in the SDK.
-            results = self.client.annotations.list(
-                filter=AnnotationFilter(
-                    annotated_resource_type="file",
-                    annotated_resource_ids=[{"id": file_metadata.id} for file_metadata in file_chunk.items],
+            for annotation_type in ["diagrams.AssetLink", "diagrams.FileLink"]:
+                # Todo Support pagination. This is missing in the SDK.
+                results = self.client.annotations.list(
+                    filter=AnnotationFilter(
+                        annotated_resource_type="file",
+                        annotated_resource_ids=[{"id": file_metadata.id} for file_metadata in file_chunk.items],
+                        annotation_type=annotation_type,
+                    )
                 )
-            )
-            if limit is not None and total + len(results) > limit:
-                results = results[: limit - total]
+                if limit is not None and total + len(results) > limit:
+                    results = results[: limit - total]
 
-            for chunk in chunker_sequence(results, self.CHUNK_SIZE):
-                yield Page(worker_id="main", items=chunk)
-                total += len(chunk)
-            if limit is not None and total >= limit:
-                break
+                for chunk in chunker_sequence(results, self.CHUNK_SIZE):
+                    yield Page(worker_id="main", items=chunk)
+                    total += len(chunk)
+                if limit is not None and total >= limit:
+                    break
 
     def count(self, selector: AssetCentricSelector) -> int | None:
         """There is no efficient way to count annotations in CDF."""
