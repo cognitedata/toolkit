@@ -1,15 +1,16 @@
 import sys
-from collections import UserList
 from typing import Any, ClassVar, Literal
 
-from cognite.client import CogniteClient
 from pydantic import JsonValue, field_validator
 from pydantic_core.core_schema import ValidationInfo
 
-from cognite_toolkit._cdf_tk.protocols import ResourceRequestListProtocol, ResourceResponseListProtocol
+from cognite_toolkit._cdf_tk.protocols import (
+    ResourceRequestListProtocol,
+    ResourceResponseListProtocol,
+)
 from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
 
-from .base import ResponseResource
+from .base import BaseResourceList, ResponseResource
 from .instance_api import InstanceRequestResource, ViewReference
 
 if sys.version_info >= (3, 11):
@@ -74,29 +75,13 @@ class InfieldLocationConfig(
 
 
 class InfieldLocationConfigList(
-    UserList[InfieldLocationConfig],
+    BaseResourceList[InfieldLocationConfig],
     ResourceResponseListProtocol,
     ResourceRequestListProtocol,
 ):
     """A list of InfieldLocationConfig objects."""
 
     _RESOURCE = InfieldLocationConfig
-    data: list[InfieldLocationConfig]
-
-    def __init__(self, initlist: list[InfieldLocationConfig] | None = None, **_: Any) -> None:
-        super().__init__(initlist or [])
-
-    def dump(self, camel_case: bool = True) -> list[dict[str, Any]]:
-        """Serialize the list of InfieldLocationConfig objects to a list of dictionaries."""
-        return [item.dump(camel_case) for item in self.data]
-
-    @classmethod
-    def load(
-        cls, data: list[dict[str, Any]], cognite_client: CogniteClient | None = None
-    ) -> "InfieldLocationConfigList":
-        """Deserialize a list of dictionaries to an InfieldLocationConfigList."""
-        items = [InfieldLocationConfig.model_validate(item) for item in data]
-        return cls(items)
 
     def as_write(self) -> Self:
         return self

@@ -4,7 +4,7 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
-from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM
+from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_SUFFIX
 from cognite_toolkit._cdf_tk.utils.file import safe_write, sanitize_filename, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.text import to_sentence_case
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
@@ -41,7 +41,7 @@ class DataSelector(SelectorObject, ABC):
             directory: The directory where the YAML file will be saved.
         """
 
-        filepath = directory / f"{sanitize_filename(str(self))}.{DATA_MANIFEST_STEM}.yaml"
+        filepath = directory / f"{sanitize_filename(str(self))}{DATA_MANIFEST_SUFFIX}"
         filepath.parent.mkdir(parents=True, exist_ok=True)
         safe_write(file=filepath, content=yaml_safe_dump(self.model_dump(mode="json", by_alias=True)), encoding="utf-8")
         return filepath
@@ -66,3 +66,15 @@ class DataSelector(SelectorObject, ABC):
     def __str__(self) -> str:
         # We want to force subclasses to implement __str__
         raise NotImplementedError()
+
+    def find_data_files(self, input_dir: Path, manifest_file: Path) -> list[Path]:
+        """Find data files in the specified input directory that match this selector.
+
+        Args:
+            input_dir: The directory to search for data files.
+            manifest_file: The manifest file that describes the data files.
+        Returns:
+            A list of Paths to the data files that match this selector.
+        """
+        data_file_prefix = manifest_file.name.removesuffix(DATA_MANIFEST_SUFFIX)
+        return [file for file in input_dir.glob(f"{data_file_prefix}*") if not file.name.endswith(DATA_MANIFEST_SUFFIX)]
