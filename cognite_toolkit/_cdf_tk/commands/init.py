@@ -32,8 +32,6 @@ class InitItemStatus(Enum):
 
 @dataclass
 class InitChecklistItem:
-    """Represents an item in the init checklist"""
-
     name: str
     description: str
     function: Callable[[], None]
@@ -41,7 +39,6 @@ class InitChecklistItem:
     mandatory: bool = False
 
     def get_status_display(self) -> str:
-        """Get a display string for the status"""
         if self.status == InitItemStatus.SUCCESSFUL:
             return "✓"
         elif self.status == InitItemStatus.FAILED:
@@ -50,7 +47,6 @@ class InitChecklistItem:
             return "○"
 
     def get_choice_title(self) -> str:
-        """Get the title for the questionary choice"""
         status_icon = self.get_status_display()
         return f"{status_icon} {self.description} (required)" if self.mandatory else f"{status_icon} {self.description}"
 
@@ -173,7 +169,6 @@ class InitCommand(ToolkitCommand):
                 if not confirm:
                     continue
 
-            # Run the function
             try:
                 selected_item.function()
                 selected_item.status = InitItemStatus.SUCCESSFUL
@@ -225,7 +220,7 @@ class InitCommand(ToolkitCommand):
         """Opt in to collect usage statistics"""
 
         opt_in = questionary.confirm(
-            "Do you want to opt in to collect usage statistics?",
+            "Do you want to opt in to collect usage statistics? This will help us improve the Toolkit.",
             default=True,
         ).ask()
         if dry_run:
