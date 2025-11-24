@@ -70,7 +70,7 @@ class Identifier(BaseModel):
 T_Resource = TypeVar("T_Resource", bound=RequestResource | ResponseResource)
 
 
-class BaseResourceList(UserList[T_Resource], Generic[T_Resource]):
+class BaseResourceList(UserList[T_Resource]):
     """Base class for resource lists."""
 
     _RESOURCE: type[T_Resource]
