@@ -1,0 +1,8 @@
+environment:
+  name: dev
+  project: infield-experimental-test-aws
+  validation-type: dev
+  selected:
+    - modules/eriks-location
+# variables:
+#   modules:
