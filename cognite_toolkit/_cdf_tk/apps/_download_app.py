@@ -35,8 +35,11 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
     AssetCentricInteractiveSelect,
     AssetInteractiveSelect,
     DataModelingSelect,
+    EventInteractiveSelect,
+    FileMetadataInteractiveSelect,
     InteractiveChartSelect,
     RawTableInteractiveSelect,
+    TimeSeriesInteractiveSelect,
 )
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricKind
 
@@ -244,7 +247,7 @@ class DownloadApp(typer.Typer):
         client = EnvironmentVariables.create_from_environment().get_client()
         if data_sets is None:
             data_sets, file_format, compression, output_dir, limit = self._asset_centric_interactive(
-                AssetCentricInteractiveSelect(client, "download"),
+                AssetInteractiveSelect(client, "download"),
                 file_format,
                 compression,
                 output_dir,
@@ -309,8 +312,8 @@ class DownloadApp(typer.Typer):
                 print("[red]Please enter a valid integer for the limit.[/]")
         return data_sets, file_format, compression, output_dir, limit
 
-    @staticmethod
     def download_timeseries_cmd(
+        self,
         ctx: typer.Context,
         data_sets: Annotated[
             list[str] | None,
@@ -350,7 +353,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--limit",
                 "-l",
-                help="The maximum number of time series to download from each dataset/hierarchy. Use -1 to download all time series.",
+                help="The maximum number of time series to download from each dataset. Use -1 to download all time series.",
             ),
         ] = 100_000,
         verbose: Annotated[
@@ -364,6 +367,17 @@ class DownloadApp(typer.Typer):
     ) -> None:
         """This command will download time series from CDF into a temporary directory."""
         client = EnvironmentVariables.create_from_environment().get_client()
+        if data_sets is None:
+            data_sets, file_format, compression, output_dir, limit = self._asset_centric_interactive(
+                TimeSeriesInteractiveSelect(client, "download"),
+                file_format,
+                compression,
+                output_dir,
+                limit,
+                "TimeSeries",
+            )
+
+        selectors = [DataSetSelector(kind="TimeSeries", data_set_external_id=data_set) for data_set in data_sets]
         cmd = DownloadCommand()
         cmd.run(
             lambda: cmd.download(
@@ -377,15 +391,15 @@ class DownloadApp(typer.Typer):
             )
         )
 
-    @staticmethod
     def download_events_cmd(
+        self,
         ctx: typer.Context,
         data_sets: Annotated[
             list[str] | None,
             typer.Option(
                 "--data-set",
                 "-d",
-                help="List of data sets to download events from. If this and hierarchy are not provided, an interactive selection will be made.",
+                help="List of data sets to download events from. If this is not provided, an interactive selection will be made.",
             ),
         ] = None,
         file_format: Annotated[
@@ -418,7 +432,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--limit",
                 "-l",
-                help="The maximum number of events to download from each dataset/hierarchy. Use -1 to download all events.",
+                help="The maximum number of events to download from each dataset. Use -1 to download all events.",
             ),
         ] = 100_000,
         verbose: Annotated[
@@ -432,6 +446,17 @@ class DownloadApp(typer.Typer):
     ) -> None:
         """This command will download events from CDF into a temporary directory."""
         client = EnvironmentVariables.create_from_environment().get_client()
+        if data_sets is None:
+            data_sets, file_format, compression, output_dir, limit = self._asset_centric_interactive(
+                EventInteractiveSelect(client, "download"),
+                file_format,
+                compression,
+                output_dir,
+                limit,
+                "Events",
+            )
+
+        selectors = [DataSetSelector(kind="Events", data_set_external_id=data_set) for data_set in data_sets]
         cmd = DownloadCommand()
 
         cmd.run(
@@ -446,8 +471,8 @@ class DownloadApp(typer.Typer):
             )
         )
 
-    @staticmethod
     def download_files_cmd(
+        self,
         ctx: typer.Context,
         data_sets: Annotated[
             list[str] | None,
@@ -487,7 +512,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--limit",
                 "-l",
-                help="The maximum number of file metadata to download from each dataset/hierarchy. Use -1 to download all file metadata.",
+                help="The maximum number of file metadata to download from each dataset. Use -1 to download all file metadata.",
             ),
         ] = 100_000,
         verbose: Annotated[
@@ -501,6 +526,17 @@ class DownloadApp(typer.Typer):
     ) -> None:
         """This command will download file metadata from CDF into a temporary directory."""
         client = EnvironmentVariables.create_from_environment().get_client()
+        if data_sets is None:
+            data_sets, file_format, compression, output_dir, limit = self._asset_centric_interactive(
+                FileMetadataInteractiveSelect(client, "download"),
+                file_format,
+                compression,
+                output_dir,
+                limit,
+                "FileMetadata",
+            )
+
+        selectors = [DataSetSelector(kind="FileMetadata", data_set_external_id=data_set) for data_set in data_sets]
         cmd = DownloadCommand()
         cmd.run(
             lambda: cmd.download(
