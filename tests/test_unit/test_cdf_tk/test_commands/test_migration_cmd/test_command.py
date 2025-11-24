@@ -1,7 +1,8 @@
 import json
+import uuid
 from collections.abc import Iterator
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
@@ -21,7 +22,7 @@ from cognite.client.data_classes.data_modeling.statistics import InstanceStatist
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart
-from cognite_toolkit._cdf_tk.client.data_classes.charts_data import ChartData, ChartTimeseries
+from cognite_toolkit._cdf_tk.client.data_classes.charts_data import ChartData, ChartSource, ChartTimeseries
 from cognite_toolkit._cdf_tk.client.data_classes.migration import InstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
@@ -465,7 +466,16 @@ class TestMigrationCommand:
                 visibility="PUBLIC",
                 data=ChartData(
                     name="My Chart",
-                    time_series_collection=[ChartTimeseries(ts_external_id="ts_1"), ChartTimeseries(ts_id=1)],
+                    time_series_collection=[
+                        ChartTimeseries(
+                            ts_external_id="ts_1", type="timeseries", id="87654321-4321-8765-4321-876543218765"
+                        ),
+                        ChartTimeseries(ts_id=1, type="timeseries", id="12345678-1234-5678-1234-567812345678"),
+                    ],
+                    source_collection=[
+                        ChartSource(type="timeseries", id="87654321-4321-8765-4321-876543218765"),
+                        ChartSource(type="timeseries", id="12345678-1234-5678-1234-567812345678"),
+                    ],
                 ),
                 owner_id="1234",
             )
@@ -522,14 +532,19 @@ class TestMigrationCommand:
 
         client = ToolkitClient(config)
         command = MigrationCommand(silent=True)
-        result = command.migrate(
-            selected=ChartExternalIdSelector(external_ids=("my_chart",)),
-            data=ChartIO(client),
-            mapper=ChartMapper(client),
-            log_dir=tmp_path / "logs",
-            dry_run=False,
-            verbose=True,
-        )
+        new_uuids = [
+            uuid.UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+            uuid.UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+        ]
+        with patch(f"{ChartMapper.__module__}.uuid4", side_effect=new_uuids):
+            result = command.migrate(
+                selected=ChartExternalIdSelector(external_ids=("my_chart",)),
+                data=ChartIO(client),
+                mapper=ChartMapper(client),
+                log_dir=tmp_path / "logs",
+                dry_run=False,
+                verbose=True,
+            )
         actual = result.get_progress("my_chart")
         expected = {"download": "success", "convert": "success", "upload": "success"}
         assert actual == expected
@@ -548,6 +563,8 @@ class TestMigrationCommand:
                     "name": "My Chart",
                     "coreTimeseriesCollection": [
                         {
+                            "type": "coreTimeseries",
+                            "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
                             "nodeReference": {"space": "my_space", "externalId": "node_ts_1"},
                             "viewReference": {
                                 "space": "my_schema_space",
@@ -556,8 +573,20 @@ class TestMigrationCommand:
                             },
                         },
                         {
+                            "type": "coreTimeseries",
+                            "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
                             "nodeReference": {"space": "my_space", "externalId": "node_123"},
                             "viewReference": {"space": "cdf_cdm", "externalId": "CogniteTimeSeries", "version": "v1"},
+                        },
+                    ],
+                    "sourceCollection": [
+                        {
+                            "type": "coreTimeseries",
+                            "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                        },
+                        {
+                            "type": "coreTimeseries",
+                            "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
                         },
                     ],
                 },

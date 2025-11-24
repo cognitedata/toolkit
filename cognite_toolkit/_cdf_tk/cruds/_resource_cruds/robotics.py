@@ -81,7 +81,6 @@ class RoboticFrameCRUD(ResourceCRUD[str, FrameWrite, Frame, FrameWriteList, Fram
                 capabilities.RoboticsAcl.Action.Create,
                 capabilities.RoboticsAcl.Action.Delete,
                 capabilities.RoboticsAcl.Action.Update,
-                capabilities.RoboticsAcl.Action.Delete,
             ],
             capabilities.RoboticsAcl.Scope.All(),
         )
@@ -154,7 +153,6 @@ class RoboticLocationCRUD(ResourceCRUD[str, LocationWrite, Location, LocationWri
                 capabilities.RoboticsAcl.Action.Create,
                 capabilities.RoboticsAcl.Action.Delete,
                 capabilities.RoboticsAcl.Action.Update,
-                capabilities.RoboticsAcl.Action.Delete,
             ]
         )
 
@@ -230,7 +228,6 @@ class RoboticsDataPostProcessingCRUD(
                 capabilities.RoboticsAcl.Action.Create,
                 capabilities.RoboticsAcl.Action.Delete,
                 capabilities.RoboticsAcl.Action.Update,
-                capabilities.RoboticsAcl.Action.Delete,
             ]
         )
 
@@ -325,7 +322,6 @@ class RobotCapabilityCRUD(
                 capabilities.RoboticsAcl.Action.Create,
                 capabilities.RoboticsAcl.Action.Delete,
                 capabilities.RoboticsAcl.Action.Update,
-                capabilities.RoboticsAcl.Action.Delete,
             ]
         )
 
@@ -423,7 +419,6 @@ class RoboticMapCRUD(ResourceCRUD[str, MapWrite, Map, MapWriteList, MapList]):
                 capabilities.RoboticsAcl.Action.Create,
                 capabilities.RoboticsAcl.Action.Delete,
                 capabilities.RoboticsAcl.Action.Update,
-                capabilities.RoboticsAcl.Action.Delete,
             ]
         )
 
