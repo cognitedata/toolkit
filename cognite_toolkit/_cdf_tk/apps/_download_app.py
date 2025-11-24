@@ -11,9 +11,12 @@ from cognite_toolkit._cdf_tk.constants import DATA_DEFAULT_DIR
 from cognite_toolkit._cdf_tk.storageio import (
     AssetIO,
     ChartIO,
+    EventIO,
+    FileMetadataIO,
     HierarchyIO,
     InstanceIO,
     RawIO,
+    TimeSeriesIO,
 )
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     AssetCentricSelector,
@@ -41,6 +44,24 @@ class RawFormats(str, Enum):
 
 
 class AssetCentricFormats(str, Enum):
+    csv = "csv"
+    parquet = "parquet"
+    ndjson = "ndjson"
+
+
+class TimeSeriesFormats(str, Enum):
+    csv = "csv"
+    parquet = "parquet"
+    ndjson = "ndjson"
+
+
+class EventFormats(str, Enum):
+    csv = "csv"
+    parquet = "parquet"
+    ndjson = "ndjson"
+
+
+class FileFormats(str, Enum):
     csv = "csv"
     parquet = "parquet"
     ndjson = "ndjson"
@@ -77,6 +98,9 @@ class DownloadApp(typer.Typer):
         self.callback(invoke_without_command=True)(self.download_main)
         self.command("raw")(self.download_raw_cmd)
         self.command("assets")(self.download_assets_cmd)
+        self.command("timeseries")(self.download_timeseries_cmd)
+        self.command("events")(self.download_events_cmd)
+        self.command("files")(self.download_files_cmd)
         self.command("hierarchy")(self.download_hierarchy_cmd)
         self.command("instances")(self.download_instances_cmd)
         self.command("charts")(self.download_charts_cmd)
@@ -260,6 +284,276 @@ class DownloadApp(typer.Typer):
             lambda: cmd.download(
                 selectors=selectors,
                 io=AssetIO(client),
+                output_dir=output_dir,
+                file_format=f".{file_format.value}",
+                compression=compression.value,
+                limit=limit if limit != -1 else None,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def download_timeseries_cmd(
+        ctx: typer.Context,
+        data_sets: Annotated[
+            list[str] | None,
+            typer.Option(
+                "--data-set",
+                "-d",
+                help="List of data sets to download time series from. If this and hierarchy are not provided, an interactive selection will be made.",
+            ),
+        ] = None,
+        hierarchy: Annotated[
+            list[str] | None,
+            typer.Option(
+                "--hierarchy",
+                "-r",
+                help="List of asset hierarchies to download time series from. If this and data sets are not provided, an interactive selection will be made.",
+            ),
+        ] = None,
+        file_format: Annotated[
+            TimeSeriesFormats,
+            typer.Option(
+                "--format",
+                "-f",
+                help="Format to download the time series in.",
+            ),
+        ] = TimeSeriesFormats.csv,
+        compression: Annotated[
+            CompressionFormat,
+            typer.Option(
+                "--compression",
+                "-z",
+                help="Compression format to use when downloading the time series.",
+            ),
+        ] = CompressionFormat.none,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to download the time series.",
+                allow_dash=True,
+            ),
+        ] = DEFAULT_DOWNLOAD_DIR,
+        limit: Annotated[
+            int,
+            typer.Option(
+                "--limit",
+                "-l",
+                help="The maximum number of time series to download from each dataset/hierarchy. Use -1 to download all time series.",
+            ),
+        ] = 100_000,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will download time series from CDF into a temporary directory."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        is_interactive = not data_sets and not hierarchy
+        if is_interactive:
+            interactive = AssetInteractiveSelect(client, "download time series")
+            selector_type = interactive.select_hierarchies_or_data_sets()
+            if selector_type == "Data Set":
+                data_sets = interactive.select_data_sets()
+            else:
+                hierarchy = interactive.select_hierarchies()
+
+        selectors: list[AssetCentricSelector] = []
+        if data_sets:
+            selectors.extend([DataSetSelector(data_set_external_id=ds, kind="TimeSeries") for ds in data_sets])
+        if hierarchy:
+            selectors.extend([AssetSubtreeSelector(hierarchy=h, kind="TimeSeries") for h in hierarchy])
+        cmd = DownloadCommand()
+        cmd.run(
+            lambda: cmd.download(
+                selectors=selectors,
+                io=TimeSeriesIO(client),
+                output_dir=output_dir,
+                file_format=f".{file_format.value}",
+                compression=compression.value,
+                limit=limit if limit != -1 else None,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def download_events_cmd(
+        ctx: typer.Context,
+        data_sets: Annotated[
+            list[str] | None,
+            typer.Option(
+                "--data-set",
+                "-d",
+                help="List of data sets to download events from. If this and hierarchy are not provided, an interactive selection will be made.",
+            ),
+        ] = None,
+        hierarchy: Annotated[
+            list[str] | None,
+            typer.Option(
+                "--hierarchy",
+                "-r",
+                help="List of asset hierarchies to download events from. If this and data sets are not provided, an interactive selection will be made.",
+            ),
+        ] = None,
+        file_format: Annotated[
+            EventFormats,
+            typer.Option(
+                "--format",
+                "-f",
+                help="Format to download the events in.",
+            ),
+        ] = EventFormats.csv,
+        compression: Annotated[
+            CompressionFormat,
+            typer.Option(
+                "--compression",
+                "-z",
+                help="Compression format to use when downloading the events.",
+            ),
+        ] = CompressionFormat.none,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to download the events.",
+                allow_dash=True,
+            ),
+        ] = DEFAULT_DOWNLOAD_DIR,
+        limit: Annotated[
+            int,
+            typer.Option(
+                "--limit",
+                "-l",
+                help="The maximum number of events to download from each dataset/hierarchy. Use -1 to download all events.",
+            ),
+        ] = 100_000,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will download events from CDF into a temporary directory."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        is_interactive = not data_sets and not hierarchy
+        if is_interactive:
+            interactive = AssetInteractiveSelect(client, "download events")
+            selector_type = interactive.select_hierarchies_or_data_sets()
+            if selector_type == "Data Set":
+                data_sets = interactive.select_data_sets()
+            else:
+                hierarchy = interactive.select_hierarchies()
+
+        selectors: list[AssetCentricSelector] = []
+        if data_sets:
+            selectors.extend([DataSetSelector(data_set_external_id=ds, kind="Events") for ds in data_sets])
+        if hierarchy:
+            selectors.extend([AssetSubtreeSelector(hierarchy=h, kind="Events") for h in hierarchy])
+        cmd = DownloadCommand()
+        cmd.run(
+            lambda: cmd.download(
+                selectors=selectors,
+                io=EventIO(client),
+                output_dir=output_dir,
+                file_format=f".{file_format.value}",
+                compression=compression.value,
+                limit=limit if limit != -1 else None,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def download_files_cmd(
+        ctx: typer.Context,
+        data_sets: Annotated[
+            list[str] | None,
+            typer.Option(
+                "--data-set",
+                "-d",
+                help="List of data sets to download file metadata from. If this and hierarchy are not provided, an interactive selection will be made.",
+            ),
+        ] = None,
+        hierarchy: Annotated[
+            list[str] | None,
+            typer.Option(
+                "--hierarchy",
+                "-r",
+                help="List of asset hierarchies to download file metadata from. If this and data sets are not provided, an interactive selection will be made.",
+            ),
+        ] = None,
+        file_format: Annotated[
+            FileFormats,
+            typer.Option(
+                "--format",
+                "-f",
+                help="Format to download the file metadata in.",
+            ),
+        ] = FileFormats.csv,
+        compression: Annotated[
+            CompressionFormat,
+            typer.Option(
+                "--compression",
+                "-z",
+                help="Compression format to use when downloading the file metadata.",
+            ),
+        ] = CompressionFormat.none,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to download the file metadata.",
+                allow_dash=True,
+            ),
+        ] = DEFAULT_DOWNLOAD_DIR,
+        limit: Annotated[
+            int,
+            typer.Option(
+                "--limit",
+                "-l",
+                help="The maximum number of file metadata to download from each dataset/hierarchy. Use -1 to download all file metadata.",
+            ),
+        ] = 100_000,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will download file metadata from CDF into a temporary directory."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        is_interactive = not data_sets and not hierarchy
+        if is_interactive:
+            interactive = AssetInteractiveSelect(client, "download file metadata")
+            selector_type = interactive.select_hierarchies_or_data_sets()
+            if selector_type == "Data Set":
+                data_sets = interactive.select_data_sets()
+            else:
+                hierarchy = interactive.select_hierarchies()
+
+        selectors: list[AssetCentricSelector] = []
+        if data_sets:
+            selectors.extend([DataSetSelector(data_set_external_id=ds, kind="FileMetadata") for ds in data_sets])
+        if hierarchy:
+            selectors.extend([AssetSubtreeSelector(hierarchy=h, kind="FileMetadata") for h in hierarchy])
+        cmd = DownloadCommand()
+        cmd.run(
+            lambda: cmd.download(
+                selectors=selectors,
+                io=FileMetadataIO(client),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,
