@@ -756,6 +756,7 @@ class ModulesCommand(ToolkitCommand):
         """
 
         cdf_toml = CDFToml.load()
+
         if (Flags.EXTERNAL_LIBRARIES.is_enabled() or user_library) and self._module_source_dir is None:
             libraries = {"userdefined": user_library} if user_library else cdf_toml.libraries
 
