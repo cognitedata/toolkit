@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from collections import UserList
-from collections.abc import Sequence
+from collections.abc import Hashable, Sequence
 from dataclasses import dataclass, field
 from typing import Generic, Literal, Protocol, TypeAlias, TypeVar
 
@@ -351,6 +351,24 @@ class ResponseList(UserList[ResponseMessage | FailedRequestMessage]):
             if isinstance(resp, SuccessResponse) and resp.body is not None:
                 return _json.loads(resp.body)
         raise ValueError("No successful responses with a body found.")
+
+    def as_item_responses(self, item_id: Hashable) -> list[ResponseMessage | FailedRequestMessage]:
+        # Convert the responses to per-item responses
+        results: list[ResponseMessage | FailedRequestMessage] = []
+        for message in self.data:
+            if isinstance(message, SuccessResponse):
+                results.append(SuccessResponseItems(status_code=message.status_code, ids=[item_id], body=message.body))
+            elif isinstance(message, FailedResponse):
+                results.append(
+                    FailedResponseItems(
+                        status_code=message.status_code, ids=[item_id], body=message.body, error=message.error
+                    )
+                )
+            elif isinstance(message, FailedRequestMessage):
+                results.append(FailedRequestItems(ids=[item_id], error=message.error))
+            else:
+                results.append(message)
+        return results
 
 
 def _dump_body(body: dict[str, JsonVal]) -> str:

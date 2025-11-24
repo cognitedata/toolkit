@@ -11,6 +11,7 @@ from cognite_toolkit._cdf_tk.storageio import (
     CanvasIO,
     ChartIO,
     DatapointsIO,
+    FileContentIO,
     InstanceIO,
     RawIO,
     StorageIO,
@@ -26,6 +27,8 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     DataPointsFileSelector,
     DataSelector,
     DataSetSelector,
+    FileDataModelingTemplateSelector,
+    FileMetadataTemplateSelector,
     InstanceFileSelector,
     InstanceSpaceSelector,
     InstanceViewSelector,
@@ -162,6 +165,42 @@ def example_selector_data() -> Iterable[tuple]:
         CanvasIO.KIND,
         id="CanvasExternalIdSelector",
     )
+    yield pytest.param(
+        {
+            "type": "fileMetadataTemplate",
+            "kind": "FileContent",
+            "file_directory": "path/to/files",
+            "template": {
+                "name": "$FILENAME",
+                "external_id": "file_$FILENAME",
+                "source": "Uploaded via Toolkit",
+            },
+        },
+        FileMetadataTemplateSelector,
+        FileContentIO,
+        FileContentIO.KIND,
+        id="FileMetadataTemplateSelector",
+    )
+    yield pytest.param(
+        {
+            "type": "fileDataModelingTemplate",
+            "kind": "FileContent",
+            "file_directory": "path/to/files",
+            "viewId": {
+                "space": "cdf_cdm",
+                "externalId": "CogniteFile",
+                "version": "v1",
+            },
+            "template": {
+                "space": "my_space",
+                "external_id": "data_modeling_$FILENAME",
+            },
+        },
+        FileDataModelingTemplateSelector,
+        FileContentIO,
+        FileContentIO.KIND,
+        id="FileDataModelingTemplateSelector",
+    )
 
 
 @pytest.fixture(scope="module")
@@ -220,8 +259,8 @@ class TestDataSelectors:
         assert instance.group, f"group property not implemented for {type(instance).__name__}"
 
         # Assert correct IO type
-        assert get_upload_io(type(instance), kind) is expected_io, (
-            f"Expected {expected_io.__name__} for selector {type(instance).__name__}, got {get_upload_io(type(instance), kind).__name__}"
+        assert get_upload_io(type(instance)) is expected_io, (
+            f"Expected {expected_io.__name__} for selector {type(instance).__name__}, got {get_upload_io(type(instance)).__name__}"
         )
 
         # Assert selector is hashable
@@ -258,4 +297,4 @@ class TestGetUploadIO:
     def test_get_upload_io_with_path(
         self, selector: type[DataSelector], path: Path, expected_io: type[StorageIO]
     ) -> None:
-        assert get_upload_io(selector, path) == expected_io
+        assert get_upload_io(selector) == expected_io

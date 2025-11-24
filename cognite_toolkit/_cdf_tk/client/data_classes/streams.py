@@ -1,18 +1,12 @@
-import sys
-from collections import UserList
-from typing import Any, Literal
-
-from cognite.client import CogniteClient
+from typing import Literal
 
 from cognite_toolkit._cdf_tk.constants import StreamTemplateName
-from cognite_toolkit._cdf_tk.protocols import ResourceRequestListProtocol, ResourceResponseListProtocol
+from cognite_toolkit._cdf_tk.protocols import (
+    ResourceRequestListProtocol,
+    ResourceResponseListProtocol,
+)
 
-from .base import BaseModelObject, RequestResource, ResponseResource
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
+from .base import BaseModelObject, BaseResourceList, RequestResource, ResponseResource
 
 
 class StreamRequest(RequestResource):
@@ -25,21 +19,10 @@ class StreamRequest(RequestResource):
         return self.external_id
 
 
-class StreamRequestList(UserList[StreamRequest], ResourceRequestListProtocol):
+class StreamRequestList(BaseResourceList[StreamRequest], ResourceRequestListProtocol):
     """List of Stream request resources."""
 
     _RESOURCE = StreamRequest
-
-    def __init__(self, initlist: list[StreamRequest] | None = None, **_: Any) -> None:
-        super().__init__(initlist or [])
-
-    def dump(self, camel_case: bool = True) -> list[dict[str, Any]]:
-        return [item.dump(camel_case) for item in self.data]
-
-    @classmethod
-    def load(cls, data: list[dict[str, Any]], cognite_client: CogniteClient | None = None) -> "StreamRequestList":
-        items = [StreamRequest.model_validate(item) for item in data]
-        return cls(items)
 
 
 class LifecycleObject(BaseModelObject):
@@ -98,22 +81,10 @@ class StreamResponse(ResponseResource["StreamRequest"]):
         )
 
 
-class StreamResponseList(UserList[StreamResponse], ResourceResponseListProtocol):
+class StreamResponseList(BaseResourceList[StreamResponse], ResourceResponseListProtocol):
     """List of Stream response resources."""
 
     _RESOURCE = StreamResponse
-    data: list[StreamResponse]
 
-    def __init__(self, initlist: list[StreamResponse] | None = None, **_: Any) -> None:
-        super().__init__(initlist or [])
-
-    def dump(self, camel_case: bool = True) -> list[dict[str, Any]]:
-        return [item.dump(camel_case) for item in self.data]
-
-    @classmethod
-    def load(cls, data: list[dict[str, Any]], cognite_client: CogniteClient | None = None) -> "StreamResponseList":
-        items = [StreamResponse.model_validate(item) for item in data]
-        return cls(items)
-
-    def as_write(self) -> Self:
-        return self
+    def as_write(self) -> StreamRequestList:
+        return StreamRequestList([item.as_write() for item in self.data])
