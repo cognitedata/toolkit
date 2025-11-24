@@ -89,6 +89,10 @@ class Flags(Enum):
         visible=True,
         description="Enables the support for the streams resources",
     )
+    v08 = FlagMetadata(
+        visible=False,
+        description="Enables features planned for Cognite Toolkit version 0.8.0",
+    )
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)
