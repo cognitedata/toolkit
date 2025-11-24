@@ -4,6 +4,7 @@ from typing import Annotated, Any
 
 import questionary
 import typer
+from cognite.client.data_classes import Annotation
 from cognite.client.data_classes.data_modeling import ContainerId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -17,8 +18,9 @@ from cognite_toolkit._cdf_tk.commands._migrate.creators import (
     InstanceSpaceCreator,
     SourceSystemCreator,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
+from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper, ChartMapper
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
+    AnnotationMigrationIO,
     AssetCentricMigrationIO,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import (
@@ -26,11 +28,15 @@ from cognite_toolkit._cdf_tk.commands._migrate.selectors import (
     MigrateDataSetSelector,
     MigrationCSVFileSelector,
 )
+from cognite_toolkit._cdf_tk.storageio import ChartIO
+from cognite_toolkit._cdf_tk.storageio.selectors import ChartExternalIdSelector
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.cli_args import parse_view_str
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
     AssetInteractiveSelect,
     DataModelingSelect,
+    FileMetadataInteractiveSelect,
+    InteractiveChartSelect,
     ResourceViewMappingInteractiveSelect,
 )
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricKind
@@ -49,7 +55,9 @@ class MigrateApp(typer.Typer):
         self.command("events")(self.events)
         self.command("timeseries")(self.timeseries)
         self.command("files")(self.files)
+        self.command("annotations")(self.annotations)
         self.command("canvas")(self.canvas)
+        self.command("charts")(self.charts)
         # Uncomment when infield v2 config migration is ready
         # self.command("infield-configs")(self.infield_configs)
 
@@ -694,6 +702,149 @@ class MigrateApp(typer.Typer):
             )
         )
 
+    @classmethod
+    def annotations(
+        cls,
+        ctx: typer.Context,
+        mapping_file: Annotated[
+            Path | None,
+            typer.Option(
+                "--mapping-file",
+                "-m",
+                help="Path to the mapping file that contains the mapping from Annotations to CogniteDiagramAnnotation. "
+                "This file is expected to have the following columns: [id, space, externalId, ingestionView].",
+            ),
+        ] = None,
+        data_set_id: Annotated[
+            str | None,
+            typer.Option(
+                "--data-set-id",
+                "-s",
+                help="The data set ID to select for the annotations to migrate. If not provided and the mapping file is not provided, "
+                "an interactive selection will be performed to select the data set to migrate annotations from.",
+            ),
+        ] = None,
+        instance_space: Annotated[
+            str | None,
+            typer.Option(
+                "--instance-space",
+                "-i",
+                help="The instance space to use for the migrated annotations. Required when using --data-set-id.",
+            ),
+        ] = None,
+        asset_annotation_mapping: Annotated[
+            str | None,
+            typer.Option(
+                "--asset-annotation-mapping",
+                "-a",
+                help="The ingestion mapping to use for asset-linked annotations. If not provided, "
+                "the default mapping (cdf_asset_annotations_mapping) will be used.",
+            ),
+        ] = None,
+        file_annotation_mapping: Annotated[
+            str | None,
+            typer.Option(
+                "--file-annotation-mapping",
+                "-f",
+                help="The ingestion mapping to use for file-linked annotations. If not provided, "
+                "the default mapping (cdf_file_annotations_mapping) will be used.",
+            ),
+        ] = None,
+        log_dir: Annotated[
+            Path,
+            typer.Option(
+                "--log-dir",
+                "-l",
+                help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
+            ),
+        ] = Path(f"migration_logs_{TODAY!s}"),
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-d",
+                help="If set, the migration will not be executed, but only a report of what would be done is printed.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """Migrate Annotations to CogniteDiagramAnnotation edges in data modeling.
+
+        Annotations are diagram annotations that link assets or files to other resources. This command
+        migrates them to edges in the data modeling space, preserving the relationships and metadata.
+        """
+        client = EnvironmentVariables.create_from_environment().get_client()
+
+        if data_set_id is not None and mapping_file is not None:
+            raise typer.BadParameter("Cannot specify both data_set_id and mapping_file")
+        elif mapping_file is not None:
+            selected: AssetCentricMigrationSelector = MigrationCSVFileSelector(
+                datafile=mapping_file, kind="Annotations"
+            )
+            annotation_io = AnnotationMigrationIO(client)
+        elif data_set_id is not None:
+            if instance_space is None:
+                raise typer.BadParameter("--instance-space is required when using --data-set-id")
+            selected = MigrateDataSetSelector(data_set_external_id=data_set_id, kind="Annotations")
+            annotation_io = AnnotationMigrationIO(
+                client,
+                instance_space=instance_space,
+                default_asset_annotation_mapping=asset_annotation_mapping,
+                default_file_annotation_mapping=file_annotation_mapping,
+            )
+        else:
+            # Interactive selection
+            selector = FileMetadataInteractiveSelect(client, "migrate")
+            selected_data_set_id = selector.select_data_set(allow_empty=False)
+            dm_selector = DataModelingSelect(client, "migrate")
+            selected_instance_space = dm_selector.select_instance_space(
+                multiselect=False,
+                message="In which instance space do you want to create the annotations?",
+                include_empty=True,
+            )
+            if selected_instance_space is None:
+                raise typer.Abort()
+            asset_annotations_selector = ResourceViewMappingInteractiveSelect(client, "migrate asset annotations")
+            asset_annotation_mapping = asset_annotations_selector.select_resource_view_mapping(
+                resource_type="assetAnnotation",
+            ).external_id
+            file_annotations_selector = ResourceViewMappingInteractiveSelect(client, "migrate file annotations")
+            file_annotation_mapping = file_annotations_selector.select_resource_view_mapping(
+                resource_type="fileAnnotation",
+            ).external_id
+
+            selected = MigrateDataSetSelector(data_set_external_id=selected_data_set_id, kind="Annotations")
+            annotation_io = AnnotationMigrationIO(
+                client,
+                instance_space=selected_instance_space,
+                default_asset_annotation_mapping=asset_annotation_mapping,
+                default_file_annotation_mapping=file_annotation_mapping,
+            )
+
+            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).ask()
+            verbose = questionary.confirm("Do you want verbose output?", default=verbose).ask()
+            if any(res is None for res in [dry_run, verbose]):
+                raise typer.Abort()
+
+        cmd = MigrationCommand()
+        cmd.run(
+            lambda: cmd.migrate(
+                selected=selected,
+                data=annotation_io,
+                mapper=AssetCentricMapper[Annotation](client),
+                log_dir=log_dir,
+                dry_run=dry_run,
+                verbose=verbose,
+            )
+        )
+
     @staticmethod
     def canvas(
         ctx: typer.Context,
@@ -735,6 +886,68 @@ class MigrateApp(typer.Typer):
             lambda: cmd.migrate_canvas(
                 client,
                 external_ids=external_id,
+                dry_run=dry_run,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def charts(
+        ctx: typer.Context,
+        external_id: Annotated[
+            list[str] | None,
+            typer.Argument(
+                help="The external ID of the Chart to migrate. If not provided, an interactive selection will be "
+                "performed to select the Charts to migrate."
+            ),
+        ] = None,
+        log_dir: Annotated[
+            Path,
+            typer.Option(
+                "--log-dir",
+                "-l",
+                help="Path to the directory where migration logs will be stored.",
+            ),
+        ] = Path(f"migration_logs_{TODAY}"),
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-d",
+                help="If set, the migration will not be executed, but only a report of "
+                "what would be done is printed. This is useful for checking that all time series referenced by the Charts "
+                "have been migrated to the new data modeling resources in CDF.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """Migrate Charts from time series references to data modeling in CDF.
+
+        This command expects that the CogniteMigration data model is already deployed, and that the Mapping view
+        is populated with the mapping from time series to the new data modeling resources.
+        """
+        client = EnvironmentVariables.create_from_environment().get_client()
+
+        selected_external_ids: list[str]
+        if external_id:
+            selected_external_ids = external_id
+        else:
+            selected_external_ids = InteractiveChartSelect(client).select_external_ids()
+
+        cmd = MigrationCommand()
+        cmd.run(
+            lambda: cmd.migrate(
+                selected=ChartExternalIdSelector(external_ids=tuple(selected_external_ids)),
+                data=ChartIO(client),
+                mapper=ChartMapper(client),
+                log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
             )
