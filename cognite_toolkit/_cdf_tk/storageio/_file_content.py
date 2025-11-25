@@ -24,7 +24,7 @@ from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import Page, UploadableStorageIO, UploadItem
 from .selectors import FileContentSelector, FileMetadataTemplateSelector
-from .selectors._file_content import FILEPATH
+from .selectors._file_content import FILEPATH, FileDataModelingTemplateSelector
 
 
 @dataclass
@@ -97,7 +97,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, FileMetadata, FileM
         results: MutableSequence[HTTPMessage] = []
         if isinstance(selector, FileMetadataTemplateSelector):
             upload_url_getter = self._upload_url_asset_centric
-        elif isinstance(selector, FileMetadataTemplateSelector):
+        elif isinstance(selector, FileDataModelingTemplateSelector):
             upload_url_getter = self._upload_url_data_modeling
         elif selector is None:
             raise ToolkitNotImplementedError("Selector must be provided for FileContentIO upload")

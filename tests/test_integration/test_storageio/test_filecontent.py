@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     FileMetadataTemplate,
     FileMetadataTemplateSelector,
 )
-from cognite_toolkit._cdf_tk.storageio.selectors._file_content import FILENAME_VARIABLE
+from cognite_toolkit._cdf_tk.storageio.selectors._file_content import FILENAME_VARIABLE, TemplateNodeId
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
 from tests.test_integration.constants import RUN_UNIQUE_ID
@@ -65,8 +65,10 @@ class TestFileContentIO:
         selector = FileDataModelingTemplateSelector(
             file_directory=tmp_path,
             template=FileDataModelingTemplate(
-                space=toolkit_space.space,
-                external_id=FILENAME_VARIABLE,
+                instance_id=TemplateNodeId(
+                    space=toolkit_space.space,
+                    external_id=FILENAME_VARIABLE,
+                )
             ),
         )
         io = FileContentIO(toolkit_client)
