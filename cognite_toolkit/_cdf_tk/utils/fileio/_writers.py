@@ -19,7 +19,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingDependencyError, To
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
-from cognite_toolkit._cdf_tk.utils.table_writers import DataType
+from cognite_toolkit._cdf_tk.utils.useful_types import DataType
 
 from ._base import T_IO, CellValue, Chunk, FileIO, SchemaColumn
 from ._compression import Compression, Uncompressed
