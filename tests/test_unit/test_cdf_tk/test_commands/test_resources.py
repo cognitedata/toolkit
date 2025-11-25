@@ -17,7 +17,7 @@ class TestResourcesCreateCommand:
         organization_dir = tmp_path / "my_org"
         modules_dir = organization_dir / MODULES / "test_module"
         modules_dir.mkdir(parents=True, exist_ok=True)
-        (modules_dir / "data_models").mkdir(parents=True, exist_ok=True)
+        (modules_dir / "data_modeling").mkdir(parents=True, exist_ok=True)
 
         cmd.create(
             organization_dir=organization_dir,
@@ -26,8 +26,8 @@ class TestResourcesCreateCommand:
             prefix="my",
             verbose=False,
         )
-        assert (modules_dir / "data_models" / "my.Space.yaml").exists()
-        assert (modules_dir / "data_models" / "containers" / "my.Container.yaml").exists()
+        assert (modules_dir / "data_modeling" / "my.Space.yaml").exists()
+        assert (modules_dir / "data_modeling" / "containers" / "my.Container.yaml").exists()
 
     def test_create_fuzzy_match_fails_gracefully(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Test create method with fuzzy matching for kind suggests and exits."""
@@ -35,7 +35,7 @@ class TestResourcesCreateCommand:
         organization_dir = tmp_path / "my_org"
         modules_dir = organization_dir / MODULES / "test_module"
         modules_dir.mkdir(parents=True, exist_ok=True)
-        (modules_dir / "data_models").mkdir(parents=True, exist_ok=True)
+        (modules_dir / "data_modeling").mkdir(parents=True, exist_ok=True)
 
         with pytest.raises(typer.Exit):
             cmd.create(
@@ -51,7 +51,7 @@ class TestResourcesCreateCommand:
         organization_dir = tmp_path / "my_org"
         modules_dir = organization_dir / MODULES / "test_module"
         modules_dir.mkdir(parents=True, exist_ok=True)
-        (modules_dir / "data_models").mkdir(parents=True, exist_ok=True)
+        (modules_dir / "data_modeling").mkdir(parents=True, exist_ok=True)
 
         with pytest.raises(typer.Exit):
             cmd.create(
@@ -75,7 +75,7 @@ class TestResourcesCreateCommand:
             )
 
         modules_dir = organization_dir / MODULES / "new_module"
-        assert (modules_dir / "data_models" / "my_Space.Space.yaml").exists()
+        assert (modules_dir / "data_modeling" / "my_Space.Space.yaml").exists()
 
     def test_create_module_not_found_abort(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Test create method when module doesn't exist and user aborts."""
@@ -96,7 +96,7 @@ class TestResourcesCreateCommand:
         organization_dir = tmp_path / "my_org"
         modules_dir = organization_dir / MODULES / "existing_module"
         modules_dir.mkdir(parents=True, exist_ok=True)
-        (modules_dir / "data_models").mkdir(parents=True, exist_ok=True)
+        (modules_dir / "data_modeling").mkdir(parents=True, exist_ok=True)
 
         with MockQuestionary(ResourcesCommand.__module__, monkeypatch, [modules_dir]):
             cmd.create(
@@ -105,7 +105,7 @@ class TestResourcesCreateCommand:
                 kind=["Space"],
                 verbose=False,
             )
-        assert (modules_dir / "data_models" / "my_Space.Space.yaml").exists()
+        assert (modules_dir / "data_modeling" / "my_Space.Space.yaml").exists()
 
     def test_create_interactive_new_module(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Test interactive selection -> Create new module."""
@@ -122,7 +122,7 @@ class TestResourcesCreateCommand:
             )
 
         new_module_path = organization_dir / MODULES / "created_module"
-        assert (new_module_path / "data_models" / "my_Space.Space.yaml").exists()
+        assert (new_module_path / "data_modeling" / "my_Space.Space.yaml").exists()
 
     def test_create_interactive_kind_selection(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Test interactive kind selection when kind is not provided."""
@@ -130,7 +130,7 @@ class TestResourcesCreateCommand:
         organization_dir = tmp_path / "my_org"
         modules_dir = organization_dir / MODULES / "test_module"
         modules_dir.mkdir(parents=True, exist_ok=True)
-        (modules_dir / "data_models").mkdir(parents=True, exist_ok=True)
+        (modules_dir / "data_modeling").mkdir(parents=True, exist_ok=True)
 
         def return_space_crud(*args):
             return SpaceCRUD
@@ -142,7 +142,7 @@ class TestResourcesCreateCommand:
                 kind=None,
                 verbose=False,
             )
-        assert (modules_dir / "data_models" / "my_Space.Space.yaml").exists()
+        assert (modules_dir / "data_modeling" / "my_Space.Space.yaml").exists()
 
     def test_create_interactive_kind_selection_abort(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Test interactive kind selection when kind is not provided and user aborts."""
@@ -150,7 +150,7 @@ class TestResourcesCreateCommand:
         organization_dir = tmp_path / "my_org"
         modules_dir = organization_dir / MODULES / "test_module"
         modules_dir.mkdir(parents=True, exist_ok=True)
-        (modules_dir / "data_models").mkdir(parents=True, exist_ok=True)
+        (modules_dir / "data_modeling").mkdir(parents=True, exist_ok=True)
 
         with pytest.raises(typer.Exit), MockQuestionary(ResourcesCommand.__module__, monkeypatch, [None]):
             cmd.create(
