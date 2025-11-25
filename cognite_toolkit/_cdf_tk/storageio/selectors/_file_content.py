@@ -81,7 +81,7 @@ class FileDataModelingTemplate(FileTemplate):
 
 class FileDataModelingTemplateSelector(FileContentSelector):
     type: Literal["fileDataModelingTemplate"] = "fileDataModelingTemplate"
-    view_id: SelectedView
+    view_id: SelectedView = SelectedView(space="cdf_cdm", external_id="CogniteFile", version="v1")
     template: FileDataModelingTemplate
 
     @property
