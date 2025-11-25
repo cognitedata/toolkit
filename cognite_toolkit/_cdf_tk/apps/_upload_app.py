@@ -15,10 +15,18 @@ DEFAULT_INPUT_DIR = Path.cwd() / DATA_DEFAULT_DIR
 class UploadApp(typer.Typer):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self.command("dir")(self.upload_main)
+        self.callback(invoke_without_command=True)(self.upload_main)
+        self.command("dir")(self.upload_dir)
 
     @staticmethod
-    def upload_main(
+    def upload_main(ctx: typer.Context) -> None:
+        """Commands to upload data to CDF."""
+        if ctx.invoked_subcommand is None:
+            print("Use [bold yellow]cdf upload --help[/] for more information.")
+        return None
+
+    @staticmethod
+    def upload_dir(
         ctx: typer.Context,
         input_dir: Annotated[
             Path | None,

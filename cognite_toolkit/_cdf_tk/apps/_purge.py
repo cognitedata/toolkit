@@ -8,7 +8,6 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     InstanceFileSelector,
     InstanceSelector,
@@ -31,8 +30,7 @@ class PurgeApp(typer.Typer):
         self.callback(invoke_without_command=True)(self.main)
         self.command("dataset")(self.purge_dataset)
         self.command("space")(self.purge_space)
-        if Flags.PURGE_INSTANCES.is_enabled() or Flags.v07.is_enabled():
-            self.command("instances")(self.purge_instances)
+        self.command("instances")(self.purge_instances)
 
     def main(self, ctx: typer.Context) -> None:
         """Commands deleting data from Cognite Data Fusion."""
@@ -48,21 +46,11 @@ class PurgeApp(typer.Typer):
                 help="External id of the dataset to purge. If not provided, interactive mode will be used.",
             ),
         ] = None,
-        include_dataset: Annotated[
-            bool,
-            typer.Option(
-                "--include-dataset",
-                "-i",
-                help="Whether to archive the dataset itself after purging its contents.",
-                hidden=Flags.v07.is_enabled(),
-            ),
-        ] = False,
         archive_dataset: Annotated[
             bool,
             typer.Option(
                 "--archive-dataset",
                 help="Whether to archive the dataset itself after purging its contents.",
-                hidden=not Flags.v07.is_enabled(),
             ),
         ] = False,
         skip_data: Annotated[
@@ -73,7 +61,6 @@ class PurgeApp(typer.Typer):
                 help="Skip deleting the data in the dataset, only delete configurations. The resources that are "
                 "considered data are: time series, event, files, assets, sequences, relationships, "
                 "labels, and 3D Models",
-                hidden=not Flags.v07.is_enabled(),
             ),
         ] = False,
         include_configurations: Annotated[
@@ -82,7 +69,6 @@ class PurgeApp(typer.Typer):
                 "--include-configurations",
                 "-c",
                 help="Include configurations, workflows, extraction pipelines and transformations in the purge.",
-                hidden=not Flags.v07.is_enabled(),
             ),
         ] = False,
         asset_recursive: Annotated[
@@ -92,7 +78,6 @@ class PurgeApp(typer.Typer):
                 "-a",
                 help="When deleting assets, delete all child assets recursively. CAVEAT: This can lead to assets"
                 " not in the selected dataset being deleted if they are children of assets in the dataset.",
-                hidden=not Flags.v07.is_enabled(),
             ),
         ] = False,
         dry_run: Annotated[
@@ -128,38 +113,27 @@ class PurgeApp(typer.Typer):
             # Is Interactive
             interactive = AssetInteractiveSelect(client, operation="purge")
             external_id = interactive.select_data_set(allow_empty=False)
-            if Flags.v07.is_enabled():
-                skip_data = not questionary.confirm(
-                    "Delete data in the dataset (time series, events, files, assets, sequences, relationships, labels, 3D models)?",
-                    default=True,
-                ).ask()
-                include_configurations = questionary.confirm(
-                    "Delete configurations (workflows, extraction pipelines and transformations) in the dataset?",
-                    default=False,
-                ).ask()
-                asset_recursive = questionary.confirm(
-                    "When deleting assets, delete all child assets recursively? (WARNING: This can lead "
-                    "to assets not in the selected dataset being deleted if they are children of assets in the dataset.)",
-                    default=False,
-                ).ask()
+            skip_data = not questionary.confirm(
+                "Delete data in the dataset (time series, events, files, assets, sequences, relationships, labels, 3D models)?",
+                default=True,
+            ).ask()
+            include_configurations = questionary.confirm(
+                "Delete configurations (workflows, extraction pipelines and transformations) in the dataset?",
+                default=False,
+            ).ask()
+            asset_recursive = questionary.confirm(
+                "When deleting assets, delete all child assets recursively? (WARNING: This can lead "
+                "to assets not in the selected dataset being deleted if they are children of assets in the dataset.)",
+                default=False,
+            ).ask()
             archive_dataset = questionary.confirm("Archive the dataset itself after purging?", default=False).ask()
             dry_run = questionary.confirm("Dry run?", default=True).ask()
             verbose = questionary.confirm("Verbose?", default=True).ask()
 
-            user_options = [archive_dataset, dry_run, verbose]
-            if Flags.v07.is_enabled():
-                user_options.extend([skip_data, include_configurations, asset_recursive])
+            user_options = [archive_dataset, dry_run, verbose, skip_data, include_configurations, asset_recursive]
 
             if any(selected is None for selected in user_options):
                 raise typer.Abort("Aborted by user.")
-
-        else:
-            archive_dataset = archive_dataset if Flags.v07.is_enabled() else include_dataset
-
-        if not Flags.v07.is_enabled():
-            skip_data = False
-            include_configurations = True
-            asset_recursive = False
 
         cmd.run(
             lambda: cmd.dataset(
@@ -197,7 +171,6 @@ class PurgeApp(typer.Typer):
             typer.Option(
                 "--delete-datapoints",
                 help="Delete datapoints linked to CogniteTimeSeries nodes in the space.",
-                hidden=not Flags.v07.is_enabled(),
             ),
         ] = False,
         delete_file_content: Annotated[
@@ -205,7 +178,6 @@ class PurgeApp(typer.Typer):
             typer.Option(
                 "--delete-file-content",
                 help="Delete file content linked to CogniteFile nodes in the space.",
-                hidden=not Flags.v07.is_enabled(),
             ),
         ] = False,
         dry_run: Annotated[

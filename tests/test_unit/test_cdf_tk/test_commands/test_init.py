@@ -63,7 +63,7 @@ class TestInitCommand:
                 ),
             ):
                 cmd = InitCommand(print_warning=False, skip_tracking=True)
-                cmd.execute(emulate_dot_seven=True)
+                cmd.execute()
 
         assert cdf_toml_path.exists(), "cdf.toml should be created"
         assert CDFToml.load(tmp_path, use_singleton=False).is_loaded_from_file
@@ -103,7 +103,7 @@ class TestInitCommand:
 
                 with patch.object(InitCommand, "_init_repo", mock_init_repo):
                     cmd = InitCommand(print_warning=False, skip_tracking=True)
-                    cmd.execute(emulate_dot_seven=True)
+                    cmd.execute()
 
         # Verify .github folder was created
         github_folder = tmp_path / ".github" / "workflows"
@@ -121,4 +121,4 @@ class TestInitCommand:
                 user_input,
             ):
                 cmd = InitCommand(print_warning=False, skip_tracking=True)
-                cmd.execute(emulate_dot_seven=True)
+                cmd.execute()

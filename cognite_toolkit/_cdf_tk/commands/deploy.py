@@ -44,7 +44,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
     ToolkitNotADirectoryError,
 )
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.protocols import (
     T_ResourceRequest,
     T_ResourceRequestList,
@@ -295,7 +294,7 @@ class DeployCommand(ToolkitCommand):
             read_modules = build.read_modules
         output_results = DeployResults([], "deploy", dry_run=dry_run) if results is None else results
         for loader_cls in ordered_loaders:
-            if issubclass(loader_cls, DataCRUD) and Flags.v07:
+            if issubclass(loader_cls, DataCRUD):
                 self.warn(
                     HighSeverityWarning(
                         f"Uploading {loader_cls.kind} data is deprecated and will be removed in v0.8. "

@@ -10,7 +10,6 @@ from cognite_toolkit._cdf_tk.commands import (
     RunTransformationCommand,
     RunWorkflowCommand,
 )
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 CDF_TOML = CDFToml.load(Path.cwd())
@@ -27,8 +26,7 @@ class RunApp(typer.Typer):
     @staticmethod
     def _print_deprecation_warning() -> None:
         """Print deprecation warning for the run plugin."""
-        if Flags.v07.is_enabled():
-            print("The run plugin is deprecated and will be replaced by the dev plugin in v0.8.0.")
+        print("The run plugin is deprecated and will be replaced by the dev plugin in v0.8.0.")
 
     @staticmethod
     def main(ctx: typer.Context) -> None:

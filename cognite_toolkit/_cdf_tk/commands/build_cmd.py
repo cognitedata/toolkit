@@ -65,7 +65,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMissingModuleError,
     ToolkitYAMLFormatError,
 )
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.hints import Hint, ModuleDefinition, verify_module_directory
 from cognite_toolkit._cdf_tk.tk_warnings import (
     DuplicatedItemWarning,
@@ -361,13 +360,12 @@ class BuildCommand(ToolkitCommand):
 
             if resource_name == "data_models":
                 resource_name = "data_modeling"
-                if Flags.v07:
-                    self.warn(
-                        MediumSeverityWarning(
-                            "The resource folder 'data_models' is deprecated and will be removed in v1.0. "
-                            "Please rename the folder to 'data_modeling'."
-                        )
+                self.warn(
+                    MediumSeverityWarning(
+                        "The resource folder 'data_models' is deprecated and will be removed in v1.0. "
+                        "Please rename the folder to 'data_modeling'."
                     )
+                )
 
             builder = self._get_builder(build_dir, resource_name)
 

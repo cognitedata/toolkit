@@ -77,15 +77,11 @@ from ._worker import ResourceWorker
 _EXCLUDED_CRUDS: set[type[ResourceCRUD]] = set()
 if not FeatureFlag.is_enabled(Flags.GRAPHQL):
     _EXCLUDED_CRUDS.add(GraphQLCRUD)
-if not FeatureFlag.is_enabled(Flags.AGENTS):
-    _EXCLUDED_CRUDS.add(AgentCRUD)
 if not FeatureFlag.is_enabled(Flags.INFIELD):
     _EXCLUDED_CRUDS.add(InfieldV1CRUD)
     _EXCLUDED_CRUDS.add(InFieldLocationConfigCRUD)
 if not FeatureFlag.is_enabled(Flags.MIGRATE):
     _EXCLUDED_CRUDS.add(ResourceViewMappingCRUD)
-if not FeatureFlag.is_enabled(Flags.SEARCH_CONFIG):
-    _EXCLUDED_CRUDS.add(SearchConfigCRUD)
 if not FeatureFlag.is_enabled(Flags.STREAMS):
     _EXCLUDED_CRUDS.add(StreamCRUD)
 
@@ -159,6 +155,7 @@ __all__ = [
     "RESOURCE_CRUD_CONTAINER_LIST",
     "RESOURCE_CRUD_LIST",
     "RESOURCE_DATA_CRUD_LIST",
+    "AgentCRUD",
     "AssetCRUD",
     "CogniteFileCRUD",
     "ContainerCRUD",

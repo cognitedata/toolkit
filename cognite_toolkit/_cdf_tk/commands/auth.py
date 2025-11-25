@@ -53,7 +53,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ResourceDeleteError,
     ToolkitMissingValueError,
 )
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
     LowSeverityWarning,
@@ -96,16 +95,6 @@ class AuthCommand(ToolkitCommand):
             raise AuthenticationError(f"Unable to verify the credentials.\n{e}")
 
         print("[green]The credentials are valid.[/green]")
-        if no_verify or Flags.v07.is_enabled():
-            return
-        print(
-            Panel(
-                "Running verification, 'cdf auth verify'...",
-                title="",
-                expand=False,
-            )
-        )
-        self.verify(client, dry_run)
 
     def _store_dotenv(self, env_vars: EnvironmentVariables) -> None:
         new_env_file = env_vars.create_dotenv_file()

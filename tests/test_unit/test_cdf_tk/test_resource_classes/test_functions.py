@@ -23,7 +23,7 @@ def invalid_function_test_cases() -> Iterable:
             "secrets": {f"secret_name{i}": f"super_secret{i}" for i in range(31)},
         },
         {
-            "In field runtime input should be 'py39', 'py310' or 'py311'. Got 'py36'.",
+            "In field runtime input should be 'py39', 'py310', 'py311' or 'py312'. Got 'py36'.",
             "In field secrets dictionary should have at most 30 items after validation, not 31",
         },
         id="Invalid runtime",
