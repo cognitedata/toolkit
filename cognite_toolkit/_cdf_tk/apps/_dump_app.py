@@ -862,6 +862,15 @@ class DumpDataApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will dump the selected assets in the selected format to the folder specified, defaults to /tmp."""
+        if Flags.v07:
+            print(
+                "[bold yellow]Warning:[/] This command has been removed. Please use `cdf data download assets` instead."
+            )
+            return None
+        elif Flags.v08:
+            raise ValueError(
+                "The `cdf dump data asset` command has been removed. Please use `cdf data download assets` instead."
+            )
         cmd = DumpDataCommand()
         client = EnvironmentVariables.create_from_environment().get_client()
         if hierarchy is None and data_set is None:
@@ -940,6 +949,15 @@ class DumpDataApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will dump the selected events to the selected format in the folder specified, defaults to /tmp."""
+        if Flags.v07:
+            print(
+                "[bold yellow]Warning:[/] This command has been removed. Please use `cdf data download files` instead."
+            )
+            return None
+        elif Flags.v08:
+            raise ValueError(
+                "The `cdf dump data files-metadata` command has been removed. Please use `cdf data download files` instead."
+            )
         cmd = DumpDataCommand()
         cmd.validate_directory(output_dir, clean)
         client = EnvironmentVariables.create_from_environment().get_client()
@@ -1018,6 +1036,15 @@ class DumpDataApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will dump the selected timeseries to the selected format in the folder specified, defaults to /tmp."""
+        if Flags.v07:
+            print(
+                "[bold yellow]Warning:[/] This command has been removed. Please use `cdf data download timeseries` instead."
+            )
+            return None
+        elif Flags.v08:
+            raise ValueError(
+                "The `cdf dump data timeseries` command has been removed. Please use `cdf data download timeseries` instead."
+            )
         cmd = DumpDataCommand()
         client = EnvironmentVariables.create_from_environment().get_client()
         if hierarchy is None and data_set is None:
@@ -1095,6 +1122,15 @@ class DumpDataApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will dump the selected events to the selected format in the folder specified, defaults to /tmp."""
+        if Flags.v07:
+            print(
+                "[bold yellow]Warning:[/] This command has been removed. Please use `cdf data download events` instead."
+            )
+            return None
+        elif Flags.v08:
+            raise ValueError(
+                "The `cdf dump data event` command has been removed. Please use `cdf data download events` instead."
+            )
         cmd = DumpDataCommand()
         cmd.validate_directory(output_dir, clean)
         client = EnvironmentVariables.create_from_environment().get_client()
