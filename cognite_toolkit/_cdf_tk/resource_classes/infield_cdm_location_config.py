@@ -107,4 +107,3 @@ class InFieldCDMLocationConfigYAML(ToolkitResource):
     view_mappings: ViewMappings | None = None
     disciplines: list[Discipline] | None = None
     data_exploration_config: dict[str, Any] | None = None
-
