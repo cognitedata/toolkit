@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import ConfigDict, field_validator
+from pydantic import ConfigDict, field_validator, model_validator
 
 from ._base import DataSelector, SelectorObject
 from ._instances import SelectedView
@@ -64,7 +64,7 @@ class FileMetadataTemplateSelector(FileContentSelector):
         return self.template.create_instance(filepath.name)
 
 
-class FileDataModelingTemplate(FileTemplate):
+class TemplateNodeId(SelectorObject):
     space: str
     external_id: str
 
@@ -77,6 +77,18 @@ class FileDataModelingTemplate(FileTemplate):
                 f"This allows for dynamic substitution based on the file name."
             )
         return v
+
+
+class FileDataModelingTemplate(FileTemplate):
+    instance_id: TemplateNodeId
+
+    @model_validator(mode="before")
+    def _move_space_external_id(cls, data: dict[str, Any]) -> dict[str, Any]:
+        if "space" in data and "externalId" in data:
+            data["instanceId"] = {"space": data.pop("space"), "externalId": data.pop("external_id")}
+        elif "space" in data and "external_id" in data:
+            data["instance_id"] = {"space": data.pop("space"), "external_id": data.pop("external_id")}
+        return data
 
 
 class FileDataModelingTemplateSelector(FileContentSelector):
