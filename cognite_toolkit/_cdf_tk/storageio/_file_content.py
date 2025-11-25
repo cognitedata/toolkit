@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import cast
 
 from cognite.client.data_classes import FileMetadata, FileMetadataWrite
+from cognite.client.data_classes.data_modeling import NodeId, ViewId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.cruds import FileMetadataCRUD
@@ -15,9 +16,11 @@ from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.http_client import (
     DataBodyRequest,
     ErrorDetails,
+    FailedResponse,
     FailedResponseItems,
     HTTPClient,
     HTTPMessage,
+    ResponseList,
     SimpleBodyRequest,
 )
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
@@ -25,6 +28,8 @@ from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from ._base import Page, UploadableStorageIO, UploadItem
 from .selectors import FileContentSelector, FileMetadataTemplateSelector
 from .selectors._file_content import FILEPATH, FileDataModelingTemplateSelector
+
+COGNITE_FILE_VIEW = ViewId("cdf_cdm", "CogniteFile", "v1")
 
 
 @dataclass
@@ -132,11 +137,90 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, FileMetadata, FileM
                 body_content=item.dump(),  # type: ignore[arg-type]
             )
         )
+        return self._parse_upload_link_response(responses, item, results)
+
+    def _upload_url_data_modeling(
+        self,
+        item: UploadFileContentItem,
+        http_client: HTTPClient,
+        results: MutableSequence[HTTPMessage],
+        created_node: bool = False,
+    ) -> str | None:
+        """Get upload URL for data modeling file upload.
+
+        We first try to get the upload link assuming the CogniteFile node already exists.
+        If we get a "not found" error, we create the CogniteFile node and try again.
+
+        Args:
+            item: The upload item containing file metadata.
+            http_client: The HTTP client to use for requests.
+            results: A mutable sequence to collect HTTP messages and errors.
+            created_node: A flag indicating whether the CogniteFile node has already been created.
+                This prevents infinite recursion.
+
+        Returns:
+            The upload URL as a string, or None if there was an error.
+
+        """
+        # We know that instance_id is always set for data modeling uploads
+        instance_id = cast(NodeId, item.item.instance_id)
+        responses = http_client.request_with_retries(
+            message=SimpleBodyRequest(
+                endpoint_url=http_client.config.create_api_url("/files/uploadlink"),
+                method="POST",
+                body_content={"items": [{"instanceId": instance_id.dump(include_instance_type=False)}]},  # type: ignore[dict-item]
+            )
+        )
+        # We know there is only one response since we only requested one upload link
+        response = responses[0]
+        if isinstance(response, FailedResponse) and "not found" in response.error.message and not created_node:
+            if self._create_cognite_file_node(instance_id, http_client, item.as_id(), results):
+                return self._upload_url_data_modeling(item, http_client, results, created_node=True)
+            else:
+                return None
+
+        return self._parse_upload_link_response(responses, item, results)
+
+    @classmethod
+    def _create_cognite_file_node(
+        cls, instance_id: NodeId, http_client: HTTPClient, upload_id: str, results: MutableSequence[HTTPMessage]
+    ) -> bool:
+        node_creation = http_client.request_with_retries(
+            message=SimpleBodyRequest(
+                endpoint_url=http_client.config.create_api_url("/models/instances"),
+                method="POST",
+                body_content={
+                    "items": [
+                        {
+                            **instance_id.dump(include_instance_type=True),
+                            # When we create a node with properties in CogniteFile View even with empty properties,
+                            # CDF will fill in empty values for all properties defined in the view (note this is only
+                            # possible because CognteFile view has all properties as optional). This includes properties
+                            # in the CogniteFile container, which will trigger the file syncer to create a FileMetadata
+                            # and link it to the CogniteFile node.
+                            "sources": [{"source": COGNITE_FILE_VIEW.dump(include_type=True), "properties": {}}],  # type: ignore[dict-item]
+                        }
+                    ]
+                },
+            )
+        )
+        try:
+            _ = node_creation.get_first_body()
+        except ValueError:
+            results.extend(node_creation.as_item_responses(upload_id))
+            return False
+        return True
+
+    @classmethod
+    def _parse_upload_link_response(
+        cls, responses: ResponseList, item: UploadFileContentItem, results: MutableSequence[HTTPMessage]
+    ) -> str | None:
         try:
             body = responses.get_first_body()
         except ValueError:
             results.extend(responses.as_item_responses(item.as_id()))
             return None
+
         try:
             upload_url = cast(str, body["uploadUrl"])
         except (KeyError, IndexError):
@@ -150,11 +234,6 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, FileMetadata, FileM
             )
             return None
         return upload_url
-
-    def _upload_url_data_modeling(
-        self, item: UploadFileContentItem, http_client: HTTPClient, results: MutableSequence[HTTPMessage]
-    ) -> str | None:
-        raise ToolkitNotImplementedError("Data modeling upload is not yet supported for FileContentIO")
 
     @classmethod
     def read_chunks(
