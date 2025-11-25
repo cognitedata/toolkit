@@ -15,7 +15,6 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import BuildCommand, CleanCommand, DeployCommand
 from cognite_toolkit._cdf_tk.commands.clean import AVAILABLE_DATA_TYPES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils import get_cicd_environment
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._version import __version__ as current_version
@@ -205,7 +204,7 @@ class CoreApp(typer.Typer):
                 client = EnvironmentVariables.create_from_environment().get_client()
 
         print_warning = True
-        if Flags.EXIT_ON_WARNING.is_enabled() and exit_on_warning:
+        if exit_on_warning:
             print_warning = False
 
         cmd = BuildCommand(print_warning=print_warning)
@@ -222,7 +221,7 @@ class CoreApp(typer.Typer):
             )
         )
 
-        if Flags.EXIT_ON_WARNING.is_enabled() and exit_on_warning and cmd.warning_list:
+        if exit_on_warning and cmd.warning_list:
             print("\n[bold red]Warnings raised during the build process:[/]\n")
 
             for warning in cmd.warning_list:
@@ -377,6 +376,6 @@ class CoreApp(typer.Typer):
                 include,
                 module,
                 verbose,
-                all_modules=True if not Flags.v07.is_enabled() else False,
+                all_modules=False,
             )
         )
