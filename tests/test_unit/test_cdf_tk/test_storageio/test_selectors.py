@@ -8,6 +8,7 @@ import pytest
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import AssetCentricMigrationSelector
 from cognite_toolkit._cdf_tk.storageio import (
     AssetIO,
+    CanvasIO,
     ChartIO,
     DatapointsIO,
     FileContentIO,
@@ -20,6 +21,7 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     AllChartsSelector,
     AssetCentricFileSelector,
     AssetSubtreeSelector,
+    CanvasExternalIdSelector,
     ChartExternalIdSelector,
     ChartOwnerSelector,
     DataPointsFileSelector,
@@ -151,6 +153,17 @@ def example_selector_data() -> Iterable[tuple]:
         ChartIO,
         ChartIO.KIND,
         id="ChartExternalIdSelector",
+    )
+    yield pytest.param(
+        {
+            "type": "canvasExternalId",
+            "kind": "IndustrialCanvas",
+            "externalIds": ["c1a2b3d4-e5f6-4789-90ab-cdef12345678"],
+        },
+        CanvasExternalIdSelector,
+        CanvasIO,
+        CanvasIO.KIND,
+        id="CanvasExternalIdSelector",
     )
     yield pytest.param(
         {
