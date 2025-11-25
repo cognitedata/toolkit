@@ -42,10 +42,6 @@ def invalid_test_cases() -> Iterable:
             "featureToggles": {
                 "threeD": "not_a_boolean",
                 "trends": 123,
-                "observations": {
-                    "isEnabled": "not_a_boolean",
-                    "isWriteBackEnabled": ["invalid_type"],
-                },
             },
             "accessManagement": {
                 "templateAdmins": "should_be_a_list",
@@ -81,10 +77,6 @@ def invalid_test_cases() -> Iterable:
             "In dataFilters.files.path.externalId input should be a valid string. Got True of type bool. Hint: Use double quotes to force string.",
             "In dataFilters.files.path.space input should be a valid string. Got 123 of type int. Hint: Use double quotes to force string.",
             "In disciplines[1] missing required field: 'externalId'",
-            "In featureToggles.observations.isEnabled input should be a valid boolean. "
-            "Got 'not_a_boolean' of type str.",
-            "In featureToggles.observations.isWriteBackEnabled input should be a valid "
-            "boolean. Got ['invalid_type'] of type list.",
             "In featureToggles.threeD input should be a valid boolean. Got 'not_a_boolean' of type str.",
             "In featureToggles.trends input should be a valid boolean. Got 123 of type int.",
             "In viewMappings.asset missing required field: 'externalId'",

@@ -3,15 +3,6 @@ from typing import Any
 from .base import BaseModelResource, ToolkitResource
 
 
-class ObservationFeatureToggles(BaseModelResource):
-    """Feature toggles for observations."""
-
-    is_enabled: bool | None = None
-    is_write_back_enabled: bool | None = None
-    notifications_endpoint_external_id: str | None = None
-    attachments_endpoint_external_id: str | None = None
-
-
 class FeatureToggles(BaseModelResource):
     """Feature toggles for InField location configuration."""
 
@@ -22,8 +13,6 @@ class FeatureToggles(BaseModelResource):
     notifications: bool | None = None
     media: bool | None = None
     template_checklist_flow: bool | None = None
-    workorder_checklist_flow: bool | None = None
-    observations: ObservationFeatureToggles | None = None
 
 
 class AccessManagement(BaseModelResource):
@@ -98,7 +87,6 @@ class InFieldCDMLocationConfigYAML(ToolkitResource):
     - name: The name of the location configuration
     - description: The description of the location configuration
     - feature_toggles: Feature toggles configuration
-    - app_instance_space: Application instance space
     - access_management: Access management configuration
     - data_filters: Data filters configuration for various resource types
     - data_storage: Data storage configuration
@@ -113,7 +101,6 @@ class InFieldCDMLocationConfigYAML(ToolkitResource):
     name: str | None = None
     description: str | None = None
     feature_toggles: FeatureToggles | None = None
-    app_instance_space: str | None = None
     access_management: AccessManagement | None = None
     data_filters: DataFilters | None = None
     data_storage: DataStorage | None = None

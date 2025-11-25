@@ -11,11 +11,10 @@ from cognite_toolkit._cdf_tk.protocols import (
 )
 from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
 
+from cognite.client import CogniteClient
+
 from .base import BaseResourceList, ResponseResource
 from .instance_api import InstanceRequestResource, ViewReference
-
-if TYPE_CHECKING:
-    from cognite.client import CogniteClient
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -109,7 +108,6 @@ class InFieldCDMLocationConfig(
     name: str | None = None
     description: str | None = None
     feature_toggles: dict[str, JsonValue] | None = None
-    app_instance_space: str | None = None
     access_management: dict[str, JsonValue] | None = None
     data_filters: dict[str, JsonValue] | None = None
     data_storage: dict[str, JsonValue] | None = None
