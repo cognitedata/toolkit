@@ -1,7 +1,7 @@
 from cognite.client.data_classes.data_modeling import Space
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.infield import InfieldLocationConfig
+from cognite_toolkit._cdf_tk.client.data_classes.infield import InFieldCDMLocationConfig, InfieldLocationConfig
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
 
@@ -41,3 +41,33 @@ class TestInfieldConfig:
                     (config.data_exploration_config.space, config.data_exploration_config.external_id),
                 ]
             )
+
+
+class TestInFieldCDMConfig:
+    def test_create_retrieve_delete(self, toolkit_client: ToolkitClient, toolkit_space: Space) -> None:
+        config = InFieldCDMLocationConfig.model_validate(
+            {
+                "space": toolkit_space.space,
+                "externalId": f"test_crud_infield_cdm_config_{RUN_UNIQUE_ID}",
+                "name": "Test CDM Location Config",
+                "description": "Test configuration for InField CDM",
+                "dataExplorationConfig": {"observations": {"enabled": True}},
+            }
+        )
+
+        try:
+            created_list = toolkit_client.infield.cdm_config.apply([config])
+            assert len(created_list) == 1, "Expected 1 config to be created (InField CDM location config)"
+            created = created_list[0]
+            assert created.as_id() == config.as_id()
+
+            retrieved_configs = toolkit_client.infield.cdm_config.retrieve([config.as_id()])
+            assert len(retrieved_configs) == 1
+            assert retrieved_configs[0].dump() == config.dump()
+
+            deleted = toolkit_client.infield.cdm_config.delete([config])
+            assert len(deleted) == 1, "Expected 1 config to be deleted (InField CDM location config)"
+            retrieved_configs = toolkit_client.infield.cdm_config.retrieve([config.as_id()])
+            assert len(retrieved_configs) == 0
+        finally:
+            toolkit_client.data_modeling.instances.delete([(config.space, config.external_id)])
