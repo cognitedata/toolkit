@@ -257,6 +257,8 @@ def test_complete_org_is_complete() -> None:
     unused_loaders = {
         loader
         for folder, loaders in CRUDS_BY_FOLDER_NAME.items()
+        # Todo: Remove in v1.0
+        if folder != "data_models"
         for loader in loaders
         if loader not in used_loader_by_folder_name[folder]
     }

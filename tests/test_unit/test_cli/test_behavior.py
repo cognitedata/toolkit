@@ -532,7 +532,7 @@ def test_build_custom_project(
 ) -> None:
     expected_resources = {
         "timeseries",
-        "data_models",
+        "data_modeling",
         "data_sets",
         "raw",
         "extraction_pipelines",
@@ -562,7 +562,7 @@ def test_build_custom_project(
 def test_build_project_selecting_parent_path(
     build_tmp_path: Path,
 ) -> None:
-    expected_resources = {"auth", "data_models", "files", "transformations", "data_sets"}
+    expected_resources = {"auth", "data_modeling", "files", "transformations", "data_sets"}
     BuildCommand(silent=True).execute(
         organization_dir=PROJECT_FOR_TEST,
         build_dir=build_tmp_path,
