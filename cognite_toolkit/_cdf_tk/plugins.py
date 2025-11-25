@@ -19,6 +19,7 @@ class Plugins(Enum):
     dump = Plugin("dump", "plugin for Dump command to retrieve Asset resources from CDF")
     purge = Plugin("purge", "plugin for Purge command to remove datasets and spaces from CDF")
     dev = Plugin("dev", "plugin for commands to develop modules in CDF")
+    data = Plugin("data", "plugin for Data command to manage data in CDF")
 
     @staticmethod
     def list() -> dict[str, bool]:

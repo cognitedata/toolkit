@@ -108,7 +108,8 @@ if Flags.PROFILE.is_enabled():
 if Flags.MIGRATE.is_enabled():
     _app.add_typer(MigrateApp(**default_typer_kws), name="migrate")
 
-_app.add_typer(DataApp(**default_typer_kws), name="data")
+if Plugins.data.value.is_enabled():
+    _app.add_typer(DataApp(**default_typer_kws), name="data")
 
 _app.add_typer(ModulesApp(**default_typer_kws), name="modules")
 _app.command("init")(landing_app.main_init)
