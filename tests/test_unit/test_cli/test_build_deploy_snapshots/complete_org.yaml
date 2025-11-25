@@ -1,3 +1,13 @@
+Agent:
+- description: This agent is designed to demonstrate that Toolkit can deploy agents
+  externalId: toolkit_demo_agent
+  model: azure/gpt-4o
+  name: The Toolkit Demo Agent
+  runtimeVersion: 0.9.9
+  tools:
+  - description: This tool allows you to perform operations on query time series datapoints.
+    name: Operations on datapoints tool
+    type: queryTimeSeriesDatapoints
 Asset:
 - dataSetId: 7982613576047462211
   externalId: MyAsset
@@ -349,6 +359,9 @@ FileCRUD:
 - externalId: filecontent.txt
   filehash: 9aaf2409
   space: sp_complete_org_files
+- externalId: fn_data_modeling_only_function
+  filehash: 9571ef69
+  space: sp_instance
 - external_id: myapp
   filehash: c59dc2b6
 FileMetadata:
@@ -382,6 +395,16 @@ Frame:
 - externalId: rootCoordinateFrame
   name: Root coordinate frame
 Function:
+- description: This function stores its code in a Cognite File.
+  externalId: fn_data_modeling_only_function
+  fileId: 8
+  functionPath: handler.py
+  metadata:
+    cognite-toolkit-hash: /=1321549c;__init__.py=e3b0c442;handler.py=e00d5c6f;requirements.txt=71207964
+    version: v1
+  name: DataModelingOnly function
+  owner: doctrino
+  runtime: py312
 - cpu: 0.6
   description: Returns the input data, secrets, and function info.
   envVars:
@@ -591,6 +614,31 @@ Node:
       type: view
       version: v1
   space: sp_complete_org_files
+- externalId: fn_data_modeling_only_function
+  instanceType: node
+  sources:
+  - properties:
+      aliases: null
+      assets: null
+      category: null
+      description: null
+      directory: null
+      mimeType: application/zip
+      name: DataModelingOnly_function.zip
+      source: null
+      sourceContext: null
+      sourceCreatedTime: null
+      sourceCreatedUser: null
+      sourceId: null
+      sourceUpdatedTime: null
+      sourceUpdatedUser: null
+      tags: null
+    source:
+      externalId: CogniteFile
+      space: cdf_cdm
+      type: view
+      version: v1
+  space: sp_instance
 - externalId: startNode
   instanceType: node
   space: sp_instance
@@ -686,6 +734,41 @@ Row:
     ensure_parent: false
     table_name: asset
   name: db_complete_org_asset_False
+SearchConfig:
+- columnsLayout:
+  - property: title
+    selected: true
+  - property: summary
+    selected: true
+  - property: status
+    selected: false
+  filterLayout:
+  - disabled: false
+    property: status
+  - disabled: false
+    property: category
+  propertiesLayout:
+  - hidden: false
+    property: title
+  - hidden: false
+    property: summary
+  - hidden: true
+    property: description
+  useAsDescription: summary
+  useAsName: title
+  view:
+    externalId: complex-view
+    space: complex-space
+- columnsLayout:
+  - property: name
+    selected: true
+  - property: description
+    selected: true
+  useAsDescription: description
+  useAsName: name
+  view:
+    externalId: test-view
+    space: test-space
 SecurityCategory:
 - name: sc_demo_category
 Sequence:
