@@ -35,10 +35,7 @@ class DevApp(typer.Typer):
             typer.Argument(
                 help="The kind of resource to create. eg. container, space, view, datamodel, etc.",
                 callback=lambda ctx, param, value: [
-                    stripped_item
-                    for raw_item in (value if isinstance(value, (list, tuple)) else [value] if value else [])
-                    for item in (raw_item.replace(" ", "").split(",") if isinstance(raw_item, str) else [])
-                    if (stripped_item := item.strip())
+                    s.strip() for item in value or [] for s in item.split(",") if s.strip()
                 ],
             ),
         ] = None,
@@ -81,9 +78,9 @@ class DevApp(typer.Typer):
         cmd.run(
             lambda: cmd.create(
                 organization_dir=organization_dir,
-                module_name=module if module else None,
-                kind=kind if kind else None,
-                prefix=prefix if prefix else None,
+                module_name=module,
+                kind=kind,
+                prefix=prefix,
                 verbose=verbose,
             )
         )

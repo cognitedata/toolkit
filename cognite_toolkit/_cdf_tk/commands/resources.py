@@ -191,6 +191,6 @@ class ResourcesCommand(ToolkitCommand):
             verbose: Whether to print verbose output.
         """
         module_path = self._get_or_prompt_module_path(module_name, organization_dir, verbose)
-        resource_cruds = self._resolve_kinds(kind if kind else None)
+        resource_cruds = self._resolve_kinds(kind)
         for crud in resource_cruds:
             self._create_resource_yaml_file(crud, module_path, prefix, verbose)
