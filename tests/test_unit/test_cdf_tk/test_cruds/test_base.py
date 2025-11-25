@@ -223,9 +223,7 @@ def test_resource_types_is_up_to_date() -> None:
     missing = expected - actual
     extra = actual - expected
 
-    if not FeatureFlag.is_enabled(Flags.AGENTS):
-        extra.discard("agents")
-    if not FeatureFlag.is_enabled(Flags.INFIELD) and not FeatureFlag.is_enabled(Flags.SEARCH_CONFIG):
+    if not FeatureFlag.is_enabled(Flags.INFIELD):
         extra.discard("cdf_applications")
     if not FeatureFlag.is_enabled(Flags.MIGRATE):
         extra.discard("migration")
@@ -431,8 +429,11 @@ class TestResourceCRUDs:
 
     def test_unique_kind_by_folder(self):
         kind = defaultdict(list)
-        for loader_cls in RESOURCE_CRUD_LIST:
-            kind[loader_cls.folder_name].append(loader_cls.kind)
+        for crud in RESOURCE_CRUD_LIST:
+            # Todo: Remove in v1.0
+            if crud.folder_name == "data_modeling":
+                continue
+            kind[crud.folder_name].append(crud.kind)
 
         duplicated = {folder: Counter(kinds) for folder, kinds in kind.items() if len(set(kinds)) != len(kinds)}
         # we have two types Group loaders, one for scoped and one for all
@@ -496,5 +497,9 @@ class TestLoaders:
         )
 
         duplicates = {name: count for name, count in name_by_count.items() if count > 1}
+
+        # Todo: Remove in v1.0
+        for loader in CRUDS_BY_FOLDER_NAME["data_modeling"]:
+            duplicates.pop(loader.create_loader(env_vars_with_client.get_client()).display_name, None)
 
         assert not duplicates, f"Duplicate display names: {duplicates}"

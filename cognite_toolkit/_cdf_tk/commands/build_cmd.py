@@ -358,6 +358,15 @@ class BuildCommand(ToolkitCommand):
         for resource_name, resource_files in module.source_paths_by_resource_folder.items():
             source_files = self._replace_variables(resource_files, module_variables, resource_name, module.dir, verbose)
 
+            if resource_name == "data_models":
+                resource_name = "data_modeling"
+                self.warn(
+                    MediumSeverityWarning(
+                        "The resource folder 'data_models' is deprecated and will be removed in v1.0. "
+                        "Please rename the folder to 'data_modeling'."
+                    )
+                )
+
             builder = self._get_builder(build_dir, resource_name)
 
             built_resources = BuiltResourceList[Hashable]()

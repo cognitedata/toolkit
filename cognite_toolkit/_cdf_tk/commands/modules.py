@@ -51,7 +51,6 @@ from cognite_toolkit._cdf_tk.data_classes import (
     Packages,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitRequiredValueError, ToolkitValueError
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.tk_warnings.other import HighSeverityWarning
@@ -756,7 +755,8 @@ class ModulesCommand(ToolkitCommand):
         """
 
         cdf_toml = CDFToml.load()
-        if (Flags.EXTERNAL_LIBRARIES.is_enabled() or user_library) and self._module_source_dir is None:
+
+        if self._module_source_dir is None:
             libraries = {"userdefined": user_library} if user_library else cdf_toml.libraries
 
             for library_name, library in libraries.items():

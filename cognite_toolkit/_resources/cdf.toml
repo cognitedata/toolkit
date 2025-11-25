@@ -6,11 +6,12 @@ default_env = "<DEFAULT_ENV_PLACEHOLDER>"
 # It will be updated by the 'cdf modules upgrade' command.
 version = "0.0.0"
 
-[alpha_flags]
-external-libraries = true
 
 [plugins]
-run = true
+dump = false
+dev = false
+data = false
+
 
 [library.toolkit-data]
 url = "https://github.com/cognitedata/toolkit-data/releases/download/latest/packages.zip" 

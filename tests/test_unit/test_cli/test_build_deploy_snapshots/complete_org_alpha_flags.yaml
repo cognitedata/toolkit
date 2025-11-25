@@ -1,13 +1,3 @@
-Agent:
-- description: This agent is designed to demonstrate that Toolkit can deploy agents
-  externalId: toolkit_demo_agent
-  model: azure/gpt-4o
-  name: The Toolkit Demo Agent
-  runtimeVersion: 0.9.9
-  tools:
-  - description: This tool allows you to perform operations on query time series datapoints.
-    name: Operations on datapoints tool
-    type: queryTimeSeriesDatapoints
 Asset:
 - dataSetId: 9434864499692429728
   description: This is the root asset on Drammen
@@ -33,9 +23,6 @@ FileCRUD:
 - externalId: MyExtendedFile
   filehash: c7fbc0e8
   space: sp_nodes
-- externalId: fn_data_modeling_only_function
-  filehash: 22a54716
-  space: sp_instance
 - external_id: shopConfigFile
   filehash: b1f3b6ef
 FileMetadata:
@@ -53,16 +40,6 @@ FileMetadata:
   name: config_shop.yaml
   source: doctrino
 Function:
-- description: This function stores its code in a Cognite File.
-  externalId: fn_data_modeling_only_function
-  fileId: 8
-  functionPath: handler.py
-  metadata:
-    cognite-toolkit-hash: /=a6647f8a;handler.py=e00d5c6f;requirements.txt=71207964
-    version: v1
-  name: DataModelingOnly function
-  owner: doctrino
-  runtime: py312
 - description: Uses multiple modules.
   externalId: fn_multi_file_function
   fileId: 64
@@ -191,31 +168,6 @@ Node:
       type: view
       version: '1'
   space: APM_Config
-- externalId: fn_data_modeling_only_function
-  instanceType: node
-  sources:
-  - properties:
-      aliases: null
-      assets: null
-      category: null
-      description: null
-      directory: null
-      mimeType: application/zip
-      name: DataModelingOnly_function.zip
-      source: null
-      sourceContext: null
-      sourceCreatedTime: null
-      sourceCreatedUser: null
-      sourceId: null
-      sourceUpdatedTime: null
-      sourceUpdatedUser: null
-      tags: null
-    source:
-      externalId: CogniteFile
-      space: cdf_cdm
-      type: view
-      version: v1
-  space: sp_instance
 - externalId: testing_default_asset_mapping
   instanceType: node
   sources:
@@ -236,41 +188,6 @@ Node:
       type: view
       version: v1
   space: cognite_migration
-SearchConfig:
-- columnsLayout:
-  - property: title
-    selected: true
-  - property: summary
-    selected: true
-  - property: status
-    selected: false
-  filterLayout:
-  - disabled: false
-    property: status
-  - disabled: false
-    property: category
-  propertiesLayout:
-  - hidden: false
-    property: title
-  - hidden: false
-    property: summary
-  - hidden: true
-    property: description
-  useAsDescription: summary
-  useAsName: title
-  view:
-    externalId: complex-view
-    space: complex-space
-- columnsLayout:
-  - property: name
-    selected: true
-  - property: description
-    selected: true
-  useAsDescription: description
-  useAsName: name
-  view:
-    externalId: test-view
-    space: test-space
 Space:
 - space: sp_instance
 - space: sp_schema

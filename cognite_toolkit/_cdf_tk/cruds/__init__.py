@@ -77,15 +77,11 @@ from ._worker import ResourceWorker
 _EXCLUDED_CRUDS: set[type[ResourceCRUD]] = set()
 if not FeatureFlag.is_enabled(Flags.GRAPHQL):
     _EXCLUDED_CRUDS.add(GraphQLCRUD)
-if not FeatureFlag.is_enabled(Flags.AGENTS):
-    _EXCLUDED_CRUDS.add(AgentCRUD)
 if not FeatureFlag.is_enabled(Flags.INFIELD):
     _EXCLUDED_CRUDS.add(InfieldV1CRUD)
     _EXCLUDED_CRUDS.add(InFieldLocationConfigCRUD)
 if not FeatureFlag.is_enabled(Flags.MIGRATE):
     _EXCLUDED_CRUDS.add(ResourceViewMappingCRUD)
-if not FeatureFlag.is_enabled(Flags.SEARCH_CONFIG):
-    _EXCLUDED_CRUDS.add(SearchConfigCRUD)
 if not FeatureFlag.is_enabled(Flags.STREAMS):
     _EXCLUDED_CRUDS.add(StreamCRUD)
 
@@ -106,6 +102,9 @@ for _loader in itertools.chain(
     CRUDS_BY_FOLDER_NAME[_loader.folder_name].append(_loader)  # type: ignore[arg-type, attr-defined]
 del _loader  # cleanup module namespace
 
+# For backwards compatibility
+CRUDS_BY_FOLDER_NAME["data_models"] = CRUDS_BY_FOLDER_NAME["data_modeling"]  # Todo: Remove in v1.0
+
 CRUD_LIST = list(itertools.chain.from_iterable(CRUDS_BY_FOLDER_NAME.values()))
 RESOURCE_CRUD_LIST = [loader for loader in CRUD_LIST if issubclass(loader, ResourceCRUD)]
 RESOURCE_CRUD_CONTAINER_LIST = [loader for loader in CRUD_LIST if issubclass(loader, ResourceContainerCRUD)]
@@ -123,7 +122,8 @@ ResourceTypes: TypeAlias = Literal[
     "auth",
     "cdf_applications",
     "classic",
-    "data_models",
+    "data_modeling",
+    "data_models",  # Todo: Remove in v1.0
     "data_sets",
     "hosted_extractors",
     "locations",
@@ -155,6 +155,7 @@ __all__ = [
     "RESOURCE_CRUD_CONTAINER_LIST",
     "RESOURCE_CRUD_LIST",
     "RESOURCE_DATA_CRUD_LIST",
+    "AgentCRUD",
     "AssetCRUD",
     "CogniteFileCRUD",
     "ContainerCRUD",

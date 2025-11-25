@@ -29,14 +29,6 @@ class Flags(Enum):
         visible=True,
         description="Enables the support for repeating modules in the config file",
     )
-    AGENTS = FlagMetadata(
-        visible=True,
-        description="Enables support for Atlas Agents and Agent Tools",
-    )
-    DUMP_EXTENDED = FlagMetadata(
-        visible=True,
-        description="Enables support for the dumping Location Filters.",
-    )
     PROFILE = FlagMetadata(
         visible=True,
         description="Enables support for the profile command",
@@ -45,49 +37,17 @@ class Flags(Enum):
         visible=True,
         description="Enables support for Infield configs",
     )
-    DUMP_DATA = FlagMetadata(
-        visible=True,
-        description="Splits the dump command in dump data and dump config",
-    )
-    EXIT_ON_WARNING = FlagMetadata(
-        visible=True,
-        description="Enables the exit on warning feature during the build command",
-    )
     MIGRATE = FlagMetadata(
         visible=True,
         description="Enables the migrate command",
     )
-    EXTERNAL_LIBRARIES = FlagMetadata(
-        visible=True,
-        description="Enables the support for external libraries in the config file",
-    )
-    PURGE_INSTANCES = FlagMetadata(
-        visible=True,
-        description="Enables the cdf purge instances command",
-    )
-    DOWNLOAD = FlagMetadata(
-        visible=True,
-        description="Enables the support for the download command",
-    )
-    UPLOAD = FlagMetadata(
-        visible=True,
-        description="Enables the cdf upload command",
-    )
-    SEARCH_CONFIG = FlagMetadata(
-        visible=True,
-        description="Enables the support for the search config command",
-    )
-    FUNCTION_COGNITE_FILE = FlagMetadata(
-        visible=True,
-        description="Enables support for using Cognite Files to store function code",
-    )
-    v07 = FlagMetadata(
-        visible=False,
-        description="Enables features planned for Cognite Toolkit version 0.7.0",
-    )
     STREAMS = FlagMetadata(
         visible=True,
         description="Enables the support for the streams resources",
+    )
+    v08 = FlagMetadata(
+        visible=False,
+        description="Enables features planned for Cognite Toolkit version 0.8.0",
     )
 
     def is_enabled(self) -> bool:
@@ -99,3 +59,7 @@ class FeatureFlag:
     @lru_cache(typed=True)
     def is_enabled(flag: Flags) -> bool:
         return CDFToml.load().alpha_flags.get(clean_name(flag.name), False)
+
+    @staticmethod
+    def flush() -> None:
+        FeatureFlag.is_enabled.cache_clear()

@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.commands.clean import CleanCommand
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
     BUILD_ENVIRONMENT_FILE,
+    DATA_UPLOAD_URL,
     HINT_LEAD_TEXT,
 )
 from cognite_toolkit._cdf_tk.cruds import (
@@ -52,6 +53,7 @@ from cognite_toolkit._cdf_tk.protocols import (
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning
 from cognite_toolkit._cdf_tk.tk_warnings.base import WarningList, catch_warnings
 from cognite_toolkit._cdf_tk.tk_warnings.other import (
+    HighSeverityWarning,
     LowSeverityWarning,
     ToolkitDependenciesIncludedWarning,
 )
@@ -292,6 +294,15 @@ class DeployCommand(ToolkitCommand):
             read_modules = build.read_modules
         output_results = DeployResults([], "deploy", dry_run=dry_run) if results is None else results
         for loader_cls in ordered_loaders:
+            if issubclass(loader_cls, DataCRUD):
+                self.warn(
+                    HighSeverityWarning(
+                        f"Uploading {loader_cls.kind} data is deprecated and will be removed in v0.8. "
+                        f"Use the `cdf data upload dir` command instead. See [{DATA_UPLOAD_URL}]({DATA_UPLOAD_URL}) for more information about "
+                        "the upload command."
+                    )
+                )
+
             loader = loader_cls.create_loader(client, build_dir)
             resource_result: DeployResult | None
             if isinstance(loader, ResourceCRUD):

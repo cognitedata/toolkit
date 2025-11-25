@@ -7,13 +7,7 @@ from cognite.client.data_classes.data_modeling import DataModelId, ViewId
 from rich import print
 
 from cognite_toolkit._cdf_tk.client.data_classes.search_config import ViewId as SearchConfigViewId
-from cognite_toolkit._cdf_tk.commands import DumpDataCommand, DumpResourceCommand
-from cognite_toolkit._cdf_tk.commands.dump_data import (
-    AssetFinder,
-    EventFinder,
-    FileMetadataFinder,
-    TimeSeriesFinder,
-)
+from cognite_toolkit._cdf_tk.commands import DumpResourceCommand
 from cognite_toolkit._cdf_tk.commands.dump_resource import (
     AgentFinder,
     DataModelFinder,
@@ -32,45 +26,32 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
-from cognite_toolkit._cdf_tk.utils.interactive_select import (
-    AssetInteractiveSelect,
-    EventInteractiveSelect,
-    FileMetadataInteractiveSelect,
-    TimeSeriesInteractiveSelect,
-)
 
 
 class DumpApp(typer.Typer):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.dump_main)
-        if Flags.DUMP_DATA.is_enabled():
-            self.add_typer(DumpDataApp(*args, **kwargs), name="data")
-            self.add_typer(DumpConfigApp(*args, **kwargs), name="config")
-        else:
-            self.command("datamodel")(DumpConfigApp.dump_datamodel_cmd)
+        self.command("datamodel")(DumpConfigApp.dump_datamodel_cmd)
 
-            self.command("asset")(DumpDataApp.dump_asset_cmd)
-            self.command("timeseries")(DumpDataApp.dump_timeseries_cmd)
+        self.command("asset")(DumpDataApp.dump_asset_cmd)
+        self.command("timeseries")(DumpDataApp.dump_timeseries_cmd)
 
-            self.command("workflow")(DumpConfigApp.dump_workflow)
-            self.command("transformation")(DumpConfigApp.dump_transformation)
-            self.command("group")(DumpConfigApp.dump_group)
-            self.command("node")(DumpConfigApp.dump_node)
-            self.command("spaces")(DumpConfigApp.dump_spaces)
+        self.command("workflow")(DumpConfigApp.dump_workflow)
+        self.command("transformation")(DumpConfigApp.dump_transformation)
+        self.command("group")(DumpConfigApp.dump_group)
+        self.command("node")(DumpConfigApp.dump_node)
+        self.command("spaces")(DumpConfigApp.dump_spaces)
 
-            if Flags.DUMP_EXTENDED.is_enabled():
-                self.command("location-filter")(DumpConfigApp.dump_location_filters)
-                self.command("extraction-pipeline")(DumpConfigApp.dump_extraction_pipeline)
-                self.command("functions")(DumpConfigApp.dump_functions)
-                self.command("datasets")(DumpConfigApp.dump_datasets)
-                self.command("streamlit")(DumpConfigApp.dump_streamlit)
+        self.command("location-filter")(DumpConfigApp.dump_location_filters)
+        self.command("extraction-pipeline")(DumpConfigApp.dump_extraction_pipeline)
+        self.command("functions")(DumpConfigApp.dump_functions)
+        self.command("datasets")(DumpConfigApp.dump_datasets)
+        self.command("streamlit")(DumpConfigApp.dump_streamlit)
 
-                if Flags.AGENTS.is_enabled():
-                    self.command("agents")(DumpConfigApp.dump_agents)
+        self.command("agents")(DumpConfigApp.dump_agents)
 
-                if Flags.SEARCH_CONFIG.is_enabled():
-                    self.command("search-config")(DumpConfigApp.dump_search_config)
+        self.command("search-config")(DumpConfigApp.dump_search_config)
 
     @staticmethod
     def dump_main(ctx: typer.Context) -> None:
@@ -91,18 +72,13 @@ class DumpConfigApp(typer.Typer):
         self.command("group")(self.dump_group)
         self.command("node")(self.dump_node)
         self.command("spaces")(self.dump_spaces)
-        if Flags.DUMP_EXTENDED.is_enabled():
-            self.command("location-filters")(self.dump_location_filters)
-            self.command("extraction-pipeline")(self.dump_extraction_pipeline)
-            self.command("datasets")(DumpConfigApp.dump_datasets)
-            self.command("functions")(self.dump_functions)
-            self.command("streamlit")(DumpConfigApp.dump_streamlit)
-
-            if Flags.AGENTS.is_enabled():
-                self.command("agents")(self.dump_agents)
-
-            if Flags.SEARCH_CONFIG.is_enabled():
-                self.command("search-config")(self.dump_search_config)
+        self.command("location-filters")(self.dump_location_filters)
+        self.command("extraction-pipeline")(self.dump_extraction_pipeline)
+        self.command("datasets")(DumpConfigApp.dump_datasets)
+        self.command("functions")(self.dump_functions)
+        self.command("streamlit")(DumpConfigApp.dump_streamlit)
+        self.command("agents")(self.dump_agents)
+        self.command("search-config")(self.dump_search_config)
 
     @staticmethod
     def dump_config_main(ctx: typer.Context) -> None:
@@ -862,21 +838,11 @@ class DumpDataApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will dump the selected assets in the selected format to the folder specified, defaults to /tmp."""
-        cmd = DumpDataCommand()
-        client = EnvironmentVariables.create_from_environment().get_client()
-        if hierarchy is None and data_set is None:
-            hierarchy, data_set = AssetInteractiveSelect(client, "dump").select_hierarchies_and_data_sets()
-
-        cmd.run(
-            lambda: cmd.dump_table(
-                AssetFinder(client, hierarchy or [], data_set or []),
-                output_dir,
-                clean,
-                limit,
-                format_,
-                verbose,
+        if Flags.v08:
+            raise ValueError(
+                "The `cdf dump data asset` command has been removed. Please use `cdf data download assets` instead."
             )
-        )
+        print("[bold yellow]Warning:[/] This command has been removed. Please use `cdf data download assets` instead.")
 
     @staticmethod
     def dump_files_cmd(
@@ -940,21 +906,12 @@ class DumpDataApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will dump the selected events to the selected format in the folder specified, defaults to /tmp."""
-        cmd = DumpDataCommand()
-        cmd.validate_directory(output_dir, clean)
-        client = EnvironmentVariables.create_from_environment().get_client()
-        if hierarchy is None and data_set is None:
-            hierarchy, data_set = FileMetadataInteractiveSelect(client, "dump").select_hierarchies_and_data_sets()
-        cmd.run(
-            lambda: cmd.dump_table(
-                FileMetadataFinder(client, hierarchy or [], data_set or []),
-                output_dir,
-                clean,
-                limit,
-                format_,
-                verbose,
+        if Flags.v08:
+            raise ValueError(
+                "The `cdf dump data files-metadata` command has been removed. Please use `cdf data download files` instead."
             )
-        )
+        print("[bold yellow]Warning:[/] This command has been removed. Please use `cdf data download files` instead.")
+        return None
 
     @staticmethod
     def dump_timeseries_cmd(
@@ -1018,20 +975,14 @@ class DumpDataApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will dump the selected timeseries to the selected format in the folder specified, defaults to /tmp."""
-        cmd = DumpDataCommand()
-        client = EnvironmentVariables.create_from_environment().get_client()
-        if hierarchy is None and data_set is None:
-            hierarchy, data_set = TimeSeriesInteractiveSelect(client, "dump").select_hierarchies_and_data_sets()
-        cmd.run(
-            lambda: cmd.dump_table(
-                TimeSeriesFinder(client, hierarchy or [], data_set or []),
-                output_dir,
-                clean,
-                limit,
-                format_,
-                verbose,
+        if Flags.v08:
+            raise ValueError(
+                "The `cdf dump data timeseries` command has been removed. Please use `cdf data download timeseries` instead."
             )
+        print(
+            "[bold yellow]Warning:[/] This command has been removed. Please use `cdf data download timeseries` instead."
         )
+        return None
 
     @staticmethod
     def dump_event_cmd(
@@ -1095,18 +1046,9 @@ class DumpDataApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will dump the selected events to the selected format in the folder specified, defaults to /tmp."""
-        cmd = DumpDataCommand()
-        cmd.validate_directory(output_dir, clean)
-        client = EnvironmentVariables.create_from_environment().get_client()
-        if hierarchy is None and data_set is None:
-            hierarchy, data_set = EventInteractiveSelect(client, "dump").select_hierarchies_and_data_sets()
-        cmd.run(
-            lambda: cmd.dump_table(
-                EventFinder(client, hierarchy or [], data_set or []),
-                output_dir,
-                clean,
-                limit,
-                format_,
-                verbose,
+        if Flags.v08:
+            raise ValueError(
+                "The `cdf dump data event` command has been removed. Please use `cdf data download events` instead."
             )
-        )
+        print("[bold yellow]Warning:[/] This command has been removed. Please use `cdf data download events` instead.")
+        return None

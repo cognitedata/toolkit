@@ -24,8 +24,14 @@ class RunApp(typer.Typer):
         self.add_typer(RunFunctionApp(*args, **kwargs), name="function")
 
     @staticmethod
+    def _print_deprecation_warning() -> None:
+        """Print deprecation warning for the run plugin."""
+        print("The run plugin is deprecated and will be replaced by the dev plugin in v0.8.0.")
+
+    @staticmethod
     def main(ctx: typer.Context) -> None:
         """Commands to execute processes in CDF."""
+        RunApp._print_deprecation_warning()
         if ctx.invoked_subcommand is None:
             print("Use [bold yellow]cdf run --help[/] for more information.")
 
@@ -51,6 +57,7 @@ class RunApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will run the specified transformation using a one-time session."""
+        RunApp._print_deprecation_warning()
         cmd = RunTransformationCommand()
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd.run(lambda: cmd.run_transformation(client, external_id))
@@ -108,6 +115,7 @@ class RunApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will run the specified workflow."""
+        RunApp._print_deprecation_warning()
         cmd = RunWorkflowCommand()
         env_vars = EnvironmentVariables.create_from_environment()
         cmd.run(lambda: cmd.run_workflow(env_vars, organization_dir, env_name, external_id, version, wait))
@@ -123,6 +131,7 @@ class RunFunctionApp(typer.Typer):
     @staticmethod
     def main(ctx: typer.Context) -> None:
         """Commands to execute function."""
+        RunApp._print_deprecation_warning()
         if ctx.invoked_subcommand is None:
             print("Use [bold yellow]cdf run function --help[/] for more information.")
 
@@ -178,6 +187,7 @@ class RunFunctionApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will run the specified function locally."""
+        RunApp._print_deprecation_warning()
         cmd = RunFunctionCommand()
         env_vars = EnvironmentVariables.create_from_environment()
         cmd.run(
@@ -243,6 +253,7 @@ class RunFunctionApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will run the specified function (assuming it is deployed) in CDF."""
+        RunApp._print_deprecation_warning()
         cmd = RunFunctionCommand()
         env_vars = EnvironmentVariables.create_from_environment()
         cmd.run(lambda: cmd.run_cdf(env_vars, organization_dir, env_name, external_id, schedule, wait))
