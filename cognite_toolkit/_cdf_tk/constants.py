@@ -178,6 +178,7 @@ DATA_RESOURCE_DIR = "resources"
 DATA_MANIFEST_STEM = "Manifest"
 DATA_MANIFEST_SUFFIX = f".{DATA_MANIFEST_STEM}.yaml"
 
+DATA_UPLOAD_URL = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/guides/plugins/data_plugin/index"
 # Migration Constants
 MISSING_INSTANCE_SPACE = "<InstanceSpaceMissing>"
 MISSING_EXTERNAL_ID = "INTERNAL_ID_project_{project}_id_{id}"

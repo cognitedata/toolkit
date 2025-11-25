@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import ConfigDict, field_validator
+from pydantic import ConfigDict, field_validator, model_validator
 
 from ._base import DataSelector, SelectorObject
 from ._instances import SelectedView
@@ -64,7 +64,7 @@ class FileMetadataTemplateSelector(FileContentSelector):
         return self.template.create_instance(filepath.name)
 
 
-class FileDataModelingTemplate(FileTemplate):
+class TemplateNodeId(SelectorObject):
     space: str
     external_id: str
 
@@ -79,9 +79,23 @@ class FileDataModelingTemplate(FileTemplate):
         return v
 
 
+class FileDataModelingTemplate(FileTemplate):
+    instance_id: TemplateNodeId
+    # Name is required for FileMetadata but not for CogniteFiles. This is the same default behavior as in CDF.
+    name: str = "untitled"
+
+    @model_validator(mode="before")
+    def _move_space_external_id(cls, data: dict[str, Any]) -> dict[str, Any]:
+        if "space" in data and "externalId" in data:
+            data["instanceId"] = {"space": data.pop("space"), "externalId": data.pop("externalId")}
+        elif "space" in data and "external_id" in data:
+            data["instance_id"] = {"space": data.pop("space"), "external_id": data.pop("external_id")}
+        return data
+
+
 class FileDataModelingTemplateSelector(FileContentSelector):
     type: Literal["fileDataModelingTemplate"] = "fileDataModelingTemplate"
-    view_id: SelectedView
+    view_id: SelectedView = SelectedView(space="cdf_cdm", external_id="CogniteFile", version="v1")
     template: FileDataModelingTemplate
 
     @property
