@@ -81,6 +81,8 @@ class TemplateNodeId(SelectorObject):
 
 class FileDataModelingTemplate(FileTemplate):
     instance_id: TemplateNodeId
+    # Name is required for FileMetadata but not for CogniteFiles. This is the same default behavior as in CDF.
+    name: str = "untitled"
 
     @model_validator(mode="before")
     def _move_space_external_id(cls, data: dict[str, Any]) -> dict[str, Any]:
