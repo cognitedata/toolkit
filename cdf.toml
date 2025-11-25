@@ -14,7 +14,6 @@ streams = true
 
 [plugins]
 run = true
-purge = true
 dump = true
 dev = true
 data = true
