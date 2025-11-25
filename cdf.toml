@@ -11,6 +11,7 @@ profile = true
 infield = true
 migrate = true
 streams = true
+create = true
 
 [plugins]
 run = true

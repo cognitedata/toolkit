@@ -6,6 +6,7 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import ResourcesCommand
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 
 from ._run import RunApp
 
@@ -17,7 +18,8 @@ class DevApp(typer.Typer):
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.main)
         self.add_typer(RunApp(*args, **kwargs), name="run")
-        self.command("create")(self.create)
+        if FeatureFlag.is_enabled(Flags.CREATE):
+            self.command("create")(self.create)
 
     @staticmethod
     def main(ctx: typer.Context) -> None:
