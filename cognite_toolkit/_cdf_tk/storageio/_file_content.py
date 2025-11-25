@@ -195,7 +195,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, FileMetadata, FileM
                             **instance_id.dump(include_instance_type=True),
                             # When we create a node with properties in CogniteFile View even with empty properties,
                             # CDF will fill in empty values for all properties defined in the view (note this is only
-                            # possible because CognteFile view has all properties as optional). This includes properties
+                            # possible because CogniteFile view has all properties as optional). This includes properties
                             # in the CogniteFile container, which will trigger the file syncer to create a FileMetadata
                             # and link it to the CogniteFile node.
                             "sources": [{"source": COGNITE_FILE_VIEW.dump(include_type=True), "properties": {}}],  # type: ignore[dict-item]
