@@ -18,7 +18,7 @@ class DataApp(typer.Typer):
 
     @staticmethod
     def main(ctx: typer.Context) -> None:
-        """Commands to work with data download/upload/purge."""
+        """Plugin to work with data in CDF"""
         if ctx.invoked_subcommand is None:
             print("Use [bold yellow]cdf data --help[/] for more information.")
         return None
