@@ -94,35 +94,20 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, FileMetadata, FileM
         http_client: HTTPClient,
         selector: FileContentSelector | None = None,
     ) -> Sequence[HTTPMessage]:
-        if not isinstance(selector, FileMetadataTemplateSelector):
-            raise ToolkitNotImplementedError("Only uploading of file metadata is currently supported.")
-        config = http_client.config
         results: MutableSequence[HTTPMessage] = []
-        for item in cast(Sequence[UploadFileContentItem], data_chunk):
-            responses = http_client.request_with_retries(
-                message=SimpleBodyRequest(
-                    endpoint_url=config.create_api_url(self.UPLOAD_ENDPOINT),
-                    method="POST",
-                    # MyPy does not understand that .dump is valid json
-                    body_content=item.dump(),  # type: ignore[arg-type]
-                )
+        if isinstance(selector, FileMetadataTemplateSelector):
+            upload_url_getter = self._upload_url_asset_centric
+        elif isinstance(selector, FileMetadataTemplateSelector):
+            upload_url_getter = self._upload_url_data_modeling
+        elif selector is None:
+            raise ToolkitNotImplementedError("Selector must be provided for FileContentIO upload")
+        else:
+            raise ToolkitNotImplementedError(
+                f"Upload for the given selector, {type(selector).__name__}, is not supported for FileContentIO"
             )
-            try:
-                body = responses.get_first_body()
-            except ValueError:
-                results.extend(responses.as_item_responses(item.as_id()))
-                continue
-            try:
-                upload_url = cast(str, body["uploadUrl"])
-            except (KeyError, IndexError):
-                results.append(
-                    FailedResponseItems(
-                        status_code=200,
-                        body=json.dumps(body),
-                        error=ErrorDetails(code=200, message="Malformed response"),
-                        ids=[item.as_id()],
-                    )
-                )
+
+        for item in cast(Sequence[UploadFileContentItem], data_chunk):
+            if not (upload_url := upload_url_getter(item, http_client, results)):
                 continue
 
             upload_response = http_client.request_with_retries(
@@ -135,6 +120,41 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, FileMetadata, FileM
             )
             results.extend(upload_response.as_item_responses(item.as_id()))
         return results
+
+    def _upload_url_asset_centric(
+        self, item: UploadFileContentItem, http_client: HTTPClient, results: MutableSequence[HTTPMessage]
+    ) -> str | None:
+        responses = http_client.request_with_retries(
+            message=SimpleBodyRequest(
+                endpoint_url=http_client.config.create_api_url(self.UPLOAD_ENDPOINT),
+                method="POST",
+                # MyPy does not understand that .dump is valid json
+                body_content=item.dump(),  # type: ignore[arg-type]
+            )
+        )
+        try:
+            body = responses.get_first_body()
+        except ValueError:
+            results.extend(responses.as_item_responses(item.as_id()))
+            return None
+        try:
+            upload_url = cast(str, body["uploadUrl"])
+        except (KeyError, IndexError):
+            results.append(
+                FailedResponseItems(
+                    status_code=200,
+                    body=json.dumps(body),
+                    error=ErrorDetails(code=200, message="Malformed response"),
+                    ids=[item.as_id()],
+                )
+            )
+            return None
+        return upload_url
+
+    def _upload_url_data_modeling(
+        self, item: UploadFileContentItem, http_client: HTTPClient, results: MutableSequence[HTTPMessage]
+    ) -> str | None:
+        raise ToolkitNotImplementedError("Data modeling upload is not yet supported for FileContentIO")
 
     @classmethod
     def read_chunks(
