@@ -19,7 +19,7 @@ from cognite_toolkit._cdf_tk.commands.collect import CollectCommand
 from cognite_toolkit._cdf_tk.commands.modules import ModulesCommand
 from cognite_toolkit._cdf_tk.commands.repo import RepoCommand
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag
 
 
 class InitItemStatus(Enum):
@@ -58,11 +58,7 @@ class InitCommand(ToolkitCommand):
         super().__init__(print_warning, skip_tracking, silent)
         self.organization_dir = None
 
-    def execute(self, dry_run: bool = False, emulate_dot_seven: bool = False) -> None:
-        if not Flags.v07.is_enabled() and not emulate_dot_seven:
-            print("This command is deprecated. Use 'cdf modules init' instead.")
-            return
-
+    def execute(self, dry_run: bool = False) -> None:
         print("\n")
         print(
             Panel(

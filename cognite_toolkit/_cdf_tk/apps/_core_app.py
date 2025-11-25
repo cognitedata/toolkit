@@ -193,7 +193,6 @@ class CoreApp(typer.Typer):
                 "--exit-non-zero-on-warning",
                 "-w",
                 help="Exit with non-zero code on warning.",
-                hidden=not Flags.EXIT_ON_WARNING.is_enabled(),
             ),
         ] = False,
     ) -> None:
@@ -354,7 +353,6 @@ class CoreApp(typer.Typer):
                 "--module",
                 "-m",
                 help="Specify name or path of the module to clean",
-                hidden=not Flags.v07.is_enabled(),
             ),
         ] = None,
         verbose: Annotated[

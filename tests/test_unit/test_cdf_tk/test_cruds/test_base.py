@@ -223,9 +223,7 @@ def test_resource_types_is_up_to_date() -> None:
     missing = expected - actual
     extra = actual - expected
 
-    if not FeatureFlag.is_enabled(Flags.AGENTS):
-        extra.discard("agents")
-    if not FeatureFlag.is_enabled(Flags.INFIELD) and not FeatureFlag.is_enabled(Flags.SEARCH_CONFIG):
+    if not FeatureFlag.is_enabled(Flags.INFIELD):
         extra.discard("cdf_applications")
     if not FeatureFlag.is_enabled(Flags.MIGRATE):
         extra.discard("migration")
