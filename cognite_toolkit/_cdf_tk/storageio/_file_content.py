@@ -192,7 +192,9 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, FileMetadata, FileM
                 body_content={
                     "items": [
                         {
-                            **instance_id.dump(include_instance_type=True),
+                            "space": instance_id.space,
+                            "externalId": instance_id.external_id,
+                            "instanceType": "node",
                             # When we create a node with properties in CogniteFile View even with empty properties,
                             # CDF will fill in empty values for all properties defined in the view (note this is only
                             # possible because CogniteFile view has all properties as optional). This includes properties
@@ -221,6 +223,8 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, FileMetadata, FileM
             results.extend(responses.as_item_responses(item.as_id()))
             return None
 
+        if "items" in body and isinstance(body["items"], list) and len(body["items"]) > 0:
+            body = body["items"][0]  # type: ignore[assignment]
         try:
             upload_url = cast(str, body["uploadUrl"])
         except (KeyError, IndexError):

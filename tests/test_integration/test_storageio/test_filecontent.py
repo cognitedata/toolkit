@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 
 from cognite.client.data_classes import FileMetadataWrite
@@ -85,10 +86,16 @@ class TestFileContentIO:
             with HTTPClient(toolkit_client.config) as http_client:
                 io.upload_items(upload_content, http_client, selector)
 
-            # Verify upload
-            uploaded_file = toolkit_client.files.retrieve(instance_id=instance_id)
-            assert uploaded_file is not None
-            assert uploaded_file.uploaded is True
+            t0 = time.perf_counter()
+            while True:
+                uploaded_file = toolkit_client.files.retrieve(instance_id=instance_id)
+                assert uploaded_file is not None
+                if uploaded_file.uploaded is True:
+                    break
+                # The file syncer may take some time to update CogniteFile -> FileMetadata uploaded status
+                if time.perf_counter() - t0 > 30:
+                    raise AssertionError("Timeout waiting for file to be uploaded.")
+                time.sleep(1)
         finally:
             # Clean up
             toolkit_client.data_modeling.instances.delete(nodes=instance_id)
