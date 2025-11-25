@@ -73,9 +73,15 @@ class UploadApp(typer.Typer):
             if dry_run is None:
                 typer.echo("No selection made for dry run. Exiting.")
                 raise typer.Exit(code=1)
-            if (input_dir / DATA_RESOURCE_DIR).exists():
+            resource_dir = Path(input_dir) / DATA_RESOURCE_DIR
+            if resource_dir.exists():
+                if resource_dir.is_relative_to(Path.cwd()):
+                    display_name = resource_dir.relative_to(Path.cwd()).as_posix()
+                else:
+                    display_name = resource_dir.as_posix()
+
                 deploy_resources = questionary.confirm(
-                    "Deploy resources found in adjacent folders?", default=deploy_resources
+                    f"Deploy resources found in {display_name!r}?", default=deploy_resources
                 ).ask()
                 if deploy_resources is None:
                     typer.echo("No selection made for deploying resources. Exiting.")
