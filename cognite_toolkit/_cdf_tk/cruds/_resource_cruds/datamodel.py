@@ -120,7 +120,7 @@ from .auth import GroupAllScopedCRUD
 @final
 class SpaceCRUD(ResourceContainerCRUD[str, SpaceApply, Space, SpaceApplyList, SpaceList]):
     item_name = "nodes and edges"
-    folder_name = "data_models"
+    folder_name = "data_modeling"
     filename_pattern = r"^.*space$"
     resource_cls = Space
     resource_write_cls = SpaceApply
@@ -252,7 +252,7 @@ class SpaceCRUD(ResourceContainerCRUD[str, SpaceApply, Space, SpaceApplyList, Sp
 
 class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerApply, Container, ContainerApplyList, ContainerList]):
     item_name = "nodes and edges"
-    folder_name = "data_models"
+    folder_name = "data_modeling"
     filename_pattern = r"^.*container$"
     resource_cls = Container
     resource_write_cls = ContainerApply
@@ -516,7 +516,7 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerApply, Container
 
 
 class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View, ViewApplyList, ViewList]):
-    folder_name = "data_models"
+    folder_name = "data_modeling"
     filename_pattern = r"^.*view$"
     resource_cls = View
     resource_write_cls = ViewApply
@@ -857,7 +857,7 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View, ViewApplyList, ViewList]):
 
 @final
 class DataModelCRUD(ResourceCRUD[DataModelId, DataModelApply, DataModel, DataModelApplyList, DataModelList]):
-    folder_name = "data_models"
+    folder_name = "data_modeling"
     filename_pattern = r"^.*datamodel$"
     resource_cls = DataModel
     resource_write_cls = DataModelApply
@@ -991,7 +991,7 @@ class DataModelCRUD(ResourceCRUD[DataModelId, DataModelApply, DataModel, DataMod
 @final
 class NodeCRUD(ResourceContainerCRUD[NodeId, NodeApply, Node, NodeApplyList, NodeList]):
     item_name = "nodes"
-    folder_name = "data_models"
+    folder_name = "data_modeling"
     filename_pattern = r"^.*node$"
     resource_cls = Node
     resource_write_cls = NodeApply
@@ -1150,7 +1150,7 @@ class GraphQLCRUD(
         DataModelId, GraphQLDataModelWrite, GraphQLDataModel, GraphQLDataModelWriteList, GraphQLDataModelList
     ]
 ):
-    folder_name = "data_models"
+    folder_name = "data_modeling"
     filename_pattern = r"^.*GraphQLSchema"
     resource_cls = GraphQLDataModel
     resource_write_cls = GraphQLDataModelWrite
@@ -1350,7 +1350,7 @@ class GraphQLCRUD(
 @final
 class EdgeCRUD(ResourceContainerCRUD[EdgeId, EdgeApply, Edge, EdgeApplyList, EdgeList]):
     item_name = "edges"
-    folder_name = "data_models"
+    folder_name = "data_modeling"
     filename_pattern = r"^.*edge"
     resource_cls = Edge
     resource_write_cls = EdgeApply
