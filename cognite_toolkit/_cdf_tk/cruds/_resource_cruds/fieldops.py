@@ -14,11 +14,20 @@ from cognite_toolkit._cdf_tk.client.data_classes.apm_config_v1 import (
     APMConfigWrite,
     APMConfigWriteList,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.infield import InfieldLocationConfig, InfieldLocationConfigList
+from cognite_toolkit._cdf_tk.client.data_classes.infield import (
+    InFieldCDMLocationConfig,
+    InFieldCDMLocationConfigList,
+    InfieldLocationConfig,
+    InfieldLocationConfigList,
+)
 from cognite_toolkit._cdf_tk.client.data_classes.instance_api import InstanceResult, NodeIdentifier
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
-from cognite_toolkit._cdf_tk.resource_classes import InfieldLocationConfigYAML, InfieldV1YAML
+from cognite_toolkit._cdf_tk.resource_classes import (
+    InFieldCDMLocationConfigYAML,
+    InfieldLocationConfigYAML,
+    InfieldV1YAML,
+)
 from cognite_toolkit._cdf_tk.utils import quote_int_value_by_key_in_yaml, safe_read
 from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, hash_dict
@@ -346,4 +355,93 @@ class InFieldLocationConfigCRUD(
             return diff_list_hashable(local, cdf)
         elif json_path == ("dataExplorationConfig", "documents", "supportedFormats"):
             return diff_list_hashable(local, cdf)
+        return super().diff_list(local, cdf, json_path)
+
+
+@final
+class InFieldCDMLocationConfigCRUD(
+    ResourceCRUD[
+        NodeIdentifier,
+        InFieldCDMLocationConfig,
+        InFieldCDMLocationConfig,
+        InFieldCDMLocationConfigList,
+        InFieldCDMLocationConfigList,
+    ]
+):
+    folder_name = "cdf_applications"
+    filename_pattern = r"^.*\.InFieldCDMLocationConfig$"
+    filetypes = frozenset({"yaml", "yml"})
+    resource_cls = InFieldCDMLocationConfig
+    resource_write_cls = InFieldCDMLocationConfig
+    list_cls = InFieldCDMLocationConfigList
+    list_write_cls = InFieldCDMLocationConfigList
+    kind = "InFieldCDMLocationConfig"
+    yaml_cls = InFieldCDMLocationConfigYAML
+    dependencies = frozenset({SpaceCRUD, GroupAllScopedCRUD, GroupResourceScopedCRUD})
+    _doc_url = "Instances/operation/applyNodeAndEdges"
+
+    @classmethod
+    def get_id(cls, item: InFieldCDMLocationConfig | dict) -> NodeIdentifier:
+        if isinstance(item, dict):
+            return NodeIdentifier(space=item["space"], external_id=item["externalId"])
+        return NodeIdentifier(space=item.space, external_id=item.external_id)
+
+    @classmethod
+    def dump_id(cls, id: NodeIdentifier) -> dict[str, Any]:
+        return id.dump(include_type=False)
+
+    @classmethod
+    def get_required_capability(
+        cls, items: Sequence[InFieldCDMLocationConfig] | None, read_only: bool
+    ) -> Capability | list[Capability]:
+        if not items or items is None:
+            return []
+
+        actions = (
+            [DataModelInstancesAcl.Action.Read]
+            if read_only
+            else [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write]
+        )
+        instance_spaces = sorted({item.space for item in items})
+
+        return DataModelInstancesAcl(actions, DataModelInstancesAcl.Scope.SpaceID(instance_spaces))
+
+    def dump_resource(self, resource: InFieldCDMLocationConfig, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.dump()
+        local = local or {}
+        dumped.pop("instanceType", None)
+        return dumped
+
+    def create(self, items: InFieldCDMLocationConfigList) -> list[InstanceResult]:
+        return self.client.infield.cdm_config.apply(items)
+
+    def retrieve(self, ids: SequenceNotStr[NodeIdentifier]) -> InFieldCDMLocationConfigList:
+        return InFieldCDMLocationConfigList(self.client.infield.cdm_config.retrieve(list(ids)))
+
+    def update(self, items: InFieldCDMLocationConfigList) -> Sized:
+        return self.create(items)
+
+    def delete(self, ids: SequenceNotStr[NodeIdentifier]) -> int:
+        # We must retrieve the full resource to delete it.
+        retrieved = self.retrieve(list(ids))
+        _ = self.client.infield.cdm_config.delete(retrieved)
+        return len(retrieved)
+
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[InFieldCDMLocationConfig]:
+        raise NotImplementedError(f"Iteration over {self.display_name} is not supported.")
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path == ("accessManagement", "templateAdmins"):
+            return diff_list_hashable(local, cdf)
+        elif json_path == ("accessManagement", "checklistAdmins"):
+            return diff_list_hashable(local, cdf)
+        elif json_path == ("disciplines",):
+            return diff_list_identifiable(local, cdf, key="externalId")
         return super().diff_list(local, cdf, json_path)
