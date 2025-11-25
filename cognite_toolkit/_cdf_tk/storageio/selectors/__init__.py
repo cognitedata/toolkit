@@ -15,6 +15,7 @@ from ._datapoints import (
 )
 from ._file_content import (
     FileContentSelector,
+    FileDataModelingTemplate,
     FileDataModelingTemplateSelector,
     FileMetadataTemplate,
     FileMetadataTemplateSelector,
@@ -64,6 +65,7 @@ __all__ = [
     "DataSetSelector",
     "ExternalIdColumn",
     "FileContentSelector",
+    "FileDataModelingTemplate",
     "FileDataModelingTemplateSelector",
     "FileMetadataTemplate",
     "FileMetadataTemplateSelector",
