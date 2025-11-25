@@ -173,7 +173,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, FileMetadata, FileM
         )
         # We know there is only one response since we only requested one upload link
         response = responses[0]
-        if isinstance(response, FailedResponse) and "not found" in response.error.message and not created_node:
+        if isinstance(response, FailedResponse) and response.error.missing and not created_node:
             if self._create_cognite_file_node(instance_id, http_client, item.as_id(), results):
                 return self._upload_url_data_modeling(item, http_client, results, created_node=True)
             else:

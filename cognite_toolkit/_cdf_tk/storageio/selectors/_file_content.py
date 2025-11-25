@@ -87,7 +87,7 @@ class FileDataModelingTemplate(FileTemplate):
     @model_validator(mode="before")
     def _move_space_external_id(cls, data: dict[str, Any]) -> dict[str, Any]:
         if "space" in data and "externalId" in data:
-            data["instanceId"] = {"space": data.pop("space"), "externalId": data.pop("external_id")}
+            data["instanceId"] = {"space": data.pop("space"), "externalId": data.pop("externalId")}
         elif "space" in data and "external_id" in data:
             data["instance_id"] = {"space": data.pop("space"), "external_id": data.pop("external_id")}
         return data
