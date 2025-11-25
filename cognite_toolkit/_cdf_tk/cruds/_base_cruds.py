@@ -58,6 +58,7 @@ class Loader(ABC):
     exclude_filetypes: frozenset[str] = frozenset()
     _doc_base_url: str = "https://api-docs.cognite.com/20230101/tag/"
     _doc_url: str = ""
+    sub_folder_name: str | None = None
 
     def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None = None) -> None:
         self.client = client

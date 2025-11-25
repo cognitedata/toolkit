@@ -9,13 +9,7 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.cruds import (
-    RESOURCE_CRUD_LIST,
-    ContainerCRUD,
-    NodeCRUD,
-    ResourceCRUD,
-    ViewCRUD,
-)
+from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_LIST, ResourceCRUD
 from cognite_toolkit._cdf_tk.data_classes import ModuleDirectories
 from cognite_toolkit._cdf_tk.resource_classes import ToolkitResource
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
@@ -127,17 +121,6 @@ class ResourcesCommand(ToolkitCommand):
         yaml_contents = yaml_safe_dump(yaml_skeleton)
         return yaml_header + "\n\n" + yaml_contents
 
-    def _get_sub_directory_name(self, resource_crud: type[ResourceCRUD]) -> str | None:
-        """
-        Checks if the sub folder is present in the module path.
-        """
-        resources_subfolder_mapping = {
-            ContainerCRUD: "containers",
-            NodeCRUD: "nodes",
-            ViewCRUD: "views",
-        }
-        return resources_subfolder_mapping.get(resource_crud, None)
-
     def _create_resource_yaml_file(
         self,
         resource_crud: type[ResourceCRUD],
@@ -149,8 +132,8 @@ class ResourcesCommand(ToolkitCommand):
         Creates a new resource YAML file in the specified module using the resource_crud.yaml_cls.
         """
         resource_dir: Path = module_path / resource_crud.folder_name
-        if sub_directory := self._get_sub_directory_name(resource_crud):
-            resource_dir = resource_dir / sub_directory
+        if resource_crud.sub_folder_name:
+            resource_dir = resource_dir / resource_crud.sub_folder_name
 
         if not resource_dir.exists():
             resource_dir.mkdir(parents=True, exist_ok=True)
