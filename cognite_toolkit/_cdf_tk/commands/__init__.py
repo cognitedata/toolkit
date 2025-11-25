@@ -11,7 +11,6 @@ from .build_cmd import BuildCommand
 from .clean import CleanCommand
 from .collect import CollectCommand
 from .deploy import DeployCommand
-from .dump_data import DumpDataCommand
 from .dump_resource import DumpResourceCommand
 from .featureflag import FeatureFlagCommand
 from .init import InitCommand
@@ -27,7 +26,6 @@ __all__ = [
     "CollectCommand",
     "DeployCommand",
     "DownloadCommand",
-    "DumpDataCommand",
     "DumpResourceCommand",
     "FeatureFlagCommand",
     "InitCommand",
