@@ -53,7 +53,7 @@ class DevApp(typer.Typer):
                 "--prefix",
                 "-p",
                 help="The prefix of the resource file to create without suffixes and extensions. "
-                "eg. --prefix=my_space. If not provided, default prefix will be used eg. 'my_'.",
+                "eg. --prefix=my_space. If not provided, a default prefix like 'my_<kind>' will be used.",
             ),
         ] = None,
         verbose: Annotated[
