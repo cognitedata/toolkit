@@ -1,17 +1,14 @@
 import sys
 from collections import UserList
-from typing import TYPE_CHECKING, Any, ClassVar, Literal
+from typing import Any, ClassVar, Literal
 
-from pydantic import JsonValue, field_validator
-from pydantic_core.core_schema import ValidationInfo
+from cognite.client import CogniteClient
+from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.protocols import (
     ResourceRequestListProtocol,
     ResourceResponseListProtocol,
 )
-from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
-
-from cognite.client import CogniteClient
 
 from .base import BaseResourceList, ResponseResource
 from .instance_api import InstanceRequestResource, ViewReference

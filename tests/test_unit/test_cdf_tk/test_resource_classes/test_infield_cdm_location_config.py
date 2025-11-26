@@ -96,7 +96,9 @@ def invalid_test_cases() -> Iterable:
 class TestInfieldCDMLocationConfigYAML:
     @pytest.mark.parametrize(
         "data",
-        list(find_resources("InFieldCDMLocationConfig", resource_dir="cdf_applications", base=COMPLETE_ORG_ALPHA_FLAGS)),
+        list(
+            find_resources("InFieldCDMLocationConfig", resource_dir="cdf_applications", base=COMPLETE_ORG_ALPHA_FLAGS)
+        ),
     )
     def test_load_valid(self, data: dict[str, Any]) -> None:
         loaded = InFieldCDMLocationConfigYAML.model_validate(data)
@@ -112,4 +114,3 @@ class TestInfieldCDMLocationConfigYAML:
         assert isinstance(format_warning, ResourceFormatWarning)
 
         assert set(format_warning.errors) == expected_errors
-

@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import Any, cast
+from typing import Any
 
 from rich.console import Console
 
@@ -13,7 +13,6 @@ from cognite_toolkit._cdf_tk.client.data_classes.instance_api import (
     InstanceResult,
     NodeIdentifier,
 )
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ItemsRequest, SimpleBodyRequest
 
 
