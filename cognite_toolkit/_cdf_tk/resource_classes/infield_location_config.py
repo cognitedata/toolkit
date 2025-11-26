@@ -21,9 +21,6 @@ class FeatureToggles(BaseModelResource):
     workorders: bool | None = None
     notifications: bool | None = None
     media: bool | None = None
-    template_checklist_flow: bool | None = None
-    workorder_checklist_flow: bool | None = None
-    observations: ObservationFeatureToggles | None = None
 
 
 class AccessManagement(BaseModelResource):
@@ -77,10 +74,6 @@ class InfieldLocationConfigYAML(ToolkitResource):
     - feature_toggles: Feature toggles migrated from old configuration
     - rootAsset: Direct relation to the root asset (space and externalId)
     - app_instance_space: Application instance space from appDataInstanceSpace
-    - access_management: Template and checklist admin groups (from templateAdmins and checklistAdmins)
-    - disciplines: List of disciplines (from disciplines in FeatureConfiguration)
-    - data_filters: Data filters for general, assets, files, and timeseries (from dataFilters in old configuration)
-    - data_exploration_config: Direct relation to the DataExplorationConfig node (shared across all locations)
     """
 
     space: str
@@ -89,6 +82,3 @@ class InfieldLocationConfigYAML(ToolkitResource):
     root_location_external_id: str | None = None
     feature_toggles: FeatureToggles | None = None
     app_instance_space: str | None = None
-    access_management: AccessManagement | None = None
-    data_filters: RootLocationDataFilters | None = None
-    data_exploration_config: DataExplorationConfig | None = None
