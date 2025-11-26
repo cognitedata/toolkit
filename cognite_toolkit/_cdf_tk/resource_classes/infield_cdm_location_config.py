@@ -113,7 +113,6 @@ class InFieldCDMLocationConfigYAML(ToolkitResource):
     name: str | None = None
     description: str | None = None
     feature_toggles: FeatureToggles | None = None
-    app_instance_space: str | None = None
     access_management: AccessManagement | None = None
     data_filters: DataFilters | None = None
     data_storage: DataStorage | None = None

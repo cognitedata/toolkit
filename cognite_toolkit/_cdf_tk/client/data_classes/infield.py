@@ -92,7 +92,6 @@ class InFieldCDMLocationConfig(
     name: str | None = None
     description: str | None = None
     feature_toggles: dict[str, JsonValue] | None = None
-    app_instance_space: str | None = None
     access_management: dict[str, JsonValue] | None = None
     data_filters: dict[str, JsonValue] | None = None
     data_storage: dict[str, JsonValue] | None = None
