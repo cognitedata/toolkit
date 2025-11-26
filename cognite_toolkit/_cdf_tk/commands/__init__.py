@@ -22,6 +22,7 @@ from .run import RunFunctionCommand, RunTransformationCommand, RunWorkflowComman
 __all__ = [
     "AuthCommand",
     "BuildCommand",
+    "BuildCommandV2",
     "CleanCommand",
     "CollectCommand",
     "DeployCommand",
