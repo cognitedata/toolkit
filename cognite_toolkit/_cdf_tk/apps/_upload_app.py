@@ -95,13 +95,13 @@ class UploadApp(typer.Typer):
                     typer.echo("No selection made for deploying resources. Exiting.")
                     raise typer.Exit(code=1)
 
-            client = EnvironmentVariables.create_from_environment().get_client()
-            cmd.run(
-                lambda: cmd.upload(
-                    input_dir=input_dir,
-                    dry_run=dry_run,
-                    verbose=verbose,
-                    deploy_resources=deploy_resources,
-                    client=client,
-                )
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd.run(
+            lambda: cmd.upload(
+                input_dir=input_dir,
+                dry_run=dry_run,
+                verbose=verbose,
+                deploy_resources=deploy_resources,
+                client=client,
             )
+        )
