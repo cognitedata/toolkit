@@ -42,23 +42,9 @@ def invalid_test_cases() -> Iterable:
             "featureToggles": {
                 "threeD": "not_a_boolean",
                 "trends": 123,
-                "observations": {
-                    "isEnabled": "not_a_boolean",
-                    "isWriteBackEnabled": ["invalid_type"],
-                },
-            },
-            "accessManagement": {
-                "templateAdmins": "should_be_a_list",
-                "checklistAdmins": 456,
             },
         },
         {
-            "In accessManagement.checklistAdmins input should be a valid list. Got 456.",
-            "In accessManagement.templateAdmins input should be a valid list. Got 'should_be_a_list'.",
-            "In featureToggles.observations.isEnabled input should be a valid boolean. "
-            "Got 'not_a_boolean' of type str.",
-            "In featureToggles.observations.isWriteBackEnabled input should be a valid "
-            "boolean. Got ['invalid_type'] of type list.",
             "In featureToggles.threeD input should be a valid boolean. Got 'not_a_boolean' of type str.",
             "In featureToggles.trends input should be a valid boolean. Got 123 of type int.",
         },

@@ -303,24 +303,10 @@ class InFieldLocationConfigCRUD(
         dumped = resource.dump()
         local = local or {}
         dumped.pop("instanceType", None)
-        if isinstance(cdf_dec := dumped.get("dataExplorationConfig"), dict):
-            cdf_dec.pop("instanceType", None)
-            if isinstance(local_dec := local.get("dataExplorationConfig"), dict):
-                if "space" in cdf_dec and "space" not in local_dec:
-                    # Default space is used for the data exploration config if not specified locally.
-                    cdf_dec.pop("space")
-                if "externalId" in cdf_dec and "externalId" not in local_dec:
-                    # Default externalId is used for the data exploration config if not specified locally.
-                    cdf_dec.pop("externalId")
-
         return dumped
 
     def create(self, items: InfieldLocationConfigList) -> list[InstanceResult]:
-        created = self.client.infield.config.apply(items)
-        config_ids = {config.as_id() for config in items}
-        # We filter out all the data exploration configs that were created along with the infield location configs
-        # as we only want to count the infield location configs here.
-        return [res for res in created if res.as_id() in config_ids]
+        return self.client.infield.config.apply(items)
 
     def retrieve(self, ids: SequenceNotStr[NodeIdentifier]) -> InfieldLocationConfigList:
         return InfieldLocationConfigList(self.client.infield.config.retrieve(list(ids)))
@@ -329,10 +315,8 @@ class InFieldLocationConfigCRUD(
         return self.create(items)
 
     def delete(self, ids: SequenceNotStr[NodeIdentifier]) -> int:
-        # We must retrieve the full resource to get hte DataExplorationConfig linked resource deleted as well.
+        # We must retrieve the full resource to delete it.
         retrieved = self.retrieve(list(ids))
-        # Then, we pass the entire resource to the delete method, which will delete both the InfieldLocationConfig
-        # and the linked DataExplorationConfig.
         _ = self.client.infield.config.delete(retrieved)
         return len(retrieved)
 
@@ -347,14 +331,6 @@ class InFieldLocationConfigCRUD(
     def diff_list(
         self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
     ) -> tuple[dict[int, int], list[int]]:
-        if json_path == ("accessManagement", "templateAdmins"):
-            return diff_list_hashable(local, cdf)
-        elif json_path == ("accessManagement", "checklistAdmins"):
-            return diff_list_hashable(local, cdf)
-        elif json_path == ("dataFilters", "general", "spaces"):
-            return diff_list_hashable(local, cdf)
-        elif json_path == ("dataExplorationConfig", "documents", "supportedFormats"):
-            return diff_list_hashable(local, cdf)
         return super().diff_list(local, cdf, json_path)
 
 

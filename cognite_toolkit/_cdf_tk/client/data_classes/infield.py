@@ -11,11 +11,10 @@ from cognite_toolkit._cdf_tk.protocols import (
 )
 from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
 
+from cognite.client import CogniteClient
+
 from .base import BaseResourceList, ResponseResource
 from .instance_api import InstanceRequestResource, ViewReference
-
-if TYPE_CHECKING:
-    from cognite.client import CogniteClient
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -57,28 +56,12 @@ class InfieldLocationConfig(
     root_location_external_id: str | None = None
     feature_toggles: dict[str, JsonValue] | None = None
     app_instance_space: str | None = None
-    access_management: dict[str, JsonValue] | None = None
-    data_filters: dict[str, JsonValue] | None = None
-    data_exploration_config: DataExplorationConfig | None = None
 
     def as_request_resource(self) -> "InfieldLocationConfig":
         return self
 
     def as_write(self) -> Self:
         return self
-
-    @field_validator("data_exploration_config", mode="before")
-    @classmethod
-    def generate_identifier_if_missing(cls, value: Any, info: ValidationInfo) -> Any:
-        """We do not require the user to specify the space and externalId for the data exploration config."""
-        if isinstance(value, dict):
-            if value.get("space") is None:
-                value["space"] = info.data["space"]
-            if value.get("externalId") is None:
-                external_id = info.data["external_id"]
-                candidate = f"{external_id}_data_exploration_config"
-                value["externalId"] = sanitize_instance_external_id(candidate)
-        return value
 
 
 class InfieldLocationConfigList(
