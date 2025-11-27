@@ -139,6 +139,8 @@ def get_resource_crud(
     elif len(crud_candidates) == 1:
         return crud_candidates[0], None
 
+    # This is unreachable with our current ResourceCRUD classes. We have tests that is exhaustive over
+    # all ResourceCRUDs to ensure this.
     names = humanize_collection(
         [f"'{source_path.stem}.{loader.kind}{source_path.suffix}'" for loader in crud_candidates], bind_word="or"
     )
