@@ -12,7 +12,6 @@ from .clean import CleanCommand
 from .collect import CollectCommand
 from .deploy import DeployCommand
 from .dump_resource import DumpResourceCommand
-from .featureflag import FeatureFlagCommand
 from .init import InitCommand
 from .modules import ModulesCommand
 from .pull import PullCommand
@@ -27,7 +26,6 @@ __all__ = [
     "DeployCommand",
     "DownloadCommand",
     "DumpResourceCommand",
-    "FeatureFlagCommand",
     "InitCommand",
     "MigrationCanvasCommand",
     "MigrationPrepareCommand",
