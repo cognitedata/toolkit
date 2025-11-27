@@ -1,36 +1,26 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 
-from cognite_toolkit._cdf_tk.builders import get_loader
+from cognite_toolkit._cdf_tk.builders import get_crud
 from cognite_toolkit._cdf_tk.cruds import FileCRUD, RawDatabaseCRUD, RawTableCRUD, ResourceCRUD
 
 
-@pytest.mark.parametrize(
-    "content, kind, expected_loader_cls",
-    [
-        ("dbName: my_database\n", RawDatabaseCRUD.kind, RawDatabaseCRUD),
-        ("dbName: my_database\ntableName: my_table\n", RawTableCRUD.kind, RawTableCRUD),
-    ],
-)
-def test_get_loader_raw_loaders(content: str, kind: str, expected_loader_cls: type[ResourceCRUD]) -> None:
-    filepath = MagicMock(spec=Path)
-    filepath.name = f"filelocation.{kind}.yaml"
-    filepath.stem = f"filelocation.{kind}"
-    filepath.suffix = ".yaml"
-    filepath.read_text.return_value = content
+class TestGetCRUD:
+    @pytest.mark.parametrize(
+        "source_path, resource_folder, expected_loader_cls",
+        [
+            pytest.param(Path("SHOP_model_borgund.File.yaml"), "files", FileCRUD, id="file crud"),
+            pytest.param(Path("some_path/raw/my.Database.yaml"), "raw", RawDatabaseCRUD, id="raw database crud"),
+            pytest.param(Path("some_path/raw/my.Table.yaml"), "raw", RawTableCRUD, id="raw table crud"),
+        ],
+    )
+    def test_get_crud_no_warning(
+        self, source_path: Path, resource_folder: str, expected_loader_cls: type[ResourceCRUD]
+    ) -> None:
+        crud_cls, warning = get_crud(source_path, resource_folder)
 
-    loader, warn = get_loader(filepath, "raw")
-
-    assert warn is None
-    assert loader is expected_loader_cls
-
-
-def test_get_loader_file() -> None:
-    loader_cls, warning = get_loader(Path("SHOP_model_borgund.File.yaml"), "files")
-
-    assert warning is None
-    assert loader_cls is FileCRUD
+        assert warning is None
+        assert crud_cls is expected_loader_cls
