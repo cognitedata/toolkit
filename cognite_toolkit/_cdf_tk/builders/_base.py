@@ -2,14 +2,12 @@ import difflib
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
-from typing import Any, ClassVar, cast
+from typing import Any, ClassVar
 
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
 from cognite_toolkit._cdf_tk.cruds import (
-    CRUDS_BY_FOLDER_NAME,
+    RESOURCE_CRUD_BY_FOLDER_NAME,
     GroupCRUD,
-    RawDatabaseCRUD,
-    RawTableCRUD,
     ResourceCRUD,
 )
 from cognite_toolkit._cdf_tk.data_classes import (
@@ -31,7 +29,6 @@ from cognite_toolkit._cdf_tk.tk_warnings.fileread import (
 )
 from cognite_toolkit._cdf_tk.utils import (
     humanize_collection,
-    safe_read,
 )
 
 
@@ -103,34 +100,31 @@ class Builder(ABC):
         return destination_path
 
     def _get_loader(self, source_path: Path) -> tuple[None, ToolkitWarning] | tuple[type[ResourceCRUD], None]:
-        return get_loader(source_path, self.resource_folder)
+        return get_resource_crud(source_path, self.resource_folder)
 
 
-def get_loader(
-    source_path: Path,
-    resource_folder: str,
-    force_pattern: bool = False,
+def get_resource_crud(
+    source_path: Path, resource_folder: str
 ) -> tuple[None, ToolkitWarning] | tuple[type[ResourceCRUD], None]:
-    folder_loaders = CRUDS_BY_FOLDER_NAME.get(resource_folder, [])
-    if not folder_loaders:
+    """Get the appropriate CRUD class for the given source file and resource folder."""
+    folder_cruds = RESOURCE_CRUD_BY_FOLDER_NAME.get(resource_folder, [])
+    if not folder_cruds:
         return None, ToolkitNotSupportedWarning(
             f"resource of type {resource_folder!r} in {source_path.name}.",
-            details=f"Available resources are: {', '.join(CRUDS_BY_FOLDER_NAME.keys())}",
+            details=f"Available resources are: {humanize_collection(RESOURCE_CRUD_BY_FOLDER_NAME.keys())}",
         )
 
-    loaders = [
-        loader for loader in folder_loaders if loader.is_supported_file(source_path, force_pattern=force_pattern)
-    ]
-    if len(loaders) == 0:
+    crud_candidates = [crud_cls for crud_cls in folder_cruds if crud_cls.is_supported_file(source_path)]
+    if len(crud_candidates) == 0:
         suggestion: str | None = None
         if "." in source_path.stem:
             core, kind = source_path.stem.rsplit(".", 1)
-            match = difflib.get_close_matches(kind, [loader.kind for loader in folder_loaders])
+            match = difflib.get_close_matches(kind, [crud_cls.kind for crud_cls in folder_cruds])
             if match:
                 suggested_name = f"{core}.{match[0]}{source_path.suffix}"
                 suggestion = f"Did you mean to call the file {suggested_name!r}?"
         else:
-            kinds = [loader.kind for loader in folder_loaders]
+            kinds = [crud.kind for crud in folder_cruds]
             if len(kinds) == 1:
                 suggestion = f"Did you mean to call the file '{source_path.stem}.{kinds[0]}{source_path.suffix}'?"
             else:
@@ -139,30 +133,22 @@ def get_loader(
                     f"the resource type. Supported types are: {humanize_collection(kinds)}."
                 )
         return None, UnknownResourceTypeWarning(source_path, suggestion)
-    elif len(loaders) > 1 and all(loader.folder_name == "raw" for loader in loaders):
-        # Raw files can be ambiguous, so we need to check the content.
-        # If there is a tableName field, it is a table, otherwise it is a database.
-        if any(
-            line.strip().startswith("tableName:") or line.strip().startswith("- tableName:")
-            for line in safe_read(source_path).splitlines()
-        ):
-            return RawTableCRUD, None
-        else:
-            return RawDatabaseCRUD, None
-    elif len(loaders) > 1 and all(issubclass(loader, GroupCRUD) for loader in loaders):
-        # There are two group loaders, one for resource scoped and one for all scoped.
+    elif len(crud_candidates) > 1 and all(issubclass(loader, GroupCRUD) for loader in crud_candidates):
+        # There are two group cruds, one for resource scoped and one for all scoped.
         return GroupCRUD, None
-    elif len(loaders) > 1:
-        names = humanize_collection(
-            [f"'{source_path.stem}.{loader.kind}{source_path.suffix}'" for loader in loaders], bind_word="or"
-        )
-        raise AmbiguousResourceFileError(
-            f"Ambiguous resource file {source_path.name} in {resource_folder} folder. "
-            f"Unclear whether it is {humanize_collection([loader.kind for loader in loaders], bind_word='or')}."
-            f"\nPlease name the file {names}."
-        )
+    elif len(crud_candidates) == 1:
+        return crud_candidates[0], None
 
-    return cast(type[ResourceCRUD], loaders[0]), None
+    # This is unreachable with our current ResourceCRUD classes. We have tests that is exhaustive over
+    # all ResourceCRUDs to ensure this.
+    names = humanize_collection(
+        [f"'{source_path.stem}.{loader.kind}{source_path.suffix}'" for loader in crud_candidates], bind_word="or"
+    )
+    raise AmbiguousResourceFileError(
+        f"Ambiguous resource file {source_path.name} in {resource_folder} folder. "
+        f"Unclear whether it is {humanize_collection([crud_cls.kind for crud_cls in crud_candidates], bind_word='or')}."
+        f"\nPlease name the file {names}."
+    )
 
 
 class DefaultBuilder(Builder):

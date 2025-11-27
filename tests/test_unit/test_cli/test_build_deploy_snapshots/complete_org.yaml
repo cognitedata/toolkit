@@ -356,12 +356,12 @@ FileCRUD:
   space: sp_nodes
 - external_id: classicFileMetadata
   filehash: de91f3a0
-- externalId: filecontent.txt
-  filehash: 9aaf2409
-  space: sp_complete_org_files
 - externalId: fn_data_modeling_only_function
   filehash: 22a54716
   space: sp_instance
+- externalId: my.CogniteFile.yaml
+  filehash: 6d889d00
+  space: sp_complete_org_files
 - external_id: myapp
   filehash: c59dc2b6
 FileMetadata:
@@ -587,33 +587,6 @@ Node:
 - externalId: endNode
   instanceType: node
   space: sp_instance
-- externalId: filecontent.txt
-  instanceType: node
-  sources:
-  - properties:
-      aliases: null
-      assets: null
-      category: null
-      description: null
-      directory: null
-      mimeType: text/plain
-      name: filecontent.txt
-      source: null
-      sourceContext: null
-      sourceCreatedTime: null
-      sourceCreatedUser: null
-      sourceId: null
-      sourceUpdatedTime: null
-      sourceUpdatedUser: null
-      tags:
-      - tag1
-      - tag2
-    source:
-      externalId: CogniteFile
-      space: cdf_cdm
-      type: view
-      version: v1
-  space: sp_complete_org_files
 - externalId: fn_data_modeling_only_function
   instanceType: node
   sources:
@@ -639,6 +612,33 @@ Node:
       type: view
       version: v1
   space: sp_instance
+- externalId: my.CogniteFile.yaml
+  instanceType: node
+  sources:
+  - properties:
+      aliases: null
+      assets: null
+      category: null
+      description: null
+      directory: null
+      mimeType: text/plain
+      name: my.CogniteFile.yaml
+      source: null
+      sourceContext: null
+      sourceCreatedTime: null
+      sourceCreatedUser: null
+      sourceId: null
+      sourceUpdatedTime: null
+      sourceUpdatedUser: null
+      tags:
+      - tag1
+      - tag2
+    source:
+      externalId: CogniteFile
+      space: cdf_cdm
+      type: view
+      version: v1
+  space: sp_complete_org_files
 - externalId: startNode
   instanceType: node
   space: sp_instance
