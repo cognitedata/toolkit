@@ -10,27 +10,27 @@ from cognite_toolkit._cdf_tk.cruds import FileCRUD, RawDatabaseCRUD, RawTableCRU
 
 
 @pytest.mark.parametrize(
-    "content, expected_loader_cls",
+    "content, kind, expected_loader_cls",
     [
-        ("dbName: my_database\n", RawDatabaseCRUD),
-        ("dbName: my_database\ntableName: my_table\n", RawTableCRUD),
+        ("dbName: my_database\n", RawDatabaseCRUD.kind, RawDatabaseCRUD),
+        ("dbName: my_database\ntableName: my_table\n", RawTableCRUD.kind, RawTableCRUD),
     ],
 )
-def test_get_loader_raw_loaders(content: str, expected_loader_cls: type[ResourceCRUD]) -> None:
+def test_get_loader_raw_loaders(content: str, kind: str, expected_loader_cls: type[ResourceCRUD]) -> None:
     filepath = MagicMock(spec=Path)
-    filepath.name = "filelocation.yaml"
-    filepath.stem = "filelocation"
+    filepath.name = f"filelocation.{kind}.yaml"
+    filepath.stem = f"filelocation.{kind}"
     filepath.suffix = ".yaml"
     filepath.read_text.return_value = content
 
-    loader, warn = get_loader(filepath, "raw", force_pattern=True)
+    loader, warn = get_loader(filepath, "raw")
 
     assert warn is None
     assert loader is expected_loader_cls
 
 
 def test_get_loader_file() -> None:
-    loader_cls, warning = get_loader(Path("SHOP_model_borgund.File.yaml"), "files", force_pattern=True)
+    loader_cls, warning = get_loader(Path("SHOP_model_borgund.File.yaml"), "files")
 
     assert warning is None
     assert loader_cls is FileCRUD

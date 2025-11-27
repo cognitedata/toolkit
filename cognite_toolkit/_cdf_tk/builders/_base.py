@@ -107,9 +107,7 @@ class Builder(ABC):
 
 
 def get_loader(
-    source_path: Path,
-    resource_folder: str,
-    force_pattern: bool = False,
+    source_path: Path, resource_folder: str
 ) -> tuple[None, ToolkitWarning] | tuple[type[ResourceCRUD], None]:
     folder_loaders = CRUDS_BY_FOLDER_NAME.get(resource_folder, [])
     if not folder_loaders:
@@ -118,9 +116,7 @@ def get_loader(
             details=f"Available resources are: {', '.join(CRUDS_BY_FOLDER_NAME.keys())}",
         )
 
-    loaders = [
-        loader for loader in folder_loaders if loader.is_supported_file(source_path, force_pattern=force_pattern)
-    ]
+    loaders = [loader for loader in folder_loaders if loader.is_supported_file(source_path)]
     if len(loaders) == 0:
         suggestion: str | None = None
         if "." in source_path.stem:
