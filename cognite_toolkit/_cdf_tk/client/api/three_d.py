@@ -1,39 +1,42 @@
-from collections.abc import Sequence
-
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk.client.api.cdf_client import CDFClient
-from cognite_toolkit._cdf_tk.client.data_classes.three_d import ThreeDModelRequest, ThreeDModelResponse
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
+from cognite_toolkit._cdf_tk.client.data_classes.api_classes import PagedResponse
+from cognite_toolkit._cdf_tk.client.data_classes.three_d import ThreeDModelResponse
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ParamRequest
+from cognite_toolkit._cdf_tk.utils.useful_types import PrimitiveType
 
 
 class ThreeModelDAPI:
     ENDPOINT = "/3d/models"
 
-    def __init__(self, http_client: HTTPClient, cdf_client: CDFClient, console: Console) -> None:
+    def __init__(self, http_client: HTTPClient, console: Console) -> None:
         self._http_client = http_client
-        self._cdf_client = cdf_client
         self._console = console
         self._config = http_client.config
 
-    def create(self, models: Sequence[ThreeDModelRequest]) -> Sequence[ThreeDModelResponse]:
-        raise NotImplementedError()
-
-    def retrieve(self, id: int) -> ThreeDModelResponse:
-        raise NotImplementedError()
-
-    def update(self, models: Sequence[ThreeDModelRequest]) -> Sequence[ThreeDModelResponse]:
-        raise NotImplementedError()
-
-    def delete(self, ids: Sequence[int]) -> None:
-        raise NotImplementedError()
-
-    def list(
-        self, published: bool, include_revision_info: bool = False, limit: int = 100
-    ) -> Sequence[ThreeDModelResponse]:
-        raise NotImplementedError()
+    def iterate(
+        self, published: bool, include_revision_info: bool = False, limit: int = 100, cursor: str | None = None
+    ) -> PagedResponse[ThreeDModelResponse]:
+        if not (0 < limit <= 1000):
+            raise ValueError("Limit must be between 1 and 1000.")
+        parameters: dict[str, PrimitiveType] = {
+            "published": str(published).lower(),
+            "includeRevisionInfo": str(include_revision_info).lower(),
+            "limit": limit,
+        }
+        if cursor is not None:
+            parameters["cursor"] = cursor
+        responses = self._http_client.request_with_retries(
+            ParamRequest(
+                endpoint_url=self._config.create_api_url(self.ENDPOINT),
+                method="GET",
+                parameters=parameters,
+            )
+        )
+        responses.raise_for_status()
+        return PagedResponse[ThreeDModelResponse].model_validate(responses.get_first_body())
 
 
 class ThreeDAPI:
-    def __init__(self, http_client: HTTPClient, cdf_client: CDFClient, console: Console) -> None:
-        self.models = ThreeModelDAPI(http_client, cdf_client, console)
+    def __init__(self, http_client: HTTPClient, console: Console) -> None:
+        self.models = ThreeModelDAPI(http_client, console)
