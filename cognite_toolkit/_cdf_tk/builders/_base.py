@@ -2,11 +2,11 @@ import difflib
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
-from typing import Any, ClassVar, cast
+from typing import Any, ClassVar
 
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
 from cognite_toolkit._cdf_tk.cruds import (
-    CRUDS_BY_FOLDER_NAME,
+    RESOURCE_CRUD_BY_FOLDER_NAME,
     GroupCRUD,
     ResourceCRUD,
 )
@@ -100,24 +100,26 @@ class Builder(ABC):
         return destination_path
 
     def _get_loader(self, source_path: Path) -> tuple[None, ToolkitWarning] | tuple[type[ResourceCRUD], None]:
-        return get_crud(source_path, self.resource_folder)
+        return get_resource_crud(source_path, self.resource_folder)
 
 
-def get_crud(source_path: Path, resource_folder: str) -> tuple[None, ToolkitWarning] | tuple[type[ResourceCRUD], None]:
+def get_resource_crud(
+    source_path: Path, resource_folder: str
+) -> tuple[None, ToolkitWarning] | tuple[type[ResourceCRUD], None]:
     """Get the appropriate CRUD class for the given source file and resource folder."""
-    folder_cruds = CRUDS_BY_FOLDER_NAME.get(resource_folder, [])
+    folder_cruds = RESOURCE_CRUD_BY_FOLDER_NAME.get(resource_folder, [])
     if not folder_cruds:
         return None, ToolkitNotSupportedWarning(
             f"resource of type {resource_folder!r} in {source_path.name}.",
-            details=f"Available resources are: {', '.join(CRUDS_BY_FOLDER_NAME.keys())}",
+            details=f"Available resources are: {humanize_collection(RESOURCE_CRUD_BY_FOLDER_NAME.keys())}",
         )
 
-    crud_candidates = [crud for crud in folder_cruds if crud.is_supported_file(source_path)]
+    crud_candidates = [crud_cls for crud_cls in folder_cruds if crud_cls.is_supported_file(source_path)]
     if len(crud_candidates) == 0:
         suggestion: str | None = None
         if "." in source_path.stem:
             core, kind = source_path.stem.rsplit(".", 1)
-            match = difflib.get_close_matches(kind, [crud.kind for crud in folder_cruds])
+            match = difflib.get_close_matches(kind, [crud_cls.kind for crud_cls in folder_cruds])
             if match:
                 suggested_name = f"{core}.{match[0]}{source_path.suffix}"
                 suggestion = f"Did you mean to call the file {suggested_name!r}?"
@@ -134,17 +136,17 @@ def get_crud(source_path: Path, resource_folder: str) -> tuple[None, ToolkitWarn
     elif len(crud_candidates) > 1 and all(issubclass(loader, GroupCRUD) for loader in crud_candidates):
         # There are two group cruds, one for resource scoped and one for all scoped.
         return GroupCRUD, None
-    elif len(crud_candidates) > 1:
-        names = humanize_collection(
-            [f"'{source_path.stem}.{loader.kind}{source_path.suffix}'" for loader in crud_candidates], bind_word="or"
-        )
-        raise AmbiguousResourceFileError(
-            f"Ambiguous resource file {source_path.name} in {resource_folder} folder. "
-            f"Unclear whether it is {humanize_collection([loader.kind for loader in crud_candidates], bind_word='or')}."
-            f"\nPlease name the file {names}."
-        )
+    elif len(crud_candidates) == 1:
+        return crud_candidates[0], None
 
-    return cast(type[ResourceCRUD], crud_candidates[0]), None
+    names = humanize_collection(
+        [f"'{source_path.stem}.{loader.kind}{source_path.suffix}'" for loader in crud_candidates], bind_word="or"
+    )
+    raise AmbiguousResourceFileError(
+        f"Ambiguous resource file {source_path.name} in {resource_folder} folder. "
+        f"Unclear whether it is {humanize_collection([crud_cls.kind for crud_cls in crud_candidates], bind_word='or')}."
+        f"\nPlease name the file {names}."
+    )
 
 
 class DefaultBuilder(Builder):
