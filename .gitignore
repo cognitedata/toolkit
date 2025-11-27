@@ -315,3 +315,8 @@ tests/**/cdf.toml
 *.xlsx
 data/
 migration_logs*/
+!tests/data/
+!tests/data/**
+tests/data/**/__pycache__/
+build_info.dev.yaml
+tests/data/run_data/function_local_venvs*/**
