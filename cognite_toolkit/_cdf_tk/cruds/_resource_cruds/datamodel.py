@@ -262,6 +262,7 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerApply, Container
     dependencies = frozenset({SpaceCRUD})
     yaml_cls = ContainerYAML
     _doc_url = "Containers/operation/ApplyContainers"
+    sub_folder_name = "containers"
 
     def __init__(
         self,
@@ -526,6 +527,7 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View, ViewApplyList, ViewList]):
     dependencies = frozenset({SpaceCRUD, ContainerCRUD})
     yaml_cls = ViewYAML
     _doc_url = "Views/operation/ApplyViews"
+    sub_folder_name = "views"
 
     def __init__(
         self,
@@ -1001,6 +1003,7 @@ class NodeCRUD(ResourceContainerCRUD[NodeId, NodeApply, Node, NodeApplyList, Nod
     yaml_cls = NodeYAML
     dependencies = frozenset({SpaceCRUD, ViewCRUD, ContainerCRUD})
     _doc_url = "Instances/operation/applyNodeAndEdges"
+    sub_folder_name = "nodes"
 
     def __init__(
         self,
