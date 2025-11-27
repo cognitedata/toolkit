@@ -50,7 +50,7 @@ class AboutCommand(ToolkitCommand):
                     print(f"  • {rel_path}")
                 print(f"\n[bold cyan]Hint:[/bold cyan] Move one of these files to {cwd} or navigate to its directory.")
             else:
-                print(f"\n[bold yellow]No cdf.toml found[/bold yellow] in current directory or subdirectories.")
+                print("\n[bold yellow]No cdf.toml found[/bold yellow] in current directory or subdirectories.")
                 print(f"Current directory: {cwd}")
                 print("\n[bold cyan]Hint:[/bold cyan] Run [yellow]cdf init[/yellow] to create a new project.")
 
