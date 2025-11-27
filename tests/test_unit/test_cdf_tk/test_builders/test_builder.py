@@ -1,36 +1,66 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 
-from cognite_toolkit._cdf_tk.builders import get_loader
-from cognite_toolkit._cdf_tk.cruds import FileCRUD, RawDatabaseCRUD, RawTableCRUD, ResourceCRUD
-
-
-@pytest.mark.parametrize(
-    "content, expected_loader_cls",
-    [
-        ("dbName: my_database\n", RawDatabaseCRUD),
-        ("dbName: my_database\ntableName: my_table\n", RawTableCRUD),
-    ],
+from cognite_toolkit._cdf_tk.builders import get_resource_crud
+from cognite_toolkit._cdf_tk.cruds import (
+    RESOURCE_CRUD_LIST,
+    GroupAllScopedCRUD,
+    GroupCRUD,
+    GroupResourceScopedCRUD,
+    ResourceCRUD,
 )
-def test_get_loader_raw_loaders(content: str, expected_loader_cls: type[ResourceCRUD]) -> None:
-    filepath = MagicMock(spec=Path)
-    filepath.name = "filelocation.yaml"
-    filepath.stem = "filelocation"
-    filepath.suffix = ".yaml"
-    filepath.read_text.return_value = content
-
-    loader, warn = get_loader(filepath, "raw", force_pattern=True)
-
-    assert warn is None
-    assert loader is expected_loader_cls
+from cognite_toolkit._cdf_tk.tk_warnings import ToolkitNotSupportedWarning, ToolkitWarning
+from cognite_toolkit._cdf_tk.tk_warnings.fileread import UnknownResourceTypeWarning
 
 
-def test_get_loader_file() -> None:
-    loader_cls, warning = get_loader(Path("SHOP_model_borgund.File.yaml"), "files", force_pattern=True)
+class TestGetCRUD:
+    @pytest.mark.parametrize(
+        "source_path, resource_folder, expected_loader_cls",
+        [
+            pytest.param(
+                Path(f"some_path/{crud_cls.folder_name}/my.{crud_cls.kind}.yaml"),
+                crud_cls.folder_name,
+                {
+                    GroupResourceScopedCRUD: GroupCRUD,
+                    GroupAllScopedCRUD: GroupCRUD,
+                }.get(crud_cls, crud_cls),
+                id=crud_cls.__name__,
+            )
+            for crud_cls in RESOURCE_CRUD_LIST
+        ],
+    )
+    def test_get_crud_no_warning(
+        self, source_path: Path, resource_folder: str, expected_loader_cls: type[ResourceCRUD]
+    ) -> None:
+        crud_cls, warning = get_resource_crud(source_path, resource_folder)
 
-    assert warning is None
-    assert loader_cls is FileCRUD
+        assert warning is None
+        assert crud_cls is expected_loader_cls
+
+    @pytest.mark.parametrize(
+        "source_path, resource_folder, expected_warning_cls",
+        [
+            pytest.param(
+                Path(f"some_path/unknown_folder/my.{GroupCRUD.kind}.yaml"),
+                "unknown_folder",
+                ToolkitNotSupportedWarning,
+                id="Unknown folder, known kind",
+            ),
+            pytest.param(
+                Path("some_path/group/my.UnknownKind.yaml"),
+                GroupCRUD.folder_name,
+                UnknownResourceTypeWarning,
+                id="Known folder, unknown kind",
+            ),
+        ],
+    )
+    def test_get_crud_warning(
+        self, source_path: Path, resource_folder: str, expected_warning_cls: type[ToolkitWarning]
+    ) -> None:
+        crud_cls, warning = get_resource_crud(source_path, resource_folder)
+
+        assert crud_cls is None
+        assert type(warning) is expected_warning_cls
