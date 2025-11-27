@@ -36,6 +36,7 @@ from cognite_toolkit._cdf_tk.apps import (
 )
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import (
+    AboutCommand,
     CollectCommand,
 )
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT, URL, USE_SENTRY
@@ -113,6 +114,13 @@ if Plugins.data.value.is_enabled():
 
 _app.add_typer(ModulesApp(**default_typer_kws), name="modules")
 _app.command("init")(landing_app.main_init)
+
+
+@_app.command("about")
+def about() -> None:
+    """Display information about the Toolkit installation and configuration."""
+    cmd = AboutCommand(skip_tracking=True)
+    cmd.execute()
 
 
 def app() -> NoReturn:

@@ -6,6 +6,7 @@ from ._migrate import (
 from ._profile import ProfileAssetCentricCommand, ProfileAssetCommand, ProfileRawCommand, ProfileTransformationCommand
 from ._purge import PurgeCommand
 from ._upload import UploadCommand
+from .about import AboutCommand
 from .auth import AuthCommand
 from .build_cmd import BuildCommand
 from .clean import CleanCommand
@@ -19,6 +20,7 @@ from .repo import RepoCommand
 from .run import RunFunctionCommand, RunTransformationCommand, RunWorkflowCommand
 
 __all__ = [
+    "AboutCommand",
     "AuthCommand",
     "BuildCommand",
     "CleanCommand",
