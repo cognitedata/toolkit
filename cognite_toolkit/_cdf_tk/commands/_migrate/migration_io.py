@@ -6,7 +6,10 @@ from cognite.client.data_classes.data_modeling import EdgeId, InstanceApply, Nod
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.pending_instances_ids import PendingInstanceId
-from cognite_toolkit._cdf_tk.client.data_classes.three_d import ThreeDModelRequest, ThreeDModelResponse
+from cognite_toolkit._cdf_tk.client.data_classes.three_d import ThreeDModelResponse
+from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
+    ThreeDMigrationRequest,
+)
 from cognite_toolkit._cdf_tk.constants import MISSING_EXTERNAL_ID, MISSING_INSTANCE_SPACE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError, ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio import (
@@ -352,7 +355,7 @@ class AnnotationMigrationIO(
         raise NotImplementedError("Serializing Annotation Migrations to JSON is not supported.")
 
 
-class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelResponse, ThreeDModelRequest]):
+class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelResponse, ThreeDMigrationRequest]):
     KIND = "3DMigration"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
@@ -389,12 +392,12 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelResponse,
     ) -> list[dict[str, JsonVal]]:
         raise NotImplementedError("Deserializing Annotation Migrations from JSON is not supported.")
 
-    def json_to_resource(self, item_json: dict[str, JsonVal]) -> ThreeDModelRequest:
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> ThreeDMigrationRequest:
         raise NotImplementedError("Deserializing ThreeD Migrations from JSON is not supported.")
 
     def upload_items(
         self,
-        data_chunk: Sequence[UploadItem[ThreeDModelRequest]],
+        data_chunk: Sequence[UploadItem[ThreeDMigrationRequest]],
         http_client: HTTPClient,
         selector: ThreeDSelector | None = None,
     ) -> Sequence[HTTPMessage]:
