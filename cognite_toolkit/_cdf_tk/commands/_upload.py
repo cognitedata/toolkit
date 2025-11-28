@@ -271,7 +271,7 @@ class UploadCommand(ToolkitCommand):
     @classmethod
     def _upload_items(
         cls,
-        data_chunk: Sequence[UploadItem],
+        data_chunk: Sequence[UploadItem[T_ResourceRequest]],
         upload_client: HTTPClient,
         io: UploadableStorageIO[T_Selector, T_ResourceResponse, T_ResourceRequest],
         selector: T_Selector,
