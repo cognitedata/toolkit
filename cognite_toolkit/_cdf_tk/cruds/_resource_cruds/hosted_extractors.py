@@ -50,7 +50,6 @@ from .data_organization import DataSetsCRUD
 
 class HostedExtractorSourceCRUD(ResourceCRUD[str, SourceWrite, Source, SourceWriteList, SourceList]):
     folder_name = "hosted_extractors"
-    filename_pattern = r".*\.Source$"  # Matches all yaml files whose stem ends with '.Source'.
     resource_cls = Source
     resource_write_cls = SourceWrite
     list_cls = SourceList

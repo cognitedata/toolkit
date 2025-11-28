@@ -107,10 +107,6 @@ class TransformationCRUD(
     ResourceCRUD[str, TransformationWrite, Transformation, TransformationWriteList, TransformationList]
 ):
     folder_name = "transformations"
-    filename_pattern = (
-        # Matches all yaml files except file names whose stem contain *.schedule. or .Notification
-        r"^(?!.*schedule.*|.*\.notification$).*$"
-    )
     resource_cls = Transformation
     resource_write_cls = TransformationWrite
     list_cls = TransformationList

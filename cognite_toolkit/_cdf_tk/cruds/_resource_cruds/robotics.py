@@ -44,7 +44,6 @@ from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
 
 class RoboticFrameCRUD(ResourceCRUD[str, FrameWrite, Frame, FrameWriteList, FrameList]):
     folder_name = "robotics"
-    filename_pattern = r"^.*\.Frame$"  # Matches all yaml files whose stem ends with '.Frame'.
     resource_cls = Frame
     resource_write_cls = FrameWrite
     list_cls = FrameList
@@ -112,7 +111,6 @@ class RoboticFrameCRUD(ResourceCRUD[str, FrameWrite, Frame, FrameWriteList, Fram
 
 class RoboticLocationCRUD(ResourceCRUD[str, LocationWrite, Location, LocationWriteList, LocationList]):
     folder_name = "robotics"
-    filename_pattern = r"^.*\.Location$"  # Matches all yaml files whose stem ends with '.Location'.
     resource_cls = Location
     resource_write_cls = LocationWrite
     list_cls = LocationList

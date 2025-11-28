@@ -121,7 +121,6 @@ from .auth import GroupAllScopedCRUD
 class SpaceCRUD(ResourceContainerCRUD[str, SpaceApply, Space, SpaceApplyList, SpaceList]):
     item_name = "nodes and edges"
     folder_name = "data_modeling"
-    filename_pattern = r"^.*space$"
     resource_cls = Space
     resource_write_cls = SpaceApply
     list_write_cls = SpaceApplyList
@@ -253,7 +252,6 @@ class SpaceCRUD(ResourceContainerCRUD[str, SpaceApply, Space, SpaceApplyList, Sp
 class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerApply, Container, ContainerApplyList, ContainerList]):
     item_name = "nodes and edges"
     folder_name = "data_modeling"
-    filename_pattern = r"^.*container$"
     resource_cls = Container
     resource_write_cls = ContainerApply
     list_cls = ContainerList
@@ -859,7 +857,6 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View, ViewApplyList, ViewList]):
 @final
 class DataModelCRUD(ResourceCRUD[DataModelId, DataModelApply, DataModel, DataModelApplyList, DataModelList]):
     folder_name = "data_modeling"
-    filename_pattern = r"^.*datamodel$"
     resource_cls = DataModel
     resource_write_cls = DataModelApply
     list_cls = DataModelList
@@ -1152,7 +1149,6 @@ class GraphQLCRUD(
     ]
 ):
     folder_name = "data_modeling"
-    filename_pattern = r"^.*GraphQLSchema"
     resource_cls = GraphQLDataModel
     resource_write_cls = GraphQLDataModelWrite
     list_cls = GraphQLDataModelList

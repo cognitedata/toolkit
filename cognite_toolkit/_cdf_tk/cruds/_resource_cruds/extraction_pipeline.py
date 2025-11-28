@@ -65,7 +65,6 @@ class ExtractionPipelineCRUD(
     ResourceCRUD[str, ExtractionPipelineWrite, ExtractionPipeline, ExtractionPipelineWriteList, ExtractionPipelineList]
 ):
     folder_name = "extraction_pipelines"
-    filename_pattern = r"^(?:(?!\.config).)*$"  # Matches all yaml files except file names who's stem contain *.config.
     resource_cls = ExtractionPipeline
     resource_write_cls = ExtractionPipelineWrite
     list_cls = ExtractionPipelineList
