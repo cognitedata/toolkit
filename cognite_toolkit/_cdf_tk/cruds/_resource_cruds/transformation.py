@@ -359,7 +359,7 @@ class TransformationCRUD(
         if isinstance(cdf_destination, dict) and isinstance(local_destination, dict):
             if cdf_destination.get("instanceSpace") is None and "instanceSpace" not in local_destination:
                 cdf_destination.pop("instanceSpace", None)
-        if (dumped.get("query") == "" or dumped.get("query") is None) and "query" not in local:
+        if not dumped.get("query") and "query" not in local:
             dumped.pop("query", None)
         if dumped.get("conflictMode") == "upsert" and "conflictMode" not in local:
             # Default set from server side.
