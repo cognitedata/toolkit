@@ -1,0 +1,29 @@
+# Per location, configure both InFieldLocationConfig and LocationFilter
+# quickstart only supports configuration of the fields listed in this example.
+externalId: infield_quickstart_location_1
+name: InField quickstart location x
+description: Example on how to set up a location for infield quickstart
+dataModels:
+  - space: cdf_apm
+    externalId: ApmAppData
+    version: v13
+instanceSpaces: # InField only support getting data from 1 source space and the app space. Source space must be defined first in the list.
+  - infield_quickstart_location_1_source_data_space
+  - infield_quickstart_location_1_app_data_space
+views: # Views can be replaced with customer extentions of these views.
+  - externalId: CogniteMaintenanceOrder
+    space: cdf_idm
+    version: v1
+    representsEntity: MAINTENANCE_ORDER
+  - externalId: CogniteOperation
+    space: cdf_idm
+    version: v1
+    representsEntity: OPERATION
+  - externalId: CogniteNotification
+    space: cdf_idm
+    version: v1
+    representsEntity: NOTIFICATION
+  - externalId: CogniteAsset
+    space: cdf_cdm
+    version: v1
+    representsEntity: ASSET
