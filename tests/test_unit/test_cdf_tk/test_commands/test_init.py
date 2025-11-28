@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 from _pytest.monkeypatch import MonkeyPatch
 
 from cognite_toolkit import _version
