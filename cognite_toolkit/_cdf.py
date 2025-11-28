@@ -119,8 +119,8 @@ _app.command("init")(landing_app.main_init)
 @_app.command("about")
 def about() -> None:
     """Display information about the Toolkit installation and configuration."""
-    cmd = AboutCommand(skip_tracking=True)
-    cmd.execute()
+    cmd = AboutCommand()
+    cmd.run(lambda: cmd.execute(Path.cwd()))
 
 
 def app() -> NoReturn:

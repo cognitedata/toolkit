@@ -13,16 +13,6 @@ from cognite_toolkit._cdf_tk.commands.repo import RepoCommand
 from tests.test_unit.utils import MockQuestionary
 
 
-# Reset singleton before each test to ensure test isolation
-@pytest.fixture(autouse=True)
-def reset_cdf_toml_singleton():
-    """Reset CDFToml singleton before and after each test to ensure test isolation."""
-    global _CDF_TOML
-    _CDF_TOML = None
-    yield
-    _CDF_TOML = None  # Clean up after test as well
-
-
 class TestInitCommand:
     @staticmethod
     def _mock_cdf_toml_load_non_loaded(cls, cwd=None, use_singleton=True):

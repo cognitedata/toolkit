@@ -3,7 +3,6 @@ import sys
 from pathlib import Path
 
 from rich import print
-from rich.markup import escape
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml, _read_toml
@@ -15,14 +14,13 @@ from cognite_toolkit._version import __version__
 
 
 class AboutCommand(ToolkitCommand):
-    def execute(self) -> None:
+    def execute(self, cwd: Path) -> None:
         # Version information
         print(f"\n[bold cyan]Cognite Toolkit[/bold cyan] version: [yellow]{__version__}[/yellow]")
         print(f"Python version: {sys.version.split()[0]}")
         print(f"Platform: {platform.system()} {platform.release()}")
 
         # Check for cdf.toml in the current directory
-        cwd = Path.cwd()
         cdf_toml_path = cwd / CDFToml.file_name
 
         if cdf_toml_path.exists():
@@ -67,19 +65,24 @@ class AboutCommand(ToolkitCommand):
                 "\n[bold yellow]Warning:[/bold yellow] The following tables in cdf.toml are not recognized and will have no effect:"
             )
             for table in unrecognized_tables:
-                # Escape the table name and build the message
-                escaped_table = escape(f"[{table}]")
-                print(f"  • {escaped_table} ([red]unused[/red])")
+                # Display table name without brackets to avoid Rich markup interpretation
+                print(f"  • [yellow]{table}[/yellow] ([red]unused[/red])")
 
                 # Try to find a matching valid table by stripping non-alphabetical characters
                 suggestion = self._find_similar_table(table, valid_tables)
                 if suggestion:
-                    escaped_suggestion = escape(f"[{suggestion}]")
-                    print(f"    [dim]Hint: Did you mean {escaped_suggestion}?[/dim]")
+                    print(f"    [dim]Hint: Did you mean [yellow]{suggestion}[/yellow]?[/dim]")
 
     @staticmethod
     def _find_similar_table(unrecognized: str, valid_tables: set[str]) -> str | None:
-        """Find a similar valid table by comparing alphabetical characters only."""
+        """Find a similar valid table by comparing alphabetical characters only.
+
+        Returns None if the unrecognized table is already valid or if no similar match is found.
+        """
+        # If it's already a valid table, return None (no suggestion needed)
+        if unrecognized in valid_tables:
+            return None
+
         # Keep only alphabetical characters and lowercase
         normalized_unrecognized = "".join(c for c in unrecognized if c.isalpha()).lower()
 
@@ -89,7 +92,7 @@ class AboutCommand(ToolkitCommand):
             if normalized_unrecognized == normalized_valid:
                 return valid
 
-        # If no match, check for singular/plural variations (missing/extra 's')
+        # If no match, check for singular/plural variations (missing 's')
         for valid in valid_tables:
             normalized_valid = "".join(c for c in valid if c.isalpha()).lower()
 
@@ -211,16 +214,9 @@ class AboutCommand(ToolkitCommand):
 
     def _search_cdf_toml(self, cwd: Path) -> list[Path]:
         """Search for cdf.toml files in immediate subdirectories (one level down)."""
-        found_files = []
-
         try:
-            # Search only immediate subdirectories (one level down)
-            for item in cwd.iterdir():
-                if item.is_dir():
-                    potential_file = item / CDFToml.file_name
-                    if potential_file.exists():
-                        found_files.append(potential_file)
+            return sorted(
+                [potential_file for potential_file in cwd.glob(f"*/{CDFToml.file_name}") if potential_file.is_file()]
+            )
         except PermissionError:
-            pass  # Skip directories we can't access
-
-        return sorted(found_files)
+            return []
