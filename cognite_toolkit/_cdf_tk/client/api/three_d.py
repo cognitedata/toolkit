@@ -6,7 +6,7 @@ from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ParamRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import PrimitiveType
 
 
-class ThreeModelDAPI:
+class ThreeDModelAPI:
     ENDPOINT = "/3d/models"
 
     def __init__(self, http_client: HTTPClient, console: Console) -> None:
@@ -24,6 +24,9 @@ class ThreeModelDAPI:
         if not (0 < limit <= 1000):
             raise ValueError("Limit must be between 1 and 1000.")
         parameters: dict[str, PrimitiveType] = {
+            # There is a bug in the API. The parameter includeRevisionInfo is expected to be lower case and not
+            # camel case as documented. You get error message: Unrecognized query parameter includeRevisionInfo,
+            # did you mean includerevisioninfo?
             "includerevisioninfo": include_revision_info,
             "limit": limit,
         }
@@ -44,4 +47,4 @@ class ThreeModelDAPI:
 
 class ThreeDAPI:
     def __init__(self, http_client: HTTPClient, console: Console) -> None:
-        self.models = ThreeModelDAPI(http_client, console)
+        self.models = ThreeDModelAPI(http_client, console)

@@ -25,7 +25,7 @@ class ThreeDModelClassicRequest(ThreeDModelRequest):
     metadata: dict[str, str] | None = None
 
 
-class ThreeModelDMSRequest(ThreeDModelRequest):
+class ThreeDModelDMSRequest(ThreeDModelRequest):
     space: str
     type: Literal["CAD", "PointCloud", "Image360"]
     thumbnail_reference: NodeReference | None = None
@@ -44,4 +44,4 @@ class ThreeDModelResponse(ResponseResource[ThreeDModelRequest]):
         if self.space is None:
             return ThreeDModelClassicRequest._load(self.dump())
         else:
-            return ThreeModelDMSRequest._load(self.dump())
+            return ThreeDModelDMSRequest._load(self.dump())
