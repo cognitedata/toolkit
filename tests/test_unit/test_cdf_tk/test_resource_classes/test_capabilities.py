@@ -163,6 +163,9 @@ def all_acls() -> Iterable:
                 "scope": {"datasetScope": {"ids": ["myDataSet", "myDataSet2"]}},
             }
         },
+        {"streamsAcl": {"actions": ["READ", "CREATE", "DELETE"], "scope": {"all": {}}}},
+        {"streamRecordsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
+        {"streamRecordsAcl": {"actions": ["READ", "WRITE"], "scope": {"spaceIdScope": {"spaceIds": ["mySpace"]}}}},
     ]
 
     yield from (pytest.param(acl, id=next(iter(acl.keys()))) for acl in acl_list)

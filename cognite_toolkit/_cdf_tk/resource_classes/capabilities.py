@@ -510,6 +510,18 @@ class LegacyGenericsAcl(Capability):
     scope: AllScope
 
 
+class StreamsAcl(Capability):
+    _capability_name = "streamsAcl"
+    actions: list[Literal["READ", "CREATE", "DELETE"]]
+    scope: AllScope
+
+
+class StreamRecordsAcl(Capability):
+    _capability_name = "streamRecordsAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope | SpaceIDScope
+
+
 _CAPABILITY_CLASS_BY_NAME: MappingProxyType[str, type[Capability]] = MappingProxyType(
     {c._capability_name: c for c in Capability.__subclasses__()}
 )
