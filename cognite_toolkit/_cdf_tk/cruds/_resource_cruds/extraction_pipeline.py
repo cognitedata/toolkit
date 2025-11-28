@@ -223,7 +223,6 @@ class ExtractionPipelineConfigCRUD(
     ]
 ):
     folder_name = "extraction_pipelines"
-    filename_pattern = r"^.*config$"
     resource_cls = ExtractionPipelineConfig
     resource_write_cls = ExtractionPipelineConfigWrite
     list_cls = ExtractionPipelineConfigList

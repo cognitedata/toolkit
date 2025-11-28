@@ -13,7 +13,6 @@ from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_lis
 
 class AgentCRUD(ResourceCRUD[str, AgentUpsert, Agent, AgentUpsertList, AgentList]):
     folder_name = "agents"
-    filename_pattern = r".*\.Agent$"  # Matches all yaml files whose stem ends with '.Agent'.
     resource_cls = Agent
     resource_write_cls = AgentUpsert
     list_cls = AgentList

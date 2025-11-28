@@ -518,7 +518,6 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerApply, Container
 
 class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View, ViewApplyList, ViewList]):
     folder_name = "data_modeling"
-    filename_pattern = r"^.*view$"
     resource_cls = View
     resource_write_cls = ViewApply
     list_cls = ViewList
@@ -994,7 +993,6 @@ class DataModelCRUD(ResourceCRUD[DataModelId, DataModelApply, DataModel, DataMod
 class NodeCRUD(ResourceContainerCRUD[NodeId, NodeApply, Node, NodeApplyList, NodeList]):
     item_name = "nodes"
     folder_name = "data_modeling"
-    filename_pattern = r"^.*node$"
     resource_cls = Node
     resource_write_cls = NodeApply
     list_cls = NodeList
@@ -1354,7 +1352,6 @@ class GraphQLCRUD(
 class EdgeCRUD(ResourceContainerCRUD[EdgeId, EdgeApply, Edge, EdgeApplyList, EdgeList]):
     item_name = "edges"
     folder_name = "data_modeling"
-    filename_pattern = r"^.*edge"
     resource_cls = Edge
     resource_write_cls = EdgeApply
     list_cls = EdgeList

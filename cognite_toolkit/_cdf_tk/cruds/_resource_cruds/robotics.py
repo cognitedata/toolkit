@@ -187,7 +187,6 @@ class RoboticsDataPostProcessingCRUD(
     ResourceCRUD[str, DataPostProcessingWrite, DataPostProcessing, DataPostProcessingWriteList, DataPostProcessingList]
 ):
     folder_name = "robotics"
-    filename_pattern = r"^.*\.DataPostProcessing$"  # Matches all yaml files whose stem ends with '.DataPostProcessing'.
     resource_cls = DataPostProcessing
     resource_write_cls = DataPostProcessingWrite
     list_cls = DataPostProcessingList
@@ -281,7 +280,6 @@ class RobotCapabilityCRUD(
     ResourceCRUD[str, RobotCapabilityWrite, RobotCapability, RobotCapabilityWriteList, RobotCapabilityList]
 ):
     folder_name = "robotics"
-    filename_pattern = r"^.*\.RobotCapability$"  # Matches all yaml files whose stem ends with '.RobotCapability'.
     resource_cls = RobotCapability
     resource_write_cls = RobotCapabilityWrite
     list_cls = RobotCapabilityList
@@ -376,7 +374,6 @@ class RobotCapabilityCRUD(
 
 class RoboticMapCRUD(ResourceCRUD[str, MapWrite, Map, MapWriteList, MapList]):
     folder_name = "robotics"
-    filename_pattern = r"^.*\.Map$"  # Matches all yaml files whose stem ends with '.Map'.
     resource_cls = Map
     resource_write_cls = MapWrite
     list_cls = MapList

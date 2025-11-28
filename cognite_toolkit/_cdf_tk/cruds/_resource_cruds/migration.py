@@ -23,9 +23,6 @@ class ResourceViewMappingCRUD(
     ResourceCRUD[str, ResourceViewMappingApply, ResourceViewMapping, NodeApplyList, NodeList[ResourceViewMapping]]
 ):
     folder_name = "migration"
-    filename_pattern = (
-        r"^.*\.ResourceViewMapping$"  # Matches all yaml files whose stem ends with '.ResourceViewMapping$'.
-    )
     filetypes = frozenset({"yaml", "yml"})
     resource_cls = ResourceViewMapping
     resource_write_cls = ResourceViewMappingApply

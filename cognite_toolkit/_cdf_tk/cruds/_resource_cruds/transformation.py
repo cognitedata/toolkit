@@ -509,8 +509,6 @@ class TransformationScheduleCRUD(
     ]
 ):
     folder_name = "transformations"
-    # Matches all yaml files whose stem contains *schedule or *TransformationSchedule.
-    filename_pattern = r"^.*schedule$"
     resource_cls = TransformationSchedule
     resource_write_cls = TransformationScheduleWrite
     list_cls = TransformationScheduleList
@@ -607,8 +605,6 @@ class TransformationNotificationCRUD(
     ]
 ):
     folder_name = "transformations"
-    # Matches all yaml files whose stem ends with *Notification.
-    filename_pattern = r"^.*Notification$"
     resource_cls = TransformationNotification
     resource_write_cls = TransformationNotificationWrite
     list_cls = TransformationNotificationList
