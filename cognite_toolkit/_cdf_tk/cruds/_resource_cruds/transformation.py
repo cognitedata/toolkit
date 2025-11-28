@@ -354,6 +354,16 @@ class TransformationCRUD(
         if "authentication" in local:
             # The hash added to the beginning of the query detects the change in the authentication
             dumped["authentication"] = local["authentication"]
+        cdf_destination = dumped.get("destination", {})
+        local_destination = local.get("destination", {})
+        if isinstance(cdf_destination, dict) and isinstance(local_destination, dict):
+            if cdf_destination.get("instanceSpace") is None and "instanceSpace" not in local_destination:
+                cdf_destination.pop("instanceSpace", None)
+        if not dumped.get("query") and "query" not in local:
+            dumped.pop("query", None)
+        if dumped.get("conflictMode") == "upsert" and "conflictMode" not in local:
+            # Default set from server side.
+            dumped.pop("conflictMode", None)
         return dumped
 
     def split_resource(
