@@ -3,7 +3,7 @@ from pathlib import Path
 
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 
-from ._base import Builder, DefaultBuilder, get_loader
+from ._base import Builder, DefaultBuilder, get_resource_crud
 from ._datamodels import DataModelBuilder
 from ._file import FileBuilder
 from ._function import FunctionBuilder
@@ -36,5 +36,5 @@ __all__ = [
     "StreamlitBuilder",
     "TransformationBuilder",
     "create_builder",
-    "get_loader",
+    "get_resource_crud",
 ]

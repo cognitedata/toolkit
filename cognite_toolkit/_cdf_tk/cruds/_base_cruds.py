@@ -1,4 +1,3 @@
-import re
 import sys
 from abc import ABC, abstractmethod
 from collections.abc import Hashable, Iterable, Sequence, Set, Sized
@@ -31,9 +30,6 @@ else:
     from typing_extensions import Self
 
 
-_COMPILED_PATTERN: dict[str, re.Pattern] = {}
-
-
 class Loader(ABC):
     """This is the base class for all loaders
 
@@ -58,6 +54,7 @@ class Loader(ABC):
     exclude_filetypes: frozenset[str] = frozenset()
     _doc_base_url: str = "https://api-docs.cognite.com/20230101/tag/"
     _doc_url: str = ""
+    sub_folder_name: str | None = None
 
     def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None = None) -> None:
         self.client = client
@@ -119,14 +116,11 @@ class Loader(ABC):
         return any(cls.is_supported_file(file) for file in directory.glob("**/*"))
 
     @classmethod
-    def is_supported_file(cls, file: Path, force_pattern: bool = False) -> bool:
+    def is_supported_file(cls, file: Path) -> bool:
         """Check if hte file is supported by this loader.
 
         Args:
             file: The filepath to check.
-            force_pattern: If True, the filename pattern is used to determine if the file is supported. If False, the
-                file extension is used to determine if the file is supported (given that the
-                RequireKind flag is enabled).
 
         Returns:
             bool: True if the file is supported, False otherwise.
@@ -136,14 +130,7 @@ class Loader(ABC):
             return False
         if cls.exclude_filetypes and file.suffix[1:] in cls.exclude_filetypes:
             return False
-        if force_pattern is False and not issubclass(cls, DataCRUD):
-            return file.stem.casefold().endswith(cls.kind.casefold())
-        else:
-            if cls.filename_pattern:
-                if cls.filename_pattern not in _COMPILED_PATTERN:
-                    _COMPILED_PATTERN[cls.filename_pattern] = re.compile(cls.filename_pattern, re.IGNORECASE)
-                return _COMPILED_PATTERN[cls.filename_pattern].match(file.stem) is not None
-        return True
+        return file.stem.casefold().endswith(cls.kind.casefold())
 
 
 T_Loader = TypeVar("T_Loader", bound=Loader)

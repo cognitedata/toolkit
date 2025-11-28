@@ -17,6 +17,7 @@ from .init import InitCommand
 from .modules import ModulesCommand
 from .pull import PullCommand
 from .repo import RepoCommand
+from .resources import ResourcesCommand
 from .run import RunFunctionCommand, RunTransformationCommand, RunWorkflowCommand
 
 __all__ = [
@@ -39,6 +40,7 @@ __all__ = [
     "PullCommand",
     "PurgeCommand",
     "RepoCommand",
+    "ResourcesCommand",
     "RunFunctionCommand",
     "RunTransformationCommand",
     "RunWorkflowCommand",
