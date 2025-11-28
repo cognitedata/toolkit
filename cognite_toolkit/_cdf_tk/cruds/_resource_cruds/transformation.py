@@ -82,7 +82,7 @@ from cognite_toolkit._cdf_tk.resource_classes import (
     TransformationScheduleYAML,
     TransformationYAML,
 )
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     calculate_secure_hash,
     humanize_collection,
@@ -427,16 +427,37 @@ class TransformationCRUD(
                 if error := self._create_auth_creation_error(chunk):
                     raise error from e
                 raise e
-            results.extend(chunk_results)
+            except CogniteAPIError as e:
+                if "Failed to bind session using nonce for" in e.message and len(chunk) > 1:
+                    MediumSeverityWarning(
+                        f"Failed to create {len(chunk)} transformations in a batch due to nonce binding error. "
+                        "Trying to recover by creating them one by one."
+                    ).print_warning(console=self.console)
+                    # Retry one by one
+                    for item in chunk:
+                        recovered = self._execute_in_batches(items=[item], api_call=api_call)
+                        results.extend(recovered)
+                    if self.console:
+                        self.console.print(
+                            f"  [bold green]RECOVERED:[/] Successfully created {len(chunk)} transformations one by one."
+                        )
+                else:
+                    raise
+            else:
+                results.extend(chunk_results)
         return results
 
     def _update_nonce(self, items: Sequence[TransformationWrite]) -> None:
         for item in items:
             if not item.external_id:
                 raise ToolkitRequiredValueError("Transformation must have external_id set.")
-            if read_credentials := self._authentication_by_id_operation.get((item.external_id, "read")):
+            if item.source_nonce is None and (
+                read_credentials := self._authentication_by_id_operation.get((item.external_id, "read"))
+            ):
                 item.source_nonce = self._create_nonce(read_credentials)
-            if write_credentials := self._authentication_by_id_operation.get((item.external_id, "write")):
+            if item.destination_nonce is None and (
+                write_credentials := self._authentication_by_id_operation.get((item.external_id, "write"))
+            ):
                 item.destination_nonce = self._create_nonce(write_credentials)
 
     def _create_nonce(self, credentials: OidcCredentials | ClientCredentials) -> NonceCredentials:
