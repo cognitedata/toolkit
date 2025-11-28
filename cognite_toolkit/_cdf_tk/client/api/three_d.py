@@ -15,15 +15,20 @@ class ThreeModelDAPI:
         self._config = http_client.config
 
     def iterate(
-        self, published: bool, include_revision_info: bool = False, limit: int = 100, cursor: str | None = None
+        self,
+        published: bool | None = None,
+        include_revision_info: bool = False,
+        limit: int = 100,
+        cursor: str | None = None,
     ) -> PagedResponse[ThreeDModelResponse]:
         if not (0 < limit <= 1000):
             raise ValueError("Limit must be between 1 and 1000.")
         parameters: dict[str, PrimitiveType] = {
-            "published": str(published).lower(),
-            "includeRevisionInfo": str(include_revision_info).lower(),
+            "includerevisioninfo": include_revision_info,
             "limit": limit,
         }
+        if published is not None:
+            parameters["published"] = published
         if cursor is not None:
             parameters["cursor"] = cursor
         responses = self._http_client.request_with_retries(

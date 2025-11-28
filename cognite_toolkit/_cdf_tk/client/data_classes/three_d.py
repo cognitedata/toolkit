@@ -37,7 +37,7 @@ class ThreeDModelResponse(ResponseResource[ThreeDModelRequest]):
     created_time: int
     data_set_id: int | None = None
     metadata: dict[str, str] | None = None
-    space: str | None
+    space: str | None = None
     last_revision_info: RevisionStatus | None = None
 
     def as_request_resource(self) -> ThreeDModelRequest:
