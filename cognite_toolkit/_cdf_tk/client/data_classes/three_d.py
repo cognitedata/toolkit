@@ -1,5 +1,7 @@
 from typing import Literal
 
+from cognite_toolkit._cdf_tk.protocols import ResourceRequestProtocol, ResourceResponseProtocol
+
 from .base import BaseModelObject, RequestResource, ResponseResource
 
 
@@ -16,7 +18,7 @@ class RevisionStatus(BaseModelObject):
     types: list[str] | None = None
 
 
-class ThreeDModelRequest(RequestResource):
+class ThreeDModelRequest(RequestResource, ResourceRequestProtocol):
     name: str
 
 
@@ -31,7 +33,7 @@ class ThreeDModelDMSRequest(ThreeDModelRequest):
     thumbnail_reference: NodeReference | None = None
 
 
-class ThreeDModelResponse(ResponseResource[ThreeDModelRequest]):
+class ThreeDModelResponse(ResponseResource[ThreeDModelRequest], ResourceResponseProtocol):
     name: str
     id: int
     created_time: int

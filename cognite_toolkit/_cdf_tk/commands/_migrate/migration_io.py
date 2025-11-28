@@ -6,6 +6,7 @@ from cognite.client.data_classes.data_modeling import EdgeId, InstanceApply, Nod
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.pending_instances_ids import PendingInstanceId
+from cognite_toolkit._cdf_tk.client.data_classes.three_d import ThreeDModelRequest, ThreeDModelResponse
 from cognite_toolkit._cdf_tk.constants import MISSING_EXTERNAL_ID, MISSING_INSTANCE_SPACE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError, ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio import (
@@ -15,6 +16,7 @@ from cognite_toolkit._cdf_tk.storageio import (
     UploadableStorageIO,
 )
 from cognite_toolkit._cdf_tk.storageio._base import Page, UploadItem
+from cognite_toolkit._cdf_tk.storageio.selectors import ThreeDSelector
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest, SuccessResponseItems
@@ -348,3 +350,50 @@ class AnnotationMigrationIO(
         selector: AssetCentricMigrationSelector | None = None,
     ) -> list[dict[str, JsonVal]]:
         raise NotImplementedError("Serializing Annotation Migrations to JSON is not supported.")
+
+
+class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelResponse, ThreeDModelRequest]):
+    KIND = "3DMigration"
+    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
+    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
+    SUPPORTED_READ_FORMATS = frozenset({".ndjson"})
+    CHUNK_SIZE = 10
+    UPLOAD_ENDPOINT = "/3d/migrate/models"
+
+    def as_id(self, item: ThreeDModelResponse) -> str:
+        return f"{item.name}_{item.id!s}"
+
+    def stream_data(self, selector: ThreeDSelector, limit: int | None = None) -> Iterable[Page[ThreeDModelResponse]]:
+        cursor: str | None = None
+        while True:
+            response = self.client.tool.three_d.models.iterate(
+                published=selector.published, include_revision_info=True, limit=self.CHUNK_SIZE, cursor=cursor
+            )
+            yield Page(
+                worker_id="main",
+                items=response.items,
+                next_cursor=response.next_cursor,
+            )
+            if response.next_cursor is None:
+                break
+            cursor = response.next_cursor
+
+    def count(self, selector: ThreeDSelector) -> int | None:
+        # There is no efficient way to count 3D models in CDF.
+        return None
+
+    def data_to_json_chunk(
+        self, data_chunk: Sequence[ThreeDModelResponse], selector: ThreeDSelector | None = None
+    ) -> list[dict[str, JsonVal]]:
+        raise NotImplementedError("Deserializing Annotation Migrations from JSON is not supported.")
+
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> ThreeDModelRequest:
+        raise NotImplementedError("Deserializing ThreeD Migrations from JSON is not supported.")
+
+    def upload_items(
+        self,
+        data_chunk: Sequence[UploadItem[ThreeDModelRequest]],
+        http_client: HTTPClient,
+        selector: ThreeDSelector | None = None,
+    ) -> Sequence[HTTPMessage]:
+        raise NotImplementedError()
