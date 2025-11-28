@@ -20,9 +20,18 @@ from .api.project import ProjectAPI
 from .api.robotics import RoboticsAPI
 from .api.search import SearchAPI
 from .api.streams import StreamsAPI
+from .api.three_d import ThreeDAPI
 from .api.token import TokenAPI
 from .api.verify import VerifyAPI
 from .config import ToolkitClientConfig
+
+
+class ToolAPI:
+    """This is reimplemented CogniteAPIs in Toolkit"""
+
+    def __init__(self, http_client: HTTPClient, console: Console) -> None:
+        self.http_client = http_client
+        self.three_d = ThreeDAPI(http_client, console)
 
 
 class ToolkitClient(CogniteClient):
@@ -31,6 +40,7 @@ class ToolkitClient(CogniteClient):
         http_client = HTTPClient(self.config)
         toolkit_config = ToolkitClientConfig.from_client_config(self.config)
         self.console = Console()
+        self.tool = ToolAPI(http_client, self.console)
         self.search = SearchAPI(self._config, self._API_VERSION, self)
         self.robotics = RoboticsAPI(self._config, self._API_VERSION, self)
         self.dml = DMLAPI(self._config, self._API_VERSION, self)
