@@ -5,8 +5,10 @@ from unittest.mock import MagicMock
 import pytest
 import yaml
 from _pytest.monkeypatch import MonkeyPatch
-from cognite.client.data_classes import Transformation
+from cognite.client.data_classes import Transformation, TransformationWrite
 from cognite.client.data_classes import data_modeling as dm
+from cognite.client.data_classes.transformations import NonceCredentials
+from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
@@ -29,7 +31,7 @@ def _return_none(*args, **kwargs) -> str | None:
     return None
 
 
-class TestTransformationLoader:
+class TestTransformationCRUD:
     trafo_yaml = """
 externalId: tr_first_transformation
 name: 'example:first:transformation'
@@ -197,3 +199,42 @@ authentication:
         actual = TransformationCRUD.get_dependent_items(item)
 
         assert list(actual) == expected
+
+    def test_create_session_nonce_error(self) -> None:
+        transformations = [
+            TransformationWrite(
+                external_id=f"transformation_{i}",
+                name=f"Transformation {i}",
+                ignore_null_fields=True,
+                query="SELECT 1",
+                destination_nonce=NonceCredentials(session_id=123, nonce="nonce_value", cdf_project_name="project"),
+                source_nonce=NonceCredentials(session_id=123, nonce="nonce_value", cdf_project_name="project"),
+            )
+            for i in range(3)
+        ]
+
+        def create_transformations(transformation: list[TransformationWrite]) -> list[Transformation]:
+            if len(transformation) > 1:
+                raise CogniteAPIError(
+                    message="Failed to bind session using nonce for: 123",
+                    code=400,
+                    x_request_id="b0f7f97c-ae36-9db5-95a8-d1a80c185c99",
+                    failed=[t.external_id for t in transformation],
+                    cluster="bluefield",
+                )
+            return [
+                Transformation(
+                    external_id=t.external_id,
+                    name=t.name,
+                    ignore_null_fields=t.ignore_null_fields,
+                    query=t.query,
+                )
+                for t in transformation
+            ]
+
+        with monkeypatch_toolkit_client() as client:
+            client.transformations.create.side_effect = create_transformations
+            crud = TransformationCRUD(client, None, None)
+            created = crud.create(transformations)
+
+            assert [t.external_id for t in created] == [t.external_id for t in transformations]
