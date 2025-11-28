@@ -3,7 +3,6 @@ from collections.abc import Sequence
 from functools import partial
 from pathlib import Path
 
-from cognite.client.data_classes._base import T_CogniteResource
 from cognite.client.data_classes.data_modeling import (
     ViewId,
 )
@@ -14,12 +13,13 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_SUFFIX, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.cruds import ViewCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.storageio import (
     T_Selector,
     UploadableStorageIO,
     get_upload_io,
 )
-from cognite_toolkit._cdf_tk.storageio._base import T_WriteCogniteResource, TableUploadableStorageIO, UploadItem
+from cognite_toolkit._cdf_tk.storageio._base import TableUploadableStorageIO, UploadItem
 from cognite_toolkit._cdf_tk.storageio.selectors import Selector, SelectorAdapter
 from cognite_toolkit._cdf_tk.storageio.selectors._instances import InstanceSpaceSelector
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
@@ -271,9 +271,9 @@ class UploadCommand(ToolkitCommand):
     @classmethod
     def _upload_items(
         cls,
-        data_chunk: Sequence[UploadItem],
+        data_chunk: Sequence[UploadItem[T_ResourceRequest]],
         upload_client: HTTPClient,
-        io: UploadableStorageIO[T_Selector, T_CogniteResource, T_WriteCogniteResource],
+        io: UploadableStorageIO[T_Selector, T_ResourceResponse, T_ResourceRequest],
         selector: T_Selector,
         dry_run: bool,
         tracker: ProgressTracker[str],
