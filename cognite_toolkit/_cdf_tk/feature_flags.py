@@ -22,7 +22,7 @@ class Flags(Enum):
         description="Enables the import sub application",
     )
     GRAPHQL = FlagMetadata(
-        visible=True,
+        visible=False,
         description="Enables the support for deploying data models as GraphQL schemas",
     )
     MODULE_REPEAT = FlagMetadata(

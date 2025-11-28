@@ -216,13 +216,6 @@ class TestModulesCommand:
             assert first.exists()
         assert not first.exists(), "File should not exist after context manager exits"
 
-    @pytest.fixture(autouse=True)
-    def reset_cdf_toml_singleton(self):
-        global _CDF_TOML
-        _CDF_TOML = None
-        yield
-        _CDF_TOML = None
-
     def test_download_success(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         dummy_file_content = b"PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 

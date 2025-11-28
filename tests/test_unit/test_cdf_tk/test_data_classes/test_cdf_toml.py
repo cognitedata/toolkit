@@ -10,15 +10,6 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitTOMLFormatError
 from tests.constants import REPO_ROOT
 
 
-# Reset singleton before each test to ensure test isolation
-@pytest.fixture(autouse=True)
-def reset_cdf_toml_singleton():
-    global _CDF_TOML
-    _CDF_TOML = None
-    yield
-    _CDF_TOML = None  # Clean up after test as well
-
-
 class TestCDFToml:
     def test_load_repo_root_config(self) -> None:
         config = CDFToml.load(REPO_ROOT)
