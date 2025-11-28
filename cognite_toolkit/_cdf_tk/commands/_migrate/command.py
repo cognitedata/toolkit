@@ -2,7 +2,6 @@ from collections.abc import Callable, Iterable, Sequence
 from enum import Enum
 from pathlib import Path
 
-from cognite.client.data_classes._base import T_CogniteResource
 from rich import print
 from rich.console import Console
 from rich.table import Table
@@ -20,6 +19,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMigrationError,
     ToolkitValueError,
 )
+from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.storageio import T_Selector, UploadableStorageIO, UploadItem
 from cognite_toolkit._cdf_tk.utils import humanize_collection, safe_write, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
@@ -27,7 +27,6 @@ from cognite_toolkit._cdf_tk.utils.fileio import Chunk, CSVWriter, NDJsonWriter,
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemMessage, SuccessResponseItems
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.progress_tracker import AVAILABLE_STATUS, ProgressTracker, Status
-from cognite_toolkit._cdf_tk.utils.useful_types import T_WriteCogniteResource
 
 from .data_model import INSTANCE_SOURCE_VIEW_ID, MODEL_ID, RESOURCE_VIEW_MAPPING_VIEW_ID
 
@@ -45,8 +44,8 @@ class MigrationCommand(ToolkitCommand):
     def migrate(
         self,
         selected: T_Selector,
-        data: UploadableStorageIO[T_Selector, T_CogniteResource, T_WriteCogniteResource],
-        mapper: DataMapper[T_Selector, T_CogniteResource, T_WriteCogniteResource],
+        data: UploadableStorageIO[T_Selector, T_ResourceResponse, T_ResourceRequest],
+        mapper: DataMapper[T_Selector, T_ResourceResponse, T_ResourceRequest],
         log_dir: Path,
         dry_run: bool = False,
         verbose: bool = False,
@@ -71,9 +70,7 @@ class MigrationCommand(ToolkitCommand):
             NDJsonWriter(log_dir, kind=f"{selected.kind}MigrationIssues", compression=Uncompressed) as log_file,
             HTTPClient(config=data.client.config) as write_client,
         ):
-            executor = ProducerWorkerExecutor[
-                Sequence[T_CogniteResource], Sequence[UploadItem[T_WriteCogniteResource]]
-            ](
+            executor = ProducerWorkerExecutor[Sequence[T_ResourceResponse], Sequence[UploadItem[T_ResourceRequest]]](
                 download_iterable=self._download_iterable(selected, data, tracker),
                 process=self._convert(mapper, data, tracker, log_file),
                 write=self._upload(selected, write_client, data, tracker, log_file, dry_run),
@@ -141,9 +138,9 @@ class MigrationCommand(ToolkitCommand):
     def _download_iterable(
         self,
         selected: T_Selector,
-        data: UploadableStorageIO[T_Selector, T_CogniteResource, T_WriteCogniteResource],
+        data: UploadableStorageIO[T_Selector, T_ResourceResponse, T_ResourceRequest],
         tracker: ProgressTracker[str],
-    ) -> Iterable[Sequence[T_CogniteResource]]:
+    ) -> Iterable[Sequence[T_ResourceResponse]]:
         for page in data.stream_data(selected):
             for item in page.items:
                 tracker.set_progress(data.as_id(item), self.Steps.DOWNLOAD, "success")
@@ -151,15 +148,15 @@ class MigrationCommand(ToolkitCommand):
 
     def _convert(
         self,
-        mapper: DataMapper[T_Selector, T_CogniteResource, T_WriteCogniteResource],
-        data: UploadableStorageIO[T_Selector, T_CogniteResource, T_WriteCogniteResource],
+        mapper: DataMapper[T_Selector, T_ResourceResponse, T_ResourceRequest],
+        data: UploadableStorageIO[T_Selector, T_ResourceResponse, T_ResourceRequest],
         tracker: ProgressTracker[str],
         log_file: NDJsonWriter,
-    ) -> Callable[[Sequence[T_CogniteResource]], Sequence[UploadItem[T_WriteCogniteResource]]]:
-        def track_mapping(source: Sequence[T_CogniteResource]) -> list[UploadItem[T_WriteCogniteResource]]:
+    ) -> Callable[[Sequence[T_ResourceResponse]], Sequence[UploadItem[T_ResourceRequest]]]:
+        def track_mapping(source: Sequence[T_ResourceResponse]) -> list[UploadItem[T_ResourceRequest]]:
             mapped = mapper.map(source)
             issues: list[Chunk] = []
-            targets: list[UploadItem[T_WriteCogniteResource]] = []
+            targets: list[UploadItem[T_ResourceRequest]] = []
 
             for (target, issue), item in zip(mapped, source):
                 id_ = data.as_id(item)
@@ -181,12 +178,12 @@ class MigrationCommand(ToolkitCommand):
         self,
         selected: T_Selector,
         write_client: HTTPClient,
-        target: UploadableStorageIO[T_Selector, T_CogniteResource, T_WriteCogniteResource],
+        target: UploadableStorageIO[T_Selector, T_ResourceResponse, T_ResourceRequest],
         tracker: ProgressTracker[str],
         log_file: NDJsonWriter,
         dry_run: bool,
-    ) -> Callable[[Sequence[UploadItem[T_WriteCogniteResource]]], None]:
-        def upload_items(data_item: Sequence[UploadItem[T_WriteCogniteResource]]) -> None:
+    ) -> Callable[[Sequence[UploadItem[T_ResourceRequest]]], None]:
+        def upload_items(data_item: Sequence[UploadItem[T_ResourceRequest]]) -> None:
             if not data_item:
                 return None
             responses: Sequence[HTTPMessage]
