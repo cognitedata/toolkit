@@ -28,8 +28,9 @@ from cognite_toolkit._cdf_tk.client.data_classes.charts_data import (
     ChartTimeseries,
 )
 from cognite_toolkit._cdf_tk.client.data_classes.migration import ResourceViewMappingApply
+from cognite_toolkit._cdf_tk.client.data_classes.three_d import ThreeDModelResponse
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import DirectRelationCache, asset_centric_to_dm
-from cognite_toolkit._cdf_tk.commands._migrate.data_classes import AssetCentricMapping
+from cognite_toolkit._cdf_tk.commands._migrate.data_classes import ThreeDMigrationRequest
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import create_default_mappings
 from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     CanvasMigrationIssue,
@@ -38,15 +39,18 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     MigrationIssue,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import AssetCentricMigrationSelector
+from cognite_toolkit._cdf_tk.commands._migrate.issues import ChartMigrationIssue, ConversionIssue, MigrationIssue
 from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
 from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.storageio._base import T_Selector
+from cognite_toolkit._cdf_tk.storageio.selectors import ChartSelector, ThreeDSelector
 from cognite_toolkit._cdf_tk.storageio.selectors import CanvasSelector, ChartSelector
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.useful_types import (
-    T_AssetCentricResourceExtended,
-)
+from cognite_toolkit._cdf_tk.utils.useful_types import T_AssetCentricResourceExtended
+
+from .data_classes import AssetCentricMapping
+from .selectors import AssetCentricMigrationSelector
 
 
 class DataMapper(Generic[T_Selector, T_ResourceResponse, T_ResourceRequest], ABC):
@@ -383,3 +387,16 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvas
             max_width=reference.max_width,
             max_height=reference.max_height,
         )
+
+
+class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelResponse, ThreeDMigrationRequest]):
+    def __init__(self, client: ToolkitClient) -> None:
+        self.client = client
+
+    def map(
+        self, source: Sequence[ThreeDModelResponse]
+    ) -> Sequence[tuple[ThreeDMigrationRequest | None, MigrationIssue]]:
+        raise NotImplementedError()
+
+    def _map_single_item(self, item: ThreeDModelResponse) -> tuple[ThreeDMigrationRequest | None, MigrationIssue]:
+        raise NotImplementedError()
