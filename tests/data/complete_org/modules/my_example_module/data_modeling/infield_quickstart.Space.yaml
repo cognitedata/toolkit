@@ -1,0 +1,3 @@
+- space: APM_Config # used to store app configuration
+- infield_quickstart_location_1_source_data_space # used to read source data from the customer, core resources or extentions
+- infield_quickstart_location_1_app_data_space # used to store uploaded images from infield

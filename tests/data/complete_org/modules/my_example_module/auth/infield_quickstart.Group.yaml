@@ -1,0 +1,69 @@
+name: gp_infield_quickstart_location_user_group
+sourceId: "1234567890123456"
+metadata:
+  origin: cognite-toolkit
+  description: Group configuration for InField quickstart setup. Example for user group for one location
+capabilities:
+  # Groups - View user groups
+  - groupsAcl:
+      actions:
+        - READ
+        - LIST
+      scope:
+        all: {}
+
+  # Data models - View and analyze the data created in InField
+  - dataModelsAcl:
+      actions:
+        - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+            - cdf_cdm
+            - cdf_idm
+            - cdf_infield
+            - cdf_apps_shared
+            - idm_customer_datamodel_space # only if customer made extentions for core and idm resources
+
+  # Data model instances - View and analyze the data created in InField
+  - dataModelInstancesAcl:
+      actions:
+        - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+            - APM_Config
+            - cognite_app_data
+            - location_app_data_space
+            - location_source_data_space
+            - infield_quickstart_location_1_source_data_space
+            - infield_quickstart_location_1_app_data_space
+            - cdf_cdm_units
+
+  # Data model instances - Access and edit data organized in data models and spaces
+  - dataModelInstancesAcl:
+      actions:
+        - WRITE
+      scope:
+        spaceIdScope:
+          spaceIds:
+            - cognite_app_data # used to store user preferences
+            - infield_quickstart_location_1_app_data_space # used for uploading images from infield
+
+  # Unsure if we need file capabilities to upload to blob storage
+  # - fileAcl:
+  #     actions:
+  #     - READ
+  #     - WRITE
+  #     scope:
+  #       spaceIdScope:
+  #         spaceIds:
+  #         - infield_quickstart_location_1_app_data_space # used for uploading images from infield
+
+  - locationFiltersAcl:
+      actions:
+        - READ
+      scope:
+        idScope:
+          ids:
+            - infield_quickstart_location_1
