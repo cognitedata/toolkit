@@ -21,7 +21,7 @@ from .api.extended_files import ExtendedFileMetadataAPI
 from .api.extended_functions import ExtendedFunctionsAPI
 from .api.extended_raw import ExtendedRawAPI
 from .api.extended_timeseries import ExtendedTimeSeriesAPI
-from .api.infield import InFieldCDMConfigAPI, InfieldAPI, InfieldConfigAPI
+from .api.infield import InfieldAPI, InFieldCDMConfigAPI, InfieldConfigAPI
 from .api.location_filters import LocationFiltersAPI
 from .api.lookup import (
     AssetLookUpAPI,
