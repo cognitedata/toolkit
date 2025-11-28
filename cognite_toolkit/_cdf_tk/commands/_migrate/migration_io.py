@@ -365,15 +365,17 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelResponse,
 
     def stream_data(self, selector: ThreeDSelector, limit: int | None = None) -> Iterable[Page[ThreeDModelResponse]]:
         cursor: str | None = None
+        total = 0
         while True:
+            request_limit = min(self.CHUNK_SIZE, limit - total) if limit is not None else self.CHUNK_SIZE
             response = self.client.tool.three_d.models.iterate(
-                published=selector.published, include_revision_info=True, limit=self.CHUNK_SIZE, cursor=cursor
+                published=selector.published, include_revision_info=True, limit=request_limit, cursor=cursor
             )
-            yield Page(
-                worker_id="main",
-                items=response.items,
-                next_cursor=response.next_cursor,
-            )
+            # Only include asset-centric 3D models
+            items = [item for item in response.items if item.space is None]
+            total += len(items)
+            if items:
+                yield Page(worker_id="main", items=items, next_cursor=response.next_cursor)
             if response.next_cursor is None:
                 break
             cursor = response.next_cursor
