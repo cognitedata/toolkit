@@ -31,13 +31,11 @@ from .group_scoped import GroupResourceScopedCRUD
 
 
 @final
-class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig, APMConfigWriteList, APMConfigList]):
+class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig]):
     folder_name = "cdf_applications"
     filetypes = frozenset({"yaml", "yml"})
     resource_cls = APMConfig
     resource_write_cls = APMConfigWrite
-    list_cls = APMConfigList
-    list_write_cls = APMConfigWriteList
     kind = "InfieldV1"
     yaml_cls = InfieldV1YAML
     dependencies = frozenset({DataSetsCRUD, AssetCRUD, SpaceCRUD, GroupAllScopedCRUD, GroupResourceScopedCRUD})

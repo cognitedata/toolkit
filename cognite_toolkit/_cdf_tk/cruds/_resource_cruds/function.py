@@ -56,13 +56,11 @@ from .group_scoped import GroupResourceScopedCRUD
 
 
 @final
-class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function, FunctionWriteList, FunctionList]):
+class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function]):
     support_drop = True
     folder_name = "functions"
     resource_cls = Function
     resource_write_cls = FunctionWrite
-    list_cls = FunctionList
-    list_write_cls = FunctionWriteList
     kind = "Function"
     yaml_cls = FunctionsYAML
     dependencies = frozenset({DataSetsCRUD, GroupAllScopedCRUD})
