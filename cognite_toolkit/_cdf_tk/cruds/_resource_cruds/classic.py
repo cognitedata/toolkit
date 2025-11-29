@@ -357,16 +357,10 @@ class SequenceCRUD(ResourceCRUD[str, SequenceWrite, Sequence]):
 
 
 @final
-class SequenceRowCRUD(
-    ResourceCRUD[
-        str, ToolkitSequenceRowsWrite, ToolkitSequenceRows, ToolkitSequenceRowsWriteList, ToolkitSequenceRowsList
-    ]
-):
+class SequenceRowCRUD(ResourceCRUD[str, ToolkitSequenceRowsWrite, ToolkitSequenceRows]):
     folder_name = "classic"
     resource_cls = ToolkitSequenceRows
     resource_write_cls = ToolkitSequenceRowsWrite
-    list_cls = ToolkitSequenceRowsList
-    list_write_cls = ToolkitSequenceRowsWriteList
     kind = "SequenceRow"
     dependencies = frozenset({SequenceCRUD})
     parent_resource = frozenset({SequenceCRUD})

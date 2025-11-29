@@ -37,13 +37,11 @@ from .auth import GroupAllScopedCRUD
 
 
 @final
-class RawDatabaseCRUD(ResourceContainerCRUD[RawDatabase, RawDatabase, RawDatabase, RawDatabaseList, RawDatabaseList]):
+class RawDatabaseCRUD(ResourceContainerCRUD[RawDatabase, RawDatabase, RawDatabase]):
     item_name = "raw tables"
     folder_name = "raw"
     resource_cls = RawDatabase
     resource_write_cls = RawDatabase
-    list_cls = RawDatabaseList
-    list_write_cls = RawDatabaseList
     kind = "Database"
     yaml_cls = DatabaseYAML
     dependencies = frozenset({GroupAllScopedCRUD})
@@ -150,13 +148,11 @@ class RawDatabaseCRUD(ResourceContainerCRUD[RawDatabase, RawDatabase, RawDatabas
 
 
 @final
-class RawTableCRUD(ResourceContainerCRUD[RawTable, RawTable, RawTable, RawTableList, RawTableList]):
+class RawTableCRUD(ResourceContainerCRUD[RawTable, RawTable, RawTable]):
     item_name = "raw rows"
     folder_name = "raw"
     resource_cls = RawTable
     resource_write_cls = RawTable
-    list_cls = RawTableList
-    list_write_cls = RawTableList
     kind = "Table"
     yaml_cls = TableYAML
     support_update = False
