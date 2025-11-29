@@ -681,7 +681,7 @@ class TransformationNotificationCRUD(
 
         return retrieved
 
-    def update(self, items: Sequence[TransformationWrite]) -> TransformationNotificationList:
+    def update(self, items: Sequence[TransformationNotificationWrite]) -> TransformationNotificationList:
         # Note that since a notification is identified by the combination of transformationExternalId and destination,
         # which is the entire object, an update should never happen. However, implementing just in case.
         item_by_id = {self.get_id(item): item for item in items}
