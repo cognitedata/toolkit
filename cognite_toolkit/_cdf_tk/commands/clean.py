@@ -26,8 +26,6 @@ from cognite_toolkit._cdf_tk.cruds import (
     ResourceWorker,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import Loader
-from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest,T_ResourceResponse
-from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
     DeployResults,
@@ -42,6 +40,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValidationError,
     ToolkitValueError,
 )
+from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.tk_warnings import (
     LowSeverityWarning,
     MediumSeverityWarning,
@@ -53,6 +52,7 @@ from cognite_toolkit._cdf_tk.utils import (
     read_yaml_file,
 )
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
 
 from ._utils import _print_ids_or_length
 
@@ -158,7 +158,11 @@ class CleanCommand(ToolkitCommand):
         return nr_of_deleted
 
     def _drop_data(
-        self, loaded_resources: Sequence[T_ResourceResponse], loader: ResourceContainerCRUD, dry_run: bool, verbose: bool
+        self,
+        loaded_resources: Sequence[T_ResourceResponse],
+        loader: ResourceContainerCRUD,
+        dry_run: bool,
+        verbose: bool,
     ) -> int:
         nr_of_dropped = 0
         resource_ids = loader.get_ids(loaded_resources)

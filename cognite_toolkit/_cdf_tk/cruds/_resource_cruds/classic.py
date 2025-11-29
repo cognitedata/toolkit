@@ -28,7 +28,6 @@ from cognite_toolkit._cdf_tk.client.data_classes.sequences import (
     ToolkitSequenceRows,
     ToolkitSequenceRowsList,
     ToolkitSequenceRowsWrite,
-    ToolkitSequenceRowsWriteList,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import AssetYAML, EventYAML, SequenceRowYAML, SequenceYAML

@@ -1,7 +1,7 @@
 from collections.abc import Hashable, Iterable, Sequence
 from typing import Any
 
-from cognite.client.data_classes.agents import Agent, AgentList, AgentUpsert, AgentUpsertList
+from cognite.client.data_classes.agents import Agent, AgentList, AgentUpsert
 from cognite.client.data_classes.capabilities import AgentsAcl, Capability
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr

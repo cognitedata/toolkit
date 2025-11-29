@@ -34,32 +34,26 @@ from cognite.client.data_classes.capabilities import (
 from cognite.client.data_classes.data_modeling import (
     Container,
     ContainerApply,
-    ContainerApplyList,
     ContainerList,
     DataModel,
     DataModelApply,
-    DataModelApplyList,
     DataModelList,
     DirectRelation,
     Edge,
     EdgeApply,
-    EdgeApplyList,
     EdgeApplyResultList,
     EdgeList,
     MappedProperty,
     Node,
     NodeApply,
-    NodeApplyList,
     NodeApplyResultList,
     NodeList,
     RequiresConstraint,
     Space,
     SpaceApply,
-    SpaceApplyList,
     SpaceList,
     View,
     ViewApply,
-    ViewApplyList,
     ViewList,
 )
 from cognite.client.data_classes.data_modeling.graphql import DMLApplyResult
@@ -83,7 +77,6 @@ from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import (
     GraphQLDataModel,
     GraphQLDataModelList,
     GraphQLDataModelWrite,
-    GraphQLDataModelWriteList,
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, HAS_DATA_FILTER_LIMIT
 from cognite_toolkit._cdf_tk.cruds._base_cruds import (

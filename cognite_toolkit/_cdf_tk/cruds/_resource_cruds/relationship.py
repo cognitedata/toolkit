@@ -5,7 +5,6 @@ from cognite.client.data_classes import (
     Relationship,
     RelationshipList,
     RelationshipWrite,
-    RelationshipWriteList,
     capabilities,
 )
 from cognite.client.data_classes.capabilities import Capability

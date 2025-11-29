@@ -13,23 +13,18 @@ from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
     DataPostProcessing,
     DataPostProcessingList,
     DataPostProcessingWrite,
-    DataPostProcessingWriteList,
     Frame,
     FrameList,
     FrameWrite,
-    FrameWriteList,
     Location,
     LocationList,
     LocationWrite,
-    LocationWriteList,
     Map,
     MapList,
     MapWrite,
-    MapWriteList,
     RobotCapability,
     RobotCapabilityList,
     RobotCapabilityWrite,
-    RobotCapabilityWriteList,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import (
