@@ -215,15 +215,11 @@ class ExtractionPipelineConfigCRUD(
         str,
         ExtractionPipelineConfigWrite,
         ExtractionPipelineConfig,
-        ExtractionPipelineConfigWriteList,
-        ExtractionPipelineConfigList,
     ]
 ):
     folder_name = "extraction_pipelines"
     resource_cls = ExtractionPipelineConfig
     resource_write_cls = ExtractionPipelineConfigWrite
-    list_cls = ExtractionPipelineConfigList
-    list_write_cls = ExtractionPipelineConfigWriteList
     kind = "Config"
     dependencies = frozenset({ExtractionPipelineCRUD})
     _doc_url = "Extraction-Pipelines-Config/operation/createExtPipeConfig"

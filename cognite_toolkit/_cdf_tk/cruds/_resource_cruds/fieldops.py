@@ -245,16 +245,12 @@ class InFieldLocationConfigCRUD(
         NodeIdentifier,
         InfieldLocationConfig,
         InfieldLocationConfig,
-        InfieldLocationConfigList,
-        InfieldLocationConfigList,
     ]
 ):
     folder_name = "cdf_applications"
     filetypes = frozenset({"yaml", "yml"})
     resource_cls = InfieldLocationConfig
     resource_write_cls = InfieldLocationConfig
-    list_cls = InfieldLocationConfigList
-    list_write_cls = InfieldLocationConfigList
     kind = "InFieldLocationConfig"
     yaml_cls = InfieldLocationConfigYAML
     dependencies = frozenset({SpaceCRUD, GroupAllScopedCRUD, GroupResourceScopedCRUD})

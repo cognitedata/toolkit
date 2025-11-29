@@ -65,13 +65,11 @@ class _ReplaceMethod:
     id_name: str
 
 
-class GroupCRUD(ResourceCRUD[str, GroupWrite, Group, GroupWriteList, GroupList]):
+class GroupCRUD(ResourceCRUD[str, GroupWrite, Group]):
     folder_name = "auth"
     kind = "Group"
     resource_cls = Group
     resource_write_cls = GroupWrite
-    list_cls = GroupList
-    list_write_cls = GroupWriteList
     yaml_cls = GroupYAML
     resource_scopes = frozenset(
         {

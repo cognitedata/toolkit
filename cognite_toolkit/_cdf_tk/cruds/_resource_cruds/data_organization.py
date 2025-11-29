@@ -45,13 +45,11 @@ from .auth import GroupAllScopedCRUD
 
 
 @final
-class DataSetsCRUD(ResourceCRUD[str, DataSetWrite, DataSet, DataSetWriteList, DataSetList]):
+class DataSetsCRUD(ResourceCRUD[str, DataSetWrite, DataSet]):
     support_drop = False
     folder_name = "data_sets"
     resource_cls = DataSet
     resource_write_cls = DataSetWrite
-    list_cls = DataSetList
-    list_write_cls = DataSetWriteList
     yaml_cls = DataSetYAML
     kind = "DataSet"
     dependencies = frozenset({GroupAllScopedCRUD})
@@ -159,13 +157,11 @@ class DataSetsCRUD(ResourceCRUD[str, DataSetWrite, DataSet, DataSetWriteList, Da
 
 @final
 class LabelCRUD(
-    ResourceCRUD[str, LabelDefinitionWrite, LabelDefinition, LabelDefinitionWriteList, LabelDefinitionList]
+    ResourceCRUD[str, LabelDefinitionWrite, LabelDefinition]
 ):
     folder_name = "classic"
     resource_cls = LabelDefinition
     resource_write_cls = LabelDefinitionWrite
-    list_cls = LabelDefinitionList
-    list_write_cls = LabelDefinitionWriteList
     yaml_cls = LabelsYAML
     kind = "Label"
     dependencies = frozenset({DataSetsCRUD, GroupAllScopedCRUD})

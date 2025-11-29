@@ -20,14 +20,12 @@ from .datamodel import SpaceCRUD, ViewCRUD
 
 @final
 class ResourceViewMappingCRUD(
-    ResourceCRUD[str, ResourceViewMappingApply, ResourceViewMapping, NodeApplyList, NodeList[ResourceViewMapping]]
+    ResourceCRUD[str, ResourceViewMappingApply, ResourceViewMapping]
 ):
     folder_name = "migration"
     filetypes = frozenset({"yaml", "yml"})
     resource_cls = ResourceViewMapping
     resource_write_cls = ResourceViewMappingApply
-    list_cls = NodeList[ResourceViewMapping]
-    list_write_cls = NodeApplyList
     kind = "ResourceViewMapping"
     dependencies = frozenset({SpaceCRUD, ViewCRUD})
     _doc_url = "Instances/operation/applyNodeAndEdges"

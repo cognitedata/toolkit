@@ -29,13 +29,11 @@ from .timeseries import TimeSeriesCRUD
 
 @final
 class LocationFilterCRUD(
-    ResourceCRUD[str, LocationFilterWrite, LocationFilter, LocationFilterWriteList, LocationFilterList]
+    ResourceCRUD[str, LocationFilterWrite, LocationFilter]
 ):
     folder_name = "locations"
     resource_cls = LocationFilter
     resource_write_cls = LocationFilterWrite
-    list_cls = LocationFilterList
-    list_write_cls = LocationFilterWriteList
     yaml_cls = LocationYAML
     dependencies = frozenset(
         {
