@@ -42,12 +42,10 @@ from cognite_toolkit._cdf_tk.resource_classes import (
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
 
 
-class RoboticFrameCRUD(ResourceCRUD[str, FrameWrite, Frame, FrameWriteList, FrameList]):
+class RoboticFrameCRUD(ResourceCRUD[str, FrameWrite, Frame]):
     folder_name = "robotics"
     resource_cls = Frame
     resource_write_cls = FrameWrite
-    list_cls = FrameList
-    list_write_cls = FrameWriteList
     kind = "Frame"
     yaml_cls = RobotFrameYAML
     _doc_url = "Frames/operation/createFrames"
@@ -109,12 +107,10 @@ class RoboticFrameCRUD(ResourceCRUD[str, FrameWrite, Frame, FrameWriteList, Fram
         return iter(self.client.robotics.frames)
 
 
-class RoboticLocationCRUD(ResourceCRUD[str, LocationWrite, Location, LocationWriteList, LocationList]):
+class RoboticLocationCRUD(ResourceCRUD[str, LocationWrite, Location]):
     folder_name = "robotics"
     resource_cls = Location
     resource_write_cls = LocationWrite
-    list_cls = LocationList
-    list_write_cls = LocationWriteList
     kind = "Location"
     yaml_cls = RobotLocationYAML
     _doc_url = "Locations/operation/createLocations"
@@ -181,14 +177,10 @@ class RoboticLocationCRUD(ResourceCRUD[str, LocationWrite, Location, LocationWri
         return iter(self.client.robotics.locations)
 
 
-class RoboticsDataPostProcessingCRUD(
-    ResourceCRUD[str, DataPostProcessingWrite, DataPostProcessing, DataPostProcessingWriteList, DataPostProcessingList]
-):
+class RoboticsDataPostProcessingCRUD(ResourceCRUD[str, DataPostProcessingWrite, DataPostProcessing]):
     folder_name = "robotics"
     resource_cls = DataPostProcessing
     resource_write_cls = DataPostProcessingWrite
-    list_cls = DataPostProcessingList
-    list_write_cls = DataPostProcessingWriteList
     kind = "DataPostProcessing"
     yaml_cls = RobotDataPostProcessingYAML
     _doc_url = "DataPostProcessing/operation/createDataPostProcessing"
@@ -274,14 +266,10 @@ class RoboticsDataPostProcessingCRUD(
         return super().diff_list(local, cdf, json_path)
 
 
-class RobotCapabilityCRUD(
-    ResourceCRUD[str, RobotCapabilityWrite, RobotCapability, RobotCapabilityWriteList, RobotCapabilityList]
-):
+class RobotCapabilityCRUD(ResourceCRUD[str, RobotCapabilityWrite, RobotCapability]):
     folder_name = "robotics"
     resource_cls = RobotCapability
     resource_write_cls = RobotCapabilityWrite
-    list_cls = RobotCapabilityList
-    list_write_cls = RobotCapabilityWriteList
     kind = "RobotCapability"
     yaml_cls = RobotCapabilityYAML
     _doc_url = "RobotCapabilities/operation/createRobotCapabilities"
@@ -370,12 +358,10 @@ class RobotCapabilityCRUD(
         return super().diff_list(local, cdf, json_path)
 
 
-class RoboticMapCRUD(ResourceCRUD[str, MapWrite, Map, MapWriteList, MapList]):
+class RoboticMapCRUD(ResourceCRUD[str, MapWrite, Map]):
     folder_name = "robotics"
     resource_cls = Map
     resource_write_cls = MapWrite
-    list_cls = MapList
-    list_write_cls = MapWriteList
     kind = "Map"
     dependencies = frozenset({RoboticFrameCRUD, RoboticLocationCRUD})
     yaml_cls = RobotMapYAML

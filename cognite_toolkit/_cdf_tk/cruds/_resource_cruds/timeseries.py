@@ -43,13 +43,11 @@ from .data_organization import DataSetsCRUD
 
 
 @final
-class TimeSeriesCRUD(ResourceContainerCRUD[str, TimeSeriesWrite, TimeSeries, TimeSeriesWriteList, TimeSeriesList]):
+class TimeSeriesCRUD(ResourceContainerCRUD[str, TimeSeriesWrite, TimeSeries]):
     item_name = "datapoints"
     folder_name = "timeseries"
     resource_cls = TimeSeries
     resource_write_cls = TimeSeriesWrite
-    list_cls = TimeSeriesList
-    list_write_cls = TimeSeriesWriteList
     yaml_cls = TimeSeriesYAML
     kind = "TimeSeries"
     dependencies = frozenset({DataSetsCRUD, GroupAllScopedCRUD, AssetCRUD})
@@ -181,15 +179,11 @@ class DatapointSubscriptionCRUD(
         str,
         DataPointSubscriptionWrite,
         DatapointSubscription,
-        DatapointSubscriptionWriteList,
-        DatapointSubscriptionList,
     ]
 ):
     folder_name = "timeseries"
     resource_cls = DatapointSubscription
     resource_write_cls = DataPointSubscriptionWrite
-    list_cls = DatapointSubscriptionList
-    list_write_cls = DatapointSubscriptionWriteList
     kind = "DatapointSubscription"
     _doc_url = "Data-point-subscriptions/operation/postSubscriptions"
     dependencies = frozenset(

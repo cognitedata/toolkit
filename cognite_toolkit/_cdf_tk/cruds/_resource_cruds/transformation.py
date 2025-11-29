@@ -45,7 +45,6 @@ from cognite.client.data_classes import (
     TransformationScheduleWrite,
     TransformationScheduleWriteList,
     TransformationWrite,
-    TransformationWriteList,
 )
 from cognite.client.data_classes.capabilities import (
     Capability,
@@ -104,13 +103,11 @@ from .raw import RawDatabaseCRUD, RawTableCRUD
 
 @final
 class TransformationCRUD(
-    ResourceCRUD[str, TransformationWrite, Transformation, TransformationWriteList, TransformationList]
+    ResourceCRUD[str, TransformationWrite, Transformation]
 ):
     folder_name = "transformations"
     resource_cls = Transformation
     resource_write_cls = TransformationWrite
-    list_cls = TransformationList
-    list_write_cls = TransformationWriteList
     kind = "Transformation"
     yaml_cls = TransformationYAML
     dependencies = frozenset(
@@ -510,15 +507,11 @@ class TransformationScheduleCRUD(
         str,
         TransformationScheduleWrite,
         TransformationSchedule,
-        TransformationScheduleWriteList,
-        TransformationScheduleList,
     ]
 ):
     folder_name = "transformations"
     resource_cls = TransformationSchedule
     resource_write_cls = TransformationScheduleWrite
-    list_cls = TransformationScheduleList
-    list_write_cls = TransformationScheduleWriteList
     kind = "Schedule"
     yaml_cls = TransformationScheduleYAML
     dependencies = frozenset({TransformationCRUD})
@@ -606,15 +599,11 @@ class TransformationNotificationCRUD(
         str,
         TransformationNotificationWrite,
         TransformationNotification,
-        TransformationNotificationWriteList,
-        TransformationNotificationList,
     ]
 ):
     folder_name = "transformations"
     resource_cls = TransformationNotification
     resource_write_cls = TransformationNotificationWrite
-    list_cls = TransformationNotificationList
-    list_write_cls = TransformationNotificationWriteList
     kind = "Notification"
     dependencies = frozenset({TransformationCRUD})
     _doc_url = "Transformation-Notifications/operation/createTransformationNotifications"
