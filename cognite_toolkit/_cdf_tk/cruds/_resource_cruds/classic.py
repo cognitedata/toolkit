@@ -44,13 +44,11 @@ from .data_organization import DataSetsCRUD, LabelCRUD
 
 
 @final
-class AssetCRUD(ResourceCRUD[str, AssetWrite, Asset, AssetWriteList, AssetList]):
+class AssetCRUD(ResourceCRUD[str, AssetWrite, Asset]):
     folder_name = "classic"
     filetypes = frozenset({"yaml", "yml", "csv", "parquet"})
     resource_cls = Asset
     resource_write_cls = AssetWrite
-    list_cls = AssetList
-    list_write_cls = AssetWriteList
     yaml_cls = AssetYAML
     kind = "Asset"
     dependencies = frozenset({DataSetsCRUD, LabelCRUD})
@@ -231,12 +229,10 @@ class AssetCRUD(ResourceCRUD[str, AssetWrite, Asset, AssetWriteList, AssetList])
 
 
 @final
-class SequenceCRUD(ResourceCRUD[str, SequenceWrite, Sequence, SequenceWriteList, SequenceList]):
+class SequenceCRUD(ResourceCRUD[str, SequenceWrite, Sequence]):
     folder_name = "classic"
     resource_cls = Sequence
     resource_write_cls = SequenceWrite
-    list_cls = SequenceList
-    list_write_cls = SequenceWriteList
     kind = "Sequence"
     dependencies = frozenset({DataSetsCRUD, AssetCRUD})
     yaml_cls = SequenceYAML
@@ -492,13 +488,11 @@ class SequenceRowCRUD(
 
 
 @final
-class EventCRUD(ResourceCRUD[str, EventWrite, Event, EventWriteList, EventList]):
+class EventCRUD(ResourceCRUD[str, EventWrite, Event]):
     folder_name = "classic"
     filetypes = frozenset({"yaml", "yml"})
     resource_cls = Event
     resource_write_cls = EventWrite
-    list_cls = EventList
-    list_write_cls = EventWriteList
     yaml_cls = EventYAML
     kind = "Event"
     dependencies = frozenset({DataSetsCRUD, AssetCRUD})

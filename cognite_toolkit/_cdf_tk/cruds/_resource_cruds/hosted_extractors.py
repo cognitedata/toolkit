@@ -326,12 +326,10 @@ class HostedExtractorJobCRUD(ResourceCRUD[str, JobWrite, Job]):
             yield HostedExtractorDestinationCRUD, item["destinationId"]
 
 
-class HostedExtractorMappingCRUD(ResourceCRUD[str, MappingWrite, Mapping, MappingWriteList, MappingList]):
+class HostedExtractorMappingCRUD(ResourceCRUD[str, MappingWrite, Mapping]):
     folder_name = "hosted_extractors"
     resource_cls = Mapping
     resource_write_cls = MappingWrite
-    list_cls = MappingList
-    list_write_cls = MappingWriteList
     # This is not an explicit dependency, however, adding it here as mapping will should be deployed after source.
     dependencies = frozenset({HostedExtractorSourceCRUD})
     kind = "Mapping"

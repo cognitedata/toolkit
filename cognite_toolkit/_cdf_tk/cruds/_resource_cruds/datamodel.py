@@ -514,12 +514,10 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerApply, Container
         return sanitize_filename(f"{id.space}_{id.external_id}")
 
 
-class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View, ViewApplyList, ViewList]):
+class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View]):
     folder_name = "data_modeling"
     resource_cls = View
     resource_write_cls = ViewApply
-    list_cls = ViewList
-    list_write_cls = ViewApplyList
     kind = "View"
     dependencies = frozenset({SpaceCRUD, ContainerCRUD})
     yaml_cls = ViewYAML
@@ -855,12 +853,10 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View, ViewApplyList, ViewList]):
 
 
 @final
-class DataModelCRUD(ResourceCRUD[DataModelId, DataModelApply, DataModel, DataModelApplyList, DataModelList]):
+class DataModelCRUD(ResourceCRUD[DataModelId, DataModelApply, DataModel]):
     folder_name = "data_modeling"
     resource_cls = DataModel
     resource_write_cls = DataModelApply
-    list_cls = DataModelList
-    list_write_cls = DataModelApplyList
     kind = "DataModel"
     dependencies = frozenset({SpaceCRUD, ViewCRUD})
     yaml_cls = DataModelYAML

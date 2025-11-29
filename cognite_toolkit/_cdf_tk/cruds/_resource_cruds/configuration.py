@@ -23,13 +23,11 @@ from .datamodel import ViewCRUD
 
 
 @final
-class SearchConfigCRUD(ResourceCRUD[ViewId, SearchConfigWrite, SearchConfig, SearchConfigWriteList, SearchConfigList]):
+class SearchConfigCRUD(ResourceCRUD[ViewId, SearchConfigWrite, SearchConfig]):
     support_drop = False
     folder_name = "cdf_applications"
     resource_cls = SearchConfig
     resource_write_cls = SearchConfigWrite
-    list_cls = SearchConfigList
-    list_write_cls = SearchConfigWriteList
     yaml_cls = SearchConfigYAML
     dependencies = frozenset({ViewCRUD})
     kind = "SearchConfig"
