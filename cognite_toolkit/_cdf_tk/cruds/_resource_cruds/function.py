@@ -296,7 +296,7 @@ class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function]):
             self.client.functions.activate()
         return False
 
-    def create(self, items: FunctionWriteList) -> FunctionList:
+    def create(self, items: Sequence[FunctionWrite]) -> FunctionList:
         created = FunctionList([], cognite_client=self.client)
         if not self._is_activated("create"):
             return created
@@ -545,7 +545,7 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleID, FunctionScheduleWrit
             )
         return schedules
 
-    def create(self, items: FunctionScheduleWriteList) -> FunctionSchedulesList:
+    def create(self, items: Sequence[FunctionScheduleWrite]) -> FunctionSchedulesList:
         created_list = FunctionSchedulesList([], cognite_client=self.client)
         function_id_by_external_id = self._get_function_ids_by_external_id(items)
 

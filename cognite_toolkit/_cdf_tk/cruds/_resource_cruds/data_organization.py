@@ -140,7 +140,7 @@ class DataSetsCRUD(ResourceCRUD[str, DataSetWrite, DataSet]):
     def retrieve(self, ids: SequenceNotStr[str]) -> DataSetList:
         return self.client.data_sets.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
-    def update(self, items: DataSetWriteList) -> DataSetList:
+    def update(self, items: Sequence[DataSetWrite]) -> DataSetList:
         return self.client.data_sets.update(items, mode="replace")
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
@@ -205,7 +205,7 @@ class LabelCRUD(
 
         return capabilities.LabelsAcl(actions, scope)
 
-    def create(self, items: LabelDefinitionWriteList) -> LabelDefinitionList:
+    def create(self, items: Sequence[LabelDefinitionWrite]) -> LabelDefinitionList:
         return self.client.labels.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> LabelDefinitionList:

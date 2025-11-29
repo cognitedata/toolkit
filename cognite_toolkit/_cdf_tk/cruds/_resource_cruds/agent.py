@@ -41,13 +41,13 @@ class AgentCRUD(ResourceCRUD[str, AgentUpsert, Agent]):
 
         return AgentsAcl(actions, AgentsAcl.Scope.All())
 
-    def create(self, items: AgentUpsertList) -> AgentList:
+    def create(self, items: Sequence[AgentUpsert]) -> AgentList:
         return self.client.agents.upsert(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> AgentList:
         return self.client.agents.retrieve(ids, ignore_unknown_ids=True)
 
-    def update(self, items: AgentUpsertList) -> AgentList:
+    def update(self, items: Sequence[AgentUpsert]) -> AgentList:
         return self.client.agents.upsert(items)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
