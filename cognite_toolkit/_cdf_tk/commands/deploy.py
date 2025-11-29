@@ -1,4 +1,4 @@
-from collections.abc import Hashable
+from collections.abc import Hashable, Sequence
 from graphlib import TopologicalSorter
 from pathlib import Path
 from typing import overload
@@ -338,9 +338,7 @@ class DeployCommand(ToolkitCommand):
 
     def deploy_resource_type(
         self,
-        loader: ResourceCRUD[
-            T_ID, T_ResourceRequest, T_ResourceResponse, T_ResourceRequestList, T_ResourceResponseList
-        ],
+        loader: ResourceCRUD[T_ID, T_ResourceRequest, T_ResourceResponse],
         env_vars: EnvironmentVariables,
         read_modules: list[ReadModule] | None = None,
         dry_run: bool = False,
@@ -402,10 +400,8 @@ class DeployCommand(ToolkitCommand):
 
     def actual_deploy(
         self,
-        resources: CategorizedResources[T_ID, T_ResourceResponseList],
-        loader: ResourceCRUD[
-            T_ID, T_ResourceRequest, T_ResourceResponse, T_ResourceRequestList, T_ResourceResponseList
-        ],
+        resources: CategorizedResources[T_ID, T_ResourceRequest],
+        loader: ResourceCRUD[T_ID, T_ResourceRequest, T_ResourceResponse],
         env_var_warnings: WarningList | None = None,
     ) -> ResourceDeployResult:
         environment_variable_warning_by_id = {
@@ -436,10 +432,8 @@ class DeployCommand(ToolkitCommand):
 
     @staticmethod
     def dry_run_deploy(
-        resources: CategorizedResources[T_ID, T_ResourceResponseList],
-        loader: ResourceCRUD[
-            T_ID, T_ResourceRequest, T_ResourceResponse, T_ResourceRequestList, T_ResourceResponseList
-        ],
+        resources: CategorizedResources[T_ID, T_ResourceRequest],
+        loader: ResourceCRUD[T_ID, T_ResourceRequest, T_ResourceResponse],
         has_done_drop: bool,
         has_dropped_data: bool,
     ) -> ResourceDeployResult:
@@ -470,7 +464,7 @@ class DeployCommand(ToolkitCommand):
 
     @staticmethod
     def _verbose_print(
-        resources: CategorizedResources[T_ID, T_ResourceResponseList],
+        resources: CategorizedResources[T_ID, T_ResourceRequest],
         loader: ResourceCRUD,
         dry_run: bool,
     ) -> None:
@@ -494,7 +488,7 @@ class DeployCommand(ToolkitCommand):
 
     def _create_resources(
         self,
-        resources: T_ResourceResponseList,
+        resources: Sequence[T_ResourceRequest],
         loader: ResourceCRUD,
         environment_variable_warning_by_id: dict[Hashable, EnvironmentVariableMissingWarning],
     ) -> int:
@@ -517,7 +511,7 @@ class DeployCommand(ToolkitCommand):
 
     def _update_resources(
         self,
-        resources: T_ResourceResponseList,
+        resources: Sequence[T_ResourceRequest],
         loader: ResourceCRUD,
         environment_variable_warning_by_id: dict[Hashable, EnvironmentVariableMissingWarning],
     ) -> int:

@@ -29,13 +29,8 @@ from cognite_toolkit._cdf_tk.cruds import (
     ResourceCRUD,
     StreamlitCRUD,
 )
-from cognite_toolkit._cdf_tk.cruds._base_cruds import (
-    T_ID,
-    T_ResourceRequest,
-    T_ResourceRequestList,
-    T_ResourceResponse,
-    T_ResourceResponseList,
-)
+from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
+from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest,T_ResourceResponse
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
     BuildVariable,
@@ -547,9 +542,7 @@ class PullCommand(ToolkitCommand):
 
     def _pull_resources(
         self,
-        loader: ResourceCRUD[
-            T_ID, T_ResourceRequest, T_ResourceResponse, T_ResourceRequestList, T_ResourceResponseList
-        ],
+        loader: ResourceCRUD[T_ID, T_ResourceRequest, T_ResourceResponse],
         resources: BuiltFullResourceList[T_ID],
         dry_run: bool,
         environment_variables: dict[str, str | None],
@@ -581,9 +574,7 @@ class PullCommand(ToolkitCommand):
         local_resource_by_id: dict[T_ID, dict[str, Any]],
         cdf_resource_by_id: dict[T_ID, T_ResourceResponse],
         file_results: ResourceDeployResult,
-        loader: ResourceCRUD[
-            T_ID, T_ResourceRequest, T_ResourceResponse, T_ResourceRequestList, T_ResourceResponseList
-        ],
+        loader: ResourceCRUD[T_ID, T_ResourceRequest, T_ResourceResponse],
     ) -> tuple[bool, dict[T_ID, dict[str, Any]]]:
         to_write: dict[T_ID, dict[str, Any]] = {}
         has_changes = False
@@ -612,9 +603,7 @@ class PullCommand(ToolkitCommand):
     @staticmethod
     def _get_local_resource_dict_by_id(
         resources: BuiltFullResourceList[T_ID],
-        loader: ResourceCRUD[
-            T_ID, T_ResourceRequest, T_ResourceResponse, T_ResourceRequestList, T_ResourceResponseList
-        ],
+        loader: ResourceCRUD[T_ID, T_ResourceRequest, T_ResourceResponse],
         environment_variables: dict[str, str | None],
     ) -> dict[T_ID, dict[str, Any]]:
         unique_destinations = {r.destination for r in resources if r.destination}
@@ -651,9 +640,7 @@ class PullCommand(ToolkitCommand):
         to_write: dict[T_ID, dict[str, Any]],
         resources: BuiltFullResourceList[T_ID],
         environment_variables: dict[str, str | None],
-        loader: ResourceCRUD[
-            T_ID, T_ResourceRequest, T_ResourceResponse, T_ResourceRequestList, T_ResourceResponseList
-        ],
+        loader: ResourceCRUD[T_ID, T_ResourceRequest, T_ResourceResponse],
         source_file: Path,
     ) -> tuple[str, dict[Path, str]]:
         # 1. Replace all variables with placeholders
