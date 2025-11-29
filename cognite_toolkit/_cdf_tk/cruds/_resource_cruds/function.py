@@ -574,7 +574,7 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleID, FunctionScheduleWrit
             created_list.append(created)
         return created_list
 
-    def _get_function_ids_by_external_id(self, items: FunctionScheduleWriteList) -> dict[str, int]:
+    def _get_function_ids_by_external_id(self, items: Sequence[FunctionScheduleWrite]) -> dict[str, int]:
         functions_to_lookup = list({item.function_external_id for item in items if item.function_external_id})
         if not functions_to_lookup:
             return {}

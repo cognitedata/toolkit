@@ -1,6 +1,6 @@
 import collections.abc
 import io
-from collections.abc import Hashable, Iterable
+from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
 from typing import Any, final
 
@@ -10,17 +10,14 @@ from cognite.client.data_classes import (
     Asset,
     AssetList,
     AssetWrite,
-    AssetWriteList,
     Event,
     EventList,
     EventWrite,
-    EventWriteList,
-    Sequence,
     SequenceList,
     SequenceWrite,
-    SequenceWriteList,
     capabilities,
 )
+from cognite.client.data_classes import Sequence as CDFSequence
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
@@ -229,9 +226,9 @@ class AssetCRUD(ResourceCRUD[str, AssetWrite, Asset]):
 
 
 @final
-class SequenceCRUD(ResourceCRUD[str, SequenceWrite, Sequence]):
+class SequenceCRUD(ResourceCRUD[str, SequenceWrite, CDFSequence]):
     folder_name = "classic"
-    resource_cls = Sequence
+    resource_cls = CDFSequence
     resource_write_cls = SequenceWrite
     kind = "Sequence"
     dependencies = frozenset({DataSetsCRUD, AssetCRUD})
@@ -243,7 +240,7 @@ class SequenceCRUD(ResourceCRUD[str, SequenceWrite, Sequence]):
         return "sequences"
 
     @classmethod
-    def get_id(cls, item: Sequence | SequenceWrite | dict) -> str:
+    def get_id(cls, item: CDFSequence | SequenceWrite | dict) -> str:
         if isinstance(item, dict):
             return item["externalId"]
         if not item.external_id:
@@ -251,7 +248,7 @@ class SequenceCRUD(ResourceCRUD[str, SequenceWrite, Sequence]):
         return item.external_id
 
     @classmethod
-    def get_internal_id(cls, item: Sequence | dict) -> int:
+    def get_internal_id(cls, item: CDFSequence | dict) -> int:
         if isinstance(item, dict):
             return item["id"]
         if not item.id:
@@ -264,7 +261,7 @@ class SequenceCRUD(ResourceCRUD[str, SequenceWrite, Sequence]):
 
     @classmethod
     def get_required_capability(
-        cls, items: collections.abc.Sequence[SequenceWrite] | None, read_only: bool
+        cls, items: Sequence[SequenceWrite] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -288,7 +285,7 @@ class SequenceCRUD(ResourceCRUD[str, SequenceWrite, Sequence]):
             resource["assetId"] = self.client.lookup.assets.id(asset_external_id, is_dry_run)
         return SequenceWrite._load(resource)
 
-    def dump_resource(self, resource: Sequence, local: dict[str, Any] | None = None) -> dict[str, Any]:
+    def dump_resource(self, resource: CDFSequence, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
         local = local or {}
         if data_set_id := dumped.pop("dataSetId", None):
@@ -343,7 +340,7 @@ class SequenceCRUD(ResourceCRUD[str, SequenceWrite, Sequence]):
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
-    ) -> Iterable[Sequence]:
+    ) -> Iterable[CDFSequence]:
         return iter(
             self.client.sequences(data_set_external_ids=[data_set_external_id] if data_set_external_id else None)
         )
@@ -405,8 +402,7 @@ class SequenceRowCRUD(ResourceCRUD[str, ToolkitSequenceRowsWrite, ToolkitSequenc
         # We don't have any capabilities for SequenceRows, that is already handled by the Sequence
         return []
 
-    def create(self, items: Sequence[ToolkitSequenceRowsWrite]) -> ToolkitSequenceRowsWriteList:
-        item: ToolkitSequenceRowsWrite
+    def create(self, items: Sequence[ToolkitSequenceRowsWrite]) -> Sequence[ToolkitSequenceRowsWrite]:
         for item in items:
             self.client.sequences.rows.insert(item.as_sequence_rows(), external_id=item.external_id)
         return items

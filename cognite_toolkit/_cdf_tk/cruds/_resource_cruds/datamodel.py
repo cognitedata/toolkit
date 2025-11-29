@@ -1306,7 +1306,7 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelId, GraphQLDataModelWrite, Grap
     def drop_data(self, ids: SequenceNotStr[DataModelId]) -> int:
         return self.delete(ids)
 
-    def _topological_sort(self, items: GraphQLDataModelWriteList) -> list[GraphQLDataModelWrite]:
+    def _topological_sort(self, items: Sequence[GraphQLDataModelWrite]) -> list[GraphQLDataModelWrite]:
         to_sort = {item.as_id(): item for item in items}
         dependencies: dict[DataModelId, set[DataModelId]] = {}
         for item in items:
