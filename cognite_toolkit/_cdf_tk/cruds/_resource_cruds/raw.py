@@ -89,7 +89,7 @@ class RawDatabaseCRUD(ResourceContainerCRUD[RawDatabase, RawDatabase, RawDatabas
     def dump_id(cls, id: RawDatabase) -> dict[str, Any]:
         return {"dbName": id.db_name}
 
-    def create(self, items: RawDatabaseList) -> RawDatabaseList:
+    def create(self, items: Sequence[RawDatabase]) -> RawDatabaseList:
         database_list = self.client.raw.databases.create([db.db_name for db in items])
         return RawDatabaseList([RawDatabase(db_name=db.name) for db in database_list if db.name])
 
@@ -209,7 +209,7 @@ class RawTableCRUD(ResourceContainerCRUD[RawTable, RawTable, RawTable]):
         if "dbName" in item:
             yield RawDatabaseCRUD, RawDatabase(item["dbName"])
 
-    def create(self, items: RawTableList) -> RawTableList:
+    def create(self, items: Sequence[RawTable]) -> RawTableList:
         created = RawTableList([])
         for db_name, raw_tables in itertools.groupby(sorted(items, key=lambda x: x.db_name), key=lambda x: x.db_name):
             tables = [table.table_name for table in raw_tables]

@@ -650,7 +650,7 @@ class TransformationNotificationCRUD(
             dumped["transformationExternalId"] = local["transformationExternalId"]
         return dumped
 
-    def create(self, items: TransformationNotificationWriteList) -> TransformationNotificationList:
+    def create(self, items: Sequence[TransformationNotificationWrite]) -> TransformationNotificationList:
         return self.client.transformations.notifications.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> TransformationNotificationList:
