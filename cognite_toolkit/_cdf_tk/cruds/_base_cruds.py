@@ -10,12 +10,7 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, EXCL_FILES
-from cognite_toolkit._cdf_tk.protocols import (
-    T_ResourceRequest,
-    T_ResourceRequestList,
-    T_ResourceResponse,
-    T_ResourceResponseList,
-)
+from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.resource_classes import ToolkitResource
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, sanitize_filename
@@ -133,11 +128,7 @@ class Loader(ABC):
 T_Loader = TypeVar("T_Loader", bound=Loader)
 
 
-class ResourceCRUD(
-    Loader,
-    ABC,
-    Generic[T_ID, T_ResourceRequest, T_ResourceResponse, T_ResourceRequestList, T_ResourceResponseList],
-):
+class ResourceCRUD(Loader, ABC, Generic[T_ID, T_ResourceRequest, T_ResourceResponse]):
     """This is the base class for all resource CRUD.
 
     A resource loader consists of the following
@@ -150,8 +141,6 @@ class ResourceCRUD(
     Class attributes:
         resource_write_cls: The API write data class for the resource.
         resource_cls: The API read data class for the resource.
-        list_cls: The API read list format for this resource.
-        list_write_cls: The API write list format for this resource.
         yaml_cls: The File format for this resource. This is used to validate the user input.
         support_drop: Whether the resource supports the drop flag.
         support_update: Whether the resource supports the update operation.
@@ -165,8 +154,6 @@ class ResourceCRUD(
     # Must be set in the subclass
     resource_write_cls: type[T_ResourceRequest]
     resource_cls: type[T_ResourceResponse]
-    list_cls: type[T_ResourceResponseList]
-    list_write_cls: type[T_ResourceRequestList]
     yaml_cls: type[ToolkitResource]
     # Optional to set in the subclass
     support_drop = True
@@ -197,14 +184,14 @@ class ResourceCRUD(
         raise NotImplementedError(f"get_required_capability must be implemented for {cls.__name__}.")
 
     @abstractmethod
-    def create(self, items: T_ResourceRequestList) -> Sized:
+    def create(self, items: Sequence[T_ResourceRequest]) -> Sized:
         raise NotImplementedError
 
     @abstractmethod
-    def retrieve(self, ids: SequenceNotStr[T_ID]) -> T_ResourceResponseList:
+    def retrieve(self, ids: SequenceNotStr[T_ID]) -> list[T_ResourceResponse]:
         raise NotImplementedError
 
-    def update(self, items: T_ResourceRequestList) -> Sized:
+    def update(self, items: Sequence[T_ResourceRequest]) -> Sized:
         raise NotImplementedError(f"Update is not supported for {type(self).__name__}.")
 
     @abstractmethod
@@ -390,9 +377,7 @@ class ResourceCRUD(
 
     # Helper methods
     @classmethod
-    def get_ids(
-        cls, items: Sequence[T_ResourceRequest | T_ResourceResponse | dict] | T_ResourceResponseList
-    ) -> list[T_ID]:
+    def get_ids(cls, items: Sequence[T_ResourceRequest | T_ResourceResponse | dict]) -> list[T_ID]:
         return [cls.get_id(item) for item in items]
 
     @classmethod
@@ -404,10 +389,7 @@ class ResourceCRUD(
         )
 
 
-class ResourceContainerCRUD(
-    ResourceCRUD[T_ID, T_ResourceRequest, T_ResourceResponse, T_ResourceRequestList, T_ResourceResponseList],
-    ABC,
-):
+class ResourceContainerCRUD(ResourceCRUD[T_ID, T_ResourceRequest, T_ResourceResponse], ABC):
     """This is the base class for all resource CRUD' containers.
 
     A resource container CRUD is a resource that contains data. For example, Timeseries contains datapoints, and another
