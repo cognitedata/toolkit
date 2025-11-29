@@ -48,12 +48,10 @@ from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from .data_organization import DataSetsCRUD
 
 
-class HostedExtractorSourceCRUD(ResourceCRUD[str, SourceWrite, Source, SourceWriteList, SourceList]):
+class HostedExtractorSourceCRUD(ResourceCRUD[str, SourceWrite, Source]):
     folder_name = "hosted_extractors"
     resource_cls = Source
     resource_write_cls = SourceWrite
-    list_cls = SourceList
-    list_write_cls = SourceWriteList
     kind = "Source"
     yaml_cls = HostedExtractorSourceYAML
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
@@ -151,13 +149,11 @@ class HostedExtractorSourceCRUD(ResourceCRUD[str, SourceWrite, Source, SourceWri
 
 
 class HostedExtractorDestinationCRUD(
-    ResourceCRUD[str, DestinationWrite, Destination, DestinationWriteList, DestinationList]
+    ResourceCRUD[str, DestinationWrite, Destination]
 ):
     folder_name = "hosted_extractors"
     resource_cls = Destination
     resource_write_cls = DestinationWrite
-    list_cls = DestinationList
-    list_write_cls = DestinationWriteList
     dependencies = frozenset({DataSetsCRUD})
     kind = "Destination"
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
@@ -252,12 +248,10 @@ class HostedExtractorDestinationCRUD(
             yield self._authentication_by_id[id_].client_secret
 
 
-class HostedExtractorJobCRUD(ResourceCRUD[str, JobWrite, Job, JobWriteList, JobList]):
+class HostedExtractorJobCRUD(ResourceCRUD[str, JobWrite, Job]):
     folder_name = "hosted_extractors"
     resource_cls = Job
     resource_write_cls = JobWrite
-    list_cls = JobList
-    list_write_cls = JobWriteList
     dependencies = frozenset({HostedExtractorSourceCRUD, HostedExtractorDestinationCRUD})
     kind = "Job"
     yaml_cls = HostedExtractorJobYAML

@@ -34,12 +34,10 @@ from .data_organization import DataSetsCRUD
 
 
 @final
-class StreamlitCRUD(ResourceCRUD[str, StreamlitWrite, Streamlit, StreamlitWriteList, StreamlitList]):
+class StreamlitCRUD(ResourceCRUD[str, StreamlitWrite, Streamlit]):
     folder_name = "streamlit"
     resource_cls = Streamlit
     resource_write_cls = StreamlitWrite
-    list_cls = StreamlitList
-    list_write_cls = StreamlitWriteList
     kind = "Streamlit"
     dependencies = frozenset({DataSetsCRUD, GroupAllScopedCRUD})
     _doc_url = "Files/operation/initFileUpload"

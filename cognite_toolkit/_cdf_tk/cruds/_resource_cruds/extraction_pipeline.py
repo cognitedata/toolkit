@@ -62,13 +62,11 @@ from .raw import RawDatabaseCRUD, RawTableCRUD
 
 @final
 class ExtractionPipelineCRUD(
-    ResourceCRUD[str, ExtractionPipelineWrite, ExtractionPipeline, ExtractionPipelineWriteList, ExtractionPipelineList]
+    ResourceCRUD[str, ExtractionPipelineWrite, ExtractionPipeline]
 ):
     folder_name = "extraction_pipelines"
     resource_cls = ExtractionPipeline
     resource_write_cls = ExtractionPipelineWrite
-    list_cls = ExtractionPipelineList
-    list_write_cls = ExtractionPipelineWriteList
     kind = "ExtractionPipeline"
     dependencies = frozenset({DataSetsCRUD, RawDatabaseCRUD, RawTableCRUD, GroupAllScopedCRUD})
     yaml_cls = ExtractionPipelineYAML
