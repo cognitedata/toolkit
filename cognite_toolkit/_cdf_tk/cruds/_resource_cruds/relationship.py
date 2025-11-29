@@ -22,13 +22,11 @@ from .timeseries import TimeSeriesCRUD
 
 
 @final
-class RelationshipCRUD(ResourceCRUD[str, RelationshipWrite, Relationship, RelationshipWriteList, RelationshipList]):
+class RelationshipCRUD(ResourceCRUD[str, RelationshipWrite, Relationship]):
     folder_name = "classic"
     filetypes = frozenset({"yaml", "yml"})
     resource_cls = Relationship
     resource_write_cls = RelationshipWrite
-    list_cls = RelationshipList
-    list_write_cls = RelationshipWriteList
     kind = "Relationship"
     yaml_cls = RelationshipYAML
     dependencies = frozenset(
