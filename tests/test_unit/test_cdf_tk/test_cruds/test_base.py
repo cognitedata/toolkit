@@ -182,7 +182,7 @@ class TestFormatConsistency:
             )
 
         instances = [
-            FakeCogniteResourceGenerator(seed=1337).create_instances(loader.resource_write_cls) for _ in range(3)
+            FakeCogniteResourceGenerator(seed=1337).create_instance(loader.resource_write_cls) for _ in range(3)
         ]
 
         # special case
@@ -191,7 +191,7 @@ class TestFormatConsistency:
                 del instance.id  # Client validation does not allow id and externalid to be set simultaneously
 
         file = MagicMock(spec=Path)
-        file.read_text.return_value = yaml.dump(instances.dump())
+        file.read_text.return_value = yaml.dump([instance.dump() for instance in instances])
         file.suffix = ".yaml"
         file.name = "dict.yaml"
         file.parent.name = loader.folder_name
