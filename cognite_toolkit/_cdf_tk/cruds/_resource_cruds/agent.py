@@ -11,12 +11,10 @@ from cognite_toolkit._cdf_tk.resource_classes import AgentYAML
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 
 
-class AgentCRUD(ResourceCRUD[str, AgentUpsert, Agent, AgentUpsertList, AgentList]):
+class AgentCRUD(ResourceCRUD[str, AgentUpsert, Agent]):
     folder_name = "agents"
     resource_cls = Agent
     resource_write_cls = AgentUpsert
-    list_cls = AgentList
-    list_write_cls = AgentUpsertList
     kind = "Agent"
     yaml_cls = AgentYAML
     _doc_base_url = ""

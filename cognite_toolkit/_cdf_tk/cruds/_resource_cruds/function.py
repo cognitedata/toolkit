@@ -421,16 +421,10 @@ class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function]):
 
 
 @final
-class FunctionScheduleCRUD(
-    ResourceCRUD[
-        FunctionScheduleID, FunctionScheduleWrite, FunctionSchedule, FunctionScheduleWriteList, FunctionSchedulesList
-    ]
-):
+class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleID, FunctionScheduleWrite, FunctionSchedule]):
     folder_name = "functions"
     resource_cls = FunctionSchedule
     resource_write_cls = FunctionScheduleWrite
-    list_cls = FunctionSchedulesList
-    list_write_cls = FunctionScheduleWriteList
     kind = "Schedule"
     yaml_cls = FunctionScheduleYAML
     dependencies = frozenset({FunctionCRUD, GroupResourceScopedCRUD, GroupAllScopedCRUD})

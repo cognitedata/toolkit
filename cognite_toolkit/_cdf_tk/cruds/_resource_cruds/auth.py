@@ -476,13 +476,9 @@ class GroupAllScopedCRUD(GroupCRUD):
 
 
 @final
-class SecurityCategoryCRUD(
-    ResourceCRUD[str, SecurityCategoryWrite, SecurityCategory, SecurityCategoryWriteList, SecurityCategoryList]
-):
+class SecurityCategoryCRUD(ResourceCRUD[str, SecurityCategoryWrite, SecurityCategory]):
     resource_cls = SecurityCategory
     resource_write_cls = SecurityCategoryWrite
-    list_cls = SecurityCategoryList
-    list_write_cls = SecurityCategoryWriteList
     kind = "SecurityCategory"
     yaml_cls = SecurityCategoriesYAML
     folder_name = "auth"
