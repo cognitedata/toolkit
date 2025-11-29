@@ -240,13 +240,7 @@ class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig]):
 
 
 @final
-class InFieldLocationConfigCRUD(
-    ResourceCRUD[
-        NodeIdentifier,
-        InfieldLocationConfig,
-        InfieldLocationConfig,
-    ]
-):
+class InFieldLocationConfigCRUD(ResourceCRUD[NodeIdentifier, InfieldLocationConfig, InfieldLocationConfig]):
     folder_name = "cdf_applications"
     filetypes = frozenset({"yaml", "yml"})
     resource_cls = InfieldLocationConfig
