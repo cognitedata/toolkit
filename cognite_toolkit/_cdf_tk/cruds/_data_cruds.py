@@ -140,8 +140,9 @@ class FileCRUD(DataCRUD):
         if isinstance(built_content, dict):
             return loader.resource_write_cls._load(built_content)
         elif isinstance(built_content, list):
+            write_resources = (loader.resource_write_cls._load(content) for content in built_content)
             try:
-                return next(m for m in loader.list_write_cls.load(built_content) if loader.get_id(m) == identifier)
+                return next(m for m in write_resources if loader.get_id(m) == identifier)
             except StopIteration:
                 raise RuntimeError(f"Missing metadata for {destination.as_posix()}")
 
