@@ -100,13 +100,13 @@ class AssetCRUD(ResourceCRUD[str, AssetWrite, Asset]):
 
         return capabilities.AssetsAcl(actions, scope)
 
-    def create(self, items: AssetWriteList) -> AssetList:
+    def create(self, items: Sequence[AssetWrite]) -> AssetList:
         return self.client.assets.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> AssetList:
         return self.client.assets.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
-    def update(self, items: AssetWriteList) -> AssetList:
+    def update(self, items: Sequence[AssetWrite]) -> AssetList:
         return self.client.assets.update(items, mode="replace")
 
     def delete(self, ids: SequenceNotStr[str | int]) -> int:
@@ -316,13 +316,13 @@ class SequenceCRUD(ResourceCRUD[str, SequenceWrite, Sequence]):
             return super().diff_list(local, cdf, json_path)
         return diff_list_identifiable(local, cdf, get_identifier=lambda col: col["externalId"])
 
-    def create(self, items: SequenceWriteList) -> SequenceList:
+    def create(self, items: Sequence[SequenceWrite]) -> SequenceList:
         return self.client.sequences.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> SequenceList:
         return self.client.sequences.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
-    def update(self, items: SequenceWriteList) -> SequenceList:
+    def update(self, items: Sequence[SequenceWrite]) -> SequenceList:
         return self.client.sequences.upsert(items, mode="replace")
 
     def delete(self, ids: SequenceNotStr[str | int]) -> int:
@@ -538,13 +538,13 @@ class EventCRUD(ResourceCRUD[str, EventWrite, Event]):
 
         return capabilities.EventsAcl(actions, scope)
 
-    def create(self, items: EventWriteList) -> EventList:
+    def create(self, items: Sequence[EventWrite]) -> EventList:
         return self.client.events.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> EventList:
         return self.client.events.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
-    def update(self, items: EventWriteList) -> EventList:
+    def update(self, items: Sequence[EventWrite]) -> EventList:
         return self.client.events.update(items, mode="replace")
 
     def delete(self, ids: SequenceNotStr[str | int]) -> int:

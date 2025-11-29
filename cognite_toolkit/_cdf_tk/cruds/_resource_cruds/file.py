@@ -143,7 +143,7 @@ class FileMetadataCRUD(ResourceContainerCRUD[str, FileMetadataWrite, FileMetadat
             dumped["assetExternalIds"] = self.client.lookup.assets.external_id(asset_ids)
         return dumped
 
-    def create(self, items: FileMetadataWriteList) -> FileMetadataList:
+    def create(self, items: Sequence[FileMetadataWrite]) -> FileMetadataList:
         created = FileMetadataList([])
         for meta in items:
             try:
@@ -156,7 +156,7 @@ class FileMetadataCRUD(ResourceContainerCRUD[str, FileMetadataWrite, FileMetadat
     def retrieve(self, ids: SequenceNotStr[str]) -> FileMetadataList:
         return self.client.files.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
-    def update(self, items: FileMetadataWriteList) -> FileMetadataList:
+    def update(self, items: Sequence[FileMetadataWrite]) -> FileMetadataList:
         return self.client.files.update(items, mode="replace")
 
     def delete(self, ids: str | int | SequenceNotStr[str | int] | None) -> int:

@@ -114,7 +114,7 @@ class SearchConfigCRUD(ResourceCRUD[ViewId, SearchConfigWrite, SearchConfig]):
             result.append(created)
         return result
 
-    def create(self, items: SearchConfigWriteList) -> SearchConfigList:
+    def create(self, items: Sequence[SearchConfigWrite]) -> SearchConfigList:
         """
         Create new search configurations using the upsert method
         """
@@ -126,7 +126,7 @@ class SearchConfigCRUD(ResourceCRUD[ViewId, SearchConfigWrite, SearchConfig]):
         # The API does not support server-side filtering, so we filter in memory.
         return SearchConfigList([config for config in all_configs if config.view in ids])
 
-    def update(self, items: SearchConfigWriteList) -> SearchConfigList:
+    def update(self, items: Sequence[SearchConfigWrite]) -> SearchConfigList:
         """
         Update search configurations using the upsert method
         """
