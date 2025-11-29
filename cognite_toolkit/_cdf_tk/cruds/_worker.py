@@ -1,6 +1,6 @@
 import re
 import warnings
-from collections.abc import Hashable
+from collections.abc import Hashable, Sequence
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -153,10 +153,10 @@ class ResourceWorker(Generic[T_ID, T_ResourceRequest, T_ResourceResponse]):
     def categorize_resources(
         self,
         local_by_id: dict[T_ID, tuple[dict[str, Any], T_ResourceRequest]],
-        cdf_resources: list[T_ResourceResponse],
+        cdf_resources: Sequence[T_ResourceResponse],
         force_update: bool,
         verbose: bool,
-    ) -> CategorizedResources[T_ID, list[T_ResourceRequest]]:
+    ) -> CategorizedResources[T_ID, T_ResourceRequest]:
         resources: CategorizedResources[T_ID, T_ResourceRequest] = CategorizedResources()
         cdf_resource_by_id = {self.loader.get_id(resource): resource for resource in cdf_resources}
         for identifier, (local_dict, local_resource) in local_by_id.items():

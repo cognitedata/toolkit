@@ -131,9 +131,7 @@ class FileCRUD(DataCRUD):
     @staticmethod
     def _read_metadata(
         destination: Path,
-        loader: type[
-            ResourceCRUD[T_ID, T_ResourceRequest, T_ResourceResponse, T_ResourceRequestList, T_ResourceResponseList]
-        ],
+        loader: type[ResourceCRUD[T_ID, T_ResourceRequest, T_ResourceResponse]],
         identifier: T_ID,
     ) -> T_ResourceRequest:
         built_content = read_yaml_content(safe_read(destination, encoding=BUILD_FOLDER_ENCODING))
