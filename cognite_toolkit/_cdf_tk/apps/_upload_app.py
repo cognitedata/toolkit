@@ -66,7 +66,7 @@ class UploadApp(typer.Typer):
         """Commands to upload data to CDF."""
         cmd = UploadCommand()
         if input_dir is None:
-            input_candidate = sorted({p.parent for p in DEFAULT_INPUT_DIR.rglob(f"*/**{DATA_MANIFEST_SUFFIX}")})
+            input_candidate = sorted({p.parent for p in DEFAULT_INPUT_DIR.rglob(f"**/*{DATA_MANIFEST_SUFFIX}")})
             if not input_candidate:
                 typer.echo(f"No data manifests found in default directory: {DEFAULT_INPUT_DIR}")
                 raise typer.Exit(code=1)
