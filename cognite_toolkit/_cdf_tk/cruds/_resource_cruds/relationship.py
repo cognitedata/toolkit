@@ -5,7 +5,6 @@ from cognite.client.data_classes import (
     Relationship,
     RelationshipList,
     RelationshipWrite,
-    RelationshipWriteList,
     capabilities,
 )
 from cognite.client.data_classes.capabilities import Capability
@@ -22,13 +21,11 @@ from .timeseries import TimeSeriesCRUD
 
 
 @final
-class RelationshipCRUD(ResourceCRUD[str, RelationshipWrite, Relationship, RelationshipWriteList, RelationshipList]):
+class RelationshipCRUD(ResourceCRUD[str, RelationshipWrite, Relationship]):
     folder_name = "classic"
     filetypes = frozenset({"yaml", "yml"})
     resource_cls = Relationship
     resource_write_cls = RelationshipWrite
-    list_cls = RelationshipList
-    list_write_cls = RelationshipWriteList
     kind = "Relationship"
     yaml_cls = RelationshipYAML
     dependencies = frozenset(
@@ -74,13 +71,13 @@ class RelationshipCRUD(ResourceCRUD[str, RelationshipWrite, Relationship, Relati
 
         return capabilities.RelationshipsAcl(actions, scope)
 
-    def create(self, items: RelationshipWriteList) -> RelationshipList:
+    def create(self, items: Sequence[RelationshipWrite]) -> RelationshipList:
         return self.client.relationships.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> RelationshipList:
         return self.client.relationships.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
-    def update(self, items: RelationshipWriteList) -> RelationshipList:
+    def update(self, items: Sequence[RelationshipWrite]) -> RelationshipList:
         return self.client.relationships.update(items)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:

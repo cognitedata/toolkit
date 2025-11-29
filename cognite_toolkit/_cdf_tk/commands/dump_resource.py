@@ -3,7 +3,7 @@ import json
 import zipfile
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from collections.abc import Hashable, Iterable, Iterator
+from collections.abc import Hashable, Iterable, Iterator, Sequence
 from functools import cached_property
 from pathlib import Path
 from typing import Generic, cast
@@ -22,6 +22,7 @@ from cognite.client.data_classes import (
     filters,
 )
 from cognite.client.data_classes._base import (
+    CogniteResource,
     CogniteResourceList,
 )
 from cognite.client.data_classes.agents import (
@@ -113,7 +114,7 @@ class ResourceFinder(Iterable, ABC, Generic[T_ID]):
         raise NotImplementedError
 
     # Can be implemented in subclasses
-    def update(self, resources: CogniteResourceList) -> None: ...
+    def update(self, resources: Sequence[CogniteResource]) -> None: ...
 
 
 class DataModelFinder(ResourceFinder[DataModelId]):
@@ -178,7 +179,7 @@ class DataModelFinder(ResourceFinder[DataModelId]):
         self.data_model = models_by_version[selected_model]
         return self.data_model.as_id()
 
-    def update(self, resources: CogniteResourceList) -> None:
+    def update(self, resources: Sequence[CogniteResource]) -> None:
         if isinstance(resources, dm.DataModelList):
             self.view_ids |= {
                 view.as_id() if isinstance(view, dm.View) else view for item in resources for view in item.views
@@ -187,7 +188,7 @@ class DataModelFinder(ResourceFinder[DataModelId]):
             self.container_ids |= resources.referenced_containers()
         elif isinstance(resources, dm.SpaceList):
             return
-        self.space_ids |= {item.space for item in resources}
+        self.space_ids |= {item.space for item in resources if hasattr(item, "space")}
 
     def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
@@ -804,6 +805,7 @@ class DumpResourceCommand(ToolkitCommand):
             output_dir.mkdir(exist_ok=True)
 
         dumped_ids: list[Hashable] = []
+        resources: Sequence[CogniteResource] | None = None
         for identifiers, resources, loader, subfolder in finder:
             if not identifiers and not resources:
                 # No resources to dump

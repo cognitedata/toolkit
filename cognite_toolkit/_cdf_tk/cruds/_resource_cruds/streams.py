@@ -6,7 +6,6 @@ from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.data_classes.streams import (
     StreamRequest,
-    StreamRequestList,
     StreamResponse,
     StreamResponseList,
 )
@@ -18,13 +17,11 @@ from .datamodel import ContainerCRUD
 
 
 @final
-class StreamCRUD(ResourceCRUD[str, StreamRequest, StreamResponse, StreamRequestList, StreamResponseList]):
+class StreamCRUD(ResourceCRUD[str, StreamRequest, StreamResponse]):
     folder_name = "streams"
     filetypes = frozenset({"yaml", "yml"})
     resource_cls = StreamResponse
     resource_write_cls = StreamRequest
-    list_cls = StreamResponseList
-    list_write_cls = StreamRequestList
     kind = "Streams"
     yaml_cls = StreamYAML
     dependencies = frozenset({ContainerCRUD})
@@ -59,7 +56,7 @@ class StreamCRUD(ResourceCRUD[str, StreamRequest, StreamResponse, StreamRequestL
         )
         return StreamsAcl(actions, StreamsAcl.Scope.All())
 
-    def create(self, items: StreamRequestList) -> StreamResponseList:
+    def create(self, items: Sequence[StreamRequest]) -> StreamResponseList:
         created = self.client.streams.create(list(items))
         return StreamResponseList(created)
 
