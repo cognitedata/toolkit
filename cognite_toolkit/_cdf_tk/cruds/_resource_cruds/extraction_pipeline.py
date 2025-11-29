@@ -339,7 +339,7 @@ class ExtractionPipelineConfigCRUD(
             return diff_list_force_hashable(local, cdf)
         return super().diff_list(local, cdf, json_path)
 
-    def _upsert(self, items: ExtractionPipelineConfigWriteList) -> ExtractionPipelineConfigList:
+    def _upsert(self, items: Sequence[ExtractionPipelineConfigWrite]) -> ExtractionPipelineConfigList:
         upserted = ExtractionPipelineConfigList([])
         for item in items:
             created = self.client.extraction_pipelines.config.create(item)

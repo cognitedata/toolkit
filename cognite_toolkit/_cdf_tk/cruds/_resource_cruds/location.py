@@ -179,10 +179,7 @@ class LocationFilterCRUD(
                 *e.args[1:],
             ) from None
 
-    def create(self, items: LocationFilterWrite | LocationFilterWriteList) -> LocationFilterList:
-        if isinstance(items, LocationFilterWrite):
-            items = LocationFilterWriteList([items])
-
+    def create(self, items: Sequence[LocationFilterWrite]) -> LocationFilterList:
         created: list[LocationFilter] = []
         # Note: the Location API does not support batch creation, so we need to do this one by one.
         # Furthermore, we could not do the parentExternalId->parentId lookup before the parent was created,
@@ -210,10 +207,7 @@ class LocationFilterCRUD(
         _recursive_find(all_locations)
         return LocationFilterList(found_locations)
 
-    def update(self, items: LocationFilterWrite | LocationFilterWriteList) -> LocationFilterList:
-        if isinstance(items, LocationFilterWrite):
-            items = LocationFilterWriteList([items])
-
+    def update(self, items: Sequence[LocationFilterWrite]) -> LocationFilterList:
         updated = []
         ids = {item.external_id: item.id for item in self.retrieve([item.external_id for item in items])}
         for update in items:

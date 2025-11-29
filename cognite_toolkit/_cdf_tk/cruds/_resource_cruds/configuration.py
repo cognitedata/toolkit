@@ -101,13 +101,10 @@ class SearchConfigCRUD(ResourceCRUD[ViewId, SearchConfigWrite, SearchConfig]):
             return diff_list_identifiable(local, cdf, get_identifier=dm_identifier)
         return super().diff_list(local, cdf, json_path)
 
-    def _upsert(self, items: SearchConfigWrite | SearchConfigWriteList) -> SearchConfigList:
+    def _upsert(self, items: Sequence[SearchConfigWrite]) -> SearchConfigList:
         """
         Upsert search configurations using the upsert method
         """
-        if isinstance(items, SearchConfigWrite):
-            items = SearchConfigWriteList([items])
-
         result = SearchConfigList([])
         for item in items:
             created = self.client.search.configurations.upsert(item)

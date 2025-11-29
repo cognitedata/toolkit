@@ -85,7 +85,7 @@ class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig]):
 
     def create(self, items: Sequence[APMConfigWrite]) -> NodeApplyResultList:
         result = self.client.data_modeling.instances.apply(
-            nodes=items.as_nodes(), auto_create_direct_relations=True, replace=False
+            nodes=[item.as_node() for item in items], auto_create_direct_relations=True, replace=False
         )
         return result.nodes
 
@@ -97,7 +97,7 @@ class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig]):
 
     def update(self, items: Sequence[APMConfigWrite]) -> NodeApplyResultList:
         result = self.client.data_modeling.instances.apply(
-            nodes=items.as_nodes(), auto_create_direct_relations=True, replace=True
+            nodes=[item.as_node() for item in items], auto_create_direct_relations=True, replace=True
         )
         return result.nodes
 
