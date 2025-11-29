@@ -24,7 +24,6 @@ from .timeseries import TimeSeriesCRUD
 @final
 class RelationshipCRUD(ResourceCRUD[str, RelationshipWrite, Relationship, RelationshipWriteList, RelationshipList]):
     folder_name = "classic"
-    filename_pattern = r"^.*\.Relationship$"  # Matches all yaml files whose stem ends with '.Asset'.
     filetypes = frozenset({"yaml", "yml"})
     resource_cls = Relationship
     resource_write_cls = RelationshipWrite

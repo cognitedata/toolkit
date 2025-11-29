@@ -162,7 +162,6 @@ class LabelCRUD(
     ResourceCRUD[str, LabelDefinitionWrite, LabelDefinition, LabelDefinitionWriteList, LabelDefinitionList]
 ):
     folder_name = "classic"
-    filename_pattern = r"^.*Label$"  # Matches all yaml files whose stem ends with *Label.
     resource_cls = LabelDefinition
     resource_write_cls = LabelDefinitionWrite
     list_cls = LabelDefinitionList

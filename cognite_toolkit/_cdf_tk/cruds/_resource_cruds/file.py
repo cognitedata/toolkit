@@ -62,10 +62,6 @@ class FileMetadataCRUD(
 ):
     item_name = "file contents"
     folder_name = "files"
-    filename_pattern = (
-        # Matches all yaml files except file names whose stem ends with `.CogniteFile` or `File`.
-        r"(?i)^(?!.*(?:File|CogniteFile)$).*$"
-    )
     resource_cls = FileMetadata
     resource_write_cls = FileMetadataWrite
     list_cls = FileMetadataList
@@ -209,7 +205,6 @@ class CogniteFileCRUD(
     template_pattern = "$FILENAME"
     item_name = "file contents"
     folder_name = "files"
-    filename_pattern = r"^.*CogniteFile"  # Matches all yaml files whose stem ends with 'CogniteFile'.
     kind = "CogniteFile"
     resource_cls = ExtendableCogniteFile
     resource_write_cls = ExtendableCogniteFileApply

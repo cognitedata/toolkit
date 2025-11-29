@@ -59,9 +59,6 @@ from .group_scoped import GroupResourceScopedCRUD
 class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function, FunctionWriteList, FunctionList]):
     support_drop = True
     folder_name = "functions"
-    filename_pattern = (
-        r"^(?:(?!schedule).)*$"  # Matches all yaml files except file names who's stem contain *.schedule.
-    )
     resource_cls = Function
     resource_write_cls = FunctionWrite
     list_cls = FunctionList
@@ -432,7 +429,6 @@ class FunctionScheduleCRUD(
     ]
 ):
     folder_name = "functions"
-    filename_pattern = r"^.*schedule.*$"  # Matches all yaml files who's stem contain *.schedule
     resource_cls = FunctionSchedule
     resource_write_cls = FunctionScheduleWrite
     list_cls = FunctionSchedulesList

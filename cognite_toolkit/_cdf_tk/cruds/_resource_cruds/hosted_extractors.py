@@ -50,7 +50,6 @@ from .data_organization import DataSetsCRUD
 
 class HostedExtractorSourceCRUD(ResourceCRUD[str, SourceWrite, Source, SourceWriteList, SourceList]):
     folder_name = "hosted_extractors"
-    filename_pattern = r".*\.Source$"  # Matches all yaml files whose stem ends with '.Source'.
     resource_cls = Source
     resource_write_cls = SourceWrite
     list_cls = SourceList
@@ -155,7 +154,6 @@ class HostedExtractorDestinationCRUD(
     ResourceCRUD[str, DestinationWrite, Destination, DestinationWriteList, DestinationList]
 ):
     folder_name = "hosted_extractors"
-    filename_pattern = r".*\.Destination$"  # Matches all yaml files whose stem ends with '.Destination'.
     resource_cls = Destination
     resource_write_cls = DestinationWrite
     list_cls = DestinationList
@@ -256,7 +254,6 @@ class HostedExtractorDestinationCRUD(
 
 class HostedExtractorJobCRUD(ResourceCRUD[str, JobWrite, Job, JobWriteList, JobList]):
     folder_name = "hosted_extractors"
-    filename_pattern = r".*\.Job$"  # Matches all yaml files whose stem ends with '.Job'.
     resource_cls = Job
     resource_write_cls = JobWrite
     list_cls = JobList
@@ -337,7 +334,6 @@ class HostedExtractorJobCRUD(ResourceCRUD[str, JobWrite, Job, JobWriteList, JobL
 
 class HostedExtractorMappingCRUD(ResourceCRUD[str, MappingWrite, Mapping, MappingWriteList, MappingList]):
     folder_name = "hosted_extractors"
-    filename_pattern = r".*\.Mapping$"  # Matches all yaml files whose stem ends with '.Mapping'.
     resource_cls = Mapping
     resource_write_cls = MappingWrite
     list_cls = MappingList

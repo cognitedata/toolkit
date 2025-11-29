@@ -33,7 +33,6 @@ from .group_scoped import GroupResourceScopedCRUD
 @final
 class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig, APMConfigWriteList, APMConfigList]):
     folder_name = "cdf_applications"
-    filename_pattern = r"^.*\.InfieldV1$"  # Matches all yaml files whose stem ends with '.InfieldV1'.
     filetypes = frozenset({"yaml", "yml"})
     resource_cls = APMConfig
     resource_write_cls = APMConfigWrite
@@ -253,7 +252,6 @@ class InFieldLocationConfigCRUD(
     ]
 ):
     folder_name = "cdf_applications"
-    filename_pattern = r"^.*\.InFieldLocationConfig$"
     filetypes = frozenset({"yaml", "yml"})
     resource_cls = InfieldLocationConfig
     resource_write_cls = InfieldLocationConfig

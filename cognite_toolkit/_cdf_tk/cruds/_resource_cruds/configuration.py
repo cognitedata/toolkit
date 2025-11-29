@@ -26,7 +26,6 @@ from .datamodel import ViewCRUD
 class SearchConfigCRUD(ResourceCRUD[ViewId, SearchConfigWrite, SearchConfig, SearchConfigWriteList, SearchConfigList]):
     support_drop = False
     folder_name = "cdf_applications"
-    filename_pattern = r"^.*SearchConfig$"
     resource_cls = SearchConfig
     resource_write_cls = SearchConfigWrite
     list_cls = SearchConfigList

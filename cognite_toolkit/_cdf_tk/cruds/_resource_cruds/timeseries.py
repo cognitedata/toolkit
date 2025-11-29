@@ -46,7 +46,6 @@ from .data_organization import DataSetsCRUD
 class TimeSeriesCRUD(ResourceContainerCRUD[str, TimeSeriesWrite, TimeSeries, TimeSeriesWriteList, TimeSeriesList]):
     item_name = "datapoints"
     folder_name = "timeseries"
-    filename_pattern = r"^(?!.*DatapointSubscription$).*"
     resource_cls = TimeSeries
     resource_write_cls = TimeSeriesWrite
     list_cls = TimeSeriesList
@@ -187,7 +186,6 @@ class DatapointSubscriptionCRUD(
     ]
 ):
     folder_name = "timeseries"
-    filename_pattern = r"^.*DatapointSubscription$"  # Matches all yaml files who end with *DatapointSubscription.
     resource_cls = DatapointSubscription
     resource_write_cls = DataPointSubscriptionWrite
     list_cls = DatapointSubscriptionList

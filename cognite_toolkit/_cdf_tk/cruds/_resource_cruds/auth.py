@@ -67,7 +67,6 @@ class _ReplaceMethod:
 
 class GroupCRUD(ResourceCRUD[str, GroupWrite, Group, GroupWriteList, GroupList]):
     folder_name = "auth"
-    filename_pattern = r"^(?!.*SecurityCategory$).*"
     kind = "Group"
     resource_cls = Group
     resource_write_cls = GroupWrite
@@ -482,7 +481,6 @@ class GroupAllScopedCRUD(GroupCRUD):
 class SecurityCategoryCRUD(
     ResourceCRUD[str, SecurityCategoryWrite, SecurityCategory, SecurityCategoryWriteList, SecurityCategoryList]
 ):
-    filename_pattern = r"^.*SecurityCategory$"  # Matches all yaml files who's stem ends with *SecurityCategory.
     resource_cls = SecurityCategory
     resource_write_cls = SecurityCategoryWrite
     list_cls = SecurityCategoryList

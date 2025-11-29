@@ -46,7 +46,6 @@ from .data_organization import DataSetsCRUD, LabelCRUD
 @final
 class AssetCRUD(ResourceCRUD[str, AssetWrite, Asset, AssetWriteList, AssetList]):
     folder_name = "classic"
-    filename_pattern = r"^.*\.Asset$"  # Matches all yaml files whose stem ends with '.Asset'.
     filetypes = frozenset({"yaml", "yml", "csv", "parquet"})
     resource_cls = Asset
     resource_write_cls = AssetWrite
@@ -234,7 +233,6 @@ class AssetCRUD(ResourceCRUD[str, AssetWrite, Asset, AssetWriteList, AssetList])
 @final
 class SequenceCRUD(ResourceCRUD[str, SequenceWrite, Sequence, SequenceWriteList, SequenceList]):
     folder_name = "classic"
-    filename_pattern = r"^.*\.Sequence$"
     resource_cls = Sequence
     resource_write_cls = SequenceWrite
     list_cls = SequenceList
@@ -369,7 +367,6 @@ class SequenceRowCRUD(
     ]
 ):
     folder_name = "classic"
-    filename_pattern = r"^.*\.SequenceRow$"
     resource_cls = ToolkitSequenceRows
     resource_write_cls = ToolkitSequenceRowsWrite
     list_cls = ToolkitSequenceRowsList
@@ -497,7 +494,6 @@ class SequenceRowCRUD(
 @final
 class EventCRUD(ResourceCRUD[str, EventWrite, Event, EventWriteList, EventList]):
     folder_name = "classic"
-    filename_pattern = r"^.*\.Event$"  # Matches all yaml files whose stem ends with '.Event'.
     filetypes = frozenset({"yaml", "yml"})
     resource_cls = Event
     resource_write_cls = EventWrite
