@@ -181,7 +181,9 @@ class TestFormatConsistency:
                 f"Skipping {loader.resource_cls} because FakeCogniteResourceGenerator doesn't generate cls properties correctly"
             )
 
-        instances = FakeCogniteResourceGenerator(seed=1337).create_instances(loader.list_write_cls)
+        instances = [
+            FakeCogniteResourceGenerator(seed=1337).create_instances(loader.resource_write_cls) for _ in range(3)
+        ]
 
         # special case
         if isinstance(loader.resource_cls, TransformationSchedule):
@@ -423,7 +425,7 @@ class TestResourceCRUDs:
     def test_empty_required_capabilities_when_no_items(
         self, loader_cls: type[ResourceCRUD], env_vars_with_client: EnvironmentVariables
     ):
-        actual = loader_cls.get_required_capability(loader_cls.list_write_cls([]), read_only=False)
+        actual = loader_cls.get_required_capability([], read_only=False)
 
         assert actual == []
 
