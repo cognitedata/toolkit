@@ -188,7 +188,7 @@ class ResourceCRUD(Loader, ABC, Generic[T_ID, T_ResourceRequest, T_ResourceRespo
         raise NotImplementedError
 
     @abstractmethod
-    def retrieve(self, ids: SequenceNotStr[T_ID]) -> list[T_ResourceResponse]:
+    def retrieve(self, ids: SequenceNotStr[T_ID]) -> Sequence[T_ResourceResponse]:
         raise NotImplementedError
 
     def update(self, items: Sequence[T_ResourceRequest]) -> Sized:
