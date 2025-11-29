@@ -57,15 +57,11 @@ from .datamodel import SpaceCRUD, ViewCRUD
 
 
 @final
-class FileMetadataCRUD(
-    ResourceContainerCRUD[str, FileMetadataWrite, FileMetadata, FileMetadataWriteList, FileMetadataList]
-):
+class FileMetadataCRUD(ResourceContainerCRUD[str, FileMetadataWrite, FileMetadata]):
     item_name = "file contents"
     folder_name = "files"
     resource_cls = FileMetadata
     resource_write_cls = FileMetadataWrite
-    list_cls = FileMetadataList
-    list_write_cls = FileMetadataWriteList
     yaml_cls = FileMetadataYAML
     kind = "FileMetadata"
     dependencies = frozenset({DataSetsCRUD, GroupAllScopedCRUD, LabelCRUD, AssetCRUD})
@@ -193,23 +189,13 @@ class FileMetadataCRUD(
 
 
 @final
-class CogniteFileCRUD(
-    ResourceContainerCRUD[
-        NodeId,
-        ExtendableCogniteFileApply,
-        ExtendableCogniteFile,
-        ExtendableCogniteFileApplyList,
-        ExtendableCogniteFileList,
-    ]
-):
+class CogniteFileCRUD(ResourceContainerCRUD[NodeId, ExtendableCogniteFileApply, ExtendableCogniteFile]):
     template_pattern = "$FILENAME"
     item_name = "file contents"
     folder_name = "files"
     kind = "CogniteFile"
     resource_cls = ExtendableCogniteFile
     resource_write_cls = ExtendableCogniteFileApply
-    list_cls = ExtendableCogniteFileList
-    list_write_cls = ExtendableCogniteFileApplyList
     yaml_cls = CogniteFileYAML
     dependencies = frozenset({GroupAllScopedCRUD, SpaceCRUD, ViewCRUD})
 

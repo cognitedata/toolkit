@@ -118,13 +118,11 @@ from .auth import GroupAllScopedCRUD
 
 
 @final
-class SpaceCRUD(ResourceContainerCRUD[str, SpaceApply, Space, SpaceApplyList, SpaceList]):
+class SpaceCRUD(ResourceContainerCRUD[str, SpaceApply, Space]):
     item_name = "nodes and edges"
     folder_name = "data_modeling"
     resource_cls = Space
     resource_write_cls = SpaceApply
-    list_write_cls = SpaceApplyList
-    list_cls = SpaceList
     kind = "Space"
     yaml_cls = SpaceYAML
     dependencies = frozenset({GroupAllScopedCRUD})
@@ -249,13 +247,11 @@ class SpaceCRUD(ResourceContainerCRUD[str, SpaceApply, Space, SpaceApplyList, Sp
             yield instances.as_ids()
 
 
-class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerApply, Container, ContainerApplyList, ContainerList]):
+class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerApply, Container]):
     item_name = "nodes and edges"
     folder_name = "data_modeling"
     resource_cls = Container
     resource_write_cls = ContainerApply
-    list_cls = ContainerList
-    list_write_cls = ContainerApplyList
     kind = "Container"
     dependencies = frozenset({SpaceCRUD})
     yaml_cls = ContainerYAML
@@ -983,13 +979,11 @@ class DataModelCRUD(ResourceCRUD[DataModelId, DataModelApply, DataModel]):
 
 
 @final
-class NodeCRUD(ResourceContainerCRUD[NodeId, NodeApply, Node, NodeApplyList, NodeList]):
+class NodeCRUD(ResourceContainerCRUD[NodeId, NodeApply, Node]):
     item_name = "nodes"
     folder_name = "data_modeling"
     resource_cls = Node
     resource_write_cls = NodeApply
-    list_cls = NodeList
-    list_write_cls = NodeApplyList
     kind = "Node"
     yaml_cls = NodeYAML
     dependencies = frozenset({SpaceCRUD, ViewCRUD, ContainerCRUD})
@@ -1139,16 +1133,10 @@ class NodeCRUD(ResourceContainerCRUD[NodeId, NodeApply, Node, NodeApplyList, Nod
         return sanitize_filename(f"{id.space}_{id.external_id}")
 
 
-class GraphQLCRUD(
-    ResourceContainerCRUD[
-        DataModelId, GraphQLDataModelWrite, GraphQLDataModel, GraphQLDataModelWriteList, GraphQLDataModelList
-    ]
-):
+class GraphQLCRUD(ResourceContainerCRUD[DataModelId, GraphQLDataModelWrite, GraphQLDataModel]):
     folder_name = "data_modeling"
     resource_cls = GraphQLDataModel
     resource_write_cls = GraphQLDataModelWrite
-    list_cls = GraphQLDataModelList
-    list_write_cls = GraphQLDataModelWriteList
     kind = "GraphQLSchema"
     dependencies = frozenset({SpaceCRUD, ContainerCRUD})
     item_name = "views"
@@ -1341,13 +1329,11 @@ class GraphQLCRUD(
 
 
 @final
-class EdgeCRUD(ResourceContainerCRUD[EdgeId, EdgeApply, Edge, EdgeApplyList, EdgeList]):
+class EdgeCRUD(ResourceContainerCRUD[EdgeId, EdgeApply, Edge]):
     item_name = "edges"
     folder_name = "data_modeling"
     resource_cls = Edge
     resource_write_cls = EdgeApply
-    list_cls = EdgeList
-    list_write_cls = EdgeApplyList
     kind = "Edge"
     yaml_cls = EdgeYAML
     dependencies = frozenset({SpaceCRUD, ViewCRUD, ContainerCRUD, NodeCRUD})
