@@ -3,8 +3,8 @@ from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from ._annotations import AnnotationIO
 from ._applications import CanvasIO, ChartIO
 from ._asset_centric import (
+    AssetCentricIO,
     AssetIO,
-    BaseAssetCentricIO,
     EventIO,
     FileMetadataIO,
     HierarchyIO,
@@ -42,8 +42,8 @@ def get_upload_io(selector_cls: type[DataSelector]) -> type[UploadableStorageIO]
 
 __all__ = [
     "AnnotationIO",
+    "AssetCentricIO",
     "AssetIO",
-    "BaseAssetCentricIO",
     "CanvasIO",
     "ChartIO",
     "ConfigurableStorageIO",
