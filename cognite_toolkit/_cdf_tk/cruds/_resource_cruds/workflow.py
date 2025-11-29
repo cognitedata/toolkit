@@ -33,8 +33,12 @@ from cognite.client.data_classes.capabilities import (
     Capability,
     WorkflowOrchestrationAcl,
 )
-from cognite.client.data_classes.workflows import SubworkflowReferenceParameters, WorkflowTriggerList, \
-    WorkflowVersionList, WorkflowList
+from cognite.client.data_classes.workflows import (
+    SubworkflowReferenceParameters,
+    WorkflowList,
+    WorkflowTriggerList,
+    WorkflowVersionList,
+)
 from cognite.client.exceptions import CogniteAuthError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
@@ -135,10 +139,10 @@ class WorkflowCRUD(ResourceCRUD[str, WorkflowUpsert, Workflow]):
     def retrieve(self, ids: SequenceNotStr[str]) -> Sequence[Workflow]:
         return self.client.workflows.retrieve(external_id=ids, ignore_unknown_ids=True)
 
-    def create(self, items: Sequence[Workflow]) -> WorkflowList:
+    def create(self, items: Sequence[WorkflowUpsert]) -> WorkflowList:
         return self.client.workflows.upsert(items)
 
-    def update(self, items: Sequence[Workflow]) -> WorkflowList:
+    def update(self, items: Sequence[WorkflowUpsert]) -> WorkflowList:
         return self.client.workflows.upsert(items)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
