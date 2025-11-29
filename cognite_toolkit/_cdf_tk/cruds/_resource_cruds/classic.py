@@ -405,7 +405,7 @@ class SequenceRowCRUD(ResourceCRUD[str, ToolkitSequenceRowsWrite, ToolkitSequenc
         # We don't have any capabilities for SequenceRows, that is already handled by the Sequence
         return []
 
-    def create(self, items: ToolkitSequenceRowsWriteList) -> ToolkitSequenceRowsWriteList:
+    def create(self, items: Sequence[ToolkitSequenceRowsWrite]) -> ToolkitSequenceRowsWriteList:
         item: ToolkitSequenceRowsWrite
         for item in items:
             self.client.sequences.rows.insert(item.as_sequence_rows(), external_id=item.external_id)

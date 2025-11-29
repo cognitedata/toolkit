@@ -154,7 +154,7 @@ class StreamlitCRUD(ResourceCRUD[str, StreamlitWrite, Streamlit]):
                 missing.append(recommended.name)
         return missing
 
-    def create(self, items: StreamlitWriteList) -> StreamlitList:
+    def create(self, items: Sequence[StreamlitWrite]) -> StreamlitList:
         created = StreamlitList([])
         for item in items:
             content = self._as_json_string(item.external_id, item.entrypoint)
@@ -169,7 +169,7 @@ class StreamlitCRUD(ResourceCRUD[str, StreamlitWrite, Streamlit]):
         files = self.client.files.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
         return StreamlitList([Streamlit.from_file(file) for file in files])
 
-    def update(self, items: StreamlitWriteList) -> StreamlitList:
+    def update(self, items: Sequence[StreamlitWrite]) -> StreamlitList:
         files = []
         for item in items:
             content = self._as_json_string(item.external_id, item.entrypoint)

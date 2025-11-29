@@ -561,7 +561,7 @@ class TransformationScheduleCRUD(
     def retrieve(self, ids: SequenceNotStr[str]) -> TransformationScheduleList:
         return self.client.transformations.schedules.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
-    def update(self, items: TransformationScheduleWriteList) -> TransformationScheduleList:
+    def update(self, items: Sequence[TransformationScheduleWrite]) -> TransformationScheduleList:
         return self.client.transformations.schedules.update(items, mode="replace")
 
     def delete(self, ids: str | SequenceNotStr[str] | None) -> int:

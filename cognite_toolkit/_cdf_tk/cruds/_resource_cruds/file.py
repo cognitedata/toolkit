@@ -275,7 +275,7 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, ExtendableCogniteFileApply, 
             return diff_list_identifiable(local, cdf, get_identifier=dm_identifier)
         return super().diff_list(local, cdf, json_path)
 
-    def create(self, items: ExtendableCogniteFileApplyList) -> NodeApplyResultList:
+    def create(self, items: Sequence[ExtendableCogniteFileApply]) -> NodeApplyResultList:
         created = self.client.data_modeling.instances.apply(
             nodes=items, replace=False, skip_on_version_conflict=True, auto_create_direct_relations=True
         )
@@ -291,7 +291,7 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, ExtendableCogniteFileApply, 
         )
         return ExtendableCogniteFileList(items)
 
-    def update(self, items: ExtendableCogniteFileApplyList) -> NodeApplyResultList:
+    def update(self, items: Sequence[ExtendableCogniteFileApply]) -> NodeApplyResultList:
         updated = self.client.data_modeling.instances.apply(nodes=items, replace=True)
         return updated.nodes
 

@@ -929,13 +929,13 @@ class DataModelCRUD(ResourceCRUD[DataModelId, DataModelApply, DataModel]):
             return diff_list_identifiable(local, cdf, get_identifier=dm_identifier)
         return super().diff_list(local, cdf, json_path)
 
-    def create(self, items: DataModelApplyList) -> DataModelList:
+    def create(self, items: Sequence[DataModelApply]) -> DataModelList:
         return self.client.data_modeling.data_models.apply(items)
 
     def retrieve(self, ids: SequenceNotStr[DataModelId]) -> DataModelList:
         return self.client.data_modeling.data_models.retrieve(cast(Sequence, ids))
 
-    def update(self, items: DataModelApplyList) -> DataModelList:
+    def update(self, items: Sequence[DataModelApply]) -> DataModelList:
         updated = self.create(items)
         # There is a bug in the API not raising an exception if view is removed from a data model.
         # So we check here that the update was fixed.
@@ -1084,7 +1084,7 @@ class NodeCRUD(ResourceContainerCRUD[NodeId, NodeApply, Node]):
 
         return dumped
 
-    def create(self, items: NodeApplyList) -> NodeApplyResultList:
+    def create(self, items: Sequence[NodeApply]) -> NodeApplyResultList:
         result = self.client.data_modeling.instances.apply(
             # Note replace should never be relevant as Toolkit always checks whether the node exists before applying.
             nodes=items,
@@ -1096,7 +1096,7 @@ class NodeCRUD(ResourceContainerCRUD[NodeId, NodeApply, Node]):
     def retrieve(self, ids: SequenceNotStr[NodeId]) -> NodeList:
         return self.client.data_modeling.instances.retrieve(nodes=cast(Sequence, ids), sources=self.view_id).nodes
 
-    def update(self, items: NodeApplyList) -> NodeApplyResultList:
+    def update(self, items: Sequence[NodeApply]) -> NodeApplyResultList:
         result = self.client.data_modeling.instances.apply(
             nodes=items, auto_create_direct_relations=True, replace=False
         )
@@ -1250,7 +1250,7 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelId, GraphQLDataModelWrite, Grap
             dumped["graphqlFile"] = match.group(3)
         return dumped
 
-    def create(self, items: GraphQLDataModelWriteList) -> list[DMLApplyResult]:
+    def create(self, items: Sequence[GraphQLDataModelWrite]) -> list[DMLApplyResult]:
         creation_order = self._topological_sort(items)
 
         created_list: list[DMLApplyResult] = []
@@ -1281,7 +1281,7 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelId, GraphQLDataModelWrite, Grap
         result = self.client.data_modeling.data_models.retrieve(list(ids), inline_views=False)
         return GraphQLDataModelList([GraphQLDataModel._load(d.dump()) for d in result])
 
-    def update(self, items: GraphQLDataModelWriteList) -> list[DMLApplyResult]:
+    def update(self, items: Sequence[GraphQLDataModelWrite]) -> list[DMLApplyResult]:
         return self.create(items)
 
     def delete(self, ids: SequenceNotStr[DataModelId]) -> int:
@@ -1424,7 +1424,7 @@ class EdgeCRUD(ResourceContainerCRUD[EdgeId, EdgeApply, Edge]):
 
         return dumped
 
-    def create(self, items: EdgeApplyList) -> EdgeApplyResultList:
+    def create(self, items: Sequence[EdgeApply]) -> EdgeApplyResultList:
         result = self.client.data_modeling.instances.apply(
             edges=items, auto_create_direct_relations=True, replace=False
         )
@@ -1433,7 +1433,7 @@ class EdgeCRUD(ResourceContainerCRUD[EdgeId, EdgeApply, Edge]):
     def retrieve(self, ids: SequenceNotStr[EdgeId]) -> EdgeList:
         return self.client.data_modeling.instances.retrieve(nodes=cast(Sequence, ids)).edges
 
-    def update(self, items: EdgeApplyList) -> EdgeApplyResultList:
+    def update(self, items: Sequence[EdgeApply]) -> EdgeApplyResultList:
         result = self.client.data_modeling.instances.apply(
             edges=items, auto_create_direct_relations=False, replace=True
         )

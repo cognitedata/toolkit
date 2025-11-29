@@ -174,7 +174,7 @@ class ExtractionPipelineCRUD(
     def retrieve(self, ids: SequenceNotStr[str]) -> ExtractionPipelineList:
         return self.client.extraction_pipelines.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
-    def update(self, items: ExtractionPipelineWriteList) -> ExtractionPipelineList:
+    def update(self, items: Sequence[ExtractionPipelineWrite]) -> ExtractionPipelineList:
         # Bug in SDK overload so need the ignore.
         return self.client.extraction_pipelines.update(items, mode="replace")  # type: ignore[call-overload]
 
@@ -346,11 +346,11 @@ class ExtractionPipelineConfigCRUD(
             upserted.append(created)
         return upserted
 
-    def create(self, items: ExtractionPipelineConfigWriteList) -> ExtractionPipelineConfigList:
+    def create(self, items: Sequence[ExtractionPipelineConfigWrite]) -> ExtractionPipelineConfigList:
         return self._upsert(items)
 
     # configs cannot be updated, instead new revision is created
-    def update(self, items: ExtractionPipelineConfigWriteList) -> ExtractionPipelineConfigList:
+    def update(self, items: Sequence[ExtractionPipelineConfigWrite]) -> ExtractionPipelineConfigList:
         return self._upsert(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> ExtractionPipelineConfigList:
