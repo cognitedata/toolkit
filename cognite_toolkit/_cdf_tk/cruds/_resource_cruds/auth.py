@@ -526,7 +526,7 @@ class SecurityCategoryCRUD(ResourceCRUD[str, SecurityCategoryWrite, SecurityCate
             SecurityCategoriesAcl.Scope.All(),
         )
 
-    def create(self, items: SecurityCategoryWriteList) -> SecurityCategoryList:
+    def create(self, items: Sequence[SecurityCategoryWrite]) -> SecurityCategoryList:
         return self.client.iam.security_categories.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> SecurityCategoryList:
@@ -534,7 +534,7 @@ class SecurityCategoryCRUD(ResourceCRUD[str, SecurityCategoryWrite, SecurityCate
         categories = self.client.iam.security_categories.list(limit=-1)
         return SecurityCategoryList([c for c in categories if c.name in names])
 
-    def update(self, items: SecurityCategoryWriteList) -> SecurityCategoryList:
+    def update(self, items: Sequence[SecurityCategoryWrite]) -> SecurityCategoryList:
         items_by_name = {item.name: item for item in items}
         retrieved = self.retrieve(list(items_by_name.keys()))
         retrieved_by_name = {item.name: item for item in retrieved}

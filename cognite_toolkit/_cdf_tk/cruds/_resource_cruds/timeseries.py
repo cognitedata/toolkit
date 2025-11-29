@@ -122,7 +122,7 @@ class TimeSeriesCRUD(ResourceContainerCRUD[str, TimeSeriesWrite, TimeSeries]):
             dumped["assetExternalId"] = self.client.lookup.assets.external_id(asset_id)
         return dumped
 
-    def create(self, items: TimeSeriesWriteList) -> TimeSeriesList:
+    def create(self, items: Sequence[TimeSeriesWrite]) -> TimeSeriesList:
         return self.client.time_series.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str | int]) -> TimeSeriesList:
@@ -131,7 +131,7 @@ class TimeSeriesCRUD(ResourceContainerCRUD[str, TimeSeriesWrite, TimeSeries]):
             ids=internal_ids, external_ids=external_ids, ignore_unknown_ids=True
         )
 
-    def update(self, items: TimeSeriesWriteList) -> TimeSeriesList:
+    def update(self, items: Sequence[TimeSeriesWrite]) -> TimeSeriesList:
         return self.client.time_series.update(items, mode="replace")
 
     def delete(self, ids: SequenceNotStr[str | int]) -> int:
@@ -245,7 +245,7 @@ class DatapointSubscriptionCRUD(
 
         return TimeSeriesSubscriptionsAcl(actions, scope)
 
-    def create(self, items: DatapointSubscriptionWriteList) -> DatapointSubscriptionList:
+    def create(self, items: Sequence[DataPointSubscriptionWrite]) -> DatapointSubscriptionList:
         created_list = DatapointSubscriptionList([])
         for item in items:
             to_create, batches = self.create_split_timeseries_ids(item)
@@ -263,7 +263,7 @@ class DatapointSubscriptionCRUD(
                 items.append(retrieved)
         return items
 
-    def update(self, items: DatapointSubscriptionWriteList) -> DatapointSubscriptionList:
+    def update(self, items: Sequence[DataPointSubscriptionWrite]) -> DatapointSubscriptionList:
         updated_list = DatapointSubscriptionList([])
         for item in items:
             current = self.client.time_series.subscriptions.list_member_time_series(item.external_id, limit=-1)

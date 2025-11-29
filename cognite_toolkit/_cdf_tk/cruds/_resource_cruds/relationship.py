@@ -72,13 +72,13 @@ class RelationshipCRUD(ResourceCRUD[str, RelationshipWrite, Relationship]):
 
         return capabilities.RelationshipsAcl(actions, scope)
 
-    def create(self, items: RelationshipWriteList) -> RelationshipList:
+    def create(self, items: Sequence[RelationshipWrite]) -> RelationshipList:
         return self.client.relationships.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> RelationshipList:
         return self.client.relationships.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
-    def update(self, items: RelationshipWriteList) -> RelationshipList:
+    def update(self, items: Sequence[RelationshipWrite]) -> RelationshipList:
         return self.client.relationships.update(items)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:

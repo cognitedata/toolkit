@@ -82,13 +82,13 @@ class RoboticFrameCRUD(ResourceCRUD[str, FrameWrite, Frame]):
             capabilities.RoboticsAcl.Scope.All(),
         )
 
-    def create(self, items: FrameWriteList) -> FrameList:
+    def create(self, items: Sequence[FrameWrite]) -> FrameList:
         return self.client.robotics.frames.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> FrameList:
         return _fallback_to_one_by_one(self.client.robotics.frames.retrieve, ids, FrameList)
 
-    def update(self, items: FrameWriteList) -> FrameList:
+    def update(self, items: Sequence[FrameWrite]) -> FrameList:
         return self.client.robotics.frames.update(items)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
@@ -152,13 +152,13 @@ class RoboticLocationCRUD(ResourceCRUD[str, LocationWrite, Location]):
 
         return capabilities.RoboticsAcl(actions, capabilities.RoboticsAcl.Scope.All())
 
-    def create(self, items: LocationWriteList) -> LocationList:
+    def create(self, items: Sequence[LocationWrite]) -> LocationList:
         return self.client.robotics.locations.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> LocationList:
         return _fallback_to_one_by_one(self.client.robotics.locations.retrieve, ids, LocationList)
 
-    def update(self, items: LocationWriteList) -> LocationList:
+    def update(self, items: Sequence[LocationWrite]) -> LocationList:
         return self.client.robotics.locations.update(items)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
@@ -222,13 +222,13 @@ class RoboticsDataPostProcessingCRUD(ResourceCRUD[str, DataPostProcessingWrite, 
 
         return capabilities.RoboticsAcl(actions, capabilities.RoboticsAcl.Scope.All())
 
-    def create(self, items: DataPostProcessingWriteList) -> DataPostProcessingList:
+    def create(self, items: Sequence[DataPostProcessingWrite]) -> DataPostProcessingList:
         return self.client.robotics.data_postprocessing.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> DataPostProcessingList:
         return _fallback_to_one_by_one(self.client.robotics.data_postprocessing.retrieve, ids, DataPostProcessingList)
 
-    def update(self, items: DataPostProcessingWriteList) -> DataPostProcessingList:
+    def update(self, items: Sequence[DataPostProcessingWrite]) -> DataPostProcessingList:
         # There is a bug in the /update endpoint that requires the input_schema to be a string
         # and not an object. This is a workaround until the bug is fixed.
         # We do the serialization to avoid modifying the original object.
@@ -311,13 +311,13 @@ class RobotCapabilityCRUD(ResourceCRUD[str, RobotCapabilityWrite, RobotCapabilit
 
         return capabilities.RoboticsAcl(actions, capabilities.RoboticsAcl.Scope.All())
 
-    def create(self, items: RobotCapabilityWriteList) -> RobotCapabilityList:
+    def create(self, items: Sequence[RobotCapabilityWrite]) -> RobotCapabilityList:
         return self.client.robotics.capabilities.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> RobotCapabilityList:
         return _fallback_to_one_by_one(self.client.robotics.capabilities.retrieve, ids, RobotCapabilityList)
 
-    def update(self, items: RobotCapabilityWriteList) -> RobotCapabilityList:
+    def update(self, items: Sequence[RobotCapabilityWrite]) -> RobotCapabilityList:
         # There is a bug in the /update endpoint that requires the input_schema to be a string
         # and not an object. This is a workaround until the bug is fixed.
         # We do the serialization to avoid modifying the original object.
@@ -413,13 +413,13 @@ class RoboticMapCRUD(ResourceCRUD[str, MapWrite, Map]):
             del dump["scale"]
         return dump
 
-    def create(self, items: MapWriteList) -> MapList:
+    def create(self, items: Sequence[MapWrite]) -> MapList:
         return self.client.robotics.maps.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> MapList:
         return _fallback_to_one_by_one(self.client.robotics.maps.retrieve, ids, MapList)
 
-    def update(self, items: MapWriteList) -> MapList:
+    def update(self, items: Sequence[MapWrite]) -> MapList:
         return self.client.robotics.maps.update(items)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:

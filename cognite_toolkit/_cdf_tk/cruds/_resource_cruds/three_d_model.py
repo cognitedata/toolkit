@@ -80,7 +80,7 @@ class ThreeDModelCRUD(ResourceContainerCRUD[str, ThreeDModelWrite, ThreeDModel])
 
         return capabilities.ThreeDAcl(actions, scope)
 
-    def create(self, items: ThreeDModelWriteList) -> ThreeDModelList:
+    def create(self, items: Sequence[ThreeDModelWrite]) -> ThreeDModelList:
         created = ThreeDModelList([])
         for item in items:
             new_item = self.client.three_d.models.create(**item.dump(camel_case=False))
@@ -102,7 +102,7 @@ class ThreeDModelCRUD(ResourceContainerCRUD[str, ThreeDModelWrite, ThreeDModel])
                     break
         return output
 
-    def update(self, items: ThreeDModelWriteList) -> ThreeDModelList:
+    def update(self, items: Sequence[ThreeDModelWrite]) -> ThreeDModelList:
         found = self.retrieve([item.name for item in items])
         id_by_name = {model.name: model.id for model in found}
         # 3D Model does not have an external identifier, only internal.

@@ -57,7 +57,7 @@ class StreamCRUD(ResourceCRUD[str, StreamRequest, StreamResponse]):
         )
         return StreamsAcl(actions, StreamsAcl.Scope.All())
 
-    def create(self, items: StreamRequestList) -> StreamResponseList:
+    def create(self, items: Sequence[StreamRequest]) -> StreamResponseList:
         created = self.client.streams.create(list(items))
         return StreamResponseList(created)
 
