@@ -18,13 +18,11 @@ from .datamodel import ContainerCRUD
 
 
 @final
-class StreamCRUD(ResourceCRUD[str, StreamRequest, StreamResponse, StreamRequestList, StreamResponseList]):
+class StreamCRUD(ResourceCRUD[str, StreamRequest, StreamResponse]):
     folder_name = "streams"
     filetypes = frozenset({"yaml", "yml"})
     resource_cls = StreamResponse
     resource_write_cls = StreamRequest
-    list_cls = StreamResponseList
-    list_write_cls = StreamRequestList
     kind = "Streams"
     yaml_cls = StreamYAML
     dependencies = frozenset({ContainerCRUD})

@@ -20,12 +20,10 @@ from .data_organization import DataSetsCRUD
 
 
 @final
-class ThreeDModelCRUD(ResourceContainerCRUD[str, ThreeDModelWrite, ThreeDModel, ThreeDModelWriteList, ThreeDModelList]):
+class ThreeDModelCRUD(ResourceContainerCRUD[str, ThreeDModelWrite, ThreeDModel]):
     folder_name = "3dmodels"
     resource_cls = ThreeDModel
     resource_write_cls = ThreeDModelWrite
-    list_cls = ThreeDModelList
-    list_write_cls = ThreeDModelWriteList
     kind = "3DModel"
     yaml_cls = ThreeDModelYAML
     dependencies = frozenset({DataSetsCRUD})
