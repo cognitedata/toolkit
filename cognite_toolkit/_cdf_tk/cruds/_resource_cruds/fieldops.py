@@ -12,7 +12,6 @@ from cognite_toolkit._cdf_tk.client.data_classes.apm_config_v1 import (
     APMConfig,
     APMConfigList,
     APMConfigWrite,
-    APMConfigWriteList,
 )
 from cognite_toolkit._cdf_tk.client.data_classes.infield import InfieldLocationConfig, InfieldLocationConfigList
 from cognite_toolkit._cdf_tk.client.data_classes.instance_api import InstanceResult, NodeIdentifier

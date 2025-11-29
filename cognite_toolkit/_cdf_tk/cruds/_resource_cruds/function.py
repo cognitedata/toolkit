@@ -12,9 +12,7 @@ from cognite.client.data_classes import (
     FunctionSchedule,
     FunctionSchedulesList,
     FunctionScheduleWrite,
-    FunctionScheduleWriteList,
     FunctionWrite,
-    FunctionWriteList,
 )
 from cognite.client.data_classes.capabilities import (
     AllScope,

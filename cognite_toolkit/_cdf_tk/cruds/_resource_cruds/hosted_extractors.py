@@ -8,21 +8,17 @@ from cognite.client.data_classes.hosted_extractors import (
     Destination,
     DestinationList,
     DestinationWrite,
-    DestinationWriteList,
     EventHubSourceWrite,
     Job,
     JobList,
     JobWrite,
-    JobWriteList,
     KafkaSourceWrite,
     Mapping,
     MappingList,
     MappingWrite,
-    MappingWriteList,
     Source,
     SourceList,
     SourceWrite,
-    SourceWriteList,
 )
 from cognite.client.data_classes.hosted_extractors.sources import (
     AuthenticationWrite,
@@ -148,9 +144,7 @@ class HostedExtractorSourceCRUD(ResourceCRUD[str, SourceWrite, Source]):
             yield auth.client_secret
 
 
-class HostedExtractorDestinationCRUD(
-    ResourceCRUD[str, DestinationWrite, Destination]
-):
+class HostedExtractorDestinationCRUD(ResourceCRUD[str, DestinationWrite, Destination]):
     folder_name = "hosted_extractors"
     resource_cls = Destination
     resource_write_cls = DestinationWrite

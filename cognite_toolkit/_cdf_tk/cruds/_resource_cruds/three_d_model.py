@@ -6,7 +6,6 @@ from cognite.client.data_classes import (
     ThreeDModelList,
     ThreeDModelUpdate,
     ThreeDModelWrite,
-    ThreeDModelWriteList,
     capabilities,
 )
 from cognite.client.data_classes.capabilities import Capability

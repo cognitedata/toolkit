@@ -21,7 +21,6 @@ from cognite.client.data_classes import (
     DataSet,
     DataSetList,
     DataSetWrite,
-    DataSetWriteList,
     LabelDefinition,
     LabelDefinitionList,
     LabelDefinitionWrite,
@@ -31,7 +30,6 @@ from cognite.client.data_classes.capabilities import (
     Capability,
     DataSetsAcl,
 )
-from cognite.client.data_classes.labels import LabelDefinitionWriteList
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 
@@ -156,9 +154,7 @@ class DataSetsCRUD(ResourceCRUD[str, DataSetWrite, DataSet]):
 
 
 @final
-class LabelCRUD(
-    ResourceCRUD[str, LabelDefinitionWrite, LabelDefinition]
-):
+class LabelCRUD(ResourceCRUD[str, LabelDefinitionWrite, LabelDefinition]):
     folder_name = "classic"
     resource_cls = LabelDefinition
     resource_write_cls = LabelDefinitionWrite

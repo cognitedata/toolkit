@@ -30,9 +30,7 @@ from cognite.client.data_classes.capabilities import (
 from cognite.client.data_classes.extractionpipelines import (
     ExtractionPipelineConfigList,
     ExtractionPipelineConfigWrite,
-    ExtractionPipelineConfigWriteList,
     ExtractionPipelineWrite,
-    ExtractionPipelineWriteList,
 )
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
@@ -61,9 +59,7 @@ from .raw import RawDatabaseCRUD, RawTableCRUD
 
 
 @final
-class ExtractionPipelineCRUD(
-    ResourceCRUD[str, ExtractionPipelineWrite, ExtractionPipeline]
-):
+class ExtractionPipelineCRUD(ResourceCRUD[str, ExtractionPipelineWrite, ExtractionPipeline]):
     folder_name = "extraction_pipelines"
     resource_cls = ExtractionPipeline
     resource_write_cls = ExtractionPipelineWrite

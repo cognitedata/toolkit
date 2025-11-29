@@ -11,7 +11,6 @@ from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
     LocationFilter,
     LocationFilterList,
     LocationFilterWrite,
-    LocationFilterWriteList,
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
@@ -28,9 +27,7 @@ from .timeseries import TimeSeriesCRUD
 
 
 @final
-class LocationFilterCRUD(
-    ResourceCRUD[str, LocationFilterWrite, LocationFilter]
-):
+class LocationFilterCRUD(ResourceCRUD[str, LocationFilterWrite, LocationFilter]):
     folder_name = "locations"
     resource_cls = LocationFilter
     resource_write_cls = LocationFilterWrite

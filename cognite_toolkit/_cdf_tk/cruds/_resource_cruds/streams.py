@@ -6,7 +6,6 @@ from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.data_classes.streams import (
     StreamRequest,
-    StreamRequestList,
     StreamResponse,
     StreamResponseList,
 )

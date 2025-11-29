@@ -11,7 +11,6 @@ from cognite_toolkit._cdf_tk.client.data_classes.search_config import (
     SearchConfig,
     SearchConfigList,
     SearchConfigWrite,
-    SearchConfigWriteList,
     ViewId,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD

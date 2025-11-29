@@ -18,7 +18,6 @@ from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import (
     Streamlit,
     StreamlitList,
     StreamlitWrite,
-    StreamlitWriteList,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotADirectoryError, ToolkitRequiredValueError

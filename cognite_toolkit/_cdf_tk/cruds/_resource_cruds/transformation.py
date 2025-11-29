@@ -43,7 +43,6 @@ from cognite.client.data_classes import (
     TransformationSchedule,
     TransformationScheduleList,
     TransformationScheduleWrite,
-    TransformationScheduleWriteList,
     TransformationWrite,
 )
 from cognite.client.data_classes.capabilities import (
@@ -57,7 +56,6 @@ from cognite.client.data_classes.data_modeling.ids import (
 from cognite.client.data_classes.transformations import NonceCredentials
 from cognite.client.data_classes.transformations.notifications import (
     TransformationNotificationWrite,
-    TransformationNotificationWriteList,
 )
 from cognite.client.exceptions import CogniteAPIError, CogniteAuthError, CogniteDuplicatedError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
@@ -102,9 +100,7 @@ from .raw import RawDatabaseCRUD, RawTableCRUD
 
 
 @final
-class TransformationCRUD(
-    ResourceCRUD[str, TransformationWrite, Transformation]
-):
+class TransformationCRUD(ResourceCRUD[str, TransformationWrite, Transformation]):
     folder_name = "transformations"
     resource_cls = Transformation
     resource_write_cls = TransformationWrite

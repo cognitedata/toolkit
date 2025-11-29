@@ -9,11 +9,9 @@ from cognite.client.data_classes import (
     DatapointSubscriptionList,
     DataPointSubscriptionUpdate,
     DataPointSubscriptionWrite,
-    DatapointSubscriptionWriteList,
     TimeSeries,
     TimeSeriesList,
     TimeSeriesWrite,
-    TimeSeriesWriteList,
 )
 from cognite.client.data_classes.capabilities import (
     Capability,

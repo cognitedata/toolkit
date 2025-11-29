@@ -29,8 +29,6 @@ from cognite_toolkit._cdf_tk.cruds import (
     ResourceCRUD,
     StreamlitCRUD,
 )
-from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
-from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest,T_ResourceResponse
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
     BuildVariable,
@@ -44,6 +42,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     YAMLComments,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitMissingResourceError, ToolkitValueError
+from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     YAMLComment,
@@ -59,6 +58,7 @@ from cognite_toolkit._cdf_tk.utils.modules import (
     module_directory_from_path,
     parse_user_selected_modules,
 )
+from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
 
 from ._base import ToolkitCommand
 from .build_cmd import BuildCommand

@@ -3,7 +3,7 @@ from typing import Any, final
 
 from cognite.client.data_classes import capabilities
 from cognite.client.data_classes.capabilities import Capability
-from cognite.client.data_classes.data_modeling import NodeApplyList, NodeList, ViewId
+from cognite.client.data_classes.data_modeling import NodeList, ViewId
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.data_classes.migration import (
@@ -19,9 +19,7 @@ from .datamodel import SpaceCRUD, ViewCRUD
 
 
 @final
-class ResourceViewMappingCRUD(
-    ResourceCRUD[str, ResourceViewMappingApply, ResourceViewMapping]
-):
+class ResourceViewMappingCRUD(ResourceCRUD[str, ResourceViewMappingApply, ResourceViewMapping]):
     folder_name = "migration"
     filetypes = frozenset({"yaml", "yml"})
     resource_cls = ResourceViewMapping

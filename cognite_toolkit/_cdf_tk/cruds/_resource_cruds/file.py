@@ -21,7 +21,6 @@ from cognite.client.data_classes import (
     FileMetadata,
     FileMetadataList,
     FileMetadataWrite,
-    FileMetadataWriteList,
 )
 from cognite.client.data_classes.capabilities import (
     Capability,
@@ -37,7 +36,6 @@ from rich import print
 from cognite_toolkit._cdf_tk.client.data_classes.extendable_cognite_file import (
     ExtendableCogniteFile,
     ExtendableCogniteFileApply,
-    ExtendableCogniteFileApplyList,
     ExtendableCogniteFileList,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD

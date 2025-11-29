@@ -30,11 +30,9 @@ from cognite.client.data_classes.iam import (
     Group,
     GroupList,
     GroupWrite,
-    GroupWriteList,
     SecurityCategory,
     SecurityCategoryList,
     SecurityCategoryWrite,
-    SecurityCategoryWriteList,
 )
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr

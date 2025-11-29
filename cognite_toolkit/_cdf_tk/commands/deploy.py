@@ -46,9 +46,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.protocols import (
     T_ResourceRequest,
-    T_ResourceRequestList,
     T_ResourceResponse,
-    T_ResourceResponseList,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning
 from cognite_toolkit._cdf_tk.tk_warnings.base import WarningList, catch_warnings
