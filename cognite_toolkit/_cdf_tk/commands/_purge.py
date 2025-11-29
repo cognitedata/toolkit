@@ -7,7 +7,7 @@ from typing import Literal, cast
 
 import questionary
 from cognite.client.data_classes import DataSetUpdate
-from cognite.client.data_classes.data_modeling import Edge, NodeId, NodeList
+from cognite.client.data_classes.data_modeling import Edge, NodeId
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils._identifier import InstanceId
@@ -145,7 +145,8 @@ class NodesToDelete(ToDelete):
         self, client: ToolkitClient, console: Console, verbose: bool, process_results: ResourceDeployResult
     ) -> Callable[[list[ResourceResponseProtocol]], list[JsonVal]]:
         def check_for_data(chunk: list[ResourceResponseProtocol]) -> list[JsonVal]:
-            node_ids = cast(NodeList, chunk).as_ids()
+            # We know that all node resources implement as_id
+            node_ids = [item.as_id() for item in chunk]  # type: ignore[attr-defined]
             found_ids: set[InstanceId] = set()
             if not self.delete_datapoints:
                 timeseries = client.time_series.retrieve_multiple(instance_ids=node_ids, ignore_unknown_ids=True)
@@ -161,8 +162,7 @@ class NodesToDelete(ToDelete):
                 dumped = node_id.dump(include_instance_type=True)
                 # The delete endpoint expects "instanceType" instead of "type"
                 dumped["instanceType"] = dumped.pop("type")
-                # MyPy think complains about invariant here, even though dict[str, str] is a type of JsonVal
-                result.append(dumped)  # type: ignore[arg-type]
+                result.append(dumped)
             return result
 
         return check_for_data
