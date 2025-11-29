@@ -69,10 +69,10 @@ class ResourceViewMappingCRUD(
             return None
         return f"{self.display_name} requires the {view_id!r} to be deployed. run `cdf migrate prepare` to deploy it."
 
-    def create(self, items: NodeApplyList) -> Sized:
+    def create(self, items: Sequence[ResourceViewMappingApply]) -> Sized:
         return self.client.migration.resource_view_mapping.upsert(items)
 
-    def update(self, items: NodeApplyList) -> Sized:
+    def update(self, items: Sequence[ResourceViewMappingApply]) -> Sized:
         return self.client.migration.resource_view_mapping.upsert(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> NodeList[ResourceViewMapping]:

@@ -90,13 +90,13 @@ class HostedExtractorSourceCRUD(ResourceCRUD[str, SourceWrite, Source]):
             HostedExtractorsAcl.Scope.All(),
         )
 
-    def create(self, items: SourceWriteList) -> SourceList:
+    def create(self, items: Sequence[SourceWrite]) -> SourceList:
         return self.client.hosted_extractors.sources.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> SourceList:
         return self.client.hosted_extractors.sources.retrieve(external_ids=ids, ignore_unknown_ids=True)
 
-    def update(self, items: SourceWriteList) -> SourceList:
+    def update(self, items: Sequence[SourceWrite]) -> SourceList:
         return self.client.hosted_extractors.sources.update(items, mode="replace")
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
@@ -196,13 +196,13 @@ class HostedExtractorDestinationCRUD(
             HostedExtractorsAcl.Scope.All(),
         )
 
-    def create(self, items: DestinationWriteList) -> DestinationList:
+    def create(self, items: Sequence[DestinationWrite]) -> DestinationList:
         return self.client.hosted_extractors.destinations.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> DestinationList:
         return self.client.hosted_extractors.destinations.retrieve(external_ids=ids, ignore_unknown_ids=True)
 
-    def update(self, items: DestinationWriteList) -> DestinationList:
+    def update(self, items: Sequence[DestinationWrite]) -> DestinationList:
         return self.client.hosted_extractors.destinations.update(items, mode="replace")
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
@@ -297,13 +297,13 @@ class HostedExtractorJobCRUD(ResourceCRUD[str, JobWrite, Job]):
             dumped.pop("config", None)
         return dumped
 
-    def create(self, items: JobWriteList) -> JobList:
+    def create(self, items: Sequence[JobWrite]) -> JobList:
         return self.client.hosted_extractors.jobs.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> JobList:
         return self.client.hosted_extractors.jobs.retrieve(external_ids=ids, ignore_unknown_ids=True)
 
-    def update(self, items: JobWriteList) -> JobList:
+    def update(self, items: Sequence[JobWrite]) -> JobList:
         return self.client.hosted_extractors.jobs.update(items, mode="replace")
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
@@ -369,13 +369,13 @@ class HostedExtractorMappingCRUD(ResourceCRUD[str, MappingWrite, Mapping]):
             HostedExtractorsAcl.Scope.All(),
         )
 
-    def create(self, items: MappingWriteList) -> MappingList:
+    def create(self, items: Sequence[MappingWrite]) -> MappingList:
         return self.client.hosted_extractors.mappings.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> MappingList:
         return self.client.hosted_extractors.mappings.retrieve(external_ids=ids, ignore_unknown_ids=True)
 
-    def update(self, items: MappingWriteList) -> MappingList:
+    def update(self, items: Sequence[MappingWrite]) -> MappingList:
         return self.client.hosted_extractors.mappings.update(items)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
