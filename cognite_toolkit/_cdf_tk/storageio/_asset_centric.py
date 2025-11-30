@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Generic
 
 from cognite.client.data_classes import (
     AggregateResultItem,
@@ -59,6 +59,7 @@ from .selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelect
 
 
 class AssetCentricIO(
+    Generic[T_ResourceResponse],
     TableStorageIO[AssetCentricSelector, T_ResourceResponse],
     ConfigurableStorageIO[AssetCentricSelector, T_ResourceResponse],
     ABC,
@@ -179,6 +180,7 @@ class AssetCentricIO(
 
 
 class UploadableAssetCentricIO(
+    Generic[T_ResourceResponse, T_ResourceRequest],
     AssetCentricIO[T_ResourceResponse],
     TableUploadableStorageIO[AssetCentricSelector, T_ResourceResponse, T_ResourceRequest],
     ABC,
