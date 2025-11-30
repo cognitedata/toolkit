@@ -32,8 +32,8 @@ def some_raw_tables() -> RowList:
     )
 
 
+@pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
 class TestRawStorageIO:
-    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
     def test_download_upload(
         self, toolkit_config: ToolkitClientConfig, some_raw_tables: RowList, respx_mock: respx.MockRouter
     ) -> None:
