@@ -1,4 +1,5 @@
 from collections.abc import Iterable, Sequence
+from itertools import chain
 from uuid import uuid4
 
 from cognite.client.data_classes import Row, RowWrite
@@ -118,7 +119,6 @@ class RawIO(
                 raise ToolkitValueError(
                     f"Column '{selector.key}' not found in file {input_file.as_posix()!r}. Please ensure the specified column exists."
                 )
-            yield from chunker(
-                ((f"{data_name} 1", first), *((f"{data_name} {i}", row) for i, row in enumerate(iterable, start=2))),
-                cls.CHUNK_SIZE,
-            )
+            full_iterator = chain([first], iterable)
+            line_numbered_iterator = ((f"{data_name} {i}", row) for i, row in enumerate(full_iterator, start=1))
+            yield from chunker(line_numbered_iterator, cls.CHUNK_SIZE)
