@@ -6,6 +6,8 @@ from cognite.client.data_classes import Row, RowWrite
 from cognite_toolkit._cdf_tk.cruds import RawDatabaseCRUD, RawTableCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
+from cognite_toolkit._cdf_tk.utils.collection import chunker
+from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
@@ -96,3 +98,27 @@ class RawIO(
         if selector is not None and selector.key is not None and selector.key in row:
             key = str(row.pop(selector.key))
         return RowWrite(key=key, columns=row)
+
+    @classmethod
+    def read_chunks(
+        cls, reader: MultiFileReader, selector: RawTableSelector
+    ) -> Iterable[list[tuple[str, dict[str, JsonVal]]]]:
+        if not reader.is_table or selector.key is None:
+            yield from super().read_chunks(reader, selector)
+            return
+        data_name = "row" if reader.is_table else "line"
+        # Validate that the key exists in all files
+        for input_file in sorted(reader.input_files, key=reader._part_no):
+            iterable = reader.reader_class(input_file).read_chunks()
+            try:
+                first = next(iterable)
+            except StopIteration:
+                continue
+            if selector.key not in first:
+                raise ToolkitValueError(
+                    f"Column '{selector.key}' not found in file {input_file.as_posix()!r}. Please ensure the specified column exists."
+                )
+            yield from chunker(
+                ((f"{data_name} 1", first), *((f"{data_name} {i}", row) for i, row in enumerate(iterable, start=2))),
+                cls.CHUNK_SIZE,
+            )

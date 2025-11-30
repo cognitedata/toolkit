@@ -8,7 +8,7 @@ from cognite.client.data_classes.raw import Row, RowList
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import UploadCommand
-from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitRuntimeError
 from cognite_toolkit._cdf_tk.storageio import RawIO
 from cognite_toolkit._cdf_tk.storageio.selectors import RawTableSelector, SelectedTable
 from cognite_toolkit._cdf_tk.utils.collection import chunker
@@ -83,7 +83,7 @@ class TestRawStorageIO:
         csv_file.write_text(csv_content)
 
         cmd = UploadCommand(silent=True)
-        with pytest.raises(ToolkitValueError) as exc_info:
+        with pytest.raises(ToolkitRuntimeError) as exc_info:
             with monkeypatch_toolkit_client() as client:
                 cmd.upload(
                     input_dir=tmp_path,
@@ -93,4 +93,4 @@ class TestRawStorageIO:
                     verbose=False,
                 )
 
-        assert "column 'non_existing_column' missing" in str(exc_info.value).casefold()
+        assert "column 'non_existing_column' not found" in str(exc_info.value).casefold()
