@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 import respx
@@ -6,6 +7,8 @@ from cognite.client.data_classes.raw import Row, RowList
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.commands import UploadCommand
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio import RawIO
 from cognite_toolkit._cdf_tk.storageio.selectors import RawTableSelector, SelectedTable
 from cognite_toolkit._cdf_tk.utils.collection import chunker
@@ -69,3 +72,25 @@ class TestRawStorageIO:
                 uploaded_rows.extend(json.loads(call.request.content)["items"])
 
             assert uploaded_rows == some_raw_tables.as_write().dump()
+
+    def test_upload_from_csv_raise_invalid_key(self, tmp_path: Path) -> None:
+        selector = RawTableSelector(
+            table=SelectedTable(db_name="test_db", table_name="test_table"), key="non_existing_column"
+        )
+        selector.dump_to_file(tmp_path)
+        csv_content = "column1,column2,column3\nvalue1,value2,value3\nvalue4,value5,value6\n"
+        csv_file = tmp_path / f"{selector!s}.{RawIO.KIND}.csv"
+        csv_file.write_text(csv_content)
+
+        cmd = UploadCommand(silent=True)
+        with pytest.raises(ToolkitValueError) as exc_info:
+            with monkeypatch_toolkit_client() as client:
+                cmd.upload(
+                    input_dir=tmp_path,
+                    client=client,
+                    deploy_resources=False,
+                    dry_run=False,
+                    verbose=False,
+                )
+
+        assert "column 'non_existing_column' missing" in str(exc_info.value).casefold()
