@@ -1,6 +1,5 @@
 from pathlib import Path
 from textwrap import dedent
-from typing import Type
 
 import pytest
 
@@ -158,7 +157,7 @@ class TestAboutCommand:
         self,
         tmp_path: Path,
         toml_content: str,
-        expected_warnings: list[Type[ToolkitWarning]],
+        expected_warnings: list[type[ToolkitWarning]],
         capture_print: PrintCapture,
         reset_cdf_toml_singleton,
     ) -> None:
