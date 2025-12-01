@@ -1,9 +1,11 @@
+import hashlib
 import json
 from abc import ABC, abstractmethod
+from functools import cached_property
 from pathlib import Path
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import ConfigDict, field_validator, model_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from ._base import DataSelector, SelectorObject
 from ._instances import SelectedView
@@ -107,3 +109,66 @@ class FileDataModelingTemplateSelector(FileContentSelector):
 
     def create_instance(self, filepath: Path) -> dict[str, Any]:
         return self.template.create_instance(filepath.name)
+
+
+class FileIdentifierDefinition(SelectorObject):
+    id_type: str
+    filepath: Path
+
+
+class FileInternalID(FileIdentifierDefinition):
+    id_type: Literal["internalId"] = "internalId"
+    internal_id: int = Field(alias="id")
+
+    def __str__(self) -> str:
+        return f"internalId_{self.internal_id}"
+
+
+class FileExternalID(FileIdentifierDefinition):
+    id_type: Literal["externalId"] = "externalId"
+    external_id: str
+
+    def __str__(self) -> str:
+        return f"externalId_{self.external_id}"
+
+
+class NodeId(SelectorObject):
+    space: str
+    external_id: str
+
+
+class FileInstanceID(FileIdentifierDefinition):
+    id_type: Literal["instanceId"] = "instanceId"
+    instance_id: NodeId
+
+    def __str__(self) -> str:
+        return f"instanceId_{self.instance_id.space}_{self.instance_id.external_id}"
+
+
+FileIdentifier = Annotated[FileInstanceID | FileExternalID | FileInternalID, Field(discriminator="id_type")]
+
+
+class FileIdentifierSelector(FileContentSelector):
+    type: Literal["fileIdentifier"] = "fileIdentifier"
+    file_directory: Path = Path("file_content")
+    identifiers: list[FileIdentifier]
+
+    @property
+    def group(self) -> str:
+        return "Files"
+
+    @cached_property
+    def identifier_by_filepath(self) -> dict[Path, FileIdentifier]:
+        return {identifier.filepath: identifier for identifier in self.identifiers}
+
+    def __str__(self) -> str:
+        hash_ = hashlib.md5(",".join(sorted(str(self.identifiers))).encode()).hexdigest()[:8]
+        return f"file_{len(self.identifiers)}_identifiers_{hash_}"
+
+    def create_instance(self, filepath: Path) -> dict[str, Any]:
+        identifier = self.identifier_by_filepath.get(filepath)
+        if identifier is None:
+            raise RuntimeError(f"No identifier found for file: {filepath}")
+        output = identifier.model_dump(by_alias=True)
+        output[FILEPATH] = filepath
+        return output
