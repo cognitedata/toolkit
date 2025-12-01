@@ -113,7 +113,7 @@ class FileDataModelingTemplateSelector(FileContentSelector):
 
 class FileIdentifierDefinition(SelectorObject):
     id_type: str
-    filepath: Path
+    filepath: Path = Field(alias="$FILEPATH")
 
 
 class FileInternalID(FileIdentifierDefinition):
@@ -151,7 +151,7 @@ FileIdentifier = Annotated[FileInstanceID | FileExternalID | FileInternalID, Fie
 class FileIdentifierSelector(FileContentSelector):
     type: Literal["fileIdentifier"] = "fileIdentifier"
     file_directory: Path = Path("file_content")
-    identifiers: list[FileIdentifier]
+    identifiers: tuple[FileIdentifier, ...]
 
     @property
     def group(self) -> str:
@@ -169,6 +169,4 @@ class FileIdentifierSelector(FileContentSelector):
         identifier = self.identifier_by_filepath.get(filepath)
         if identifier is None:
             raise RuntimeError(f"No identifier found for file: {filepath}")
-        output = identifier.model_dump(by_alias=True)
-        output[FILEPATH] = filepath
-        return output
+        return identifier.model_dump(by_alias=True)
