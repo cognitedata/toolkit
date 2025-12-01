@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 from _pytest.monkeypatch import MonkeyPatch
 
 from cognite_toolkit import _version
@@ -11,16 +10,6 @@ from cognite_toolkit._cdf_tk.cdf_toml import CDFToml, CLIConfig, ModulesConfig
 from cognite_toolkit._cdf_tk.commands.init import InitCommand
 from cognite_toolkit._cdf_tk.commands.repo import RepoCommand
 from tests.test_unit.utils import MockQuestionary
-
-
-# Reset singleton before each test to ensure test isolation
-@pytest.fixture(autouse=True)
-def reset_cdf_toml_singleton():
-    """Reset CDFToml singleton before and after each test to ensure test isolation."""
-    global _CDF_TOML
-    _CDF_TOML = None
-    yield
-    _CDF_TOML = None  # Clean up after test as well
 
 
 class TestInitCommand:
