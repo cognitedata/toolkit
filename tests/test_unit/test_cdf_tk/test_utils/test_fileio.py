@@ -524,6 +524,7 @@ class TestFileIO:
         ]
 
         assert read_chunks == chunks
+        assert len(read_chunks) == FileReader.from_filepath(file_path[0])(file_path[0]).count()
 
     @pytest.mark.parametrize(
         "format, compression_name",
