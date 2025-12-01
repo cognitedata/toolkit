@@ -38,6 +38,7 @@ class ToolkitClient(CogniteClient):
     def __init__(self, config: ToolkitClientConfig | None = None, enable_set_pending_ids: bool = False) -> None:
         super().__init__(config=config)
         http_client = HTTPClient(self.config)
+        self.http_client = http_client
         toolkit_config = ToolkitClientConfig.from_client_config(self.config)
         self.console = Console()
         self.tool = ToolAPI(http_client, self.console)

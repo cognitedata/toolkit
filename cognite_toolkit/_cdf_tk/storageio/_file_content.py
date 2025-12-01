@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
+import httpx
 from cognite.client.data_classes import FileMetadata, FileMetadataWrite
 from cognite.client.data_classes.data_modeling import NodeId, ViewId
 
@@ -26,7 +27,7 @@ from cognite_toolkit._cdf_tk.utils.http_client import (
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import Page, UploadableStorageIO, UploadItem
-from .selectors import FileContentSelector, FileMetadataTemplateSelector
+from .selectors import FileContentSelector, FileMetadataTemplateSelector, FileIdentifierSelector
 from .selectors._file_content import FILEPATH, FileDataModelingTemplateSelector
 
 COGNITE_FILE_VIEW = ViewId("cdf_cdm", "CogniteFile", "v1")
@@ -41,29 +42,74 @@ class UploadFileContentItem(UploadItem[FileMetadataWrite]):
 class FileContentIO(UploadableStorageIO[FileContentSelector, FileMetadata, FileMetadataWrite]):
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
-    CHUNK_SIZE = 10
+    CHUNK_SIZE = 1
     BASE_SELECTOR = FileContentSelector
     KIND = "FileContent"
     SUPPORTED_READ_FORMATS = frozenset({".ndjson"})
     UPLOAD_ENDPOINT = "/files"
 
-    def __init__(self, client: ToolkitClient) -> None:
+    def __init__(self, client: ToolkitClient, max_download) -> None:
         super().__init__(client)
         self._crud = FileMetadataCRUD(client, None, None)
 
     def as_id(self, item: FileMetadata) -> str:
         return item.external_id or str(item.id)
 
-    def stream_data(self, selector: FileContentSelector, limit: int | None = None) -> Iterable[Page]:
-        raise NotImplementedError("Download of FileContent is not yet supported")
+    def stream_data(self, selector: FileContentSelector, limit: int | None = None) -> Iterable[Page[FileMetadata]]:
+        if not isinstance(selector, FileIdentifierSelector):
+            raise ToolkitNotImplementedError(f"Download for the given selector, {type(selector).__name__}, is not supported for FileContentIO")
+        config = self.client.config
+        for identifiers in chunker_sequence(selector.identifiers, self.CHUNK_SIZE):
+            for identifier in identifiers:
+                responses = self.client.http_client.request_with_retries(
+                    message=SimpleBodyRequest(
+                        endpoint_url=config.create_api_url("/files/downloadlink"),
+                        method="POST",
+                        body_content={"items": identifier.model_dump(mode="json", by_alias=True)},
+                    )
+                )
+                try:
+                    body = responses.get_first_body()
+                except ValueError:
+                    continue
+                if "items" in body and isinstance(body["items"], list) and len(body["items"]) > 0:
+                    body = body["items"][0]
+                try:
+                    download_url = cast(str, body["downloadUrl"])
+                except (KeyError, IndexError):
+                    continue
+                # Currently, we do not support partial downloads of file content
+                output_path = Path(f"downloaded_{identifier.external_id or identifier.id}")
+
+                with httpx.stream("GET", download_url) as response:
+                    if response.status != 200:
+                        continue
+                    with open(output_path, 'wb') as f:
+                        for chunk in response.iter_bytes(chunk_size=8192):
+                            f.write(chunk)
+                yield Page(items=[FileMetadata(**identifier.model_dump())],worker_id="Main")
 
     def count(self, selector: FileContentSelector) -> int | None:
+        if isinstance(selector, FileIdentifierSelector):
+            return len(selector.identifiers)
         return None
 
     def data_to_json_chunk(
         self, data_chunk: Sequence[FileMetadata], selector: FileContentSelector | None = None
     ) -> list[dict[str, JsonVal]]:
-        raise NotImplementedError("Download of FileContent is not yet supported")
+        """Convert a writable Cognite resource list to a JSON-compatible chunk of data.
+
+        Args:
+            data_chunk: A writable Cognite resource list representing the data.
+            selector: The selector used for the data. (Not used in this implementation)
+        Returns:
+            A list of dictionaries, each representing the data in a JSON-compatible format.
+        """
+        result: list[dict[str, JsonVal]] = []
+        for item in data_chunk:
+            item_json = self._crud.dump_resource(item)
+            result.append(item_json)
+        return result
 
     def json_chunk_to_data(self, data_chunk: list[tuple[str, dict[str, JsonVal]]]) -> Sequence[UploadFileContentItem]:
         """Convert a JSON-compatible chunk of data back to a writable Cognite resource list.
