@@ -40,8 +40,6 @@ class Loader(ABC):
     Class attributes:
         filetypes: The filetypes that are supported by this loader. This should be set in all subclasses.
         folder_name: The name of the folder in the build directory where the files are located. This should be set in all subclasses.
-        filename_pattern: A regex pattern that is used to filter the files that are supported by this loader. This is used
-            when two loaders have the same folder name to differentiate between them. If not set, all files are supported.
         dependencies: A set of loaders that must be loaded before this loader.
         exclude_filetypes: A set of filetypes that should be excluded from the supported filetypes.
     """
@@ -49,7 +47,6 @@ class Loader(ABC):
     filetypes: frozenset[str]
     folder_name: str
     kind: str
-    filename_pattern: str = ""
     dependencies: "frozenset[type[ResourceCRUD]]" = frozenset()
     exclude_filetypes: frozenset[str] = frozenset()
     _doc_base_url: str = "https://api-docs.cognite.com/20230101/tag/"

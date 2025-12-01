@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from collections.abc import Iterable, MutableSequence, Sequence
+from collections.abc import Iterable, Sequence
 from typing import Any, ClassVar, Generic
 
 from cognite.client.data_classes import (
@@ -8,26 +8,16 @@ from cognite.client.data_classes import (
     Asset,
     AssetList,
     AssetWrite,
-    AssetWriteList,
     Event,
     EventList,
     EventWrite,
-    EventWriteList,
     FileMetadata,
     FileMetadataList,
-    FileMetadataWrite,
-    FileMetadataWriteList,
     Label,
     LabelDefinition,
     TimeSeries,
     TimeSeriesList,
     TimeSeriesWrite,
-    TimeSeriesWriteList,
-)
-from cognite.client.data_classes._base import (
-    T_CogniteResourceList,
-    T_WritableCogniteResource,
-    T_WriteClass,
 )
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -40,6 +30,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     TimeSeriesCRUD,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitNotImplementedError
+from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.utils.aggregators import (
     AssetAggregator,
     AssetCentricAggregator,
@@ -50,17 +41,10 @@ from cognite_toolkit._cdf_tk.utils.aggregators import (
 from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
 from cognite_toolkit._cdf_tk.utils.fileio import FileReader, SchemaColumn
 from cognite_toolkit._cdf_tk.utils.fileio._readers import TableReader
-from cognite_toolkit._cdf_tk.utils.http_client import (
-    HTTPClient,
-    HTTPMessage,
-    SimpleBodyRequest,
-)
 from cognite_toolkit._cdf_tk.utils.useful_types import (
-    T_ID,
     AssetCentricResource,
     AssetCentricType,
     JsonVal,
-    T_WritableCogniteResourceList,
 )
 
 from ._base import (
@@ -74,11 +58,10 @@ from ._base import (
 from .selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 
 
-class BaseAssetCentricIO(
-    Generic[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
-    TableStorageIO[AssetCentricSelector, T_WritableCogniteResource],
-    ConfigurableStorageIO[AssetCentricSelector, T_WritableCogniteResource],
-    TableUploadableStorageIO[AssetCentricSelector, T_WritableCogniteResource, T_WriteClass],
+class AssetCentricIO(
+    Generic[T_ResourceResponse],
+    TableStorageIO[AssetCentricSelector, T_ResourceResponse],
+    ConfigurableStorageIO[AssetCentricSelector, T_ResourceResponse],
     ABC,
 ):
     RESOURCE_TYPE: ClassVar[AssetCentricType]
@@ -96,7 +79,7 @@ class BaseAssetCentricIO(
         raise NotImplementedError()
 
     @abstractmethod
-    def retrieve(self, ids: Sequence[int]) -> T_WritableCogniteResourceList:
+    def retrieve(self, ids: Sequence[int]) -> Sequence[T_ResourceResponse]:
         raise NotImplementedError()
 
     def count(self, selector: AssetCentricSelector) -> int | None:
@@ -182,6 +165,26 @@ class BaseAssetCentricIO(
             asset_ids.update(item.asset_ids or [])
         self.client.lookup.assets.external_id(list(asset_ids))
 
+    def data_to_row(
+        self, data_chunk: Sequence[T_ResourceResponse], selector: AssetCentricSelector | None = None
+    ) -> list[dict[str, JsonVal]]:
+        rows: list[dict[str, JsonVal]] = []
+        for chunk in self.data_to_json_chunk(data_chunk, selector):
+            if "metadata" in chunk and isinstance(chunk["metadata"], dict):
+                metadata = chunk.pop("metadata")
+                # MyPy does understand that metadata is a dict here due to the check above.
+                for key, value in metadata.items():  # type: ignore[union-attr]
+                    chunk[f"metadata.{key}"] = value
+            rows.append(chunk)
+        return rows
+
+
+class UploadableAssetCentricIO(
+    Generic[T_ResourceResponse, T_ResourceRequest],
+    AssetCentricIO[T_ResourceResponse],
+    TableUploadableStorageIO[AssetCentricSelector, T_ResourceResponse, T_ResourceRequest],
+    ABC,
+):
     def _populate_data_set_external_id_cache(self, chunk: Sequence[dict[str, Any]]) -> None:
         data_set_external_ids: set[str] = set()
         for item in chunk:
@@ -216,22 +219,9 @@ class BaseAssetCentricIO(
                 security_category_names.add(security_category_external_id)
         self.client.lookup.security_categories.id(list(security_category_names))
 
-    def data_to_row(
-        self, data_chunk: Sequence[T_WritableCogniteResource], selector: AssetCentricSelector | None = None
-    ) -> list[dict[str, JsonVal]]:
-        rows: list[dict[str, JsonVal]] = []
-        for chunk in self.data_to_json_chunk(data_chunk, selector):
-            if "metadata" in chunk and isinstance(chunk["metadata"], dict):
-                metadata = chunk.pop("metadata")
-                # MyPy does understand that metadata is a dict here due to the check above.
-                for key, value in metadata.items():  # type: ignore[union-attr]
-                    chunk[f"metadata.{key}"] = value
-            rows.append(chunk)
-        return rows
-
     def row_to_resource(
         self, source_id: str, row: dict[str, JsonVal], selector: AssetCentricSelector | None = None
-    ) -> T_WriteClass:
+    ) -> T_ResourceRequest:
         metadata: dict[str, JsonVal] = {}
         cleaned_row: dict[str, JsonVal] = {}
         for key, value in row.items():
@@ -245,7 +235,7 @@ class BaseAssetCentricIO(
         return self.json_to_resource(cleaned_row)
 
 
-class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetList]):
+class AssetIO(UploadableAssetCentricIO[Asset, AssetWrite]):
     KIND = "Assets"
     RESOURCE_TYPE = "asset"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
@@ -371,7 +361,7 @@ class AssetIO(BaseAssetCentricIO[str, AssetWrite, Asset, AssetWriteList, AssetLi
             current_depth += 1
 
 
-class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, FileMetadataWriteList, FileMetadataList]):
+class FileMetadataIO(AssetCentricIO[FileMetadata]):
     KIND = "FileMetadata"
     RESOURCE_TYPE = "file"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
@@ -426,7 +416,7 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
         ]
         return file_schema + metadata_schema
 
-    def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[Page]:
+    def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[Page[FileMetadata]]:
         asset_subtree_external_ids, data_set_external_ids = self._get_hierarchy_dataset_pair(selector)
         for file_list in self.client.files(
             chunk_size=self.CHUNK_SIZE,
@@ -436,28 +426,6 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
         ):
             self._collect_dependencies(file_list, selector)
             yield Page(worker_id="main", items=file_list)
-
-    def upload_items(
-        self,
-        data_chunk: Sequence[UploadItem[FileMetadataWrite]],
-        http_client: HTTPClient,
-        selector: AssetCentricSelector | None = None,
-    ) -> Sequence[HTTPMessage]:
-        # The /files endpoint only supports creating one file at a time, so we override the default chunked
-        # upload behavior to upload one by one.
-        config = http_client.config
-        results: MutableSequence[HTTPMessage] = []
-        for item in data_chunk:
-            responses = http_client.request_with_retries(
-                message=SimpleBodyRequest(
-                    endpoint_url=config.create_api_url(self.UPLOAD_ENDPOINT),
-                    method="POST",
-                    # MyPy does not understand that .dump is valid json
-                    body_content=item.dump(),  # type: ignore[arg-type]
-                )
-            )
-            results.extend(responses.as_item_responses(item.as_id()))
-        return results
 
     def retrieve(self, ids: Sequence[int]) -> FileMetadataList:
         return self.client.files.retrieve_multiple(ids)
@@ -473,20 +441,8 @@ class FileMetadataIO(BaseAssetCentricIO[str, FileMetadataWrite, FileMetadata, Fi
 
         return [self._crud.dump_resource(item) for item in data_chunk]
 
-    def json_chunk_to_data(
-        self, data_chunk: list[tuple[str, dict[str, JsonVal]]]
-    ) -> Sequence[UploadItem[FileMetadataWrite]]:
-        chunks = [item_json for _, item_json in data_chunk]
-        self._populate_asset_external_ids_cache(chunks)
-        self._populate_data_set_external_id_cache(chunks)
-        self._populate_security_category_name_cache(chunks)
-        return super().json_chunk_to_data(data_chunk)
 
-    def json_to_resource(self, item_json: dict[str, JsonVal]) -> FileMetadataWrite:
-        return self._crud.load_resource(item_json)
-
-
-class TimeSeriesIO(BaseAssetCentricIO[str, TimeSeriesWrite, TimeSeries, TimeSeriesWriteList, TimeSeriesList]):
+class TimeSeriesIO(UploadableAssetCentricIO[TimeSeries, TimeSeriesWrite]):
     KIND = "TimeSeries"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
@@ -579,7 +535,7 @@ class TimeSeriesIO(BaseAssetCentricIO[str, TimeSeriesWrite, TimeSeries, TimeSeri
         return ts_schema + metadata_schema
 
 
-class EventIO(BaseAssetCentricIO[str, EventWrite, Event, EventWriteList, EventList]):
+class EventIO(UploadableAssetCentricIO[Event, EventWrite]):
     KIND = "Events"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
@@ -679,7 +635,7 @@ class HierarchyIO(ConfigurableStorageIO[AssetCentricSelector, AssetCentricResour
         self._file_io = FileMetadataIO(client)
         self._timeseries_io = TimeSeriesIO(client)
         self._event_io = EventIO(client)
-        self._io_by_kind: dict[str, BaseAssetCentricIO] = {
+        self._io_by_kind: dict[str, AssetCentricIO] = {
             self._asset_io.KIND: self._asset_io,
             self._file_io.KIND: self._file_io,
             self._timeseries_io.KIND: self._timeseries_io,
@@ -687,7 +643,7 @@ class HierarchyIO(ConfigurableStorageIO[AssetCentricSelector, AssetCentricResour
         }
 
     def as_id(self, item: AssetCentricResource) -> str:
-        return item.external_id or BaseAssetCentricIO.create_internal_identifier(item.id, self.client.config.project)
+        return item.external_id or AssetCentricIO.create_internal_identifier(item.id, self.client.config.project)
 
     def stream_data(
         self, selector: AssetCentricSelector, limit: int | None = None
@@ -707,5 +663,5 @@ class HierarchyIO(ConfigurableStorageIO[AssetCentricSelector, AssetCentricResour
     def configurations(self, selector: AssetCentricSelector) -> Iterable[StorageIOConfig]:
         yield from self.get_resource_io(selector.kind).configurations(selector)
 
-    def get_resource_io(self, kind: str) -> BaseAssetCentricIO:
+    def get_resource_io(self, kind: str) -> AssetCentricIO:
         return self._io_by_kind[kind]

@@ -77,7 +77,6 @@ from .transformation import TransformationCRUD
 @final
 class WorkflowCRUD(ResourceCRUD[str, WorkflowUpsert, Workflow, WorkflowUpsertList, WorkflowList]):
     folder_name = "workflows"
-    filename_pattern = r"^.*Workflow$"
     resource_cls = Workflow
     resource_write_cls = WorkflowUpsert
     list_cls = WorkflowList
@@ -198,7 +197,6 @@ class WorkflowVersionCRUD(
     ]
 ):
     folder_name = "workflows"
-    filename_pattern = r"^.*WorkflowVersion$"
     resource_cls = WorkflowVersion
     resource_write_cls = WorkflowVersionUpsert
     list_cls = WorkflowVersionList
@@ -471,7 +469,6 @@ class WorkflowTriggerCRUD(
     ResourceCRUD[str, WorkflowTriggerUpsert, WorkflowTrigger, WorkflowTriggerUpsertList, WorkflowTriggerList]
 ):
     folder_name = "workflows"
-    filename_pattern = r"^.*WorkflowTrigger$"
     resource_cls = WorkflowTrigger
     resource_write_cls = WorkflowTriggerUpsert
     list_cls = WorkflowTriggerList

@@ -32,7 +32,6 @@ class LocationFilterCRUD(
     ResourceCRUD[str, LocationFilterWrite, LocationFilter, LocationFilterWriteList, LocationFilterList]
 ):
     folder_name = "locations"
-    filename_pattern = r"^.*LocationFilter$"
     resource_cls = LocationFilter
     resource_write_cls = LocationFilterWrite
     list_cls = LocationFilterList
