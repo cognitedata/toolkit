@@ -11,9 +11,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.protocols import (
     T_ResourceRequest,
-    T_ResourceRequestList,
     T_ResourceResponse,
-    T_ResourceResponseList,
 )
 from cognite_toolkit._cdf_tk.utils import read_yaml_content, safe_read
 from cognite_toolkit._cdf_tk.utils.file import read_csv
@@ -91,10 +89,6 @@ class FileCRUD(DataCRUD):
     kind = "File"
     filetypes = frozenset()
     exclude_filetype: frozenset[str] = frozenset({})
-    filename_pattern = (
-        # Exclude FileMetadata and CogniteFile
-        r"(?i)^(?!.*(?:FileMetadata|CogniteFile)$).*$"
-    )
     dependencies = frozenset({FileMetadataCRUD, CogniteFileCRUD})
     _doc_url = "Files/operation/initFileUpload"
 
@@ -135,17 +129,16 @@ class FileCRUD(DataCRUD):
     @staticmethod
     def _read_metadata(
         destination: Path,
-        loader: type[
-            ResourceCRUD[T_ID, T_ResourceRequest, T_ResourceResponse, T_ResourceRequestList, T_ResourceResponseList]
-        ],
+        loader: type[ResourceCRUD[T_ID, T_ResourceRequest, T_ResourceResponse]],
         identifier: T_ID,
     ) -> T_ResourceRequest:
         built_content = read_yaml_content(safe_read(destination, encoding=BUILD_FOLDER_ENCODING))
         if isinstance(built_content, dict):
             return loader.resource_write_cls._load(built_content)
         elif isinstance(built_content, list):
+            write_resources = (loader.resource_write_cls._load(content) for content in built_content)
             try:
-                return next(m for m in loader.list_write_cls.load(built_content) if loader.get_id(m) == identifier)
+                return next(m for m in write_resources if loader.get_id(m) == identifier)
             except StopIteration:
                 raise RuntimeError(f"Missing metadata for {destination.as_posix()}")
 

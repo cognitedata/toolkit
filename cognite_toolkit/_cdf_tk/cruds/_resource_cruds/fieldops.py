@@ -12,7 +12,6 @@ from cognite_toolkit._cdf_tk.client.data_classes.apm_config_v1 import (
     APMConfig,
     APMConfigList,
     APMConfigWrite,
-    APMConfigWriteList,
 )
 from cognite_toolkit._cdf_tk.client.data_classes.infield import InfieldLocationConfig, InfieldLocationConfigList
 from cognite_toolkit._cdf_tk.client.data_classes.instance_api import InstanceResult, NodeIdentifier
@@ -31,14 +30,11 @@ from .group_scoped import GroupResourceScopedCRUD
 
 
 @final
-class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig, APMConfigWriteList, APMConfigList]):
+class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig]):
     folder_name = "cdf_applications"
-    filename_pattern = r"^.*\.InfieldV1$"  # Matches all yaml files whose stem ends with '.InfieldV1'.
     filetypes = frozenset({"yaml", "yml"})
     resource_cls = APMConfig
     resource_write_cls = APMConfigWrite
-    list_cls = APMConfigList
-    list_write_cls = APMConfigWriteList
     kind = "InfieldV1"
     yaml_cls = InfieldV1YAML
     dependencies = frozenset({DataSetsCRUD, AssetCRUD, SpaceCRUD, GroupAllScopedCRUD, GroupResourceScopedCRUD})
@@ -86,9 +82,9 @@ class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig, APMConfigWriteL
             f"Install the infield options with cdf modules init/add to deploy it."
         )
 
-    def create(self, items: APMConfigWriteList) -> NodeApplyResultList:
+    def create(self, items: Sequence[APMConfigWrite]) -> NodeApplyResultList:
         result = self.client.data_modeling.instances.apply(
-            nodes=items.as_nodes(), auto_create_direct_relations=True, replace=False
+            nodes=[item.as_node() for item in items], auto_create_direct_relations=True, replace=False
         )
         return result.nodes
 
@@ -98,9 +94,9 @@ class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig, APMConfigWriteL
         ).nodes
         return APMConfigList.from_nodes(result)
 
-    def update(self, items: APMConfigWriteList) -> NodeApplyResultList:
+    def update(self, items: Sequence[APMConfigWrite]) -> NodeApplyResultList:
         result = self.client.data_modeling.instances.apply(
-            nodes=items.as_nodes(), auto_create_direct_relations=True, replace=True
+            nodes=[item.as_node() for item in items], auto_create_direct_relations=True, replace=True
         )
         return result.nodes
 
@@ -243,22 +239,11 @@ class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig, APMConfigWriteL
 
 
 @final
-class InFieldLocationConfigCRUD(
-    ResourceCRUD[
-        NodeIdentifier,
-        InfieldLocationConfig,
-        InfieldLocationConfig,
-        InfieldLocationConfigList,
-        InfieldLocationConfigList,
-    ]
-):
+class InFieldLocationConfigCRUD(ResourceCRUD[NodeIdentifier, InfieldLocationConfig, InfieldLocationConfig]):
     folder_name = "cdf_applications"
-    filename_pattern = r"^.*\.InFieldLocationConfig$"
     filetypes = frozenset({"yaml", "yml"})
     resource_cls = InfieldLocationConfig
     resource_write_cls = InfieldLocationConfig
-    list_cls = InfieldLocationConfigList
-    list_write_cls = InfieldLocationConfigList
     kind = "InFieldLocationConfig"
     yaml_cls = InfieldLocationConfigYAML
     dependencies = frozenset({SpaceCRUD, GroupAllScopedCRUD, GroupResourceScopedCRUD})
@@ -306,7 +291,7 @@ class InFieldLocationConfigCRUD(
 
         return dumped
 
-    def create(self, items: InfieldLocationConfigList) -> list[InstanceResult]:
+    def create(self, items: Sequence[InfieldLocationConfig]) -> list[InstanceResult]:
         created = self.client.infield.config.apply(items)
         config_ids = {config.as_id() for config in items}
         # We filter out all the data exploration configs that were created along with the infield location configs
@@ -316,7 +301,7 @@ class InFieldLocationConfigCRUD(
     def retrieve(self, ids: SequenceNotStr[NodeIdentifier]) -> InfieldLocationConfigList:
         return InfieldLocationConfigList(self.client.infield.config.retrieve(list(ids)))
 
-    def update(self, items: InfieldLocationConfigList) -> Sized:
+    def update(self, items: Sequence[InfieldLocationConfig]) -> Sized:
         return self.create(items)
 
     def delete(self, ids: SequenceNotStr[NodeIdentifier]) -> int:

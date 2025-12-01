@@ -43,9 +43,7 @@ from cognite.client.data_classes import (
     TransformationSchedule,
     TransformationScheduleList,
     TransformationScheduleWrite,
-    TransformationScheduleWriteList,
     TransformationWrite,
-    TransformationWriteList,
 )
 from cognite.client.data_classes.capabilities import (
     Capability,
@@ -58,7 +56,6 @@ from cognite.client.data_classes.data_modeling.ids import (
 from cognite.client.data_classes.transformations import NonceCredentials
 from cognite.client.data_classes.transformations.notifications import (
     TransformationNotificationWrite,
-    TransformationNotificationWriteList,
 )
 from cognite.client.exceptions import CogniteAPIError, CogniteAuthError, CogniteDuplicatedError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
@@ -103,18 +100,10 @@ from .raw import RawDatabaseCRUD, RawTableCRUD
 
 
 @final
-class TransformationCRUD(
-    ResourceCRUD[str, TransformationWrite, Transformation, TransformationWriteList, TransformationList]
-):
+class TransformationCRUD(ResourceCRUD[str, TransformationWrite, Transformation]):
     folder_name = "transformations"
-    filename_pattern = (
-        # Matches all yaml files except file names whose stem contain *.schedule. or .Notification
-        r"^(?!.*schedule.*|.*\.notification$).*$"
-    )
     resource_cls = Transformation
     resource_write_cls = TransformationWrite
-    list_cls = TransformationList
-    list_write_cls = TransformationWriteList
     kind = "Transformation"
     yaml_cls = TransformationYAML
     dependencies = frozenset(
@@ -514,17 +503,11 @@ class TransformationScheduleCRUD(
         str,
         TransformationScheduleWrite,
         TransformationSchedule,
-        TransformationScheduleWriteList,
-        TransformationScheduleList,
     ]
 ):
     folder_name = "transformations"
-    # Matches all yaml files whose stem contains *schedule or *TransformationSchedule.
-    filename_pattern = r"^.*schedule$"
     resource_cls = TransformationSchedule
     resource_write_cls = TransformationScheduleWrite
-    list_cls = TransformationScheduleList
-    list_write_cls = TransformationScheduleWriteList
     kind = "Schedule"
     yaml_cls = TransformationScheduleYAML
     dependencies = frozenset({TransformationCRUD})
@@ -574,7 +557,7 @@ class TransformationScheduleCRUD(
     def retrieve(self, ids: SequenceNotStr[str]) -> TransformationScheduleList:
         return self.client.transformations.schedules.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
-    def update(self, items: TransformationScheduleWriteList) -> TransformationScheduleList:
+    def update(self, items: Sequence[TransformationScheduleWrite]) -> TransformationScheduleList:
         return self.client.transformations.schedules.update(items, mode="replace")
 
     def delete(self, ids: str | SequenceNotStr[str] | None) -> int:
@@ -612,17 +595,11 @@ class TransformationNotificationCRUD(
         str,
         TransformationNotificationWrite,
         TransformationNotification,
-        TransformationNotificationWriteList,
-        TransformationNotificationList,
     ]
 ):
     folder_name = "transformations"
-    # Matches all yaml files whose stem ends with *Notification.
-    filename_pattern = r"^.*Notification$"
     resource_cls = TransformationNotification
     resource_write_cls = TransformationNotificationWrite
-    list_cls = TransformationNotificationList
-    list_write_cls = TransformationNotificationWriteList
     kind = "Notification"
     dependencies = frozenset({TransformationCRUD})
     _doc_url = "Transformation-Notifications/operation/createTransformationNotifications"
@@ -669,7 +646,7 @@ class TransformationNotificationCRUD(
             dumped["transformationExternalId"] = local["transformationExternalId"]
         return dumped
 
-    def create(self, items: TransformationNotificationWriteList) -> TransformationNotificationList:
+    def create(self, items: Sequence[TransformationNotificationWrite]) -> TransformationNotificationList:
         return self.client.transformations.notifications.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> TransformationNotificationList:
@@ -700,7 +677,7 @@ class TransformationNotificationCRUD(
 
         return retrieved
 
-    def update(self, items: TransformationNotificationWriteList) -> TransformationNotificationList:
+    def update(self, items: Sequence[TransformationNotificationWrite]) -> TransformationNotificationList:
         # Note that since a notification is identified by the combination of transformationExternalId and destination,
         # which is the entire object, an update should never happen. However, implementing just in case.
         item_by_id = {self.get_id(item): item for item in items}

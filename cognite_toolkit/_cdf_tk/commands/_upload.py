@@ -215,6 +215,10 @@ class UploadCommand(ToolkitCommand):
                 reader = MultiFileReader(datafiles)
                 if reader.is_table and not isinstance(io, TableUploadableStorageIO):
                     raise ToolkitValueError(f"{selector.display_name} does not support {reader.format!r} files.")
+
+                chunk_count = io.count_chunks(reader)
+                iteration_count = chunk_count // io.CHUNK_SIZE + (1 if chunk_count % io.CHUNK_SIZE > 0 else 0)
+
                 tracker = ProgressTracker[str]([self._UPLOAD])
                 executor = ProducerWorkerExecutor[list[tuple[str, dict[str, JsonVal]]], Sequence[UploadItem]](
                     download_iterable=io.read_chunks(reader, selector),
@@ -230,7 +234,7 @@ class UploadCommand(ToolkitCommand):
                         tracker=tracker,
                         console=console,
                     ),
-                    iteration_count=None,
+                    iteration_count=iteration_count,
                     max_queue_size=self._MAX_QUEUE_SIZE,
                     download_description=f"Reading {selector.display_name!r} files",
                     process_description="Processing",
@@ -262,7 +266,7 @@ class UploadCommand(ToolkitCommand):
         self, selector: Selector, data_file: Path, client: ToolkitClient
     ) -> UploadableStorageIO | None:
         try:
-            io_cls = get_upload_io(type(selector))
+            io_cls = get_upload_io(selector)
         except ValueError as e:
             self.warn(HighSeverityWarning(f"Could not find StorageIO for selector {selector}: {e}"))
             return None

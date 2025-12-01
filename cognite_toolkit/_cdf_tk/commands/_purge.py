@@ -7,12 +7,7 @@ from typing import Literal, cast
 
 import questionary
 from cognite.client.data_classes import DataSetUpdate
-from cognite.client.data_classes._base import CogniteResourceList
-from cognite.client.data_classes.data_modeling import (
-    EdgeList,
-    NodeId,
-    NodeList,
-)
+from cognite.client.data_classes.data_modeling import Edge, NodeId
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils._identifier import InstanceId
@@ -46,6 +41,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     AuthorizationError,
     ToolkitMissingResourceError,
 )
+from cognite_toolkit._cdf_tk.protocols import ResourceResponseProtocol
 from cognite_toolkit._cdf_tk.storageio import InstanceIO
 from cognite_toolkit._cdf_tk.storageio.selectors import InstanceSelector
 from cognite_toolkit._cdf_tk.tk_warnings import (
@@ -107,7 +103,7 @@ class ToDelete(ABC):
     @abstractmethod
     def get_process_function(
         self, client: ToolkitClient, console: Console, verbose: bool, process_results: ResourceDeployResult
-    ) -> Callable[[CogniteResourceList], list[JsonVal]]:
+    ) -> Callable[[list[ResourceResponseProtocol]], list[JsonVal]]:
         raise NotImplementedError()
 
     def get_extra_fields(self) -> dict[str, JsonVal]:
@@ -118,9 +114,10 @@ class ToDelete(ABC):
 class DataModelingToDelete(ToDelete):
     def get_process_function(
         self, client: ToolkitClient, console: Console, verbose: bool, process_results: ResourceDeployResult
-    ) -> Callable[[CogniteResourceList], list[JsonVal]]:
-        def as_id(chunk: CogniteResourceList) -> list[JsonVal]:
-            return [item.as_id().dump(include_type=False) for item in chunk]
+    ) -> Callable[[list[ResourceResponseProtocol]], list[JsonVal]]:
+        def as_id(chunk: list[ResourceResponseProtocol]) -> list[JsonVal]:
+            # We know that all data modeling resources implement as_id
+            return [item.as_id().dump(include_type=False) for item in chunk]  # type: ignore[attr-defined]
 
         return as_id
 
@@ -129,11 +126,11 @@ class DataModelingToDelete(ToDelete):
 class EdgeToDelete(ToDelete):
     def get_process_function(
         self, client: ToolkitClient, console: Console, verbose: bool, process_results: ResourceDeployResult
-    ) -> Callable[[CogniteResourceList], list[JsonVal]]:
-        def as_id(chunk: CogniteResourceList) -> list[JsonVal]:
+    ) -> Callable[[list[ResourceResponseProtocol]], list[JsonVal]]:
+        def as_id(chunk: list[ResourceResponseProtocol]) -> list[JsonVal]:
             return [
                 {"space": item.space, "externalId": item.external_id, "instanceType": "edge"}
-                for item in cast(EdgeList, chunk)
+                for item in cast(list[Edge], chunk)
             ]
 
         return as_id
@@ -146,9 +143,10 @@ class NodesToDelete(ToDelete):
 
     def get_process_function(
         self, client: ToolkitClient, console: Console, verbose: bool, process_results: ResourceDeployResult
-    ) -> Callable[[CogniteResourceList], list[JsonVal]]:
-        def check_for_data(chunk: CogniteResourceList) -> list[JsonVal]:
-            node_ids = cast(NodeList, chunk).as_ids()
+    ) -> Callable[[list[ResourceResponseProtocol]], list[JsonVal]]:
+        def check_for_data(chunk: list[ResourceResponseProtocol]) -> list[JsonVal]:
+            # We know that all node resources implement as_id
+            node_ids = [item.as_id() for item in chunk]  # type: ignore[attr-defined]
             found_ids: set[InstanceId] = set()
             if not self.delete_datapoints:
                 timeseries = client.time_series.retrieve_multiple(instance_ids=node_ids, ignore_unknown_ids=True)
@@ -164,8 +162,7 @@ class NodesToDelete(ToDelete):
                 dumped = node_id.dump(include_instance_type=True)
                 # The delete endpoint expects "instanceType" instead of "type"
                 dumped["instanceType"] = dumped.pop("type")
-                # MyPy think complains about invariant here, even though dict[str, str] is a type of JsonVal
-                result.append(dumped)  # type: ignore[arg-type]
+                result.append(dumped)
             return result
 
         return check_for_data
@@ -175,9 +172,10 @@ class NodesToDelete(ToDelete):
 class IdResourceToDelete(ToDelete):
     def get_process_function(
         self, client: ToolkitClient, console: Console, verbose: bool, process_results: ResourceDeployResult
-    ) -> Callable[[CogniteResourceList], list[JsonVal]]:
-        def as_id(chunk: CogniteResourceList) -> list[JsonVal]:
-            return [{"id": item.id} for item in chunk]
+    ) -> Callable[[list[ResourceResponseProtocol]], list[JsonVal]]:
+        def as_id(chunk: list[ResourceResponseProtocol]) -> list[JsonVal]:
+            # We know that all id resources have an id attribute
+            return [{"id": item.id} for item in chunk]  # type: ignore[attr-defined]
 
         return as_id
 
@@ -186,9 +184,10 @@ class IdResourceToDelete(ToDelete):
 class ExternalIdToDelete(ToDelete):
     def get_process_function(
         self, client: ToolkitClient, console: Console, verbose: bool, process_results: ResourceDeployResult
-    ) -> Callable[[CogniteResourceList], list[JsonVal]]:
-        def as_external_id(chunk: CogniteResourceList) -> list[JsonVal]:
-            return [{"externalId": item.external_id} for item in chunk]
+    ) -> Callable[[list[ResourceResponseProtocol]], list[JsonVal]]:
+        def as_external_id(chunk: list[ResourceResponseProtocol]) -> list[JsonVal]:
+            # We know that all external id resources have an external_id attribute
+            return [{"externalId": item.external_id} for item in chunk]  # type: ignore[attr-defined]
 
         return as_external_id
 
@@ -321,7 +320,7 @@ class PurgeCommand(ToolkitCommand):
                     iteration_count = item.total // self.BATCH_SIZE_DM + (
                         1 if item.total % self.BATCH_SIZE_DM > 0 else 0
                     )
-                executor = ProducerWorkerExecutor[CogniteResourceList, list[JsonVal]](
+                executor = ProducerWorkerExecutor[list[ResourceResponseProtocol], list[JsonVal]](
                     download_iterable=self._iterate_batch(
                         item.crud, space, data_set_external_id, batch_size=self.BATCH_SIZE_DM
                     ),
@@ -348,13 +347,13 @@ class PurgeCommand(ToolkitCommand):
     @staticmethod
     def _iterate_batch(
         crud: ResourceCRUD, selected_space: str | None, data_set_external_id: str | None, batch_size: int
-    ) -> Iterable[CogniteResourceList]:
-        batch = crud.list_cls([])
+    ) -> Iterable[list[ResourceResponseProtocol]]:
+        batch: list[ResourceResponseProtocol] = []
         for resource in crud.iterate(space=selected_space, data_set_external_id=data_set_external_id):
             batch.append(resource)
             if len(batch) >= batch_size:
                 yield batch
-                batch = crud.list_cls([])
+                batch = []
         if batch:
             yield batch
 

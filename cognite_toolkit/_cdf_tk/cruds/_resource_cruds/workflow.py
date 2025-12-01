@@ -22,24 +22,23 @@ from typing import Any, final
 from cognite.client.data_classes import (
     ClientCredentials,
     Workflow,
-    WorkflowList,
     WorkflowTrigger,
-    WorkflowTriggerList,
     WorkflowTriggerUpsert,
-    WorkflowTriggerUpsertList,
     WorkflowUpsert,
-    WorkflowUpsertList,
     WorkflowVersion,
     WorkflowVersionId,
-    WorkflowVersionList,
     WorkflowVersionUpsert,
-    WorkflowVersionUpsertList,
 )
 from cognite.client.data_classes.capabilities import (
     Capability,
     WorkflowOrchestrationAcl,
 )
-from cognite.client.data_classes.workflows import SubworkflowReferenceParameters
+from cognite.client.data_classes.workflows import (
+    SubworkflowReferenceParameters,
+    WorkflowList,
+    WorkflowTriggerList,
+    WorkflowVersionList,
+)
 from cognite.client.exceptions import CogniteAuthError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
@@ -75,13 +74,10 @@ from .transformation import TransformationCRUD
 
 
 @final
-class WorkflowCRUD(ResourceCRUD[str, WorkflowUpsert, Workflow, WorkflowUpsertList, WorkflowList]):
+class WorkflowCRUD(ResourceCRUD[str, WorkflowUpsert, Workflow]):
     folder_name = "workflows"
-    filename_pattern = r"^.*Workflow$"
     resource_cls = Workflow
     resource_write_cls = WorkflowUpsert
-    list_cls = WorkflowList
-    list_write_cls = WorkflowUpsertList
     kind = "Workflow"
     dependencies = frozenset(
         {
@@ -140,18 +136,14 @@ class WorkflowCRUD(ResourceCRUD[str, WorkflowUpsert, Workflow, WorkflowUpsertLis
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
         return dumped
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> WorkflowList:
+    def retrieve(self, ids: SequenceNotStr[str]) -> Sequence[Workflow]:
         return self.client.workflows.retrieve(external_id=ids, ignore_unknown_ids=True)
 
-    def _upsert(self, items: WorkflowUpsert | WorkflowUpsertList) -> WorkflowList:
-        upserts = [items] if isinstance(items, WorkflowUpsert) else items
-        return self.client.workflows.upsert(upserts)
+    def create(self, items: Sequence[WorkflowUpsert]) -> WorkflowList:
+        return self.client.workflows.upsert(items)
 
-    def create(self, items: WorkflowUpsert | WorkflowUpsertList) -> WorkflowList:
-        return self._upsert(items)
-
-    def update(self, items: WorkflowUpsertList) -> WorkflowList:
-        return self._upsert(items)
+    def update(self, items: Sequence[WorkflowUpsert]) -> WorkflowList:
+        return self.client.workflows.upsert(items)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         successes = 0
@@ -192,17 +184,10 @@ class WorkflowCRUD(ResourceCRUD[str, WorkflowUpsert, Workflow, WorkflowUpsertLis
 
 
 @final
-class WorkflowVersionCRUD(
-    ResourceCRUD[
-        WorkflowVersionId, WorkflowVersionUpsert, WorkflowVersion, WorkflowVersionUpsertList, WorkflowVersionList
-    ]
-):
+class WorkflowVersionCRUD(ResourceCRUD[WorkflowVersionId, WorkflowVersionUpsert, WorkflowVersion]):
     folder_name = "workflows"
-    filename_pattern = r"^.*WorkflowVersion$"
     resource_cls = WorkflowVersion
     resource_write_cls = WorkflowVersionUpsert
-    list_cls = WorkflowVersionList
-    list_write_cls = WorkflowVersionUpsertList
     kind = "WorkflowVersion"
     dependencies = frozenset({WorkflowCRUD})
     parent_resource = frozenset({WorkflowCRUD})
@@ -398,16 +383,16 @@ class WorkflowVersionCRUD(
             return WorkflowVersionList([])
         return self.client.workflows.versions.retrieve(workflow_external_id=list(ids), ignore_unknown_ids=True)
 
-    def _upsert(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
+    def _upsert(self, items: Sequence[WorkflowVersionUpsert]) -> WorkflowVersionList:
         return self.client.workflows.versions.upsert(items)
 
-    def create(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
+    def create(self, items: Sequence[WorkflowVersionUpsert]) -> WorkflowVersionList:
         upserted: list[WorkflowVersion] = []
         for item in self.topological_sort(items):
             upserted.extend(self.client.workflows.versions.upsert([item]))
         return WorkflowVersionList(upserted)
 
-    def update(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
+    def update(self, items: Sequence[WorkflowVersionUpsert]) -> WorkflowVersionList:
         return self._upsert(items)
 
     def delete(self, ids: SequenceNotStr[WorkflowVersionId]) -> int:
@@ -467,15 +452,10 @@ class WorkflowVersionCRUD(
 
 
 @final
-class WorkflowTriggerCRUD(
-    ResourceCRUD[str, WorkflowTriggerUpsert, WorkflowTrigger, WorkflowTriggerUpsertList, WorkflowTriggerList]
-):
+class WorkflowTriggerCRUD(ResourceCRUD[str, WorkflowTriggerUpsert, WorkflowTrigger]):
     folder_name = "workflows"
-    filename_pattern = r"^.*WorkflowTrigger$"
     resource_cls = WorkflowTrigger
     resource_write_cls = WorkflowTriggerUpsert
-    list_cls = WorkflowTriggerList
-    list_write_cls = WorkflowTriggerUpsertList
     kind = "WorkflowTrigger"
     dependencies = frozenset({WorkflowCRUD, WorkflowVersionCRUD, GroupResourceScopedCRUD, GroupAllScopedCRUD})
     parent_resource = frozenset({WorkflowCRUD})
@@ -522,10 +502,10 @@ class WorkflowTriggerCRUD(
             WorkflowOrchestrationAcl.Scope.All(),
         )
 
-    def create(self, items: WorkflowTriggerUpsertList) -> WorkflowTriggerList:
+    def create(self, items: Sequence[WorkflowTriggerUpsert]) -> WorkflowTriggerList:
         return self._upsert(items)
 
-    def _upsert(self, items: WorkflowTriggerUpsertList) -> WorkflowTriggerList:
+    def _upsert(self, items: Sequence[WorkflowTriggerUpsert]) -> WorkflowTriggerList:
         created = WorkflowTriggerList([])
         for item in items:
             created.append(self._upsert_item(item))
@@ -545,7 +525,7 @@ class WorkflowTriggerCRUD(
         lookup = set(ids)
         return WorkflowTriggerList([trigger for trigger in all_triggers if trigger.external_id in lookup])
 
-    def update(self, items: WorkflowTriggerUpsertList) -> WorkflowTriggerList:
+    def update(self, items: Sequence[WorkflowTriggerUpsert]) -> WorkflowTriggerList:
         return self._upsert(items)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:

@@ -3,8 +3,8 @@ from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from ._annotations import AnnotationIO
 from ._applications import CanvasIO, ChartIO
 from ._asset_centric import (
+    AssetCentricIO,
     AssetIO,
-    BaseAssetCentricIO,
     EventIO,
     FileMetadataIO,
     HierarchyIO,
@@ -32,18 +32,18 @@ STORAGE_IO_CLASSES = get_concrete_subclasses(StorageIO)  # type: ignore[type-abs
 UPLOAD_IO_CLASSES = get_concrete_subclasses(UploadableStorageIO)  # type: ignore[type-abstract]
 
 
-def get_upload_io(selector_cls: type[DataSelector]) -> type[UploadableStorageIO]:
+def get_upload_io(selector: DataSelector) -> type[UploadableStorageIO]:
     """Get the appropriate UploadableStorageIO class based on the type of the provided selector."""
     for cls in UPLOAD_IO_CLASSES:
-        if issubclass(selector_cls, cls.BASE_SELECTOR):
+        if isinstance(selector, cls.BASE_SELECTOR) and selector.kind == cls.KIND:
             return cls
-    raise ValueError(f"No UploadableStorageIO found for selector of type {selector_cls.__name__}")
+    raise ValueError(f"No UploadableStorageIO found for selector of type {type(selector).__name__}")
 
 
 __all__ = [
     "AnnotationIO",
+    "AssetCentricIO",
     "AssetIO",
-    "BaseAssetCentricIO",
     "CanvasIO",
     "ChartIO",
     "ConfigurableStorageIO",

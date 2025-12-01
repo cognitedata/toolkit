@@ -1,7 +1,7 @@
 from collections.abc import Hashable, Iterable, Sequence
 from typing import Any
 
-from cognite.client.data_classes.agents import Agent, AgentList, AgentUpsert, AgentUpsertList
+from cognite.client.data_classes.agents import Agent, AgentList, AgentUpsert
 from cognite.client.data_classes.capabilities import AgentsAcl, Capability
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
@@ -11,13 +11,10 @@ from cognite_toolkit._cdf_tk.resource_classes import AgentYAML
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 
 
-class AgentCRUD(ResourceCRUD[str, AgentUpsert, Agent, AgentUpsertList, AgentList]):
+class AgentCRUD(ResourceCRUD[str, AgentUpsert, Agent]):
     folder_name = "agents"
-    filename_pattern = r".*\.Agent$"  # Matches all yaml files whose stem ends with '.Agent'.
     resource_cls = Agent
     resource_write_cls = AgentUpsert
-    list_cls = AgentList
-    list_write_cls = AgentUpsertList
     kind = "Agent"
     yaml_cls = AgentYAML
     _doc_base_url = ""
@@ -44,13 +41,13 @@ class AgentCRUD(ResourceCRUD[str, AgentUpsert, Agent, AgentUpsertList, AgentList
 
         return AgentsAcl(actions, AgentsAcl.Scope.All())
 
-    def create(self, items: AgentUpsertList) -> AgentList:
+    def create(self, items: Sequence[AgentUpsert]) -> AgentList:
         return self.client.agents.upsert(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> AgentList:
         return self.client.agents.retrieve(ids, ignore_unknown_ids=True)
 
-    def update(self, items: AgentUpsertList) -> AgentList:
+    def update(self, items: Sequence[AgentUpsert]) -> AgentList:
         return self.client.agents.upsert(items)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:

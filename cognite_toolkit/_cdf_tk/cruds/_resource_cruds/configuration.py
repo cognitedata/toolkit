@@ -11,7 +11,6 @@ from cognite_toolkit._cdf_tk.client.data_classes.search_config import (
     SearchConfig,
     SearchConfigList,
     SearchConfigWrite,
-    SearchConfigWriteList,
     ViewId,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
@@ -23,14 +22,11 @@ from .datamodel import ViewCRUD
 
 
 @final
-class SearchConfigCRUD(ResourceCRUD[ViewId, SearchConfigWrite, SearchConfig, SearchConfigWriteList, SearchConfigList]):
+class SearchConfigCRUD(ResourceCRUD[ViewId, SearchConfigWrite, SearchConfig]):
     support_drop = False
     folder_name = "cdf_applications"
-    filename_pattern = r"^.*SearchConfig$"
     resource_cls = SearchConfig
     resource_write_cls = SearchConfigWrite
-    list_cls = SearchConfigList
-    list_write_cls = SearchConfigWriteList
     yaml_cls = SearchConfigYAML
     dependencies = frozenset({ViewCRUD})
     kind = "SearchConfig"
@@ -104,20 +100,17 @@ class SearchConfigCRUD(ResourceCRUD[ViewId, SearchConfigWrite, SearchConfig, Sea
             return diff_list_identifiable(local, cdf, get_identifier=dm_identifier)
         return super().diff_list(local, cdf, json_path)
 
-    def _upsert(self, items: SearchConfigWrite | SearchConfigWriteList) -> SearchConfigList:
+    def _upsert(self, items: Sequence[SearchConfigWrite]) -> SearchConfigList:
         """
         Upsert search configurations using the upsert method
         """
-        if isinstance(items, SearchConfigWrite):
-            items = SearchConfigWriteList([items])
-
         result = SearchConfigList([])
         for item in items:
             created = self.client.search.configurations.upsert(item)
             result.append(created)
         return result
 
-    def create(self, items: SearchConfigWriteList) -> SearchConfigList:
+    def create(self, items: Sequence[SearchConfigWrite]) -> SearchConfigList:
         """
         Create new search configurations using the upsert method
         """
@@ -129,7 +122,7 @@ class SearchConfigCRUD(ResourceCRUD[ViewId, SearchConfigWrite, SearchConfig, Sea
         # The API does not support server-side filtering, so we filter in memory.
         return SearchConfigList([config for config in all_configs if config.view in ids])
 
-    def update(self, items: SearchConfigWriteList) -> SearchConfigList:
+    def update(self, items: Sequence[SearchConfigWrite]) -> SearchConfigList:
         """
         Update search configurations using the upsert method
         """

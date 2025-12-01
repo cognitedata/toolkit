@@ -250,3 +250,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, FileMetadata, FileM
                 metadata[FILEPATH] = file_path
                 batch.append((str(file_path), metadata))
             yield batch
+
+    @classmethod
+    def count_chunks(cls, reader: MultiFileReader) -> int:
+        return len(reader.input_files)
