@@ -18,7 +18,6 @@ from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import (
     Streamlit,
     StreamlitList,
     StreamlitWrite,
-    StreamlitWriteList,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotADirectoryError, ToolkitRequiredValueError
@@ -34,13 +33,10 @@ from .data_organization import DataSetsCRUD
 
 
 @final
-class StreamlitCRUD(ResourceCRUD[str, StreamlitWrite, Streamlit, StreamlitWriteList, StreamlitList]):
+class StreamlitCRUD(ResourceCRUD[str, StreamlitWrite, Streamlit]):
     folder_name = "streamlit"
-    filename_pattern = r".*streamlit$"
     resource_cls = Streamlit
     resource_write_cls = StreamlitWrite
-    list_cls = StreamlitList
-    list_write_cls = StreamlitWriteList
     kind = "Streamlit"
     dependencies = frozenset({DataSetsCRUD, GroupAllScopedCRUD})
     _doc_url = "Files/operation/initFileUpload"
@@ -157,7 +153,7 @@ class StreamlitCRUD(ResourceCRUD[str, StreamlitWrite, Streamlit, StreamlitWriteL
                 missing.append(recommended.name)
         return missing
 
-    def create(self, items: StreamlitWriteList) -> StreamlitList:
+    def create(self, items: Sequence[StreamlitWrite]) -> StreamlitList:
         created = StreamlitList([])
         for item in items:
             content = self._as_json_string(item.external_id, item.entrypoint)
@@ -172,7 +168,7 @@ class StreamlitCRUD(ResourceCRUD[str, StreamlitWrite, Streamlit, StreamlitWriteL
         files = self.client.files.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
         return StreamlitList([Streamlit.from_file(file) for file in files])
 
-    def update(self, items: StreamlitWriteList) -> StreamlitList:
+    def update(self, items: Sequence[StreamlitWrite]) -> StreamlitList:
         files = []
         for item in items:
             content = self._as_json_string(item.external_id, item.entrypoint)

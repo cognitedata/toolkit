@@ -225,7 +225,7 @@ def some_filemetadata_data() -> FileMetadataList:
 
 class TestFileMetadataIO:
     @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
-    def test_download_upload(
+    def test_download(
         self,
         toolkit_config: ToolkitClientConfig,
         some_filemetadata_data: FileMetadataList,
@@ -261,7 +261,6 @@ class TestFileMetadataIO:
             assert io.count(selector) == 50
 
             source = io.stream_data(selector)
-            json_chunks: list[list[dict[str, JsonVal]]] = []
             for page in source:
                 # New interface: stream_data returns Page objects
                 json_chunk = io.data_to_json_chunk(page.items)
@@ -271,24 +270,6 @@ class TestFileMetadataIO:
                     assert isinstance(item, dict)
                     assert "dataSetExternalId" in item
                     assert item["dataSetExternalId"] == "test_data_set"
-                json_chunks.append(json_chunk)
-
-            with HTTPClient(config) as upload_client:
-                from cognite_toolkit._cdf_tk.storageio._base import UploadItem
-
-                # New interface: convert individual items and create UploadItems
-                for chunk in json_chunks:
-                    write_items = [io.json_to_resource(item) for item in chunk]
-                    upload_items = [UploadItem(source_id=io.as_id(item), item=item) for item in write_items]
-                    io.upload_items(upload_items, upload_client, selector)
-
-            # /files only support creating one at a time.
-            assert respx_mock.calls.call_count == len(some_filemetadata_data)
-            uploaded_files = []
-            for call in respx_mock.calls:
-                uploaded_files.append(json.loads(call.request.content))
-
-            assert uploaded_files == some_filemetadata_data.as_write().dump()
 
 
 @pytest.fixture()

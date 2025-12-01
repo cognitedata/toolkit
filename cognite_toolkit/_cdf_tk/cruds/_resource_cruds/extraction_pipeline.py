@@ -30,9 +30,7 @@ from cognite.client.data_classes.capabilities import (
 from cognite.client.data_classes.extractionpipelines import (
     ExtractionPipelineConfigList,
     ExtractionPipelineConfigWrite,
-    ExtractionPipelineConfigWriteList,
     ExtractionPipelineWrite,
-    ExtractionPipelineWriteList,
 )
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
@@ -61,15 +59,10 @@ from .raw import RawDatabaseCRUD, RawTableCRUD
 
 
 @final
-class ExtractionPipelineCRUD(
-    ResourceCRUD[str, ExtractionPipelineWrite, ExtractionPipeline, ExtractionPipelineWriteList, ExtractionPipelineList]
-):
+class ExtractionPipelineCRUD(ResourceCRUD[str, ExtractionPipelineWrite, ExtractionPipeline]):
     folder_name = "extraction_pipelines"
-    filename_pattern = r"^(?:(?!\.config).)*$"  # Matches all yaml files except file names who's stem contain *.config.
     resource_cls = ExtractionPipeline
     resource_write_cls = ExtractionPipelineWrite
-    list_cls = ExtractionPipelineList
-    list_write_cls = ExtractionPipelineWriteList
     kind = "ExtractionPipeline"
     dependencies = frozenset({DataSetsCRUD, RawDatabaseCRUD, RawTableCRUD, GroupAllScopedCRUD})
     yaml_cls = ExtractionPipelineYAML
@@ -177,7 +170,7 @@ class ExtractionPipelineCRUD(
     def retrieve(self, ids: SequenceNotStr[str]) -> ExtractionPipelineList:
         return self.client.extraction_pipelines.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
-    def update(self, items: ExtractionPipelineWriteList) -> ExtractionPipelineList:
+    def update(self, items: Sequence[ExtractionPipelineWrite]) -> ExtractionPipelineList:
         # Bug in SDK overload so need the ignore.
         return self.client.extraction_pipelines.update(items, mode="replace")  # type: ignore[call-overload]
 
@@ -218,16 +211,11 @@ class ExtractionPipelineConfigCRUD(
         str,
         ExtractionPipelineConfigWrite,
         ExtractionPipelineConfig,
-        ExtractionPipelineConfigWriteList,
-        ExtractionPipelineConfigList,
     ]
 ):
     folder_name = "extraction_pipelines"
-    filename_pattern = r"^.*config$"
     resource_cls = ExtractionPipelineConfig
     resource_write_cls = ExtractionPipelineConfigWrite
-    list_cls = ExtractionPipelineConfigList
-    list_write_cls = ExtractionPipelineConfigWriteList
     kind = "Config"
     dependencies = frozenset({ExtractionPipelineCRUD})
     _doc_url = "Extraction-Pipelines-Config/operation/createExtPipeConfig"
@@ -347,18 +335,18 @@ class ExtractionPipelineConfigCRUD(
             return diff_list_force_hashable(local, cdf)
         return super().diff_list(local, cdf, json_path)
 
-    def _upsert(self, items: ExtractionPipelineConfigWriteList) -> ExtractionPipelineConfigList:
+    def _upsert(self, items: Sequence[ExtractionPipelineConfigWrite]) -> ExtractionPipelineConfigList:
         upserted = ExtractionPipelineConfigList([])
         for item in items:
             created = self.client.extraction_pipelines.config.create(item)
             upserted.append(created)
         return upserted
 
-    def create(self, items: ExtractionPipelineConfigWriteList) -> ExtractionPipelineConfigList:
+    def create(self, items: Sequence[ExtractionPipelineConfigWrite]) -> ExtractionPipelineConfigList:
         return self._upsert(items)
 
     # configs cannot be updated, instead new revision is created
-    def update(self, items: ExtractionPipelineConfigWriteList) -> ExtractionPipelineConfigList:
+    def update(self, items: Sequence[ExtractionPipelineConfigWrite]) -> ExtractionPipelineConfigList:
         return self._upsert(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> ExtractionPipelineConfigList:

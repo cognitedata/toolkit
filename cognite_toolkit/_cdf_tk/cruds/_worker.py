@@ -1,8 +1,8 @@
 import re
 import warnings
-from collections.abc import Hashable
+from collections.abc import Hashable, Sequence
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, cast
 
@@ -18,35 +18,24 @@ from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarnin
 from cognite_toolkit._cdf_tk.utils import to_diff
 
 from . import FunctionCRUD
-from ._base_cruds import (
-    T_ID,
-    ResourceCRUD,
-    T_ResourceRequest,
-    T_ResourceRequestList,
-    T_ResourceResponse,
-    T_ResourceResponseList,
-)
+from ._base_cruds import T_ID, ResourceCRUD, T_ResourceRequest, T_ResourceResponse
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.data_classes._module_directories import ReadModule
 
 
 @dataclass
-class CategorizedResources(Generic[T_ID, T_ResourceRequestList]):
-    to_create: T_ResourceRequestList
-    to_update: T_ResourceRequestList
-    to_delete: list[T_ID]
-    unchanged: T_ResourceRequestList
+class CategorizedResources(Generic[T_ID, T_ResourceRequest]):
+    to_create: list[T_ResourceRequest] = field(default_factory=list)
+    to_update: list[T_ResourceRequest] = field(default_factory=list)
+    to_delete: list[T_ID] = field(default_factory=list)
+    unchanged: list[T_ResourceRequest] = field(default_factory=list)
 
 
-class ResourceWorker(
-    Generic[T_ID, T_ResourceRequest, T_ResourceResponse, T_ResourceRequestList, T_ResourceResponseList]
-):
+class ResourceWorker(Generic[T_ID, T_ResourceRequest, T_ResourceResponse]):
     def __init__(
         self,
-        loader: ResourceCRUD[
-            T_ID, T_ResourceRequest, T_ResourceResponse, T_ResourceRequestList, T_ResourceResponseList
-        ],
+        loader: ResourceCRUD[T_ID, T_ResourceRequest, T_ResourceResponse],
         action: str,
     ):
         self.loader = loader
@@ -104,7 +93,6 @@ class ResourceWorker(
         self.validate_access(local_by_id, is_dry_run)
 
         # Lookup the existing resources in CDF
-        cdf_resources: T_ResourceResponseList
         cdf_resources = self.loader.retrieve(list(local_by_id.keys()))
         return self.categorize_resources(local_by_id, cdf_resources, force_update, verbose)
 
@@ -165,16 +153,11 @@ class ResourceWorker(
     def categorize_resources(
         self,
         local_by_id: dict[T_ID, tuple[dict[str, Any], T_ResourceRequest]],
-        cdf_resources: T_ResourceResponseList,
+        cdf_resources: Sequence[T_ResourceResponse],
         force_update: bool,
         verbose: bool,
-    ) -> CategorizedResources[T_ID, T_ResourceRequestList]:
-        resources: CategorizedResources[T_ID, T_ResourceRequestList] = CategorizedResources(
-            to_create=self.loader.list_write_cls([]),
-            to_update=self.loader.list_write_cls([]),
-            to_delete=[],
-            unchanged=self.loader.list_write_cls([]),
-        )
+    ) -> CategorizedResources[T_ID, T_ResourceRequest]:
+        resources: CategorizedResources[T_ID, T_ResourceRequest] = CategorizedResources()
         cdf_resource_by_id = {self.loader.get_id(resource): resource for resource in cdf_resources}
         for identifier, (local_dict, local_resource) in local_by_id.items():
             cdf_resource = cdf_resource_by_id.get(identifier)

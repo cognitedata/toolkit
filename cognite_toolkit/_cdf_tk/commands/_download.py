@@ -2,10 +2,9 @@ from collections.abc import Callable, Iterable
 from functools import partial
 from pathlib import Path
 
-from cognite.client.data_classes._base import T_CogniteResource
-
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.protocols import T_ResourceResponse
 from cognite_toolkit._cdf_tk.storageio import ConfigurableStorageIO, Page, StorageIO, T_Selector, TableStorageIO
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils.file import safe_write, sanitize_filename, yaml_safe_dump
@@ -20,7 +19,7 @@ class DownloadCommand(ToolkitCommand):
     def download(
         self,
         selectors: Iterable[T_Selector],
-        io: StorageIO[T_Selector, T_CogniteResource],
+        io: StorageIO[T_Selector, T_ResourceResponse],
         output_dir: Path,
         verbose: bool,
         file_format: str,
@@ -68,7 +67,7 @@ class DownloadCommand(ToolkitCommand):
             with FileWriter.create_from_format(
                 file_format, target_dir, selector.kind, compression_cls, columns=columns
             ) as writer:
-                executor = ProducerWorkerExecutor[Page[T_CogniteResource], list[dict[str, JsonVal]]](
+                executor = ProducerWorkerExecutor[Page[T_ResourceResponse], list[dict[str, JsonVal]]](
                     download_iterable=io.stream_data(selector, limit),
                     process=self.create_data_process(io=io, selector=selector, is_table=is_table),
                     write=partial(writer.write_chunks, filestem=filestem),
@@ -95,7 +94,7 @@ class DownloadCommand(ToolkitCommand):
 
     @staticmethod
     def _get_iteration_count(
-        io: StorageIO[T_Selector, T_CogniteResource],
+        io: StorageIO[T_Selector, T_ResourceResponse],
         selector: T_Selector,
         limit: int | None,
     ) -> int | None:
@@ -126,19 +125,19 @@ class DownloadCommand(ToolkitCommand):
 
     @staticmethod
     def create_data_process(
-        io: StorageIO[T_Selector, T_CogniteResource],
+        io: StorageIO[T_Selector, T_ResourceResponse],
         selector: T_Selector,
         is_table: bool,
-    ) -> Callable[[Page[T_CogniteResource]], list[dict[str, JsonVal]]]:
+    ) -> Callable[[Page[T_ResourceResponse]], list[dict[str, JsonVal]]]:
         """Creates a data processing function based on the IO type and whether the output is a table."""
         if is_table and isinstance(io, TableStorageIO):
 
-            def row_data_process(chunk: Page[T_CogniteResource]) -> list[dict[str, JsonVal]]:
+            def row_data_process(chunk: Page[T_ResourceResponse]) -> list[dict[str, JsonVal]]:
                 return io.data_to_row(chunk.items, selector)
 
             return row_data_process
 
-        def chunk_data_process(data_page: Page[T_CogniteResource]) -> list[dict[str, JsonVal]]:
+        def chunk_data_process(data_page: Page[T_ResourceResponse]) -> list[dict[str, JsonVal]]:
             return io.data_to_json_chunk(data_page.items, selector)
 
         return chunk_data_process

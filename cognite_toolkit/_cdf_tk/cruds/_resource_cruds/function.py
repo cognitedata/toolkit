@@ -12,9 +12,7 @@ from cognite.client.data_classes import (
     FunctionSchedule,
     FunctionSchedulesList,
     FunctionScheduleWrite,
-    FunctionScheduleWriteList,
     FunctionWrite,
-    FunctionWriteList,
 )
 from cognite.client.data_classes.capabilities import (
     AllScope,
@@ -56,16 +54,11 @@ from .group_scoped import GroupResourceScopedCRUD
 
 
 @final
-class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function, FunctionWriteList, FunctionList]):
+class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function]):
     support_drop = True
     folder_name = "functions"
-    filename_pattern = (
-        r"^(?:(?!schedule).)*$"  # Matches all yaml files except file names who's stem contain *.schedule.
-    )
     resource_cls = Function
     resource_write_cls = FunctionWrite
-    list_cls = FunctionList
-    list_write_cls = FunctionWriteList
     kind = "Function"
     yaml_cls = FunctionsYAML
     dependencies = frozenset({DataSetsCRUD, GroupAllScopedCRUD})
@@ -301,7 +294,7 @@ class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function, FunctionWriteList,
             self.client.functions.activate()
         return False
 
-    def create(self, items: FunctionWriteList) -> FunctionList:
+    def create(self, items: Sequence[FunctionWrite]) -> FunctionList:
         created = FunctionList([], cognite_client=self.client)
         if not self._is_activated("create"):
             return created
@@ -426,17 +419,10 @@ class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function, FunctionWriteList,
 
 
 @final
-class FunctionScheduleCRUD(
-    ResourceCRUD[
-        FunctionScheduleID, FunctionScheduleWrite, FunctionSchedule, FunctionScheduleWriteList, FunctionSchedulesList
-    ]
-):
+class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleID, FunctionScheduleWrite, FunctionSchedule]):
     folder_name = "functions"
-    filename_pattern = r"^.*schedule.*$"  # Matches all yaml files who's stem contain *.schedule
     resource_cls = FunctionSchedule
     resource_write_cls = FunctionScheduleWrite
-    list_cls = FunctionSchedulesList
-    list_write_cls = FunctionScheduleWriteList
     kind = "Schedule"
     yaml_cls = FunctionScheduleYAML
     dependencies = frozenset({FunctionCRUD, GroupResourceScopedCRUD, GroupAllScopedCRUD})
@@ -557,7 +543,7 @@ class FunctionScheduleCRUD(
             )
         return schedules
 
-    def create(self, items: FunctionScheduleWriteList) -> FunctionSchedulesList:
+    def create(self, items: Sequence[FunctionScheduleWrite]) -> FunctionSchedulesList:
         created_list = FunctionSchedulesList([], cognite_client=self.client)
         function_id_by_external_id = self._get_function_ids_by_external_id(items)
 
@@ -586,7 +572,7 @@ class FunctionScheduleCRUD(
             created_list.append(created)
         return created_list
 
-    def _get_function_ids_by_external_id(self, items: FunctionScheduleWriteList) -> dict[str, int]:
+    def _get_function_ids_by_external_id(self, items: Sequence[FunctionScheduleWrite]) -> dict[str, int]:
         functions_to_lookup = list({item.function_external_id for item in items if item.function_external_id})
         if not functions_to_lookup:
             return {}

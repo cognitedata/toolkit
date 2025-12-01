@@ -38,7 +38,7 @@ class FileReader(FileIO, ABC):
     @abstractmethod
     def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[dict[str, JsonVal]]:
         """Read chunks from the file."""
-        raise NotImplementedError("This method should be implemented in subclasses.")
+        ...
 
     @classmethod
     def from_filepath(cls, filepath: Path) -> "type[FileReader]":
@@ -61,6 +61,11 @@ class FileReader(FileIO, ABC):
         raise ToolkitValueError(
             f"Unknown file format: {suffix}. Available formats: {humanize_collection(FILE_READ_CLS_BY_FORMAT.keys())}."
         )
+
+    @abstractmethod
+    def count(self) -> int:
+        """Count the number of chunks in the file."""
+        ...
 
 
 class MultiFileReader(FileReader):
@@ -112,6 +117,14 @@ class MultiFileReader(FileReader):
     def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[dict[str, JsonVal]]:
         raise NotImplementedError("This method is not used in MultiFileReader.")
 
+    def count(self) -> int:
+        """Count the total number of chunks in all files."""
+        total_count = 0
+        for input_file in self.input_files:
+            reader = self.reader_class(input_file)
+            total_count += reader.count()
+        return total_count
+
 
 class NDJsonReader(FileReader):
     FORMAT = ".ndjson"
@@ -121,10 +134,24 @@ class NDJsonReader(FileReader):
             if stripped := line.strip():
                 yield json.loads(stripped)
 
+    def count(self) -> int:
+        """Count the number of lines (chunks) in the NDJSON file."""
+        compression = Compression.from_filepath(self.input_file)
+        with compression.open("r") as file:
+            line_count = sum(1 for line in file if line.strip())
+        return line_count
+
 
 class YAMLBaseReader(FileReader, ABC):
     def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[dict[str, JsonVal]]:
         yield from yaml.safe_load_all(file)
+
+    def count(self) -> int:
+        """Count the number of documents (chunks) in the YAML file."""
+        compression = Compression.from_filepath(self.input_file)
+        with compression.open("r") as file:
+            doc_count = sum(1 for _ in yaml.safe_load_all(file))
+        return doc_count
 
 
 class YAMLReader(YAMLBaseReader):
@@ -306,6 +333,13 @@ class CSVReader(TableReader):
                 raise ToolkitValueError(f"No data found in the file: {input_file.as_posix()!r}.")
         return column_names, sample_rows
 
+    def count(self) -> int:
+        """Count the number of rows in the CSV file."""
+        compression = Compression.from_filepath(self.input_file)
+        with compression.open("r") as file:
+            line_count = sum(1 for _ in file) - 1  # Subtract 1 for header
+        return line_count
+
 
 class ParquetReader(TableReader):
     FORMAT = ".parquet"
@@ -358,6 +392,13 @@ class ParquetReader(TableReader):
             if not sample_rows:
                 raise ToolkitValueError(f"No data found in the file: {input_file.as_posix()!r}.")
         return column_names, sample_rows
+
+    def count(self) -> int:
+        """Count the number of rows in the Parquet file."""
+        import pyarrow.parquet as pq
+
+        with pq.ParquetFile(self.input_file) as parquet_file:
+            return parquet_file.metadata.num_rows
 
 
 FILE_READ_CLS_BY_FORMAT: Mapping[str, type[FileReader]] = {}

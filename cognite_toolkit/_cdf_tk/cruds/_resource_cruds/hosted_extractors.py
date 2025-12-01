@@ -8,21 +8,17 @@ from cognite.client.data_classes.hosted_extractors import (
     Destination,
     DestinationList,
     DestinationWrite,
-    DestinationWriteList,
     EventHubSourceWrite,
     Job,
     JobList,
     JobWrite,
-    JobWriteList,
     KafkaSourceWrite,
     Mapping,
     MappingList,
     MappingWrite,
-    MappingWriteList,
     Source,
     SourceList,
     SourceWrite,
-    SourceWriteList,
 )
 from cognite.client.data_classes.hosted_extractors.sources import (
     AuthenticationWrite,
@@ -48,13 +44,10 @@ from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from .data_organization import DataSetsCRUD
 
 
-class HostedExtractorSourceCRUD(ResourceCRUD[str, SourceWrite, Source, SourceWriteList, SourceList]):
+class HostedExtractorSourceCRUD(ResourceCRUD[str, SourceWrite, Source]):
     folder_name = "hosted_extractors"
-    filename_pattern = r".*\.Source$"  # Matches all yaml files whose stem ends with '.Source'.
     resource_cls = Source
     resource_write_cls = SourceWrite
-    list_cls = SourceList
-    list_write_cls = SourceWriteList
     kind = "Source"
     yaml_cls = HostedExtractorSourceYAML
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
@@ -93,13 +86,13 @@ class HostedExtractorSourceCRUD(ResourceCRUD[str, SourceWrite, Source, SourceWri
             HostedExtractorsAcl.Scope.All(),
         )
 
-    def create(self, items: SourceWriteList) -> SourceList:
+    def create(self, items: Sequence[SourceWrite]) -> SourceList:
         return self.client.hosted_extractors.sources.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> SourceList:
         return self.client.hosted_extractors.sources.retrieve(external_ids=ids, ignore_unknown_ids=True)
 
-    def update(self, items: SourceWriteList) -> SourceList:
+    def update(self, items: Sequence[SourceWrite]) -> SourceList:
         return self.client.hosted_extractors.sources.update(items, mode="replace")
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
@@ -151,15 +144,10 @@ class HostedExtractorSourceCRUD(ResourceCRUD[str, SourceWrite, Source, SourceWri
             yield auth.client_secret
 
 
-class HostedExtractorDestinationCRUD(
-    ResourceCRUD[str, DestinationWrite, Destination, DestinationWriteList, DestinationList]
-):
+class HostedExtractorDestinationCRUD(ResourceCRUD[str, DestinationWrite, Destination]):
     folder_name = "hosted_extractors"
-    filename_pattern = r".*\.Destination$"  # Matches all yaml files whose stem ends with '.Destination'.
     resource_cls = Destination
     resource_write_cls = DestinationWrite
-    list_cls = DestinationList
-    list_write_cls = DestinationWriteList
     dependencies = frozenset({DataSetsCRUD})
     kind = "Destination"
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
@@ -202,13 +190,13 @@ class HostedExtractorDestinationCRUD(
             HostedExtractorsAcl.Scope.All(),
         )
 
-    def create(self, items: DestinationWriteList) -> DestinationList:
+    def create(self, items: Sequence[DestinationWrite]) -> DestinationList:
         return self.client.hosted_extractors.destinations.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> DestinationList:
         return self.client.hosted_extractors.destinations.retrieve(external_ids=ids, ignore_unknown_ids=True)
 
-    def update(self, items: DestinationWriteList) -> DestinationList:
+    def update(self, items: Sequence[DestinationWrite]) -> DestinationList:
         return self.client.hosted_extractors.destinations.update(items, mode="replace")
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
@@ -254,13 +242,10 @@ class HostedExtractorDestinationCRUD(
             yield self._authentication_by_id[id_].client_secret
 
 
-class HostedExtractorJobCRUD(ResourceCRUD[str, JobWrite, Job, JobWriteList, JobList]):
+class HostedExtractorJobCRUD(ResourceCRUD[str, JobWrite, Job]):
     folder_name = "hosted_extractors"
-    filename_pattern = r".*\.Job$"  # Matches all yaml files whose stem ends with '.Job'.
     resource_cls = Job
     resource_write_cls = JobWrite
-    list_cls = JobList
-    list_write_cls = JobWriteList
     dependencies = frozenset({HostedExtractorSourceCRUD, HostedExtractorDestinationCRUD})
     kind = "Job"
     yaml_cls = HostedExtractorJobYAML
@@ -306,13 +291,13 @@ class HostedExtractorJobCRUD(ResourceCRUD[str, JobWrite, Job, JobWriteList, JobL
             dumped.pop("config", None)
         return dumped
 
-    def create(self, items: JobWriteList) -> JobList:
+    def create(self, items: Sequence[JobWrite]) -> JobList:
         return self.client.hosted_extractors.jobs.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> JobList:
         return self.client.hosted_extractors.jobs.retrieve(external_ids=ids, ignore_unknown_ids=True)
 
-    def update(self, items: JobWriteList) -> JobList:
+    def update(self, items: Sequence[JobWrite]) -> JobList:
         return self.client.hosted_extractors.jobs.update(items, mode="replace")
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
@@ -335,13 +320,10 @@ class HostedExtractorJobCRUD(ResourceCRUD[str, JobWrite, Job, JobWriteList, JobL
             yield HostedExtractorDestinationCRUD, item["destinationId"]
 
 
-class HostedExtractorMappingCRUD(ResourceCRUD[str, MappingWrite, Mapping, MappingWriteList, MappingList]):
+class HostedExtractorMappingCRUD(ResourceCRUD[str, MappingWrite, Mapping]):
     folder_name = "hosted_extractors"
-    filename_pattern = r".*\.Mapping$"  # Matches all yaml files whose stem ends with '.Mapping'.
     resource_cls = Mapping
     resource_write_cls = MappingWrite
-    list_cls = MappingList
-    list_write_cls = MappingWriteList
     # This is not an explicit dependency, however, adding it here as mapping will should be deployed after source.
     dependencies = frozenset({HostedExtractorSourceCRUD})
     kind = "Mapping"
@@ -381,13 +363,13 @@ class HostedExtractorMappingCRUD(ResourceCRUD[str, MappingWrite, Mapping, Mappin
             HostedExtractorsAcl.Scope.All(),
         )
 
-    def create(self, items: MappingWriteList) -> MappingList:
+    def create(self, items: Sequence[MappingWrite]) -> MappingList:
         return self.client.hosted_extractors.mappings.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> MappingList:
         return self.client.hosted_extractors.mappings.retrieve(external_ids=ids, ignore_unknown_ids=True)
 
-    def update(self, items: MappingWriteList) -> MappingList:
+    def update(self, items: Sequence[MappingWrite]) -> MappingList:
         return self.client.hosted_extractors.mappings.update(items)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:

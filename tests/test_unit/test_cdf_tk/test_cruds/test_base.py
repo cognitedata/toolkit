@@ -181,7 +181,9 @@ class TestFormatConsistency:
                 f"Skipping {loader.resource_cls} because FakeCogniteResourceGenerator doesn't generate cls properties correctly"
             )
 
-        instances = FakeCogniteResourceGenerator(seed=1337).create_instances(loader.list_write_cls)
+        instances = [
+            FakeCogniteResourceGenerator(seed=1337).create_instance(loader.resource_write_cls) for _ in range(3)
+        ]
 
         # special case
         if isinstance(loader.resource_cls, TransformationSchedule):
@@ -189,7 +191,7 @@ class TestFormatConsistency:
                 del instance.id  # Client validation does not allow id and externalid to be set simultaneously
 
         file = MagicMock(spec=Path)
-        file.read_text.return_value = yaml.dump(instances.dump())
+        file.read_text.return_value = yaml.dump([instance.dump() for instance in instances])
         file.suffix = ".yaml"
         file.name = "dict.yaml"
         file.parent.name = loader.folder_name
@@ -423,7 +425,7 @@ class TestResourceCRUDs:
     def test_empty_required_capabilities_when_no_items(
         self, loader_cls: type[ResourceCRUD], env_vars_with_client: EnvironmentVariables
     ):
-        actual = loader_cls.get_required_capability(loader_cls.list_write_cls([]), read_only=False)
+        actual = loader_cls.get_required_capability([], read_only=False)
 
         assert actual == []
 

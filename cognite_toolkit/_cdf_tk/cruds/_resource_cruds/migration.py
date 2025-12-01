@@ -3,7 +3,7 @@ from typing import Any, final
 
 from cognite.client.data_classes import capabilities
 from cognite.client.data_classes.capabilities import Capability
-from cognite.client.data_classes.data_modeling import NodeApplyList, NodeList, ViewId
+from cognite.client.data_classes.data_modeling import NodeList, ViewId
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.data_classes.migration import (
@@ -19,18 +19,11 @@ from .datamodel import SpaceCRUD, ViewCRUD
 
 
 @final
-class ResourceViewMappingCRUD(
-    ResourceCRUD[str, ResourceViewMappingApply, ResourceViewMapping, NodeApplyList, NodeList[ResourceViewMapping]]
-):
+class ResourceViewMappingCRUD(ResourceCRUD[str, ResourceViewMappingApply, ResourceViewMapping]):
     folder_name = "migration"
-    filename_pattern = (
-        r"^.*\.ResourceViewMapping$"  # Matches all yaml files whose stem ends with '.ResourceViewMapping$'.
-    )
     filetypes = frozenset({"yaml", "yml"})
     resource_cls = ResourceViewMapping
     resource_write_cls = ResourceViewMappingApply
-    list_cls = NodeList[ResourceViewMapping]
-    list_write_cls = NodeApplyList
     kind = "ResourceViewMapping"
     dependencies = frozenset({SpaceCRUD, ViewCRUD})
     _doc_url = "Instances/operation/applyNodeAndEdges"
@@ -74,10 +67,10 @@ class ResourceViewMappingCRUD(
             return None
         return f"{self.display_name} requires the {view_id!r} to be deployed. run `cdf migrate prepare` to deploy it."
 
-    def create(self, items: NodeApplyList) -> Sized:
+    def create(self, items: Sequence[ResourceViewMappingApply]) -> Sized:
         return self.client.migration.resource_view_mapping.upsert(items)
 
-    def update(self, items: NodeApplyList) -> Sized:
+    def update(self, items: Sequence[ResourceViewMappingApply]) -> Sized:
         return self.client.migration.resource_view_mapping.upsert(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> NodeList[ResourceViewMapping]:

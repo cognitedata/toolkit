@@ -30,11 +30,9 @@ from cognite.client.data_classes.iam import (
     Group,
     GroupList,
     GroupWrite,
-    GroupWriteList,
     SecurityCategory,
     SecurityCategoryList,
     SecurityCategoryWrite,
-    SecurityCategoryWriteList,
 )
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
@@ -65,14 +63,11 @@ class _ReplaceMethod:
     id_name: str
 
 
-class GroupCRUD(ResourceCRUD[str, GroupWrite, Group, GroupWriteList, GroupList]):
+class GroupCRUD(ResourceCRUD[str, GroupWrite, Group]):
     folder_name = "auth"
-    filename_pattern = r"^(?!.*SecurityCategory$).*"
     kind = "Group"
     resource_cls = Group
     resource_write_cls = GroupWrite
-    list_cls = GroupList
-    list_write_cls = GroupWriteList
     yaml_cls = GroupYAML
     resource_scopes = frozenset(
         {
@@ -479,14 +474,9 @@ class GroupAllScopedCRUD(GroupCRUD):
 
 
 @final
-class SecurityCategoryCRUD(
-    ResourceCRUD[str, SecurityCategoryWrite, SecurityCategory, SecurityCategoryWriteList, SecurityCategoryList]
-):
-    filename_pattern = r"^.*SecurityCategory$"  # Matches all yaml files who's stem ends with *SecurityCategory.
+class SecurityCategoryCRUD(ResourceCRUD[str, SecurityCategoryWrite, SecurityCategory]):
     resource_cls = SecurityCategory
     resource_write_cls = SecurityCategoryWrite
-    list_cls = SecurityCategoryList
-    list_write_cls = SecurityCategoryWriteList
     kind = "SecurityCategory"
     yaml_cls = SecurityCategoriesYAML
     folder_name = "auth"
@@ -534,7 +524,7 @@ class SecurityCategoryCRUD(
             SecurityCategoriesAcl.Scope.All(),
         )
 
-    def create(self, items: SecurityCategoryWriteList) -> SecurityCategoryList:
+    def create(self, items: Sequence[SecurityCategoryWrite]) -> SecurityCategoryList:
         return self.client.iam.security_categories.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> SecurityCategoryList:
@@ -542,7 +532,7 @@ class SecurityCategoryCRUD(
         categories = self.client.iam.security_categories.list(limit=-1)
         return SecurityCategoryList([c for c in categories if c.name in names])
 
-    def update(self, items: SecurityCategoryWriteList) -> SecurityCategoryList:
+    def update(self, items: Sequence[SecurityCategoryWrite]) -> SecurityCategoryList:
         items_by_name = {item.name: item for item in items}
         retrieved = self.retrieve(list(items_by_name.keys()))
         retrieved_by_name = {item.name: item for item in retrieved}

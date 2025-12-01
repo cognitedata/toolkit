@@ -1,4 +1,3 @@
-import re
 import sys
 from abc import ABC, abstractmethod
 from collections.abc import Hashable, Iterable, Sequence, Set, Sized
@@ -11,12 +10,7 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, EXCL_FILES
-from cognite_toolkit._cdf_tk.protocols import (
-    T_ResourceRequest,
-    T_ResourceRequestList,
-    T_ResourceResponse,
-    T_ResourceResponseList,
-)
+from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.resource_classes import ToolkitResource
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, sanitize_filename
@@ -31,9 +25,6 @@ else:
     from typing_extensions import Self
 
 
-_COMPILED_PATTERN: dict[str, re.Pattern] = {}
-
-
 class Loader(ABC):
     """This is the base class for all loaders
 
@@ -44,8 +35,6 @@ class Loader(ABC):
     Class attributes:
         filetypes: The filetypes that are supported by this loader. This should be set in all subclasses.
         folder_name: The name of the folder in the build directory where the files are located. This should be set in all subclasses.
-        filename_pattern: A regex pattern that is used to filter the files that are supported by this loader. This is used
-            when two loaders have the same folder name to differentiate between them. If not set, all files are supported.
         dependencies: A set of loaders that must be loaded before this loader.
         exclude_filetypes: A set of filetypes that should be excluded from the supported filetypes.
     """
@@ -53,11 +42,11 @@ class Loader(ABC):
     filetypes: frozenset[str]
     folder_name: str
     kind: str
-    filename_pattern: str = ""
     dependencies: "frozenset[type[ResourceCRUD]]" = frozenset()
     exclude_filetypes: frozenset[str] = frozenset()
     _doc_base_url: str = "https://api-docs.cognite.com/20230101/tag/"
     _doc_url: str = ""
+    sub_folder_name: str | None = None
 
     def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None = None) -> None:
         self.client = client
@@ -119,14 +108,11 @@ class Loader(ABC):
         return any(cls.is_supported_file(file) for file in directory.glob("**/*"))
 
     @classmethod
-    def is_supported_file(cls, file: Path, force_pattern: bool = False) -> bool:
+    def is_supported_file(cls, file: Path) -> bool:
         """Check if hte file is supported by this loader.
 
         Args:
             file: The filepath to check.
-            force_pattern: If True, the filename pattern is used to determine if the file is supported. If False, the
-                file extension is used to determine if the file is supported (given that the
-                RequireKind flag is enabled).
 
         Returns:
             bool: True if the file is supported, False otherwise.
@@ -136,24 +122,13 @@ class Loader(ABC):
             return False
         if cls.exclude_filetypes and file.suffix[1:] in cls.exclude_filetypes:
             return False
-        if force_pattern is False and not issubclass(cls, DataCRUD):
-            return file.stem.casefold().endswith(cls.kind.casefold())
-        else:
-            if cls.filename_pattern:
-                if cls.filename_pattern not in _COMPILED_PATTERN:
-                    _COMPILED_PATTERN[cls.filename_pattern] = re.compile(cls.filename_pattern, re.IGNORECASE)
-                return _COMPILED_PATTERN[cls.filename_pattern].match(file.stem) is not None
-        return True
+        return file.stem.casefold().endswith(cls.kind.casefold())
 
 
 T_Loader = TypeVar("T_Loader", bound=Loader)
 
 
-class ResourceCRUD(
-    Loader,
-    ABC,
-    Generic[T_ID, T_ResourceRequest, T_ResourceResponse, T_ResourceRequestList, T_ResourceResponseList],
-):
+class ResourceCRUD(Loader, ABC, Generic[T_ID, T_ResourceRequest, T_ResourceResponse]):
     """This is the base class for all resource CRUD.
 
     A resource loader consists of the following
@@ -166,8 +141,6 @@ class ResourceCRUD(
     Class attributes:
         resource_write_cls: The API write data class for the resource.
         resource_cls: The API read data class for the resource.
-        list_cls: The API read list format for this resource.
-        list_write_cls: The API write list format for this resource.
         yaml_cls: The File format for this resource. This is used to validate the user input.
         support_drop: Whether the resource supports the drop flag.
         support_update: Whether the resource supports the update operation.
@@ -181,8 +154,6 @@ class ResourceCRUD(
     # Must be set in the subclass
     resource_write_cls: type[T_ResourceRequest]
     resource_cls: type[T_ResourceResponse]
-    list_cls: type[T_ResourceResponseList]
-    list_write_cls: type[T_ResourceRequestList]
     yaml_cls: type[ToolkitResource]
     # Optional to set in the subclass
     support_drop = True
@@ -213,14 +184,14 @@ class ResourceCRUD(
         raise NotImplementedError(f"get_required_capability must be implemented for {cls.__name__}.")
 
     @abstractmethod
-    def create(self, items: T_ResourceRequestList) -> Sized:
+    def create(self, items: Sequence[T_ResourceRequest]) -> Sized:
         raise NotImplementedError
 
     @abstractmethod
-    def retrieve(self, ids: SequenceNotStr[T_ID]) -> T_ResourceResponseList:
+    def retrieve(self, ids: SequenceNotStr[T_ID]) -> Sequence[T_ResourceResponse]:
         raise NotImplementedError
 
-    def update(self, items: T_ResourceRequestList) -> Sized:
+    def update(self, items: Sequence[T_ResourceRequest]) -> Sized:
         raise NotImplementedError(f"Update is not supported for {type(self).__name__}.")
 
     @abstractmethod
@@ -406,9 +377,7 @@ class ResourceCRUD(
 
     # Helper methods
     @classmethod
-    def get_ids(
-        cls, items: Sequence[T_ResourceRequest | T_ResourceResponse | dict] | T_ResourceResponseList
-    ) -> list[T_ID]:
+    def get_ids(cls, items: Sequence[T_ResourceRequest | T_ResourceResponse | dict]) -> list[T_ID]:
         return [cls.get_id(item) for item in items]
 
     @classmethod
@@ -420,10 +389,7 @@ class ResourceCRUD(
         )
 
 
-class ResourceContainerCRUD(
-    ResourceCRUD[T_ID, T_ResourceRequest, T_ResourceResponse, T_ResourceRequestList, T_ResourceResponseList],
-    ABC,
-):
+class ResourceContainerCRUD(ResourceCRUD[T_ID, T_ResourceRequest, T_ResourceResponse], ABC):
     """This is the base class for all resource CRUD' containers.
 
     A resource container CRUD is a resource that contains data. For example, Timeseries contains datapoints, and another

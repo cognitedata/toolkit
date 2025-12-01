@@ -34,32 +34,26 @@ from cognite.client.data_classes.capabilities import (
 from cognite.client.data_classes.data_modeling import (
     Container,
     ContainerApply,
-    ContainerApplyList,
     ContainerList,
     DataModel,
     DataModelApply,
-    DataModelApplyList,
     DataModelList,
     DirectRelation,
     Edge,
     EdgeApply,
-    EdgeApplyList,
     EdgeApplyResultList,
     EdgeList,
     MappedProperty,
     Node,
     NodeApply,
-    NodeApplyList,
     NodeApplyResultList,
     NodeList,
     RequiresConstraint,
     Space,
     SpaceApply,
-    SpaceApplyList,
     SpaceList,
     View,
     ViewApply,
-    ViewApplyList,
     ViewList,
 )
 from cognite.client.data_classes.data_modeling.graphql import DMLApplyResult
@@ -83,7 +77,6 @@ from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import (
     GraphQLDataModel,
     GraphQLDataModelList,
     GraphQLDataModelWrite,
-    GraphQLDataModelWriteList,
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, HAS_DATA_FILTER_LIMIT
 from cognite_toolkit._cdf_tk.cruds._base_cruds import (
@@ -118,14 +111,11 @@ from .auth import GroupAllScopedCRUD
 
 
 @final
-class SpaceCRUD(ResourceContainerCRUD[str, SpaceApply, Space, SpaceApplyList, SpaceList]):
+class SpaceCRUD(ResourceContainerCRUD[str, SpaceApply, Space]):
     item_name = "nodes and edges"
     folder_name = "data_modeling"
-    filename_pattern = r"^.*space$"
     resource_cls = Space
     resource_write_cls = SpaceApply
-    list_write_cls = SpaceApplyList
-    list_cls = SpaceList
     kind = "Space"
     yaml_cls = SpaceYAML
     dependencies = frozenset({GroupAllScopedCRUD})
@@ -250,18 +240,16 @@ class SpaceCRUD(ResourceContainerCRUD[str, SpaceApply, Space, SpaceApplyList, Sp
             yield instances.as_ids()
 
 
-class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerApply, Container, ContainerApplyList, ContainerList]):
+class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerApply, Container]):
     item_name = "nodes and edges"
     folder_name = "data_modeling"
-    filename_pattern = r"^.*container$"
     resource_cls = Container
     resource_write_cls = ContainerApply
-    list_cls = ContainerList
-    list_write_cls = ContainerApplyList
     kind = "Container"
     dependencies = frozenset({SpaceCRUD})
     yaml_cls = ContainerYAML
     _doc_url = "Containers/operation/ApplyContainers"
+    sub_folder_name = "containers"
 
     def __init__(
         self,
@@ -515,17 +503,15 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerApply, Container
         return sanitize_filename(f"{id.space}_{id.external_id}")
 
 
-class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View, ViewApplyList, ViewList]):
+class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View]):
     folder_name = "data_modeling"
-    filename_pattern = r"^.*view$"
     resource_cls = View
     resource_write_cls = ViewApply
-    list_cls = ViewList
-    list_write_cls = ViewApplyList
     kind = "View"
     dependencies = frozenset({SpaceCRUD, ContainerCRUD})
     yaml_cls = ViewYAML
     _doc_url = "Views/operation/ApplyViews"
+    sub_folder_name = "views"
 
     def __init__(
         self,
@@ -856,13 +842,10 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View, ViewApplyList, ViewList]):
 
 
 @final
-class DataModelCRUD(ResourceCRUD[DataModelId, DataModelApply, DataModel, DataModelApplyList, DataModelList]):
+class DataModelCRUD(ResourceCRUD[DataModelId, DataModelApply, DataModel]):
     folder_name = "data_modeling"
-    filename_pattern = r"^.*datamodel$"
     resource_cls = DataModel
     resource_write_cls = DataModelApply
-    list_cls = DataModelList
-    list_write_cls = DataModelApplyList
     kind = "DataModel"
     dependencies = frozenset({SpaceCRUD, ViewCRUD})
     yaml_cls = DataModelYAML
@@ -939,13 +922,13 @@ class DataModelCRUD(ResourceCRUD[DataModelId, DataModelApply, DataModel, DataMod
             return diff_list_identifiable(local, cdf, get_identifier=dm_identifier)
         return super().diff_list(local, cdf, json_path)
 
-    def create(self, items: DataModelApplyList) -> DataModelList:
+    def create(self, items: Sequence[DataModelApply]) -> DataModelList:
         return self.client.data_modeling.data_models.apply(items)
 
     def retrieve(self, ids: SequenceNotStr[DataModelId]) -> DataModelList:
         return self.client.data_modeling.data_models.retrieve(cast(Sequence, ids))
 
-    def update(self, items: DataModelApplyList) -> DataModelList:
+    def update(self, items: Sequence[DataModelApply]) -> DataModelList:
         updated = self.create(items)
         # There is a bug in the API not raising an exception if view is removed from a data model.
         # So we check here that the update was fixed.
@@ -989,18 +972,16 @@ class DataModelCRUD(ResourceCRUD[DataModelId, DataModelApply, DataModel, DataMod
 
 
 @final
-class NodeCRUD(ResourceContainerCRUD[NodeId, NodeApply, Node, NodeApplyList, NodeList]):
+class NodeCRUD(ResourceContainerCRUD[NodeId, NodeApply, Node]):
     item_name = "nodes"
     folder_name = "data_modeling"
-    filename_pattern = r"^.*node$"
     resource_cls = Node
     resource_write_cls = NodeApply
-    list_cls = NodeList
-    list_write_cls = NodeApplyList
     kind = "Node"
     yaml_cls = NodeYAML
     dependencies = frozenset({SpaceCRUD, ViewCRUD, ContainerCRUD})
     _doc_url = "Instances/operation/applyNodeAndEdges"
+    sub_folder_name = "nodes"
 
     def __init__(
         self,
@@ -1096,7 +1077,7 @@ class NodeCRUD(ResourceContainerCRUD[NodeId, NodeApply, Node, NodeApplyList, Nod
 
         return dumped
 
-    def create(self, items: NodeApplyList) -> NodeApplyResultList:
+    def create(self, items: Sequence[NodeApply]) -> NodeApplyResultList:
         result = self.client.data_modeling.instances.apply(
             # Note replace should never be relevant as Toolkit always checks whether the node exists before applying.
             nodes=items,
@@ -1108,7 +1089,7 @@ class NodeCRUD(ResourceContainerCRUD[NodeId, NodeApply, Node, NodeApplyList, Nod
     def retrieve(self, ids: SequenceNotStr[NodeId]) -> NodeList:
         return self.client.data_modeling.instances.retrieve(nodes=cast(Sequence, ids), sources=self.view_id).nodes
 
-    def update(self, items: NodeApplyList) -> NodeApplyResultList:
+    def update(self, items: Sequence[NodeApply]) -> NodeApplyResultList:
         result = self.client.data_modeling.instances.apply(
             nodes=items, auto_create_direct_relations=True, replace=False
         )
@@ -1145,17 +1126,10 @@ class NodeCRUD(ResourceContainerCRUD[NodeId, NodeApply, Node, NodeApplyList, Nod
         return sanitize_filename(f"{id.space}_{id.external_id}")
 
 
-class GraphQLCRUD(
-    ResourceContainerCRUD[
-        DataModelId, GraphQLDataModelWrite, GraphQLDataModel, GraphQLDataModelWriteList, GraphQLDataModelList
-    ]
-):
+class GraphQLCRUD(ResourceContainerCRUD[DataModelId, GraphQLDataModelWrite, GraphQLDataModel]):
     folder_name = "data_modeling"
-    filename_pattern = r"^.*GraphQLSchema"
     resource_cls = GraphQLDataModel
     resource_write_cls = GraphQLDataModelWrite
-    list_cls = GraphQLDataModelList
-    list_write_cls = GraphQLDataModelWriteList
     kind = "GraphQLSchema"
     dependencies = frozenset({SpaceCRUD, ContainerCRUD})
     item_name = "views"
@@ -1269,7 +1243,7 @@ class GraphQLCRUD(
             dumped["graphqlFile"] = match.group(3)
         return dumped
 
-    def create(self, items: GraphQLDataModelWriteList) -> list[DMLApplyResult]:
+    def create(self, items: Sequence[GraphQLDataModelWrite]) -> list[DMLApplyResult]:
         creation_order = self._topological_sort(items)
 
         created_list: list[DMLApplyResult] = []
@@ -1300,7 +1274,7 @@ class GraphQLCRUD(
         result = self.client.data_modeling.data_models.retrieve(list(ids), inline_views=False)
         return GraphQLDataModelList([GraphQLDataModel._load(d.dump()) for d in result])
 
-    def update(self, items: GraphQLDataModelWriteList) -> list[DMLApplyResult]:
+    def update(self, items: Sequence[GraphQLDataModelWrite]) -> list[DMLApplyResult]:
         return self.create(items)
 
     def delete(self, ids: SequenceNotStr[DataModelId]) -> int:
@@ -1325,7 +1299,7 @@ class GraphQLCRUD(
     def drop_data(self, ids: SequenceNotStr[DataModelId]) -> int:
         return self.delete(ids)
 
-    def _topological_sort(self, items: GraphQLDataModelWriteList) -> list[GraphQLDataModelWrite]:
+    def _topological_sort(self, items: Sequence[GraphQLDataModelWrite]) -> list[GraphQLDataModelWrite]:
         to_sort = {item.as_id(): item for item in items}
         dependencies: dict[DataModelId, set[DataModelId]] = {}
         for item in items:
@@ -1348,14 +1322,11 @@ class GraphQLCRUD(
 
 
 @final
-class EdgeCRUD(ResourceContainerCRUD[EdgeId, EdgeApply, Edge, EdgeApplyList, EdgeList]):
+class EdgeCRUD(ResourceContainerCRUD[EdgeId, EdgeApply, Edge]):
     item_name = "edges"
     folder_name = "data_modeling"
-    filename_pattern = r"^.*edge"
     resource_cls = Edge
     resource_write_cls = EdgeApply
-    list_cls = EdgeList
-    list_write_cls = EdgeApplyList
     kind = "Edge"
     yaml_cls = EdgeYAML
     dependencies = frozenset({SpaceCRUD, ViewCRUD, ContainerCRUD, NodeCRUD})
@@ -1446,7 +1417,7 @@ class EdgeCRUD(ResourceContainerCRUD[EdgeId, EdgeApply, Edge, EdgeApplyList, Edg
 
         return dumped
 
-    def create(self, items: EdgeApplyList) -> EdgeApplyResultList:
+    def create(self, items: Sequence[EdgeApply]) -> EdgeApplyResultList:
         result = self.client.data_modeling.instances.apply(
             edges=items, auto_create_direct_relations=True, replace=False
         )
@@ -1455,7 +1426,7 @@ class EdgeCRUD(ResourceContainerCRUD[EdgeId, EdgeApply, Edge, EdgeApplyList, Edg
     def retrieve(self, ids: SequenceNotStr[EdgeId]) -> EdgeList:
         return self.client.data_modeling.instances.retrieve(nodes=cast(Sequence, ids)).edges
 
-    def update(self, items: EdgeApplyList) -> EdgeApplyResultList:
+    def update(self, items: Sequence[EdgeApply]) -> EdgeApplyResultList:
         result = self.client.data_modeling.instances.apply(
             edges=items, auto_create_direct_relations=False, replace=True
         )

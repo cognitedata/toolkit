@@ -6,7 +6,6 @@ from cognite.client.data_classes import (
     ThreeDModelList,
     ThreeDModelUpdate,
     ThreeDModelWrite,
-    ThreeDModelWriteList,
     capabilities,
 )
 from cognite.client.data_classes.capabilities import Capability
@@ -20,13 +19,10 @@ from .data_organization import DataSetsCRUD
 
 
 @final
-class ThreeDModelCRUD(ResourceContainerCRUD[str, ThreeDModelWrite, ThreeDModel, ThreeDModelWriteList, ThreeDModelList]):
+class ThreeDModelCRUD(ResourceContainerCRUD[str, ThreeDModelWrite, ThreeDModel]):
     folder_name = "3dmodels"
-    filename_pattern = r"^.*\.3DModel$"  # Matches all yaml files whose stem ends with '.3DModel'.
     resource_cls = ThreeDModel
     resource_write_cls = ThreeDModelWrite
-    list_cls = ThreeDModelList
-    list_write_cls = ThreeDModelWriteList
     kind = "3DModel"
     yaml_cls = ThreeDModelYAML
     dependencies = frozenset({DataSetsCRUD})
@@ -83,7 +79,7 @@ class ThreeDModelCRUD(ResourceContainerCRUD[str, ThreeDModelWrite, ThreeDModel, 
 
         return capabilities.ThreeDAcl(actions, scope)
 
-    def create(self, items: ThreeDModelWriteList) -> ThreeDModelList:
+    def create(self, items: Sequence[ThreeDModelWrite]) -> ThreeDModelList:
         created = ThreeDModelList([])
         for item in items:
             new_item = self.client.three_d.models.create(**item.dump(camel_case=False))
@@ -105,7 +101,7 @@ class ThreeDModelCRUD(ResourceContainerCRUD[str, ThreeDModelWrite, ThreeDModel, 
                     break
         return output
 
-    def update(self, items: ThreeDModelWriteList) -> ThreeDModelList:
+    def update(self, items: Sequence[ThreeDModelWrite]) -> ThreeDModelList:
         found = self.retrieve([item.name for item in items])
         id_by_name = {model.name: model.id for model in found}
         # 3D Model does not have an external identifier, only internal.

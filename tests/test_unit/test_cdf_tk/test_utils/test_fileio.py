@@ -81,6 +81,9 @@ class LineReader(FileReader):
             if line.strip():
                 yield {"line": line.strip()}
 
+    def count(self) -> int:
+        raise ToolkitError("Not implemented")
+
 
 class DummyWriter(FileWriter[TextIOWrapper]):
     format = ".dummy"
@@ -521,6 +524,7 @@ class TestFileIO:
         ]
 
         assert read_chunks == chunks
+        assert len(read_chunks) == FileReader.from_filepath(file_path[0])(file_path[0]).count()
 
     @pytest.mark.parametrize(
         "format, compression_name",
