@@ -91,10 +91,6 @@ class FileCRUD(DataCRUD):
     kind = "File"
     filetypes = frozenset()
     exclude_filetype: frozenset[str] = frozenset({})
-    filename_pattern = (
-        # Exclude FileMetadata and CogniteFile
-        r"(?i)^(?!.*(?:FileMetadata|CogniteFile)$).*$"
-    )
     dependencies = frozenset({FileMetadataCRUD, CogniteFileCRUD})
     _doc_url = "Files/operation/initFileUpload"
 

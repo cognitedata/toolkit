@@ -44,7 +44,6 @@ from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
 
 class RoboticFrameCRUD(ResourceCRUD[str, FrameWrite, Frame, FrameWriteList, FrameList]):
     folder_name = "robotics"
-    filename_pattern = r"^.*\.Frame$"  # Matches all yaml files whose stem ends with '.Frame'.
     resource_cls = Frame
     resource_write_cls = FrameWrite
     list_cls = FrameList
@@ -112,7 +111,6 @@ class RoboticFrameCRUD(ResourceCRUD[str, FrameWrite, Frame, FrameWriteList, Fram
 
 class RoboticLocationCRUD(ResourceCRUD[str, LocationWrite, Location, LocationWriteList, LocationList]):
     folder_name = "robotics"
-    filename_pattern = r"^.*\.Location$"  # Matches all yaml files whose stem ends with '.Location'.
     resource_cls = Location
     resource_write_cls = LocationWrite
     list_cls = LocationList
@@ -187,7 +185,6 @@ class RoboticsDataPostProcessingCRUD(
     ResourceCRUD[str, DataPostProcessingWrite, DataPostProcessing, DataPostProcessingWriteList, DataPostProcessingList]
 ):
     folder_name = "robotics"
-    filename_pattern = r"^.*\.DataPostProcessing$"  # Matches all yaml files whose stem ends with '.DataPostProcessing'.
     resource_cls = DataPostProcessing
     resource_write_cls = DataPostProcessingWrite
     list_cls = DataPostProcessingList
@@ -281,7 +278,6 @@ class RobotCapabilityCRUD(
     ResourceCRUD[str, RobotCapabilityWrite, RobotCapability, RobotCapabilityWriteList, RobotCapabilityList]
 ):
     folder_name = "robotics"
-    filename_pattern = r"^.*\.RobotCapability$"  # Matches all yaml files whose stem ends with '.RobotCapability'.
     resource_cls = RobotCapability
     resource_write_cls = RobotCapabilityWrite
     list_cls = RobotCapabilityList
@@ -376,7 +372,6 @@ class RobotCapabilityCRUD(
 
 class RoboticMapCRUD(ResourceCRUD[str, MapWrite, Map, MapWriteList, MapList]):
     folder_name = "robotics"
-    filename_pattern = r"^.*\.Map$"  # Matches all yaml files whose stem ends with '.Map'.
     resource_cls = Map
     resource_write_cls = MapWrite
     list_cls = MapList
