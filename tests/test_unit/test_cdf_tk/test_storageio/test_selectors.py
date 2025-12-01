@@ -11,10 +11,12 @@ from cognite_toolkit._cdf_tk.storageio import (
     CanvasIO,
     ChartIO,
     DatapointsIO,
+    EventIO,
     FileContentIO,
     InstanceIO,
     RawIO,
     StorageIO,
+    TimeSeriesIO,
     get_upload_io,
 )
 from cognite_toolkit._cdf_tk.storageio.selectors import (
@@ -73,14 +75,42 @@ def example_selector_data() -> Iterable[tuple]:
         DataSetSelector,
         AssetIO,
         AssetIO.KIND,
-        id="DataSetSelector",
+        id="DataSetSelector Assets",
     )
     yield pytest.param(
         {"type": "assetSubtree", "hierarchy": "root/child", "kind": "Assets"},
         AssetSubtreeSelector,
         AssetIO,
         AssetIO.KIND,
-        id="AssetSubtreeSelector",
+        id="AssetSubtreeSelector Assets",
+    )
+    yield pytest.param(
+        {"type": "dataSet", "dataSetExternalId": "my_data_set", "kind": "TimeSeries"},
+        DataSetSelector,
+        TimeSeriesIO,
+        TimeSeriesIO.KIND,
+        id="DataSetSelector TimeSeries",
+    )
+    yield pytest.param(
+        {"type": "assetSubtree", "hierarchy": "root/child", "kind": "TimeSeries"},
+        AssetSubtreeSelector,
+        TimeSeriesIO,
+        TimeSeriesIO.KIND,
+        id="AssetSubtreeSelector TimeSeries",
+    )
+    yield pytest.param(
+        {"type": "dataSet", "dataSetExternalId": "my_data_set", "kind": "Events"},
+        DataSetSelector,
+        EventIO,
+        EventIO.KIND,
+        id="DataSetSelector Events",
+    )
+    yield pytest.param(
+        {"type": "assetSubtree", "hierarchy": "root/child", "kind": "Events"},
+        AssetSubtreeSelector,
+        EventIO,
+        EventIO.KIND,
+        id="AssetSubtreeSelector Events",
     )
     yield pytest.param(
         {"type": "chartOwner", "ownerId": "doctrino"},
@@ -259,7 +289,7 @@ class TestDataSelectors:
         assert instance.group, f"group property not implemented for {type(instance).__name__}"
 
         # Assert correct IO type
-        assert get_upload_io(type(instance)) is expected_io, (
+        assert get_upload_io(instance) is expected_io, (
             f"Expected {expected_io.__name__} for selector {type(instance).__name__}, got {get_upload_io(type(instance)).__name__}"
         )
 
@@ -274,27 +304,3 @@ class TestDataSelectors:
         loaded = SelectorAdapter.validate_python(data)
         assert loaded.model_dump() == instance.model_dump()
         assert type(loaded) is type(instance)
-
-
-class TestGetUploadIO:
-    @pytest.mark.parametrize(
-        "selector,path,expected_io",
-        [
-            pytest.param(
-                RawTableSelector,
-                Path(f"data.{RawIO.KIND}.csv"),
-                RawIO,
-                id="RawTableSelector with path",
-            ),
-            pytest.param(
-                RawTableSelector,
-                Path(f"data.{RawIO.KIND}.csv.gz"),
-                RawIO,
-                id="RawTableSelector with compressed data",
-            ),
-        ],
-    )
-    def test_get_upload_io_with_path(
-        self, selector: type[DataSelector], path: Path, expected_io: type[StorageIO]
-    ) -> None:
-        assert get_upload_io(selector) == expected_io
