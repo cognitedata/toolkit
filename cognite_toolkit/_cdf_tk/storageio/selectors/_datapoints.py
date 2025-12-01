@@ -52,7 +52,7 @@ TimeSeriesColumn = Annotated[
 
 class DataPointsFileSelector(DataSelector):
     type: Literal["datapointsFile"] = "datapointsFile"
-    kind: Literal["datapoints"] = "datapoints"
+    kind: Literal["Datapoints"] = "Datapoints"
 
     timestamp_column: str
     columns: tuple[TimeSeriesColumn, ...]

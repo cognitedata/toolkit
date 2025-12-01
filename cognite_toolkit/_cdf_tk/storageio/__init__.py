@@ -32,12 +32,12 @@ STORAGE_IO_CLASSES = get_concrete_subclasses(StorageIO)  # type: ignore[type-abs
 UPLOAD_IO_CLASSES = get_concrete_subclasses(UploadableStorageIO)  # type: ignore[type-abstract]
 
 
-def get_upload_io(selector_cls: type[DataSelector]) -> type[UploadableStorageIO]:
+def get_upload_io(selector: DataSelector) -> type[UploadableStorageIO]:
     """Get the appropriate UploadableStorageIO class based on the type of the provided selector."""
     for cls in UPLOAD_IO_CLASSES:
-        if issubclass(selector_cls, cls.BASE_SELECTOR):
+        if isinstance(selector, cls.BASE_SELECTOR) and selector.kind == cls.KIND:
             return cls
-    raise ValueError(f"No UploadableStorageIO found for selector of type {selector_cls.__name__}")
+    raise ValueError(f"No UploadableStorageIO found for selector of type {type(selector).__name__}")
 
 
 __all__ = [

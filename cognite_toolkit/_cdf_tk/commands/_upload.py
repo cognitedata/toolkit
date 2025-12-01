@@ -262,7 +262,7 @@ class UploadCommand(ToolkitCommand):
         self, selector: Selector, data_file: Path, client: ToolkitClient
     ) -> UploadableStorageIO | None:
         try:
-            io_cls = get_upload_io(type(selector))
+            io_cls = get_upload_io(selector)
         except ValueError as e:
             self.warn(HighSeverityWarning(f"Could not find StorageIO for selector {selector}: {e}"))
             return None
