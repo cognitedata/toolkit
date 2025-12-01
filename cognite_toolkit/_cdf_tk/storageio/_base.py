@@ -218,6 +218,16 @@ class UploadableStorageIO(
     def read_chunks(
         cls, reader: MultiFileReader, selector: T_Selector
     ) -> Iterable[list[tuple[str, dict[str, JsonVal]]]]:
+        """Read data from a MultiFileReader in chunks.
+
+        This method yields chunks of data, where each chunk is a list of tuples. Each tuple contains a source ID
+        (e.g., line number or row identifier) and a dictionary representing the data in a JSON-compatible format.
+
+        This method can be overridden by subclasses to customize how data is read and chunked.
+        Args:
+            reader: An instance of MultiFileReader to read data from.
+            selector: The selection criteria to identify the data.
+        """
         data_name = "row" if reader.is_table else "line"
         # Include name of line for better error messages
         iterable = ((f"{data_name} {line_no}", item) for line_no, item in reader.read_chunks_with_line_numbers())
@@ -226,6 +236,15 @@ class UploadableStorageIO(
 
     @classmethod
     def count_chunks(cls, reader: MultiFileReader) -> int:
+        """Count the number of items in a MultiFileReader.
+
+        This method can be overridden by subclasses to customize how items are counted.
+
+        Args:
+            reader: An instance of MultiFileReader to count items from.
+        Returns:
+            The number of items in the reader.
+        """
         return reader.count()
 
 
