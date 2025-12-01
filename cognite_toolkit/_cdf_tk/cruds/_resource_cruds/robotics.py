@@ -13,23 +13,18 @@ from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
     DataPostProcessing,
     DataPostProcessingList,
     DataPostProcessingWrite,
-    DataPostProcessingWriteList,
     Frame,
     FrameList,
     FrameWrite,
-    FrameWriteList,
     Location,
     LocationList,
     LocationWrite,
-    LocationWriteList,
     Map,
     MapList,
     MapWrite,
-    MapWriteList,
     RobotCapability,
     RobotCapabilityList,
     RobotCapabilityWrite,
-    RobotCapabilityWriteList,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import (
@@ -42,12 +37,10 @@ from cognite_toolkit._cdf_tk.resource_classes import (
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
 
 
-class RoboticFrameCRUD(ResourceCRUD[str, FrameWrite, Frame, FrameWriteList, FrameList]):
+class RoboticFrameCRUD(ResourceCRUD[str, FrameWrite, Frame]):
     folder_name = "robotics"
     resource_cls = Frame
     resource_write_cls = FrameWrite
-    list_cls = FrameList
-    list_write_cls = FrameWriteList
     kind = "Frame"
     yaml_cls = RobotFrameYAML
     _doc_url = "Frames/operation/createFrames"
@@ -84,13 +77,13 @@ class RoboticFrameCRUD(ResourceCRUD[str, FrameWrite, Frame, FrameWriteList, Fram
             capabilities.RoboticsAcl.Scope.All(),
         )
 
-    def create(self, items: FrameWriteList) -> FrameList:
+    def create(self, items: Sequence[FrameWrite]) -> FrameList:
         return self.client.robotics.frames.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> FrameList:
         return _fallback_to_one_by_one(self.client.robotics.frames.retrieve, ids, FrameList)
 
-    def update(self, items: FrameWriteList) -> FrameList:
+    def update(self, items: Sequence[FrameWrite]) -> FrameList:
         return self.client.robotics.frames.update(items)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
@@ -109,12 +102,10 @@ class RoboticFrameCRUD(ResourceCRUD[str, FrameWrite, Frame, FrameWriteList, Fram
         return iter(self.client.robotics.frames)
 
 
-class RoboticLocationCRUD(ResourceCRUD[str, LocationWrite, Location, LocationWriteList, LocationList]):
+class RoboticLocationCRUD(ResourceCRUD[str, LocationWrite, Location]):
     folder_name = "robotics"
     resource_cls = Location
     resource_write_cls = LocationWrite
-    list_cls = LocationList
-    list_write_cls = LocationWriteList
     kind = "Location"
     yaml_cls = RobotLocationYAML
     _doc_url = "Locations/operation/createLocations"
@@ -156,13 +147,13 @@ class RoboticLocationCRUD(ResourceCRUD[str, LocationWrite, Location, LocationWri
 
         return capabilities.RoboticsAcl(actions, capabilities.RoboticsAcl.Scope.All())
 
-    def create(self, items: LocationWriteList) -> LocationList:
+    def create(self, items: Sequence[LocationWrite]) -> LocationList:
         return self.client.robotics.locations.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> LocationList:
         return _fallback_to_one_by_one(self.client.robotics.locations.retrieve, ids, LocationList)
 
-    def update(self, items: LocationWriteList) -> LocationList:
+    def update(self, items: Sequence[LocationWrite]) -> LocationList:
         return self.client.robotics.locations.update(items)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
@@ -181,14 +172,10 @@ class RoboticLocationCRUD(ResourceCRUD[str, LocationWrite, Location, LocationWri
         return iter(self.client.robotics.locations)
 
 
-class RoboticsDataPostProcessingCRUD(
-    ResourceCRUD[str, DataPostProcessingWrite, DataPostProcessing, DataPostProcessingWriteList, DataPostProcessingList]
-):
+class RoboticsDataPostProcessingCRUD(ResourceCRUD[str, DataPostProcessingWrite, DataPostProcessing]):
     folder_name = "robotics"
     resource_cls = DataPostProcessing
     resource_write_cls = DataPostProcessingWrite
-    list_cls = DataPostProcessingList
-    list_write_cls = DataPostProcessingWriteList
     kind = "DataPostProcessing"
     yaml_cls = RobotDataPostProcessingYAML
     _doc_url = "DataPostProcessing/operation/createDataPostProcessing"
@@ -230,13 +217,13 @@ class RoboticsDataPostProcessingCRUD(
 
         return capabilities.RoboticsAcl(actions, capabilities.RoboticsAcl.Scope.All())
 
-    def create(self, items: DataPostProcessingWriteList) -> DataPostProcessingList:
+    def create(self, items: Sequence[DataPostProcessingWrite]) -> DataPostProcessingList:
         return self.client.robotics.data_postprocessing.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> DataPostProcessingList:
         return _fallback_to_one_by_one(self.client.robotics.data_postprocessing.retrieve, ids, DataPostProcessingList)
 
-    def update(self, items: DataPostProcessingWriteList) -> DataPostProcessingList:
+    def update(self, items: Sequence[DataPostProcessingWrite]) -> DataPostProcessingList:
         # There is a bug in the /update endpoint that requires the input_schema to be a string
         # and not an object. This is a workaround until the bug is fixed.
         # We do the serialization to avoid modifying the original object.
@@ -274,14 +261,10 @@ class RoboticsDataPostProcessingCRUD(
         return super().diff_list(local, cdf, json_path)
 
 
-class RobotCapabilityCRUD(
-    ResourceCRUD[str, RobotCapabilityWrite, RobotCapability, RobotCapabilityWriteList, RobotCapabilityList]
-):
+class RobotCapabilityCRUD(ResourceCRUD[str, RobotCapabilityWrite, RobotCapability]):
     folder_name = "robotics"
     resource_cls = RobotCapability
     resource_write_cls = RobotCapabilityWrite
-    list_cls = RobotCapabilityList
-    list_write_cls = RobotCapabilityWriteList
     kind = "RobotCapability"
     yaml_cls = RobotCapabilityYAML
     _doc_url = "RobotCapabilities/operation/createRobotCapabilities"
@@ -323,13 +306,13 @@ class RobotCapabilityCRUD(
 
         return capabilities.RoboticsAcl(actions, capabilities.RoboticsAcl.Scope.All())
 
-    def create(self, items: RobotCapabilityWriteList) -> RobotCapabilityList:
+    def create(self, items: Sequence[RobotCapabilityWrite]) -> RobotCapabilityList:
         return self.client.robotics.capabilities.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> RobotCapabilityList:
         return _fallback_to_one_by_one(self.client.robotics.capabilities.retrieve, ids, RobotCapabilityList)
 
-    def update(self, items: RobotCapabilityWriteList) -> RobotCapabilityList:
+    def update(self, items: Sequence[RobotCapabilityWrite]) -> RobotCapabilityList:
         # There is a bug in the /update endpoint that requires the input_schema to be a string
         # and not an object. This is a workaround until the bug is fixed.
         # We do the serialization to avoid modifying the original object.
@@ -370,12 +353,10 @@ class RobotCapabilityCRUD(
         return super().diff_list(local, cdf, json_path)
 
 
-class RoboticMapCRUD(ResourceCRUD[str, MapWrite, Map, MapWriteList, MapList]):
+class RoboticMapCRUD(ResourceCRUD[str, MapWrite, Map]):
     folder_name = "robotics"
     resource_cls = Map
     resource_write_cls = MapWrite
-    list_cls = MapList
-    list_write_cls = MapWriteList
     kind = "Map"
     dependencies = frozenset({RoboticFrameCRUD, RoboticLocationCRUD})
     yaml_cls = RobotMapYAML
@@ -427,13 +408,13 @@ class RoboticMapCRUD(ResourceCRUD[str, MapWrite, Map, MapWriteList, MapList]):
             del dump["scale"]
         return dump
 
-    def create(self, items: MapWriteList) -> MapList:
+    def create(self, items: Sequence[MapWrite]) -> MapList:
         return self.client.robotics.maps.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> MapList:
         return _fallback_to_one_by_one(self.client.robotics.maps.retrieve, ids, MapList)
 
-    def update(self, items: MapWriteList) -> MapList:
+    def update(self, items: Sequence[MapWrite]) -> MapList:
         return self.client.robotics.maps.update(items)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:

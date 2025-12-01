@@ -21,7 +21,6 @@ from cognite.client.data_classes import (
     DataSet,
     DataSetList,
     DataSetWrite,
-    DataSetWriteList,
     LabelDefinition,
     LabelDefinitionList,
     LabelDefinitionWrite,
@@ -31,7 +30,6 @@ from cognite.client.data_classes.capabilities import (
     Capability,
     DataSetsAcl,
 )
-from cognite.client.data_classes.labels import LabelDefinitionWriteList
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 
@@ -45,13 +43,11 @@ from .auth import GroupAllScopedCRUD
 
 
 @final
-class DataSetsCRUD(ResourceCRUD[str, DataSetWrite, DataSet, DataSetWriteList, DataSetList]):
+class DataSetsCRUD(ResourceCRUD[str, DataSetWrite, DataSet]):
     support_drop = False
     folder_name = "data_sets"
     resource_cls = DataSet
     resource_write_cls = DataSetWrite
-    list_cls = DataSetList
-    list_write_cls = DataSetWriteList
     yaml_cls = DataSetYAML
     kind = "DataSet"
     dependencies = frozenset({GroupAllScopedCRUD})
@@ -142,7 +138,7 @@ class DataSetsCRUD(ResourceCRUD[str, DataSetWrite, DataSet, DataSetWriteList, Da
     def retrieve(self, ids: SequenceNotStr[str]) -> DataSetList:
         return self.client.data_sets.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
-    def update(self, items: DataSetWriteList) -> DataSetList:
+    def update(self, items: Sequence[DataSetWrite]) -> DataSetList:
         return self.client.data_sets.update(items, mode="replace")
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
@@ -158,14 +154,10 @@ class DataSetsCRUD(ResourceCRUD[str, DataSetWrite, DataSet, DataSetWriteList, Da
 
 
 @final
-class LabelCRUD(
-    ResourceCRUD[str, LabelDefinitionWrite, LabelDefinition, LabelDefinitionWriteList, LabelDefinitionList]
-):
+class LabelCRUD(ResourceCRUD[str, LabelDefinitionWrite, LabelDefinition]):
     folder_name = "classic"
     resource_cls = LabelDefinition
     resource_write_cls = LabelDefinitionWrite
-    list_cls = LabelDefinitionList
-    list_write_cls = LabelDefinitionWriteList
     yaml_cls = LabelsYAML
     kind = "Label"
     dependencies = frozenset({DataSetsCRUD, GroupAllScopedCRUD})
@@ -209,7 +201,7 @@ class LabelCRUD(
 
         return capabilities.LabelsAcl(actions, scope)
 
-    def create(self, items: LabelDefinitionWriteList) -> LabelDefinitionList:
+    def create(self, items: Sequence[LabelDefinitionWrite]) -> LabelDefinitionList:
         return self.client.labels.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> LabelDefinitionList:
