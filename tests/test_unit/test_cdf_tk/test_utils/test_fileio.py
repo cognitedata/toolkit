@@ -81,6 +81,9 @@ class LineReader(FileReader):
             if line.strip():
                 yield {"line": line.strip()}
 
+    def count(self) -> int:
+        raise ToolkitError("Not implemented")
+
 
 class DummyWriter(FileWriter[TextIOWrapper]):
     format = ".dummy"
