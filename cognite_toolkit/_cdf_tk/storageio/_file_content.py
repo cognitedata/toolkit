@@ -27,7 +27,7 @@ from cognite_toolkit._cdf_tk.utils.http_client import (
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import Page, UploadableStorageIO, UploadItem
-from .selectors import FileContentSelector, FileMetadataTemplateSelector, FileIdentifierSelector
+from .selectors import FileContentSelector, FileIdentifierSelector, FileMetadataTemplateSelector
 from .selectors._file_content import FILEPATH, FileDataModelingTemplateSelector
 
 COGNITE_FILE_VIEW = ViewId("cdf_cdm", "CogniteFile", "v1")
@@ -57,7 +57,9 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, FileMetadata, FileM
 
     def stream_data(self, selector: FileContentSelector, limit: int | None = None) -> Iterable[Page[FileMetadata]]:
         if not isinstance(selector, FileIdentifierSelector):
-            raise ToolkitNotImplementedError(f"Download for the given selector, {type(selector).__name__}, is not supported for FileContentIO")
+            raise ToolkitNotImplementedError(
+                f"Download for the given selector, {type(selector).__name__}, is not supported for FileContentIO"
+            )
         config = self.client.config
         for identifiers in chunker_sequence(selector.identifiers, self.CHUNK_SIZE):
             for identifier in identifiers:
@@ -84,10 +86,10 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, FileMetadata, FileM
                 with httpx.stream("GET", download_url) as response:
                     if response.status != 200:
                         continue
-                    with open(output_path, 'wb') as f:
+                    with open(output_path, "wb") as f:
                         for chunk in response.iter_bytes(chunk_size=8192):
                             f.write(chunk)
-                yield Page(items=[FileMetadata(**identifier.model_dump())],worker_id="Main")
+                yield Page(items=[FileMetadata(**identifier.model_dump())], worker_id="Main")
 
     def count(self, selector: FileContentSelector) -> int | None:
         if isinstance(selector, FileIdentifierSelector):
