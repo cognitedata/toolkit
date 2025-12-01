@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.storageio import (
     HierarchyIO,
     InstanceIO,
     RawIO,
+    StorageIO,
     TimeSeriesIO,
 )
 from cognite_toolkit._cdf_tk.storageio.selectors import (
@@ -491,6 +492,15 @@ class DownloadApp(typer.Typer):
                 help="List of data sets to download file metadata from. If this is not provided, an interactive selection will be made.",
             ),
         ] = None,
+        include_file_contents: Annotated[
+            bool,
+            typer.Option(
+                "--include-file-contents",
+                "-c",
+                help="Whether to include file contents when downloading assets. Note if you enable this option, you can"
+                "only download 1000 files at a time.",
+            ),
+        ] = False,
         file_format: Annotated[
             AssetCentricFormats,
             typer.Option(
@@ -536,21 +546,37 @@ class DownloadApp(typer.Typer):
         """This command will download file metadata from CDF into a temporary directory."""
         client = EnvironmentVariables.create_from_environment().get_client()
         if data_sets is None:
-            data_sets, file_format, compression, output_dir, limit = self._asset_centric_interactive(
-                FileMetadataInteractiveSelect(client, "download"),
-                file_format,
-                compression,
-                output_dir,
-                limit,
-                "FileMetadata",
-            )
+            include_file_contents = questionary.select(
+                "Do you want to include file contents when downloading file metadata?",
+                choices=[
+                    Choice(title="Yes", value=True),
+                    Choice(title="No", value=False),
+                ],
+            ).ask()
+            if include_file_contents:
+                raise NotImplementedError()
+            else:
+                data_sets, file_format, compression, output_dir, limit = self._asset_centric_interactive(
+                    FileMetadataInteractiveSelect(client, "download"),
+                    file_format,
+                    compression,
+                    output_dir,
+                    limit,
+                    "FileMetadata",
+                )
 
-        selectors = [DataSetSelector(kind="FileMetadata", data_set_external_id=data_set) for data_set in data_sets]
+        io: StorageIO
+        if include_file_contents:
+            raise NotImplementedError()
+        else:
+            selectors = [DataSetSelector(kind="FileMetadata", data_set_external_id=data_set) for data_set in data_sets]
+            io = FileMetadataIO(client)
+
         cmd = DownloadCommand()
         cmd.run(
             lambda: cmd.download(
                 selectors=selectors,
-                io=FileMetadataIO(client),
+                io=io,
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,
