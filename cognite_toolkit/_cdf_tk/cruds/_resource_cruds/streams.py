@@ -20,7 +20,6 @@ from .datamodel import ContainerCRUD
 @final
 class StreamCRUD(ResourceCRUD[str, StreamRequest, StreamResponse, StreamRequestList, StreamResponseList]):
     folder_name = "streams"
-    filename_pattern = r"^.*\.Streams$"
     filetypes = frozenset({"yaml", "yml"})
     resource_cls = StreamResponse
     resource_write_cls = StreamRequest

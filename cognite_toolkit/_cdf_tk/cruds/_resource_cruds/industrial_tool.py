@@ -36,7 +36,6 @@ from .data_organization import DataSetsCRUD
 @final
 class StreamlitCRUD(ResourceCRUD[str, StreamlitWrite, Streamlit, StreamlitWriteList, StreamlitList]):
     folder_name = "streamlit"
-    filename_pattern = r".*streamlit$"
     resource_cls = Streamlit
     resource_write_cls = StreamlitWrite
     list_cls = StreamlitList
