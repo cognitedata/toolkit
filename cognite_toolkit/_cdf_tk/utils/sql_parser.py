@@ -1,12 +1,11 @@
 import importlib.util
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingDependencyError
 
 if TYPE_CHECKING:
-    from sqlparse.sql import Identifier
-    from sqlparse.tokens import Token
-from dataclasses import dataclass
+    from sqlparse.sql import Identifier, Token
 
 
 @dataclass(frozen=True)
