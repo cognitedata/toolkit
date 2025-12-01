@@ -290,7 +290,7 @@ class TestDataSelectors:
 
         # Assert correct IO type
         assert get_upload_io(instance) is expected_io, (
-            f"Expected {expected_io.__name__} for selector {type(instance).__name__}, got {get_upload_io(type(instance)).__name__}"
+            f"Expected {expected_io.__name__} for selector {type(instance).__name__}, got {get_upload_io(instance).__name__}"
         )
 
         # Assert selector is hashable
