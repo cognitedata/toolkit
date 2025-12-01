@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.constants import clean_name
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.plugins import Plugins
+from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._version import __version__
 
 
@@ -53,7 +54,7 @@ class AboutCommand(ToolkitCommand):
                 print("\n[bold cyan]Hint:[/bold cyan] Run [yellow]cdf init[/yellow] to create a new project.")
 
     def _check_unrecognized_sections(self, raw_toml: dict) -> None:
-        """Check for unrecognized tables in cdf.toml."""
+        """Check for unrecognized tables in cdf.toml and warn about them."""
         # Valid top-level tables in cdf.toml
         valid_tables = {"cdf", "modules", "alpha_flags", "feature_flags", "plugins", "library"}
 
@@ -61,17 +62,17 @@ class AboutCommand(ToolkitCommand):
         unrecognized_tables = [key for key in raw_toml.keys() if key and key.strip() and key not in valid_tables]
 
         if unrecognized_tables:
-            print(
-                "\n[bold yellow]Warning:[/bold yellow] The following tables in cdf.toml are not recognized and will have no effect:"
-            )
-            for table in unrecognized_tables:
-                # Display table name without brackets to avoid Rich markup interpretation
-                print(f"  • [yellow]{table}[/yellow] ([red]unused[/red])")
+            print()
 
-                # Try to find a matching valid table by stripping non-alphabetical characters
-                suggestion = self._find_similar_table(table, valid_tables)
-                if suggestion:
-                    print(f"    [dim]Hint: Did you mean [yellow]{suggestion}[/yellow]?[/dim]")
+        for table in unrecognized_tables:
+            # Try to find a matching valid table by stripping non-alphabetical characters
+            suggestion = self._find_similar_table(table, valid_tables)
+
+            message = f"Table '{table}' in cdf.toml is not recognized and will have no effect."
+            if suggestion:
+                message += f" Did you mean '{suggestion}'?"
+
+            self.warn(MediumSeverityWarning(message))
 
     @staticmethod
     def _find_similar_table(unrecognized: str, valid_tables: set[str]) -> str | None:
@@ -137,13 +138,11 @@ class AboutCommand(ToolkitCommand):
             if cleaned_key not in seen_plugins:
                 unrecognized.append((original_key, value))
 
-        if unrecognized:
-            print(
-                "\n[bold yellow]Warning:[/bold yellow] The following plugins in cdf.toml are not recognized and will have no effect:"
+        for original_key, is_enabled in unrecognized:
+            status = "enabled" if is_enabled else "disabled"
+            self.warn(
+                LowSeverityWarning(f"Plugin '{original_key}' in cdf.toml is not recognized and will have no effect.")
             )
-            for original_key, is_enabled in unrecognized:
-                status = "enabled" if is_enabled else "disabled"
-                print(f"  • {original_key} ([red]unused[/red], {status})")
 
     def _display_alpha_flags(self, cdf_toml: CDFToml, raw_toml: dict) -> None:
         """Display available alpha flags and their status."""
@@ -185,13 +184,13 @@ class AboutCommand(ToolkitCommand):
             if cleaned_key not in seen_flags:
                 unrecognized.append((original_key, value))
 
-        if unrecognized:
-            print(
-                "\n[bold yellow]Warning:[/bold yellow] The following alpha flags in cdf.toml are not recognized and will have no effect:"
+        for original_key, is_enabled in unrecognized:
+            status = "enabled" if is_enabled else "disabled"
+            self.warn(
+                LowSeverityWarning(
+                    f"Alpha flag '{original_key}' in cdf.toml is not recognized and will have no effect."
+                )
             )
-            for original_key, is_enabled in unrecognized:
-                status = "enabled" if is_enabled else "disabled"
-                print(f"  • {original_key} ([red]unused[/red], {status})")
 
     def _display_additional_config(self, cdf_toml: CDFToml) -> None:
         """Display additional configuration information."""

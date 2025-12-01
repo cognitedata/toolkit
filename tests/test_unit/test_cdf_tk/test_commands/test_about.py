@@ -1,17 +1,17 @@
-from __future__ import annotations
-
 from pathlib import Path
 from textwrap import dedent
+from typing import Type
 
 import pytest
 
 from cognite_toolkit._cdf_tk.commands.about import AboutCommand
+from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MediumSeverityWarning, ToolkitWarning
 from tests.test_unit.utils import PrintCapture
 
 
 class TestAboutCommand:
     @pytest.mark.parametrize(
-        "toml_content, should_warn",
+        "toml_content, expected_warnings",
         [
             # Valid configurations (no warnings)
             (
@@ -20,7 +20,7 @@ class TestAboutCommand:
                 [modules]
                 version = "0.0.0"
                 """,
-                False,
+                [],
             ),
             (
                 """
@@ -32,7 +32,7 @@ class TestAboutCommand:
                 run = true
                 dump = false
                 """,
-                False,
+                [],
             ),
             (
                 """
@@ -43,7 +43,7 @@ class TestAboutCommand:
                 graphql = true
                 migrate = false
                 """,
-                False,
+                [],
             ),
             (
                 """
@@ -54,7 +54,7 @@ class TestAboutCommand:
                 url = "https://example.com/packages.zip"
                 checksum = "abc123"
                 """,
-                False,
+                [],
             ),
             (
                 """
@@ -71,7 +71,7 @@ class TestAboutCommand:
                 url = "https://example.com/lib.zip"
                 checksum = "xyz789"
                 """,
-                False,
+                [],
             ),
             (
                 """
@@ -81,7 +81,7 @@ class TestAboutCommand:
                 [plugins]
                 [alpha_flags]
                 """,
-                False,
+                [],
             ),
             (
                 """
@@ -95,7 +95,7 @@ class TestAboutCommand:
                 url = "https://example.com/lib2.zip"
                 checksum = "bbb"
                 """,
-                False,
+                [],
             ),
             # Invalid configurations (should warn)
             (
@@ -106,7 +106,7 @@ class TestAboutCommand:
                 [alpha-flags]
                 graphql = true
                 """,
-                True,
+                [MediumSeverityWarning],  # 1 unrecognized table
             ),
             (
                 """
@@ -116,7 +116,7 @@ class TestAboutCommand:
                 [plugin]
                 run = true
                 """,
-                True,
+                [MediumSeverityWarning],  # 1 unrecognized table
             ),
             (
                 """
@@ -128,7 +128,7 @@ class TestAboutCommand:
                 [feature-flags]
                 test = true
                 """,
-                True,
+                [MediumSeverityWarning, MediumSeverityWarning],  # 2 unrecognized tables
             ),
             (
                 """
@@ -139,7 +139,7 @@ class TestAboutCommand:
                 fake_plugin = true
                 run = true
                 """,
-                True,
+                [LowSeverityWarning],  # 1 unrecognized plugin
             ),
             (
                 """
@@ -150,7 +150,7 @@ class TestAboutCommand:
                 fake_flag = true
                 graphql = true
                 """,
-                True,
+                [LowSeverityWarning],  # 1 unrecognized flag
             ),
         ],
     )
@@ -158,7 +158,7 @@ class TestAboutCommand:
         self,
         tmp_path: Path,
         toml_content: str,
-        should_warn: bool,
+        expected_warnings: list[Type[ToolkitWarning]],
         capture_print: PrintCapture,
         reset_cdf_toml_singleton,
     ) -> None:
@@ -168,14 +168,19 @@ class TestAboutCommand:
         cmd = AboutCommand(print_warning=False, skip_tracking=True)
         cmd.execute(tmp_path)
 
-        messages = " ".join(capture_print.messages)
-
         # Verify command produced some output (didn't crash)
         assert len(capture_print.messages) > 0, "Command should produce output"
 
-        # Verify warning appears if expected
-        if should_warn:
-            assert "Warning" in messages, "Expected warning in output for invalid config"
+        # Verify exact warning count
+        assert len(cmd.warning_list) == len(expected_warnings), (
+            f"Expected {len(expected_warnings)} warnings, got {len(cmd.warning_list)}: {cmd.warning_list}"
+        )
+
+        # Verify each warning has the correct type
+        for i, (warning, expected_type) in enumerate(zip(cmd.warning_list, expected_warnings)):
+            assert isinstance(warning, expected_type), (
+                f"Warning {i}: Expected {expected_type.__name__}, got {type(warning).__name__}: {warning}"
+            )
 
     def test_execute_without_cdf_toml_searches_subdirectories(
         self, tmp_path: Path, capture_print: PrintCapture, reset_cdf_toml_singleton
