@@ -224,6 +224,10 @@ class UploadableStorageIO(
 
         yield from chunker(iterable, cls.CHUNK_SIZE)
 
+    @classmethod
+    def count_chunks(cls, reader: MultiFileReader) -> int:
+        return reader.count()
+
 
 class TableUploadableStorageIO(UploadableStorageIO[T_Selector, T_ResourceResponse, T_ResourceRequest], ABC):
     """A base class for storage items that support uploading data with table schemas."""
