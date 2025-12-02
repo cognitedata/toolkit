@@ -30,7 +30,7 @@ dataFilters:
       space: sp_my_data_space
       externalId: asset_hierarchy_root
     instanceSpaces:
-      - sp_my_data_space
+    - sp_my_data_space
   operations:
     instanceSpaces:
     - sp_operations_space
@@ -80,6 +80,10 @@ dataExplorationConfig:
   searchEnabled: true
   filters:
   - type: status
-    values: [active, inactive]
+    values:
+    - active
+    - inactive
   - type: location
-    values: [plant_a, plant_b]
+    values:
+    - plant_a
+    - plant_b
