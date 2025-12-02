@@ -10,6 +10,7 @@ from rich import print
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.commands import DownloadCommand
 from cognite_toolkit._cdf_tk.constants import DATA_DEFAULT_DIR
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.storageio import (
     AssetIO,
     CanvasIO,
@@ -499,6 +500,7 @@ class DownloadApp(typer.Typer):
                 "-c",
                 help="Whether to include file contents when downloading assets. Note if you enable this option, you can"
                 "only download 1000 files at a time.",
+                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
             ),
         ] = False,
         file_format: Annotated[
@@ -546,13 +548,16 @@ class DownloadApp(typer.Typer):
         """This command will download file metadata from CDF into a temporary directory."""
         client = EnvironmentVariables.create_from_environment().get_client()
         if data_sets is None:
-            include_file_contents = questionary.select(
-                "Do you want to include file contents when downloading file metadata?",
-                choices=[
-                    Choice(title="Yes", value=True),
-                    Choice(title="No", value=False),
-                ],
-            ).ask()
+            if Flags.EXTEND_DOWNLOAD.is_enabled():
+                include_file_contents = questionary.select(
+                    "Do you want to include file contents when downloading file metadata?",
+                    choices=[
+                        Choice(title="Yes", value=True),
+                        Choice(title="No", value=False),
+                    ],
+                ).ask()
+            else:
+                include_file_contents = False
             if include_file_contents:
                 raise NotImplementedError()
             else:

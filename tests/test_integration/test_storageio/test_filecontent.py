@@ -83,7 +83,7 @@ class TestFileContentIO:
                 instance_id=TemplateNodeId(
                     space=toolkit_space.space,
                     external_id=FILENAME_VARIABLE,
-                )
+                ),
             ),
         )
         io = FileContentIO(toolkit_client)
@@ -110,6 +110,7 @@ class TestFileContentIO:
                 if time.perf_counter() - t0 > 30:
                     raise AssertionError("Timeout waiting for file to be uploaded.")
                 time.sleep(1)
+            assert uploaded_file.name == external_id
         finally:
             # Clean up
             toolkit_client.data_modeling.instances.delete(nodes=instance_id)
