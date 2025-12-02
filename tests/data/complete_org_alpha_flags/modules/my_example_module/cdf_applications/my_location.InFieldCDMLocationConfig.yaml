@@ -12,19 +12,19 @@ featureToggles:
   templateChecklistFlow: false
 accessManagement:
   templateAdmins:
-    - gp_infield_template_admins
-    - gp_location_admins
+  - gp_infield_template_admins
+  - gp_location_admins
   checklistAdmins:
-    - gp_infield_checklist_admins
-    - gp_location_admins
+  - gp_infield_checklist_admins
+  - gp_location_admins
 dataFilters:
   files:
     path:
       space: sp_my_data_space
       externalId: root_location_path
     instanceSpaces:
-      - sp_my_data_space
-      - sp_shared_space
+    - sp_my_data_space
+    - sp_shared_space
   assets:
     path:
       space: sp_my_data_space
@@ -33,16 +33,16 @@ dataFilters:
       - sp_my_data_space
   operations:
     instanceSpaces:
-      - sp_operations_space
+    - sp_operations_space
   timeSeries:
     instanceSpaces:
-      - sp_my_data_space
+    - sp_my_data_space
   notifications:
     instanceSpaces:
-      - sp_notifications_space
+    - sp_notifications_space
   maintenanceOrders:
     instanceSpaces:
-      - sp_maintenance_space
+    - sp_maintenance_space
 dataStorage:
   rootLocation:
     space: sp_my_data_space
@@ -66,20 +66,20 @@ viewMappings:
     version: v1
     externalId: MaintenanceOrder
 disciplines:
-  - name: Electrical
-    externalId: discipline_electrical
-  - name: Mechanical
-    externalId: discipline_mechanical
-  - name: Instrumentation
-    externalId: discipline_instrumentation
-  - name: Civil
-    externalId: discipline_civil
+- name: Electrical
+  externalId: discipline_electrical
+- name: Mechanical
+  externalId: discipline_mechanical
+- name: Instrumentation
+  externalId: discipline_instrumentation
+- name: Civil
+  externalId: discipline_civil
 dataExplorationConfig:
   enabled: true
   defaultView: asset_hierarchy
   searchEnabled: true
   filters:
-    - type: status
-      values: [active, inactive]
-    - type: location
-      values: [plant_a, plant_b]
+  - type: status
+    values: [active, inactive]
+  - type: location
+    values: [plant_a, plant_b]
