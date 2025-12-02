@@ -315,7 +315,7 @@ class DownloadApp(typer.Typer):
         ).ask()
         output_dir = Path(
             questionary.path(
-                "Where to download the assets:",
+                f"Where to download the {kind.lower()}:",
                 default=str(output_dir),
                 only_directories=True,
             ).ask()
@@ -575,7 +575,9 @@ class DownloadApp(typer.Typer):
                 ).ask()
             else:
                 include_file_contents = False
+
             available_formats = FileContentFormats if include_file_contents else AssetCentricFormats
+            file_format = FileContentFormats.ndjson if include_file_contents else file_format  # type: ignore[assignment]
             data_sets, file_format, compression, output_dir, limit = self._asset_centric_interactive(
                 FileMetadataInteractiveSelect(client, "download"),
                 file_format,
