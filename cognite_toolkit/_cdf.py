@@ -37,7 +37,6 @@ from cognite_toolkit._cdf_tk.apps import (
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import (
     AboutCommand,
-    CollectCommand,
 )
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT, URL, USE_SENTRY
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -153,17 +152,6 @@ def app() -> NoReturn:
         raise
 
     raise SystemExit(0)
-
-
-@_app.command("collect", hidden=True)
-def collect(
-    action: str = typer.Argument(
-        help="Whether to explicitly opt-in or opt-out of usage data collection. [opt-in, opt-out]"
-    ),
-) -> None:
-    """Collect usage information for the toolkit."""
-    cmd = CollectCommand()
-    cmd.run(lambda: cmd.execute(action))  # type: ignore [arg-type]
 
 
 @user_app.callback(invoke_without_command=True)
