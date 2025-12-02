@@ -12,6 +12,7 @@ infield = true
 migrate = true
 streams = true
 create = true
+extend-download = true
 
 [plugins]
 run = true
