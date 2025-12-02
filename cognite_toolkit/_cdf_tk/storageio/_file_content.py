@@ -94,37 +94,6 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, FileMetadata, FileM
                 downloaded_files.append(meta)
             yield Page(items=downloaded_files, worker_id="Main")
 
-    def _create_filepath(self, meta: FileMetadata, selector: FileIdentifierSelector) -> Path:
-        # We now that metadata always have name set
-        filename = Path(cast(str, meta.name))
-        if len(filename.suffix) == 0 and meta.mime_type:
-            if mime_ext := mimetypes.guess_extension(meta.mime_type):
-                filename = filename.with_suffix(mime_ext)
-        directory = selector.file_directory
-        if isinstance(meta.directory, str) and meta.directory != "":
-            directory = Path(meta.directory.removeprefix("/"))
-        filepath = self._target_dir / directory / filename
-        return filepath
-
-    @staticmethod
-    def _as_metadata_map(metadata: Sequence[FileMetadata]) -> dict[FileIdentifier, FileMetadata]:
-        identifiers_map: dict[FileIdentifier, FileMetadata] = {}
-        for item in metadata:
-            if item.id is not None:
-                # MyPy does cooperate well with Pydantic.
-                identifiers_map[FileInternalID(internal_id=item.id)] = item  # type: ignore[call-arg]
-            if item.external_id is not None:
-                identifiers_map[FileExternalID(external_id=item.external_id)] = item
-            if item.instance_id is not None:
-                identifiers_map[
-                    FileInstanceID(
-                        instance_id=SelectorNodeId(
-                            space=item.instance_id.space, external_id=item.instance_id.external_id
-                        )
-                    )
-                ] = item
-        return identifiers_map
-
     def _retrieve_metadata(self, identifiers: Sequence[FileIdentifier]) -> Sequence[FileMetadata] | None:
         config = self.client.config
         responses = self.client.http_client.request_with_retries(
@@ -148,6 +117,37 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, FileMetadata, FileM
             return None
         # MyPy does not understand that JsonVal is valid dict[Any, Any]
         return [FileMetadata._load(item) for item in items_data]  # type: ignore[arg-type]
+
+    @staticmethod
+    def _as_metadata_map(metadata: Sequence[FileMetadata]) -> dict[FileIdentifier, FileMetadata]:
+        identifiers_map: dict[FileIdentifier, FileMetadata] = {}
+        for item in metadata:
+            if item.id is not None:
+                # MyPy does cooperate well with Pydantic.
+                identifiers_map[FileInternalID(internal_id=item.id)] = item  # type: ignore[call-arg]
+            if item.external_id is not None:
+                identifiers_map[FileExternalID(external_id=item.external_id)] = item
+            if item.instance_id is not None:
+                identifiers_map[
+                    FileInstanceID(
+                        instance_id=SelectorNodeId(
+                            space=item.instance_id.space, external_id=item.instance_id.external_id
+                        )
+                    )
+                ] = item
+        return identifiers_map
+
+    def _create_filepath(self, meta: FileMetadata, selector: FileIdentifierSelector) -> Path:
+        # We now that metadata always have name set
+        filename = Path(cast(str, meta.name))
+        if len(filename.suffix) == 0 and meta.mime_type:
+            if mime_ext := mimetypes.guess_extension(meta.mime_type):
+                filename = filename.with_suffix(mime_ext)
+        directory = selector.file_directory
+        if isinstance(meta.directory, str) and meta.directory != "":
+            directory = Path(meta.directory.removeprefix("/"))
+        filepath = self._target_dir / directory / filename
+        return filepath
 
     def _retrieve_download_url(self, identifier: FileIdentifier) -> str | None:
         config = self.client.config
