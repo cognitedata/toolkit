@@ -52,7 +52,6 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
     RawTableInteractiveSelect,
     TimeSeriesInteractiveSelect,
 )
-from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricKind
 
 
 class RawFormats(str, Enum):
@@ -272,7 +271,7 @@ class DownloadApp(typer.Typer):
                 compression,
                 output_dir,
                 limit,
-                "Assets",
+                "assets",
             )
 
         selectors = [DataSetSelector(kind="Assets", data_set_external_id=data_set) for data_set in data_sets]
@@ -297,12 +296,11 @@ class DownloadApp(typer.Typer):
         compression: CompressionFormat,
         output_dir: Path,
         limit: int,
-        kind: AssetCentricKind,
+        display_name: str,
         max_limit: int | None = None,
         available_formats: type[Enum] = AssetCentricFormats,
     ) -> tuple[list[str], AssetCentricFormats, CompressionFormat, Path, int]:
         data_sets = selector.select_data_sets()
-        display_name = kind.casefold() + "s"
         file_format = questionary.select(
             f"Select format to download the {display_name} in:",
             choices=[Choice(title=format_.value, value=format_) for format_ in available_formats],
@@ -315,7 +313,7 @@ class DownloadApp(typer.Typer):
         ).ask()
         output_dir = Path(
             questionary.path(
-                f"Where to download the {kind.lower()}:",
+                f"Where to download the {display_name}:",
                 default=str(output_dir),
                 only_directories=True,
             ).ask()
@@ -402,7 +400,7 @@ class DownloadApp(typer.Typer):
                 compression,
                 output_dir,
                 limit,
-                "TimeSeries",
+                "time series",
             )
 
         selectors = [DataSetSelector(kind="TimeSeries", data_set_external_id=data_set) for data_set in data_sets]
@@ -481,7 +479,7 @@ class DownloadApp(typer.Typer):
                 compression,
                 output_dir,
                 limit,
-                "Events",
+                "events",
             )
 
         selectors = [DataSetSelector(kind="Events", data_set_external_id=data_set) for data_set in data_sets]
@@ -584,7 +582,7 @@ class DownloadApp(typer.Typer):
                 compression,
                 output_dir,
                 limit if not include_file_contents else 1000,
-                "FileMetadata",
+                "file metadata",
                 max_limit=1000 if include_file_contents else None,
                 available_formats=available_formats,
             )
