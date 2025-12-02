@@ -22,7 +22,7 @@ class Flags(Enum):
         description="Enables the import sub application",
     )
     GRAPHQL = FlagMetadata(
-        visible=True,
+        visible=False,
         description="Enables the support for deploying data models as GraphQL schemas",
     )
     MODULE_REPEAT = FlagMetadata(
@@ -52,6 +52,10 @@ class Flags(Enum):
     CREATE = FlagMetadata(
         visible=True,
         description="Enables the support for the resources create command under dev plugin",
+    )
+    EXTEND_DOWNLOAD = FlagMetadata(
+        visible=True,
+        description="Enables extended download to support downloading file content",
     )
 
     def is_enabled(self) -> bool:

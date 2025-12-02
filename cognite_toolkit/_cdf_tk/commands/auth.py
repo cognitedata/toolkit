@@ -26,6 +26,7 @@ import questionary
 from cognite.client.data_classes.capabilities import (
     AssetsAcl,
     Capability,
+    ExtractionConfigsAcl,
     FunctionsAcl,
     GroupsAcl,
     ProjectsAcl,
@@ -46,6 +47,7 @@ from cognite_toolkit._cdf_tk.constants import (
     TOOLKIT_DEMO_GROUP_NAME,
     TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME,
 )
+from cognite_toolkit._cdf_tk.cruds import ExtractionPipelineConfigCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthenticationError,
     AuthorizationError,
@@ -434,8 +436,23 @@ class AuthCommand(ToolkitCommand):
             crud = crud_cls.create_loader(client)
             if crud.prerequisite_warning() is not None:
                 continue
-            capability = crud_cls.get_required_capability(None, read_only=False)
-            capabilities = capability if isinstance(capability, list) else [capability]
+            if isinstance(crud, ExtractionPipelineConfigCRUD):
+                # The Extraction Pipeline Config CRUD requires special handling.
+                # The .get_required_capability is used in the DeployCommand as well. Since, there is no way to no
+                # the extraction pipeline ID or dataSetId from an ExtractionPipelineConfigWrite object, we do not
+                # check those there. If we returned the full capability, it would always have to be all scoped.
+                # That is too restrictive in the deploy command, so we return an empty list, essentially not checking
+                # anything there. Here, we want to add the all scoped capability, so that the Toolkit group gets the
+                # correct capability.
+                capabilities: list[Capability] = [
+                    ExtractionConfigsAcl(
+                        [ExtractionConfigsAcl.Action.Read, ExtractionConfigsAcl.Action.Write],
+                        ExtractionConfigsAcl.Scope.All(),
+                    )
+                ]
+            else:
+                capability = crud_cls.get_required_capability(None, read_only=False)
+                capabilities = capability if isinstance(capability, list) else [capability]
             for cap in capabilities:
                 if project_type == "DATA_MODELING_ONLY" and isinstance(cap, AssetsAcl | RelationshipsAcl):
                     continue

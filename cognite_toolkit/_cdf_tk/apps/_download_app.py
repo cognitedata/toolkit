@@ -10,15 +10,19 @@ from rich import print
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.commands import DownloadCommand
 from cognite_toolkit._cdf_tk.constants import DATA_DEFAULT_DIR
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.storageio import (
     AssetIO,
     CanvasIO,
     ChartIO,
+    DataSelector,
     EventIO,
+    FileContentIO,
     FileMetadataIO,
     HierarchyIO,
     InstanceIO,
     RawIO,
+    StorageIO,
     TimeSeriesIO,
 )
 from cognite_toolkit._cdf_tk.storageio.selectors import (
@@ -28,11 +32,14 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     ChartExternalIdSelector,
     ChartSelector,
     DataSetSelector,
+    FileIdentifierSelector,
     InstanceSpaceSelector,
     RawTableSelector,
     SelectedTable,
     SelectedView,
 )
+from cognite_toolkit._cdf_tk.storageio.selectors._file_content import FileInternalID
+from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
     AssetCentricInteractiveSelect,
@@ -45,7 +52,6 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
     RawTableInteractiveSelect,
     TimeSeriesInteractiveSelect,
 )
-from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricKind
 
 
 class RawFormats(str, Enum):
@@ -56,6 +62,10 @@ class RawFormats(str, Enum):
 class AssetCentricFormats(str, Enum):
     csv = "csv"
     parquet = "parquet"
+    ndjson = "ndjson"
+
+
+class FileContentFormats(str, Enum):
     ndjson = "ndjson"
 
 
@@ -261,7 +271,7 @@ class DownloadApp(typer.Typer):
                 compression,
                 output_dir,
                 limit,
-                "Assets",
+                "assets",
             )
 
         selectors = [DataSetSelector(kind="Assets", data_set_external_id=data_set) for data_set in data_sets]
@@ -286,13 +296,14 @@ class DownloadApp(typer.Typer):
         compression: CompressionFormat,
         output_dir: Path,
         limit: int,
-        kind: AssetCentricKind,
+        display_name: str,
+        max_limit: int | None = None,
+        available_formats: type[Enum] = AssetCentricFormats,
     ) -> tuple[list[str], AssetCentricFormats, CompressionFormat, Path, int]:
         data_sets = selector.select_data_sets()
-        display_name = kind.casefold() + "s"
         file_format = questionary.select(
             f"Select format to download the {display_name} in:",
-            choices=[Choice(title=format_.value, value=format_) for format_ in AssetCentricFormats],
+            choices=[Choice(title=format_.value, value=format_) for format_ in available_formats],
             default=file_format,
         ).ask()
         compression = questionary.select(
@@ -302,7 +313,7 @@ class DownloadApp(typer.Typer):
         ).ask()
         output_dir = Path(
             questionary.path(
-                "Where to download the assets:",
+                f"Where to download the {display_name}:",
                 default=str(output_dir),
                 only_directories=True,
             ).ask()
@@ -316,9 +327,15 @@ class DownloadApp(typer.Typer):
                 raise typer.Abort()
             try:
                 limit = int(limit_str)
-                break
             except ValueError:
                 print("[red]Please enter a valid integer for the limit.[/]")
+            else:
+                if max_limit is not None and limit > max_limit:
+                    print(
+                        f"[red]The maximum limit for downloading {display_name} is {max_limit}. Please enter a lower value.[/]"
+                    )
+                else:
+                    break
         return data_sets, file_format, compression, output_dir, limit
 
     def download_timeseries_cmd(
@@ -383,7 +400,7 @@ class DownloadApp(typer.Typer):
                 compression,
                 output_dir,
                 limit,
-                "TimeSeries",
+                "time series",
             )
 
         selectors = [DataSetSelector(kind="TimeSeries", data_set_external_id=data_set) for data_set in data_sets]
@@ -462,7 +479,7 @@ class DownloadApp(typer.Typer):
                 compression,
                 output_dir,
                 limit,
-                "Events",
+                "events",
             )
 
         selectors = [DataSetSelector(kind="Events", data_set_external_id=data_set) for data_set in data_sets]
@@ -491,6 +508,16 @@ class DownloadApp(typer.Typer):
                 help="List of data sets to download file metadata from. If this is not provided, an interactive selection will be made.",
             ),
         ] = None,
+        include_file_contents: Annotated[
+            bool,
+            typer.Option(
+                "--include-file-contents",
+                "-c",
+                help="Whether to include file contents when downloading assets. Note if you enable this option, you can"
+                "only download 1000 files at a time.",
+                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+            ),
+        ] = False,
         file_format: Annotated[
             AssetCentricFormats,
             typer.Option(
@@ -536,21 +563,58 @@ class DownloadApp(typer.Typer):
         """This command will download file metadata from CDF into a temporary directory."""
         client = EnvironmentVariables.create_from_environment().get_client()
         if data_sets is None:
+            if Flags.EXTEND_DOWNLOAD.is_enabled():
+                include_file_contents = questionary.select(
+                    "Do you want to include file contents when downloading file metadata?",
+                    choices=[
+                        Choice(title="Yes", value=True),
+                        Choice(title="No", value=False),
+                    ],
+                ).ask()
+            else:
+                include_file_contents = False
+
+            available_formats = FileContentFormats if include_file_contents else AssetCentricFormats
+            file_format = FileContentFormats.ndjson if include_file_contents else file_format  # type: ignore[assignment]
             data_sets, file_format, compression, output_dir, limit = self._asset_centric_interactive(
                 FileMetadataInteractiveSelect(client, "download"),
                 file_format,
                 compression,
                 output_dir,
-                limit,
-                "FileMetadata",
+                limit if not include_file_contents else 1000,
+                "file metadata",
+                max_limit=1000 if include_file_contents else None,
+                available_formats=available_formats,
             )
 
-        selectors = [DataSetSelector(kind="FileMetadata", data_set_external_id=data_set) for data_set in data_sets]
+        io: StorageIO
+        selectors: list[DataSelector]
+        if include_file_contents:
+            if limit == -1 or limit > 1000:
+                limit = 1000
+                print(
+                    "[yellow]When including file contents, the maximum number of files that can be downloaded at a time is 1000. "
+                )
+            if file_format == AssetCentricFormats.csv or file_format == AssetCentricFormats.parquet:
+                print(
+                    "[red]When including file contents, the only supported format is ndjson. Overriding the format to ndjson.[/]"
+                )
+                file_format = AssetCentricFormats.ndjson
+            files = client.files.list(data_set_external_ids=data_sets, limit=limit)
+            selector = FileIdentifierSelector(
+                identifiers=tuple([FileInternalID(internal_id=file.id) for file in files])  # type: ignore[call-arg]
+            )
+            selectors = [selector]
+            io = FileContentIO(client, output_dir / sanitize_filename(selector.group))
+        else:
+            selectors = [DataSetSelector(kind="FileMetadata", data_set_external_id=data_set) for data_set in data_sets]
+            io = FileMetadataIO(client)
+
         cmd = DownloadCommand()
         cmd.run(
             lambda: cmd.download(
-                selectors=selectors,
-                io=FileMetadataIO(client),
+                selectors=selectors,  # type: ignore[misc]
+                io=io,
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,
