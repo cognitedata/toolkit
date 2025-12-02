@@ -15,7 +15,6 @@ from cognite_toolkit._cdf_tk.client.data_classes.apm_config_v1 import (
 )
 from cognite_toolkit._cdf_tk.client.data_classes.infield import (
     InFieldCDMLocationConfig,
-    InFieldCDMLocationConfigList,
     InfieldLocationConfig,
     InfieldLocationConfigList,
 )
@@ -344,22 +343,11 @@ class InFieldLocationConfigCRUD(ResourceCRUD[NodeIdentifier, InfieldLocationConf
 
 
 @final
-class InFieldCDMLocationConfigCRUD(
-    ResourceCRUD[
-        NodeIdentifier,
-        InFieldCDMLocationConfig,
-        InFieldCDMLocationConfig,
-        InFieldCDMLocationConfigList,
-        InFieldCDMLocationConfigList,
-    ]
-):
+class InFieldCDMLocationConfigCRUD(ResourceCRUD[NodeIdentifier, InFieldCDMLocationConfig, InFieldCDMLocationConfig]):
     folder_name = "cdf_applications"
-    filename_pattern = r"^.*\.InFieldCDMLocationConfig$"
     filetypes = frozenset({"yaml", "yml"})
     resource_cls = InFieldCDMLocationConfig
     resource_write_cls = InFieldCDMLocationConfig
-    list_cls = InFieldCDMLocationConfigList
-    list_write_cls = InFieldCDMLocationConfigList
     kind = "InFieldCDMLocationConfig"
     yaml_cls = InFieldCDMLocationConfigYAML
     dependencies = frozenset({SpaceCRUD, GroupAllScopedCRUD, GroupResourceScopedCRUD})
@@ -392,18 +380,22 @@ class InFieldCDMLocationConfigCRUD(
         return DataModelInstancesAcl(actions, DataModelInstancesAcl.Scope.SpaceID(instance_spaces))
 
     def dump_resource(self, resource: InFieldCDMLocationConfig, local: dict[str, Any] | None = None) -> dict[str, Any]:
-        dumped = resource.dump()
+        dumped = resource.as_write().dump()
         local = local or {}
+        if "existingVersion" not in local:
+            # Existing version is typically not set when creating nodes, but we get it back
+            # when we retrieve the node from the server.
+            dumped.pop("existingVersion", None)
         dumped.pop("instanceType", None)
         return dumped
 
-    def create(self, items: InFieldCDMLocationConfigList) -> list[InstanceResult]:
+    def create(self, items: Sequence[InFieldCDMLocationConfig]) -> list[InstanceResult]:
         return self.client.infield.cdm_config.apply(items)
 
-    def retrieve(self, ids: SequenceNotStr[NodeIdentifier]) -> InFieldCDMLocationConfigList:
-        return InFieldCDMLocationConfigList(self.client.infield.cdm_config.retrieve(list(ids)))
+    def retrieve(self, ids: SequenceNotStr[NodeIdentifier]) -> list[InFieldCDMLocationConfig]:
+        return self.client.infield.cdm_config.retrieve(list(ids))
 
-    def update(self, items: InFieldCDMLocationConfigList) -> Sized:
+    def update(self, items: Sequence[InFieldCDMLocationConfig]) -> Sized:
         return self.create(items)
 
     def delete(self, ids: SequenceNotStr[NodeIdentifier]) -> int:
@@ -428,5 +420,5 @@ class InFieldCDMLocationConfigCRUD(
         elif json_path == ("accessManagement", "checklistAdmins"):
             return diff_list_hashable(local, cdf)
         elif json_path == ("disciplines",):
-            return diff_list_identifiable(local, cdf, key="externalId")
+            return diff_list_identifiable(local, cdf, get_identifier=hash_dict)
         return super().diff_list(local, cdf, json_path)

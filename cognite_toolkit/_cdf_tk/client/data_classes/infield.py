@@ -1,8 +1,6 @@
 import sys
-from collections import UserList
 from typing import Any, ClassVar, Literal
 
-from cognite.client import CogniteClient
 from pydantic import JsonValue, field_validator
 from pydantic_core.core_schema import ValidationInfo
 
@@ -92,10 +90,7 @@ class InfieldLocationConfigList(
         return self
 
 
-class InFieldCDMLocationConfig(
-    ResponseResource["InFieldCDMLocationConfig"],
-    InstanceRequestResource,
-):
+class InFieldCDMLocationConfig(ResponseResource["InFieldCDMLocationConfig"], InstanceRequestResource):
     """InField CDM Location Configuration resource class.
 
     This class is used for both the response and request resource for InField CDM Location Configuration nodes.
@@ -116,35 +111,6 @@ class InFieldCDMLocationConfig(
 
     def as_request_resource(self) -> "InFieldCDMLocationConfig":
         return self
-
-    def as_write(self) -> Self:
-        return self
-
-
-class InFieldCDMLocationConfigList(
-    UserList[InFieldCDMLocationConfig],
-    ResourceResponseListProtocol,
-    ResourceRequestListProtocol,
-):
-    """A list of InFieldCDMLocationConfig objects."""
-
-    _RESOURCE = InFieldCDMLocationConfig
-    data: list[InFieldCDMLocationConfig]
-
-    def __init__(self, initlist: list[InFieldCDMLocationConfig] | None = None, **_: Any) -> None:
-        super().__init__(initlist or [])
-
-    def dump(self, camel_case: bool = True) -> list[dict[str, Any]]:
-        """Serialize the list of InFieldCDMLocationConfig objects to a list of dictionaries."""
-        return [item.dump(camel_case) for item in self.data]
-
-    @classmethod
-    def load(
-        cls, data: list[dict[str, Any]], cognite_client: CogniteClient | None = None
-    ) -> "InFieldCDMLocationConfigList":
-        """Deserialize a list of dictionaries to an InFieldCDMLocationConfigList."""
-        items = [InFieldCDMLocationConfig.model_validate(item) for item in data]
-        return cls(items)
 
     def as_write(self) -> Self:
         return self

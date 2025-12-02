@@ -172,7 +172,7 @@ class InFieldCDMConfigAPI:
             ItemsRequest(
                 endpoint_url=self._config.create_api_url(self.ENDPOINT),
                 method="POST",
-                items=request_items,
+                items=request_items,  # type: ignore[arg-type]
             )
         )
         responses.raise_for_status()
@@ -198,12 +198,12 @@ class InFieldCDMConfigAPI:
         if len(items) > 500:
             raise ValueError("Cannot delete more than 500 InFieldCDMLocationConfig items at once.")
 
-        identifiers = [item.as_id() for item in items]
+        identifiers: Sequence = [item.as_id() for item in items]
         responses = self._http_client.request_with_retries(
             ItemsRequest(
                 endpoint_url=self._config.create_api_url(f"{self.ENDPOINT}/delete"),
                 method="POST",
-                items=identifiers,
+                items=identifiers,  # type: ignore[arg-type]
             )
         )
         responses.raise_for_status()
