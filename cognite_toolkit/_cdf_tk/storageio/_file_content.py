@@ -28,7 +28,15 @@ from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import Page, UploadableStorageIO, UploadItem
 from .selectors import FileContentSelector, FileIdentifierSelector, FileMetadataTemplateSelector
-from .selectors._file_content import FILEPATH, FileDataModelingTemplateSelector
+from .selectors._file_content import (
+    FILEPATH,
+    FileDataModelingTemplateSelector,
+    FileExternalID,
+    FileIdentifier,
+    FileInstanceID,
+    FileInternalID,
+)
+from .selectors._file_content import NodeId as SelectorNodeId
 
 COGNITE_FILE_VIEW = ViewId("cdf_cdm", "CogniteFile", "v1")
 
@@ -42,15 +50,16 @@ class UploadFileContentItem(UploadItem[FileMetadataWrite]):
 class FileContentIO(UploadableStorageIO[FileContentSelector, FileMetadata, FileMetadataWrite]):
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
-    CHUNK_SIZE = 1
+    CHUNK_SIZE = 10
     BASE_SELECTOR = FileContentSelector
     KIND = "FileContent"
     SUPPORTED_READ_FORMATS = frozenset({".ndjson"})
     UPLOAD_ENDPOINT = "/files"
 
-    def __init__(self, client: ToolkitClient, max_download) -> None:
+    def __init__(self, client: ToolkitClient, taget_dir: Path = Path.cwd()) -> None:
         super().__init__(client)
         self._crud = FileMetadataCRUD(client, None, None)
+        self._target_dir = taget_dir
 
     def as_id(self, item: FileMetadata) -> str:
         return item.external_id or str(item.id)
@@ -58,16 +67,68 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, FileMetadata, FileM
     def stream_data(self, selector: FileContentSelector, limit: int | None = None) -> Iterable[Page[FileMetadata]]:
         if not isinstance(selector, FileIdentifierSelector):
             raise ToolkitNotImplementedError(
-                f"Download for the given selector, {type(selector).__name__}, is not supported for FileContentIO"
+                f"Download with the manifest, {type(selector).__name__}, is not supported for FileContentIO"
             )
         config = self.client.config
         for identifiers in chunker_sequence(selector.identifiers, self.CHUNK_SIZE):
+            responses = self.client.http_client.request_with_retries(
+                message=SimpleBodyRequest(
+                    endpoint_url=config.create_api_url("/files/byids"),
+                    method="POST",
+                    body_content={
+                        "items": [
+                            identifier.model_dump(mode="json", by_alias=True, exclude={"id_type"})
+                            for identifier in identifiers
+                        ],
+                        "ignoreUnknownIds": True,
+                    },
+                )
+            )
+            if responses.has_failed:
+                continue
+            body = responses.get_first_body()
+            items_data = body.get("items", [])
+            if not isinstance(items_data, list):
+                continue
+
+            # MyPy does not understand that JsonVal is valid dict[Any, Any]
+            metadata = [FileMetadata._load(item) for item in items_data]  # type: ignore[arg-type]
+            identifiers_map: dict[FileIdentifier, FileMetadata] = {}
+            for item in metadata:
+                if item.id is not None:
+                    # MyPy does cooperate well with Pydantic.
+                    identifiers_map[FileInternalID(internal_id=item.id)] = item  # type: ignore[call-arg]
+                if item.external_id is not None:
+                    identifiers_map[FileExternalID(external_id=item.external_id)] = item
+                if item.instance_id is not None:
+                    identifiers_map[
+                        FileInstanceID(
+                            instance_id=SelectorNodeId(
+                                space=item.instance_id.space, external_id=item.instance_id.external_id
+                            )
+                        )
+                    ] = item
+            downloaded_files: list[FileMetadata] = []
             for identifier in identifiers:
+                if identifier not in identifiers_map:
+                    continue
+                meta = identifiers_map[identifier]
+                filename = Path(cast(str, meta.name))
+                if len(filename.suffix) == 0 and meta.mime_type:
+                    if mime_ext := mimetypes.guess_extension(meta.mime_type):
+                        filename = filename.with_suffix(mime_ext)
+                directory = selector.file_directory
+                if meta.directory:
+                    directory = Path(meta.directory.removeprefix("/"))
+                filepath = self._target_dir / directory / filename
+
                 responses = self.client.http_client.request_with_retries(
                     message=SimpleBodyRequest(
                         endpoint_url=config.create_api_url("/files/downloadlink"),
                         method="POST",
-                        body_content={"items": identifier.model_dump(mode="json", by_alias=True)},
+                        body_content={
+                            "items": [identifier.model_dump(mode="json", by_alias=True, exclude={"id_type"})]
+                        },
                     )
                 )
                 try:
@@ -80,16 +141,16 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, FileMetadata, FileM
                     download_url = cast(str, body["downloadUrl"])
                 except (KeyError, IndexError):
                     continue
-                # Currently, we do not support partial downloads of file content
-                output_path = Path(f"downloaded_{identifier.external_id or identifier.id}")
 
+                filepath.parent.mkdir(parents=True, exist_ok=True)
                 with httpx.stream("GET", download_url) as response:
-                    if response.status != 200:
+                    if response.status_code != 200:
                         continue
-                    with open(output_path, "wb") as f:
+                    with filepath.open(mode="wb") as file_stream:
                         for chunk in response.iter_bytes(chunk_size=8192):
-                            f.write(chunk)
-                yield Page(items=[FileMetadata(**identifier.model_dump())], worker_id="Main")
+                            file_stream.write(chunk)
+                downloaded_files.append(meta)
+            yield Page(items=downloaded_files, worker_id="Main")
 
     def count(self, selector: FileContentSelector) -> int | None:
         if isinstance(selector, FileIdentifierSelector):

@@ -1,11 +1,12 @@
 import hashlib
 import json
 from abc import ABC, abstractmethod
-from functools import cached_property
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
+
+from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 
 from ._base import DataSelector, SelectorObject
 from ._instances import SelectedView
@@ -113,7 +114,6 @@ class FileDataModelingTemplateSelector(FileContentSelector):
 
 class FileIdentifierDefinition(SelectorObject):
     id_type: str
-    filepath: Path = Field(alias="$FILEPATH")
 
 
 class FileInternalID(FileIdentifierDefinition):
@@ -151,22 +151,16 @@ FileIdentifier = Annotated[FileInstanceID | FileExternalID | FileInternalID, Fie
 class FileIdentifierSelector(FileContentSelector):
     type: Literal["fileIdentifier"] = "fileIdentifier"
     file_directory: Path = Path("file_content")
+    use_metadata_directory: bool = True
     identifiers: tuple[FileIdentifier, ...]
 
     @property
     def group(self) -> str:
         return "Files"
 
-    @cached_property
-    def identifier_by_filepath(self) -> dict[Path, FileIdentifier]:
-        return {identifier.filepath: identifier for identifier in self.identifiers}
-
     def __str__(self) -> str:
         hash_ = hashlib.md5(",".join(sorted(str(self.identifiers))).encode()).hexdigest()[:8]
         return f"file_{len(self.identifiers)}_identifiers_{hash_}"
 
     def create_instance(self, filepath: Path) -> dict[str, Any]:
-        identifier = self.identifier_by_filepath.get(filepath)
-        if identifier is None:
-            raise RuntimeError(f"No identifier found for file: {filepath}")
-        return identifier.model_dump(by_alias=True)
+        raise ToolkitNotImplementedError("FileIdentifierSelector does not support creating instances from file paths.")

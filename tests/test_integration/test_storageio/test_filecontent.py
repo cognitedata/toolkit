@@ -59,7 +59,7 @@ class TestFileContentIO:
             download_selector = FileIdentifierSelector(identifiers=(FileExternalID(external_id=external_id),))
             downloaded_files = [item for page in io.stream_data(download_selector) for item in page.items]
             assert len(downloaded_files) == 1
-            expected_file = tmp_path / directory / filename
+            expected_file = tmp_path / directory.removeprefix("/") / filename
             assert expected_file.is_file()
             downloaded_content = expected_file.read_text(encoding="utf-8")
             assert downloaded_content == "This is some test content."
