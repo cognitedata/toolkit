@@ -8,10 +8,11 @@ from cognite_toolkit._cdf_tk.storageio import FileContentIO
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     FileDataModelingTemplate,
     FileDataModelingTemplateSelector,
+    FileIdentifierSelector,
     FileMetadataTemplate,
     FileMetadataTemplateSelector,
 )
-from cognite_toolkit._cdf_tk.storageio.selectors._file_content import FILENAME_VARIABLE, TemplateNodeId
+from cognite_toolkit._cdf_tk.storageio.selectors._file_content import FILENAME_VARIABLE, FileExternalID, TemplateNodeId
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
 from tests.test_integration.constants import RUN_UNIQUE_ID
@@ -24,18 +25,19 @@ class TestFileContentIO:
         external_id = f"{filename}_{RUN_UNIQUE_ID}"
         my_text_file.parent.mkdir(parents=True, exist_ok=True)
         my_text_file.write_text("This is some test content.", encoding="utf-8")
+        directory = "/asset_centric"
         selector = FileMetadataTemplateSelector(
             file_directory=my_text_file.parent,
             template=FileMetadataTemplate.model_validate(
                 dict(
                     name=FILENAME_VARIABLE,
                     external_id=f"{FILENAME_VARIABLE}_{RUN_UNIQUE_ID}",
-                    directory="/asset_centric",
+                    directory=directory,
                     source="TestUpload",
                 )
             ),
         )
-        io = FileContentIO(toolkit_client)
+        io = FileContentIO(toolkit_client, tmp_path)
         reader = MultiFileReader([my_text_file])
 
         read_chunks = list(io.read_chunks(reader, selector))
@@ -54,7 +56,16 @@ class TestFileContentIO:
             assert uploaded_file.uploaded is True
 
             # Test download
+            download_selector = FileIdentifierSelector(identifiers=(FileExternalID(external_id=external_id),))
+            downloaded_files = [item for page in io.stream_data(download_selector) for item in page.items]
+            assert len(downloaded_files) == 1
+            expected_file = tmp_path / directory / filename
+            assert expected_file.is_file()
+            downloaded_content = expected_file.read_text(encoding="utf-8")
+            assert downloaded_content == "This is some test content."
 
+            json_chunks = io.data_to_json_chunk(downloaded_files, download_selector)
+            assert len(json_chunks) == 1
         finally:
             # Clean up
             toolkit_client.files.delete(external_id=external_id, ignore_unknown_ids=True)
