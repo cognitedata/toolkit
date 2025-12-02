@@ -245,10 +245,18 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
             properties = source["properties"]
             if not isinstance(properties, dict):
                 continue
+            reference_type = properties.get("containerReferenceType")
+            if (
+                reference_type
+                in {
+                    "charts",
+                    "dataGrid",
+                }
+            ):  # These container reference types are special cases with a resourceId statically set to -1, which is why we skip them
+                continue
             resource_id = properties.pop("resourceId", None)
             if not isinstance(resource_id, int):
                 continue
-            reference_type = properties.get("containerReferenceType")
             if reference_type == "asset":
                 external_id = self.client.lookup.assets.external_id(resource_id)
             elif reference_type == "timeseries":
