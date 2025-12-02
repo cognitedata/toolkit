@@ -1,0 +1,13 @@
+environment:
+  name: dev
+  project: infield-experimental-test-aws
+  validation-type: dev
+  selected:
+    - modules/eriks-location
+
+variables:
+  modules:
+    eriks-location:
+      - location: erik-infield-cdm2
+        location_name: Oslo CDM - Erik tookit
+        location_description: Used to test toolkit ingestion for InField cdm

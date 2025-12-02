@@ -1,0 +1,87 @@
+space: infield_cdm_source_desc_sche_asset_file_ts
+externalId: InFieldCDMLocationConfig
+properties:
+  name:
+    type:
+      list: false
+      collation: ucs_basic
+      type: text
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    name: name
+    description: Name of the location configuration
+  description:
+    type:
+      list: false
+      collation: ucs_basic
+      type: text
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    name: description
+    description: Description of the location configuration
+  featureToggles:
+    type:
+      list: false
+      type: json
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    name: featureToggles
+    description: Feature toggles for the location
+  dataFilters:
+    type:
+      list: false
+      type: json
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    name: dataFilters
+    description: Data filters for the location
+  dataStorage:
+    type:
+      list: false
+      type: json
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    name: dataStorage
+    description: Data storage configuration for the location
+  viewMappings:
+    type:
+      list: false
+      type: json
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    name: viewMappings
+    description: View mappings for the location
+  accessManagement:
+    type:
+      list: false
+      type: json
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    name: accessManagement
+    description: Access management configuration for the location
+  disciplines:
+    type:
+      list: true
+      type: json
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    name: discipline
+    description: Discipline configuration for the location
+  dataExplorationConfig:
+    type:
+      list: false
+      type: json
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    name: dataExplorationConfig
+    description: Data exploration configuration for the location
+usedFor: node
