@@ -257,6 +257,10 @@ class InFieldLocationConfigCRUD(ResourceCRUD[NodeIdentifier, InfieldLocationConf
     dependencies = frozenset({SpaceCRUD, GroupAllScopedCRUD, GroupResourceScopedCRUD})
     _doc_url = "Instances/operation/applyNodeAndEdges"
 
+    @property
+    def display_name(self) -> str:
+        return "infield location configs"
+
     @classmethod
     def get_id(cls, item: InfieldLocationConfig | dict) -> NodeIdentifier:
         if isinstance(item, dict):
@@ -352,6 +356,10 @@ class InFieldCDMLocationConfigCRUD(ResourceCRUD[NodeIdentifier, InFieldCDMLocati
     yaml_cls = InFieldCDMLocationConfigYAML
     dependencies = frozenset({SpaceCRUD, GroupAllScopedCRUD, GroupResourceScopedCRUD})
     _doc_url = "Instances/operation/applyNodeAndEdges"
+
+    @property
+    def display_name(self) -> str:
+        return "infield CDM location configs"
 
     @classmethod
     def get_id(cls, item: InFieldCDMLocationConfig | dict) -> NodeIdentifier:
