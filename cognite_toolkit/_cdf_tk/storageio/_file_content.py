@@ -56,10 +56,10 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, FileMetadata, FileM
     SUPPORTED_READ_FORMATS = frozenset({".ndjson"})
     UPLOAD_ENDPOINT = "/files"
 
-    def __init__(self, client: ToolkitClient, taget_dir: Path = Path.cwd()) -> None:
+    def __init__(self, client: ToolkitClient, target_dir: Path = Path.cwd()) -> None:
         super().__init__(client)
         self._crud = FileMetadataCRUD(client, None, None)
-        self._target_dir = taget_dir
+        self._target_dir = target_dir
 
     def as_id(self, item: FileMetadata) -> str:
         return item.external_id or str(item.id)
