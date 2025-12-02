@@ -146,7 +146,13 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, FileMetadata, FileM
         directory = selector.file_directory
         if isinstance(meta.directory, str) and meta.directory != "":
             directory = Path(meta.directory.removeprefix("/"))
+
+        counter = 1
         filepath = self._target_dir / directory / filename
+        while filepath.exists():
+            filepath = self._target_dir / directory / f"{filename} ({counter})"
+            counter += 1
+
         return filepath
 
     def _retrieve_download_url(self, identifier: FileIdentifier) -> str | None:
