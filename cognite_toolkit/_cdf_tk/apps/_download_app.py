@@ -659,14 +659,6 @@ class DownloadApp(typer.Typer):
                 help="Format for downloading the datapoints.",
             ),
         ] = DatapointFormats.parquet,
-        compression: Annotated[
-            CompressionFormat,
-            typer.Option(
-                "--compression",
-                "-z",
-                help="Compression format to use when downloading the datapoints.",
-            ),
-        ] = CompressionFormat.none,
         output_dir: Annotated[
             Path,
             typer.Option(
@@ -681,7 +673,9 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--limit",
                 "-l",
-                help="The maximum number of datapoints to download for each time series. Use -1 to download all datapoints.",
+                help="The maximum number of datapoints to download for each time series.",
+                max=10_000_000,
+                min=1,
             ),
         ] = 100_000,
         verbose: Annotated[

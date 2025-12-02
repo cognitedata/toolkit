@@ -9,6 +9,7 @@ from cognite.client._proto.data_points_pb2 import (
     StringDatapoint,
     StringDatapoints,
 )
+from cognite.client.data_classes import TimeSeriesFilter
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
@@ -20,17 +21,26 @@ from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     _ValueConverter,
 )
 from cognite_toolkit._cdf_tk.utils.fileio._readers import MultiFileReader
-from cognite_toolkit._cdf_tk.utils.http_client import DataBodyRequest, HTTPClient, HTTPMessage
+from cognite_toolkit._cdf_tk.utils.http_client import (
+    DataBodyRequest,
+    HTTPClient,
+    HTTPMessage,
+    SimpleBodyRequest,
+    SuccessResponse,
+)
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import Page, TableUploadableStorageIO, UploadItem
 from .selectors import DataPointsFileSelector
 
 
-class DatapointsIO(TableUploadableStorageIO[DataPointsFileSelector, DataPointListResponse, DataPointInsertionRequest]):
+class DatapointsIO(
+    TableUploadableStorageIO[DataPointsFileSelector, DataPointListResponse, DataPointInsertionRequest],
+):
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".csv"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     CHUNK_SIZE = 10_000
+    DOWNLOAD_CHUNK_SIZE = 100
     BASE_SELECTOR = DataPointsFileSelector
     KIND = "Datapoints"
     SUPPORTED_READ_FORMATS = frozenset({".csv"})
@@ -47,11 +57,43 @@ class DatapointsIO(TableUploadableStorageIO[DataPointsFileSelector, DataPointLis
     def as_id(self, item: DataPointListResponse) -> str:
         raise NotImplementedError()
 
-    def stream_data(self, selector: DataPointsFileSelector, limit: int | None = None) -> Iterable[Page]:
-        raise NotImplementedError(f"Download of {type(DatapointsIO).__name__.removesuffix('IO')} is not yet supported")
+    def stream_data(
+        self, selector: DataPointsFileSelector, limit: int | None = None
+    ) -> Iterable[Page[DataPointListResponse]]:
+        calculate_total = 100000
+
+        config = self.client.config
+        for timeseries in self.client.time_series(
+            data_set_external_ids=[selector.data_set_external_id], chunk_size=self.DOWNLOAD_CHUNK_SIZE
+        ):
+            items = [
+                {
+                    "id": ts.id,
+                    "start": selector.start,
+                    "end": selector.end,
+                    "limit": 100000,
+                }
+                for ts in timeseries
+            ]
+            responses = self.client.http_client.request_with_retries(
+                SimpleBodyRequest(
+                    endpoint_url=config.create_api_url("/timeseries/data/list"),
+                    method="POST",
+                    accept="application/protobuf",
+                    content_type="application/json",
+                    body_content={"items": items},
+                )
+            )
+            first_success = next((resp for resp in responses if isinstance(resp, SuccessResponse)), None)
+            if first_success is None:
+                continue
+            data_response: DataPointListResponse = DataPointListResponse.FromString(first_success.body)
+            yield Page("Main", [data_response])
 
     def count(self, selector: DataPointsFileSelector) -> int | None:
-        raise NotImplementedError(f"Download of {type(DatapointsIO).__name__.removesuffix('IO')} is not yet supported")
+        return self.client.time_series.aggregate_count(
+            filter=TimeSeriesFilter(data_set_ids=[{"externalId": selector.data_set_external_id}])
+        )
 
     def data_to_json_chunk(
         self, data_chunk: Sequence[DataPointListResponse], selector: DataPointsFileSelector | None = None
