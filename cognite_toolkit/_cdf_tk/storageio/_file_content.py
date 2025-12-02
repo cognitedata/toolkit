@@ -69,7 +69,10 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, FileMetadata, FileM
             raise ToolkitNotImplementedError(
                 f"Download with the manifest, {type(selector).__name__}, is not supported for FileContentIO"
             )
-        for identifiers in chunker_sequence(selector.identifiers, self.CHUNK_SIZE):
+        selected_identifiers = selector.identifiers
+        if limit is not None and limit < len(selected_identifiers):
+            selected_identifiers = selected_identifiers[:limit]
+        for identifiers in chunker_sequence(selected_identifiers, self.CHUNK_SIZE):
             metadata = self._retrieve_metadata(identifiers)
             if metadata is None:
                 continue
