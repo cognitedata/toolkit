@@ -429,4 +429,12 @@ class InFieldCDMLocationConfigCRUD(ResourceCRUD[NodeIdentifier, InFieldCDMLocati
             return diff_list_hashable(local, cdf)
         elif json_path == ("disciplines",):
             return diff_list_identifiable(local, cdf, get_identifier=hash_dict)
+        elif len(json_path) == 3 and json_path[0] == "dataFilters" and json_path[2] == "instanceSpaces":
+            # Handles dataFilters.<entity>.instanceSpaces (e.g., files, assets, operations, timeSeries, etc.)
+            return diff_list_hashable(local, cdf)
+        elif json_path == ("dataExplorationConfig", "filters"):
+            return diff_list_identifiable(local, cdf, get_identifier=hash_dict)
+        elif len(json_path) == 4 and json_path[:2] == ("dataExplorationConfig", "filters") and json_path[3] == "values":
+            # Handles dataExplorationConfig.filters[i].values
+            return diff_list_hashable(local, cdf)
         return super().diff_list(local, cdf, json_path)
