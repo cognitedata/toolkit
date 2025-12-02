@@ -214,28 +214,13 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
             self.client.lookup.files.external_id(list(file_ids))
 
     def _dump_resource(self, canvas: IndustrialCanvas) -> dict[str, JsonVal]:
-        dumped = canvas.as_write().dump()
-        if isinstance(canvas_dict := dumped.get("canvas"), dict):
-            canvas_dict.pop("existingVersion", None)
-        if isinstance(annotations := dumped.get("annotations"), list):
-            for annotation in annotations:
-                if isinstance(annotation_dict := annotation, dict):
-                    annotation_dict.pop("existingVersion", None)
-        if isinstance(fdm_instance_container_references := dumped.get("fdmInstanceContainerReferences"), list):
-            for fdm_instance_container_ref in fdm_instance_container_references:
-                if isinstance(fdm_instance_container_ref_dict := fdm_instance_container_ref, dict):
-                    fdm_instance_container_ref_dict.pop("existingVersion", None)
-        if isinstance(solution_tags := dumped.get("solutionTags"), list):
-            for solution_tag in solution_tags:
-                if isinstance(solution_tag_dict := solution_tag, dict):
-                    solution_tag_dict.pop("existingVersion", None)
+        dumped = canvas.as_write().dump(keep_existing_version=False)
         references = dumped.get("containerReferences", [])
         if not isinstance(references, list):
             return dumped
         for container_ref in references:
             if not isinstance(container_ref, dict):
                 continue
-            container_ref.pop("existingVersion", None)
             sources = container_ref.get("sources", [])
             if not isinstance(sources, list) or len(sources) == 0:
                 continue
