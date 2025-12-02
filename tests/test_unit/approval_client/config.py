@@ -160,7 +160,6 @@ from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import (
 )
 from cognite_toolkit._cdf_tk.client.data_classes.infield import (
     InFieldCDMLocationConfig,
-    InFieldCDMLocationConfigList,
     InfieldLocationConfig,
     InfieldLocationConfigList,
 )
@@ -863,9 +862,10 @@ API_RESOURCES = [
     APIResource(
         api_name="infield.cdm_config",
         resource_cls=InFieldCDMLocationConfig,
-        list_cls=InFieldCDMLocationConfigList,
         _write_cls=InFieldCDMLocationConfig,
-        _write_list_cls=InFieldCDMLocationConfigList,
+        # Todo: Remove these.
+        list_cls=InfieldLocationConfigList,
+        _write_list_cls=InfieldLocationConfigList,
         methods={
             "create": [Method(api_class_method="apply", mock_class_method="create_multiple")],
             "retrieve": [
