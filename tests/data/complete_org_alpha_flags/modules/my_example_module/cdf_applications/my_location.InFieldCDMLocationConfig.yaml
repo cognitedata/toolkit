@@ -1,0 +1,89 @@
+space: sp_instance
+externalId: my_location_config
+name: My Location Configuration
+description: Example InField CDM location configuration for demonstration purposes
+featureToggles:
+  threeD: true
+  trends: true
+  documents: true
+  workorders: true
+  notifications: true
+  media: true
+  templateChecklistFlow: false
+accessManagement:
+  templateAdmins:
+  - gp_infield_template_admins
+  - gp_location_admins
+  checklistAdmins:
+  - gp_infield_checklist_admins
+  - gp_location_admins
+dataFilters:
+  files:
+    path:
+      space: sp_my_data_space
+      externalId: root_location_path
+    instanceSpaces:
+    - sp_my_data_space
+    - sp_shared_space
+  assets:
+    path:
+      space: sp_my_data_space
+      externalId: asset_hierarchy_root
+    instanceSpaces:
+    - sp_my_data_space
+  operations:
+    instanceSpaces:
+    - sp_operations_space
+  timeSeries:
+    instanceSpaces:
+    - sp_my_data_space
+  notifications:
+    instanceSpaces:
+    - sp_notifications_space
+  maintenanceOrders:
+    instanceSpaces:
+    - sp_maintenance_space
+dataStorage:
+  rootLocation:
+    space: sp_my_data_space
+    externalId: location_root_node
+  appInstanceSpace: sp_infield_app_space
+viewMappings:
+  asset:
+    space: cdf_core
+    version: v1
+    externalId: CogniteAsset
+  operation:
+    space: sp_operations_space
+    version: v1
+    externalId: Operation
+  notification:
+    space: sp_notifications_space
+    version: v1
+    externalId: Notification
+  maintenanceOrder:
+    space: sp_maintenance_space
+    version: v1
+    externalId: MaintenanceOrder
+disciplines:
+- name: Electrical
+  externalId: discipline_electrical
+- name: Mechanical
+  externalId: discipline_mechanical
+- name: Instrumentation
+  externalId: discipline_instrumentation
+- name: Civil
+  externalId: discipline_civil
+dataExplorationConfig:
+  enabled: true
+  defaultView: asset_hierarchy
+  searchEnabled: true
+  filters:
+  - type: status
+    values:
+    - active
+    - inactive
+  - type: location
+    values:
+    - plant_a
+    - plant_b
