@@ -10,6 +10,7 @@ from rich import print
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.commands import DownloadCommand
 from cognite_toolkit._cdf_tk.constants import DATA_DEFAULT_DIR
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.storageio import (
     AssetIO,
     CanvasIO,
@@ -63,6 +64,11 @@ class HierarchyFormats(str, Enum):
     ndjson = "ndjson"
 
 
+class DatapointFormats(str, Enum):
+    csv = "csv"
+    parquet = "parquet"
+
+
 class InstanceFormats(str, Enum):
     ndjson = "ndjson"
 
@@ -98,6 +104,8 @@ class DownloadApp(typer.Typer):
         self.command("events")(self.download_events_cmd)
         self.command("files")(self.download_files_cmd)
         self.command("hierarchy")(self.download_hierarchy_cmd)
+        if Flags.EXTEND_DOWNLOAD.is_enabled():
+            self.command("datapoints")(self.download_datapoints_cmd)
         self.command("instances")(self.download_instances_cmd)
         self.command("charts")(self.download_charts_cmd)
         self.command("canvas")(self.download_canvas_cmd)
@@ -634,6 +642,59 @@ class DownloadApp(typer.Typer):
                 verbose=verbose,
             )
         )
+
+    @staticmethod
+    def download_datapoints_cmd(
+        dataset: Annotated[
+            str | None,
+            typer.Argument(
+                help="The dataset to download datapoints from. If not provided, an interactive selection will be made.",
+            ),
+        ] = None,
+        file_format: Annotated[
+            DatapointFormats,
+            typer.Option(
+                "--format",
+                "-f",
+                help="Format for downloading the datapoints.",
+            ),
+        ] = DatapointFormats.parquet,
+        compression: Annotated[
+            CompressionFormat,
+            typer.Option(
+                "--compression",
+                "-z",
+                help="Compression format to use when downloading the datapoints.",
+            ),
+        ] = CompressionFormat.none,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to download the datapoints.",
+                allow_dash=True,
+            ),
+        ] = DEFAULT_DOWNLOAD_DIR,
+        limit: Annotated[
+            int,
+            typer.Option(
+                "--limit",
+                "-l",
+                help="The maximum number of datapoints to download for each time series. Use -1 to download all datapoints.",
+            ),
+        ] = 100_000,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will download Datapoints from CDF into a temporary ."""
+        raise NotImplementedError()
 
     @staticmethod
     def download_instances_cmd(
