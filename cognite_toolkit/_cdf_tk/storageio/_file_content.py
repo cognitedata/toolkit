@@ -69,79 +69,21 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, FileMetadata, FileM
             raise ToolkitNotImplementedError(
                 f"Download with the manifest, {type(selector).__name__}, is not supported for FileContentIO"
             )
-        config = self.client.config
         for identifiers in chunker_sequence(selector.identifiers, self.CHUNK_SIZE):
-            responses = self.client.http_client.request_with_retries(
-                message=SimpleBodyRequest(
-                    endpoint_url=config.create_api_url("/files/byids"),
-                    method="POST",
-                    body_content={
-                        "items": [
-                            identifier.model_dump(mode="json", by_alias=True, exclude={"id_type"})
-                            for identifier in identifiers
-                        ],
-                        "ignoreUnknownIds": True,
-                    },
-                )
-            )
-            if responses.has_failed:
+            metadata = self._retrieve_metadata(identifiers)
+            if metadata is None:
                 continue
-            body = responses.get_first_body()
-            items_data = body.get("items", [])
-            if not isinstance(items_data, list):
-                continue
-
-            # MyPy does not understand that JsonVal is valid dict[Any, Any]
-            metadata = [FileMetadata._load(item) for item in items_data]  # type: ignore[arg-type]
-            identifiers_map: dict[FileIdentifier, FileMetadata] = {}
-            for item in metadata:
-                if item.id is not None:
-                    # MyPy does cooperate well with Pydantic.
-                    identifiers_map[FileInternalID(internal_id=item.id)] = item  # type: ignore[call-arg]
-                if item.external_id is not None:
-                    identifiers_map[FileExternalID(external_id=item.external_id)] = item
-                if item.instance_id is not None:
-                    identifiers_map[
-                        FileInstanceID(
-                            instance_id=SelectorNodeId(
-                                space=item.instance_id.space, external_id=item.instance_id.external_id
-                            )
-                        )
-                    ] = item
+            identifiers_map = self._as_metadata_map(metadata)
             downloaded_files: list[FileMetadata] = []
             for identifier in identifiers:
                 if identifier not in identifiers_map:
                     continue
+
                 meta = identifiers_map[identifier]
-                filename = Path(cast(str, meta.name))
-                if len(filename.suffix) == 0 and meta.mime_type:
-                    if mime_ext := mimetypes.guess_extension(meta.mime_type):
-                        filename = filename.with_suffix(mime_ext)
-                directory = selector.file_directory
-                if meta.directory:
-                    directory = Path(meta.directory.removeprefix("/"))
-                filepath = self._target_dir / directory / filename
-
-                responses = self.client.http_client.request_with_retries(
-                    message=SimpleBodyRequest(
-                        endpoint_url=config.create_api_url("/files/downloadlink"),
-                        method="POST",
-                        body_content={
-                            "items": [identifier.model_dump(mode="json", by_alias=True, exclude={"id_type"})]
-                        },
-                    )
-                )
-                try:
-                    body = responses.get_first_body()
-                except ValueError:
+                filepath = self._create_filepath(meta, selector)
+                download_url = self._retrieve_download_url(identifier)
+                if download_url is None:
                     continue
-                if "items" in body and isinstance(body["items"], list) and len(body["items"]) > 0:
-                    body = body["items"][0]
-                try:
-                    download_url = cast(str, body["downloadUrl"])
-                except (KeyError, IndexError):
-                    continue
-
                 filepath.parent.mkdir(parents=True, exist_ok=True)
                 with httpx.stream("GET", download_url) as response:
                     if response.status_code != 200:
@@ -151,6 +93,82 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, FileMetadata, FileM
                             file_stream.write(chunk)
                 downloaded_files.append(meta)
             yield Page(items=downloaded_files, worker_id="Main")
+
+    def _create_filepath(self, meta: FileMetadata, selector: FileIdentifierSelector) -> Path:
+        # We now that metadata always have name set
+        filename = Path(cast(str, meta.name))
+        if len(filename.suffix) == 0 and meta.mime_type:
+            if mime_ext := mimetypes.guess_extension(meta.mime_type):
+                filename = filename.with_suffix(mime_ext)
+        directory = selector.file_directory
+        if isinstance(meta.directory, str) and meta.directory != "":
+            directory = Path(meta.directory.removeprefix("/"))
+        filepath = self._target_dir / directory / filename
+        return filepath
+
+    @staticmethod
+    def _as_metadata_map(metadata: Sequence[FileMetadata]) -> dict[FileIdentifier, FileMetadata]:
+        identifiers_map: dict[FileIdentifier, FileMetadata] = {}
+        for item in metadata:
+            if item.id is not None:
+                # MyPy does cooperate well with Pydantic.
+                identifiers_map[FileInternalID(internal_id=item.id)] = item  # type: ignore[call-arg]
+            if item.external_id is not None:
+                identifiers_map[FileExternalID(external_id=item.external_id)] = item
+            if item.instance_id is not None:
+                identifiers_map[
+                    FileInstanceID(
+                        instance_id=SelectorNodeId(
+                            space=item.instance_id.space, external_id=item.instance_id.external_id
+                        )
+                    )
+                ] = item
+        return identifiers_map
+
+    def _retrieve_metadata(self, identifiers: Sequence[FileIdentifier]) -> Sequence[FileMetadata] | None:
+        config = self.client.config
+        responses = self.client.http_client.request_with_retries(
+            message=SimpleBodyRequest(
+                endpoint_url=config.create_api_url("/files/byids"),
+                method="POST",
+                body_content={
+                    "items": [
+                        identifier.model_dump(mode="json", by_alias=True, exclude={"id_type"})
+                        for identifier in identifiers
+                    ],
+                    "ignoreUnknownIds": True,
+                },
+            )
+        )
+        if responses.has_failed:
+            return None
+        body = responses.get_first_body()
+        items_data = body.get("items", [])
+        if not isinstance(items_data, list):
+            return None
+        # MyPy does not understand that JsonVal is valid dict[Any, Any]
+        return [FileMetadata._load(item) for item in items_data]  # type: ignore[arg-type]
+
+    def _retrieve_download_url(self, identifier: FileIdentifier) -> str | None:
+        config = self.client.config
+        responses = self.client.http_client.request_with_retries(
+            message=SimpleBodyRequest(
+                endpoint_url=config.create_api_url("/files/downloadlink"),
+                method="POST",
+                body_content={"items": [identifier.model_dump(mode="json", by_alias=True, exclude={"id_type"})]},
+            )
+        )
+        try:
+            body = responses.get_first_body()
+        except ValueError:
+            return None
+        if "items" in body and isinstance(body["items"], list) and len(body["items"]) > 0:
+            # The API responses is not following the API docs, this is a workaround
+            body = body["items"][0]  # type: ignore[assignment]
+        try:
+            return cast(str, body["downloadUrl"])
+        except (KeyError, IndexError):
+            return None
 
     def count(self, selector: FileContentSelector) -> int | None:
         if isinstance(selector, FileIdentifierSelector):
