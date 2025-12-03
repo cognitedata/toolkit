@@ -29,9 +29,9 @@ class BuildWarnings(TypedDict):
 
 
 class BuildCommand(ToolkitCommand):
-    verbose: bool = False
-    on_error: Literal["continue", "raise"] = "continue"
-    issues: BuildIssueList = BuildIssueList()
+    def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
+        super().__init__(print_warning, skip_tracking, silent)
+        self.issues = BuildIssueList()
 
     def execute(
         self,
