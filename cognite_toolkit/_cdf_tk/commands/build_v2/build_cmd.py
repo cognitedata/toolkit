@@ -64,23 +64,23 @@ class BuildCommand(ToolkitCommand):
             self._print_build_input(input)
 
         # Capture warnings from module structure integrity
-        if structure_issues := self._validate(input):
-            self.issues.extend(structure_issues)
+        if module_selection_issues := self._verify_module_selection(input):
+            self.issues.extend(module_selection_issues)
 
         # Logistics: clean and create build directory
-        if prepare_issues := self._prepare(input, not no_clean):
+        if prepare_issues := self._prepare_target_directory(input, not no_clean):
             self.issues.extend(prepare_issues)
 
         # Compile the configuration and variables,
         # check syntax on module and resource level
         # for any "compilation errors and warnings"
-        built_modules, build_issues = self._compile(input)
+        built_modules, build_issues = self._build_configuration(input)
         if build_issues:
             self.issues.extend(build_issues)
 
         # This is where we would add any recommendations for the user to improve the build.
-        if recommendations := self._verify(built_modules):
-            self.issues.extend(recommendations)
+        if build_quality_issues := self._verify_build_quality(built_modules):
+            self.issues.extend(build_quality_issues)
 
         # Finally, print warnings grouped by category/code and location.
         self._print_or_log_warnings_by_category(self.issues)
@@ -97,7 +97,7 @@ class BuildCommand(ToolkitCommand):
             )
         )
 
-    def _prepare(self, input: BuildInput, clean: bool = False) -> BuildIssueList:
+    def _prepare_target_directory(self, input: BuildInput, clean: bool = False) -> BuildIssueList:
         """
         Directory logistics
         """
@@ -112,7 +112,7 @@ class BuildCommand(ToolkitCommand):
         input.build_dir.mkdir(parents=True, exist_ok=True)
         return issues
 
-    def _validate(self, input: BuildInput) -> BuildIssueList:
+    def _verify_module_selection(self, input: BuildInput) -> BuildIssueList:
         issues = BuildIssueList()
         # Verify that the modules exists, are not duplicates,
         # and at least one is selected
@@ -143,7 +143,7 @@ class BuildCommand(ToolkitCommand):
 
         return issues
 
-    def _compile(self, input: BuildInput) -> tuple[BuiltModuleList, BuildIssueList]:
+    def _build_configuration(self, input: BuildInput) -> tuple[BuiltModuleList, BuildIssueList]:
         issues = BuildIssueList()
         # Use input.modules.selected directly (it's already a ModuleDirectories)
         if not input.modules.selected:
@@ -176,7 +176,7 @@ class BuildCommand(ToolkitCommand):
             issues.extend(converted_issues)
         return built_modules, issues
 
-    def _verify(self, built_modules: BuiltModuleList) -> BuildIssueList:
+    def _verify_build_quality(self, built_modules: BuiltModuleList) -> BuildIssueList:
         issues = BuildIssueList()
         return issues
 
