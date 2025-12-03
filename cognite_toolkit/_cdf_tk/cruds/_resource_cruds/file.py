@@ -21,7 +21,6 @@ from cognite.client.data_classes import (
     FileMetadata,
     FileMetadataList,
     FileMetadataWrite,
-    FileMetadataWriteList,
 )
 from cognite.client.data_classes.capabilities import (
     Capability,
@@ -37,7 +36,6 @@ from rich import print
 from cognite_toolkit._cdf_tk.client.data_classes.extendable_cognite_file import (
     ExtendableCogniteFile,
     ExtendableCogniteFileApply,
-    ExtendableCogniteFileApplyList,
     ExtendableCogniteFileList,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD
@@ -57,19 +55,11 @@ from .datamodel import SpaceCRUD, ViewCRUD
 
 
 @final
-class FileMetadataCRUD(
-    ResourceContainerCRUD[str, FileMetadataWrite, FileMetadata, FileMetadataWriteList, FileMetadataList]
-):
+class FileMetadataCRUD(ResourceContainerCRUD[str, FileMetadataWrite, FileMetadata]):
     item_name = "file contents"
     folder_name = "files"
-    filename_pattern = (
-        # Matches all yaml files except file names whose stem ends with `.CogniteFile` or `File`.
-        r"(?i)^(?!.*(?:File|CogniteFile)$).*$"
-    )
     resource_cls = FileMetadata
     resource_write_cls = FileMetadataWrite
-    list_cls = FileMetadataList
-    list_write_cls = FileMetadataWriteList
     yaml_cls = FileMetadataYAML
     kind = "FileMetadata"
     dependencies = frozenset({DataSetsCRUD, GroupAllScopedCRUD, LabelCRUD, AssetCRUD})
@@ -151,7 +141,7 @@ class FileMetadataCRUD(
             dumped["assetExternalIds"] = self.client.lookup.assets.external_id(asset_ids)
         return dumped
 
-    def create(self, items: FileMetadataWriteList) -> FileMetadataList:
+    def create(self, items: Sequence[FileMetadataWrite]) -> FileMetadataList:
         created = FileMetadataList([])
         for meta in items:
             try:
@@ -164,7 +154,7 @@ class FileMetadataCRUD(
     def retrieve(self, ids: SequenceNotStr[str]) -> FileMetadataList:
         return self.client.files.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
-    def update(self, items: FileMetadataWriteList) -> FileMetadataList:
+    def update(self, items: Sequence[FileMetadataWrite]) -> FileMetadataList:
         return self.client.files.update(items, mode="replace")
 
     def delete(self, ids: str | int | SequenceNotStr[str | int] | None) -> int:
@@ -197,24 +187,13 @@ class FileMetadataCRUD(
 
 
 @final
-class CogniteFileCRUD(
-    ResourceContainerCRUD[
-        NodeId,
-        ExtendableCogniteFileApply,
-        ExtendableCogniteFile,
-        ExtendableCogniteFileApplyList,
-        ExtendableCogniteFileList,
-    ]
-):
+class CogniteFileCRUD(ResourceContainerCRUD[NodeId, ExtendableCogniteFileApply, ExtendableCogniteFile]):
     template_pattern = "$FILENAME"
     item_name = "file contents"
     folder_name = "files"
-    filename_pattern = r"^.*CogniteFile"  # Matches all yaml files whose stem ends with 'CogniteFile'.
     kind = "CogniteFile"
     resource_cls = ExtendableCogniteFile
     resource_write_cls = ExtendableCogniteFileApply
-    list_cls = ExtendableCogniteFileList
-    list_write_cls = ExtendableCogniteFileApplyList
     yaml_cls = CogniteFileYAML
     dependencies = frozenset({GroupAllScopedCRUD, SpaceCRUD, ViewCRUD})
 
@@ -294,7 +273,7 @@ class CogniteFileCRUD(
             return diff_list_identifiable(local, cdf, get_identifier=dm_identifier)
         return super().diff_list(local, cdf, json_path)
 
-    def create(self, items: ExtendableCogniteFileApplyList) -> NodeApplyResultList:
+    def create(self, items: Sequence[ExtendableCogniteFileApply]) -> NodeApplyResultList:
         created = self.client.data_modeling.instances.apply(
             nodes=items, replace=False, skip_on_version_conflict=True, auto_create_direct_relations=True
         )
@@ -310,7 +289,7 @@ class CogniteFileCRUD(
         )
         return ExtendableCogniteFileList(items)
 
-    def update(self, items: ExtendableCogniteFileApplyList) -> NodeApplyResultList:
+    def update(self, items: Sequence[ExtendableCogniteFileApply]) -> NodeApplyResultList:
         updated = self.client.data_modeling.instances.apply(nodes=items, replace=True)
         return updated.nodes
 

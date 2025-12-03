@@ -3,9 +3,6 @@ from collections.abc import Sequence
 from typing import Generic, cast
 from uuid import uuid4
 
-from cognite.client.data_classes._base import (
-    T_CogniteResource,
-)
 from cognite.client.data_classes.data_modeling import (
     EdgeApply,
     InstanceApply,
@@ -30,7 +27,8 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import ChartMigrationIssue
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import AssetCentricMigrationSelector
 from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.storageio._base import T_Selector, T_WriteCogniteResource
+from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
+from cognite_toolkit._cdf_tk.storageio._base import T_Selector
 from cognite_toolkit._cdf_tk.storageio.selectors import ChartSelector
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.useful_types import (
@@ -38,7 +36,7 @@ from cognite_toolkit._cdf_tk.utils.useful_types import (
 )
 
 
-class DataMapper(Generic[T_Selector, T_CogniteResource, T_WriteCogniteResource], ABC):
+class DataMapper(Generic[T_Selector, T_ResourceResponse, T_ResourceRequest], ABC):
     def prepare(self, source_selector: T_Selector) -> None:
         """Prepare the data mapper with the given source selector.
 
@@ -50,9 +48,7 @@ class DataMapper(Generic[T_Selector, T_CogniteResource, T_WriteCogniteResource],
         pass
 
     @abstractmethod
-    def map(
-        self, source: Sequence[T_CogniteResource]
-    ) -> Sequence[tuple[T_WriteCogniteResource | None, MigrationIssue]]:
+    def map(self, source: Sequence[T_ResourceResponse]) -> Sequence[tuple[T_ResourceRequest | None, MigrationIssue]]:
         """Map a chunk of source data to the target format.
 
         Args:

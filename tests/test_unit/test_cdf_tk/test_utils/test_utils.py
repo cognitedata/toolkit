@@ -28,7 +28,7 @@ from cognite_toolkit._cdf_tk.utils import (
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.modules import module_directory_from_path
 from cognite_toolkit._cdf_tk.validation import validate_modules_variables
-from tests.data import DATA_FOLDER, PROJECT_FOR_TEST
+from tests.data import CALC_HASH_DATA, PROJECT_FOR_TEST
 
 
 class TestLoadYamlInjectVariables:
@@ -80,7 +80,7 @@ def test_validate_config_yaml(variable: BuildVariable, expected_warnings: list[T
 
 
 def test_calculate_hash_on_folder() -> None:
-    folder = Path(DATA_FOLDER / "calc_hash_data")
+    folder = CALC_HASH_DATA
     hash1 = calculate_directory_hash(folder)
     hash2 = calculate_directory_hash(folder)
 

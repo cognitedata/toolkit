@@ -1,11 +1,9 @@
 from pathlib import Path
 
 DATA_FOLDER = Path(__file__).resolve().parent
-
-DESCRIPTIONS_FOLDER = DATA_FOLDER / "describe_data"
+CALC_HASH_DATA = DATA_FOLDER / "calc_hash_data"
 AUTH_DATA = DATA_FOLDER / "auth_data"
 PROJECT_NO_COGNITE_MODULES = DATA_FOLDER / "project_no_cognite_modules"
-RESOURCES_WITH_ENVIRONMENT_VARIABLES = DATA_FOLDER / "resources_with_environment_variables"
 PROJECT_WITH_DUPLICATES = DATA_FOLDER / "project_with_duplicates"
 PROJECT_FOR_TEST = DATA_FOLDER / "project_for_test"
 LOAD_DATA = DATA_FOLDER / "load_data"
@@ -26,6 +24,9 @@ STRONGLY_COUPLED_MODEL = DATA_FOLDER / "strongly_coupled_model"
 CORE_NO_3D_YAML = DATA_FOLDER / "cdf" / "core_no_3d.yaml"
 CORE_CONTAINERS_NO_3D_YAML = DATA_FOLDER / "cdf" / "core_containers_no_3d.yaml"
 EXTRACTOR_VIEWS_YAML = DATA_FOLDER / "cdf" / "extractor_views.yaml"
+INFIELD_CDM_LOCATION_CONFIG_VIEW_YAML = DATA_FOLDER / "cdf" / "infield_cdm_location_config_view.yaml"
+INFIELD_CDM_LOCATION_CONFIG_CONTAINER_YAML = DATA_FOLDER / "cdf" / "infield_cdm_location_config_container.yaml"
+
 
 __all__ = [
     "AUTH_DATA",
@@ -33,14 +34,12 @@ __all__ = [
     "BUILD_GROUP_WITH_UNKNOWN_ACL",
     "CDF_TOML_DATA",
     "COMPLETE_ORG",
-    "DESCRIPTIONS_FOLDER",
     "EXTERNAL_PACKAGE",
     "LOAD_DATA",
     "PROJECT_FOR_TEST",
     "PROJECT_NO_COGNITE_MODULES",
     "PROJECT_WITH_BAD_MODULES",
     "PROJECT_WITH_DUPLICATES",
-    "RESOURCES_WITH_ENVIRONMENT_VARIABLES",
     "RUN_DATA",
     "STRONGLY_COUPLED_MODEL",
     "TRANSFORMATION_CLI",

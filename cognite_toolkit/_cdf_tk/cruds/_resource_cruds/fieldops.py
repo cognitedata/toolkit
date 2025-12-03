@@ -12,13 +12,20 @@ from cognite_toolkit._cdf_tk.client.data_classes.apm_config_v1 import (
     APMConfig,
     APMConfigList,
     APMConfigWrite,
-    APMConfigWriteList,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.infield import InfieldLocationConfig, InfieldLocationConfigList
+from cognite_toolkit._cdf_tk.client.data_classes.infield import (
+    InFieldCDMLocationConfig,
+    InfieldLocationConfig,
+    InfieldLocationConfigList,
+)
 from cognite_toolkit._cdf_tk.client.data_classes.instance_api import InstanceResult, NodeIdentifier
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
-from cognite_toolkit._cdf_tk.resource_classes import InfieldLocationConfigYAML, InfieldV1YAML
+from cognite_toolkit._cdf_tk.resource_classes import (
+    InFieldCDMLocationConfigYAML,
+    InfieldLocationConfigYAML,
+    InfieldV1YAML,
+)
 from cognite_toolkit._cdf_tk.utils import quote_int_value_by_key_in_yaml, safe_read
 from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, hash_dict
@@ -31,14 +38,11 @@ from .group_scoped import GroupResourceScopedCRUD
 
 
 @final
-class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig, APMConfigWriteList, APMConfigList]):
+class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig]):
     folder_name = "cdf_applications"
-    filename_pattern = r"^.*\.InfieldV1$"  # Matches all yaml files whose stem ends with '.InfieldV1'.
     filetypes = frozenset({"yaml", "yml"})
     resource_cls = APMConfig
     resource_write_cls = APMConfigWrite
-    list_cls = APMConfigList
-    list_write_cls = APMConfigWriteList
     kind = "InfieldV1"
     yaml_cls = InfieldV1YAML
     dependencies = frozenset({DataSetsCRUD, AssetCRUD, SpaceCRUD, GroupAllScopedCRUD, GroupResourceScopedCRUD})
@@ -86,9 +90,9 @@ class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig, APMConfigWriteL
             f"Install the infield options with cdf modules init/add to deploy it."
         )
 
-    def create(self, items: APMConfigWriteList) -> NodeApplyResultList:
+    def create(self, items: Sequence[APMConfigWrite]) -> NodeApplyResultList:
         result = self.client.data_modeling.instances.apply(
-            nodes=items.as_nodes(), auto_create_direct_relations=True, replace=False
+            nodes=[item.as_node() for item in items], auto_create_direct_relations=True, replace=False
         )
         return result.nodes
 
@@ -98,9 +102,9 @@ class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig, APMConfigWriteL
         ).nodes
         return APMConfigList.from_nodes(result)
 
-    def update(self, items: APMConfigWriteList) -> NodeApplyResultList:
+    def update(self, items: Sequence[APMConfigWrite]) -> NodeApplyResultList:
         result = self.client.data_modeling.instances.apply(
-            nodes=items.as_nodes(), auto_create_direct_relations=True, replace=True
+            nodes=[item.as_node() for item in items], auto_create_direct_relations=True, replace=True
         )
         return result.nodes
 
@@ -243,26 +247,19 @@ class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig, APMConfigWriteL
 
 
 @final
-class InFieldLocationConfigCRUD(
-    ResourceCRUD[
-        NodeIdentifier,
-        InfieldLocationConfig,
-        InfieldLocationConfig,
-        InfieldLocationConfigList,
-        InfieldLocationConfigList,
-    ]
-):
+class InFieldLocationConfigCRUD(ResourceCRUD[NodeIdentifier, InfieldLocationConfig, InfieldLocationConfig]):
     folder_name = "cdf_applications"
-    filename_pattern = r"^.*\.InFieldLocationConfig$"
     filetypes = frozenset({"yaml", "yml"})
     resource_cls = InfieldLocationConfig
     resource_write_cls = InfieldLocationConfig
-    list_cls = InfieldLocationConfigList
-    list_write_cls = InfieldLocationConfigList
     kind = "InFieldLocationConfig"
     yaml_cls = InfieldLocationConfigYAML
     dependencies = frozenset({SpaceCRUD, GroupAllScopedCRUD, GroupResourceScopedCRUD})
     _doc_url = "Instances/operation/applyNodeAndEdges"
+
+    @property
+    def display_name(self) -> str:
+        return "infield location configs"
 
     @classmethod
     def get_id(cls, item: InfieldLocationConfig | dict) -> NodeIdentifier:
@@ -306,7 +303,7 @@ class InFieldLocationConfigCRUD(
 
         return dumped
 
-    def create(self, items: InfieldLocationConfigList) -> list[InstanceResult]:
+    def create(self, items: Sequence[InfieldLocationConfig]) -> list[InstanceResult]:
         created = self.client.infield.config.apply(items)
         config_ids = {config.as_id() for config in items}
         # We filter out all the data exploration configs that were created along with the infield location configs
@@ -316,7 +313,7 @@ class InFieldLocationConfigCRUD(
     def retrieve(self, ids: SequenceNotStr[NodeIdentifier]) -> InfieldLocationConfigList:
         return InfieldLocationConfigList(self.client.infield.config.retrieve(list(ids)))
 
-    def update(self, items: InfieldLocationConfigList) -> Sized:
+    def update(self, items: Sequence[InfieldLocationConfig]) -> Sized:
         return self.create(items)
 
     def delete(self, ids: SequenceNotStr[NodeIdentifier]) -> int:
@@ -345,5 +342,99 @@ class InFieldLocationConfigCRUD(
         elif json_path == ("dataFilters", "general", "spaces"):
             return diff_list_hashable(local, cdf)
         elif json_path == ("dataExplorationConfig", "documents", "supportedFormats"):
+            return diff_list_hashable(local, cdf)
+        return super().diff_list(local, cdf, json_path)
+
+
+@final
+class InFieldCDMLocationConfigCRUD(ResourceCRUD[NodeIdentifier, InFieldCDMLocationConfig, InFieldCDMLocationConfig]):
+    folder_name = "cdf_applications"
+    filetypes = frozenset({"yaml", "yml"})
+    resource_cls = InFieldCDMLocationConfig
+    resource_write_cls = InFieldCDMLocationConfig
+    kind = "InFieldCDMLocationConfig"
+    yaml_cls = InFieldCDMLocationConfigYAML
+    dependencies = frozenset({SpaceCRUD, GroupAllScopedCRUD, GroupResourceScopedCRUD})
+    _doc_url = "Instances/operation/applyNodeAndEdges"
+
+    @property
+    def display_name(self) -> str:
+        return "infield CDM location configs"
+
+    @classmethod
+    def get_id(cls, item: InFieldCDMLocationConfig | dict) -> NodeIdentifier:
+        if isinstance(item, dict):
+            return NodeIdentifier(space=item["space"], external_id=item["externalId"])
+        return NodeIdentifier(space=item.space, external_id=item.external_id)
+
+    @classmethod
+    def dump_id(cls, id: NodeIdentifier) -> dict[str, Any]:
+        return id.dump(include_type=False)
+
+    @classmethod
+    def get_required_capability(
+        cls, items: Sequence[InFieldCDMLocationConfig] | None, read_only: bool
+    ) -> Capability | list[Capability]:
+        if not items or items is None:
+            return []
+
+        actions = (
+            [DataModelInstancesAcl.Action.Read]
+            if read_only
+            else [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write]
+        )
+        instance_spaces = sorted({item.space for item in items})
+
+        return DataModelInstancesAcl(actions, DataModelInstancesAcl.Scope.SpaceID(instance_spaces))
+
+    def dump_resource(self, resource: InFieldCDMLocationConfig, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        local = local or {}
+        if "existingVersion" not in local:
+            # Existing version is typically not set when creating nodes, but we get it back
+            # when we retrieve the node from the server.
+            dumped.pop("existingVersion", None)
+        dumped.pop("instanceType", None)
+        return dumped
+
+    def create(self, items: Sequence[InFieldCDMLocationConfig]) -> list[InstanceResult]:
+        return self.client.infield.cdm_config.apply(items)
+
+    def retrieve(self, ids: SequenceNotStr[NodeIdentifier]) -> list[InFieldCDMLocationConfig]:
+        return self.client.infield.cdm_config.retrieve(list(ids))
+
+    def update(self, items: Sequence[InFieldCDMLocationConfig]) -> Sized:
+        return self.create(items)
+
+    def delete(self, ids: SequenceNotStr[NodeIdentifier]) -> int:
+        # We must retrieve the full resource to delete it.
+        retrieved = self.retrieve(list(ids))
+        _ = self.client.infield.cdm_config.delete(retrieved)
+        return len(retrieved)
+
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[InFieldCDMLocationConfig]:
+        raise NotImplementedError(f"Iteration over {self.display_name} is not supported.")
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path == ("accessManagement", "templateAdmins"):
+            return diff_list_hashable(local, cdf)
+        elif json_path == ("accessManagement", "checklistAdmins"):
+            return diff_list_hashable(local, cdf)
+        elif json_path == ("disciplines",):
+            return diff_list_identifiable(local, cdf, get_identifier=hash_dict)
+        elif len(json_path) == 3 and json_path[0] == "dataFilters" and json_path[2] == "instanceSpaces":
+            # Handles dataFilters.<entity>.instanceSpaces (e.g., files, assets, operations, timeSeries, etc.)
+            return diff_list_hashable(local, cdf)
+        elif json_path == ("dataExplorationConfig", "filters"):
+            return diff_list_identifiable(local, cdf, get_identifier=hash_dict)
+        elif len(json_path) == 4 and json_path[:2] == ("dataExplorationConfig", "filters") and json_path[3] == "values":
+            # Handles dataExplorationConfig.filters[i].values
             return diff_list_hashable(local, cdf)
         return super().diff_list(local, cdf, json_path)

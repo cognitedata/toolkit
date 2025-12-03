@@ -214,7 +214,7 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
             self.client.lookup.files.external_id(list(file_ids))
 
     def _dump_resource(self, canvas: IndustrialCanvas) -> dict[str, JsonVal]:
-        dumped = canvas.as_write().dump()
+        dumped = canvas.as_write().dump(keep_existing_version=False)
         references = dumped.get("containerReferences", [])
         if not isinstance(references, list):
             return dumped
@@ -230,10 +230,18 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
             properties = source["properties"]
             if not isinstance(properties, dict):
                 continue
+            reference_type = properties.get("containerReferenceType")
+            if (
+                reference_type
+                in {
+                    "charts",
+                    "dataGrid",
+                }
+            ):  # These container reference types are special cases with a resourceId statically set to -1, which is why we skip them
+                continue
             resource_id = properties.pop("resourceId", None)
             if not isinstance(resource_id, int):
                 continue
-            reference_type = properties.get("containerReferenceType")
             if reference_type == "asset":
                 external_id = self.client.lookup.assets.external_id(resource_id)
             elif reference_type == "timeseries":

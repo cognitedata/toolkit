@@ -41,6 +41,7 @@ from ._resource_cruds import (
     HostedExtractorJobCRUD,
     HostedExtractorMappingCRUD,
     HostedExtractorSourceCRUD,
+    InFieldCDMLocationConfigCRUD,
     InFieldLocationConfigCRUD,
     InfieldV1CRUD,
     LabelCRUD,
@@ -80,6 +81,7 @@ if not FeatureFlag.is_enabled(Flags.GRAPHQL):
 if not FeatureFlag.is_enabled(Flags.INFIELD):
     _EXCLUDED_CRUDS.add(InfieldV1CRUD)
     _EXCLUDED_CRUDS.add(InFieldLocationConfigCRUD)
+    _EXCLUDED_CRUDS.add(InFieldCDMLocationConfigCRUD)
 if not FeatureFlag.is_enabled(Flags.MIGRATE):
     _EXCLUDED_CRUDS.add(ResourceViewMappingCRUD)
 if not FeatureFlag.is_enabled(Flags.STREAMS):
@@ -104,6 +106,11 @@ del _loader  # cleanup module namespace
 
 # For backwards compatibility
 CRUDS_BY_FOLDER_NAME["data_models"] = CRUDS_BY_FOLDER_NAME["data_modeling"]  # Todo: Remove in v1.0
+RESOURCE_CRUD_BY_FOLDER_NAME = {
+    folder_name: cruds
+    for folder_name, loaders in CRUDS_BY_FOLDER_NAME.items()
+    if (cruds := [crud for crud in loaders if issubclass(crud, ResourceCRUD)])
+}
 
 CRUD_LIST = list(itertools.chain.from_iterable(CRUDS_BY_FOLDER_NAME.values()))
 RESOURCE_CRUD_LIST = [loader for loader in CRUD_LIST if issubclass(loader, ResourceCRUD)]
@@ -152,6 +159,7 @@ __all__ = [
     "CRUDS_BY_FOLDER_NAME",
     "CRUD_LIST",
     "KINDS_BY_FOLDER_NAME",
+    "RESOURCE_CRUD_BY_FOLDER_NAME",
     "RESOURCE_CRUD_CONTAINER_LIST",
     "RESOURCE_CRUD_LIST",
     "RESOURCE_DATA_CRUD_LIST",
@@ -179,6 +187,7 @@ __all__ = [
     "HostedExtractorJobCRUD",
     "HostedExtractorMappingCRUD",
     "HostedExtractorSourceCRUD",
+    "InFieldCDMLocationConfigCRUD",
     "InFieldLocationConfigCRUD",
     "LabelCRUD",
     "LocationFilterCRUD",

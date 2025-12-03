@@ -27,6 +27,7 @@ from cognite.client.data_classes import (
     TimeSeriesList,
     TimeSeriesWrite,
     TimeSeriesWriteList,
+    TransformationWrite,
     WorkflowVersionUpsert,
     WorkflowVersionUpsertList,
     filters,
@@ -842,7 +843,7 @@ workflowDefinition:
         } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
 
-class TestTransformationLoader:
+class TestTransformationCRUD:
     def test_create_transformation_auth_without_scope(self, toolkit_client: ToolkitClient) -> None:
         transformation_text = """externalId: transformation_without_scope
 name: This is a test transformation
@@ -953,6 +954,50 @@ authentication:
             assert len(created_list) == N
         finally:
             loader.delete([transformation.external_id for transformation in transformations])
+
+    @pytest.mark.parametrize(
+        "transformation_yaml",
+        [
+            pytest.param(
+                """externalId: tr_transformation_instances
+name: Transformation Instances Test
+destination:
+  type: instances
+  dataModel:
+    space: cdf_cdm
+    externalId: CogniteCore
+    version: v1
+    destinationType: CogniteAsset
+ignoreNullFields: true
+""",
+                id="Instance destination type without explicit instanceSpace",
+            )
+        ],
+    )
+    def test_unchanged_transformation_not_redeployed(
+        self, toolkit_client: ToolkitClient, transformation_yaml: str
+    ) -> None:
+        crud = TransformationCRUD.create_loader(toolkit_client)
+
+        filepath = MagicMock(spec=Path)
+        filepath.read_text.return_value = transformation_yaml
+
+        resource_dict = crud.load_resource_file(filepath, {})
+        assert len(resource_dict) == 1
+        resource = crud.load_resource(resource_dict[0])
+        assert isinstance(resource, TransformationWrite)
+        if not crud.retrieve([resource.external_id]):
+            _ = crud.create([resource])
+
+        worker = ResourceWorker(crud, "deploy")
+        resources = worker.prepare_resources([filepath])
+
+        assert {
+            "create": len(resources.to_create),
+            "change": len(resources.to_update),
+            "delete": len(resources.to_delete),
+            "unchanged": len(resources.unchanged),
+        } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
 
 class TestNodeLoader:

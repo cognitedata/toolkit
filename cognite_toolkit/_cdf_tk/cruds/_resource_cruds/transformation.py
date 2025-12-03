@@ -43,9 +43,7 @@ from cognite.client.data_classes import (
     TransformationSchedule,
     TransformationScheduleList,
     TransformationScheduleWrite,
-    TransformationScheduleWriteList,
     TransformationWrite,
-    TransformationWriteList,
 )
 from cognite.client.data_classes.capabilities import (
     Capability,
@@ -58,7 +56,6 @@ from cognite.client.data_classes.data_modeling.ids import (
 from cognite.client.data_classes.transformations import NonceCredentials
 from cognite.client.data_classes.transformations.notifications import (
     TransformationNotificationWrite,
-    TransformationNotificationWriteList,
 )
 from cognite.client.exceptions import CogniteAPIError, CogniteAuthError, CogniteDuplicatedError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
@@ -82,7 +79,7 @@ from cognite_toolkit._cdf_tk.resource_classes import (
     TransformationScheduleYAML,
     TransformationYAML,
 )
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     calculate_secure_hash,
     humanize_collection,
@@ -103,18 +100,10 @@ from .raw import RawDatabaseCRUD, RawTableCRUD
 
 
 @final
-class TransformationCRUD(
-    ResourceCRUD[str, TransformationWrite, Transformation, TransformationWriteList, TransformationList]
-):
+class TransformationCRUD(ResourceCRUD[str, TransformationWrite, Transformation]):
     folder_name = "transformations"
-    filename_pattern = (
-        # Matches all yaml files except file names whose stem contain *.schedule. or .Notification
-        r"^(?!.*schedule.*|.*\.notification$).*$"
-    )
     resource_cls = Transformation
     resource_write_cls = TransformationWrite
-    list_cls = TransformationList
-    list_write_cls = TransformationWriteList
     kind = "Transformation"
     yaml_cls = TransformationYAML
     dependencies = frozenset(
@@ -354,6 +343,16 @@ class TransformationCRUD(
         if "authentication" in local:
             # The hash added to the beginning of the query detects the change in the authentication
             dumped["authentication"] = local["authentication"]
+        cdf_destination = dumped.get("destination", {})
+        local_destination = local.get("destination", {})
+        if isinstance(cdf_destination, dict) and isinstance(local_destination, dict):
+            if cdf_destination.get("instanceSpace") is None and "instanceSpace" not in local_destination:
+                cdf_destination.pop("instanceSpace", None)
+        if not dumped.get("query") and "query" not in local:
+            dumped.pop("query", None)
+        if dumped.get("conflictMode") == "upsert" and "conflictMode" not in local:
+            # Default set from server side.
+            dumped.pop("conflictMode", None)
         return dumped
 
     def split_resource(
@@ -427,16 +426,37 @@ class TransformationCRUD(
                 if error := self._create_auth_creation_error(chunk):
                     raise error from e
                 raise e
-            results.extend(chunk_results)
+            except CogniteAPIError as e:
+                if "Failed to bind session using nonce for" in e.message and len(chunk) > 1:
+                    MediumSeverityWarning(
+                        f"Failed to create {len(chunk)} transformations in a batch due to nonce binding error. "
+                        "Trying to recover by creating them one by one."
+                    ).print_warning(console=self.console)
+                    # Retry one by one
+                    for item in chunk:
+                        recovered = self._execute_in_batches(items=[item], api_call=api_call)
+                        results.extend(recovered)
+                    if self.console:
+                        self.console.print(
+                            f"  [bold green]RECOVERED:[/] Successfully created {len(chunk)} transformations one by one."
+                        )
+                else:
+                    raise
+            else:
+                results.extend(chunk_results)
         return results
 
     def _update_nonce(self, items: Sequence[TransformationWrite]) -> None:
         for item in items:
             if not item.external_id:
                 raise ToolkitRequiredValueError("Transformation must have external_id set.")
-            if read_credentials := self._authentication_by_id_operation.get((item.external_id, "read")):
+            if item.source_nonce is None and (
+                read_credentials := self._authentication_by_id_operation.get((item.external_id, "read"))
+            ):
                 item.source_nonce = self._create_nonce(read_credentials)
-            if write_credentials := self._authentication_by_id_operation.get((item.external_id, "write")):
+            if item.destination_nonce is None and (
+                write_credentials := self._authentication_by_id_operation.get((item.external_id, "write"))
+            ):
                 item.destination_nonce = self._create_nonce(write_credentials)
 
     def _create_nonce(self, credentials: OidcCredentials | ClientCredentials) -> NonceCredentials:
@@ -483,17 +503,11 @@ class TransformationScheduleCRUD(
         str,
         TransformationScheduleWrite,
         TransformationSchedule,
-        TransformationScheduleWriteList,
-        TransformationScheduleList,
     ]
 ):
     folder_name = "transformations"
-    # Matches all yaml files whose stem contains *schedule or *TransformationSchedule.
-    filename_pattern = r"^.*schedule$"
     resource_cls = TransformationSchedule
     resource_write_cls = TransformationScheduleWrite
-    list_cls = TransformationScheduleList
-    list_write_cls = TransformationScheduleWriteList
     kind = "Schedule"
     yaml_cls = TransformationScheduleYAML
     dependencies = frozenset({TransformationCRUD})
@@ -543,7 +557,7 @@ class TransformationScheduleCRUD(
     def retrieve(self, ids: SequenceNotStr[str]) -> TransformationScheduleList:
         return self.client.transformations.schedules.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
-    def update(self, items: TransformationScheduleWriteList) -> TransformationScheduleList:
+    def update(self, items: Sequence[TransformationScheduleWrite]) -> TransformationScheduleList:
         return self.client.transformations.schedules.update(items, mode="replace")
 
     def delete(self, ids: str | SequenceNotStr[str] | None) -> int:
@@ -581,17 +595,11 @@ class TransformationNotificationCRUD(
         str,
         TransformationNotificationWrite,
         TransformationNotification,
-        TransformationNotificationWriteList,
-        TransformationNotificationList,
     ]
 ):
     folder_name = "transformations"
-    # Matches all yaml files whose stem ends with *Notification.
-    filename_pattern = r"^.*Notification$"
     resource_cls = TransformationNotification
     resource_write_cls = TransformationNotificationWrite
-    list_cls = TransformationNotificationList
-    list_write_cls = TransformationNotificationWriteList
     kind = "Notification"
     dependencies = frozenset({TransformationCRUD})
     _doc_url = "Transformation-Notifications/operation/createTransformationNotifications"
@@ -638,7 +646,7 @@ class TransformationNotificationCRUD(
             dumped["transformationExternalId"] = local["transformationExternalId"]
         return dumped
 
-    def create(self, items: TransformationNotificationWriteList) -> TransformationNotificationList:
+    def create(self, items: Sequence[TransformationNotificationWrite]) -> TransformationNotificationList:
         return self.client.transformations.notifications.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> TransformationNotificationList:
@@ -669,7 +677,7 @@ class TransformationNotificationCRUD(
 
         return retrieved
 
-    def update(self, items: TransformationNotificationWriteList) -> TransformationNotificationList:
+    def update(self, items: Sequence[TransformationNotificationWrite]) -> TransformationNotificationList:
         # Note that since a notification is identified by the combination of transformationExternalId and destination,
         # which is the entire object, an update should never happen. However, implementing just in case.
         item_by_id = {self.get_id(item): item for item in items}

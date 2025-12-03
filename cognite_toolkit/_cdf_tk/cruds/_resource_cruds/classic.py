@@ -1,6 +1,6 @@
 import collections.abc
 import io
-from collections.abc import Hashable, Iterable
+from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
 from typing import Any, final
 
@@ -10,17 +10,14 @@ from cognite.client.data_classes import (
     Asset,
     AssetList,
     AssetWrite,
-    AssetWriteList,
     Event,
     EventList,
     EventWrite,
-    EventWriteList,
-    Sequence,
     SequenceList,
     SequenceWrite,
-    SequenceWriteList,
     capabilities,
 )
+from cognite.client.data_classes import Sequence as CDFSequence
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
@@ -31,7 +28,6 @@ from cognite_toolkit._cdf_tk.client.data_classes.sequences import (
     ToolkitSequenceRows,
     ToolkitSequenceRowsList,
     ToolkitSequenceRowsWrite,
-    ToolkitSequenceRowsWriteList,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import AssetYAML, EventYAML, SequenceRowYAML, SequenceYAML
@@ -44,14 +40,11 @@ from .data_organization import DataSetsCRUD, LabelCRUD
 
 
 @final
-class AssetCRUD(ResourceCRUD[str, AssetWrite, Asset, AssetWriteList, AssetList]):
+class AssetCRUD(ResourceCRUD[str, AssetWrite, Asset]):
     folder_name = "classic"
-    filename_pattern = r"^.*\.Asset$"  # Matches all yaml files whose stem ends with '.Asset'.
     filetypes = frozenset({"yaml", "yml", "csv", "parquet"})
     resource_cls = Asset
     resource_write_cls = AssetWrite
-    list_cls = AssetList
-    list_write_cls = AssetWriteList
     yaml_cls = AssetYAML
     kind = "Asset"
     dependencies = frozenset({DataSetsCRUD, LabelCRUD})
@@ -103,13 +96,13 @@ class AssetCRUD(ResourceCRUD[str, AssetWrite, Asset, AssetWriteList, AssetList])
 
         return capabilities.AssetsAcl(actions, scope)
 
-    def create(self, items: AssetWriteList) -> AssetList:
+    def create(self, items: Sequence[AssetWrite]) -> AssetList:
         return self.client.assets.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> AssetList:
         return self.client.assets.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
-    def update(self, items: AssetWriteList) -> AssetList:
+    def update(self, items: Sequence[AssetWrite]) -> AssetList:
         return self.client.assets.update(items, mode="replace")
 
     def delete(self, ids: SequenceNotStr[str | int]) -> int:
@@ -232,13 +225,10 @@ class AssetCRUD(ResourceCRUD[str, AssetWrite, Asset, AssetWriteList, AssetList])
 
 
 @final
-class SequenceCRUD(ResourceCRUD[str, SequenceWrite, Sequence, SequenceWriteList, SequenceList]):
+class SequenceCRUD(ResourceCRUD[str, SequenceWrite, CDFSequence]):
     folder_name = "classic"
-    filename_pattern = r"^.*\.Sequence$"
-    resource_cls = Sequence
+    resource_cls = CDFSequence
     resource_write_cls = SequenceWrite
-    list_cls = SequenceList
-    list_write_cls = SequenceWriteList
     kind = "Sequence"
     dependencies = frozenset({DataSetsCRUD, AssetCRUD})
     yaml_cls = SequenceYAML
@@ -249,7 +239,7 @@ class SequenceCRUD(ResourceCRUD[str, SequenceWrite, Sequence, SequenceWriteList,
         return "sequences"
 
     @classmethod
-    def get_id(cls, item: Sequence | SequenceWrite | dict) -> str:
+    def get_id(cls, item: CDFSequence | SequenceWrite | dict) -> str:
         if isinstance(item, dict):
             return item["externalId"]
         if not item.external_id:
@@ -257,7 +247,7 @@ class SequenceCRUD(ResourceCRUD[str, SequenceWrite, Sequence, SequenceWriteList,
         return item.external_id
 
     @classmethod
-    def get_internal_id(cls, item: Sequence | dict) -> int:
+    def get_internal_id(cls, item: CDFSequence | dict) -> int:
         if isinstance(item, dict):
             return item["id"]
         if not item.id:
@@ -270,7 +260,7 @@ class SequenceCRUD(ResourceCRUD[str, SequenceWrite, Sequence, SequenceWriteList,
 
     @classmethod
     def get_required_capability(
-        cls, items: collections.abc.Sequence[SequenceWrite] | None, read_only: bool
+        cls, items: Sequence[SequenceWrite] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -294,7 +284,7 @@ class SequenceCRUD(ResourceCRUD[str, SequenceWrite, Sequence, SequenceWriteList,
             resource["assetId"] = self.client.lookup.assets.id(asset_external_id, is_dry_run)
         return SequenceWrite._load(resource)
 
-    def dump_resource(self, resource: Sequence, local: dict[str, Any] | None = None) -> dict[str, Any]:
+    def dump_resource(self, resource: CDFSequence, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
         local = local or {}
         if data_set_id := dumped.pop("dataSetId", None):
@@ -322,13 +312,13 @@ class SequenceCRUD(ResourceCRUD[str, SequenceWrite, Sequence, SequenceWriteList,
             return super().diff_list(local, cdf, json_path)
         return diff_list_identifiable(local, cdf, get_identifier=lambda col: col["externalId"])
 
-    def create(self, items: SequenceWriteList) -> SequenceList:
+    def create(self, items: Sequence[SequenceWrite]) -> SequenceList:
         return self.client.sequences.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> SequenceList:
         return self.client.sequences.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
-    def update(self, items: SequenceWriteList) -> SequenceList:
+    def update(self, items: Sequence[SequenceWrite]) -> SequenceList:
         return self.client.sequences.upsert(items, mode="replace")
 
     def delete(self, ids: SequenceNotStr[str | int]) -> int:
@@ -349,7 +339,7 @@ class SequenceCRUD(ResourceCRUD[str, SequenceWrite, Sequence, SequenceWriteList,
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
-    ) -> Iterable[Sequence]:
+    ) -> Iterable[CDFSequence]:
         return iter(
             self.client.sequences(data_set_external_ids=[data_set_external_id] if data_set_external_id else None)
         )
@@ -363,17 +353,10 @@ class SequenceCRUD(ResourceCRUD[str, SequenceWrite, Sequence, SequenceWriteList,
 
 
 @final
-class SequenceRowCRUD(
-    ResourceCRUD[
-        str, ToolkitSequenceRowsWrite, ToolkitSequenceRows, ToolkitSequenceRowsWriteList, ToolkitSequenceRowsList
-    ]
-):
+class SequenceRowCRUD(ResourceCRUD[str, ToolkitSequenceRowsWrite, ToolkitSequenceRows]):
     folder_name = "classic"
-    filename_pattern = r"^.*\.SequenceRow$"
     resource_cls = ToolkitSequenceRows
     resource_write_cls = ToolkitSequenceRowsWrite
-    list_cls = ToolkitSequenceRowsList
-    list_write_cls = ToolkitSequenceRowsWriteList
     kind = "SequenceRow"
     dependencies = frozenset({SequenceCRUD})
     parent_resource = frozenset({SequenceCRUD})
@@ -418,8 +401,7 @@ class SequenceRowCRUD(
         # We don't have any capabilities for SequenceRows, that is already handled by the Sequence
         return []
 
-    def create(self, items: ToolkitSequenceRowsWriteList) -> ToolkitSequenceRowsWriteList:
-        item: ToolkitSequenceRowsWrite
+    def create(self, items: Sequence[ToolkitSequenceRowsWrite]) -> Sequence[ToolkitSequenceRowsWrite]:
         for item in items:
             self.client.sequences.rows.insert(item.as_sequence_rows(), external_id=item.external_id)
         return items
@@ -495,14 +477,11 @@ class SequenceRowCRUD(
 
 
 @final
-class EventCRUD(ResourceCRUD[str, EventWrite, Event, EventWriteList, EventList]):
+class EventCRUD(ResourceCRUD[str, EventWrite, Event]):
     folder_name = "classic"
-    filename_pattern = r"^.*\.Event$"  # Matches all yaml files whose stem ends with '.Event'.
     filetypes = frozenset({"yaml", "yml"})
     resource_cls = Event
     resource_write_cls = EventWrite
-    list_cls = EventList
-    list_write_cls = EventWriteList
     yaml_cls = EventYAML
     kind = "Event"
     dependencies = frozenset({DataSetsCRUD, AssetCRUD})
@@ -554,13 +533,13 @@ class EventCRUD(ResourceCRUD[str, EventWrite, Event, EventWriteList, EventList])
 
         return capabilities.EventsAcl(actions, scope)
 
-    def create(self, items: EventWriteList) -> EventList:
+    def create(self, items: Sequence[EventWrite]) -> EventList:
         return self.client.events.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> EventList:
         return self.client.events.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
-    def update(self, items: EventWriteList) -> EventList:
+    def update(self, items: Sequence[EventWrite]) -> EventList:
         return self.client.events.update(items, mode="replace")
 
     def delete(self, ids: SequenceNotStr[str | int]) -> int:

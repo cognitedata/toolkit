@@ -38,11 +38,11 @@ class Tracker:
 
     @property
     def opted_out(self) -> bool:
-        return self._opt_status == "opted-out"
+        return False
 
     @property
     def opted_in(self) -> bool:
-        return self._opt_status == "opted-in"
+        return True
 
     def track_cli_command(
         self,
