@@ -117,6 +117,12 @@ class SuccessResponse(ResponseMessage):
     body: str
     content: bytes
 
+    def dump(self) -> dict[str, JsonVal]:
+        output = super().dump()
+        # We cannot serialize bytes, so we indicate its presence instead
+        output["content"] = "<bytes>" if self.content else None
+        return output
+
 
 @dataclass
 class FailedResponse(ResponseMessage):
