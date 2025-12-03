@@ -1,0 +1,165 @@
+from pathlib import Path
+from typing import Literal, TypedDict
+
+from rich import print
+from rich.panel import Panel
+
+from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
+from cognite_toolkit._cdf_tk.commands.build_cmd import BuildCommand as OldBuildCommand
+from cognite_toolkit._cdf_tk.commands.build_v2.build_input import BuildInput
+from cognite_toolkit._cdf_tk.commands.build_v2.build_issues import BuildIssueList
+from cognite_toolkit._cdf_tk.data_classes import (
+    BuiltModuleList,
+)
+from cognite_toolkit._cdf_tk.exceptions import ToolkitError
+from cognite_toolkit._cdf_tk.hints import verify_module_directory
+from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
+from cognite_toolkit._cdf_tk.utils.file import safe_rmtree
+from cognite_toolkit._cdf_tk.validation import validate_module_selection, validate_modules_variables
+from cognite_toolkit._version import __version__
+
+
+class BuildWarnings(TypedDict):
+    warning: ToolkitWarning
+    location: list[Path]
+
+
+class BuildCommand(ToolkitCommand):
+    verbose: bool = False
+    on_error: Literal["continue", "raise"] = "continue"
+    issues: BuildIssueList = BuildIssueList()
+
+    def execute(
+        self,
+        verbose: bool,
+        organization_dir: Path,
+        build_dir: Path,
+        selected: list[str | Path] | None,
+        build_env_name: str | None,
+        no_clean: bool,
+        client: ToolkitClient | None = None,
+        on_error: Literal["continue", "raise"] = "continue",
+    ) -> BuiltModuleList:
+        """
+        Build the resources into deployable artifacts in the build directory.
+        """
+
+        self.verbose = verbose
+        self.on_error = on_error
+
+        # Tracking the project and cluster for the build.
+        if client:
+            self._additional_tracking_info.project = client.config.project
+            self._additional_tracking_info.cluster = client.config.cdf_cluster
+
+        # Setting the parameters for the build.
+        input = BuildInput.load(organization_dir, build_dir, build_env_name, client, selected)
+
+        # Print the build input.
+        if self.verbose:
+            self._print_build_input(input)
+
+        # Capture warnings from module structure integrity
+        if structure_issues := self._verify(input):
+            self.issues.extend(structure_issues)
+
+        # Logistics: clean and create build directory
+        self._prepare(input, no_clean)
+
+        # Compile the configuration and variables,
+        # check syntax on module and resource level
+        # for any "compilation errors and warnings"
+        built_modules, build_issues = self._compile(input)
+        if build_issues:
+            self.issues.extend(build_issues)
+
+        # Finally, print warnings grouped by category/code and location.
+        self._print_or_log_warnings_by_category(self.issues)
+
+        return built_modules
+
+    def _print_build_input(self, input: BuildInput) -> None:
+        print(
+            Panel(
+                f"Building {input.organization_dir!s}:\n  - Toolkit Version '{__version__!s}'\n"
+                f"  - Environment name {input.build_env_name!r}, validation-type {input.config.environment.validation_type!r}.\n"
+                f"  - Config '{input.config.filepath!s}'",
+                expand=False,
+            )
+        )
+
+    def _prepare(self, input: BuildInput, no_clean: bool = False) -> None:
+        """
+        Directory logistics
+        """
+
+        if input.build_dir.exists() and any(input.build_dir.iterdir()):
+            if not no_clean:
+                raise ToolkitError("Build directory is not empty. Run without --no-clean to remove existing files.")
+            safe_rmtree(input.build_dir)
+
+        input.build_dir.mkdir(parents=True, exist_ok=True)
+
+    def _verify(self, input: BuildInput) -> BuildIssueList | None:
+        issues = BuildIssueList()
+        # Verify that the modules exists, are not duplicates,
+        # and at least one is selected
+        verify_module_directory(input.organization_dir, input.build_env_name)
+
+        # Validate module selection
+        user_selected_modules = input.config.environment.get_selected_modules({})
+        module_warnings = validate_module_selection(
+            input.modules,
+            input.config,
+            {},
+            user_selected_modules,
+            input.organization_dir,
+        )
+        if module_warnings:
+            issues.extend(BuildIssueList.from_warning_list(module_warnings))
+
+        # Validate variables. Note: this looks for non-replaced template
+        # variables <.*?> and can be improved in the future.
+        # Keeping for reference.
+        variables_warnings = validate_modules_variables(input.variables, input.config.filepath)
+        if variables_warnings:
+            issues.extend(BuildIssueList.from_warning_list(variables_warnings))
+
+        # Track LOC of managed configuration
+        self._track(input)
+
+        return issues
+
+    def _compile(self, input: BuildInput) -> tuple[BuiltModuleList, BuildIssueList]:
+        issues = BuildIssueList()
+        selected_modules = list(input.modules.selected)
+        if not selected_modules:
+            return BuiltModuleList(), issues
+
+        # first collect variables into practical lookup
+        # TODO: parallelism is not implemented yet. I'm sure there are optimizations to be had here, but we'll focus on process parallelism since we believe loading yaml and file i/O are the biggest bottlenecks.
+
+        old_build_command = OldBuildCommand()
+        built_modules = old_build_command.build_modules(
+            modules=input.modules.selected,
+            build_dir=input.build_dir,
+            variables=input.variables,
+            verbose=self.verbose,
+            progress_bar=False,
+            on_error=self.on_error,
+        )
+        if old_build_command.warning_list:
+            issues.extend(BuildIssueList.from_warning_list(old_build_command.warning_list))
+        return built_modules, issues
+
+    def _write(self, input: BuildInput) -> None:
+        # Write the build to the build directory.
+        # Track lines of code built.
+        raise NotImplementedError()
+
+    def _track(self, input: BuildInput) -> None:
+        raise NotImplementedError()
+
+    def _print_or_log_warnings_by_category(self, issues: BuildIssueList) -> None:
+        raise NotImplementedError()
