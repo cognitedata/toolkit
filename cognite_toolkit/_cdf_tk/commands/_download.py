@@ -2,14 +2,11 @@ from collections.abc import Callable, Iterable
 from functools import partial
 from pathlib import Path
 
-from cognite.client._proto.data_point_list_response_pb2 import DataPointListResponse
-
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.protocols import T_ResourceResponse
 from cognite_toolkit._cdf_tk.storageio import (
     ConfigurableStorageIO,
-    DatapointsIO,
     Page,
     StorageIO,
     T_Selector,
@@ -26,7 +23,6 @@ from cognite_toolkit._cdf_tk.utils.fileio import (
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ..client import ToolkitClient
 from ._base import ToolkitCommand
 
 
@@ -156,57 +152,3 @@ class DownloadCommand(ToolkitCommand):
             return io.data_to_json_chunk(data_page.items, selector)
 
         return chunk_data_process
-
-    def download_datapoints(
-        self,
-        data_set_external_id: str,
-        start: int | None,
-        end: int | None,
-        client: ToolkitClient,
-        output_dir: Path,
-        file_format: str,
-        limit_per_timeseries: int = 100_000,
-        total_limit: int = 10_000_000,
-    ) -> None:
-        """Downloads datapoints for all timeseries in the specified dataset.
-
-        Args:
-            data_set_external_id: The external ID of the dataset containing the timeseries.
-            client: The ToolkitClient instance to use for downloading.
-            output_dir: The directory where the downloaded files will be saved.
-            file_format: The format of the files to be written (e.g., ".ndjson").
-            limit_per_timeseries: The maximum number of datapoints to download per timeseries.
-            total_limit: The maximum total number of datapoints to download.
-        """
-        io = DatapointsIO(client)
-        console = client.console
-        target_dir = output_dir / f"Datapoints_{sanitize_filename(data_set_external_id)}"
-        selector = DatapointsDataSetSelector(
-            data_set_external_id=data_set_external_id,
-            start=start,
-            end=end,
-        )
-        counts = io.count(selector)
-        iteration_count: int | None = None
-        if counts is not None:
-            total_datapoints = counts * (limit_per_timeseries if limit_per_timeseries is not None else 0)
-            iteration_count = total_datapoints // io.CHUNK_SIZE + (1 if total_datapoints % io.CHUNK_SIZE > 0 else 0)
-        executor = ProducerWorkerExecutor[Page[DataPointListResponse], Page[DataPointListResponse]](
-            download_iterable=io.stream_data(selector, total_limit),
-            process=lambda x: x,
-            write=self._write_datapoints_to_disk,
-            iteration_count=iteration_count,
-            # Limit queue size to avoid filling up memory before the workers can write to disk.
-            max_queue_size=8 * 10,  # 8 workers, 10 items per worker
-            download_description="Downloading datapoints",
-            process_description="Processing",
-            write_description=f"Writing to {target_dir.as_posix()!r}",
-            console=console,
-        )
-        executor.run()
-        executor.raise_on_error()
-
-    def _write_datapoints_to_disk(
-        self, data_page: Page[DataPointListResponse], target_dir: Path, file_format: str
-    ) -> None:
-        raise NotImplementedError()

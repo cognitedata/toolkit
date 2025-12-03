@@ -13,6 +13,7 @@ from cognite.client.data_classes import TimeSeriesFilter
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
+from cognite_toolkit._cdf_tk.protocols import T_ResourceResponse
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     _EpochConverter,
@@ -20,6 +21,7 @@ from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     _TextConverter,
     _ValueConverter,
 )
+from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.fileio._readers import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.http_client import (
     DataBodyRequest,
@@ -30,11 +32,13 @@ from cognite_toolkit._cdf_tk.utils.http_client import (
 )
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import Page, TableUploadableStorageIO, UploadItem
+from . import T_Selector
+from ._base import Page, TableStorageIO, TableUploadableStorageIO, UploadItem
 from .selectors import DataPointsFileSelector
 
 
 class DatapointsIO(
+    TableStorageIO[DataPointsFileSelector, DataPointListResponse],
     TableUploadableStorageIO[DataPointsFileSelector, DataPointListResponse, DataPointInsertionRequest],
 ):
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".csv"})
@@ -55,6 +59,9 @@ class DatapointsIO(
         self._string_converter = _TextConverter(nullable=True)
 
     def as_id(self, item: DataPointListResponse) -> str:
+        raise NotImplementedError()
+
+    def get_schema(self, selector: T_Selector) -> list[SchemaColumn]:
         raise NotImplementedError()
 
     def stream_data(
@@ -101,6 +108,11 @@ class DatapointsIO(
         raise ToolkitNotImplementedError(
             f"Download of {type(DatapointsIO).__name__.removesuffix('IO')} does not support json format."
         )
+
+    def data_to_row(
+        self, data_chunk: Sequence[T_ResourceResponse], selector: T_Selector | None = None
+    ) -> list[dict[str, JsonVal]]:
+        pass
 
     def upload_items(
         self,

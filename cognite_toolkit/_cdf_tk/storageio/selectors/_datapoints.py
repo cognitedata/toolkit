@@ -50,9 +50,12 @@ TimeSeriesColumn = Annotated[
 ]
 
 
-class DataPointsFileSelector(DataSelector):
-    type: Literal["datapointsFile"] = "datapointsFile"
+class DataPointsSelector(DataSelector, ABC):
     kind: Literal["Datapoints"] = "Datapoints"
+
+
+class DataPointsFileSelector(DataPointsSelector):
+    type: Literal["datapointsFile"] = "datapointsFile"
 
     timestamp_column: str
     columns: tuple[TimeSeriesColumn, ...]
@@ -67,3 +70,18 @@ class DataPointsFileSelector(DataSelector):
     @cached_property
     def id_by_column(self) -> dict[str, Column]:
         return {col.column: col for col in self.columns}
+
+
+class DataPointsDataSetSelector(DataPointsSelector):
+    type: Literal["datapointsDataSet"] = "datapointsDataSet"
+
+    data_set_external_id: str
+    start: int | str | None = None
+    end: int | str | None = None
+
+    @property
+    def group(self) -> str:
+        return f"DataSet_{self.data_set_external_id}"
+
+    def __str__(self) -> str:
+        return f"datapoints_dataset_{self.data_set_external_id}"
