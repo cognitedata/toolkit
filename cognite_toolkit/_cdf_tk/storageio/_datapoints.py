@@ -32,20 +32,19 @@ from cognite_toolkit._cdf_tk.utils.http_client import (
 )
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from . import T_Selector
 from ._base import Page, TableStorageIO, TableUploadableStorageIO, UploadItem
-from .selectors import DataPointsFileSelector
+from .selectors import DataPointsSelector
 
 
 class DatapointsIO(
-    TableStorageIO[DataPointsFileSelector, DataPointListResponse],
-    TableUploadableStorageIO[DataPointsFileSelector, DataPointListResponse, DataPointInsertionRequest],
+    TableStorageIO[DataPointsSelector, DataPointListResponse],
+    TableUploadableStorageIO[DataPointsSelector, DataPointListResponse, DataPointInsertionRequest],
 ):
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".csv"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     CHUNK_SIZE = 10_000
     DOWNLOAD_CHUNK_SIZE = 100
-    BASE_SELECTOR = DataPointsFileSelector
+    BASE_SELECTOR = DataPointsSelector
     KIND = "Datapoints"
     SUPPORTED_READ_FORMATS = frozenset({".csv"})
     UPLOAD_ENDPOINT = "/timeseries/data"
@@ -61,11 +60,11 @@ class DatapointsIO(
     def as_id(self, item: DataPointListResponse) -> str:
         raise NotImplementedError()
 
-    def get_schema(self, selector: T_Selector) -> list[SchemaColumn]:
+    def get_schema(self, selector: DataPointsSelector) -> list[SchemaColumn]:
         raise NotImplementedError()
 
     def stream_data(
-        self, selector: DataPointsFileSelector, limit: int | None = None
+        self, selector: DataPointsSelector, limit: int | None = None
     ) -> Iterable[Page[DataPointListResponse]]:
         calculate_total = 100000
 
@@ -97,20 +96,20 @@ class DatapointsIO(
             data_response: DataPointListResponse = DataPointListResponse.FromString(first_success.body)
             yield Page("Main", [data_response])
 
-    def count(self, selector: DataPointsFileSelector) -> int | None:
+    def count(self, selector: DataPointsSelector) -> int | None:
         return self.client.time_series.aggregate_count(
             filter=TimeSeriesFilter(data_set_ids=[{"externalId": selector.data_set_external_id}])
         )
 
     def data_to_json_chunk(
-        self, data_chunk: Sequence[DataPointListResponse], selector: DataPointsFileSelector | None = None
+        self, data_chunk: Sequence[DataPointListResponse], selector: DataPointsSelector | None = None
     ) -> list[dict[str, JsonVal]]:
         raise ToolkitNotImplementedError(
             f"Download of {type(DatapointsIO).__name__.removesuffix('IO')} does not support json format."
         )
 
     def data_to_row(
-        self, data_chunk: Sequence[T_ResourceResponse], selector: T_Selector | None = None
+        self, data_chunk: Sequence[T_ResourceResponse], selector: DataPointsSelector | None = None
     ) -> list[dict[str, JsonVal]]:
         pass
 
@@ -118,7 +117,7 @@ class DatapointsIO(
         self,
         data_chunk: Sequence[UploadItem[DataPointInsertionRequest]],
         http_client: HTTPClient,
-        selector: DataPointsFileSelector | None = None,
+        selector: DataPointsSelector | None = None,
     ) -> Sequence[HTTPMessage]:
         results: list[HTTPMessage] = []
         for item in data_chunk:
@@ -134,7 +133,7 @@ class DatapointsIO(
         return results
 
     def row_to_resource(
-        self, source_id: str, row: dict[str, JsonVal], selector: DataPointsFileSelector | None = None
+        self, source_id: str, row: dict[str, JsonVal], selector: DataPointsSelector | None = None
     ) -> DataPointInsertionRequest:
         if selector is None:
             raise ValueError("Selector must be provided to convert row to DataPointInsertionItem.")
@@ -219,7 +218,7 @@ class DatapointsIO(
 
     @classmethod
     def read_chunks(
-        cls, reader: MultiFileReader, selector: DataPointsFileSelector
+        cls, reader: MultiFileReader, selector: DataPointsSelector
     ) -> Iterable[list[tuple[str, dict[str, JsonVal]]]]:
         if not reader.is_table:
             raise RuntimeError("DatapointsIO can only read from TableReader instances.")

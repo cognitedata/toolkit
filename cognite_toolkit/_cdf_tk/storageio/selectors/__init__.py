@@ -41,12 +41,12 @@ Selector = Annotated[
     | AssetSubtreeSelector
     | AssetCentricFileSelector
     | DataSetSelector
+    | DataPointsDataSetSelector
     | DataPointsFileSelector
     | ChartExternalIdSelector
     | CanvasExternalIdSelector
     | FileMetadataTemplateSelector
-    | FileDataModelingTemplateSelector
-    | DataPointsSelector,
+    | FileDataModelingTemplateSelector,
     Field(discriminator="type"),
 ]
 
