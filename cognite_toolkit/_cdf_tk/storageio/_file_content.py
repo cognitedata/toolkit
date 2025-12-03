@@ -165,12 +165,12 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
         if len(filename.suffix) == 0 and meta.mime_type:
             if mime_ext := mimetypes.guess_extension(meta.mime_type):
                 filename = filename.with_suffix(mime_ext)
-        directory = selector.file_directory
+        directory = sanitize_filename(selector.file_directory)
         if isinstance(meta.directory, str) and meta.directory != "":
-            directory = meta.directory.removeprefix("/")
+            directory = sanitize_filename(meta.directory.removeprefix("/"))
 
         counter = 1
-        filepath = self._target_dir / sanitize_filename(directory) / filename
+        filepath = self._target_dir / directory / filename
         while filepath.exists():
             filepath = self._target_dir / directory / f"{filename} ({counter})"
             counter += 1
