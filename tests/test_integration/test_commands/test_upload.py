@@ -104,10 +104,13 @@ class TestUploadCommand:
         )
         selector.dump_to_file(upload_dir)
         csv_file = upload_dir / f"{selector!s}.{DatapointsIO.KIND}.csv"
-        with csv_file.open("w") as f:
-            f.write("externalId,timestamp,value\n")
-            for i in range(10):
-                f.write(f"{ts1.external_id},1989-01-01T00:00:{i:02d}Z,{i * 5}\n")
+        csv_content = """externalId,timestamp,value"""
+        rows: list[str] = []
+        for i in range(10):
+            timestamp_ms = int(datetime.fromisoformat(f"1989-01-01T00:00:{i:02d}Z").timestamp() * 1000)
+            rows.append(f"{ts1.external_id},{timestamp_ms},{i * 5}.0")
+        csv_content += "\n" + "\n".join(rows)
+        csv_file.write_text(csv_content)
         upload_cmd = UploadCommand(silent=True, skip_tracking=True)
         upload_cmd.upload(
             upload_dir,
@@ -138,8 +141,7 @@ class TestUploadCommand:
             limit=100_000,
         )
 
-        download_file = tmp_path / "download" / selector.group / f"{selector!s}.{DatapointsIO}.csv"
+        download_file = tmp_path / "download" / selector.group / f"{selector!s}-part-0000.{DatapointsIO.KIND}.csv"
         assert download_file.exists(), f"Downloaded file {download_file} does not exist"
-        with download_file.open("r") as f:
-            lines = f.readlines()
-        assert len(lines) == 21, f"Expected 21 lines in downloaded file, got {len(lines)}"  # 1 header + 20 datapoints
+        actual_output = download_file.read_text(encoding="utf-8-sig")
+        assert actual_output.removesuffix("\n") == csv_content, "Downloaded content does not match uploaded content"

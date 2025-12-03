@@ -16,7 +16,6 @@ from cognite.client.data_classes.time_series import TimeSeriesProperty
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
-from cognite_toolkit._cdf_tk.protocols import T_ResourceResponse
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
@@ -122,7 +121,7 @@ class DatapointsIO(
                     method="POST",
                     accept="application/protobuf",
                     content_type="application/json",
-                    body_content={"items": items},
+                    body_content={"items": items},  # type: ignore[dict-item]
                 )
             )
             first_success = next((resp for resp in responses if isinstance(resp, SuccessResponse)), None)
@@ -181,7 +180,7 @@ class DatapointsIO(
                 method="POST",
                 accept="application/protobuf",
                 content_type="application/json",
-                body_content={"items": batch},
+                body_content={"items": batch},  # type: ignore[dict-item]
             )
         )
         first_success = next((resp for resp in responses if isinstance(resp, SuccessResponse)), None)
@@ -210,9 +209,30 @@ class DatapointsIO(
         )
 
     def data_to_row(
-        self, data_chunk: Sequence[T_ResourceResponse], selector: DataPointsSelector | None = None
+        self, data_chunk: Sequence[DataPointListResponse], selector: DataPointsSelector | None = None
     ) -> list[dict[str, JsonVal]]:
-        raise NotImplementedError("data_to_row is not implemented for DatapointsIO.")
+        output: list[dict[str, JsonVal]] = []
+        for response in data_chunk:
+            for item in response.items:
+                if item.numericDatapoints.datapoints:
+                    for dp in item.numericDatapoints.datapoints:
+                        output.append(
+                            {
+                                "externalId": item.externalId,
+                                "timestamp": dp.timestamp,
+                                "value": dp.value,
+                            }
+                        )
+                if item.stringDatapoints.datapoints:
+                    for dp in item.stringDatapoints.datapoints:
+                        output.append(
+                            {
+                                "externalId": item.externalId,
+                                "timestamp": dp.timestamp,
+                                "value": dp.value,
+                            }
+                        )
+        return output
 
     def upload_items(
         self,

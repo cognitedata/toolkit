@@ -188,7 +188,7 @@ class MigrationCommand(ToolkitCommand):
                 return None
             responses: Sequence[HTTPMessage]
             if dry_run:
-                responses = [SuccessResponseItems(200, "", [item.source_id for item in data_item])]
+                responses = [SuccessResponseItems(200, "", b"", [item.source_id for item in data_item])]
             else:
                 responses = target.upload_items(data_chunk=data_item, http_client=write_client, selector=selected)
 

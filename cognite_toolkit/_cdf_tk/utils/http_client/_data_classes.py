@@ -310,7 +310,11 @@ class ItemsRequest(Generic[T_COVARIANT_ID], BodyRequest):
 
     def create_success_response(self, response: httpx.Response) -> Sequence[HTTPMessage]:
         ids = [item.as_id() for item in self.items]
-        return [SuccessResponseItems(status_code=response.status_code, ids=ids, body=response.text)]
+        return [
+            SuccessResponseItems(
+                status_code=response.status_code, ids=ids, body=response.text, content=response.content
+            )
+        ]
 
     def create_failure_response(self, response: httpx.Response) -> Sequence[HTTPMessage]:
         error = ErrorDetails.from_response(response)
@@ -358,7 +362,11 @@ class ResponseList(UserList[ResponseMessage | FailedRequestMessage]):
         results: list[ResponseMessage | FailedRequestMessage] = []
         for message in self.data:
             if isinstance(message, SuccessResponse):
-                results.append(SuccessResponseItems(status_code=message.status_code, ids=[item_id], body=message.body))
+                results.append(
+                    SuccessResponseItems(
+                        status_code=message.status_code, content=message.content, ids=[item_id], body=message.body
+                    )
+                )
             elif isinstance(message, FailedResponse):
                 results.append(
                     FailedResponseItems(
