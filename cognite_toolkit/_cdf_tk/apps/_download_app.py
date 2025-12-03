@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.storageio import (
     AssetIO,
     CanvasIO,
     ChartIO,
+    DatapointsIO,
     DataSelector,
     EventIO,
     FileContentIO,
@@ -31,6 +32,7 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     CanvasSelector,
     ChartExternalIdSelector,
     ChartSelector,
+    DataPointsDataSetSelector,
     DataSetSelector,
     FileIdentifierSelector,
     InstanceSpaceSelector,
@@ -113,6 +115,8 @@ class DownloadApp(typer.Typer):
         self.command("events")(self.download_events_cmd)
         self.command("files")(self.download_files_cmd)
         self.command("hierarchy")(self.download_hierarchy_cmd)
+        if Flags.EXTEND_DOWNLOAD.is_enabled():
+            self.command("datapoints")(self.download_datapoints_cmd)
         self.command("instances")(self.download_instances_cmd)
         self.command("charts")(self.download_charts_cmd)
         self.command("canvas")(self.download_canvas_cmd)
@@ -841,6 +845,100 @@ class DownloadApp(typer.Typer):
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,
+                limit=limit if limit != -1 else None,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def download_datapoints_cmd(
+        dataset: Annotated[
+            str | None,
+            typer.Argument(
+                help="The dataset to download timeseries from. If not provided, an interactive selection will be made.",
+            ),
+        ] = None,
+        file_format: Annotated[
+            DatapointFormats,
+            typer.Option(
+                "--format",
+                "-f",
+                help="Format for downloading the datapoints.",
+            ),
+        ] = DatapointFormats.csv,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to download the datapoints.",
+                allow_dash=True,
+            ),
+        ] = DEFAULT_DOWNLOAD_DIR,
+        limit: Annotated[
+            int,
+            typer.Option(
+                "--limit",
+                "-l",
+                help="The maximum number of timeseries to download datapoints from. Use -1 to download all timeseries."
+                "The maximum number of datapoints in total is 10 million and 100 000 per timeseries.",
+                max=10_000_000,
+            ),
+        ] = 1000,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will download Datapoints from CDF into a temporary ."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        if dataset is None:
+            interactive = TimeSeriesInteractiveSelect(client, "download datapoints")
+            dataset = interactive.select_data_set(allow_empty=False)
+            file_format = questionary.select(
+                "Select format to download the datapoints in:",
+                choices=[Choice(title=format_.value, value=format_) for format_ in DatapointFormats],
+                default=file_format,
+            ).ask()
+            output_dir = Path(
+                questionary.path(
+                    "Where to download the datapoints:", default=str(output_dir), only_directories=True
+                ).ask()
+            )
+            while True:
+                limit_str = questionary.text(
+                    "The maximum number of timeseries to download datapoints from. Use -1 to download all timeseries."
+                    "The maximum number of datapoints in total is 10 million and 100 000 per timeseries.",
+                    default=str(limit),
+                ).ask()
+                if limit_str is None:
+                    raise typer.Abort()
+                try:
+                    limit = int(limit_str)
+                except ValueError:
+                    print("[red]Please enter a valid integer for the limit.[/]")
+                else:
+                    if limit != -1 and limit < 1:
+                        print("[red]Please enter a valid integer greater than 0 or -1 for unlimited.[/]")
+                    else:
+                        break
+                verbose = questionary.confirm(
+                    "Turn on to get more verbose output when running the command?", default=verbose
+                ).ask()
+
+        cmd = DownloadCommand()
+        selector = DataPointsDataSetSelector(data_set_external_id=dataset)
+        cmd.run(
+            lambda: cmd.download(
+                selectors=[selector],
+                io=DatapointsIO(client),
+                output_dir=output_dir,
+                file_format=f".{file_format.value}",
+                compression="none",
                 limit=limit if limit != -1 else None,
                 verbose=verbose,
             )
