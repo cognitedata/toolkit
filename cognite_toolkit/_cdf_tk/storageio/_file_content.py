@@ -416,7 +416,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
                         continue
                     try:
                         file_path = Path(item[FILEPATH])
-                    except (KeyError, IndexError):
+                    except KeyError:
                         # Todo Log warning
                         continue
                     if not file_path.is_absolute():
