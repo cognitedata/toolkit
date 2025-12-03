@@ -80,6 +80,11 @@ class DatapointFormats(str, Enum):
     parquet = "parquet"
 
 
+class DatapointsDataTypes(str, Enum):
+    numeric = "numeric"
+    string = "string"
+
+
 class InstanceFormats(str, Enum):
     ndjson = "ndjson"
 
@@ -858,6 +863,30 @@ class DownloadApp(typer.Typer):
                 help="The dataset to download timeseries from. If not provided, an interactive selection will be made.",
             ),
         ] = None,
+        start_time: Annotated[
+            str | None,
+            typer.Option(
+                "--start-time",
+                "-s",
+                help="The start time for the datapoints to download. Can be in RFC3339 format or as a relative time (e.g., '1d-ago'). If not provided, all datapoints from the beginning will be downloaded.",
+            ),
+        ] = None,
+        end_time: Annotated[
+            str | None,
+            typer.Option(
+                "--end-time",
+                "-e",
+                help="The end time for the datapoints to download. Can be in RFC3339 format or as a relative time (e.g., '1d-ago'). If not provided, all datapoints up to the latest will be downloaded.",
+            ),
+        ] = None,
+        datapoint_type: Annotated[
+            DatapointsDataTypes,
+            typer.Option(
+                "--data-type",
+                "-d",
+                help="The type of datapoints to download.",
+            ),
+        ] = DatapointsDataTypes.numeric,
         file_format: Annotated[
             DatapointFormats,
             typer.Option(
@@ -899,6 +928,27 @@ class DownloadApp(typer.Typer):
         if dataset is None:
             interactive = TimeSeriesInteractiveSelect(client, "download datapoints")
             dataset = interactive.select_data_set(allow_empty=False)
+
+            datapoint_type = questionary.select(
+                "Select the type of datapoints to download:",
+                choices=[Choice(title=dt.value, value=dt) for dt in DatapointsDataTypes],
+                default=datapoint_type,
+            ).ask()
+
+            start_time = (
+                questionary.text(
+                    "Enter the start time for the datapoints to download (RFC3339 format or relative time, e.g., '1d-ago'). Leave empty to download from the beginning.",
+                    default=start_time or "",
+                ).ask()
+                or None
+            )
+            end_time = (
+                questionary.text(
+                    "Enter the end time for the datapoints to download (RFC3339 format or relative time, e.g., '1d-ago'). Leave empty to download up to the latest.",
+                    default=end_time or "",
+                ).ask()
+                or None
+            )
             file_format = questionary.select(
                 "Select format to download the datapoints in:",
                 choices=[Choice(title=format_.value, value=format_) for format_ in DatapointFormats],
@@ -931,7 +981,12 @@ class DownloadApp(typer.Typer):
                 ).ask()
 
         cmd = DownloadCommand()
-        selector = DataPointsDataSetSelector(data_set_external_id=dataset)
+        selector = DataPointsDataSetSelector(
+            data_set_external_id=dataset,
+            start=start_time,
+            end=end_time,
+            data_type=datapoint_type.value,
+        )
         cmd.run(
             lambda: cmd.download(
                 selectors=[selector],
