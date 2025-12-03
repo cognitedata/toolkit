@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.build_cmd import BuildCommand as OldBuildCommand
 from cognite_toolkit._cdf_tk.commands.build_v2.build_input import BuildInput
-from cognite_toolkit._cdf_tk.commands.build_v2.build_issues import BuildIssueList
+from cognite_toolkit._cdf_tk.commands.build_v2.build_issues import BuildIssue, BuildIssueList
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
     BuildVariables,
@@ -68,7 +68,8 @@ class BuildCommand(ToolkitCommand):
             self.issues.extend(structure_issues)
 
         # Logistics: clean and create build directory
-        self._prepare(input, not no_clean)
+        if prepare_issues := self._prepare(input, not no_clean):
+            self.issues.extend(prepare_issues)
 
         # Compile the configuration and variables,
         # check syntax on module and resource level
@@ -77,6 +78,7 @@ class BuildCommand(ToolkitCommand):
         if build_issues:
             self.issues.extend(build_issues)
 
+        # This is where we would add any recommendations for the user to improve the build.
         if recommendations := self._verify(built_modules):
             self.issues.extend(recommendations)
 
@@ -95,17 +97,20 @@ class BuildCommand(ToolkitCommand):
             )
         )
 
-    def _prepare(self, input: BuildInput, clean: bool = False) -> None:
+    def _prepare(self, input: BuildInput, clean: bool = False) -> BuildIssueList:
         """
         Directory logistics
         """
-
+        issues = BuildIssueList()
         if input.build_dir.exists() and any(input.build_dir.iterdir()):
             if not clean:
                 raise ToolkitError("Build directory is not empty. Run without --no-clean to remove existing files.")
-            safe_rmtree(input.build_dir)
 
+            if self.verbose:
+                issues.append(BuildIssue(description=f"Build directory {input.build_dir!s} is not empty. Clearing."))
+            safe_rmtree(input.build_dir)
         input.build_dir.mkdir(parents=True, exist_ok=True)
+        return issues
 
     def _validate(self, input: BuildInput) -> BuildIssueList:
         issues = BuildIssueList()

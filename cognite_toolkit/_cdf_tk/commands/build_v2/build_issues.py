@@ -23,6 +23,10 @@ class BuildIssueList(RootModel[list[BuildIssue]]):
         """Create a BuildIssueList from a WarningList."""
         return cls(root=[BuildIssue(description=warning.get_message()) for warning in warning_list])
 
+    def append(self, issue: BuildIssue) -> None:
+        """Append an issue to the list."""
+        self.root.append(issue)
+
     def extend(self, other: Self) -> None:
         """Extend this list with another BuildIssueList."""
         self.root.extend(other.root)
