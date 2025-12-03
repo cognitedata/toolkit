@@ -40,7 +40,6 @@ class ToolkitClient(CogniteClient):
         http_client = HTTPClient(self.config)
         self.http_client = http_client
         toolkit_config = ToolkitClientConfig.from_client_config(self.config)
-        self.http_client = http_client
         self.console = Console()
         self.tool = ToolAPI(http_client, self.console)
         self.search = SearchAPI(self._config, self._API_VERSION, self)

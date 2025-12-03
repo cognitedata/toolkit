@@ -103,6 +103,8 @@ class DatapointsIO(
             # that are not shut down until all data is downloaded. We need to be able to abort.
             partitions=None,
         ):
+            if not timeseries:
+                continue
             # Aggregation of datapoints per timeseries
             items = [
                 {
@@ -350,9 +352,10 @@ class DatapointsIO(
                 source_id,
             )
         )
+        sorted_datapoints = sorted(zip(external_ids, timestamps, values), key=lambda x: x[0])
         datapoints_items: list[DataPointInsertionItem] = []
         if selector.data_type == "numeric":
-            for external_id, datapoints in groupby(zip(external_ids, timestamps, values), key=lambda x: x[0]):
+            for external_id, datapoints in groupby(sorted_datapoints, key=lambda x: x[0]):
                 datapoints_items.append(
                     DataPointInsertionItem(
                         externalId=external_id,
@@ -364,7 +367,7 @@ class DatapointsIO(
                     )
                 )
         elif selector.data_type == "string":
-            for external_id, datapoints in groupby(zip(external_ids, timestamps, values), key=lambda x: x[0]):
+            for external_id, datapoints in groupby(sorted_datapoints, key=lambda x: x[0]):
                 datapoints_items.append(
                     DataPointInsertionItem(
                         externalId=external_id,
