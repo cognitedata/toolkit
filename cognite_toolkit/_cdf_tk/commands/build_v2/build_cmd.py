@@ -64,8 +64,7 @@ class BuildCommand(ToolkitCommand):
             self._print_build_input(input)
 
         # Capture warnings from module structure integrity
-        structure_issues = self._verify(input)
-        if structure_issues:
+        if structure_issues := self._validate(input):
             self.issues.extend(structure_issues)
 
         # Logistics: clean and create build directory
@@ -77,6 +76,9 @@ class BuildCommand(ToolkitCommand):
         built_modules, build_issues = self._compile(input)
         if build_issues:
             self.issues.extend(build_issues)
+
+        if recommendations := self._verify(built_modules):
+            self.issues.extend(recommendations)
 
         # Finally, print warnings grouped by category/code and location.
         self._print_or_log_warnings_by_category(self.issues)
@@ -105,7 +107,7 @@ class BuildCommand(ToolkitCommand):
 
         input.build_dir.mkdir(parents=True, exist_ok=True)
 
-    def _verify(self, input: BuildInput) -> BuildIssueList:
+    def _validate(self, input: BuildInput) -> BuildIssueList:
         issues = BuildIssueList()
         # Verify that the modules exists, are not duplicates,
         # and at least one is selected
@@ -168,6 +170,10 @@ class BuildCommand(ToolkitCommand):
             converted_issues = BuildIssueList.from_warning_list(old_build_command.warning_list)
             issues.extend(converted_issues)
         return built_modules, issues
+
+    def _verify(self, built_modules: BuiltModuleList) -> BuildIssueList:
+        issues = BuildIssueList()
+        return issues
 
     def _write(self, input: BuildInput) -> None:
         # Write the build to the build directory.
