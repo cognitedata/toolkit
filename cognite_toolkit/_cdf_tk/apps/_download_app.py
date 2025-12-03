@@ -648,7 +648,7 @@ class DownloadApp(typer.Typer):
         dataset: Annotated[
             str | None,
             typer.Argument(
-                help="The dataset to download datapoints from. If not provided, an interactive selection will be made.",
+                help="The dataset to download timeseries from. If not provided, an interactive selection will be made.",
             ),
         ] = None,
         file_format: Annotated[
@@ -673,11 +673,11 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--limit",
                 "-l",
-                help="The maximum number of datapoints to download for each time series.",
+                help="The maximum number of timeseries to download datapoints from. Use -1 to download all timeseries."
+                "The maximum number of datapoints in total is 10 million and 100 000 per timeseries.",
                 max=10_000_000,
-                min=1,
             ),
-        ] = 100_000,
+        ] = 1000,
         verbose: Annotated[
             bool,
             typer.Option(

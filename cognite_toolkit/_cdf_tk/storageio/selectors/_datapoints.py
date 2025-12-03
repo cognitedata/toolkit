@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from functools import cached_property
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, ClassVar, Literal
 
 from cognite.client._proto.data_points_pb2 import (
     InstanceId,
@@ -73,11 +73,13 @@ class DataPointsFileSelector(DataPointsSelector):
 
 
 class DataPointsDataSetSelector(DataPointsSelector):
+    required_columns: ClassVar[frozenset[str]] = frozenset({"externalId", "timestamp", "value"})
     type: Literal["datapointsDataSet"] = "datapointsDataSet"
 
     data_set_external_id: str
     start: int | str | None = None
     end: int | str | None = None
+    data_type: Literal["numeric", "string"] = "numeric"
 
     @property
     def group(self) -> str:

@@ -115,6 +115,7 @@ class RequestMessage(HTTPMessage):
 @dataclass
 class SuccessResponse(ResponseMessage):
     body: str
+    content: bytes
 
 
 @dataclass
@@ -134,7 +135,7 @@ class SimpleRequest(RequestMessage):
 
     @classmethod
     def create_success_response(cls, response: httpx.Response) -> Sequence[ResponseMessage]:
-        return [SuccessResponse(status_code=response.status_code, body=response.text)]
+        return [SuccessResponse(status_code=response.status_code, body=response.text, content=response.content)]
 
     @classmethod
     def create_failure_response(cls, response: httpx.Response) -> Sequence[HTTPMessage]:

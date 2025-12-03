@@ -1,4 +1,5 @@
 from collections.abc import Iterable, Mapping, Sequence
+from itertools import groupby
 from typing import Any, ClassVar, cast
 
 from cognite.client._proto.data_point_insertion_request_pb2 import DataPointInsertionItem, DataPointInsertionRequest
@@ -10,11 +11,14 @@ from cognite.client._proto.data_points_pb2 import (
     StringDatapoints,
 )
 from cognite.client.data_classes import TimeSeriesFilter
+from cognite.client.data_classes.filters import Exists
+from cognite.client.data_classes.time_series import TimeSeriesProperty
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.protocols import T_ResourceResponse
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     _EpochConverter,
     _Float64Converter,
@@ -33,7 +37,7 @@ from cognite_toolkit._cdf_tk.utils.http_client import (
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import Page, TableStorageIO, TableUploadableStorageIO, UploadItem
-from .selectors import DataPointsSelector
+from .selectors import DataPointsDataSetSelector, DataPointsFileSelector, DataPointsSelector
 
 
 class DatapointsIO(
@@ -49,6 +53,9 @@ class DatapointsIO(
     SUPPORTED_READ_FORMATS = frozenset({".csv"})
     UPLOAD_ENDPOINT = "/timeseries/data"
     UPLOAD_EXTRA_ARGS: ClassVar[Mapping[str, JsonVal] | None] = None
+    MAX_TOTAL_DATAPOINTS = 10_000_000
+    MAX_PER_REQUEST_DATAPOINTS = 100_000
+    MAX_PER_REQUEST_DATAPOINTS_AGGREGATION = 10_000
 
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
@@ -61,23 +68,51 @@ class DatapointsIO(
         raise NotImplementedError()
 
     def get_schema(self, selector: DataPointsSelector) -> list[SchemaColumn]:
-        raise NotImplementedError()
+        return [
+            SchemaColumn(name="externalId", type="string"),
+            SchemaColumn(name="timestamp", type="epoch"),
+            SchemaColumn(
+                name="value",
+                type="string"
+                if isinstance(selector, DataPointsDataSetSelector) and selector.data_type == "string"
+                else "float",
+            ),
+        ]
 
     def stream_data(
         self, selector: DataPointsSelector, limit: int | None = None
     ) -> Iterable[Page[DataPointListResponse]]:
-        calculate_total = 100000
-
+        if not isinstance(selector, DataPointsDataSetSelector):
+            raise RuntimeError(
+                f"{type(self).__name__} only supports streaming data for DataPointsDataSetSelector selectors. Got {type(selector).__name__}."
+            )
+        timeseries_count = self.count(selector)
+        if limit is not None:
+            timeseries_count = min(timeseries_count or 0, limit)
+        limit_per_timeseries = (
+            (self.MAX_TOTAL_DATAPOINTS // timeseries_count) if timeseries_count else self.MAX_PER_REQUEST_DATAPOINTS
+        )
+        limit_per_timeseries = min(limit_per_timeseries, self.MAX_PER_REQUEST_DATAPOINTS)
         config = self.client.config
         for timeseries in self.client.time_series(
-            data_set_external_ids=[selector.data_set_external_id], chunk_size=self.DOWNLOAD_CHUNK_SIZE
+            data_set_external_ids=[selector.data_set_external_id],
+            chunk_size=self.DOWNLOAD_CHUNK_SIZE,
+            is_string=True if selector.data_type == "string" else False,
+            advanced_filter=Exists(TimeSeriesProperty.external_id),
+            limit=limit,
+            # We cannot use partitions here as it is not thread safe. This spawn multiple threads
+            # that are not shut down until all data is downloaded. We need to be able to abort.
+            partitions=None,
         ):
+            # Aggregation of datapoints per timeseries
             items = [
                 {
                     "id": ts.id,
                     "start": selector.start,
                     "end": selector.end,
-                    "limit": 100000,
+                    "limit": self.MAX_PER_REQUEST_DATAPOINTS_AGGREGATION // len(timeseries),
+                    "aggregates": ["count"],
+                    "granularity": "1200mo",
                 }
                 for ts in timeseries
             ]
@@ -93,13 +128,79 @@ class DatapointsIO(
             first_success = next((resp for resp in responses if isinstance(resp, SuccessResponse)), None)
             if first_success is None:
                 continue
-            data_response: DataPointListResponse = DataPointListResponse.FromString(first_success.body)
-            yield Page("Main", [data_response])
+            aggregate_response: DataPointListResponse = DataPointListResponse.FromString(first_success.content)
+            timeseries_ids_with_data: dict[int, int] = {}
+            for dp in aggregate_response.items:
+                if dp.aggregateDatapoints.datapoints:
+                    ts_datapoint_count = int(sum(agg.count for agg in dp.aggregateDatapoints.datapoints))
+                    timeseries_ids_with_data[dp.id] = ts_datapoint_count
+            total_datapoints = int(sum(timeseries_ids_with_data.values()))
+            if total_datapoints == 0:
+                continue
+
+            batch: list[dict[str, Any]] = []
+            batch_count = 0
+            for ts_id, count in timeseries_ids_with_data.items():
+                count = min(count, limit_per_timeseries)
+                ts_limit = count
+                left_over = 0
+                if (batch_count + ts_limit) > self.MAX_PER_REQUEST_DATAPOINTS:
+                    ts_limit = self.MAX_PER_REQUEST_DATAPOINTS - batch_count
+                    left_over = count - ts_limit
+                batch.append(
+                    {
+                        "id": ts_id,
+                        "start": selector.start,
+                        "end": selector.end,
+                        "limit": ts_limit,
+                    }
+                )
+                batch_count += ts_limit
+                if batch_count >= self.MAX_PER_REQUEST_DATAPOINTS:
+                    if page := self._fetch_datapoints_batch(batch, config):
+                        yield page
+                    batch = []
+
+                if left_over > 0:
+                    batch.append(
+                        {
+                            "id": ts_id,
+                            "start": selector.start,
+                            "end": selector.end,
+                            "limit": left_over,
+                        }
+                    )
+                    batch_count += left_over
+            if batch and (page := self._fetch_datapoints_batch(batch, config)):
+                yield page
+
+    def _fetch_datapoints_batch(self, batch: list[dict[str, Any]], config: Any) -> Page[DataPointListResponse] | None:
+        responses = self.client.http_client.request_with_retries(
+            SimpleBodyRequest(
+                endpoint_url=config.create_api_url("/timeseries/data/list"),
+                method="POST",
+                accept="application/protobuf",
+                content_type="application/json",
+                body_content={"items": batch},
+            )
+        )
+        first_success = next((resp for resp in responses if isinstance(resp, SuccessResponse)), None)
+        if first_success is None:
+            return None
+        data_response: DataPointListResponse = DataPointListResponse.FromString(first_success.content)
+        return Page("Main", [data_response])
 
     def count(self, selector: DataPointsSelector) -> int | None:
-        return self.client.time_series.aggregate_count(
-            filter=TimeSeriesFilter(data_set_ids=[{"externalId": selector.data_set_external_id}])
-        )
+        if isinstance(selector, DataPointsDataSetSelector):
+            return self.client.time_series.aggregate_count(
+                filter=TimeSeriesFilter(
+                    data_set_ids=[{"externalId": selector.data_set_external_id}],
+                    is_string=True if selector.data_type == "string" else False,
+                ),
+                # We only want time series that have externalID set.
+                advanced_filter=Exists(TimeSeriesProperty.external_id),
+            )
+        return None
 
     def data_to_json_chunk(
         self, data_chunk: Sequence[DataPointListResponse], selector: DataPointsSelector | None = None
@@ -111,7 +212,7 @@ class DatapointsIO(
     def data_to_row(
         self, data_chunk: Sequence[T_ResourceResponse], selector: DataPointsSelector | None = None
     ) -> list[dict[str, JsonVal]]:
-        pass
+        raise NotImplementedError("data_to_row is not implemented for DatapointsIO.")
 
     def upload_items(
         self,
@@ -139,6 +240,19 @@ class DatapointsIO(
             raise ValueError("Selector must be provided to convert row to DataPointInsertionItem.")
         # We assume that the row was read using the read_chunks method.
         rows = cast(dict[str, list[Any]], row)
+        if isinstance(selector, DataPointsFileSelector):
+            datapoints_items = self._rows_to_datapoint_items_file_selector(rows, selector, source_id)
+        elif isinstance(selector, DataPointsDataSetSelector):
+            datapoints_items = self._rows_to_datapoint_items_data_set_selector(rows, selector, source_id)
+        else:
+            raise RuntimeError(
+                f"Unsupported selector type {type(selector).__name__} for {type(self).__name__}. Trying to transform {source_id!r} from rows to DataPointInsertionRequest."
+            )
+        return DataPointInsertionRequest(items=datapoints_items)
+
+    def _rows_to_datapoint_items_file_selector(
+        self, rows: dict[str, list[Any]], selector: DataPointsFileSelector, source_id: str
+    ) -> list[DataPointInsertionItem]:
         if selector.timestamp_column not in rows:
             raise RuntimeError(f"Timestamp column '{selector.timestamp_column}' not found.")
 
@@ -186,7 +300,65 @@ class DatapointsIO(
                 raise RuntimeError(f"Unsupported dtype {column.dtype} for column {col}.")
 
             datapoints_items.append(DataPointInsertionItem(**args))
-        return DataPointInsertionRequest(items=datapoints_items)
+
+        return datapoints_items
+
+    def _rows_to_datapoint_items_data_set_selector(
+        self, rows: dict[str, list[Any]], selector: DataPointsDataSetSelector, source_id: str
+    ) -> list[DataPointInsertionItem]:
+        if "externalId" not in rows:
+            raise RuntimeError("Column 'externalId' not found.")
+        if "value" not in rows:
+            raise RuntimeError("Column 'value' not found.")
+        if "timestamp" not in rows:
+            raise RuntimeError("Column 'timestamp' not found.")
+
+        external_ids = rows["externalId"]
+        timestamps = list(
+            self._convert_values(
+                rows["timestamp"],
+                self._epoc_converter,
+                "timestamps (column 'timestamp')",
+                source_id,
+            )
+        )
+        values = list(
+            self._convert_values(
+                rows["value"],
+                self._numeric_converter if selector.data_type == "numeric" else self._string_converter,
+                "values (column 'value')",
+                source_id,
+            )
+        )
+        datapoints_items: list[DataPointInsertionItem] = []
+        if selector.data_type == "numeric":
+            for external_id, datapoints in groupby(zip(external_ids, timestamps, values), key=lambda x: x[0]):
+                datapoints_items.append(
+                    DataPointInsertionItem(
+                        externalId=external_id,
+                        numericDatapoints=NumericDatapoints(
+                            datapoints=[
+                                NumericDatapoint(timestamp=timestamp, value=value) for _, timestamp, value in datapoints
+                            ]
+                        ),
+                    )
+                )
+        elif selector.data_type == "string":
+            for external_id, datapoints in groupby(zip(external_ids, timestamps, values), key=lambda x: x[0]):
+                datapoints_items.append(
+                    DataPointInsertionItem(
+                        externalId=external_id,
+                        stringDatapoints=StringDatapoints(
+                            datapoints=[
+                                StringDatapoint(timestamp=timestamp, value=value) for _, timestamp, value in datapoints
+                            ]
+                        ),
+                    )
+                )
+        else:
+            raise RuntimeError(f"Unsupported data_type {selector.data_type} for DataPointsDataSetSelector.")
+
+        return datapoints_items
 
     def _convert_values(
         self, values: list[Any], converter: _ValueConverter, name: str, source_id: str
@@ -221,7 +393,8 @@ class DatapointsIO(
         cls, reader: MultiFileReader, selector: DataPointsSelector
     ) -> Iterable[list[tuple[str, dict[str, JsonVal]]]]:
         if not reader.is_table:
-            raise RuntimeError("DatapointsIO can only read from TableReader instances.")
+            raise RuntimeError(f"{cls.__name__} can only read from TableReader instances.")
+
         iterator = iter(reader.read_chunks_with_line_numbers())
         try:
             start_row, first = next(iterator)
@@ -229,6 +402,12 @@ class DatapointsIO(
             # Empty file
             return
         column_names = list(first.keys())
+        if isinstance(selector, DataPointsDataSetSelector):
+            if set(column_names) != selector.required_columns:
+                raise RuntimeError(
+                    "When uploading datapoints using a dataset manifest for datapoints, you must have exacatly the "
+                    f"columns: {humanize_collection(selector.required_columns)} in the file. Got {humanize_collection(column_names)}. "
+                )
         batch: dict[str, list[Any]] = {col: [value] for col, value in first.items()}
         last_row = start_row
         for row_no, chunk in iterator:
@@ -242,5 +421,5 @@ class DatapointsIO(
                 start_row = row_no + 1
                 batch = {col: [] for col in column_names}
             last_row = row_no
-        if any(batch.values()):
-            yield [(f"rows {start_row} to{last_row}", batch)]  # type: ignore[list-item]
+            if any(batch.values()):
+                yield [(f"rows {start_row} to{last_row}", batch)]  # type: ignore[list-item]

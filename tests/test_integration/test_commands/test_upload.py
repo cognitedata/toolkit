@@ -5,9 +5,9 @@ import pytest
 from cognite.client.data_classes import DataSet, TimeSeries, TimeSeriesWrite
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.commands import UploadCommand, DownloadCommand
+from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
 from cognite_toolkit._cdf_tk.storageio import DatapointsIO
-from cognite_toolkit._cdf_tk.storageio.selectors import DataPointsFileSelector, DataPointsDataSetSelector
+from cognite_toolkit._cdf_tk.storageio.selectors import DataPointsDataSetSelector, DataPointsFileSelector
 from cognite_toolkit._cdf_tk.storageio.selectors._datapoints import ExternalIdColumn, InternalIdColumn
 
 
@@ -88,7 +88,9 @@ class TestUploadCommand:
         )
         assert len(datapoints2) == 10, f"Expected 10 datapoints, got {len(datapoints2)}"
 
-    def test_upload_download_datapoints(self, toolkit_client: ToolkitClient, two_timeseries: tuple[TimeSeries, TimeSeries], tmp_path: Path) -> None:
+    def test_upload_download_datapoints(
+        self, toolkit_client: ToolkitClient, two_timeseries: tuple[TimeSeries, TimeSeries], tmp_path: Path
+    ) -> None:
         ts1, _ = two_timeseries
         client = toolkit_client
         assert ts1.is_string is False
@@ -120,19 +122,20 @@ class TestUploadCommand:
             start=datetime.fromisoformat("1989-01-01T00:00:00Z"),
             end=datetime.fromisoformat("1989-01-02T00:00:00Z"),
             aggregates="count",
-            granularity="1d"
+            granularity="1d",
         )
         assert aggregate_result.count[0] == 10, f"Expected 10 datapoints, got {aggregate_result.count[0]}"
 
+        io = DatapointsIO(client)
         download_cmd = DownloadCommand(silent=True, skip_tracking=True)
         download_cmd.download(
             selectors=[selector],
-            io=DatapointsIO(client),
+            io=io,
             output_dir=tmp_path / "download",
             verbose=True,
             file_format=".csv",
             compression="none",
-            limit=100_000
+            limit=100_000,
         )
 
         download_file = tmp_path / "download" / selector.group / f"{selector!s}.{DatapointsIO}.csv"
