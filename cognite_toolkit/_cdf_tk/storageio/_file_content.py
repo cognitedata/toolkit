@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
+import httpx
 from cognite.client.data_classes import FileMetadata, FileMetadataWrite
 from cognite.client.data_classes.data_modeling import NodeId, ViewId
 
@@ -26,8 +27,16 @@ from cognite_toolkit._cdf_tk.utils.http_client import (
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import Page, UploadableStorageIO, UploadItem
-from .selectors import FileContentSelector, FileMetadataTemplateSelector
-from .selectors._file_content import FILEPATH, FileDataModelingTemplateSelector
+from .selectors import FileContentSelector, FileIdentifierSelector, FileMetadataTemplateSelector
+from .selectors._file_content import (
+    FILEPATH,
+    FileDataModelingTemplateSelector,
+    FileExternalID,
+    FileIdentifier,
+    FileInstanceID,
+    FileInternalID,
+)
+from .selectors._file_content import NodeId as SelectorNodeId
 
 COGNITE_FILE_VIEW = ViewId("cdf_cdm", "CogniteFile", "v1")
 
@@ -47,23 +56,150 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, FileMetadata, FileM
     SUPPORTED_READ_FORMATS = frozenset({".ndjson"})
     UPLOAD_ENDPOINT = "/files"
 
-    def __init__(self, client: ToolkitClient) -> None:
+    def __init__(self, client: ToolkitClient, target_dir: Path = Path.cwd()) -> None:
         super().__init__(client)
         self._crud = FileMetadataCRUD(client, None, None)
+        self._target_dir = target_dir
 
     def as_id(self, item: FileMetadata) -> str:
         return item.external_id or str(item.id)
 
-    def stream_data(self, selector: FileContentSelector, limit: int | None = None) -> Iterable[Page]:
-        raise NotImplementedError("Download of FileContent is not yet supported")
+    def stream_data(self, selector: FileContentSelector, limit: int | None = None) -> Iterable[Page[FileMetadata]]:
+        if not isinstance(selector, FileIdentifierSelector):
+            raise ToolkitNotImplementedError(
+                f"Download with the manifest, {type(selector).__name__}, is not supported for FileContentIO"
+            )
+        selected_identifiers = selector.identifiers
+        if limit is not None and limit < len(selected_identifiers):
+            selected_identifiers = selected_identifiers[:limit]
+        for identifiers in chunker_sequence(selected_identifiers, self.CHUNK_SIZE):
+            metadata = self._retrieve_metadata(identifiers)
+            if metadata is None:
+                continue
+            identifiers_map = self._as_metadata_map(metadata)
+            downloaded_files: list[FileMetadata] = []
+            for identifier in identifiers:
+                if identifier not in identifiers_map:
+                    continue
+
+                meta = identifiers_map[identifier]
+                filepath = self._create_filepath(meta, selector)
+                download_url = self._retrieve_download_url(identifier)
+                if download_url is None:
+                    continue
+                filepath.parent.mkdir(parents=True, exist_ok=True)
+                with httpx.stream("GET", download_url) as response:
+                    if response.status_code != 200:
+                        continue
+                    with filepath.open(mode="wb") as file_stream:
+                        for chunk in response.iter_bytes(chunk_size=8192):
+                            file_stream.write(chunk)
+                downloaded_files.append(meta)
+            yield Page(items=downloaded_files, worker_id="Main")
+
+    def _retrieve_metadata(self, identifiers: Sequence[FileIdentifier]) -> Sequence[FileMetadata] | None:
+        config = self.client.config
+        responses = self.client.http_client.request_with_retries(
+            message=SimpleBodyRequest(
+                endpoint_url=config.create_api_url("/files/byids"),
+                method="POST",
+                body_content={
+                    "items": [
+                        identifier.model_dump(mode="json", by_alias=True, exclude={"id_type"})
+                        for identifier in identifiers
+                    ],
+                    "ignoreUnknownIds": True,
+                },
+            )
+        )
+        if responses.has_failed:
+            return None
+        body = responses.get_first_body()
+        items_data = body.get("items", [])
+        if not isinstance(items_data, list):
+            return None
+        # MyPy does not understand that JsonVal is valid dict[Any, Any]
+        return [FileMetadata._load(item) for item in items_data]  # type: ignore[arg-type]
+
+    @staticmethod
+    def _as_metadata_map(metadata: Sequence[FileMetadata]) -> dict[FileIdentifier, FileMetadata]:
+        identifiers_map: dict[FileIdentifier, FileMetadata] = {}
+        for item in metadata:
+            if item.id is not None:
+                # MyPy does cooperate well with Pydantic.
+                identifiers_map[FileInternalID(internal_id=item.id)] = item  # type: ignore[call-arg]
+            if item.external_id is not None:
+                identifiers_map[FileExternalID(external_id=item.external_id)] = item
+            if item.instance_id is not None:
+                identifiers_map[
+                    FileInstanceID(
+                        instance_id=SelectorNodeId(
+                            space=item.instance_id.space, external_id=item.instance_id.external_id
+                        )
+                    )
+                ] = item
+        return identifiers_map
+
+    def _create_filepath(self, meta: FileMetadata, selector: FileIdentifierSelector) -> Path:
+        # We now that metadata always have name set
+        filename = Path(cast(str, meta.name))
+        if len(filename.suffix) == 0 and meta.mime_type:
+            if mime_ext := mimetypes.guess_extension(meta.mime_type):
+                filename = filename.with_suffix(mime_ext)
+        directory = selector.file_directory
+        if isinstance(meta.directory, str) and meta.directory != "":
+            directory = Path(meta.directory.removeprefix("/"))
+
+        counter = 1
+        filepath = self._target_dir / directory / filename
+        while filepath.exists():
+            filepath = self._target_dir / directory / f"{filename} ({counter})"
+            counter += 1
+
+        return filepath
+
+    def _retrieve_download_url(self, identifier: FileIdentifier) -> str | None:
+        config = self.client.config
+        responses = self.client.http_client.request_with_retries(
+            message=SimpleBodyRequest(
+                endpoint_url=config.create_api_url("/files/downloadlink"),
+                method="POST",
+                body_content={"items": [identifier.model_dump(mode="json", by_alias=True, exclude={"id_type"})]},
+            )
+        )
+        try:
+            body = responses.get_first_body()
+        except ValueError:
+            return None
+        if "items" in body and isinstance(body["items"], list) and len(body["items"]) > 0:
+            # The API responses is not following the API docs, this is a workaround
+            body = body["items"][0]  # type: ignore[assignment]
+        try:
+            return cast(str, body["downloadUrl"])
+        except (KeyError, IndexError):
+            return None
 
     def count(self, selector: FileContentSelector) -> int | None:
+        if isinstance(selector, FileIdentifierSelector):
+            return len(selector.identifiers)
         return None
 
     def data_to_json_chunk(
         self, data_chunk: Sequence[FileMetadata], selector: FileContentSelector | None = None
     ) -> list[dict[str, JsonVal]]:
-        raise NotImplementedError("Download of FileContent is not yet supported")
+        """Convert a writable Cognite resource list to a JSON-compatible chunk of data.
+
+        Args:
+            data_chunk: A writable Cognite resource list representing the data.
+            selector: The selector used for the data. (Not used in this implementation)
+        Returns:
+            A list of dictionaries, each representing the data in a JSON-compatible format.
+        """
+        result: list[dict[str, JsonVal]] = []
+        for item in data_chunk:
+            item_json = self._crud.dump_resource(item)
+            result.append(item_json)
+        return result
 
     def json_chunk_to_data(self, data_chunk: list[tuple[str, dict[str, JsonVal]]]) -> Sequence[UploadFileContentItem]:
         """Convert a JSON-compatible chunk of data back to a writable Cognite resource list.

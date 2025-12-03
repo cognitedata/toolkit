@@ -31,6 +31,7 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     DataSelector,
     DataSetSelector,
     FileDataModelingTemplateSelector,
+    FileIdentifierSelector,
     FileMetadataTemplateSelector,
     InstanceFileSelector,
     InstanceSpaceSelector,
@@ -39,6 +40,7 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     Selector,
     SelectorAdapter,
 )
+from cognite_toolkit._cdf_tk.storageio.selectors._file_content import FILEPATH
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
@@ -231,6 +233,37 @@ def example_selector_data() -> Iterable[tuple]:
         FileContentIO,
         FileContentIO.KIND,
         id="FileDataModelingTemplateSelector",
+    )
+    yield pytest.param(
+        {
+            "type": "fileIdentifier",
+            "kind": "FileContent",
+            "file_directory": "path/to/files",
+            "identifiers": [
+                {
+                    "idType": "internalId",
+                    "id": 12345,
+                    FILEPATH: "file1.csv",
+                },
+                {
+                    "idType": "externalId",
+                    "externalId": "file_ext_id",
+                    FILEPATH: "file2.csv",
+                },
+                {
+                    "idType": "instanceId",
+                    "instanceId": {
+                        "space": "my_space",
+                        "externalId": "my_instance",
+                    },
+                    FILEPATH: "file3.csv",
+                },
+            ],
+        },
+        FileIdentifierSelector,
+        FileContentIO,
+        FileContentIO.KIND,
+        id="FileIdentifierSelector",
     )
     yield pytest.param(
         {

@@ -343,6 +343,18 @@ class ResponseList(UserList[ResponseMessage | FailedRequestMessage]):
             error_messages += "; ".join(f"Request error: {err.error}" for err in failed_requests)
         raise ToolkitAPIError(f"One or more requests failed: {error_messages}")
 
+    @property
+    def has_failed(self) -> bool:
+        """Indicates whether any response in the list indicates a failure.
+
+        Returns:
+            bool: True if there are any failed responses or requests, False otherwise.
+        """
+        for resp in self.data:
+            if isinstance(resp, FailedResponse | FailedRequestMessage):
+                return True
+        return False
+
     def get_first_body(self) -> dict[str, JsonVal]:
         """Returns the body of the first successful response in the list.
 

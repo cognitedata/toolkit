@@ -19,6 +19,7 @@ from ._file_content import (
     FileContentSelector,
     FileDataModelingTemplate,
     FileDataModelingTemplateSelector,
+    FileIdentifierSelector,
     FileMetadataTemplate,
     FileMetadataTemplateSelector,
 )
@@ -46,7 +47,8 @@ Selector = Annotated[
     | ChartExternalIdSelector
     | CanvasExternalIdSelector
     | FileMetadataTemplateSelector
-    | FileDataModelingTemplateSelector,
+    | FileDataModelingTemplateSelector
+    | FileIdentifierSelector,
     Field(discriminator="type"),
 ]
 
@@ -72,6 +74,7 @@ __all__ = [
     "FileContentSelector",
     "FileDataModelingTemplate",
     "FileDataModelingTemplateSelector",
+    "FileIdentifierSelector",
     "FileMetadataTemplate",
     "FileMetadataTemplateSelector",
     "InstanceColumn",

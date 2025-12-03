@@ -19,6 +19,9 @@ else:
     from typing_extensions import Self
 
 INFIELD_LOCATION_CONFIG_VIEW_ID = ViewReference(space="cdf_infield", external_id="InFieldLocationConfig", version="v1")
+INFIELD_CDM_LOCATION_CONFIG_VIEW_ID = ViewReference(
+    space="infield_cdm_source_desc_sche_asset_file_ts", external_id="InFieldCDMLocationConfig", version="v1"
+)
 DATA_EXPLORATION_CONFIG_VIEW_ID = ViewReference(space="cdf_infield", external_id="DataExplorationConfig", version="v1")
 
 
@@ -82,6 +85,32 @@ class InfieldLocationConfigList(
     """A list of InfieldLocationConfig objects."""
 
     _RESOURCE = InfieldLocationConfig
+
+    def as_write(self) -> Self:
+        return self
+
+
+class InFieldCDMLocationConfig(ResponseResource["InFieldCDMLocationConfig"], InstanceRequestResource):
+    """InField CDM Location Configuration resource class.
+
+    This class is used for both the response and request resource for InField CDM Location Configuration nodes.
+    """
+
+    VIEW_ID: ClassVar[ViewReference] = INFIELD_CDM_LOCATION_CONFIG_VIEW_ID
+    instance_type: Literal["node"] = "node"
+
+    name: str | None = None
+    description: str | None = None
+    feature_toggles: dict[str, JsonValue] | None = None
+    access_management: dict[str, JsonValue] | None = None
+    data_filters: dict[str, JsonValue] | None = None
+    data_storage: dict[str, JsonValue] | None = None
+    view_mappings: dict[str, JsonValue] | None = None
+    disciplines: list[dict[str, JsonValue]] | None = None
+    data_exploration_config: dict[str, JsonValue] | None = None
+
+    def as_request_resource(self) -> "InFieldCDMLocationConfig":
+        return self
 
     def as_write(self) -> Self:
         return self
