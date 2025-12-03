@@ -119,11 +119,11 @@ class BuildCommand(ToolkitCommand):
         verify_module_directory(input.organization_dir, input.build_env_name)
 
         # Validate module selection
-        user_selected_modules = input.config.environment.get_selected_modules({})
+        user_selected_modules = input.config.environment.get_selected_modules(input.packages)
         module_warnings = validate_module_selection(
             input.modules,
             input.config,
-            {},
+            input.packages,
             user_selected_modules,
             input.organization_dir,
         )
