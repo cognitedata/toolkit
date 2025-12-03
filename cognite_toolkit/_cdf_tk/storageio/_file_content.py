@@ -13,6 +13,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.cruds import FileMetadataCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.protocols import ResourceResponseProtocol
+from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.collection import chunker, chunker_sequence
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.http_client import (
@@ -160,16 +161,16 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
 
     def _create_filepath(self, meta: FileMetadata, selector: FileIdentifierSelector) -> Path:
         # We now that metadata always have name set
-        filename = Path(cast(str, meta.name))
+        filename = Path(sanitize_filename(cast(str, meta.name)))
         if len(filename.suffix) == 0 and meta.mime_type:
             if mime_ext := mimetypes.guess_extension(meta.mime_type):
                 filename = filename.with_suffix(mime_ext)
         directory = selector.file_directory
         if isinstance(meta.directory, str) and meta.directory != "":
-            directory = Path(meta.directory.removeprefix("/"))
+            directory = meta.directory.removeprefix("/")
 
         counter = 1
-        filepath = self._target_dir / directory / filename
+        filepath = self._target_dir / sanitize_filename(directory) / filename
         while filepath.exists():
             filepath = self._target_dir / directory / f"{filename} ({counter})"
             counter += 1

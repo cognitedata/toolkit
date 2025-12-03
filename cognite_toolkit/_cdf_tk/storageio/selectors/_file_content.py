@@ -151,7 +151,7 @@ FileIdentifier = Annotated[FileInstanceID | FileExternalID | FileInternalID, Fie
 
 class FileIdentifierSelector(FileContentSelector):
     type: Literal["fileIdentifier"] = "fileIdentifier"
-    file_directory: Path = Path("file_content")
+    file_directory: str = "file_content"
     use_metadata_directory: bool = True
     identifiers: tuple[FileIdentifier, ...]
 
