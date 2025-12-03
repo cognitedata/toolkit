@@ -69,7 +69,7 @@ class BuildCommand(ToolkitCommand):
             self.issues.extend(structure_issues)
 
         # Logistics: clean and create build directory
-        self._prepare(input, no_clean)
+        self._prepare(input, not no_clean)
 
         # Compile the configuration and variables,
         # check syntax on module and resource level
@@ -93,13 +93,13 @@ class BuildCommand(ToolkitCommand):
             )
         )
 
-    def _prepare(self, input: BuildInput, no_clean: bool = False) -> None:
+    def _prepare(self, input: BuildInput, clean: bool = False) -> None:
         """
         Directory logistics
         """
 
         if input.build_dir.exists() and any(input.build_dir.iterdir()):
-            if not no_clean:
+            if not clean:
                 raise ToolkitError("Build directory is not empty. Run without --no-clean to remove existing files.")
             safe_rmtree(input.build_dir)
 
