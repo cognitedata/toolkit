@@ -13,7 +13,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.cruds import FileMetadataCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.protocols import ResourceResponseProtocol
-from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
+from cognite_toolkit._cdf_tk.utils.collection import chunker, chunker_sequence
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.http_client import (
     DataBodyRequest,
@@ -255,7 +255,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
         selector: FileContentSelector | None = None,
     ) -> Sequence[HTTPMessage]:
         results: MutableSequence[HTTPMessage] = []
-        if isinstance(selector, FileMetadataTemplateSelector):
+        if isinstance(selector, FileMetadataTemplateSelector | FileIdentifierSelector):
             upload_url_getter = self._upload_url_asset_centric
         elif isinstance(selector, FileDataModelingTemplateSelector):
             upload_url_getter = self._upload_url_data_modeling
@@ -404,10 +404,25 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
                 for file_path in chunk:
                     metadata = selector.create_instance(file_path)
                     metadata[FILEPATH] = file_path
-                    batch.append((str(file_path), metadata))
+                    batch.append((file_path.as_posix(), metadata))
                 yield batch
         elif isinstance(selector, FileIdentifierSelector):
-            yield from super().read_chunks(reader, selector)
+            for item_chunk in chunker(reader.read_chunks(), cls.CHUNK_SIZE):
+                batch = []
+                for item in item_chunk:
+                    if FILEPATH not in item:
+                        # Todo Log warning
+                        continue
+                    try:
+                        file_path = Path(item[FILEPATH])
+                    except (KeyError, IndexError):
+                        # Todo Log warning
+                        continue
+                    if not file_path.is_absolute():
+                        file_path = reader.input_file.parent / file_path
+                    item[FILEPATH] = file_path
+                    batch.append((file_path.as_posix(), item))
+                yield batch
         else:
             raise ToolkitNotImplementedError(
                 f"Reading with the manifest, {type(selector).__name__}, is not supported for FileContentIO"
