@@ -26,3 +26,11 @@ class BuildIssueList(RootModel[list[BuildIssue]]):
     def extend(self, other: Self) -> None:
         """Extend this list with another BuildIssueList."""
         self.root.extend(other.root)
+
+    def __len__(self) -> int:
+        """Return the number of issues in the list."""
+        return len(self.root)
+
+    def __contains__(self, item: BuildIssue) -> bool:
+        """Check if an issue is in the list."""
+        return item in self.root
