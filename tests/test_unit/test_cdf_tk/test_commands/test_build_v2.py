@@ -10,7 +10,7 @@ from cognite.client.data_classes.data_modeling import DataModelId, Space
 
 from cognite_toolkit._cdf_tk.commands.build_cmd import BuildCommand as OldBuildCommand
 from cognite_toolkit._cdf_tk.commands.build_v2.build_cmd import BuildCommand
-from cognite_toolkit._cdf_tk.commands.build_v2.build_issues import BuildIssue
+from cognite_toolkit._cdf_tk.commands.build_v2.build_issues import BuildIssue, BuildIssueList
 from cognite_toolkit._cdf_tk.cruds import TransformationCRUD
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, BuildVariables, Environment, Packages
 from cognite_toolkit._cdf_tk.data_classes._module_directories import ModuleDirectories
@@ -221,12 +221,12 @@ externalId: some_external_id
 
 class TestBuildParity:
     def test_build_parity_with_old_build_command(self, tmp_path: Path) -> None:
-        cmd = BuildCommand(silent=True, skip_tracking=True)
+        new_cmd = BuildCommand(silent=True, skip_tracking=True)
         new_result = None
         old_result = None
 
         with suppress(NotImplementedError):
-            new_result = cmd.execute(
+            new_result = new_cmd.execute(
                 verbose=False,
                 build_dir=tmp_path / "new",
                 organization_dir=data.COMPLETE_ORG,
@@ -245,3 +245,4 @@ class TestBuildParity:
             no_clean=False,
         )
         assert new_result == old_result
+        assert new_cmd.issues == BuildIssueList.from_warning_list(old_cmd.warning_list)

@@ -17,7 +17,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
-from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
+from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning, WarningList
 from cognite_toolkit._cdf_tk.utils.file import safe_rmtree
 from cognite_toolkit._cdf_tk.validation import validate_module_selection, validate_modules_variables
 from cognite_toolkit._version import __version__
@@ -146,11 +146,14 @@ class BuildCommand(ToolkitCommand):
         # TODO: parallelism is not implemented yet. I'm sure there are optimizations to be had here, but we'll focus on process parallelism since we believe loading yaml and file i/O are the biggest bottlenecks.
 
         old_build_command = OldBuildCommand(print_warning=False, skip_tracking=False)
-        built_modules = old_build_command.build_modules(
-            modules=input.modules.selected,
+        built_modules = old_build_command.build_config(
             build_dir=input.build_dir,
-            variables=input.variables,
+            organization_dir=input.organization_dir,
+            config=input.config,
+            packages={},
+            clean=False,
             verbose=self.verbose,
+            client=input.client,
             progress_bar=False,
             on_error=self.on_error,
         )
@@ -193,6 +196,7 @@ class BuildCommand(ToolkitCommand):
         built_modules = old_cmd.build_modules(modules, build_dir, variables, verbose, progress_bar, on_error)
         self._additional_tracking_info.package_ids.update(old_cmd._additional_tracking_info.package_ids)
         self._additional_tracking_info.module_ids.update(old_cmd._additional_tracking_info.module_ids)
+        self.issues.extend(BuildIssueList.from_warning_list(old_cmd.warning_list or WarningList[ToolkitWarning]()))
         return built_modules
 
     def build_config(
