@@ -7,7 +7,9 @@ from ._base import DataSelector
 from ._canvas import CanvasExternalIdSelector, CanvasSelector
 from ._charts import AllChartsSelector, ChartExternalIdSelector, ChartOwnerSelector, ChartSelector
 from ._datapoints import (
+    DataPointsDataSetSelector,
     DataPointsFileSelector,
+    DataPointsSelector,
     ExternalIdColumn,
     InstanceColumn,
     InternalIdColumn,
@@ -43,7 +45,8 @@ Selector = Annotated[
     | ChartExternalIdSelector
     | CanvasExternalIdSelector
     | FileMetadataTemplateSelector
-    | FileDataModelingTemplateSelector,
+    | FileDataModelingTemplateSelector
+    | DataPointsSelector,
     Field(discriminator="type"),
 ]
 
@@ -60,7 +63,9 @@ __all__ = [
     "ChartExternalIdSelector",
     "ChartOwnerSelector",
     "ChartSelector",
+    "DataPointsDataSetSelector",
     "DataPointsFileSelector",
+    "DataPointsSelector",
     "DataSelector",
     "DataSetSelector",
     "ExternalIdColumn",
