@@ -242,6 +242,7 @@ def asset_centric_canvas() -> tuple[IndustrialCanvas, NodeList[InstanceSource]]:
                     },
                     "space": "IndustrialCanvasInstanceSpace",
                     "version": 14,
+                    "existingVersion": 14,
                 }
             ],
             "containerReferences": [
@@ -270,6 +271,7 @@ def asset_centric_canvas() -> tuple[IndustrialCanvas, NodeList[InstanceSource]]:
                     },
                     "space": "IndustrialCanvasInstanceSpace",
                     "version": 1,
+                    "existingVersion": 1,
                 },
                 {
                     "createdTime": 1751540275336,
@@ -296,6 +298,7 @@ def asset_centric_canvas() -> tuple[IndustrialCanvas, NodeList[InstanceSource]]:
                     },
                     "space": "IndustrialCanvasInstanceSpace",
                     "version": 1,
+                    "existingVersion": 1,
                 },
                 {
                     "createdTime": 1751540544349,
@@ -322,6 +325,61 @@ def asset_centric_canvas() -> tuple[IndustrialCanvas, NodeList[InstanceSource]]:
                     },
                     "space": "IndustrialCanvasInstanceSpace",
                     "version": 4,
+                    "existingVersion": 4,
+                },
+                {
+                    "createdTime": 1751540600000,
+                    "externalId": "495af88f-fe1d-403d-91b1-76ef9f80f265_chart-ref-1",
+                    "instanceType": "node",
+                    "lastUpdatedTime": 1751540600000,
+                    "properties": {
+                        "cdf_industrial_canvas": {
+                            "ContainerReference/v2": {
+                                "chartsId": "my-chart-id",
+                                "containerReferenceType": "charts",
+                                "height": 400,
+                                "id": "chart-ref-1",
+                                "label": "My Chart",
+                                "maxHeight": None,
+                                "maxWidth": None,
+                                "resourceId": -1,
+                                "resourceSubId": None,
+                                "width": 600,
+                                "x": 100,
+                                "y": 100,
+                            }
+                        }
+                    },
+                    "space": "IndustrialCanvasInstanceSpace",
+                    "version": 1,
+                    "existingVersion": 1,
+                },
+                {
+                    "createdTime": 1751540700000,
+                    "externalId": "495af88f-fe1d-403d-91b1-76ef9f80f265_datagrid-ref-1",
+                    "instanceType": "node",
+                    "lastUpdatedTime": 1751540700000,
+                    "properties": {
+                        "cdf_industrial_canvas": {
+                            "ContainerReference/v2": {
+                                "chartsId": None,
+                                "containerReferenceType": "dataGrid",
+                                "height": 300,
+                                "id": "datagrid-ref-1",
+                                "label": "My Data Grid",
+                                "maxHeight": None,
+                                "maxWidth": None,
+                                "resourceId": -1,
+                                "resourceSubId": None,
+                                "width": 800,
+                                "x": 200,
+                                "y": 200,
+                            }
+                        }
+                    },
+                    "space": "IndustrialCanvasInstanceSpace",
+                    "version": 1,
+                    "existingVersion": 1,
                 },
             ],
         }

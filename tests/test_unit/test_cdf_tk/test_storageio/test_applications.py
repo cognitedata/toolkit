@@ -146,7 +146,12 @@ class TestChartIO:
 class TestCanvasIO:
     def test_download_iterable(self, asset_centric_canvas: tuple[IndustrialCanvas, NodeList[InstanceSource]]) -> None:
         canvas, _ = asset_centric_canvas
-        ids = [container_ref.resource_id for container_ref in canvas.container_references or []]
+        # Exclude charts/dataGrid types which have resourceId=-1 by design
+        ids = [
+            container_ref.resource_id
+            for container_ref in canvas.container_references or []
+            if container_ref.container_reference_type not in {"charts", "dataGrid"}
+        ]
         assert len(ids) > 0, "Test canvas must have container references for this test to be valid."
         mapping = {id_: f"external_id_{no}" for no, id_ in enumerate(ids)}
         reverse = {v: k for k, v in mapping.items()}
@@ -186,8 +191,10 @@ class TestCanvasIO:
             json_str = json.dumps(json_format)
             internal_id_in_json = [id_ for id_ in ids if str(id_) in json_str]
             assert len(internal_id_in_json) == 0, "Internal IDs should not be present in the JSON export."
+            assert "existingVersion" not in json_str, "existingVersion should not be present in the JSON export."
             restored_canvases = io.json_chunk_to_data([("line 1", item) for item in json_format])
 
             assert len(restored_canvases) == 1
             restored_canvas = restored_canvases[0]
-            assert restored_canvas.item.dump() == canvas.as_write().dump()
+            # The restored canvas should match the original without existingVersion fields
+            assert restored_canvas.item.dump() == canvas.as_write().dump(keep_existing_version=False)

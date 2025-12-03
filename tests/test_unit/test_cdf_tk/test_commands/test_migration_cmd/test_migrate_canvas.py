@@ -47,7 +47,11 @@ class TestMigrationCanvasCommand:
             backup = client.canvas.industrial.create.call_args[0][0]
             assert isinstance(backup, IndustrialCanvasApply)
 
-        assert len(update.fdm_instance_container_references) == len(canvas.container_references)
+        # Only asset-centric container references should be migrated (not charts/dataGrid)
+        migratable_refs = [
+            ref for ref in canvas.container_references if ref.container_reference_type not in {"charts", "dataGrid"}
+        ]
+        assert len(update.fdm_instance_container_references) == len(migratable_refs)
         assert len(backup.fdm_instance_container_references) == 0
 
     def test_migrate_canvas_missing(self) -> None:
