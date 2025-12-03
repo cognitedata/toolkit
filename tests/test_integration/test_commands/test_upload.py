@@ -5,9 +5,9 @@ import pytest
 from cognite.client.data_classes import DataSet, TimeSeries, TimeSeriesWrite
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.commands import UploadCommand
+from cognite_toolkit._cdf_tk.commands import UploadCommand, DownloadCommand
 from cognite_toolkit._cdf_tk.storageio import DatapointsIO
-from cognite_toolkit._cdf_tk.storageio.selectors import DataPointsFileSelector
+from cognite_toolkit._cdf_tk.storageio.selectors import DataPointsFileSelector, DataPointsDataSetSelector
 from cognite_toolkit._cdf_tk.storageio.selectors._datapoints import ExternalIdColumn, InternalIdColumn
 
 
@@ -87,3 +87,49 @@ class TestUploadCommand:
             end=datetime.fromisoformat("2024-01-01T00:00:10Z"),
         )
         assert len(datapoints2) == 10, f"Expected 10 datapoints, got {len(datapoints2)}"
+
+    def test_upload_download_datapoints(self, toolkit_client: ToolkitClient, two_timeseries: tuple[TimeSeries, TimeSeries], tmp_path: Path) -> None:
+        ts1, ts2 = two_timeseries
+        client = toolkit_client
+        assert ts1.is_string is False
+        assert ts2.is_string is True
+
+        upload_dir = tmp_path / "upload"
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        selector = DataPointsDataSetSelector(
+            data_set_external_id=client.lookup.data_sets.external_id(ts1.data_set_id),
+            start=int(datetime.fromisoformat("1989-01-01T00:00:00Z").timestamp() * 1000),
+            end=int(datetime.fromisoformat("1989-01-02T00:00:00Z").timestamp() * 1000),
+        )
+        selector.dump_to_file(upload_dir)
+        csv_file = upload_dir / f"{selector!s}.{DatapointsIO.KIND}.csv"
+        with csv_file.open("w") as f:
+            f.write("externalId,timestamp,value\n")
+            for ts in [ts1, ts2]:
+                for i in range(10):
+                    f.write(f"{ts.external_id},1989-01-01T00:00:{i:02d}Z,{i * 5}\n")
+        upload_cmd = UploadCommand(silent=True, skip_tracking=True)
+        upload_cmd.upload(
+            upload_dir,
+            toolkit_client,
+            deploy_resources=False,
+            dry_run=False,
+            verbose=True,
+        )
+
+        download_cmd = DownloadCommand(silent=True, skip_tracking=True)
+        download_cmd.download(
+            selectors=[selector],
+            io=DatapointsIO(client),
+            output_dir=tmp_path / "download",
+            verbose=True,
+            file_format="csv",
+            compression="none",
+            limit=100_000
+        )
+
+        download_file = tmp_path / "download" / selector.group / f"{selector!s}.{DatapointsIO}.csv"
+        assert download_file.exists(), f"Downloaded file {download_file} does not exist"
+        with download_file.open("r") as f:
+            lines = f.readlines()
+        assert len(lines) == 21, f"Expected 21 lines in downloaded file, got {len(lines)}"  # 1 header + 20 datapoints
