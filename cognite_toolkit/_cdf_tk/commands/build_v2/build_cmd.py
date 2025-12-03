@@ -175,7 +175,7 @@ class BuildCommand(ToolkitCommand):
         raise NotImplementedError()
 
     def _print_or_log_warnings_by_category(self, issues: BuildIssueList) -> None:
-        raise NotImplementedError()
+        pass
 
     # Delegate to old BuildCommand for backward compatibility with tests
     def build_modules(
@@ -189,7 +189,11 @@ class BuildCommand(ToolkitCommand):
     ) -> BuiltModuleList:
         """Delegate to old BuildCommand for backward compatibility."""
         old_cmd = OldBuildCommand()
-        return old_cmd.build_modules(modules, build_dir, variables, verbose, progress_bar, on_error)
+
+        built_modules = old_cmd.build_modules(modules, build_dir, variables, verbose, progress_bar, on_error)
+        self._additional_tracking_info.package_ids.update(old_cmd._additional_tracking_info.package_ids)
+        self._additional_tracking_info.module_ids.update(old_cmd._additional_tracking_info.module_ids)
+        return built_modules
 
     def build_config(
         self,

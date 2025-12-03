@@ -8,6 +8,7 @@ import yaml
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client.data_classes.data_modeling import DataModelId, Space
 
+from cognite_toolkit._cdf_tk.commands.build_cmd import BuildCommand as OldBuildCommand
 from cognite_toolkit._cdf_tk.commands.build_v2.build_cmd import BuildCommand
 from cognite_toolkit._cdf_tk.commands.build_v2.build_issues import BuildIssue
 from cognite_toolkit._cdf_tk.cruds import TransformationCRUD
@@ -33,6 +34,7 @@ def dummy_environment() -> Environment:
     )
 
 
+# Checks to avoid regressions
 class TestBuildV2Command:
     def test_module_not_found_error(self, tmp_path: Path) -> None:
         with pytest.raises(ToolkitMissingModuleError):
@@ -215,3 +217,31 @@ externalId: some_external_id
         assert _build_file is not None
         assert _build_file["read_modules"][0]["package_id"] == "rmdm"
         assert _build_file["read_modules"][0]["module_id"] == "data_model"
+
+
+class TestBuildParity:
+    def test_build_parity_with_old_build_command(self, tmp_path: Path) -> None:
+        cmd = BuildCommand(silent=True, skip_tracking=True)
+        new_result = None
+        old_result = None
+
+        with suppress(NotImplementedError):
+            new_result = cmd.execute(
+                verbose=False,
+                build_dir=tmp_path / "new",
+                organization_dir=data.COMPLETE_ORG,
+                selected=None,
+                build_env_name="dev",
+                no_clean=False,
+            )
+
+        old_cmd = OldBuildCommand(print_warning=False, skip_tracking=False)
+        old_result = old_cmd.execute(
+            verbose=False,
+            build_dir=tmp_path / "old",
+            organization_dir=data.COMPLETE_ORG,
+            selected=None,
+            build_env_name="dev",
+            no_clean=False,
+        )
+        assert new_result == old_result
