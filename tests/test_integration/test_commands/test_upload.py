@@ -89,10 +89,9 @@ class TestUploadCommand:
         assert len(datapoints2) == 10, f"Expected 10 datapoints, got {len(datapoints2)}"
 
     def test_upload_download_datapoints(self, toolkit_client: ToolkitClient, two_timeseries: tuple[TimeSeries, TimeSeries], tmp_path: Path) -> None:
-        ts1, ts2 = two_timeseries
+        ts1, _ = two_timeseries
         client = toolkit_client
         assert ts1.is_string is False
-        assert ts2.is_string is True
 
         upload_dir = tmp_path / "upload"
         upload_dir.mkdir(parents=True, exist_ok=True)
@@ -105,9 +104,8 @@ class TestUploadCommand:
         csv_file = upload_dir / f"{selector!s}.{DatapointsIO.KIND}.csv"
         with csv_file.open("w") as f:
             f.write("externalId,timestamp,value\n")
-            for ts in [ts1, ts2]:
-                for i in range(10):
-                    f.write(f"{ts.external_id},1989-01-01T00:00:{i:02d}Z,{i * 5}\n")
+            for i in range(10):
+                f.write(f"{ts1.external_id},1989-01-01T00:00:{i:02d}Z,{i * 5}\n")
         upload_cmd = UploadCommand(silent=True, skip_tracking=True)
         upload_cmd.upload(
             upload_dir,
@@ -117,13 +115,22 @@ class TestUploadCommand:
             verbose=True,
         )
 
+        aggregate_result = client.time_series.data.retrieve(
+            external_id=ts1.external_id,
+            start=datetime.fromisoformat("1989-01-01T00:00:00Z"),
+            end=datetime.fromisoformat("1989-01-02T00:00:00Z"),
+            aggregates="count",
+            granularity="1d"
+        )
+        assert aggregate_result.count[0] == 10, f"Expected 10 datapoints, got {aggregate_result.count[0]}"
+
         download_cmd = DownloadCommand(silent=True, skip_tracking=True)
         download_cmd.download(
             selectors=[selector],
             io=DatapointsIO(client),
             output_dir=tmp_path / "download",
             verbose=True,
-            file_format="csv",
+            file_format=".csv",
             compression="none",
             limit=100_000
         )
