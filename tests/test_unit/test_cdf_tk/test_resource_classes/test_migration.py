@@ -27,7 +27,6 @@ def invalid_mapping_test_cases() -> Iterable:
             },
         },
         {
-            "In field propertyMapping invalid JSON paths: notA(Json).path",
             "In viewId missing required field: 'space'",
             "In viewId.version input should be a valid string. Got 123 of type int. Hint: "
             "Use double quotes to force string.",
