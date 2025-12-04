@@ -1,5 +1,4 @@
 from collections.abc import Iterable, Sequence
-from typing import Any
 
 from cognite_toolkit._cdf_tk.client.data_classes.canvas import (
     IndustrialCanvas,
