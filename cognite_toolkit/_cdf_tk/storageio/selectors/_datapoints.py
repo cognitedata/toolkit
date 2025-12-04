@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from functools import cached_property
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, ClassVar, Literal
 
 from cognite.client._proto.data_points_pb2 import (
     InstanceId,
@@ -50,9 +50,12 @@ TimeSeriesColumn = Annotated[
 ]
 
 
-class DataPointsFileSelector(DataSelector):
-    type: Literal["datapointsFile"] = "datapointsFile"
+class DataPointsSelector(DataSelector, ABC):
     kind: Literal["Datapoints"] = "Datapoints"
+
+
+class DataPointsFileSelector(DataPointsSelector):
+    type: Literal["datapointsFile"] = "datapointsFile"
 
     timestamp_column: str
     columns: tuple[TimeSeriesColumn, ...]
@@ -67,3 +70,20 @@ class DataPointsFileSelector(DataSelector):
     @cached_property
     def id_by_column(self) -> dict[str, Column]:
         return {col.column: col for col in self.columns}
+
+
+class DataPointsDataSetSelector(DataPointsSelector):
+    required_columns: ClassVar[frozenset[str]] = frozenset({"externalId", "timestamp", "value"})
+    type: Literal["datapointsDataSet"] = "datapointsDataSet"
+
+    data_set_external_id: str
+    start: int | str | None = None
+    end: int | str | None = None
+    data_type: Literal["numeric", "string"] = "numeric"
+
+    @property
+    def group(self) -> str:
+        return f"DataSet_{self.data_set_external_id}"
+
+    def __str__(self) -> str:
+        return f"datapoints_dataset_{self.data_set_external_id}"
