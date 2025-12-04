@@ -219,7 +219,7 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
         references = dumped.get("containerReferences", [])
         if not isinstance(references, list):
             return dumped
-        new_container_references: list[Any] = []
+        new_container_references: list[dict[str, JsonVal]] = []
         for container_ref in references:
             if not isinstance(container_ref, dict):
                 new_container_references.append(container_ref)
