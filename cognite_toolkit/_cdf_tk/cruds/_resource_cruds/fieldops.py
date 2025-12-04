@@ -437,4 +437,5 @@ class InFieldCDMLocationConfigCRUD(ResourceCRUD[NodeIdentifier, InFieldCDMLocati
         elif len(json_path) == 4 and json_path[:2] == ("dataExplorationConfig", "filters") and json_path[3] == "values":
             # Handles dataExplorationConfig.filters[i].values
             return diff_list_hashable(local, cdf)
+
         return super().diff_list(local, cdf, json_path)

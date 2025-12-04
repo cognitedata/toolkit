@@ -6,8 +6,6 @@ from typing import Annotated, Any, Literal
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
-from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
-
 from ._base import DataSelector, SelectorObject
 from ._instances import SelectedView
 
@@ -17,6 +15,9 @@ FILEPATH = "$FILEPATH"
 
 class FileContentSelector(DataSelector, ABC):
     kind: Literal["FileContent"] = "FileContent"
+
+
+class FileTemplateSelector(FileContentSelector, ABC):
     file_directory: Path
 
     def find_data_files(self, input_dir: Path, manifest_file: Path) -> list[Path]:
@@ -52,7 +53,7 @@ class FileMetadataTemplate(FileTemplate):
         return v
 
 
-class FileMetadataTemplateSelector(FileContentSelector):
+class FileMetadataTemplateSelector(FileTemplateSelector):
     type: Literal["fileMetadataTemplate"] = "fileMetadataTemplate"
     template: FileMetadataTemplate
 
@@ -96,7 +97,7 @@ class FileDataModelingTemplate(FileTemplate):
         return data
 
 
-class FileDataModelingTemplateSelector(FileContentSelector):
+class FileDataModelingTemplateSelector(FileTemplateSelector):
     type: Literal["fileDataModelingTemplate"] = "fileDataModelingTemplate"
     view_id: SelectedView = SelectedView(space="cdf_cdm", external_id="CogniteFile", version="v1")
     template: FileDataModelingTemplate
@@ -150,7 +151,7 @@ FileIdentifier = Annotated[FileInstanceID | FileExternalID | FileInternalID, Fie
 
 class FileIdentifierSelector(FileContentSelector):
     type: Literal["fileIdentifier"] = "fileIdentifier"
-    file_directory: Path = Path("file_content")
+    file_directory: str = "file_content"
     use_metadata_directory: bool = True
     identifiers: tuple[FileIdentifier, ...]
 
@@ -161,6 +162,3 @@ class FileIdentifierSelector(FileContentSelector):
     def __str__(self) -> str:
         hash_ = hashlib.md5(",".join(sorted(str(self.identifiers))).encode()).hexdigest()[:8]
         return f"file_{len(self.identifiers)}_identifiers_{hash_}"
-
-    def create_instance(self, filepath: Path) -> dict[str, Any]:
-        raise ToolkitNotImplementedError("FileIdentifierSelector does not support creating instances from file paths.")
