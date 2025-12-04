@@ -1,4 +1,5 @@
 from collections.abc import Iterable, Sequence
+from typing import Any
 
 from cognite_toolkit._cdf_tk.client.data_classes.canvas import (
     IndustrialCanvas,
@@ -218,7 +219,7 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
         references = dumped.get("containerReferences", [])
         if not isinstance(references, list):
             return dumped
-        new_container_references: list[dict[str, JsonVal]] = []
+        new_container_references: list[Any] = []
         for container_ref in references:
             if not isinstance(container_ref, dict):
                 new_container_references.append(container_ref)
@@ -332,7 +333,7 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
         references = item_json.get("containerReferences", [])
         if not isinstance(references, list):
             return IndustrialCanvasApply._load(item_json)
-        new_container_references: list[dict[str, JsonVal]] = []
+        new_container_references: list[Any] = []
         for container_ref in references:
             if not isinstance(container_ref, dict):
                 new_container_references.append(container_ref)
