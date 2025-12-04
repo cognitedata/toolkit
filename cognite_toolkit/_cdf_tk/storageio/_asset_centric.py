@@ -219,9 +219,16 @@ class UploadableAssetCentricIO(
                 security_category_names.add(security_category_external_id)
         self.client.lookup.security_categories.id(list(security_category_names))
 
-    def row_to_resource(
-        self, source_id: str, row: dict[str, JsonVal], selector: AssetCentricSelector | None = None
-    ) -> T_ResourceRequest:
+    def rows_to_data(
+        self, rows: list[tuple[str, dict[str, JsonVal]]], selector: AssetCentricSelector | None = None
+    ) -> Sequence[UploadItem[T_ResourceRequest]]:
+        # We need to populate caches for any external IDs used in the rows before converting to resources.
+        # Thus, we override this method instead of row_to_resource, and reuse the json_to_resource method that
+        # does the cache population.
+        return self.json_chunk_to_data([(source_id, self.row_to_json(row)) for source_id, row in rows])
+
+    @classmethod
+    def row_to_json(cls, row: dict[str, JsonVal]) -> dict[str, JsonVal]:
         metadata: dict[str, JsonVal] = {}
         cleaned_row: dict[str, JsonVal] = {}
         for key, value in row.items():
@@ -232,7 +239,14 @@ class UploadableAssetCentricIO(
                 cleaned_row[key] = value
         if metadata:
             cleaned_row["metadata"] = metadata
-        return self.json_to_resource(cleaned_row)
+        return cleaned_row
+
+    def row_to_resource(
+        self, source_id: str, row: dict[str, JsonVal], selector: AssetCentricSelector | None = None
+    ) -> T_ResourceRequest:
+        raise NotImplementedError(
+            f"This method should not be called. {type(self).__name__} overrides rows_to_data instead."
+        )
 
 
 class AssetIO(UploadableAssetCentricIO[Asset, AssetWrite]):
