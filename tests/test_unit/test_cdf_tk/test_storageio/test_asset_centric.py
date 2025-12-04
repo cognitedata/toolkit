@@ -1,6 +1,7 @@
 import json
 from collections.abc import Iterable
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock
 
 import httpx
@@ -23,13 +24,18 @@ from cognite.client.data_classes import (
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
-from cognite_toolkit._cdf_tk.storageio import AssetCentricIO, AssetIO, EventIO, FileMetadataIO, TimeSeriesIO
-from cognite_toolkit._cdf_tk.storageio._base import UploadItem
+from cognite_toolkit._cdf_tk.storageio import (
+    AssetCentricIO,
+    AssetIO,
+    EventIO,
+    FileMetadataIO,
+    TimeSeriesIO,
+)
+from cognite_toolkit._cdf_tk.storageio._base import TableUploadableStorageIO
 from cognite_toolkit._cdf_tk.storageio.selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.fileio import FileReader
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
-from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 RESOURCE_COUNT = 50
 DATA_SET_ID = 1234
@@ -207,20 +213,21 @@ class TestAssetCentricIO:
 
         source = io.stream_data(selector)
 
-        json_chunks: list[list[dict[str, JsonVal]]] = []
+        row_chunks: list[list[dict[str, Any]]] = []
         for page in source:
-            json_chunk = io.data_to_json_chunk(page.items)
-            assert isinstance(json_chunk, list)
-            assert len(json_chunk) == CHUNK_SIZE
-            for item in json_chunk:
-                assert isinstance(item, dict)
-                assert "dataSetExternalId" in item
-                assert item["dataSetExternalId"] == DATA_SET_EXTERNAL_ID
-            json_chunks.append(json_chunk)
+            rows = io.data_to_row(page.items, selector)
+            assert isinstance(rows, list)
+            assert len(rows) == CHUNK_SIZE
+            for row in rows:
+                assert isinstance(row, dict)
+                assert "dataSetExternalId" in row
+                assert row["dataSetExternalId"] == DATA_SET_EXTERNAL_ID
+            row_chunks.append(rows)
 
         if create_endpoint is None:
             return  # No upload test for this IO class
 
+        assert isinstance(io, TableUploadableStorageIO)
         config = toolkit_config
         resources = {
             AssetIO: some_asset_data,
@@ -250,9 +257,10 @@ class TestAssetCentricIO:
         respx_mock.post(config.create_api_url(create_endpoint)).mock(side_effect=create_callback)
 
         with HTTPClient(config) as upload_client:
-            for chunk in json_chunks:
-                write_items = [io.json_to_resource(item) for item in chunk]
-                upload_items = [UploadItem(source_id=io.as_id(item), item=item) for item in write_items]
+            for chunk_no, rows in enumerate(row_chunks):
+                upload_items = io.rows_to_data(
+                    [(f"chunk {chunk_no} row {row_no}", row) for row_no, row in enumerate(rows)], selector
+                )
                 io.upload_items(upload_items, upload_client, selector)
 
         assert respx_mock.calls.call_count == RESOURCE_COUNT // CHUNK_SIZE
