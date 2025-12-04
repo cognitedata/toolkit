@@ -252,11 +252,8 @@ class TestHTTPClientItemRequests:
                 extra_body_fields={"autoCreateDirectRelations": True},
             )
         )
-        assert results == [
-            SuccessResponseItems(
-                status_code=200, ids=[1, 2], body='{"items":[{"id":1,"value":42},{"id":2,"value":43}]}'
-            )
-        ]
+        body = '{"items":[{"id":1,"value":42},{"id":2,"value":43}]}'
+        assert results == [SuccessResponseItems(status_code=200, ids=[1, 2], body=body, content=body.encode("utf-8"))]
         assert len(rsps.calls) == 1
         assert json.loads(rsps.calls[0].request.content) == {
             "items": [{"name": "item1", "id": 1}, {"name": "item2", "id": 2}],
@@ -292,10 +289,9 @@ class TestHTTPClientItemRequests:
                 items=request_items,
             )
         )
+        body = '{"items":[{"externalId":"success","data":123}]}'
         assert results == [
-            SuccessResponseItems(
-                status_code=200, ids=["success"], body='{"items":[{"externalId":"success","data":123}]}'
-            ),
+            SuccessResponseItems(status_code=200, ids=["success"], body=body, content=body.encode("utf-8")),
             FailedResponseItems(
                 status_code=400,
                 ids=["fail"],
@@ -349,7 +345,7 @@ class TestHTTPClientItemRequests:
             )
         )
         assert results == [
-            SuccessResponseItems(status_code=200, ids=[1, 2], body=""),
+            SuccessResponseItems(status_code=200, ids=[1, 2], body="", content=b""),
         ]
 
     def test_timeout_error(self, http_client_one_retry: HTTPClient, rsps: respx.MockRouter) -> None:

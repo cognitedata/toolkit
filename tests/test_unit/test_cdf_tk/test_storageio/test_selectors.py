@@ -26,6 +26,7 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     CanvasExternalIdSelector,
     ChartExternalIdSelector,
     ChartOwnerSelector,
+    DataPointsDataSetSelector,
     DataPointsFileSelector,
     DataSelector,
     DataSetSelector,
@@ -263,6 +264,17 @@ def example_selector_data() -> Iterable[tuple]:
         FileContentIO,
         FileContentIO.KIND,
         id="FileIdentifierSelector",
+    )
+    yield pytest.param(
+        {
+            "type": "datapointsDataSet",
+            "dataSetExternalId": "my_datapoints_data_set",
+            "kind": "Datapoints",
+        },
+        DataPointsDataSetSelector,
+        DatapointsIO,
+        DatapointsIO.KIND,
+        id="DataPointsDataSetSelector",
     )
 
 
