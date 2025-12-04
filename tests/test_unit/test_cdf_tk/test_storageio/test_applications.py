@@ -1,11 +1,14 @@
 import json
+from datetime import datetime
 
 import pytest
 import responses
-from cognite.client.data_classes.data_modeling import NodeList
+from cognite.client.data_classes.data_modeling import NodeList, NodeListWithCursor
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.canvas import (
+    Canvas,
+    ContainerReference,
     IndustrialCanvas,
 )
 from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList
@@ -252,3 +255,41 @@ class TestCanvasIO:
             io = CanvasIO(client)
             loaded = io._load_resource(canvas_json)
             assert len(loaded.container_references) == 0, "Container reference with missing resource should be skipped."
+
+    def test_dump_canvas_missing_resource(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.lookup.assets.external_id.return_value = None
+
+            canvas = IndustrialCanvas(
+                canvas=Canvas(
+                    "my_space",
+                    "test_canvas",
+                    version=1,
+                    last_updated_time=1,
+                    created_by=1,
+                    name="Test Canvas",
+                    updated_by="doctrino",
+                    updated_at=datetime.now(),
+                    created_time=123,
+                ),
+                container_references=NodeListWithCursor[ContainerReference](
+                    [
+                        ContainerReference(
+                            external_id="asset_ref",
+                            container_reference_type="asset",
+                            resource_id=12345,
+                            space="my_space",
+                            version=1,
+                            last_updated_time=1,
+                            created_time=1,
+                        ),
+                    ],
+                    cursor=None,
+                ),
+            )
+
+            io = CanvasIO(client)
+            dumped = io._dump_resource(canvas)
+            assert len(dumped["containerReferences"]) == 0, (
+                "Container reference with missing resource should be skipped."
+            )
