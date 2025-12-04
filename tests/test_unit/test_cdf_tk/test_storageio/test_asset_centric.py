@@ -10,8 +10,6 @@ from cognite.client.data_classes import (
     Asset,
     AssetList,
     CountAggregate,
-    DataSet,
-    DataSetList,
     Event,
     EventList,
     FileMetadata,
@@ -121,6 +119,7 @@ def some_event_data() -> EventList:
 
 @pytest.fixture()
 def asset_centric_client(
+    toolkit_config: ToolkitClientConfig,
     some_asset_data: AssetList,
     some_filemetadata_data: FileMetadataList,
     some_timeseries_data: TimeSeriesList,
@@ -153,6 +152,11 @@ def asset_centric_client(
         client.lookup.assets.external_id.side_effect = lookup_asset_external_id
         client.lookup.assets.id.side_effect = lookup_asset_id
 
+        client.verify.authorization.return_value = []
+        client.labels.retrieve.return_value = LabelDefinitionList(
+            [LabelDefinition(external_id="my_label", name="my_label")]
+        )
+        client.config = toolkit_config
         yield client
 
 
@@ -186,7 +190,7 @@ class TestAssetCentricIO:
     )
     def test_download_upload(
         self,
-        io_class: AssetCentricIO,
+        io_class: type[AssetCentricIO],
         selector: AssetCentricSelector,
         create_endpoint: str | None,
         toolkit_config: ToolkitClientConfig,
@@ -268,6 +272,7 @@ class TestAssetIO:
         toolkit_config: ToolkitClientConfig,
         respx_mock: respx.MockRouter,
         monkeypatch: pytest.MonkeyPatch,
+        asset_centric_client: ToolkitClient,
     ) -> None:
         config = toolkit_config
         monkeypatch.setenv("CDF_CLUSTER", config.cdf_cluster)
@@ -284,47 +289,35 @@ class TestAssetIO:
         respx_mock.post(config.create_api_url("/assets")).mock(side_effect=asset_create_callback)
 
         selector = AssetSubtreeSelector(hierarchy="test_hierarchy", kind="Assets")
-        with monkeypatch_toolkit_client() as client:
-            client.config = config
-            client.verify.authorization.return_value = []
-            client.assets.return_value = [some_asset_data]
-            client.assets.aggregate_count.return_value = 100
-            client.lookup.data_sets.external_id.return_value = "test_data_set"
-            client.lookup.data_sets.id.return_value = 1234
-            client.lookup.assets.external_id.return_value = "test_hierarchy"
-            client.lookup.assets.id.return_value = 123
-            client.data_sets.retrieve_multiple.return_value = DataSetList(
-                [DataSet(id=1234, external_id="test_data_set")]
-            )
-            client.labels.retrieve.return_value = LabelDefinitionList(
-                [LabelDefinition(external_id="my_label", name="my_label")]
-            )
 
-            io = AssetIO(client)
+        io = AssetIO(asset_centric_client)
 
-            download_command = DownloadCommand(silent=True, skip_tracking=True)
-            upload_command = UploadCommand(silent=True, skip_tracking=True)
+        download_command = DownloadCommand(silent=True, skip_tracking=True)
+        upload_command = UploadCommand(silent=True, skip_tracking=True)
 
-            download_command.download(
-                selectors=[selector],
-                io=io,
-                output_dir=tmp_path,
-                verbose=False,
-                file_format=".csv",
-                compression="none",
-                limit=100,
-            )
+        download_command.download(
+            selectors=[selector],
+            io=io,
+            output_dir=tmp_path,
+            verbose=False,
+            file_format=".csv",
+            compression="none",
+            limit=100,
+        )
 
-            upload_command.upload(
-                input_dir=tmp_path / selector.group,
-                client=client,
-                deploy_resources=True,
-                dry_run=False,
-                verbose=False,
-                kind=io.KIND,
-            )
+        csv_files = list((tmp_path / selector.group).glob("*.csv"))
+        assert len(csv_files) == 1
 
-            assert len(respx_mock.calls) == 1
+        upload_command.upload(
+            input_dir=tmp_path / selector.group,
+            client=asset_centric_client,
+            deploy_resources=True,
+            dry_run=False,
+            verbose=False,
+            kind=io.KIND,
+        )
+
+        assert len(respx_mock.calls) == 1
 
     def test_read_assets_chunks(self) -> None:
         assets = [
