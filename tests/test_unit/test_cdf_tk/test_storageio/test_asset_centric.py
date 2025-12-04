@@ -59,6 +59,7 @@ def some_asset_data() -> AssetList:
                 source="test_source",
                 labels=["my_label"],
                 data_set_id=DATA_SET_ID,
+                metadata={"key": f"value_{i}"} if i % 2 == 0 else None,
             )
             for i in range(RESOURCE_COUNT)
         ]
@@ -78,6 +79,7 @@ def some_filemetadata_data() -> FileMetadataList:
                 data_set_id=DATA_SET_ID,
                 asset_ids=[ASSET_ID],
                 source="test_source",
+                metadata={"key": f"value_{i}"} if i % 2 == 0 else None,
             )
             for i in range(RESOURCE_COUNT)
         ]
@@ -98,6 +100,7 @@ def some_timeseries_data() -> TimeSeriesList:
                 unit="unit",
                 is_string=False,
                 is_step=False,
+                metadata={"key": f"value_{i}"} if i % 2 == 0 else None,
             )
             for i in range(RESOURCE_COUNT)
         ]
@@ -117,6 +120,7 @@ def some_event_data() -> EventList:
                 source="test_source",
                 start_time=1000000000000 + i * 1000,
                 end_time=1000000001000 + i * 1000,
+                metadata={"key": f"value_{i}"} if i % 2 == 0 else None,
             )
             for i in range(RESOURCE_COUNT)
         ]
