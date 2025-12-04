@@ -25,8 +25,9 @@ from cognite.client.data_classes import (
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
-from cognite_toolkit._cdf_tk.storageio import AssetIO, EventIO, FileMetadataIO, TimeSeriesIO
-from cognite_toolkit._cdf_tk.storageio.selectors import AssetSubtreeSelector, DataSetSelector
+from cognite_toolkit._cdf_tk.storageio import AssetCentricIO, AssetIO, EventIO, FileMetadataIO, TimeSeriesIO
+from cognite_toolkit._cdf_tk.storageio._base import UploadItem
+from cognite_toolkit._cdf_tk.storageio.selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.fileio import FileReader
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
@@ -157,21 +158,76 @@ def asset_centric_client(
 
 @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
 class TestAssetCentricIO:
-    def test_download(self): ...
-
-
-class TestAssetIO:
-    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
+    @pytest.mark.parametrize(
+        "io_class,selector,create_endpoint",
+        [
+            pytest.param(
+                AssetIO, AssetSubtreeSelector(hierarchy=ASSET_EXTERNAL_ID, kind="Assets"), "/assets", id="AssetIO"
+            ),
+            pytest.param(
+                FileMetadataIO,
+                DataSetSelector(data_set_external_id=DATA_SET_EXTERNAL_ID, kind="FileMetadata"),
+                None,
+                id="FileMetadataIO",
+            ),
+            pytest.param(
+                TimeSeriesIO,
+                DataSetSelector(data_set_external_id=DATA_SET_EXTERNAL_ID, kind="TimeSeries"),
+                "/timeseries",
+                id="TimeSeriesIO",
+            ),
+            pytest.param(
+                EventIO,
+                DataSetSelector(data_set_external_id=DATA_SET_EXTERNAL_ID, kind="Events"),
+                "/events",
+                id="EventIO",
+            ),
+        ],
+    )
     def test_download_upload(
         self,
+        io_class: AssetCentricIO,
+        selector: AssetCentricSelector,
+        create_endpoint: str | None,
         toolkit_config: ToolkitClientConfig,
-        some_asset_data: AssetList,
         respx_mock: respx.MockRouter,
         asset_centric_client: ToolkitClient,
+        some_asset_data: AssetList,
+        some_filemetadata_data: FileMetadataList,
+        some_timeseries_data: TimeSeriesList,
+        some_event_data: EventList,
     ) -> None:
+        io = io_class(asset_centric_client)
+
+        assert io.count(selector) == RESOURCE_COUNT
+
+        source = io.stream_data(selector)
+
+        json_chunks: list[list[dict[str, JsonVal]]] = []
+        for page in source:
+            json_chunk = io.data_to_json_chunk(page.items)
+            assert isinstance(json_chunk, list)
+            assert len(json_chunk) == CHUNK_SIZE
+            for item in json_chunk:
+                assert isinstance(item, dict)
+                assert "dataSetExternalId" in item
+                assert item["dataSetExternalId"] == DATA_SET_EXTERNAL_ID
+            json_chunks.append(json_chunk)
+
+        if create_endpoint is None:
+            return  # No upload test for this IO class
+
         config = toolkit_config
-        asset_by_external_id = {asset.external_id: asset for asset in some_asset_data if asset.external_id is not None}
-        selector = AssetSubtreeSelector(hierarchy="test_hierarchy", kind="Assets")
+        resources = {
+            AssetIO: some_asset_data,
+            FileMetadataIO: some_filemetadata_data,
+            TimeSeriesIO: some_timeseries_data,
+            EventIO: some_event_data,
+        }[io_class]
+
+        resource_by_external_id = {
+            resource.external_id: resource for resource in resources if resource.external_id is not None
+        }
 
         def create_callback(request: httpx.Request) -> httpx.Response:
             payload = json.loads(request.content)
@@ -181,45 +237,29 @@ class TestAssetIO:
             return httpx.Response(
                 status_code=200,
                 json={
-                    "items": [asset_by_external_id[item["externalId"]].dump() for item in items if "externalId" in item]
+                    "items": [
+                        resource_by_external_id[item["externalId"]].dump() for item in items if "externalId" in item
+                    ]
                 },
             )
 
-        respx_mock.post(config.create_api_url("/assets")).mock(side_effect=create_callback)
-
-        io = AssetIO(asset_centric_client)
-
-        assert io.count(selector) == RESOURCE_COUNT
-
-        source = io.stream_data(selector)
-        json_chunks: list[list[dict[str, JsonVal]]] = []
-        for page in source:
-            # New interface: stream_data returns Page objects
-            json_chunk = io.data_to_json_chunk(page.items)
-            assert isinstance(json_chunk, list)
-            assert len(json_chunk) == 10
-            for item in json_chunk:
-                assert isinstance(item, dict)
-                assert "dataSetExternalId" in item
-                assert item["dataSetExternalId"] == "test_data_set"
-            json_chunks.append(json_chunk)
+        respx_mock.post(config.create_api_url(create_endpoint)).mock(side_effect=create_callback)
 
         with HTTPClient(config) as upload_client:
-            from cognite_toolkit._cdf_tk.storageio._base import UploadItem
-
-            # New interface: convert individual items and create UploadItems
             for chunk in json_chunks:
                 write_items = [io.json_to_resource(item) for item in chunk]
                 upload_items = [UploadItem(source_id=io.as_id(item), item=item) for item in write_items]
                 io.upload_items(upload_items, upload_client, selector)
 
-        assert respx_mock.calls.call_count == 5  # 50 rows in chunks of 10
-        uploaded_assets = []
+        assert respx_mock.calls.call_count == RESOURCE_COUNT // CHUNK_SIZE
+        uploaded_resources = []
         for call in respx_mock.calls:
-            uploaded_assets.extend(json.loads(call.request.content)["items"])
+            uploaded_resources.extend(json.loads(call.request.content)["items"])
 
-        assert uploaded_assets == some_asset_data.as_write().dump()
+        assert uploaded_resources == resources.as_write().dump()
 
+
+class TestAssetIO:
     @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
     def test_download_upload_command(
         self,
@@ -308,144 +348,3 @@ class TestAssetIO:
             [("line 2", {"id": 2, "depth": 2})],
             [("line 1", {"id": 1, "depth": 3})],
         ]
-
-
-class TestFileMetadataIO:
-    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
-    def test_download(self, asset_centric_client: ToolkitClient) -> None:
-        selector = DataSetSelector(data_set_external_id="DataSetSelector", kind="FileMetadata")
-
-        io = FileMetadataIO(asset_centric_client)
-
-        assert io.count(selector) == RESOURCE_COUNT
-
-        source = io.stream_data(selector)
-        for page in source:
-            json_chunk = io.data_to_json_chunk(page.items)
-            assert isinstance(json_chunk, list)
-            assert len(json_chunk) == CHUNK_SIZE
-            for item in json_chunk:
-                assert isinstance(item, dict)
-                assert "dataSetExternalId" in item
-                assert item["dataSetExternalId"] == DATA_SET_EXTERNAL_ID
-
-
-class TestTimeSeriesIO:
-    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
-    def test_download_upload(
-        self,
-        toolkit_config: ToolkitClientConfig,
-        some_timeseries_data: TimeSeriesList,
-        respx_mock: respx.MockRouter,
-        asset_centric_client: ToolkitClient,
-    ) -> None:
-        config = toolkit_config
-        ts_by_external_id = {ts.external_id: ts for ts in some_timeseries_data if ts.external_id is not None}
-        selector = DataSetSelector(data_set_external_id="DataSetSelector", kind="TimeSeries")
-
-        def create_callback(request: httpx.Request) -> httpx.Response:
-            payload = json.loads(request.content)
-            assert "items" in payload
-            items = payload["items"]
-            assert isinstance(items, list)
-            return httpx.Response(
-                status_code=200,
-                json={
-                    "items": [ts_by_external_id[item["externalId"]].dump() for item in items if "externalId" in item]
-                },
-            )
-
-        respx_mock.post(config.create_api_url("/timeseries")).mock(side_effect=create_callback)
-
-        io = TimeSeriesIO(asset_centric_client)
-
-        assert io.count(selector) == RESOURCE_COUNT
-
-        source = io.stream_data(selector)
-        json_chunks: list[list[dict[str, JsonVal]]] = []
-        for page in source:
-            # New interface: stream_data returns Page objects
-            json_chunk = io.data_to_json_chunk(page.items)
-            assert isinstance(json_chunk, list)
-            assert len(json_chunk) == 10
-            for item in json_chunk:
-                assert isinstance(item, dict)
-                assert "dataSetExternalId" in item
-                assert item["dataSetExternalId"] == DATA_SET_EXTERNAL_ID
-            json_chunks.append(json_chunk)
-
-        with HTTPClient(config) as upload_client:
-            from cognite_toolkit._cdf_tk.storageio._base import UploadItem
-
-            # New interface: convert individual items and create UploadItems
-            for chunk in json_chunks:
-                write_items = [io.json_to_resource(item) for item in chunk]
-                upload_items = [UploadItem(source_id=io.as_id(item), item=item) for item in write_items]
-                io.upload_items(upload_items, upload_client, selector)
-
-        assert respx_mock.calls.call_count == 5  # 50 rows in chunks of 10
-        uploaded_ts = []
-        for call in respx_mock.calls:
-            uploaded_ts.extend(json.loads(call.request.content)["items"])
-
-        assert uploaded_ts == some_timeseries_data.as_write().dump()
-
-
-class TestEventIO:
-    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
-    def test_download_upload(
-        self,
-        toolkit_config: ToolkitClientConfig,
-        some_event_data: EventList,
-        respx_mock: respx.MockRouter,
-        asset_centric_client: ToolkitClient,
-    ) -> None:
-        config = toolkit_config
-        event_by_external_id = {event.external_id: event for event in some_event_data if event.external_id is not None}
-        selector = DataSetSelector(data_set_external_id="DataSetSelector", kind="Events")
-
-        def create_callback(request: httpx.Request) -> httpx.Response:
-            payload = json.loads(request.content)
-            assert "items" in payload
-            items = payload["items"]
-            assert isinstance(items, list)
-            return httpx.Response(
-                status_code=200,
-                json={
-                    "items": [event_by_external_id[item["externalId"]].dump() for item in items if "externalId" in item]
-                },
-            )
-
-        respx_mock.post(config.create_api_url("/events")).mock(side_effect=create_callback)
-
-        io = EventIO(asset_centric_client)
-
-        assert io.count(selector) == RESOURCE_COUNT
-
-        source = io.stream_data(selector)
-        json_chunks: list[list[dict[str, JsonVal]]] = []
-        for page in source:
-            json_chunk = io.data_to_json_chunk(page.items)
-            assert isinstance(json_chunk, list)
-            assert len(json_chunk) == 10
-            for item in json_chunk:
-                assert isinstance(item, dict)
-                assert "dataSetExternalId" in item
-                assert item["dataSetExternalId"] == DATA_SET_EXTERNAL_ID
-            json_chunks.append(json_chunk)
-
-        with HTTPClient(config) as upload_client:
-            from cognite_toolkit._cdf_tk.storageio._base import UploadItem
-
-            # New interface: convert individual items and create UploadItems
-            for chunk in json_chunks:
-                write_items = [io.json_to_resource(item) for item in chunk]
-                upload_items = [UploadItem(source_id=io.as_id(item), item=item) for item in write_items]
-                io.upload_items(upload_items, upload_client, selector)
-
-        assert respx_mock.calls.call_count == 5  # 50 rows in chunks of 10
-        uploaded_events = []
-        for call in respx_mock.calls:
-            uploaded_events.extend(json.loads(call.request.content)["items"])
-
-        assert uploaded_events == some_event_data.as_write().dump()
