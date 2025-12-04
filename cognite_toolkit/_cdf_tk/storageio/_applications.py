@@ -333,7 +333,7 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
         references = item_json.get("containerReferences", [])
         if not isinstance(references, list):
             return IndustrialCanvasApply._load(item_json)
-        new_container_references: list[Any] = []
+        new_container_references: list[dict[str, JsonVal]] = []
         for container_ref in references:
             if not isinstance(container_ref, dict):
                 new_container_references.append(container_ref)
