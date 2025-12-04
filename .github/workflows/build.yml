@@ -146,7 +146,7 @@ jobs:
         run: uv run cdf auth verify --no-prompt
       - name: "Test clean --dry-run --module=my_module"
         run: |
-          uv run cdf clean --env demo --dry-run -m my_module
+          uv run cdf clean --env demo --dry-run -m my_module --verbose
       - name: "Deploy the templates --dry-run"
         run: |
           uv run cdf deploy --drop --env demo --dry-run
