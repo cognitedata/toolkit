@@ -5,7 +5,9 @@ import responses
 from cognite.client.data_classes.data_modeling import NodeList
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.data_classes.canvas import IndustrialCanvas
+from cognite_toolkit._cdf_tk.client.data_classes.canvas import (
+    IndustrialCanvas,
+)
 from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList
 from cognite_toolkit._cdf_tk.client.data_classes.charts_data import ChartData
 from cognite_toolkit._cdf_tk.client.data_classes.migration import InstanceSource
@@ -198,3 +200,55 @@ class TestCanvasIO:
             restored_canvas = restored_canvases[0]
             # The restored canvas should match the original without existingVersion fields
             assert restored_canvas.item.dump() == canvas.as_write().dump(keep_existing_version=False)
+
+    def test_load_canvas_missing_resource(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.lookup.assets.id.return_value = None
+            canvas_json = {
+                "canvas": {
+                    "externalId": "test_canvas",
+                    "instanceType": "node",
+                    "sources": [
+                        {
+                            "properties": {
+                                "createdBy": "doctrino",
+                                "name": "Test Canvas",
+                                "updatedAt": "2025-12-04T11:40:17.676",
+                                "updatedBy": "doctrino",
+                            },
+                            "source": {
+                                "externalId": "Canvas",
+                                "space": "cdf_industrial_canvas",
+                                "type": "view",
+                                "version": "v7",
+                            },
+                        }
+                    ],
+                    "space": "IndustrialCanvasInstanceSpace",
+                },
+                "containerReferences": [
+                    {
+                        "externalId": "asset_ref",
+                        "instanceType": "node",
+                        "sources": [
+                            {
+                                "properties": {
+                                    "containerReferenceType": "asset",
+                                    "resourceExternalId": "myAssetId",
+                                },
+                                "source": {
+                                    "externalId": "ContainerReference",
+                                    "space": "cdf_industrial_canvas",
+                                    "type": "view",
+                                    "version": "v2",
+                                },
+                            }
+                        ],
+                        "space": "IndustrialCanvasInstanceSpace",
+                    }
+                ],
+            }
+
+            io = CanvasIO(client)
+            loaded = io._load_resource(canvas_json)
+            assert len(loaded.container_references) == 0, "Container reference with missing resource should be skipped."
