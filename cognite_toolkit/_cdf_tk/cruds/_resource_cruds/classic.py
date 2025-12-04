@@ -31,6 +31,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.sequences import (
 )
 from cognite_toolkit._cdf_tk.constants import TABLE_FORMATS, YAML_SUFFIX
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_classes import AssetYAML, EventYAML, SequenceRowYAML, SequenceYAML
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, ToolkitDeprecationWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables
@@ -55,6 +56,8 @@ class AssetCRUD(ResourceCRUD[str, AssetWrite, Asset]):
 
     @classmethod
     def is_supported_file(cls, file: Path) -> bool:
+        if Flags.v08.is_enabled():
+            return super().is_supported_file(file)
         global _DEPRECATION_WARNING_ISSUED
         if not file.stem.casefold().endswith(cls.kind.casefold()):
             return False
