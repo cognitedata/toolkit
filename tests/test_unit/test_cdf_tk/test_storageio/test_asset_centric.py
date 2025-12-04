@@ -31,8 +31,12 @@ from cognite_toolkit._cdf_tk.utils.fileio import FileReader
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
+RESOURCE_COUNT = 50
+DATA_SET_ID = 1234
+ASSET_ID = 123
 
-@pytest.fixture()
+
+@pytest.fixture(scope="module")
 def some_asset_data() -> AssetList:
     """Fixture to provide a sample AssetList for testing."""
     return AssetList(
@@ -42,14 +46,77 @@ def some_asset_data() -> AssetList:
                 external_id=f"asset_{i}",
                 name=f"Asset {i}",
                 description=f"Description for asset {i}",
-                root_id=123,
+                root_id=ASSET_ID,
                 source="test_source",
                 labels=["my_label"],
-                data_set_id=1234,
+                data_set_id=DATA_SET_ID,
             )
-            for i in range(100)
+            for i in range(RESOURCE_COUNT)
         ]
     )
+
+
+@pytest.fixture(scope="module")
+def some_filemetadata_data() -> FileMetadataList:
+    """Fixture to provide a sample FileMetadataList for testing."""
+    return FileMetadataList(
+        [
+            FileMetadata(
+                external_id=f"file_{i}",
+                name=f"File {i}",
+                directory="/test/dir",
+                mime_type="text/plain",
+                data_set_id=DATA_SET_ID,
+                asset_ids=[ASSET_ID],
+                source="test_source",
+            )
+            for i in range(RESOURCE_COUNT)
+        ]
+    )
+
+
+@pytest.fixture(scope="module")
+def some_timeseries_data() -> TimeSeriesList:
+    """Fixture to provide a sample TimeSeriesList for testing."""
+    return TimeSeriesList(
+        [
+            TimeSeries(
+                external_id=f"ts_{i}",
+                name=f"Time Series {i}",
+                description=f"Description for time series {i}",
+                asset_id=ASSET_ID,
+                data_set_id=DATA_SET_ID,
+                unit="unit",
+                is_string=False,
+                is_step=False,
+            )
+            for i in range(RESOURCE_COUNT)
+        ]
+    )
+
+
+@pytest.fixture(scope="module")
+def some_event_data() -> EventList:
+    """Fixture to provide a sample EventList for testing."""
+    return EventList(
+        [
+            Event(
+                external_id=f"event_{i}",
+                description=f"Description for event {i}",
+                asset_ids=[ASSET_ID],
+                data_set_id=DATA_SET_ID,
+                source="test_source",
+                start_time=1000000000000 + i * 1000,
+                end_time=1000000001000 + i * 1000,
+            )
+            for i in range(RESOURCE_COUNT)
+        ]
+    )
+
+
+@pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
+class TestAssetCentricIO:
+    def test_download(self): ...
 
 
 class TestAssetIO:
@@ -77,13 +144,13 @@ class TestAssetIO:
         with monkeypatch_toolkit_client() as client:
             client.config = config
             client.assets.return_value = chunker(some_asset_data, 10)
-            client.assets.aggregate_count.return_value = 100
+            client.assets.aggregate_count.return_value = RESOURCE_COUNT
             client.lookup.data_sets.external_id.return_value = "test_data_set"
-            client.lookup.data_sets.id.return_value = 1234
+            client.lookup.data_sets.id.return_value = DATA_SET_ID
 
             io = AssetIO(client)
 
-            assert io.count(selector) == 100
+            assert io.count(selector) == RESOURCE_COUNT
 
             source = io.stream_data(selector)
             json_chunks: list[list[dict[str, JsonVal]]] = []
@@ -107,7 +174,7 @@ class TestAssetIO:
                     upload_items = [UploadItem(source_id=io.as_id(item), item=item) for item in write_items]
                     io.upload_items(upload_items, upload_client, selector)
 
-            assert respx_mock.calls.call_count == 10  # 100 rows in chunks of 10
+            assert respx_mock.calls.call_count == 5  # 50 rows in chunks of 10
             uploaded_assets = []
             for call in respx_mock.calls:
                 uploaded_assets.extend(json.loads(call.request.content)["items"])
@@ -204,25 +271,6 @@ class TestAssetIO:
         ]
 
 
-@pytest.fixture()
-def some_filemetadata_data() -> FileMetadataList:
-    """Fixture to provide a sample FileMetadataList for testing."""
-    return FileMetadataList(
-        [
-            FileMetadata(
-                external_id=f"file_{i}",
-                name=f"File {i}",
-                directory="/test/dir",
-                mime_type="text/plain",
-                data_set_id=1234,
-                asset_ids=[123],
-                source="test_source",
-            )
-            for i in range(50)
-        ]
-    )
-
-
 class TestFileMetadataIO:
     @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
     def test_download(
@@ -270,26 +318,6 @@ class TestFileMetadataIO:
                     assert isinstance(item, dict)
                     assert "dataSetExternalId" in item
                     assert item["dataSetExternalId"] == "test_data_set"
-
-
-@pytest.fixture()
-def some_timeseries_data() -> TimeSeriesList:
-    """Fixture to provide a sample TimeSeriesList for testing."""
-    return TimeSeriesList(
-        [
-            TimeSeries(
-                external_id=f"ts_{i}",
-                name=f"Time Series {i}",
-                description=f"Description for time series {i}",
-                asset_id=123,
-                data_set_id=1234,
-                unit="unit",
-                is_string=False,
-                is_step=False,
-            )
-            for i in range(50)
-        ]
-    )
 
 
 class TestTimeSeriesIO:
@@ -358,25 +386,6 @@ class TestTimeSeriesIO:
                 uploaded_ts.extend(json.loads(call.request.content)["items"])
 
             assert uploaded_ts == some_timeseries_data.as_write().dump()
-
-
-@pytest.fixture()
-def some_event_data() -> EventList:
-    """Fixture to provide a sample EventList for testing."""
-    return EventList(
-        [
-            Event(
-                external_id=f"event_{i}",
-                description=f"Description for event {i}",
-                asset_ids=[123],
-                data_set_id=1234,
-                source="test_source",
-                start_time=1000000000000 + i * 1000,
-                end_time=1000000001000 + i * 1000,
-            )
-            for i in range(50)
-        ]
-    )
 
 
 class TestEventIO:
