@@ -39,7 +39,6 @@ class Loader(ABC):
         exclude_filetypes: A set of filetypes that should be excluded from the supported filetypes.
     """
 
-    filetypes: frozenset[str]
     folder_name: str
     kind: str
     dependencies: "frozenset[type[ResourceCRUD]]" = frozenset()
@@ -147,7 +146,6 @@ class ResourceCRUD(Loader, ABC, Generic[T_ID, T_ResourceRequest, T_ResourceRespo
     # Optional to set in the subclass
     support_drop = True
     support_update = True
-    filetypes = frozenset({"yaml", "yml"})
     dependencies: "frozenset[type[ResourceCRUD]]" = frozenset()
     # For example, TransformationNotification and Schedule has Transformation as the parent resource
     # This is used in the iterate method to ensure that nothing is returned if

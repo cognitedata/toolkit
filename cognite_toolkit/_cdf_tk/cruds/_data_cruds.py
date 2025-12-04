@@ -28,7 +28,6 @@ class DatapointsCRUD(DataCRUD):
     item_name = "datapoints"
     folder_name = "timeseries"
     kind = "Datapoints"
-    filetypes = frozenset({"csv", "parquet"})
     dependencies = frozenset({TimeSeriesCRUD})
     _doc_url = "Time-series/operation/postMultiTimeSeriesDatapoints"
 
@@ -149,7 +148,6 @@ class FileCRUD(DataCRUD):
 class RawFileCRUD(DataCRUD):
     item_name = "rows"
     folder_name = "raw"
-    filetypes = frozenset({"csv", "parquet"})
     kind = "Raw"
     dependencies = frozenset({RawTableCRUD})
     _doc_url = "Raw/operation/postRows"
@@ -169,7 +167,7 @@ class RawFileCRUD(DataCRUD):
             datafile = next(
                 (
                     resource.source.path.with_suffix(f".{file_type}")
-                    for file_type in self.filetypes
+                    for file_type in ["csv", "parquet"]
                     if (resource.source.path.with_suffix(f".{file_type}").exists())
                 ),
                 None,

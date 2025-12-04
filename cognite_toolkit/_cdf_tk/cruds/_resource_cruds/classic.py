@@ -46,7 +46,6 @@ _DEPRECATION_WARNING_ISSUED = False
 @final
 class AssetCRUD(ResourceCRUD[str, AssetWrite, Asset]):
     folder_name = "classic"
-    filetypes = frozenset({"yaml", "yml", "csv", "parquet"})
     resource_cls = Asset
     resource_write_cls = AssetWrite
     yaml_cls = AssetYAML
@@ -503,7 +502,6 @@ class SequenceRowCRUD(ResourceCRUD[str, ToolkitSequenceRowsWrite, ToolkitSequenc
 @final
 class EventCRUD(ResourceCRUD[str, EventWrite, Event]):
     folder_name = "classic"
-    filetypes = frozenset({"yaml", "yml"})
     resource_cls = Event
     resource_write_cls = EventWrite
     yaml_cls = EventYAML
