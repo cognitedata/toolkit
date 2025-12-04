@@ -43,7 +43,9 @@ class DatapointsCRUD(DataCRUD):
         resource_directories = state.built_resources[self.folder_name].get_resource_directories(self.folder_name)
 
         for resource_dir in resource_directories:
-            for datafile in self._find_data_files(resource_dir):
+            for datafile in resource_dir.rglob("*"):
+                if not datafile.stem.casefold().endswith(self.kind.casefold()):
+                    continue
                 if datafile.suffix == ".csv":
                     # The replacement is used to ensure that we read exactly the same file on Windows and Linux
                     file_content = datafile.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
@@ -52,7 +54,7 @@ class DatapointsCRUD(DataCRUD):
                 elif datafile.suffix == ".parquet":
                     data = pd.read_parquet(datafile, engine="pyarrow")
                 else:
-                    raise ValueError(f"Unsupported file type {datafile.suffix} for {datafile.name}")
+                    continue
                 timeseries_ids = list(data.columns)
                 if len(timeseries_ids) == 1:
                     ts_str = timeseries_ids[0]

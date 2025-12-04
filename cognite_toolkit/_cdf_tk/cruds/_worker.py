@@ -12,7 +12,6 @@ from rich import print
 from rich.panel import Panel
 from yaml import YAMLError
 
-from cognite_toolkit._cdf_tk.constants import TABLE_FORMATS
 from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError, ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, catch_warnings
 from cognite_toolkit._cdf_tk.utils import to_diff
@@ -49,10 +48,7 @@ class ResourceWorker(Generic[T_ID, T_ResourceRequest, T_ResourceResponse]):
 
         for read_module in read_modules or []:
             if resource_dir := read_module.resource_dir_path(self.loader.folder_name):
-                # As of 05/11/24, Asset support csv and parquet files in addition to YAML.
-                # These table formats are not built, i.e., no variable replacement is done,
-                # so we load them directly from the source module.
-                filepaths.extend(self.loader.find_files(resource_dir, include_formats=TABLE_FORMATS))
+                filepaths.extend(self.loader.find_files(resource_dir))
 
         if not sort:
             return filepaths
