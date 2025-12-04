@@ -303,6 +303,9 @@ class AssetIO(UploadableAssetCentricIO[Asset, AssetWrite]):
             asset_subtree_external_ids=asset_subtree_external_ids,
             data_set_external_ids=data_set_external_ids,
             aggregated_properties=["child_count", "path", "depth"],
+            # We cannot use partitions here as it is not thread safe. This spawn multiple threads
+            # that are not shut down until all data is downloaded. We need to be able to abort.
+            partitions=None,
         ):
             self._collect_dependencies(asset_list, selector)
             yield Page(worker_id="main", items=asset_list)
@@ -423,6 +426,9 @@ class FileMetadataIO(AssetCentricIO[FileMetadata]):
             limit=limit,
             asset_subtree_external_ids=asset_subtree_external_ids,
             data_set_external_ids=data_set_external_ids,
+            # We cannot use partitions here as it is not thread safe. This spawn multiple threads
+            # that are not shut down until all data is downloaded. We need to be able to abort.
+            partitions=None,
         ):
             self._collect_dependencies(file_list, selector)
             yield Page(worker_id="main", items=file_list)
@@ -470,6 +476,9 @@ class TimeSeriesIO(UploadableAssetCentricIO[TimeSeries, TimeSeriesWrite]):
             limit=limit,
             asset_subtree_external_ids=asset_subtree_external_ids,
             data_set_external_ids=data_set_external_ids,
+            # We cannot use partitions here as it is not thread safe. This spawn multiple threads
+            # that are not shut down until all data is downloaded. We need to be able to abort.
+            partitions=None,
         ):
             self._collect_dependencies(ts_list, selector)
             yield Page(worker_id="main", items=ts_list)
@@ -597,6 +606,9 @@ class EventIO(UploadableAssetCentricIO[Event, EventWrite]):
             limit=limit,
             asset_subtree_external_ids=asset_subtree_external_ids,
             data_set_external_ids=data_set_external_ids,
+            # We cannot use partitions here as it is not thread safe. This spawn multiple threads
+            # that are not shut down until all data is downloaded. We need to be able to abort.
+            partitions=None,
         ):
             self._collect_dependencies(event_list, selector)
             yield Page(worker_id="main", items=event_list)
