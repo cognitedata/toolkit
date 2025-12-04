@@ -43,7 +43,6 @@ class Loader(ABC):
     folder_name: str
     kind: str
     dependencies: "frozenset[type[ResourceCRUD]]" = frozenset()
-    exclude_filetypes: frozenset[str] = frozenset()
     _doc_base_url: str = "https://api-docs.cognite.com/20230101/tag/"
     _doc_url: str = ""
     sub_folder_name: str | None = None
@@ -119,8 +118,6 @@ class Loader(ABC):
 
         """
         if cls.filetypes and file.suffix[1:] not in cls.filetypes:
-            return False
-        if cls.exclude_filetypes and file.suffix[1:] in cls.exclude_filetypes:
             return False
         return file.stem.casefold().endswith(cls.kind.casefold())
 
