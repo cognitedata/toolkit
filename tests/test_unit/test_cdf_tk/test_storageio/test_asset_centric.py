@@ -36,6 +36,7 @@ RESOURCE_COUNT = 50
 DATA_SET_ID = 1234
 DATA_SET_EXTERNAL_ID = "test_data_set"
 ASSET_ID = 123
+ASSET_EXTERNAL_ID = "test_hierarchy"
 CHUNK_SIZE = 10
 
 
@@ -132,10 +133,22 @@ def asset_centric_client(
 
         client.files.aggregate.return_value = [CountAggregate(RESOURCE_COUNT)]
 
-        client.lookup.data_sets.external_id.return_value = "test_data_set"
+        client.lookup.data_sets.external_id.return_value = DATA_SET_EXTERNAL_ID
         client.lookup.data_sets.id.return_value = DATA_SET_ID
-        client.lookup.assets.external_id.return_value = ["test_hierarchy"]
-        client.lookup.assets.id.return_value = [ASSET_ID]
+        client.time_series.aggregate_count.return_value = len(some_timeseries_data)
+
+        def lookup_asset_external_id(ids: int | list[int], *_, **__) -> list[str] | str:
+            if isinstance(ids, int):
+                return ASSET_EXTERNAL_ID
+            return [ASSET_EXTERNAL_ID for _ in ids]
+
+        def lookup_asset_id(external_ids: str | list[str], *_, **__) -> list[int] | int:
+            if isinstance(external_ids, str):
+                return ASSET_ID
+            return [ASSET_ID]
+
+        client.lookup.assets.external_id.side_effect = lookup_asset_external_id
+        client.lookup.assets.id.side_effect = lookup_asset_id
 
         yield client
 
@@ -324,6 +337,7 @@ class TestTimeSeriesIO:
         toolkit_config: ToolkitClientConfig,
         some_timeseries_data: TimeSeriesList,
         respx_mock: respx.MockRouter,
+        asset_centric_client: ToolkitClient,
     ) -> None:
         config = toolkit_config
         ts_by_external_id = {ts.external_id: ts for ts in some_timeseries_data if ts.external_id is not None}
@@ -342,47 +356,39 @@ class TestTimeSeriesIO:
             )
 
         respx_mock.post(config.create_api_url("/timeseries")).mock(side_effect=create_callback)
-        with monkeypatch_toolkit_client() as client:
-            client.config = config
-            client.time_series.return_value = chunker(some_timeseries_data, 10)
-            client.time_series.aggregate_count.return_value = len(some_timeseries_data)
-            client.lookup.data_sets.external_id.return_value = "test_data_set"
-            client.lookup.data_sets.id.return_value = 1234
-            client.lookup.assets.external_id.return_value = "test_hierarchy"
-            client.lookup.assets.id.return_value = 123
 
-            io = TimeSeriesIO(client)
+        io = TimeSeriesIO(asset_centric_client)
 
-            assert io.count(selector) == 50
+        assert io.count(selector) == RESOURCE_COUNT
 
-            source = io.stream_data(selector)
-            json_chunks: list[list[dict[str, JsonVal]]] = []
-            for page in source:
-                # New interface: stream_data returns Page objects
-                json_chunk = io.data_to_json_chunk(page.items)
-                assert isinstance(json_chunk, list)
-                assert len(json_chunk) == 10
-                for item in json_chunk:
-                    assert isinstance(item, dict)
-                    assert "dataSetExternalId" in item
-                    assert item["dataSetExternalId"] == "test_data_set"
-                json_chunks.append(json_chunk)
+        source = io.stream_data(selector)
+        json_chunks: list[list[dict[str, JsonVal]]] = []
+        for page in source:
+            # New interface: stream_data returns Page objects
+            json_chunk = io.data_to_json_chunk(page.items)
+            assert isinstance(json_chunk, list)
+            assert len(json_chunk) == 10
+            for item in json_chunk:
+                assert isinstance(item, dict)
+                assert "dataSetExternalId" in item
+                assert item["dataSetExternalId"] == DATA_SET_EXTERNAL_ID
+            json_chunks.append(json_chunk)
 
-            with HTTPClient(config) as upload_client:
-                from cognite_toolkit._cdf_tk.storageio._base import UploadItem
+        with HTTPClient(config) as upload_client:
+            from cognite_toolkit._cdf_tk.storageio._base import UploadItem
 
-                # New interface: convert individual items and create UploadItems
-                for chunk in json_chunks:
-                    write_items = [io.json_to_resource(item) for item in chunk]
-                    upload_items = [UploadItem(source_id=io.as_id(item), item=item) for item in write_items]
-                    io.upload_items(upload_items, upload_client, selector)
+            # New interface: convert individual items and create UploadItems
+            for chunk in json_chunks:
+                write_items = [io.json_to_resource(item) for item in chunk]
+                upload_items = [UploadItem(source_id=io.as_id(item), item=item) for item in write_items]
+                io.upload_items(upload_items, upload_client, selector)
 
-            assert respx_mock.calls.call_count == 5  # 50 rows in chunks of 10
-            uploaded_ts = []
-            for call in respx_mock.calls:
-                uploaded_ts.extend(json.loads(call.request.content)["items"])
+        assert respx_mock.calls.call_count == 5  # 50 rows in chunks of 10
+        uploaded_ts = []
+        for call in respx_mock.calls:
+            uploaded_ts.extend(json.loads(call.request.content)["items"])
 
-            assert uploaded_ts == some_timeseries_data.as_write().dump()
+        assert uploaded_ts == some_timeseries_data.as_write().dump()
 
 
 class TestEventIO:
