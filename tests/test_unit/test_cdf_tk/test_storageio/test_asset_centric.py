@@ -1,4 +1,5 @@
 import json
+from collections.abc import Iterable
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -21,7 +22,7 @@ from cognite.client.data_classes import (
     TimeSeriesList,
 )
 
-from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
 from cognite_toolkit._cdf_tk.storageio import AssetIO, EventIO, FileMetadataIO, TimeSeriesIO
@@ -33,7 +34,9 @@ from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 RESOURCE_COUNT = 50
 DATA_SET_ID = 1234
+DATA_SET_EXTERNAL_ID = "test_data_set"
 ASSET_ID = 123
+CHUNK_SIZE = 10
 
 
 @pytest.fixture(scope="module")
@@ -112,6 +115,29 @@ def some_event_data() -> EventList:
             for i in range(RESOURCE_COUNT)
         ]
     )
+
+
+@pytest.fixture()
+def asset_centric_client(
+    some_asset_data: AssetList,
+    some_filemetadata_data: FileMetadataList,
+    some_timeseries_data: TimeSeriesList,
+    some_event_data: EventList,
+) -> Iterable[ToolkitClient]:
+    with monkeypatch_toolkit_client() as client:
+        client.assets.return_value = chunker(some_asset_data, CHUNK_SIZE)
+        client.files.return_value = chunker(some_filemetadata_data, CHUNK_SIZE)
+        client.time_series.return_value = chunker(some_timeseries_data, CHUNK_SIZE)
+        client.events.return_value = chunker(some_event_data, CHUNK_SIZE)
+
+        client.files.aggregate.return_value = [CountAggregate(RESOURCE_COUNT)]
+
+        client.lookup.data_sets.external_id.return_value = "test_data_set"
+        client.lookup.data_sets.id.return_value = DATA_SET_ID
+        client.lookup.assets.external_id.return_value = ["test_hierarchy"]
+        client.lookup.assets.id.return_value = [ASSET_ID]
+
+        yield client
 
 
 @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
@@ -273,51 +299,22 @@ class TestAssetIO:
 
 class TestFileMetadataIO:
     @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
-    def test_download(
-        self,
-        toolkit_config: ToolkitClientConfig,
-        some_filemetadata_data: FileMetadataList,
-        respx_mock: respx.MockRouter,
-    ) -> None:
-        config = toolkit_config
-        file_by_external_id = {
-            file.external_id: file for file in some_filemetadata_data if file.external_id is not None
-        }
-
-        def create_callback(request: httpx.Request) -> httpx.Response:
-            payload = json.loads(request.content)
-            assert "externalId" in payload
-            return httpx.Response(
-                status_code=200,
-                json={"items": [file_by_external_id[payload["externalId"]].dump()]},
-            )
-
-        respx_mock.post(config.create_api_url("/files")).mock(side_effect=create_callback)
+    def test_download(self, asset_centric_client: ToolkitClient) -> None:
         selector = DataSetSelector(data_set_external_id="DataSetSelector", kind="FileMetadata")
 
-        with monkeypatch_toolkit_client() as client:
-            client.config = config
-            client.files.return_value = chunker(some_filemetadata_data, 10)
-            client.files.aggregate.return_value = [CountAggregate(50)]
-            client.lookup.data_sets.external_id.return_value = "test_data_set"
-            client.lookup.data_sets.id.return_value = 1234
-            client.lookup.assets.external_id.return_value = ["test_hierarchy"]
-            client.lookup.assets.id.return_value = [123]
+        io = FileMetadataIO(asset_centric_client)
 
-            io = FileMetadataIO(client)
+        assert io.count(selector) == RESOURCE_COUNT
 
-            assert io.count(selector) == 50
-
-            source = io.stream_data(selector)
-            for page in source:
-                # New interface: stream_data returns Page objects
-                json_chunk = io.data_to_json_chunk(page.items)
-                assert isinstance(json_chunk, list)
-                assert len(json_chunk) == 10
-                for item in json_chunk:
-                    assert isinstance(item, dict)
-                    assert "dataSetExternalId" in item
-                    assert item["dataSetExternalId"] == "test_data_set"
+        source = io.stream_data(selector)
+        for page in source:
+            json_chunk = io.data_to_json_chunk(page.items)
+            assert isinstance(json_chunk, list)
+            assert len(json_chunk) == CHUNK_SIZE
+            for item in json_chunk:
+                assert isinstance(item, dict)
+                assert "dataSetExternalId" in item
+                assert item["dataSetExternalId"] == DATA_SET_EXTERNAL_ID
 
 
 class TestTimeSeriesIO:
