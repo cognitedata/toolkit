@@ -91,7 +91,7 @@ class Loader(ABC):
                 raise ValueError("Invalid file type")
             return [dir_or_file]
         elif dir_or_file.is_dir():
-            return sorted([file for file in dir_or_file.rglob("**") if self.is_supported_file(file)])
+            return sorted([file for file in dir_or_file.rglob("*") if self.is_supported_file(file)])
         else:
             return []
 
