@@ -263,9 +263,10 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvas
     # Note sequences are not supported in Canvas, so we do not include them here.
     asset_centric_resource_types = frozenset({"asset", "event", "file", "timeseries"})
 
-    def __init__(self, client: ToolkitClient, dry_run: bool) -> None:
+    def __init__(self, client: ToolkitClient, dry_run: bool, skip_on_missing_ref: bool) -> None:
         self.client = client
         self.dry_run = dry_run
+        self.skip_on_missing_ref = skip_on_missing_ref
 
     def map(self, source: Sequence[IndustrialCanvas]) -> Sequence[tuple[IndustrialCanvasApply | None, MigrationIssue]]:
         self._populate_cache(source)
@@ -354,6 +355,9 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvas
                 consumer_view = self._get_consumer_view_id(ref.resource_id, ref.container_reference_type)
                 fdm_ref = self.migrate_container_reference(ref, canvas.canvas.external_id, node_id, consumer_view)
                 new_fdm_references.append(fdm_ref)
+        if issue.missing_reference_ids and self.skip_on_missing_ref:
+            return None, issue
+
         update.container_references = remaining_container_references
         update.fdm_instance_container_references.extend(new_fdm_references)
         if not self.dry_run:

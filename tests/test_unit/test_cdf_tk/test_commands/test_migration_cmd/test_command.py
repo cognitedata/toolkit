@@ -23,7 +23,7 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, ProjectStatistics
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.data_classes.canvas import IndustrialCanvas
+from cognite_toolkit._cdf_tk.client.data_classes.canvas import ContainerReference, IndustrialCanvas
 from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart
 from cognite_toolkit._cdf_tk.client.data_classes.charts_data import ChartData, ChartSource, ChartTimeseries
 from cognite_toolkit._cdf_tk.client.data_classes.migration import InstanceSource
@@ -601,7 +601,7 @@ class TestMigrationCommand:
         assert actual_charts == expected_charts
 
     @pytest.mark.usefixtures("mock_statistics")
-    def test_migrate_canvas_happy_path(
+    def test_migrate_canvas(
         self,
         toolkit_config: ToolkitClientConfig,
         cognite_migration_model: responses.RequestsMock,
@@ -612,6 +612,17 @@ class TestMigrationCommand:
         rsps = cognite_migration_model
         config = toolkit_config
         canvas, instance_sources = asset_centric_canvas
+        id_ = uuid.uuid4()
+        non_existing_file = ContainerReference(
+            space="IndustrialCanvasInstanceSpace",
+            external_id=f"{canvas.canvas.external_id}_{id_!s}",
+            version=1,
+            last_updated_time=1,
+            created_time=1,
+            container_reference_type="file",
+            resource_id=999,
+            id_=str(id_),
+        )
         # Canvas retrieve ids
         rsps.add(
             responses.POST,
@@ -623,7 +634,8 @@ class TestMigrationCommand:
                     "annotations": [annotation.dump() for annotation in canvas.annotations],
                     "containerReferences": [
                         container_reference.dump() for container_reference in canvas.container_references
-                    ],
+                    ]
+                    + [non_existing_file.dump()],
                     "fdmInstanceContainerReferences": [
                         fdm_container_reference.dump()
                         for fdm_container_reference in canvas.fdm_instance_container_references
@@ -639,7 +651,7 @@ class TestMigrationCommand:
             },
             status=200,
         )
-        for resource_type in ["asset", "event", "timeseries"]:
+        for resource_type in ["asset", "event", "timeseries", "file"]:
             rsps.add(
                 responses.POST,
                 config.create_api_url("/models/instances/query"),
@@ -649,7 +661,10 @@ class TestMigrationCommand:
                             instance_source.dump()
                             for instance_source in instance_sources
                             if instance_source.resource_type == resource_type
+                            # Simulating that the non_existing_file does not exist
                         ]
+                        if resource_type != "file"
+                        else []
                     },
                     "nextCursor": {"instanceSource": None},
                 },
