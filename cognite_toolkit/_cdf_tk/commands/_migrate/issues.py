@@ -51,6 +51,13 @@ class ChartMigrationIssue(MigrationIssue):
         )
 
 
+class CanvasMigrationIssue(MigrationIssue):
+    type: ClassVar[str] = "canvasMigration"
+    canvas_external_id: str
+    canvas_name: str
+    missing_reference_ids: list[AssetCentricId] = Field(default_factory=list)
+
+
 class ReadIssue(MigrationIssue):
     """Represents a read issue encountered during migration."""
 

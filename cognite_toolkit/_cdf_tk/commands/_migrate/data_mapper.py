@@ -11,8 +11,15 @@ from cognite.client.data_classes.data_modeling import (
     View,
     ViewId,
 )
+from cognite.client.exceptions import CogniteException
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.data_classes.canvas import (
+    ContainerReferenceApply,
+    FdmInstanceContainerReferenceApply,
+    IndustrialCanvas,
+    IndustrialCanvasApply,
+)
 from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartWrite
 from cognite_toolkit._cdf_tk.client.data_classes.charts_data import (
     ChartCoreTimeseries,
@@ -23,13 +30,18 @@ from cognite_toolkit._cdf_tk.client.data_classes.migration import ResourceViewMa
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import DirectRelationCache, asset_centric_to_dm
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import AssetCentricMapping
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import create_default_mappings
-from cognite_toolkit._cdf_tk.commands._migrate.issues import ChartMigrationIssue, ConversionIssue, MigrationIssue
+from cognite_toolkit._cdf_tk.commands._migrate.issues import (
+    CanvasMigrationIssue,
+    ChartMigrationIssue,
+    ConversionIssue,
+    MigrationIssue,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import AssetCentricMigrationSelector
 from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
-from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
 from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.storageio._base import T_Selector
-from cognite_toolkit._cdf_tk.storageio.selectors import ChartSelector
+from cognite_toolkit._cdf_tk.storageio.selectors import CanvasSelector, ChartSelector
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.useful_types import (
     T_AssetCentricResourceExtended,
@@ -245,3 +257,138 @@ class ChartMapper(DataMapper[ChartSelector, Chart, ChartWrite]):
             new_source_item = ChartSource(id=cast(str, core_ts_item.id), type=cast(str, core_ts_item.type))
             updated_source_collection.append(new_source_item)
         return updated_source_collection
+
+
+class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvasApply]):
+    # Note sequences are not supported in Canvas, so we do not include them here.
+    asset_centric_resource_types = frozenset({"asset", "event", "file", "timeseries"})
+
+    def __init__(self, client: ToolkitClient, dry_run: bool) -> None:
+        self.client = client
+        self.dry_run = dry_run
+
+    def map(self, source: Sequence[IndustrialCanvas]) -> Sequence[tuple[IndustrialCanvasApply | None, MigrationIssue]]:
+        self._populate_cache(source)
+        output: list[tuple[IndustrialCanvasApply | None, MigrationIssue]] = []
+        for item in source:
+            mapped_item, issue = self._map_single_item(item)
+            output.append((mapped_item, issue))
+        return output
+
+    def _populate_cache(self, source: Sequence[IndustrialCanvas]) -> None:
+        """Populate the internal cache with references from the source canvases.
+
+        Note that the consumption views are also cached as part of the timeseries lookup.
+        """
+        asset_ids: set[int] = set()
+        event_ids: set[int] = set()
+        file_ids: set[int] = set()
+        timeseries_ids: set[int] = set()
+        for canvas in source:
+            for ref in canvas.container_references or []:
+                if ref.container_reference_type == "asset":
+                    asset_ids.add(ref.resource_id)
+                elif ref.container_reference_type == "event":
+                    event_ids.add(ref.resource_id)
+                elif ref.container_reference_type == "file":
+                    file_ids.add(ref.resource_id)
+                elif ref.container_reference_type == "timeseries":
+                    timeseries_ids.add(ref.resource_id)
+        if asset_ids:
+            self.client.migration.lookup.assets(list(asset_ids))
+        if event_ids:
+            self.client.migration.lookup.events(list(event_ids))
+        if file_ids:
+            self.client.migration.lookup.files(list(file_ids))
+        if timeseries_ids:
+            self.client.migration.lookup.time_series(list(timeseries_ids))
+
+    def _get_node_id(self, resource_id: int, resource_type: str) -> NodeId | None:
+        """Look up the node ID for a given resource ID and type."""
+        if resource_type == "asset":
+            return self.client.migration.lookup.assets(resource_id)
+        elif resource_type == "event":
+            return self.client.migration.lookup.events(resource_id)
+        elif resource_type == "file":
+            return self.client.migration.lookup.files(resource_id)
+        elif resource_type == "timeseries":
+            return self.client.migration.lookup.time_series(resource_id)
+        else:
+            raise ToolkitValueError(f"Unsupported resource type '{resource_type}' for container reference migration.")
+
+    def _get_consumer_view_id(self, resource_id: int, resource_type: str) -> ViewId:
+        """Look up the consumer view ID for a given resource ID and type."""
+        if resource_type == "asset":
+            return self.client.migration.lookup.assets.consumer_view(resource_id) or ViewId(
+                "cdf_cdm", "CogniteAsset", "v1"
+            )
+        elif resource_type == "event":
+            return self.client.migration.lookup.events.consumer_view(resource_id) or ViewId(
+                "cdf_cdm", "CogniteActivity", "v1"
+            )
+        elif resource_type == "file":
+            return self.client.migration.lookup.files.consumer_view(resource_id) or ViewId(
+                "cdf_cdm", "CogniteFile", "v1"
+            )
+        elif resource_type == "timeseries":
+            return self.client.migration.lookup.time_series.consumer_view(resource_id) or ViewId(
+                "cdf_cdm", "CogniteTimeSeries", "v1"
+            )
+        else:
+            raise ToolkitValueError(f"Unsupported resource type '{resource_type}' for container reference migration.")
+
+    def _map_single_item(self, canvas: IndustrialCanvas) -> tuple[IndustrialCanvasApply | None, CanvasMigrationIssue]:
+        update = canvas.as_write()
+        issue = CanvasMigrationIssue(canvas_external_id=canvas.canvas.external_id, canvas_name=canvas.canvas.name)
+
+        remaining_container_references: list[ContainerReferenceApply] = []
+        new_fdm_references: list[FdmInstanceContainerReferenceApply] = []
+        for ref in update.container_references or []:
+            if ref.container_reference_type not in self.asset_centric_resource_types:
+                remaining_container_references.append(ref)
+                continue
+            node_id = self._get_node_id(ref.resource_id, ref.container_reference_type)
+            if node_id is None:
+                issue.missing_reference_ids.append(ref.as_asset_centric_id())
+            else:
+                consumer_view = self._get_consumer_view_id(ref.resource_id, ref.container_reference_type)
+                fdm_ref = self.migrate_container_reference(ref, canvas.canvas.external_id, node_id, consumer_view)
+                new_fdm_references.append(fdm_ref)
+        update.container_references = remaining_container_references
+        update.fdm_instance_container_references.extend(new_fdm_references)
+        if not self.dry_run:
+            backup = canvas.as_write().create_backup()
+            try:
+                self.client.canvas.industrial.create(backup)
+            except CogniteException as e:
+                raise ToolkitMigrationError(
+                    f"Failed to create backup for canvas '{canvas.canvas.name}': {e!s}. "
+                ) from e
+
+        return update, issue
+
+    @classmethod
+    def migrate_container_reference(
+        cls, reference: ContainerReferenceApply, canvas_external_id: str, instance_id: NodeId, consumer_view: ViewId
+    ) -> FdmInstanceContainerReferenceApply:
+        """Migrate a single container reference by replacing the asset-centric ID with the data model instance ID."""
+        new_id = str(uuid4())
+        new_external_id = f"{canvas_external_id}_{new_id}"
+        return FdmInstanceContainerReferenceApply(
+            external_id=new_external_id,
+            id_=new_id,
+            container_reference_type="fdmInstance",
+            instance_space=instance_id.space,
+            instance_external_id=instance_id.external_id,
+            view_space=consumer_view.space,
+            view_external_id=consumer_view.external_id,
+            view_version=consumer_view.version,
+            label=reference.label,
+            properties_=reference.properties_,
+            x=reference.x,
+            y=reference.y,
+            width=reference.width,
+            height=reference.height,
+            max_width=reference.max_width,
+            max_height=reference.max_height,
+        )
