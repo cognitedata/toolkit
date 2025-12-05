@@ -396,9 +396,7 @@ class ApprovalToolkitClient:
     def _create_create_method(self, resource: APIResource, mock_method: str, client: CogniteClient) -> Callable:
         created_resources = self.created_resources
         write_resource_cls = resource.write_cls
-        write_list_cls = resource.write_list_cls
         resource_cls = resource.resource_cls
-        resource_list_cls = resource.list_cls
 
         def _create(*args, **kwargs) -> Sequence:
             created = []
@@ -422,11 +420,11 @@ class ApprovalToolkitClient:
                         created.append(Database(name=item))
             created_resources[resource_cls.__name__].extend(created)
             if resource_cls is View:
-                return write_list_cls(created)
-            if resource_list_cls is GroupList:
+                return created
+            if resource_cls is Group:
                 # Groups needs special handling to convert the write to read
                 # to account for Unknown ACLs.
-                return resource_list_cls(_group_write_to_read(c) for c in created)
+                return [_group_write_to_read(c) for c in created]
             if resource_cls is StreamResponse:
                 return StreamResponseList.load(
                     [
@@ -443,8 +441,8 @@ class ApprovalToolkitClient:
                     cognite_client=client,
                 )
 
-            read_list = resource_list_cls.load(
-                [
+            return [
+                resource_cls._load(
                     {
                         # These are server set fields, so we need to set them manually
                         # Note that many of them are only used for certain resources. This is not a problem
@@ -462,11 +460,9 @@ class ApprovalToolkitClient:
                         "targetStatus": "paused",  # Hosted Extractor Job
                         **c.dump(camel_case=True),
                     }
-                    for c in created
-                ],
-                cognite_client=client,
-            )
-            return read_list
+                )
+                for c in created
+            ]
 
         def create_multiple(*args, **kwargs) -> Any:
             return _create(*args, **kwargs)
@@ -524,7 +520,7 @@ class ApprovalToolkitClient:
                         )
                     item["workflowDefinition"]["hash"] = "123"
 
-            return resource_list_cls.load(read_resource_objects, cognite_client=client)
+            return [resource_cls._load(item) for item in read_resource_objects]
 
         def _create_dataframe_info(dataframe: pd.DataFrame) -> dict[str, Any]:
             return {
