@@ -698,8 +698,8 @@ class TestMigrationCommand:
 
         result = command.migrate(
             selected=CanvasExternalIdSelector(external_ids=(canvas.canvas.external_id,)),
-            data=CanvasIO(client),
-            mapper=CanvasMapper(client, dry_run=False),
+            data=CanvasIO(client, exclude_existing_version=True),
+            mapper=CanvasMapper(client, dry_run=False, skip_on_missing_ref=False),
             log_dir=tmp_path / "logs",
             dry_run=False,
             verbose=False,
@@ -727,6 +727,9 @@ class TestMigrationCommand:
             "ContainerReference": len(canvas.container_references) - asset_centric_ref_count,
             "FdmInstanceContainerReference": len(canvas.fdm_instance_container_references) + asset_centric_ref_count,
         }
+
+        has_existing_version = [item["externalId"] for item in created_instance if "existingVersion" in item]
+        assert not has_existing_version, f"Expected no existingVersion field, but found in: {has_existing_version}"
 
     def test_validate_migration_model_available(self) -> None:
         with monkeypatch_toolkit_client() as client:

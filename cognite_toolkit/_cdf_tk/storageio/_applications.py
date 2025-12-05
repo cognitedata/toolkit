@@ -128,6 +128,15 @@ class ChartIO(UploadableStorageIO[ChartSelector, Chart, ChartWrite]):
 
 
 class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialCanvasApply]):
+    """Download and upload Industrial Canvases to/from CDF.
+
+    Args:
+        client (ToolkitClient): The Cognite Toolkit client to use for API interactions.
+        exclude_existing_version (bool): Whether to exclude the 'existingVersion' field when uploading canvases.
+            Defaults to True. If you set this to False, the upload may fail if the existing version in CDF is
+            lower or equal to the one in the uploaded data.
+    """
+
     KIND = "IndustrialCanvas"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
