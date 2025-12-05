@@ -1,6 +1,7 @@
 from collections.abc import Iterable, Sequence
 from typing import Any
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.canvas import (
     IndustrialCanvas,
     IndustrialCanvasApply,
@@ -134,6 +135,10 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
     CHUNK_SIZE = 10
     BASE_SELECTOR = CanvasSelector
 
+    def __init__(self, client: ToolkitClient, exclude_existing_version: bool = True) -> None:
+        super().__init__(client)
+        self.exclude_existing_version = exclude_existing_version
+
     def as_id(self, item: IndustrialCanvas) -> str:
         return item.as_id()
 
@@ -171,12 +176,19 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
         results: list[HTTPMessage] = []
         for item in data_chunk:
             instances = item.item.as_instances()
+            items: list[dict[str, JsonVal]] = []
+            for instance in instances:
+                dumped = instance.dump()
+                if self.exclude_existing_version:
+                    dumped.pop("existingVersion", None)
+                items.append(dumped)
+
             responses = http_client.request_with_retries(
                 message=SimpleBodyRequest(
                     endpoint_url=config.create_api_url("/models/instances"),
                     method="POST",
                     # MyPy does not understand that .dump is valid json
-                    body_content={"items": [instance.dump() for instance in instances]},
+                    body_content={"items": items},  # type: ignore[dict-item]
                 )
             )
             results.extend(responses.as_item_responses(item.source_id))
