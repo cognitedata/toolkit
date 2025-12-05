@@ -57,6 +57,11 @@ class CanvasMigrationIssue(MigrationIssue):
     canvas_name: str
     missing_reference_ids: list[AssetCentricId] = Field(default_factory=list)
 
+    @property
+    def has_issues(self) -> bool:
+        """Check if there are any issues recorded in this CanvasMigrationIssue."""
+        return bool(self.missing_reference_ids)
+
 
 class ReadIssue(MigrationIssue):
     """Represents a read issue encountered during migration."""
