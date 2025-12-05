@@ -263,7 +263,7 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvas
     # Note sequences are not supported in Canvas, so we do not include them here.
     asset_centric_resource_types = frozenset({"asset", "event", "file", "timeseries"})
 
-    def __init__(self, client: ToolkitClient, dry_run: bool, skip_on_missing_ref: bool) -> None:
+    def __init__(self, client: ToolkitClient, dry_run: bool, skip_on_missing_ref: bool = False) -> None:
         self.client = client
         self.dry_run = dry_run
         self.skip_on_missing_ref = skip_on_missing_ref
