@@ -282,26 +282,26 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvas
         """
         asset_ids: set[int] = set()
         event_ids: set[int] = set()
-        file_ids: set[int] = set()
         timeseries_ids: set[int] = set()
+        file_ids: set[int] = set()
         for canvas in source:
             for ref in canvas.container_references or []:
                 if ref.container_reference_type == "asset":
                     asset_ids.add(ref.resource_id)
                 elif ref.container_reference_type == "event":
                     event_ids.add(ref.resource_id)
-                elif ref.container_reference_type == "file":
-                    file_ids.add(ref.resource_id)
                 elif ref.container_reference_type == "timeseries":
                     timeseries_ids.add(ref.resource_id)
+                elif ref.container_reference_type == "file":
+                    file_ids.add(ref.resource_id)
         if asset_ids:
             self.client.migration.lookup.assets(list(asset_ids))
         if event_ids:
             self.client.migration.lookup.events(list(event_ids))
-        if file_ids:
-            self.client.migration.lookup.files(list(file_ids))
         if timeseries_ids:
             self.client.migration.lookup.time_series(list(timeseries_ids))
+        if file_ids:
+            self.client.migration.lookup.files(list(file_ids))
 
     def _get_node_id(self, resource_id: int, resource_type: str) -> NodeId | None:
         """Look up the node ID for a given resource ID and type."""
