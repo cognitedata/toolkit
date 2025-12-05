@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from collections import defaultdict
+from collections.abc import Callable, Sequence
 from typing import Generic, cast
 from uuid import uuid4
 
@@ -261,7 +262,11 @@ class ChartMapper(DataMapper[ChartSelector, Chart, ChartWrite]):
 
 class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvasApply]):
     # Note sequences are not supported in Canvas, so we do not include them here.
-    asset_centric_resource_types = frozenset({"asset", "event", "file", "timeseries"})
+    asset_centric_resource_types = tuple(("asset", "event", "timeseries", "file"))
+    DEFAULT_ASSET_VIEW = ViewId("cdf_cdm", "CogniteAsset", "v1")
+    DEFAULT_EVENT_VIEW = ViewId("cdf_cdm", "CogniteActivity", "v1")
+    DEFAULT_FILE_VIEW = ViewId("cdf_cdm", "CogniteFile", "v1")
+    DEFAULT_TIMESERIES_VIEW = ViewId("cdf_cdm", "CogniteTimeSeries", "v1")
 
     def __init__(self, client: ToolkitClient, dry_run: bool, skip_on_missing_ref: bool = False) -> None:
         self.client = client
@@ -276,67 +281,51 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvas
             output.append((mapped_item, issue))
         return output
 
+    @property
+    def lookup_methods(self) -> dict[str, Callable]:
+        return {
+            "asset": self.client.migration.lookup.assets,
+            "event": self.client.migration.lookup.events,
+            "timeseries": self.client.migration.lookup.time_series,
+            "file": self.client.migration.lookup.files,
+        }
+
     def _populate_cache(self, source: Sequence[IndustrialCanvas]) -> None:
         """Populate the internal cache with references from the source canvases.
 
         Note that the consumption views are also cached as part of the timeseries lookup.
         """
-        asset_ids: set[int] = set()
-        event_ids: set[int] = set()
-        timeseries_ids: set[int] = set()
-        file_ids: set[int] = set()
+        ids_by_type: dict[str, set[int]] = defaultdict(set)
         for canvas in source:
             for ref in canvas.container_references or []:
-                if ref.container_reference_type == "asset":
-                    asset_ids.add(ref.resource_id)
-                elif ref.container_reference_type == "event":
-                    event_ids.add(ref.resource_id)
-                elif ref.container_reference_type == "timeseries":
-                    timeseries_ids.add(ref.resource_id)
-                elif ref.container_reference_type == "file":
-                    file_ids.add(ref.resource_id)
-        if asset_ids:
-            self.client.migration.lookup.assets(list(asset_ids))
-        if event_ids:
-            self.client.migration.lookup.events(list(event_ids))
-        if timeseries_ids:
-            self.client.migration.lookup.time_series(list(timeseries_ids))
-        if file_ids:
-            self.client.migration.lookup.files(list(file_ids))
+                if ref.container_reference_type in self.asset_centric_resource_types:
+                    ids_by_type[ref.container_reference_type].add(ref.resource_id)
+
+        for resource_type, lookup_method in self.lookup_methods.items():
+            ids = ids_by_type.get(resource_type)
+            if ids:
+                lookup_method(list(ids))
 
     def _get_node_id(self, resource_id: int, resource_type: str) -> NodeId | None:
         """Look up the node ID for a given resource ID and type."""
-        if resource_type == "asset":
-            return self.client.migration.lookup.assets(resource_id)
-        elif resource_type == "event":
-            return self.client.migration.lookup.events(resource_id)
-        elif resource_type == "file":
-            return self.client.migration.lookup.files(resource_id)
-        elif resource_type == "timeseries":
-            return self.client.migration.lookup.time_series(resource_id)
-        else:
+        try:
+            return self.lookup_methods[resource_type](resource_id)
+        except KeyError:
             raise ToolkitValueError(f"Unsupported resource type '{resource_type}' for container reference migration.")
 
     def _get_consumer_view_id(self, resource_id: int, resource_type: str) -> ViewId:
         """Look up the consumer view ID for a given resource ID and type."""
-        if resource_type == "asset":
-            return self.client.migration.lookup.assets.consumer_view(resource_id) or ViewId(
-                "cdf_cdm", "CogniteAsset", "v1"
-            )
-        elif resource_type == "event":
-            return self.client.migration.lookup.events.consumer_view(resource_id) or ViewId(
-                "cdf_cdm", "CogniteActivity", "v1"
-            )
-        elif resource_type == "file":
-            return self.client.migration.lookup.files.consumer_view(resource_id) or ViewId(
-                "cdf_cdm", "CogniteFile", "v1"
-            )
-        elif resource_type == "timeseries":
-            return self.client.migration.lookup.time_series.consumer_view(resource_id) or ViewId(
-                "cdf_cdm", "CogniteTimeSeries", "v1"
-            )
-        else:
-            raise ToolkitValueError(f"Unsupported resource type '{resource_type}' for container reference migration.")
+        lookup_map = {
+            "asset": (self.client.migration.lookup.assets.consumer_view, self.DEFAULT_ASSET_VIEW),
+            "event": (self.client.migration.lookup.events.consumer_view, self.DEFAULT_EVENT_VIEW),
+            "timeseries": (self.client.migration.lookup.time_series.consumer_view, self.DEFAULT_TIMESERIES_VIEW),
+            "file": (self.client.migration.lookup.files.consumer_view, self.DEFAULT_FILE_VIEW),
+        }
+        if lookup_tuple := lookup_map.get(resource_type):
+            method, fallback = lookup_tuple
+            return method(resource_id) or fallback
+
+        raise ToolkitValueError(f"Unsupported resource type '{resource_type}' for container reference migration.")
 
     def _map_single_item(self, canvas: IndustrialCanvas) -> tuple[IndustrialCanvasApply | None, CanvasMigrationIssue]:
         update = canvas.as_write()
