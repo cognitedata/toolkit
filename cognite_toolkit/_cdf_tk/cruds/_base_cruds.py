@@ -132,8 +132,6 @@ class ResourceCRUD(Loader, ABC, Generic[T_ID, T_ResourceRequest, T_ResourceRespo
         yaml_cls: The File format for this resource. This is used to validate the user input.
         support_drop: Whether the resource supports the drop flag.
         support_update: Whether the resource supports the update operation.
-        filetypes: The filetypes that are supported by this crud. This should not be set in the subclass, it
-            should always be yaml and yml.
         dependencies: A set of other resource cruds that must be loaded before this crud.
         parent_resource: A set of other resource cruds that are parent resources to this resource. This is used
             to determine if the iterate method should return any resources when filtering by parent ids.
