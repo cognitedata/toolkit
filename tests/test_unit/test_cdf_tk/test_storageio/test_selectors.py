@@ -347,10 +347,10 @@ class TestDataSelectors:
 
         # Assert correct IO type
         if expected_io is not None:
-        # If expected_io is None, the selector is not yet supported for upload/download
+            # If expected_io is None, the selector is not yet supported for upload/download
             assert get_upload_io(instance) is expected_io, (
-            f"Expected {expected_io.__name__} for selector {type(instance).__name__}, got {get_upload_io(instance).__name__}"
-        )
+                f"Expected {expected_io.__name__} for selector {type(instance).__name__}, got {get_upload_io(instance).__name__}"
+            )
 
         # Assert selector is hashable
         assert isinstance(hash(instance), int), f"{type(instance).__name__} is not hashable"
