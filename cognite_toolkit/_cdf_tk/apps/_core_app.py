@@ -13,8 +13,10 @@ from rich.panel import Panel
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import BuildCommand, CleanCommand, DeployCommand
+from cognite_toolkit._cdf_tk.commands.build_v2.build_cmd import BuildCommand as BuildCommandV2
 from cognite_toolkit._cdf_tk.commands.clean import AVAILABLE_DATA_TYPES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils import get_cicd_environment
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._version import __version__ as current_version
@@ -207,7 +209,11 @@ class CoreApp(typer.Typer):
         if exit_on_warning:
             print_warning = False
 
-        cmd = BuildCommand(print_warning=print_warning)
+        cmd = (
+            BuildCommandV2(print_warning=print_warning)
+            if Flags.v08.is_enabled()
+            else BuildCommand(print_warning=print_warning)
+        )
         cmd.run(
             lambda: cmd.execute(
                 verbose,

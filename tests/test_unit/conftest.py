@@ -43,6 +43,8 @@ BASE_URL = "http://blabla.cognitedata.com"
 
 @pytest.fixture
 def toolkit_client_approval() -> Iterator[ApprovalToolkitClient]:
+    from cognite_toolkit._cdf_tk.client import ToolkitClient
+
     with monkeypatch_toolkit_client() as toolkit_client:
 
         def create_session(*args: Any, **kwargs: Any) -> CreatedSession:
@@ -55,6 +57,12 @@ def toolkit_client_approval() -> Iterator[ApprovalToolkitClient]:
 
         toolkit_client.iam.sessions.create = create_session
         approval_client = ApprovalToolkitClient(toolkit_client)
+
+        # Patch the mock's __class__ to make isinstance checks pass for Pydantic
+        # This is a workaround for Pydantic v2's strict type validation
+        original_class = type(approval_client.mock_client)
+        approval_client.mock_client.__class__ = type("ToolkitClientMock", (original_class, ToolkitClient), {})
+
         yield approval_client
 
 
