@@ -39,6 +39,7 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     RawTableSelector,
     Selector,
     SelectorAdapter,
+    ThreeDSelector,
 )
 from cognite_toolkit._cdf_tk.storageio.selectors._file_content import FILEPATH
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -276,6 +277,17 @@ def example_selector_data() -> Iterable[tuple]:
         DatapointsIO.KIND,
         id="DataPointsDataSetSelector",
     )
+    yield pytest.param(
+        {
+            "type": "3D",
+            "kind": "3D",
+            "published": None,
+        },
+        ThreeDSelector,
+        None,
+        "3D",
+        id="ThreeDSelector",
+    )
 
 
 @pytest.fixture(scope="module")
@@ -317,7 +329,7 @@ class TestDataSelectors:
         self,
         data: dict[str, Any],
         expected_selector: type[DataSelector],
-        expected_io: type[StorageIO],
+        expected_io: type[StorageIO] | None,
         kind: str,
         tmp_path: Path,
     ) -> None:
@@ -334,9 +346,11 @@ class TestDataSelectors:
         assert instance.group, f"group property not implemented for {type(instance).__name__}"
 
         # Assert correct IO type
-        assert get_upload_io(instance) is expected_io, (
-            f"Expected {expected_io.__name__} for selector {type(instance).__name__}, got {get_upload_io(instance).__name__}"
-        )
+        if expected_io is not None:
+            # If expected_io is None, the selector is not yet supported for upload/download
+            assert get_upload_io(instance) is expected_io, (
+                f"Expected {expected_io.__name__} for selector {type(instance).__name__}, got {get_upload_io(instance).__name__}"
+            )
 
         # Assert selector is hashable
         assert isinstance(hash(instance), int), f"{type(instance).__name__} is not hashable"

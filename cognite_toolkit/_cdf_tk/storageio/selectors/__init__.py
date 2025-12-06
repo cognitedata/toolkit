@@ -31,9 +31,11 @@ from ._instances import (
     SelectedView,
 )
 from ._raw import RawTableSelector, SelectedTable
+from ._three_d import ThreeDSelector
 
 Selector = Annotated[
     RawTableSelector
+    | ThreeDSelector
     | InstanceViewSelector
     | InstanceFileSelector
     | InstanceSpaceSelector
@@ -88,5 +90,6 @@ __all__ = [
     "SelectedView",
     "Selector",
     "SelectorAdapter",
+    "ThreeDSelector",
     "TimeSeriesColumn",
 ]
