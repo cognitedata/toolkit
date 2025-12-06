@@ -51,7 +51,7 @@ class APIResource:
     Args:
         api_name: The name of the resource in the CogniteClient, for example, 'time_series', 'data_modeling.views'
         resource_cls: The resource class for the API
-        list_cls: The list resource API class
+        _list_cls: The list resource API class
         methods: The methods that should be mocked
         _write_cls: The write resource class for the API. For example, the writing class for 'data_modeling.views' is 'ViewApply'
 
@@ -59,10 +59,14 @@ class APIResource:
 
     api_name: str
     resource_cls: type[CogniteResource]
-    list_cls: type[CogniteResourceList] | type[list]
     methods: dict[Literal["create", "delete", "retrieve"], list[Method]]
+    _list_cls: type[CogniteResourceList] | type[list] | None = None
     _write_cls: type[CogniteResource] | None = None
 
     @property
     def write_cls(self) -> type[CogniteResource]:
         return self._write_cls or self.resource_cls
+
+    @property
+    def list_cls(self) -> type[CogniteResourceList] | type[list]:
+        return self._list_cls or list
