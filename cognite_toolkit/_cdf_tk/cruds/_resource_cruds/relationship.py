@@ -23,7 +23,6 @@ from .timeseries import TimeSeriesCRUD
 @final
 class RelationshipCRUD(ResourceCRUD[str, RelationshipWrite, Relationship]):
     folder_name = "classic"
-    filetypes = frozenset({"yaml", "yml"})
     resource_cls = Relationship
     resource_write_cls = RelationshipWrite
     kind = "Relationship"

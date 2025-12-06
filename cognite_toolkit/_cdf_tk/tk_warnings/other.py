@@ -136,15 +136,19 @@ class MissingCapabilityWarning(GeneralWarning):
 
 @dataclass(frozen=True)
 class ToolkitDeprecationWarning(ToolkitWarning, DeprecationWarning):
+    severity = SeverityLevel.HIGH
     message: ClassVar[str] = "The '{feature}' is deprecated and will be removed in a future version."
 
     feature: str
     alternative: str | None = None
+    removal_version: str | None = None
 
     def get_message(self) -> str:
         msg = self.message.format(feature=self.feature)
         if self.alternative:
             msg += f"\nUse {self.alternative!r} instead."
+        if self.removal_version:
+            msg += f"\nIt will be removed in version {self.removal_version}."
 
         return msg
 
