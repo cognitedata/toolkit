@@ -421,7 +421,7 @@ class ApprovalToolkitClient:
                         created.append(Database(name=item))
             created_resources[resource_cls.__name__].extend(created)
             if resource_cls is View:
-                return resource_list_cls(created)
+                return created
             if resource_list_cls is GroupList:
                 # Groups needs special handling to convert the write to read
                 # to account for Unknown ACLs.

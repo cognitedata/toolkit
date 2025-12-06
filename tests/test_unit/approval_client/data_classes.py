@@ -65,4 +65,4 @@ class APIResource:
 
     @property
     def write_cls(self) -> type[CogniteResource]:
-        return self.resource_cls
+        return self._write_cls or self.resource_cls
