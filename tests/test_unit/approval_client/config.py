@@ -158,7 +158,6 @@ API_RESOURCES = [
     APIResource(
         api_name="post",
         resource_cls=TokenInspection,
-        _list_cls=list[TokenInspection],
         methods={
             "post": [Method(api_class_method="post", mock_class_method="post_method")],
         },
@@ -177,7 +176,6 @@ API_RESOURCES = [
     APIResource(
         api_name="iam.token",
         resource_cls=TokenInspection,
-        _list_cls=list[TokenInspection],
         methods={
             "inspect": [Method(api_class_method="inspect", mock_class_method="return_value")],
         },
