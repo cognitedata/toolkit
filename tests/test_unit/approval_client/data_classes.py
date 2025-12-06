@@ -60,7 +60,7 @@ class APIResource:
     api_name: str
     resource_cls: type[CogniteResource]
     methods: dict[Literal["create", "delete", "retrieve"], list[Method]]
-    _list_cls: type[CogniteResourceList] | type[list] | None = None
+    _list_cls: type[CogniteResourceList] | None = None
     _write_cls: type[CogniteResource] | None = None
 
     @property
