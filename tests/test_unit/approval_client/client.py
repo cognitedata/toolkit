@@ -396,7 +396,6 @@ class ApprovalToolkitClient:
     def _create_create_method(self, resource: APIResource, mock_method: str, client: CogniteClient) -> Callable:
         created_resources = self.created_resources
         write_resource_cls = resource.write_cls
-        write_list_cls = resource.write_list_cls
         resource_cls = resource.resource_cls
         resource_list_cls = resource.list_cls
 
@@ -422,7 +421,7 @@ class ApprovalToolkitClient:
                         created.append(Database(name=item))
             created_resources[resource_cls.__name__].extend(created)
             if resource_cls is View:
-                return write_list_cls(created)
+                return created
             if resource_list_cls is GroupList:
                 # Groups needs special handling to convert the write to read
                 # to account for Unknown ACLs.
