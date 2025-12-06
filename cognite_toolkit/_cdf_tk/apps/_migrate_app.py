@@ -8,17 +8,14 @@ from cognite.client.data_classes import Annotation
 from cognite.client.data_classes.data_modeling import ContainerId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.commands import (
-    MigrationCanvasCommand,
-    MigrationPrepareCommand,
-)
+from cognite_toolkit._cdf_tk.commands import MigrationPrepareCommand
 from cognite_toolkit._cdf_tk.commands._migrate import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.creators import (
     InfieldV2ConfigCreator,
     InstanceSpaceCreator,
     SourceSystemCreator,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper, ChartMapper
+from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper, CanvasMapper, ChartMapper
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     AnnotationMigrationIO,
     AssetCentricMigrationIO,
@@ -28,14 +25,15 @@ from cognite_toolkit._cdf_tk.commands._migrate.selectors import (
     MigrateDataSetSelector,
     MigrationCSVFileSelector,
 )
-from cognite_toolkit._cdf_tk.storageio import ChartIO
-from cognite_toolkit._cdf_tk.storageio.selectors import ChartExternalIdSelector
+from cognite_toolkit._cdf_tk.storageio import CanvasIO, ChartIO
+from cognite_toolkit._cdf_tk.storageio.selectors import CanvasExternalIdSelector, ChartExternalIdSelector
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.cli_args import parse_view_str
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
     AssetInteractiveSelect,
     DataModelingSelect,
     FileMetadataInteractiveSelect,
+    InteractiveCanvasSelect,
     InteractiveChartSelect,
     ResourceViewMappingInteractiveSelect,
 )
@@ -855,6 +853,23 @@ class MigrateApp(typer.Typer):
                 "performed to select the Canvas to migrate."
             ),
         ] = None,
+        skip_on_missing_ref: Annotated[
+            bool,
+            typer.Option(
+                "--skip-on-missing-ref",
+                "-s",
+                help="If set, the migration will skip Canvases that reference resources that have not been migrated to data modeling. "
+                "If not set, the migration will continue but the result will exclude the missing references.",
+            ),
+        ] = False,
+        log_dir: Annotated[
+            Path,
+            typer.Option(
+                "--log-dir",
+                "-l",
+                help="Path to the directory where migration logs will be stored.",
+            ),
+        ] = Path(f"migration_logs_{TODAY}"),
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -880,12 +895,24 @@ class MigrateApp(typer.Typer):
         is populated with the mapping from Asset-Centric resources to the new data modeling resources.
         """
         client = EnvironmentVariables.create_from_environment().get_client()
+        if external_id is None:
+            interactive = InteractiveCanvasSelect(client)
+            external_id = interactive.select_external_ids()
+            log_dir = questionary.path("Specify log directory for migration logs:", default=str(log_dir)).ask()
+            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).ask()
+            verbose = questionary.confirm("Do you want verbose output?", default=verbose).ask()
+            if any(res is None for res in [log_dir, dry_run, verbose]):
+                raise typer.Abort()
+            log_dir = Path(log_dir)
 
-        cmd = MigrationCanvasCommand()
+        cmd = MigrationCommand()
+        selector = CanvasExternalIdSelector(external_ids=tuple(external_id))
         cmd.run(
-            lambda: cmd.migrate_canvas(
-                client,
-                external_ids=external_id,
+            lambda: cmd.migrate(
+                selected=selector,
+                data=CanvasIO(client, exclude_existing_version=True),
+                mapper=CanvasMapper(client, dry_run=dry_run, skip_on_missing_ref=skip_on_missing_ref),
+                log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
             )

@@ -1,6 +1,6 @@
 from ._download import DownloadCommand
 from ._migrate import (
-    MigrationCanvasCommand,
+    MigrationCommand,
     MigrationPrepareCommand,
 )
 from ._profile import ProfileAssetCentricCommand, ProfileAssetCommand, ProfileRawCommand, ProfileTransformationCommand
@@ -30,7 +30,7 @@ __all__ = [
     "DownloadCommand",
     "DumpResourceCommand",
     "InitCommand",
-    "MigrationCanvasCommand",
+    "MigrationCommand",
     "MigrationPrepareCommand",
     "ModulesCommand",
     "ProfileAssetCentricCommand",
