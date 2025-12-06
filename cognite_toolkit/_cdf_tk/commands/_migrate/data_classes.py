@@ -11,7 +11,7 @@ from cognite.client.utils._identifier import InstanceId
 from cognite.client.utils._text import to_camel_case
 from pydantic import BaseModel, BeforeValidator, Field, field_validator, model_validator
 
-from cognite_toolkit._cdf_tk.client.data_classes.base import RequestResource
+from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject, RequestResource
 from cognite_toolkit._cdf_tk.client.data_classes.instance_api import InstanceIdentifier
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList
 from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId
@@ -22,7 +22,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
     create_default_mappings,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.protocols import ResourceRequestProtocol
 from cognite_toolkit._cdf_tk.storageio._data_classes import ModelList
 from cognite_toolkit._cdf_tk.utils.useful_types import (
     AssetCentricKindExtended,
@@ -266,22 +265,22 @@ class AssetCentricMappingList(
         return InstanceApplyList([item.as_write() for item in self])
 
 
-class Model(BaseModel):
+class Model(BaseModelObject):
     instance_id: InstanceIdentifier
 
 
-class Thumbnail(BaseModel):
+class Thumbnail(BaseModelObject):
     instance_id: InstanceIdentifier
 
 
-class ThreeDRevisionMigrationRequest(RequestResource, ResourceRequestProtocol):
+class ThreeDRevisionMigrationRequest(RequestResource):
     space: str
     type: Literal["CAD", "PointCloud", "Image360"]
     revision_id: int
     model: Model
 
 
-class ThreeDMigrationRequest(RequestResource, ResourceRequestProtocol):
+class ThreeDMigrationRequest(RequestResource):
     model_id: int
     type: Literal["CAD", "PointCloud", "Image360"]
     space: str
