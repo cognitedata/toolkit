@@ -7,9 +7,7 @@ from cognite.client.data_classes.data_modeling import EdgeId, InstanceApply, Nod
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.pending_instances_ids import PendingInstanceId
 from cognite_toolkit._cdf_tk.client.data_classes.three_d import ThreeDModelResponse
-from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
-    ThreeDMigrationRequest,
-)
+from cognite_toolkit._cdf_tk.commands._migrate.data_classes import ThreeDMigrationRequest
 from cognite_toolkit._cdf_tk.constants import MISSING_EXTERNAL_ID, MISSING_INSTANCE_SPACE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError, ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio import (
@@ -22,7 +20,13 @@ from cognite_toolkit._cdf_tk.storageio._base import Page, UploadItem
 from cognite_toolkit._cdf_tk.storageio.selectors import ThreeDSelector
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest, SuccessResponseItems
+from cognite_toolkit._cdf_tk.utils.http_client import (
+    HTTPClient,
+    HTTPMessage,
+    ItemsRequest,
+    SimpleBodyRequest,
+    SuccessResponseItems,
+)
 from cognite_toolkit._cdf_tk.utils.useful_types import (
     AssetCentricKindExtended,
     AssetCentricType,
@@ -360,8 +364,10 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelResponse,
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     SUPPORTED_READ_FORMATS = frozenset({".ndjson"})
-    CHUNK_SIZE = 10
+    DOWNLOAD_LIMIT = 1000
+    CHUNK_SIZE = 1
     UPLOAD_ENDPOINT = "/3d/migrate/models"
+    REVISION_ENDPOINT = "/3d/migrate/revisions"
 
     def as_id(self, item: ThreeDModelResponse) -> str:
         return f"{item.name}_{item.id!s}"
@@ -370,7 +376,7 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelResponse,
         cursor: str | None = None
         total = 0
         while True:
-            request_limit = min(self.CHUNK_SIZE, limit - total) if limit is not None else self.CHUNK_SIZE
+            request_limit = min(self.DOWNLOAD_LIMIT, limit - total) if limit is not None else self.DOWNLOAD_LIMIT
             response = self.client.tool.three_d.models.iterate(
                 published=selector.published, include_revision_info=True, limit=request_limit, cursor=cursor
             )
@@ -401,4 +407,29 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelResponse,
         http_client: HTTPClient,
         selector: ThreeDSelector | None = None,
     ) -> Sequence[HTTPMessage]:
-        raise NotImplementedError()
+        """Migrate 3D models by uploading them to the migrate/models endpoint."""
+        if len(data_chunk) >= self.CHUNK_SIZE:
+            raise RuntimeError(f"Uploading more than {self.CHUNK_SIZE} 3D models at a time is not supported.")
+
+        results: list[HTTPMessage] = []
+        responses = http_client.request_with_retries(
+            message=ItemsRequest(
+                endpoint_url=self.client.config.create_api_url(self.UPLOAD_ENDPOINT),
+                method="POST",
+                items=list(data_chunk),
+            )
+        )
+        results.extend(responses)
+        success_ids = {id for res in responses if isinstance(res, SuccessResponseItems) for id in res.ids}
+        for data in data_chunk:
+            if data.source_id not in success_ids:
+                continue
+            revision = http_client.request_with_retries(
+                message=SimpleBodyRequest(
+                    endpoint_url=self.client.config.create_api_url(self.REVISION_ENDPOINT),
+                    method="POST",
+                    body_content={"items": [data.item.revision.dump(camel_case=True)]},
+                )
+            )
+            results.extend(revision.as_item_responses(data.source_id))
+        return results

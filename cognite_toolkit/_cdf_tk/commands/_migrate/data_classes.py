@@ -284,5 +284,5 @@ class ThreeDMigrationRequest(RequestResource):
     model_id: int
     type: Literal["CAD", "PointCloud", "Image360"]
     space: str
-    thumbnail: Thumbnail
+    thumbnail: Thumbnail | None = None
     revision: ThreeDRevisionMigrationRequest = Field(exclude=True)
