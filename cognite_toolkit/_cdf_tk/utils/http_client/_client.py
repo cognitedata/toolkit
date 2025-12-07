@@ -59,6 +59,7 @@ class HTTPClient:
         pool_maxsize: int = 20,
         retry_status_codes: Set[int] = frozenset({408, 429, 502, 503, 504}),
         split_items_status_codes: Set[int] = frozenset({400, 408, 409, 422, 502, 503, 504}),
+        console: Console | None = None,
     ):
         self.config = config
         self._max_retries = max_retries
@@ -66,6 +67,7 @@ class HTTPClient:
         self._pool_maxsize = pool_maxsize
         self._retry_status_codes = retry_status_codes
         self._split_items_status_codes = split_items_status_codes
+        self._console = console
 
         # Thread-safe session for connection pooling
         self.session = self._create_thread_safe_session()
@@ -80,12 +82,11 @@ class HTTPClient:
         self.session.close()
         return False  # Do not suppress exceptions
 
-    def request(self, message: RequestMessage, console: Console | None = None) -> Sequence[HTTPMessage]:
+    def request(self, message: RequestMessage) -> Sequence[HTTPMessage]:
         """Send an HTTP request and return the response.
 
         Args:
             message (RequestMessage): The request message to send.
-            console (Console | None): The rich console to use for printing warnings.
 
         Returns:
             Sequence[HTTPMessage]: The response message(s). This can also
@@ -98,12 +99,12 @@ class HTTPClient:
             return message.create_failed_request(error_msg)
         try:
             response = self._make_request(message)
-            results = self._handle_response(response, message, console)
+            results = self._handle_response(response, message)
         except Exception as e:
             results = self._handle_error(e, message)
         return results
 
-    def request_with_retries(self, message: RequestMessage, console: Console | None = None) -> ResponseList:
+    def request_with_retries(self, message: RequestMessage) -> ResponseList:
         """Send an HTTP request and handle retries.
 
         This method will keep retrying the request until it either succeeds or
@@ -114,7 +115,6 @@ class HTTPClient:
 
         Args:
             message (RequestMessage): The request message to send.
-            console (Console | None): The rich console to use for printing warnings.
 
         Returns:
             Sequence[ResponseMessage | FailedRequestMessage]: The final response
@@ -127,7 +127,7 @@ class HTTPClient:
         final_responses = ResponseList([])
         while pending_requests:
             current_request = pending_requests.popleft()
-            results = self.request(current_request, console)
+            results = self.request(current_request)
 
             for result in results:
                 if isinstance(result, RequestMessage):
@@ -188,9 +188,7 @@ class HTTPClient:
             follow_redirects=False,
         )
 
-    def _handle_response(
-        self, response: httpx.Response, request: RequestMessage, console: Console | None = None
-    ) -> Sequence[HTTPMessage]:
+    def _handle_response(self, response: httpx.Response, request: RequestMessage) -> Sequence[HTTPMessage]:
         if 200 <= response.status_code < 300:
             return request.create_success_response(response)
         elif (
@@ -210,11 +208,11 @@ class HTTPClient:
 
         retry_after = self._get_retry_after_in_header(response)
         if retry_after is not None and response.status_code == 429 and request.status_attempt < self._max_retries:
-            if console is not None:
+            if self._console is not None:
                 short_url = request.endpoint_url.removeprefix(self.config.base_api_url)
                 HighSeverityWarning(
                     f"Rate limit exceeded for the {short_url!r} endpoint. Retrying after {retry_after} seconds."
-                ).print_warning(console=console)
+                ).print_warning(console=self._console)
             request.status_attempt += 1
             time.sleep(retry_after)
             return [request]

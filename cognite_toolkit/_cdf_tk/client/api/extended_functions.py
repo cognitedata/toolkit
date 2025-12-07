@@ -17,13 +17,14 @@ class ExtendedFunctionsAPI(FunctionsAPI):
         config: ToolkitClientConfig,
         api_version: str | None,
         cognite_client: CogniteClient,
+        console: Console | None = None,
     ) -> None:
         """
         Extended Functions API to include custom headers and payload preparation.
         """
         super().__init__(config, api_version, cognite_client)
         self._toolkit_config = config
-        self._toolkit_http_client = HTTPClient(config, max_retries=global_config.max_retries)
+        self._toolkit_http_client = HTTPClient(config, max_retries=global_config.max_retries, console=console)
 
     def create_with_429_retry(self, function: FunctionWrite, console: Console | None = None) -> Function:
         """Create a function with manual retry handling for 429 Too Many Requests responses.
@@ -43,8 +44,7 @@ class ExtendedFunctionsAPI(FunctionsAPI):
                 endpoint_url=self._toolkit_config.create_api_url("/functions"),
                 method="POST",
                 body_content={"items": [function.dump(camel_case=True)]},
-            ),
-            console=console,
+            )
         )
         result.raise_for_status()
         # We assume the API response is one item on a successful creation
@@ -77,7 +77,6 @@ class ExtendedFunctionsAPI(FunctionsAPI):
                     endpoint_url=self._toolkit_config.create_api_url("/functions/delete"),
                     method="POST",
                     body_content=body_content,
-                ),
-                console=console,
+                )
             ).raise_for_status()
         return None
