@@ -1,5 +1,4 @@
 import gzip
-import sys
 from abc import ABC, abstractmethod
 from typing import Any, Literal
 
@@ -8,11 +7,6 @@ from cognite.client import global_config
 from pydantic import BaseModel, JsonValue, TypeAdapter, model_validator
 
 from cognite_toolkit._cdf_tk.utils.useful_types import PrimitiveType
-
-if sys.version_info >= (3, 11):
-    pass
-else:
-    pass
 
 
 class HTTPResult2(BaseModel): ...
