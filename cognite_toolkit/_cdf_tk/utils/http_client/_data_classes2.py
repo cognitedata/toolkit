@@ -63,8 +63,8 @@ class BaseRequestMessage(BaseModel, ABC):
     def total_attempts(self) -> int:
         return self.connect_attempt + self.read_attempt + self.status_attempt
 
-    @abstractmethod
     @property
+    @abstractmethod
     def content(self) -> str | bytes | None: ...
 
 
@@ -145,11 +145,12 @@ def _set_default_tracker(data: dict[str, Any]) -> ItemsRequestTracker:
     return data["tracker"]
 
 
-class ItemsRequest2(BaseRequestMessage, Generic[T_RequestResource]):
+class ItemsRequest2(Generic[T_RequestResource], BaseRequestMessage):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     items: list[T_RequestResource]
     extra_body_fields: dict[str, JsonValue] | None = None
     max_failures_before_abort: int = 50
-    tracker: ItemsRequestTracker = Field(init=False, default_factory=_set_default_tracker)
+    tracker: ItemsRequestTracker = Field(init=False, default_factory=_set_default_tracker, exclude=True)
 
     @property
     def content(self) -> str:

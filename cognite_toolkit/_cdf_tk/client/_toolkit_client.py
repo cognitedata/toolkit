@@ -35,12 +35,17 @@ class ToolAPI:
 
 
 class ToolkitClient(CogniteClient):
-    def __init__(self, config: ToolkitClientConfig | None = None, enable_set_pending_ids: bool = False) -> None:
+    def __init__(
+        self,
+        config: ToolkitClientConfig | None = None,
+        enable_set_pending_ids: bool = False,
+        console: Console | None = None,
+    ) -> None:
         super().__init__(config=config)
         http_client = HTTPClient(self.config)
         self.http_client = http_client
         toolkit_config = ToolkitClientConfig.from_client_config(self.config)
-        self.console = Console()
+        self.console = console or Console()
         self.tool = ToolAPI(http_client, self.console)
         self.search = SearchAPI(self._config, self._API_VERSION, self)
         self.robotics = RoboticsAPI(self._config, self._API_VERSION, self)

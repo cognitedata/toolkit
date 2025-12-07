@@ -26,7 +26,7 @@ class ExtendedFunctionsAPI(FunctionsAPI):
         self._toolkit_config = config
         self._toolkit_http_client = HTTPClient(config, max_retries=global_config.max_retries, console=console)
 
-    def create_with_429_retry(self, function: FunctionWrite, console: Console | None = None) -> Function:
+    def create_with_429_retry(self, function: FunctionWrite) -> Function:
         """Create a function with manual retry handling for 429 Too Many Requests responses.
 
         This method is a workaround for scenarios where the function creation API is temporarily unavailable
@@ -50,9 +50,7 @@ class ExtendedFunctionsAPI(FunctionsAPI):
         # We assume the API response is one item on a successful creation
         return Function._load(result.get_first_body()["items"][0], cognite_client=self._cognite_client)  # type: ignore[arg-type,index]
 
-    def delete_with_429_retry(
-        self, external_id: SequenceNotStr[str], ignore_unknown_ids: bool = False, console: Console | None = None
-    ) -> None:
+    def delete_with_429_retry(self, external_id: SequenceNotStr[str], ignore_unknown_ids: bool = False) -> None:
         """Delete one or more functions with retry handling for 429 Too Many Requests responses.
 
         This method is an improvement over the standard delete method in the FunctionsAPI.
