@@ -9,6 +9,7 @@ from cognite.client import global_config
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, model_validator
 from pydantic.alias_generators import to_camel
 
+from cognite_toolkit._cdf_tk.utils.http_client._exception import ToolkitAPIError
 from cognite_toolkit._cdf_tk.utils.http_client._tracker import ItemsRequestTracker
 from cognite_toolkit._cdf_tk.utils.useful_types import PrimitiveType
 
@@ -18,7 +19,19 @@ else:
     from typing_extensions import Self
 
 
-class HTTPResult2(BaseModel): ...
+class HTTPResult2(BaseModel):
+    def get_success_or_raise(self) -> "SuccessResponse2":
+        """Raises an exception if any response in the list indicates a failure."""
+        if isinstance(self, SuccessResponse2):
+            return self
+        elif isinstance(self, FailedResponse2):
+            raise ToolkitAPIError(
+                f"Request failed with status code {self.status_code}: {self.error.code} - {self.error.message}"
+            )
+        elif isinstance(self, FailedRequest2):
+            raise ToolkitAPIError(f"Request failed with error: {self.error}")
+        else:
+            raise ToolkitAPIError("Unknown HTTPResult2 type")
 
 
 class FailedRequest2(HTTPResult2):
@@ -29,6 +42,11 @@ class SuccessResponse2(HTTPResult2):
     status_code: int
     body: str
     content: bytes
+
+    @property
+    def body_json(self) -> dict[str, Any]:
+        """Parse the response body as JSON."""
+        return TypeAdapter(dict[str, JsonValue]).validate_json(self.body)
 
 
 class ErrorDetails2(BaseModel):
