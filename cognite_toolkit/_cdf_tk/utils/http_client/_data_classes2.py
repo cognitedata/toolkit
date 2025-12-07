@@ -88,7 +88,10 @@ class RequestMessage2(BaseRequestMessage):
         elif self.body_content is not None:
             # We serialize using pydantic instead of json.dumps. This is because pydantic is faster
             # and handles more complex types such as datetime, float('nan'), etc.
-            data = self.model_dump_json(include={"body_content"}).removesuffix("}").removeprefix('{"body_content":')
-            if not global_config.disable_gzip:
+            data = _BODY_SERIALIZER.dump_json(self.body_content)
+            if not global_config.disable_gzip and isinstance(data, str):
                 data = gzip.compress(data.encode("utf-8"))
         return data
+
+
+_BODY_SERIALIZER = TypeAdapter(dict[str, JsonValue])
