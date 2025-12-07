@@ -6,7 +6,7 @@ from collections.abc import Hashable
 from typing import Any, Generic, Literal, TypeVar
 
 from cognite.client import global_config
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 from pydantic.alias_generators import to_camel
 
 from cognite_toolkit._cdf_tk.utils.http_client._tracker import ItemsRequestTracker
@@ -72,6 +72,12 @@ class RequestMessage2(BaseRequestMessage):
     data_content: bytes | None = None
     body_content: dict[str, JsonValue] | list[JsonValue] | None = None
 
+    @model_validator(mode="before")
+    def check_data_or_body(cls, values: dict[str, Any]) -> dict[str, Any]:
+        if values.get("data_content") is not None and values.get("body_content") is not None:
+            raise ValueError("Only one of data_content or body_content can be set.")
+        return values
+
     @property
     def content(self) -> str | bytes | None:
         data: str | bytes | None = None
@@ -133,11 +139,17 @@ class RequestResource(BaseModelObject, ABC):
 T_RequestResource = TypeVar("T_RequestResource", bound=RequestResource)
 
 
+def _set_default_tracker(data: dict[str, Any]) -> ItemsRequestTracker:
+    if "tracker" not in data or data["tracker"] is None:
+        return ItemsRequestTracker(data.get("max_failures_before_abort", 50))
+    return data["tracker"]
+
+
 class ItemsRequest2(BaseRequestMessage, Generic[T_RequestResource]):
     items: list[T_RequestResource]
     extra_body_fields: dict[str, JsonValue] | None = None
     max_failures_before_abort: int = 50
-    tracker: ItemsRequestTracker | None = Field(default=None, init=False)
+    tracker: ItemsRequestTracker = Field(init=False, default_factory=_set_default_tracker)
 
     @property
     def content(self) -> str:
@@ -150,3 +162,16 @@ class ItemsRequest2(BaseRequestMessage, Generic[T_RequestResource]):
         if self.extra_body_fields:
             body.update(self.extra_body_fields)
         return json.dumps(body)
+
+    def split(self, status_attempts: int) -> list["ItemsRequest2[T_RequestResource]"]:
+        """Split the request into multiple requests with a single item each."""
+        mid = len(self.items) // 2
+        if mid == 0:
+            return [self]
+        self.tracker.register_failure()
+        messages: list[ItemsRequest2[T_RequestResource]] = []
+        for part in (self.items[:mid], self.items[mid:]):
+            new_request = self.model_copy(update={"items": part, "status_attempt": status_attempts})
+            new_request.tracker = self.tracker
+            messages.append(new_request)
+        return messages
