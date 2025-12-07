@@ -1,6 +1,7 @@
 from collections.abc import Sequence
 from typing import Any, cast
 
+from pydantic import TypeAdapter
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.data_classes.api_classes import PagedResponse, QueryResponse
@@ -15,7 +16,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.instance_api import (
     NodeIdentifier,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ItemsRequest, SimpleBodyRequest
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ItemsRequest, ItemsRequest2, SimpleBodyRequest
 
 
 class InfieldConfigAPI:
@@ -168,15 +169,15 @@ class InFieldCDMConfigAPI:
             raise ValueError("Cannot apply more than 500 InFieldCDMLocationConfig items at once.")
 
         request_items = [item.as_request_item() for item in items]
-        responses = self._http_client.request_with_retries(
-            ItemsRequest(
+        results = self._http_client.request_items_retries(
+            ItemsRequest2(
                 endpoint_url=self._config.create_api_url(self.ENDPOINT),
                 method="POST",
-                items=request_items,  # type: ignore[arg-type]
+                items=request_items,
             )
         )
-        responses.raise_for_status()
-        return PagedResponse[InstanceResult].model_validate(responses.get_first_body()).items
+        results.raise_for_status()
+        return TypeAdapter(list[InstanceResult]).validate_python(results.get_items())
 
     def retrieve(self, items: Sequence[NodeIdentifier]) -> list[InFieldCDMLocationConfig]:
         if len(items) > 100:

@@ -32,6 +32,7 @@ from cognite_toolkit._cdf_tk.utils.http_client._data_classes2 import (
     ItemsFailedRequest2,
     ItemsFailedResponse2,
     ItemsRequest2,
+    ItemsResultList,
     ItemsResultMessage2,
     ItemsSuccessResponse2,
     RequestMessage2,
@@ -418,7 +419,7 @@ class HTTPClient:
             results = self._handle_items_error(e, message)
         return results
 
-    def request_items_retries(self, message: ItemsRequest2) -> Sequence[ItemsResultMessage2]:
+    def request_items_retries(self, message: ItemsRequest2) -> ItemsResultList:
         """Send an HTTP request with multiple items and handle retries.
 
         This method will keep retrying the request until it either succeeds or
@@ -436,7 +437,7 @@ class HTTPClient:
             raise RuntimeError(f"ItemsRequest2 has already been attempted {message.total_attempts} times.")
         pending_requests: deque[ItemsRequest2] = deque()
         pending_requests.append(message)
-        final_responses: list[ItemsResultMessage2] = []
+        final_responses = ItemsResultList([])
         while pending_requests:
             current_request = pending_requests.popleft()
             results = self.request_items(current_request)

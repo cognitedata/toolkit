@@ -1,7 +1,8 @@
 import gzip
 import sys
 from abc import ABC, abstractmethod
-from collections.abc import Hashable
+from collections import UserList
+from collections.abc import Hashable, Sequence
 from typing import Any, Literal
 
 import httpx
@@ -176,7 +177,7 @@ def _set_default_tracker(data: dict[str, Any]) -> ItemsRequestTracker:
 
 class ItemsRequest2(BaseRequestMessage):
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    items: list[RequestResource]
+    items: Sequence[RequestResource]
     extra_body_fields: dict[str, JsonValue] | None = None
     max_failures_before_abort: int = 50
     tracker: ItemsRequestTracker = Field(init=False, default_factory=_set_default_tracker, exclude=True)
@@ -203,3 +204,42 @@ class ItemsRequest2(BaseRequestMessage):
             new_request.tracker = self.tracker
             messages.append(new_request)
         return messages
+
+
+class ItemsResultList(UserList[ItemsResultMessage2]):
+    def __init__(self, collection: Sequence[ItemsResultMessage2] | None = None) -> None:
+        super().__init__(collection or [])
+
+    def raise_for_status(self) -> None:
+        """Raises an exception if any response in the list indicates a failure."""
+        failed_responses = [resp for resp in self.data if isinstance(resp, ItemsFailedResponse2)]
+        failed_requests = [resp for resp in self.data if isinstance(resp, ItemsFailedRequest2)]
+        if not failed_responses and not failed_requests:
+            return
+        error_messages = "; ".join(f"Status {err.status_code}: {err.error.message}" for err in failed_responses)
+        if failed_requests:
+            if error_messages:
+                error_messages += "; "
+            error_messages += "; ".join(f"Request error: {err.error_message}" for err in failed_requests)
+        raise ToolkitAPIError(f"One or more requests failed: {error_messages}")
+
+    @property
+    def has_failed(self) -> bool:
+        """Indicates whether any response in the list indicates a failure.
+
+        Returns:
+            bool: True if there are any failed responses or requests, False otherwise.
+        """
+        for resp in self.data:
+            if isinstance(resp, ItemsFailedResponse2 | ItemsFailedRequest2):
+                return True
+        return False
+
+    def get_items(self) -> list[dict[str, JsonValue]]:
+        """Get the items from all successful responses."""
+        items: list[dict[str, JsonValue]] = []
+        for resp in self.data:
+            if isinstance(resp, ItemsSuccessResponse2):
+                body_json = TypeAdapter(dict[Literal["items"], list[dict[str, JsonValue]]]).validate_json(resp.body)
+                items.extend(body_json["items"])
+        return items
