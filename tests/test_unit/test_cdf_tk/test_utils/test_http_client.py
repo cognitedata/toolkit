@@ -26,6 +26,7 @@ from cognite_toolkit._cdf_tk.utils.http_client import (
     SuccessResponseItems,
 )
 from cognite_toolkit._cdf_tk.utils.http_client._data_classes2 import (
+    FailedRequest2,
     FailedResponse2,
     RequestMessage2,
     SuccessResponse2,
@@ -261,10 +262,8 @@ class TestHTTPClient2:
         url = "https://example.com/api/resource"
         rsps.get(url).respond(json={"error": "service unavailable"}, status_code=503)
         rsps.get(url).respond(json={"key": "value"}, status_code=200)
-        results = http_client.r(ParamRequest(endpoint_url=url, method="GET"))
-        assert len(results) == 1
-        response = results[0]
-        assert isinstance(response, SuccessResponse)
+        response = http_client.request_single_retries(RequestMessage2(endpoint_url=url, method="GET"))
+        assert isinstance(response, SuccessResponse2)
         assert response.status_code == 200
         assert response.body == '{"key":"value"}'
 
@@ -275,13 +274,11 @@ class TestHTTPClient2:
                 json={"error": {"message": "service unavailable", "code": 503}}, status_code=503
             )
         with patch("time.sleep"):  # Patch sleep to speed up the test
-            results = client.request_with_retries(
-                ParamRequest(endpoint_url="https://example.com/api/resource", method="GET")
+            response = client.request_single_retries(
+                RequestMessage2(endpoint_url="https://example.com/api/resource", method="GET")
             )
 
-        assert len(results) == 1
-        response = results[0]
-        assert isinstance(response, FailedResponse)
+        assert isinstance(response, FailedResponse2)
         assert response.status_code == 503
         assert response.error.message == "service unavailable"
 
@@ -292,67 +289,62 @@ class TestHTTPClient2:
         )
         with patch(f"{HTTPClient.__module__}.time"):
             # Patch time to avoid actual sleep
-            results = http_client.request_with_retries(
-                ParamRequest(endpoint_url="http://nonexistent.domain/api/resource", method="GET")
+            response = http_client.request_single_retries(
+                RequestMessage2(endpoint_url="http://nonexistent.domain/api/resource", method="GET")
             )
-        response = results[0]
-        assert len(results) == 1
-        assert isinstance(response, FailedRequestMessage)
+        assert isinstance(response, FailedRequest2)
         assert "RequestException after 1 attempts (connect error): Simulated connection error" == response.error
 
     def test_read_timeout_error(self, http_client_one_retry: HTTPClient, rsps: respx.MockRouter) -> None:
         http_client = http_client_one_retry
         rsps.get("https://example.com/api/resource").mock(side_effect=httpx.ReadTimeout("Simulated read timeout"))
-        bad_request = ParamRequest(endpoint_url="https://example.com/api/resource", method="GET")
         with patch(f"{HTTPClient.__module__}.time"):
             # Patch time to avoid actual sleep
-            results = http_client.request_with_retries(bad_request)
-        response = results[0]
-        assert len(results) == 1
-        assert isinstance(response, FailedRequestMessage)
+            response = http_client.request_single_retries(
+                RequestMessage2(endpoint_url="https://example.com/api/resource", method="GET")
+            )
+        assert isinstance(response, FailedRequest2)
         assert "RequestException after 1 attempts (read error): Simulated read timeout" == response.error
 
     def test_zero_retries(self, toolkit_config: ToolkitClientConfig, rsps: respx.MockRouter) -> None:
         client = HTTPClient(toolkit_config, max_retries=0)
-        rsps.get("https://example.com/api/resource").respond(json={"error": "service unavailable"}, status_code=503)
-        results = client.request_with_retries(
-            ParamRequest(endpoint_url="https://example.com/api/resource", method="GET")
+        rsps.get("https://example.com/api/resource").respond(
+            json={"error": {"message": "service unavailable", "code": 503}}, status_code=503
         )
-        assert len(results) == 1
-        response = results[0]
-        assert isinstance(response, FailedResponse)
+        response = client.request_single_retries(
+            RequestMessage2(endpoint_url="https://example.com/api/resource", method="GET")
+        )
+        assert isinstance(response, FailedResponse2)
         assert response.status_code == 503
         assert response.error.message == "service unavailable"
         assert len(rsps.calls) == 1
 
     def test_raise_if_already_retied(self, http_client_one_retry: HTTPClient) -> None:
         http_client = http_client_one_retry
-        bad_request = ParamRequest(endpoint_url="https://example.com/api/resource", method="GET", status_attempt=3)
+        bad_request = RequestMessage2(endpoint_url="https://example.com/api/resource", method="GET", status_attempt=3)
         with pytest.raises(RuntimeError, match=r"RequestMessage has already been attempted 3 times."):
-            http_client.request_with_retries(bad_request)
+            http_client.request_single_retries(bad_request)
 
     def test_error_text(self, http_client: HTTPClient, rsps: respx.MockRouter) -> None:
         rsps.get("https://example.com/api/resource").respond(json={"message": "plain_text"}, status_code=401)
-        results = http_client.request(ParamRequest(endpoint_url="https://example.com/api/resource", method="GET"))
-        assert len(results) == 1
-        response = results[0]
-        assert isinstance(response, FailedResponse)
+        response = http_client.request_single(
+            RequestMessage2(endpoint_url="https://example.com/api/resource", method="GET")
+        )
+        assert isinstance(response, FailedResponse2)
         assert response.status_code == 401
         assert response.error.message == '{"message":"plain_text"}'
 
     def test_request_alpha(self, http_client: HTTPClient, rsps: respx.MockRouter) -> None:
         rsps.get("https://example.com/api/alpha/endpoint").respond(json={"key": "value"}, status_code=200)
-        results = http_client.request(
-            ParamRequest(
+        response = http_client.request_single(
+            RequestMessage2(
                 endpoint_url="https://example.com/api/alpha/endpoint",
                 method="GET",
                 parameters={"query": "test"},
                 api_version="alpha",
             )
         )
-        assert len(results) == 1
-        response = results[0]
-        assert isinstance(response, SuccessResponse)
+        assert isinstance(response, SuccessResponse2)
         assert response.status_code == 200
         assert rsps.calls[-1].request.headers["cdf-version"] == "alpha"
 

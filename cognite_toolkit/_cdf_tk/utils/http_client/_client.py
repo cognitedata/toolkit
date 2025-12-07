@@ -311,7 +311,7 @@ class HTTPClient:
             HTTPMessage2: The final response message, which can be either successful response or failed request.
         """
         if message.total_attempts > 0:
-            raise RuntimeError(f"RequestMessage2 has already been attempted {message.total_attempts} times.")
+            raise RuntimeError(f"RequestMessage has already been attempted {message.total_attempts} times.")
         current_request = message
         while True:
             result = self.request_single(current_request)
