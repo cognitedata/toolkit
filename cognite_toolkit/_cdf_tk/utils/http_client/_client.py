@@ -26,8 +26,8 @@ from cognite_toolkit._cdf_tk.utils.http_client._data_classes import (
 from cognite_toolkit._cdf_tk.utils.http_client._data_classes2 import (
     BaseRequestMessage,
     ErrorDetails2,
-    FailedRequestMessage2,
-    FailedResponseMessage2,
+    FailedRequest2,
+    FailedResponse2,
     HTTPResult2,
     ItemsFailedRequestMessage2,
     ItemsFailedResponseMessage2,
@@ -35,7 +35,7 @@ from cognite_toolkit._cdf_tk.utils.http_client._data_classes2 import (
     ItemsResultMessage2,
     ItemsSuccessResponseMessage2,
     RequestMessage2,
-    SuccessResponseMessage2,
+    SuccessResponse2,
 )
 from cognite_toolkit._cdf_tk.utils.useful_types import PrimitiveType
 
@@ -338,7 +338,7 @@ class HTTPClient:
         self, response: httpx.Response, request: RequestMessage2
     ) -> RequestMessage2 | HTTPResult2:
         if 200 <= response.status_code < 300:
-            return SuccessResponseMessage2(
+            return SuccessResponse2(
                 status_code=response.status_code,
                 body=response.text,
                 content=response.content,
@@ -360,10 +360,10 @@ class HTTPClient:
             return request
         else:
             # Permanent failure
-            return FailedResponseMessage2(
+            return FailedResponse2(
                 status_code=response.status_code,
                 body=response.text,
-                error=ErrorDetails2.model_validate(response),
+                error=ErrorDetails2.from_response(response),
             )
 
     def _handle_error_single(self, e: Exception, request: RequestMessage2) -> RequestMessage2 | HTTPResult2:
@@ -377,7 +377,7 @@ class HTTPClient:
             attempts = request.connect_attempt
         else:
             error_msg = f"Unexpected exception: {e!s}"
-            return FailedRequestMessage2(error=error_msg)
+            return FailedRequest2(error=error_msg)
 
         if attempts <= self._max_retries:
             time.sleep(self._backoff_time(request.total_attempts))
@@ -386,7 +386,7 @@ class HTTPClient:
             # We have already incremented the attempt count, so we subtract 1 here
             error_msg = f"RequestException after {request.total_attempts - 1} attempts ({error_type} error): {e!s}"
 
-            return FailedRequestMessage2(error=error_msg)
+            return FailedRequest2(error=error_msg)
 
     def request_items(self, message: ItemsRequest2) -> Sequence[ItemsRequest2 | ItemsResultMessage2]:
         """Send an HTTP request with multiple items and return the response.

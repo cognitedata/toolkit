@@ -5,8 +5,9 @@ from abc import ABC, abstractmethod
 from collections.abc import Hashable
 from typing import Any, Generic, Literal, TypeVar
 
+import httpx
 from cognite.client import global_config
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, model_validator
 from pydantic.alias_generators import to_camel
 
 from cognite_toolkit._cdf_tk.utils.http_client._tracker import ItemsRequestTracker
@@ -21,11 +22,11 @@ else:
 class HTTPResult2(BaseModel): ...
 
 
-class FailedRequestMessage2(HTTPResult2):
+class FailedRequest2(HTTPResult2):
     error: str
 
 
-class SuccessResponseMessage2(HTTPResult2):
+class SuccessResponse2(HTTPResult2):
     status_code: int
     body: str
     content: bytes
@@ -40,8 +41,17 @@ class ErrorDetails2(BaseModel):
     duplicated: list[JsonValue] | None = None
     is_auto_retryable: bool | None = None
 
+    @classmethod
+    def from_response(cls, response: httpx.Response) -> "ErrorDetails2":
+        """Populate the error details from a httpx response."""
+        try:
+            res = TypeAdapter(dict[Literal["error"], ErrorDetails2]).validate_json(response.text)
+        except ValueError:
+            return cls(code=response.status_code, message=response.text)
+        return res["error"]
 
-class FailedResponseMessage2(HTTPResult2):
+
+class FailedResponse2(HTTPResult2):
     status_code: int
     body: str
     error: ErrorDetails2
@@ -70,7 +80,7 @@ class BaseRequestMessage(BaseModel, ABC):
 
 class RequestMessage2(BaseRequestMessage):
     data_content: bytes | None = None
-    body_content: dict[str, JsonValue] | list[JsonValue] | None = None
+    body_content: dict[str, JsonValue] | None = None
 
     @model_validator(mode="before")
     def check_data_or_body(cls, values: dict[str, Any]) -> dict[str, Any]:
@@ -86,7 +96,9 @@ class RequestMessage2(BaseRequestMessage):
             if not global_config.disable_gzip:
                 data = gzip.compress(data)
         elif self.body_content is not None:
-            data = self.model_dump_json(include={"body_content"})
+            # We serialize using pydantic instead of json.dumps. This is because pydantic is faster
+            # and handles more complex types such as datetime, float('nan'), etc.
+            data = self.model_dump_json(include={"body_content"}).removesuffix("}").removeprefix('{"body_content":')
             if not global_config.disable_gzip:
                 data = gzip.compress(data.encode("utf-8"))
         return data
