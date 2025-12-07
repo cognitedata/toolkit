@@ -401,7 +401,8 @@ class HTTPClient:
         Args:
             message (ItemsRequest2): The request message to send.
         Returns:
-            HTTPMessage2: The response message.
+            Sequence[ItemsRequest2 | ItemsResultMessage2]: The response message(s). This can also
+                include ItemsRequest2(s) to be retried or split.
         """
         if message.tracker and message.tracker.limit_reached():
             return [
@@ -429,7 +430,7 @@ class HTTPClient:
         Args:
             message (ItemsRequest2): The request message to send.
         Returns:
-            HTTPMessage2: The final response message, which can be either successful response or failed request.
+            Sequence[ItemsResultMessage2]: The final response message, which can be either successful response or failed request.
         """
         if message.total_attempts > 0:
             raise RuntimeError(f"ItemsRequest2 has already been attempted {message.total_attempts} times.")

@@ -902,3 +902,15 @@ class TestHTTPClientItemRequests2:
             )
         failures = Counter([type(results) for results in results for _ in getattr(results, "ids", [])])
         assert failures == {ItemsFailedResponse2: 3, ItemsSuccessResponse2: 997}
+
+
+class TestItemMessage:
+    def test_tracker_correctly_set(self) -> None:
+        message = ItemsRequest2(
+            endpoint_url="https://example.com/api/resource",
+            method="POST",
+            items=[MyRequestItem(name="A", id=1)],
+            max_failures_before_abort=10,
+        )
+
+        assert message.tracker.max_failures_before_abort == 10
