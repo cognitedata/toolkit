@@ -311,9 +311,10 @@ class TestHTTPClient2:
         rsps.get("https://example.com/api/resource").respond(
             json={"error": {"message": "service unavailable", "code": 503}}, status_code=503
         )
-        response = client.request_single_retries(
-            RequestMessage2(endpoint_url="https://example.com/api/resource", method="GET")
-        )
+        with patch("time.sleep"):  # Patch sleep to speed up the test
+            response = client.request_single_retries(
+                RequestMessage2(endpoint_url="https://example.com/api/resource", method="GET")
+            )
         assert isinstance(response, FailedResponse2)
         assert response.status_code == 503
         assert response.error.message == "service unavailable"
