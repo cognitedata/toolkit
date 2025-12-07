@@ -1,8 +1,10 @@
+from collections.abc import Sequence
+
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.data_classes.api_classes import PagedResponse
-from cognite_toolkit._cdf_tk.client.data_classes.three_d import ThreeDModelResponse
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ParamRequest
+from cognite_toolkit._cdf_tk.client.data_classes.three_d import ThreeDModelClassicRequest, ThreeDModelResponse
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ItemsRequest, ParamRequest, SimpleBodyRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import PrimitiveType
 
 
@@ -13,6 +15,49 @@ class ThreeDModelAPI:
         self._http_client = http_client
         self._console = console
         self._config = http_client.config
+
+    def create(self, models: Sequence[ThreeDModelClassicRequest]) -> list[ThreeDModelResponse]:
+        """Create 3D models in classic format.
+
+        Args:
+            models (Sequence[ThreeDModelClassicRequest]): The 3D model(s) to create.
+
+        Returns:
+            list[ThreeDModelResponse]: The created 3D model(s).
+        """
+        if not models:
+            return []
+        if len(models) > 1000:
+            raise ValueError("Cannot create more than 1000 3D models in a single request.")
+        responses = self._http_client.request_with_retries(
+            ItemsRequest(
+                endpoint_url=self._config.create_api_url(self.ENDPOINT),
+                method="POST",
+                items=list(models),
+            )
+        )
+        responses.raise_for_status()
+        body = responses.get_first_body()
+        return PagedResponse[ThreeDModelResponse].model_validate(body).items
+
+    def delete(self, ids: Sequence[int]) -> None:
+        """Delete 3D models by their IDs.
+
+        Args:
+            ids (Sequence[int]): The IDs of the 3D models to delete.
+        """
+        if not ids:
+            return None
+        if len(ids) > 1000:
+            raise ValueError("Cannot delete more than 1000 3D models in a single request.")
+        responses = self._http_client.request_with_retries(
+            SimpleBodyRequest(
+                endpoint_url=self._config.create_api_url(self.ENDPOINT + "/delete"),
+                method="POST",
+                body_content={"items": [{"id": id_} for id_ in ids]},
+            )
+        )
+        responses.raise_for_status()
 
     def iterate(
         self,

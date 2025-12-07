@@ -2,22 +2,29 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from cognite.client.data_classes import AssetList, AssetWrite, AssetWriteList
+from cognite.client.data_classes import AssetList, AssetWrite, AssetWriteList, DataSet
 from cognite.client.data_classes.data_modeling import NodeId, Space, ViewId
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteAsset
 from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.data_classes.three_d import ThreeDModelClassicRequest
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
-from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
+from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper, ThreeDMapper
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
     ASSET_ID,
     EVENT_ID,
     FILE_METADATA_ID,
     TIME_SERIES_ID,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.migration_io import AnnotationMigrationIO, AssetCentricMigrationIO
+from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
+    AnnotationMigrationIO,
+    AssetCentricMigrationIO,
+    ThreeDMigrationIO,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrateDataSetSelector, MigrationCSVFileSelector
+from cognite_toolkit._cdf_tk.storageio import UploadItem
+from cognite_toolkit._cdf_tk.utils.http_client import SuccessResponse
 from tests.test_integration.conftest import HierarchyMinimal
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
@@ -199,3 +206,35 @@ class TestMigrateAnnotations:
         results = progress.aggregate()
         expected_results = {(step, "success"): 2 for step in cmd.Steps.list()}
         assert results == expected_results
+
+
+class TestMigrate3D:
+    @pytest.mark.skip(reason="In development")
+    def test_migrate_3d_model(self, toolkit_client: ToolkitClient, tmp_path: Path, toolkit_dataset: DataSet) -> None:
+        model = ThreeDModelClassicRequest(
+            name=f"toolkit_3d_model_migration_test_{RUN_UNIQUE_ID}",
+            data_set_id=toolkit_dataset.id,
+            metadata={"source": "integration_test_migration"},
+        )
+        created_id: int | None = None
+        try:
+            created_models = toolkit_client.tool.three_d.models.create([model])
+            assert len(created_models) == 1
+            created_model = created_models[0]
+            created_id = created_model.id
+
+            mapper = ThreeDMapper(toolkit_client)
+
+            mapped = mapper.map([created_model])
+            assert len(mapped) == 1
+            migration_request, issue = mapped[0]
+            assert issue.has_issues is False
+            io = ThreeDMigrationIO(toolkit_client)
+
+            result = io.upload_items([UploadItem(source_id=created_model.id, item=migration_request)])
+
+            failed = [res for res in result if not isinstance(res, SuccessResponse)]
+            assert len(failed) == 0, f"Migration of 3D model failed with errors: {failed}"
+        finally:
+            if created_id is not None:
+                toolkit_client.tool.three_d.models.delete([created_id])
