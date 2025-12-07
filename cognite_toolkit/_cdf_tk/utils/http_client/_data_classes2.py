@@ -110,7 +110,7 @@ class ItemsResultMessage2(BaseModel):
     ids: list[Hashable]
 
 
-class ItemsFailedRequestMessage2(ItemsResultMessage2):
+class ItemsFailedRequest2(ItemsResultMessage2):
     error_message: str
 
 

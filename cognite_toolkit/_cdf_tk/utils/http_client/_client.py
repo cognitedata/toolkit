@@ -29,7 +29,7 @@ from cognite_toolkit._cdf_tk.utils.http_client._data_classes2 import (
     FailedRequest2,
     FailedResponse2,
     HTTPResult2,
-    ItemsFailedRequestMessage2,
+    ItemsFailedRequest2,
     ItemsFailedResponse2,
     ItemsRequest2,
     ItemsResultMessage2,
@@ -405,7 +405,7 @@ class HTTPClient:
         """
         if message.tracker and message.tracker.limit_reached():
             return [
-                ItemsFailedRequestMessage2(
+                ItemsFailedRequest2(
                     ids=[item.as_id() for item in message.items],
                     error_message=f"Aborting further splitting of requests after {message.tracker.failed_split_count} failed attempts.",
                 )
@@ -507,7 +507,7 @@ class HTTPClient:
         else:
             error_msg = f"Unexpected exception: {e!s}"
             return [
-                ItemsFailedRequestMessage2(
+                ItemsFailedRequest2(
                     ids=[item.as_id() for item in request.items],
                     error_message=error_msg,
                 )
@@ -521,7 +521,7 @@ class HTTPClient:
             error_msg = f"RequestException after {request.total_attempts - 1} attempts ({error_type} error): {e!s}"
 
             return [
-                ItemsFailedRequestMessage2(
+                ItemsFailedRequest2(
                     ids=[item.as_id() for item in request.items],
                     error_message=error_msg,
                 )
