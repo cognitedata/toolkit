@@ -30,10 +30,10 @@ from cognite_toolkit._cdf_tk.utils.http_client._data_classes2 import (
     FailedResponse2,
     HTTPResult2,
     ItemsFailedRequestMessage2,
-    ItemsFailedResponseMessage2,
+    ItemsFailedResponse2,
     ItemsRequest2,
     ItemsResultMessage2,
-    ItemsSuccessResponseMessage2,
+    ItemsSuccessResponse2,
     RequestMessage2,
     SuccessResponse2,
 )
@@ -404,13 +404,10 @@ class HTTPClient:
             HTTPMessage2: The response message.
         """
         if message.tracker and message.tracker.limit_reached():
-            error_msg = (
-                f"Aborting further splitting of requests after {message.tracker.failed_split_count} failed attempts."
-            )
             return [
                 ItemsFailedRequestMessage2(
                     ids=[item.as_id() for item in message.items],
-                    error_message=error_msg,
+                    error_message=f"Aborting further splitting of requests after {message.tracker.failed_split_count} failed attempts.",
                 )
             ]
         try:
@@ -458,7 +455,7 @@ class HTTPClient:
     ) -> Sequence[ItemsRequest2 | ItemsResultMessage2]:
         if 200 <= response.status_code < 300:
             return [
-                ItemsSuccessResponseMessage2(
+                ItemsSuccessResponse2(
                     ids=[item.as_id() for item in request.items],
                     status_code=response.status_code,
                     body=response.text,
@@ -474,11 +471,11 @@ class HTTPClient:
             splits = request.split(status_attempts=status_attempts)
             if splits[0].tracker and splits[0].tracker.limit_reached():
                 return [
-                    ItemsFailedResponseMessage2(
+                    ItemsFailedResponse2(
                         ids=[item.as_id() for item in request.items],
                         status_code=response.status_code,
                         body=response.text,
-                        error=ErrorDetails2.model_validate(response),
+                        error=ErrorDetails2.from_response(response),
                     )
                 ]
             return splits
@@ -488,11 +485,11 @@ class HTTPClient:
         else:
             # Permanent failure
             return [
-                ItemsFailedResponseMessage2(
+                ItemsFailedResponse2(
                     ids=[item.as_id() for item in request.items],
                     status_code=response.status_code,
                     body=response.text,
-                    error=ErrorDetails2.model_validate(response),
+                    error=ErrorDetails2.from_response(response),
                 )
             ]
 

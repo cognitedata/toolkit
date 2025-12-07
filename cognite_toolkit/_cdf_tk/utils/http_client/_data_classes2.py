@@ -114,13 +114,13 @@ class ItemsFailedRequestMessage2(ItemsResultMessage2):
     error_message: str
 
 
-class ItemsSuccessResponseMessage2(ItemsResultMessage2):
+class ItemsSuccessResponse2(ItemsResultMessage2):
     status_code: int
     body: str
     content: bytes
 
 
-class ItemsFailedResponseMessage2(ItemsResultMessage2):
+class ItemsFailedResponse2(ItemsResultMessage2):
     status_code: int
     error: ErrorDetails2
     body: str
