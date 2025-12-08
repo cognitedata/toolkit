@@ -127,7 +127,7 @@ def chart_data_generator() -> Iterator[tuple]:
                 "originalUnit": "",
                 "preferredUnit": "",
                 "description": "description",
-                "range": [0, 50],
+                "range": [0.0, 50.0],
                 "createdAt": 1717487277745,
             }
         ],
@@ -149,7 +149,15 @@ def chart_data_generator() -> Iterator[tuple]:
                 "upperLimit": 0,
                 "type": "under",
                 "filter": {"minUnit": "seconds", "maxUnit": "hours"},
-                "calls": [{"hash": 1238826452, "callId": "test-call-id", "callDate": 1717487580156}],
+                "calls": [
+                    {
+                        "hash": 1238826452,
+                        "callId": "test-call-id",
+                        "callDate": 1717487580156,
+                        "id": "test-call-id",
+                        "status": "Pending",
+                    }
+                ],
             }
         ],
         ChartThreshold,
@@ -165,22 +173,35 @@ def chart_data_generator() -> Iterator[tuple]:
                 "color": "#005d5d",
                 "enabled": True,
                 "settings": {"autoAlign": True},
-                "lineWeight": 1,
+                "lineWeight": 1.0,
                 "lineStyle": "solid",
                 "interpolation": "linear",
                 "unit": "",
                 "preferredUnit": "",
-                "range": [0, 50],
+                "range": [0.0, 50.0],
                 "createdAt": 1717487389841,
                 "flow": {
                     "zoom": 1.032008279029462,
                     "elements": [
-                        {"id": "test-output-id", "type": "CalculationOutput", "position": {"x": 754, "y": 87}},
+                        {
+                            "id": "test-output-id",
+                            "type": "CalculationOutput",
+                            "position": {"x": 754.0, "y": 87.0},
+                            "data": {},
+                            "source": None,
+                            "target": None,
+                            "sourceHandle": None,
+                            "targetHandle": None,
+                        },
                         {
                             "id": "test-input-id",
                             "data": {"type": "timeseries", "selectedSourceId": "test-ts-id"},
                             "type": "CalculationInput",
-                            "position": {"x": 37, "y": 191},
+                            "position": {"x": 37.0, "y": 191.0},
+                            "source": None,
+                            "target": None,
+                            "sourceHandle": None,
+                            "targetHandle": None,
                         },
                         {
                             "id": "test-edge-id",
@@ -188,6 +209,9 @@ def chart_data_generator() -> Iterator[tuple]:
                             "target": "test-input-id",
                             "sourceHandle": "out-result-0",
                             "targetHandle": "datapoints",
+                            "data": {},
+                            "type": None,
+                            "position": None,
                         },
                     ],
                     "position": [-36.883849748699845, -20.958125092217585],
@@ -222,14 +246,23 @@ def chart_data_generator() -> Iterator[tuple]:
                 "interpolation": "linear",
                 "unit": "psi",
                 "preferredUnit": "psi",
-                "range": [0, 50],
+                "range": [0.0, 50.0],
                 "createdAt": 1755525754414,
                 "flow": {
-                    "zoom": 1,
+                    "zoom": 1.0,
                     "elements": [
-                        {"id": "test-output-id", "type": "CalculationOutput", "position": {"x": 400, "y": 150}}
+                        {
+                            "id": "test-output-id",
+                            "type": "CalculationOutput",
+                            "position": {"x": 400.0, "y": 150.0},
+                            "data": {},
+                            "source": None,
+                            "target": None,
+                            "sourceHandle": None,
+                            "targetHandle": None,
+                        }
                     ],
-                    "position": [0, 0],
+                    "position": [0.0, 0.0],
                 },
             }
         ],
@@ -287,7 +320,8 @@ class TestChartDTOs:
         self, chart_data_dict: list[dict], expected_cls: type[BaseModelObject]
     ) -> None:
         """Test that ChartData components can be serialized and deserialized correctly."""
-        loaded_items = [expected_cls._load(item) for item in chart_data_dict]
+        # We validate with extra="ignore" to ensure that we are including all fields that are in the test data.
+        loaded_items = [expected_cls.model_validate(item, extra="ignore") for item in chart_data_dict]
         dumped_items = [item.dump(camel_case=True) for item in loaded_items]
 
         assert dumped_items == chart_data_dict, f"Expected {chart_data_dict}, but got {dumped_items}"
