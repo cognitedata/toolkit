@@ -240,6 +240,8 @@ class BuildCommand(ToolkitCommand):
         old_cmd = OldBuildCommand()
         return old_cmd._replace_variables(resource_files, variables, resource_name, module_dir, verbose)
 
+    # TODO: This is a temporary solution to validate the modules selection.
+    # We should move this to the old BuildCommand and use the new validation logic.
     def _validate_modules_selection(
         self,
         modules: ModuleDirectories,
@@ -248,4 +250,8 @@ class BuildCommand(ToolkitCommand):
         selected_modules: set[str | Path],
         organization_dir: Path,
     ) -> WarningList[ToolkitWarning]:
-        raise NotImplementedError("Not implemented yet")
+        from cognite_toolkit._cdf_tk.commands.build_cmd import BuildCommand as OldBuildCommand
+
+        old_cmd = OldBuildCommand(print_warning=False, skip_tracking=False)
+        old_cmd._validate_modules(modules, config, packages, selected_modules, organization_dir)
+        return old_cmd.warning_list
