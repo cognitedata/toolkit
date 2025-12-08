@@ -472,13 +472,13 @@ class TestMigrationCommand:
                 visibility="PUBLIC",
                 data=ChartData(
                     name="My Chart",
-                    time_series_collection=[
+                    timeSeriesCollection=[
                         ChartTimeseries(
-                            ts_external_id="ts_1", type="timeseries", id="87654321-4321-8765-4321-876543218765"
+                            tsExternalId="ts_1", type="timeseries", id="87654321-4321-8765-4321-876543218765"
                         ),
-                        ChartTimeseries(ts_id=1, type="timeseries", id="12345678-1234-5678-1234-567812345678"),
+                        ChartTimeseries(tsId=1, type="timeseries", id="12345678-1234-5678-1234-567812345678"),
                     ],
-                    source_collection=[
+                    sourceCollection=[
                         ChartSource(type="timeseries", id="87654321-4321-8765-4321-876543218765"),
                         ChartSource(type="timeseries", id="12345678-1234-5678-1234-567812345678"),
                     ],
@@ -595,6 +595,7 @@ class TestMigrationCommand:
                             "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
                         },
                     ],
+                    "timeSeriesCollection": None,
                 },
             }
         ]
