@@ -171,6 +171,7 @@ class TestFileContentIO:
 
             retrieved = toolkit_client.files.retrieve(external_id=external_id)
             assert retrieved is not None
+            assert retrieved.uploaded is True, "Uploaded file should have uploaded file content."
 
             io = FileContentIO(toolkit_client, tmp_path / "downloads")
             downloaded_files = [item for page in io.stream_data(selector) for item in page.items]
