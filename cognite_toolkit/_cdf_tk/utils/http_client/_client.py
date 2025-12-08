@@ -171,7 +171,6 @@ class HTTPClient:
         return headers
 
     def _make_request(self, item: RequestMessage) -> httpx.Response:
-        headers = self._create_headers(item.api_version, item.content_type, item.accept, item.content_length)
         params: dict[str, PrimitiveType] | None = None
         if isinstance(item, ParamRequest):
             params = item.parameters
@@ -184,6 +183,10 @@ class HTTPClient:
             data = item.data()
             if not global_config.disable_gzip:
                 data = gzip.compress(data)
+        content_length: int | None = None
+        if item.set_content_length:
+            content_length = len(data) if data is not None else 0
+        headers = self._create_headers(item.api_version, item.content_type, item.accept, content_length)
         return self.session.request(
             method=item.method,
             url=item.endpoint_url,
