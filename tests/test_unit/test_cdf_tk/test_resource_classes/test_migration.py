@@ -11,11 +11,16 @@ from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
 def invalid_mapping_test_cases() -> Iterable:
     yield pytest.param(
         {"viewId": {"space": "cdf_cdm", "externalId": "CogniteAsset", "version": "v1"}},
-        {"Missing required field: 'propertyMapping'", "Missing required field: 'resourceType'"},
+        {
+            "Missing required field: 'propertyMapping'",
+            "Missing required field: 'resourceType'",
+            "Missing required field: 'externalId'",
+        },
         id="Missing required field: externalId",
     )
     yield pytest.param(
         {
+            "externalId": "my_asset_mapping",
             "resourceType": "asset",
             "viewId": {"externalId": "CogniteAsset", "version": 123},
             "propertyMapping": {
@@ -27,7 +32,6 @@ def invalid_mapping_test_cases() -> Iterable:
             },
         },
         {
-            "In field propertyMapping invalid JSON paths: notA(Json).path",
             "In viewId missing required field: 'space'",
             "In viewId.version input should be a valid string. Got 123 of type int. Hint: "
             "Use double quotes to force string.",
@@ -39,6 +43,7 @@ def invalid_mapping_test_cases() -> Iterable:
 def valid_label_test_cases() -> Iterable:
     yield pytest.param(
         {
+            "externalId": "cdf_asset_mapping",
             "resourceType": "asset",
             "viewId": {"space": "cdf_cdm", "externalId": "CogniteAsset", "version": "v1"},
             "propertyMapping": {
@@ -52,6 +57,7 @@ def valid_label_test_cases() -> Iterable:
     )
     yield pytest.param(
         {
+            "externalId": "my_asset_mapping",
             "resourceType": "asset",
             "viewId": {"space": "my_schema_space", "externalId": "MyAsset", "version": "v1"},
             "propertyMapping": {
@@ -67,6 +73,7 @@ def valid_label_test_cases() -> Iterable:
     )
     yield pytest.param(
         {
+            "externalId": "my_asset_mapping",
             "resourceType": "asset",
             "viewId": {"space": "my_schema_space", "externalId": "MyAsset", "version": "v1"},
             "propertyMapping": {
