@@ -58,7 +58,7 @@ class ChartWrite(ChartCore):
         return cls(
             external_id=resource["externalId"],
             visibility=resource["visibility"],
-            data=ChartData._load(resource["data"], cognite_client=cognite_client),
+            data=ChartData._load(resource["data"]),
         )
 
 
@@ -98,7 +98,7 @@ class Chart(ChartCore):
             created_time=resource["createdTime"],
             last_updated_time=resource["lastUpdatedTime"],
             visibility=resource["visibility"],
-            data=ChartData._load(resource["data"], cognite_client=cognite_client),
+            data=ChartData._load(resource["data"]),
             owner_id=resource["ownerId"],
         )
 
