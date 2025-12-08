@@ -1,13 +1,12 @@
 import re
 import sys
-import threading
 import uuid
 from collections import defaultdict
 from collections.abc import Collection, Iterator, Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import Any, ClassVar, Literal, SupportsIndex, overload
+from typing import Any, Literal, SupportsIndex, overload
 
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.transformation import TransformationCRUD
 from cognite_toolkit._cdf_tk.data_classes._module_directories import ModuleLocation
@@ -71,17 +70,6 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
     The motivation for this class is to provide helper functions for the user to interact with the build variables.
     """
 
-    # Cache for compiled regex patterns to avoid recompiling on every replace() call
-    # Thread-safe: shared across all instances and threads
-    _pattern_cache: ClassVar[dict[str, re.Pattern[str]]] = {}
-    _yaml_quoted_pattern_cache: ClassVar[dict[str, re.Pattern[str]]] = {}
-    _query_field_pattern_cache: ClassVar[dict[str, re.Pattern[str]]] = {}
-    # Lock to ensure thread-safe access to pattern caches
-    _pattern_cache_lock: ClassVar[threading.Lock] = threading.Lock()
-    # Static patterns used in _is_in_query_field
-    _query_declaration_pattern: ClassVar[re.Pattern[str]] = re.compile(r"^query\s*:\s*(.*)$")
-    _top_level_property_pattern: ClassVar[re.Pattern[str]] = re.compile(r"^\w+\s*:")
-
     # Subclassing tuple to make the class immutable. BuildVariables is expected to be initialized and
     # then used as a read-only object.
     def __new__(cls, collection: Collection[BuildVariable], source_path: Path | None = None) -> Self:
@@ -92,45 +80,6 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
     def __init__(self, collection: Collection[BuildVariable], source_path: Path | None = None) -> None:
         super().__init__()
         self.source_path = source_path
-
-    @classmethod
-    def _get_core_pattern(cls, variable_key: str) -> re.Pattern[str]:
-        """Get or compile the core pattern for a variable key. Thread-safe."""
-        # Double-checked locking pattern for thread-safe cache access
-        if variable_key not in cls._pattern_cache:
-            with cls._pattern_cache_lock:
-                # Check again after acquiring lock (another thread might have added it)
-                if variable_key not in cls._pattern_cache:
-                    cls._pattern_cache[variable_key] = re.compile(rf"{{{{\s*{re.escape(variable_key)}\s*}}}}")
-        return cls._pattern_cache[variable_key]
-
-    @classmethod
-    def _get_yaml_quoted_pattern(cls, variable_key: str) -> re.Pattern[str]:
-        """Get or compile the YAML quoted pattern for a variable key. Thread-safe."""
-        # Double-checked locking pattern for thread-safe cache access
-        if variable_key not in cls._yaml_quoted_pattern_cache:
-            with cls._pattern_cache_lock:
-                # Check again after acquiring lock (another thread might have added it)
-                if variable_key not in cls._yaml_quoted_pattern_cache:
-                    escaped_key = re.escape(variable_key)
-                    core_pattern = rf"{{{{\s*{escaped_key}\s*}}}}"
-                    cls._yaml_quoted_pattern_cache[variable_key] = re.compile(
-                        rf"'{core_pattern}'|{core_pattern}|" + rf'"{core_pattern}"'
-                    )
-        return cls._yaml_quoted_pattern_cache[variable_key]
-
-    @classmethod
-    def _get_query_field_pattern(cls, variable_key: str) -> re.Pattern[str]:
-        """Get or compile the query field pattern for a variable key. Thread-safe."""
-        # Double-checked locking pattern for thread-safe cache access
-        if variable_key not in cls._query_field_pattern_cache:
-            with cls._pattern_cache_lock:
-                # Check again after acquiring lock (another thread might have added it)
-                if variable_key not in cls._query_field_pattern_cache:
-                    cls._query_field_pattern_cache[variable_key] = re.compile(
-                        rf"{{{{\s*{re.escape(variable_key)}\s*}}}}"
-                    )
-        return cls._query_field_pattern_cache[variable_key]
 
     @cached_property
     def selected(self) -> "BuildVariables":
@@ -233,14 +182,12 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
                 replace = f"VARIABLE_{uuid.uuid4().hex[:8]}"
                 variable_by_placeholder[replace] = variable
 
-            # Use pre-compiled pattern instead of compiling on each iteration
-            core_pattern = self._get_core_pattern(variable.key)
-
+            _core_pattern = rf"{{{{\s*{variable.key}\s*}}}}"
             if file_suffix == ".sql":
                 # For SQL files, convert lists to SQL-style tuples
                 if isinstance(replace, list):
                     replace = self._format_list_as_sql_tuple(replace)
-                content = core_pattern.sub(str(replace), content)
+                content = re.sub(_core_pattern, str(replace), content)
             elif file_suffix in {".yaml", ".yml", ".json"}:
                 # Check if this is a transformation file (ends with Transformation.yaml/yml)
                 is_transformation_file = file_path is not None and f".{TransformationCRUD.kind}." in file_path.name
@@ -252,21 +199,19 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
                 if is_transformation_file and is_in_query_field and isinstance(replace, list):
                     replace = self._format_list_as_sql_tuple(replace)
                     # Use simple pattern for SQL context (no YAML quoting needed)
-                    content = core_pattern.sub(str(replace), content)
+                    content = re.sub(_core_pattern, str(replace), content)
                 else:
                     # Preserve data types for YAML
+                    pattern = _core_pattern
                     if isinstance(replace, str) and (replace.isdigit() or replace.endswith(":")):
                         replace = f'"{replace}"'
-                        pattern = self._get_yaml_quoted_pattern(variable.key)
+                        pattern = rf"'{_core_pattern}'|{_core_pattern}|" + rf'"{_core_pattern}"'
                     elif replace is None:
                         replace = "null"
-                        pattern = core_pattern
-                    else:
-                        pattern = core_pattern
-                    content = pattern.sub(str(replace), content)
+                    content = re.sub(pattern, str(replace), content)
             else:
                 # For other file types, use simple string replacement
-                content = core_pattern.sub(str(replace), content)
+                content = re.sub(_core_pattern, str(replace), content)
         if use_placeholder:
             return content, variable_by_placeholder
         else:
@@ -313,8 +258,8 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
                     formatted_items.append(str(item))
             return f"({', '.join(formatted_items)})"
 
-    @classmethod
-    def _is_in_query_field(cls, content: str, variable_key: str) -> bool:
+    @staticmethod
+    def _is_in_query_field(content: str, variable_key: str) -> bool:
         """Check if a variable is within a query field in YAML.
 
         Assumes query is a top-level property. This detects various YAML formats:
@@ -324,36 +269,35 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
         - query: ...
         """
         lines = content.split("\n")
-        # Use pre-compiled pattern instead of compiling on each call
-        variable_pattern = cls._get_query_field_pattern(variable_key)
+        variable_pattern = rf"{{{{\s*{re.escape(variable_key)}\s*}}}}"
         in_query_field = False
 
         for line in lines:
             # Check if this line starts a top-level query field
-            query_match = cls._query_declaration_pattern.match(line)
+            query_match = re.match(r"^query\s*:\s*(.*)$", line)
             if query_match:
                 in_query_field = True
                 query_content_start = query_match.group(1).strip()
 
                 # Check if variable is on the same line as query: declaration
-                if variable_pattern.search(line):
+                if re.search(variable_pattern, line):
                     return True
 
                 # If query content starts on same line (not a block scalar), check it
                 if query_content_start and not query_content_start.startswith(("|", ">", "|-", ">-", "|+", ">+")):
-                    if variable_pattern.search(query_content_start):
+                    if re.search(variable_pattern, query_content_start):
                         return True
                 continue
 
             # Check if we're still in the query field
             if in_query_field:
                 # If we hit another top-level property, we've exited the query field
-                if cls._top_level_property_pattern.match(line):
+                if re.match(r"^\w+\s*:", line):
                     in_query_field = False
                     continue
 
                 # We're still in the query field, check for variable
-                if variable_pattern.search(line):
+                if re.search(variable_pattern, line):
                     return True
 
         return False
