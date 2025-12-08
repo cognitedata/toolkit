@@ -1,4 +1,5 @@
 import sys
+from functools import cached_property
 from pathlib import Path
 
 if sys.version_info >= (3, 11):
@@ -72,12 +73,12 @@ class BuildInput(BaseModel):
             warnings.append(environment_warning)
         return config, warnings
 
-    @property
+    @cached_property
     def modules(self) -> ModuleDirectories:
         user_selected_modules = self.config.environment.get_selected_modules({})
         return ModuleDirectories.load(self.organization_dir, user_selected_modules)
 
-    @property
+    @cached_property
     def variables(self) -> BuildVariables:
         return BuildVariables.load_raw(
             self.config.variables, self.modules.available_paths, self.modules.selected.available_paths
