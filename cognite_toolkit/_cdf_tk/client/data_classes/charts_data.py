@@ -78,7 +78,7 @@ class ChartCoreTimeseries(ChartElement):
     line_weight: int | None = None
     name: str | None = None
     preferred_unit: str | None = None
-    range: tuple[float | None, float | None] | None = None
+    range: list[float | None] | None = None
 
     @field_serializer("node_reference", when_used="always")
     def serialize_node_reference(self, node_reference: NodeId | None) -> dict[str, Any] | None:
@@ -116,7 +116,7 @@ class ChartTimeseries(ChartElement):
     line_weight: int | None = None
     name: str | None = None
     preferred_unit: str | None = None
-    range: tuple[float | None, float | None] | None = None
+    range: list[float | None] | None = None
     unit: str | None = None
     ts_id: int | None = None
     ts_external_id: str | None = None
@@ -135,7 +135,7 @@ class ChartWorkflow(ChartElement):
     interpolation: str | None = None
     unit: str | None = None
     preferred_unit: str | None = None
-    range: tuple[float | None, float | None] | None = None
+    range: list[float | None] | None = None
     created_at: int | None = None
     settings: SubSetting | None = None
     flow: Flow | None = None
@@ -161,7 +161,7 @@ class ChartScheduledCalculation(ChartElement):
     line_weight: int | None = None
     name: str | None = None
     preferred_unit: str | None = None
-    range: tuple[float | None, float | None] | None = None
+    range: list[float | None] | None = None
     unit: str | None = None
     version: str | None = None
     settings: SubSetting | None = None
