@@ -1,10 +1,22 @@
+from collections.abc import Iterator
+
 import pytest
 import responses
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList, ChartWrite
-from cognite_toolkit._cdf_tk.client.data_classes.charts_data import ChartData, ChartSettings, UserInfo
-from tests.test_unit.utils import FakeCogniteResourceGenerator
+from cognite_toolkit._cdf_tk.client.data_classes.charts_data import (
+    ChartCoreTimeseries,
+    ChartData,
+    ChartScheduledCalculation,
+    ChartSettings,
+    ChartSource,
+    ChartThreshold,
+    ChartTimeseries,
+    ChartWorkflow,
+    UserInfo,
+)
 
 CHART = Chart(
     external_id="chart",
@@ -96,6 +108,194 @@ class TestChartAPI:
         assert isinstance(result, expected_return_cls)
 
 
+def chart_data_generator() -> Iterator[tuple]:
+    yield pytest.param(
+        [
+            {
+                "type": "timeseries",
+                "id": "test-ts-id",
+                "name": "name",
+                "color": "#6929c4",
+                "tsId": 123,
+                "tsExternalId": "externalID",
+                "lineWeight": 1,
+                "lineStyle": "solid",
+                "interpolation": "linear",
+                "displayMode": "lines",
+                "enabled": False,
+                "unit": "",
+                "originalUnit": "",
+                "preferredUnit": "",
+                "description": "description",
+                "range": [0.0, 50.0],
+                "createdAt": 1717487277745,
+            }
+        ],
+        ChartTimeseries,
+        id=ChartTimeseries.__name__,
+    )
+    yield pytest.param(
+        [{"type": "timeseries", "id": "test-ts-id"}],
+        ChartSource,
+        id=ChartSource.__name__,
+    )
+    yield pytest.param(
+        [
+            {
+                "id": "test-threshold-id",
+                "name": "name",
+                "visible": True,
+                "sourceId": "test-ts-id",
+                "upperLimit": 0,
+                "type": "under",
+                "filter": {"minUnit": "seconds", "maxUnit": "hours"},
+                "calls": [
+                    {
+                        "hash": 1238826452,
+                        "callId": "test-call-id",
+                        "callDate": 1717487580156,
+                        "id": "test-call-id",
+                        "status": "Pending",
+                    }
+                ],
+            }
+        ],
+        ChartThreshold,
+        id=ChartThreshold.__name__,
+    )
+    yield pytest.param(
+        [
+            {
+                "version": "v2",
+                "type": "workflow",
+                "id": "test-workflow-id",
+                "name": "name",
+                "color": "#005d5d",
+                "enabled": True,
+                "settings": {"autoAlign": True},
+                "lineWeight": 1.0,
+                "lineStyle": "solid",
+                "interpolation": "linear",
+                "unit": "",
+                "preferredUnit": "",
+                "range": [0.0, 50.0],
+                "createdAt": 1717487389841,
+                "flow": {
+                    "zoom": 1.032008279029462,
+                    "elements": [
+                        {
+                            "id": "test-output-id",
+                            "type": "CalculationOutput",
+                            "position": {"x": 754.0, "y": 87.0},
+                            "data": {},
+                            "source": None,
+                            "target": None,
+                            "sourceHandle": None,
+                            "targetHandle": None,
+                        },
+                        {
+                            "id": "test-input-id",
+                            "data": {"type": "timeseries", "selectedSourceId": "test-ts-id"},
+                            "type": "CalculationInput",
+                            "position": {"x": 37.0, "y": 191.0},
+                            "source": None,
+                            "target": None,
+                            "sourceHandle": None,
+                            "targetHandle": None,
+                        },
+                        {
+                            "id": "test-edge-id",
+                            "source": "test-output-id",
+                            "target": "test-input-id",
+                            "sourceHandle": "out-result-0",
+                            "targetHandle": "datapoints",
+                            "data": {},
+                            "type": None,
+                            "position": None,
+                        },
+                    ],
+                    "position": [-36.883849748699845, -20.958125092217585],
+                },
+                "calls": [
+                    {
+                        "id": "test-call-id",
+                        "hash": 1038003377,
+                        "callId": "test-call-id",
+                        "status": "Pending",
+                        "callDate": 1755525052454,
+                    }
+                ],
+            }
+        ],
+        ChartWorkflow,
+        id=ChartWorkflow.__name__,
+    )
+    yield pytest.param(
+        [
+            {
+                "version": "v2",
+                "type": "scheduledCalculation",
+                "id": "test-scheduled-calculation-id",
+                "name": "name",
+                "color": "#1192e8",
+                "enabled": True,
+                "settings": {"autoAlign": True},
+                "description": "vfgf",
+                "lineWeight": 1.0,
+                "lineStyle": "solid",
+                "interpolation": "linear",
+                "unit": "psi",
+                "preferredUnit": "psi",
+                "range": [0.0, 50.0],
+                "createdAt": 1755525754414,
+                "flow": {
+                    "zoom": 1.0,
+                    "elements": [
+                        {
+                            "id": "test-output-id",
+                            "type": "CalculationOutput",
+                            "position": {"x": 400.0, "y": 150.0},
+                            "data": {},
+                            "source": None,
+                            "target": None,
+                            "sourceHandle": None,
+                            "targetHandle": None,
+                        }
+                    ],
+                    "position": [0.0, 0.0],
+                },
+            }
+        ],
+        ChartScheduledCalculation,
+        id=ChartScheduledCalculation.__name__,
+    )
+    yield pytest.param(
+        [
+            {
+                "type": "coreTimeseries",
+                "id": "9910137c-227d-4951-a9bf-284c04c48e51",
+                "color": "#6929c4",
+                "nodeReference": {
+                    "space": "charts",
+                    "externalId": "test-scheduled-calculation-fdm-time-series_1739436335052_TS",
+                },
+                "viewReference": {"space": "cdf_cdm", "externalId": "CogniteTimeSeries", "version": "v1"},
+                "name": "test-scheduled-calculation-fdm-time-series",
+                "lineWeight": 1,
+                "lineStyle": "solid",
+                "interpolation": "hv",
+                "displayMode": "lines",
+                "enabled": True,
+                "preferredUnit": "",
+                "range": [None, None],
+                "createdAt": 1743764782866,
+            }
+        ],
+        ChartCoreTimeseries,
+        id=ChartCoreTimeseries.__name__,
+    )
+
+
 class TestChartDTOs:
     def test_chart_data_changed(self) -> None:
         """The ChartData is frontend of the Chart object, and it is not enforced in any way by the backend API.
@@ -111,17 +311,17 @@ class TestChartDTOs:
             "itAlso": {"hasSomeNumbers": [1, 2, 3, 4, 5]},
         }
         loaded = ChartData._load(chart_data)
-        dumped = loaded.dump(camel_case=False)
+        dumped = loaded.model_dump(mode="json", by_alias=True, exclude_unset=True)
 
         assert dumped == chart_data, f"Expected {chart_data}, but got {dumped}"
 
-    def test_serialize_deserialize_chart(self) -> None:
-        """Test that Chart can be serialized and deserialized correctly."""
-        instance = FakeCogniteResourceGenerator(seed=42).create_instance(ChartData)
-        instance._unknown_fields = {"extraField": "extraValue"}
+    @pytest.mark.parametrize("chart_data_dict, expected_cls", list(chart_data_generator()))
+    def test_serialize_deserialize_chart_data_components(
+        self, chart_data_dict: list[dict], expected_cls: type[BaseModelObject]
+    ) -> None:
+        """Test that ChartData components can be serialized and deserialized correctly."""
+        # We validate with extra="ignore" to ensure that we are including all fields that are in the test data.
+        loaded_items = [expected_cls.model_validate(item, extra="ignore") for item in chart_data_dict]
+        dumped_items = [item.dump(camel_case=True) for item in loaded_items]
 
-        dumped = instance.dump(camel_case=True)
-
-        loaded = ChartData._load(dumped)
-
-        assert loaded.dump() == instance.dump(), f"Expected {instance}, but got {loaded}"
+        assert dumped_items == chart_data_dict, f"Expected {chart_data_dict}, but got {dumped_items}"

@@ -1,70 +1,30 @@
-import sys
-from dataclasses import dataclass, field, fields
-from functools import lru_cache
 from typing import Any
 
-from cognite.client import CogniteClient
-from cognite.client.data_classes._base import CogniteObject
 from cognite.client.data_classes.data_modeling import NodeId, ViewId
-from cognite.client.utils._auxiliary import to_camel_case
+from pydantic import JsonValue, field_serializer, field_validator
 
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
+from .base import BaseModelObject
 
 
-@dataclass
-class ChartObject(CogniteObject):
-    # ChartObjects are used in the frontend and the backend does not do any validation of these fields.
-    # Therefore, to ensure that we do not lose any data, we store unknown fields in a separate dictionary.
-    # This allows unknown fields to be preserved when loading and dumping ChartObjects
-    # (serialization and deserialization).
-    _unknown_fields: dict[str, object] | None = field(default=None, init=False, repr=False)
-
-    @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
-        """Load a ChartObject from a dictionary."""
-        instance = super()._load(resource, cognite_client=cognite_client)
-        instance._unknown_fields = {k: v for k, v in resource.items() if k not in cls._known_camel_case_props()}
-        return instance
-
-    @classmethod
-    @lru_cache(maxsize=1)
-    def _known_camel_case_props(cls) -> set[str]:
-        return {to_camel_case(f.name) for f in fields(cls)}
-
-    def dump(self, camel_case: bool = True) -> dict[str, Any]:
-        """Dump the ChartObject to a dictionary."""
-        data = super().dump(camel_case=camel_case)
-        if self._unknown_fields:
-            data.update(self._unknown_fields)
-        return data
-
-
-@dataclass
-class UserInfo(ChartObject):
+class UserInfo(BaseModelObject):
     id: str | None = None
     email: str | None = None
     display_name: str | None = None
 
 
-@dataclass
-class ChartSettings(ChartObject):
+class ChartSettings(BaseModelObject):
     show_y_axis: bool = True
     show_min_max: bool = True
     show_gridlines: bool = True
     merge_units: bool = False
 
 
-@dataclass
-class ThresholdFilter(ChartObject):
+class ThresholdFilter(BaseModelObject):
     min_unit: str | None = None
     max_unit: str | None = None
 
 
-@dataclass
-class ChartCall(ChartObject):
+class ChartCall(BaseModelObject):
     id: str | None = None
     hash: int | None = None
     call_id: str | None = None
@@ -72,182 +32,143 @@ class ChartCall(ChartObject):
     status: str | None = None
 
 
-@dataclass
-class SubSetting(ChartObject):
+class SubSetting(BaseModelObject):
     auto_align: bool | None = None
 
 
-@dataclass
-class FlowElement(ChartObject):
+class ChartPosition(BaseModelObject):
+    x: float | None = None
+    y: float | None = None
+
+
+class FlowElement(BaseModelObject):
     id: str | None = None
     type: str | None = None
-    position: tuple[float | None, float | None] | None = None
-    data: dict[str, object] | None = None
+    position: ChartPosition | None = None
+    data: JsonValue | None = None
+    source: str | None = None
+    target: str | None = None
+    source_handle: str | None = None
+    target_handle: str | None = None
 
 
-@dataclass
-class Flow(ChartObject):
+class Flow(BaseModelObject):
     zoom: float | None = None
     elements: list[FlowElement] | None = None
     position: tuple[float | None, float | None] | None = None
 
-    def dump(self, camel_case: bool = True) -> dict[str, Any]:
-        data = super().dump(camel_case=camel_case)
-        if self.elements:
-            data["elements"] = [el.dump(camel_case=camel_case) for el in self.elements]
-        return data
 
-    @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
-        """Load a Flow object from a dictionary."""
-        instance = super()._load(resource, cognite_client=cognite_client)
-        if "elements" in resource:
-            instance.elements = [FlowElement._load(el, cognite_client=cognite_client) for el in resource["elements"]]
-        return instance
-
-
-@dataclass
-class ChartSource(ChartObject):
-    type: str | None = None
+class ChartElement(BaseModelObject):
     id: str | None = None
-
-
-@dataclass
-class BaseChartElement(ChartObject):
     type: str | None = None
-    id: str | None = None
-    name: str | None = None
-    color: str | None = None
-    enabled: bool | None = None
-    line_weight: float | None = None
-    line_style: str | None = None
-    interpolation: str | None = None
-    unit: str | None = None
-    preferred_unit: str | None = None
-    created_at: int | None = None
-    range: tuple[float | None, float | None] | None = None
-    description: str | None = None
 
 
-@dataclass
-class ChartCoreTimeseries(BaseChartElement):
+class ChartSource(ChartElement): ...
+
+
+class ChartCoreTimeseries(ChartElement):
     node_reference: NodeId | None = None
     view_reference: ViewId | None = None
     display_mode: str | None = None
+    color: str | None = None
+    created_at: int | None = None
+    enabled: bool | None = None
+    interpolation: str | None = None
+    line_style: str | None = None
+    line_weight: int | None = None
+    name: str | None = None
+    preferred_unit: str | None = None
+    range: tuple[float | None, float | None] | None = None
 
-    def dump(self, camel_case: bool = True) -> dict[str, Any]:
-        data = super().dump(camel_case=camel_case)
-        if self.node_reference:
-            key = "nodeReference" if camel_case else "node_reference"
-            data[key] = self.node_reference.dump(include_instance_type=False)
-        if self.view_reference:
-            key = "viewReference" if camel_case else "view_reference"
-            data[key] = self.view_reference.dump(include_type=False)
-        return data
+    @field_serializer("node_reference", when_used="always")
+    def serialize_node_reference(self, node_reference: NodeId | None) -> dict[str, Any] | None:
+        if node_reference:
+            return node_reference.dump(include_instance_type=False)
+        return None
 
+    @field_serializer("view_reference", when_used="always")
+    def serialize_view_reference(self, view_reference: ViewId | None) -> dict[str, Any] | None:
+        if view_reference:
+            return view_reference.dump(include_type=False)
+        return None
+
+    @field_validator("node_reference", mode="before")
     @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
-        """Load a ChartCoreTimeseries object from a dictionary."""
-        instance = super()._load(resource, cognite_client=cognite_client)
-        if "nodeReference" in resource:
-            instance.node_reference = NodeId.load(resource["nodeReference"])
-        if "viewReference" in resource:
-            instance.view_reference = ViewId.load(resource["viewReference"])
-        return instance
+    def validate_node_reference(cls, value: Any) -> NodeId | None:
+        if value is None or isinstance(value, NodeId):
+            return value
+        return NodeId.load(value)
+
+    @field_validator("view_reference", mode="before")
+    @classmethod
+    def validate_view_reference(cls, value: Any) -> ViewId | None:
+        if value is None or isinstance(value, ViewId):
+            return value
+        return ViewId.load(value)
 
 
-@dataclass
-class ChartTimeseries(BaseChartElement):
+class ChartTimeseries(ChartElement):
+    color: str | None = None
+    created_at: int | None = None
+    enabled: bool | None = None
+    interpolation: str | None = None
+    line_style: str | None = None
+    line_weight: int | None = None
+    name: str | None = None
+    preferred_unit: str | None = None
+    range: tuple[float | None, float | None] | None = None
+    unit: str | None = None
     ts_id: int | None = None
     ts_external_id: str | None = None
     display_mode: str | None = None
     original_unit: str | None = None
+    description: str | None = None
 
 
-@dataclass
-class ChartWorkflow(BaseChartElement):
+class ChartWorkflow(ChartElement):
     version: str | None = None
+    name: str | None = None
+    color: str | None = None
+    enabled: bool | None = None
+    line_weight: int | None = None
+    line_style: str | None = None
+    interpolation: str | None = None
+    unit: str | None = None
+    preferred_unit: str | None = None
+    range: tuple[float | None, float | None] | None = None
+    created_at: int | None = None
     settings: SubSetting | None = None
     flow: Flow | None = None
     calls: list[ChartCall] | None = None
 
-    def dump(self, camel_case: bool = True) -> dict[str, Any]:
-        data = super().dump(camel_case=camel_case)
-        if self.settings:
-            data["settings"] = self.settings.dump(camel_case=camel_case)
-        if self.flow:
-            data["flow"] = self.flow.dump(camel_case=camel_case)
-        if self.calls:
-            data["calls"] = [c.dump(camel_case=camel_case) for c in self.calls]
-        return data
 
-    @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
-        """Load a ChartWorkflow object from a dictionary."""
-        instance = super()._load(resource, cognite_client=cognite_client)
-        if "settings" in resource:
-            instance.settings = SubSetting._load(resource["settings"], cognite_client=cognite_client)
-        if "flow" in resource:
-            instance.flow = Flow._load(resource["flow"], cognite_client=cognite_client)
-        if "calls" in resource:
-            instance.calls = [ChartCall._load(call, cognite_client=cognite_client) for call in resource["calls"]]
-        return instance
-
-
-@dataclass
-class ChartThreshold(BaseChartElement):
+class ChartThreshold(ChartElement):
     visible: bool | None = None
+    name: str | None = None
     source_id: str | None = None
     upper_limit: float | None = None
     filter: ThresholdFilter | None = None
     calls: list[ChartCall] | None = None
 
-    def dump(self, camel_case: bool = True) -> dict[str, Any]:
-        data = super().dump(camel_case=camel_case)
-        if self.filter:
-            data["filter"] = self.filter.dump(camel_case=camel_case)
-        if self.calls:
-            data["calls"] = [c.dump(camel_case=camel_case) for c in self.calls]
-        return data
 
-    @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
-        """Load a ChartThreshold object from a dictionary."""
-        instance = super()._load(resource, cognite_client=cognite_client)
-        if "filter" in resource:
-            instance.filter = ThresholdFilter._load(resource["filter"], cognite_client=cognite_client)
-        if "calls" in resource:
-            instance.calls = [ChartCall._load(call, cognite_client=cognite_client) for call in resource["calls"]]
-        return instance
-
-
-@dataclass
-class ChartScheduledCalculation(BaseChartElement):
+class ChartScheduledCalculation(ChartElement):
+    color: str | None = None
+    created_at: int | None = None
+    description: str | None = None
+    enabled: bool | None = None
+    interpolation: str | None = None
+    line_style: str | None = None
+    line_weight: int | None = None
+    name: str | None = None
+    preferred_unit: str | None = None
+    range: tuple[float | None, float | None] | None = None
+    unit: str | None = None
     version: str | None = None
     settings: SubSetting | None = None
     flow: Flow | None = None
 
-    def dump(self, camel_case: bool = True) -> dict[str, Any]:
-        data = super().dump(camel_case=camel_case)
-        if self.settings:
-            data["settings"] = self.settings.dump(camel_case=camel_case)
-        if self.flow:
-            data["flow"] = self.flow.dump(camel_case=camel_case)
-        return data
 
-    @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
-        """Load a ChartScheduledCalculation object from a dictionary."""
-        instance = super()._load(resource, cognite_client=cognite_client)
-        if "settings" in resource:
-            instance.settings = SubSetting._load(resource["settings"], cognite_client=cognite_client)
-        if "flow" in resource:
-            instance.flow = Flow._load(resource["flow"], cognite_client=cognite_client)
-        return instance
-
-
-@dataclass
-class ChartData(ChartObject):
+class ChartData(BaseModelObject):
     version: int | None = None
     name: str | None = None
     date_from: str | None = None
@@ -261,62 +182,3 @@ class ChartData(ChartObject):
     threshold_collection: list[ChartThreshold] | None = None
     scheduled_calculation_collection: list[ChartScheduledCalculation] | None = None
     settings: ChartSettings | None = None
-
-    def dump(self, camel_case: bool = True) -> dict[str, Any]:
-        """Dump the ChartData object to a dictionary."""
-        data = super().dump(camel_case=camel_case)
-        list_attrs = [
-            "time_series_collection",
-            "core_timeseries_collection",
-            "workflow_collection",
-            "source_collection",
-            "threshold_collection",
-            "scheduled_calculation_collection",
-        ]
-        for attr_name in list_attrs:
-            if collection := getattr(self, attr_name):
-                key = to_camel_case(attr_name) if camel_case else attr_name
-                data[key] = [item.dump(camel_case=camel_case) for item in collection]
-
-        single_attrs_map = {
-            "user_info": "userInfo",
-            "settings": "settings",
-        }
-        for attr_name, camel_key in single_attrs_map.items():
-            if item := getattr(self, attr_name):
-                key = camel_key if camel_case else attr_name
-                data[key] = item.dump(camel_case=camel_case)
-        return data
-
-    @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
-        """Load a ChartData object from a dictionary."""
-        instance = super()._load(resource, cognite_client=cognite_client)
-        collections_map = [
-            ("timeSeriesCollection", "time_series_collection", ChartTimeseries),
-            ("coreTimeseriesCollection", "core_timeseries_collection", ChartCoreTimeseries),
-            ("workflowCollection", "workflow_collection", ChartWorkflow),
-            ("sourceCollection", "source_collection", ChartSource),
-            ("thresholdCollection", "threshold_collection", ChartThreshold),
-            ("scheduledCalculationCollection", "scheduled_calculation_collection", ChartScheduledCalculation),
-        ]
-        for resource_key, attr_name, subclass in collections_map:
-            if resource_key in resource:
-                setattr(
-                    instance,
-                    attr_name,
-                    [subclass._load(item, cognite_client=cognite_client) for item in resource[resource_key]],  # type: ignore[attr-defined]
-                )
-        attribute_map = [
-            ("userInfo", "user_info", UserInfo),
-            ("settings", "settings", ChartSettings),
-        ]
-        for resource_key, attr_name, subclass in attribute_map:
-            if resource_key in resource:
-                setattr(
-                    instance,
-                    attr_name,
-                    subclass._load(resource[resource_key], cognite_client=cognite_client),  # type: ignore[attr-defined]
-                )
-
-        return instance
