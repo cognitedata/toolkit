@@ -19,7 +19,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitError
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning, WarningList
 from cognite_toolkit._cdf_tk.utils.file import safe_rmtree
-from cognite_toolkit._cdf_tk.validation import validate_module_selection, validate_modules_variables
+from cognite_toolkit._cdf_tk.validation import validate_modules_variables
 from cognite_toolkit._version import __version__
 
 
@@ -120,7 +120,7 @@ class BuildCommand(ToolkitCommand):
 
         # Validate module selection
         user_selected_modules = input.config.environment.get_selected_modules({})
-        module_warnings = validate_module_selection(
+        module_warnings = self._validate_modules_selection(
             input.modules,
             input.config,
             {},
@@ -239,3 +239,13 @@ class BuildCommand(ToolkitCommand):
         """Delegate to old BuildCommand for backward compatibility."""
         old_cmd = OldBuildCommand()
         return old_cmd._replace_variables(resource_files, variables, resource_name, module_dir, verbose)
+
+    def _validate_modules_selection(
+        self,
+        modules: ModuleDirectories,
+        config: BuildConfigYAML,
+        packages: dict[str, list[str]],
+        selected_modules: set[str | Path],
+        organization_dir: Path,
+    ) -> WarningList[ToolkitWarning]:
+        raise NotImplementedError("Not implemented yet")

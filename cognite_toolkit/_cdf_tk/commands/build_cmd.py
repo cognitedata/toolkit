@@ -20,6 +20,7 @@ from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
     BUILD_FOLDER_ENCODING,
     DEFAULT_ENV,
+    DEV_ONLY_MODULES,
     HINT_LEAD_TEXT,
     ROOT_MODULES,
     TEMPLATE_VARS_FILE_SUFFIXES,
@@ -58,7 +59,10 @@ from cognite_toolkit._cdf_tk.data_classes import (
     SourceLocationLazy,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitDuplicatedModuleError,
+    ToolkitEnvError,
     ToolkitError,
+    ToolkitMissingModuleError,
     ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.hints import Hint, ModuleDefinition, verify_module_directory
@@ -85,7 +89,6 @@ from cognite_toolkit._cdf_tk.utils.file import safe_rmtree
 from cognite_toolkit._cdf_tk.utils.modules import parse_user_selected_modules
 from cognite_toolkit._cdf_tk.validation import (
     validate_data_set_is_set,
-    validate_module_selection,
     validate_modules_variables,
     validate_resource_yaml_pydantic,
 )
@@ -204,11 +207,7 @@ class BuildCommand(ToolkitCommand):
 
         user_selected_modules = config.environment.get_selected_modules(packages)
         modules = ModuleDirectories.load(organization_dir, user_selected_modules)
-        module_warnings = validate_module_selection(modules, config, packages, user_selected_modules, organization_dir)
-        if module_warnings:
-            self.warning_list.extend(module_warnings)
-            if self.print_warning:
-                print(str(module_warnings))
+        self._validate_modules(modules, config, packages, user_selected_modules, organization_dir)
 
         if verbose:
             self.console("Selected packages:")
@@ -422,6 +421,62 @@ class BuildCommand(ToolkitCommand):
             self._builder_by_resource_folder[resource_name] = create_builder(resource_name, build_dir, self.warn)
         builder = self._builder_by_resource_folder[resource_name]
         return builder
+
+    def _validate_modules(
+        self,
+        modules: ModuleDirectories,
+        config: BuildConfigYAML,
+        packages: dict[str, list[str]],
+        selected_modules: set[str | Path],
+        organization_dir: Path,
+    ) -> None:
+        # Validations: Ambiguous selection.
+        selected_names = {s for s in config.environment.selected if isinstance(s, str)}
+        if duplicate_modules := {
+            module_name: paths
+            for module_name, paths in modules.as_path_by_name().items()
+            if len(paths) > 1 and module_name in selected_names
+        }:
+            # If the user has selected a module by name, and there are multiple modules with that name, raise an error.
+            # Note, if the user uses a path to select a module, this error will not be raised.
+            raise ToolkitDuplicatedModuleError(
+                f"Ambiguous module selected in config.{config.environment.name}.yaml:", duplicate_modules
+            )
+        # Package Referenced Modules Exists
+        for package, package_modules in packages.items():
+            if package not in selected_names:
+                # We do not check packages that are not selected.
+                # Typically, the user will delete the modules that are irrelevant for them;
+                # thus we only check the selected packages.
+                continue
+            if missing_packages := set(package_modules) - modules.available_names:
+                ToolkitMissingModuleError(
+                    f"Package {package} defined in {CDFToml.file_name!s} is referring "
+                    f"the following missing modules {missing_packages}."
+                )
+
+        # Selected modules does not exists
+        if missing_modules := set(selected_modules) - modules.available:
+            hint = ModuleDefinition.long(missing_modules, organization_dir)
+            raise ToolkitMissingModuleError(
+                f"The following selected modules are missing, please check path: {missing_modules}.\n{hint}"
+            )
+
+        # Nothing is Selected
+        if not modules.selected:
+            raise ToolkitEnvError(
+                f"No selected modules specified in {config.filepath!s}, have you configured "
+                f"the environment ({config.environment.name})?"
+            )
+
+        dev_modules = modules.available_names & DEV_ONLY_MODULES
+        if dev_modules and config.environment.validation_type != "dev":
+            self.warn(
+                MediumSeverityWarning(
+                    "The following modules should [bold]only[/bold] be used a in CDF Projects designated as dev (development): "
+                    f"{humanize_collection(dev_modules)!r}",
+                )
+            )
 
     def _replace_variables(
         self,
