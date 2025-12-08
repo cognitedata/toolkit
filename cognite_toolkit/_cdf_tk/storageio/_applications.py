@@ -1,6 +1,7 @@
 from collections.abc import Iterable, Sequence
 from typing import Any
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.canvas import (
     IndustrialCanvas,
     IndustrialCanvasApply,
@@ -127,12 +128,25 @@ class ChartIO(UploadableStorageIO[ChartSelector, Chart, ChartWrite]):
 
 
 class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialCanvasApply]):
+    """Download and upload Industrial Canvases to/from CDF.
+
+    Args:
+        client (ToolkitClient): The Cognite Toolkit client to use for API interactions.
+        exclude_existing_version (bool): Whether to exclude the 'existingVersion' field when uploading canvases.
+            Defaults to True. If you set this to False, the upload may fail if the existing version in CDF is
+            lower or equal to the one in the uploaded data.
+    """
+
     KIND = "IndustrialCanvas"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     SUPPORTED_READ_FORMATS = frozenset({".ndjson"})
     CHUNK_SIZE = 10
     BASE_SELECTOR = CanvasSelector
+
+    def __init__(self, client: ToolkitClient, exclude_existing_version: bool = True) -> None:
+        super().__init__(client)
+        self.exclude_existing_version = exclude_existing_version
 
     def as_id(self, item: IndustrialCanvas) -> str:
         return item.as_id()
@@ -171,12 +185,19 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
         results: list[HTTPMessage] = []
         for item in data_chunk:
             instances = item.item.as_instances()
+            items: list[dict[str, JsonVal]] = []
+            for instance in instances:
+                dumped = instance.dump()
+                if self.exclude_existing_version:
+                    dumped.pop("existingVersion", None)
+                items.append(dumped)
+
             responses = http_client.request_with_retries(
                 message=SimpleBodyRequest(
                     endpoint_url=config.create_api_url("/models/instances"),
                     method="POST",
                     # MyPy does not understand that .dump is valid json
-                    body_content={"items": [instance.dump() for instance in instances]},
+                    body_content={"items": items},  # type: ignore[dict-item]
                 )
             )
             results.extend(responses.as_item_responses(item.source_id))

@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from collections import defaultdict
+from collections.abc import Callable, Sequence
 from typing import Generic, cast
 from uuid import uuid4
 
@@ -11,8 +12,15 @@ from cognite.client.data_classes.data_modeling import (
     View,
     ViewId,
 )
+from cognite.client.exceptions import CogniteException
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.data_classes.canvas import (
+    ContainerReferenceApply,
+    FdmInstanceContainerReferenceApply,
+    IndustrialCanvas,
+    IndustrialCanvasApply,
+)
 from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartWrite
 from cognite_toolkit._cdf_tk.client.data_classes.charts_data import (
     ChartCoreTimeseries,
@@ -23,13 +31,18 @@ from cognite_toolkit._cdf_tk.client.data_classes.migration import ResourceViewMa
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import DirectRelationCache, asset_centric_to_dm
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import AssetCentricMapping
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import create_default_mappings
-from cognite_toolkit._cdf_tk.commands._migrate.issues import ChartMigrationIssue, ConversionIssue, MigrationIssue
+from cognite_toolkit._cdf_tk.commands._migrate.issues import (
+    CanvasMigrationIssue,
+    ChartMigrationIssue,
+    ConversionIssue,
+    MigrationIssue,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import AssetCentricMigrationSelector
 from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
-from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
 from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.storageio._base import T_Selector
-from cognite_toolkit._cdf_tk.storageio.selectors import ChartSelector
+from cognite_toolkit._cdf_tk.storageio.selectors import CanvasSelector, ChartSelector
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.useful_types import (
     T_AssetCentricResourceExtended,
@@ -197,16 +210,14 @@ class ChartMapper(DataMapper[ChartSelector, Chart, ChartWrite]):
     def _create_new_timeseries_core(
         self, ts_item: ChartTimeseries, node_id: NodeId, consumer_view_id: ViewId | None
     ) -> ChartCoreTimeseries:
-        dumped = ts_item.dump(camel_case=True)
-        for asset_centric_key in ["tsId", "tsExternalId", "originalUnit"]:
-            dumped.pop(asset_centric_key, None)
-
+        dumped = ts_item.model_dump(mode="json", by_alias=True, exclude_unset=True)
         dumped["nodeReference"] = node_id
         dumped["viewReference"] = consumer_view_id
         new_uuid = str(uuid4())
         dumped["id"] = new_uuid
         dumped["type"] = "coreTimeseries"
-        core_timeseries = ChartCoreTimeseries._load(dumped)
+        # We ignore extra here to only include the fields that are shared between ChartTimeseries and ChartCoreTimeseries
+        core_timeseries = ChartCoreTimeseries.model_validate(dumped, extra="ignore")
         return core_timeseries
 
     def _get_node_id_consumer_view_id(self, ts_item: ChartTimeseries) -> tuple[NodeId | None, ViewId | None]:
@@ -245,3 +256,130 @@ class ChartMapper(DataMapper[ChartSelector, Chart, ChartWrite]):
             new_source_item = ChartSource(id=cast(str, core_ts_item.id), type=cast(str, core_ts_item.type))
             updated_source_collection.append(new_source_item)
         return updated_source_collection
+
+
+class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvasApply]):
+    # Note sequences are not supported in Canvas, so we do not include them here.
+    asset_centric_resource_types = tuple(("asset", "event", "timeseries", "file"))
+    DEFAULT_ASSET_VIEW = ViewId("cdf_cdm", "CogniteAsset", "v1")
+    DEFAULT_EVENT_VIEW = ViewId("cdf_cdm", "CogniteActivity", "v1")
+    DEFAULT_FILE_VIEW = ViewId("cdf_cdm", "CogniteFile", "v1")
+    DEFAULT_TIMESERIES_VIEW = ViewId("cdf_cdm", "CogniteTimeSeries", "v1")
+
+    def __init__(self, client: ToolkitClient, dry_run: bool, skip_on_missing_ref: bool = False) -> None:
+        self.client = client
+        self.dry_run = dry_run
+        self.skip_on_missing_ref = skip_on_missing_ref
+
+    def map(self, source: Sequence[IndustrialCanvas]) -> Sequence[tuple[IndustrialCanvasApply | None, MigrationIssue]]:
+        self._populate_cache(source)
+        output: list[tuple[IndustrialCanvasApply | None, MigrationIssue]] = []
+        for item in source:
+            mapped_item, issue = self._map_single_item(item)
+            output.append((mapped_item, issue))
+        return output
+
+    @property
+    def lookup_methods(self) -> dict[str, Callable]:
+        return {
+            "asset": self.client.migration.lookup.assets,
+            "event": self.client.migration.lookup.events,
+            "timeseries": self.client.migration.lookup.time_series,
+            "file": self.client.migration.lookup.files,
+        }
+
+    def _populate_cache(self, source: Sequence[IndustrialCanvas]) -> None:
+        """Populate the internal cache with references from the source canvases.
+
+        Note that the consumption views are also cached as part of the timeseries lookup.
+        """
+        ids_by_type: dict[str, set[int]] = defaultdict(set)
+        for canvas in source:
+            for ref in canvas.container_references or []:
+                if ref.container_reference_type in self.asset_centric_resource_types:
+                    ids_by_type[ref.container_reference_type].add(ref.resource_id)
+
+        for resource_type, lookup_method in self.lookup_methods.items():
+            ids = ids_by_type.get(resource_type)
+            if ids:
+                lookup_method(list(ids))
+
+    def _get_node_id(self, resource_id: int, resource_type: str) -> NodeId | None:
+        """Look up the node ID for a given resource ID and type."""
+        try:
+            return self.lookup_methods[resource_type](resource_id)
+        except KeyError:
+            raise ToolkitValueError(f"Unsupported resource type '{resource_type}' for container reference migration.")
+
+    def _get_consumer_view_id(self, resource_id: int, resource_type: str) -> ViewId:
+        """Look up the consumer view ID for a given resource ID and type."""
+        lookup_map = {
+            "asset": (self.client.migration.lookup.assets.consumer_view, self.DEFAULT_ASSET_VIEW),
+            "event": (self.client.migration.lookup.events.consumer_view, self.DEFAULT_EVENT_VIEW),
+            "timeseries": (self.client.migration.lookup.time_series.consumer_view, self.DEFAULT_TIMESERIES_VIEW),
+            "file": (self.client.migration.lookup.files.consumer_view, self.DEFAULT_FILE_VIEW),
+        }
+        if lookup_tuple := lookup_map.get(resource_type):
+            method, fallback = lookup_tuple
+            return method(resource_id) or fallback
+
+        raise ToolkitValueError(f"Unsupported resource type '{resource_type}' for container reference migration.")
+
+    def _map_single_item(self, canvas: IndustrialCanvas) -> tuple[IndustrialCanvasApply | None, CanvasMigrationIssue]:
+        update = canvas.as_write()
+        issue = CanvasMigrationIssue(canvas_external_id=canvas.canvas.external_id, canvas_name=canvas.canvas.name)
+
+        remaining_container_references: list[ContainerReferenceApply] = []
+        new_fdm_references: list[FdmInstanceContainerReferenceApply] = []
+        for ref in update.container_references or []:
+            if ref.container_reference_type not in self.asset_centric_resource_types:
+                remaining_container_references.append(ref)
+                continue
+            node_id = self._get_node_id(ref.resource_id, ref.container_reference_type)
+            if node_id is None:
+                issue.missing_reference_ids.append(ref.as_asset_centric_id())
+            else:
+                consumer_view = self._get_consumer_view_id(ref.resource_id, ref.container_reference_type)
+                fdm_ref = self.migrate_container_reference(ref, canvas.canvas.external_id, node_id, consumer_view)
+                new_fdm_references.append(fdm_ref)
+        if issue.missing_reference_ids and self.skip_on_missing_ref:
+            return None, issue
+
+        update.container_references = remaining_container_references
+        update.fdm_instance_container_references.extend(new_fdm_references)
+        if not self.dry_run:
+            backup = canvas.as_write().create_backup()
+            try:
+                self.client.canvas.industrial.create(backup)
+            except CogniteException as e:
+                raise ToolkitMigrationError(
+                    f"Failed to create backup for canvas '{canvas.canvas.name}': {e!s}. "
+                ) from e
+
+        return update, issue
+
+    @classmethod
+    def migrate_container_reference(
+        cls, reference: ContainerReferenceApply, canvas_external_id: str, instance_id: NodeId, consumer_view: ViewId
+    ) -> FdmInstanceContainerReferenceApply:
+        """Migrate a single container reference by replacing the asset-centric ID with the data model instance ID."""
+        new_id = str(uuid4())
+        new_external_id = f"{canvas_external_id}_{new_id}"
+        return FdmInstanceContainerReferenceApply(
+            external_id=new_external_id,
+            id_=new_id,
+            container_reference_type="fdmInstance",
+            instance_space=instance_id.space,
+            instance_external_id=instance_id.external_id,
+            view_space=consumer_view.space,
+            view_external_id=consumer_view.external_id,
+            view_version=consumer_view.version,
+            label=reference.label,
+            properties_=reference.properties_,
+            x=reference.x,
+            y=reference.y,
+            width=reference.width,
+            height=reference.height,
+            max_width=reference.max_width,
+            max_height=reference.max_height,
+        )
