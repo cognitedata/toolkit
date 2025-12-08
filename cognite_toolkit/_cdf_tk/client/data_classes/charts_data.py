@@ -158,7 +158,7 @@ class ChartScheduledCalculation(ChartElement):
     enabled: bool | None = None
     interpolation: str | None = None
     line_style: str | None = None
-    line_weight: float | None = None
+    line_weight: int | None = None
     name: str | None = None
     preferred_unit: str | None = None
     range: tuple[float | None, float | None] | None = None
