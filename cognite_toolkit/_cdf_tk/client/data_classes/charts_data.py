@@ -75,7 +75,7 @@ class ChartCoreTimeseries(ChartElement):
     enabled: bool | None = None
     interpolation: str | None = None
     line_style: str | None = None
-    line_weight: int | None = None
+    line_weight: float | None = None
     name: str | None = None
     preferred_unit: str | None = None
     range: list[float | None] | None = None
@@ -113,7 +113,7 @@ class ChartTimeseries(ChartElement):
     enabled: bool | None = None
     interpolation: str | None = None
     line_style: str | None = None
-    line_weight: int | None = None
+    line_weight: float | None = None
     name: str | None = None
     preferred_unit: str | None = None
     range: list[float | None] | None = None
@@ -130,7 +130,7 @@ class ChartWorkflow(ChartElement):
     name: str | None = None
     color: str | None = None
     enabled: bool | None = None
-    line_weight: int | None = None
+    line_weight: float | None = None
     line_style: str | None = None
     interpolation: str | None = None
     unit: str | None = None
@@ -158,7 +158,7 @@ class ChartScheduledCalculation(ChartElement):
     enabled: bool | None = None
     interpolation: str | None = None
     line_style: str | None = None
-    line_weight: int | None = None
+    line_weight: float | None = None
     name: str | None = None
     preferred_unit: str | None = None
     range: list[float | None] | None = None
