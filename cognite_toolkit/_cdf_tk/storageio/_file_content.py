@@ -271,12 +271,14 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
             if not (upload_url := upload_url_getter(item, http_client, results)):
                 continue
 
+            content_bytes = item.file_path.read_bytes()
             upload_response = http_client.request_with_retries(
                 message=DataBodyRequest(
                     endpoint_url=upload_url,
                     method="PUT",
                     content_type=item.mime_type,
-                    data_content=item.file_path.read_bytes(),
+                    data_content=content_bytes,
+                    content_length=len(content_bytes),
                 )
             )
             results.extend(upload_response.as_item_responses(item.as_id()))
