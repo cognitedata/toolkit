@@ -16,7 +16,13 @@ from cognite_toolkit._cdf_tk.client.data_classes.instance_api import (
     NodeIdentifier,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ItemsRequest, ItemsRequest2, SimpleBodyRequest
+from cognite_toolkit._cdf_tk.utils.http_client import (
+    HTTPClient,
+    ItemsRequest,
+    ItemsRequest2,
+    RequestMessage2,
+    SimpleBodyRequest,
+)
 
 
 class InfieldConfigAPI:
@@ -184,15 +190,15 @@ class InFieldCDMConfigAPI:
             raise ValueError("Cannot retrieve more than 100 InFieldCDMLocationConfig items at once.")
         if not items:
             return []
-        responses = self._http_client.request_with_retries(
-            SimpleBodyRequest(
+        result = self._http_client.request_single_retries(
+            RequestMessage2(
                 endpoint_url=self._config.create_api_url(f"{self.ENDPOINT}/query"),
                 method="POST",
                 body_content=self._retrieve_query(items),
             )
         )
-        responses.raise_for_status()
-        parsed_response = QueryResponse[InstanceResponseItem].model_validate(responses.get_first_body())
+        success = result.get_success_or_raise()
+        parsed_response = QueryResponse[InstanceResponseItem].model_validate(success.body_json)
         return self._parse_retrieve_response(parsed_response)
 
     def delete(self, items: Sequence[InFieldCDMLocationConfig]) -> list[NodeIdentifier]:
