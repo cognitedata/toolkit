@@ -36,7 +36,7 @@ class ChartCore(WriteableCogniteResource["ChartWrite"], ABC):
     def dump(self, camel_case: bool = True) -> dict[str, Any]:
         """Convert the chart to a dictionary representation."""
         output = super().dump(camel_case=camel_case)
-        output["data"] = self.data.dump(camel_case=camel_case)
+        output["data"] = self.data.model_dump(mode="json", by_alias=camel_case, exclude_unset=True)
         return output
 
 
