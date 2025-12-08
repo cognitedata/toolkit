@@ -13,7 +13,6 @@ migrate = true
 streams = true
 create = true
 extend-download = true
-v08 = false
 
 [plugins]
 run = true
