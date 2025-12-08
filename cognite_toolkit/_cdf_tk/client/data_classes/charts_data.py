@@ -1,15 +1,9 @@
-import sys
 from typing import Any
 
 from cognite.client.data_classes.data_modeling import NodeId, ViewId
 from pydantic import field_serializer, field_validator
 
 from .base import BaseModelObject
-
-if sys.version_info >= (3, 11):
-    pass
-else:
-    pass
 
 
 class UserInfo(BaseModelObject):
