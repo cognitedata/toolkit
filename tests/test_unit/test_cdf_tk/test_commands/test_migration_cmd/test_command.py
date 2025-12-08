@@ -1,5 +1,6 @@
 import json
 import uuid
+from collections import Counter
 from collections.abc import Iterator
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -14,6 +15,7 @@ from cognite.client.data_classes.data_modeling import (
     DataModelList,
     EdgeApply,
     NodeApply,
+    NodeList,
     NodeOrEdgeData,
     View,
     ViewId,
@@ -21,12 +23,13 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, ProjectStatistics
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.data_classes.canvas import ContainerReference, IndustrialCanvas
 from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart
 from cognite_toolkit._cdf_tk.client.data_classes.charts_data import ChartData, ChartSource, ChartTimeseries
 from cognite_toolkit._cdf_tk.client.data_classes.migration import InstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
-from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper, ChartMapper
+from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper, CanvasMapper, ChartMapper
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import (
     COGNITE_MIGRATION_MODEL,
     INSTANCE_SOURCE_VIEW_ID,
@@ -42,8 +45,11 @@ from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import AnnotationMigrationIO, AssetCentricMigrationIO
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
-from cognite_toolkit._cdf_tk.storageio import ChartIO
-from cognite_toolkit._cdf_tk.storageio.selectors import ChartExternalIdSelector
+from cognite_toolkit._cdf_tk.storageio import CanvasIO, ChartIO
+from cognite_toolkit._cdf_tk.storageio.selectors import (
+    CanvasExternalIdSelector,
+    ChartExternalIdSelector,
+)
 from cognite_toolkit._cdf_tk.utils.fileio import CSVReader
 
 
@@ -466,13 +472,13 @@ class TestMigrationCommand:
                 visibility="PUBLIC",
                 data=ChartData(
                     name="My Chart",
-                    time_series_collection=[
+                    timeSeriesCollection=[
                         ChartTimeseries(
-                            ts_external_id="ts_1", type="timeseries", id="87654321-4321-8765-4321-876543218765"
+                            tsExternalId="ts_1", type="timeseries", id="87654321-4321-8765-4321-876543218765"
                         ),
-                        ChartTimeseries(ts_id=1, type="timeseries", id="12345678-1234-5678-1234-567812345678"),
+                        ChartTimeseries(tsId=1, type="timeseries", id="12345678-1234-5678-1234-567812345678"),
                     ],
-                    source_collection=[
+                    sourceCollection=[
                         ChartSource(type="timeseries", id="87654321-4321-8765-4321-876543218765"),
                         ChartSource(type="timeseries", id="12345678-1234-5678-1234-567812345678"),
                     ],
@@ -589,10 +595,142 @@ class TestMigrationCommand:
                             "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
                         },
                     ],
+                    "timeSeriesCollection": None,
                 },
             }
         ]
         assert actual_charts == expected_charts
+
+    @pytest.mark.usefixtures("mock_statistics")
+    def test_migrate_canvas(
+        self,
+        toolkit_config: ToolkitClientConfig,
+        cognite_migration_model: responses.RequestsMock,
+        tmp_path: Path,
+        respx_mock: respx.MockRouter,
+        asset_centric_canvas: tuple[IndustrialCanvas, NodeList[InstanceSource]],
+    ) -> None:
+        rsps = cognite_migration_model
+        config = toolkit_config
+        canvas, instance_sources = asset_centric_canvas
+        id_ = uuid.uuid4()
+        non_existing_file = ContainerReference(
+            space="IndustrialCanvasInstanceSpace",
+            external_id=f"{canvas.canvas.external_id}_{id_!s}",
+            version=1,
+            last_updated_time=1,
+            created_time=1,
+            container_reference_type="file",
+            resource_id=999,
+            id_=str(id_),
+        )
+        # Canvas retrieve ids
+        rsps.add(
+            responses.POST,
+            config.create_api_url("/models/instances/query"),
+            json={
+                "items": {
+                    "canvas": [canvas.canvas.dump()],
+                    "solutionTags": [solution_tag.dump() for solution_tag in canvas.solution_tags],
+                    "annotations": [annotation.dump() for annotation in canvas.annotations],
+                    "containerReferences": [
+                        container_reference.dump() for container_reference in canvas.container_references
+                    ]
+                    + [non_existing_file.dump()],
+                    "fdmInstanceContainerReferences": [
+                        fdm_container_reference.dump()
+                        for fdm_container_reference in canvas.fdm_instance_container_references
+                    ],
+                },
+                "nextCursor": {
+                    "canvas": None,
+                    "solutionTags": None,
+                    "annotations": None,
+                    "containerReferences": None,
+                    "fdmInstanceContainerReferences": None,
+                },
+            },
+            status=200,
+        )
+        for resource_type in ["asset", "event", "timeseries", "file"]:
+            rsps.add(
+                responses.POST,
+                config.create_api_url("/models/instances/query"),
+                json={
+                    "items": {
+                        "instanceSource": [
+                            instance_source.dump()
+                            for instance_source in instance_sources
+                            if instance_source.resource_type == resource_type
+                            # Simulating that the non_existing_file does not exist
+                        ]
+                        if resource_type != "file"
+                        else []
+                    },
+                    "nextCursor": {"instanceSource": None},
+                },
+                status=200,
+            )
+        # Creation of backup, we just return empty.
+        rsps.add(
+            responses.POST,
+            config.create_api_url("/models/instances/byids"),
+            json={"items": []},
+            status=200,
+        )
+        rsps.add(
+            responses.POST,
+            config.create_api_url("/models/instances"),
+            json={"items": [], "deleted": []},
+            status=200,
+        )
+        # Upsert of migrated canvas
+        respx.post(
+            config.create_api_url("/models/instances"),
+        ).mock(
+            return_value=httpx.Response(
+                status_code=200,
+                json={"items": [], "deleted": []},
+            )
+        )
+
+        client = ToolkitClient(config)
+        command = MigrationCommand(silent=True)
+
+        result = command.migrate(
+            selected=CanvasExternalIdSelector(external_ids=(canvas.canvas.external_id,)),
+            data=CanvasIO(client, exclude_existing_version=True),
+            mapper=CanvasMapper(client, dry_run=False, skip_on_missing_ref=False),
+            log_dir=tmp_path / "logs",
+            dry_run=False,
+            verbose=False,
+        )
+
+        actual = result.get_progress(canvas.canvas.external_id)
+        expected = {"download": "success", "convert": "success", "upload": "success"}
+        assert actual == expected
+
+        assert len(respx_mock.calls) == 1
+        call = respx_mock.calls[0]
+        assert call.request.url == config.create_api_url("/models/instances")
+        assert call.request.method == "POST"
+        created_instance = json.loads(call.request.content.decode("utf-8"))["items"]
+        created_nodes = Counter(
+            item["sources"][0]["source"]["externalId"] for item in created_instance if item["instanceType"] == "node"
+        )
+        asset_centric_ref_count = sum(
+            1
+            for ref in canvas.container_references
+            if ref.container_reference_type in CanvasMapper.asset_centric_resource_types
+        )
+        assert created_nodes == {
+            "Canvas": 1,
+            "ContainerReference": len(canvas.container_references) - asset_centric_ref_count,
+            "FdmInstanceContainerReference": len(canvas.fdm_instance_container_references) + asset_centric_ref_count,
+        }
+
+        has_existing_version = [item["externalId"] for item in created_instance if "existingVersion" in item]
+        assert not has_existing_version, f"Expected no existingVersion field, but found in: {has_existing_version}"
 
     def test_validate_migration_model_available(self) -> None:
         with monkeypatch_toolkit_client() as client:

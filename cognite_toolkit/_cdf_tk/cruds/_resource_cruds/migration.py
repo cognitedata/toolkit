@@ -21,7 +21,6 @@ from .datamodel import SpaceCRUD, ViewCRUD
 @final
 class ResourceViewMappingCRUD(ResourceCRUD[str, ResourceViewMappingApply, ResourceViewMapping]):
     folder_name = "migration"
-    filetypes = frozenset({"yaml", "yml"})
     resource_cls = ResourceViewMapping
     resource_write_cls = ResourceViewMappingApply
     kind = "ResourceViewMapping"

@@ -36,7 +36,7 @@ class ChartCore(WriteableCogniteResource["ChartWrite"], ABC):
     def dump(self, camel_case: bool = True) -> dict[str, Any]:
         """Convert the chart to a dictionary representation."""
         output = super().dump(camel_case=camel_case)
-        output["data"] = self.data.dump(camel_case=camel_case)
+        output["data"] = self.data.model_dump(mode="json", by_alias=camel_case, exclude_unset=True)
         return output
 
 
@@ -58,7 +58,7 @@ class ChartWrite(ChartCore):
         return cls(
             external_id=resource["externalId"],
             visibility=resource["visibility"],
-            data=ChartData._load(resource["data"], cognite_client=cognite_client),
+            data=ChartData._load(resource["data"]),
         )
 
 
@@ -98,7 +98,7 @@ class Chart(ChartCore):
             created_time=resource["createdTime"],
             last_updated_time=resource["lastUpdatedTime"],
             visibility=resource["visibility"],
-            data=ChartData._load(resource["data"], cognite_client=cognite_client),
+            data=ChartData._load(resource["data"]),
             owner_id=resource["ownerId"],
         )
 

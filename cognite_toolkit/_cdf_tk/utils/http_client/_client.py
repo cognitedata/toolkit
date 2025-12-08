@@ -167,34 +167,40 @@ class HTTPClient:
         )
 
     def _create_headers(
-        self, api_version: str | None = None, content_type: str = "application/json", accept: str = "application/json"
+        self,
+        api_version: str | None = None,
+        content_type: str = "application/json",
+        accept: str = "application/json",
+        content_length: int | None = None,
     ) -> MutableMapping[str, str]:
         headers: MutableMapping[str, str] = {}
         headers["User-Agent"] = f"httpx/{httpx.__version__} {get_user_agent()}"
         auth_name, auth_value = self.config.credentials.authorization_header()
         headers[auth_name] = auth_value
-        headers["content-type"] = content_type
+        headers["Content-Type"] = content_type
+        if content_length is not None:
+            headers["Content-Length"] = str(content_length)
         headers["accept"] = accept
         headers["x-cdp-sdk"] = f"CogniteToolkit:{get_current_toolkit_version()}"
         headers["x-cdp-app"] = self.config.client_name
         headers["cdf-version"] = api_version or self.config.api_subversion
-        if not global_config.disable_gzip:
+        if not global_config.disable_gzip and content_length is None:
             headers["Content-Encoding"] = "gzip"
         return headers
 
     def _make_request(self, item: RequestMessage) -> httpx.Response:
-        headers = self._create_headers(item.api_version, item.content_type, item.accept)
+        headers = self._create_headers(item.api_version, item.content_type, item.accept, item.content_length)
         params: dict[str, PrimitiveType] | None = None
         if isinstance(item, ParamRequest):
             params = item.parameters
         data: str | bytes | None = None
         if isinstance(item, BodyRequest):
             data = item.data()
-            if not global_config.disable_gzip:
+            if not global_config.disable_gzip and item.content_length is None:
                 data = gzip.compress(data.encode("utf-8"))
         elif isinstance(item, DataBodyRequest):
             data = item.data()
-            if not global_config.disable_gzip:
+            if not global_config.disable_gzip and item.content_length is None:
                 data = gzip.compress(data)
         return self.session.request(
             method=item.method,
