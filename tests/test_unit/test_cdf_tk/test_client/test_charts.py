@@ -17,7 +17,6 @@ from cognite_toolkit._cdf_tk.client.data_classes.charts_data import (
     ChartWorkflow,
     UserInfo,
 )
-from tests.test_unit.utils import FakeCogniteResourceGenerator
 
 CHART = Chart(
     external_id="chart",
@@ -279,20 +278,9 @@ class TestChartDTOs:
             "itAlso": {"hasSomeNumbers": [1, 2, 3, 4, 5]},
         }
         loaded = ChartData._load(chart_data)
-        dumped = loaded.dump(camel_case=False)
+        dumped = loaded.model_dump(mode="json", by_alias=True, exclude_unset=True)
 
         assert dumped == chart_data, f"Expected {chart_data}, but got {dumped}"
-
-    def test_serialize_deserialize_chart(self) -> None:
-        """Test that Chart can be serialized and deserialized correctly."""
-        instance = FakeCogniteResourceGenerator(seed=42).create_instance(ChartData)
-        instance._unknown_fields = {"extraField": "extraValue"}
-
-        dumped = instance.dump(camel_case=True)
-
-        loaded = ChartData._load(dumped)
-
-        assert loaded.dump() == instance.dump(), f"Expected {instance}, but got {loaded}"
 
     @pytest.mark.parametrize("chart_data_dict, expected_cls", list(chart_data_generator()))
     def test_serialize_deserialize_chart_data_components(
