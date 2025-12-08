@@ -94,7 +94,8 @@ class RequestMessage(HTTPMessage):
     api_version: str | None = None
     content_type: str = "application/json"
     accept: str = "application/json"
-    set_content_length: bool = False
+    content_length: int | None = None
+    disable_compression: bool = False
 
     @property
     def total_attempts(self) -> int:

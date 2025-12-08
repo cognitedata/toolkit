@@ -154,6 +154,7 @@ class HTTPClient:
         content_type: str = "application/json",
         accept: str = "application/json",
         content_length: int | None = None,
+        disable_compression: bool = False,
     ) -> MutableMapping[str, str]:
         headers: MutableMapping[str, str] = {}
         headers["User-Agent"] = f"httpx/{httpx.__version__} {get_user_agent()}"
@@ -166,27 +167,26 @@ class HTTPClient:
         headers["x-cdp-sdk"] = f"CogniteToolkit:{get_current_toolkit_version()}"
         headers["x-cdp-app"] = self.config.client_name
         headers["cdf-version"] = api_version or self.config.api_subversion
-        if not global_config.disable_gzip:
+        if not global_config.disable_gzip and not disable_compression:
             headers["Content-Encoding"] = "gzip"
         return headers
 
     def _make_request(self, item: RequestMessage) -> httpx.Response:
+        headers = self._create_headers(
+            item.api_version, item.content_type, item.accept, item.content_length, item.disable_compression
+        )
         params: dict[str, PrimitiveType] | None = None
         if isinstance(item, ParamRequest):
             params = item.parameters
         data: str | bytes | None = None
         if isinstance(item, BodyRequest):
             data = item.data()
-            if not global_config.disable_gzip:
+            if not global_config.disable_gzip and not item.disable_compression:
                 data = gzip.compress(data.encode("utf-8"))
         elif isinstance(item, DataBodyRequest):
             data = item.data()
-            if not global_config.disable_gzip:
+            if not global_config.disable_gzip and not item.disable_compression:
                 data = gzip.compress(data)
-        content_length: int | None = None
-        if item.set_content_length:
-            content_length = len(data) if data is not None else 0
-        headers = self._create_headers(item.api_version, item.content_type, item.accept, content_length)
         return self.session.request(
             method=item.method,
             url=item.endpoint_url,
