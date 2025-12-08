@@ -1,12 +1,14 @@
 from collections.abc import Iterable, Sequence
+from typing import Any
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.canvas import (
     IndustrialCanvas,
     IndustrialCanvasApply,
 )
 from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList, ChartWrite
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
-from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, SimpleBodyRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
@@ -126,12 +128,25 @@ class ChartIO(UploadableStorageIO[ChartSelector, Chart, ChartWrite]):
 
 
 class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialCanvasApply]):
+    """Download and upload Industrial Canvases to/from CDF.
+
+    Args:
+        client (ToolkitClient): The Cognite Toolkit client to use for API interactions.
+        exclude_existing_version (bool): Whether to exclude the 'existingVersion' field when uploading canvases.
+            Defaults to True. If you set this to False, the upload may fail if the existing version in CDF is
+            lower or equal to the one in the uploaded data.
+    """
+
     KIND = "IndustrialCanvas"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     SUPPORTED_READ_FORMATS = frozenset({".ndjson"})
     CHUNK_SIZE = 10
     BASE_SELECTOR = CanvasSelector
+
+    def __init__(self, client: ToolkitClient, exclude_existing_version: bool = True) -> None:
+        super().__init__(client)
+        self.exclude_existing_version = exclude_existing_version
 
     def as_id(self, item: IndustrialCanvas) -> str:
         return item.as_id()
@@ -170,12 +185,19 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
         results: list[HTTPMessage] = []
         for item in data_chunk:
             instances = item.item.as_instances()
+            items: list[dict[str, JsonVal]] = []
+            for instance in instances:
+                dumped = instance.dump()
+                if self.exclude_existing_version:
+                    dumped.pop("existingVersion", None)
+                items.append(dumped)
+
             responses = http_client.request_with_retries(
                 message=SimpleBodyRequest(
                     endpoint_url=config.create_api_url("/models/instances"),
                     method="POST",
                     # MyPy does not understand that .dump is valid json
-                    body_content={"items": [instance.dump() for instance in instances]},
+                    body_content={"items": items},  # type: ignore[dict-item]
                 )
             )
             results.extend(responses.as_item_responses(item.source_id))
@@ -218,17 +240,22 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
         references = dumped.get("containerReferences", [])
         if not isinstance(references, list):
             return dumped
+        new_container_references: list[Any] = []
         for container_ref in references:
             if not isinstance(container_ref, dict):
+                new_container_references.append(container_ref)
                 continue
             sources = container_ref.get("sources", [])
             if not isinstance(sources, list) or len(sources) == 0:
+                new_container_references.append(container_ref)
                 continue
             source = sources[0]
             if not isinstance(source, dict) or "properties" not in source:
+                new_container_references.append(container_ref)
                 continue
             properties = source["properties"]
             if not isinstance(properties, dict):
+                new_container_references.append(container_ref)
                 continue
             reference_type = properties.get("containerReferenceType")
             if (
@@ -238,9 +265,13 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
                     "dataGrid",
                 }
             ):  # These container reference types are special cases with a resourceId statically set to -1, which is why we skip them
+                new_container_references.append(container_ref)
                 continue
             resource_id = properties.pop("resourceId", None)
             if not isinstance(resource_id, int):
+                HighSeverityWarning(
+                    f"Invalid resourceId {resource_id!r} in Canvas {canvas.canvas.name}. Skipping."
+                ).print_warning(console=self.client.console)
                 continue
             if reference_type == "asset":
                 external_id = self.client.lookup.assets.external_id(resource_id)
@@ -251,9 +282,16 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
             elif reference_type == "file":
                 external_id = self.client.lookup.files.external_id(resource_id)
             else:
+                new_container_references.append(container_ref)
                 continue
-            if external_id is not None:
-                properties["resourceExternalId"] = external_id
+            if external_id is None:
+                HighSeverityWarning(
+                    f"Failed to look-up {reference_type} external ID for resource ID {resource_id!r}. Skipping resource in Canvas {canvas.canvas.name}"
+                ).print_warning(console=self.client.console)
+                continue
+            properties["resourceExternalId"] = external_id
+            new_container_references.append(container_ref)
+        dumped["containerReferences"] = new_container_references
         return dumped
 
     def json_chunk_to_data(
@@ -312,23 +350,30 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
         return self._load_resource(item_json)
 
     def _load_resource(self, item_json: dict[str, JsonVal]) -> IndustrialCanvasApply:
+        name = self._get_name(item_json)
         references = item_json.get("containerReferences", [])
         if not isinstance(references, list):
             return IndustrialCanvasApply._load(item_json)
+        new_container_references: list[Any] = []
         for container_ref in references:
             if not isinstance(container_ref, dict):
+                new_container_references.append(container_ref)
                 continue
             sources = container_ref.get("sources", [])
             if not isinstance(sources, list) or len(sources) == 0:
+                new_container_references.append(container_ref)
                 continue
             source = sources[0]
             if not isinstance(source, dict) or "properties" not in source:
+                new_container_references.append(container_ref)
                 continue
             properties = source["properties"]
             if not isinstance(properties, dict):
+                new_container_references.append(container_ref)
                 continue
             resource_external_id = properties.pop("resourceExternalId", None)
             if not isinstance(resource_external_id, str):
+                new_container_references.append(container_ref)
                 continue
             reference_type = properties.get("containerReferenceType")
             if reference_type == "asset":
@@ -340,8 +385,24 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
             elif reference_type == "file":
                 resource_id = self.client.lookup.files.id(resource_external_id)
             else:
+                new_container_references.append(container_ref)
                 continue
-            if resource_id is not None:
-                properties["resourceId"] = resource_id
+            if resource_id is None:
+                # Failed look-up, skip the resourceId setting
+                HighSeverityWarning(
+                    f"Failed to look-up {reference_type} ID for external ID {resource_external_id!r}. Skipping resource in Canvas {name}"
+                ).print_warning(console=self.client.console)
+                continue
+            properties["resourceId"] = resource_id
+            new_container_references.append(container_ref)
+        new_item = dict(item_json)
+        new_item["containerReferences"] = new_container_references
 
-        return IndustrialCanvasApply._load(item_json)
+        return IndustrialCanvasApply._load(new_item)
+
+    @classmethod
+    def _get_name(cls, item_json: dict[str, JsonVal]) -> str:
+        try:
+            return item_json["canvas"]["sources"][0]["properties"]["name"]  # type: ignore[index,return-value, call-overload]
+        except (KeyError, IndexError, TypeError):
+            return "<unknown>"

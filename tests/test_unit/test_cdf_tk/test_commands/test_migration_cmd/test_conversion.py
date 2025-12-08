@@ -253,6 +253,23 @@ class TestCreateProperties:
                 ),
                 id="Duplicated mapping target",
             ),
+            pytest.param(
+                {
+                    "name": "MyAsset",
+                    "metadata": {"雪ヘ罪約べげド. [10] SNL": "値テスト"},
+                },
+                {
+                    "name": MappedProperty(CONTAINER_ID, "name", dt.Text(), **DEFAULT_CONTAINER_ARGS),
+                    "property10": MappedProperty(CONTAINER_ID, "property10", dt.Text(), **DEFAULT_CONTAINER_ARGS),
+                },
+                {"name": "name", "metadata.雪ヘ罪約べげド. [10] SNL": "property10"},
+                {"name": "MyAsset", "property10": "値テスト"},
+                ConversionIssue(
+                    asset_centric_id=ASSET_CENTRIC_ID,
+                    instance_id=INSTANCE_ID,
+                ),
+                id="Japanese characters in property names and values",
+            ),
         ],
     )
     def test_create_properties(

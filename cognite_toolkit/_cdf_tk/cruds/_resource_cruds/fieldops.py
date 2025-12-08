@@ -40,7 +40,6 @@ from .group_scoped import GroupResourceScopedCRUD
 @final
 class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig]):
     folder_name = "cdf_applications"
-    filetypes = frozenset({"yaml", "yml"})
     resource_cls = APMConfig
     resource_write_cls = APMConfigWrite
     kind = "InfieldV1"
@@ -249,7 +248,6 @@ class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig]):
 @final
 class InFieldLocationConfigCRUD(ResourceCRUD[NodeIdentifier, InfieldLocationConfig, InfieldLocationConfig]):
     folder_name = "cdf_applications"
-    filetypes = frozenset({"yaml", "yml"})
     resource_cls = InfieldLocationConfig
     resource_write_cls = InfieldLocationConfig
     kind = "InFieldLocationConfig"
@@ -349,7 +347,6 @@ class InFieldLocationConfigCRUD(ResourceCRUD[NodeIdentifier, InfieldLocationConf
 @final
 class InFieldCDMLocationConfigCRUD(ResourceCRUD[NodeIdentifier, InFieldCDMLocationConfig, InFieldCDMLocationConfig]):
     folder_name = "cdf_applications"
-    filetypes = frozenset({"yaml", "yml"})
     resource_cls = InFieldCDMLocationConfig
     resource_write_cls = InFieldCDMLocationConfig
     kind = "InFieldCDMLocationConfig"
@@ -437,4 +434,5 @@ class InFieldCDMLocationConfigCRUD(ResourceCRUD[NodeIdentifier, InFieldCDMLocati
         elif len(json_path) == 4 and json_path[:2] == ("dataExplorationConfig", "filters") and json_path[3] == "values":
             # Handles dataExplorationConfig.filters[i].values
             return diff_list_hashable(local, cdf)
+
         return super().diff_list(local, cdf, json_path)

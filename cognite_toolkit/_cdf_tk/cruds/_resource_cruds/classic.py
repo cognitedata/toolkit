@@ -29,26 +29,49 @@ from cognite_toolkit._cdf_tk.client.data_classes.sequences import (
     ToolkitSequenceRowsList,
     ToolkitSequenceRowsWrite,
 )
+from cognite_toolkit._cdf_tk.constants import TABLE_FORMATS, YAML_SUFFIX
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_classes import AssetYAML, EventYAML, SequenceRowYAML, SequenceYAML
-from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
+from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, ToolkitDeprecationWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.utils.file import read_csv
 
 from .data_organization import DataSetsCRUD, LabelCRUD
 
+_DEPRECATION_WARNING_ISSUED = False
+
 
 @final
 class AssetCRUD(ResourceCRUD[str, AssetWrite, Asset]):
     folder_name = "classic"
-    filetypes = frozenset({"yaml", "yml", "csv", "parquet"})
     resource_cls = Asset
     resource_write_cls = AssetWrite
     yaml_cls = AssetYAML
     kind = "Asset"
     dependencies = frozenset({DataSetsCRUD, LabelCRUD})
     _doc_url = "Assets/operation/createAssets"
+
+    @classmethod
+    def is_supported_file(cls, file: Path) -> bool:
+        if Flags.v08.is_enabled():
+            return super().is_supported_file(file)
+        global _DEPRECATION_WARNING_ISSUED
+        if not file.stem.casefold().endswith(cls.kind.casefold()):
+            return False
+        if file.suffix in YAML_SUFFIX:
+            return True
+        if file.suffix in TABLE_FORMATS:
+            if not _DEPRECATION_WARNING_ISSUED:
+                ToolkitDeprecationWarning(
+                    feature="deployment of asset from CSV or Parquet files",
+                    alternative="data plugin and cdf data upload commands",
+                    removal_version="0.8",
+                ).print_warning()
+                _DEPRECATION_WARNING_ISSUED = True
+            return True
+        return False
 
     @property
     def display_name(self) -> str:
@@ -479,7 +502,6 @@ class SequenceRowCRUD(ResourceCRUD[str, ToolkitSequenceRowsWrite, ToolkitSequenc
 @final
 class EventCRUD(ResourceCRUD[str, EventWrite, Event]):
     folder_name = "classic"
-    filetypes = frozenset({"yaml", "yml"})
     resource_cls = Event
     resource_write_cls = EventWrite
     yaml_cls = EventYAML

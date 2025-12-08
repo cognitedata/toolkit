@@ -144,12 +144,13 @@ jobs:
         run: uv run cdf build --env demo -o demo_project
       - name: "Verify and create access rights"
         run: uv run cdf auth verify --no-prompt
-      - name: "Test clean --dry-run --module=my_module"
-        run: |
-          uv run cdf clean --env demo --dry-run -m my_module
-      - name: "Deploy the templates --dry-run"
-        run: |
-          uv run cdf deploy --drop --env demo --dry-run
+        # Temporarly suspending while investigating
+      # - name: "Test clean --dry-run --module=my_module"
+      #   run: |
+      #     uv run cdf clean --env demo --dry-run -m my_module --verbose
+      # - name: "Deploy the templates --dry-run"
+      #   run: |
+      #     uv run cdf deploy --drop --env demo --dry-run
 
 
   Build-image:

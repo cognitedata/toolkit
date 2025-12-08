@@ -1,19 +1,20 @@
-import re
 from typing import Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field
 
-from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.constants import INSTANCE_EXTERNAL_ID_PATTERN
 
 from .base import ToolkitResource
 from .view_field_definitions import ViewReference
 
-JSON_PATH_PATTERN = re.compile(
-    r"^([a-zA-Z_][a-zA-Z0-9_]*|\[\d+\])(\.[a-zA-Z_][a-zA-Z0-9_]*|\[\d+\]|\[\'[^\']*\'\]|\[\"[^\"]*\"\])*$"
-)
-
 
 class ResourceViewMappingYAML(ToolkitResource):
+    external_id: str = Field(
+        description="External-id of the mapping.",
+        min_length=1,
+        max_length=256,
+        pattern=INSTANCE_EXTERNAL_ID_PATTERN,
+    )
     resource_type: Literal["asset", "event", "file", "timeSeries", "sequence", "assetAnnotation", "fileAnnotation"] = (
         Field(
             description="The type of the resource to map to the view.",
@@ -25,13 +26,3 @@ class ResourceViewMappingYAML(ToolkitResource):
     property_mapping: dict[str, str] = Field(
         description="A dictionary mapping from resource property to view property.",
     )
-
-    @field_validator("property_mapping")
-    @classmethod
-    def validate_json_paths(cls, value: dict[str, str]) -> dict[str, str]:
-        if not isinstance(value, dict):
-            return value
-        not_matching_keys = [k for k in value.keys() if not re.match(JSON_PATH_PATTERN, k)]
-        if not_matching_keys:
-            raise ValueError(f"Invalid JSON paths: {humanize_collection(not_matching_keys)}")
-        return value

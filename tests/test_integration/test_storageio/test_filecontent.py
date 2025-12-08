@@ -1,9 +1,11 @@
 import time
 from pathlib import Path
 
+from cognite.client.data_classes import DataSet
 from cognite.client.data_classes.data_modeling import NodeId, Space
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.commands import UploadCommand
 from cognite_toolkit._cdf_tk.storageio import FileContentIO
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     FileDataModelingTemplate,
@@ -14,11 +16,12 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
 )
 from cognite_toolkit._cdf_tk.storageio.selectors._file_content import (
     FILENAME_VARIABLE,
+    FILEPATH,
     FileExternalID,
     FileInstanceID,
     TemplateNodeId,
 )
-from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
+from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader, NDJsonWriter, Uncompressed
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
@@ -134,3 +137,48 @@ class TestFileContentIO:
         finally:
             # Clean up
             toolkit_client.data_modeling.instances.delete(nodes=instance_id)
+
+    def test_upload_download_file_identifier(
+        self, toolkit_client: ToolkitClient, tmp_path: Path, toolkit_dataset: DataSet
+    ) -> None:
+        external_id = f"test_file_identifier_{RUN_UNIQUE_ID}.txt"
+        selector = FileIdentifierSelector(identifiers=(FileExternalID(external_id=external_id),))
+        selector.dump_to_file(tmp_path)
+        file_content = "This is a test file for FileIdentifierSelector."
+        filepath = "file_content/test_file_identifier.txt"
+        (tmp_path / filepath).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / filepath).write_text(file_content, encoding="utf-8")
+        file_metadata = {
+            "name": "test_file_identifier.txt",
+            "externalId": external_id,
+            "dataSetExternalId": toolkit_dataset.external_id,
+            "source": "TestUpload",
+            "mimeType": "text/plain",
+            FILEPATH: "file_content/test_file_identifier.txt",
+        }
+        with NDJsonWriter(tmp_path, selector.kind, Uncompressed) as writer:
+            writer.write_chunks([file_metadata], filestem=str(selector))
+
+        upload_cmd = UploadCommand(silent=True)
+        try:
+            upload_cmd.upload(
+                input_dir=tmp_path,
+                client=toolkit_client,
+                deploy_resources=False,
+                dry_run=False,
+                verbose=False,
+            )
+
+            retrieved = toolkit_client.files.retrieve(external_id=external_id)
+            assert retrieved is not None
+            assert retrieved.uploaded is True, "Uploaded file should have uploaded file content."
+
+            io = FileContentIO(toolkit_client, tmp_path / "downloads")
+            downloaded_files = [item for page in io.stream_data(selector) for item in page.items]
+            assert len(downloaded_files) == 1
+            expected_file = tmp_path / "downloads" / selector.file_directory / "test_file_identifier.txt"
+            assert expected_file.is_file()
+            downloaded_content = expected_file.read_text(encoding="utf-8")
+            assert downloaded_content == file_content
+        finally:
+            toolkit_client.files.delete(external_id=external_id, ignore_unknown_ids=True)

@@ -110,6 +110,18 @@ class TestFlattenDictJsonPath:
                 },
                 id="Exclude specific keys",
             ),
+            pytest.param(
+                {
+                    "name": "MyAsset",
+                    "metadata": {"雪ヘ罪約べげド. [10] SNL": "値テスト"},
+                },
+                set(),
+                {
+                    "name": "MyAsset",
+                    "metadata.雪ヘ罪約べげド. [10] SNL": "値テスト",
+                },
+                id="Unicode characters in keys",
+            ),
         ],
     )
     def test_flatten_dict_json_path(self, dct: dict[str, Any], exclude_keys: Set[str], expected: dict[str, Any]):

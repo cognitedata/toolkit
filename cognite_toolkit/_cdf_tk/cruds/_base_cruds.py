@@ -1,6 +1,6 @@
 import sys
 from abc import ABC, abstractmethod
-from collections.abc import Hashable, Iterable, Sequence, Set, Sized
+from collections.abc import Hashable, Iterable, Sequence, Sized
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
@@ -9,7 +9,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, EXCL_FILES
+from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, YAML_SUFFIX
 from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.resource_classes import ToolkitResource
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
@@ -39,11 +39,9 @@ class Loader(ABC):
         exclude_filetypes: A set of filetypes that should be excluded from the supported filetypes.
     """
 
-    filetypes: frozenset[str]
     folder_name: str
     kind: str
     dependencies: "frozenset[type[ResourceCRUD]]" = frozenset()
-    exclude_filetypes: frozenset[str] = frozenset()
     _doc_base_url: str = "https://api-docs.cognite.com/20230101/tag/"
     _doc_url: str = ""
     sub_folder_name: str | None = None
@@ -74,13 +72,12 @@ class Loader(ABC):
     def doc_url(cls) -> str:
         return cls._doc_base_url + cls._doc_url
 
-    def find_files(self, dir_or_file: Path | None = None, include_formats: Set[str] | None = None) -> list[Path]:
+    def find_files(self, dir_or_file: Path | None = None) -> list[Path]:
         """Find all files that are supported by this loader in the given directory or file.
 
         Args:
             dir_or_file (Path): The directory or file to search in. If no path is given,
                 the build directory is used.
-            include_formats (set[str]): A set of file formats to include. If not set, all formats are included.
 
         Returns:
             list[Path]: A sorted list of all files that are supported by this loader.
@@ -94,12 +91,7 @@ class Loader(ABC):
                 raise ValueError("Invalid file type")
             return [dir_or_file]
         elif dir_or_file.is_dir():
-            file_paths = [
-                file
-                for file in dir_or_file.glob("**/*")
-                if self.is_supported_file(file) and (include_formats is None or file.suffix in include_formats)
-            ]
-            return sorted(file_paths)
+            return sorted([file for file in dir_or_file.rglob("*") if self.is_supported_file(file)])
         else:
             return []
 
@@ -118,11 +110,7 @@ class Loader(ABC):
             bool: True if the file is supported, False otherwise.
 
         """
-        if cls.filetypes and file.suffix[1:] not in cls.filetypes:
-            return False
-        if cls.exclude_filetypes and file.suffix[1:] in cls.exclude_filetypes:
-            return False
-        return file.stem.casefold().endswith(cls.kind.casefold())
+        return file.suffix in YAML_SUFFIX and file.stem.casefold().endswith(cls.kind.casefold())
 
 
 T_Loader = TypeVar("T_Loader", bound=Loader)
@@ -144,8 +132,6 @@ class ResourceCRUD(Loader, ABC, Generic[T_ID, T_ResourceRequest, T_ResourceRespo
         yaml_cls: The File format for this resource. This is used to validate the user input.
         support_drop: Whether the resource supports the drop flag.
         support_update: Whether the resource supports the update operation.
-        filetypes: The filetypes that are supported by this crud. This should not be set in the subclass, it
-            should always be yaml and yml.
         dependencies: A set of other resource cruds that must be loaded before this crud.
         parent_resource: A set of other resource cruds that are parent resources to this resource. This is used
             to determine if the iterate method should return any resources when filtering by parent ids.
@@ -158,7 +144,6 @@ class ResourceCRUD(Loader, ABC, Generic[T_ID, T_ResourceRequest, T_ResourceRespo
     # Optional to set in the subclass
     support_drop = True
     support_update = True
-    filetypes = frozenset({"yaml", "yml"})
     dependencies: "frozenset[type[ResourceCRUD]]" = frozenset()
     # For example, TransformationNotification and Schedule has Transformation as the parent resource
     # This is used in the iterate method to ensure that nothing is returned if
@@ -437,10 +422,3 @@ class DataCRUD(Loader, ABC):
     @abstractmethod
     def upload(self, state: "BuildEnvironment", dry_run: bool) -> Iterable[tuple[str, int]]:
         raise NotImplementedError
-
-    def _find_data_files(self, directory: Path) -> list[Path]:
-        return [
-            path
-            for path in directory.rglob("*")
-            if path.is_file() and path.name not in EXCL_FILES and self.is_supported_file(path)
-        ]

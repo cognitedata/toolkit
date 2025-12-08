@@ -306,9 +306,14 @@ class InteractiveCanvasSelect:
     opening_choices: ClassVar[list[questionary.Choice]] = [
         questionary.Choice(title="All public Canvases", value=CanvasFilter(visibility="public", select_all=True)),
         questionary.Choice(title="Selected public Canvases", value=CanvasFilter(visibility="public", select_all=False)),
-        questionary.Choice(title="All by given user", value=CanvasFilter(created_by="user", select_all=True)),
-        questionary.Choice(title="Selected by given user", value=CanvasFilter(created_by="user", select_all=False)),
-        questionary.Choice(title="All Canvases", value=CanvasFilter(visibility=None, select_all=True)),
+        questionary.Choice(
+            title="All public Canvases by given user",
+            value=CanvasFilter(created_by="user", select_all=True, visibility="public"),
+        ),
+        questionary.Choice(
+            title="Selected public Canvases by given user",
+            value=CanvasFilter(created_by="user", select_all=False, visibility="public"),
+        ),
     ]
 
     def __init__(self, client: ToolkitClient) -> None:
