@@ -35,10 +35,10 @@ class TestExtendedFunctionsAPI:
         self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig
     ) -> None:
         config = toolkit_config
-        client = ToolkitClient(config=config, enable_set_pending_ids=True)
+        console = MagicMock(spec=Console)
+        client = ToolkitClient(config=config, enable_set_pending_ids=True, console=console)
         url = config.create_api_url("/functions")
         fun = FunctionWrite(name="test_function", file_id=123, external_id="test_function")
-        console = MagicMock(spec=Console)
 
         with patch(f"{HTTPClient.__module__}.time"):
             # Add multiple 429 responses followed by a success response
@@ -54,7 +54,7 @@ class TestExtendedFunctionsAPI:
             )
             respx_mock.post(url).mock(side_effect=responses)
 
-            result = client.functions.create_with_429_retry(fun, console=console)
+            result = client.functions.create_with_429_retry(fun)
         assert result.external_id == "test_function"
         assert console.print.call_count == global_config.max_retries - 1
         assert console.print.call_args.args[1] == (
@@ -65,10 +65,10 @@ class TestExtendedFunctionsAPI:
         self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig
     ) -> None:
         config = toolkit_config
-        client = ToolkitClient(config=config, enable_set_pending_ids=True)
+        console = MagicMock(spec=Console)
+        client = ToolkitClient(config=config, enable_set_pending_ids=True, console=console)
         url = config.create_api_url("/functions")
         fun = FunctionWrite(name="test_function", file_id=123, external_id="test_function")
-        console = MagicMock(spec=Console)
 
         with patch(f"{HTTPClient.__module__}.time"):
             # Mock to always return 429 responses
@@ -79,7 +79,7 @@ class TestExtendedFunctionsAPI:
             )
 
             with pytest.raises(ToolkitAPIError) as exc_info:
-                client.functions.create_with_429_retry(fun, console=console)
+                client.functions.create_with_429_retry(fun)
         assert console.print.call_count == global_config.max_retries
         assert "Too many requests" in str(exc_info.value)
         assert (
@@ -90,10 +90,10 @@ class TestExtendedFunctionsAPI:
         self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig
     ) -> None:
         config = toolkit_config
-        client = ToolkitClient(config=config, enable_set_pending_ids=True)
+        console = MagicMock(spec=Console)
+        client = ToolkitClient(config=config, enable_set_pending_ids=True, console=console)
         url = config.create_api_url("/functions")
         fun = FunctionWrite(name="test_function", file_id=123, external_id="test_function")
-        console = MagicMock(spec=Console)
 
         with patch(f"{HTTPClient.__module__}.time"):
             respx_mock.post(url).mock(
@@ -103,7 +103,7 @@ class TestExtendedFunctionsAPI:
             )
 
             with pytest.raises(ToolkitAPIError) as exc_info:
-                client.functions.create_with_429_retry(fun, console=console)
+                client.functions.create_with_429_retry(fun)
         assert console.print.call_count == 0
         assert "Too many requests" in str(exc_info.value)
 
@@ -172,9 +172,9 @@ class TestExtendedFunctionsAPI:
         self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig
     ) -> None:
         config = toolkit_config
-        client = ToolkitClient(config=config, enable_set_pending_ids=True)
-        url = config.create_api_url("/functions/delete")
         console = MagicMock(spec=Console)
+        client = ToolkitClient(config=config, enable_set_pending_ids=True, console=console)
+        url = config.create_api_url("/functions/delete")
 
         with patch(f"{HTTPClient.__module__}.time"):
             # Add multiple 429 responses followed by a success response
@@ -186,7 +186,7 @@ class TestExtendedFunctionsAPI:
             respx_mock.post(url).mock(side_effect=responses)
 
             # Should not raise any exception
-            client.functions.delete_with_429_retry(["test_function"], ignore_unknown_ids=True, console=console)
+            client.functions.delete_with_429_retry(["test_function"], ignore_unknown_ids=True)
         assert console.print.call_count == global_config.max_retries - 1
         assert console.print.call_args.args[1] == (
             "Rate limit exceeded for the '/functions/delete' endpoint. Retrying after 42.0 seconds."
