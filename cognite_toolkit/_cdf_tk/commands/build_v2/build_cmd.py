@@ -74,9 +74,9 @@ class BuildCommand(ToolkitCommand):
         # Compile the configuration and variables,
         # check syntax on module and resource level
         # for any "compilation errors and warnings"
-        built_modules, build_issues = self._build_configuration(input)
-        if build_issues:
-            self.issues.extend(build_issues)
+        built_modules, build_integrity_issues = self._build_configuration(input)
+        if build_integrity_issues:
+            self.issues.extend(build_integrity_issues)
 
         # This is where we would add any recommendations for the user to improve the build.
         if build_quality_issues := self._verify_build_quality(built_modules):
