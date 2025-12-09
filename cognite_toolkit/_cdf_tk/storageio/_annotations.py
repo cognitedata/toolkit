@@ -33,7 +33,8 @@ class AnnotationIO(StorageIO[AssetCentricSelector, Annotation]):
                         annotated_resource_type="file",
                         annotated_resource_ids=[{"id": file_metadata.id} for file_metadata in file_chunk.items],
                         annotation_type=annotation_type,
-                    )
+                    ),
+                    limit=-1,
                 )
                 if limit is not None and total + len(results) > limit:
                     results = results[: limit - total]
