@@ -19,7 +19,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitError
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning, WarningList
 from cognite_toolkit._cdf_tk.utils.file import safe_rmtree
-from cognite_toolkit._cdf_tk.validation import validate_modules_variables
+from cognite_toolkit._cdf_tk.validation import validate_module_selection, validate_modules_variables
 from cognite_toolkit._version import __version__
 
 
@@ -64,7 +64,7 @@ class BuildCommand(ToolkitCommand):
             self._print_build_input(input)
 
         # Capture warnings from module structure integrity
-        if module_selection_issues := self._verify_module_selection(input):
+        if module_selection_issues := self._validate_modules(input):
             self.issues.extend(module_selection_issues)
 
         # Logistics: clean and create build directory
@@ -112,7 +112,7 @@ class BuildCommand(ToolkitCommand):
         input.build_dir.mkdir(parents=True, exist_ok=True)
         return issues
 
-    def _verify_module_selection(self, input: BuildInput) -> BuildIssueList:
+    def _validate_modules(self, input: BuildInput) -> BuildIssueList:
         issues = BuildIssueList()
         # Verify that the modules exists, are not duplicates,
         # and at least one is selected
@@ -120,12 +120,12 @@ class BuildCommand(ToolkitCommand):
 
         # Validate module selection
         user_selected_modules = input.config.environment.get_selected_modules({})
-        module_warnings = self._validate_modules_selection(
-            input.modules,
-            input.config,
-            {},
-            user_selected_modules,
-            input.organization_dir,
+        module_warnings = validate_module_selection(
+            modules=input.modules,
+            config=input.config,
+            packages={},
+            selected_modules=user_selected_modules,
+            organization_dir=input.organization_dir,
         )
         if module_warnings:
             issues.extend(BuildIssueList.from_warning_list(module_warnings))
@@ -239,19 +239,3 @@ class BuildCommand(ToolkitCommand):
         """Delegate to old BuildCommand for backward compatibility."""
         old_cmd = OldBuildCommand()
         return old_cmd._replace_variables(resource_files, variables, resource_name, module_dir, verbose)
-
-    # TODO: This is a temporary solution to validate the modules selection.
-    # We should move this to the old BuildCommand and use the new validation logic.
-    def _validate_modules_selection(
-        self,
-        modules: ModuleDirectories,
-        config: BuildConfigYAML,
-        packages: dict[str, list[str]],
-        selected_modules: set[str | Path],
-        organization_dir: Path,
-    ) -> WarningList[ToolkitWarning]:
-        from cognite_toolkit._cdf_tk.commands.build_cmd import BuildCommand as OldBuildCommand
-
-        old_cmd = OldBuildCommand(print_warning=False, skip_tracking=False)
-        old_cmd._validate_modules(modules, config, packages, selected_modules, organization_dir)
-        return old_cmd.warning_list
