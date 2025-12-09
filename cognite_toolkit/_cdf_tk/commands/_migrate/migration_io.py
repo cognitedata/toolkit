@@ -231,6 +231,8 @@ class AnnotationMigrationIO(
     CHUNK_SIZE = 1000
     UPLOAD_ENDPOINT = InstanceIO.UPLOAD_ENDPOINT
 
+    SUPPORTED_ANNOTATION_TYPES = frozenset({"diagrams.AssetLink", "diagrams.FileLink"})
+
     def __init__(
         self,
         client: ToolkitClient,
@@ -272,7 +274,7 @@ class AnnotationMigrationIO(
         for data_chunk in self.annotation_io.stream_data(asset_centric_selector, limit):
             mapping_list = AssetCentricMappingList[Annotation]([])
             for resource in data_chunk.items:
-                if resource.annotation_type not in {"diagrams.AssetLink", "diagrams.FileLink"}:
+                if resource.annotation_type not in self.SUPPORTED_ANNOTATION_TYPES:
                     # This should not happen, as the annotation_io should already filter these out.
                     # This is just in case.
                     continue
@@ -304,7 +306,7 @@ class AnnotationMigrationIO(
                 if resource is None:
                     not_found += 1
                     continue
-                if resource.annotation_type not in {"diagrams.AssetLink", "diagrams.FileLink"}:
+                if resource.annotation_type not in self.SUPPORTED_ANNOTATION_TYPES:
                     incorrect_type_count += 1
                     continue
                 mapping.ingestion_view = self._get_mapping(mapping.ingestion_view, resource)
