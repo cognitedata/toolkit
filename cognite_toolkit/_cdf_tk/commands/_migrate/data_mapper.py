@@ -210,16 +210,14 @@ class ChartMapper(DataMapper[ChartSelector, Chart, ChartWrite]):
     def _create_new_timeseries_core(
         self, ts_item: ChartTimeseries, node_id: NodeId, consumer_view_id: ViewId | None
     ) -> ChartCoreTimeseries:
-        dumped = ts_item.dump(camel_case=True)
-        for asset_centric_key in ["tsId", "tsExternalId", "originalUnit"]:
-            dumped.pop(asset_centric_key, None)
-
+        dumped = ts_item.model_dump(mode="json", by_alias=True, exclude_unset=True)
         dumped["nodeReference"] = node_id
         dumped["viewReference"] = consumer_view_id
         new_uuid = str(uuid4())
         dumped["id"] = new_uuid
         dumped["type"] = "coreTimeseries"
-        core_timeseries = ChartCoreTimeseries._load(dumped)
+        # We ignore extra here to only include the fields that are shared between ChartTimeseries and ChartCoreTimeseries
+        core_timeseries = ChartCoreTimeseries.model_validate(dumped, extra="ignore")
         return core_timeseries
 
     def _get_node_id_consumer_view_id(self, ts_item: ChartTimeseries) -> tuple[NodeId | None, ViewId | None]:
