@@ -80,7 +80,7 @@ class TestWorkflowVersionYAML:
         assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
 
     @pytest.mark.parametrize("data, expected_errors", list(invalid_workflow_version_test_cases()))
-    def test_invalid_asset_error_messages(self, data: dict | list, expected_errors: set[str]) -> None:
+    def test_invalid_error_messages(self, data: dict | list, expected_errors: set[str]) -> None:
         warning_list = validate_resource_yaml_pydantic(data, WorkflowVersionYAML, Path("some_file.yaml"))
         assert len(warning_list) == 1
         format_warning = warning_list[0]
