@@ -19,7 +19,7 @@ class WorkflowVersionId(BaseModelResource):
 
 
 class CogniteFunctionRef(BaseModelResource):
-    externalId: str = Field(
+    external_id: str = Field(
         description="The external id of the Cognite Function in the project. This can be either a function external ID or a reference like ${myTaskExternalId.output.someKey}"
     )
     data: str | JsonValue | None = Field(
@@ -181,7 +181,7 @@ class FunctionTask(TaskDefinition):
 
 
 class TransformationTask(TaskDefinition):
-    type: Literal["transformation"]
+    type: Literal["transformation"] = "transformation"
     parameters: TransformationTaskParameters
 
 
