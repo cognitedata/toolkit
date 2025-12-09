@@ -57,6 +57,10 @@ class Flags(Enum):
         visible=True,
         description="Enables extended download to support downloading file content and datapoints",
     )
+    EXTEND_UPLOAD = FlagMetadata(
+        visible=True,
+        description="Enables extended upload to support uploading individual files",
+    )
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)
