@@ -1,16 +1,18 @@
 from collections.abc import Iterable
 from pathlib import Path
+from typing import get_args
 
 import pytest
 
-from cognite_toolkit._cdf_tk.resource_classes.workflow_version import WorkflowVersionYAML
+from cognite_toolkit._cdf_tk.resource_classes.workflow_version import Task, TaskDefinition, WorkflowVersionYAML
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
+from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
 from tests.test_unit.utils import find_resources
 
 
 def invalid_workflow_version_test_cases() -> Iterable:
-    # Missing required top-level fields
     yield pytest.param(
         {},
         {
@@ -20,7 +22,6 @@ def invalid_workflow_version_test_cases() -> Iterable:
         },
         id="Missing all required top-level fields",
     )
-    # Extra/unknown field at top level
     yield pytest.param(
         {
             "workflowExternalId": "wf1",
@@ -31,17 +32,14 @@ def invalid_workflow_version_test_cases() -> Iterable:
         {"Unused field: 'foo'"},
         id="Extra field at top level",
     )
-    # Missing required fields in task definition
     yield pytest.param(
         {"workflowExternalId": "wf1", "version": "v1", "workflowDefinition": {"description": "desc", "tasks": [{}]}},
+        # Note that when we do not have 'type', we cannot determine which task type it is, so we only get the error about missing 'type'.
         {
-            "In workflowDefinition.tasks[1] missing required field: 'externalId'",
-            "In workflowDefinition.tasks[1] missing required field: 'parameters'",
             "In workflowDefinition.tasks[1] missing required field: 'type'",
         },
-        id="Missing required fields in task definition",
+        id="Missing required type in task definition",
     )
-    # Wrong type for retries in task definition
     yield pytest.param(
         {
             "workflowExternalId": "wf1",
@@ -51,10 +49,13 @@ def invalid_workflow_version_test_cases() -> Iterable:
                 "tasks": [{"externalId": "t1", "type": "function", "parameters": {}, "retries": "notAnInt"}],
             },
         },
-        {"In workflowDefinition.tasks[1].retries input should be a valid integer. Got 'notAnInt' of type str."},
+        {
+            "In workflowDefinition.tasks[1].function.parameters missing required field: 'function'",
+            "In workflowDefinition.tasks[1].function.retries input should be a valid "
+            "integer. Got 'notAnInt' of type str.",
+        },
         id="Wrong type for retries",
     )
-    # Invalid enum value for on_failure
     yield pytest.param(
         {
             "workflowExternalId": "wf1",
@@ -65,10 +66,27 @@ def invalid_workflow_version_test_cases() -> Iterable:
             },
         },
         {
-            "In workflowDefinition.tasks[1].onFailure input should be 'abortWorkflow' or "
-            "'skipTask'. Got 'notAValidValue'."
+            "In workflowDefinition.tasks[1].function.onFailure input should be "
+            "'abortWorkflow' or 'skipTask'. Got 'notAValidValue'.",
+            "In workflowDefinition.tasks[1].function.parameters missing required field: 'function'",
         },
         id="Invalid enum value for onFailure",
+    )
+    yield pytest.param(
+        {
+            "workflowExternalId": "wf1",
+            "version": "v1",
+            "workflowDefinition": {
+                "description": "desc",
+                "tasks": [{"externalId": "t1", "type": "unknownType", "parameters": {}}],
+            },
+        },
+        {
+            "In workflowDefinition.tasks[1] input tag 'unknownType' found using 'type' "
+            "does not match any of the expected tags: 'function', 'transformation', "
+            "'cdfRequest', 'dynamic', 'subworkflow', 'simulation'"
+        },
+        id="Invalid task type",
     )
 
 
@@ -87,3 +105,12 @@ class TestWorkflowVersionYAML:
         assert isinstance(format_warning, ResourceFormatWarning)
 
         assert set(format_warning.errors) == expected_errors
+
+    def test_tasks_are_in_union(self) -> None:
+        all_tasks = get_concrete_subclasses(TaskDefinition)
+        all_union_tasks = get_args(Task.__args__[0])
+        missing = set(all_tasks) - set(all_union_tasks)
+        assert not missing, (
+            f"The following TaskDefinition subclasses are "
+            f"missing from the Tasks union: {humanize_collection([cls.__name__ for cls in missing])}"
+        )
