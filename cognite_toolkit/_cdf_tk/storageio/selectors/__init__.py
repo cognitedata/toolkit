@@ -1,6 +1,13 @@
+from pathlib import Path
 from typing import Annotated
 
-from pydantic import Field, TypeAdapter
+from pydantic import Field, TypeAdapter, ValidationError
+
+from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning, ToolkitWarning
+from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
+from cognite_toolkit._cdf_tk.utils import read_yaml_file
+from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 
 from ._asset_centric import AssetCentricFileSelector, AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 from ._base import DataSelector
@@ -52,7 +59,23 @@ Selector = Annotated[
     Field(discriminator="type"),
 ]
 
+ALPHA_SELECTORS = {FileIdentifierSelector}
+
 SelectorAdapter: TypeAdapter[Selector] = TypeAdapter(Selector)
+
+
+def load_selector(manifest_file: Path) -> Selector | ToolkitWarning:
+    selector_dict = read_yaml_file(manifest_file, expected_output="dict")
+    try:
+        selector = SelectorAdapter.validate_python(selector_dict)
+    except ValidationError as e:
+        errors = humanize_validation_error(e)
+        return ResourceFormatWarning(manifest_file, tuple(errors), text="Invalid selector in metadata file, skipping.")
+    if not Flags.EXTEND_UPLOAD.is_enabled() and type(selector) in ALPHA_SELECTORS:
+        return MediumSeverityWarning(
+            f"Selector type '{type(selector).__name__}' in file '{manifest_file}' is in alpha. To enable it set the alpha flag 'extend-upload = true' in your CDF.toml file."
+        )
+    return selector
 
 
 __all__ = [
@@ -89,4 +112,5 @@ __all__ = [
     "Selector",
     "SelectorAdapter",
     "TimeSeriesColumn",
+    "load_selector",
 ]
