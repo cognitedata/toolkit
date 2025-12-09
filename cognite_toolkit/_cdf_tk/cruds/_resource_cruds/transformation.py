@@ -469,7 +469,10 @@ class TransformationCRUD(ResourceCRUD[str, TransformationWrite, Transformation])
             message += f", failed to create {len(failed_ids):,} transformations: {humanize_collection(failed_ids)}"
         else:
             message += "."
-        self.client.console.print(message)
+        if failed_ids:
+            HighSeverityWarning(message).print_warning(include_timestamp=True, console=self.client.console)
+        else:
+            self.client.console.print(message)
         return results
 
     @staticmethod
