@@ -1,8 +1,6 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Callable, Sequence
-from typing import Generic, cast
-from collections.abc import Sequence
 from typing import Generic, Literal, cast
 from uuid import uuid4
 
@@ -46,14 +44,11 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     MigrationIssue,
     ThreeDModelMigrationIssue,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.selectors import AssetCentricMigrationSelector
-from cognite_toolkit._cdf_tk.commands._migrate.issues import ChartMigrationIssue, ConversionIssue, MigrationIssue
 from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
 from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.storageio._base import T_Selector
-from cognite_toolkit._cdf_tk.storageio.selectors import ChartSelector, ThreeDSelector
-from cognite_toolkit._cdf_tk.storageio.selectors import CanvasSelector, ChartSelector
+from cognite_toolkit._cdf_tk.storageio.selectors import CanvasSelector, ChartSelector, ThreeDSelector
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.useful_types import T_AssetCentricResourceExtended
 
