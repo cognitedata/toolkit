@@ -6,7 +6,7 @@ from pydantic import Field, TypeAdapter, ValidationError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning, ToolkitWarning
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
-from cognite_toolkit._cdf_tk.utils import read_yaml_file
+from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 
 from ._asset_centric import AssetCentricFileSelector, AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
@@ -65,6 +65,14 @@ SelectorAdapter: TypeAdapter[Selector] = TypeAdapter(Selector)
 
 
 def load_selector(manifest_file: Path) -> Selector | ToolkitWarning:
+    """Loads a selector from a manifest file.
+
+    Args:
+        manifest_file: Path to the manifest file.
+
+    Returns:
+        A selector object or a toolkit warning if loading fails or the selector is an alpha feature that is not enabled.
+    """
     selector_dict = read_yaml_file(manifest_file, expected_output="dict")
     try:
         selector = SelectorAdapter.validate_python(selector_dict)
