@@ -28,7 +28,7 @@ class TestExtendedTimeSeriesAPI:
         toolkit_config: ToolkitClientConfig,
     ) -> None:
         client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
-        url = f"{toolkit_config.base_url}/api/v1/projects/{CDF_PROJECT}timeseries/unlink-instance-ids"
+        url = f"{toolkit_config.base_url}/api/v1/projects/{CDF_PROJECT}/timeseries/unlink-instance-ids"
         with responses.RequestsMock() as rsps:
             rsps.add(
                 responses.POST,
