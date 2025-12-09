@@ -40,7 +40,7 @@ from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
 from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
 from cognite_toolkit._cdf_tk.tk_warnings import MissingDependencyWarning
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
-from tests.constants import chdir
+from tests.constants import CDF_PROJECT, chdir
 from tests.data import (
     BUILD_GROUP_WITH_UNKNOWN_ACL,
     COMPLETE_ORG_ONLY_IDENTIFIER,
@@ -51,19 +51,6 @@ from tests.data import (
 )
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import mock_read_yaml_file
-
-
-@pytest.fixture
-def default_config_dev_yaml() -> str:
-    return """environment:
-  name: dev
-  project: test_project
-  validation-type: dev
-  selected:
-  - modules/
-
-variables:
-  modules: {}"""
 
 
 def test_inject_custom_environmental_variables(
@@ -955,7 +942,7 @@ capabilities:
     (my_org / "config.dev.yaml").write_text(default_config_dev_yaml, encoding="utf-8")
 
     cmd = BuildCommand(silent=True, skip_tracking=True)
-    with patch.dict(os.environ, {"CDF_PROJECT": "test_project"}):
+    with patch.dict(os.environ, {"CDF_PROJECT": CDF_PROJECT}):
         cmd.execute(
             verbose=False,
             organization_dir=my_org,
