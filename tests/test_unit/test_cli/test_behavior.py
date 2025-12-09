@@ -53,6 +53,19 @@ from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import mock_read_yaml_file
 
 
+@pytest.fixture
+def default_config_dev_yaml() -> str:
+    return """environment:
+  name: dev
+  project: test_project
+  validation-type: dev
+  selected:
+  - modules/
+
+variables:
+  modules: {}"""
+
+
 def test_inject_custom_environmental_variables(
     build_tmp_path: Path,
     monkeypatch: MonkeyPatch,
@@ -279,16 +292,19 @@ def test_pull_workflow_trigger_with_environment_variables(
 
 
 def test_pull_group(
-    build_tmp_path: Path,
+    default_config_dev_yaml: str,
     env_vars_with_client: EnvironmentVariables,
     toolkit_client_approval: ApprovalToolkitClient,
     tmp_path: Path,
 ) -> None:
     org_dir = tmp_path / "my-org"
+
     local_file = """name: my_group"""
     local_path = org_dir / "modules" / "my-module" / "auth" / "my_group.Group.yaml"
     local_path.parent.mkdir(parents=True)
     local_path.write_text(local_file)
+    (org_dir / "config.dev.yaml").write_text(default_config_dev_yaml, encoding="utf-8")
+
     cdf_group = Group(
         name="my_group",
         source_id="123-456",
@@ -912,7 +928,7 @@ def test_workflow_deployment_order(
 
 
 def test_warning_missing_dependency(
-    build_tmp_path: Path,
+    default_config_dev_yaml: str,
     toolkit_client_approval: ApprovalToolkitClient,
     env_vars_with_client: EnvironmentVariables,
     tmp_path: Path,
@@ -936,12 +952,14 @@ capabilities:
     yaml_filepath.parent.mkdir(parents=True, exist_ok=True)
     yaml_filepath.write_text(group_yaml, encoding="utf-8")
 
+    (my_org / "config.dev.yaml").write_text(default_config_dev_yaml, encoding="utf-8")
+
     cmd = BuildCommand(silent=True, skip_tracking=True)
     with patch.dict(os.environ, {"CDF_PROJECT": "test_project"}):
         cmd.execute(
             verbose=False,
             organization_dir=my_org,
-            build_dir=build_tmp_path,
+            build_dir=tmp_path / "build",
             selected=None,
             build_env_name="dev",
             no_clean=False,
