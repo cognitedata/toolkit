@@ -477,6 +477,7 @@ class TransformationCRUD(ResourceCRUD[str, TransformationWrite, Transformation])
 
     @staticmethod
     def _sleep_with_jitter(base_delay: float, max_delay: float) -> None:
+        """Sleeps for a random duration between base_delay and max_delay (inclusive)."""
         sleep_time = random.uniform(base_delay, max_delay)
         time.sleep(sleep_time)
 
