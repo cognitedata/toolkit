@@ -272,7 +272,9 @@ def a_three_d_model(
     assert retrieved_model is not None
     yield retrieved_model
     client.tool.three_d.models.delete([model.id])
-    client.data_modeling.instances.delete((toolkit_space.space, f"cog_3d_model_{model.id!s}"))
+    client.data_modeling.instances.delete(
+        [(toolkit_space.space, f"cog_3d_model_{model.id!s}"), (toolkit_space.space, f"cog_3d_revision_{revision.id!s}")]
+    )
 
 
 @pytest.fixture(scope="session")
@@ -333,5 +335,19 @@ class TestMigrate3D:
             filter=has_name,
         )
         assert len(nodes) == 1, "Migrated 3D model instance not found in data modeling."
-        migrated_node = nodes[0]
-        assert migrated_node.external_id.endswith(str(model.id))
+        migrated_model = nodes[0]
+        assert migrated_model.external_id.endswith(str(model.id))
+
+        revision_view = ViewId("cdf_cdm", "Cognite3DRevision", "v1")
+        has_model_id = filters.Equals(
+            revision_view.as_property_ref("model3D"), migrated_model.as_id().dump(include_instance_type=False)
+        )
+        revisions = client.data_modeling.instances.list(
+            instance_type="node",
+            sources=[revision_view],
+            space=toolkit_space.space,
+            filter=has_model_id,
+        )
+        assert len(revisions) == 1, "Migrated 3D revision instance not found in data modeling."
+        migrated_revision = revisions[0]
+        assert migrated_revision.external_id.endswith(str(model.last_revision_info.revision_id))
