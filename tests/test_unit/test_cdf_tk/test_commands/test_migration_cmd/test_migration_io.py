@@ -61,6 +61,21 @@ class TestAnnotationMigrationIO:
                 last_updated_time=1,
             ).dump()
             for i in range(N)
+        ] + [
+            # This should be filtered out
+            Annotation(
+                annotation_type="images.AssetLink",
+                data={},
+                status="accepted",
+                creating_user="doctrino",
+                creating_app="unit_test",
+                creating_app_version="1.0.0",
+                annotated_resource_id=456,
+                annotated_resource_type="file",
+                id=N,
+                created_time=1,
+                last_updated_time=1,
+            ).dump()
         ]
         rsps.post(
             config.create_api_url("/annotations/byids"),
@@ -72,7 +87,7 @@ class TestAnnotationMigrationIO:
         )
 
         csv_file = tmp_path / "annotations.csv"
-        csv_file.write_text("id,space,externalId\n" + "\n".join(f"{i},mySpace,annotation_{i}" for i in range(N)))
+        csv_file.write_text("id,space,externalId\n" + "\n".join(f"{i},mySpace,annotation_{i}" for i in range(N + 1)))
         selector = MigrationCSVFileSelector(datafile=csv_file, kind="Annotations")
 
         migration_io = AnnotationMigrationIO(client)
