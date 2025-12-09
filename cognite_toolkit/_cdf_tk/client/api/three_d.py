@@ -10,6 +10,8 @@ from cognite_toolkit._cdf_tk.utils.useful_types import PrimitiveType
 
 class ThreeDModelAPI:
     ENDPOINT = "/3d/models"
+    MAX_CLASSIC_MODELS_PER_CREATE_REQUEST = 1000
+    MAX_MODELS_PER_DELETE_REQUEST = 1000
 
     def __init__(self, http_client: HTTPClient, console: Console) -> None:
         self._http_client = http_client
@@ -27,7 +29,7 @@ class ThreeDModelAPI:
         """
         if not models:
             return []
-        if len(models) > 1000:
+        if len(models) > self.MAX_CLASSIC_MODELS_PER_CREATE_REQUEST:
             raise ValueError("Cannot create more than 1000 3D models in a single request.")
         responses = self._http_client.request_with_retries(
             ItemsRequest(
@@ -48,7 +50,7 @@ class ThreeDModelAPI:
         """
         if not ids:
             return None
-        if len(ids) > 1000:
+        if len(ids) > self.MAX_MODELS_PER_DELETE_REQUEST:
             raise ValueError("Cannot delete more than 1000 3D models in a single request.")
         responses = self._http_client.request_with_retries(
             SimpleBodyRequest(

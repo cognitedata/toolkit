@@ -302,7 +302,8 @@ def three_d_model_instance_space(toolkit_client: ToolkitClient, toolkit_space: S
 
 class TestMigrate3D:
     @pytest.mark.skip(
-        "This is an expensive test to run as it requires processing a 3D model in CDF. Will move out to a smoke test suite, ref ."
+        "This is an expensive test to run as it requires processing a 3D model in CDF."
+        " Will move out to a smoke test suite, ref CDF-26526."
     )
     @pytest.mark.usefixtures("three_d_model_instance_space")
     def test_migrate_3d_model(
