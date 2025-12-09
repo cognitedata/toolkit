@@ -21,11 +21,13 @@ from cognite_toolkit._cdf_tk.storageio.selectors import ThreeDSelector
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.http_client import (
+    FailedResponse,
     HTTPClient,
     HTTPMessage,
     ItemsRequest,
     SimpleBodyRequest,
     SuccessResponseItems,
+    ToolkitAPIError,
 )
 from cognite_toolkit._cdf_tk.utils.useful_types import (
     AssetCentricKindExtended,
@@ -408,7 +410,7 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelResponse,
         selector: ThreeDSelector | None = None,
     ) -> Sequence[HTTPMessage]:
         """Migrate 3D models by uploading them to the migrate/models endpoint."""
-        if len(data_chunk) >= self.CHUNK_SIZE:
+        if len(data_chunk) > self.CHUNK_SIZE:
             raise RuntimeError(f"Uploading more than {self.CHUNK_SIZE} 3D models at a time is not supported.")
 
         results: list[HTTPMessage] = []
@@ -419,6 +421,11 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelResponse,
                 items=list(data_chunk),
             )
         )
+        if (
+            failed_response := next((res for res in responses if isinstance(res, FailedResponse)), None)
+        ) and failed_response.status_code == 400:
+            raise ToolkitAPIError("3D model migration failed. You need to enable the 3D migration alpha feature flag.")
+
         results.extend(responses)
         success_ids = {id for res in responses if isinstance(res, SuccessResponseItems) for id in res.ids}
         for data in data_chunk:

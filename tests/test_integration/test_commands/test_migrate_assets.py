@@ -36,7 +36,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrateDataSetSelector, MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.storageio import UploadItem
-from cognite_toolkit._cdf_tk.utils.http_client import SuccessResponse
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, SuccessResponse
 from tests.data import THREE_D_He2_FBX_ZIP
 from tests.test_integration.conftest import HierarchyMinimal
 from tests.test_integration.constants import RUN_UNIQUE_ID
@@ -312,7 +312,11 @@ class TestMigrate3D:
         assert issue.has_issues is False
         io = ThreeDMigrationIO(toolkit_client)
 
-        result = io.upload_items([UploadItem(source_id=str(model.id), item=migration_request)])
+        with HTTPClient(config=toolkit_client.config) as http_client:
+            result = io.upload_items(
+                [UploadItem(source_id=str(model.id), item=migration_request)], http_client=http_client
+            )
 
         failed = [res for res in result if not isinstance(res, SuccessResponse)]
         assert len(failed) == 0, f"Migration of 3D model failed with errors: {failed}"
+        # Todo: Add retrieval and verification of the migrated 3D model in data modeling once supported
