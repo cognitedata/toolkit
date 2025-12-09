@@ -423,9 +423,9 @@ class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelResponse, ThreeDMigrati
         if item.data_set_id is None:
             issue.error_message.append("3D model is not associated with any dataset.")
         else:
-            space = self.client.migration.space_source.retrieve(item.data_set_id)
-            if space is not None:
-                instance_space = space.space
+            space_source = self.client.migration.space_source.retrieve(item.data_set_id)
+            if space_source is not None:
+                instance_space = space_source.instance_space
         if instance_space is None and item.data_set_id is not None:
             issue.error_message.append(f"Missing instance space for dataset ID {item.data_set_id!r}")
         if item.last_revision_info is None:

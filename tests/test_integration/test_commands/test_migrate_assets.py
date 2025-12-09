@@ -13,6 +13,7 @@ from cognite.client.data_classes import (
     FileMetadataWrite,
     ThreeDModelRevision,
     ThreeDModelRevisionWrite,
+    filters,
 )
 from cognite.client.data_classes.data_modeling import NodeApply, NodeId, NodeOrEdgeData, Space, ViewId
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteAsset
@@ -246,7 +247,7 @@ def three_d_file(toolkit_client: ToolkitClient, toolkit_dataset: DataSet) -> Fil
 
 @pytest.fixture
 def a_three_d_model(
-    toolkit_client: ToolkitClient, three_d_file: FileMetadata, toolkit_dataset: DataSet
+    toolkit_client: ToolkitClient, three_d_file: FileMetadata, toolkit_dataset: DataSet, toolkit_space: Space
 ) -> Iterator[ThreeDModelResponse]:
     client = toolkit_client
     model_request = ThreeDModelClassicRequest(
@@ -271,6 +272,7 @@ def a_three_d_model(
     assert retrieved_model is not None
     yield retrieved_model
     client.tool.three_d.models.delete([model.id])
+    client.data_modeling.instances.delete((toolkit_space.space, f"cog_3d_model_{model.id!s}"))
 
 
 @pytest.fixture(scope="session")
@@ -297,26 +299,39 @@ def three_d_model_instance_space(toolkit_client: ToolkitClient, toolkit_space: S
 
 
 class TestMigrate3D:
-    @pytest.mark.skip("This is an expensive test to run as it requires processing a 3D model in CDF.")
+    @pytest.mark.skip(
+        "This is an expensive test to run as it requires processing a 3D model in CDF. Will move out to a smoke test suite, ref ."
+    )
     @pytest.mark.usefixtures("three_d_model_instance_space")
     def test_migrate_3d_model(
-        self, a_three_d_model: ThreeDModelResponse, toolkit_client: ToolkitClient, tmp_path: Path
+        self, a_three_d_model: ThreeDModelResponse, toolkit_client: ToolkitClient, tmp_path: Path, toolkit_space: Space
     ) -> None:
+        client = toolkit_client
         model = a_three_d_model
 
-        mapper = ThreeDMapper(toolkit_client)
+        mapper = ThreeDMapper(client)
 
         mapped = mapper.map([model])
         assert len(mapped) == 1
         migration_request, issue = mapped[0]
         assert issue.has_issues is False
-        io = ThreeDMigrationIO(toolkit_client)
+        io = ThreeDMigrationIO(client)
 
-        with HTTPClient(config=toolkit_client.config) as http_client:
+        with HTTPClient(config=client.config) as http_client:
             result = io.upload_items(
                 [UploadItem(source_id=str(model.id), item=migration_request)], http_client=http_client
             )
 
         failed = [res for res in result if not isinstance(res, SuccessResponse)]
         assert len(failed) == 0, f"Migration of 3D model failed with errors: {failed}"
-        # Todo: Add retrieval and verification of the migrated 3D model in data modeling once supported
+        view_id = ViewId("cdf_cdm", "Cognite3DModel", "v1")
+        has_name = filters.Equals(view_id.as_property_ref("name"), model.name)
+        nodes = client.data_modeling.instances.list(
+            instance_type="node",
+            sources=[ViewId("cdf_cdm", "Cognite3DModel", "v1")],
+            space=toolkit_space.space,
+            filter=has_name,
+        )
+        assert len(nodes) == 1, "Migrated 3D model instance not found in data modeling."
+        migrated_node = nodes[0]
+        assert migrated_node.external_id.endswith(str(model.id))
