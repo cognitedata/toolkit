@@ -26,6 +26,8 @@
 # limitations under the License.
 
 
+import random
+import time
 import warnings
 from collections import defaultdict
 from collections.abc import Callable, Hashable, Iterable, Sequence
@@ -427,24 +429,53 @@ class TransformationCRUD(ResourceCRUD[str, TransformationWrite, Transformation])
                     raise error from e
                 raise e
             except CogniteAPIError as e:
-                if "Failed to bind session using nonce for" in e.message and len(chunk) > 1:
-                    MediumSeverityWarning(
-                        f"Failed to create {len(chunk)} transformations in a batch due to nonce binding error. "
-                        "Trying to recover by creating them one by one."
-                    ).print_warning(console=self.console)
-                    # Retry one by one
-                    for item in chunk:
-                        recovered = self._execute_in_batches(items=[item], api_call=api_call)
-                        results.extend(recovered)
-                    if self.console:
-                        self.console.print(
-                            f"  [bold green]RECOVERED:[/] Successfully created {len(chunk)} transformations one by one."
-                        )
+                if "Failed to bind session using nonce" in e.message and len(chunk) > 1:
+                    results.extend(self._execute_one_by_one(chunk, api_call))
                 else:
                     raise
             else:
                 results.extend(chunk_results)
         return results
+
+    def _execute_one_by_one(
+        self,
+        chunk: Sequence[TransformationWrite],
+        api_call: Callable[[Sequence[TransformationWrite]], TransformationList],
+    ) -> TransformationList:
+        MediumSeverityWarning(
+            f"Failed to create {len(chunk)} transformations in a batch due to nonce binding error. "
+            "Trying to recover by creating them one by one."
+        ).print_warning(console=self.client.console)
+        # Retry one by one
+        failed_ids: list[str] = []
+        success_count = 0
+        delay = 0.3
+        self._sleep_with_jitter(delay, delay + 0.3)
+        results = TransformationList([])
+        for item in chunk:
+            try:
+                recovered = api_call([item])
+            except CogniteAPIError as e:
+                if "Failed to bind session using nonce" in e.message:
+                    failed_ids.append(item.external_id or "<missing>")
+                    self._sleep_with_jitter(delay, delay + 0.3)
+                else:
+                    raise
+            else:
+                results.extend(recovered)
+                success_count += 1
+        message = f"  [bold]RECOVERY COMPLETE:[/] Successfully created {success_count:,} transformations"
+        if failed_ids:
+            message += f", failed to create {len(failed_ids):,} transformations: {humanize_collection(failed_ids)}"
+        else:
+            message += "."
+        self.client.console.print(message)
+        return results
+
+    @staticmethod
+    def _sleep_with_jitter(base_delay: float, max_delay: float) -> None:
+        sleep_time = random.uniform(base_delay, max_delay)
+        time.sleep(sleep_time)
 
     def _update_nonce(self, items: Sequence[TransformationWrite]) -> None:
         for item in items:
