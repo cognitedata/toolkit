@@ -17,15 +17,16 @@ class ExtendedFunctionsAPI(FunctionsAPI):
         config: ToolkitClientConfig,
         api_version: str | None,
         cognite_client: CogniteClient,
+        console: Console | None = None,
     ) -> None:
         """
         Extended Functions API to include custom headers and payload preparation.
         """
         super().__init__(config, api_version, cognite_client)
         self._toolkit_config = config
-        self._toolkit_http_client = HTTPClient(config, max_retries=global_config.max_retries)
+        self._toolkit_http_client = HTTPClient(config, max_retries=global_config.max_retries, console=console)
 
-    def create_with_429_retry(self, function: FunctionWrite, console: Console | None = None) -> Function:
+    def create_with_429_retry(self, function: FunctionWrite) -> Function:
         """Create a function with manual retry handling for 429 Too Many Requests responses.
 
         This method is a workaround for scenarios where the function creation API is temporarily unavailable
@@ -43,16 +44,13 @@ class ExtendedFunctionsAPI(FunctionsAPI):
                 endpoint_url=self._toolkit_config.create_api_url("/functions"),
                 method="POST",
                 body_content={"items": [function.dump(camel_case=True)]},
-            ),
-            console=console,
+            )
         )
         result.raise_for_status()
         # We assume the API response is one item on a successful creation
         return Function._load(result.get_first_body()["items"][0], cognite_client=self._cognite_client)  # type: ignore[arg-type,index]
 
-    def delete_with_429_retry(
-        self, external_id: SequenceNotStr[str], ignore_unknown_ids: bool = False, console: Console | None = None
-    ) -> None:
+    def delete_with_429_retry(self, external_id: SequenceNotStr[str], ignore_unknown_ids: bool = False) -> None:
         """Delete one or more functions with retry handling for 429 Too Many Requests responses.
 
         This method is an improvement over the standard delete method in the FunctionsAPI.
@@ -77,7 +75,6 @@ class ExtendedFunctionsAPI(FunctionsAPI):
                     endpoint_url=self._toolkit_config.create_api_url("/functions/delete"),
                     method="POST",
                     body_content=body_content,
-                ),
-                console=console,
+                )
             ).raise_for_status()
         return None

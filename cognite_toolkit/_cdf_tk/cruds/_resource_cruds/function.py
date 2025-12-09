@@ -320,7 +320,7 @@ class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function]):
                     " problem persists, please contact Cognite support."
                 )
             item.file_id = file_id
-            created_item = self.client.functions.create_with_429_retry(item, console=self.console)
+            created_item = self.client.functions.create_with_429_retry(item)
             self._warn_if_cpu_or_memory_changed(created_item, item)
             created.append(created_item)
         return created
@@ -404,7 +404,7 @@ class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function]):
     def delete(self, ids: SequenceNotStr[str]) -> int:
         functions = self.retrieve(ids)
 
-        self.client.functions.delete_with_429_retry(external_id=ids, ignore_unknown_ids=True, console=self.console)
+        self.client.functions.delete_with_429_retry(external_id=ids, ignore_unknown_ids=True)
         file_ids = {func.file_id for func in functions if func.file_id}
         self.client.files.delete(id=list(file_ids), ignore_unknown_ids=True)
         return len(ids)
