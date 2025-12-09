@@ -266,8 +266,8 @@ def a_three_d_model(
         revision = client.three_d.revisions.retrieve(model.id, revision.id)
         time.sleep(1)
     assert revision.status == "Done"
-    models = client.tool.three_d.models.iterate(include_revision_info=True)
-    retrieved_model = next((m for m in models if m.id == model.id), None)
+    page = client.tool.three_d.models.iterate(include_revision_info=True)
+    retrieved_model = next((m for m in page.items if m.id == model.id), None)
     assert retrieved_model is not None
     yield retrieved_model
     client.tool.three_d.models.delete([model.id])
