@@ -45,10 +45,8 @@ def three_assets(toolkit_client: ToolkitClient, toolkit_space: Space) -> Iterato
     yield created
 
     # Cleanup after test
-    deleted = client.data_modeling.instances.delete([NodeId(space, ts.external_id) for ts in created])
-    if deleted.nodes:
-        return
-    client.assets.delete(external_id=created.as_external_ids())
+    _ = client.data_modeling.instances.delete([NodeId(space, ts.external_id) for ts in created])
+    client.assets.delete(external_id=created.as_external_ids(), ignore_unknown_ids=True, recursive=True)
 
 
 class TestMigrateAssetsCommand:
