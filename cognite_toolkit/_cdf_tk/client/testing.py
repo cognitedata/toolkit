@@ -13,6 +13,7 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
 
+from ._toolkit_client import ToolAPI
 from .api.canvas import CanvasAPI, IndustrialCanvasAPI
 from .api.charts import ChartsAPI
 from .api.dml import DMLAPI
@@ -53,6 +54,7 @@ from .api.robotics.maps import MapsAPI
 from .api.search import SearchAPI
 from .api.search_config import SearchConfigurationsAPI
 from .api.streams import StreamsAPI
+from .api.three_d import ThreeDAPI, ThreeDModelAPI
 from .api.token import TokenAPI
 from .api.verify import VerifyAPI
 
@@ -130,6 +132,10 @@ class ToolkitClientMock(CogniteClientMock):
         self.time_series.data = MagicMock(spec=DatapointsAPI)
         self.time_series.data.synthetic = MagicMock(spec_set=SyntheticDatapointsAPI)
         self.time_series.subscriptions = MagicMock(spec_set=DatapointsSubscriptionAPI)
+
+        self.tool = MagicMock(spec=ToolAPI)
+        self.tool.three_d = MagicMock(spec=ThreeDAPI)
+        self.tool.three_d.models = MagicMock(spec_set=ThreeDModelAPI)
 
         self.streams = MagicMock(spec=StreamsAPI)
 
