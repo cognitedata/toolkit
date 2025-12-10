@@ -3,9 +3,8 @@ from pathlib import Path
 import typer
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.commands._import_cmd import ImportTransformationCLI
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
-
-from .commands.import_ import ImportTransformationCLI
 
 import_app = typer.Typer(
     pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False
