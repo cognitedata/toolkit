@@ -831,18 +831,37 @@ class ThreeDInteractiveSelect:
         self.client = client
         self.operation = operation
 
-    def select_three_d_models(self, model_type: Literal["DM", "Classic"] = "Classic") -> list[ThreeDModelResponse]:
+    def select_three_d_models(self) -> list[ThreeDModelResponse]:
         """Select multiple 3D models interactively."""
-        models = self.client.tool.three_d.models.iterate()
+        model_type = questionary.select(
+            f"What type of 3D models do you want to {self.operation}?",
+            choices=[
+                Choice(title="Classic models", value="classic"),
+                Choice(title="Data modeling 3D", value="dm"),
+            ],
+        ).ask()
+        if model_type is None:
+            raise ToolkitValueError("No 3D model type selected.")
+        published = questionary.select(
+            f"Do you want to {self.operation} published or unpublished 3D models?",
+            choices=[
+                Choice(title="Published models", value=True),
+                Choice(title="Unpublished models", value=False),
+                Choice(title="Both published and unpublished models", value=None),
+            ],
+        ).ask()
+
+        models = self.client.tool.three_d.models.list(published=published, include_revision_info=True, limit=None)
+        if model_type == "classic":
+            models = [model for model in models if model.space is None]
+        else:
+            models = [model for model in models if model.space is not None]
         if not models:
-            raise ToolkitMissingResourceError("No 3D models found.")
-        choices = [
-            Choice(
-                title=f"{model.name} ({model.external_id})",
-                value=model,
+            raise ToolkitMissingResourceError(
+                f"No 3D models found for type {model_type!r} with published={published!r}."
             )
-            for model in models
-        ]
+
+        choices = [Choice(title=f"{model.name} ({model.id})", value=model) for model in models]
         selected_models = questionary.checkbox(
             f"Select 3D models to {self.operation}:",
             choices=choices,
