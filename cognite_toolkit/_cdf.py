@@ -127,7 +127,7 @@ def app() -> NoReturn:
     # Users run 'app()' directly, but that doesn't allow us to control excepton handling:
     try:
         if FeatureFlag.is_enabled(Flags.IMPORT_CMD):
-            from cognite_toolkit._cdf_tk.prototypes.import_app import import_app
+            from cognite_toolkit._cdf_tk.apps._import_app import import_app
 
             _app.add_typer(import_app, name="import")
 
