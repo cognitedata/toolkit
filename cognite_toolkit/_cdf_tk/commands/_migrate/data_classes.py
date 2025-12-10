@@ -9,8 +9,10 @@ from cognite.client.data_classes._base import (
 from cognite.client.data_classes.data_modeling import EdgeId, InstanceApply, NodeId, ViewId
 from cognite.client.utils._identifier import InstanceId
 from cognite.client.utils._text import to_camel_case
-from pydantic import BaseModel, BeforeValidator, field_validator, model_validator
+from pydantic import BaseModel, BeforeValidator, Field, field_validator, model_validator
 
+from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject, RequestResource
+from cognite_toolkit._cdf_tk.client.data_classes.instance_api import InstanceIdentifier
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList
 from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.client.data_classes.pending_instances_ids import PendingInstanceId
@@ -261,3 +263,26 @@ class AssetCentricMappingList(
 
     def as_write(self) -> InstanceApplyList:
         return InstanceApplyList([item.as_write() for item in self])
+
+
+class Model(BaseModelObject):
+    instance_id: InstanceIdentifier
+
+
+class Thumbnail(BaseModelObject):
+    instance_id: InstanceIdentifier
+
+
+class ThreeDRevisionMigrationRequest(RequestResource):
+    space: str
+    type: Literal["CAD", "PointCloud", "Image360"]
+    revision_id: int
+    model: Model
+
+
+class ThreeDMigrationRequest(RequestResource):
+    model_id: int
+    type: Literal["CAD", "PointCloud", "Image360"]
+    space: str
+    thumbnail: Thumbnail | None = None
+    revision: ThreeDRevisionMigrationRequest = Field(exclude=True)

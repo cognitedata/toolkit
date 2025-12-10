@@ -19,7 +19,7 @@ class BaseModelObject(BaseModel):
     """Base class for all object. This includes resources and nested objects."""
 
     # We allow extra fields to support forward compatibility.
-    model_config = ConfigDict(alias_generator=to_camel, extra="allow")
+    model_config = ConfigDict(alias_generator=to_camel, extra="allow", populate_by_name=True)
 
     def dump(self, camel_case: bool = True) -> dict[str, Any]:
         """Dump the resource to a dictionary.
@@ -45,6 +45,10 @@ class ResponseResource(BaseModelObject, Generic[T_RequestResource], ABC):
     def as_request_resource(self) -> T_RequestResource:
         """Convert the response resource to a request resource."""
         ...
+
+    def as_write(self) -> T_RequestResource:
+        """Alias for as_request_resource to match protocol signature."""
+        return self.as_request_resource()
 
 
 class Identifier(BaseModel):

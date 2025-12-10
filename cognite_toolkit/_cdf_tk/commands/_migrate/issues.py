@@ -30,6 +30,24 @@ class MigrationIssue(MigrationObject):
         return True
 
 
+class ThreeDModelMigrationIssue(MigrationIssue):
+    """Represents a 3D model migration issue encountered during migration.
+
+    Attributes:
+        model_external_id (str): The external ID of the 3D model that could not be migrated.
+    """
+
+    type: ClassVar[str] = "threeDModelMigration"
+    model_name: str
+    model_id: int
+    error_message: list[str] = Field(default_factory=list)
+
+    @property
+    def has_issues(self) -> bool:
+        """Check if there are any issues recorded in this ThreeDModelMigrationIssue."""
+        return bool(self.error_message)
+
+
 class ChartMigrationIssue(MigrationIssue):
     """Represents a chart migration issue encountered during migration.
 
