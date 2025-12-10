@@ -36,3 +36,11 @@ class Test3DAPI:
         assert 0 < len(items) <= 2
         missing_revision_info = [item for item in items if item.last_revision_info is None]
         assert len(missing_revision_info) == 0
+
+    @pytest.mark.usefixtures("two_3d_models")
+    def test_list(self, toolkit_client: ToolkitClient) -> None:
+        client = toolkit_client
+        models = client.tool.three_d.models.list(limit=2, include_revision_info=False)
+        assert 0 < len(models) <= 2
+        missing_revision_info = [item for item in models if item.last_revision_info is None]
+        assert len(missing_revision_info) == 0

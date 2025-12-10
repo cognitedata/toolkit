@@ -25,6 +25,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.canvas import Canvas
 from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList, Visibility
 from cognite_toolkit._cdf_tk.client.data_classes.migration import ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
+from cognite_toolkit._cdf_tk.client.data_classes.three_d import ThreeDModelResponse
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
 
 from . import humanize_collection
@@ -823,3 +824,31 @@ class ResourceViewMappingInteractiveSelect:
                 f"Selected Resource View Mapping is not a valid ResourceViewMapping object: {selected_mapping!r}"
             )
         return selected_mapping
+
+
+class ThreeDInteractiveSelect:
+    def __init__(self, client: ToolkitClient, operation: str) -> None:
+        self.client = client
+        self.operation = operation
+
+    def select_three_d_models(self, model_type: Literal["DM", "Classic"] = "Classic") -> list[ThreeDModelResponse]:
+        """Select multiple 3D models interactively."""
+        models = self.client.tool.three_d.models.iterate()
+        if not models:
+            raise ToolkitMissingResourceError("No 3D models found.")
+        choices = [
+            Choice(
+                title=f"{model.name} ({model.external_id})",
+                value=model,
+            )
+            for model in models
+        ]
+        selected_models = questionary.checkbox(
+            f"Select 3D models to {self.operation}:",
+            choices=choices,
+        ).ask()
+        if selected_models is None or len(selected_models) == 0:
+            raise ToolkitValueError("No 3D models selected.")
+        if not all(isinstance(model, ThreeDModelResponse) for model in selected_models):
+            raise ToolkitValueError(f"Selected models are not valid ThreeDModelResponse objects: {selected_models!r}")
+        return selected_models
