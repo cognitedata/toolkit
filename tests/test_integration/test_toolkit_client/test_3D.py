@@ -42,5 +42,5 @@ class Test3DAPI:
         client = toolkit_client
         models = client.tool.three_d.models.list(limit=2, include_revision_info=False)
         assert 0 < len(models) <= 2
-        missing_revision_info = [item for item in models if item.last_revision_info is None]
+        missing_revision_info = [model for model in models if model.last_revision_info is not None]
         assert len(missing_revision_info) == 0
