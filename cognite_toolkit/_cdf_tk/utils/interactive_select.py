@@ -868,6 +868,4 @@ class ThreeDInteractiveSelect:
         ).ask()
         if selected_models is None or len(selected_models) == 0:
             raise ToolkitValueError("No 3D models selected.")
-        if not all(isinstance(model, ThreeDModelResponse) for model in selected_models):
-            raise ToolkitValueError(f"Selected models are not valid ThreeDModelResponse objects: {selected_models!r}")
         return selected_models
