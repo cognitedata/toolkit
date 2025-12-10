@@ -17,7 +17,7 @@ from cognite_toolkit._cdf_tk.storageio import (
     UploadableStorageIO,
 )
 from cognite_toolkit._cdf_tk.storageio._base import Page, UploadItem
-from cognite_toolkit._cdf_tk.storageio.selectors import ThreeDSelector
+from cognite_toolkit._cdf_tk.storageio.selectors import ThreeDModelFilteredSelector, ThreeDSelector
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.http_client import (
@@ -375,6 +375,8 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelResponse,
         return f"{item.name}_{item.id!s}"
 
     def stream_data(self, selector: ThreeDSelector, limit: int | None = None) -> Iterable[Page[ThreeDModelResponse]]:
+        if not isinstance(selector, ThreeDModelFilteredSelector):
+            raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for stream_data")
         cursor: str | None = None
         total = 0
         while True:
