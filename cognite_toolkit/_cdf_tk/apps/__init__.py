@@ -4,6 +4,7 @@ from ._data_app import DataApp
 from ._dev_app import DevApp
 from ._download_app import DownloadApp
 from ._dump_app import DumpApp
+from ._import_app import ImportApp
 from ._landing_app import LandingApp
 from ._migrate_app import MigrateApp
 from ._modules_app import ModulesApp
@@ -20,6 +21,7 @@ __all__ = [
     "DevApp",
     "DownloadApp",
     "DumpApp",
+    "ImportApp",
     "LandingApp",
     "MigrateApp",
     "ModulesApp",
