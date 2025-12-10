@@ -17,7 +17,11 @@ from cognite_toolkit._cdf_tk.storageio import (
     UploadableStorageIO,
 )
 from cognite_toolkit._cdf_tk.storageio._base import Page, UploadItem
-from cognite_toolkit._cdf_tk.storageio.selectors import ThreeDModelFilteredSelector, ThreeDSelector
+from cognite_toolkit._cdf_tk.storageio.selectors import (
+    ThreeDModelFilteredSelector,
+    ThreeDModelIdSelector,
+    ThreeDSelector,
+)
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.http_client import (
@@ -375,17 +379,25 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelResponse,
         return f"{item.name}_{item.id!s}"
 
     def stream_data(self, selector: ThreeDSelector, limit: int | None = None) -> Iterable[Page[ThreeDModelResponse]]:
-        if not isinstance(selector, ThreeDModelFilteredSelector):
-            raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for stream_data")
+        published: bool | None = None
+        if isinstance(selector, ThreeDModelFilteredSelector):
+            published = selector.published
+        included_models: set[int] | None = None
+        if isinstance(selector, ThreeDModelIdSelector):
+            included_models = set(selector.ids)
         cursor: str | None = None
         total = 0
         while True:
             request_limit = min(self.DOWNLOAD_LIMIT, limit - total) if limit is not None else self.DOWNLOAD_LIMIT
             response = self.client.tool.three_d.models.iterate(
-                published=selector.published, include_revision_info=True, limit=request_limit, cursor=cursor
+                published=published, include_revision_info=True, limit=request_limit, cursor=cursor
             )
             # Only include asset-centric 3D models
-            items = [item for item in response.items if item.space is None]
+            items = [
+                item
+                for item in response.items
+                if item.space is None and (included_models is None or item.id in included_models)
+            ]
             total += len(items)
             if items:
                 yield Page(worker_id="main", items=items, next_cursor=response.next_cursor)

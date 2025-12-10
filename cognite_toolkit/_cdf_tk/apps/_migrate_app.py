@@ -1039,7 +1039,7 @@ class MigrateApp(typer.Typer):
         if id:
             selected_ids = id
         else:
-            selected_models = ThreeDInteractiveSelect(client, "migrate").select_three_d_models()
+            selected_models = ThreeDInteractiveSelect(client, "migrate").select_three_d_models("classic")
             selected_ids = [model.id for model in selected_models]
 
         cmd = MigrationCommand()
