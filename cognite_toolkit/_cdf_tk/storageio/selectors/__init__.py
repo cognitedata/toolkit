@@ -42,7 +42,6 @@ from ._three_d import ThreeDModelFilteredSelector, ThreeDModelIdSelector, ThreeD
 
 Selector = Annotated[
     RawTableSelector
-    | ThreeDSelector
     | ThreeDModelIdSelector
     | ThreeDModelFilteredSelector
     | InstanceViewSelector
@@ -64,7 +63,7 @@ Selector = Annotated[
 ]
 
 ALPHA_SELECTORS = {FileIdentifierSelector}
-INTERNAL = {ThreeDSelector, ThreeDModelIdSelector, ThreeDModelFilteredSelector}
+INTERNAL = {ThreeDModelIdSelector, ThreeDModelFilteredSelector}
 SelectorAdapter: TypeAdapter[Selector] = TypeAdapter(Selector)
 
 

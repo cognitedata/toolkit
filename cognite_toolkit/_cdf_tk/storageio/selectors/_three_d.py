@@ -14,7 +14,7 @@ class ThreeDSelector(DataSelector, ABC):
 
 
 class ThreeDModelFilteredSelector(ThreeDSelector):
-    type: Literal["3DPublished"] = "3DPublished"
+    type: Literal["3DFiltered"] = "3DFiltered"
     model_type: Literal["Classic", "DataModel"] = "Classic"
     published: bool | None = None
 
