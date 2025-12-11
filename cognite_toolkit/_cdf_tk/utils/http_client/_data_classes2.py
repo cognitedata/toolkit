@@ -156,7 +156,7 @@ class BaseModelObject(BaseModel):
 
         This is the default serialization method for request resources.
         """
-        return self.model_dump(mode="json", by_alias=camel_case, exclude_unset=True)
+        return self.model_dump(mode="json", by_alias=camel_case)
 
     @classmethod
     def _load(cls, resource: dict[str, Any]) -> "Self":
