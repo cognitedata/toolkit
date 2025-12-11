@@ -53,6 +53,7 @@ class InfieldConfigAPI:
                 items=[item for sublist in request_items for item in sublist],
             )
         )
+        responses.raise_for_status()
         return TypeAdapter(list[InstanceResult]).validate_python(responses.get_items())
 
     def retrieve(self, items: Sequence[NodeIdentifier]) -> list[InfieldLocationConfig]:

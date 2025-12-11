@@ -117,8 +117,8 @@ class RequestMessage2(BaseRequestMessage):
             # We serialize using pydantic instead of json.dumps. This is because pydantic is faster
             # and handles more complex types such as datetime, float('nan'), etc.
             data = _BODY_SERIALIZER.dump_json(self.body_content)
-            if not global_config.disable_gzip and isinstance(data, str):
-                data = gzip.compress(data.encode("utf-8"))
+            if not global_config.disable_gzip and isinstance(data, bytes):
+                data = gzip.compress(data)
         return data
 
 
@@ -188,8 +188,8 @@ class ItemsRequest2(BaseRequestMessage):
         if self.extra_body_fields:
             body.update(self.extra_body_fields)
         res = _BODY_SERIALIZER.dump_json(body)
-        if not global_config.disable_gzip and isinstance(res, str):
-            return gzip.compress(res.encode("utf-8"))
+        if not global_config.disable_gzip and isinstance(res, bytes):
+            return gzip.compress(res)
         return res
 
     def split(self, status_attempts: int) -> list["ItemsRequest2"]:
@@ -204,6 +204,10 @@ class ItemsRequest2(BaseRequestMessage):
             new_request.tracker = self.tracker
             messages.append(new_request)
         return messages
+
+
+class ItemResponse(BaseModel):
+    items: list[dict[str, JsonValue]]
 
 
 class ItemsResultList(UserList[ItemsResultMessage2]):
@@ -240,6 +244,6 @@ class ItemsResultList(UserList[ItemsResultMessage2]):
         items: list[dict[str, JsonValue]] = []
         for resp in self.data:
             if isinstance(resp, ItemsSuccessResponse2):
-                body_json = TypeAdapter(dict[Literal["items"], list[dict[str, JsonValue]]]).validate_json(resp.body)
-                items.extend(body_json["items"])
+                body_json = ItemResponse.model_validate_json(resp.body)
+                items.extend(body_json.items)
         return items
