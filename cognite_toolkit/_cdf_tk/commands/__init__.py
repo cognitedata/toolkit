@@ -24,6 +24,7 @@ __all__ = [
     "AboutCommand",
     "AuthCommand",
     "BuildCommand",
+    "BuildCommandV2",
     "CleanCommand",
     "CollectCommand",
     "DeployCommand",

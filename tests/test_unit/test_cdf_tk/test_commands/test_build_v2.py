@@ -1,0 +1,248 @@
+import os
+from contextlib import suppress
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+import yaml
+from _pytest.monkeypatch import MonkeyPatch
+from cognite.client.data_classes.data_modeling import DataModelId, Space
+
+from cognite_toolkit._cdf_tk.commands.build_cmd import BuildCommand as OldBuildCommand
+from cognite_toolkit._cdf_tk.commands.build_v2.build_cmd import BuildCommand
+from cognite_toolkit._cdf_tk.commands.build_v2.build_issues import BuildIssue, BuildIssueList
+from cognite_toolkit._cdf_tk.cruds import TransformationCRUD
+from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, BuildVariables, Environment, Packages
+from cognite_toolkit._cdf_tk.data_classes._module_directories import ModuleDirectories
+from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitMissingModuleError,
+)
+from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.hints import ModuleDefinition
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+from tests import data
+from tests.test_unit.approval_client import ApprovalToolkitClient
+
+
+@pytest.fixture(scope="session")
+def dummy_environment() -> Environment:
+    return Environment(
+        name="dev",
+        project="my_project",
+        validation_type="dev",
+        selected=["none"],
+    )
+
+
+# Checks to avoid regressions
+class TestBuildV2Command:
+    def test_module_not_found_error(self, tmp_path: Path) -> None:
+        with pytest.raises(ToolkitMissingModuleError):
+            BuildCommand(print_warning=False).execute(
+                verbose=False,
+                build_dir=tmp_path,
+                organization_dir=data.PROJECT_WITH_BAD_MODULES,
+                selected=None,
+                build_env_name="no_module",
+                no_clean=False,
+            )
+
+    def test_module_with_non_resource_directories(self, tmp_path: Path) -> None:
+        cmd = BuildCommand(print_warning=False)
+        with suppress(NotImplementedError):
+            cmd.execute(
+                verbose=False,
+                build_dir=tmp_path,
+                organization_dir=data.PROJECT_WITH_BAD_MODULES,
+                selected=None,
+                build_env_name="ill_module",
+                no_clean=False,
+            )
+
+        assert len(cmd.issues) >= 1
+        assert (
+            BuildIssue(
+                description=f"Module 'ill_made_module' has non-resource directories: ['spaces']. {ModuleDefinition.short()}"
+            )
+            in cmd.issues
+        )
+
+    @pytest.mark.skipif(not Flags.GRAPHQL.is_enabled(), reason="GraphQL schema files will give warnings")
+    def test_custom_project_no_warnings(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+        cmd = BuildCommand(print_warning=False)
+        monkeypatch.setenv("CDF_PROJECT", "some-project")
+        with suppress(NotImplementedError):
+            cmd.execute(
+                verbose=False,
+                build_dir=tmp_path,
+                organization_dir=data.PROJECT_NO_COGNITE_MODULES,
+                selected=None,
+                build_env_name="dev",
+                no_clean=False,
+            )
+
+        assert not cmd.warning_list, f"No warnings should be raised. Got warnings: {cmd.warning_list}"
+        # There are two transformations in the project, expect two transformation files
+        transformation_files = [
+            f
+            for f in (tmp_path / "transformations").iterdir()
+            if f.is_file() and TransformationCRUD.is_supported_file(f)
+        ]
+        assert len(transformation_files) == 2
+
+    def test_build_complete_org_without_warnings(
+        self,
+        tmp_path: Path,
+        env_vars_with_client: EnvironmentVariables,
+    ) -> None:
+        cmd = BuildCommand(silent=True, skip_tracking=True)
+        with patch.dict(
+            os.environ,
+            {"CDF_PROJECT": env_vars_with_client.CDF_PROJECT, "CDF_CLUSTER": env_vars_with_client.CDF_CLUSTER},
+        ):
+            with suppress(NotImplementedError):
+                cmd.execute(
+                    verbose=False,
+                    build_dir=tmp_path / "build",
+                    organization_dir=data.COMPLETE_ORG,
+                    selected=None,
+                    build_env_name="dev",
+                    no_clean=False,
+                )
+
+        assert not cmd.warning_list, (
+            f"No warnings should be raised. Got {len(cmd.warning_list)} warnings: {cmd.warning_list}"
+        )
+
+    def test_build_no_warnings_when_space_exists_in_cdf(
+        self, env_vars_with_client: EnvironmentVariables, toolkit_client_approval: ApprovalToolkitClient, tmp_path: Path
+    ) -> None:
+        my_group = """name: gp_trigger_issue
+sourceId: '1234567890123456789'
+capabilities:
+- dataModelInstancesAcl:
+    actions:
+    - READ
+    scope:
+      spaceIdScope:
+        spaceIds:
+        - existing-space
+"""
+        filepath = tmp_path / "my_org" / "modules" / "my_module" / "auth" / "my.Group.yaml"
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+        filepath.write_text(my_group)
+
+        # Simulate that the space exists in CDF
+        toolkit_client_approval.append(Space, Space("existing-space", False, 1, 1, None, None))
+        cmd = BuildCommand(silent=True, skip_tracking=True)
+        with patch.dict(
+            os.environ,
+            {"CDF_PROJECT": env_vars_with_client.CDF_PROJECT, "CDF_CLUSTER": env_vars_with_client.CDF_CLUSTER},
+        ):
+            with suppress(NotImplementedError):
+                cmd.execute(
+                    verbose=False,
+                    organization_dir=tmp_path / "my_org",
+                    build_dir=tmp_path / "build",
+                    selected=None,
+                    build_env_name=None,
+                    no_clean=False,
+                    client=toolkit_client_approval.mock_client,
+                    on_error="raise",
+                )
+        assert len(cmd.issues) == 0
+
+
+class TestCheckYamlSemantics:
+    def test_build_valid_read_int_version(self) -> None:
+        cmd = BuildCommand(silent=True)
+        raw_yaml = """destination:
+  dataModel:
+    destinationType: CogniteFile
+    externalId: MyModel
+    space: my_space
+    version: 1_0_0
+  instanceSpace: my_space
+  type: instances
+externalId: some_external_id
+    """
+        source_filepath = MagicMock(spec=Path)
+        source_filepath.read_text.return_value = raw_yaml
+        source_filepath.suffix = ".yaml"
+        source_filepath.read_bytes.return_value = raw_yaml.encode("utf-8")
+
+        source_files = cmd._replace_variables(
+            [source_filepath], BuildVariables([]), TransformationCRUD.folder_name, Path("my_module"), verbose=False
+        )
+        assert len(source_files) == 1
+        source_file = source_files[0]
+        assert isinstance(source_file.loaded, dict)
+        actual = DataModelId.load(source_file.loaded["destination"]["dataModel"])
+        assert actual == DataModelId("my_space", "MyModel", "1_0_0")
+
+    def test_track_module_build(self, tmp_path: Path) -> None:
+        cmd = BuildCommand(print_warning=True, skip_tracking=True)
+        cmd.run(
+            lambda: cmd.build_modules(
+                modules=ModuleDirectories.load(data.EXTERNAL_PACKAGE),
+                build_dir=tmp_path,
+                variables=BuildVariables([]),
+                verbose=False,
+            )
+        )
+        assert cmd._additional_tracking_info.package_ids == {"rmdm"}
+        assert cmd._additional_tracking_info.module_ids == {"agent", "data_model"}
+
+    def test_track_module_build_with_package_info(self, tmp_path: Path) -> None:
+        cmd = BuildCommand(print_warning=True, skip_tracking=True)
+        cmd.build_config(
+            build_dir=tmp_path,
+            organization_dir=data.EXTERNAL_PACKAGE,
+            config=BuildConfigYAML(
+                filepath=Path("config.dev.yaml"),
+                environment=Environment(
+                    name="dev", project="my_project", validation_type="dev", selected=["external_module_1"]
+                ),
+            ),
+            packages=Packages.load(data.EXTERNAL_PACKAGE),
+            clean=False,
+            verbose=False,
+            client=None,
+            progress_bar=False,
+            on_error="continue",
+        )
+
+        with open(tmp_path / "_build_environment.yaml") as file:
+            _build_file = yaml.safe_load(file)
+        assert _build_file is not None
+        assert _build_file["read_modules"][0]["package_id"] == "rmdm"
+        assert _build_file["read_modules"][0]["module_id"] == "data_model"
+
+
+class TestBuildParity:
+    def test_build_parity_with_old_build_command(self, tmp_path: Path) -> None:
+        new_cmd = BuildCommand(silent=True, skip_tracking=True)
+        new_result = None
+        old_result = None
+
+        with suppress(NotImplementedError):
+            new_result = new_cmd.execute(
+                verbose=False,
+                build_dir=tmp_path / "new",
+                organization_dir=data.COMPLETE_ORG,
+                selected=None,
+                build_env_name="dev",
+                no_clean=False,
+            )
+
+        old_cmd = OldBuildCommand(print_warning=False, skip_tracking=False)
+        old_result = old_cmd.execute(
+            verbose=False,
+            build_dir=tmp_path / "old",
+            organization_dir=data.COMPLETE_ORG,
+            selected=None,
+            build_env_name="dev",
+            no_clean=False,
+        )
+        assert new_result == old_result
+        assert new_cmd.issues == BuildIssueList.from_warning_list(old_cmd.warning_list)

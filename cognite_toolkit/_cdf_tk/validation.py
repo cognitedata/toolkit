@@ -8,18 +8,29 @@ from cognite.client.utils._text import to_snake_case
 from pydantic import BaseModel, TypeAdapter, ValidationError
 from pydantic_core import ErrorDetails
 
-from cognite_toolkit._cdf_tk.data_classes import BuildVariables
+from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
+from cognite_toolkit._cdf_tk.constants import DEV_ONLY_MODULES
+from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, BuildVariables, ModuleDirectories
+from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitDuplicatedModuleError,
+    ToolkitEnvError,
+    ToolkitMissingModuleError,
+)
+from cognite_toolkit._cdf_tk.hints import ModuleDefinition
 from cognite_toolkit._cdf_tk.resource_classes import BaseModelResource
 from cognite_toolkit._cdf_tk.tk_warnings import (
     DataSetMissingWarning,
+    MediumSeverityWarning,
     TemplateVariableWarning,
     WarningList,
 )
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 __all__ = [
     "humanize_validation_error",
     "validate_data_set_is_set",
+    "validate_module_selection",
     "validate_modules_variables",
 ]
 
@@ -210,3 +221,70 @@ def as_json_path(loc: tuple[str | int, ...]) -> str:
 
     suffix = ".".join([str(x) if isinstance(x, str) else f"[{x + 1}]" for x in loc]).replace(".[", "[")
     return f"{prefix}{suffix}"
+
+
+def validate_module_selection(
+    modules: ModuleDirectories,
+    config: BuildConfigYAML,
+    packages: dict[str, list[str]],
+    selected_modules: set[str | Path],
+    organization_dir: Path,
+) -> WarningList:
+    """Validates module selection and returns warnings for non-critical issues.
+
+    Critical errors (duplicate modules, missing modules, no modules selected) are still raised
+    as exceptions as they prevent the build from proceeding.
+    """
+    warnings: WarningList = WarningList()
+
+    # Validations: Ambiguous selection.
+    selected_names = {s for s in config.environment.selected if isinstance(s, str)}
+    if duplicate_modules := {
+        module_name: paths
+        for module_name, paths in modules.as_path_by_name().items()
+        if len(paths) > 1 and module_name in selected_names
+    }:
+        # If the user has selected a module by name, and there are multiple modules with that name, raise an error.
+        # Note, if the user uses a path to select a module, this error will not be raised.
+        raise ToolkitDuplicatedModuleError(
+            f"Ambiguous module selected in config.{config.environment.name}.yaml:", duplicate_modules
+        )
+
+    # Package Referenced Modules Exists
+    for package, package_modules in packages.items():
+        if package not in selected_names:
+            # We do not check packages that are not selected.
+            # Typically, the user will delete the modules that are irrelevant for them;
+            # thus we only check the selected packages.
+            continue
+        if missing_packages := set(package_modules) - modules.available_names:
+            raise ToolkitMissingModuleError(
+                f"Package {package} defined in {CDFToml.file_name!s} is referring "
+                f"the following missing modules {missing_packages}."
+            )
+
+    # Selected modules does not exists
+    if missing_modules := set(selected_modules) - modules.available:
+        hint = ModuleDefinition.long(missing_modules, organization_dir)
+        raise ToolkitMissingModuleError(
+            f"The following selected modules are missing, please check path: {missing_modules}.\n{hint}"
+        )
+
+    # Nothing is Selected
+    if not modules.selected:
+        raise ToolkitEnvError(
+            f"No selected modules specified in {config.filepath!s}, have you configured "
+            f"the environment ({config.environment.name})?"
+        )
+
+    # Dev modules warning (non-critical)
+    dev_modules = modules.available_names & DEV_ONLY_MODULES
+    if dev_modules and config.environment.validation_type != "dev":
+        warnings.append(
+            MediumSeverityWarning(
+                "The following modules should [bold]only[/bold] be used a in CDF Projects designated as dev (development): "
+                f"{humanize_collection(dev_modules)!r}",
+            )
+        )
+
+    return warnings
