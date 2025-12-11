@@ -21,7 +21,6 @@ from cognite_toolkit._cdf_tk.utils.http_client import (
     ItemsRequest,
     ItemsRequest2,
     RequestMessage2,
-    SimpleBodyRequest,
 )
 
 
@@ -47,31 +46,30 @@ class InfieldConfigAPI:
             else [item.as_request_item(), item.data_exploration_config.as_request_item()]
             for item in items
         )
-        responses = self._http_client.request_with_retries(
-            ItemsRequest(
+        responses = self._http_client.request_items_retries(
+            ItemsRequest2(
                 endpoint_url=self._config.create_api_url(self.ENDPOINT),
                 method="POST",
                 items=[item for sublist in request_items for item in sublist],
             )
         )
-        responses.raise_for_status()
-        return PagedResponse[InstanceResult].model_validate(responses.get_first_body()).items
+        return TypeAdapter(list[InstanceResult]).validate_python(responses.get_items())
 
     def retrieve(self, items: Sequence[NodeIdentifier]) -> list[InfieldLocationConfig]:
         if len(items) > 100:
             raise ValueError("Cannot retrieve more than 100 InfieldLocationConfig items at once.")
         if not items:
             return []
-        responses = self._http_client.request_with_retries(
-            SimpleBodyRequest(
+        response = self._http_client.request_single_retries(
+            RequestMessage2(
                 # We use the query endpoint to be able to retrieve linked DataExplorationConfig items
                 endpoint_url=self._config.create_api_url(f"{self.ENDPOINT}/query"),
                 method="POST",
                 body_content=self._retrieve_query(items),
             )
         )
-        responses.raise_for_status()
-        parsed_response = QueryResponse[InstanceResponseItem].model_validate(responses.get_first_body())
+        success = response.get_success_or_raise()
+        parsed_response = QueryResponse[InstanceResponseItem].model_validate(success.body_json)
         return self._parse_retrieve_response(parsed_response)
 
     def delete(self, items: Sequence[InfieldLocationConfig]) -> list[NodeIdentifier]:
