@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.utils import iterate_modules
+from cognite_toolkit._cdf_tk.utils.modules import parse_user_selected_modules
 
 from ._module_toml import ModuleToml
 
@@ -54,13 +55,27 @@ class ModulesDirectory(BaseModel):
     modules: list[Module] = Field(default_factory=list)
 
     @classmethod
-    def load(cls, organization_dir: Path) -> Self:
-        modules = [
-            Module.load(path=module_path, resource_paths=resource_paths)
-            for module_path, resource_paths in iterate_modules(organization_dir / MODULES)
-        ]
-        return cls(modules=modules)
+    def load(cls, organization_dir: Path, selection: list[str | Path] | None = None) -> Self:
+        selected = parse_user_selected_modules(selection, organization_dir) if selection else None
+        return cls(
+            modules=[
+                Module.load(path=module_path, resource_paths=resource_paths)
+                for module_path, resource_paths in iterate_modules(organization_dir / MODULES)
+                if cls._is_selected(module_path, organization_dir, selected)
+            ],
+        )
+
+    @staticmethod
+    def _is_selected(module_path: Path, organization_dir: Path, selection: list[str | Path] | None) -> bool:
+        if selection is None:
+            return True
+        relative = module_path.relative_to(organization_dir)
+        return module_path.name in selection or relative in selection or any(p in selection for p in relative.parents)
 
     @cached_property
     def paths(self) -> list[Path]:
         return [module.path for module in self.modules]
+
+    @cached_property
+    def available_paths(self) -> set[Path]:
+        return {module.path for module in self.modules}

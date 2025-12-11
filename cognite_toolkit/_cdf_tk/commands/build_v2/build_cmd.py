@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Any, Literal, TypedDict
 
+from _cdf_tk.data_classes.modules import ModulesDirectory
 from rich import print
 from rich.panel import Panel
 
@@ -121,7 +122,7 @@ class BuildCommand(ToolkitCommand):
         # Validate module selection
         user_selected_modules = input.config.environment.get_selected_modules({})
         module_warnings = validate_module_selection(
-            modules=input.modules,
+            modules=ModulesDirectory.load(input.organization_dir, input.config.environment.selected),
             config=input.config,
             packages={},
             selected_modules=user_selected_modules,
@@ -146,7 +147,7 @@ class BuildCommand(ToolkitCommand):
     def _build_configuration(self, input: BuildInput) -> tuple[BuiltModuleList, BuildIssueList]:
         issues = BuildIssueList()
         # Use input.modules.selected directly (it's already a ModuleDirectories)
-        if not input.modules.selected:
+        if not list(input.config.environment.selected):
             return BuiltModuleList(), issues
 
         # first collect variables into practical lookup
