@@ -1,10 +1,16 @@
 from collections.abc import Sequence
 
+from pydantic import TypeAdapter
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.data_classes.api_classes import PagedResponse
 from cognite_toolkit._cdf_tk.client.data_classes.streams import StreamRequest, StreamResponse
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ItemsRequest, ParamRequest
+from cognite_toolkit._cdf_tk.utils.http_client import (
+    HTTPClient,
+    ItemsRequest2,
+    ParamRequest,
+    RequestMessage2,
+)
 
 
 class StreamsAPI:
@@ -24,15 +30,15 @@ class StreamsAPI:
         Returns:
             List of created StreamResponse items.
         """
-        responses = self._http_client.request_with_retries(
-            ItemsRequest(
+        responses = self._http_client.request_items_retries(
+            ItemsRequest2(
                 endpoint_url=self._config.create_api_url(self.ENDPOINT),
                 method="POST",
-                items=list(items),
+                items=items,
             )
         )
         responses.raise_for_status()
-        return PagedResponse[StreamResponse].model_validate(responses.get_first_body()).items
+        return TypeAdapter(list[StreamResponse]).validate_python(responses.get_items())
 
     def delete(self, external_id: str) -> None:
         """Delete stream using its external ID.
@@ -54,14 +60,14 @@ class StreamsAPI:
         Returns:
             StreamResponseList containing the listed streams.
         """
-        responses = self._http_client.request_with_retries(
-            ParamRequest(
+        response = self._http_client.request_single_retries(
+            RequestMessage2(
                 endpoint_url=self._config.create_api_url(self.ENDPOINT),
                 method="GET",
             )
         )
-        responses.raise_for_status()
-        return PagedResponse[StreamResponse].model_validate(responses.get_first_body()).items
+        success = response.get_success_or_raise()
+        return PagedResponse[StreamResponse].model_validate(success.body_json).items
 
     def retrieve(self, external_id: str, include_statistics: bool = True) -> StreamResponse:
         """Retrieve a stream by its external ID.
@@ -72,13 +78,12 @@ class StreamsAPI:
         Returns:
             StreamResponse item.
         """
-        responses = self._http_client.request_with_retries(
-            ParamRequest(
+        response = self._http_client.request_single_retries(
+            RequestMessage2(
                 endpoint_url=self._config.create_api_url(f"{self.ENDPOINT}/{external_id}"),
                 method="GET",
                 parameters={"includeStatistics": include_statistics},
             )
         )
-        responses.raise_for_status()
-        response_body = responses.get_first_body()
-        return StreamResponse.model_validate(response_body)
+        success = response.get_success_or_raise()
+        return StreamResponse.model_validate(success.body_json)
