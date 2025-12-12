@@ -309,6 +309,8 @@ class ThreeDAssetMappingAPI:
 
     def iterate(
         self,
+        model_id: int,
+        revision_id: int,
         asset_ids: list[int] | None = None,
         asset_instance_ids: list[str] | None = None,
         node_ids: list[int] | None = None,
@@ -344,18 +346,26 @@ class ThreeDAssetMappingAPI:
         if cursor is not None:
             body["cursor"] = cursor
 
+        endpoint = self.ENDPOINT.format(modelId=model_id, revisionId=revision_id)
         responses = self._http_client.request_single_retries(
             RequestMessage2(
-                endpoint_url=self._config.create_api_url(f"{self.ENDPOINT}/list"),
+                endpoint_url=self._config.create_api_url(f"{endpoint}/list"),
                 method="POST",
                 body_content=body,
             )
         )
         success_response = responses.get_success_or_raise()
-        return PagedResponse[AssetMappingResponse].model_validate(success_response.body_json)
+        body_json = success_response.body_json
+        # Add modelId and revisionId to items since the API does not return them
+        for item in body_json.get("items", []):
+            item["modelId"] = model_id
+            item["revisionId"] = revision_id
+        return PagedResponse[AssetMappingResponse].model_validate(body_json)
 
     def list(
         self,
+        model_id: int,
+        revision_id: int,
         asset_ids: list[int] | None = None,
         asset_instance_ids: list[str] | None = None,
         node_ids: list[int] | None = None,
@@ -364,6 +374,7 @@ class ThreeDAssetMappingAPI:
         limit: int | None = 100,
     ) -> list[AssetMappingResponse]:
         results: list[AssetMappingResponse] = []
+        cursor: str | None = None
         while True:
             request_limit = (
                 self.LIST_REQUEST_MAX_LIMIT if limit is None else min(limit - len(results), self.LIST_REQUEST_MAX_LIMIT)
@@ -371,16 +382,20 @@ class ThreeDAssetMappingAPI:
             if request_limit <= 0:
                 break
             page = self.iterate(
+                model_id=model_id,
+                revision_id=revision_id,
                 asset_ids=asset_ids,
                 asset_instance_ids=asset_instance_ids,
                 node_ids=node_ids,
                 tree_indexes=tree_indexes,
                 get_dms_instances=get_dms_instances,
                 limit=request_limit,
+                cursor=cursor,
             )
             results.extend(page.items)
             if page.next_cursor is None:
                 break
+            cursor = page.next_cursor
         return results
 
 
