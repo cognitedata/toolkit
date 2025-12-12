@@ -115,7 +115,11 @@ class TestBuildV2Command:
         )
 
     def test_build_no_warnings_when_space_exists_in_cdf(
-        self, env_vars_with_client: EnvironmentVariables, toolkit_client_approval: ApprovalToolkitClient, tmp_path: Path
+        self,
+        env_vars_with_client: EnvironmentVariables,
+        toolkit_client_approval: ApprovalToolkitClient,
+        tmp_path: Path,
+        default_config_dev_yaml: str,
     ) -> None:
         my_group = """name: gp_trigger_issue
 sourceId: '1234567890123456789'
@@ -131,6 +135,7 @@ capabilities:
         filepath = tmp_path / "my_org" / "modules" / "my_module" / "auth" / "my.Group.yaml"
         filepath.parent.mkdir(parents=True, exist_ok=True)
         filepath.write_text(my_group)
+        (tmp_path / "my_org" / "config.dev.yaml").write_text(default_config_dev_yaml)
 
         # Simulate that the space exists in CDF
         toolkit_client_approval.append(Space, Space("existing-space", False, 1, 1, None, None))
