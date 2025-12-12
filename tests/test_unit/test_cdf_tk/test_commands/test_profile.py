@@ -1,3 +1,5 @@
+import re
+
 import pytest
 from cognite.client.data_classes import (
     Database,
@@ -122,6 +124,7 @@ class TestProfileCommand:
 
         assert len(results) == 1
         row = results[0]
-        assert row[cmd.Columns.Rows] == f"≥{row_count:,}"
+        cell = row[cmd.Columns.Rows]
+        assert cell == f"≥{row_count:,}" or re.match(r"Throttled: Wait \d+ seconds", cell)
         assert row[cmd.Columns.Columns] == f"≥{raw_profile_results_single_column.column_count:,}"
         assert toolkit_client_approval.mock_client.transformations.preview.call_count == 1

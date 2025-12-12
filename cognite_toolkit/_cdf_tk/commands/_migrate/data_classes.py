@@ -279,6 +279,9 @@ class ThreeDRevisionMigrationRequest(RequestResource):
     revision_id: int
     model: Model
 
+    def as_id(self) -> int:
+        return self.revision_id
+
 
 class ThreeDMigrationRequest(RequestResource):
     model_id: int
@@ -286,3 +289,6 @@ class ThreeDMigrationRequest(RequestResource):
     space: str
     thumbnail: Thumbnail | None = None
     revision: ThreeDRevisionMigrationRequest = Field(exclude=True)
+
+    def as_id(self) -> int:
+        return self.model_id

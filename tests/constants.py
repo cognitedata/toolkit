@@ -4,6 +4,8 @@ from collections.abc import Iterator
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).parent.parent
+BASE_URL = "http://blabla.cognitedata.com"
+CDF_PROJECT = "pytest-project"
 
 
 @contextlib.contextmanager

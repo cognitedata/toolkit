@@ -112,7 +112,7 @@ class InstanceSource(BaseModelObject):
         return value
 
 
-class InstanceRequestItem(BaseModelObject):
+class InstanceRequestItem(RequestResource):
     model_config = ConfigDict(populate_by_name=True)
     instance_type: InstanceType
     space: str
