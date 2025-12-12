@@ -31,3 +31,8 @@ class TestResourceCRUD:
         errors = asyncio.run(check_all_urls())
         if errors:
             raise AssertionError("The following doc_urls are not accessible:\n" + "\n - ".join(errors))
+
+    def test_workflow_working(self) -> None:
+        raise AssertionError(
+            "This is a test to check that slack is notified on test failure. Toolkit now monitors the CDF API every day."
+        )
