@@ -137,15 +137,6 @@ class ThreeDModelAPI:
         return results
 
 
-class ThreeDModelRevisionAPI:
-    ENDPOINT = "/3d/model-revisions"
-
-    def __init__(self, http_client: HTTPClient, console: Console) -> None:
-        self._http_client = http_client
-        self._console = console
-        self._config = http_client.config
-
-
 T_RequestMapping = TypeVar("T_RequestMapping", bound=AssetMappingClassicRequest | AssetMappingDMRequest)
 
 
@@ -393,5 +384,4 @@ class ThreeDAssetMappingAPI:
 class ThreeDAPI:
     def __init__(self, http_client: HTTPClient, console: Console) -> None:
         self.models = ThreeDModelAPI(http_client, console)
-        self.revisions = ThreeDModelRevisionAPI(http_client, console)
         self.asset_mappings = ThreeDAssetMappingAPI(http_client, console)
