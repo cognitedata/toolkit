@@ -244,7 +244,7 @@ class ThreeDAssetMappingAPI:
     def _chunk_mappings_by_endpoint(
         cls, mappings: Sequence[T_RequestMapping], chunk_size: int
     ) -> Iterable[tuple[str, int, int, list[T_RequestMapping]]]:
-        chunked_mappings: dict[tuple[int, int], list] = defaultdict(list)
+        chunked_mappings: dict[tuple[int, int], list[T_RequestMapping]] = defaultdict(list)
         for mapping in mappings:
             key = mapping.model_id, mapping.revision_id
             chunked_mappings[key].append(mapping)
