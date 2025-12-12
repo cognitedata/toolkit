@@ -58,7 +58,7 @@ dev = [
     "marko >=2.1.2",
     "responses>=0.25.7",
     "respx>=0.22.0",
-    "pytest-json-report>=1.5.0",
+    "pytest-json-report>=1.5.0", # For generating JSON reports from tests, this is used in the smoke tests
 ]
 
 [project.optional-dependencies]
