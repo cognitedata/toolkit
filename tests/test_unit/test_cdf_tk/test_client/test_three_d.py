@@ -41,15 +41,15 @@ class TestAssetsMappings:
     def test_create(
         self,
         toolkit_config: ToolkitClientConfig,
+        toolkit_client: ToolkitClient,
         asset_mapping_classic: dict[str, Any],
         respx_mock: respx.Router,
     ) -> None:
         config = toolkit_config
         url = config.create_api_url("/3d/models/37/revisions/42/mappings")
         respx_mock.post(url).respond(status_code=200, json={"items": [asset_mapping_classic]})
-        client = ToolkitClient(config)
 
-        responses = client.tool.three_d.asset_mappings.create(
+        responses = toolkit_client.tool.three_d.asset_mappings.create(
             [AssetMappingClassicRequest(nodeId=123, assetId=456, modelId=37, revisionId=42)]
         )
         assert len(responses) == 1
@@ -61,15 +61,15 @@ class TestAssetsMappings:
     def test_create_dm(
         self,
         toolkit_config: ToolkitClientConfig,
+        toolkit_client: ToolkitClient,
         asset_mapping_dm: dict[str, Any],
         respx_mock: respx.Router,
     ) -> None:
         config = toolkit_config
         url = config.create_api_url("/3d/models/37/revisions/42/mappings")
         respx_mock.post(url).respond(status_code=200, json={"items": [asset_mapping_dm]})
-        client = ToolkitClient(config)
 
-        responses = client.tool.three_d.asset_mappings.create_dm(
+        responses = toolkit_client.tool.three_d.asset_mappings.create_dm(
             [
                 AssetMappingDMRequest(
                     nodeId=123,
@@ -90,28 +90,28 @@ class TestAssetsMappings:
     def test_delete(
         self,
         toolkit_config: ToolkitClientConfig,
+        toolkit_client: ToolkitClient,
         respx_mock: respx.Router,
     ) -> None:
         config = toolkit_config
         url = config.create_api_url("/3d/models/37/revisions/42/mappings/delete")
         respx_mock.delete(url).respond(status_code=200, json={})
-        client = ToolkitClient(config)
 
-        client.tool.three_d.asset_mappings.delete(
+        toolkit_client.tool.three_d.asset_mappings.delete(
             [AssetMappingClassicRequest(nodeId=123, assetId=456, modelId=37, revisionId=42)]
         )
 
     def test_delete_dm(
         self,
         toolkit_config: ToolkitClientConfig,
+        toolkit_client: ToolkitClient,
         respx_mock: respx.Router,
     ) -> None:
         config = toolkit_config
         url = config.create_api_url("/3d/models/37/revisions/42/mappings/delete")
         respx_mock.delete(url).respond(status_code=200, json={})
-        client = ToolkitClient(config)
 
-        client.tool.three_d.asset_mappings.delete_dm(
+        toolkit_client.tool.three_d.asset_mappings.delete_dm(
             [
                 AssetMappingDMRequest(
                     nodeId=123,
@@ -127,6 +127,7 @@ class TestAssetsMappings:
     def test_iterate(
         self,
         toolkit_config: ToolkitClientConfig,
+        toolkit_client: ToolkitClient,
         asset_mapping_dm: dict[str, Any],
         asset_mapping_classic: dict[str, Any],
         respx_mock: respx.Router,
@@ -140,9 +141,8 @@ class TestAssetsMappings:
                 "nextCursor": "next",
             },
         )
-        client = ToolkitClient(config)
 
-        page = client.tool.three_d.asset_mappings.iterate(model_id=37, revision_id=42, limit=100)
+        page = toolkit_client.tool.three_d.asset_mappings.iterate(model_id=37, revision_id=42, limit=100)
         assert len(page.items) == 2
         assert page.items[0].dump() == asset_mapping_classic
         assert page.items[1].dump() == asset_mapping_dm
@@ -151,6 +151,7 @@ class TestAssetsMappings:
     def test_list_with_pagination(
         self,
         toolkit_config: ToolkitClientConfig,
+        toolkit_client: ToolkitClient,
         asset_mapping_dm: dict[str, Any],
         asset_mapping_classic: dict[str, Any],
         respx_mock: respx.Router,
@@ -161,9 +162,8 @@ class TestAssetsMappings:
             respx.MockResponse(status_code=200, json={"items": [asset_mapping_classic], "nextCursor": "cursor1"}),
             respx.MockResponse(status_code=200, json={"items": [asset_mapping_dm], "nextCursor": None}),
         ]
-        client = ToolkitClient(config)
 
-        results = client.tool.three_d.asset_mappings.list(model_id=37, revision_id=42, limit=None)
+        results = toolkit_client.tool.three_d.asset_mappings.list(model_id=37, revision_id=42, limit=None)
         assert len(results) == 2
         assert results[0].dump() == asset_mapping_classic
         assert results[1].dump() == asset_mapping_dm
@@ -173,6 +173,7 @@ class TestAssetsMappings:
     def test_create_dm_many_in_different_models(
         self,
         toolkit_config: ToolkitClientConfig,
+        toolkit_client: ToolkitClient,
         respx_mock: respx.Router,
     ) -> None:
         config = toolkit_config
@@ -189,7 +190,6 @@ class TestAssetsMappings:
 
         respx_mock.post(url_model_37).mock(side_effect=callback)
         respx_mock.post(url_model_38).mock(side_effect=callback)
-        client = ToolkitClient(config)
 
         mappings = [
             AssetMappingDMRequest(
@@ -201,7 +201,7 @@ class TestAssetsMappings:
             for i in range(300)
         ]
 
-        responses = client.tool.three_d.asset_mappings.create_dm(
+        responses = toolkit_client.tool.three_d.asset_mappings.create_dm(
             mappings,
             object_3d_space="object_space",
             cad_node_space="cad_space",

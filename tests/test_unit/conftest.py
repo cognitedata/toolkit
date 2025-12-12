@@ -15,7 +15,7 @@ from cognite.client.data_classes import CreatedSession
 from cognite.client.data_classes.data_modeling import ContainerList, DataModel, NodeList, View, ViewId
 from pytest import MonkeyPatch
 
-from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.canvas import IndustrialCanvas
 from cognite_toolkit._cdf_tk.client.data_classes.migration import InstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
@@ -220,7 +220,7 @@ def disable_pypi_check():
     global_config.disable_pypi_version_check = old
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def toolkit_config() -> ToolkitClientConfig:
     return ToolkitClientConfig(
         client_name="test-client",
@@ -230,6 +230,11 @@ def toolkit_config() -> ToolkitClientConfig:
         timeout=10,
         credentials=Token("abc"),
     )
+
+
+@pytest.fixture(scope="session")
+def toolkit_client(toolkit_config: ToolkitClientConfig) -> ToolkitClient:
+    return ToolkitClient(toolkit_config)
 
 
 @pytest.fixture
