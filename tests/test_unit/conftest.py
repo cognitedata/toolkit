@@ -221,7 +221,7 @@ def disable_pypi_check():
 
 
 @pytest.fixture
-def toolkit_config():
+def toolkit_config() -> ToolkitClientConfig:
     return ToolkitClientConfig(
         client_name="test-client",
         project=CDF_PROJECT,

@@ -175,7 +175,7 @@ class ThreeDAssetMappingAPI:
         if not mappings:
             return []
         results: list[AssetMappingResponse] = []
-        for endpoint, revision_mappings in self._chunk_mappings_by_endpoint(
+        for endpoint, model_id, revision_id, revision_mappings in self._chunk_mappings_by_endpoint(
             mappings, self.CREATE_CLASSIC_MAX_MAPPINGS_PER_REQUEST
         ):
             responses = self._http_client.request_items_retries(
@@ -187,6 +187,11 @@ class ThreeDAssetMappingAPI:
             )
             responses.raise_for_status()
             items = responses.get_items()
+            for item in items:
+                # We append modelId and revisionId to each item since the API does not return them
+                # this is needed to fully populate the AssetMappingResponse data class
+                item["modelId"] = model_id
+                item["revisionId"] = revision_id
             results.extend(TypeAdapter(list[AssetMappingResponse]).validate_python(items))
         return results
 
@@ -209,7 +214,7 @@ class ThreeDAssetMappingAPI:
             return []
 
         results: list[AssetMappingResponse] = []
-        for endpoint, revision_mappings in self._chunk_mappings_by_endpoint(
+        for endpoint, model_id, revision_id, revision_mappings in self._chunk_mappings_by_endpoint(
             mappings, self.CREATE_DM_MAX_MAPPINGS_PER_REQUEST
         ):
             responses = self._http_client.request_items_retries(
@@ -227,20 +232,26 @@ class ThreeDAssetMappingAPI:
             )
             responses.raise_for_status()
             items = responses.get_items()
+            for item in items:
+                # We append modelId and revisionId to each item since the API does not return them
+                # this is needed to fully populate the AssetMappingResponse data class
+                item["modelId"] = model_id
+                item["revisionId"] = revision_id
             results.extend(TypeAdapter(list[AssetMappingResponse]).validate_python(items))
         return results
 
     @classmethod
     def _chunk_mappings_by_endpoint(
         cls, mappings: Sequence[T_RequestMapping], chunk_size: int
-    ) -> Iterable[tuple[str, list[T_RequestMapping]]]:
-        chunked_mappings: dict[str, list] = defaultdict(list)
+    ) -> Iterable[tuple[str, int, int, list[T_RequestMapping]]]:
+        chunked_mappings: dict[tuple[int, int], list] = defaultdict(list)
         for mapping in mappings:
-            key = cls.ENDPOINT.format(model_id=mapping.model_id, revision_id=mapping.revision_id)
+            key = mapping.model_id, mapping.revision_id
             chunked_mappings[key].append(mapping)
-        for endpoint, revision_mappings in chunked_mappings.items():
+        for (model_id, revision_id), revision_mappings in chunked_mappings.items():
+            endpoint = cls.ENDPOINT.format(modelId=model_id, revisionId=revision_id)
             for chunk in chunker_sequence(revision_mappings, chunk_size):
-                yield endpoint, chunk
+                yield endpoint, model_id, revision_id, chunk
 
     def delete(self, mappings: Sequence[AssetMappingClassicRequest]) -> None:
         """Delete 3D asset mappings.
@@ -252,7 +263,7 @@ class ThreeDAssetMappingAPI:
         if not mappings:
             return None
 
-        for endpoint, revision_mappings in self._chunk_mappings_by_endpoint(
+        for endpoint, *_, revision_mappings in self._chunk_mappings_by_endpoint(
             mappings, self.DELETE_CLASSIC_MAX_MAPPINGS_PER_REQUEST
         ):
             responses = self._http_client.request_items_retries(
@@ -277,7 +288,7 @@ class ThreeDAssetMappingAPI:
         if not mappings:
             return None
 
-        for endpoint, revision_mappings in self._chunk_mappings_by_endpoint(
+        for endpoint, *_, revision_mappings in self._chunk_mappings_by_endpoint(
             mappings, self.DELETE_DM_MAX_MAPPINGS_PER_REQUEST
         ):
             responses = self._http_client.request_items_retries(

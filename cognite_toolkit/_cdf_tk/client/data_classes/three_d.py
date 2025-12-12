@@ -102,6 +102,7 @@ class AssetMappingResponse(ResponseResource[AssetMappingClassicRequest]):
     asset_instance_id: NodeReference | None = None
     tree_index: int | None = None
     subtree_size: int | None = None
+    # These fields are part of the path request and response, but they are included here for convenience.
     model_id: int = Field(exclude=True)
     revision_id: int = Field(exclude=True)
 
