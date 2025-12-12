@@ -831,15 +831,16 @@ class ThreeDInteractiveSelect:
         self.client = client
         self.operation = operation
 
-    def select_three_d_models(self) -> list[ThreeDModelResponse]:
+    def select_three_d_models(self, model_type: Literal["classic", "dm"] | None = None) -> list[ThreeDModelResponse]:
         """Select multiple 3D models interactively."""
-        model_type = questionary.select(
-            f"What type of 3D models do you want to {self.operation}?",
-            choices=[
-                Choice(title="Classic models", value="classic"),
-                Choice(title="Data modeling 3D", value="dm"),
-            ],
-        ).ask()
+        if model_type is None:
+            model_type = questionary.select(
+                f"What type of 3D models do you want to {self.operation}?",
+                choices=[
+                    Choice(title="Classic models", value="classic"),
+                    Choice(title="Data modeling 3D", value="dm"),
+                ],
+            ).ask()
         if model_type is None:
             raise ToolkitValueError("No 3D model type selected.")
         published = questionary.select(

@@ -39,7 +39,8 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     RawTableSelector,
     Selector,
     SelectorAdapter,
-    ThreeDSelector,
+    ThreeDModelFilteredSelector,
+    ThreeDModelIdSelector,
 )
 from cognite_toolkit._cdf_tk.storageio.selectors._file_content import FILEPATH
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -279,14 +280,26 @@ def example_selector_data() -> Iterable[tuple]:
     )
     yield pytest.param(
         {
-            "type": "3D",
+            "type": "3DFiltered",
             "kind": "3D",
+            "modelType": "Classic",
             "published": None,
         },
-        ThreeDSelector,
+        ThreeDModelFilteredSelector,
         None,
         "3D",
-        id="ThreeDSelector",
+        id="ThreeDModelFilteredSelector",
+    )
+    yield pytest.param(
+        {
+            "type": "3DId",
+            "kind": "3D",
+            "ids": [98765, 43210],
+        },
+        ThreeDModelIdSelector,
+        None,
+        "3D",
+        id="ThreeDModelIdSelector",
     )
 
 
