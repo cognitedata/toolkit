@@ -1,23 +1,44 @@
+import time
+import zipfile
 from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from cognite.client.data_classes import AssetList, AssetWrite, AssetWriteList
-from cognite.client.data_classes.data_modeling import NodeId, Space, ViewId
+from cognite.client.data_classes import (
+    AssetList,
+    AssetWrite,
+    AssetWriteList,
+    DataSet,
+    FileMetadata,
+    FileMetadataWrite,
+    ThreeDModelRevision,
+    ThreeDModelRevisionWrite,
+    filters,
+)
+from cognite.client.data_classes.data_modeling import NodeApply, NodeId, NodeOrEdgeData, Space, ViewId
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteAsset
 from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.data_classes.three_d import ThreeDModelClassicRequest, ThreeDModelResponse
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
-from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
+from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper, ThreeDMapper
+from cognite_toolkit._cdf_tk.commands._migrate.data_model import COGNITE_MIGRATION_MODEL, SPACE_SOURCE_VIEW_ID
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
     ASSET_ID,
     EVENT_ID,
     FILE_METADATA_ID,
     TIME_SERIES_ID,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.migration_io import AnnotationMigrationIO, AssetCentricMigrationIO
+from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
+    AnnotationMigrationIO,
+    AssetCentricMigrationIO,
+    ThreeDMigrationIO,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrateDataSetSelector, MigrationCSVFileSelector
+from cognite_toolkit._cdf_tk.storageio import UploadItem
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, SuccessResponse
+from tests.data import THREE_D_He2_FBX_ZIP
 from tests.test_integration.conftest import HierarchyMinimal
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
@@ -199,3 +220,135 @@ class TestMigrateAnnotations:
         results = progress.aggregate()
         expected_results = {(step, "success"): 2 for step in cmd.Steps.list()}
         assert results == expected_results
+
+
+@pytest.fixture(scope="session")
+def three_d_file(toolkit_client: ToolkitClient, toolkit_dataset: DataSet) -> FileMetadata:
+    client = toolkit_client
+    meta = FileMetadataWrite(
+        name="he2.fbx",
+        data_set_id=toolkit_dataset.id,
+        external_id="toolkit_3d_model_test_file_external_id",
+        metadata={"source": "integration_test"},
+        mime_type="application/octet-stream",
+        source="3d-models",
+    )
+    read = client.files.retrieve(external_id=meta.external_id)
+    if read and read.uploaded is True:
+        return read
+    if read is None:
+        read = client.files.create(meta)
+    with zipfile.ZipFile(THREE_D_He2_FBX_ZIP, mode="r") as zip_ref:
+        file_data = zip_ref.read("he2.fbx")
+        read = client.files.upload_content_bytes(file_data, external_id=meta.external_id)
+    assert read.uploaded is True
+    return read
+
+
+@pytest.fixture
+def a_three_d_model(
+    toolkit_client: ToolkitClient, three_d_file: FileMetadata, toolkit_dataset: DataSet, toolkit_space: Space
+) -> Iterator[ThreeDModelResponse]:
+    client = toolkit_client
+    model_request = ThreeDModelClassicRequest(
+        name=f"toolkit_3d_model_migration_test_{RUN_UNIQUE_ID}",
+        data_set_id=toolkit_dataset.id,
+        metadata={"source": "integration_test_migration"},
+    )
+    models = client.tool.three_d.models.create([model_request])
+    assert len(models) == 1
+    model = models[0]
+
+    revision = client.three_d.revisions.create(
+        model.id, ThreeDModelRevisionWrite(file_id=three_d_file.id, published=True)
+    )
+    assert isinstance(revision, ThreeDModelRevision)
+    while revision.status in {"Processing", "Queued"}:
+        revision = client.three_d.revisions.retrieve(model.id, revision.id)
+        time.sleep(1)
+    assert revision.status == "Done"
+    page = client.tool.three_d.models.iterate(include_revision_info=True)
+    retrieved_model = next((m for m in page.items if m.id == model.id), None)
+    assert retrieved_model is not None
+    yield retrieved_model
+    client.tool.three_d.models.delete([model.id])
+    client.data_modeling.instances.delete(
+        [(toolkit_space.space, f"cog_3d_model_{model.id!s}"), (toolkit_space.space, f"cog_3d_revision_{revision.id!s}")]
+    )
+
+
+@pytest.fixture(scope="session")
+def three_d_model_instance_space(toolkit_client: ToolkitClient, toolkit_space: Space, toolkit_dataset: DataSet) -> None:
+    """This sets up the instance space mapping from the classic dataset."""
+    client = toolkit_client
+    space = toolkit_space.space
+    client.data_modeling.instances.apply(
+        NodeApply(
+            space=COGNITE_MIGRATION_MODEL.space,
+            external_id=space,
+            sources=[
+                NodeOrEdgeData(
+                    source=SPACE_SOURCE_VIEW_ID,
+                    properties={
+                        "instanceSpace": space,
+                        "dataSetId": toolkit_dataset.id,
+                        "dataSetExternalId": toolkit_dataset.external_id,
+                    },
+                )
+            ],
+        )
+    )
+
+
+class TestMigrate3D:
+    @pytest.mark.skip(
+        "This is an expensive test to run as it requires processing a 3D model in CDF."
+        " Will move out to a smoke test suite, ref CDF-26526."
+    )
+    @pytest.mark.usefixtures("three_d_model_instance_space")
+    def test_migrate_3d_model(
+        self, a_three_d_model: ThreeDModelResponse, toolkit_client: ToolkitClient, tmp_path: Path, toolkit_space: Space
+    ) -> None:
+        client = toolkit_client
+        model = a_three_d_model
+
+        mapper = ThreeDMapper(client)
+
+        mapped = mapper.map([model])
+        assert len(mapped) == 1
+        migration_request, issue = mapped[0]
+        assert issue.has_issues is False
+        io = ThreeDMigrationIO(client)
+
+        with HTTPClient(config=client.config) as http_client:
+            result = io.upload_items(
+                [UploadItem(source_id=str(model.id), item=migration_request)], http_client=http_client
+            )
+
+        failed = [res for res in result if not isinstance(res, SuccessResponse)]
+        assert len(failed) == 0, f"Migration of 3D model failed with errors: {failed}"
+        view_id = ViewId("cdf_cdm", "Cognite3DModel", "v1")
+        has_name = filters.Equals(view_id.as_property_ref("name"), model.name)
+        nodes = client.data_modeling.instances.list(
+            instance_type="node",
+            sources=[ViewId("cdf_cdm", "Cognite3DModel", "v1")],
+            space=toolkit_space.space,
+            filter=has_name,
+        )
+        assert len(nodes) == 1, "Migrated 3D model instance not found in data modeling."
+        migrated_model = nodes[0]
+        assert migrated_model.external_id.endswith(str(model.id))
+
+        revision_view = ViewId("cdf_cdm", "Cognite3DRevision", "v1")
+        has_model_id = filters.Equals(
+            revision_view.as_property_ref("model3D"), migrated_model.as_id().dump(include_instance_type=False)
+        )
+        revisions = client.data_modeling.instances.list(
+            instance_type="node",
+            sources=[revision_view],
+            space=toolkit_space.space,
+            filter=has_model_id,
+        )
+        assert len(revisions) == 1, "Migrated 3D revision instance not found in data modeling."
+        migrated_revision = revisions[0]
+        assert migrated_revision.external_id.endswith(str(model.last_revision_info.revision_id))

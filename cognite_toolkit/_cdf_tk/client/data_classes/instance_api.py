@@ -7,7 +7,7 @@ from .base import BaseModelObject, Identifier, RequestResource
 InstanceType: TypeAlias = Literal["node", "edge"]
 
 
-class InstanceIdentifier(Identifier):
+class TypedInstanceIdentifier(Identifier):
     """Identifier for an Instance instance."""
 
     instance_type: InstanceType
@@ -15,11 +15,16 @@ class InstanceIdentifier(Identifier):
     external_id: str
 
 
-class NodeIdentifier(InstanceIdentifier):
+class InstanceIdentifier(Identifier):
+    space: str
+    external_id: str
+
+
+class NodeIdentifier(TypedInstanceIdentifier):
     instance_type: Literal["node"] = "node"
 
 
-class EdgeIdentifier(InstanceIdentifier):
+class EdgeIdentifier(TypedInstanceIdentifier):
     instance_type: Literal["edge"] = "edge"
 
 
@@ -32,8 +37,8 @@ class InstanceResult(BaseModelObject):
     created_time: int
     last_updated_time: int
 
-    def as_id(self) -> InstanceIdentifier:
-        return InstanceIdentifier(
+    def as_id(self) -> TypedInstanceIdentifier:
+        return TypedInstanceIdentifier(
             instance_type=self.instance_type,
             space=self.space,
             external_id=self.external_id,
@@ -62,8 +67,8 @@ class InstanceRequestResource(RequestResource):
     space: str
     external_id: str
 
-    def as_id(self) -> InstanceIdentifier:
-        return InstanceIdentifier(
+    def as_id(self) -> TypedInstanceIdentifier:
+        return TypedInstanceIdentifier(
             instance_type=self.instance_type,
             space=self.space,
             external_id=self.external_id,
@@ -115,8 +120,8 @@ class InstanceRequestItem(RequestResource):
     existing_version: int | None = None
     sources: list[InstanceSource] | None = None
 
-    def as_id(self) -> InstanceIdentifier:
-        return InstanceIdentifier(
+    def as_id(self) -> TypedInstanceIdentifier:
+        return TypedInstanceIdentifier(
             instance_type=self.instance_type,
             space=self.space,
             external_id=self.external_id,
@@ -128,7 +133,7 @@ class InstanceResponseItem(BaseModelObject):
     space: str
     external_id: str
     version: int
-    type: InstanceIdentifier | None = None
+    type: TypedInstanceIdentifier | None = None
     created_time: int
     last_updated_time: int
     deleted_time: int | None = None
@@ -149,8 +154,8 @@ class InstanceResponseItem(BaseModelObject):
         output.update(space_properties.get(view_version, {}))
         return output
 
-    def as_id(self) -> InstanceIdentifier:
-        return InstanceIdentifier(
+    def as_id(self) -> TypedInstanceIdentifier:
+        return TypedInstanceIdentifier(
             instance_type=self.instance_type,
             space=self.space,
             external_id=self.external_id,

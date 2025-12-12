@@ -26,6 +26,10 @@ class ResponseResource(BaseModelObject, Generic[T_RequestResource], ABC):
         """Convert the response resource to a request resource."""
         ...
 
+    def as_write(self) -> T_RequestResource:
+        """Alias for as_request_resource to match protocol signature."""
+        return self.as_request_resource()
+
 
 class Identifier(BaseModel):
     """Base class for all identifier classes."""
