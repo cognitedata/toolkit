@@ -27,6 +27,7 @@ from cognite_toolkit._cdf_tk.apps import (
     DataApp,
     DevApp,
     DumpApp,
+    ImportApp,
     LandingApp,
     MigrateApp,
     ModulesApp,
@@ -42,7 +43,7 @@ from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT, URL, USE_SENTRY
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitError,
 )
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.plugins import Plugins
 from cognite_toolkit._cdf_tk.tracker import Tracker
 from cognite_toolkit._cdf_tk.utils import (
@@ -108,6 +109,9 @@ if Flags.PROFILE.is_enabled():
 if Flags.MIGRATE.is_enabled():
     _app.add_typer(MigrateApp(**default_typer_kws), name="migrate")
 
+if Flags.IMPORT_CMD.is_enabled():
+    _app.add_typer(ImportApp(**default_typer_kws), name="import")
+
 if Plugins.data.value.is_enabled():
     _app.add_typer(DataApp(**default_typer_kws), name="data")
 
@@ -126,11 +130,6 @@ def app() -> NoReturn:
     # --- Main entry point ---
     # Users run 'app()' directly, but that doesn't allow us to control excepton handling:
     try:
-        if FeatureFlag.is_enabled(Flags.IMPORT_CMD):
-            from cognite_toolkit._cdf_tk.prototypes.import_app import import_app
-
-            _app.add_typer(import_app, name="import")
-
         _app()
     except ToolkitError as err:
         if "--verbose" in sys.argv:

@@ -32,6 +32,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList
 from cognite_toolkit._cdf_tk.client.data_classes.charts_data import ChartData
 from cognite_toolkit._cdf_tk.client.data_classes.migration import ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
+from cognite_toolkit._cdf_tk.client.data_classes.three_d import ThreeDModelResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
 from cognite_toolkit._cdf_tk.utils.aggregators import AssetCentricAggregator
@@ -45,6 +46,7 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
     InteractiveChartSelect,
     RawTableInteractiveSelect,
     ResourceViewMappingInteractiveSelect,
+    ThreeDInteractiveSelect,
     TimeSeriesInteractiveSelect,
 )
 from tests.test_unit.utils import MockQuestionary
@@ -1056,3 +1058,27 @@ class TestResourceViewMappingInteractiveSelect:
 
             result = selector.select_resource_view_mapping("asset")
         assert result.external_id == "mapping2"
+
+
+class TestThreeDInteractiveSelect:
+    def test_interactive_select_3d_models(self, monkeypatch) -> None:
+        def select_3d_models(choices: list[Choice]) -> list[str]:
+            assert len(choices) == 2
+            return [choices[1].value]
+
+        answers = ["dm", None, select_3d_models]
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(ThreeDInteractiveSelect.__module__, monkeypatch, answers),
+        ):
+            selector = ThreeDInteractiveSelect(client, "test_operation")
+            client.tool.three_d.models.list.return_value = [
+                ThreeDModelResponse(
+                    name=f"Model {i}", id=i, createdTime=1, lastUpdatedTime=1, space="default" if i % 2 == 0 else None
+                )
+                for i in range(3)
+            ]
+
+            result = selector.select_three_d_models()
+        assert len(result) == 1
+        assert result[0].name == "Model 2"
