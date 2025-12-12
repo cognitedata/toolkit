@@ -172,8 +172,6 @@ class ThreeDAssetMappingAPI:
         Returns:
             list[AssetMappingResponse]: The created 3D asset mapping(s).
         """
-        if not mappings:
-            return []
         results: list[AssetMappingResponse] = []
         for endpoint, model_id, revision_id, revision_mappings in self._chunk_mappings_by_endpoint(
             mappings, self.CREATE_CLASSIC_MAX_MAPPINGS_PER_REQUEST
@@ -210,9 +208,6 @@ class ThreeDAssetMappingAPI:
         Returns:
             list[AssetMappingResponse]: The created 3D asset mapping(s).
         """
-        if not mappings:
-            return []
-
         results: list[AssetMappingResponse] = []
         for endpoint, model_id, revision_id, revision_mappings in self._chunk_mappings_by_endpoint(
             mappings, self.CREATE_DM_MAX_MAPPINGS_PER_REQUEST
@@ -260,9 +255,6 @@ class ThreeDAssetMappingAPI:
             mappings (Sequence[AssetMappingClassicRequest]):
                 The 3D asset mapping(s) to delete.
         """
-        if not mappings:
-            return None
-
         for endpoint, *_, revision_mappings in self._chunk_mappings_by_endpoint(
             mappings, self.DELETE_CLASSIC_MAX_MAPPINGS_PER_REQUEST
         ):
@@ -287,9 +279,6 @@ class ThreeDAssetMappingAPI:
             cad_node_space (str):
                 The instance space where the CogniteCADNode are located.
         """
-        if not mappings:
-            return None
-
         for endpoint, *_, revision_mappings in self._chunk_mappings_by_endpoint(
             mappings, self.DELETE_DM_MAX_MAPPINGS_PER_REQUEST
         ):

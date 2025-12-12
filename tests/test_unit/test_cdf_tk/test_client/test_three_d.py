@@ -276,3 +276,10 @@ class TestAssetsMappings:
     ) -> None:
         with pytest.raises(ValueError, match=expected_error):
             toolkit_client.tool.three_d.asset_mappings.iterate(model_id=37, revision_id=42, **args)
+
+    def test_create_empty_list(
+        self,
+        toolkit_client: ToolkitClient,
+    ) -> None:
+        responses = toolkit_client.tool.three_d.asset_mappings.create([])
+        assert len(responses) == 0
