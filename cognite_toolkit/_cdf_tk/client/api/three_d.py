@@ -4,7 +4,12 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.data_classes.api_classes import PagedResponse
 from cognite_toolkit._cdf_tk.client.data_classes.three_d import ThreeDModelClassicRequest, ThreeDModelResponse
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ItemsRequest, ParamRequest, SimpleBodyRequest
+from cognite_toolkit._cdf_tk.utils.http_client import (
+    HTTPClient,
+    ItemsRequest,
+    RequestMessage2,
+    SimpleBodyRequest,
+)
 from cognite_toolkit._cdf_tk.utils.useful_types import PrimitiveType
 
 
@@ -82,15 +87,15 @@ class ThreeDModelAPI:
             parameters["published"] = published
         if cursor is not None:
             parameters["cursor"] = cursor
-        responses = self._http_client.request_with_retries(
-            ParamRequest(
+        responses = self._http_client.request_single_retries(
+            RequestMessage2(
                 endpoint_url=self._config.create_api_url(self.ENDPOINT),
                 method="GET",
                 parameters=parameters,
             )
         )
-        responses.raise_for_status()
-        return PagedResponse[ThreeDModelResponse].model_validate(responses.get_first_body())
+        success_response = responses.get_success_or_raise()
+        return PagedResponse[ThreeDModelResponse].model_validate(success_response.body_json)
 
     def list(
         self,
