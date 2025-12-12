@@ -9,9 +9,9 @@ from cognite_toolkit._cdf_tk.cruds import CRUD_LIST, Loader
 class TestResourceCRUD:
     def test_doc_url_is_valid(self, toolkit_client: ToolkitClient) -> None:
         """Test that all CRUD doc_urls are accessible (requests made in parallel)."""
+        # Robotics does not have a public doc_url
         crud_classes = [crud_cls for crud_cls in CRUD_LIST if crud_cls.folder_name != "robotics"]
 
-        # Robotics does not have a public doc_url
         async def check_url(crud_cls: type[Loader], client: httpx.AsyncClient) -> str | None:
             crud = crud_cls.create_loader(toolkit_client)
             url = crud.doc_url()
