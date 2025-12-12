@@ -21,6 +21,7 @@ from cognite.client.exceptions import CogniteAPIError, CogniteConnectionError, C
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceList
+from tests.constants import CDF_PROJECT
 
 
 @pytest.fixture()
@@ -56,7 +57,7 @@ class TestInstances:
                 name="Test Annotation",
             ),
         ]
-        url = f"{toolkit_config.base_url}/api/v1/projects/test-project/models/instances"
+        url = f"{toolkit_config.base_url}/api/v1/projects/{CDF_PROJECT}/models/instances"
         with responses.RequestsMock() as rsps:
             rsps.add(
                 responses.POST,
@@ -85,7 +86,7 @@ class TestInstances:
             )
             for i in range(2)
         ]
-        url = f"{toolkit_config.base_url}/api/v1/projects/test-project/models/instances"
+        url = f"{toolkit_config.base_url}/api/v1/projects/{CDF_PROJECT}/models/instances"
         with responses.RequestsMock() as rsps:
             rsps.add(
                 responses.POST,
@@ -129,7 +130,7 @@ class TestInstances:
     def test_apply_fast_429_single_instance(
         self, toolkit_config: ToolkitClientConfig, some_timeseries: CogniteTimeSeriesApply
     ) -> None:
-        url = f"{toolkit_config.base_url}/api/v1/projects/test-project/models/instances"
+        url = f"{toolkit_config.base_url}/api/v1/projects/{CDF_PROJECT}/models/instances"
         with responses.RequestsMock() as rsps:
             rsps.add(
                 responses.POST,
@@ -190,7 +191,7 @@ class TestInstances:
         toolkit_config: ToolkitClientConfig,
         some_timeseries: CogniteTimeSeriesApply,
     ) -> None:
-        url = f"{toolkit_config.base_url}/api/v1/projects/test-project/models/instances"
+        url = f"{toolkit_config.base_url}/api/v1/projects/{CDF_PROJECT}/models/instances"
         with responses.RequestsMock() as rsps:
             rsps.add(
                 responses.POST,
@@ -223,7 +224,7 @@ class TestInstances:
 
     @pytest.mark.usefixtures("disable_gzip")
     def test_delete_fast_400(self, toolkit_config: ToolkitClientConfig) -> None:
-        url = f"{toolkit_config.base_url}/api/v1/projects/test-project/models/instances/delete"
+        url = f"{toolkit_config.base_url}/api/v1/projects/{CDF_PROJECT}/models/instances/delete"
         error_message = "This will trigger a 400 error. 287891n-unique"
         ids = [NodeId("node-space", "node1"), EdgeId("edge-space", "edge1")]
         with responses.RequestsMock() as rsps:

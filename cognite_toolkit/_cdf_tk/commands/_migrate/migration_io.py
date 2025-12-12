@@ -231,6 +231,8 @@ class AnnotationMigrationIO(
     CHUNK_SIZE = 1000
     UPLOAD_ENDPOINT = InstanceIO.UPLOAD_ENDPOINT
 
+    SUPPORTED_ANNOTATION_TYPES = frozenset({"diagrams.AssetLink", "diagrams.FileLink"})
+
     def __init__(
         self,
         client: ToolkitClient,
@@ -272,6 +274,10 @@ class AnnotationMigrationIO(
         for data_chunk in self.annotation_io.stream_data(asset_centric_selector, limit):
             mapping_list = AssetCentricMappingList[Annotation]([])
             for resource in data_chunk.items:
+                if resource.annotation_type not in self.SUPPORTED_ANNOTATION_TYPES:
+                    # This should not happen, as the annotation_io should already filter these out.
+                    # This is just in case.
+                    continue
                 mapping = AnnotationMapping(
                     instance_id=EdgeId(space=self.instance_space, external_id=f"annotation_{resource.id!r}"),
                     id=resource.id,
@@ -294,10 +300,14 @@ class AnnotationMigrationIO(
             resources = self.client.annotations.retrieve_multiple(current_batch.get_ids())
             resources_by_id = {resource.id: resource for resource in resources}
             not_found = 0
+            incorrect_type_count = 0
             for mapping in current_batch:
                 resource = resources_by_id.get(mapping.id)
                 if resource is None:
                     not_found += 1
+                    continue
+                if resource.annotation_type not in self.SUPPORTED_ANNOTATION_TYPES:
+                    incorrect_type_count += 1
                     continue
                 mapping.ingestion_view = self._get_mapping(mapping.ingestion_view, resource)
                 chunk.append(AssetCentricMapping(mapping=mapping, resource=resource))
@@ -307,6 +317,11 @@ class AnnotationMigrationIO(
             if not_found:
                 MediumSeverityWarning(
                     f"Could not find {not_found} annotations referenced in the CSV file. They will be skipped during migration."
+                ).print_warning(include_timestamp=True, console=self.client.console)
+            if incorrect_type_count:
+                MediumSeverityWarning(
+                    f"Found {incorrect_type_count} annotations with unsupported types. Only 'diagrams.AssetLink' and "
+                    "'diagrams.FileLink' are supported. These annotations will be skipped during migration."
                 ).print_warning(include_timestamp=True, console=self.client.console)
 
     def _get_mapping(self, current_mapping: str | None, resource: Annotation) -> str:

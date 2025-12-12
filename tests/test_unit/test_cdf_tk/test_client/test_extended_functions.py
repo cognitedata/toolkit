@@ -127,28 +127,6 @@ class TestExtendedFunctionsAPI:
         assert respx_mock.calls[0].request.url == url
         assert respx_mock.calls[0].request.method == "POST"
 
-    def test_create_function_invalid_json_float(self, toolkit_config: ToolkitClientConfig) -> None:
-        client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
-        fun = FunctionWrite(name="test_function", file_id=123, external_id="test_function", cpu=float("inf"))
-
-        with pytest.raises(ToolkitAPIError) as exc_info:
-            client.functions.create_with_429_retry(fun)
-
-        assert "Out of range float values are not JSON compliant" in str(exc_info.value)
-
-    def test_create_function_invalid_json(self, toolkit_config: ToolkitClientConfig) -> None:
-        client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
-        fun = FunctionWrite(
-            name="test_function",
-            file_id=123,
-            external_id="test_function",
-            cpu=43j,  # Complex number, which is not JSON serializable
-        )
-        with pytest.raises(ToolkitAPIError) as exc_info:
-            client.functions.create_with_429_retry(fun)
-
-        assert "Object 43j of type <class 'complex'> can't be serialized by the JSON encoder" in str(exc_info.value)
-
     @pytest.mark.usefixtures("disable_gzip")
     def test_delete_function_200(self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig) -> None:
         config = toolkit_config

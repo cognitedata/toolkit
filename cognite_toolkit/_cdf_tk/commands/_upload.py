@@ -6,7 +6,6 @@ from pathlib import Path
 from cognite.client.data_classes.data_modeling import (
     ViewId,
 )
-from pydantic import ValidationError
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -20,18 +19,15 @@ from cognite_toolkit._cdf_tk.storageio import (
     get_upload_io,
 )
 from cognite_toolkit._cdf_tk.storageio._base import TableUploadableStorageIO, UploadItem
-from cognite_toolkit._cdf_tk.storageio.selectors import Selector, SelectorAdapter
+from cognite_toolkit._cdf_tk.storageio.selectors import Selector, load_selector
 from cognite_toolkit._cdf_tk.storageio.selectors._instances import InstanceSpaceSelector
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
-from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning, ToolkitWarning
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
-from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ItemMessage, SuccessResponseItems
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.progress_tracker import ProgressTracker
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
-from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 
 from ._base import ToolkitCommand
 from .deploy import DeployCommand
@@ -141,17 +137,11 @@ class UploadCommand(ToolkitCommand):
         """Finds data files and their corresponding metadata files in the input directory."""
         data_files_by_metadata: dict[Selector, list[Path]] = {}
         for manifest_file in input_dir.glob(f"*{DATA_MANIFEST_SUFFIX}"):
-            selector_dict = read_yaml_file(manifest_file, expected_output="dict")
-            try:
-                selector = SelectorAdapter.validate_python(selector_dict)
-            except ValidationError as e:
-                errors = humanize_validation_error(e)
-                self.warn(
-                    ResourceFormatWarning(
-                        manifest_file, tuple(errors), text="Invalid selector in metadata file, skipping."
-                    )
-                )
+            selector_or_warning = load_selector(manifest_file)
+            if isinstance(selector_or_warning, ToolkitWarning):
+                self.warn(selector_or_warning)
                 continue
+            selector: Selector = selector_or_warning
             data_files = selector.find_data_files(input_dir, manifest_file)
             if not data_files:
                 self.warn(

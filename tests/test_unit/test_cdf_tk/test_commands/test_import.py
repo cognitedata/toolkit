@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from cognite_toolkit._cdf_tk.prototypes.commands.import_ import ImportTransformationCLI
+from cognite_toolkit._cdf_tk.commands._import_cmd import ImportTransformationCLI
 from tests.data import TRANSFORMATION_CLI
 
 
