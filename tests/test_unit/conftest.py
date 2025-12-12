@@ -24,7 +24,7 @@ from cognite_toolkit._cdf_tk.constants import BUILD_ENVIRONMENT_FILE, MODULES
 from cognite_toolkit._cdf_tk.data_classes._config_yaml import BuildEnvironment
 from cognite_toolkit._cdf_tk.utils import read_yaml_file
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
-from tests.constants import REPO_ROOT
+from tests.constants import BASE_URL, CDF_PROJECT, REPO_ROOT
 from tests.data import (
     BUILDABLE_PACKAGE,
     COMPLETE_ORG,
@@ -38,7 +38,6 @@ from tests.test_unit.utils import PrintCapture
 THIS_FOLDER = Path(__file__).resolve().parent
 TMP_FOLDER = THIS_FOLDER / "tmp"
 TMP_FOLDER.mkdir(exist_ok=True)
-BASE_URL = "http://blabla.cognitedata.com"
 
 
 @pytest.fixture
@@ -70,7 +69,7 @@ def toolkit_client_approval() -> Iterator[ApprovalToolkitClient]:
 def env_vars_with_client(toolkit_client_approval: ApprovalToolkitClient) -> EnvironmentVariables:
     env_vars = EnvironmentVariables(
         CDF_CLUSTER="bluefield",
-        CDF_PROJECT="pytest-project",
+        CDF_PROJECT=CDF_PROJECT,
         LOGIN_FLOW="client_credentials",
         PROVIDER="entra_id",
         IDP_CLIENT_ID="dummy-123",
@@ -107,6 +106,23 @@ def init_organization_dir(organization_dir: Path, module_source_dir: Path) -> No
         organization_dir,
         select_all=True,
         clean=True,
+    )
+
+
+@pytest.fixture
+def default_config_dev_yaml() -> str:
+    """Returns a default config.dev.yaml content for dev environment."""
+    return (
+        f"""environment:
+  name: dev
+  project: {CDF_PROJECT}
+  validation-type: dev
+  selected:
+  - modules/
+"""
+        + """
+variables:
+  modules: {}"""
     )
 
 
@@ -208,7 +224,7 @@ def disable_pypi_check():
 def toolkit_config():
     return ToolkitClientConfig(
         client_name="test-client",
-        project="test-project",
+        project=CDF_PROJECT,
         base_url=BASE_URL,
         max_workers=1,
         timeout=10,

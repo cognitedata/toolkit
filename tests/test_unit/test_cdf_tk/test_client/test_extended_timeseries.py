@@ -6,6 +6,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.extended_timeseries import ExtendedTimeSeriesList
+from tests.constants import CDF_PROJECT
 
 
 class TestExtendedTimeSeriesAPI:
@@ -27,7 +28,7 @@ class TestExtendedTimeSeriesAPI:
         toolkit_config: ToolkitClientConfig,
     ) -> None:
         client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
-        url = f"{toolkit_config.base_url}/api/v1/projects/test-project/timeseries/unlink-instance-ids"
+        url = f"{toolkit_config.base_url}/api/v1/projects/{CDF_PROJECT}/timeseries/unlink-instance-ids"
         with responses.RequestsMock() as rsps:
             rsps.add(
                 responses.POST,
