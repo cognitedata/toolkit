@@ -42,8 +42,6 @@ TMP_FOLDER.mkdir(exist_ok=True)
 
 @pytest.fixture
 def toolkit_client_approval() -> Iterator[ApprovalToolkitClient]:
-    from cognite_toolkit._cdf_tk.client import ToolkitClient
-
     with monkeypatch_toolkit_client() as toolkit_client:
 
         def create_session(*args: Any, **kwargs: Any) -> CreatedSession:
@@ -230,11 +228,6 @@ def toolkit_config() -> ToolkitClientConfig:
         timeout=10,
         credentials=Token("abc"),
     )
-
-
-@pytest.fixture(scope="session")
-def toolkit_client(toolkit_config: ToolkitClientConfig) -> ToolkitClient:
-    return ToolkitClient(toolkit_config)
 
 
 @pytest.fixture
