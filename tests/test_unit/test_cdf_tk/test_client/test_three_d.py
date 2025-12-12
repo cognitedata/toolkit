@@ -217,3 +217,62 @@ class TestAssetsMappings:
         assert items_per_request == [100, 50, 100, 50], (
             f"Unexpected distribution of items per request: {items_per_request}"
         )
+
+    @pytest.mark.parametrize(
+        "args, expected_error",
+        [
+            pytest.param({"limit": -10}, "Limit must be between 1 and 1000, got -10.", id="negative limit"),
+            pytest.param({"limit": 0}, "Limit must be between 1 and 1000, got 0.", id="zero limit"),
+            pytest.param({"limit": 1001}, "Limit must be between 1 and 1000, got 1001.", id="excessive limit"),
+            pytest.param(
+                {"asset_ids": [1], "node_ids": [2]},
+                "Only one of asset_ids, asset_instance_ids, node_ids, or tree_indexes can be provided.",
+                id="multiple filters",
+            ),
+            pytest.param(
+                {"asset_ids": []},
+                "asset_ids must contain between 1 and 100 IDs.",
+                id="empty asset_ids",
+            ),
+            pytest.param(
+                {"asset_ids": list(range(101))},
+                "asset_ids must contain between 1 and 100 IDs.",
+                id="too many asset_ids",
+            ),
+            pytest.param(
+                {"asset_instance_ids": []},
+                "asset_instance_ids must contain between 1 and 100 IDs.",
+                id="empty asset_instance_ids",
+            ),
+            pytest.param(
+                {"asset_instance_ids": [f"id_{i}" for i in range(101)]},
+                "asset_instance_ids must contain between 1 and 100 IDs.",
+                id="too many asset_instance_ids",
+            ),
+            pytest.param(
+                {"node_ids": []},
+                "node_ids must contain between 1 and 100 IDs.",
+                id="empty node_ids",
+            ),
+            pytest.param(
+                {"node_ids": list(range(101))},
+                "node_ids must contain between 1 and 100 IDs.",
+                id="too many node_ids",
+            ),
+            pytest.param(
+                {"tree_indexes": []},
+                "tree_indexes must contain between 1 and 100 indexes.",
+                id="empty tree_indexes",
+            ),
+            pytest.param(
+                {"tree_indexes": list(range(101))},
+                "tree_indexes must contain between 1 and 100 indexes.",
+                id="too many tree_indexes",
+            ),
+        ],
+    )
+    def test_iterate_invalid_inputs(
+        self, args: dict[str, Any], expected_error: str, toolkit_client: ToolkitClient
+    ) -> None:
+        with pytest.raises(ValueError, match=expected_error):
+            toolkit_client.tool.three_d.asset_mappings.iterate(model_id=37, revision_id=42, **args)

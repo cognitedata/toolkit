@@ -268,7 +268,9 @@ class ThreeDAssetMappingAPI:
         ):
             responses = self._http_client.request_items_retries(
                 ItemsRequest2(
-                    endpoint_url=self._config.create_api_url(f"{endpoint}/delete"), method="DELETE", items=mappings
+                    endpoint_url=self._config.create_api_url(f"{endpoint}/delete"),
+                    method="DELETE",
+                    items=revision_mappings,
                 )
             )
             responses.raise_for_status()
@@ -295,7 +297,7 @@ class ThreeDAssetMappingAPI:
                 ItemsRequest2(
                     endpoint_url=self._config.create_api_url(f"{endpoint}/delete"),
                     method="DELETE",
-                    items=mappings,
+                    items=revision_mappings,
                     extra_body_fields={
                         "dmsContextualizationConfig": {
                             "object3DSpace": object_3d_space,
