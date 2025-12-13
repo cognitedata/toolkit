@@ -5,7 +5,7 @@ import pytest
 from cognite.client.data_classes.data_modeling import NodeId, ViewId
 from cognite.client.data_classes.data_modeling.instances import Node, Properties
 
-from cognite_toolkit._cdf_tk.client.api.extended_data_modeling import ExtendedInstancesAPI
+from cognite_toolkit._cdf_tk.client.api.legacy.extended_data_modeling import ExtendedInstancesAPI
 from cognite_toolkit._cdf_tk.client.api.migration import ResourceViewMappingAPI
 from cognite_toolkit._cdf_tk.client.data_classes.migration import ResourceViewMapping, ResourceViewMappingApply
 from cognite_toolkit._cdf_tk.constants import COGNITE_MIGRATION_SPACE
