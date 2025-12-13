@@ -6,6 +6,9 @@ on:
     # Run at 05:00 UTC every day
     - cron: '0 5 * * *'
 
+permissions:
+  contents: read
+
 env:
   PYTHON_VERSION: 3.13
 
