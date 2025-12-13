@@ -13,7 +13,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.infield import (
 from cognite_toolkit._cdf_tk.client.data_classes.instance_api import (
     InstanceResponseItem,
     InstanceResult,
-    NodeIdentifier,
+    TypedNodeIdentifier,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils.http_client import (
@@ -55,7 +55,7 @@ class InfieldConfigAPI:
         responses.raise_for_status()
         return TypeAdapter(list[InstanceResult]).validate_python(responses.get_items())
 
-    def retrieve(self, items: Sequence[NodeIdentifier]) -> list[InfieldLocationConfig]:
+    def retrieve(self, items: Sequence[TypedNodeIdentifier]) -> list[InfieldLocationConfig]:
         if len(items) > 100:
             raise ValueError("Cannot retrieve more than 100 InfieldLocationConfig items at once.")
         if not items:
@@ -72,7 +72,7 @@ class InfieldConfigAPI:
         parsed_response = QueryResponse[InstanceResponseItem].model_validate(success.body_json)
         return self._parse_retrieve_response(parsed_response)
 
-    def delete(self, items: Sequence[InfieldLocationConfig]) -> list[NodeIdentifier]:
+    def delete(self, items: Sequence[InfieldLocationConfig]) -> list[TypedNodeIdentifier]:
         if len(items) > 500:
             raise ValueError("Cannot delete more than 500 InfieldLocationConfig items at once.")
 
@@ -90,10 +90,10 @@ class InfieldConfigAPI:
             )
         )
         responses.raise_for_status()
-        return TypeAdapter(list[NodeIdentifier]).validate_python(responses.get_items())
+        return TypeAdapter(list[TypedNodeIdentifier]).validate_python(responses.get_items())
 
     @classmethod
-    def _retrieve_query(cls, items: Sequence[NodeIdentifier]) -> dict[str, Any]:
+    def _retrieve_query(cls, items: Sequence[TypedNodeIdentifier]) -> dict[str, Any]:
         return {
             "with": {
                 cls.LOCATION_REF: {
@@ -183,7 +183,7 @@ class InFieldCDMConfigAPI:
         results.raise_for_status()
         return TypeAdapter(list[InstanceResult]).validate_python(results.get_items())
 
-    def retrieve(self, items: Sequence[NodeIdentifier]) -> list[InFieldCDMLocationConfig]:
+    def retrieve(self, items: Sequence[TypedNodeIdentifier]) -> list[InFieldCDMLocationConfig]:
         if len(items) > 100:
             raise ValueError("Cannot retrieve more than 100 InFieldCDMLocationConfig items at once.")
         if not items:
@@ -199,7 +199,7 @@ class InFieldCDMConfigAPI:
         parsed_response = QueryResponse[InstanceResponseItem].model_validate(success.body_json)
         return self._parse_retrieve_response(parsed_response)
 
-    def delete(self, items: Sequence[InFieldCDMLocationConfig]) -> list[NodeIdentifier]:
+    def delete(self, items: Sequence[InFieldCDMLocationConfig]) -> list[TypedNodeIdentifier]:
         if len(items) > 500:
             raise ValueError("Cannot delete more than 500 InFieldCDMLocationConfig items at once.")
 
@@ -212,10 +212,10 @@ class InFieldCDMConfigAPI:
             )
         )
         responses.raise_for_status()
-        return TypeAdapter(list[NodeIdentifier]).validate_python(responses.get_items())
+        return TypeAdapter(list[TypedNodeIdentifier]).validate_python(responses.get_items())
 
     @classmethod
-    def _retrieve_query(cls, items: Sequence[NodeIdentifier]) -> dict[str, Any]:
+    def _retrieve_query(cls, items: Sequence[TypedNodeIdentifier]) -> dict[str, Any]:
         return {
             "with": {
                 cls.LOCATION_REF: {

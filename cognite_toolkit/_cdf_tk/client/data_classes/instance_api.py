@@ -38,9 +38,6 @@ class InstanceIdentifier(Identifier):
     external_id: str
 
 
-class NodeIdentifier(InstanceIdentifier): ...
-
-
 class InstanceResult(BaseModelObject):
     instance_type: InstanceType
     version: int
@@ -63,6 +60,16 @@ class ViewReference(Identifier):
     space: str
     external_id: str
     version: str
+
+    def dump(self, camel_case: bool = True, include_type: bool = True) -> dict[str, Any]:
+        """Dump the resource to a dictionary.
+
+        This is the default serialization method for request resources.
+        """
+        data = super().dump(camel_case=camel_case)
+        if not include_type:
+            data.pop("type", None)
+        return data
 
 
 ######################################################
