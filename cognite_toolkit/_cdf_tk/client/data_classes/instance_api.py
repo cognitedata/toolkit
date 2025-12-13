@@ -14,18 +14,31 @@ class TypedInstanceIdentifier(Identifier):
     space: str
     external_id: str
 
+    def dump(self, camel_case: bool = True, include_type: bool = True) -> dict[str, Any]:
+        """Dump the resource to a dictionary.
+
+        This is the default serialization method for request resources.
+        """
+        data = super().dump(camel_case=camel_case)
+        if not include_type:
+            data.pop("instanceType", None)
+        return data
+
+
+class TypedNodeIdentifier(TypedInstanceIdentifier):
+    instance_type: Literal["node"] = "node"
+
+
+class TypedEdgeIdentifier(TypedInstanceIdentifier):
+    instance_type: Literal["edge"] = "edge"
+
 
 class InstanceIdentifier(Identifier):
     space: str
     external_id: str
 
 
-class NodeIdentifier(TypedInstanceIdentifier):
-    instance_type: Literal["node"] = "node"
-
-
-class EdgeIdentifier(TypedInstanceIdentifier):
-    instance_type: Literal["edge"] = "edge"
+class NodeIdentifier(InstanceIdentifier): ...
 
 
 class InstanceResult(BaseModelObject):
