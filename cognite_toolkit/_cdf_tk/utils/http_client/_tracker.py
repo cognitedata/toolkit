@@ -1,5 +1,6 @@
 import threading
 from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass
@@ -9,13 +10,15 @@ class ItemsRequestTracker:
     Attributes:
         max_failures_before_abort (int): Maximum number of allowed failed split requests before aborting
             the entire operation. A value of -1 indicates no early abort.
-        lock (threading.Lock): A lock to ensure thread-safe updates to the failure count.
+        lock (Any): A lock to ensure thread-safe updates to the failure count.
         failed_split_count (int): The current count of failed split requests.
 
     """
 
     max_failures_before_abort: int = -1  # -1 means no early abort
-    lock: threading.Lock = field(default_factory=threading.Lock, init=False)
+    # NOTE: `threading.Lock` is a factory function (backed by `_thread.allocate_lock`), not a type.
+    # Annotate as `Any` so Pydantic won't attempt to generate a schema for the lock field.
+    lock: Any = field(default_factory=threading.Lock, init=False)
     failed_split_count: int = field(default=0, init=False)
 
     def register_failure(self) -> None:
