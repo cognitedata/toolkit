@@ -76,6 +76,9 @@ class ErrorDetails:
 class FailedRequestMessage(HTTPMessage):
     error: str
 
+    def __str__(self) -> str:
+        return self.error
+
 
 @dataclass
 class ResponseMessage(HTTPMessage):
@@ -134,6 +137,9 @@ class FailedResponse(ResponseMessage):
         output = super().dump()
         output["error"] = self.error.dump()
         return output
+
+    def __str__(self) -> str:
+        return f"{self.error.code} | {self.error.message}"
 
 
 @dataclass
