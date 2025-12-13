@@ -16,8 +16,8 @@ from cognite.client.data_classes.data_modeling import ContainerList, DataModel, 
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.data_classes.canvas import IndustrialCanvas
-from cognite_toolkit._cdf_tk.client.data_classes.migration import InstanceSource
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.canvas import IndustrialCanvas
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import InstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import BuildCommand, ModulesCommand, RepoCommand
 from cognite_toolkit._cdf_tk.constants import BUILD_ENVIRONMENT_FILE, MODULES

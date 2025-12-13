@@ -8,7 +8,7 @@ from cognite.client.data_classes.data_modeling import NodeId
 
 from cognite_toolkit._cdf_tk.client.api.legacy.canvas import CanvasAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_data_modeling import ExtendedInstancesAPI
-from cognite_toolkit._cdf_tk.client.data_classes.canvas import (
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.canvas import (
     CANVAS_INSTANCE_SPACE,
     Canvas,
     CanvasAnnotation,
