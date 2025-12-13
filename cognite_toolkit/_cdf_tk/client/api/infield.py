@@ -4,7 +4,7 @@ from typing import Any, cast
 from pydantic import TypeAdapter
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk.client.data_classes.api_classes import PagedResponse, QueryResponse
+from cognite_toolkit._cdf_tk.client.data_classes.api_classes import QueryResponse
 from cognite_toolkit._cdf_tk.client.data_classes.infield import (
     DataExplorationConfig,
     InFieldCDMLocationConfig,
@@ -18,7 +18,6 @@ from cognite_toolkit._cdf_tk.client.data_classes.instance_api import (
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils.http_client import (
     HTTPClient,
-    ItemsRequest,
     ItemsRequest2,
     RequestMessage2,
 )
@@ -83,15 +82,15 @@ class InfieldConfigAPI:
             else [item.as_id(), item.data_exploration_config.as_id()]
             for item in items
         )
-        responses = self._http_client.request_with_retries(
-            ItemsRequest(
+        responses = self._http_client.request_items_retries(
+            ItemsRequest2(
                 endpoint_url=self._config.create_api_url(f"{self.ENDPOINT}/delete"),
                 method="POST",
                 items=[identifier for sublist in identifiers for identifier in sublist],
             )
         )
         responses.raise_for_status()
-        return PagedResponse[NodeIdentifier].model_validate(responses.get_first_body()).items
+        return TypeAdapter(list[NodeIdentifier]).validate_python(responses.get_items())
 
     @classmethod
     def _retrieve_query(cls, items: Sequence[NodeIdentifier]) -> dict[str, Any]:
@@ -204,16 +203,16 @@ class InFieldCDMConfigAPI:
         if len(items) > 500:
             raise ValueError("Cannot delete more than 500 InFieldCDMLocationConfig items at once.")
 
-        identifiers: Sequence = [item.as_id() for item in items]
-        responses = self._http_client.request_with_retries(
-            ItemsRequest(
+        identifiers = [item.as_id() for item in items]
+        responses = self._http_client.request_items_retries(
+            ItemsRequest2(
                 endpoint_url=self._config.create_api_url(f"{self.ENDPOINT}/delete"),
                 method="POST",
-                items=identifiers,  # type: ignore[arg-type]
+                items=identifiers,
             )
         )
         responses.raise_for_status()
-        return PagedResponse[NodeIdentifier].model_validate(responses.get_first_body()).items
+        return TypeAdapter(list[NodeIdentifier]).validate_python(responses.get_items())
 
     @classmethod
     def _retrieve_query(cls, items: Sequence[NodeIdentifier]) -> dict[str, Any]:
