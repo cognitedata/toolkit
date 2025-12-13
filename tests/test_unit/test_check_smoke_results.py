@@ -17,7 +17,7 @@ def context() -> Context:
     """Fixture to provide a dummy Context object."""
     return Context(
         slack_webhook_url="https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX",
-        github_repo_url="https://github.com/cognitedata/neat",
+        github_repo_url="https://github.com/cognitedata/toolkit",
         # Not Monday morning
         now=datetime(2025, 11, 25, 12, 0, 0),
     )
