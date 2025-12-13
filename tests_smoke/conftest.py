@@ -1,0 +1,37 @@
+import os
+from pathlib import Path
+
+import pytest
+from cognite.client import global_config
+from cognite.client.credentials import OAuthClientCredentials
+from dotenv import load_dotenv
+
+from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+
+REPO_ROOT = Path(__file__).parent.parent
+
+
+@pytest.fixture(scope="session")
+def toolkit_client_config() -> ToolkitClientConfig:
+    load_dotenv(REPO_ROOT / ".env", override=True)
+    cdf_cluster = os.environ["CDF_CLUSTER"]
+    credentials = OAuthClientCredentials(
+        token_url=os.environ["IDP_TOKEN_URL"],
+        client_id=os.environ["IDP_CLIENT_ID"],
+        client_secret=os.environ["IDP_CLIENT_SECRET"],
+        scopes=[f"https://{cdf_cluster}.cognitedata.com/.default"],
+        audience=f"https://{cdf_cluster}.cognitedata.com",
+    )
+    global_config.disable_pypi_version_check = True
+    return ToolkitClientConfig(
+        client_name="cdf-toolkit-integration-tests",
+        base_url=f"https://{cdf_cluster}.cognitedata.com",
+        project=os.environ["CDF_PROJECT"],
+        credentials=credentials,
+        is_strict_validation=False,
+    )
+
+
+@pytest.fixture(scope="session")
+def toolkit_client(toolkit_client_config: ToolkitClientConfig) -> ToolkitClient:
+    return ToolkitClient(toolkit_client_config)
