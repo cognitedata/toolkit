@@ -41,7 +41,7 @@ class Identifier(RequestResource, ABC):
 
         This is the default serialization method for request resources.
         """
-        return super().dump(camel_case=camel_case)
+        return self.model_dump(mode="json", by_alias=camel_case, exclude_unset=not include_type)
 
     def as_id(self) -> Self:
         return self
