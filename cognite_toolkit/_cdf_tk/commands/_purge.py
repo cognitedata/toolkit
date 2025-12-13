@@ -60,11 +60,10 @@ from cognite_toolkit._cdf_tk.utils.aggregators import (
     TimeSeriesAggregator,
 )
 from cognite_toolkit._cdf_tk.utils.http_client import (
-    FailedRequestItems,
-    FailedResponseItems,
     HTTPClient,
     ItemsRequest,
     ItemsRequest2,
+    ItemsSuccessResponse2,
     SuccessResponseItems,
 )
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
@@ -724,12 +723,10 @@ class PurgeCommand(ToolkitCommand):
             )
         )
         for response in responses:
-            if isinstance(response, SuccessResponseItems):
+            if isinstance(response, ItemsSuccessResponse2):
                 results.deleted += len(response.ids)
-            elif isinstance(response, FailedResponseItems | FailedRequestItems):
-                results.failed += len(response.ids)
             else:
-                results.failed += len(items)
+                results.failed += len(response.ids)
 
     @staticmethod
     def _unlink_timeseries(
