@@ -1,6 +1,7 @@
 import time
 from collections.abc import Iterator
 from pathlib import Path
+from typing import cast
 
 import pytest
 from cognite.client.data_classes import (
@@ -42,8 +43,9 @@ def a_three_d_model(
         )
     model = models[0]
 
-    revision: ThreeDModelRevision = client.three_d.revisions.create(
-        model.id, ThreeDModelRevisionWrite(file_id=three_d_file.id, published=True)
+    revision = cast(
+        ThreeDModelRevision,
+        client.three_d.revisions.create(model.id, ThreeDModelRevisionWrite(file_id=three_d_file.id, published=True)),
     )
     if not isinstance(revision, ThreeDModelRevision):
         raise EndpointAssertionError(
@@ -52,7 +54,13 @@ def a_three_d_model(
 
     max_time = time.time() + 300  # 5 minutes timeout
     while revision.status in {"Processing", "Queued"}:
-        revision = client.three_d.revisions.retrieve(model.id, revision.id)
+        revision_status = client.three_d.revisions.retrieve(model.id, revision.id)
+        if revision_status is None:
+            raise EndpointAssertionError(
+                client.three_d.revisions._RESOURCE_PATH,
+                "Failed to retrieve 3D model revision status for migration test.",
+            )
+        revision = revision_status
         time.sleep(1)
         if time.time() > max_time:
             raise AssertionError("Timeout waiting for 3D model revision to be processed.")
@@ -106,6 +114,8 @@ class TestMigrate3D:
     ) -> None:
         client = toolkit_client
         model = a_three_d_model
+        if model.last_revision_info is None:
+            raise AssertionError(f"{self.ERROR_HEADING}3D model has no revision info.")
 
         mapper = ThreeDMapper(client)
 
@@ -117,7 +127,8 @@ class TestMigrate3D:
             raise AssertionError(f"{self.ERROR_HEADING}Issue object not of expected type got {type(issue)}.")
         if issue.has_issues:
             raise AssertionError(f"{self.ERROR_HEADING}Issues: {humanize_collection(issue.error_message)}")
-
+        if migration_request is None:
+            raise AssertionError(f"{self.ERROR_HEADING}Mapped migration request is None.")
         io = ThreeDMigrationIO(client)
 
         with HTTPClient(config=client.config) as http_client:

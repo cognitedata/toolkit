@@ -1,6 +1,7 @@
 import os
 import zipfile
 from pathlib import Path
+from typing import cast
 
 import pytest
 from cognite.client import global_config
@@ -86,11 +87,11 @@ def three_d_file(toolkit_client: ToolkitClient, smoke_dataset: DataSet) -> FileM
         mime_type="application/octet-stream",
         source="3d-models",
     )
-    read = client.files.retrieve(external_id=meta.external_id)
+    read = cast(FileMetadata | None, client.files.retrieve(external_id=meta.external_id))
     if read and read.uploaded is True:
         return read
     if read is None:
-        read = client.files.create(meta)
+        read, _ = client.files.create(meta)
     with zipfile.ZipFile(THREE_D_He2_FBX_ZIP, mode="r") as zip_ref:
         file_data = zip_ref.read("he2.fbx")
         read = client.files.upload_content_bytes(file_data, external_id=meta.external_id)
