@@ -511,7 +511,7 @@ class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingResponse, AssetMa
             asset_instance_id = NodeReference(space=asset_node_id.space, externalId=asset_node_id.external_id)
 
         if asset_instance_id is None:
-            issue.error_message.append("Asset mapping has no associated asset instance.")
+            issue.error_message.append("Neither assetInstanceId nor assetId provided for mapping.")
             return None, issue
         mapped_request = AssetMappingDMRequest(
             modelId=item.model_id, revisionId=item.revision_id, nodeId=item.node_id, assetInstanceId=asset_instance_id
