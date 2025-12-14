@@ -291,8 +291,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
             message=SimpleBodyRequest(
                 endpoint_url=http_client.config.create_api_url(self.UPLOAD_ENDPOINT),
                 method="POST",
-                # MyPy does not understand that .dump is valid json
-                body_content=item.dump(),  # type: ignore[arg-type]
+                body_content=item.dump(),
             )
         )
         return self._parse_upload_link_response(responses, item, results)

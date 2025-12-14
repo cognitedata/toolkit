@@ -1,14 +1,14 @@
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Mapping, Sequence, Sized
 from dataclasses import dataclass
-from typing import ClassVar, Generic, Literal, TypeVar
+from typing import Any, ClassVar, Generic, Literal, TypeVar
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader, SchemaColumn
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest
+from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest, RequestResource
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from .selectors import DataSelector
@@ -35,8 +35,7 @@ class Page(Generic[T_ResourceResponse], Sized):
         return len(self.items)
 
 
-@dataclass
-class UploadItem(Generic[T_ResourceRequest]):
+class UploadItem(RequestResource, Generic[T_ResourceRequest]):
     """An item to be uploaded to CDF, consisting of a source ID and the writable Cognite resource.
 
     Attributes:
@@ -50,8 +49,8 @@ class UploadItem(Generic[T_ResourceRequest]):
     def as_id(self) -> str:
         return self.source_id
 
-    def dump(self) -> JsonVal:
-        return self.item.dump(camel_case=True)
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        return self.item.dump(camel_case=camel_case)
 
 
 class StorageIO(ABC, Generic[T_Selector, T_ResourceResponse]):
