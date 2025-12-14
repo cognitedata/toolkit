@@ -21,7 +21,7 @@ repos:
     rev: v0.14.8
 
   - repo: https://github.com/igorshubovych/markdownlint-cli
-    rev: v0.46.0
+    rev: v0.47.0
     hooks:
     - id: markdownlint
     
