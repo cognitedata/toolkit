@@ -508,6 +508,8 @@ class ThreeDAssetMappingMigrationIO(UploadableStorageIO[ThreeDSelector, AssetMap
                     request_limit = (
                         min(self.DOWNLOAD_LIMIT, limit - total) if limit is not None else self.DOWNLOAD_LIMIT
                     )
+                    if limit is not None and total >= limit:
+                        return
                     response = self.client.tool.three_d.asset_mappings.iterate(
                         model_id=model.id,
                         revision_id=model.last_revision_info.revision_id,
