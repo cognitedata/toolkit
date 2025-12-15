@@ -21,10 +21,10 @@ from questionary import Choice
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.canvas import Canvas
-from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList, Visibility
-from cognite_toolkit._cdf_tk.client.data_classes.migration import ResourceViewMapping
-from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.canvas import Canvas
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.charts import Chart, ChartList, Visibility
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import ResourceViewMapping
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.raw import RawTable
 from cognite_toolkit._cdf_tk.client.data_classes.three_d import ThreeDModelResponse
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
 

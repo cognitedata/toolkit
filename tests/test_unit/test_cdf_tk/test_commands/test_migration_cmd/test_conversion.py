@@ -16,7 +16,7 @@ from cognite.client.data_classes.data_modeling.ids import ContainerId, EdgeId, V
 from cognite.client.data_classes.data_modeling.instances import NodeList, PropertyValueWrite
 from cognite.client.data_classes.data_modeling.views import MappedProperty, MultiEdgeConnection, ViewProperty
 
-from cognite_toolkit._cdf_tk.client.data_classes.migration import (
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import (
     AssetCentricId,
     CreatedSourceSystem,
     ResourceViewMapping,

@@ -13,8 +13,11 @@ from cognite.client.utils._identifier import IdentifierSequence
 from cognite.client.utils._validation import prepare_filter_sort, process_asset_subtree_ids, process_data_set_ids
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk.client.data_classes.extended_timeseries import ExtendedTimeSeries, ExtendedTimeSeriesList
-from cognite_toolkit._cdf_tk.client.data_classes.pending_instances_ids import PendingInstanceId
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.extended_timeseries import (
+    ExtendedTimeSeries,
+    ExtendedTimeSeriesList,
+)
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.pending_instances_ids import PendingInstanceId
 
 
 class ExtendedTimeSeriesAPI(TimeSeriesAPI):

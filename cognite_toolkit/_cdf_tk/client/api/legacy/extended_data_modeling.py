@@ -16,7 +16,7 @@ from cognite.client.utils._concurrency import execute_tasks
 from requests import Response
 
 from cognite_toolkit._cdf_tk.client._constants import DATA_MODELING_MAX_DELETE_WORKERS, DATA_MODELING_MAX_WRITE_WORKERS
-from cognite_toolkit._cdf_tk.client.data_classes.instances import InstancesApplyResultList
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.instances import InstancesApplyResultList
 from cognite_toolkit._cdf_tk.client.utils._concurrency import ToolkitConcurrencySettings
 from cognite_toolkit._cdf_tk.client.utils._http_client import ToolkitRetryTracker
 

@@ -3,7 +3,7 @@ from random import randint
 import pytest
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.search_config import (
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.search_config import (
     SearchConfig,
     SearchConfigWrite,
     ViewId,

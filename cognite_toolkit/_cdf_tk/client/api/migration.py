@@ -16,7 +16,8 @@ from cognite.client.data_classes.data_modeling import (
 )
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk.client.data_classes.migration import (
+from cognite_toolkit._cdf_tk.client.api.legacy.extended_data_modeling import ExtendedInstancesAPI
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import (
     AssetCentricId,
     CreatedSourceSystem,
     InstanceSource,
@@ -28,8 +29,6 @@ from cognite_toolkit._cdf_tk.constants import COGNITE_MIGRATION_SPACE
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricType
-
-from .extended_data_modeling import ExtendedInstancesAPI
 
 
 class InstanceSourceAPI:
