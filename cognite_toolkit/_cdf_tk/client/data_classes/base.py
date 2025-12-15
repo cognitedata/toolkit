@@ -31,6 +31,9 @@ class ResponseResource(BaseModelObject, Generic[T_RequestResource], ABC):
         return self.as_request_resource()
 
 
+T_ResponseResource = TypeVar("T_ResponseResource", bound=ResponseResource)
+
+
 class Identifier(BaseModel):
     """Base class for all identifier classes."""
 
