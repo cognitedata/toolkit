@@ -19,10 +19,16 @@ class RevisionStatus(BaseModelObject):
 class ThreeDModelRequest(RequestResource):
     name: str
 
+    def as_id(self) -> str:
+        return self.name
+
 
 class ThreeDModelClassicRequest(ThreeDModelRequest):
     data_set_id: int | None = None
     metadata: dict[str, str] | None = None
+
+    def as_id(self) -> str:
+        return self.name
 
 
 class ThreeDModelDMSRequest(ThreeDModelRequest):

@@ -182,6 +182,10 @@ def humanize_validation_error(error: ValidationError) -> list[str]:
             "dict_type",
         }:
             msg = f"{item['msg']}. Got {item['input']!r} of type {type(item['input']).__name__}."
+        elif error_type == "union_tag_not_found" and "ctx" in item and "discriminator" in item["ctx"]:
+            # This is when we use a discriminator field to determine the type in a union. For the user, this means they
+            # are missing a required field.
+            msg = f"Missing required field: {item['ctx']['discriminator']}"
         else:
             # Default to the Pydantic error message
             msg = item["msg"]
