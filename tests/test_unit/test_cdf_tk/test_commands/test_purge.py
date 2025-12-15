@@ -147,7 +147,7 @@ def purge_responses(
     yield rsps
 
 
-@pytest.fixture()
+@pytest.fixture
 def purge_client(toolkit_config: ToolkitClientConfig) -> Iterator[ToolkitClient]:
     config = toolkit_config
     client = ToolkitClient(config, enable_set_pending_ids=True)

@@ -1,14 +1,14 @@
 from collections.abc import Sequence
 
+from pydantic import TypeAdapter
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk.client.data_classes.api_classes import PagedResponse
+from cognite_toolkit._cdf_tk.client.data_classes.api_classes import InternalIdRequest, PagedResponse
 from cognite_toolkit._cdf_tk.client.data_classes.three_d import ThreeDModelClassicRequest, ThreeDModelResponse
 from cognite_toolkit._cdf_tk.utils.http_client import (
     HTTPClient,
-    ItemsRequest,
+    ItemsRequest2,
     RequestMessage2,
-    SimpleBodyRequest,
 )
 from cognite_toolkit._cdf_tk.utils.useful_types import PrimitiveType
 
@@ -37,16 +37,15 @@ class ThreeDModelAPI:
             return []
         if len(models) > self.MAX_CLASSIC_MODELS_PER_CREATE_REQUEST:
             raise ValueError("Cannot create more than 1000 3D models in a single request.")
-        responses = self._http_client.request_with_retries(
-            ItemsRequest(
+        responses = self._http_client.request_items_retries(
+            ItemsRequest2(
                 endpoint_url=self._config.create_api_url(self.ENDPOINT),
                 method="POST",
-                items=list(models),
+                items=models,
             )
         )
         responses.raise_for_status()
-        body = responses.get_first_body()
-        return PagedResponse[ThreeDModelResponse].model_validate(body).items
+        return TypeAdapter(list[ThreeDModelResponse]).validate_python(responses.get_items())
 
     def delete(self, ids: Sequence[int]) -> None:
         """Delete 3D models by their IDs.
@@ -58,11 +57,11 @@ class ThreeDModelAPI:
             return None
         if len(ids) > self.MAX_MODELS_PER_DELETE_REQUEST:
             raise ValueError("Cannot delete more than 1000 3D models in a single request.")
-        responses = self._http_client.request_with_retries(
-            SimpleBodyRequest(
+        responses = self._http_client.request_items_retries(
+            ItemsRequest2(
                 endpoint_url=self._config.create_api_url(self.ENDPOINT + "/delete"),
                 method="POST",
-                body_content={"items": [{"id": id_} for id_ in ids]},
+                items=InternalIdRequest.from_ids(list(ids)),
             )
         )
         responses.raise_for_status()

@@ -15,17 +15,17 @@ class TypedInstanceIdentifier(Identifier):
     external_id: str
 
 
-class InstanceIdentifier(Identifier):
-    space: str
-    external_id: str
-
-
-class NodeIdentifier(TypedInstanceIdentifier):
+class TypedNodeIdentifier(TypedInstanceIdentifier):
     instance_type: Literal["node"] = "node"
 
 
-class EdgeIdentifier(TypedInstanceIdentifier):
+class TypedEdgeIdentifier(TypedInstanceIdentifier):
     instance_type: Literal["edge"] = "edge"
+
+
+class InstanceIdentifier(Identifier):
+    space: str
+    external_id: str
 
 
 class InstanceResult(BaseModelObject):
