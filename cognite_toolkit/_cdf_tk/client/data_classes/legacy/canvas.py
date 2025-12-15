@@ -30,7 +30,7 @@ from cognite.client.data_classes.data_modeling.instances import (
     TypedNodeApply,
 )
 
-from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 if sys.version_info >= (3, 11):

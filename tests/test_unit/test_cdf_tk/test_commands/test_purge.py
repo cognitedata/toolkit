@@ -26,10 +26,10 @@ from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFile, Cognit
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.data_classes.extended_filemetadata import (
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.extended_filemetadata import (
     ExtendedFileMetadata,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.extended_timeseries import ExtendedTimeSeries
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.extended_timeseries import ExtendedTimeSeries
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
 from cognite_toolkit._cdf_tk.storageio.selectors import InstanceViewSelector, SelectedView
 from tests.test_unit.utils import FakeCogniteResourceGenerator

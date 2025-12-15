@@ -10,7 +10,7 @@ from cognite.client.data_classes import data_modeling as dm
 from cognite.client.data_classes.transformations import NonceCredentials
 from cognite.client.exceptions import CogniteAPIError
 
-from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.raw import RawDatabase, RawTable
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.cruds import (
     DataModelCRUD,

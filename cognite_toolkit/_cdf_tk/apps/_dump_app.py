@@ -6,7 +6,7 @@ from cognite.client.data_classes import WorkflowVersionId
 from cognite.client.data_classes.data_modeling import DataModelId, ViewId
 from rich import print
 
-from cognite_toolkit._cdf_tk.client.data_classes.search_config import ViewId as SearchConfigViewId
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.search_config import ViewId as SearchConfigViewId
 from cognite_toolkit._cdf_tk.commands import DumpResourceCommand
 from cognite_toolkit._cdf_tk.commands.dump_resource import (
     AgentFinder,

@@ -3,8 +3,8 @@ from typing import overload
 
 from cognite.client._api_client import APIClient
 
-from cognite_toolkit._cdf_tk.client.api.robotics.utlis import tmp_disable_gzip
-from cognite_toolkit._cdf_tk.client.data_classes.robotics import Robot, RobotList, RobotWrite, _RobotUpdate
+from cognite_toolkit._cdf_tk.client.api.legacy.robotics.utlis import tmp_disable_gzip
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.robotics import Robot, RobotList, RobotWrite, _RobotUpdate
 
 
 class RobotsAPI(APIClient):

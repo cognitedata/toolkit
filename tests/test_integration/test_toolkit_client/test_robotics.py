@@ -5,7 +5,7 @@ from cognite.client.data_classes import DataSet, DataSetWrite
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.robotics import (
     DataPostProcessing,
     DataPostProcessingList,
     DataPostProcessingWrite,

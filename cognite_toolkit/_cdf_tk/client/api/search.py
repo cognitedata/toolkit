@@ -2,8 +2,8 @@ from cognite.client import CogniteClient
 from cognite.client._api_client import APIClient
 from cognite.client.config import ClientConfig
 
-from .location_filters import LocationFiltersAPI
-from .search_config import SearchConfigurationsAPI
+from cognite_toolkit._cdf_tk.client.api.legacy.location_filters import LocationFiltersAPI
+from cognite_toolkit._cdf_tk.client.api.legacy.search_config import SearchConfigurationsAPI
 
 
 class SearchAPI(APIClient):

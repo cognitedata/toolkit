@@ -4,7 +4,11 @@ from cognite.client import CogniteClient
 from cognite.client._api_client import APIClient
 from cognite.client.config import ClientConfig
 
-from cognite_toolkit._cdf_tk.client.data_classes.search_config import SearchConfig, SearchConfigList, SearchConfigWrite
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.search_config import (
+    SearchConfig,
+    SearchConfigList,
+    SearchConfigWrite,
+)
 
 
 class SearchConfigurationsAPI(APIClient):

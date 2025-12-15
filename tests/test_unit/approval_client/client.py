@@ -63,9 +63,9 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from requests import Response
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import GraphQLDataModelWrite
-from cognite_toolkit._cdf_tk.client.data_classes.project import ProjectStatus, ProjectStatusList
-from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.graphql_data_models import GraphQLDataModelWrite
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.project import ProjectStatus, ProjectStatusList
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.raw import RawDatabase
 from cognite_toolkit._cdf_tk.client.data_classes.streams import StreamResponse, StreamResponseList
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN, STREAM_IMMUTABLE_TEMPLATE_NAME
