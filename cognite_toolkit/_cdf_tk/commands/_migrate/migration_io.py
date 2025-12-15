@@ -477,14 +477,14 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelResponse,
         return results
 
 
-class ThreeDMigrationAssetMappingIO(UploadableStorageIO[ThreeDSelector, AssetMappingResponse, AssetMappingDMRequest]):
+class ThreeDAssetMappingMigrationIO(UploadableStorageIO[ThreeDSelector, AssetMappingResponse, AssetMappingDMRequest]):
     KIND = "3DMigrationAssetMapping"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     SUPPORTED_READ_FORMATS = frozenset({".ndjson"})
     DOWNLOAD_LIMIT = 1000
     CHUNK_SIZE = 100
-    UPLOAD_ENDPOINT = "/3d/migrate/asset-mappings"
+    UPLOAD_ENDPOINT = "/3d/models/{modelId}/revisions/{revisionId}/mappings"
 
     def __init__(self, client: ToolkitClient, object_3D_space: str, cad_node_space: str) -> None:
         super().__init__(client)
@@ -533,7 +533,28 @@ class ThreeDMigrationAssetMappingIO(UploadableStorageIO[ThreeDSelector, AssetMap
         selector: T_Selector | None = None,
     ) -> Sequence[HTTPMessage]:
         """Migrate 3D asset mappings by uploading them to the migrate/asset-mappings endpoint."""
-        raise NotImplementedError("Not implemented  yet.")
+        if not data_chunk:
+            return []
+        # Assume all items in the chunk belong to the same model and revision, they should
+        # if the .stream_data method is used for downloading.
+        first = data_chunk[0]
+        model_id = first.item.model_id
+        revision_id = first.item.revision_id
+        endpoint = self.UPLOAD_ENDPOINT.format(modelId=model_id, revisionId=revision_id)
+        responses = http_client.request_with_retries(
+            ItemsRequest(
+                endpoint_url=self.client.config.create_api_url(endpoint),
+                method="POST",
+                items=list(data_chunk),
+                extra_body_fields={
+                    "dmsContextualizationConfig": {
+                        "object3DSpace": self.object_3D_space,
+                        "cadNodeSpace": self.cad_node_space,
+                    }
+                },
+            )
+        )
+        return responses
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> AssetMappingDMRequest:
         raise NotImplementedError("Deserializing 3D Asset Mappings from JSON is not supported.")
