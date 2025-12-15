@@ -616,7 +616,7 @@ class DownloadApp(typer.Typer):
                 file_format = AssetCentricFormats.ndjson
             files = client.files.list(data_set_external_ids=data_sets, limit=limit)
             selector = FileIdentifierSelector(
-                identifiers=tuple([FileInternalID(internal_id=file.id) for file in files])  # type: ignore[call-arg]
+                identifiers=tuple([FileInternalID(internal_id=file.id) for file in files])
             )
             selectors = [selector]
             io = FileContentIO(client, output_dir / sanitize_filename(selector.group))
