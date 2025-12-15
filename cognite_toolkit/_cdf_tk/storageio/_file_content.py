@@ -145,8 +145,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
         identifiers_map: dict[FileIdentifier, FileMetadata] = {}
         for item in metadata:
             if item.id is not None:
-                # MyPy does cooperate well with Pydantic.
-                identifiers_map[FileInternalID(internal_id=item.id)] = item  # type: ignore[call-arg]
+                identifiers_map[FileInternalID(internal_id=item.id)] = item
             if item.external_id is not None:
                 identifiers_map[FileExternalID(external_id=item.external_id)] = item
             if item.instance_id is not None:
