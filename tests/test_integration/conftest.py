@@ -38,7 +38,7 @@ from cognite.client.data_classes.data_modeling import Space, SpaceApply
 from dotenv import load_dotenv
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawDatabaseList, RawTable, RawTableList
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.raw import RawDatabase, RawDatabaseList, RawTable, RawTableList
 from cognite_toolkit._cdf_tk.commands import CollectCommand
 from cognite_toolkit._cdf_tk.cruds import RawDatabaseCRUD, RawTableCRUD
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables

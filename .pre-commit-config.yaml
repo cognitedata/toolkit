@@ -18,7 +18,7 @@ repos:
           - --fixable=E,W,F,I,T,RUF,TID,UP
           - --target-version=py310
       - id: ruff-format
-    rev: v0.14.8
+    rev: v0.14.9
 
   - repo: https://github.com/igorshubovych/markdownlint-cli
     rev: v0.47.0
@@ -34,7 +34,7 @@ repos:
   - hooks:
     - id: mypy
       name: mypy
-      entry: dmypy run -- cognite_toolkit/ --config-file pyproject.toml
+      entry: dmypy run -- cognite_toolkit/ tests_smoke/ --config-file pyproject.toml
       files: ^.*.(py|pyi)$
       language: system
       pass_filenames: false

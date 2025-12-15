@@ -20,7 +20,7 @@ from cognite.client.data_classes.data_modeling.cdm.v1 import (
 from cognite.client.exceptions import CogniteAPIError, CogniteConnectionError, CogniteReadTimeout
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceList
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.instances import InstanceList
 from tests.constants import CDF_PROJECT
 
 

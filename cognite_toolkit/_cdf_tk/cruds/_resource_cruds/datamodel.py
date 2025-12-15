@@ -73,7 +73,7 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk import constants
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import (
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.graphql_data_models import (
     GraphQLDataModel,
     GraphQLDataModelList,
     GraphQLDataModelWrite,

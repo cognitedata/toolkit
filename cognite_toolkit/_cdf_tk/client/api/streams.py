@@ -8,7 +8,6 @@ from cognite_toolkit._cdf_tk.client.data_classes.streams import StreamRequest, S
 from cognite_toolkit._cdf_tk.utils.http_client import (
     HTTPClient,
     ItemsRequest2,
-    ParamRequest,
     RequestMessage2,
 )
 
@@ -46,13 +45,13 @@ class StreamsAPI:
         Args:
             external_id: External ID of the stream to delete.
         """
-        responses = self._http_client.request_with_retries(
-            ParamRequest(
+        response = self._http_client.request_single_retries(
+            RequestMessage2(
                 endpoint_url=self._config.create_api_url(f"{self.ENDPOINT}/{external_id}"),
                 method="DELETE",
             )
         )
-        responses.raise_for_status()
+        _ = response.get_success_or_raise()
 
     def list(self) -> list[StreamResponse]:
         """List streams.

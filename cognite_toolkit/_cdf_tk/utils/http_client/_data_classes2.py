@@ -26,9 +26,7 @@ class HTTPResult2(BaseModel):
         if isinstance(self, SuccessResponse2):
             return self
         elif isinstance(self, FailedResponse2):
-            raise ToolkitAPIError(
-                f"Request failed with status code {self.status_code}: {self.error.code} - {self.error.message}"
-            )
+            raise ToolkitAPIError(f"Request failed with status code {self.status_code}: {self.error.message}")
         elif isinstance(self, FailedRequest2):
             raise ToolkitAPIError(f"Request failed with error: {self.error}")
         else:

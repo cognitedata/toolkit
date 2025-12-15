@@ -1,0 +1,48 @@
+name: Smoke Tests
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Run at 05:00 UTC every day
+    - cron: '0 5 * * *'
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: 3.13
+
+jobs:
+  smoke-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+
+      - name: Install uv and set the python version
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Set up cache
+        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5
+        with:
+          path: .venv
+          key: venv-${{ hashFiles('pyproject.toml') }}-${{ hashFiles('uv.lock') }}
+
+      - run: uv sync --all-extras
+
+      - name: Run smoke tests
+        env:
+          CDF_CLUSTER: ${{ vars.CDF_CLUSTER }}
+          CDF_PROJECT: ${{ vars.CDF_PROJECT }}
+          IDP_CLIENT_ID: ${{ vars.IDP_CLIENT_ID }}
+          IDP_CLIENT_SECRET: ${{ secrets.IDP_CLIENT_SECRET }}
+          IDP_TOKEN_URL: ${{ vars.IDP_TOKEN_URL }}
+        run: export PYTHONPATH=$PYTHONPATH:$(pwd); uv run pytest tests_smoke --json-report --json-report-file=smoke-report.json --tb=short
+        continue-on-error: true
+
+      - name: Check smoke test results and send Slack notification
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          GITHUB_REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: uv run python tests_smoke/check_smoke_results.py smoke-report.json
