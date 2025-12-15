@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import pytest
 import responses
 from cognite.client.data_classes import Annotation
 
@@ -12,10 +13,15 @@ from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFile
 from cognite_toolkit._cdf_tk.storageio import AssetIO
 
 
+@pytest.fixture(scope="module")
+def toolkit_client(toolkit_config: ToolkitClientConfig) -> ToolkitClient:
+    return ToolkitClient(config=toolkit_config)
+
+
 class TestAssetCentricMigrationIOAdapter:
-    def test_download(self, toolkit_config: ToolkitClientConfig, rsps: responses.RequestsMock, tmp_path: Path) -> None:
-        config = toolkit_config
-        client = ToolkitClient(config=config)
+    def test_download(self, toolkit_client: ToolkitClient, rsps: responses.RequestsMock, tmp_path: Path) -> None:
+        client = toolkit_client
+        config = toolkit_client.config
         N = 1500
         items = [{"id": i, "externalId": f"asset_{i}", "space": "mySpace"} for i in range(N)]
         rsps.post(config.create_api_url("/assets/byids"), json={"items": items[: AssetIO.CHUNK_SIZE]})
@@ -41,10 +47,10 @@ class TestAssetCentricMigrationIOAdapter:
 
 class TestAnnotationMigrationIO:
     def test_download_annotations(
-        self, toolkit_config: ToolkitClientConfig, rsps: responses.RequestsMock, tmp_path: Path
+        self, toolkit_client: ToolkitClient, rsps: responses.RequestsMock, tmp_path: Path
     ) -> None:
-        config = toolkit_config
-        client = ToolkitClient(config=config)
+        client = toolkit_client
+        config = toolkit_client.config
         N = 1500
         annotation_items = [
             Annotation(
