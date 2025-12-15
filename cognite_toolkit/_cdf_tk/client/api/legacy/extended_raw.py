@@ -1,6 +1,6 @@
 from cognite.client._api.raw import RawAPI
 
-from cognite_toolkit._cdf_tk.client.data_classes.raw import RawProfileResults, RawTable
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.raw import RawProfileResults, RawTable
 
 
 class ExtendedRawAPI(RawAPI):

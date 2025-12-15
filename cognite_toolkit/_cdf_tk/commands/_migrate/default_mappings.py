@@ -2,7 +2,7 @@ from functools import lru_cache
 
 from cognite.client.data_classes.data_modeling import ViewId
 
-from cognite_toolkit._cdf_tk.client.data_classes.migration import ResourceViewMappingApply
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import ResourceViewMappingApply
 
 ASSET_ID = "cdf_asset_mapping"
 EVENT_ID = "cdf_event_mapping"

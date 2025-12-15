@@ -6,7 +6,7 @@ from cognite.client._api_client import APIClient
 from cognite.client.utils._identifier import IdentifierSequence
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk.client.data_classes.charts import (
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.charts import (
     Chart,
     ChartList,
     ChartWrite,

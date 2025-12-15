@@ -1,7 +1,7 @@
 from cognite.client.data_classes.raw import RowWriteList
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.raw import (
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.raw import (
     BooleanProfileColumn,
     NumberProfileColumn,
     ObjectProfileColumn,

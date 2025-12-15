@@ -1,7 +1,7 @@
 import pytest
 from cognite.client.data_classes.data_modeling.ids import DataModelId
 
-from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.location_filters import (
     AssetCentricFilter,
     AssetCentricSubFilter,
     LocationFilterScene,

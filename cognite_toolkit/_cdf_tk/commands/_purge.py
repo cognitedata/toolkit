@@ -16,6 +16,7 @@ from rich.console import Console
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.data_classes.instance_api import TypedInstanceIdentifier
 from cognite_toolkit._cdf_tk.cruds import (
     AssetCRUD,
     ContainerCRUD,
@@ -59,10 +60,10 @@ from cognite_toolkit._cdf_tk.utils.aggregators import (
     TimeSeriesAggregator,
 )
 from cognite_toolkit._cdf_tk.utils.http_client import (
-    FailedRequestItems,
-    FailedResponseItems,
     HTTPClient,
     ItemsRequest,
+    ItemsRequest2,
+    ItemsSuccessResponse2,
     SuccessResponseItems,
 )
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
@@ -714,21 +715,18 @@ class PurgeCommand(ToolkitCommand):
             results.deleted += len(items)
             return
 
-        responses = delete_client.request_with_retries(
-            ItemsRequest(
-                delete_client.config.create_api_url("/models/instances/delete"),
+        responses = delete_client.request_items_retries(
+            ItemsRequest2(
+                endpoint_url=delete_client.config.create_api_url("/models/instances/delete"),
                 method="POST",
-                # MyPy does not understand that InstanceId.load handles dict[str, JsonVal]
-                items=[DeleteItem(item=item, as_id_fun=InstanceId.load) for item in items],  # type: ignore[arg-type]
+                items=[TypedInstanceIdentifier._load(item) for item in items],
             )
         )
         for response in responses:
-            if isinstance(response, SuccessResponseItems):
+            if isinstance(response, ItemsSuccessResponse2):
                 results.deleted += len(response.ids)
-            elif isinstance(response, FailedResponseItems | FailedRequestItems):
-                results.failed += len(response.ids)
             else:
-                results.failed += len(items)
+                results.failed += len(response.ids)
 
     @staticmethod
     def _unlink_timeseries(

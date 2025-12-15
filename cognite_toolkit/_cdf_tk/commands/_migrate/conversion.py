@@ -15,7 +15,7 @@ from cognite.client.data_classes.data_modeling.views import ViewProperty
 from cognite.client.utils._identifier import InstanceId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.migration import (
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import (
     AssetCentricId,
     ResourceViewMappingApply,
 )

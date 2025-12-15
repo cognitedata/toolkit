@@ -8,17 +8,17 @@ from cognite.client.data_classes.data_modeling import NodeApplyResultList, NodeI
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk.client.data_classes.apm_config_v1 import (
-    APMConfig,
-    APMConfigList,
-    APMConfigWrite,
-)
 from cognite_toolkit._cdf_tk.client.data_classes.infield import (
     InFieldCDMLocationConfig,
     InfieldLocationConfig,
     InfieldLocationConfigList,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.instance_api import InstanceResult, NodeIdentifier
+from cognite_toolkit._cdf_tk.client.data_classes.instance_api import InstanceResult, TypedNodeIdentifier
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.apm_config_v1 import (
+    APMConfig,
+    APMConfigList,
+    APMConfigWrite,
+)
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import (
@@ -246,7 +246,7 @@ class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig]):
 
 
 @final
-class InFieldLocationConfigCRUD(ResourceCRUD[NodeIdentifier, InfieldLocationConfig, InfieldLocationConfig]):
+class InFieldLocationConfigCRUD(ResourceCRUD[TypedNodeIdentifier, InfieldLocationConfig, InfieldLocationConfig]):
     folder_name = "cdf_applications"
     resource_cls = InfieldLocationConfig
     resource_write_cls = InfieldLocationConfig
@@ -260,13 +260,13 @@ class InFieldLocationConfigCRUD(ResourceCRUD[NodeIdentifier, InfieldLocationConf
         return "infield location configs"
 
     @classmethod
-    def get_id(cls, item: InfieldLocationConfig | dict) -> NodeIdentifier:
+    def get_id(cls, item: InfieldLocationConfig | dict) -> TypedNodeIdentifier:
         if isinstance(item, dict):
-            return NodeIdentifier(space=item["space"], external_id=item["externalId"])
-        return NodeIdentifier(space=item.space, external_id=item.external_id)
+            return TypedNodeIdentifier(space=item["space"], external_id=item["externalId"])
+        return TypedNodeIdentifier(space=item.space, external_id=item.external_id)
 
     @classmethod
-    def dump_id(cls, id: NodeIdentifier) -> dict[str, Any]:
+    def dump_id(cls, id: TypedNodeIdentifier) -> dict[str, Any]:
         return id.dump(include_type=False)
 
     @classmethod
@@ -308,13 +308,13 @@ class InFieldLocationConfigCRUD(ResourceCRUD[NodeIdentifier, InfieldLocationConf
         # as we only want to count the infield location configs here.
         return [res for res in created if res.as_id() in config_ids]
 
-    def retrieve(self, ids: SequenceNotStr[NodeIdentifier]) -> InfieldLocationConfigList:
+    def retrieve(self, ids: SequenceNotStr[TypedNodeIdentifier]) -> InfieldLocationConfigList:
         return InfieldLocationConfigList(self.client.infield.config.retrieve(list(ids)))
 
     def update(self, items: Sequence[InfieldLocationConfig]) -> Sized:
         return self.create(items)
 
-    def delete(self, ids: SequenceNotStr[NodeIdentifier]) -> int:
+    def delete(self, ids: SequenceNotStr[TypedNodeIdentifier]) -> int:
         # We must retrieve the full resource to get hte DataExplorationConfig linked resource deleted as well.
         retrieved = self.retrieve(list(ids))
         # Then, we pass the entire resource to the delete method, which will delete both the InfieldLocationConfig
@@ -345,7 +345,9 @@ class InFieldLocationConfigCRUD(ResourceCRUD[NodeIdentifier, InfieldLocationConf
 
 
 @final
-class InFieldCDMLocationConfigCRUD(ResourceCRUD[NodeIdentifier, InFieldCDMLocationConfig, InFieldCDMLocationConfig]):
+class InFieldCDMLocationConfigCRUD(
+    ResourceCRUD[TypedNodeIdentifier, InFieldCDMLocationConfig, InFieldCDMLocationConfig]
+):
     folder_name = "cdf_applications"
     resource_cls = InFieldCDMLocationConfig
     resource_write_cls = InFieldCDMLocationConfig
@@ -359,13 +361,13 @@ class InFieldCDMLocationConfigCRUD(ResourceCRUD[NodeIdentifier, InFieldCDMLocati
         return "infield CDM location configs"
 
     @classmethod
-    def get_id(cls, item: InFieldCDMLocationConfig | dict) -> NodeIdentifier:
+    def get_id(cls, item: InFieldCDMLocationConfig | dict) -> TypedNodeIdentifier:
         if isinstance(item, dict):
-            return NodeIdentifier(space=item["space"], external_id=item["externalId"])
-        return NodeIdentifier(space=item.space, external_id=item.external_id)
+            return TypedNodeIdentifier(space=item["space"], external_id=item["externalId"])
+        return TypedNodeIdentifier(space=item.space, external_id=item.external_id)
 
     @classmethod
-    def dump_id(cls, id: NodeIdentifier) -> dict[str, Any]:
+    def dump_id(cls, id: TypedNodeIdentifier) -> dict[str, Any]:
         return id.dump(include_type=False)
 
     @classmethod
@@ -397,13 +399,13 @@ class InFieldCDMLocationConfigCRUD(ResourceCRUD[NodeIdentifier, InFieldCDMLocati
     def create(self, items: Sequence[InFieldCDMLocationConfig]) -> list[InstanceResult]:
         return self.client.infield.cdm_config.apply(items)
 
-    def retrieve(self, ids: SequenceNotStr[NodeIdentifier]) -> list[InFieldCDMLocationConfig]:
+    def retrieve(self, ids: SequenceNotStr[TypedNodeIdentifier]) -> list[InFieldCDMLocationConfig]:
         return self.client.infield.cdm_config.retrieve(list(ids))
 
     def update(self, items: Sequence[InFieldCDMLocationConfig]) -> Sized:
         return self.create(items)
 
-    def delete(self, ids: SequenceNotStr[NodeIdentifier]) -> int:
+    def delete(self, ids: SequenceNotStr[TypedNodeIdentifier]) -> int:
         # We must retrieve the full resource to delete it.
         retrieved = self.retrieve(list(ids))
         _ = self.client.infield.cdm_config.delete(retrieved)

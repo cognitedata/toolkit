@@ -10,7 +10,7 @@ from cognite.client.data_classes import (
 )
 from rich.spinner import Spinner
 
-from cognite_toolkit._cdf_tk.client.data_classes.raw import (
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.raw import (
     RawProfileColumns,
     RawProfileResults,
     StringProfile,
