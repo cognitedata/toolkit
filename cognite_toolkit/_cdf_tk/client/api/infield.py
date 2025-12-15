@@ -4,7 +4,7 @@ from typing import Any, cast
 from pydantic import TypeAdapter
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk.client.data_classes.api_classes import PagedResponse, QueryResponse
+from cognite_toolkit._cdf_tk.client.data_classes.api_classes import QueryResponse
 from cognite_toolkit._cdf_tk.client.data_classes.infield import (
     DataExplorationConfig,
     InFieldCDMLocationConfig,
@@ -13,12 +13,11 @@ from cognite_toolkit._cdf_tk.client.data_classes.infield import (
 from cognite_toolkit._cdf_tk.client.data_classes.instance_api import (
     InstanceResponseItem,
     InstanceResult,
-    NodeIdentifier,
+    TypedNodeIdentifier,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils.http_client import (
     HTTPClient,
-    ItemsRequest,
     ItemsRequest2,
     RequestMessage2,
 )
@@ -56,7 +55,7 @@ class InfieldConfigAPI:
         responses.raise_for_status()
         return TypeAdapter(list[InstanceResult]).validate_python(responses.get_items())
 
-    def retrieve(self, items: Sequence[NodeIdentifier]) -> list[InfieldLocationConfig]:
+    def retrieve(self, items: Sequence[TypedNodeIdentifier]) -> list[InfieldLocationConfig]:
         if len(items) > 100:
             raise ValueError("Cannot retrieve more than 100 InfieldLocationConfig items at once.")
         if not items:
@@ -73,7 +72,7 @@ class InfieldConfigAPI:
         parsed_response = QueryResponse[InstanceResponseItem].model_validate(success.body_json)
         return self._parse_retrieve_response(parsed_response)
 
-    def delete(self, items: Sequence[InfieldLocationConfig]) -> list[NodeIdentifier]:
+    def delete(self, items: Sequence[InfieldLocationConfig]) -> list[TypedNodeIdentifier]:
         if len(items) > 500:
             raise ValueError("Cannot delete more than 500 InfieldLocationConfig items at once.")
 
@@ -83,18 +82,18 @@ class InfieldConfigAPI:
             else [item.as_id(), item.data_exploration_config.as_id()]
             for item in items
         )
-        responses = self._http_client.request_with_retries(
-            ItemsRequest(
+        responses = self._http_client.request_items_retries(
+            ItemsRequest2(
                 endpoint_url=self._config.create_api_url(f"{self.ENDPOINT}/delete"),
                 method="POST",
                 items=[identifier for sublist in identifiers for identifier in sublist],
             )
         )
         responses.raise_for_status()
-        return PagedResponse[NodeIdentifier].model_validate(responses.get_first_body()).items
+        return TypeAdapter(list[TypedNodeIdentifier]).validate_python(responses.get_items())
 
     @classmethod
-    def _retrieve_query(cls, items: Sequence[NodeIdentifier]) -> dict[str, Any]:
+    def _retrieve_query(cls, items: Sequence[TypedNodeIdentifier]) -> dict[str, Any]:
         return {
             "with": {
                 cls.LOCATION_REF: {
@@ -184,7 +183,7 @@ class InFieldCDMConfigAPI:
         results.raise_for_status()
         return TypeAdapter(list[InstanceResult]).validate_python(results.get_items())
 
-    def retrieve(self, items: Sequence[NodeIdentifier]) -> list[InFieldCDMLocationConfig]:
+    def retrieve(self, items: Sequence[TypedNodeIdentifier]) -> list[InFieldCDMLocationConfig]:
         if len(items) > 100:
             raise ValueError("Cannot retrieve more than 100 InFieldCDMLocationConfig items at once.")
         if not items:
@@ -200,23 +199,23 @@ class InFieldCDMConfigAPI:
         parsed_response = QueryResponse[InstanceResponseItem].model_validate(success.body_json)
         return self._parse_retrieve_response(parsed_response)
 
-    def delete(self, items: Sequence[InFieldCDMLocationConfig]) -> list[NodeIdentifier]:
+    def delete(self, items: Sequence[InFieldCDMLocationConfig]) -> list[TypedNodeIdentifier]:
         if len(items) > 500:
             raise ValueError("Cannot delete more than 500 InFieldCDMLocationConfig items at once.")
 
-        identifiers: Sequence = [item.as_id() for item in items]
-        responses = self._http_client.request_with_retries(
-            ItemsRequest(
+        identifiers = [item.as_id() for item in items]
+        responses = self._http_client.request_items_retries(
+            ItemsRequest2(
                 endpoint_url=self._config.create_api_url(f"{self.ENDPOINT}/delete"),
                 method="POST",
-                items=identifiers,  # type: ignore[arg-type]
+                items=identifiers,
             )
         )
         responses.raise_for_status()
-        return PagedResponse[NodeIdentifier].model_validate(responses.get_first_body()).items
+        return TypeAdapter(list[TypedNodeIdentifier]).validate_python(responses.get_items())
 
     @classmethod
-    def _retrieve_query(cls, items: Sequence[NodeIdentifier]) -> dict[str, Any]:
+    def _retrieve_query(cls, items: Sequence[TypedNodeIdentifier]) -> dict[str, Any]:
         return {
             "with": {
                 cls.LOCATION_REF: {

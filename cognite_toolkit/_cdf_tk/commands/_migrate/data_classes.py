@@ -13,9 +13,9 @@ from pydantic import BaseModel, BeforeValidator, Field, field_validator, model_v
 
 from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject, RequestResource
 from cognite_toolkit._cdf_tk.client.data_classes.instance_api import InstanceIdentifier
-from cognite_toolkit._cdf_tk.client.data_classes.instances import InstanceApplyList
-from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId
-from cognite_toolkit._cdf_tk.client.data_classes.pending_instances_ids import PendingInstanceId
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.instances import InstanceApplyList
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import AssetCentricId
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.pending_instances_ids import PendingInstanceId
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
     ASSET_ANNOTATIONS_ID,
     FILE_ANNOTATIONS_ID,

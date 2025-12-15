@@ -15,20 +15,20 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.exceptions import CogniteException
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.canvas import (
-    ContainerReferenceApply,
-    FdmInstanceContainerReferenceApply,
-    IndustrialCanvas,
-    IndustrialCanvasApply,
-)
-from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartWrite
 from cognite_toolkit._cdf_tk.client.data_classes.charts_data import (
     ChartCoreTimeseries,
     ChartSource,
     ChartTimeseries,
 )
 from cognite_toolkit._cdf_tk.client.data_classes.instance_api import InstanceIdentifier
-from cognite_toolkit._cdf_tk.client.data_classes.migration import ResourceViewMappingApply
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.canvas import (
+    ContainerReferenceApply,
+    FdmInstanceContainerReferenceApply,
+    IndustrialCanvas,
+    IndustrialCanvasApply,
+)
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.charts import Chart, ChartWrite
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import ResourceViewMappingApply
 from cognite_toolkit._cdf_tk.client.data_classes.three_d import (
     AssetMappingDMRequest,
     AssetMappingResponse,
@@ -449,15 +449,15 @@ class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelResponse, ThreeDMigrati
             return None, issue
 
         mapped_request = ThreeDMigrationRequest(
-            model_id=item.id,
+            modelId=item.id,
             type=model_type,
             space=instance_space,
             revision=ThreeDRevisionMigrationRequest(
                 space=instance_space,
                 type=model_type,
-                revision_id=last_revision_id,
+                revisionId=last_revision_id,
                 model=Model(
-                    instance_id=InstanceIdentifier(
+                    instanceId=InstanceIdentifier(
                         space=instance_space,
                         external_id=f"cog_3d_model_{item.id!s}",
                     )

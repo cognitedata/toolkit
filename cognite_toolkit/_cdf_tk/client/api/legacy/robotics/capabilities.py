@@ -5,7 +5,7 @@ from cognite.client._api_client import APIClient
 from cognite.client.utils._identifier import IdentifierSequence
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.robotics import (
     RobotCapability,
     RobotCapabilityList,
     RobotCapabilityWrite,
