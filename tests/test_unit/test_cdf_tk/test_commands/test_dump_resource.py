@@ -31,9 +31,9 @@ from cognite.client.exceptions import CogniteAPIError
 from questionary import Choice
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk.client.data_classes.location_filters import LocationFilter, LocationFilterList
-from cognite_toolkit._cdf_tk.client.data_classes.search_config import SearchConfig, SearchConfigList, ViewId
-from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import Streamlit, StreamlitList
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.location_filters import LocationFilter, LocationFilterList
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.search_config import SearchConfig, SearchConfigList, ViewId
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.streamlit_ import Streamlit, StreamlitList
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands.dump_resource import (
     AgentFinder,

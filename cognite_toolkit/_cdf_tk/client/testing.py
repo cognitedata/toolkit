@@ -12,18 +12,27 @@ from cognite.client.testing import CogniteClientMock
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.api.legacy.canvas import CanvasAPI, IndustrialCanvasAPI
+from cognite_toolkit._cdf_tk.client.api.legacy.charts import ChartsAPI
+from cognite_toolkit._cdf_tk.client.api.legacy.dml import DMLAPI
+from cognite_toolkit._cdf_tk.client.api.legacy.extended_data_modeling import ExtendedInstancesAPI
+from cognite_toolkit._cdf_tk.client.api.legacy.extended_files import ExtendedFileMetadataAPI
+from cognite_toolkit._cdf_tk.client.api.legacy.extended_functions import ExtendedFunctionsAPI
+from cognite_toolkit._cdf_tk.client.api.legacy.extended_raw import ExtendedRawAPI
+from cognite_toolkit._cdf_tk.client.api.legacy.extended_timeseries import ExtendedTimeSeriesAPI
+from cognite_toolkit._cdf_tk.client.api.legacy.location_filters import LocationFiltersAPI
+from cognite_toolkit._cdf_tk.client.api.legacy.robotics import (
+    CapabilitiesAPI,
+    DataPostProcessingAPI,
+    FramesAPI,
+    MapsAPI,
+    RoboticsAPI,
+)
+from cognite_toolkit._cdf_tk.client.api.legacy.robotics import LocationsAPI as RoboticsLocationsAPI
+from cognite_toolkit._cdf_tk.client.api.legacy.search_config import SearchConfigurationsAPI
 
 from ._toolkit_client import ToolAPI
-from .api.canvas import CanvasAPI, IndustrialCanvasAPI
-from .api.charts import ChartsAPI
-from .api.dml import DMLAPI
-from .api.extended_data_modeling import ExtendedInstancesAPI
-from .api.extended_files import ExtendedFileMetadataAPI
-from .api.extended_functions import ExtendedFunctionsAPI
-from .api.extended_raw import ExtendedRawAPI
-from .api.extended_timeseries import ExtendedTimeSeriesAPI
 from .api.infield import InfieldAPI, InFieldCDMConfigAPI, InfieldConfigAPI
-from .api.location_filters import LocationFiltersAPI
 from .api.lookup import (
     AssetLookUpAPI,
     DataSetLookUpAPI,
@@ -45,14 +54,7 @@ from .api.migration import (
     ResourceViewMappingAPI,
 )
 from .api.project import ProjectAPI
-from .api.robotics import RoboticsAPI
-from .api.robotics.capabilities import CapabilitiesAPI
-from .api.robotics.data_postprocessing import DataPostProcessingAPI
-from .api.robotics.frames import FramesAPI
-from .api.robotics.locations import LocationsAPI as RoboticsLocationsAPI
-from .api.robotics.maps import MapsAPI
 from .api.search import SearchAPI
-from .api.search_config import SearchConfigurationsAPI
 from .api.streams import StreamsAPI
 from .api.three_d import ThreeDAPI, ThreeDModelAPI
 from .api.token import TokenAPI

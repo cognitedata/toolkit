@@ -27,11 +27,11 @@ from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from cognite.client.data_classes.raw import Database, DatabaseList, Table, TableList
 from questionary import Choice
 
-from cognite_toolkit._cdf_tk.client.data_classes.canvas import CANVAS_INSTANCE_SPACE, Canvas
-from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList
 from cognite_toolkit._cdf_tk.client.data_classes.charts_data import ChartData
-from cognite_toolkit._cdf_tk.client.data_classes.migration import ResourceViewMapping
-from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.canvas import CANVAS_INSTANCE_SPACE, Canvas
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.charts import Chart, ChartList
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import ResourceViewMapping
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.raw import RawTable
 from cognite_toolkit._cdf_tk.client.data_classes.three_d import ThreeDModelResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError

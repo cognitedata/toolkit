@@ -1,7 +1,7 @@
 import pytest
 from cognite.client.data_classes.data_modeling import Node
 
-from cognite_toolkit._cdf_tk.client.data_classes.apm_config_v1 import APMConfig, APMConfigCore, APMConfigWrite
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.apm_config_v1 import APMConfig, APMConfigCore, APMConfigWrite
 from tests.test_unit.utils import FakeCogniteResourceGenerator
 
 

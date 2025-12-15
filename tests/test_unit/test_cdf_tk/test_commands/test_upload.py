@@ -8,7 +8,7 @@ from cognite.client.data_classes import data_modeling as dm
 from cognite.client.data_classes.raw import RowWrite, Table, TableList
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable, RawTableList
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.raw import RawTable, RawTableList
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import UploadCommand
 from cognite_toolkit._cdf_tk.constants import DATA_RESOURCE_DIR
