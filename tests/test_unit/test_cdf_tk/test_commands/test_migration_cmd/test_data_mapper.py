@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any, ClassVar
 
 import pytest
 from cognite.client.data_classes import Asset
@@ -13,14 +14,19 @@ from cognite.client.data_classes.data_modeling import (
 )
 
 from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import CreatedSourceSystem, ResourceViewMapping
+from cognite_toolkit._cdf_tk.client.data_classes.three_d import (
+    AssetMappingDMRequest,
+    AssetMappingResponse,
+    NodeReference,
+)
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     AssetCentricMapping,
     AssetCentricMappingList,
     MigrationMapping,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
-from cognite_toolkit._cdf_tk.commands._migrate.issues import ConversionIssue, MigrationIssue
+from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper, ThreeDAssetMapper
+from cognite_toolkit._cdf_tk.commands._migrate.issues import ConversionIssue, MigrationIssue, ThreeDModelMigrationIssue
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 
@@ -195,3 +201,97 @@ class TestAssetCentricMapper:
                 mapper.prepare(selected)
 
             assert "The following ingestion views were not found in Data Modeling" in str(exc_info.value)
+
+
+class TestThreeDAssetMapper:
+    DEFAULTS: ClassVar[dict[str, Any]] = {
+        "modelId": 1,
+        "revisionId": 1,
+    }
+
+    @pytest.mark.parametrize(
+        "response,lookup_asset,expected",
+        [
+            pytest.param(
+                AssetMappingResponse(
+                    nodeId=1234,
+                    assetInstanceId=NodeReference(space="my_space", externalId="asset_1"),
+                    **DEFAULTS,
+                ),
+                None,
+                AssetMappingDMRequest(
+                    nodeId=1234,
+                    assetInstanceId=NodeReference(space="my_space", externalId="asset_1"),
+                    **DEFAULTS,
+                ),
+                id="Return existing assetInstanceId",
+            ),
+            pytest.param(
+                AssetMappingResponse(
+                    nodeId=5678,
+                    assetId=37,
+                    **DEFAULTS,
+                ),
+                NodeId(space="my_space", external_id="asset_2"),
+                AssetMappingDMRequest(
+                    nodeId=5678,
+                    assetInstanceId=NodeReference(space="my_space", externalId="asset_2"),
+                    **DEFAULTS,
+                ),
+                id="Lookup and return found assetInstanceId",
+            ),
+            pytest.param(
+                AssetMappingResponse(
+                    nodeId=91011,
+                    assetId=42,
+                    **DEFAULTS,
+                ),
+                None,
+                ThreeDModelMigrationIssue(
+                    model_name="AssetMapping_1",
+                    model_id=1,
+                    error_message=["Missing asset instance for asset ID 42"],
+                ),
+                id="Lookup and return not found issue",
+            ),
+            pytest.param(
+                AssetMappingResponse(
+                    nodeId=1213,
+                    **DEFAULTS,
+                ),
+                None,
+                ThreeDModelMigrationIssue(
+                    model_name="AssetMapping_1",
+                    model_id=1,
+                    error_message=["Neither assetInstanceId nor assetId provided for mapping."],
+                ),
+                id="Missing both assetInstanceId and assetId issue",
+            ),
+        ],
+    )
+    def test_map_chunk(
+        self,
+        response: AssetMappingResponse,
+        lookup_asset: NodeId | None,
+        expected: AssetMappingDMRequest | ThreeDModelMigrationIssue,
+    ) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.migration.lookup.assets.return_value = lookup_asset
+
+            mapper = ThreeDAssetMapper(client)
+
+            mapped, issue = mapper.map([response])[0]
+
+            if lookup_asset is not None:
+                # One for cache population, one for actual call
+                assert client.migration.lookup.assets.call_count == 2
+                last_call = client.migration.lookup.assets.call_args_list[-1]
+                assert last_call.args == (response.asset_id,)
+
+            if isinstance(expected, AssetMappingDMRequest):
+                assert issue.has_issues is False, "Expected no issues"
+                assert mapped.model_dump() == expected.model_dump()
+            else:
+                assert mapped is None, "Expected no mapped result"
+                assert isinstance(issue, ThreeDModelMigrationIssue)
+                assert issue.model_dump() == expected.model_dump()

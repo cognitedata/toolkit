@@ -29,7 +29,13 @@ from cognite_toolkit._cdf_tk.client.data_classes.legacy.canvas import (
 )
 from cognite_toolkit._cdf_tk.client.data_classes.legacy.charts import Chart, ChartWrite
 from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import ResourceViewMappingApply
-from cognite_toolkit._cdf_tk.client.data_classes.three_d import RevisionStatus, ThreeDModelResponse
+from cognite_toolkit._cdf_tk.client.data_classes.three_d import (
+    AssetMappingDMRequest,
+    AssetMappingResponse,
+    NodeReference,
+    RevisionStatus,
+    ThreeDModelResponse,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import DirectRelationCache, asset_centric_to_dm
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     Model,
@@ -469,3 +475,45 @@ class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelResponse, ThreeDMigrati
             return "PointCloud"
         else:
             return None
+
+
+class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingResponse, AssetMappingDMRequest]):
+    def __init__(self, client: ToolkitClient) -> None:
+        self.client = client
+
+    def map(
+        self, source: Sequence[AssetMappingResponse]
+    ) -> Sequence[tuple[AssetMappingDMRequest | None, MigrationIssue]]:
+        output: list[tuple[AssetMappingDMRequest | None, MigrationIssue]] = []
+        self._populate_cache(source)
+        for item in source:
+            mapped_item, issue = self._map_single_item(item)
+            output.append((mapped_item, issue))
+        return output
+
+    def _populate_cache(self, source: Sequence[AssetMappingResponse]) -> None:
+        asset_ids: set[int] = set()
+        for mapping in source:
+            if mapping.asset_id is not None:
+                asset_ids.add(mapping.asset_id)
+        self.client.migration.lookup.assets(list(asset_ids))
+
+    def _map_single_item(
+        self, item: AssetMappingResponse
+    ) -> tuple[AssetMappingDMRequest | None, ThreeDModelMigrationIssue]:
+        issue = ThreeDModelMigrationIssue(model_name=f"AssetMapping_{item.model_id}", model_id=item.model_id)
+        asset_instance_id = item.asset_instance_id
+        if item.asset_id and asset_instance_id is None:
+            asset_node_id = self.client.migration.lookup.assets(item.asset_id)
+            if asset_node_id is None:
+                issue.error_message.append(f"Missing asset instance for asset ID {item.asset_id!r}")
+                return None, issue
+            asset_instance_id = NodeReference(space=asset_node_id.space, externalId=asset_node_id.external_id)
+
+        if asset_instance_id is None:
+            issue.error_message.append("Neither assetInstanceId nor assetId provided for mapping.")
+            return None, issue
+        mapped_request = AssetMappingDMRequest(
+            modelId=item.model_id, revisionId=item.revision_id, nodeId=item.node_id, assetInstanceId=asset_instance_id
+        )
+        return mapped_request, issue

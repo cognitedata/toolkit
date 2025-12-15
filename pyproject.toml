@@ -116,7 +116,6 @@ init_typed = true
 # all aliases are consistentenly camelCase.
 warn_required_dynamic_aliases = false
 
-
 [tool.ruff]
 line-length = 120
 
