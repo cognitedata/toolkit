@@ -206,7 +206,7 @@ class TestMigrate3D:
     ERROR_HEADING = "3D model migration failed. "
 
     @pytest.mark.usefixtures("three_d_model_instance_space")
-    def test_migrate_3d_model(
+    def test_migrate_3d_model_then_migrate_asset_mapping(
         self,
         tmp_3D_model_with_asset_mapping: tuple[ThreeDModelResponse, Node],
         toolkit_client: ToolkitClient,
