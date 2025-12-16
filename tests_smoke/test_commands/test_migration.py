@@ -5,21 +5,36 @@ from typing import cast
 
 import pytest
 from cognite.client.data_classes import (
+    Asset,
+    AssetWrite,
     DataSet,
     FileMetadata,
     ThreeDModelRevision,
     ThreeDModelRevisionWrite,
     filters,
 )
-from cognite.client.data_classes.data_modeling import NodeApply, NodeOrEdgeData, Space, ViewId
+from cognite.client.data_classes.data_modeling import Node, NodeApply, NodeOrEdgeData, Space, ViewId
+from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteAsset
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.three_d import ThreeDModelClassicRequest, ThreeDModelResponse
-from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import ThreeDMapper
+from cognite_toolkit._cdf_tk.client.data_classes.three_d import (
+    AssetMappingClassicRequest,
+    ThreeDModelClassicRequest,
+    ThreeDModelResponse,
+)
+from cognite_toolkit._cdf_tk.commands import MigrationCommand
+from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper, ThreeDAssetMapper, ThreeDMapper
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import COGNITE_MIGRATION_MODEL, SPACE_SOURCE_VIEW_ID
+from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import ASSET_ID
 from cognite_toolkit._cdf_tk.commands._migrate.issues import ThreeDModelMigrationIssue
-from cognite_toolkit._cdf_tk.commands._migrate.migration_io import ThreeDMigrationIO
+from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
+    AssetCentricMigrationIO,
+    ThreeDAssetMappingMigrationIO,
+    ThreeDMigrationIO,
+)
+from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.storageio import UploadItem
+from cognite_toolkit._cdf_tk.storageio.selectors import ThreeDModelIdSelector
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.http_client import FailedRequestMessage, FailedResponse, HTTPClient
 from tests.test_integration.constants import RUN_UNIQUE_ID
@@ -27,9 +42,64 @@ from tests_smoke.exceptions import EndpointAssertionError
 
 
 @pytest.fixture
-def a_three_d_model(
-    toolkit_client: ToolkitClient, three_d_file: FileMetadata, smoke_dataset: DataSet, smoke_space: Space
-) -> Iterator[ThreeDModelResponse]:
+def tmp_classic_asset(toolkit_client: ToolkitClient, smoke_dataset: DataSet) -> Iterator[Asset]:
+    client = toolkit_client
+    asset = AssetWrite(
+        name=f"toolkit_classic_asset_migration_test_{RUN_UNIQUE_ID}",
+        data_set_id=smoke_dataset.id,
+        metadata={"source": "smoke_test_migration"},
+        external_id=f"toolkit_classic_asset_migration_test_{RUN_UNIQUE_ID}",
+    )
+    client.assets.delete(external_id=asset.external_id, ignore_unknown_ids=True)
+    created = client.assets.create(asset)
+    yield created
+
+    client.assets.delete(external_id=asset.external_id, ignore_unknown_ids=True)
+
+
+@pytest.fixture
+def migrated_asset(
+    toolkit_client: ToolkitClient, tmp_classic_asset: Asset, smoke_space: Space, tmp_path: Path
+) -> Iterator[tuple[Asset, Node]]:
+    if not tmp_classic_asset.id or not tmp_classic_asset.external_id or not tmp_classic_asset.data_set_id:
+        raise AssertionError("Temporary classic asset is missing required fields for migration test.")
+    asset = tmp_classic_asset
+    csv_file = tmp_path / "asset_mapping.csv"
+    with open(csv_file, "w") as f:
+        f.write("externalId,space,id,dataSetId,ingestionView\n")
+        f.write(f"{asset.external_id},{smoke_space.space},{asset.id},{asset.data_set_id},{ASSET_ID}\n")
+
+    client = toolkit_client
+    cmd = MigrationCommand()
+    cmd.migrate(
+        selected=MigrationCSVFileSelector(datafile=csv_file, kind="Assets"),
+        data=AssetCentricMigrationIO(client),
+        mapper=AssetCentricMapper(client),
+        log_dir=tmp_path / "migration_logs",
+        dry_run=False,
+        verbose=False,
+    )
+    asset_external_id = cast(str, asset.external_id)
+    migrated_nodes = client.data_modeling.instances.retrieve((smoke_space.space, asset_external_id)).nodes
+    if not migrated_nodes:
+        raise EndpointAssertionError(
+            client.data_modeling.instances._RESOURCE_PATH,
+            "Failed to retrieve migrated asset instance from data modeling.",
+        )
+    yield tmp_classic_asset, migrated_nodes[0]
+
+    client.data_modeling.instances.delete((smoke_space.space, asset_external_id))
+
+
+@pytest.fixture
+def tmp_3D_model_with_asset_mapping(
+    toolkit_client: ToolkitClient,
+    three_d_file: FileMetadata,
+    smoke_dataset: DataSet,
+    smoke_space: Space,
+    migrated_asset: tuple[Asset, Node],
+) -> Iterator[tuple[ThreeDModelResponse, Node]]:
+    classic_asset, asset_node = migrated_asset
     client = toolkit_client
     model_request = ThreeDModelClassicRequest(
         name=f"toolkit_3d_model_migration_test_{RUN_UNIQUE_ID}",
@@ -43,9 +113,8 @@ def a_three_d_model(
         )
     model = models[0]
 
-    revision = cast(
-        ThreeDModelRevision,
-        client.three_d.revisions.create(model.id, ThreeDModelRevisionWrite(file_id=three_d_file.id, published=True)),
+    revision = client.three_d.revisions.create(
+        model.id, ThreeDModelRevisionWrite(file_id=three_d_file.id, published=True)
     )
     if not isinstance(revision, ThreeDModelRevision):
         raise EndpointAssertionError(
@@ -72,8 +141,36 @@ def a_three_d_model(
         raise EndpointAssertionError(
             client.tool.three_d.models.ENDPOINT, "Failed to retrieve created 3D model for migration test."
         )
+    if retrieved_model.last_revision_info is None or retrieved_model.last_revision_info.revision_id is None:
+        raise AssertionError("Retrieved 3D model has incorrect revision info.")
+    three_d_nodes = client.three_d.revisions.list_nodes(
+        retrieved_model.id, revision_id=retrieved_model.last_revision_info.revision_id, limit=1
+    )
+    if not three_d_nodes:
+        raise EndpointAssertionError(
+            client.three_d.revisions._RESOURCE_PATH,
+            "Failed to verify 3D model revision has nodes for migration test.",
+        )
+    three_d_node = three_d_nodes[0]
+    if not three_d_node.id:
+        raise AssertionError("3D model node has no ID.")
+    created_mapping = client.tool.three_d.asset_mappings.create(
+        [
+            AssetMappingClassicRequest(
+                nodeId=three_d_node.id,
+                assetId=classic_asset.id,
+                modelId=model.id,
+                revisionId=revision.id,
+            )
+        ]
+    )
+    if not created_mapping or len(created_mapping) != 1:
+        raise EndpointAssertionError(
+            client.tool.three_d.asset_mappings.ENDPOINT,
+            "Failed to create asset mapping for 3D model migration test.",
+        )
 
-    yield retrieved_model
+    yield retrieved_model, asset_node
 
     client.tool.three_d.models.delete([model.id])
     client.data_modeling.instances.delete(
@@ -109,16 +206,21 @@ class TestMigrate3D:
     ERROR_HEADING = "3D model migration failed. "
 
     @pytest.mark.usefixtures("three_d_model_instance_space")
-    def test_migrate_3d_model(
-        self, a_three_d_model: ThreeDModelResponse, toolkit_client: ToolkitClient, tmp_path: Path, smoke_space: Space
+    def test_migrate_3d_model_then_migrate_asset_mapping(
+        self,
+        tmp_3D_model_with_asset_mapping: tuple[ThreeDModelResponse, Node],
+        toolkit_client: ToolkitClient,
+        tmp_path: Path,
+        smoke_space: Space,
     ) -> None:
         client = toolkit_client
-        model = a_three_d_model
+        model, asset_node = tmp_3D_model_with_asset_mapping
         if model.last_revision_info is None:
             raise AssertionError(f"{self.ERROR_HEADING}3D model has no revision info.")
 
         mapper = ThreeDMapper(client)
 
+        # Map the classic 3D model to data modeling format
         mapped = mapper.map([model])
         if len(mapped) != 1:
             raise AssertionError(f"{self.ERROR_HEADING}Failed to map classic 3D to data modeling format.")
@@ -131,6 +233,7 @@ class TestMigrate3D:
             raise AssertionError(f"{self.ERROR_HEADING}Mapped migration request is None.")
         io = ThreeDMigrationIO(client)
 
+        # Call migration endpoint for 3D model and revision
         with HTTPClient(config=client.config) as http_client:
             result = io.upload_items(
                 [UploadItem(source_id=str(model.id), item=migration_request)], http_client=http_client
@@ -142,6 +245,7 @@ class TestMigrate3D:
                 io.UPLOAD_ENDPOINT, f"{self.ERROR_HEADING}Errors: {humanize_collection(errors)}"
             )
 
+        # Validate that the model and revision exist in data modeling
         view_id = ViewId("cdf_cdm", "Cognite3DModel", "v1")
         has_name = filters.Equals(view_id.as_property_ref("name"), model.name)
         nodes = client.data_modeling.instances.list(
@@ -178,3 +282,58 @@ class TestMigrate3D:
         migrated_revision = revisions[0]
         if not migrated_revision.external_id.endswith(str(model.last_revision_info.revision_id)):
             raise AssertionError(f"{self.ERROR_HEADING}Migrated 3D revision ID does not match expected format.")
+
+        # Migrate all asset mappings for the 3D model revision
+        mapping_io = ThreeDAssetMappingMigrationIO(client, smoke_space.space, smoke_space.space)
+        selector = ThreeDModelIdSelector(ids=(model.id,))
+        mappings = list(mapping_io.stream_data(selector=selector))
+        if not mappings:
+            raise AssertionError(f"{self.ERROR_HEADING}No asset mappings found for migration.")
+        asset_mappings_dm = ThreeDAssetMapper(client).map([item for page in mappings for item in page.items])
+        if len(asset_mappings_dm) != 1:
+            raise AssertionError(f"{self.ERROR_HEADING}Failed to map asset mappings for migration.")
+        asset_mapping, mapping_issue = asset_mappings_dm[0]
+        if not isinstance(mapping_issue, ThreeDModelMigrationIssue):
+            raise AssertionError(f"{self.ERROR_HEADING}Issue object not of expected type got {type(mapping_issue)}.")
+        if mapping_issue.has_issues:
+            raise AssertionError(
+                f"{self.ERROR_HEADING}Mapping Issues: {humanize_collection(mapping_issue.error_message)}"
+            )
+        if asset_mapping is None:
+            raise AssertionError(f"{self.ERROR_HEADING}Mapped asset mapping is None.")
+
+        with HTTPClient(config=client.config) as http_client:
+            mapping_results = mapping_io.upload_items(
+                [UploadItem(source_id=f"{model.id}", item=asset_mapping)], http_client=http_client
+            )
+        mapping_errors = [str(res) for res in mapping_results if isinstance(res, FailedResponse | FailedRequestMessage)]
+        if len(mapping_errors) > 0:
+            raise EndpointAssertionError(
+                mapping_io.UPLOAD_ENDPOINT, f"{self.ERROR_HEADING}Mapping Errors: {humanize_collection(mapping_errors)}"
+            )
+
+        # Verify that the asset mapping exists in data modeling
+        cognite_asset = client.data_modeling.instances.retrieve_nodes(asset_node.as_id(), node_cls=CogniteAsset)
+        if not cognite_asset:
+            raise EndpointAssertionError(
+                client.data_modeling.instances._RESOURCE_PATH,
+                f"{self.ERROR_HEADING}CogniteAsset instance not found in data modeling after migration.",
+            )
+        if cognite_asset.object_3d is None:
+            raise AssertionError(f"{self.ERROR_HEADING}CogniteAsset instance has no 3D object mapping after migration.")
+        object3D = cognite_asset.object_3d
+        cad_node_view = ViewId("cdf_cdm", "CogniteCADNode", "v1")
+        is_cad_node = filters.Equals(
+            cad_node_view.as_property_ref("object3D"),
+            {"space": object3D.space, "externalId": object3D.external_id},
+        )
+        cad_node = client.data_modeling.instances.list(
+            instance_type="node",
+            sources=[cad_node_view],
+            filter=is_cad_node,
+        )
+        if len(cad_node) != 1:
+            raise EndpointAssertionError(
+                client.data_modeling.instances._RESOURCE_PATH,
+                f"{self.ERROR_HEADING}CAD node instance not found in data modeling after migration.",
+            )
