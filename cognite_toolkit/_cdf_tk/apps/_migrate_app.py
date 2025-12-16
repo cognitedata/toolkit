@@ -1060,7 +1060,7 @@ class MigrateApp(typer.Typer):
     @staticmethod
     def three_d_asset_mapping(
         ctx: typer.Context,
-        id: Annotated[
+        model_id: Annotated[
             list[int] | None,
             typer.Argument(
                 help="The IDs of the 3D model to migrate asset mappings for. If not provided, an interactive selection will be "
@@ -1114,8 +1114,8 @@ class MigrateApp(typer.Typer):
         """
         client = EnvironmentVariables.create_from_environment().get_client()
         selected_ids: list[int]
-        if id is not None:
-            selected_ids = id
+        if model_id is not None:
+            selected_ids = model_id
         else:
             # Interactive selection
             selected_models = ThreeDInteractiveSelect(client, "migrate").select_three_d_models("dm")
