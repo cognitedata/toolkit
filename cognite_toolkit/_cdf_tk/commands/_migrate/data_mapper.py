@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Callable, Sequence
-from typing import Generic, cast
+from typing import Generic, Literal, cast
 from uuid import uuid4
 
 from cognite.client.data_classes.data_modeling import (
@@ -15,38 +15,51 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.exceptions import CogniteException
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.canvas import (
-    ContainerReferenceApply,
-    FdmInstanceContainerReferenceApply,
-    IndustrialCanvas,
-    IndustrialCanvasApply,
-)
-from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartWrite
 from cognite_toolkit._cdf_tk.client.data_classes.charts_data import (
     ChartCoreTimeseries,
     ChartSource,
     ChartTimeseries,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.migration import ResourceViewMappingApply
+from cognite_toolkit._cdf_tk.client.data_classes.instance_api import InstanceIdentifier
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.canvas import (
+    ContainerReferenceApply,
+    FdmInstanceContainerReferenceApply,
+    IndustrialCanvas,
+    IndustrialCanvasApply,
+)
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.charts import Chart, ChartWrite
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import ResourceViewMappingApply
+from cognite_toolkit._cdf_tk.client.data_classes.three_d import (
+    AssetMappingDMRequest,
+    AssetMappingResponse,
+    NodeReference,
+    RevisionStatus,
+    ThreeDModelResponse,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import DirectRelationCache, asset_centric_to_dm
-from cognite_toolkit._cdf_tk.commands._migrate.data_classes import AssetCentricMapping
+from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
+    Model,
+    ThreeDMigrationRequest,
+    ThreeDRevisionMigrationRequest,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import create_default_mappings
 from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     CanvasMigrationIssue,
     ChartMigrationIssue,
     ConversionIssue,
     MigrationIssue,
+    ThreeDModelMigrationIssue,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.selectors import AssetCentricMigrationSelector
 from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
 from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.storageio._base import T_Selector
-from cognite_toolkit._cdf_tk.storageio.selectors import CanvasSelector, ChartSelector
+from cognite_toolkit._cdf_tk.storageio.selectors import CanvasSelector, ChartSelector, ThreeDSelector
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.useful_types import (
-    T_AssetCentricResourceExtended,
-)
+from cognite_toolkit._cdf_tk.utils.useful_types import T_AssetCentricResourceExtended
+
+from .data_classes import AssetCentricMapping
+from .selectors import AssetCentricMigrationSelector
 
 
 class DataMapper(Generic[T_Selector, T_ResourceResponse, T_ResourceRequest], ABC):
@@ -383,3 +396,124 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvas
             max_width=reference.max_width,
             max_height=reference.max_height,
         )
+
+
+class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelResponse, ThreeDMigrationRequest]):
+    def __init__(self, client: ToolkitClient) -> None:
+        self.client = client
+
+    def map(
+        self, source: Sequence[ThreeDModelResponse]
+    ) -> Sequence[tuple[ThreeDMigrationRequest | None, MigrationIssue]]:
+        self._populate_cache(source)
+        output: list[tuple[ThreeDMigrationRequest | None, MigrationIssue]] = []
+        for item in source:
+            mapped_item, issue = self._map_single_item(item)
+            output.append((mapped_item, issue))
+        return output
+
+    def _populate_cache(self, source: Sequence[ThreeDModelResponse]) -> None:
+        dataset_ids: set[int] = set()
+        for model in source:
+            if model.data_set_id is not None:
+                dataset_ids.add(model.data_set_id)
+        self.client.migration.space_source.retrieve(list(dataset_ids))
+
+    def _map_single_item(
+        self, item: ThreeDModelResponse
+    ) -> tuple[ThreeDMigrationRequest | None, ThreeDModelMigrationIssue]:
+        issue = ThreeDModelMigrationIssue(model_name=item.name, model_id=item.id)
+        instance_space: str | None = None
+        last_revision_id: int | None = None
+        model_type: Literal["CAD", "PointCloud", "Image360"] | None = None
+        if item.data_set_id is None:
+            issue.error_message.append("3D model is not associated with any dataset.")
+        else:
+            space_source = self.client.migration.space_source.retrieve(item.data_set_id)
+            if space_source is not None:
+                instance_space = space_source.instance_space
+        if instance_space is None and item.data_set_id is not None:
+            issue.error_message.append(f"Missing instance space for dataset ID {item.data_set_id!r}")
+        if item.last_revision_info is None:
+            issue.error_message.append("3D model has no revisions.")
+        else:
+            model_type = self._get_type(item.last_revision_info)
+            last_revision_id = item.last_revision_info.revision_id
+            if last_revision_id is None:
+                issue.error_message.append("3D model's last revision has no revision ID.")
+
+        if model_type is None:
+            issue.error_message.append("3D model's last revision has no recognized type.")
+
+        if instance_space is None or last_revision_id is None or model_type is None or issue.has_issues:
+            return None, issue
+
+        mapped_request = ThreeDMigrationRequest(
+            modelId=item.id,
+            type=model_type,
+            space=instance_space,
+            revision=ThreeDRevisionMigrationRequest(
+                space=instance_space,
+                type=model_type,
+                revisionId=last_revision_id,
+                model=Model(
+                    instanceId=InstanceIdentifier(
+                        space=instance_space,
+                        external_id=f"cog_3d_model_{item.id!s}",
+                    )
+                ),
+            ),
+        )
+        return mapped_request, issue
+
+    @staticmethod
+    def _get_type(revision: RevisionStatus) -> Literal["CAD", "PointCloud", "Image360"] | None:
+        types = revision.types or []
+        if any("gltf-directory" in t for t in types):
+            return "CAD"
+        elif any("ept-pointcloud" in t for t in types):
+            return "PointCloud"
+        else:
+            return None
+
+
+class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingResponse, AssetMappingDMRequest]):
+    def __init__(self, client: ToolkitClient) -> None:
+        self.client = client
+
+    def map(
+        self, source: Sequence[AssetMappingResponse]
+    ) -> Sequence[tuple[AssetMappingDMRequest | None, MigrationIssue]]:
+        output: list[tuple[AssetMappingDMRequest | None, MigrationIssue]] = []
+        self._populate_cache(source)
+        for item in source:
+            mapped_item, issue = self._map_single_item(item)
+            output.append((mapped_item, issue))
+        return output
+
+    def _populate_cache(self, source: Sequence[AssetMappingResponse]) -> None:
+        asset_ids: set[int] = set()
+        for mapping in source:
+            if mapping.asset_id is not None:
+                asset_ids.add(mapping.asset_id)
+        self.client.migration.lookup.assets(list(asset_ids))
+
+    def _map_single_item(
+        self, item: AssetMappingResponse
+    ) -> tuple[AssetMappingDMRequest | None, ThreeDModelMigrationIssue]:
+        issue = ThreeDModelMigrationIssue(model_name=f"AssetMapping_{item.model_id}", model_id=item.model_id)
+        asset_instance_id = item.asset_instance_id
+        if item.asset_id and asset_instance_id is None:
+            asset_node_id = self.client.migration.lookup.assets(item.asset_id)
+            if asset_node_id is None:
+                issue.error_message.append(f"Missing asset instance for asset ID {item.asset_id!r}")
+                return None, issue
+            asset_instance_id = NodeReference(space=asset_node_id.space, externalId=asset_node_id.external_id)
+
+        if asset_instance_id is None:
+            issue.error_message.append("Neither assetInstanceId nor assetId provided for mapping.")
+            return None, issue
+        mapped_request = AssetMappingDMRequest(
+            modelId=item.model_id, revisionId=item.revision_id, nodeId=item.node_id, assetInstanceId=asset_instance_id
+        )
+        return mapped_request, issue

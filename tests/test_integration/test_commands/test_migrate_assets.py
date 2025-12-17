@@ -2,7 +2,11 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from cognite.client.data_classes import AssetList, AssetWrite, AssetWriteList
+from cognite.client.data_classes import (
+    AssetList,
+    AssetWrite,
+    AssetWriteList,
+)
 from cognite.client.data_classes.data_modeling import NodeId, Space, ViewId
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteAsset
 from cognite.client.exceptions import CogniteAPIError
@@ -16,7 +20,10 @@ from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
     FILE_METADATA_ID,
     TIME_SERIES_ID,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.migration_io import AnnotationMigrationIO, AssetCentricMigrationIO
+from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
+    AnnotationMigrationIO,
+    AssetCentricMigrationIO,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrateDataSetSelector, MigrationCSVFileSelector
 from tests.test_integration.conftest import HierarchyMinimal
 from tests.test_integration.constants import RUN_UNIQUE_ID

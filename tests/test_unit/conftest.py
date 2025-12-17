@@ -15,9 +15,9 @@ from cognite.client.data_classes import CreatedSession
 from cognite.client.data_classes.data_modeling import ContainerList, DataModel, NodeList, View, ViewId
 from pytest import MonkeyPatch
 
-from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.data_classes.canvas import IndustrialCanvas
-from cognite_toolkit._cdf_tk.client.data_classes.migration import InstanceSource
+from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.canvas import IndustrialCanvas
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import InstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import BuildCommand, ModulesCommand, RepoCommand
 from cognite_toolkit._cdf_tk.constants import BUILD_ENVIRONMENT_FILE, MODULES
@@ -42,8 +42,6 @@ TMP_FOLDER.mkdir(exist_ok=True)
 
 @pytest.fixture
 def toolkit_client_approval() -> Iterator[ApprovalToolkitClient]:
-    from cognite_toolkit._cdf_tk.client import ToolkitClient
-
     with monkeypatch_toolkit_client() as toolkit_client:
 
         def create_session(*args: Any, **kwargs: Any) -> CreatedSession:
@@ -220,8 +218,8 @@ def disable_pypi_check():
     global_config.disable_pypi_version_check = old
 
 
-@pytest.fixture
-def toolkit_config():
+@pytest.fixture(scope="session")
+def toolkit_config() -> ToolkitClientConfig:
     return ToolkitClientConfig(
         client_name="test-client",
         project=CDF_PROJECT,

@@ -21,10 +21,11 @@ from questionary import Choice
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.canvas import Canvas
-from cognite_toolkit._cdf_tk.client.data_classes.charts import Chart, ChartList, Visibility
-from cognite_toolkit._cdf_tk.client.data_classes.migration import ResourceViewMapping
-from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.canvas import Canvas
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.charts import Chart, ChartList, Visibility
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import ResourceViewMapping
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.raw import RawTable
+from cognite_toolkit._cdf_tk.client.data_classes.three_d import ThreeDModelResponse
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
 
 from . import humanize_collection
@@ -823,3 +824,49 @@ class ResourceViewMappingInteractiveSelect:
                 f"Selected Resource View Mapping is not a valid ResourceViewMapping object: {selected_mapping!r}"
             )
         return selected_mapping
+
+
+class ThreeDInteractiveSelect:
+    def __init__(self, client: ToolkitClient, operation: str) -> None:
+        self.client = client
+        self.operation = operation
+
+    def select_three_d_models(self, model_type: Literal["classic", "dm"] | None = None) -> list[ThreeDModelResponse]:
+        """Select multiple 3D models interactively."""
+        if model_type is None:
+            model_type = questionary.select(
+                f"What type of 3D models do you want to {self.operation}?",
+                choices=[
+                    Choice(title="Classic models", value="classic"),
+                    Choice(title="Data modeling 3D", value="dm"),
+                ],
+            ).ask()
+        if model_type is None:
+            raise ToolkitValueError("No 3D model type selected.")
+        published = questionary.select(
+            f"Do you want to {self.operation} published or unpublished 3D models?",
+            choices=[
+                Choice(title="Published models", value=True),
+                Choice(title="Unpublished models", value=False),
+                Choice(title="Both published and unpublished models", value=None),
+            ],
+        ).ask()
+
+        models = self.client.tool.three_d.models.list(published=published, include_revision_info=True, limit=None)
+        if model_type == "classic":
+            models = [model for model in models if model.space is None]
+        else:
+            models = [model for model in models if model.space is not None]
+        if not models:
+            raise ToolkitMissingResourceError(
+                f"No 3D models found for type {model_type!r} with published={published!r}."
+            )
+
+        choices = [Choice(title=f"{model.name} ({model.id})", value=model) for model in models]
+        selected_models = questionary.checkbox(
+            f"Select 3D models to {self.operation}:",
+            choices=choices,
+        ).ask()
+        if selected_models is None or len(selected_models) == 0:
+            raise ToolkitValueError("No 3D models selected.")
+        return selected_models

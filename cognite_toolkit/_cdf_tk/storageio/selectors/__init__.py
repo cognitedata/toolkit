@@ -38,9 +38,12 @@ from ._instances import (
     SelectedView,
 )
 from ._raw import RawTableSelector, SelectedTable
+from ._three_d import ThreeDModelFilteredSelector, ThreeDModelIdSelector, ThreeDSelector
 
 Selector = Annotated[
     RawTableSelector
+    | ThreeDModelIdSelector
+    | ThreeDModelFilteredSelector
     | InstanceViewSelector
     | InstanceFileSelector
     | InstanceSpaceSelector
@@ -60,7 +63,7 @@ Selector = Annotated[
 ]
 
 ALPHA_SELECTORS = {FileIdentifierSelector}
-
+INTERNAL = {ThreeDModelIdSelector, ThreeDModelFilteredSelector}
 SelectorAdapter: TypeAdapter[Selector] = TypeAdapter(Selector)
 
 
@@ -82,6 +85,10 @@ def load_selector(manifest_file: Path) -> Selector | ToolkitWarning:
     if not Flags.EXTEND_UPLOAD.is_enabled() and type(selector) in ALPHA_SELECTORS:
         return MediumSeverityWarning(
             f"Selector type '{type(selector).__name__}' in file '{manifest_file}' is in alpha. To enable it set the alpha flag 'extend-upload = true' in your CDF.toml file."
+        )
+    elif type(selector) in INTERNAL:
+        return MediumSeverityWarning(
+            f"Selector type '{type(selector).__name__}' in file '{manifest_file}' is for internal use only and cannot be used."
         )
     return selector
 
@@ -119,6 +126,8 @@ __all__ = [
     "SelectedView",
     "Selector",
     "SelectorAdapter",
+    "ThreeDModelIdSelector",
+    "ThreeDSelector",
     "TimeSeriesColumn",
     "load_selector",
 ]

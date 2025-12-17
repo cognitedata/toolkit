@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from collections import UserList
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import ConfigDict
 from pydantic.alias_generators import to_camel
 
 from cognite_toolkit._cdf_tk.utils.http_client._data_classes2 import BaseModelObject, RequestResource
@@ -26,22 +26,22 @@ class ResponseResource(BaseModelObject, Generic[T_RequestResource], ABC):
         """Convert the response resource to a request resource."""
         ...
 
+    def as_write(self) -> T_RequestResource:
+        """Alias for as_request_resource to match protocol signature."""
+        return self.as_request_resource()
 
-class Identifier(BaseModel):
+
+class Identifier(RequestResource, ABC):
     """Base class for all identifier classes."""
 
     model_config = ConfigDict(alias_generator=to_camel, extra="ignore", populate_by_name=True, frozen=True)
 
-    def dump(self, include_type: bool = True) -> dict[str, Any]:
-        """Dump the identifier to a dictionary.
+    def dump(self, camel_case: bool = True, include_type: bool = True) -> dict[str, Any]:
+        """Dump the resource to a dictionary.
 
-        Args:
-            include_type (bool): Whether to include the type of the identifier in the output.
-
-        Returns:
-            dict[str, Any]: The dumped identifier.
+        This is the default serialization method for request resources.
         """
-        return self.model_dump(mode="json", by_alias=True, exclude_defaults=not include_type)
+        return self.model_dump(mode="json", by_alias=camel_case, exclude_unset=not include_type)
 
     def as_id(self) -> Self:
         return self

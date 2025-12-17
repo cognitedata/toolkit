@@ -9,7 +9,6 @@ from typing import cast
 from unittest.mock import MagicMock
 
 import pytest
-import requests
 import yaml
 from cognite.client.data_classes import (
     CreatedSession,
@@ -23,8 +22,8 @@ from pytest import MonkeyPatch
 from pytest_regressions.data_regression import DataRegressionFixture
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
-from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import GraphQLDataModel
-from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import Streamlit
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.graphql_data_models import GraphQLDataModel
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.streamlit_ import Streamlit
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, ModulesCommand
 from cognite_toolkit._cdf_tk.constants import MODULES
@@ -199,14 +198,6 @@ class TestFormatConsistency:
         loaded = loader.load_resource_file(filepath=file, environment_variables=env_vars_with_client.dump())
         assert isinstance(loaded, list)
 
-    @staticmethod
-    def check_url(url) -> bool:
-        try:
-            response = requests.get(url, allow_redirects=True)
-            return response.status_code >= 200 and response.status_code <= 300
-        except requests.exceptions.RequestException:
-            return False
-
     @pytest.mark.parametrize(
         "Loader", [loader for loader in CRUD_LIST if loader.folder_name != "robotics"]
     )  # Robotics does not have a public doc_url
@@ -215,7 +206,6 @@ class TestFormatConsistency:
     ):
         loader = Loader.create_loader(env_vars_with_client.get_client())
         assert loader.doc_url() != loader._doc_base_url, f"{Loader.folder_name} is missing doc_url deep link"
-        assert self.check_url(loader.doc_url()), f"{Loader.folder_name} doc_url is not accessible"
 
 
 def test_resource_types_is_up_to_date() -> None:

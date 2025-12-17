@@ -43,11 +43,11 @@ from cognite.client.data_classes.labels import LabelDefinitionWriteList
 from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.data_classes.extendable_cognite_file import (
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.extendable_cognite_file import (
     ExtendableCogniteFileApply,
     ExtendableCogniteFileApplyList,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.robotics import (
     DataPostProcessingWrite,
     DataPostProcessingWriteList,
     RobotCapability,

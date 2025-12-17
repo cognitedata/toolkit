@@ -5,7 +5,7 @@ import responses
 from cognite.client.data_classes.data_modeling import NodeId, ViewId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.data_classes.migration import InstanceSource
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import InstanceSource
 
 
 @pytest.fixture()

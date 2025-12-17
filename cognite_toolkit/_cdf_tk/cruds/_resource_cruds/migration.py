@@ -6,7 +6,7 @@ from cognite.client.data_classes.capabilities import Capability
 from cognite.client.data_classes.data_modeling import NodeList, ViewId
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk.client.data_classes.migration import (
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import (
     ResourceViewMapping,
     ResourceViewMappingApply,
 )

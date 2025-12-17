@@ -5,7 +5,7 @@ import responses
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.data_classes.extended_timeseries import ExtendedTimeSeriesList
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.extended_timeseries import ExtendedTimeSeriesList
 from tests.constants import CDF_PROJECT
 
 
