@@ -261,7 +261,7 @@ class TestMigrationCommand:
                             "dataSetId": None,
                             "classicExternalId": asset.external_id,
                             "resourceViewMapping": {"space": COGNITE_MIGRATION_SPACE_ID, "externalId": ASSET_ID},
-                            "preferredConsumerView": {
+                            "preferredConsumerViewId": {
                                 "space": "cdf_cdm",
                                 "externalId": "CogniteAsset",
                                 "version": "v1",
