@@ -22,7 +22,6 @@ from cognite.client.data_classes import (
     FunctionScheduleWriteList,
     FunctionTaskParameters,
     FunctionWrite,
-    FunctionWriteList,
     GroupWrite,
     LabelDefinitionWrite,
     TimeSeriesList,
@@ -1128,7 +1127,7 @@ description: ""
         resource = loader.load_resource(resource_dict[0])
         assert isinstance(resource, FunctionWrite)
         if not loader.retrieve([resource.external_id]):
-            _ = loader.create(FunctionWriteList([resource]))
+            _ = loader.create([resource])
         worker = ResourceWorker(loader, "deploy")
         resources = worker.prepare_resources([filepath])
         assert {
