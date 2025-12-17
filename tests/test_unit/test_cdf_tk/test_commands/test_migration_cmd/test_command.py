@@ -187,8 +187,9 @@ class TestMigrationCommand:
             ]
         )
         space = "my_space"
-        csv_content = "id,space,externalId,ingestionView\n" + "\n".join(
-            f"{1000 + i},{space},asset_{i},{ASSET_ID}" for i in range(len(assets))
+        csv_content = (
+            "id,space,externalId,ingestionView,consumerViewSpace,consumerViewExternalId,consumerViewVersion\n"
+            + "\n".join(f"{1000 + i},{space},asset_{i},{ASSET_ID},cdf_cdm,CogniteAsset,v1" for i in range(len(assets)))
         )
 
         # Asset retrieve ids
@@ -258,6 +259,13 @@ class TestMigrationCommand:
                             "resourceType": "asset",
                             "dataSetId": None,
                             "classicExternalId": asset.external_id,
+                            "resourceViewMapping": ASSET_ID,
+                            "preferredConsumerView": {
+                                "space": "cdf_cdm",
+                                "externalId": "CogniteAsset",
+                                "version": "v1",
+                                "type": "view",
+                            },
                         },
                     ),
                 ],
