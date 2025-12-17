@@ -133,6 +133,9 @@ class IndustrialCanvasAPI:
 
     @classmethod
     def _retrieve_query(cls, external_id: str) -> query.Query:
+        # The limit for canvas components must be high enough to cover all annotations/references in a canvas.
+        # Using 1000 as a safe upper bound (same as _APPLY_LIMIT).
+        query_limit = 1000
         return query.Query(
             with_={
                 "canvas": query.NodeResultSetExpression(
@@ -142,18 +145,21 @@ class IndustrialCanvasAPI:
                 "solutionTags": query.NodeResultSetExpression(
                     from_="canvas",
                     through=Canvas.get_source().as_property_ref("solutionTags"),
+                    limit=query_limit,
                 ),
                 "annotationEdges": query.EdgeResultSetExpression(
                     from_="canvas",
                     filter=filters.Equals(["edge", "type"], ANNOTATION_EDGE_TYPE.dump()),
                     node_filter=filters.HasData(views=[CanvasAnnotation.get_source()]),
                     direction="outwards",
+                    limit=query_limit,
                 ),
                 "containerReferenceEdges": query.EdgeResultSetExpression(
                     from_="canvas",
                     filter=filters.Equals(["edge", "type"], CONTAINER_REFERENCE_EDGE_TYPE.dump()),
                     node_filter=filters.HasData(views=[ContainerReference.get_source()]),
                     direction="outwards",
+                    limit=query_limit,
                 ),
                 "fdmInstanceContainerReferenceEdges": query.EdgeResultSetExpression(
                     from_="canvas",
@@ -163,11 +169,14 @@ class IndustrialCanvasAPI:
                     ),
                     node_filter=filters.HasData(views=[FdmInstanceContainerReference.get_source()]),
                     direction="outwards",
+                    limit=query_limit,
                 ),
-                "annotations": query.NodeResultSetExpression(from_="annotationEdges"),
-                "containerReferences": query.NodeResultSetExpression(from_="containerReferenceEdges"),
+                "annotations": query.NodeResultSetExpression(from_="annotationEdges", limit=query_limit),
+                "containerReferences": query.NodeResultSetExpression(
+                    from_="containerReferenceEdges", limit=query_limit
+                ),
                 "fdmInstanceContainerReferences": query.NodeResultSetExpression(
-                    from_="fdmInstanceContainerReferenceEdges"
+                    from_="fdmInstanceContainerReferenceEdges", limit=query_limit
                 ),
             },
             select={
