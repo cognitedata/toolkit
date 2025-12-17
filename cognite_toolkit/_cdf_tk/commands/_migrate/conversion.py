@@ -9,6 +9,7 @@ from cognite.client.data_classes.data_modeling import (
     MappedProperty,
     NodeApply,
     NodeId,
+    ViewId,
 )
 from cognite.client.data_classes.data_modeling.instances import EdgeApply, NodeOrEdgeData, PropertyValueWrite
 from cognite.client.data_classes.data_modeling.views import ViewProperty
@@ -169,6 +170,7 @@ def asset_centric_to_dm(
     view_source: ResourceViewMappingApply,
     view_properties: dict[str, ViewProperty],
     direct_relation_cache: DirectRelationCache,
+    preferred_consumer_view: ViewId | None = None,
 ) -> tuple[NodeApply | EdgeApply | None, ConversionIssue]:
     """Convert an asset-centric resource to a data model instance.
 
@@ -178,6 +180,7 @@ def asset_centric_to_dm(
         view_source (ResourceViewMappingApply): The view source defining how to map the resource to the data model.
         view_properties (dict[str, ViewProperty]): The defined properties referenced in the view source mapping.
         direct_relation_cache (DirectRelationCache): Cache for direct relation references.
+        preferred_consumer_view (ViewId | None): The preferred consumer view for the instance.
 
     Returns:
         tuple[NodeApply | EdgeApply, ConversionIssue]: A tuple containing the converted NodeApply and any ConversionIssue encountered.
@@ -208,12 +211,15 @@ def asset_centric_to_dm(
         sources.append(NodeOrEdgeData(source=view_source.view_id, properties=properties))
 
     if resource_type != "annotation":
-        instance_source_properties = {
+        instance_source_properties: dict[str, Any] = {
             "resourceType": resource_type,
             "id": id_,
             "dataSetId": data_set_id,
             "classicExternalId": external_id,
+            "resourceViewMapping": view_source.external_id,
         }
+        if preferred_consumer_view:
+            instance_source_properties["preferredConsumerView"] = preferred_consumer_view.dump()
         sources.append(NodeOrEdgeData(source=INSTANCE_SOURCE_VIEW_ID, properties=instance_source_properties))
 
     instance: NodeApply | EdgeApply
