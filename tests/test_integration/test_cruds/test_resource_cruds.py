@@ -1,6 +1,7 @@
 import contextlib
 import os
 from asyncio import sleep
+from collections.abc import Iterable
 from contextlib import suppress
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -559,8 +560,10 @@ def a_container(toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> dm.Co
 
 
 @pytest.fixture(scope="module")
-def two_views(toolkit_client: ToolkitClient, toolkit_space: dm.Space, a_container: dm.Container) -> dm.ViewList:
-    return toolkit_client.data_modeling.views.apply(
+def two_views(
+    toolkit_client: ToolkitClient, toolkit_space: dm.Space, a_container: dm.Container
+) -> Iterable[dm.ViewList]:
+    created_views = toolkit_client.data_modeling.views.apply(
         [
             dm.ViewApply(
                 space=toolkit_space.space,
@@ -582,6 +585,8 @@ def two_views(toolkit_client: ToolkitClient, toolkit_space: dm.Space, a_containe
             ),
         ]
     )
+    yield created_views
+    toolkit_client.data_modeling.views.delete(created_views.as_ids())
 
 
 class TestDataModelLoader:
@@ -599,12 +604,12 @@ class TestDataModelLoader:
             external_id=f"tmp_test_create_update_delete_data_model_{RUN_UNIQUE_ID}",
             version="1",
         )
+        update = dm.DataModelApply.load(my_model.dump())
 
         try:
             created = loader.create(dm.DataModelApplyList([my_model]))
             assert len(created) == 1
 
-            update = dm.DataModelApply.load(my_model.dump())
             update.views = [view_list[0]]
 
             with pytest.raises(CogniteAPIError):
@@ -616,7 +621,7 @@ class TestDataModelLoader:
             assert len(updated) == 1
             assert updated[0].views == [view_list[0]]
         finally:
-            loader.delete([my_model.as_id()])
+            loader.delete([my_model.as_id(), update.as_id()])
 
 
 @pytest.fixture
