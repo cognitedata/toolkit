@@ -32,6 +32,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper, CanvasMapper, ChartMapper
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import (
     COGNITE_MIGRATION_MODEL,
+    COGNITE_MIGRATION_SPACE_ID,
     INSTANCE_SOURCE_VIEW_ID,
     MODEL_ID,
     RESOURCE_VIEW_MAPPING_VIEW_ID,
@@ -259,7 +260,7 @@ class TestMigrationCommand:
                             "resourceType": "asset",
                             "dataSetId": None,
                             "classicExternalId": asset.external_id,
-                            "resourceViewMapping": ASSET_ID,
+                            "resourceViewMapping": {"space": COGNITE_MIGRATION_SPACE_ID, "externalId": ASSET_ID},
                             "preferredConsumerView": {
                                 "space": "cdf_cdm",
                                 "externalId": "CogniteAsset",

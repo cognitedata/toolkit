@@ -30,7 +30,7 @@ from cognite_toolkit._cdf_tk.utils.useful_types import (
     AssetCentricTypeExtended,
 )
 
-from .data_model import INSTANCE_SOURCE_VIEW_ID
+from .data_model import COGNITE_MIGRATION_SPACE_ID, INSTANCE_SOURCE_VIEW_ID
 from .issues import ConversionIssue, FailedConversion, InvalidPropertyDataType
 
 
@@ -211,12 +211,12 @@ def asset_centric_to_dm(
         sources.append(NodeOrEdgeData(source=view_source.view_id, properties=properties))
 
     if resource_type != "annotation":
-        instance_source_properties: dict[str, Any] = {
+        instance_source_properties = {
             "resourceType": resource_type,
             "id": id_,
             "dataSetId": data_set_id,
             "classicExternalId": external_id,
-            "resourceViewMapping": view_source.external_id,
+            "resourceViewMapping": {"space": COGNITE_MIGRATION_SPACE_ID, "externalId": view_source.external_id},
         }
         if preferred_consumer_view:
             instance_source_properties["preferredConsumerView"] = preferred_consumer_view.dump()
