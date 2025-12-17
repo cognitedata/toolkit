@@ -9,6 +9,7 @@ from cognite.client.data_classes.data_modeling import (
     MappedProperty,
     NodeApply,
     NodeId,
+    ViewId,
 )
 from cognite.client.data_classes.data_modeling.instances import EdgeApply, NodeOrEdgeData, PropertyValueWrite
 from cognite.client.data_classes.data_modeling.views import ViewProperty
@@ -29,7 +30,7 @@ from cognite_toolkit._cdf_tk.utils.useful_types import (
     AssetCentricTypeExtended,
 )
 
-from .data_model import INSTANCE_SOURCE_VIEW_ID
+from .data_model import COGNITE_MIGRATION_SPACE_ID, INSTANCE_SOURCE_VIEW_ID
 from .issues import ConversionIssue, FailedConversion, InvalidPropertyDataType
 
 
@@ -169,6 +170,7 @@ def asset_centric_to_dm(
     view_source: ResourceViewMappingApply,
     view_properties: dict[str, ViewProperty],
     direct_relation_cache: DirectRelationCache,
+    preferred_consumer_view: ViewId | None = None,
 ) -> tuple[NodeApply | EdgeApply | None, ConversionIssue]:
     """Convert an asset-centric resource to a data model instance.
 
@@ -178,6 +180,7 @@ def asset_centric_to_dm(
         view_source (ResourceViewMappingApply): The view source defining how to map the resource to the data model.
         view_properties (dict[str, ViewProperty]): The defined properties referenced in the view source mapping.
         direct_relation_cache (DirectRelationCache): Cache for direct relation references.
+        preferred_consumer_view (ViewId | None): The preferred consumer view for the instance.
 
     Returns:
         tuple[NodeApply | EdgeApply, ConversionIssue]: A tuple containing the converted NodeApply and any ConversionIssue encountered.
@@ -213,7 +216,10 @@ def asset_centric_to_dm(
             "id": id_,
             "dataSetId": data_set_id,
             "classicExternalId": external_id,
+            "resourceViewMapping": {"space": COGNITE_MIGRATION_SPACE_ID, "externalId": view_source.external_id},
         }
+        if preferred_consumer_view:
+            instance_source_properties["preferredConsumerViewId"] = preferred_consumer_view.dump()
         sources.append(NodeOrEdgeData(source=INSTANCE_SOURCE_VIEW_ID, properties=instance_source_properties))
 
     instance: NodeApply | EdgeApply
