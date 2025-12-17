@@ -548,8 +548,8 @@ inputSchema:
 
 
 @pytest.fixture(scope="module")
-def a_container(toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> dm.Container:
-    return toolkit_client.data_modeling.containers.apply(
+def a_container(toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> Iterable[dm.Container]:
+    a_container = toolkit_client.data_modeling.containers.apply(
         dm.ContainerApply(
             name=f"container_test_resource_loaders_{RUN_UNIQUE_ID}",
             space=toolkit_space.space,
@@ -557,6 +557,8 @@ def a_container(toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> dm.Co
             properties={"name": dm.ContainerProperty(type=dm.Text())},
         )
     )
+    yield a_container
+    toolkit_client.data_modeling.containers.delete([a_container.as_id()])
 
 
 @pytest.fixture(scope="module")
@@ -628,9 +630,9 @@ class TestDataModelLoader:
 def custom_file_container(toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> dm.Container:
     return toolkit_client.data_modeling.containers.apply(
         dm.ContainerApply(
-            name=f"container_test_resource_loaders_{RUN_UNIQUE_ID}",
+            name="container_test_resource_loaders",
             space=toolkit_space.space,
-            external_id=f"container_test_resource_loaders_{RUN_UNIQUE_ID}",
+            external_id="container_test_resource_loaders",
             properties={
                 "status": dm.ContainerProperty(type=dm.Text()),
                 "fileCategory": dm.ContainerProperty(type=dm.Text()),
