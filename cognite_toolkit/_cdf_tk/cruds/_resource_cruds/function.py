@@ -407,16 +407,16 @@ class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function]):
 
         self.client.functions.delete_with_429_retry(external_id=ids, ignore_unknown_ids=True)
         file_ids = {func.file_id for func in functions if func.file_id}
-        files = self.client.files.retrieve_multiple(list(file_ids))
+        files = self.client.files.retrieve_multiple(list(file_ids), ignore_unknown_ids=True)
         dm_file_nodes: set[NodeId] = set()
-        file_ids = set()
+        classic_file_ids: set[int] = set()
         for file in files:
             if file.instance_id is not None:
                 dm_file_nodes.add(file.instance_id)
             else:
-                file_ids.add(file.id)
-        if file_ids:
-            self.client.files.delete(id=list(file_ids), ignore_unknown_ids=True)
+                classic_file_ids.add(file.id)
+        if classic_file_ids:
+            self.client.files.delete(id=list(classic_file_ids), ignore_unknown_ids=True)
         if dm_file_nodes:
             self.client.data_modeling.instances.delete(list(dm_file_nodes))
         return len(ids)
