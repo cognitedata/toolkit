@@ -1170,16 +1170,16 @@ description: ""
 
         resource = crud.load_resource(resource_dict[0])
         assert isinstance(resource, FunctionWrite)
+        created: Function | None = None
         try:
-            created = crud.create([resource])
-            assert len(created) == 1
+            created_list = crud.create([resource])
+            assert len(created_list) == 1
+            created = created_list[0]
 
             crud.delete([external_id])
         finally:
-            with contextlib.suppress(CogniteException):
-                client.functions.delete(external_id=external_id)
+            if created is not None:
+                with contextlib.suppress(CogniteException):
+                    client.functions.delete(external_id=external_id)
 
-            with contextlib.suppress(CogniteException):
-                client.files.delete(external_id=external_id)
-
-            client.data_modeling.instances.delete((toolkit_space.space, external_id))
+                client.data_modeling.instances.delete((toolkit_space.space, external_id))
