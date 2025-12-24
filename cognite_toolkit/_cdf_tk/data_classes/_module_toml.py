@@ -68,6 +68,7 @@ class ModuleToml:
         title: str | None = None
         id: str | None = None
         is_selected_by_default: bool = False
+        package_id: str | None = None
         if "module" in data:
             title = data["module"].get("title")
             id = data["module"].get("id")

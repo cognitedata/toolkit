@@ -1,6 +1,7 @@
 import contextlib
 import os
 from asyncio import sleep
+from collections.abc import Iterable
 from contextlib import suppress
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -547,8 +548,8 @@ inputSchema:
 
 
 @pytest.fixture(scope="module")
-def a_container(toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> dm.Container:
-    return toolkit_client.data_modeling.containers.apply(
+def a_container(toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> Iterable[dm.Container]:
+    a_container = toolkit_client.data_modeling.containers.apply(
         dm.ContainerApply(
             name=f"container_test_resource_loaders_{RUN_UNIQUE_ID}",
             space=toolkit_space.space,
@@ -556,11 +557,15 @@ def a_container(toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> dm.Co
             properties={"name": dm.ContainerProperty(type=dm.Text())},
         )
     )
+    yield a_container
+    toolkit_client.data_modeling.containers.delete([a_container.as_id()])
 
 
 @pytest.fixture(scope="module")
-def two_views(toolkit_client: ToolkitClient, toolkit_space: dm.Space, a_container: dm.Container) -> dm.ViewList:
-    return toolkit_client.data_modeling.views.apply(
+def two_views(
+    toolkit_client: ToolkitClient, toolkit_space: dm.Space, a_container: dm.Container
+) -> Iterable[dm.ViewList]:
+    created_views = toolkit_client.data_modeling.views.apply(
         [
             dm.ViewApply(
                 space=toolkit_space.space,
@@ -582,6 +587,8 @@ def two_views(toolkit_client: ToolkitClient, toolkit_space: dm.Space, a_containe
             ),
         ]
     )
+    yield created_views
+    toolkit_client.data_modeling.views.delete(created_views.as_ids())
 
 
 class TestDataModelLoader:
@@ -599,12 +606,12 @@ class TestDataModelLoader:
             external_id=f"tmp_test_create_update_delete_data_model_{RUN_UNIQUE_ID}",
             version="1",
         )
+        update = dm.DataModelApply.load(my_model.dump())
 
         try:
             created = loader.create(dm.DataModelApplyList([my_model]))
             assert len(created) == 1
 
-            update = dm.DataModelApply.load(my_model.dump())
             update.views = [view_list[0]]
 
             with pytest.raises(CogniteAPIError):
@@ -616,16 +623,16 @@ class TestDataModelLoader:
             assert len(updated) == 1
             assert updated[0].views == [view_list[0]]
         finally:
-            loader.delete([my_model.as_id()])
+            loader.delete([my_model.as_id(), update.as_id()])
 
 
 @pytest.fixture
 def custom_file_container(toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> dm.Container:
     return toolkit_client.data_modeling.containers.apply(
         dm.ContainerApply(
-            name=f"container_test_resource_loaders_{RUN_UNIQUE_ID}",
+            name="container_test_resource_loaders",
             space=toolkit_space.space,
-            external_id=f"container_test_resource_loaders_{RUN_UNIQUE_ID}",
+            external_id="container_test_resource_loaders",
             properties={
                 "status": dm.ContainerProperty(type=dm.Text()),
                 "fileCategory": dm.ContainerProperty(type=dm.Text()),
@@ -1163,16 +1170,16 @@ description: ""
 
         resource = crud.load_resource(resource_dict[0])
         assert isinstance(resource, FunctionWrite)
+        created: Function | None = None
         try:
-            created = crud.create([resource])
-            assert len(created) == 1
+            created_list = crud.create([resource])
+            assert len(created_list) == 1
+            created = created_list[0]
 
             crud.delete([external_id])
         finally:
-            with contextlib.suppress(CogniteException):
-                client.functions.delete(external_id=external_id)
+            if created is not None:
+                with contextlib.suppress(CogniteException):
+                    client.functions.delete(external_id=external_id)
 
-            with contextlib.suppress(CogniteException):
-                client.files.delete(external_id=external_id)
-
-            client.data_modeling.instances.delete((toolkit_space.space, external_id))
+                client.data_modeling.instances.delete((toolkit_space.space, external_id))
