@@ -144,6 +144,11 @@ def _read_last_commit_message() -> tuple[list[marko.element.Element], str]:
     if "-----" in changelog_text:
         # Co-authors section
         changelog_text = changelog_text.split("-----")[0].strip()
+    # Remove all lines that starts with "Co-authored-by:" as these are not part of the changelog
+    # Note the co-author section is not always separated by "-----"
+    changelog_text = "\n".join(
+        line for line in changelog_text.splitlines() if not line.strip().startswith("Co-authored-by")
+    ).strip()
 
     changelog_items = [
         item for item in marko.parse(changelog_text).children if not isinstance(item, marko.block.BlankLine)
