@@ -167,7 +167,9 @@ Co-authored-by: Magnus <magnus@cognitedata.com>
 """,
         "0.5.16",
         """## Changelog
+
 ### Fixed
+
 - Fixed a bug where it was not possible to retrieve all canvas entities
 using `cdf download canvas`""",
         "0.5.17",
