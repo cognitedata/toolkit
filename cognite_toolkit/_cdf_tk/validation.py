@@ -11,6 +11,7 @@ from pydantic_core import ErrorDetails
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.constants import DEV_ONLY_MODULES
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, BuildVariables, ModuleDirectories
+from cognite_toolkit._cdf_tk.data_classes._modules import ModuleRootDirectory
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitDuplicatedModuleError,
     ToolkitEnvError,
@@ -228,7 +229,7 @@ def as_json_path(loc: tuple[str | int, ...]) -> str:
 
 
 def validate_module_selection(
-    modules: ModuleDirectories,
+    modules: ModuleDirectories | ModuleRootDirectory,
     config: BuildConfigYAML,
     packages: dict[str, list[str]],
     selected_modules: set[str | Path],

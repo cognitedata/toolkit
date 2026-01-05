@@ -2,7 +2,7 @@ import sys
 from functools import cached_property
 from pathlib import Path
 
-from cognite_toolkit._cdf_tk.data_classes.modules import ModulesDirectory
+from cognite_toolkit._cdf_tk.data_classes.modules import ModuleRootDirectory
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -21,7 +21,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning, WarningList
 from cognite_toolkit._cdf_tk.utils.modules import parse_user_selected_modules
 
 
-class BuildInput(BaseModel):
+class BuildParameters(BaseModel):
     """Input to the build process."""
 
     # need this until we turn BuildConfigYaml and ToolkitClient into Pydantic models
@@ -75,9 +75,9 @@ class BuildInput(BaseModel):
         return config, warnings
 
     @cached_property
-    def modules(self) -> ModulesDirectory:
+    def modules(self) -> ModuleRootDirectory:
         selection = self.user_selected or self.config.environment.selected
-        return ModulesDirectory.load(self.organization_dir, selection)
+        return ModuleRootDirectory.load(self.organization_dir, selection)
 
     @cached_property
     def variables(self) -> BuildVariables:

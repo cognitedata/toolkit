@@ -29,6 +29,7 @@ from ._deploy_results import (
     ResourceDeployResult,
     UploadDeployResult,
 )
+from ._issues import Issue, IssueList
 from ._module_directories import ModuleDirectories, ModuleLocation
 from ._module_resources import ModuleResources
 from ._packages import Package, Packages
@@ -56,6 +57,8 @@ __all__ = [
     "DeployResults",
     "Environment",
     "InitConfigYAML",
+    "Issue",
+    "IssueList",
     "ModuleDirectories",
     "ModuleLocation",
     "ModuleResources",
