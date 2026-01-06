@@ -2,7 +2,7 @@ import sys
 from abc import ABC, abstractmethod
 from collections import UserList
 from collections.abc import Hashable
-from typing import TYPE_CHECKING, Any, Generic, Self, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
@@ -30,7 +30,7 @@ class BaseModelObject(BaseModel):
         return self.model_dump(mode="json", by_alias=camel_case, exclude_unset=True)
 
     @classmethod
-    def _load(cls, resource: dict[str, Any]) -> "Self":
+    def _load(cls, resource: dict[str, Any]) -> Self:
         """Load method to match CogniteResource signature."""
         return cls.model_validate(resource)
 
