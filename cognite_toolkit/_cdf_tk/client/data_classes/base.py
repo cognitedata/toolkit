@@ -1,12 +1,11 @@
 import sys
 from abc import ABC, abstractmethod
 from collections import UserList
-from typing import TYPE_CHECKING, Any, Generic, TypeVar
+from collections.abc import Hashable
+from typing import TYPE_CHECKING, Any, Generic, Self, TypeVar
 
-from pydantic import ConfigDict
+from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
-
-from cognite_toolkit._cdf_tk.client.http_client import BaseModelObject, RequestResource
 
 if TYPE_CHECKING:
     from cognite.client import CogniteClient
@@ -15,6 +14,33 @@ if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self
+
+
+class BaseModelObject(BaseModel):
+    """Base class for all object. This includes resources and nested objects."""
+
+    # We allow extra fields to support forward compatibility.
+    model_config = ConfigDict(alias_generator=to_camel, extra="allow")
+
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        """Dump the resource to a dictionary.
+
+        This is the default serialization method for request resources.
+        """
+        return self.model_dump(mode="json", by_alias=camel_case, exclude_unset=True)
+
+    @classmethod
+    def _load(cls, resource: dict[str, Any]) -> "Self":
+        """Load method to match CogniteResource signature."""
+        return cls.model_validate(resource)
+
+
+class RequestResource(BaseModelObject, ABC):
+    @abstractmethod
+    def as_id(self) -> Hashable: ...
+
+    def __str__(self) -> str:
+        return str(self.as_id())
 
 
 T_RequestResource = TypeVar("T_RequestResource", bound=RequestResource)

@@ -9,6 +9,7 @@ import pytest
 import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.data_classes.base import RequestResource
 from cognite_toolkit._cdf_tk.client.http_client import (
     ErrorDetails,
     ErrorDetails2,
@@ -28,7 +29,6 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsSuccessResponse2,
     ParamRequest,
     RequestMessage2,
-    RequestResource,
     SimpleBodyRequest,
     SuccessResponse,
     SuccessResponse2,
