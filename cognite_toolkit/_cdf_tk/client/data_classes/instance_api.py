@@ -17,6 +17,13 @@ class TypedInstanceIdentifier(Identifier):
     def __str__(self) -> str:
         return f"Instance({self.instance_type}, {self.space}, {self.external_id})"
 
+    def dump(self, camel_case: bool = True, include_type: bool = True) -> dict[str, Any]:
+        """Dump the resource to a dictionary.
+
+        This is the default serialization method for request resources.
+        """
+        return self.model_dump(mode="json", by_alias=camel_case, exclude_unset=not include_type)
+
 
 class TypedNodeIdentifier(TypedInstanceIdentifier):
     instance_type: Literal["node"] = "node"
@@ -65,6 +72,13 @@ class ViewReference(Identifier):
 
     def __str__(self) -> str:
         return f"View({self.space}, {self.external_id}, v{self.version})"
+
+    def dump(self, camel_case: bool = True, include_type: bool = True) -> dict[str, Any]:
+        """Dump the resource to a dictionary.
+
+        This is the default serialization method for request resources.
+        """
+        return self.model_dump(mode="json", by_alias=camel_case, exclude_unset=not include_type)
 
 
 ######################################################
