@@ -29,20 +29,27 @@ class TestCDFResourceAPI:
         api = resource.api_class(client)
         if hasattr(api, "create"):
             self._mock_endpoint(api, "create", {"items": [resource.example_data]}, respx_mock, method="POST")
-            to_create = resource.response_cls.model_validate(resource.example_data).as_request_resource()
+            to_create = resource.request_instance
             created = api.create([to_create])
             assert len(created) == 1
             assert created[0].dump() == resource.example_data
         if hasattr(api, "retrieve"):
             self._mock_endpoint(api, "retrieve", {"items": [resource.example_data]}, respx_mock, method="POST")
-            to_retrieve = resource.response_cls.model_validate(resource.example_data).as_request_resource().as_id()
+            to_retrieve = resource.resource_id
 
             retrieved = api.retrieve([to_retrieve])
             assert len(retrieved) == 1
             assert retrieved[0].dump() == resource.example_data
+        if hasattr(api, "update"):
+            self._mock_endpoint(api, "update", {"items": [resource.example_data]}, respx_mock, method="POST")
+            to_update = resource.request_instance
+
+            updated = api.update([to_update])
+            assert len(updated) == 1
+            assert updated[0].dump() == resource.example_data
         if hasattr(api, "delete"):
             self._mock_endpoint(api, "delete", None, respx_mock, method="POST")
-            to_delete = resource.response_cls.model_validate(resource.example_data).as_request_resource().as_id()
+            to_delete = resource.resource_id
 
             _ = api.delete([to_delete])
             assert len(respx_mock.calls) >= 1  # At least one call should have been made
