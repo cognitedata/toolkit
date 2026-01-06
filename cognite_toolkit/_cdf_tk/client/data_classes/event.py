@@ -16,7 +16,9 @@ class EventRequest(RequestResource):
     source: str | None = None
 
     def as_id(self) -> InternalOrExternalId:
-        return ExternalId(external_id=self.external_id or "<missing>")
+        if self.external_id is None:
+            raise ValueError("Cannot convert EventRequest to ExternalId when external_id is None")
+        return ExternalId(external_id=self.external_id)
 
 
 class EventResponse(ResponseResource[EventRequest]):

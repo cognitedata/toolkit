@@ -20,7 +20,9 @@ class AssetRequest(RequestResource):
     geo_location: dict[str, JsonValue] | None = None
 
     def as_id(self) -> InternalOrExternalId:
-        return ExternalId(external_id=self.external_id or "<missing>")
+        if self.external_id is None:
+            raise ValueError("Cannot convert AssetRequest to ExternalId when external_id is None")
+        return ExternalId(external_id=self.external_id)
 
 
 class AssetAggregateItem(BaseModelObject):

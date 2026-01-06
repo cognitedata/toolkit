@@ -41,7 +41,7 @@ class AssetsAPI(CDFResourceAPI[InternalOrExternalId, AssetRequest, AssetResponse
         """Retrieve assets from CDF.
 
         Args:
-            items: List of AssetRequest objects to retrieve.
+            items: List of InternalOrExternalId objects to retrieve.
             ignore_unknown_ids: Whether to ignore unknown IDs.
         Returns:
             List of retrieved AssetResponse objects.
@@ -64,7 +64,7 @@ class AssetsAPI(CDFResourceAPI[InternalOrExternalId, AssetRequest, AssetResponse
         """Delete assets from CDF.
 
         Args:
-            items: List of AssetRequest objects to delete.
+            items: List of InternalOrExternalId objects to delete.
             recursive: Whether to delete assets recursively.
             ignore_unknown_ids: Whether to ignore unknown IDs.
         """
