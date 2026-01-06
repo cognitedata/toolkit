@@ -4,7 +4,7 @@ from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject, RequestResource, ResponseResource
 
-from .identifiers import ExternalId, ExternalIdMissing
+from .identifiers import ExternalId, InternalOrExternalId
 
 
 class AssetRequest(RequestResource):
@@ -19,17 +19,16 @@ class AssetRequest(RequestResource):
     labels: list[dict[Literal["externalId"], str]] | None = None
     geo_location: dict[str, JsonValue] | None = None
 
-    def as_id(self) -> ExternalId | ExternalIdMissing:
-        if self.external_id is not None:
-            return ExternalId(external_id=self.external_id)
-        else:
-            return ExternalIdMissing()
+    def as_id(self) -> InternalOrExternalId:
+        if self.external_id is None:
+            raise ValueError("Cannot convert AssetRequest to ExternalId when external_id is None")
+        return ExternalId(external_id=self.external_id)
 
 
 class AssetAggregateItem(BaseModelObject):
-    child_count: int | None = None
-    depth: int | None = None
-    path: list[dict[Literal["id"], int]] | None = None
+    child_count: int
+    depth: int
+    path: list[dict[Literal["id"], int]]
 
 
 class AssetResponse(ResponseResource[AssetRequest]):

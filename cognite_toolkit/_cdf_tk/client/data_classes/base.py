@@ -66,6 +66,13 @@ class RequestResource(BaseModelObject, ABC):
 T_RequestResource = TypeVar("T_RequestResource", bound=RequestResource)
 
 
+class RequestUpdateable(RequestResource, ABC):
+    @abstractmethod
+    def as_update(self) -> dict[str, Any]:
+        """Convert the resource to an update resource."""
+        raise NotImplementedError()
+
+
 class ResponseResource(BaseModelObject, Generic[T_RequestResource], ABC):
     @abstractmethod
     def as_request_resource(self) -> T_RequestResource:

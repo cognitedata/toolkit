@@ -1,6 +1,6 @@
 from cognite_toolkit._cdf_tk.client.data_classes.base import RequestResource, ResponseResource
 
-from .identifiers import ExternalId, ExternalIdMissing
+from .identifiers import ExternalId, InternalOrExternalId
 from .instance_api import NodeReference
 
 
@@ -17,11 +17,10 @@ class TimeSeriesRequest(RequestResource):
     security_categories: list[int] | None = None
     data_set_id: int | None = None
 
-    def as_id(self) -> ExternalId | ExternalIdMissing:
-        if self.external_id is not None:
-            return ExternalId(external_id=self.external_id)
-        else:
-            return ExternalIdMissing()
+    def as_id(self) -> InternalOrExternalId:
+        if self.external_id is None:
+            raise ValueError("Cannot convert TimeSeriesRequest to ExternalId when external_id is None")
+        return ExternalId(external_id=self.external_id)
 
 
 class TimeSeriesResponse(ResponseResource[TimeSeriesRequest]):

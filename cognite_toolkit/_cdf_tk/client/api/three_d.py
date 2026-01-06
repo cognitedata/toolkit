@@ -5,7 +5,7 @@ from typing import Any, TypeVar
 from pydantic import TypeAdapter
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk.client.data_classes.api_classes import PagedResponse
+from cognite_toolkit._cdf_tk.client.cdf_client.responses import PagedResponse
 from cognite_toolkit._cdf_tk.client.data_classes.identifiers import InternalId
 from cognite_toolkit._cdf_tk.client.data_classes.three_d import (
     AssetMappingClassicRequest,

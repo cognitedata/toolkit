@@ -1,14 +1,16 @@
+from typing import Annotated, Literal
+
+from pydantic import Field
+
 from cognite_toolkit._cdf_tk.client.data_classes.base import Identifier
 
 
-class ExternalIdMissing(Identifier):
-    """Identifier representing a missing external ID."""
-
-    def __str__(self) -> str:
-        return "missing id"
+class InternalOrExternalIdDefinition(Identifier):
+    type: str
 
 
-class InternalId(Identifier):
+class InternalId(InternalOrExternalIdDefinition):
+    type: Literal["id"] = Field("id", exclude=True)
     id: int
 
     @classmethod
@@ -19,7 +21,8 @@ class InternalId(Identifier):
         return f"id={self.id}"
 
 
-class ExternalId(Identifier):
+class ExternalId(InternalOrExternalIdDefinition):
+    type: Literal["externalId"] = Field("externalId", exclude=True)
     external_id: str
 
     @classmethod
@@ -28,6 +31,9 @@ class ExternalId(Identifier):
 
     def __str__(self) -> str:
         return f"externalId='{self.external_id}'"
+
+
+InternalOrExternalId = Annotated[InternalId | ExternalId, Field(discriminator="type")]
 
 
 class NameId(Identifier):
