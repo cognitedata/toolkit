@@ -3,6 +3,7 @@ from contextlib import contextmanager
 from typing import Any
 from unittest.mock import MagicMock
 
+from cognite.client._api.assets import AssetsAPI
 from cognite.client._api.datapoints import DatapointsAPI
 from cognite.client._api.datapoints_subscriptions import DatapointsSubscriptionAPI
 from cognite.client._api.functions import FunctionCallsAPI, FunctionSchedulesAPI
@@ -138,6 +139,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool = MagicMock(spec=ToolAPI)
         self.tool.three_d = MagicMock(spec=ThreeDAPI)
         self.tool.three_d.models = MagicMock(spec_set=ThreeDModelAPI)
+        self.tool.assets = MagicMock(spec_set=AssetsAPI)
 
         self.streams = MagicMock(spec=StreamsAPI)
 

@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.client.api.legacy.extended_timeseries import Extend
 from cognite_toolkit._cdf_tk.client.api.legacy.robotics import RoboticsAPI
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 
+from .api.assets import AssetsAPI
 from .api.infield import InfieldAPI
 from .api.lookup import LookUpGroup
 from .api.migration import MigrationAPI
@@ -32,6 +33,7 @@ class ToolAPI:
     def __init__(self, http_client: HTTPClient, console: Console) -> None:
         self.http_client = http_client
         self.three_d = ThreeDAPI(http_client, console)
+        self.assets = AssetsAPI(http_client)
 
 
 class ToolkitClient(CogniteClient):
