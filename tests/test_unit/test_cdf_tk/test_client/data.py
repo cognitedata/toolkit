@@ -1,5 +1,6 @@
 from collections.abc import Iterable
 from dataclasses import dataclass
+from functools import cached_property
 from typing import Any
 
 import pytest
@@ -9,7 +10,7 @@ from cognite_toolkit._cdf_tk.client.api.events import EventsAPI
 from cognite_toolkit._cdf_tk.client.api.timeseries import TimeSeriesAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI
 from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetRequest, AssetResponse
-from cognite_toolkit._cdf_tk.client.data_classes.base import RequestResource, ResponseResource
+from cognite_toolkit._cdf_tk.client.data_classes.base import Identifier, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.data_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.data_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 
@@ -20,6 +21,18 @@ class CDFResource:
     request_cls: type[RequestResource]
     example_data: dict[str, Any]
     api_class: type[CDFResourceAPI] | None = None
+
+    @cached_property
+    def response_instance(self) -> ResponseResource:
+        return self.response_cls.model_validate(self.example_data)
+
+    @cached_property
+    def request_instance(self) -> RequestResource:
+        return self.response_instance.as_request_resource()
+
+    @cached_property
+    def resource_id(self) -> Identifier:
+        return self.request_instance.as_id()
 
 
 def get_example_response(resource_cls: type[ResponseResource]) -> dict[str, Any]:

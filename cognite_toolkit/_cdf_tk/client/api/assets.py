@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from typing import Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
@@ -16,6 +17,7 @@ class AssetsAPI(CDFResourceAPI[InternalOrExternalId, AssetRequest, AssetResponse
                 "retrieve": Endpoint(
                     method="POST", path="/assets/retrieve", item_limit=1000, concurrency_max_workers=1
                 ),
+                "update": Endpoint(method="POST", path="/assets/update", item_limit=1000, concurrency_max_workers=1),
                 "delete": Endpoint(method="POST", path="/assets/delete", item_limit=1000, concurrency_max_workers=1),
                 "list": Endpoint(method="GET", path="/assets", item_limit=1000),
             },
@@ -48,15 +50,17 @@ class AssetsAPI(CDFResourceAPI[InternalOrExternalId, AssetRequest, AssetResponse
         """
         return self._request_item_response(items, method="retrieve", params={"ignoreUnknownIds": ignore_unknown_ids})
 
-    def update(self, items: list[AssetRequest]) -> list[AssetResponse]:
+    def update(self, items: list[AssetRequest], mode: Literal["patch", "replace"] = "replace") -> list[AssetResponse]:
         """Update assets in CDF.
 
         Args:
             items: List of AssetRequest objects to update.
+            mode: Update mode, either "patch" or "replace".
+
         Returns:
             List of updated AssetResponse objects.
         """
-        raise NotImplementedError()
+        return self._update(items, mode=mode)
 
     def delete(
         self, items: list[InternalOrExternalId], recursive: bool = False, ignore_unknown_ids: bool = False
