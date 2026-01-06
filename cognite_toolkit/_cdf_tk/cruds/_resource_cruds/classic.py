@@ -368,7 +368,7 @@ class SequenceCRUD(ResourceCRUD[str, SequenceWrite, CDFSequence]):
         if "dataSetExternalId" in item:
             yield DataSetsCRUD, item["dataSetExternalId"]
         if "assetExternalId" in item:
-            yield AssetCRUD, item["assetExternalId"]
+            yield AssetCRUD, ExternalId(external_id=item["assetExternalId"])
 
 
 @final
@@ -592,7 +592,7 @@ class EventCRUD(ResourceCRUD[str, EventWrite, Event]):
             yield DataSetsCRUD, item["dataSetExternalId"]
         for asset_id in item.get("assetExternalIds", []):
             if isinstance(asset_id, str):
-                yield AssetCRUD, asset_id
+                yield AssetCRUD, ExternalId(external_id=asset_id)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> EventWrite:
         if ds_external_id := resource.get("dataSetExternalId", None):
