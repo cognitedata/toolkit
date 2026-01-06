@@ -6,6 +6,8 @@ from typing import Any
 import pytest
 
 from cognite_toolkit._cdf_tk.client.api.assets import AssetsAPI
+from cognite_toolkit._cdf_tk.client.api.events import EventsAPI
+from cognite_toolkit._cdf_tk.client.api.timeseries import TimeSeriesAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI
 from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.data_classes.base import Identifier, RequestResource, ResponseResource
@@ -84,6 +86,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=TimeSeriesResponse,
             request_cls=TimeSeriesRequest,
             example_data=get_example_response(TimeSeriesResponse),
+            api_class=TimeSeriesAPI,
         ),
         id="TimeSeries",
     )
@@ -92,6 +95,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=EventResponse,
             request_cls=EventRequest,
             example_data=get_example_response(EventResponse),
+            api_class=EventsAPI,
         ),
         id="Event",
     )
