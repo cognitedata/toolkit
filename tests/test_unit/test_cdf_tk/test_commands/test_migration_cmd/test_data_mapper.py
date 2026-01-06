@@ -13,6 +13,7 @@ from cognite.client.data_classes.data_modeling import (
     ViewId,
 )
 
+from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.data_classes.instance_api import NodeReference
 from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import CreatedSourceSystem, ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.data_classes.three_d import (
@@ -45,12 +46,14 @@ class TestAssetCentricMapper:
                         id=1000 + i,
                         ingestionView="cdf_asset_mapping",
                     ),
-                    resource=Asset(
+                    resource=AssetResponse(
                         id=1000 + i,
                         name=f"Asset {i}",
                         source="sap",
                         # Half of the assets will be missing description and thus have a conversion issue.
                         description=f"Description {i}" if i % 2 == 0 else None,
+                        createdTime=1,
+                        lastUpdatedTime=1,
                     ),
                 )
                 for i in range(asset_count)

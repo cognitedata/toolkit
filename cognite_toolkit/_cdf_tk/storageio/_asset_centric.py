@@ -40,10 +40,10 @@ from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
 from cognite_toolkit._cdf_tk.utils.fileio import FileReader, SchemaColumn
 from cognite_toolkit._cdf_tk.utils.fileio._readers import TableReader
 from cognite_toolkit._cdf_tk.utils.useful_types import (
-    AssetCentricResource,
     AssetCentricType,
     JsonVal,
 )
+from cognite_toolkit._cdf_tk.utils.useful_types2 import AssetCentricResource
 
 from ._base import (
     ConfigurableStorageIO,

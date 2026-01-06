@@ -42,8 +42,8 @@ from cognite_toolkit._cdf_tk.utils.useful_types import (
     AssetCentricKindExtended,
     AssetCentricType,
     JsonVal,
-    T_AssetCentricResource,
 )
+from cognite_toolkit._cdf_tk.utils.useful_types2 import T_AssetCentricResource
 
 from .data_classes import (
     AnnotationMapping,

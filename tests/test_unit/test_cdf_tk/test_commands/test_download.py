@@ -1,7 +1,9 @@
 from pathlib import Path
 
-from cognite.client.data_classes import AggregateResultItem, Asset, AssetList, TransformationPreviewResult
+from cognite.client.data_classes import TransformationPreviewResult
 
+from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse
+from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetAggregateItem, AssetResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DownloadCommand
 from cognite_toolkit._cdf_tk.storageio import AssetIO
@@ -15,19 +17,21 @@ class TestDownloadCommand:
         with monkeypatch_toolkit_client() as client:
             dataset = "my/:_data_set"
             client.assets.aggregate_count.return_value = 1
-            client.assets.return_value = [
-                AssetList(
-                    [
-                        Asset(
-                            id=123,
-                            name="asset_123",
-                            metadata={"key": "value"},
-                            data_set_id=42,
-                            aggregates=AggregateResultItem(1, depth=0),
-                        )
-                    ]
-                )
-            ]
+            client.tool.assets.iterate.return_value = PagedResponse(
+                items=[
+                    AssetResponse(
+                        id=123,
+                        name="asset_123",
+                        metadata={"key": "value"},
+                        dataSetId=42,
+                        aggregates=AssetAggregateItem(childCount=1, depth=0, path=[]),
+                        createdTime=0,
+                        lastUpdatedTime=0,
+                        rootId=0,
+                    )
+                ]
+            )
+
             client.lookup.data_sets.id.return_value = 42
             client.lookup.data_sets.external_id.return_value = dataset
             client.transformations.preview.return_value = TransformationPreviewResult(

@@ -14,12 +14,10 @@ class AssetsAPI(CDFResourceAPI[InternalOrExternalId, AssetRequest, AssetResponse
             http_client=http_client,
             method_endpoint_map={
                 "create": Endpoint(method="POST", path="/assets", item_limit=1000, concurrency_max_workers=1),
-                "retrieve": Endpoint(
-                    method="POST", path="/assets/retrieve", item_limit=1000, concurrency_max_workers=1
-                ),
+                "retrieve": Endpoint(method="POST", path="/assets/byids", item_limit=1000, concurrency_max_workers=1),
                 "update": Endpoint(method="POST", path="/assets/update", item_limit=1000, concurrency_max_workers=1),
                 "delete": Endpoint(method="POST", path="/assets/delete", item_limit=1000, concurrency_max_workers=1),
-                "list": Endpoint(method="POST", path="/assets", item_limit=1000),
+                "list": Endpoint(method="POST", path="/assets/list", item_limit=1000),
             },
         )
 

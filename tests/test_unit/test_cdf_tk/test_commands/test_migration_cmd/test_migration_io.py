@@ -25,13 +25,17 @@ def toolkit_client(toolkit_config: ToolkitClientConfig) -> ToolkitClient:
 
 
 class TestAssetCentricMigrationIOAdapter:
-    def test_download(self, toolkit_client: ToolkitClient, rsps: responses.RequestsMock, tmp_path: Path) -> None:
+    def test_download(self, toolkit_client: ToolkitClient, respx_mock: respx.MockRouter, tmp_path: Path) -> None:
         client = toolkit_client
         config = toolkit_client.config
         N = 1500
         items = [{"id": i, "externalId": f"asset_{i}", "space": "mySpace"} for i in range(N)]
-        rsps.post(config.create_api_url("/assets/byids"), json={"items": items[: AssetIO.CHUNK_SIZE]})
-        rsps.post(config.create_api_url("/assets/byids"), json={"items": items[AssetIO.CHUNK_SIZE :]})
+        respx_mock.post(config.create_api_url("/assets/byids")).mock(
+            side_effect=[
+                Response(status_code=200, json={"items": items[: AssetIO.CHUNK_SIZE]}),
+                Response(status_code=200, json={"items": items[AssetIO.CHUNK_SIZE :]}),
+            ]
+        )
 
         csv_file = tmp_path / "files.csv"
         csv_file.write_text("id,space,externalId\n" + "\n".join(f"{i},mySpace,asset_{i}" for i in range(N)))
