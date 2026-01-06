@@ -11,7 +11,7 @@ class AssetRequest(RequestResource):
     external_id: str | None = None
     name: str
     parent_id: int | None = None
-    parent_external_id: str | None
+    parent_external_id: str | None = None
     description: str | None = None
     metadata: dict[str, str] | None = None
     data_set_id: int | None = None
@@ -38,7 +38,7 @@ class AssetResponse(ResponseResource[AssetRequest]):
     external_id: str | None = None
     name: str
     parent_id: int | None = None
-    parent_external_id: str | None
+    parent_external_id: str | None = None
     description: str | None = None
     metadata: dict[str, str] | None = None
     data_set_id: int | None = None
