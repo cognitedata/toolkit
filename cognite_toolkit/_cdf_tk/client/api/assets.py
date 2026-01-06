@@ -29,7 +29,7 @@ class AssetsAPI(CDFResourceAPI[InternalOrExternalId, AssetRequest, AssetResponse
     def _reference_response(self, response: SuccessResponse2) -> ResponseItems[InternalOrExternalId]:
         return ResponseItems[InternalOrExternalId].model_validate_json(response.body)
 
-    def create(self, items: list[AssetRequest]) -> list[AssetResponse]:
+    def create(self, items: Sequence[AssetRequest]) -> list[AssetResponse]:
         """Create assets in CDF.
 
         Args:
@@ -50,7 +50,9 @@ class AssetsAPI(CDFResourceAPI[InternalOrExternalId, AssetRequest, AssetResponse
         """
         return self._request_item_response(items, method="retrieve", params={"ignoreUnknownIds": ignore_unknown_ids})
 
-    def update(self, items: list[AssetRequest], mode: Literal["patch", "replace"] = "replace") -> list[AssetResponse]:
+    def update(
+        self, items: Sequence[AssetRequest], mode: Literal["patch", "replace"] = "replace"
+    ) -> list[AssetResponse]:
         """Update assets in CDF.
 
         Args:
@@ -63,7 +65,7 @@ class AssetsAPI(CDFResourceAPI[InternalOrExternalId, AssetRequest, AssetResponse
         return self._update(items, mode=mode)
 
     def delete(
-        self, items: list[InternalOrExternalId], recursive: bool = False, ignore_unknown_ids: bool = False
+        self, items: Sequence[InternalOrExternalId], recursive: bool = False, ignore_unknown_ids: bool = False
     ) -> None:
         """Delete assets from CDF.
 

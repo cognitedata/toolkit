@@ -124,16 +124,16 @@ class AssetCRUD(ResourceCRUD[ExternalId, AssetRequest, AssetResponse]):
     def create(self, items: collections.abc.Sequence[AssetRequest]) -> list[AssetResponse]:
         return self.client.tool.assets.create(items)
 
-    def retrieve(self, ids: collections.abc.Sequence[ExternalId]) -> list[AssetResponse]:
-        return self.client.tool.assets.retrieve(ids, ignore_unknown_ids=True)
+    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[AssetResponse]:
+        return self.client.tool.assets.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: collections.abc.Sequence[AssetRequest]) -> list[AssetResponse]:
         return self.client.tool.assets.update(items, mode="replace")
 
-    def delete(self, ids: collections.abc.Sequence[InternalOrExternalId]) -> int:
+    def delete(self, ids: SequenceNotStr[InternalOrExternalId]) -> int:
         if not ids:
             return 0
-        self.client.tool.assets.delete(ids, ignore_unknown_ids=True)
+        self.client.tool.assets.delete(list(ids), ignore_unknown_ids=True)
         return len(ids)
 
     def _iterate(
