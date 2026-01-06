@@ -60,7 +60,7 @@ class RequestResource(BaseModelObject, ABC):
         raise NotImplementedError()
 
     def __str__(self) -> str:
-        raise NotImplementedError()
+        return str(self.as_id())
 
 
 T_RequestResource = TypeVar("T_RequestResource", bound=RequestResource)

@@ -14,18 +14,30 @@ class TypedInstanceIdentifier(Identifier):
     space: str
     external_id: str
 
+    def __str__(self) -> str:
+        return f"Instance({self.instance_type}, {self.space}, {self.external_id})"
+
 
 class TypedNodeIdentifier(TypedInstanceIdentifier):
     instance_type: Literal["node"] = "node"
+
+    def __str__(self) -> str:
+        return f"Node({self.space}, {self.external_id})"
 
 
 class TypedEdgeIdentifier(TypedInstanceIdentifier):
     instance_type: Literal["edge"] = "edge"
 
+    def __str__(self) -> str:
+        return f"Edge({self.space}, {self.external_id})"
+
 
 class InstanceIdentifier(Identifier):
     space: str
     external_id: str
+
+    def __str__(self) -> str:
+        return f"Instance({self.space}, {self.external_id})"
 
 
 class InstanceResult(BaseModelObject):
@@ -50,6 +62,9 @@ class ViewReference(Identifier):
     space: str
     external_id: str
     version: str
+
+    def __str__(self) -> str:
+        return f"View({self.space}, {self.external_id}, v{self.version})"
 
 
 ######################################################
