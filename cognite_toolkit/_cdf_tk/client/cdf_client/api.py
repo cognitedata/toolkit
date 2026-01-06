@@ -62,11 +62,13 @@ class ResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource], 
         self._endpoint = endpoint
         self._limits = limits
 
-    def _serialize_request_resource(self, items: Sequence[T_RequestResource]) -> list[dict[str, JsonValue]]:
+    @classmethod
+    def _serialize_request_resource(cls, items: Sequence[T_RequestResource]) -> list[dict[str, JsonValue]]:
         """Serialize request objects to JSON-compatible dicts."""
         return [item.model_dump(mode="json", by_alias=True) for item in items]
 
-    def _serialize_reference(self, items: Sequence[T_Identifier]) -> list[dict[str, JsonValue]]:
+    @classmethod
+    def _serialize_reference(cls, items: Sequence[T_Identifier]) -> list[dict[str, JsonValue]]:
         """Serialize reference objects to JSON-compatible dicts."""
         return [item.model_dump(mode="json", by_alias=True) for item in items]
 
