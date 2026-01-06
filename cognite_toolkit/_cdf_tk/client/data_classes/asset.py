@@ -4,7 +4,7 @@ from typing import Literal
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client.data_classes.base import ResponseResource
-from cognite_toolkit._cdf_tk.utils.http_client import BaseModelObject, RequestResource
+from cognite_toolkit._cdf_tk.client.http_client import BaseModelObject, RequestResource
 
 
 class AssetRequest(RequestResource):
