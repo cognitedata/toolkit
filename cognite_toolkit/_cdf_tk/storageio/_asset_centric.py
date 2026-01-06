@@ -311,18 +311,22 @@ class AssetIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
 
     def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[Page]:
         asset_subtree_external_ids, data_set_external_ids = self._get_hierarchy_dataset_pair(selector)
-        for asset_list in self.client.assets(
-            chunk_size=self.CHUNK_SIZE,
-            limit=limit,
-            asset_subtree_external_ids=asset_subtree_external_ids,
-            data_set_external_ids=data_set_external_ids,
-            aggregated_properties=["child_count", "path", "depth"],
-            # We cannot use partitions here as it is not thread safe. This spawn multiple threads
-            # that are not shut down until all data is downloaded. We need to be able to abort.
-            partitions=None,
-        ):
-            self._collect_dependencies(asset_list, selector)
-            yield Page(worker_id="main", items=asset_list)
+        cursor: str | None = None
+        total_count = 0
+        while True:
+            page = self.client.tool.assets.iterate(
+                aggregated_properties=True,
+                data_set_external_ids=data_set_external_ids,
+                asset_subtree_external_ids=asset_subtree_external_ids,
+                limit=self.CHUNK_SIZE,
+                cursor=cursor,
+            )
+            self._collect_dependencies(page.items, selector)
+            yield Page(worker_id="main", items=page.items)
+            total_count += len(page.items)
+            if page.next_cursor is None or (limit is not None and total_count >= limit):
+                break
+            cursor = page.next_cursor
 
     def data_to_json_chunk(
         self, data_chunk: Sequence[AssetResponse], selector: AssetCentricSelector | None = None

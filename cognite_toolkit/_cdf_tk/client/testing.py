@@ -3,7 +3,6 @@ from contextlib import contextmanager
 from typing import Any
 from unittest.mock import MagicMock
 
-from cognite.client._api.assets import AssetsAPI
 from cognite.client._api.datapoints import DatapointsAPI
 from cognite.client._api.datapoints_subscriptions import DatapointsSubscriptionAPI
 from cognite.client._api.functions import FunctionCallsAPI, FunctionSchedulesAPI
@@ -13,6 +12,7 @@ from cognite.client.testing import CogniteClientMock
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.api.assets import AssetsAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.canvas import CanvasAPI, IndustrialCanvasAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.charts import ChartsAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.dml import DMLAPI

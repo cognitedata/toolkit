@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import Literal
+from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
@@ -82,6 +82,7 @@ class AssetsAPI(CDFResourceAPI[InternalOrExternalId, AssetRequest, AssetResponse
         self,
         aggregated_properties: bool = False,
         data_set_external_ids: list[str] | None = None,
+        asset_subtree_external_ids: list[str] | None = None,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[AssetResponse]:
@@ -90,14 +91,18 @@ class AssetsAPI(CDFResourceAPI[InternalOrExternalId, AssetRequest, AssetResponse
         Returns:
             PagedResponse of AssetResponse objects.
         """
+        filter_: dict[str, Any] = {}
+        if asset_subtree_external_ids:
+            filter_["assetSubtreeExternalIds"] = [{"externalId": ext_id} for ext_id in asset_subtree_external_ids]
+        if data_set_external_ids:
+            filter_["dataSetIds"] = [{"externalId": ds_id} for ds_id in data_set_external_ids]
+
         return self._iterate(
             cursor=cursor,
             limit=limit,
             body={
                 "aggregatedProperties": ["childCount", "path", "depth"] if aggregated_properties else [],
-                "filter": {"dataSetIds": [{"externalId": ds_id} for ds_id in data_set_external_ids]}
-                if data_set_external_ids
-                else None,
+                "filter": filter_ or None,
             },
         )
 
