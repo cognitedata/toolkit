@@ -13,11 +13,11 @@ from cognite.client.data_classes.data_modeling import (
     ViewId,
 )
 
+from cognite_toolkit._cdf_tk.client.data_classes.instance_api import NodeReference
 from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import CreatedSourceSystem, ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.data_classes.three_d import (
     AssetMappingDMRequest,
     AssetMappingResponse,
-    NodeReference,
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (

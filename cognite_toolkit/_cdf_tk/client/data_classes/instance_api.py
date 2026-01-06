@@ -160,3 +160,8 @@ class InstanceResponseItem(BaseModelObject):
             space=self.space,
             external_id=self.external_id,
         )
+
+
+class NodeReference(BaseModelObject):
+    space: str
+    external_id: str

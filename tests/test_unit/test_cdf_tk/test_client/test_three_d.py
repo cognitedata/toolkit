@@ -6,10 +6,10 @@ import pytest
 import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.data_classes.instance_api import NodeReference
 from cognite_toolkit._cdf_tk.client.data_classes.three_d import (
     AssetMappingClassicRequest,
     AssetMappingDMRequest,
-    NodeReference,
 )
 
 

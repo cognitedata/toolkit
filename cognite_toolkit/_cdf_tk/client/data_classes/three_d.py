@@ -4,11 +4,7 @@ from typing import Literal
 from pydantic import Field
 
 from .base import BaseModelObject, RequestResource, ResponseResource
-
-
-class NodeReference(BaseModelObject):
-    space: str
-    external_id: str
+from .instance_api import NodeReference
 
 
 class RevisionStatus(BaseModelObject):
