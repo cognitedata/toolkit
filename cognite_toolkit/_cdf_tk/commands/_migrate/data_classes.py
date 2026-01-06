@@ -12,6 +12,7 @@ from cognite.client.utils._text import to_camel_case
 from pydantic import BaseModel, BeforeValidator, Field, field_validator, model_validator
 
 from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject, RequestResource
+from cognite_toolkit._cdf_tk.client.data_classes.identifiers import InternalId
 from cognite_toolkit._cdf_tk.client.data_classes.instance_api import InstanceIdentifier
 from cognite_toolkit._cdf_tk.client.data_classes.legacy.instances import InstanceApplyList
 from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import AssetCentricId
@@ -279,8 +280,8 @@ class ThreeDRevisionMigrationRequest(RequestResource):
     revision_id: int
     model: Model
 
-    def as_id(self) -> int:
-        return self.revision_id
+    def as_id(self) -> InternalId:
+        return InternalId(id=self.revision_id)
 
 
 class ThreeDMigrationRequest(RequestResource):
@@ -290,5 +291,5 @@ class ThreeDMigrationRequest(RequestResource):
     thumbnail: Thumbnail | None = None
     revision: ThreeDRevisionMigrationRequest = Field(exclude=True)
 
-    def as_id(self) -> int:
-        return self.model_id
+    def as_id(self) -> InternalId:
+        return InternalId(id=self.model_id)

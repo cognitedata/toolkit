@@ -267,7 +267,10 @@ class InFieldLocationConfigCRUD(ResourceCRUD[TypedNodeIdentifier, InfieldLocatio
 
     @classmethod
     def dump_id(cls, id: TypedNodeIdentifier) -> dict[str, Any]:
-        return id.dump(include_type=False)
+        return {
+            "space": id.space,
+            "externalId": id.external_id,
+        }
 
     @classmethod
     def get_required_capability(
@@ -368,7 +371,10 @@ class InFieldCDMLocationConfigCRUD(
 
     @classmethod
     def dump_id(cls, id: TypedNodeIdentifier) -> dict[str, Any]:
-        return id.dump(include_type=False)
+        return {
+            "space": id.space,
+            "externalId": id.external_id,
+        }
 
     @classmethod
     def get_required_capability(

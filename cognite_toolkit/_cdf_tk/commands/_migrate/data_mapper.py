@@ -514,6 +514,9 @@ class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingResponse, AssetMa
             issue.error_message.append("Neither assetInstanceId nor assetId provided for mapping.")
             return None, issue
         mapped_request = AssetMappingDMRequest(
-            modelId=item.model_id, revisionId=item.revision_id, nodeId=item.node_id, assetInstanceId=asset_instance_id
+            model_id=item.model_id,
+            revision_id=item.revision_id,
+            node_id=item.node_id,
+            asset_instance_id=asset_instance_id,
         )
         return mapped_request, issue

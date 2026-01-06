@@ -1,0 +1,37 @@
+from cognite_toolkit._cdf_tk.client.data_classes.base import Identifier
+
+
+class ExternalIdMissing(Identifier):
+    """Identifier representing a missing external ID."""
+
+    def __str__(self) -> str:
+        return "missing id"
+
+
+class InternalId(Identifier):
+    id: int
+
+    @classmethod
+    def from_ids(cls, ids: list[int]) -> list["InternalId"]:
+        return [cls(id=id_) for id_ in ids]
+
+    def __str__(self) -> str:
+        return f"id={self.id}"
+
+
+class ExternalId(Identifier):
+    external_id: str
+
+    @classmethod
+    def from_external_ids(cls, external_ids: list[str]) -> list["ExternalId"]:
+        return [cls(external_id=ext_id) for ext_id in external_ids]
+
+    def __str__(self) -> str:
+        return f"externalId='{self.external_id}'"
+
+
+class NameId(Identifier):
+    name: str
+
+    def __str__(self) -> str:
+        return f"name='{self.name}'"

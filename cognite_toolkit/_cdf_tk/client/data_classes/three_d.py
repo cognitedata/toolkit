@@ -1,10 +1,16 @@
-from collections.abc import Hashable
+import sys
 from typing import Literal
 
 from pydantic import Field
 
-from .base import BaseModelObject, RequestResource, ResponseResource
+from .base import BaseModelObject, Identifier, RequestResource, ResponseResource
+from .identifiers import NameId
 from .instance_api import NodeReference
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 
 class RevisionStatus(BaseModelObject):
@@ -18,16 +24,13 @@ class RevisionStatus(BaseModelObject):
 class ThreeDModelRequest(RequestResource):
     name: str
 
-    def as_id(self) -> str:
-        return self.name
+    def as_id(self) -> NameId:
+        return NameId(name=self.name)
 
 
 class ThreeDModelClassicRequest(ThreeDModelRequest):
     data_set_id: int | None = None
     metadata: dict[str, str] | None = None
-
-    def as_id(self) -> str:
-        return self.name
 
 
 class ThreeDModelDMSRequest(ThreeDModelRequest):
@@ -52,24 +55,21 @@ class ThreeDModelResponse(ResponseResource[ThreeDModelRequest]):
             return ThreeDModelDMSRequest._load(self.dump())
 
 
-class AssetMappingDMRequest(RequestResource):
+class AssetMappingDMRequest(RequestResource, Identifier):
     node_id: int
     asset_instance_id: NodeReference
     # These fields are part of the path request and not the body schema.
     model_id: int = Field(exclude=True)
     revision_id: int = Field(exclude=True)
 
-    def as_id(self) -> Hashable:
-        return (
-            self.model_id,
-            self.revision_id,
-            self.node_id,
-            self.asset_instance_id.space,
-            self.asset_instance_id.external_id,
-        )
+    def as_id(self) -> Self:
+        return self
+
+    def __str__(self) -> str:
+        return f"{self.model_id}_{self.revision_id}_{self.node_id}_{self.asset_instance_id.space}_{self.asset_instance_id.external_id}"
 
 
-class AssetMappingClassicRequest(RequestResource):
+class AssetMappingClassicRequest(RequestResource, Identifier):
     node_id: int
     asset_id: int | None = None
     asset_instance_id: NodeReference | None = None
@@ -77,19 +77,18 @@ class AssetMappingClassicRequest(RequestResource):
     model_id: int = Field(exclude=True)
     revision_id: int = Field(exclude=True)
 
-    def as_id(self) -> Hashable:
-        if self.asset_id:
-            return self.model_id, self.revision_id, self.node_id, self.asset_id
-        elif self.asset_instance_id:
-            return (
-                self.model_id,
-                self.revision_id,
-                self.node_id,
-                self.asset_instance_id.space,
-                self.asset_instance_id.external_id,
-            )
-        else:
-            raise AttributeError("asset_id or asset_instance_id is required")
+    def as_id(self) -> Self:
+        return self
+
+    def __str__(self) -> str:
+        asset_part = (
+            f"assetId:{self.asset_id}"
+            if self.asset_id is not None
+            else f"assetInstance:{self.asset_instance_id.space}_{self.asset_instance_id.external_id}"
+            if self.asset_instance_id is not None
+            else "noAsset"
+        )
+        return f"{self.model_id}_{self.revision_id}_{self.node_id}_{asset_part}"
 
 
 class AssetMappingResponse(ResponseResource[AssetMappingClassicRequest]):
