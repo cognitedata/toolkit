@@ -46,6 +46,61 @@ class TestRequestUpdateable:
                 {"externalId": "asset_1", "update": {"name": {"set": "Asset 1"}}},
                 id="Patch with only required field",
             ),
+            pytest.param(
+                AssetRequest(externalId="asset_1", name="Asset 1"),
+                "replace",
+                {
+                    "externalId": "asset_1",
+                    "update": {
+                        "dataSetId": {"setNull": True},
+                        "description": {"setNull": True},
+                        "geoLocation": {"setNull": True},
+                        "labels": {"set": []},
+                        "metadata": {"set": {}},
+                        "name": {"set": "Asset 1"},
+                        "parentExternalId": {"setNull": True},
+                        "parentId": {"setNull": True},
+                        "source": {"setNull": True},
+                    },
+                },
+                id="Replace with only required field",
+            ),
+            pytest.param(
+                AssetRequest(
+                    externalId="asset_1", name="Asset 1", metadata={"key": "value"}, labels=[{"externalId": "label_1"}]
+                ),
+                "patch",
+                {
+                    "externalId": "asset_1",
+                    "update": {
+                        "name": {"set": "Asset 1"},
+                        "metadata": {"add": {"key": "value"}},
+                        "labels": {"add": [{"externalId": "label_1"}]},
+                    },
+                },
+                id="Patch with container fields",
+            ),
+            pytest.param(
+                AssetRequest(
+                    externalId="asset_1", name="Asset 1", metadata={"key": "value"}, labels=[{"externalId": "label_1"}]
+                ),
+                "replace",
+                {
+                    "externalId": "asset_1",
+                    "update": {
+                        "dataSetId": {"setNull": True},
+                        "description": {"setNull": True},
+                        "geoLocation": {"setNull": True},
+                        "labels": {"set": [{"externalId": "label_1"}]},
+                        "metadata": {"set": {"key": "value"}},
+                        "name": {"set": "Asset 1"},
+                        "parentExternalId": {"setNull": True},
+                        "parentId": {"setNull": True},
+                        "source": {"setNull": True},
+                    },
+                },
+                id="Replace with container fields",
+            ),
         ],
     )
     def test_as_update(

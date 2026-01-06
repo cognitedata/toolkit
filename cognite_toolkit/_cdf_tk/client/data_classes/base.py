@@ -73,22 +73,32 @@ class RequestUpdateable(RequestResource, ABC):
         """Convert the request resource to an update item."""
         update_item = self.as_id().dump(camel_case=True)
         update: dict[str, Any] = {}
-        field_id_by_name = {info.alias or field_id: field_id for field_id, info in type(self).model_fields.items()}
+        field_by_name = {info.alias or field_id: (field_id, info) for field_id, info in type(self).model_fields.items()}
         # When mode is "patch", we only include fields that are set
         exclude_unset = mode == "patch"
         for key, value in self.model_dump(mode="json", by_alias=True, exclude_unset=exclude_unset).items():
             if key in update_item:
                 # Skip identifier fields
                 continue
-            if key not in field_id_by_name:
+            if key not in field_by_name:
                 # Skip unknown fields
                 continue
-            field_id = field_id_by_name[key]
+            field_id, info = field_by_name[key]
             if field_id in self.container_fields:
                 if mode == "patch":
                     update[key] = {"add": value}
                 elif mode == "replace":
-                    update[key] = {"set": value}
+                    if value is None:
+                        if "list" in str(info.annotation):
+                            update[key] = {"set": []}
+                        elif "dict" in str(info.annotation):
+                            update[key] = {"set": {}}
+                        else:
+                            raise NotImplementedError(
+                                f'Cannot replace container field "{key}" with None when its type is unknown.'
+                            )
+                    else:
+                        update[key] = {"set": value}
                 else:
                     raise NotImplementedError(f'Update mode "{mode}" is not supported for container fields.')
             elif value is None:
