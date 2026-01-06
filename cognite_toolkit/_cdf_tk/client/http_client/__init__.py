@@ -20,7 +20,6 @@ from ._data_classes import (
     SuccessResponseItems,
 )
 from ._data_classes2 import (
-    BaseModelObject,
     ErrorDetails2,
     FailedRequest2,
     FailedResponse2,
@@ -31,14 +30,12 @@ from ._data_classes2 import (
     ItemsResultMessage2,
     ItemsSuccessResponse2,
     RequestMessage2,
-    RequestResource,
     SuccessResponse2,
 )
 from ._exception import ToolkitAPIError
 
 __all__ = [
     "T_COVARIANT_ID",
-    "BaseModelObject",
     "DataBodyRequest",
     "ErrorDetails",
     "ErrorDetails2",
@@ -62,7 +59,6 @@ __all__ = [
     "RequestItem",
     "RequestMessage",
     "RequestMessage2",
-    "RequestResource",
     "ResponseList",
     "ResponseMessage",
     "SimpleBodyRequest",
