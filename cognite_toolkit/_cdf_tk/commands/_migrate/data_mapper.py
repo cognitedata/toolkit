@@ -20,7 +20,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.charts_data import (
     ChartSource,
     ChartTimeseries,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.instance_api import InstanceIdentifier
+from cognite_toolkit._cdf_tk.client.data_classes.instance_api import InstanceIdentifier, NodeReference
 from cognite_toolkit._cdf_tk.client.data_classes.legacy.canvas import (
     ContainerReferenceApply,
     FdmInstanceContainerReferenceApply,
@@ -32,7 +32,6 @@ from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import Resourc
 from cognite_toolkit._cdf_tk.client.data_classes.three_d import (
     AssetMappingDMRequest,
     AssetMappingResponse,
-    NodeReference,
     RevisionStatus,
     ThreeDModelResponse,
 )
