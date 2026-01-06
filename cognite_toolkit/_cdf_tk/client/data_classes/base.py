@@ -47,6 +47,9 @@ class Identifier(BaseModelObject):
         """
         return self.model_dump(mode="json", by_alias=camel_case, exclude_unset=True)
 
+    def __str__(self) -> str:
+        raise NotImplementedError()
+
 
 T_Identifier = TypeVar("T_Identifier", bound=Identifier)
 

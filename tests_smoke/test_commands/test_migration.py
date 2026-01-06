@@ -157,10 +157,10 @@ def tmp_3D_model_with_asset_mapping(
     created_mapping = client.tool.three_d.asset_mappings.create(
         [
             AssetMappingClassicRequest(
-                nodeId=three_d_node.id,
-                assetId=classic_asset.id,
-                modelId=model.id,
-                revisionId=revision.id,
+                node_id=three_d_node.id,
+                asset_id=classic_asset.id,
+                model_id=model.id,
+                revision_id=revision.id,
             )
         ]
     )
