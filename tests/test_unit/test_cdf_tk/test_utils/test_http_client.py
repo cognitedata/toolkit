@@ -7,9 +7,9 @@ from unittest.mock import patch
 import httpx
 import pytest
 import respx
+from pydantic import BaseModel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.data_classes.base import RequestResource
 from cognite_toolkit._cdf_tk.client.http_client import (
     ErrorDetails,
     ErrorDetails2,
@@ -644,12 +644,12 @@ class TestHTTPMessage:
             pytest.fail(f"Dumped data is not valid JSON: {e}")
 
 
-class MyRequestItem(RequestResource):
+class MyRequestItem(BaseModel):
     name: str
     id: int
 
-    def as_id(self) -> int:
-        return self.id
+    def __str__(self) -> str:
+        return str(self.id)
 
 
 @pytest.mark.usefixtures("disable_pypi_check")
