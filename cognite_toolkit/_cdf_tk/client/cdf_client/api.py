@@ -6,16 +6,39 @@ that handle CRUD operations for CDF Data Modeling API resources.
 
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-
+from dataclasses import dataclass
 from typing import Any, Generic
 
-from pydantic import  JsonValue
+from pydantic import JsonValue
 
-from cognite_toolkit._cdf_tk.client.data_classes.base import T_RequestResource, T_ResponseResource
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
+from cognite_toolkit._cdf_tk.client.data_classes.base import T_Identifier, T_RequestResource, T_ResponseResource
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage2, SuccessResponse2
+from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
+
+from .responses import PagedResponse, ResponseItems
 
 
-class ResourceAPI(Generic[T_Reference, T_RequestResource, T_ResponseResource], ABC):
+@dataclass(frozen=True)
+class ResourceLimits:
+    """Configuration for API endpoint limits.
+
+    These limits control the maximum number of items per request
+    for each type of operation.
+
+    Attributes:
+        create: Maximum items per create request. Default is 100.
+        retrieve: Maximum items per retrieve request. Default is 100.
+        delete: Maximum items per delete request. Default is 100.
+        list: Maximum items per list/iterate request. Default is 1000.
+    """
+
+    create: int = 100
+    retrieve: int = 100
+    delete: int = 100
+    list: int = 1000
+
+
+class ResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource], ABC):
     """Generic resource API for CDF APIs
 
     This class provides the logic for working with CDF resources,
@@ -26,7 +49,7 @@ class ResourceAPI(Generic[T_Reference, T_RequestResource, T_ResponseResource], A
         self,
         http_client: HTTPClient,
         endpoint: str,
-        limits: ResourceLimits | None = None,
+        limits: ResourceLimits,
     ) -> None:
         """Initialize the resource API.
 
@@ -39,21 +62,21 @@ class ResourceAPI(Generic[T_Reference, T_RequestResource, T_ResponseResource], A
         self._endpoint = endpoint
         self._limits = limits
 
-    def _serialize_request_resource(self, items: Sequence[T_APIResource]) -> list[dict[str, JsonValue]]:
+    def _serialize_request_resource(self, items: Sequence[T_RequestResource]) -> list[dict[str, JsonValue]]:
         """Serialize request objects to JSON-compatible dicts."""
         return [item.model_dump(mode="json", by_alias=True) for item in items]
 
-    def _serialize_reference(self, items: Sequence[T_Reference]) -> list[dict[str, JsonValue]]:
+    def _serialize_reference(self, items: Sequence[T_Identifier]) -> list[dict[str, JsonValue]]:
         """Serialize reference objects to JSON-compatible dicts."""
         return [item.model_dump(mode="json", by_alias=True) for item in items]
 
     @abstractmethod
-    def _page_response(self, response: SuccessResponse) -> Page[T_ResponseResource]:
+    def _page_response(self, response: SuccessResponse2) -> PagedResponse[T_ResponseResource]:
         """Parse a single item response."""
         raise NotImplementedError()
 
     @abstractmethod
-    def _reference_response(self, response: SuccessResponse) -> ReferenceResponseItems[T_Reference]:
+    def _reference_response(self, response: SuccessResponse2) -> ResponseItems[T_Identifier]:
         """Parse a reference response."""
         raise NotImplementedError()
 
@@ -61,7 +84,7 @@ class ResourceAPI(Generic[T_Reference, T_RequestResource, T_ResponseResource], A
         """Create the full URL for this resource endpoint."""
         return self._http_client.config.create_api_url(self._endpoint)
 
-    def _create(self, items: Sequence[T_APIResource]) -> list[T_ResponseResource]:
+    def _create(self, items: Sequence[T_RequestResource]) -> list[T_ResponseResource]:
         """Create or update resources.
 
         Args:
@@ -76,13 +99,13 @@ class ResourceAPI(Generic[T_Reference, T_RequestResource, T_ResponseResource], A
         all_responses: list[T_ResponseResource] = []
 
         for chunk in chunker_sequence(items, self._limits.create):
-            request = RequestMessage(
+            request = RequestMessage2(
                 endpoint_url=self._make_url(),
                 method="POST",
                 body_content={"items": self._serialize_request_resource(chunk)},  # type: ignore[dict-item]
             )
 
-            result = self._http_client.request_with_retries(request)
+            result = self._http_client.request_single_retries(request)
             response = result.get_success_or_raise()
             created_items = self._page_response(response).items
             all_responses.extend(created_items)
@@ -91,7 +114,7 @@ class ResourceAPI(Generic[T_Reference, T_RequestResource, T_ResponseResource], A
 
     def _retrieve(
         self,
-        references: Sequence[T_Reference],
+        references: Sequence[T_Identifier],
         params: dict[str, Any] | None = None,
     ) -> list[T_ResponseResource]:
         """Retrieve specific resources by their references.
@@ -113,20 +136,20 @@ class ResourceAPI(Generic[T_Reference, T_RequestResource, T_ResponseResource], A
 
         all_responses: list[T_ResponseResource] = []
         for chunk in chunker_sequence(references, self._limits.retrieve):
-            request = RequestMessage(
+            request = RequestMessage2(
                 endpoint_url=f"{self._make_url()}/byids",
                 method="POST",
                 body_content={"items": self._serialize_reference(chunk)},  # type: ignore[dict-item]
                 parameters=request_params,
             )
 
-            result = self._http_client.request_with_retries(request)
+            result = self._http_client.request_single_retries(request)
             response = result.get_success_or_raise()
             all_responses.extend(self._page_response(response).items)
 
         return all_responses
 
-    def _delete(self, references: Sequence[T_Reference]) -> list[T_Reference]:
+    def _delete(self, references: Sequence[T_Identifier]) -> list[T_Identifier]:
         """Delete resources by their references.
 
         Args:
@@ -138,15 +161,15 @@ class ResourceAPI(Generic[T_Reference, T_RequestResource, T_ResponseResource], A
         if not references:
             return []
 
-        all_deleted: list[T_Reference] = []
+        all_deleted: list[T_Identifier] = []
         for chunk in chunker_sequence(references, self._limits.delete):
-            request = RequestMessage(
+            request = RequestMessage2(
                 endpoint_url=f"{self._make_url()}/delete",
                 method="POST",
                 body_content={"items": self._serialize_reference(chunk)},  # type: ignore[dict-item]
             )
 
-            result = self._http_client.request_with_retries(request)
+            result = self._http_client.request_single_retries(request)
             response = result.get_success_or_raise()
             all_deleted.extend(self._reference_response(response).items)
 
@@ -154,7 +177,7 @@ class ResourceAPI(Generic[T_Reference, T_RequestResource, T_ResponseResource], A
 
     def _iterate(
         self, limit: int, cursor: str | None = None, params: dict[str, Any] | None = None
-    ) -> Page[T_ResponseResource]:
+    ) -> PagedResponse[T_ResponseResource]:
         """Fetch a single page of resources.
 
         Args:
@@ -182,13 +205,13 @@ class ResourceAPI(Generic[T_Reference, T_RequestResource, T_ResponseResource], A
         if cursor is not None:
             request_params["cursor"] = cursor
 
-        request = RequestMessage(
+        request = RequestMessage2(
             endpoint_url=self._make_url(),
             method="GET",
             parameters=request_params,
         )
 
-        result = self._http_client.request_with_retries(request)
+        result = self._http_client.request_single_retries(request)
         response = result.get_success_or_raise()
 
         return self._page_response(response)
@@ -203,7 +226,7 @@ class ResourceAPI(Generic[T_Reference, T_RequestResource, T_ResponseResource], A
             page = self._iterate(limit=page_limit, cursor=next_cursor, params=params)
             all_items.extend(page.items)
             total += len(page.items)
-            if page.cursor is None or (limit is not None and total >= limit):
+            if page.next_cursor is None or (limit is not None and total >= limit):
                 break
-            next_cursor = page.cursor
+            next_cursor = page.next_cursor
         return all_items

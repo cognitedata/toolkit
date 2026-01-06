@@ -4,7 +4,7 @@ from typing import Any, cast
 from pydantic import TypeAdapter
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk.client.data_classes.api_classes import QueryResponse
+from cognite_toolkit._cdf_tk.client.cdf_client.responses import QueryResponse
 from cognite_toolkit._cdf_tk.client.data_classes.infield import (
     DataExplorationConfig,
     InFieldCDMLocationConfig,
