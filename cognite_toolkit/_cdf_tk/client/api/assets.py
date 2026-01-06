@@ -19,7 +19,7 @@ class AssetsAPI(CDFResourceAPI[InternalOrExternalId, AssetRequest, AssetResponse
                 ),
                 "update": Endpoint(method="POST", path="/assets/update", item_limit=1000, concurrency_max_workers=1),
                 "delete": Endpoint(method="POST", path="/assets/delete", item_limit=1000, concurrency_max_workers=1),
-                "list": Endpoint(method="GET", path="/assets", item_limit=1000),
+                "list": Endpoint(method="POST", path="/assets", item_limit=1000),
             },
         )
 
@@ -78,6 +78,8 @@ class AssetsAPI(CDFResourceAPI[InternalOrExternalId, AssetRequest, AssetResponse
 
     def iterate(
         self,
+        aggregated_properties: bool = False,
+        data_set_external_ids: list[str] | None = None,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[AssetResponse]:
@@ -86,7 +88,16 @@ class AssetsAPI(CDFResourceAPI[InternalOrExternalId, AssetRequest, AssetResponse
         Returns:
             PagedResponse of AssetResponse objects.
         """
-        return self._iterate(cursor=cursor, limit=limit)
+        return self._iterate(
+            cursor=cursor,
+            limit=limit,
+            body={
+                "aggregatedProperties": ["childCount", "path", "depth"] if aggregated_properties else [],
+                "filter": {"dataSetIds": [{"externalId": ds_id} for ds_id in data_set_external_ids]}
+                if data_set_external_ids
+                else None,
+            },
+        )
 
     def list(
         self,

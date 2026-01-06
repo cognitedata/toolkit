@@ -148,7 +148,11 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         return request_params
 
     def _iterate(
-        self, limit: int, cursor: str | None = None, params: dict[str, Any] | None = None
+        self,
+        limit: int,
+        cursor: str | None = None,
+        params: dict[str, Any] | None = None,
+        body: dict[str, Any] | None = None,
     ) -> PagedResponse[T_ResponseResource]:
         """Fetch a single page of resources.
 
@@ -159,7 +163,9 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
                 - limit: Maximum number of items (defaults to list limit)
                 - space: Filter by space
                 - includeGlobal: Whether to include global resources
-
+            body : Body content for the request, if applicable.
+            limit: Maximum number of items to return in the page.
+            cursor: Cursor for pagination.
         Returns:
             A Page containing the items and the cursor for the next page.
         """
@@ -168,13 +174,16 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
             raise ValueError(f"Limit must be between 1 and {endpoint.item_limit}, got {limit}.")
 
         request_params = self._filter_out_none_values(params) or {}
-
+        body = self._filter_out_none_values(body) or {}
         request_params["limit"] = limit
         if cursor is not None:
             request_params["cursor"] = cursor
 
         request = RequestMessage2(
-            endpoint_url=self._make_url(endpoint.path), method=endpoint.method, parameters=request_params
+            endpoint_url=self._make_url(endpoint.path),
+            method=endpoint.method,
+            parameters=request_params,
+            body_content=body,
         )
         result = self._http_client.request_single_retries(request)
         response = result.get_success_or_raise()
