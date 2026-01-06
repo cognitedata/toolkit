@@ -2,12 +2,13 @@ from typing import Literal
 
 from pydantic import JsonValue
 
-from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject, RequestResource, ResponseResource
+from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject, RequestUpdateable, ResponseResource
 
 from .identifiers import ExternalId, InternalOrExternalId
 
 
-class AssetRequest(RequestResource):
+class AssetRequest(RequestUpdateable):
+    container_fields = frozenset({"metadata", "labels"})
     external_id: str | None = None
     name: str
     parent_id: int | None = None
