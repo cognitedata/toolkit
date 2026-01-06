@@ -143,7 +143,9 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         if cursor is not None:
             request_params["cursor"] = cursor
 
-        request = RequestMessage2(endpoint_url=self._make_url(), method=endpoint.method, parameters=request_params)
+        request = RequestMessage2(
+            endpoint_url=self._make_url(endpoint.path), method=endpoint.method, parameters=request_params
+        )
         result = self._http_client.request_single_retries(request)
         response = result.get_success_or_raise()
         return self._page_response(response)
