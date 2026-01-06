@@ -29,7 +29,17 @@ class TestAssetCentricMigrationIOAdapter:
         client = toolkit_client
         config = toolkit_client.config
         N = 1500
-        items = [{"id": i, "externalId": f"asset_{i}", "space": "mySpace"} for i in range(N)]
+        items = [
+            {
+                "id": i,
+                "externalId": f"asset_{i}",
+                "name": f"Asset {i}",
+                "createdTime": 0,
+                "lastUpdatedTime": 1,
+                "rootId": 0,
+            }
+            for i in range(N)
+        ]
         respx_mock.post(config.create_api_url("/assets/byids")).mock(
             side_effect=[
                 Response(status_code=200, json={"items": items[: AssetIO.CHUNK_SIZE]}),
@@ -51,7 +61,14 @@ class TestAssetCentricMigrationIOAdapter:
         first_item = downloaded[0].items[0]
         assert first_item.dump() == {
             "mapping": {"id": 0, "instanceId": {"space": "mySpace", "externalId": "asset_0"}, "resourceType": "asset"},
-            "resource": {"id": 0, "externalId": "asset_0"},
+            "resource": {
+                "id": 0,
+                "externalId": "asset_0",
+                "name": "Asset 0",
+                "createdTime": 0,
+                "lastUpdatedTime": 1,
+                "rootId": 0,
+            },
         }
 
 
