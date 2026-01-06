@@ -364,14 +364,14 @@ class TestLabelLoader:
 
 
 class TestAssetLoader:
-    def test_create_delete_asset(self, cognite_client: CogniteClient) -> None:
+    def test_create_delete_asset(self, toolkit_client: ToolkitClient) -> None:
         asset = AssetWrite(
             external_id=f"tmp_test_create_delete_asset_{RUN_UNIQUE_ID}",
             name="My Asset",
             description="My description",
         )
 
-        loader = AssetCRUD(cognite_client, None)
+        loader = AssetCRUD(toolkit_client, None)
 
         try:
             created = loader.create(AssetWriteList([asset]))
@@ -381,7 +381,7 @@ class TestAssetLoader:
             assert delete_count == 1
         finally:
             # Ensure that the asset is deleted even if the test fails.
-            cognite_client.assets.delete(external_id=asset.external_id, ignore_unknown_ids=True)
+            toolkit_client.assets.delete(external_id=asset.external_id, ignore_unknown_ids=True)
 
 
 @pytest.fixture

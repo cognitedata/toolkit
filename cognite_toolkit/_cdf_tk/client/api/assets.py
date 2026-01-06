@@ -46,7 +46,9 @@ class AssetsAPI(CDFResourceAPI[InternalOrExternalId, AssetRequest, AssetResponse
         Returns:
             List of retrieved AssetResponse objects.
         """
-        return self._request_item_response(items, method="retrieve", params={"ignoreUnknownIds": ignore_unknown_ids})
+        return self._request_item_response(
+            items, method="retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids}
+        )
 
     def update(
         self, items: Sequence[AssetRequest], mode: Literal["patch", "replace"] = "replace"
@@ -73,7 +75,7 @@ class AssetsAPI(CDFResourceAPI[InternalOrExternalId, AssetRequest, AssetResponse
             ignore_unknown_ids: Whether to ignore unknown IDs.
         """
         self._request_no_response(
-            items, "delete", params={"recursive": recursive, "ignoreUnknownIds": ignore_unknown_ids}
+            items, "delete", extra_body={"recursive": recursive, "ignoreUnknownIds": ignore_unknown_ids}
         )
 
     def iterate(
