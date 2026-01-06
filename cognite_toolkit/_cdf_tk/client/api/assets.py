@@ -11,7 +11,6 @@ class AssetsAPI(CDFResourceAPI[InternalOrExternalId, AssetRequest, AssetResponse
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
             http_client=http_client,
-            resource_endpoint="/assets",
             method_endpoint_map={
                 "create": Endpoint(method="POST", path="/assets", item_limit=1000, concurrency_max_workers=1),
                 "retrieve": Endpoint(

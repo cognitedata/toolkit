@@ -19,26 +19,6 @@ from .responses import PagedResponse, ResponseItems
 
 
 @dataclass(frozen=True)
-class ResourceLimits:
-    """Configuration for API endpoint limits.
-
-    These limits control the maximum number of items per request
-    for each type of operation.
-
-    Attributes:
-        create: Maximum items per create request. Default is 100.
-        retrieve: Maximum items per retrieve request. Default is 100.
-        delete: Maximum items per delete request. Default is 100.
-        list: Maximum items per list/iterate request. Default is 1000.
-    """
-
-    create: int = 100
-    retrieve: int = 100
-    delete: int = 100
-    list: int = 1000
-
-
-@dataclass(frozen=True)
 class Endpoint:
     method: Literal["GET", "POST", "PUT", "PATCH", "DELETE"]
     path: str
@@ -56,18 +36,14 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
     including creating, retrieving, deleting, and listing resources.
     """
 
-    def __init__(
-        self, http_client: HTTPClient, resource_endpoint: str, method_endpoint_map: dict[APIMethod, Endpoint]
-    ) -> None:
+    def __init__(self, http_client: HTTPClient, method_endpoint_map: dict[APIMethod, Endpoint]) -> None:
         """Initialize the resource API.
 
         Args:
             http_client: The HTTP client to use for API requests.
-            resource_endpoint: The API endpoint path for this resource (e.g., '/models/spaces').
             method_endpoint_map: A mapping of endpoint suffixes to their properties.
         """
         self._http_client = http_client
-        self._resource_endpoint = resource_endpoint
         self._method_endpoint_map = method_endpoint_map
 
     @classmethod
@@ -85,9 +61,9 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         """Parse a reference response."""
         raise NotImplementedError()
 
-    def _make_url(self, suffix: str = "") -> str:
+    def _make_url(self, path: str = "") -> str:
         """Create the full URL for this resource endpoint."""
-        return self._http_client.config.create_api_url(f"{self._resource_endpoint}{suffix}")
+        return self._http_client.config.create_api_url(path)
 
     def _request_item_response(
         self,
