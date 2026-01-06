@@ -10,9 +10,7 @@ import httpx
 from cognite.client import global_config
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
-from cognite_toolkit._cdf_tk.utils.auxiliary import get_current_toolkit_version, get_user_agent
-from cognite_toolkit._cdf_tk.utils.http_client._data_classes import (
+from cognite_toolkit._cdf_tk.client.http_client._data_classes import (
     BodyRequest,
     DataBodyRequest,
     FailedRequestMessage,
@@ -23,7 +21,7 @@ from cognite_toolkit._cdf_tk.utils.http_client._data_classes import (
     ResponseList,
     ResponseMessage,
 )
-from cognite_toolkit._cdf_tk.utils.http_client._data_classes2 import (
+from cognite_toolkit._cdf_tk.client.http_client._data_classes2 import (
     BaseRequestMessage,
     ErrorDetails2,
     FailedRequest2,
@@ -38,6 +36,8 @@ from cognite_toolkit._cdf_tk.utils.http_client._data_classes2 import (
     RequestMessage2,
     SuccessResponse2,
 )
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
+from cognite_toolkit._cdf_tk.utils.auxiliary import get_current_toolkit_version, get_user_agent
 from cognite_toolkit._cdf_tk.utils.useful_types import PrimitiveType
 
 if sys.version_info >= (3, 11):

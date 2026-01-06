@@ -6,8 +6,8 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.config import ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage2
 from cognite_toolkit._cdf_tk.utils.collection import chunker
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, RequestMessage2
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 

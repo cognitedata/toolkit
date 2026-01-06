@@ -5,6 +5,7 @@ from cognite.client.data_classes import DataSet
 from cognite.client.data_classes.data_modeling import NodeId, Space
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.commands import UploadCommand
 from cognite_toolkit._cdf_tk.storageio import FileContentIO
 from cognite_toolkit._cdf_tk.storageio.selectors import (
@@ -22,7 +23,6 @@ from cognite_toolkit._cdf_tk.storageio.selectors._file_content import (
     TemplateNodeId,
 )
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader, NDJsonWriter, Uncompressed
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
 

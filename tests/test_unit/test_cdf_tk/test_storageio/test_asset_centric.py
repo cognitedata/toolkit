@@ -22,6 +22,7 @@ from cognite.client.data_classes import (
 )
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
 from cognite_toolkit._cdf_tk.storageio import (
@@ -35,7 +36,6 @@ from cognite_toolkit._cdf_tk.storageio._base import TableUploadableStorageIO
 from cognite_toolkit._cdf_tk.storageio.selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.fileio import FileReader
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
 
 RESOURCE_COUNT = 50
 DATA_SET_ID = 1234

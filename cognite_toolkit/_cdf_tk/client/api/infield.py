@@ -15,12 +15,12 @@ from cognite_toolkit._cdf_tk.client.data_classes.instance_api import (
     InstanceResult,
     TypedNodeIdentifier,
 )
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
-from cognite_toolkit._cdf_tk.utils.http_client import (
+from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ItemsRequest2,
     RequestMessage2,
 )
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 
 
 class InfieldConfigAPI:

@@ -2,7 +2,7 @@ from typing import Generic, TypeVar
 
 from pydantic import BaseModel, Field, JsonValue
 
-from cognite_toolkit._cdf_tk.utils.http_client._data_classes2 import RequestResource
+from cognite_toolkit._cdf_tk.client.http_client import RequestResource
 
 T = TypeVar("T", bound=BaseModel)
 

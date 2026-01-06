@@ -10,13 +10,7 @@ from cognite.client.data_classes import FileMetadata, FileMetadataWrite
 from cognite.client.data_classes.data_modeling import NodeId, ViewId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.cruds import FileMetadataCRUD
-from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
-from cognite_toolkit._cdf_tk.protocols import ResourceResponseProtocol
-from cognite_toolkit._cdf_tk.utils import sanitize_filename
-from cognite_toolkit._cdf_tk.utils.collection import chunker, chunker_sequence
-from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
-from cognite_toolkit._cdf_tk.utils.http_client import (
+from cognite_toolkit._cdf_tk.client.http_client import (
     DataBodyRequest,
     ErrorDetails,
     FailedResponse,
@@ -26,6 +20,12 @@ from cognite_toolkit._cdf_tk.utils.http_client import (
     ResponseList,
     SimpleBodyRequest,
 )
+from cognite_toolkit._cdf_tk.cruds import FileMetadataCRUD
+from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
+from cognite_toolkit._cdf_tk.protocols import ResourceResponseProtocol
+from cognite_toolkit._cdf_tk.utils import sanitize_filename
+from cognite_toolkit._cdf_tk.utils.collection import chunker, chunker_sequence
+from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import Page, UploadableStorageIO, UploadItem

@@ -5,7 +5,7 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.data_classes.api_classes import PagedResponse
 from cognite_toolkit._cdf_tk.client.data_classes.streams import StreamRequest, StreamResponse
-from cognite_toolkit._cdf_tk.utils.http_client import (
+from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ItemsRequest2,
     RequestMessage2,

@@ -7,6 +7,7 @@ from rich.console import Console
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, HTTPMessage, ItemMessage, SuccessResponseItems
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._migrate.creators import MigrationCreator
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import DataMapper
@@ -24,7 +25,6 @@ from cognite_toolkit._cdf_tk.storageio import T_Selector, UploadableStorageIO, U
 from cognite_toolkit._cdf_tk.utils import humanize_collection, safe_write, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import Chunk, CSVWriter, NDJsonWriter, SchemaColumn, Uncompressed
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemMessage, SuccessResponseItems
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.progress_tracker import AVAILABLE_STATUS, ProgressTracker, Status
 

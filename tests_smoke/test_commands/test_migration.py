@@ -22,6 +22,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.three_d import (
     ThreeDModelClassicRequest,
     ThreeDModelResponse,
 )
+from cognite_toolkit._cdf_tk.client.http_client import FailedRequestMessage, FailedResponse, HTTPClient
 from cognite_toolkit._cdf_tk.commands import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper, ThreeDAssetMapper, ThreeDMapper
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import COGNITE_MIGRATION_MODEL, SPACE_SOURCE_VIEW_ID
@@ -36,7 +37,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFile
 from cognite_toolkit._cdf_tk.storageio import UploadItem
 from cognite_toolkit._cdf_tk.storageio.selectors import ThreeDModelIdSelector
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.http_client import FailedRequestMessage, FailedResponse, HTTPClient
 from tests.test_integration.constants import RUN_UNIQUE_ID
 from tests_smoke.exceptions import EndpointAssertionError
 
