@@ -670,7 +670,9 @@ class TestHTTPClientItemRequests2:
             )
         )
         body = '{"items":[{"id":1,"value":42},{"id":2,"value":43}]}'
-        assert results == [ItemsSuccessResponse2(status_code=200, ids=[1, 2], body=body, content=body.encode("utf-8"))]
+        assert results == [
+            ItemsSuccessResponse2(status_code=200, ids=["1", "2"], body=body, content=body.encode("utf-8"))
+        ]
         assert len(rsps.calls) == 1
         assert json.loads(rsps.calls[0].request.content) == {
             "items": [{"name": "A", "id": 1}, {"name": "B", "id": 2}],
@@ -708,10 +710,10 @@ class TestHTTPClientItemRequests2:
         )
         body = '{"items":[{"externalId":"success","data":123}]}'
         assert results == [
-            ItemsSuccessResponse2(status_code=200, ids=[1], body=body, content=body.encode("utf-8")),
+            ItemsSuccessResponse2(status_code=200, ids=["1"], body=body, content=body.encode("utf-8")),
             ItemsFailedResponse2(
                 status_code=400,
-                ids=[2],
+                ids=["2"],
                 error=ErrorDetails2(message="Item failed", code=400),
                 body='{"error":{"message":"Item failed","code":400}}',
             ),
@@ -744,7 +746,7 @@ class TestHTTPClientItemRequests2:
         assert results == [
             ItemsFailedResponse2(
                 status_code=401,
-                ids=[1, 2],
+                ids=["1", "2"],
                 error=ErrorDetails2(message="Unauthorized", code=401),
                 body='{"error":{"message":"Unauthorized","code":401}}',
             ),
@@ -762,7 +764,7 @@ class TestHTTPClientItemRequests2:
             )
         )
         assert results == [
-            ItemsSuccessResponse2(status_code=200, ids=[1, 2], body="", content=b""),
+            ItemsSuccessResponse2(status_code=200, ids=["1", "2"], body="", content=b""),
         ]
 
     def test_timeout_error(self, http_client_one_retry: HTTPClient, rsps: respx.MockRouter) -> None:
@@ -778,7 +780,7 @@ class TestHTTPClientItemRequests2:
             )
         assert results == [
             ItemsFailedRequest2(
-                ids=[1], error_message="RequestException after 1 attempts (read error): Simulated timeout error"
+                ids=["1"], error_message="RequestException after 1 attempts (read error): Simulated timeout error"
             )
         ]
 

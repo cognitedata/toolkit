@@ -124,7 +124,7 @@ _BODY_SERIALIZER = TypeAdapter(dict[str, JsonValue])
 
 
 class ItemsResultMessage2(BaseModel):
-    ids: list[Hashable]
+    ids: list[str]
 
 
 class ItemsFailedRequest2(ItemsResultMessage2):
@@ -166,6 +166,9 @@ class RequestResource(BaseModelObject, ABC):
     @abstractmethod
     def as_id(self) -> Hashable: ...
 
+    def __str__(self) -> str:
+        return str(self.as_id())
+
 
 def _set_default_tracker(data: dict[str, Any]) -> ItemsRequestTracker:
     if "tracker" not in data or data["tracker"] is None:
@@ -175,14 +178,16 @@ def _set_default_tracker(data: dict[str, Any]) -> ItemsRequestTracker:
 
 class ItemsRequest2(BaseRequestMessage):
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    items: Sequence[RequestResource]
+    items: Sequence[BaseModel]
     extra_body_fields: dict[str, JsonValue] | None = None
     max_failures_before_abort: int = 50
     tracker: ItemsRequestTracker = Field(init=False, default_factory=_set_default_tracker, exclude=True)
 
     @property
     def content(self) -> str | bytes | None:
-        body: dict[str, JsonValue] = {"items": [item.dump() for item in self.items]}
+        body: dict[str, JsonValue] = {
+            "items": [item.model_dump(mode="json", by_alias=True, exclude_unset=True) for item in self.items]
+        }
         if self.extra_body_fields:
             body.update(self.extra_body_fields)
         res = _BODY_SERIALIZER.dump_json(body)
