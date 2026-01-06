@@ -4,11 +4,11 @@ from dataclasses import dataclass
 from typing import ClassVar, Generic, Literal, TypeVar
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, HTTPMessage, ItemsRequest
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader, SchemaColumn
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from .selectors import DataSelector

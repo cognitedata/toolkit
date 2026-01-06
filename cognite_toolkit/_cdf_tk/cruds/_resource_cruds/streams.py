@@ -9,9 +9,9 @@ from cognite_toolkit._cdf_tk.client.data_classes.streams import (
     StreamResponse,
     StreamResponseList,
 )
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import StreamYAML
-from cognite_toolkit._cdf_tk.utils.http_client import ToolkitAPIError
 
 from .datamodel import ContainerCRUD
 

@@ -17,6 +17,13 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.instance_api import TypedInstanceIdentifier
+from cognite_toolkit._cdf_tk.client.http_client import (
+    HTTPClient,
+    ItemsRequest,
+    ItemsRequest2,
+    ItemsSuccessResponse2,
+    SuccessResponseItems,
+)
 from cognite_toolkit._cdf_tk.cruds import (
     AssetCRUD,
     ContainerCRUD,
@@ -58,13 +65,6 @@ from cognite_toolkit._cdf_tk.utils.aggregators import (
     RelationshipAggregator,
     SequenceAggregator,
     TimeSeriesAggregator,
-)
-from cognite_toolkit._cdf_tk.utils.http_client import (
-    HTTPClient,
-    ItemsRequest,
-    ItemsRequest2,
-    ItemsSuccessResponse2,
-    SuccessResponseItems,
 )
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal

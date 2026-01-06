@@ -8,6 +8,7 @@ from cognite.client.data_classes import Annotation
 from httpx import Response
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     AnnotationMigrationIO,
     AssetCentricMigrationIO,
@@ -16,7 +17,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.storageio import AssetIO, UploadItem
 from cognite_toolkit._cdf_tk.storageio.selectors import ThreeDModelIdSelector
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
 
 
 @pytest.fixture(scope="module")

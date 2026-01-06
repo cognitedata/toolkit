@@ -9,34 +9,32 @@ import pytest
 import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
-from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
-from cognite_toolkit._cdf_tk.utils.http_client import (
+from cognite_toolkit._cdf_tk.client.http_client import (
     ErrorDetails,
+    ErrorDetails2,
+    FailedRequest2,
     FailedRequestItems,
     FailedRequestMessage,
     FailedResponse,
+    FailedResponse2,
     FailedResponseItems,
     HTTPClient,
     HTTPMessage,
     ItemMessage,
-    ItemsRequest,
-    ParamRequest,
-    SimpleBodyRequest,
-    SuccessResponse,
-    SuccessResponseItems,
-)
-from cognite_toolkit._cdf_tk.utils.http_client._data_classes2 import (
-    ErrorDetails2,
-    FailedRequest2,
-    FailedResponse2,
     ItemsFailedRequest2,
     ItemsFailedResponse2,
+    ItemsRequest,
     ItemsRequest2,
     ItemsSuccessResponse2,
+    ParamRequest,
     RequestMessage2,
     RequestResource,
+    SimpleBodyRequest,
+    SuccessResponse,
     SuccessResponse2,
+    SuccessResponseItems,
 )
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from tests.test_unit.utils import FakeCogniteResourceGenerator
 

@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Generic, TypeVar
 from pydantic import ConfigDict
 from pydantic.alias_generators import to_camel
 
-from cognite_toolkit._cdf_tk.utils.http_client._data_classes2 import BaseModelObject, RequestResource
+from cognite_toolkit._cdf_tk.client.http_client import BaseModelObject, RequestResource
 
 if TYPE_CHECKING:
     from cognite.client import CogniteClient

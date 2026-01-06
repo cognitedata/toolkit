@@ -10,8 +10,8 @@ from cognite.client import global_config
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, model_validator
 from pydantic.alias_generators import to_camel
 
-from cognite_toolkit._cdf_tk.utils.http_client._exception import ToolkitAPIError
-from cognite_toolkit._cdf_tk.utils.http_client._tracker import ItemsRequestTracker
+from cognite_toolkit._cdf_tk.client.http_client._exception import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.http_client._tracker import ItemsRequestTracker
 from cognite_toolkit._cdf_tk.utils.useful_types import PrimitiveType
 
 if sys.version_info >= (3, 11):

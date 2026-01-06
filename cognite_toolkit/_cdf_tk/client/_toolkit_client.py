@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.client.api.legacy.extended_functions import Extende
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_raw import ExtendedRawAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_timeseries import ExtendedTimeSeriesAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.robotics import RoboticsAPI
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 
 from .api.infield import InfieldAPI
 from .api.lookup import LookUpGroup
