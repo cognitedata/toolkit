@@ -5,11 +5,11 @@ that handle CRUD operations for CDF Data Modeling API resources.
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Any, Generic
+from typing import Any, Generic, Literal, TypeAlias
 
-from pydantic import JsonValue
+from pydantic import BaseModel, JsonValue
 
 from cognite_toolkit._cdf_tk.client.data_classes.base import T_Identifier, T_RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage2, SuccessResponse2
@@ -38,7 +38,18 @@ class ResourceLimits:
     list: int = 1000
 
 
-class ResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource], ABC):
+@dataclass(frozen=True)
+class Endpoint:
+    method: Literal["GET", "POST", "PUT", "PATCH", "DELETE"]
+    path: str
+    item_limit: int
+    concurrency_max_workers: int = 1
+
+
+APIMethod: TypeAlias = Literal["create", "retrieve", "delete", "update", "list"]
+
+
+class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource], ABC):
     """Generic resource API for CDF APIs
 
     This class provides the logic for working with CDF resources,
@@ -46,29 +57,21 @@ class ResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource], 
     """
 
     def __init__(
-        self,
-        http_client: HTTPClient,
-        endpoint: str,
-        limits: ResourceLimits,
+        self, http_client: HTTPClient, resource_endpoint: str, method_endpoint_map: dict[APIMethod, Endpoint]
     ) -> None:
         """Initialize the resource API.
 
         Args:
             http_client: The HTTP client to use for API requests.
-            endpoint: The API endpoint path for this resource (e.g., '/models/spaces').
-            limits: Configuration for API endpoint limits. Uses defaults if not provided.
+            resource_endpoint: The API endpoint path for this resource (e.g., '/models/spaces').
+            method_endpoint_map: A mapping of endpoint suffixes to their properties.
         """
         self._http_client = http_client
-        self._endpoint = endpoint
-        self._limits = limits
+        self._resource_endpoint = resource_endpoint
+        self._method_endpoint_map = method_endpoint_map
 
     @classmethod
-    def _serialize_request_resource(cls, items: Sequence[T_RequestResource]) -> list[dict[str, JsonValue]]:
-        """Serialize request objects to JSON-compatible dicts."""
-        return [item.model_dump(mode="json", by_alias=True) for item in items]
-
-    @classmethod
-    def _serialize_reference(cls, items: Sequence[T_Identifier]) -> list[dict[str, JsonValue]]:
+    def _serialize_items(cls, items: Sequence[BaseModel]) -> list[dict[str, JsonValue]]:
         """Serialize reference objects to JSON-compatible dicts."""
         return [item.model_dump(mode="json", by_alias=True) for item in items]
 
@@ -82,100 +85,61 @@ class ResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource], 
         """Parse a reference response."""
         raise NotImplementedError()
 
-    def _make_url(self) -> str:
+    def _make_url(self, suffix: str = "") -> str:
         """Create the full URL for this resource endpoint."""
-        return self._http_client.config.create_api_url(self._endpoint)
+        return self._http_client.config.create_api_url(f"{self._resource_endpoint}{suffix}")
 
-    def _create(self, items: Sequence[T_RequestResource]) -> list[T_ResponseResource]:
-        """Create or update resources.
-
-        Args:
-            items: A sequence of request objects defining the resources to create/update.
-
-        Returns:
-            A list of the created/updated resource objects.
-        """
-        if not items:
-            return []
-
-        all_responses: list[T_ResponseResource] = []
-
-        for chunk in chunker_sequence(items, self._limits.create):
-            request = RequestMessage2(
-                endpoint_url=self._make_url(),
-                method="POST",
-                body_content={"items": self._serialize_request_resource(chunk)},  # type: ignore[dict-item]
-            )
-
-            result = self._http_client.request_single_retries(request)
-            response = result.get_success_or_raise()
-            created_items = self._page_response(response).items
-            all_responses.extend(created_items)
-
-        return all_responses
-
-    def _retrieve(
+    def _request_item_response(
         self,
-        references: Sequence[T_Identifier],
+        items: Sequence[BaseModel],
+        method: APIMethod,
         params: dict[str, Any] | None = None,
     ) -> list[T_ResponseResource]:
-        """Retrieve specific resources by their references.
+        response_items: list[T_ResponseResource] = []
+        for response in self._chunk_requests(items, method, params):
+            response_items.extend(self._page_response(response).items)
+        return response_items
 
-        Args:
-            references: A sequence of reference objects identifying the resources to retrieve.
-            params: Additional query parameters to include in the request.
+    def _request_reference_response(
+        self,
+        items: Sequence[BaseModel],
+        method: APIMethod,
+        params: dict[str, Any] | None = None,
+    ) -> list[T_Identifier]:
+        all_ids: list[T_Identifier] = []
+        for response in self._chunk_requests(items, method, params):
+            all_ids.extend(self._reference_response(response).items)
+        return all_ids
 
-        Returns:
-            A list of resource objects. Resources that don't exist are not included.
-        """
-        if not references:
-            return []
+    def _request_no_response(
+        self, items: Sequence[BaseModel], method: APIMethod, params: dict[str, Any] | None = None
+    ) -> None:
+        list(self._chunk_requests(items, method, params))
+        return None
 
-        # Convert params to the expected type
+    def _chunk_requests(
+        self, items: Sequence[BaseModel], method: APIMethod, params: dict[str, Any] | None = None
+    ) -> Iterable[SuccessResponse2]:
+        # Filter out None
+        request_params = self._filter_out_none_values(params)
+        endpoint = self._method_endpoint_map[method]
+
+        for chunk in chunker_sequence(items, endpoint.item_limit):
+            request = RequestMessage2(
+                endpoint_url=f"{self._make_url(endpoint.path)}",
+                method=endpoint.method,
+                body_content={"items": self._serialize_items(chunk)},  # type: ignore[dict-item]
+                parameters=request_params,
+            )
+            response = self._http_client.request_single_retries(request)
+            yield response.get_success_or_raise()
+
+    @classmethod
+    def _filter_out_none_values(cls, params: dict[str, Any] | None) -> dict[str, str | int | float | bool] | None:
         request_params: dict[str, str | int | float | bool] | None = None
         if params:
             request_params = {k: v for k, v in params.items() if v is not None}
-
-        all_responses: list[T_ResponseResource] = []
-        for chunk in chunker_sequence(references, self._limits.retrieve):
-            request = RequestMessage2(
-                endpoint_url=f"{self._make_url()}/byids",
-                method="POST",
-                body_content={"items": self._serialize_reference(chunk)},  # type: ignore[dict-item]
-                parameters=request_params,
-            )
-
-            result = self._http_client.request_single_retries(request)
-            response = result.get_success_or_raise()
-            all_responses.extend(self._page_response(response).items)
-
-        return all_responses
-
-    def _delete(self, references: Sequence[T_Identifier]) -> list[T_Identifier]:
-        """Delete resources by their references.
-
-        Args:
-            references: A sequence of reference objects identifying the resources to delete.
-
-        Returns:
-            A list of references to the deleted resources.
-        """
-        if not references:
-            return []
-
-        all_deleted: list[T_Identifier] = []
-        for chunk in chunker_sequence(references, self._limits.delete):
-            request = RequestMessage2(
-                endpoint_url=f"{self._make_url()}/delete",
-                method="POST",
-                body_content={"items": self._serialize_reference(chunk)},  # type: ignore[dict-item]
-            )
-
-            result = self._http_client.request_single_retries(request)
-            response = result.get_success_or_raise()
-            all_deleted.extend(self._reference_response(response).items)
-
-        return all_deleted
+        return request_params
 
     def _iterate(
         self, limit: int, cursor: str | None = None, params: dict[str, Any] | None = None
@@ -193,29 +157,19 @@ class ResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource], 
         Returns:
             A Page containing the items and the cursor for the next page.
         """
-        if not (0 < limit <= self._limits.list):
-            raise ValueError(f"Limit must be between 1 and {self._limits.list}, got {limit}.")
+        endpoint = self._method_endpoint_map["list"]
+        if not (0 < limit <= endpoint.item_limit):
+            raise ValueError(f"Limit must be between 1 and {endpoint.item_limit}, got {limit}.")
 
-        request_params: dict[str, str | int | float | bool] = {}
+        request_params = self._filter_out_none_values(params) or {}
 
-        if params:
-            for key, value in params.items():
-                if value is not None:
-                    request_params[key] = value
-
-        request_params["limit"] = self._limits.list
+        request_params["limit"] = limit
         if cursor is not None:
             request_params["cursor"] = cursor
 
-        request = RequestMessage2(
-            endpoint_url=self._make_url(),
-            method="GET",
-            parameters=request_params,
-        )
-
+        request = RequestMessage2(endpoint_url=self._make_url(), method=endpoint.method, parameters=request_params)
         result = self._http_client.request_single_retries(request)
         response = result.get_success_or_raise()
-
         return self._page_response(response)
 
     def _list(self, limit: int | None = None, params: dict[str, Any] | None = None) -> list[T_ResponseResource]:
@@ -223,8 +177,9 @@ class ResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource], 
         all_items: list[T_ResponseResource] = []
         next_cursor: str | None = None
         total = 0
+        endpoint = self._method_endpoint_map["list"]
         while True:
-            page_limit = self._limits.list if limit is None else min(limit - total, self._limits.list)
+            page_limit = endpoint.item_limit if limit is None else min(limit - total, endpoint.item_limit)
             page = self._iterate(limit=page_limit, cursor=next_cursor, params=params)
             all_items.extend(page.items)
             total += len(page.items)

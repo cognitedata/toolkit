@@ -1,6 +1,6 @@
 from cognite_toolkit._cdf_tk.client.data_classes.base import RequestResource, ResponseResource
 
-from .identifiers import ExternalId, ExternalIdMissing
+from .identifiers import ExternalId, InternalOrExternalId
 
 
 class EventRequest(RequestResource):
@@ -15,11 +15,8 @@ class EventRequest(RequestResource):
     asset_ids: list[int] | None = None
     source: str | None = None
 
-    def as_id(self) -> ExternalId | ExternalIdMissing:
-        if self.external_id is not None:
-            return ExternalId(external_id=self.external_id)
-        else:
-            return ExternalIdMissing()
+    def as_id(self) -> InternalOrExternalId:
+        return ExternalId(external_id=self.external_id or "<missing>")
 
 
 class EventResponse(ResponseResource[EventRequest]):
