@@ -5,17 +5,25 @@ that handle CRUD operations for CDF Data Modeling API resources.
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
-from typing import Any, Generic, Literal, TypeAlias
+from functools import partial
+from typing import Any, Generic, Literal, TypeAlias, TypeVar
 
 from pydantic import BaseModel, JsonValue
 
-from cognite_toolkit._cdf_tk.client.data_classes.base import T_Identifier, T_RequestResource, T_ResponseResource
+from cognite_toolkit._cdf_tk.client.data_classes.base import (
+    RequestUpdateable,
+    T_Identifier,
+    T_RequestResource,
+    T_ResponseResource,
+)
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage2, SuccessResponse2
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 
 from .responses import PagedResponse, ResponseItems
+
+_T_BaseModel = TypeVar("_T_BaseModel", bound=BaseModel)
 
 
 @dataclass(frozen=True)
@@ -26,7 +34,7 @@ class Endpoint:
     concurrency_max_workers: int = 1
 
 
-APIMethod: TypeAlias = Literal["create", "retrieve", "delete", "update", "list"]
+APIMethod: TypeAlias = Literal["create", "retrieve", "update", "delete", "list"]
 
 
 class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource], ABC):
@@ -51,6 +59,13 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         """Serialize reference objects to JSON-compatible dicts."""
         return [item.model_dump(mode="json", by_alias=True) for item in items]
 
+    @classmethod
+    def _serialize_updates(
+        cls, items: Sequence[RequestUpdateable], mode: Literal["patch", "replace"]
+    ) -> list[dict[str, JsonValue]]:
+        """Serialize updateable objects to JSON-compatible dicts."""
+        return [item.as_update(mode=mode) for item in items]
+
     @abstractmethod
     def _page_response(self, response: SuccessResponse2) -> PagedResponse[T_ResponseResource]:
         """Parse a single item response."""
@@ -65,6 +80,17 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         """Create the full URL for this resource endpoint."""
         return self._http_client.config.create_api_url(path)
 
+    def _update(
+        self, items: Sequence[RequestUpdateable], mode: Literal["patch", "replace"]
+    ) -> list[T_ResponseResource]:
+        """Update resources in chunks."""
+        response_items: list[T_ResponseResource] = []
+        for response in self._chunk_requests(
+            items, "update", serialization=partial(self._serialize_updates, mode=mode)
+        ):
+            response_items.extend(self._page_response(response).items)
+        return response_items
+
     def _request_item_response(
         self,
         items: Sequence[BaseModel],
@@ -72,7 +98,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         params: dict[str, Any] | None = None,
     ) -> list[T_ResponseResource]:
         response_items: list[T_ResponseResource] = []
-        for response in self._chunk_requests(items, method, params):
+        for response in self._chunk_requests(items, method, self._serialize_items, params):
             response_items.extend(self._page_response(response).items)
         return response_items
 
@@ -83,18 +109,22 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         params: dict[str, Any] | None = None,
     ) -> list[T_Identifier]:
         all_ids: list[T_Identifier] = []
-        for response in self._chunk_requests(items, method, params):
+        for response in self._chunk_requests(items, method, self._serialize_items, params):
             all_ids.extend(self._reference_response(response).items)
         return all_ids
 
     def _request_no_response(
         self, items: Sequence[BaseModel], method: APIMethod, params: dict[str, Any] | None = None
     ) -> None:
-        list(self._chunk_requests(items, method, params))
+        list(self._chunk_requests(items, method, self._serialize_items, params))
         return None
 
     def _chunk_requests(
-        self, items: Sequence[BaseModel], method: APIMethod, params: dict[str, Any] | None = None
+        self,
+        items: Sequence[_T_BaseModel],
+        method: APIMethod,
+        serialization: Callable[[Sequence[_T_BaseModel]], list[dict[str, JsonValue]]],
+        params: dict[str, Any] | None = None,
     ) -> Iterable[SuccessResponse2]:
         # Filter out None
         request_params = self._filter_out_none_values(params)
@@ -104,7 +134,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
             request = RequestMessage2(
                 endpoint_url=f"{self._make_url(endpoint.path)}",
                 method=endpoint.method,
-                body_content={"items": self._serialize_items(chunk)},  # type: ignore[dict-item]
+                body_content={"items": serialization(chunk)},  # type: ignore[dict-item]
                 parameters=request_params,
             )
             response = self._http_client.request_single_retries(request)
