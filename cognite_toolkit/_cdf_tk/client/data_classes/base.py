@@ -46,6 +46,9 @@ class Identifier(RequestResource, ABC):
     def as_id(self) -> Self:
         return self
 
+    def __str__(self) -> str:
+        return str(self.dump(camel_case=False))
+
 
 T_Resource = TypeVar("T_Resource", bound=RequestResource | ResponseResource)
 
