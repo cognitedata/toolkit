@@ -1,3 +1,4 @@
+import json
 import sys
 from abc import ABC, abstractmethod
 from collections import UserList
@@ -73,7 +74,10 @@ class Identifier(RequestResource, ABC):
         return self
 
     def __str__(self) -> str:
-        return str(self.dump(camel_case=False))
+        dumped = self.dump(camel_case=False, include_type=False)
+        if len(dumped) == 1:
+            return str(next(iter(dumped.values())))
+        return json.dumps(dumped, sort_keys=True, separators=(",", ":"))
 
 
 T_Resource = TypeVar("T_Resource", bound=RequestResource | ResponseResource)
