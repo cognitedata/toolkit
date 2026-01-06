@@ -1,13 +1,12 @@
 import sys
+import types
 from abc import ABC, abstractmethod
 from collections import UserList
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, TypeVar
+from typing import Any, ClassVar, Generic, Literal, TypeVar, Union, get_args, get_origin
 
+from cognite.client import CogniteClient
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
-
-if TYPE_CHECKING:
-    from cognite.client import CogniteClient
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -89,9 +88,10 @@ class RequestUpdateable(RequestResource, ABC):
                     update[key] = {"add": value}
                 elif mode == "replace":
                     if value is None:
-                        if "list" in str(info.annotation):
+                        origin = _get_annotation_origin(info.annotation)
+                        if origin is list:
                             update[key] = {"set": []}
-                        elif "dict" in str(info.annotation):
+                        elif origin is dict:
                             update[key] = {"set": {}}
                         else:
                             raise NotImplementedError(
@@ -107,6 +107,23 @@ class RequestUpdateable(RequestResource, ABC):
                 update[key] = {"set": value}
         update_item["update"] = update
         return update_item
+
+
+def _get_annotation_origin(field_type: Any) -> Any:
+    origin = get_origin(field_type)
+    args = get_args(field_type)
+
+    # Check for Union type (both typing.Union and | syntax from Python 3.10+)
+    is_union = origin is Union or isinstance(field_type, getattr(types, "UnionType", ()))
+
+    if is_union:
+        # Handle Optional[T] by filtering out NoneType
+        none_types = (type(None), types.NoneType)
+        non_none_args = [arg for arg in args if arg not in none_types]
+        if len(non_none_args) == 1:
+            field_type = non_none_args[0]
+            origin = get_origin(field_type) or field_type
+    return origin
 
 
 class ResponseResource(BaseModelObject, Generic[T_RequestResource], ABC):
