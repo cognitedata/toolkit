@@ -1,8 +1,6 @@
-import json
 import sys
 from abc import ABC, abstractmethod
 from collections import UserList
-from collections.abc import Hashable
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from pydantic import BaseModel, ConfigDict
@@ -36,12 +34,30 @@ class BaseModelObject(BaseModel):
         return cls.model_validate(resource)
 
 
+class Identifier(BaseModelObject):
+    """Base class for all identifier objects typically
+    {"externalId": "..."}, {"id": ...}, {"space": "...", "externalId: }."""
+
+    model_config = ConfigDict(alias_generator=to_camel, extra="ignore", populate_by_name=True, frozen=True)
+
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        """Dump the resource to a dictionary.
+
+        This is the default serialization method for request resources.
+        """
+        return self.model_dump(mode="json", by_alias=camel_case, exclude_unset=True)
+
+
+T_Identifier = TypeVar("T_Identifier", bound=Identifier)
+
+
 class RequestResource(BaseModelObject, ABC):
     @abstractmethod
-    def as_id(self) -> Hashable: ...
+    def as_id(self) -> Identifier:
+        raise NotImplementedError()
 
     def __str__(self) -> str:
-        return str(self.as_id())
+        raise NotImplementedError()
 
 
 T_RequestResource = TypeVar("T_RequestResource", bound=RequestResource)
@@ -51,38 +67,19 @@ class ResponseResource(BaseModelObject, Generic[T_RequestResource], ABC):
     @abstractmethod
     def as_request_resource(self) -> T_RequestResource:
         """Convert the response resource to a request resource."""
-        ...
+        raise NotImplementedError()
 
     def as_write(self) -> T_RequestResource:
         """Alias for as_request_resource to match protocol signature."""
         return self.as_request_resource()
 
 
-class Identifier(RequestResource, ABC):
-    """Base class for all identifier classes."""
-
-    model_config = ConfigDict(alias_generator=to_camel, extra="ignore", populate_by_name=True, frozen=True)
-
-    def dump(self, camel_case: bool = True, include_type: bool = True) -> dict[str, Any]:
-        """Dump the resource to a dictionary.
-
-        This is the default serialization method for request resources.
-        """
-        return self.model_dump(mode="json", by_alias=camel_case, exclude_unset=not include_type)
-
-    def as_id(self) -> Self:
-        return self
-
-    def __str__(self) -> str:
-        dumped = self.dump(camel_case=False, include_type=False)
-        if len(dumped) == 1:
-            return str(next(iter(dumped.values())))
-        return json.dumps(dumped, sort_keys=True, separators=(",", ":"))
-
+T_ResponseResource = TypeVar("T_ResponseResource", bound=ResponseResource)
 
 T_Resource = TypeVar("T_Resource", bound=RequestResource | ResponseResource)
 
 
+# Todo: Delete this class and use list[T_Resource] directly
 class BaseResourceList(UserList[T_Resource]):
     """Base class for resource lists."""
 
