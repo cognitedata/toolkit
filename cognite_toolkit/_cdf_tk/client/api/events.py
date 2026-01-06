@@ -1,0 +1,79 @@
+from collections.abc import Sequence
+
+from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
+from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
+from cognite_toolkit._cdf_tk.client.data_classes.event import EventRequest, EventResponse
+from cognite_toolkit._cdf_tk.client.data_classes.identifiers import InternalOrExternalId
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, SuccessResponse2
+
+
+class EventsAPI(CDFResourceAPI[InternalOrExternalId, EventRequest, EventResponse]):
+    def __init__(self, http_client: HTTPClient) -> None:
+        super().__init__(
+            http_client=http_client,
+            method_endpoint_map={
+                "create": Endpoint(method="POST", path="/events", item_limit=1000, concurrency_max_workers=1),
+                "retrieve": Endpoint(method="POST", path="/events/byids", item_limit=1000, concurrency_max_workers=1),
+                "delete": Endpoint(method="POST", path="/events/delete", item_limit=1000, concurrency_max_workers=1),
+                "list": Endpoint(method="GET", path="/events", item_limit=1000),
+            },
+        )
+
+    def _page_response(self, response: SuccessResponse2) -> PagedResponse[EventResponse]:
+        return PagedResponse[EventResponse].model_validate_json(response.body)
+
+    def _reference_response(self, response: SuccessResponse2) -> ResponseItems[InternalOrExternalId]:
+        return ResponseItems[InternalOrExternalId].model_validate_json(response.body)
+
+    def create(self, items: list[EventRequest]) -> list[EventResponse]:
+        """Create events in CDF.
+
+        Args:
+            items: List of EventRequest objects to create.
+        Returns:
+            List of created EventResponse objects.
+        """
+        return self._request_item_response(items, "create")
+
+    def retrieve(self, items: Sequence[InternalOrExternalId], ignore_unknown_ids: bool = False) -> list[EventResponse]:
+        """Retrieve events from CDF.
+
+        Args:
+            items: List of InternalOrExternalId objects to retrieve.
+            ignore_unknown_ids: Whether to ignore unknown IDs.
+        Returns:
+            List of retrieved EventResponse objects.
+        """
+        return self._request_item_response(items, method="retrieve", params={"ignoreUnknownIds": ignore_unknown_ids})
+
+    def delete(self, items: list[InternalOrExternalId], ignore_unknown_ids: bool = False) -> None:
+        """Delete events from CDF.
+
+        Args:
+            items: List of InternalOrExternalId objects to delete.
+            ignore_unknown_ids: Whether to ignore unknown IDs.
+        """
+        self._request_no_response(items, "delete", params={"ignoreUnknownIds": ignore_unknown_ids})
+
+    def iterate(
+        self,
+        limit: int = 100,
+        cursor: str | None = None,
+    ) -> PagedResponse[EventResponse]:
+        """Iterate over all events in CDF.
+
+        Returns:
+            PagedResponse of EventResponse objects.
+        """
+        return self._iterate(cursor=cursor, limit=limit)
+
+    def list(
+        self,
+        limit: int | None = 100,
+    ) -> list[EventResponse]:
+        """List all events in CDF.
+
+        Returns:
+            List of EventResponse objects.
+        """
+        return self._list(limit=limit)
