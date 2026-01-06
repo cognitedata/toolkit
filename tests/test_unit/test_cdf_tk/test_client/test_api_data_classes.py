@@ -1,19 +1,15 @@
-from typing import Any
-
 import pytest
 
-from cognite_toolkit._cdf_tk.client.data_classes.base import RequestResource, ResponseResource
-from tests.test_unit.test_cdf_tk.test_client.data import iterate_response_request_data_triple
+from tests.test_unit.test_cdf_tk.test_client.data import CDFResource, iterate_cdf_resources
 
 
 class TestAPIDataClasses:
-    @pytest.mark.parametrize(
-        "response_cls,request_cls,data",
-        list(iterate_response_request_data_triple()),
-    )
-    def test_serialization(
-        self, response_cls: type[ResponseResource], request_cls: type[RequestResource], data: dict[str, Any]
-    ) -> None:
+    @pytest.mark.parametrize("resource", list(iterate_cdf_resources()))
+    def test_serialization(self, resource: CDFResource) -> None:
+        response_cls = resource.response_cls
+        request_cls = resource.request_cls
+        data = resource.example_data
+
         response_instance = response_cls.model_validate(data)
         request_instance = response_instance.as_request_resource()
         assert isinstance(request_instance, request_cls)

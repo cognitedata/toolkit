@@ -1,12 +1,23 @@
 from collections.abc import Iterable
+from dataclasses import dataclass
 from typing import Any
 
 import pytest
 
+from cognite_toolkit._cdf_tk.client.api.assets import AssetsAPI
+from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI
 from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetRequest, AssetResponse
-from cognite_toolkit._cdf_tk.client.data_classes.base import ResponseResource
+from cognite_toolkit._cdf_tk.client.data_classes.base import RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.data_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.data_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
+
+
+@dataclass
+class CDFResource:
+    response_cls: type[ResponseResource]
+    request_cls: type[RequestResource]
+    example_data: dict[str, Any]
+    api_class: type[CDFResourceAPI] | None = None
 
 
 def get_example_response(resource_cls: type[ResponseResource]) -> dict[str, Any]:
@@ -45,7 +56,29 @@ def get_example_response(resource_cls: type[ResponseResource]) -> dict[str, Any]
         raise ValueError(f"No example response defined for {resource_cls}")
 
 
-def iterate_response_request_data_triple() -> Iterable[tuple]:
-    yield pytest.param(AssetResponse, AssetRequest, get_example_response(AssetResponse), id="Asset")
-    yield pytest.param(TimeSeriesResponse, TimeSeriesRequest, get_example_response(TimeSeriesResponse), id="TimeSeries")
-    yield pytest.param(EventResponse, EventRequest, get_example_response(EventResponse), id="Event")
+def iterate_cdf_resources() -> Iterable[tuple]:
+    yield pytest.param(
+        CDFResource(
+            response_cls=AssetResponse,
+            request_cls=AssetRequest,
+            example_data=get_example_response(AssetResponse),
+            api_class=AssetsAPI,
+        ),
+        id="Asset",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=TimeSeriesResponse,
+            request_cls=TimeSeriesRequest,
+            example_data=get_example_response(TimeSeriesResponse),
+        ),
+        id="TimeSeries",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=EventResponse,
+            request_cls=EventRequest,
+            example_data=get_example_response(EventResponse),
+        ),
+        id="Event",
+    )
