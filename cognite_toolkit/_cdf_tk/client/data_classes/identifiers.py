@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from typing import Annotated, Literal
 
 from pydantic import Field
@@ -14,7 +15,7 @@ class InternalId(InternalOrExternalIdDefinition):
     id: int
 
     @classmethod
-    def from_ids(cls, ids: list[int]) -> list["InternalId"]:
+    def from_ids(cls, ids: Sequence[int]) -> list["InternalId"]:
         return [cls(id=id_) for id_ in ids]
 
     def __str__(self) -> str:
