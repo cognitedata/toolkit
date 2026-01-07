@@ -9,12 +9,12 @@ from cognite_toolkit._cdf_tk.client.api.assets import AssetsAPI
 from cognite_toolkit._cdf_tk.client.api.events import EventsAPI
 from cognite_toolkit._cdf_tk.client.api.timeseries import TimeSeriesAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI
-from cognite_toolkit._cdf_tk.client.data_classes.agent import AgentResponse
+from cognite_toolkit._cdf_tk.client.data_classes.agent import AgentRequest, AgentResponse
 from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.data_classes.base import Identifier, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.data_classes.event import EventRequest, EventResponse
-from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataResponse
-from cognite_toolkit._cdf_tk.client.data_classes.raw import DatabaseResponse, TableResponse
+from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.data_classes.raw import DatabaseRequest, DatabaseResponse, TableRequest, TableResponse
 from cognite_toolkit._cdf_tk.client.data_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 
 
@@ -120,4 +120,36 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             api_class=EventsAPI,
         ),
         id="Event",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=FileMetadataResponse,
+            request_cls=FileMetadataRequest,
+            example_data=get_example_minimum_responses(FileMetadataResponse),
+        ),
+        id="FileMetadata",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=AgentResponse,
+            request_cls=AgentRequest,
+            example_data=get_example_minimum_responses(AgentResponse),
+        ),
+        id="Agent",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=DatabaseResponse,
+            request_cls=DatabaseRequest,
+            example_data=get_example_minimum_responses(DatabaseResponse),
+        ),
+        id="Database",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=TableResponse,
+            request_cls=TableRequest,
+            example_data=get_example_minimum_responses(TableResponse),
+        ),
+        id="Table",
     )
