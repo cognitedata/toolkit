@@ -413,14 +413,15 @@ class TestAssetCentricConversion:
             pytest.param(
                 TimeSeriesResponse(
                     id=456,
-                    externalId="ts_456",
+                    external_id="ts_456",
                     name="Test TimeSeries",
                     description="A test timeseries",
                     unit="celsius",
                     metadata={"sensor_type": "temperature", "location": "room_1"},
-                    isString=False,
-                    createdTime=0,
-                    lastUpdatedTime=0,
+                    is_string=False,
+                    is_step=False,
+                    created_time=0,
+                    last_updated_time=0,
                     type="numeric",
                 ),
                 ResourceViewMapping(
@@ -480,7 +481,14 @@ class TestAssetCentricConversion:
                 ConversionIssue(
                     asset_centric_id=AssetCentricId("timeseries", id_=456),
                     instance_id=INSTANCE_ID,
-                    ignored_asset_centric_properties=["description"],
+                    ignored_asset_centric_properties=[
+                        "createdTime",
+                        "description",
+                        "isStep",
+                        "isString",
+                        "lastUpdatedTime",
+                        "type",
+                    ],
                 ),
                 id="timeseries_with_metadata",
             ),
@@ -501,6 +509,8 @@ class TestAssetCentricConversion:
                             {"externalId": "op_123", "space": "schema_space", "type": "Operation"}
                         ),
                     },
+                    created_time=1,
+                    last_updated_time=1,
                 ),
                 ResourceViewMapping(
                     external_id="incomplete_mapping",
@@ -590,7 +600,7 @@ class TestAssetCentricConversion:
                 ConversionIssue(
                     asset_centric_id=AssetCentricId("event", id_=789),
                     instance_id=INSTANCE_ID,
-                    ignored_asset_centric_properties=["description"],
+                    ignored_asset_centric_properties=["createdTime", "description", "lastUpdatedTime"],
                     missing_asset_centric_properties=["metadata.missingMetaProp", "missing_prop"],
                     missing_instance_properties=["anotherMissingDMProp", "missingDMProp", "targetProp"],
                     invalid_instance_property_types=[
@@ -678,9 +688,10 @@ class TestAssetCentricConversion:
                     name="Test TimeSeries",
                     description="A test timeseries",
                     metadata=None,
-                    isString=False,
-                    createdTime=0,
-                    lastUpdatedTime=0,
+                    is_string=False,
+                    is_step=False,
+                    created_time=0,
+                    last_updated_time=0,
                     type="numeric",
                 ),
                 ResourceViewMapping(
@@ -714,7 +725,15 @@ class TestAssetCentricConversion:
                 ConversionIssue(
                     asset_centric_id=AssetCentricId("timeseries", id_=654),
                     instance_id=INSTANCE_ID,
-                    ignored_asset_centric_properties=["description"],
+                    ignored_asset_centric_properties=[
+                        "createdTime",
+                        "description",
+                        "isStep",
+                        "isString",
+                        "lastUpdatedTime",
+                        "metadata",
+                        "type",
+                    ],
                     missing_asset_centric_properties=["metadata.category"],
                     missing_instance_properties=[],
                 ),
@@ -804,7 +823,7 @@ class TestAssetCentricConversion:
                 ConversionIssue(
                     asset_centric_id=AssetCentricId("event", id_=999),
                     instance_id=INSTANCE_ID,
-                    ignored_asset_centric_properties=["metadata.category"],
+                    ignored_asset_centric_properties=["createdTime", "lastUpdatedTime", "metadata.category"],
                     failed_conversions=[
                         FailedConversion(
                             property_id="source",
