@@ -1,9 +1,13 @@
-from cognite_toolkit._cdf_tk.client.data_classes.base import RequestResource, ResponseResource
+from typing import ClassVar
+
+from cognite_toolkit._cdf_tk.client.data_classes.base import RequestUpdateable, ResponseResource
 
 from .identifiers import ExternalId, InternalOrExternalId
 
 
-class EventRequest(RequestResource):
+class EventRequest(RequestUpdateable):
+    container_fields: ClassVar[frozenset[str]] = frozenset({"metadata", "asset_ids"})
+    non_nullable_fields: ClassVar[frozenset[str]] = frozenset()
     external_id: str | None = None
     data_set_id: int | None = None
     start_time: int | None = None
