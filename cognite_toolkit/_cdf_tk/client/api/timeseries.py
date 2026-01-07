@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import Literal
+from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
@@ -83,15 +83,33 @@ class TimeSeriesAPI(CDFResourceAPI[InternalOrExternalId, TimeSeriesRequest, Time
 
     def iterate(
         self,
+        data_set_external_ids: list[str] | None = None,
+        asset_subtree_external_ids: list[str] | None = None,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[TimeSeriesResponse]:
         """Iterate over all time series in CDF.
 
+        Args:
+            data_set_external_ids: Filter by data set external IDs.
+            asset_subtree_external_ids: Filter by asset subtree external IDs.
+            limit: Maximum number of items to return.
+            cursor: Cursor for pagination.
+
         Returns:
             PagedResponse of TimeSeriesResponse objects.
         """
-        return self._iterate(cursor=cursor, limit=limit)
+        filter_: dict[str, Any] = {}
+        if asset_subtree_external_ids:
+            filter_["assetSubtreeIds"] = [{"externalId": ext_id} for ext_id in asset_subtree_external_ids]
+        if data_set_external_ids:
+            filter_["dataSetIds"] = [{"externalId": ds_id} for ds_id in data_set_external_ids]
+
+        return self._iterate(
+            cursor=cursor,
+            limit=limit,
+            body={"filter": filter_ or None},
+        )
 
     def list(
         self,
