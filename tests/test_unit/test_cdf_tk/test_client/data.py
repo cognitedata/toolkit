@@ -15,9 +15,9 @@ from cognite_toolkit._cdf_tk.client.data_classes.base import Identifier, Request
 from cognite_toolkit._cdf_tk.client.data_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.data_classes.raw import (
-    DatabaseRequest,
+    RAWDatabase,
     DatabaseResponse,
-    TableRequest,
+    RAWTable,
     TableResponse,
 )
 from cognite_toolkit._cdf_tk.client.data_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
@@ -145,7 +145,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
     yield pytest.param(
         CDFResource(
             response_cls=DatabaseResponse,
-            request_cls=DatabaseRequest,
+            request_cls=RAWDatabase,
             example_data=get_example_minimum_responses(DatabaseResponse),
         ),
         id="Database",
@@ -153,7 +153,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
     yield pytest.param(
         CDFResource(
             response_cls=TableResponse,
-            request_cls=TableRequest,
+            request_cls=RAWTable,
             example_data=get_example_minimum_responses(TableResponse),
         ),
         id="Table",
