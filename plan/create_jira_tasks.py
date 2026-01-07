@@ -199,6 +199,38 @@ class JiraClient:
             return response.json()
         return None
 
+    def search_epics(self, project_key: str, max_results: int = 20) -> list[dict]:
+        """Search for epic issues in a project.
+
+        Args:
+            project_key: The project key to search in.
+            max_results: Maximum number of epics to return.
+
+        Returns:
+            List of epic issues with key and summary.
+        """
+        url = f"{self.base_url}/rest/api/3/search/jql"
+        jql = f'project = "{project_key}" AND issuetype = Epic ORDER BY created DESC'
+        payload = {
+            "jql": jql,
+            "maxResults": max_results,
+            "fields": ["summary", "status"],
+        }
+
+        response = requests.post(url, json=payload, headers=self.headers, auth=self.auth, timeout=30)
+
+        if response.status_code == 200:
+            data = response.json()
+            return [
+                {
+                    "key": issue["key"],
+                    "summary": issue["fields"]["summary"],
+                    "status": issue["fields"]["status"]["name"],
+                }
+                for issue in data.get("issues", [])
+            ]
+        return []
+
     def create_issue(
         self,
         project_key: str,
@@ -291,6 +323,15 @@ def create_jira_tasks(tasks: list[Task], config: dict[str, str | None], dry_run:
     epic = client.get_issue(config["jira_epic_key"])
     if not epic:
         print(f"Error: Could not find epic {config['jira_epic_key']}")
+        print("\nSearching for available epics in project...")
+        epics = client.search_epics(config["jira_project"])  # type: ignore[arg-type]
+        if epics:
+            print(f"\nAvailable epics in {config['jira_project']}:")
+            for epic_item in epics:
+                print(f"  {epic_item['key']:12} [{epic_item['status']:12}] {epic_item['summary']}")
+            print("\nSet JIRA_EPIC_KEY to one of the above keys.")
+        else:
+            print(f"No epics found in project {config['jira_project']}.")
         sys.exit(1)
 
     epic_summary = epic.get("fields", {}).get("summary", "Unknown")
