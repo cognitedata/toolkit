@@ -1,7 +1,7 @@
 from collections.abc import Iterable, Mapping, Set
 from typing import Any, ClassVar, cast
 
-from cognite.client.data_classes import Annotation, Event, FileMetadata, TimeSeries
+from cognite.client.data_classes import Annotation, FileMetadata
 from cognite.client.data_classes.data_modeling import (
     DirectRelation,
     DirectRelationReference,
@@ -17,10 +17,12 @@ from cognite.client.utils._identifier import InstanceId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetResponse
+from cognite_toolkit._cdf_tk.client.data_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import (
     AssetCentricId,
     ResourceViewMappingApply,
 )
+from cognite_toolkit._cdf_tk.client.data_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.utils.collection import flatten_dict_json_path
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     asset_centric_convert_to_primary_property,
@@ -120,12 +122,12 @@ class DirectRelationCache:
                     source_ids.add(resource.source)
                 if resource.asset_ids:
                     asset_ids.update(resource.asset_ids)
-            elif isinstance(resource, Event):
+            elif isinstance(resource, EventResponse):
                 if resource.source:
                     source_ids.add(resource.source)
                 if resource.asset_ids:
                     asset_ids.update(resource.asset_ids)
-            elif isinstance(resource, TimeSeries):
+            elif isinstance(resource, TimeSeriesResponse):
                 if resource.asset_id is not None:
                     asset_ids.add(resource.asset_id)
         if asset_ids:
@@ -248,9 +250,9 @@ def _lookup_resource_type(resource_type: AssetCentricResourceExtended) -> AssetC
         return "asset"
     elif isinstance(resource_type, FileMetadata):
         return "file"
-    elif isinstance(resource_type, Event):
+    elif isinstance(resource_type, EventResponse):
         return "event"
-    elif isinstance(resource_type, TimeSeries):
+    elif isinstance(resource_type, TimeSeriesResponse):
         return "timeseries"
     elif isinstance(resource_type, Annotation):
         if resource_type.annotated_resource_type == "file" and resource_type.annotation_type in (
