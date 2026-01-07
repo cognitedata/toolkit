@@ -294,6 +294,7 @@ For each resource, the following tasks need to be completed:
 ## Transformation Resources
 
 ### TransformationCRUD
+
 - [ ] Create `TransformationRequest` and `TransformationResponse` pydantic models (CDF-26746)
 - [ ] Create `TransformationsAPI` class and register in `ToolAPI` (CDF-26747)
 - [ ] Update `TransformationCRUD` to use new API (CDF-26748)
@@ -303,16 +304,19 @@ For each resource, the following tasks need to be completed:
 ## Workflow Resources
 
 ### WorkflowCRUD
+
 - [ ] Create `WorkflowRequest` and `WorkflowResponse` pydantic models (CDF-26749)
 - [ ] Create `WorkflowsAPI` class and register in `ToolAPI` (CDF-26750)
 - [ ] Update `WorkflowCRUD` to use new API (CDF-26751)
 
 ### WorkflowVersionCRUD
+
 - [ ] Create `WorkflowVersionRequest` and `WorkflowVersionResponse` pydantic models (CDF-26752)
 - [ ] Create `WorkflowVersionsAPI` class and register in `ToolAPI` (CDF-26753)
 - [ ] Update `WorkflowVersionCRUD` to use new API (CDF-26754)
 
 ### WorkflowTriggerCRUD
+
 - [ ] Create `WorkflowTriggerRequest` and `WorkflowTriggerResponse` pydantic models (CDF-26755)
 - [ ] Create `WorkflowTriggersAPI` class and register in `ToolAPI` (CDF-26756)
 - [ ] Update `WorkflowTriggerCRUD` to use new API (CDF-26757)
@@ -322,6 +326,7 @@ For each resource, the following tasks need to be completed:
 ## Agent Resources
 
 ### AgentCRUD
+
 - [ ] Create `AgentRequest` and `AgentResponse` pydantic models (CDF-26758)
 - [ ] Create `AgentsAPI` class and register in `ToolAPI` (CDF-26759)
 - [ ] Update `AgentCRUD` to use new API (CDF-26760)
