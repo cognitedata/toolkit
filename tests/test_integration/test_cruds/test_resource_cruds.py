@@ -11,8 +11,6 @@ from cognite.client import CogniteClient
 from cognite.client import data_modeling as dm
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
-    AssetWrite,
-    AssetWriteList,
     ClientCredentials,
     DataPointSubscriptionWrite,
     DataSet,
@@ -44,6 +42,7 @@ from cognite.client.data_classes.labels import LabelDefinitionWriteList
 from cognite.client.exceptions import CogniteAPIError, CogniteException
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetRequest
 from cognite_toolkit._cdf_tk.client.data_classes.legacy.extendable_cognite_file import (
     ExtendableCogniteFileApply,
     ExtendableCogniteFileApplyList,
@@ -364,24 +363,24 @@ class TestLabelLoader:
 
 
 class TestAssetLoader:
-    def test_create_delete_asset(self, cognite_client: CogniteClient) -> None:
-        asset = AssetWrite(
-            external_id=f"tmp_test_create_delete_asset_{RUN_UNIQUE_ID}",
+    def test_create_delete_asset(self, toolkit_client: ToolkitClient) -> None:
+        asset = AssetRequest(
+            externalId=f"tmp_test_create_delete_asset_{RUN_UNIQUE_ID}",
             name="My Asset",
             description="My description",
         )
 
-        loader = AssetCRUD(cognite_client, None)
+        loader = AssetCRUD(toolkit_client, None)
 
         try:
-            created = loader.create(AssetWriteList([asset]))
+            created = loader.create([asset])
             assert len(created) == 1
 
-            delete_count = loader.delete([asset.external_id])
+            delete_count = loader.delete([asset.as_id()])
             assert delete_count == 1
         finally:
             # Ensure that the asset is deleted even if the test fails.
-            cognite_client.assets.delete(external_id=asset.external_id, ignore_unknown_ids=True)
+            toolkit_client.assets.delete(external_id=asset.external_id, ignore_unknown_ids=True)
 
 
 @pytest.fixture

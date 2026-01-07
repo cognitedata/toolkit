@@ -116,6 +116,7 @@ from cognite.client.data_classes.transformations.notifications import (
     TransformationNotificationWrite,
 )
 
+from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.data_classes.infield import (
     InFieldCDMLocationConfig,
     InfieldLocationConfig,
@@ -797,6 +798,17 @@ API_RESOURCES = [
                 Method(api_class_method="retrieve", mock_class_method="return_value"),
             ],
             "delete": [Method(api_class_method="delete", mock_class_method="delete_id_external_id")],
+        },
+    ),
+    APIResource(
+        api_name="tool.assets",
+        resource_cls=AssetResponse,
+        _write_cls=AssetRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
         },
     ),
 ]
