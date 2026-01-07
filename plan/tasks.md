@@ -47,7 +47,7 @@ For each resource, the following tasks need to be completed:
 - [ ] Update `SequenceRowCRUD` to use new API
 
 ### EventCRUD
-- [ ] Create `EventRequest` and `EventResponse` pydantic models
+- [x] Create `EventRequest` and `EventResponse` pydantic models
 - [ ] Create `EventsAPI` class
 - [ ] Register `EventsAPI` in `ToolAPI`
 - [ ] Update `EventCRUD` to use new API
@@ -325,7 +325,7 @@ For each resource, the following tasks need to be completed:
 ## Timeseries Resources
 
 ### TimeSeriesCRUD
-- [ ] Create `TimeSeriesRequest` and `TimeSeriesResponse` pydantic models
+- [x] Create `TimeSeriesRequest` and `TimeSeriesResponse` pydantic models
 - [ ] Create `TimeSeriesAPI` class
 - [ ] Register `TimeSeriesAPI` in `ToolAPI`
 - [ ] Update `TimeSeriesCRUD` to use new API
