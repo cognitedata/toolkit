@@ -18,7 +18,7 @@ class BaseModelObject(BaseModel):
     """Base class for all object. This includes resources and nested objects."""
 
     # We allow extra fields to support forward compatibility.
-    model_config = ConfigDict(alias_generator=to_camel, extra="allow")
+    model_config = ConfigDict(alias_generator=to_camel, extra="allow", populate_by_name=True)
 
     def dump(self, camel_case: bool = True) -> dict[str, Any]:
         """Dump the resource to a dictionary.
@@ -30,7 +30,7 @@ class BaseModelObject(BaseModel):
     @classmethod
     def _load(cls, resource: dict[str, Any]) -> Self:
         """Load method to match CogniteResource signature."""
-        return cls.model_validate(resource)
+        return cls.model_validate(resource, by_alias=True)
 
 
 class Identifier(BaseModelObject):
