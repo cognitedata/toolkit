@@ -142,7 +142,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.three_d = MagicMock(spec=ThreeDAPI)
         self.tool.three_d.models = MagicMock(spec_set=ThreeDModelAPI)
         self.tool.assets = MagicMock(spec_set=AssetsAPI)
-        self.tool.time_series = MagicMock(spec_set=TimeSeriesAPI)
+        self.tool.timeseries = MagicMock(spec_set=TimeSeriesAPI)
         self.tool.events = MagicMock(spec_set=EventsAPI)
 
         self.streams = MagicMock(spec=StreamsAPI)

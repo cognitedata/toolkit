@@ -151,7 +151,7 @@ class TimeSeriesCRUD(ResourceContainerCRUD[ExternalId, TimeSeriesRequest, TimeSe
                 break
             cursor = page.next_cursor
 
-    def count(self, ids: str | dict[str, Any] | SequenceNotStr[str | dict[str, Any]] | None) -> int:
+    def count(self, ids: str | ExternalId | dict[str, Any] | SequenceNotStr[str | dict[str, Any]] | None) -> int:
         datapoints = self.client.time_series.data.retrieve(
             external_id=ids,  # type: ignore[arg-type]
             start=MIN_TIMESTAMP_MS,
