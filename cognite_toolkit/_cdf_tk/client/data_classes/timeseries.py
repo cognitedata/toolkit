@@ -1,10 +1,14 @@
-from cognite_toolkit._cdf_tk.client.data_classes.base import RequestResource, ResponseResource
+from typing import ClassVar
+
+from cognite_toolkit._cdf_tk.client.data_classes.base import RequestUpdateable, ResponseResource
 
 from .identifiers import ExternalId, InternalOrExternalId
 from .instance_api import NodeReference
 
 
-class TimeSeriesRequest(RequestResource):
+class TimeSeriesRequest(RequestUpdateable):
+    container_fields: ClassVar[frozenset[str]] = frozenset({"metadata", "security_categories"})
+    non_nullable_fields: ClassVar[frozenset[str]] = frozenset()
     external_id: str | None = None
     name: str | None = None
     is_sting: bool = False
