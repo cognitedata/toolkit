@@ -14,14 +14,12 @@ For each resource, the following tasks need to be completed:
 
 ### GroupCRUD
 - [ ] Create `GroupRequest` and `GroupResponse` pydantic models (CDF-26628)
-- [ ] Create `GroupsAPI` class
-- [ ] Register `GroupsAPI` in `ToolAPI`
+- [ ] Create `GroupsAPI` class and register in `ToolAPI` (CDF-26629)
 - [ ] Update `GroupCRUD` to use new API
 
 ### SecurityCategoryCRUD
 - [ ] Create `SecurityCategoryRequest` and `SecurityCategoryResponse` pydantic models
-- [ ] Create `SecurityCategoriesAPI` class
-- [ ] Register `SecurityCategoriesAPI` in `ToolAPI`
+- [ ] Create `SecurityCategoriesAPI` class and register in `ToolAPI`
 - [ ] Update `SecurityCategoryCRUD` to use new API
 
 ---
@@ -30,26 +28,22 @@ For each resource, the following tasks need to be completed:
 
 ### AssetCRUD ✅ DONE
 - [x] Create `AssetRequest` and `AssetResponse` pydantic models
-- [x] Create `AssetsAPI` class
-- [x] Register `AssetsAPI` in `ToolAPI`
+- [x] Create `AssetsAPI` class and register in `ToolAPI`
 - [x] Update `AssetCRUD` to use new API
 
 ### SequenceCRUD
 - [ ] Create `SequenceRequest` and `SequenceResponse` pydantic models
-- [ ] Create `SequencesAPI` class
-- [ ] Register `SequencesAPI` in `ToolAPI`
+- [ ] Create `SequencesAPI` class and register in `ToolAPI`
 - [ ] Update `SequenceCRUD` to use new API
 
 ### SequenceRowCRUD
 - [ ] Create `SequenceRowsRequest` and `SequenceRowsResponse` pydantic models
-- [ ] Create `SequenceRowsAPI` class
-- [ ] Register `SequenceRowsAPI` in `ToolAPI`
+- [ ] Create `SequenceRowsAPI` class and register in `ToolAPI`
 - [ ] Update `SequenceRowCRUD` to use new API
 
 ### EventCRUD
 - [x] Create `EventRequest` and `EventResponse` pydantic models
-- [ ] Create `EventsAPI` class
-- [ ] Register `EventsAPI` in `ToolAPI`
+- [ ] Create `EventsAPI` class and register in `ToolAPI`
 - [ ] Update `EventCRUD` to use new API
 
 ---
@@ -58,8 +52,7 @@ For each resource, the following tasks need to be completed:
 
 ### SearchConfigCRUD
 - [ ] Create `SearchConfigRequest` and `SearchConfigResponse` pydantic models
-- [ ] Create `SearchConfigAPI` class
-- [ ] Register `SearchConfigAPI` in `ToolAPI`
+- [ ] Create `SearchConfigAPI` class and register in `ToolAPI`
 - [ ] Update `SearchConfigCRUD` to use new API
 
 ---
@@ -68,14 +61,12 @@ For each resource, the following tasks need to be completed:
 
 ### DataSetsCRUD
 - [ ] Create `DataSetRequest` and `DataSetResponse` pydantic models
-- [ ] Create `DataSetsAPI` class
-- [ ] Register `DataSetsAPI` in `ToolAPI`
+- [ ] Create `DataSetsAPI` class and register in `ToolAPI`
 - [ ] Update `DataSetsCRUD` to use new API
 
 ### LabelCRUD
 - [ ] Create `LabelRequest` and `LabelResponse` pydantic models
-- [ ] Create `LabelsAPI` class
-- [ ] Register `LabelsAPI` in `ToolAPI`
+- [ ] Create `LabelsAPI` class and register in `ToolAPI`
 - [ ] Update `LabelCRUD` to use new API
 
 ---
@@ -84,44 +75,37 @@ For each resource, the following tasks need to be completed:
 
 ### SpaceCRUD
 - [ ] Create `SpaceRequest` and `SpaceResponse` pydantic models
-- [ ] Create `SpacesAPI` class
-- [ ] Register `SpacesAPI` in `ToolAPI`
+- [ ] Create `SpacesAPI` class and register in `ToolAPI`
 - [ ] Update `SpaceCRUD` to use new API
 
 ### ContainerCRUD
 - [ ] Create `ContainerRequest` and `ContainerResponse` pydantic models
-- [ ] Create `ContainersAPI` class
-- [ ] Register `ContainersAPI` in `ToolAPI`
+- [ ] Create `ContainersAPI` class and register in `ToolAPI`
 - [ ] Update `ContainerCRUD` to use new API
 
 ### ViewCRUD
 - [ ] Create `ViewRequest` and `ViewResponse` pydantic models
-- [ ] Create `ViewsAPI` class
-- [ ] Register `ViewsAPI` in `ToolAPI`
+- [ ] Create `ViewsAPI` class and register in `ToolAPI`
 - [ ] Update `ViewCRUD` to use new API
 
 ### DataModelCRUD
 - [ ] Create `DataModelRequest` and `DataModelResponse` pydantic models
-- [ ] Create `DataModelsAPI` class
-- [ ] Register `DataModelsAPI` in `ToolAPI`
+- [ ] Create `DataModelsAPI` class and register in `ToolAPI`
 - [ ] Update `DataModelCRUD` to use new API
 
 ### NodeCRUD
 - [ ] Create `NodeRequest` and `NodeResponse` pydantic models
-- [ ] Create `NodesAPI` class
-- [ ] Register `NodesAPI` in `ToolAPI`
+- [ ] Create `NodesAPI` class and register in `ToolAPI`
 - [ ] Update `NodeCRUD` to use new API
 
 ### EdgeCRUD
 - [ ] Create `EdgeRequest` and `EdgeResponse` pydantic models
-- [ ] Create `EdgesAPI` class
-- [ ] Register `EdgesAPI` in `ToolAPI`
+- [ ] Create `EdgesAPI` class and register in `ToolAPI`
 - [ ] Update `EdgeCRUD` to use new API
 
 ### GraphQLCRUD
 - [ ] Create `GraphQLDataModelRequest` and `GraphQLDataModelResponse` pydantic models
-- [ ] Create `GraphQLAPI` class
-- [ ] Register `GraphQLAPI` in `ToolAPI`
+- [ ] Create `GraphQLAPI` class and register in `ToolAPI`
 - [ ] Update `GraphQLCRUD` to use new API
 
 ---
@@ -130,8 +114,7 @@ For each resource, the following tasks need to be completed:
 
 ### ExtractionPipelineCRUD
 - [ ] Create `ExtractionPipelineRequest` and `ExtractionPipelineResponse` pydantic models
-- [ ] Create `ExtractionPipelinesAPI` class
-- [ ] Register `ExtractionPipelinesAPI` in `ToolAPI`
+- [ ] Create `ExtractionPipelinesAPI` class and register in `ToolAPI`
 - [ ] Update `ExtractionPipelineCRUD` to use new API
 
 ---
@@ -140,14 +123,12 @@ For each resource, the following tasks need to be completed:
 
 ### InfieldV1CRUD
 - [ ] Create `APMConfigRequest` and `APMConfigResponse` pydantic models
-- [ ] Create `InfieldAPMConfigAPI` class
-- [ ] Register `InfieldAPMConfigAPI` in `ToolAPI`
+- [ ] Create `InfieldAPMConfigAPI` class and register in `ToolAPI`
 - [ ] Update `InfieldV1CRUD` to use new API
 
 ### InFieldLocationConfigCRUD
 - [ ] Create `InfieldLocationConfigRequest` and `InfieldLocationConfigResponse` pydantic models
-- [ ] Create `InfieldLocationConfigAPI` class
-- [ ] Register `InfieldLocationConfigAPI` in `ToolAPI`
+- [ ] Create `InfieldLocationConfigAPI` class and register in `ToolAPI`
 - [ ] Update `InFieldLocationConfigCRUD` to use new API
 
 ---
@@ -156,14 +137,12 @@ For each resource, the following tasks need to be completed:
 
 ### FileMetadataCRUD
 - [ ] Create `FileMetadataRequest` and `FileMetadataResponse` pydantic models
-- [ ] Create `FilesAPI` class
-- [ ] Register `FilesAPI` in `ToolAPI`
+- [ ] Create `FilesAPI` class and register in `ToolAPI`
 - [ ] Update `FileMetadataCRUD` to use new API
 
 ### CogniteFileCRUD
 - [ ] Create `CogniteFileRequest` and `CogniteFileResponse` pydantic models
-- [ ] Create `CogniteFilesAPI` class
-- [ ] Register `CogniteFilesAPI` in `ToolAPI`
+- [ ] Create `CogniteFilesAPI` class and register in `ToolAPI`
 - [ ] Update `CogniteFileCRUD` to use new API
 
 ---
@@ -172,14 +151,12 @@ For each resource, the following tasks need to be completed:
 
 ### FunctionCRUD
 - [ ] Create `FunctionRequest` and `FunctionResponse` pydantic models
-- [ ] Create `FunctionsAPI` class
-- [ ] Register `FunctionsAPI` in `ToolAPI`
+- [ ] Create `FunctionsAPI` class and register in `ToolAPI`
 - [ ] Update `FunctionCRUD` to use new API
 
 ### FunctionScheduleCRUD
 - [ ] Create `FunctionScheduleRequest` and `FunctionScheduleResponse` pydantic models
-- [ ] Create `FunctionSchedulesAPI` class
-- [ ] Register `FunctionSchedulesAPI` in `ToolAPI`
+- [ ] Create `FunctionSchedulesAPI` class and register in `ToolAPI`
 - [ ] Update `FunctionScheduleCRUD` to use new API
 
 ---
@@ -188,26 +165,22 @@ For each resource, the following tasks need to be completed:
 
 ### HostedExtractorSourceCRUD
 - [ ] Create `HostedExtractorSourceRequest` and `HostedExtractorSourceResponse` pydantic models
-- [ ] Create `HostedExtractorSourcesAPI` class
-- [ ] Register `HostedExtractorSourcesAPI` in `ToolAPI`
+- [ ] Create `HostedExtractorSourcesAPI` class and register in `ToolAPI`
 - [ ] Update `HostedExtractorSourceCRUD` to use new API
 
 ### HostedExtractorDestinationCRUD
 - [ ] Create `HostedExtractorDestinationRequest` and `HostedExtractorDestinationResponse` pydantic models
-- [ ] Create `HostedExtractorDestinationsAPI` class
-- [ ] Register `HostedExtractorDestinationsAPI` in `ToolAPI`
+- [ ] Create `HostedExtractorDestinationsAPI` class and register in `ToolAPI`
 - [ ] Update `HostedExtractorDestinationCRUD` to use new API
 
 ### HostedExtractorJobCRUD
 - [ ] Create `HostedExtractorJobRequest` and `HostedExtractorJobResponse` pydantic models
-- [ ] Create `HostedExtractorJobsAPI` class
-- [ ] Register `HostedExtractorJobsAPI` in `ToolAPI`
+- [ ] Create `HostedExtractorJobsAPI` class and register in `ToolAPI`
 - [ ] Update `HostedExtractorJobCRUD` to use new API
 
 ### HostedExtractorMappingCRUD
 - [ ] Create `HostedExtractorMappingRequest` and `HostedExtractorMappingResponse` pydantic models
-- [ ] Create `HostedExtractorMappingsAPI` class
-- [ ] Register `HostedExtractorMappingsAPI` in `ToolAPI`
+- [ ] Create `HostedExtractorMappingsAPI` class and register in `ToolAPI`
 - [ ] Update `HostedExtractorMappingCRUD` to use new API
 
 ---
@@ -216,8 +189,7 @@ For each resource, the following tasks need to be completed:
 
 ### StreamlitCRUD
 - [ ] Create `StreamlitRequest` and `StreamlitResponse` pydantic models
-- [ ] Create `StreamlitAPI` class
-- [ ] Register `StreamlitAPI` in `ToolAPI`
+- [ ] Create `StreamlitAPI` class and register in `ToolAPI`
 - [ ] Update `StreamlitCRUD` to use new API
 
 ---
@@ -226,8 +198,7 @@ For each resource, the following tasks need to be completed:
 
 ### LocationFilterCRUD
 - [ ] Create `LocationFilterRequest` and `LocationFilterResponse` pydantic models
-- [ ] Create `LocationFiltersAPI` class
-- [ ] Register `LocationFiltersAPI` in `ToolAPI`
+- [ ] Create `LocationFiltersAPI` class and register in `ToolAPI`
 - [ ] Update `LocationFilterCRUD` to use new API
 
 ---
@@ -236,8 +207,7 @@ For each resource, the following tasks need to be completed:
 
 ### ResourceViewMappingCRUD
 - [ ] Create `ResourceViewMappingRequest` and `ResourceViewMappingResponse` pydantic models
-- [ ] Create `ResourceViewMappingsAPI` class
-- [ ] Register `ResourceViewMappingsAPI` in `ToolAPI`
+- [ ] Create `ResourceViewMappingsAPI` class and register in `ToolAPI`
 - [ ] Update `ResourceViewMappingCRUD` to use new API
 
 ---
@@ -246,14 +216,12 @@ For each resource, the following tasks need to be completed:
 
 ### RawDatabaseCRUD
 - [ ] Create `RawDatabaseRequest` and `RawDatabaseResponse` pydantic models
-- [ ] Create `RawDatabasesAPI` class
-- [ ] Register `RawDatabasesAPI` in `ToolAPI`
+- [ ] Create `RawDatabasesAPI` class and register in `ToolAPI`
 - [ ] Update `RawDatabaseCRUD` to use new API
 
 ### RawTableCRUD
 - [ ] Create `RawTableRequest` and `RawTableResponse` pydantic models
-- [ ] Create `RawTablesAPI` class
-- [ ] Register `RawTablesAPI` in `ToolAPI`
+- [ ] Create `RawTablesAPI` class and register in `ToolAPI`
 - [ ] Update `RawTableCRUD` to use new API
 
 ---
@@ -262,8 +230,7 @@ For each resource, the following tasks need to be completed:
 
 ### RelationshipCRUD
 - [ ] Create `RelationshipRequest` and `RelationshipResponse` pydantic models
-- [ ] Create `RelationshipsAPI` class
-- [ ] Register `RelationshipsAPI` in `ToolAPI`
+- [ ] Create `RelationshipsAPI` class and register in `ToolAPI`
 - [ ] Update `RelationshipCRUD` to use new API
 
 ---
@@ -272,32 +239,27 @@ For each resource, the following tasks need to be completed:
 
 ### RoboticFrameCRUD
 - [ ] Create `RoboticFrameRequest` and `RoboticFrameResponse` pydantic models
-- [ ] Create `RoboticFramesAPI` class
-- [ ] Register `RoboticFramesAPI` in `ToolAPI`
+- [ ] Create `RoboticFramesAPI` class and register in `ToolAPI`
 - [ ] Update `RoboticFrameCRUD` to use new API
 
 ### RoboticLocationCRUD
 - [ ] Create `RoboticLocationRequest` and `RoboticLocationResponse` pydantic models
-- [ ] Create `RoboticLocationsAPI` class
-- [ ] Register `RoboticLocationsAPI` in `ToolAPI`
+- [ ] Create `RoboticLocationsAPI` class and register in `ToolAPI`
 - [ ] Update `RoboticLocationCRUD` to use new API
 
 ### RoboticsDataPostProcessingCRUD
 - [ ] Create `DataPostProcessingRequest` and `DataPostProcessingResponse` pydantic models
-- [ ] Create `DataPostProcessingAPI` class
-- [ ] Register `DataPostProcessingAPI` in `ToolAPI`
+- [ ] Create `DataPostProcessingAPI` class and register in `ToolAPI`
 - [ ] Update `RoboticsDataPostProcessingCRUD` to use new API
 
 ### RobotCapabilityCRUD
 - [ ] Create `RobotCapabilityRequest` and `RobotCapabilityResponse` pydantic models
-- [ ] Create `RobotCapabilitiesAPI` class
-- [ ] Register `RobotCapabilitiesAPI` in `ToolAPI`
+- [ ] Create `RobotCapabilitiesAPI` class and register in `ToolAPI`
 - [ ] Update `RobotCapabilityCRUD` to use new API
 
 ### RoboticMapCRUD
 - [ ] Create `RoboticMapRequest` and `RoboticMapResponse` pydantic models
-- [ ] Create `RoboticMapsAPI` class
-- [ ] Register `RoboticMapsAPI` in `ToolAPI`
+- [ ] Create `RoboticMapsAPI` class and register in `ToolAPI`
 - [ ] Update `RoboticMapCRUD` to use new API
 
 ---
@@ -306,8 +268,7 @@ For each resource, the following tasks need to be completed:
 
 ### StreamCRUD
 - [ ] Create `StreamRequest` and `StreamResponse` pydantic models
-- [ ] Create `StreamsAPI` class
-- [ ] Register `StreamsAPI` in `ToolAPI`
+- [ ] Create `StreamsAPI` class and register in `ToolAPI`
 - [ ] Update `StreamCRUD` to use new API
 
 ---
@@ -316,8 +277,7 @@ For each resource, the following tasks need to be completed:
 
 ### ThreeDModelCRUD
 - [ ] Create `ThreeDModelRequest` and `ThreeDModelResponse` pydantic models
-- [ ] Create `ThreeDModelsAPI` class
-- [ ] Register `ThreeDModelsAPI` in `ToolAPI`
+- [ ] Create `ThreeDModelsAPI` class and register in `ToolAPI`
 - [ ] Update `ThreeDModelCRUD` to use new API
 
 ---
@@ -326,8 +286,7 @@ For each resource, the following tasks need to be completed:
 
 ### TimeSeriesCRUD
 - [x] Create `TimeSeriesRequest` and `TimeSeriesResponse` pydantic models
-- [ ] Create `TimeSeriesAPI` class
-- [ ] Register `TimeSeriesAPI` in `ToolAPI`
+- [ ] Create `TimeSeriesAPI` class and register in `ToolAPI`
 - [ ] Update `TimeSeriesCRUD` to use new API
 
 ---
@@ -336,8 +295,7 @@ For each resource, the following tasks need to be completed:
 
 ### TransformationCRUD
 - [ ] Create `TransformationRequest` and `TransformationResponse` pydantic models
-- [ ] Create `TransformationsAPI` class
-- [ ] Register `TransformationsAPI` in `ToolAPI`
+- [ ] Create `TransformationsAPI` class and register in `ToolAPI`
 - [ ] Update `TransformationCRUD` to use new API
 
 ---
@@ -346,20 +304,17 @@ For each resource, the following tasks need to be completed:
 
 ### WorkflowCRUD
 - [ ] Create `WorkflowRequest` and `WorkflowResponse` pydantic models
-- [ ] Create `WorkflowsAPI` class
-- [ ] Register `WorkflowsAPI` in `ToolAPI`
+- [ ] Create `WorkflowsAPI` class and register in `ToolAPI`
 - [ ] Update `WorkflowCRUD` to use new API
 
 ### WorkflowVersionCRUD
 - [ ] Create `WorkflowVersionRequest` and `WorkflowVersionResponse` pydantic models
-- [ ] Create `WorkflowVersionsAPI` class
-- [ ] Register `WorkflowVersionsAPI` in `ToolAPI`
+- [ ] Create `WorkflowVersionsAPI` class and register in `ToolAPI`
 - [ ] Update `WorkflowVersionCRUD` to use new API
 
 ### WorkflowTriggerCRUD
 - [ ] Create `WorkflowTriggerRequest` and `WorkflowTriggerResponse` pydantic models
-- [ ] Create `WorkflowTriggersAPI` class
-- [ ] Register `WorkflowTriggersAPI` in `ToolAPI`
+- [ ] Create `WorkflowTriggersAPI` class and register in `ToolAPI`
 - [ ] Update `WorkflowTriggerCRUD` to use new API
 
 ---
@@ -368,7 +323,6 @@ For each resource, the following tasks need to be completed:
 
 ### AgentCRUD
 - [ ] Create `AgentRequest` and `AgentResponse` pydantic models
-- [ ] Create `AgentsAPI` class
-- [ ] Register `AgentsAPI` in `ToolAPI`
+- [ ] Create `AgentsAPI` class and register in `ToolAPI`
 - [ ] Update `AgentCRUD` to use new API
 
