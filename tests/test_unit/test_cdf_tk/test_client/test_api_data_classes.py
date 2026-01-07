@@ -23,7 +23,7 @@ class TestAPIDataClasses:
             hash(resource_id)
         except TypeError:
             assert False, f"Resource ID {resource_id} is not hashable"
-        assert isinstance(str(resource_id), str)
+        assert isinstance(str(resource_id), str), "Resource ID string representation failed"
         if resource.is_dump_equal_to_example:
             assert response_instance.dump() == data
 
