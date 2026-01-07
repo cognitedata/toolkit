@@ -128,11 +128,11 @@ class RelationshipCRUD(ResourceCRUD[str, RelationshipWrite, Relationship]):
                     elif type_value == "sequence":
                         yield SequenceCRUD, id_value
                     elif type_value == "timeseries":
-                        yield TimeSeriesCRUD, id_value
+                        yield TimeSeriesCRUD, ExternalId(external_id=id_value)
                     elif type_value == "file":
                         yield FileMetadataCRUD, id_value
                     elif type_value == "event":
-                        yield EventCRUD, id_value
+                        yield EventCRUD, ExternalId(external_id=id_value)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> RelationshipWrite:
         if ds_external_id := resource.pop("dataSetExternalId", None):
