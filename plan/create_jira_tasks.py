@@ -432,7 +432,6 @@ def main() -> None:
     parser.add_argument(
         "--tasks-file",
         type=Path,
-        default=Path(__file__).parent / "tasks.md",
         help="Path to the tasks.md file (default: tasks.md in same directory)",
     )
 

@@ -15,10 +15,10 @@ For each resource, the following tasks need to be completed:
 ### GroupCRUD
 - [ ] Create `GroupRequest` and `GroupResponse` pydantic models (CDF-26628)
 - [ ] Create `GroupsAPI` class and register in `ToolAPI` (CDF-26629)
-- [ ] Update `GroupCRUD` to use new API
+- [ ] Update `GroupCRUD` to use new API (CDF-26630)
 
 ### SecurityCategoryCRUD
-- [ ] Create `SecurityCategoryRequest` and `SecurityCategoryResponse` pydantic models
+- [ ] Create `SecurityCategoryRequest` and `SecurityCategoryResponse` pydantic models (CDF-26631)
 - [ ] Create `SecurityCategoriesAPI` class and register in `ToolAPI`
 - [ ] Update `SecurityCategoryCRUD` to use new API
 
