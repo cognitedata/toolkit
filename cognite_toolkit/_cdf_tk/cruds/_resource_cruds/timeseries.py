@@ -220,7 +220,7 @@ class DatapointSubscriptionCRUD(
         if "dataSetExternalId" in item:
             yield DataSetsCRUD, item["dataSetExternalId"]
         for timeseries_id in item.get("timeSeriesIds", []):
-            yield TimeSeriesCRUD, timeseries_id
+            yield TimeSeriesCRUD, ExternalId(external_id=timeseries_id)
 
     @classmethod
     def get_required_capability(
