@@ -1,4 +1,4 @@
-from typing import ClassVar
+from typing import Any, ClassVar, Literal
 
 from cognite_toolkit._cdf_tk.client.data_classes.base import RequestUpdateable, ResponseResource
 
@@ -25,6 +25,12 @@ class TimeSeriesRequest(RequestUpdateable):
         if self.external_id is None:
             raise ValueError("Cannot convert TimeSeriesRequest to ExternalId when external_id is None")
         return ExternalId(external_id=self.external_id)
+
+    def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
+        dumped = self.as_update(mode)
+        # isString is immutable in CDF, so we remove it from update payloads
+        dumped.pop("isString", None)
+        return dumped
 
 
 class TimeSeriesResponse(ResponseResource[TimeSeriesRequest]):
