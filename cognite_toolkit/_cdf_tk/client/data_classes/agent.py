@@ -2,7 +2,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field
 
-from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject, RequestUpdateable, ResponseResource
+from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject, RequestResource, ResponseResource
 
 from .identifiers import ExternalId
 
@@ -17,11 +17,15 @@ class AskDocument(AgentToolDefinition):
     type: Literal["askDocument"] = "askDocument"
 
 
+class ExamineDataSemantically(AgentToolDefinition):
+    type: Literal["examineDataSemantically"] = "examineDataSemantically"
+
+
 class AgentDataModel(BaseModelObject):
     space: str
     external_id: str
     version: str
-    view_external_ids: list[str]
+    view_external_ids: list[str] | None = None
 
 
 class AgentInstanceSpacesDefinition(BaseModelObject):
@@ -45,8 +49,8 @@ AgentInstanceSpaces = Annotated[
 
 class QueryKnowledgeGraphConfig(BaseModelObject):
     data_models: list[AgentDataModel]
-    instance_spaces: AgentInstanceSpaces
-    version: Literal["v1", "v2"] = "v2"
+    instance_spaces: AgentInstanceSpaces | None = None
+    version: Literal["v1", "v2"] = "v1"
 
 
 class QueryKnowledgeGraph(AgentToolDefinition):
@@ -63,15 +67,13 @@ class SummarizeDocument(AgentToolDefinition):
 
 
 AgentTool = Annotated[
-    AskDocument | QueryKnowledgeGraph | QueryTimeSeriesDatapoints | SummarizeDocument,
+    AskDocument | QueryKnowledgeGraph | QueryTimeSeriesDatapoints | SummarizeDocument | ExamineDataSemantically,
     Field(discriminator="type"),
 ]
 
 
-class AgentRequest(RequestUpdateable):
-    container_fields = frozenset({"tools"})
-    non_nullable_fields = frozenset[str]()
-    external_id: str | None = None
+class AgentRequest(RequestResource):
+    external_id: str
     name: str
     description: str | None = None
     instructions: str | None = None
@@ -88,14 +90,14 @@ class AgentRequest(RequestUpdateable):
 class AgentResponse(ResponseResource[AgentRequest]):
     created_time: int
     last_updated_time: int
-    id: int
-    external_id: str | None = None
+    owner_id: str
+    external_id: str
     name: str
     description: str | None = None
     instructions: str | None = None
     model: str = "azure/gpt-4o-mini"
     tools: list[AgentTool] | None = None
-    runtime_version: str | None = None
+    runtime_version: str
 
     def as_request_resource(self) -> AgentRequest:
         return AgentRequest.model_validate(self.dump(), extra="ignore")
