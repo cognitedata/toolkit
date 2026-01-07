@@ -325,4 +325,3 @@ For each resource, the following tasks need to be completed:
 - [ ] Create `AgentRequest` and `AgentResponse` pydantic models (CDF-26758)
 - [ ] Create `AgentsAPI` class and register in `ToolAPI` (CDF-26759)
 - [ ] Update `AgentCRUD` to use new API (CDF-26760)
-

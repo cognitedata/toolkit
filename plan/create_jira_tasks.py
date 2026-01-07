@@ -32,10 +32,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import requests
-from requests.auth import HTTPBasicAuth
 from dotenv import load_dotenv
+from requests.auth import HTTPBasicAuth
 
 load_dotenv(".env")  # Load environment variables from .env file if present
+
 
 @dataclass
 class Task:
@@ -180,7 +181,6 @@ def update_tasks_file_with_jira_key(file_path: Path, line_number: int, jira_key:
         # Append the Jira key to the line
         lines[line_number] = f"{lines[line_number]} ({jira_key})"
         file_path.write_text("\n".join(lines), encoding="utf-8")
-
 
 
 def get_jira_config() -> dict[str, str | None]:
