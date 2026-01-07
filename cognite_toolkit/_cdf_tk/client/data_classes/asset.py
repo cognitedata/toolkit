@@ -9,6 +9,7 @@ from .identifiers import ExternalId
 
 class AssetRequest(RequestUpdateable):
     container_fields = frozenset({"metadata", "labels"})
+    non_nullable_fields = frozenset({"parent_id", "parent_external_id"})
     external_id: str | None = None
     name: str
     parent_id: int | None = None
@@ -50,4 +51,4 @@ class AssetResponse(ResponseResource[AssetRequest]):
     geo_location: dict[str, JsonValue] | None = None
 
     def as_request_resource(self) -> AssetRequest:
-        return AssetRequest.model_validate(self.dump())
+        return AssetRequest.model_validate(self.dump(), extra="ignore")
