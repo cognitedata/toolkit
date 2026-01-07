@@ -112,12 +112,13 @@ class TestAgentRequest:
         data = {
             "externalId": "agent_1",
             "name": "Agent 1",
-            "tool": {
-                "type": "unknown_tool",
-                "name": "Custom Tool",
-                "description": "A tool that is not yet recognized",
-            },
+            "tools": [
+                {
+                    "type": "unknown_tool",
+                    "name": "Custom Tool",
+                    "description": "A tool that is not yet recognized",
+                }
+            ],
         }
-        # By default, all Request items have extra="allow", so this should work without issues
         agent_request = AgentRequest.model_validate(data)
         assert agent_request.dump() == data

@@ -1,8 +1,9 @@
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import Field
+from pydantic import BeforeValidator, Field
 
 from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject, RequestResource, ResponseResource
+from tests.test_unit.test_cdf_tk.test_tk_warnings.test_warnings_metatest import get_all_subclasses
 
 from .identifiers import ExternalId
 
@@ -66,9 +67,33 @@ class SummarizeDocument(AgentToolDefinition):
     type: Literal["summarizeDocument"] = "summarizeDocument"
 
 
+class UnknownAgentTool(AgentToolDefinition):
+    """Fallback for unknown tool types."""
+
+    ...
+
+
+KNOWN_TOOLS = {tool.type: tool for tool in get_all_subclasses(AgentToolDefinition) if hasattr(tool, "type")}
+
+
+def _handle_unknown_tool(value: Any) -> Any:
+    if isinstance(value, dict):
+        tool_type = value.get("type")
+        if tool_type not in KNOWN_TOOLS:
+            return UnknownAgentTool(**value)
+        else:
+            return KNOWN_TOOLS[tool_type].model_validate(value)
+    return value
+
+
 AgentTool = Annotated[
-    AskDocument | QueryKnowledgeGraph | QueryTimeSeriesDatapoints | SummarizeDocument | ExamineDataSemantically,
-    Field(discriminator="type"),
+    AskDocument
+    | QueryKnowledgeGraph
+    | QueryTimeSeriesDatapoints
+    | SummarizeDocument
+    | ExamineDataSemantically
+    | UnknownAgentTool,
+    BeforeValidator(_handle_unknown_tool),
 ]
 
 
@@ -82,8 +107,6 @@ class AgentRequest(RequestResource):
     runtime_version: str | None = None
 
     def as_id(self) -> ExternalId:
-        if self.external_id is None:
-            raise ValueError("Cannot convert AgentRequest to ExternalId when external_id is None")
         return ExternalId(external_id=self.external_id)
 
 
