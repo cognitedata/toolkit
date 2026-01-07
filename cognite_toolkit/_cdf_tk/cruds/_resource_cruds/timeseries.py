@@ -2,7 +2,7 @@ import json
 from collections.abc import Hashable, Iterable, Sequence
 from itertools import zip_longest
 from pathlib import Path
-from typing import Any, Literal, cast, final
+from typing import Any, Literal, final
 
 from cognite.client.data_classes import (
     DatapointSubscription,
@@ -151,25 +151,23 @@ class TimeSeriesCRUD(ResourceContainerCRUD[ExternalId, TimeSeriesRequest, TimeSe
                 break
             cursor = page.next_cursor
 
-    def count(self, ids: str | ExternalId | dict[str, Any] | SequenceNotStr[str | dict[str, Any]] | None) -> int:
+    def count(self, ids: SequenceNotStr[ExternalId]) -> int:
         datapoints = self.client.time_series.data.retrieve(
-            external_id=ids,  # type: ignore[arg-type]
+            external_id=[id.external_id for id in ids],
             start=MIN_TIMESTAMP_MS,
             end=MAX_TIMESTAMP_MS + 1,
             aggregates="count",
             granularity="1000d",
             ignore_unknown_ids=True,
         )
-        return sum(sum(data.count or []) for data in datapoints)  # type: ignore[union-attr, misc, arg-type]
+        return sum(sum(data.count or []) for data in datapoints)
 
-    def drop_data(self, ids: SequenceNotStr[str] | None) -> int:
+    def drop_data(self, ids: SequenceNotStr[ExternalId]) -> int:
         count = self.count(ids)
-        existing = self.client.time_series.retrieve_multiple(
-            external_ids=cast(SequenceNotStr[str], ids), ignore_unknown_ids=True
-        ).as_external_ids()
-        for external_id in existing:
+        existing = self.client.tool.timeseries.retrieve(list(ids), ignore_unknown_ids=True)
+        for ts in existing:
             self.client.time_series.data.delete_range(
-                external_id=external_id, start=MIN_TIMESTAMP_MS, end=MAX_TIMESTAMP_MS + 1
+                external_id=ts.external_id, start=MIN_TIMESTAMP_MS, end=MAX_TIMESTAMP_MS + 1
             )
         return count
 
