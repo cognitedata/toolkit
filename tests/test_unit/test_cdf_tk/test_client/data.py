@@ -35,7 +35,8 @@ class CDFResource:
         return self.request_instance.as_id()
 
 
-def get_example_response(resource_cls: type[ResponseResource]) -> dict[str, Any]:
+def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[str, Any]:
+    """Return an example with the only required and identifier fields for the given resource class."""
     responses: dict[type[ResponseResource], dict[str, Any]] = {
         AssetResponse: {
             "id": 123,
@@ -48,7 +49,6 @@ def get_example_response(resource_cls: type[ResponseResource]) -> dict[str, Any]
         TimeSeriesResponse: {
             "id": 456,
             "externalId": "ts_001",
-            "name": "Example Time Series",
             "isSting": False,
             "isStep": False,
             "type": "numeric",
@@ -58,9 +58,6 @@ def get_example_response(resource_cls: type[ResponseResource]) -> dict[str, Any]
         EventResponse: {
             "id": 789,
             "externalId": "event_001",
-            "type": "Example Event Type",
-            "startTime": 1622547800000,
-            "endTime": 1622547900000,
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
         },
@@ -76,7 +73,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
         CDFResource(
             response_cls=AssetResponse,
             request_cls=AssetRequest,
-            example_data=get_example_response(AssetResponse),
+            example_data=get_example_minimum_responses(AssetResponse),
             api_class=AssetsAPI,
         ),
         id="Asset",
@@ -85,7 +82,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
         CDFResource(
             response_cls=TimeSeriesResponse,
             request_cls=TimeSeriesRequest,
-            example_data=get_example_response(TimeSeriesResponse),
+            example_data=get_example_minimum_responses(TimeSeriesResponse),
             api_class=TimeSeriesAPI,
         ),
         id="TimeSeries",
@@ -94,7 +91,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
         CDFResource(
             response_cls=EventResponse,
             request_cls=EventRequest,
-            example_data=get_example_response(EventResponse),
+            example_data=get_example_minimum_responses(EventResponse),
             api_class=EventsAPI,
         ),
         id="Event",
