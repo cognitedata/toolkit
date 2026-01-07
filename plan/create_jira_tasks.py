@@ -44,6 +44,8 @@ class Task:
     section: str
     resource_name: str
     description: str
+    line_number: int
+    jira_key: str | None = None
 
     @property
     def summary(self) -> str:
@@ -91,11 +93,13 @@ class Task:
         }
 
 
-def parse_tasks_file(file_path: Path) -> list[Task]:
+def parse_tasks_file(file_path: Path, include_with_jira_key: bool = False) -> list[Task]:
     """Parse the tasks.md file and extract uncompleted tasks.
 
     Args:
         file_path: Path to the tasks.md file.
+        include_with_jira_key: If True, include tasks that already have a Jira key.
+            If False (default), skip tasks with existing Jira keys.
 
     Returns:
         List of Task objects for uncompleted items.
@@ -113,8 +117,10 @@ def parse_tasks_file(file_path: Path) -> list[Task]:
     resource_pattern = re.compile(r"^###\s+(\w+).*$")
     # Pattern for uncompleted tasks (- [ ] Task description)
     uncompleted_pattern = re.compile(r"^-\s+\[\s\]\s+(.+)$")
+    # Pattern to detect Jira key at end of line (e.g., "(TK-123)")
+    jira_key_pattern = re.compile(r"\(([A-Z]+-\d+)\)\s*$")
 
-    for line in lines:
+    for line_number, line in enumerate(lines):
         # Check for section header
         section_match = section_pattern.match(line)
         if section_match:
@@ -131,6 +137,19 @@ def parse_tasks_file(file_path: Path) -> list[Task]:
         task_match = uncompleted_pattern.match(line)
         if task_match:
             description = task_match.group(1).strip()
+
+            # Check for existing Jira key
+            jira_key_match = jira_key_pattern.search(description)
+            jira_key = None
+            if jira_key_match:
+                jira_key = jira_key_match.group(1)
+                # Remove the Jira key from description
+                description = jira_key_pattern.sub("", description).strip()
+
+            # Skip tasks with existing Jira keys unless explicitly requested
+            if jira_key and not include_with_jira_key:
+                continue
+
             # Clean up backticks and other markdown formatting
             description = description.replace("`", "")
 
@@ -138,10 +157,30 @@ def parse_tasks_file(file_path: Path) -> list[Task]:
                 section=current_section,
                 resource_name=current_resource,
                 description=description,
+                line_number=line_number,
+                jira_key=jira_key,
             )
             tasks.append(task)
 
     return tasks
+
+
+def update_tasks_file_with_jira_key(file_path: Path, line_number: int, jira_key: str) -> None:
+    """Update a specific line in the tasks file to include the Jira key.
+
+    Args:
+        file_path: Path to the tasks.md file.
+        line_number: The 0-based line number to update.
+        jira_key: The Jira key to append to the line.
+    """
+    content = file_path.read_text(encoding="utf-8")
+    lines = content.split("\n")
+
+    if 0 <= line_number < len(lines):
+        # Append the Jira key to the line
+        lines[line_number] = f"{lines[line_number]} ({jira_key})"
+        file_path.write_text("\n".join(lines), encoding="utf-8")
+
 
 
 def get_jira_config() -> dict[str, str | None]:
@@ -279,12 +318,19 @@ class JiraClient:
         return False, response.text
 
 
-def create_jira_tasks(tasks: list[Task], config: dict[str, str | None], dry_run: bool = False) -> None:
+def create_jira_tasks(
+    tasks: list[Task],
+    config: dict[str, str | None],
+    tasks_file: Path | None = None,
+    dry_run: bool = False,
+) -> None:
     """Create Jira tasks for the given tasks.
 
     Args:
         tasks: List of Task objects to create.
         config: Jira configuration dictionary.
+        tasks_file: Path to the tasks.md file. If provided, the file will be updated
+            with Jira keys after successful task creation.
         dry_run: If True, only print what would be created without actually creating.
     """
     component = config.get("jira_component")
@@ -341,6 +387,8 @@ def create_jira_tasks(tasks: list[Task], config: dict[str, str | None], dry_run:
     created_count = 0
     failed_count = 0
 
+    # Track line number offsets caused by file modifications
+    # (not needed here since we only append to lines, but good practice)
     for task in tasks:
         success, result = client.create_issue(
             project_key=config["jira_project"],  # type: ignore[arg-type]
@@ -354,6 +402,11 @@ def create_jira_tasks(tasks: list[Task], config: dict[str, str | None], dry_run:
         if success:
             print(f"✓ Created: {result} - {task.summary}")
             created_count += 1
+
+            # Update the tasks file with the Jira key
+            if tasks_file:
+                update_tasks_file_with_jira_key(tasks_file, task.line_number, result)
+                print(f"  → Updated {tasks_file.name} with Jira key")
         else:
             print(f"✗ Failed to create task '{task.summary}':")
             print(f"  {result[:200]}...")  # Truncate long error messages
@@ -391,13 +444,20 @@ def main() -> None:
         sys.exit(1)
 
     print(f"Parsing tasks from: {args.tasks_file}")
-    tasks = parse_tasks_file(args.tasks_file)
+
+    # Get all tasks (including those with Jira keys) to show skip count
+    all_tasks = parse_tasks_file(args.tasks_file, include_with_jira_key=True)
+    tasks_with_jira_key = [t for t in all_tasks if t.jira_key]
+    tasks = [t for t in all_tasks if not t.jira_key]
+
+    if tasks_with_jira_key:
+        print(f"Skipping {len(tasks_with_jira_key)} tasks with existing Jira keys.")
 
     if not tasks:
-        print("No uncompleted tasks found.")
+        print("No uncompleted tasks without Jira keys found.")
         return
 
-    print(f"Found {len(tasks)} uncompleted tasks.\n")
+    print(f"Found {len(tasks)} uncompleted tasks to process.\n")
 
     # Get Jira config (skip for dry-run to allow preview without credentials)
     if args.dry_run:
@@ -416,7 +476,7 @@ def main() -> None:
     single_task = tasks[0]
 
     # Create tasks
-    create_jira_tasks([single_task], config, dry_run=args.dry_run)
+    create_jira_tasks([single_task], config, tasks_file=args.tasks_file, dry_run=args.dry_run)
 
 
 if __name__ == "__main__":

@@ -13,7 +13,7 @@ For each resource, the following tasks need to be completed:
 ## Auth Resources
 
 ### GroupCRUD
-- [ ] Create `GroupRequest` and `GroupResponse` pydantic models
+- [ ] Create `GroupRequest` and `GroupResponse` pydantic models (CDF-26628)
 - [ ] Create `GroupsAPI` class
 - [ ] Register `GroupsAPI` in `ToolAPI`
 - [ ] Update `GroupCRUD` to use new API
