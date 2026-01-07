@@ -8,21 +8,18 @@ import httpx
 import pytest
 import respx
 from cognite.client.data_classes import (
-    AssetList,
     CountAggregate,
-    Event,
-    EventList,
     FileMetadata,
     FileMetadataList,
     LabelDefinition,
     LabelDefinitionList,
-    TimeSeries,
-    TimeSeriesList,
 )
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse
 from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetResponse
+from cognite_toolkit._cdf_tk.client.data_classes.event import EventResponse
+from cognite_toolkit._cdf_tk.client.data_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
@@ -88,53 +85,56 @@ def some_filemetadata_data() -> FileMetadataList:
 
 
 @pytest.fixture(scope="module")
-def some_timeseries_data() -> TimeSeriesList:
-    """Fixture to provide a sample TimeSeriesList for testing."""
-    return TimeSeriesList(
-        [
-            TimeSeries(
-                external_id=f"ts_{i}",
-                name=f"Time Series {i}",
-                description=f"Description for time series {i}",
-                asset_id=ASSET_ID,
-                data_set_id=DATA_SET_ID,
-                unit="unit",
-                is_string=False,
-                is_step=False,
-                metadata={"key": f"value_{i}"} if i % 2 == 0 else None,
-            )
-            for i in range(RESOURCE_COUNT)
-        ]
-    )
+def some_timeseries_data() -> list[TimeSeriesResponse]:
+    """Fixture to provide a sample list of TimeSeriesResponse for testing."""
+    return [
+        TimeSeriesResponse(
+            id=2000 + i,
+            externalId=f"ts_{i}",
+            name=f"Time Series {i}",
+            description=f"Description for time series {i}",
+            assetId=ASSET_ID,
+            dataSetId=DATA_SET_ID,
+            unit="unit",
+            isString=False,
+            isStep=False,
+            type="numeric",
+            createdTime=1,
+            lastUpdatedTime=1,
+            **({"metadata": {"key": f"value_{i}"}} if i % 2 == 0 else {}),
+        )
+        for i in range(RESOURCE_COUNT)
+    ]
 
 
 @pytest.fixture(scope="module")
-def some_event_data() -> EventList:
-    """Fixture to provide a sample EventList for testing."""
-    return EventList(
-        [
-            Event(
-                external_id=f"event_{i}",
-                description=f"Description for event {i}",
-                asset_ids=[ASSET_ID],
-                data_set_id=DATA_SET_ID,
-                source="test_source",
-                start_time=1000000000000 + i * 1000,
-                end_time=1000000001000 + i * 1000,
-                metadata={"key": f"value_{i}"} if i % 2 == 0 else None,
-            )
-            for i in range(RESOURCE_COUNT)
-        ]
-    )
+def some_event_data() -> list[EventResponse]:
+    """Fixture to provide a sample list of EventResponse for testing."""
+    return [
+        EventResponse(
+            id=3000 + i,
+            externalId=f"event_{i}",
+            description=f"Description for event {i}",
+            assetIds=[ASSET_ID],
+            dataSetId=DATA_SET_ID,
+            source="test_source",
+            startTime=1000000000000 + i * 1000,
+            endTime=1000000001000 + i * 1000,
+            metadata={"key": f"value_{i}"} if i % 2 == 0 else None,
+            createdTime=1,
+            lastUpdatedTime=1,
+        )
+        for i in range(RESOURCE_COUNT)
+    ]
 
 
 @pytest.fixture()
 def asset_centric_client(
     toolkit_config: ToolkitClientConfig,
-    some_asset_data: AssetList,
+    some_asset_data: list[AssetResponse],
     some_filemetadata_data: FileMetadataList,
-    some_timeseries_data: TimeSeriesList,
-    some_event_data: EventList,
+    some_timeseries_data: list[TimeSeriesResponse],
+    some_event_data: list[EventResponse],
 ) -> Iterable[ToolkitClient]:
     with monkeypatch_toolkit_client() as client:
         asset_chunks = list(chunker(some_asset_data, CHUNK_SIZE))
@@ -145,10 +145,26 @@ def asset_centric_client(
             asset_items = asset_chunks.pop()
             return PagedResponse(items=asset_items, nextCursor="cursor" if asset_chunks else None)
 
+        timeseries_chunks = list(chunker(some_timeseries_data, CHUNK_SIZE))
+        timeseries_chunks.reverse()
+
+        def iterate_timeseries(*_, **__) -> PagedResponse[TimeSeriesResponse]:
+            nonlocal timeseries_chunks
+            timeseries_items = timeseries_chunks.pop()
+            return PagedResponse(items=timeseries_items, nextCursor="cursor" if timeseries_chunks else None)
+
+        event_chunks = list(chunker(some_event_data, CHUNK_SIZE))
+        event_chunks.reverse()
+
+        def iterate_events(*_, **__) -> PagedResponse[EventResponse]:
+            nonlocal event_chunks
+            event_items = event_chunks.pop()
+            return PagedResponse(items=event_items, nextCursor="cursor" if event_chunks else None)
+
         client.tool.assets.iterate.side_effect = iterate_assets
+        client.tool.timeseries.iterate.side_effect = iterate_timeseries
+        client.tool.events.iterate.side_effect = iterate_events
         client.files.return_value = chunker(some_filemetadata_data, CHUNK_SIZE)
-        client.time_series.return_value = chunker(some_timeseries_data, CHUNK_SIZE)
-        client.events.return_value = chunker(some_event_data, CHUNK_SIZE)
 
         client.assets.aggregate_count.return_value = RESOURCE_COUNT
         client.files.aggregate.return_value = [CountAggregate(RESOURCE_COUNT)]
@@ -215,10 +231,10 @@ class TestAssetCentricIO:
         toolkit_config: ToolkitClientConfig,
         respx_mock: respx.MockRouter,
         asset_centric_client: ToolkitClient,
-        some_asset_data: AssetList,
+        some_asset_data: list[AssetResponse],
         some_filemetadata_data: FileMetadataList,
-        some_timeseries_data: TimeSeriesList,
-        some_event_data: EventList,
+        some_timeseries_data: list[TimeSeriesResponse],
+        some_event_data: list[EventResponse],
     ) -> None:
         io = io_class(asset_centric_client)
 
@@ -288,7 +304,7 @@ class TestAssetIO:
     @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
     def test_download_upload_command(
         self,
-        some_asset_data: AssetList,
+        some_asset_data: list[AssetResponse],
         tmp_path: Path,
         toolkit_config: ToolkitClientConfig,
         respx_mock: respx.MockRouter,
@@ -305,7 +321,7 @@ class TestAssetIO:
             items = payload["items"]
             assert isinstance(items, list)
             assert items == [asset.as_write().dump() for asset in some_asset_data]
-            return httpx.Response(status_code=200, json={"items": some_asset_data.dump()})
+            return httpx.Response(status_code=200, json={"items": [asset.dump() for asset in some_asset_data]})
 
         respx_mock.post(config.create_api_url("/assets")).mock(side_effect=asset_create_callback)
 
