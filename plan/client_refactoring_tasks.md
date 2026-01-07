@@ -19,7 +19,7 @@ For each resource, the following tasks need to be completed:
 
 ### SecurityCategoryCRUD
 - [ ] Create `SecurityCategoryRequest` and `SecurityCategoryResponse` pydantic models (CDF-26631)
-- [ ] Create `SecurityCategoriesAPI` class and register in `ToolAPI`
+- [ ] Create `SecurityCategoriesAPI` class and register in `ToolAPI` (CDF-26632)
 - [ ] Update `SecurityCategoryCRUD` to use new API
 
 ---
