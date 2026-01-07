@@ -9,9 +9,12 @@ from cognite_toolkit._cdf_tk.client.api.assets import AssetsAPI
 from cognite_toolkit._cdf_tk.client.api.events import EventsAPI
 from cognite_toolkit._cdf_tk.client.api.timeseries import TimeSeriesAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI
+from cognite_toolkit._cdf_tk.client.data_classes.agent import AgentResponse
 from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.data_classes.base import Identifier, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.data_classes.event import EventRequest, EventResponse
+from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.data_classes.raw import DatabaseResponse, TableResponse
 from cognite_toolkit._cdf_tk.client.data_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 
 
@@ -60,6 +63,28 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "externalId": "event_001",
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
+        },
+        FileMetadataResponse: {
+            "id": 101,
+            "externalId": "file_001",
+            "name": "example.pdf",
+            "uploaded": True,
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        AgentResponse: {
+            "id": 202,
+            "externalId": "agent_001",
+            "name": "Example Agent",
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        DatabaseResponse: {
+            "dbName": "example_db",
+        },
+        TableResponse: {
+            "dbName": "example_db",
+            "tableName": "example_table",
         },
     }
     try:
