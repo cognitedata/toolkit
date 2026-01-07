@@ -3,11 +3,7 @@ from typing import Any, Literal
 from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject, RequestUpdateable, ResponseResource
 
 from .identifiers import ExternalId
-
-
-class NodeId(BaseModelObject):
-    space: str
-    external_id: str
+from .instance_api import NodeReference
 
 
 class FileMetadataRequest(RequestUpdateable):
@@ -16,7 +12,7 @@ class FileMetadataRequest(RequestUpdateable):
     external_id: str | None = None
     name: str
     directory: str | None = None
-    instance_id: NodeId | None = None
+    instance_id: NodeReference | None = None
     source: str | None = None
     mime_type: str | None = None
     metadata: dict[str, str] | None = None
@@ -43,7 +39,7 @@ class FileMetadataResponse(ResponseResource[FileMetadataRequest]):
     external_id: str | None = None
     name: str
     directory: str | None = None
-    instance_id: NodeId | None = None
+    instance_id: NodeReference | None = None
     source: str | None = None
     mime_type: str | None = None
     metadata: dict[str, str] | None = None
