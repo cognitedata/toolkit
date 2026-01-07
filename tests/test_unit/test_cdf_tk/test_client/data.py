@@ -14,12 +14,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetRequest, Asse
 from cognite_toolkit._cdf_tk.client.data_classes.base import Identifier, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.data_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
-from cognite_toolkit._cdf_tk.client.data_classes.raw import (
-    DatabaseResponse,
-    RAWDatabase,
-    RAWTable,
-    TableResponse,
-)
+from cognite_toolkit._cdf_tk.client.data_classes.raw import RAWDatabase, RAWTable
 from cognite_toolkit._cdf_tk.client.data_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 
 
@@ -78,18 +73,18 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "lastUpdatedTime": 1622547800000,
         },
         AgentResponse: {
-            "id": 202,
             "externalId": "agent_001",
             "name": "Example Agent",
+            "ownerId": "user@example.com",
+            "runtimeVersion": "v1",
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
         },
-        DatabaseResponse: {
-            "dbName": "example_db",
+        RAWDatabase: {
+            "name": "example_db",
         },
-        TableResponse: {
-            "dbName": "example_db",
-            "tableName": "example_table",
+        RAWTable: {
+            "name": "example_table",
         },
     }
     try:
@@ -144,17 +139,17 @@ def iterate_cdf_resources() -> Iterable[tuple]:
     )
     yield pytest.param(
         CDFResource(
-            response_cls=DatabaseResponse,
+            response_cls=RAWDatabase,
             request_cls=RAWDatabase,
-            example_data=get_example_minimum_responses(DatabaseResponse),
+            example_data=get_example_minimum_responses(RAWDatabase),
         ),
-        id="Database",
+        id="RAWDatabase",
     )
     yield pytest.param(
         CDFResource(
-            response_cls=TableResponse,
+            response_cls=RAWTable,
             request_cls=RAWTable,
-            example_data=get_example_minimum_responses(TableResponse),
+            example_data=get_example_minimum_responses(RAWTable),
         ),
-        id="Table",
+        id="RAWTable",
     )

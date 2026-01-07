@@ -2,6 +2,7 @@ from typing import Any, Literal
 
 import pytest
 
+from cognite_toolkit._cdf_tk.client.data_classes.agent import AgentRequest
 from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetRequest
 from cognite_toolkit._cdf_tk.client.data_classes.base import RequestUpdateable
 from tests.test_unit.test_cdf_tk.test_client.data import CDFResource, iterate_cdf_resources
@@ -103,3 +104,19 @@ class TestRequestUpdateable:
         self, request_instance: RequestUpdateable, mode: Literal["patch", "replace"], expected_update: dict[str, Any]
     ) -> None:
         assert request_instance.as_update(mode=mode) == expected_update
+
+
+class TestAgentRequest:
+    def test_allow_unknown_tool(self) -> None:
+        data = {
+            "external_id": "agent_1",
+            "name": "Agent 1",
+            "tool": {
+                "type": "unknown_tool",
+                "name": "Custom Tool",
+                "description": "A tool that is not yet recognized",
+            },
+        }
+        # By default, all Request items have extra="allow", so this should work without issues
+        agent_request = AgentRequest.model_validate(data)
+        assert agent_request.dump() == data
