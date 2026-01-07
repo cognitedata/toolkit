@@ -30,7 +30,9 @@ from pathlib import Path
 
 import requests
 from requests.auth import HTTPBasicAuth
+from dotenv import load_dotenv
 
+load_dotenv(".env")  # Load environment variables from .env file if present
 
 @dataclass
 class Task:
