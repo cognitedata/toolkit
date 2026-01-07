@@ -8,10 +8,10 @@ from .instance_api import NodeReference
 
 class TimeSeriesRequest(RequestUpdateable):
     container_fields: ClassVar[frozenset[str]] = frozenset({"metadata", "security_categories"})
-    non_nullable_fields: ClassVar[frozenset[str]] = frozenset()
+    non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"is_step"})
     external_id: str | None = None
     name: str | None = None
-    is_sting: bool = False
+    is_string: bool = False
     metadata: dict[str, str] | None = None
     unit: str | None = None
     unit_external_id: str | None = None
@@ -32,7 +32,7 @@ class TimeSeriesResponse(ResponseResource[TimeSeriesRequest]):
     instance_id: NodeReference | None = None
     external_id: str | None = None
     name: str | None = None
-    is_sting: bool
+    is_string: bool
     metadata: dict[str, str] | None = None
     unit: str | None = None
     type: str

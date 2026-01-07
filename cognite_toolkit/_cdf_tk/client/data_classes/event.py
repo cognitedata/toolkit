@@ -7,7 +7,6 @@ from .identifiers import ExternalId, InternalOrExternalId
 
 class EventRequest(RequestUpdateable):
     container_fields: ClassVar[frozenset[str]] = frozenset({"metadata", "asset_ids"})
-    non_nullable_fields: ClassVar[frozenset[str]] = frozenset()
     external_id: str | None = None
     data_set_id: int | None = None
     start_time: int | None = None
