@@ -28,7 +28,7 @@ class RAWDatabase(RequestResource, Identifier, ResponseResource["RAWDatabase"]):
 
 
 class RAWTable(RequestResource, Identifier, ResponseResource["RAWTable"]):
-    # This ir a query parameter, so we exclude it from serialization
+    # This is a query parameter, so we exclude it from serialization
     db_name: str = Field(exclude=True)
     name: str
 
@@ -39,4 +39,5 @@ class RAWTable(RequestResource, Identifier, ResponseResource["RAWTable"]):
         return f"dbName='{self.db_name}', tableName='{self.name}'"
 
     def as_request_resource(self) -> "RAWTable":
-        return type(self).model_validate(self.dump(), extra="ignore")
+        dumped = {**self.dump(), "dbName": self.db_name}
+        return type(self).model_validate(dumped, extra="ignore")

@@ -24,6 +24,7 @@ class CDFResource:
     request_cls: type[RequestResource]
     example_data: dict[str, Any]
     api_class: type[CDFResourceAPI] | None = None
+    is_dump_equal_to_example: bool = True
 
     @cached_property
     def response_instance(self) -> ResponseResource:
@@ -84,6 +85,7 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "name": "example_db",
         },
         RAWTable: {
+            "dbName": "example_db",
             "name": "example_table",
         },
     }
@@ -150,6 +152,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=RAWTable,
             request_cls=RAWTable,
             example_data=get_example_minimum_responses(RAWTable),
+            is_dump_equal_to_example=False,
         ),
         id="RAWTable",
     )

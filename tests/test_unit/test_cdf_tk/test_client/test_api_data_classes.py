@@ -23,7 +23,8 @@ class TestAPIDataClasses:
             hash(resource_id)
         except TypeError:
             assert False, f"Resource ID {resource_id} is not hashable"
-        assert response_instance.dump() == data
+        if resource.is_dump_equal_to_example:
+            assert response_instance.dump() == data
 
     @pytest.mark.parametrize("resource", list(iterate_cdf_resources()))
     def test_as_update(self, resource: CDFResource) -> None:
@@ -109,7 +110,7 @@ class TestRequestUpdateable:
 class TestAgentRequest:
     def test_allow_unknown_tool(self) -> None:
         data = {
-            "external_id": "agent_1",
+            "externalId": "agent_1",
             "name": "Agent 1",
             "tool": {
                 "type": "unknown_tool",
