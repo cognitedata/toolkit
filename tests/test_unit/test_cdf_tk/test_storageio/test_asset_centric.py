@@ -120,9 +120,9 @@ def some_event_data() -> list[EventResponse]:
             source="test_source",
             startTime=1000000000000 + i * 1000,
             endTime=1000000001000 + i * 1000,
-            metadata={"key": f"value_{i}"} if i % 2 == 0 else None,
             createdTime=1,
             lastUpdatedTime=1,
+            **({"metadata": {"key": f"value_{i}"}} if i % 2 == 0 else {}),
         )
         for i in range(RESOURCE_COUNT)
     ]
