@@ -1,6 +1,6 @@
 from typing import Any, Literal
 
-from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject, RequestUpdateable, ResponseResource
+from cognite_toolkit._cdf_tk.client.data_classes.base import RequestUpdateable, ResponseResource
 
 from .identifiers import ExternalId
 from .instance_api import NodeReference
@@ -53,4 +53,3 @@ class FileMetadataResponse(ResponseResource[FileMetadataRequest]):
 
     def as_request_resource(self) -> FileMetadataRequest:
         return FileMetadataRequest.model_validate(self.dump(), extra="ignore")
-

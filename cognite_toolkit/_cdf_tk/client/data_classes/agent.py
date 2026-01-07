@@ -99,4 +99,3 @@ class AgentResponse(ResponseResource[AgentRequest]):
 
     def as_request_resource(self) -> AgentRequest:
         return AgentRequest.model_validate(self.dump(), extra="ignore")
-

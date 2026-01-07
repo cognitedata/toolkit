@@ -1,13 +1,16 @@
+import sys
+
 from cognite_toolkit._cdf_tk.client.data_classes.base import (
     Identifier,
     RequestResource,
     ResponseResource,
 )
-import sys
+
 if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self
+
 
 class DatabaseRequest(RequestResource, Identifier):
     db_name: str
@@ -32,7 +35,7 @@ class TableRequest(RequestResource, Identifier):
     table_name: str
 
     def as_id(self) -> Self:
-        return
+        return self
 
     def __str__(self) -> str:
         return f"dbName='{self.db_name}', tableName='{self.table_name}'"
@@ -45,4 +48,3 @@ class TableResponse(ResponseResource[TableRequest]):
 
     def as_request_resource(self) -> TableRequest:
         return TableRequest.model_validate(self.dump(), extra="ignore")
-

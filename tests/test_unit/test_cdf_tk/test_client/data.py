@@ -14,7 +14,12 @@ from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetRequest, Asse
 from cognite_toolkit._cdf_tk.client.data_classes.base import Identifier, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.data_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
-from cognite_toolkit._cdf_tk.client.data_classes.raw import DatabaseRequest, DatabaseResponse, TableRequest, TableResponse
+from cognite_toolkit._cdf_tk.client.data_classes.raw import (
+    DatabaseRequest,
+    DatabaseResponse,
+    TableRequest,
+    TableResponse,
+)
 from cognite_toolkit._cdf_tk.client.data_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 
 
