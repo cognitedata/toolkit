@@ -15,6 +15,9 @@ Environment Variables Required:
     JIRA_PROJECT    - Jira project key (e.g., TK)
     JIRA_EPIC_KEY   - Epic key to link tasks to (e.g., TK-123)
 
+Optional Environment Variables:
+    JIRA_COMPONENT  - Component name to assign to tasks (e.g., Backend)
+
 Dependencies:
     pip install requests
 """
@@ -141,7 +144,7 @@ def parse_tasks_file(file_path: Path) -> list[Task]:
     return tasks
 
 
-def get_jira_config() -> dict[str, str]:
+def get_jira_config() -> dict[str, str | None]:
     """Get Jira configuration from environment variables.
 
     Returns:
@@ -151,7 +154,8 @@ def get_jira_config() -> dict[str, str]:
         SystemExit: If required environment variables are missing.
     """
     required_vars = ["JIRA_URL", "JIRA_EMAIL", "JIRA_API_TOKEN", "JIRA_PROJECT", "JIRA_EPIC_KEY"]
-    config: dict[str, str] = {}
+    optional_vars = ["JIRA_COMPONENT"]
+    config: dict[str, str | None] = {}
     missing: list[str] = []
 
     for var in required_vars:
@@ -160,6 +164,10 @@ def get_jira_config() -> dict[str, str]:
             missing.append(var)
         else:
             config[var.lower()] = value
+
+    # Add optional variables (can be None)
+    for var in optional_vars:
+        config[var.lower()] = os.environ.get(var)
 
     if missing:
         print("Error: Missing required environment variables:")
@@ -198,6 +206,7 @@ class JiraClient:
         description: dict,
         issue_type: str = "Task",
         parent_key: str | None = None,
+        component: str | None = None,
     ) -> tuple[bool, str]:
         """Create a new issue.
 
@@ -207,6 +216,7 @@ class JiraClient:
             description: Issue description in ADF format.
             issue_type: Type of issue (default: Task).
             parent_key: Optional parent (Epic) key.
+            component: Optional component name.
 
         Returns:
             Tuple of (success, message/key).
@@ -223,6 +233,9 @@ class JiraClient:
         if parent_key:
             fields["parent"] = {"key": parent_key}
 
+        if component:
+            fields["components"] = [{"name": component}]
+
         payload = {"fields": fields}
 
         response = requests.post(url, json=payload, headers=self.headers, auth=self.auth, timeout=30)
@@ -234,7 +247,7 @@ class JiraClient:
         return False, response.text
 
 
-def create_jira_tasks(tasks: list[Task], config: dict[str, str], dry_run: bool = False) -> None:
+def create_jira_tasks(tasks: list[Task], config: dict[str, str | None], dry_run: bool = False) -> None:
     """Create Jira tasks for the given tasks.
 
     Args:
@@ -242,12 +255,17 @@ def create_jira_tasks(tasks: list[Task], config: dict[str, str], dry_run: bool =
         config: Jira configuration dictionary.
         dry_run: If True, only print what would be created without actually creating.
     """
+    component = config.get("jira_component")
+
     if dry_run:
         print("=" * 60)
         print("DRY RUN - No tasks will be created")
         print("=" * 60)
         print(f"\nWould create {len(tasks)} tasks in project {config['jira_project']}")
-        print(f"Epic: {config['jira_epic_key']}\n")
+        print(f"Epic: {config['jira_epic_key']}")
+        if component:
+            print(f"Component: {component}")
+        print()
 
         # Group by section for better readability
         current_section = ""
@@ -284,11 +302,12 @@ def create_jira_tasks(tasks: list[Task], config: dict[str, str], dry_run: bool =
 
     for task in tasks:
         success, result = client.create_issue(
-            project_key=config["jira_project"],
+            project_key=config["jira_project"],  # type: ignore[arg-type]
             summary=task.summary,
             description=task.full_description,
             issue_type="Task",
             parent_key=config["jira_epic_key"],
+            component=component,
         )
 
         if success:
@@ -342,18 +361,21 @@ def main() -> None:
     # Get Jira config (skip for dry-run to allow preview without credentials)
     if args.dry_run:
         # Use placeholder config for dry-run
-        config = {
+        config: dict[str, str | None] = {
             "jira_url": os.environ.get("JIRA_URL", "https://example.atlassian.net"),
             "jira_email": os.environ.get("JIRA_EMAIL", "user@example.com"),
             "jira_api_token": os.environ.get("JIRA_API_TOKEN", "***"),
             "jira_project": os.environ.get("JIRA_PROJECT", "PROJECT"),
             "jira_epic_key": os.environ.get("JIRA_EPIC_KEY", "EPIC-123"),
+            "jira_component": os.environ.get("JIRA_COMPONENT"),
         }
     else:
         config = get_jira_config()
 
+    single_task = tasks[0]
+
     # Create tasks
-    create_jira_tasks(tasks, config, dry_run=args.dry_run)
+    create_jira_tasks([single_task], config, dry_run=args.dry_run)
 
 
 if __name__ == "__main__":
