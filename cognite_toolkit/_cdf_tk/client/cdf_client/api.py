@@ -149,7 +149,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
 
     @classmethod
     def _filter_out_none_values(cls, params: dict[str, Any] | None) -> dict[str, Any] | None:
-        request_params: dict[str, str | int | float | bool] | None = None
+        request_params: dict[str, Any] | None = None
         if params:
             request_params = {k: v for k, v in params.items() if v is not None}
         return request_params
