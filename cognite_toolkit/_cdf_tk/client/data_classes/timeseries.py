@@ -27,7 +27,7 @@ class TimeSeriesRequest(RequestUpdateable):
         return ExternalId(external_id=self.external_id)
 
     def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
-        dumped = self.as_update(mode)
+        dumped = super().as_update(mode)
         # isString is immutable in CDF, so we remove it from update payloads
         dumped.pop("isString", None)
         return dumped
