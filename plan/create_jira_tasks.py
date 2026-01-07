@@ -434,6 +434,12 @@ def main() -> None:
         type=Path,
         help="Path to the tasks.md file (default: tasks.md in same directory)",
     )
+    parser.add_argument(
+        "--single-task",
+        type=bool,
+        help="Do a single task for testing purposes",
+        default=False,
+    )
 
     args = parser.parse_args()
 
@@ -472,10 +478,11 @@ def main() -> None:
     else:
         config = get_jira_config()
 
-    single_task = tasks[0]
+    if args.single_task:
+        tasks = [tasks[0]]
 
     # Create tasks
-    create_jira_tasks([single_task], config, tasks_file=args.tasks_file, dry_run=args.dry_run)
+    create_jira_tasks(tasks, config, tasks_file=args.tasks_file, dry_run=args.dry_run)
 
 
 if __name__ == "__main__":
