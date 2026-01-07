@@ -15,8 +15,8 @@ from cognite_toolkit._cdf_tk.client.data_classes.base import Identifier, Request
 from cognite_toolkit._cdf_tk.client.data_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.data_classes.raw import (
-    RAWDatabase,
     DatabaseResponse,
+    RAWDatabase,
     RAWTable,
     TableResponse,
 )

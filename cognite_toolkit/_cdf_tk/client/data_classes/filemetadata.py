@@ -1,10 +1,12 @@
-from typing import Literal, ClassVar
+from typing import ClassVar, Literal
+
+from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client.data_classes.base import RequestUpdateable, ResponseResource
 
 from .identifiers import ExternalId
 from .instance_api import NodeReference
-from pydantic import JsonValue
+
 
 class FileMetadataRequest(RequestUpdateable):
     container_fields: ClassVar[frozenset[str]] = frozenset({"metadata", "labels", "asset_ids", "security_categories"})
@@ -27,6 +29,7 @@ class FileMetadataRequest(RequestUpdateable):
         if self.external_id is None:
             raise ValueError("Cannot convert FileMetadataRequest to ExternalId when external_id is None")
         return ExternalId(external_id=self.external_id)
+
 
 class FileMetadataResponse(ResponseResource[FileMetadataRequest]):
     created_time: int
