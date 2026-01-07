@@ -40,4 +40,4 @@ class EventResponse(ResponseResource[EventRequest]):
     last_updated_time: int
 
     def as_request_resource(self) -> EventRequest:
-        return EventRequest.model_validate(self.dump())
+        return EventRequest.model_validate(self.dump(), extra="ignore")

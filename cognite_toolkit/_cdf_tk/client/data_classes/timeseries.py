@@ -53,4 +53,4 @@ class TimeSeriesResponse(ResponseResource[TimeSeriesRequest]):
     last_updated_time: int
 
     def as_request_resource(self) -> TimeSeriesRequest:
-        return TimeSeriesRequest.model_validate(self.dump())
+        return TimeSeriesRequest.model_validate(self.dump(), extra="ignore")
