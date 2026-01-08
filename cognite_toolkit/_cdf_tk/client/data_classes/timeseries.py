@@ -35,8 +35,9 @@ class TimeSeriesRequest(TimeSeries, RequestUpdateable):
 
     def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
         dumped = super().as_update(mode)
+        update = dumped["update"] if "update" in dumped else dumped
         # isString is immutable in CDF, so we remove it from update payloads
-        dumped.pop("isString", None)
+        update.pop("isString", None)
         return dumped
 
 

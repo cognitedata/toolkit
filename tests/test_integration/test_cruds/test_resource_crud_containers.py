@@ -9,12 +9,11 @@ from cognite.client.data_classes import (
     ThreeDModelList,
     ThreeDModelWrite,
     ThreeDModelWriteList,
-    TimeSeriesWrite,
-    TimeSeriesWriteList,
 )
 from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.data_classes.timeseries import TimeSeriesRequest
 from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, TimeSeriesCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.three_d_model import ThreeDModelCRUD
 from tests.test_integration.constants import RUN_UNIQUE_ID
@@ -31,23 +30,23 @@ def integration_space(cognite_client: CogniteClient) -> dm.Space:
 
 
 class TestTimeSeriesLoader:
-    def test_create_populate_count_drop_data(self, cognite_client: CogniteClient) -> None:
-        timeseries = TimeSeriesWrite(
+    def test_create_populate_count_drop_data(self, toolkit_client: CogniteClient) -> None:
+        timeseries = TimeSeriesRequest(
             external_id=f"test_create_populate_count_drop_data{RUN_UNIQUE_ID}", is_string=False
         )
         datapoints = pd.DataFrame(
             [{"timestamp": 0, timeseries.external_id: 0}, {"timestamp": 1, timeseries.external_id: 1}]
         ).set_index("timestamp")
         datapoints.index = pd.to_datetime(datapoints.index, unit="s")
-        loader = TimeSeriesCRUD(cognite_client, None)
-        ts_ids = [timeseries.external_id]
+        loader = TimeSeriesCRUD(toolkit_client, None)
+        ts_ids = [timeseries.as_id()]
 
         try:
-            created = loader.create(TimeSeriesWriteList([timeseries]))
+            created = loader.create([timeseries])
             assert len(created) == 1
 
             assert loader.count(ts_ids) == 0
-            cognite_client.time_series.data.insert_dataframe(datapoints)
+            toolkit_client.time_series.data.insert_dataframe(datapoints)
 
             assert loader.count(ts_ids) == 2
 
@@ -59,7 +58,7 @@ class TestTimeSeriesLoader:
 
             assert not loader.retrieve(ts_ids)
         finally:
-            cognite_client.time_series.delete(external_id=timeseries.external_id, ignore_unknown_ids=True)
+            toolkit_client.time_series.delete(external_id=timeseries.external_id, ignore_unknown_ids=True)
 
 
 @pytest.fixture(scope="function")
