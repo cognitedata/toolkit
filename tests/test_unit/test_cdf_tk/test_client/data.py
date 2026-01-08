@@ -97,6 +97,8 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "dataSetId": 123456,
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
+            # 'type' is not required in the response, but is required in the request. Likely a bug in the CDF API docs.
+            "type": "default",
         },
     }
     try:
