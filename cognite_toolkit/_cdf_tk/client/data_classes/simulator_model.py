@@ -45,4 +45,6 @@ class SimulatorModelResponse(ResponseResource[SimulatorModelRequest]):
     last_updated_time: int
 
     def as_request_resource(self) -> SimulatorModelRequest:
+        if self.type is None:
+            raise ValueError("Cannot convert SimulatorModelResponse to SimulatorModelRequest when type is None")
         return SimulatorModelRequest.model_validate(self.dump(), extra="ignore")
