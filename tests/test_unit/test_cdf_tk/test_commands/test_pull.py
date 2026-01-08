@@ -5,9 +5,10 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
+from cognite.client.data_classes.data_modeling import ViewId
 
 from cognite_toolkit._cdf_tk.commands.pull import PullCommand, ResourceYAMLDifference, TextFileDifference
-from cognite_toolkit._cdf_tk.cruds import DataSetsCRUD
+from cognite_toolkit._cdf_tk.cruds import DataSetsCRUD, ViewCRUD
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildVariable,
     BuildVariables,
@@ -453,7 +454,9 @@ externalId: {{ dataset }}
 description: New description
 """
 
-    yield pytest.param(source, to_write, resources, expected, id="One resource changed")
+    yield pytest.param(
+        source, to_write, resources, expected, DataSetsCRUD, Path("my.DataSet.yaml"), id="One resource changed"
+    )
 
     source = """name: Ingestion
 externalId: {{ dataset }} # This is a comment
@@ -467,7 +470,15 @@ externalId: {{ dataset }} # This is a comment
 description: New description
 """
 
-    yield pytest.param(source, to_write, resources, expected, id="One resource changed with comments")
+    yield pytest.param(
+        source,
+        to_write,
+        resources,
+        expected,
+        DataSetsCRUD,
+        Path("my.DataSet.yaml"),
+        id="One resource changed with comments",
+    )
 
     source = """- name: Ingestion
   externalId: {{ dataset }} # This is a comment
@@ -496,12 +507,89 @@ description: New description
     unique_dataset.extra_sources = []
     resources = BuiltFullResourceList([ingestion, unique_dataset])
 
-    yield pytest.param(source, to_write_multi, resources, expected, id="Multiple resources changed")
+    yield pytest.param(
+        source,
+        to_write_multi,
+        resources,
+        expected,
+        DataSetsCRUD,
+        Path("my.DataSet.yaml"),
+        id="Multiple resources changed",
+    )
+
+    source = """space: {{instance_space}}
+externalId: my_external_id
+version: v1
+filter:
+  hasData:
+  - type: ContainerReference
+    space: data_space
+    externalId: data_external_id
+  - type: ContainerReference
+    space: another_data_space
+    externalId: another_data_external_id
+"""
+    to_write_view = {
+        ViewId(space="my_space", external_id="my_external_id", version="v1"): {
+            "space": "my_space",
+            "externalId": "my_external_id",
+            "version": "v1",
+            "filter": {
+                "hasData": [
+                    {
+                        "type": "ContainerReference",
+                        "space": "data_space",
+                        "externalId": "data_external_id",
+                    },
+                    {
+                        "type": "ContainerReference",
+                        "space": "another_data_space",
+                        "externalId": "another_data_external_id",
+                    },
+                ]
+            },
+        }
+    }
+    variable_view = BuildVariable(
+        key="instance_space",
+        value="my_space",
+        is_selected=True,
+        location=Path("whatever"),
+    )
+    view_resource = MagicMock(spec=BuiltResourceFull)
+    view_resource.build_variables = BuildVariables([variable_view])
+    view_resource.identifier = ViewId(space="my_space", external_id="my_external_id", version="v1")
+    view_resource.extra_sources = []
+
+    resources_view = BuiltFullResourceList([view_resource])
+
+    expected_view = """space: {{instance_space}}
+externalId: my_external_id
+version: v1
+filter:
+  hasData:
+  - type: ContainerReference
+    space: data_space
+    externalId: data_external_id
+  - type: ContainerReference
+    space: another_data_space
+    externalId: another_data_external_id
+"""
+
+    yield pytest.param(
+        source,
+        to_write_view,
+        resources_view,
+        expected_view,
+        ViewCRUD,
+        Path("my.View.yaml"),
+        id="View with filter and no differences",
+    )
 
 
 class TestPullCommand:
     @pytest.mark.parametrize(
-        "source, to_write, resources, expected",
+        "source, to_write, resources, expected, loader_type, source_file",
         list(to_write_content_use_cases()),
     )
     def test_to_write_content(
@@ -510,6 +598,8 @@ class TestPullCommand:
         to_write: dict[str, [dict[str, Any]]],
         resources: BuiltFullResourceList,
         expected: str,
+        loader_type: type,
+        source_file: Path,
         toolkit_client_approval: ApprovalToolkitClient,
     ) -> None:
         cmd = PullCommand(silent=True, skip_tracking=True)
@@ -519,8 +609,8 @@ class TestPullCommand:
             to_write=to_write,
             resources=resources,
             environment_variables={},
-            loader=DataSetsCRUD.create_loader(toolkit_client_approval.mock_client),
-            source_file=Path("my.Dataset.yaml"),
+            loader=loader_type.create_loader(toolkit_client_approval.mock_client),
+            source_file=source_file,
         )
         assert not extra_files, "This tests does not support testing extra files"
         assert actual.splitlines() == expected.splitlines()
