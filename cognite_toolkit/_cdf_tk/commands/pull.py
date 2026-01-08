@@ -860,15 +860,15 @@ class ResourceReplacer:
             # view.filter are recursive nested dicts that are complex. To avoid issues with comparing
             # lists inside the filters, we stringify them before processing such that they are compared
             # as strings.
-            if isinstance(current["filter"], dict):
+            if isinstance(current.get("filter"), dict):
                 current = current.copy()
                 current["filter"] = json.dumps(current["filter"])
                 has_stringified_view_filter = True
-            if isinstance(placeholder["filter"], dict):
+            if isinstance(placeholder.get("filter"), dict):
                 placeholder = placeholder.copy()
                 placeholder["filter"] = json.dumps(placeholder["filter"])
                 has_stringified_view_filter = True
-            if isinstance(to_write["filter"], dict):
+            if isinstance(to_write.get("filter"), dict):
                 to_write = to_write.copy()
                 to_write["filter"] = json.dumps(to_write["filter"])
                 has_stringified_view_filter = True
