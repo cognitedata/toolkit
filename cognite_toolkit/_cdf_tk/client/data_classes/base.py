@@ -67,6 +67,7 @@ T_RequestResource = TypeVar("T_RequestResource", bound=RequestResource)
 
 class RequestUpdateable(RequestResource, ABC):
     container_fields: ClassVar[frozenset[str]] = frozenset()
+    non_nullable_fields: ClassVar[frozenset[str]] = frozenset()
 
     def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
         """Convert the request resource to an update item."""
@@ -102,7 +103,8 @@ class RequestUpdateable(RequestResource, ABC):
                 else:
                     raise NotImplementedError(f'Update mode "{mode}" is not supported for container fields.')
             elif value is None:
-                update[key] = {"setNull": True}
+                if field_id not in self.non_nullable_fields:
+                    update[key] = {"setNull": True}
             else:
                 update[key] = {"set": value}
         update_item["update"] = update

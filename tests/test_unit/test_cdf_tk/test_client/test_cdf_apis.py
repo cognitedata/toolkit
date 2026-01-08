@@ -28,39 +28,39 @@ class TestCDFResourceAPI:
         client = HTTPClient(toolkit_config)
         api = resource.api_class(client)
         if hasattr(api, "create"):
-            self._mock_endpoint(api, "create", {"items": [resource.example_data]}, respx_mock, method="POST")
+            self._mock_endpoint(api, "create", {"items": [resource.example_data]}, respx_mock)
             to_create = resource.request_instance
             created = api.create([to_create])
             assert len(created) == 1
             assert created[0].dump() == resource.example_data
         if hasattr(api, "retrieve"):
-            self._mock_endpoint(api, "retrieve", {"items": [resource.example_data]}, respx_mock, method="POST")
+            self._mock_endpoint(api, "retrieve", {"items": [resource.example_data]}, respx_mock)
             to_retrieve = resource.resource_id
 
             retrieved = api.retrieve([to_retrieve])
             assert len(retrieved) == 1
             assert retrieved[0].dump() == resource.example_data
         if hasattr(api, "update"):
-            self._mock_endpoint(api, "update", {"items": [resource.example_data]}, respx_mock, method="POST")
+            self._mock_endpoint(api, "update", {"items": [resource.example_data]}, respx_mock)
             to_update = resource.request_instance
 
             updated = api.update([to_update])
             assert len(updated) == 1
             assert updated[0].dump() == resource.example_data
         if hasattr(api, "delete"):
-            self._mock_endpoint(api, "delete", None, respx_mock, method="POST")
+            self._mock_endpoint(api, "delete", None, respx_mock)
             to_delete = resource.resource_id
 
             _ = api.delete([to_delete])
             assert len(respx_mock.calls) >= 1  # At least one call should have been made
         if hasattr(api, "list"):
-            self._mock_endpoint(api, "list", {"items": [resource.example_data]}, respx_mock, method="GET")
+            self._mock_endpoint(api, "list", {"items": [resource.example_data]}, respx_mock)
 
             listed = api.list(limit=10)
             assert len(listed) >= 1
             assert listed[0].dump() == resource.example_data
         if hasattr(api, "iterate"):
-            self._mock_endpoint(api, "list", {"items": [resource.example_data]}, respx_mock, method="GET")
+            self._mock_endpoint(api, "list", {"items": [resource.example_data]}, respx_mock)
 
             page = api.iterate()
             assert isinstance(page, PagedResponse)
@@ -74,9 +74,8 @@ class TestCDFResourceAPI:
         api_method: APIMethod,
         json: dict[str, Any] | None,
         respx_mock: respx.MockRouter,
-        method: str,
     ) -> None:
         endpoint = api._method_endpoint_map[api_method]
         url = api._make_url(endpoint.path)
 
-        respx_mock.request(method, url).mock(return_value=httpx.Response(status_code=200, json=json))
+        respx_mock.request(endpoint.method, url).mock(return_value=httpx.Response(status_code=200, json=json))

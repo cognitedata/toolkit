@@ -23,6 +23,7 @@ from cognite.client.data_classes.datapoints_subscriptions import TimeSeriesIDLis
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 
+from cognite_toolkit._cdf_tk.client.data_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.constants import MAX_TIMESTAMP_MS, MIN_TIMESTAMP_MS
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -97,7 +98,7 @@ class TimeSeriesCRUD(ResourceContainerCRUD[str, TimeSeriesWrite, TimeSeries]):
             for security_category in item["securityCategoryNames"]:
                 yield SecurityCategoryCRUD, security_category
         if "assetExternalId" in item:
-            yield AssetCRUD, item["assetExternalId"]
+            yield AssetCRUD, ExternalId(external_id=item["assetExternalId"])
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> TimeSeriesWrite:
         if ds_external_id := resource.pop("dataSetExternalId", None):

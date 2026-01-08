@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import Literal
+from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
@@ -14,12 +14,10 @@ class AssetsAPI(CDFResourceAPI[InternalOrExternalId, AssetRequest, AssetResponse
             http_client=http_client,
             method_endpoint_map={
                 "create": Endpoint(method="POST", path="/assets", item_limit=1000, concurrency_max_workers=1),
-                "retrieve": Endpoint(
-                    method="POST", path="/assets/retrieve", item_limit=1000, concurrency_max_workers=1
-                ),
+                "retrieve": Endpoint(method="POST", path="/assets/byids", item_limit=1000, concurrency_max_workers=1),
                 "update": Endpoint(method="POST", path="/assets/update", item_limit=1000, concurrency_max_workers=1),
                 "delete": Endpoint(method="POST", path="/assets/delete", item_limit=1000, concurrency_max_workers=1),
-                "list": Endpoint(method="GET", path="/assets", item_limit=1000),
+                "list": Endpoint(method="POST", path="/assets/list", item_limit=1000),
             },
         )
 
@@ -29,7 +27,7 @@ class AssetsAPI(CDFResourceAPI[InternalOrExternalId, AssetRequest, AssetResponse
     def _reference_response(self, response: SuccessResponse2) -> ResponseItems[InternalOrExternalId]:
         return ResponseItems[InternalOrExternalId].model_validate_json(response.body)
 
-    def create(self, items: list[AssetRequest]) -> list[AssetResponse]:
+    def create(self, items: Sequence[AssetRequest]) -> list[AssetResponse]:
         """Create assets in CDF.
 
         Args:
@@ -48,9 +46,13 @@ class AssetsAPI(CDFResourceAPI[InternalOrExternalId, AssetRequest, AssetResponse
         Returns:
             List of retrieved AssetResponse objects.
         """
-        return self._request_item_response(items, method="retrieve", params={"ignoreUnknownIds": ignore_unknown_ids})
+        return self._request_item_response(
+            items, method="retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids}
+        )
 
-    def update(self, items: list[AssetRequest], mode: Literal["patch", "replace"] = "replace") -> list[AssetResponse]:
+    def update(
+        self, items: Sequence[AssetRequest], mode: Literal["patch", "replace"] = "replace"
+    ) -> list[AssetResponse]:
         """Update assets in CDF.
 
         Args:
@@ -63,7 +65,7 @@ class AssetsAPI(CDFResourceAPI[InternalOrExternalId, AssetRequest, AssetResponse
         return self._update(items, mode=mode)
 
     def delete(
-        self, items: list[InternalOrExternalId], recursive: bool = False, ignore_unknown_ids: bool = False
+        self, items: Sequence[InternalOrExternalId], recursive: bool = False, ignore_unknown_ids: bool = False
     ) -> None:
         """Delete assets from CDF.
 
@@ -73,11 +75,14 @@ class AssetsAPI(CDFResourceAPI[InternalOrExternalId, AssetRequest, AssetResponse
             ignore_unknown_ids: Whether to ignore unknown IDs.
         """
         self._request_no_response(
-            items, "delete", params={"recursive": recursive, "ignoreUnknownIds": ignore_unknown_ids}
+            items, "delete", extra_body={"recursive": recursive, "ignoreUnknownIds": ignore_unknown_ids}
         )
 
     def iterate(
         self,
+        aggregated_properties: bool = False,
+        data_set_external_ids: list[str] | None = None,
+        asset_subtree_external_ids: list[str] | None = None,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[AssetResponse]:
@@ -86,7 +91,20 @@ class AssetsAPI(CDFResourceAPI[InternalOrExternalId, AssetRequest, AssetResponse
         Returns:
             PagedResponse of AssetResponse objects.
         """
-        return self._iterate(cursor=cursor, limit=limit)
+        filter_: dict[str, Any] = {}
+        if asset_subtree_external_ids:
+            filter_["assetSubtreeExternalIds"] = [{"externalId": ext_id} for ext_id in asset_subtree_external_ids]
+        if data_set_external_ids:
+            filter_["dataSetIds"] = [{"externalId": ds_id} for ds_id in data_set_external_ids]
+
+        return self._iterate(
+            cursor=cursor,
+            limit=limit,
+            body={
+                "aggregatedProperties": ["childCount", "path", "depth"] if aggregated_properties else [],
+                "filter": filter_ or None,
+            },
+        )
 
     def list(
         self,

@@ -12,6 +12,7 @@ from cognite.client.testing import CogniteClientMock
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.api.assets import AssetsAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.canvas import CanvasAPI, IndustrialCanvasAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.charts import ChartsAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.dml import DMLAPI
@@ -138,6 +139,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool = MagicMock(spec=ToolAPI)
         self.tool.three_d = MagicMock(spec=ThreeDAPI)
         self.tool.three_d.models = MagicMock(spec_set=ThreeDModelAPI)
+        self.tool.assets = MagicMock(spec_set=AssetsAPI)
 
         self.streams = MagicMock(spec=StreamsAPI)
 

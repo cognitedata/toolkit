@@ -8,6 +8,7 @@ from cognite.client.data_classes.data_modeling import NodeApplyResultList, NodeI
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 
+from cognite_toolkit._cdf_tk.client.data_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.data_classes.infield import (
     InFieldCDMLocationConfig,
     InfieldLocationConfig,
@@ -139,7 +140,7 @@ class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig]):
             yield SpaceCRUD, customer_data_space_id
         for config in cls._get_root_location_configurations(item) or []:
             if isinstance(asset_external_id := config.get("assetExternalId"), str):
-                yield AssetCRUD, asset_external_id
+                yield AssetCRUD, ExternalId(external_id=asset_external_id)
             if isinstance(data_set_external_id := config.get("dataSetExternalId"), str):
                 yield DataSetsCRUD, data_set_external_id
             if isinstance(app_data_instance_space := config.get("appDataInstanceSpace"), str):
@@ -162,7 +163,7 @@ class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig]):
                         yield DataSetsCRUD, data_set_external_id
                 for asset_external_id in filter_.get("assetSubtreeExternalIds", []):
                     if isinstance(asset_external_id, str):
-                        yield AssetCRUD, asset_external_id
+                        yield AssetCRUD, ExternalId(external_id=asset_external_id)
                 if app_data_instance_space := filter_.get("appDataInstanceSpace"):
                     if isinstance(app_data_instance_space, str):
                         yield SpaceCRUD, app_data_instance_space

@@ -27,8 +27,8 @@ from cognite_toolkit._cdf_tk.storageio._data_classes import ModelList
 from cognite_toolkit._cdf_tk.utils.useful_types import (
     AssetCentricKindExtended,
     JsonVal,
-    T_AssetCentricResourceExtended,
 )
+from cognite_toolkit._cdf_tk.utils.useful_types2 import T_AssetCentricResourceExtended
 
 
 class MigrationMapping(BaseModel, alias_generator=to_camel_case, extra="ignore", populate_by_name=True):

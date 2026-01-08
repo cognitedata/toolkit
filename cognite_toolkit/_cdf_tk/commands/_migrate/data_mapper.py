@@ -55,7 +55,7 @@ from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceRespo
 from cognite_toolkit._cdf_tk.storageio._base import T_Selector
 from cognite_toolkit._cdf_tk.storageio.selectors import CanvasSelector, ChartSelector, ThreeDSelector
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.useful_types import T_AssetCentricResourceExtended
+from cognite_toolkit._cdf_tk.utils.useful_types2 import T_AssetCentricResourceExtended
 
 from .data_classes import AssetCentricMapping
 from .selectors import AssetCentricMigrationSelector

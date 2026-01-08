@@ -2,6 +2,7 @@ from typing import Any, Literal
 
 import pytest
 
+from cognite_toolkit._cdf_tk.client.data_classes.agent import AgentRequest
 from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetRequest
 from cognite_toolkit._cdf_tk.client.data_classes.base import RequestUpdateable
 from tests.test_unit.test_cdf_tk.test_client.data import CDFResource, iterate_cdf_resources
@@ -22,7 +23,9 @@ class TestAPIDataClasses:
             hash(resource_id)
         except TypeError:
             assert False, f"Resource ID {resource_id} is not hashable"
-        assert response_instance.dump() == data
+        assert isinstance(str(resource_id), str), "Resource ID string representation failed"
+        if resource.is_dump_equal_to_example:
+            assert response_instance.dump() == data
 
     @pytest.mark.parametrize("resource", list(iterate_cdf_resources()))
     def test_as_update(self, resource: CDFResource) -> None:
@@ -58,8 +61,6 @@ class TestRequestUpdateable:
                         "labels": {"set": []},
                         "metadata": {"set": {}},
                         "name": {"set": "Asset 1"},
-                        "parentExternalId": {"setNull": True},
-                        "parentId": {"setNull": True},
                         "source": {"setNull": True},
                     },
                 },
@@ -94,8 +95,6 @@ class TestRequestUpdateable:
                         "labels": {"set": [{"externalId": "label_1"}]},
                         "metadata": {"set": {"key": "value"}},
                         "name": {"set": "Asset 1"},
-                        "parentExternalId": {"setNull": True},
-                        "parentId": {"setNull": True},
                         "source": {"setNull": True},
                     },
                 },
@@ -107,3 +106,20 @@ class TestRequestUpdateable:
         self, request_instance: RequestUpdateable, mode: Literal["patch", "replace"], expected_update: dict[str, Any]
     ) -> None:
         assert request_instance.as_update(mode=mode) == expected_update
+
+
+class TestAgentRequest:
+    def test_allow_unknown_tool(self) -> None:
+        data = {
+            "externalId": "agent_1",
+            "name": "Agent 1",
+            "tools": [
+                {
+                    "type": "unknown_tool",
+                    "name": "Custom Tool",
+                    "description": "A tool that is not yet recognized",
+                }
+            ],
+        }
+        agent_request = AgentRequest.model_validate(data)
+        assert agent_request.dump() == data

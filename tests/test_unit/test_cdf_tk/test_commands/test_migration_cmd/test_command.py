@@ -9,7 +9,7 @@ import httpx
 import pytest
 import responses
 import respx
-from cognite.client.data_classes import Annotation, AnnotationList, Asset, AssetList
+from cognite.client.data_classes import Annotation, AnnotationList
 from cognite.client.data_classes.data_modeling import (
     DataModel,
     DataModelList,
@@ -23,6 +23,7 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, ProjectStatistics
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.data_classes.charts_data import ChartData, ChartSource, ChartTimeseries
 from cognite_toolkit._cdf_tk.client.data_classes.legacy.canvas import ContainerReference, IndustrialCanvas
 from cognite_toolkit._cdf_tk.client.data_classes.legacy.charts import Chart
@@ -163,30 +164,27 @@ def mock_statistics(
 
 @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
 class TestMigrationCommand:
-    @pytest.mark.usefixtures("mock_statistics")
+    @pytest.mark.usefixtures("mock_statistics", "resource_view_mappings")
     def test_migrate_assets(
         self,
         toolkit_config: ToolkitClientConfig,
-        resource_view_mappings: responses.RequestsMock,
         tmp_path: Path,
         respx_mock: respx.MockRouter,
     ) -> None:
-        rsps = resource_view_mappings
         config = toolkit_config
-        assets = AssetList(
-            [
-                Asset(
-                    id=1000 + i,
-                    external_id=f"asset_{i}",
-                    name=f"Asset {i}",
-                    description=f"This is Asset {i}",
-                    last_updated_time=1,
-                    created_time=0,
-                    parent_external_id="asset_0" if i > 0 else None,
-                )
-                for i in range(2)
-            ]
-        )
+        assets = [
+            AssetResponse(
+                id=1000 + i,
+                externalId=f"asset_{i}",
+                name=f"Asset {i}",
+                description=f"This is Asset {i}",
+                lastUpdatedTime=1,
+                createdTime=0,
+                parentExternalId="asset_0" if i > 0 else None,
+                rootId=1,
+            )
+            for i in range(2)
+        ]
         space = "my_space"
         csv_content = (
             "id,space,externalId,ingestionView,consumerViewSpace,consumerViewExternalId,consumerViewVersion\n"
@@ -194,11 +192,15 @@ class TestMigrationCommand:
         )
 
         # Asset retrieve ids
-        rsps.post(
+        respx.post(
             config.create_api_url("/assets/byids"),
-            json={"items": [asset.dump() for asset in assets]},
-            status=200,
+        ).mock(
+            return_value=httpx.Response(
+                status_code=200,
+                json={"items": [asset.dump() for asset in assets]},
+            )
         )
+
         # Instance creation
         respx.post(
             config.create_api_url("/models/instances"),

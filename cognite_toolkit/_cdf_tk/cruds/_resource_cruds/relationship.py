@@ -11,6 +11,7 @@ from cognite.client.data_classes.capabilities import Capability
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 
+from cognite_toolkit._cdf_tk.client.data_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import RelationshipYAML
 
@@ -123,7 +124,7 @@ class RelationshipCRUD(ResourceCRUD[str, RelationshipWrite, Relationship]):
                 if isinstance(id_value, str) and isinstance(type_value, str):
                     type_value = type_value.strip().casefold()
                     if type_value == "asset":
-                        yield AssetCRUD, id_value
+                        yield AssetCRUD, ExternalId(external_id=id_value)
                     elif type_value == "sequence":
                         yield SequenceCRUD, id_value
                     elif type_value == "timeseries":

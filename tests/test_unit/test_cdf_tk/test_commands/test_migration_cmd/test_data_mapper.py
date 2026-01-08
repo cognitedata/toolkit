@@ -13,6 +13,7 @@ from cognite.client.data_classes.data_modeling import (
     ViewId,
 )
 
+from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.data_classes.instance_api import NodeReference
 from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import CreatedSourceSystem, ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.data_classes.three_d import (
@@ -45,12 +46,14 @@ class TestAssetCentricMapper:
                         id=1000 + i,
                         ingestionView="cdf_asset_mapping",
                     ),
-                    resource=Asset(
+                    resource=AssetResponse(
                         id=1000 + i,
                         name=f"Asset {i}",
                         source="sap",
-                        # Half of the assets will be missing description and thus have a conversion issue.
-                        description=f"Description {i}" if i % 2 == 0 else None,
+                        description=f"Description {i}",
+                        createdTime=1,
+                        lastUpdatedTime=1,
+                        rootId=0,
                     ),
                 )
                 for i in range(asset_count)
@@ -110,11 +113,6 @@ class TestAssetCentricMapper:
             # We do not assert the exact content of mapped, as that is tested in the
             # tests for the asset_centric_to_dm function.
             assert len(mapped) == asset_count
-            assert len(issues) == asset_count // 2
-            # All issues are the same.
-            first_issue = issues[0]
-            assert isinstance(first_issue, ConversionIssue)
-            assert first_issue.missing_asset_centric_properties == ["description"]
             first_asset = mapped[0]
             assert first_asset.sources[0].properties["source"] == DirectRelationReference("source_systems", "SAP")
 

@@ -96,9 +96,10 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         items: Sequence[BaseModel],
         method: APIMethod,
         params: dict[str, Any] | None = None,
+        extra_body: dict[str, Any] | None = None,
     ) -> list[T_ResponseResource]:
         response_items: list[T_ResponseResource] = []
-        for response in self._chunk_requests(items, method, self._serialize_items, params):
+        for response in self._chunk_requests(items, method, self._serialize_items, params, extra_body):
             response_items.extend(self._page_response(response).items)
         return response_items
 
@@ -107,16 +108,21 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         items: Sequence[BaseModel],
         method: APIMethod,
         params: dict[str, Any] | None = None,
+        extra_body: dict[str, Any] | None = None,
     ) -> list[T_Identifier]:
         all_ids: list[T_Identifier] = []
-        for response in self._chunk_requests(items, method, self._serialize_items, params):
+        for response in self._chunk_requests(items, method, self._serialize_items, params, extra_body):
             all_ids.extend(self._reference_response(response).items)
         return all_ids
 
     def _request_no_response(
-        self, items: Sequence[BaseModel], method: APIMethod, params: dict[str, Any] | None = None
+        self,
+        items: Sequence[BaseModel],
+        method: APIMethod,
+        params: dict[str, Any] | None = None,
+        extra_body: dict[str, Any] | None = None,
     ) -> None:
-        list(self._chunk_requests(items, method, self._serialize_items, params))
+        list(self._chunk_requests(items, method, self._serialize_items, params, extra_body))
         return None
 
     def _chunk_requests(
@@ -125,6 +131,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         method: APIMethod,
         serialization: Callable[[Sequence[_T_BaseModel]], list[dict[str, JsonValue]]],
         params: dict[str, Any] | None = None,
+        extra_body: dict[str, Any] | None = None,
     ) -> Iterable[SuccessResponse2]:
         # Filter out None
         request_params = self._filter_out_none_values(params)
@@ -134,21 +141,25 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
             request = RequestMessage2(
                 endpoint_url=f"{self._make_url(endpoint.path)}",
                 method=endpoint.method,
-                body_content={"items": serialization(chunk)},  # type: ignore[dict-item]
+                body_content={"items": serialization(chunk), **(extra_body or {})},  # type: ignore[dict-item]
                 parameters=request_params,
             )
             response = self._http_client.request_single_retries(request)
             yield response.get_success_or_raise()
 
     @classmethod
-    def _filter_out_none_values(cls, params: dict[str, Any] | None) -> dict[str, str | int | float | bool] | None:
-        request_params: dict[str, str | int | float | bool] | None = None
+    def _filter_out_none_values(cls, params: dict[str, Any] | None) -> dict[str, Any] | None:
+        request_params: dict[str, Any] | None = None
         if params:
             request_params = {k: v for k, v in params.items() if v is not None}
         return request_params
 
     def _iterate(
-        self, limit: int, cursor: str | None = None, params: dict[str, Any] | None = None
+        self,
+        limit: int,
+        cursor: str | None = None,
+        params: dict[str, Any] | None = None,
+        body: dict[str, Any] | None = None,
     ) -> PagedResponse[T_ResponseResource]:
         """Fetch a single page of resources.
 
@@ -159,7 +170,9 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
                 - limit: Maximum number of items (defaults to list limit)
                 - space: Filter by space
                 - includeGlobal: Whether to include global resources
-
+            body : Body content for the request, if applicable.
+            limit: Maximum number of items to return in the page.
+            cursor: Cursor for pagination.
         Returns:
             A Page containing the items and the cursor for the next page.
         """
@@ -168,13 +181,23 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
             raise ValueError(f"Limit must be between 1 and {endpoint.item_limit}, got {limit}.")
 
         request_params = self._filter_out_none_values(params) or {}
-
-        request_params["limit"] = limit
-        if cursor is not None:
-            request_params["cursor"] = cursor
+        body = self._filter_out_none_values(body) or {}
+        if endpoint.method == "GET":
+            request_params["limit"] = limit
+            if cursor is not None:
+                request_params["cursor"] = cursor
+        elif endpoint.method in {"POST", "PUT", "PATCH"}:
+            body["limit"] = limit
+            if cursor is not None:
+                body["cursor"] = cursor
+        else:
+            raise NotImplementedError(f"Unsupported method {endpoint.method} for pagination.")
 
         request = RequestMessage2(
-            endpoint_url=self._make_url(endpoint.path), method=endpoint.method, parameters=request_params
+            endpoint_url=self._make_url(endpoint.path),
+            method=endpoint.method,
+            parameters=request_params,
+            body_content=body,
         )
         result = self._http_client.request_single_retries(request)
         response = result.get_success_or_raise()
