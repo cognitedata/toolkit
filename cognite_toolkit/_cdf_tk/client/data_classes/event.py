@@ -1,4 +1,8 @@
-from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject, RequestResource, ResponseResource
+from cognite_toolkit._cdf_tk.client.data_classes.base import (
+    BaseModelObject,
+    RequestUpdateable,
+    ResponseResource,
+)
 
 from .identifiers import ExternalId, InternalOrExternalId
 
@@ -21,7 +25,7 @@ class Event(BaseModelObject):
         return ExternalId(external_id=self.external_id)
 
 
-class EventRequest(Event, RequestResource): ...
+class EventRequest(Event, RequestUpdateable): ...
 
 
 class EventResponse(Event, ResponseResource[EventRequest]):

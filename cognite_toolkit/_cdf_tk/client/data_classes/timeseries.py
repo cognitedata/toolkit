@@ -1,4 +1,10 @@
-from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject, RequestResource, ResponseResource
+from typing import Any, ClassVar, Literal
+
+from cognite_toolkit._cdf_tk.client.data_classes.base import (
+    BaseModelObject,
+    RequestUpdateable,
+    ResponseResource,
+)
 
 from .identifiers import ExternalId, InternalOrExternalId
 from .instance_api import NodeReference
@@ -7,7 +13,7 @@ from .instance_api import NodeReference
 class TimeSeries(BaseModelObject):
     external_id: str | None = None
     name: str | None = None
-    is_sting: bool = False
+    is_string: bool = False
     metadata: dict[str, str] | None = None
     unit: str | None = None
     unit_external_id: str | None = None
@@ -23,7 +29,15 @@ class TimeSeries(BaseModelObject):
         return ExternalId(external_id=self.external_id)
 
 
-class TimeSeriesRequest(TimeSeries, RequestResource): ...
+class TimeSeriesRequest(TimeSeries, RequestUpdateable):
+    container_fields: ClassVar[frozenset[str]] = frozenset({"metadata", "security_categories"})
+    non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"is_step"})
+
+    def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
+        dumped = super().as_update(mode)
+        # isString is immutable in CDF, so we remove it from update payloads
+        dumped.pop("isString", None)
+        return dumped
 
 
 class TimeSeriesResponse(TimeSeries, ResponseResource[TimeSeriesRequest]):
@@ -34,4 +48,4 @@ class TimeSeriesResponse(TimeSeries, ResponseResource[TimeSeriesRequest]):
     last_updated_time: int
 
     def as_request_resource(self) -> TimeSeriesRequest:
-        return TimeSeriesRequest.model_validate(self.dump())
+        return TimeSeriesRequest.model_validate(self.dump(), extra="ignore")
