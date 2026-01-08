@@ -3,7 +3,7 @@ from collections.abc import Callable, Iterable, Sequence
 from typing import Any
 
 from cognite_toolkit._cdf_tk.builders import Builder
-from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.raw import RawDatabase
 from cognite_toolkit._cdf_tk.cruds import RawDatabaseCRUD, RawTableCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildDestinationFile,

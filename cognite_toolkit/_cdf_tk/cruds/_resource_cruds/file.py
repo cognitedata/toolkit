@@ -33,7 +33,8 @@ from cognite.client.utils._time import convert_data_modelling_timestamp
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
-from cognite_toolkit._cdf_tk.client.data_classes.extendable_cognite_file import (
+from cognite_toolkit._cdf_tk.client.data_classes.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.extendable_cognite_file import (
     ExtendableCogniteFile,
     ExtendableCogniteFileApply,
     ExtendableCogniteFileList,
@@ -118,7 +119,7 @@ class FileMetadataCRUD(ResourceContainerCRUD[str, FileMetadataWrite, FileMetadat
                 elif isinstance(label, str):
                     yield LabelCRUD, label
         for asset_external_id in item.get("assetExternalIds", []):
-            yield AssetCRUD, asset_external_id
+            yield AssetCRUD, ExternalId(external_id=asset_external_id)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> FileMetadataWrite:
         if resource.get("dataSetExternalId") is not None:

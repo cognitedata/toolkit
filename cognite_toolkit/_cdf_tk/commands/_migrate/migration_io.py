@@ -1,12 +1,25 @@
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from typing import ClassVar, cast
+from typing import ClassVar, Literal, cast
 
 from cognite.client.data_classes import Annotation
 from cognite.client.data_classes.data_modeling import EdgeId, InstanceApply, NodeId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.pending_instances_ids import PendingInstanceId
-from cognite_toolkit._cdf_tk.client.data_classes.three_d import ThreeDModelResponse
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.pending_instances_ids import PendingInstanceId
+from cognite_toolkit._cdf_tk.client.data_classes.three_d import (
+    AssetMappingDMRequest,
+    AssetMappingResponse,
+    ThreeDModelResponse,
+)
+from cognite_toolkit._cdf_tk.client.http_client import (
+    FailedResponse,
+    HTTPClient,
+    HTTPMessage,
+    ItemsRequest,
+    SimpleBodyRequest,
+    SuccessResponseItems,
+    ToolkitAPIError,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import ThreeDMigrationRequest
 from cognite_toolkit._cdf_tk.constants import MISSING_EXTERNAL_ID, MISSING_INSTANCE_SPACE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError, ToolkitValueError
@@ -14,6 +27,7 @@ from cognite_toolkit._cdf_tk.storageio import (
     AnnotationIO,
     HierarchyIO,
     InstanceIO,
+    T_Selector,
     UploadableStorageIO,
 )
 from cognite_toolkit._cdf_tk.storageio._base import Page, UploadItem
@@ -24,21 +38,12 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
 )
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
-from cognite_toolkit._cdf_tk.utils.http_client import (
-    FailedResponse,
-    HTTPClient,
-    HTTPMessage,
-    ItemsRequest,
-    SimpleBodyRequest,
-    SuccessResponseItems,
-    ToolkitAPIError,
-)
 from cognite_toolkit._cdf_tk.utils.useful_types import (
     AssetCentricKindExtended,
     AssetCentricType,
     JsonVal,
-    T_AssetCentricResource,
 )
+from cognite_toolkit._cdf_tk.utils.useful_types2 import T_AssetCentricResource
 
 from .data_classes import (
     AnnotationMapping,
@@ -366,6 +371,14 @@ class AnnotationMigrationIO(
 
 
 class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelResponse, ThreeDMigrationRequest]):
+    """IO class for downloading and migrating 3D models.
+
+    Args:
+        client: The ToolkitClient to use for CDF interactions.
+        data_model_type: The type of 3D data model to download. Either "classic" or "DM".
+
+    """
+
     KIND = "3DMigration"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
@@ -375,8 +388,21 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelResponse,
     UPLOAD_ENDPOINT = "/3d/migrate/models"
     REVISION_ENDPOINT = "/3d/migrate/revisions"
 
+    def __init__(self, client: ToolkitClient, data_model_type: Literal["classic", "data modeling"] = "classic") -> None:
+        super().__init__(client)
+        self.data_model_type = data_model_type
+
     def as_id(self, item: ThreeDModelResponse) -> str:
         return f"{item.name}_{item.id!s}"
+
+    def _is_selected(self, item: ThreeDModelResponse, included_models: set[int] | None) -> bool:
+        return self._is_correct_type(item) and (included_models is None or item.id in included_models)
+
+    def _is_correct_type(self, item: ThreeDModelResponse) -> bool:
+        if self.data_model_type == "classic":
+            return item.space is None
+        else:
+            return item.space is not None
 
     def stream_data(self, selector: ThreeDSelector, limit: int | None = None) -> Iterable[Page[ThreeDModelResponse]]:
         published: bool | None = None
@@ -392,12 +418,7 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelResponse,
             response = self.client.tool.three_d.models.iterate(
                 published=published, include_revision_info=True, limit=request_limit, cursor=cursor
             )
-            # Only include asset-centric 3D models
-            items = [
-                item
-                for item in response.items
-                if item.space is None and (included_models is None or item.id in included_models)
-            ]
+            items = [item for item in response.items if self._is_selected(item, included_models)]
             total += len(items)
             if items:
                 yield Page(worker_id="main", items=items, next_cursor=response.next_cursor)
@@ -454,3 +475,93 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelResponse,
             )
             results.extend(revision.as_item_responses(data.source_id))
         return results
+
+
+class ThreeDAssetMappingMigrationIO(UploadableStorageIO[ThreeDSelector, AssetMappingResponse, AssetMappingDMRequest]):
+    KIND = "3DMigrationAssetMapping"
+    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
+    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
+    SUPPORTED_READ_FORMATS = frozenset({".ndjson"})
+    DOWNLOAD_LIMIT = 1000
+    CHUNK_SIZE = 100
+    UPLOAD_ENDPOINT = "/3d/models/{modelId}/revisions/{revisionId}/mappings"
+
+    def __init__(self, client: ToolkitClient, object_3D_space: str, cad_node_space: str) -> None:
+        super().__init__(client)
+        self.object_3D_space = object_3D_space
+        self.cad_node_space = cad_node_space
+        # We can only migrate asset mappings for 3D models that are already migrated to data modeling.
+        self._3D_io = ThreeDMigrationIO(client, data_model_type="data modeling")
+
+    def as_id(self, item: AssetMappingResponse) -> str:
+        return f"AssetMapping_{item.model_id!s}_{item.revision_id!s}_{item.asset_id!s}"
+
+    def stream_data(self, selector: ThreeDSelector, limit: int | None = None) -> Iterable[Page[AssetMappingResponse]]:
+        total = 0
+        for three_d_page in self._3D_io.stream_data(selector, None):
+            for model in three_d_page.items:
+                if model.last_revision_info is None or model.last_revision_info.revision_id is None:
+                    # No revisions, so no asset mappings to
+                    continue
+                cursor: str | None = None
+                while True:
+                    request_limit = (
+                        min(self.DOWNLOAD_LIMIT, limit - total) if limit is not None else self.DOWNLOAD_LIMIT
+                    )
+                    if limit is not None and total >= limit:
+                        return
+                    response = self.client.tool.three_d.asset_mappings.iterate(
+                        model_id=model.id,
+                        revision_id=model.last_revision_info.revision_id,
+                        cursor=cursor,
+                        limit=request_limit,
+                    )
+                    items = response.items
+                    total += len(items)
+                    if items:
+                        yield Page(worker_id="main", items=items, next_cursor=response.next_cursor)
+                    if response.next_cursor is None:
+                        break
+                    cursor = response.next_cursor
+
+    def count(self, selector: ThreeDSelector) -> int | None:
+        # There is no efficient way to count 3D asset mappings in CDF.
+        return None
+
+    def upload_items(
+        self,
+        data_chunk: Sequence[UploadItem[AssetMappingDMRequest]],
+        http_client: HTTPClient,
+        selector: T_Selector | None = None,
+    ) -> Sequence[HTTPMessage]:
+        """Migrate 3D asset mappings by uploading them to the migrate/asset-mappings endpoint."""
+        if not data_chunk:
+            return []
+        # Assume all items in the chunk belong to the same model and revision, they should
+        # if the .stream_data method is used for downloading.
+        first = data_chunk[0]
+        model_id = first.item.model_id
+        revision_id = first.item.revision_id
+        endpoint = self.UPLOAD_ENDPOINT.format(modelId=model_id, revisionId=revision_id)
+        responses = http_client.request_with_retries(
+            ItemsRequest(
+                endpoint_url=self.client.config.create_api_url(endpoint),
+                method="POST",
+                items=list(data_chunk),
+                extra_body_fields={
+                    "dmsContextualizationConfig": {
+                        "object3DSpace": self.object_3D_space,
+                        "cadNodeSpace": self.cad_node_space,
+                    }
+                },
+            )
+        )
+        return responses
+
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> AssetMappingDMRequest:
+        raise NotImplementedError("Deserializing 3D Asset Mappings from JSON is not supported.")
+
+    def data_to_json_chunk(
+        self, data_chunk: Sequence[AssetMappingResponse], selector: ThreeDSelector | None = None
+    ) -> list[dict[str, JsonVal]]:
+        raise NotImplementedError("Serializing 3D Asset Mappings to JSON is not supported.")

@@ -4,6 +4,7 @@ from cognite.client.data_classes.data_modeling.containers import BTreeIndex
 SPACE = dm.SpaceApply(
     "cognite_migration", description="Space for the asset-centric to data modeling migration", name="cdf_migration"
 )
+COGNITE_MIGRATION_SPACE_ID = SPACE.space
 
 RESOURCE_VIEW_MAPPING = dm.ContainerApply(
     space=SPACE.space,

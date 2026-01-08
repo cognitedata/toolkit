@@ -22,6 +22,7 @@ from cognite.client.data_classes.capabilities import (
     FunctionsAcl,
     SessionsAcl,
 )
+from cognite.client.data_classes.data_modeling import NodeId
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply
 from cognite.client.data_classes.functions import HANDLER_FILE_NAME
 from cognite.client.exceptions import CogniteAPIError
@@ -30,7 +31,7 @@ from rich import print
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.functions import FunctionScheduleID
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.functions import FunctionScheduleID
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
@@ -406,7 +407,18 @@ class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function]):
 
         self.client.functions.delete_with_429_retry(external_id=ids, ignore_unknown_ids=True)
         file_ids = {func.file_id for func in functions if func.file_id}
-        self.client.files.delete(id=list(file_ids), ignore_unknown_ids=True)
+        files = self.client.files.retrieve_multiple(list(file_ids), ignore_unknown_ids=True)
+        dm_file_nodes: set[NodeId] = set()
+        classic_file_ids: set[int] = set()
+        for file in files:
+            if file.instance_id is not None:
+                dm_file_nodes.add(file.instance_id)
+            else:
+                classic_file_ids.add(file.id)
+        if classic_file_ids:
+            self.client.files.delete(id=list(classic_file_ids), ignore_unknown_ids=True)
+        if dm_file_nodes:
+            self.client.data_modeling.instances.delete(list(dm_file_nodes))
         return len(ids)
 
     def _iterate(

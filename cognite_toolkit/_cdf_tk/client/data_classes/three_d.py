@@ -1,11 +1,16 @@
+import sys
 from typing import Literal
 
-from .base import BaseModelObject, RequestResource, ResponseResource
+from pydantic import Field
 
+from .base import BaseModelObject, Identifier, RequestResource, ResponseResource
+from .identifiers import NameId
+from .instance_api import NodeReference
 
-class NodeReference(BaseModelObject):
-    space: str
-    external_id: str
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 
 class RevisionStatus(BaseModelObject):
@@ -19,16 +24,13 @@ class RevisionStatus(BaseModelObject):
 class ThreeDModelRequest(RequestResource):
     name: str
 
-    def as_id(self) -> str:
-        return self.name
+    def as_id(self) -> NameId:
+        return NameId(name=self.name)
 
 
 class ThreeDModelClassicRequest(ThreeDModelRequest):
     data_set_id: int | None = None
     metadata: dict[str, str] | None = None
-
-    def as_id(self) -> str:
-        return self.name
 
 
 class ThreeDModelDMSRequest(ThreeDModelRequest):
@@ -51,3 +53,55 @@ class ThreeDModelResponse(ResponseResource[ThreeDModelRequest]):
             return ThreeDModelClassicRequest._load(self.dump())
         else:
             return ThreeDModelDMSRequest._load(self.dump())
+
+
+class AssetMappingDMRequest(RequestResource, Identifier):
+    node_id: int
+    asset_instance_id: NodeReference
+    # These fields are part of the path request and not the body schema.
+    model_id: int = Field(exclude=True)
+    revision_id: int = Field(exclude=True)
+
+    def as_id(self) -> Self:
+        return self
+
+    def __str__(self) -> str:
+        return f"{self.model_id}_{self.revision_id}_{self.node_id}_{self.asset_instance_id.space}_{self.asset_instance_id.external_id}"
+
+
+class AssetMappingClassicRequest(RequestResource, Identifier):
+    node_id: int
+    asset_id: int | None = None
+    asset_instance_id: NodeReference | None = None
+    # These fields are part of the path request and not the body schema.
+    model_id: int = Field(exclude=True)
+    revision_id: int = Field(exclude=True)
+
+    def as_id(self) -> Self:
+        return self
+
+    def __str__(self) -> str:
+        asset_part = (
+            f"assetId:{self.asset_id}"
+            if self.asset_id is not None
+            else f"assetInstance:{self.asset_instance_id.space}_{self.asset_instance_id.external_id}"
+            if self.asset_instance_id is not None
+            else "noAsset"
+        )
+        return f"{self.model_id}_{self.revision_id}_{self.node_id}_{asset_part}"
+
+
+class AssetMappingResponse(ResponseResource[AssetMappingClassicRequest]):
+    node_id: int
+    asset_id: int | None = None
+    asset_instance_id: NodeReference | None = None
+    tree_index: int | None = None
+    subtree_size: int | None = None
+    # These fields are part of the path request and response, but they are included here for convenience.
+    model_id: int = Field(exclude=True)
+    revision_id: int = Field(exclude=True)
+
+    def as_request_resource(self) -> AssetMappingClassicRequest:
+        return AssetMappingClassicRequest.model_validate(
+            {**self.dump(), "modelId": self.model_id, "revisionId": self.revision_id}
+        )

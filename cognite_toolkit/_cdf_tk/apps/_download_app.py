@@ -7,7 +7,7 @@ import typer
 from questionary import Choice
 from rich import print
 
-from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.raw import RawTable
 from cognite_toolkit._cdf_tk.commands import DownloadCommand
 from cognite_toolkit._cdf_tk.constants import DATA_DEFAULT_DIR
 from cognite_toolkit._cdf_tk.feature_flags import Flags
@@ -616,7 +616,7 @@ class DownloadApp(typer.Typer):
                 file_format = AssetCentricFormats.ndjson
             files = client.files.list(data_set_external_ids=data_sets, limit=limit)
             selector = FileIdentifierSelector(
-                identifiers=tuple([FileInternalID(internal_id=file.id) for file in files])  # type: ignore[call-arg]
+                identifiers=tuple([FileInternalID(internal_id=file.id) for file in files])
             )
             selectors = [selector]
             io = FileContentIO(client, output_dir / sanitize_filename(selector.group))

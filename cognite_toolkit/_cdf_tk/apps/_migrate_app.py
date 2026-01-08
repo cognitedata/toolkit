@@ -19,11 +19,13 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     AssetCentricMapper,
     CanvasMapper,
     ChartMapper,
+    ThreeDAssetMapper,
     ThreeDMapper,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     AnnotationMigrationIO,
     AssetCentricMigrationIO,
+    ThreeDAssetMappingMigrationIO,
     ThreeDMigrationIO,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import (
@@ -68,6 +70,7 @@ class MigrateApp(typer.Typer):
         self.command("canvas")(self.canvas)
         self.command("charts")(self.charts)
         self.command("3d")(self.three_d)
+        self.command("3d-mappings")(self.three_d_asset_mapping)
         # Uncomment when infield v2 config migration is ready
         # self.command("infield-configs")(self.infield_configs)
 
@@ -1048,6 +1051,104 @@ class MigrateApp(typer.Typer):
                 selected=ThreeDModelIdSelector(ids=tuple(selected_ids)),
                 data=ThreeDMigrationIO(client),
                 mapper=ThreeDMapper(client),
+                log_dir=log_dir,
+                dry_run=dry_run,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def three_d_asset_mapping(
+        ctx: typer.Context,
+        model_id: Annotated[
+            list[int] | None,
+            typer.Argument(
+                help="The IDs of the 3D model to migrate asset mappings for. If not provided, an interactive selection will be "
+                "performed to select the."
+            ),
+        ] = None,
+        object_3D_space: Annotated[
+            str | None,
+            typer.Option(
+                "--object-3d-space",
+                "-o",
+                help="The instance space to ceate the 3D object nodes in.",
+            ),
+        ] = None,
+        cad_node_space: Annotated[
+            str | None,
+            typer.Option(
+                "--cad-node-space",
+                "-c",
+                help="The instance space to create the CAD node nodes in.",
+            ),
+        ] = None,
+        log_dir: Annotated[
+            Path,
+            typer.Option(
+                "--log-dir",
+                "-l",
+                help="Path to the directory where migration logs will be stored.",
+            ),
+        ] = Path(f"migration_logs_{TODAY}"),
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-d",
+                help="If set, the migration will not be executed, but only a report of what would be done is printed.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """Migrate 3D Model Asset Mappings from Asset-Centric to data modeling in CDF.
+
+        This command expects that the selected 3D model has already been migrated to data modeling.
+        """
+        client = EnvironmentVariables.create_from_environment().get_client()
+        selected_ids: list[int]
+        if model_id is not None:
+            selected_ids = model_id
+        else:
+            # Interactive selection
+            selected_models = ThreeDInteractiveSelect(client, "migrate").select_three_d_models("dm")
+            selected_ids = [model.id for model in selected_models]
+            space_selector = DataModelingSelect(client, "migrate")
+            object_3D_space = space_selector.select_instance_space(
+                multiselect=False,
+                message="In which instance space do you want to create the 3D Object nodes?",
+                include_empty=False,
+            )
+            cad_node_space = space_selector.select_instance_space(
+                multiselect=False,
+                message="In which instance space do you want to create the CAD Node nodes?",
+                include_empty=False,
+            )
+            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).ask()
+            verbose = questionary.confirm("Do you want verbose output?", default=verbose).ask()
+            if any(res is None for res in [dry_run, verbose]):
+                raise typer.Abort()
+
+        if object_3D_space is None or cad_node_space is None:
+            raise typer.BadParameter(
+                "--object-3d-space and --cad-node-space are required when specifying IDs directly."
+            )
+
+        cmd = MigrationCommand()
+        cmd.run(
+            lambda: cmd.migrate(
+                selected=ThreeDModelIdSelector(ids=tuple(selected_ids)),
+                data=ThreeDAssetMappingMigrationIO(
+                    client, object_3D_space=object_3D_space, cad_node_space=cad_node_space
+                ),
+                mapper=ThreeDAssetMapper(client),
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,

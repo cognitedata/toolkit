@@ -1,5 +1,7 @@
+import contextlib
 import os
 from asyncio import sleep
+from collections.abc import Iterable
 from contextlib import suppress
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -9,8 +11,6 @@ from cognite.client import CogniteClient
 from cognite.client import data_modeling as dm
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
-    AssetWrite,
-    AssetWriteList,
     ClientCredentials,
     DataPointSubscriptionWrite,
     DataSet,
@@ -21,7 +21,6 @@ from cognite.client.data_classes import (
     FunctionScheduleWriteList,
     FunctionTaskParameters,
     FunctionWrite,
-    FunctionWriteList,
     GroupWrite,
     LabelDefinitionWrite,
     TimeSeriesList,
@@ -40,14 +39,15 @@ from cognite.client.data_classes.datapoints_subscriptions import (
     DatapointSubscriptionWriteList,
 )
 from cognite.client.data_classes.labels import LabelDefinitionWriteList
-from cognite.client.exceptions import CogniteAPIError
+from cognite.client.exceptions import CogniteAPIError, CogniteException
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.data_classes.extendable_cognite_file import (
+from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetRequest
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.extendable_cognite_file import (
     ExtendableCogniteFileApply,
     ExtendableCogniteFileApplyList,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.robotics import (
     DataPostProcessingWrite,
     DataPostProcessingWriteList,
     RobotCapability,
@@ -363,24 +363,24 @@ class TestLabelLoader:
 
 
 class TestAssetLoader:
-    def test_create_delete_asset(self, cognite_client: CogniteClient) -> None:
-        asset = AssetWrite(
-            external_id=f"tmp_test_create_delete_asset_{RUN_UNIQUE_ID}",
+    def test_create_delete_asset(self, toolkit_client: ToolkitClient) -> None:
+        asset = AssetRequest(
+            externalId=f"tmp_test_create_delete_asset_{RUN_UNIQUE_ID}",
             name="My Asset",
             description="My description",
         )
 
-        loader = AssetCRUD(cognite_client, None)
+        loader = AssetCRUD(toolkit_client, None)
 
         try:
-            created = loader.create(AssetWriteList([asset]))
+            created = loader.create([asset])
             assert len(created) == 1
 
-            delete_count = loader.delete([asset.external_id])
+            delete_count = loader.delete([asset.as_id()])
             assert delete_count == 1
         finally:
             # Ensure that the asset is deleted even if the test fails.
-            cognite_client.assets.delete(external_id=asset.external_id, ignore_unknown_ids=True)
+            toolkit_client.assets.delete(external_id=asset.external_id, ignore_unknown_ids=True)
 
 
 @pytest.fixture
@@ -547,8 +547,8 @@ inputSchema:
 
 
 @pytest.fixture(scope="module")
-def a_container(toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> dm.Container:
-    return toolkit_client.data_modeling.containers.apply(
+def a_container(toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> Iterable[dm.Container]:
+    a_container = toolkit_client.data_modeling.containers.apply(
         dm.ContainerApply(
             name=f"container_test_resource_loaders_{RUN_UNIQUE_ID}",
             space=toolkit_space.space,
@@ -556,11 +556,15 @@ def a_container(toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> dm.Co
             properties={"name": dm.ContainerProperty(type=dm.Text())},
         )
     )
+    yield a_container
+    toolkit_client.data_modeling.containers.delete([a_container.as_id()])
 
 
 @pytest.fixture(scope="module")
-def two_views(toolkit_client: ToolkitClient, toolkit_space: dm.Space, a_container: dm.Container) -> dm.ViewList:
-    return toolkit_client.data_modeling.views.apply(
+def two_views(
+    toolkit_client: ToolkitClient, toolkit_space: dm.Space, a_container: dm.Container
+) -> Iterable[dm.ViewList]:
+    created_views = toolkit_client.data_modeling.views.apply(
         [
             dm.ViewApply(
                 space=toolkit_space.space,
@@ -582,6 +586,8 @@ def two_views(toolkit_client: ToolkitClient, toolkit_space: dm.Space, a_containe
             ),
         ]
     )
+    yield created_views
+    toolkit_client.data_modeling.views.delete(created_views.as_ids())
 
 
 class TestDataModelLoader:
@@ -599,12 +605,12 @@ class TestDataModelLoader:
             external_id=f"tmp_test_create_update_delete_data_model_{RUN_UNIQUE_ID}",
             version="1",
         )
+        update = dm.DataModelApply.load(my_model.dump())
 
         try:
             created = loader.create(dm.DataModelApplyList([my_model]))
             assert len(created) == 1
 
-            update = dm.DataModelApply.load(my_model.dump())
             update.views = [view_list[0]]
 
             with pytest.raises(CogniteAPIError):
@@ -616,16 +622,16 @@ class TestDataModelLoader:
             assert len(updated) == 1
             assert updated[0].views == [view_list[0]]
         finally:
-            loader.delete([my_model.as_id()])
+            loader.delete([my_model.as_id(), update.as_id()])
 
 
 @pytest.fixture
 def custom_file_container(toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> dm.Container:
     return toolkit_client.data_modeling.containers.apply(
         dm.ContainerApply(
-            name=f"container_test_resource_loaders_{RUN_UNIQUE_ID}",
+            name="container_test_resource_loaders",
             space=toolkit_space.space,
-            external_id=f"container_test_resource_loaders_{RUN_UNIQUE_ID}",
+            external_id="container_test_resource_loaders",
             properties={
                 "status": dm.ContainerProperty(type=dm.Text()),
                 "fileCategory": dm.ContainerProperty(type=dm.Text()),
@@ -1089,22 +1095,23 @@ properties:
 
 
 class TestFunctionLoader:
+    FUNCTION_CODE = """from cognite.client import CogniteClient
+
+
+    def handle(data: dict, client: CogniteClient, secrets: dict, function_call_info: dict) -> dict:
+        # This will fail unless the function has the specified capabilities.
+        print("Print statements will be shown in the logs.")
+        print("Running with the following configuration:\n")
+        return {
+            "data": data,
+            "functionInfo": function_call_info,
+        }
+
+    """
+
     def test_avoid_redeploying_function_with_no_changes(
         self, toolkit_client: ToolkitClient, toolkit_dataset: DataSet, tmp_path: Path
     ) -> None:
-        function_code = """from cognite.client import CogniteClient
-
-
-def handle(data: dict, client: CogniteClient, secrets: dict, function_call_info: dict) -> dict:
-    # This will fail unless the function has the specified capabilities.
-    print("Print statements will be shown in the logs.")
-    print("Running with the following configuration:\n")
-    return {
-        "data": data,
-        "functionInfo": function_call_info,
-    }
-
-"""
         external_id = "toolkit_test_function_no_redeploy"
         definition_yaml = f"""externalId: {external_id}
 name: Toolkit Test Function No Redeploy
@@ -1115,7 +1122,7 @@ description: ""
         build_dir = tmp_path / "build"
         function_code_path = build_dir / FunctionCRUD.folder_name / external_id / "handler.py"
         function_code_path.parent.mkdir(parents=True, exist_ok=True)
-        function_code_path.write_text(function_code, encoding="utf-8")
+        function_code_path.write_text(self.FUNCTION_CODE, encoding="utf-8")
 
         loader = FunctionCRUD.create_loader(toolkit_client, build_dir)
         filepath = MagicMock(spec=Path)
@@ -1126,7 +1133,7 @@ description: ""
         resource = loader.load_resource(resource_dict[0])
         assert isinstance(resource, FunctionWrite)
         if not loader.retrieve([resource.external_id]):
-            _ = loader.create(FunctionWriteList([resource]))
+            _ = loader.create([resource])
         worker = ResourceWorker(loader, "deploy")
         resources = worker.prepare_resources([filepath])
         assert {
@@ -1135,3 +1142,43 @@ description: ""
             "delete": len(resources.to_delete),
             "unchanged": len(resources.unchanged),
         } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
+
+    def test_delete_function_with_cognite_file_code(
+        self, toolkit_client: ToolkitClient, toolkit_space: Space, tmp_path: Path
+    ) -> None:
+        client = toolkit_client
+        external_id = f"toolkit_test_function_delete_cognite_file_code_{RUN_UNIQUE_ID}"
+        definition_yaml = f"""externalId: {external_id}
+name: Toolkit Test Function Delete Cognite File Code
+owner: ""
+space: {toolkit_space.space}
+description: ""
+        """
+        build_dir = tmp_path / "build"
+        function_code_path = build_dir / FunctionCRUD.folder_name / external_id / "handler.py"
+        function_code_path.parent.mkdir(parents=True, exist_ok=True)
+        function_code_path.write_text(self.FUNCTION_CODE, encoding="utf-8")
+
+        crud = FunctionCRUD.create_loader(client, build_dir)
+
+        filepath = MagicMock(spec=Path)
+        filepath.read_text.return_value = definition_yaml
+        filepath.parent.name = FunctionCRUD.folder_name
+        resource_dict = crud.load_resource_file(filepath, {})
+        assert len(resource_dict) == 1
+
+        resource = crud.load_resource(resource_dict[0])
+        assert isinstance(resource, FunctionWrite)
+        created: Function | None = None
+        try:
+            created_list = crud.create([resource])
+            assert len(created_list) == 1
+            created = created_list[0]
+
+            crud.delete([external_id])
+        finally:
+            if created is not None:
+                with contextlib.suppress(CogniteException):
+                    client.functions.delete(external_id=external_id)
+
+                client.data_modeling.instances.delete((toolkit_space.space, external_id))

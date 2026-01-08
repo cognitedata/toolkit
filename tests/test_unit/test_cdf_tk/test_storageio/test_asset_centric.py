@@ -8,7 +8,6 @@ import httpx
 import pytest
 import respx
 from cognite.client.data_classes import (
-    Asset,
     AssetList,
     CountAggregate,
     Event,
@@ -22,6 +21,9 @@ from cognite.client.data_classes import (
 )
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse
+from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetResponse
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
 from cognite_toolkit._cdf_tk.storageio import (
@@ -35,7 +37,6 @@ from cognite_toolkit._cdf_tk.storageio._base import TableUploadableStorageIO
 from cognite_toolkit._cdf_tk.storageio.selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.fileio import FileReader
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
 
 RESOURCE_COUNT = 50
 DATA_SET_ID = 1234
@@ -46,24 +47,24 @@ CHUNK_SIZE = 10
 
 
 @pytest.fixture(scope="module")
-def some_asset_data() -> AssetList:
-    """Fixture to provide a sample AssetList for testing."""
-    return AssetList(
-        [
-            Asset(
-                id=1000 + i,
-                external_id=f"asset_{i}",
-                name=f"Asset {i}",
-                description=f"Description for asset {i}",
-                root_id=ASSET_ID,
-                source="test_source",
-                labels=["my_label"],
-                data_set_id=DATA_SET_ID,
-                metadata={"key": f"value_{i}"} if i % 2 == 0 else None,
-            )
-            for i in range(RESOURCE_COUNT)
-        ]
-    )
+def some_asset_data() -> list[AssetResponse]:
+    """Fixture to provide a sample assets for testing."""
+    return [
+        AssetResponse(
+            id=1000 + i,
+            externalId=f"asset_{i}",
+            name=f"Asset {i}",
+            description=f"Description for asset {i}",
+            rootId=ASSET_ID,
+            source="test_source",
+            labels=[{"externalId": "my_label"}],
+            dataSetId=DATA_SET_ID,
+            createdTime=1,
+            lastUpdatedTime=1,
+            **({"metadata": {"key": f"value_{i}"}} if i % 2 == 0 else {}),
+        )
+        for i in range(RESOURCE_COUNT)
+    ]
 
 
 @pytest.fixture(scope="module")
@@ -136,7 +137,15 @@ def asset_centric_client(
     some_event_data: EventList,
 ) -> Iterable[ToolkitClient]:
     with monkeypatch_toolkit_client() as client:
-        client.assets.return_value = chunker(some_asset_data, CHUNK_SIZE)
+        asset_chunks = list(chunker(some_asset_data, CHUNK_SIZE))
+        asset_chunks.reverse()
+
+        def iterate_assets(*_, **__) -> PagedResponse[AssetResponse]:
+            nonlocal asset_chunks
+            asset_items = asset_chunks.pop()
+            return PagedResponse(items=asset_items, nextCursor="cursor" if asset_chunks else None)
+
+        client.tool.assets.iterate.side_effect = iterate_assets
         client.files.return_value = chunker(some_filemetadata_data, CHUNK_SIZE)
         client.time_series.return_value = chunker(some_timeseries_data, CHUNK_SIZE)
         client.events.return_value = chunker(some_event_data, CHUNK_SIZE)
@@ -272,7 +281,7 @@ class TestAssetCentricIO:
         for call in respx_mock.calls:
             uploaded_resources.extend(json.loads(call.request.content)["items"])
 
-        assert uploaded_resources == resources.as_write().dump()
+        assert uploaded_resources == [resource.as_write().dump() for resource in resources]
 
 
 class TestAssetIO:

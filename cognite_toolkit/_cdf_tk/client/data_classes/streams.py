@@ -7,6 +7,7 @@ from cognite_toolkit._cdf_tk.protocols import (
 )
 
 from .base import BaseModelObject, BaseResourceList, RequestResource, ResponseResource
+from .identifiers import ExternalId
 
 
 class StreamRequest(RequestResource):
@@ -15,8 +16,8 @@ class StreamRequest(RequestResource):
     external_id: str
     settings: dict[Literal["template"], dict[Literal["name"], StreamTemplateName]]
 
-    def as_id(self) -> str:
-        return self.external_id
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)
 
 
 class StreamRequestList(BaseResourceList[StreamRequest], ResourceRequestListProtocol):

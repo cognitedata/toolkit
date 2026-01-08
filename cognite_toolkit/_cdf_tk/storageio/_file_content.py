@@ -10,13 +10,7 @@ from cognite.client.data_classes import FileMetadata, FileMetadataWrite
 from cognite.client.data_classes.data_modeling import NodeId, ViewId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.cruds import FileMetadataCRUD
-from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
-from cognite_toolkit._cdf_tk.protocols import ResourceResponseProtocol
-from cognite_toolkit._cdf_tk.utils import sanitize_filename
-from cognite_toolkit._cdf_tk.utils.collection import chunker, chunker_sequence
-from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
-from cognite_toolkit._cdf_tk.utils.http_client import (
+from cognite_toolkit._cdf_tk.client.http_client import (
     DataBodyRequest,
     ErrorDetails,
     FailedResponse,
@@ -26,6 +20,12 @@ from cognite_toolkit._cdf_tk.utils.http_client import (
     ResponseList,
     SimpleBodyRequest,
 )
+from cognite_toolkit._cdf_tk.cruds import FileMetadataCRUD
+from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
+from cognite_toolkit._cdf_tk.protocols import ResourceResponseProtocol
+from cognite_toolkit._cdf_tk.utils import sanitize_filename
+from cognite_toolkit._cdf_tk.utils.collection import chunker, chunker_sequence
+from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import Page, UploadableStorageIO, UploadItem
@@ -44,7 +44,6 @@ from .selectors._file_content import NodeId as SelectorNodeId
 COGNITE_FILE_VIEW = ViewId("cdf_cdm", "CogniteFile", "v1")
 
 
-@dataclass
 class UploadFileContentItem(UploadItem[FileMetadataWrite]):
     file_path: Path
     mime_type: str
@@ -145,8 +144,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
         identifiers_map: dict[FileIdentifier, FileMetadata] = {}
         for item in metadata:
             if item.id is not None:
-                # MyPy does cooperate well with Pydantic.
-                identifiers_map[FileInternalID(internal_id=item.id)] = item  # type: ignore[call-arg]
+                identifiers_map[FileInternalID(internal_id=item.id)] = item
             if item.external_id is not None:
                 identifiers_map[FileExternalID(external_id=item.external_id)] = item
             if item.instance_id is not None:
@@ -331,7 +329,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
         # We know there is only one response since we only requested one upload link
         response = responses[0]
         if isinstance(response, FailedResponse) and response.error.missing and not created_node:
-            if self._create_cognite_file_node(instance_id, http_client, item.as_id(), results):
+            if self._create_cognite_file_node(instance_id, http_client, str(item.as_id()), results):
                 return self._upload_url_data_modeling(item, http_client, results, created_node=True)
             else:
                 return None

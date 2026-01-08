@@ -8,7 +8,7 @@ Agent:
   - description: This tool allows you to perform operations on query time series datapoints.
     name: Operations on datapoints tool
     type: queryTimeSeriesDatapoints
-Asset:
+AssetResponse:
 - dataSetId: 7982613576047462211
   externalId: MyAsset
   name: MyAsset

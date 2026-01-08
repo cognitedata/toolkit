@@ -6,7 +6,7 @@ from cognite.client.utils._identifier import InstanceId
 from cognite.client.utils._text import to_camel_case
 from pydantic import BaseModel, Field, field_serializer
 
-from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 

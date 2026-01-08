@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING, cast, final
 import pandas as pd
 from cognite.client.data_classes import FileMetadataWrite
 
-from cognite_toolkit._cdf_tk.client.data_classes.extendable_cognite_file import ExtendableCogniteFileApply
-from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.extendable_cognite_file import ExtendableCogniteFileApply
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.raw import RawTable
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.protocols import (
     T_ResourceRequest,

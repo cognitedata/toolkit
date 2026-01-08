@@ -63,9 +63,10 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from requests import Response
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import GraphQLDataModelWrite
-from cognite_toolkit._cdf_tk.client.data_classes.project import ProjectStatus, ProjectStatusList
-from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase
+from cognite_toolkit._cdf_tk.client.data_classes.base import RequestResource, ResponseResource
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.graphql_data_models import GraphQLDataModelWrite
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.project import ProjectStatus, ProjectStatusList
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.raw import RawDatabase
 from cognite_toolkit._cdf_tk.client.data_classes.streams import StreamResponse, StreamResponseList
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN, STREAM_IMMUTABLE_TEMPLATE_NAME
@@ -764,6 +765,10 @@ class ApprovalToolkitClient:
                 created_time="1",
             )
 
+        def create(items: Sequence[RequestResource], *_, **__) -> list[ResponseResource]:
+            created_resources[resource_cls.__name__].extend(items)
+            return []
+
         available_create_methods = {
             fn.__name__: fn
             for fn in [
@@ -782,6 +787,7 @@ class ApprovalToolkitClient:
                 apply_dml,
                 create_raw_table,
                 create_nodes,
+                create,
             ]
         }
         if mock_method not in available_create_methods:
@@ -903,6 +909,9 @@ class ApprovalToolkitClient:
                     to_return.append(resource)
             return to_return
 
+        def retrieve(ids: Sequence, *_, **__) -> list:
+            return existing_resources[resource_cls.__name__]
+
         available_retrieve_methods = {
             fn.__name__: fn
             for fn in [
@@ -913,6 +922,7 @@ class ApprovalToolkitClient:
                 files_retrieve,
                 iterate_values,
                 return_data_models,
+                retrieve,
             ]
         }
         if mock_method not in available_retrieve_methods:

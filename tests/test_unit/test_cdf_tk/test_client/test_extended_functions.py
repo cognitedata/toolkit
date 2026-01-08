@@ -9,7 +9,7 @@ from httpx import Response
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ToolkitAPIError
 
 
 class TestExtendedFunctionsAPI:
@@ -113,7 +113,7 @@ class TestExtendedFunctionsAPI:
         url = config.create_api_url("/functions")
         fun = FunctionWrite(name="test_function", file_id=123, external_id="test_function")
 
-        from cognite_toolkit._cdf_tk.utils.http_client import ToolkitAPIError
+        from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 
         respx_mock.post(url).mock(return_value=Response(status_code=401, json={"error": "Unauthorized"}))
 

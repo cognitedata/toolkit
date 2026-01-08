@@ -1,7 +1,7 @@
 import json
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ParamRequest, SimpleBodyRequest, SuccessResponse
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ParamRequest, SimpleBodyRequest, SuccessResponse
 
 
 class TestHttpClient:

@@ -6,10 +6,6 @@ from typing import Any, final
 
 import pandas as pd
 from cognite.client.data_classes import (
-    AggregateResultItem,
-    Asset,
-    AssetList,
-    AssetWrite,
     Event,
     EventList,
     EventWrite,
@@ -24,7 +20,13 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.sequences import (
+from cognite_toolkit._cdf_tk.client.data_classes.asset import (
+    AssetAggregateItem,
+    AssetRequest,
+    AssetResponse,
+)
+from cognite_toolkit._cdf_tk.client.data_classes.identifiers import ExternalId, InternalOrExternalId
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.sequences import (
     ToolkitSequenceRows,
     ToolkitSequenceRowsList,
     ToolkitSequenceRowsWrite,
@@ -44,10 +46,10 @@ _DEPRECATION_WARNING_ISSUED = False
 
 
 @final
-class AssetCRUD(ResourceCRUD[str, AssetWrite, Asset]):
+class AssetCRUD(ResourceCRUD[ExternalId, AssetRequest, AssetResponse]):
     folder_name = "classic"
-    resource_cls = Asset
-    resource_write_cls = AssetWrite
+    resource_cls = AssetResponse
+    resource_write_cls = AssetRequest
     yaml_cls = AssetYAML
     kind = "Asset"
     dependencies = frozenset({DataSetsCRUD, LabelCRUD})
@@ -78,15 +80,15 @@ class AssetCRUD(ResourceCRUD[str, AssetWrite, Asset]):
         return "assets"
 
     @classmethod
-    def get_id(cls, item: Asset | AssetWrite | dict) -> str:
+    def get_id(cls, item: AssetRequest | AssetResponse | dict) -> ExternalId:
         if isinstance(item, dict):
-            return item["externalId"]
+            return ExternalId(external_id=item["externalId"])
         if not item.external_id:
             raise KeyError("Asset must have external_id")
-        return item.external_id
+        return ExternalId(external_id=item.external_id)
 
     @classmethod
-    def get_internal_id(cls, item: Asset | dict) -> int:
+    def get_internal_id(cls, item: AssetResponse | dict) -> int:
         if isinstance(item, dict):
             return item["id"]
         if not item.id:
@@ -94,12 +96,12 @@ class AssetCRUD(ResourceCRUD[str, AssetWrite, Asset]):
         return item.id
 
     @classmethod
-    def dump_id(cls, id: str) -> dict[str, Any]:
-        return {"externalId": id}
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return id.dump()
 
     @classmethod
     def get_required_capability(
-        cls, items: collections.abc.Sequence[AssetWrite] | None, read_only: bool
+        cls, items: collections.abc.Sequence[AssetRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -119,45 +121,39 @@ class AssetCRUD(ResourceCRUD[str, AssetWrite, Asset]):
 
         return capabilities.AssetsAcl(actions, scope)
 
-    def create(self, items: Sequence[AssetWrite]) -> AssetList:
-        return self.client.assets.create(items)
+    def create(self, items: collections.abc.Sequence[AssetRequest]) -> list[AssetResponse]:
+        return self.client.tool.assets.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> AssetList:
-        return self.client.assets.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
+    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[AssetResponse]:
+        return self.client.tool.assets.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[AssetWrite]) -> AssetList:
-        return self.client.assets.update(items, mode="replace")
+    def update(self, items: collections.abc.Sequence[AssetRequest]) -> list[AssetResponse]:
+        return self.client.tool.assets.update(items, mode="replace")
 
-    def delete(self, ids: SequenceNotStr[str | int]) -> int:
+    def delete(self, ids: SequenceNotStr[InternalOrExternalId]) -> int:
         if not ids:
             return 0
-        internal_ids, external_ids = self._split_ids(ids)
-        try:
-            self.client.assets.delete(id=internal_ids, external_id=external_ids)
-        except CogniteNotFoundError as e:
-            # Do a CogniteNotFoundError instead of passing 'ignore_unknown_ids=True' to the delete method
-            # to obtain an accurate list of deleted assets.
-            non_existing = set(e.failed or [])
-            if existing := [id_ for id_ in ids if id_ not in non_existing]:
-                internal_ids, external_ids = self._split_ids(existing)
-                self.client.assets.delete(id=internal_ids, external_id=external_ids)
-            return len(existing)
-        else:
-            return len(ids)
+        self.client.tool.assets.delete(list(ids), ignore_unknown_ids=True)
+        return len(ids)
 
     def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
-    ) -> Iterable[Asset]:
-        return iter(
-            self.client.assets(
+    ) -> Iterable[AssetResponse]:
+        cursor: str | None = None
+        while True:
+            page = self.client.tool.assets.iterate(
+                limit=1000,
+                cursor=cursor,
                 data_set_external_ids=[data_set_external_id] if data_set_external_id else None,
-                # This is used in the purge command to delete the children before the parent.
-                aggregated_properties=["depth", "child_count", "path"],
+                aggregated_properties=True,
             )
-        )
+            yield from page.items
+            if not page.next_cursor or not page.items:
+                break
+            cursor = page.next_cursor
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -202,7 +198,7 @@ class AssetCRUD(ResourceCRUD[str, AssetWrite, Asset]):
 
         return resources
 
-    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> AssetWrite:
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> AssetRequest:
         # Unpack metadata keys from table formats (e.g. csv, parquet)
         metadata: dict = resource.get("metadata", {})
         for key, value in list(resource.items()):
@@ -219,10 +215,10 @@ class AssetCRUD(ResourceCRUD[str, AssetWrite, Asset]):
 
         if ds_external_id := resource.pop("dataSetExternalId", None):
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
-        return AssetWrite._load(resource)
+        return AssetRequest.model_validate(resource)
 
-    def dump_resource(self, resource: Asset, local: dict[str, Any] | None = None) -> dict[str, Any]:
-        dumped = resource.as_write().dump()
+    def dump_resource(self, resource: AssetResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_request_resource().dump()
         local = local or {}
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
@@ -234,7 +230,7 @@ class AssetCRUD(ResourceCRUD[str, AssetWrite, Asset]):
             # This is only included when the asset is downloaded/migrated with aggregated properties
             aggregates = (
                 resource.aggregates.dump()
-                if isinstance(resource.aggregates, AggregateResultItem)
+                if isinstance(resource.aggregates, AssetAggregateItem)
                 else resource.aggregates
             )
             if "path" in aggregates:
@@ -372,7 +368,7 @@ class SequenceCRUD(ResourceCRUD[str, SequenceWrite, CDFSequence]):
         if "dataSetExternalId" in item:
             yield DataSetsCRUD, item["dataSetExternalId"]
         if "assetExternalId" in item:
-            yield AssetCRUD, item["assetExternalId"]
+            yield AssetCRUD, ExternalId(external_id=item["assetExternalId"])
 
 
 @final
@@ -596,7 +592,7 @@ class EventCRUD(ResourceCRUD[str, EventWrite, Event]):
             yield DataSetsCRUD, item["dataSetExternalId"]
         for asset_id in item.get("assetExternalIds", []):
             if isinstance(asset_id, str):
-                yield AssetCRUD, asset_id
+                yield AssetCRUD, ExternalId(external_id=asset_id)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> EventWrite:
         if ds_external_id := resource.get("dataSetExternalId", None):

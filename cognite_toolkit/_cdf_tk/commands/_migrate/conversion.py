@@ -1,7 +1,7 @@
 from collections.abc import Iterable, Mapping, Set
 from typing import Any, ClassVar, cast
 
-from cognite.client.data_classes import Annotation, Asset, Event, FileMetadata, TimeSeries
+from cognite.client.data_classes import Annotation, Event, FileMetadata, TimeSeries
 from cognite.client.data_classes.data_modeling import (
     DirectRelation,
     DirectRelationReference,
@@ -9,13 +9,15 @@ from cognite.client.data_classes.data_modeling import (
     MappedProperty,
     NodeApply,
     NodeId,
+    ViewId,
 )
 from cognite.client.data_classes.data_modeling.instances import EdgeApply, NodeOrEdgeData, PropertyValueWrite
 from cognite.client.data_classes.data_modeling.views import ViewProperty
 from cognite.client.utils._identifier import InstanceId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.migration import (
+from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetResponse
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import (
     AssetCentricId,
     ResourceViewMappingApply,
 )
@@ -24,12 +26,10 @@ from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     asset_centric_convert_to_primary_property,
     convert_to_primary_property,
 )
-from cognite_toolkit._cdf_tk.utils.useful_types import (
-    AssetCentricResourceExtended,
-    AssetCentricTypeExtended,
-)
+from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricTypeExtended
+from cognite_toolkit._cdf_tk.utils.useful_types2 import AssetCentricResourceExtended
 
-from .data_model import INSTANCE_SOURCE_VIEW_ID
+from .data_model import COGNITE_MIGRATION_SPACE_ID, INSTANCE_SOURCE_VIEW_ID
 from .issues import ConversionIssue, FailedConversion, InvalidPropertyDataType
 
 
@@ -110,7 +110,7 @@ class DirectRelationCache:
                         file_ids.add(file_id)
                     if isinstance(file_external_id := file_ref.get("externalId"), str):
                         file_external_ids.add(file_external_id)
-            elif isinstance(resource, Asset):
+            elif isinstance(resource, AssetResponse):
                 if resource.source:
                     source_ids.add(resource.source)
                 if resource.parent_id is not None:
@@ -169,6 +169,7 @@ def asset_centric_to_dm(
     view_source: ResourceViewMappingApply,
     view_properties: dict[str, ViewProperty],
     direct_relation_cache: DirectRelationCache,
+    preferred_consumer_view: ViewId | None = None,
 ) -> tuple[NodeApply | EdgeApply | None, ConversionIssue]:
     """Convert an asset-centric resource to a data model instance.
 
@@ -178,6 +179,7 @@ def asset_centric_to_dm(
         view_source (ResourceViewMappingApply): The view source defining how to map the resource to the data model.
         view_properties (dict[str, ViewProperty]): The defined properties referenced in the view source mapping.
         direct_relation_cache (DirectRelationCache): Cache for direct relation references.
+        preferred_consumer_view (ViewId | None): The preferred consumer view for the instance.
 
     Returns:
         tuple[NodeApply | EdgeApply, ConversionIssue]: A tuple containing the converted NodeApply and any ConversionIssue encountered.
@@ -213,7 +215,10 @@ def asset_centric_to_dm(
             "id": id_,
             "dataSetId": data_set_id,
             "classicExternalId": external_id,
+            "resourceViewMapping": {"space": COGNITE_MIGRATION_SPACE_ID, "externalId": view_source.external_id},
         }
+        if preferred_consumer_view:
+            instance_source_properties["preferredConsumerViewId"] = preferred_consumer_view.dump()
         sources.append(NodeOrEdgeData(source=INSTANCE_SOURCE_VIEW_ID, properties=instance_source_properties))
 
     instance: NodeApply | EdgeApply
@@ -239,7 +244,7 @@ def asset_centric_to_dm(
 
 
 def _lookup_resource_type(resource_type: AssetCentricResourceExtended) -> AssetCentricTypeExtended:
-    if isinstance(resource_type, Asset):
+    if isinstance(resource_type, AssetResponse):
         return "asset"
     elif isinstance(resource_type, FileMetadata):
         return "file"

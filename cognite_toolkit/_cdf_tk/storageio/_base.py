@@ -4,11 +4,12 @@ from dataclasses import dataclass
 from typing import Any, ClassVar, Generic, Literal, TypeVar
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.data_classes.base import Identifier, RequestResource
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, HTTPMessage, ItemsRequest
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader, SchemaColumn
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, HTTPMessage, ItemsRequest, RequestResource
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from .selectors import DataSelector
@@ -35,6 +36,22 @@ class Page(Generic[T_ResourceResponse], Sized):
         return len(self.items)
 
 
+class SourceId(Identifier):
+    """An identifier for an item to be uploaded to CDF, consisting of a source ID.
+
+    Attributes:
+        source_id: The source identifier for the item. For example, the line number in a CSV file.
+    """
+
+    source_id: str
+
+    def __str__(self) -> str:
+        return self.source_id
+
+    def __repr__(self) -> str:
+        return self.source_id
+
+
 class UploadItem(RequestResource, Generic[T_ResourceRequest]):
     """An item to be uploaded to CDF, consisting of a source ID and the writable Cognite resource.
 
@@ -46,8 +63,8 @@ class UploadItem(RequestResource, Generic[T_ResourceRequest]):
     source_id: str
     item: T_ResourceRequest
 
-    def as_id(self) -> str:
-        return self.source_id
+    def as_id(self) -> SourceId:
+        return SourceId(source_id=self.source_id)
 
     def dump(self, camel_case: bool = True) -> dict[str, Any]:
         return self.item.dump(camel_case=camel_case)

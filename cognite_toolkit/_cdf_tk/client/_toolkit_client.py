@@ -3,21 +3,22 @@ from typing import cast
 from cognite.client import CogniteClient
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
+from cognite_toolkit._cdf_tk.client.api.legacy.canvas import CanvasAPI
+from cognite_toolkit._cdf_tk.client.api.legacy.charts import ChartsAPI
+from cognite_toolkit._cdf_tk.client.api.legacy.dml import DMLAPI
+from cognite_toolkit._cdf_tk.client.api.legacy.extended_data_modeling import ExtendedDataModelingAPI
+from cognite_toolkit._cdf_tk.client.api.legacy.extended_files import ExtendedFileMetadataAPI
+from cognite_toolkit._cdf_tk.client.api.legacy.extended_functions import ExtendedFunctionsAPI
+from cognite_toolkit._cdf_tk.client.api.legacy.extended_raw import ExtendedRawAPI
+from cognite_toolkit._cdf_tk.client.api.legacy.extended_timeseries import ExtendedTimeSeriesAPI
+from cognite_toolkit._cdf_tk.client.api.legacy.robotics import RoboticsAPI
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 
-from .api.canvas import CanvasAPI
-from .api.charts import ChartsAPI
-from .api.dml import DMLAPI
-from .api.extended_data_modeling import ExtendedDataModelingAPI
-from .api.extended_files import ExtendedFileMetadataAPI
-from .api.extended_functions import ExtendedFunctionsAPI
-from .api.extended_raw import ExtendedRawAPI
-from .api.extended_timeseries import ExtendedTimeSeriesAPI
+from .api.assets import AssetsAPI
 from .api.infield import InfieldAPI
 from .api.lookup import LookUpGroup
 from .api.migration import MigrationAPI
 from .api.project import ProjectAPI
-from .api.robotics import RoboticsAPI
 from .api.search import SearchAPI
 from .api.streams import StreamsAPI
 from .api.three_d import ThreeDAPI
@@ -32,6 +33,7 @@ class ToolAPI:
     def __init__(self, http_client: HTTPClient, console: Console) -> None:
         self.http_client = http_client
         self.three_d = ThreeDAPI(http_client, console)
+        self.assets = AssetsAPI(http_client)
 
 
 class ToolkitClient(CogniteClient):

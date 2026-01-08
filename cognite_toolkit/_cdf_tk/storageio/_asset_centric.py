@@ -4,10 +4,6 @@ from collections.abc import Iterable, Sequence
 from typing import Any, ClassVar, Generic
 
 from cognite.client.data_classes import (
-    AggregateResultItem,
-    Asset,
-    AssetList,
-    AssetWrite,
     Event,
     EventList,
     EventWrite,
@@ -21,6 +17,8 @@ from cognite.client.data_classes import (
 )
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetAggregateItem, AssetRequest, AssetResponse
+from cognite_toolkit._cdf_tk.client.data_classes.identifiers import InternalId
 from cognite_toolkit._cdf_tk.cruds import (
     AssetCRUD,
     DataSetsCRUD,
@@ -42,10 +40,10 @@ from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
 from cognite_toolkit._cdf_tk.utils.fileio import FileReader, SchemaColumn
 from cognite_toolkit._cdf_tk.utils.fileio._readers import TableReader
 from cognite_toolkit._cdf_tk.utils.useful_types import (
-    AssetCentricResource,
     AssetCentricType,
     JsonVal,
 )
+from cognite_toolkit._cdf_tk.utils.useful_types2 import AssetCentricResource
 
 from ._base import (
     ConfigurableStorageIO,
@@ -112,12 +110,14 @@ class AssetCentricIO(
         return asset_subtree_external_ids, data_set_external_ids
 
     def _collect_dependencies(
-        self, resources: AssetList | FileMetadataList | TimeSeriesList | EventList, selector: AssetCentricSelector
+        self,
+        resources: Sequence[AssetResponse] | FileMetadataList | TimeSeriesList | EventList,
+        selector: AssetCentricSelector,
     ) -> None:
         for resource in resources:
             if resource.data_set_id:
                 self._downloaded_data_sets_by_selector[selector].add(resource.data_set_id)
-            if isinstance(resource, Asset | FileMetadata):
+            if isinstance(resource, AssetResponse | FileMetadata):
                 for label in resource.labels or []:
                     if isinstance(label, str):
                         self._downloaded_labels_by_selector[selector].add(label)
@@ -149,7 +149,7 @@ class AssetCentricIO(
     def create_internal_identifier(cls, internal_id: int, project: str) -> str:
         return f"INTERNAL_ID_project_{project}_{internal_id!s}"
 
-    def _populate_data_set_id_cache(self, chunk: Sequence[Asset | FileMetadata | TimeSeries | Event]) -> None:
+    def _populate_data_set_id_cache(self, chunk: Sequence[AssetResponse | FileMetadata | TimeSeries | Event]) -> None:
         data_set_ids = {item.data_set_id for item in chunk if item.data_set_id is not None}
         self.client.lookup.data_sets.external_id(list(data_set_ids))
 
@@ -249,7 +249,7 @@ class UploadableAssetCentricIO(
         )
 
 
-class AssetIO(UploadableAssetCentricIO[Asset, AssetWrite]):
+class AssetIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
     KIND = "Assets"
     RESOURCE_TYPE = "asset"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
@@ -261,7 +261,7 @@ class AssetIO(UploadableAssetCentricIO[Asset, AssetWrite]):
         super().__init__(client)
         self._crud = AssetCRUD.create_loader(self.client)
 
-    def as_id(self, item: Asset) -> str:
+    def as_id(self, item: AssetResponse) -> str:
         return item.external_id if item.external_id is not None else self._create_identifier(item.id)
 
     def _get_aggregator(self) -> AssetCentricAggregator:
@@ -311,21 +311,25 @@ class AssetIO(UploadableAssetCentricIO[Asset, AssetWrite]):
 
     def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[Page]:
         asset_subtree_external_ids, data_set_external_ids = self._get_hierarchy_dataset_pair(selector)
-        for asset_list in self.client.assets(
-            chunk_size=self.CHUNK_SIZE,
-            limit=limit,
-            asset_subtree_external_ids=asset_subtree_external_ids,
-            data_set_external_ids=data_set_external_ids,
-            aggregated_properties=["child_count", "path", "depth"],
-            # We cannot use partitions here as it is not thread safe. This spawn multiple threads
-            # that are not shut down until all data is downloaded. We need to be able to abort.
-            partitions=None,
-        ):
-            self._collect_dependencies(asset_list, selector)
-            yield Page(worker_id="main", items=asset_list)
+        cursor: str | None = None
+        total_count = 0
+        while True:
+            page = self.client.tool.assets.iterate(
+                aggregated_properties=True,
+                data_set_external_ids=data_set_external_ids,
+                asset_subtree_external_ids=asset_subtree_external_ids,
+                limit=self.CHUNK_SIZE,
+                cursor=cursor,
+            )
+            self._collect_dependencies(page.items, selector)
+            yield Page(worker_id="main", items=page.items)
+            total_count += len(page.items)
+            if page.next_cursor is None or (limit is not None and total_count >= limit):
+                break
+            cursor = page.next_cursor
 
     def data_to_json_chunk(
-        self, data_chunk: Sequence[Asset], selector: AssetCentricSelector | None = None
+        self, data_chunk: Sequence[AssetResponse], selector: AssetCentricSelector | None = None
     ) -> list[dict[str, JsonVal]]:
         # Ensure data sets are looked up to populate cache.
         # This is to avoid looking up each data set id individually in the .dump_resource call.
@@ -333,19 +337,18 @@ class AssetIO(UploadableAssetCentricIO[Asset, AssetWrite]):
         asset_ids = {
             segment["id"]
             for item in data_chunk
-            if isinstance(item.aggregates, AggregateResultItem)
-            for segment in item.aggregates.path or []
-            if "id" in segment
+            if isinstance(item.aggregates, AssetAggregateItem)
+            for segment in item.aggregates.path
         }
         self.client.lookup.assets.external_id(list(asset_ids))
 
         return [self._crud.dump_resource(item) for item in data_chunk]
 
-    def json_to_resource(self, item_json: dict[str, JsonVal]) -> AssetWrite:
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> AssetRequest:
         return self._crud.load_resource(item_json)
 
-    def retrieve(self, ids: Sequence[int]) -> AssetList:
-        return self.client.assets.retrieve_multiple(ids)
+    def retrieve(self, ids: Sequence[int]) -> list[AssetResponse]:
+        return self.client.tool.assets.retrieve(InternalId.from_ids(ids))
 
     @classmethod
     def read_chunks(

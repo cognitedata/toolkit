@@ -6,13 +6,13 @@ import respx
 from cognite.client.data_classes.raw import Row, RowList
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import UploadCommand
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRuntimeError
 from cognite_toolkit._cdf_tk.storageio import RawIO
 from cognite_toolkit._cdf_tk.storageio.selectors import RawTableSelector, SelectedTable
 from cognite_toolkit._cdf_tk.utils.collection import chunker
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 

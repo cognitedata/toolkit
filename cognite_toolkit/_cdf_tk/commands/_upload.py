@@ -9,6 +9,7 @@ from cognite.client.data_classes.data_modeling import (
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemMessage, SuccessResponseItems
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_SUFFIX, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.cruds import ViewCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
@@ -24,7 +25,6 @@ from cognite_toolkit._cdf_tk.storageio.selectors._instances import InstanceSpace
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning, ToolkitWarning
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, ItemMessage, SuccessResponseItems
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.progress_tracker import ProgressTracker
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal

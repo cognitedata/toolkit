@@ -6,10 +6,10 @@ from cognite.client.data_classes.data_modeling import NodeId
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.data_classes.extended_filemetadata import (
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.extended_filemetadata import (
     ExtendedFileMetadataList,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.pending_instances_ids import PendingInstanceId
+from cognite_toolkit._cdf_tk.client.data_classes.legacy.pending_instances_ids import PendingInstanceId
 from tests.constants import CDF_PROJECT
 
 
