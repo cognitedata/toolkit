@@ -40,6 +40,8 @@ class Annotation(BaseModelObject):
 
 
 class AnnotationRequest(Annotation, RequestUpdateable):
+    """Request data class for annotations."""
+
     # The 'id' field is not part of the request when creating a new resource,
     # but is needed when updating an existing resource.
     id: int | None = Field(default=None, exclude=True)
@@ -50,12 +52,13 @@ class AnnotationRequest(Annotation, RequestUpdateable):
         return InternalId(id=self.id)
 
     def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
+        """Converts the request to an update payload for the API."""
         if self.id is None:
             raise ValueError("id must be provided to create an update dictionary")
         return {
             "id": self.id,
             "update": {
-                "annnotationTyppe": {"set": self.annotation_type},
+                "annotationType": {"set": self.annotation_type},
                 "data": {"set": self.data},
                 "status": {"set": self.status},
             },
@@ -63,6 +66,8 @@ class AnnotationRequest(Annotation, RequestUpdateable):
 
 
 class AnnotationResponse(Annotation, ResponseResource[AnnotationRequest]):
+    """Response data class for annotations."""
+
     id: int
     created_time: int
     last_updated_time: int
