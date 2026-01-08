@@ -7,11 +7,11 @@ from cognite_toolkit._cdf_tk.constants import (
     MODULE_PATH_SEP,
     ROOT_MODULES,
 )
-from cognite_toolkit._cdf_tk.data_classes._issues import Issue, IssueList, ModuleSkippedIssue
 
 
 def iterate_modules(root_dir: Path) -> Iterator[tuple[Path, list[Path]]]:
     """Iterate over all modules in the project and yield the module directory and all files in the module.
+
 
     Args:
         root_dir (Path): The root directory of the project
@@ -47,60 +47,6 @@ def _iterate_modules(root_dir: Path) -> Iterator[tuple[Path, list[Path]]]:
             # Stop searching for modules in subdirectories
             continue
         yield from _iterate_modules(module_dir)
-
-
-def _iterate_modules_v2(root_dir: Path) -> Iterator[tuple[Path, list[Path]]]:
-    """V2 module iterator that also returns loading issues.
-
-    Returns:
-        (modules, issues) where modules is a list of (module_dir, filepaths).
-    """
-    # local imports to avoid circular import
-
-    from cognite_toolkit._cdf_tk.constants import EXCL_FILES
-    from cognite_toolkit._cdf_tk.cruds import CRUDS_BY_FOLDER_NAME
-
-    def _collect(current_dir: Path, is_root: bool) -> tuple[list[tuple[Path, list[Path]]], IssueList]:
-        modules: list[tuple[Path, list[Path]]] = []
-        issues = IssueList()
-
-        for module_dir in current_dir.iterdir():
-            if (module_dir / ".toolkitignore").exists():
-                issues.append(ModuleSkippedIssue(path=module_dir))
-                continue
-
-            if not module_dir.is_dir():
-                continue
-            sub_directories = [path for path in module_dir.iterdir() if path.is_dir()]
-            is_any_resource_directories = any(d.name in CRUDS_BY_FOLDER_NAME for d in sub_directories)
-
-            if sub_directories and is_any_resource_directories:
-                modules.append(
-                    (
-                        module_dir,
-                        [p for p in module_dir.rglob("*") if p.is_file() and p.name not in EXCL_FILES],
-                    )
-                )
-                continue
-            child_modules, child_issues = _collect(module_dir, is_root=False)
-            modules.extend(child_modules)
-            issues.extend(child_issues)
-
-        if is_root and not modules:
-            issues.append(
-                Issue(
-                    name="NoModulesFound",
-                    code="NO_MODULES_FOUND",
-                    message=f"No modules found under {current_dir.as_posix()!r}.",
-                )
-            )
-        return modules, issues
-
-    # Backwards-compat: keep this as an iterator by yielding the modules,
-    # but allow callers to get issues via attribute on the generator result.
-    modules, issues = _collect(root_dir, is_root=True)
-    _iterate_modules_v2.issues = issues  # type: ignore[attr-defined]
-    yield from modules
 
 
 @overload

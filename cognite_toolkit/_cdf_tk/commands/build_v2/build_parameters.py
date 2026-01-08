@@ -1,8 +1,5 @@
 import sys
-from functools import cached_property
 from pathlib import Path
-
-from cognite_toolkit._cdf_tk.data_classes.modules import ModuleRootDirectory
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -15,7 +12,6 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import DEFAULT_ENV
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
-    BuildVariables,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning, WarningList
 from cognite_toolkit._cdf_tk.utils.modules import parse_user_selected_modules
@@ -73,16 +69,3 @@ class BuildParameters(BaseModel):
         if environment_warning := config.validate_environment():
             warnings.append(environment_warning)
         return config, warnings
-
-    @cached_property
-    def modules(self) -> ModuleRootDirectory:
-        selection = self.user_selected or self.config.environment.selected
-        return ModuleRootDirectory.load(self.organization_dir, selection)
-
-    @cached_property
-    def variables(self) -> BuildVariables:
-        return BuildVariables.load_raw(
-            self.config.variables,
-            self.modules.available_paths,
-            set(Path(sel) for sel in self.config.environment.selected),
-        )
