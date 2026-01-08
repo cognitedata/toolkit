@@ -36,7 +36,7 @@ class ToolAPI:
         self.http_client = http_client
         self.three_d = ThreeDAPI(http_client, console)
         self.assets = AssetsAPI(http_client)
-        self.time_series = TimeSeriesAPI(http_client)
+        self.timeseries = TimeSeriesAPI(http_client)
         self.events = EventsAPI(http_client)
 
 
