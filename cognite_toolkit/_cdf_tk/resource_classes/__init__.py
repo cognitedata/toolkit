@@ -40,6 +40,7 @@ from .robotics import RobotCapabilityYAML, RobotDataPostProcessingYAML, RobotFra
 from .search_config import SearchConfigYAML
 from .securitycategories import SecurityCategoriesYAML
 from .sequence import SequenceRowYAML, SequenceYAML
+from .simulator_model import SimulatorModelYAML
 from .space import SpaceYAML
 from .streamlit_ import StreamlitYAML
 from .streams import StreamYAML
@@ -94,6 +95,7 @@ __all__ = [
     "SecurityCategoriesYAML",
     "SequenceRowYAML",
     "SequenceYAML",
+    "SimulatorModelYAML",
     "SpaceYAML",
     "StreamYAML",
     "StreamlitYAML",
