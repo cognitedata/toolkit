@@ -13,9 +13,20 @@ from cognite_toolkit._cdf_tk.client.data_classes.agent import AgentRequest, Agen
 from cognite_toolkit._cdf_tk.client.data_classes.annotation import AnnotationRequest, AnnotationResponse
 from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.data_classes.base import Identifier, RequestResource, ResponseResource
+from cognite_toolkit._cdf_tk.client.data_classes.data_modeling import (
+    ContainerRequest,
+    ContainerResponse,
+    DataModelRequest,
+    DataModelResponse,
+    SpaceRequest,
+    SpaceResponse,
+    ViewRequest,
+    ViewResponse,
+)
 from cognite_toolkit._cdf_tk.client.data_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RAWDatabase, RAWTable
+from cognite_toolkit._cdf_tk.client.data_classes.simulator_model import SimulatorModelRequest, SimulatorModelResponse
 from cognite_toolkit._cdf_tk.client.data_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 
 
@@ -54,7 +65,7 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
         TimeSeriesResponse: {
             "id": 456,
             "externalId": "ts_001",
-            "isSting": False,
+            "isString": False,
             "isStep": False,
             "type": "numeric",
             "createdTime": 1622547800000,
@@ -101,6 +112,58 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
         RAWTable: {
             "dbName": "example_db",
             "name": "example_table",
+        },
+        SimulatorModelResponse: {
+            "id": 111,
+            "externalId": "simulator_model_001",
+            "simulatorExternalId": "simulator_001",
+            "name": "Example Simulator Model",
+            "dataSetId": 123456,
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+            # 'type' is not required in the response, but is required in the request. Likely a bug in the CDF API docs.
+            "type": "default",
+        },
+        SpaceResponse: {
+            "space": "my_space",
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+            "isGlobal": False,
+        },
+        ContainerResponse: {
+            "space": "my_space",
+            "externalId": "my_container",
+            "properties": {
+                "name": {
+                    "type": {"type": "text", "list": False, "collation": "ucs_basic"},
+                    "nullable": True,
+                },
+            },
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+            "isGlobal": False,
+        },
+        DataModelResponse: {
+            "space": "my_space",
+            "externalId": "my_data_model",
+            "version": "1",
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+            "isGlobal": False,
+        },
+        ViewResponse: {
+            "space": "my_space",
+            "externalId": "my_view",
+            "version": "1",
+            "filter": None,
+            "properties": {},
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+            "writable": True,
+            "queryable": True,
+            "usedFor": "node",
+            "isGlobal": False,
+            "mappedContainers": [],
         },
     }
     try:
@@ -177,4 +240,44 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             is_dump_equal_to_example=False,
         ),
         id="RAWTable",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=SimulatorModelResponse,
+            request_cls=SimulatorModelRequest,
+            example_data=get_example_minimum_responses(SimulatorModelResponse),
+        ),
+        id="SimulatorModel",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=SpaceResponse,
+            request_cls=SpaceRequest,
+            example_data=get_example_minimum_responses(SpaceResponse),
+        ),
+        id="Space",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=ContainerResponse,
+            request_cls=ContainerRequest,
+            example_data=get_example_minimum_responses(ContainerResponse),
+        ),
+        id="Container",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=DataModelResponse,
+            request_cls=DataModelRequest,
+            example_data=get_example_minimum_responses(DataModelResponse),
+        ),
+        id="DataModel",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=ViewResponse,
+            request_cls=ViewRequest,
+            example_data=get_example_minimum_responses(ViewResponse),
+        ),
+        id="View",
     )
