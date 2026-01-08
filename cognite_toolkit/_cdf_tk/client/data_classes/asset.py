@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import ClassVar, Literal
 
 from pydantic import JsonValue
 
@@ -8,8 +8,8 @@ from .identifiers import ExternalId
 
 
 class AssetRequest(RequestUpdateable):
-    container_fields = frozenset({"metadata", "labels"})
-    non_nullable_fields = frozenset({"parent_id", "parent_external_id"})
+    container_fields: ClassVar[frozenset[str]] = frozenset({"metadata", "labels"})
+    non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"parent_id", "parent_external_id"})
     external_id: str | None = None
     name: str
     parent_id: int | None = None
