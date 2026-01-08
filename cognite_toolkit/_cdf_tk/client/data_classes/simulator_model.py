@@ -1,11 +1,16 @@
 from typing import Any, Literal
 
+from pydantic import Field
+
 from cognite_toolkit._cdf_tk.client.data_classes.base import RequestUpdateable, ResponseResource
 
 from .identifiers import ExternalId
 
 
 class SimulatorModelRequest(RequestUpdateable):
+    # The 'id' field is not part of the request when creating a new resource,
+    # but is needed when updating an existing resource.
+    id: int | None = Field(default=None, exclude=True)
     external_id: str
     simulator_external_id: str
     name: str
@@ -16,11 +21,11 @@ class SimulatorModelRequest(RequestUpdateable):
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
 
-    def as_update(self, mode: Literal["patch", "replace"], id: int | None = None) -> dict[str, Any]:
-        if id is None:
+    def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
+        if self.id is None:
             raise ValueError("id must be provided to create an update dictionary")
         return {
-            "id": id,
+            "id": self.id,
             "update": {
                 "name": {"set": self.name},
                 **{"description": {"set": self.description} if self.description is not None else {}},
