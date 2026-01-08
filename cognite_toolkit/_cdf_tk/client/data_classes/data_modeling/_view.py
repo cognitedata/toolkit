@@ -31,7 +31,7 @@ class View(BaseModelObject, ABC):
         return ViewReference(space=self.space, external_id=self.external_id, version=self.version)
 
     @model_validator(mode="before")
-    def set_connection_type_on_primary_properties(cls, data: dict) -> dict:
+    def set_connection_type_on_primary_properties(cls, data: dict[str, Any]) -> dict[str, Any]:
         if "properties" not in data:
             return data
         properties = data["properties"]

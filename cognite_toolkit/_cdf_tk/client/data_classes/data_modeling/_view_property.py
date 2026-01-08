@@ -1,7 +1,7 @@
 from abc import ABC
 from typing import Annotated, Any, Literal
 
-from pydantic import Field, Json, TypeAdapter, field_serializer
+from pydantic import Field, JsonValue, TypeAdapter, field_serializer
 from pydantic_core.core_schema import FieldSerializationInfo
 
 from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject
@@ -51,7 +51,7 @@ class ViewCorePropertyResponse(ViewCoreProperty):
     immutable: bool | None = None
     nullable: bool | None = None
     auto_increment: bool | None = None
-    default_value: str | int | bool | dict[str, Json] | None = None
+    default_value: str | int | bool | dict[str, JsonValue] | None = None
     constraint_state: ConstraintOrIndexState
     type: DataType
 
