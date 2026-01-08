@@ -12,21 +12,45 @@ from tests.test_unit.utils import find_resources
 def invalid_simulator_model_test_cases() -> Iterable:
     yield pytest.param(
         {"name": "Model 1"},
-        {"Missing required field: 'externalId'", "Missing required field: 'simulatorExternalId'"},
-        id="Missing required fields: externalId and simulatorExternalId",
+        {
+            "Missing required field: 'externalId'",
+            "Missing required field: 'simulatorExternalId'",
+            "Missing required field: 'dataSetExternalId'",
+            "Missing required field: 'type'",
+        },
+        id="Missing required fields",
     )
     yield pytest.param(
-        {"externalId": "model_1", "simulatorExternalId": "simulator_1"},
+        {
+            "externalId": "model_1",
+            "simulatorExternalId": "simulator_1",
+            "dataSetExternalId": "dataset_1",
+            "type": "steady_state",
+        },
         {"Missing required field: 'name'"},
         id="Missing required field: name",
     )
     yield pytest.param(
-        {"externalId": "model_1", "simulatorExternalId": "simulator_1", "name": "Model 1", "id": 123},
+        {
+            "externalId": "model_1",
+            "simulatorExternalId": "simulator_1",
+            "name": "Model 1",
+            "dataSetExternalId": "dataset_1",
+            "type": "steady_state",
+            "id": 123,
+        },
         {"Unused field: 'id'"},
         id="Unused field: id",
     )
     yield pytest.param(
-        {"externalId": "model_1", "simulatorExternalId": "simulator_1", "name": "Model 1", "dataSetId": 123},
+        {
+            "externalId": "model_1",
+            "simulatorExternalId": "simulator_1",
+            "name": "Model 1",
+            "dataSetExternalId": "dataset_1",
+            "type": "steady_state",
+            "dataSetId": 123,
+        },
         {"Unused field: 'dataSetId'"},
         id="Unused field: dataSetId (should use dataSetExternalId)",
     )
