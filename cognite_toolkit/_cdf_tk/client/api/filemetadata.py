@@ -5,7 +5,7 @@ from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedRespo
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.data_classes.identifiers import InternalOrExternalId
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage2, SuccessResponse2
 
 
 class FileMetadataAPI(CDFResourceAPI[InternalOrExternalId, FileMetadataRequest, FileMetadataResponse]):
@@ -13,7 +13,6 @@ class FileMetadataAPI(CDFResourceAPI[InternalOrExternalId, FileMetadataRequest, 
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "create": Endpoint(method="POST", path="/files", item_limit=1000, concurrency_max_workers=1),
                 "retrieve": Endpoint(method="POST", path="/files/byids", item_limit=1000, concurrency_max_workers=1),
                 "update": Endpoint(method="POST", path="/files/update", item_limit=1000, concurrency_max_workers=1),
                 "delete": Endpoint(method="POST", path="/files/delete", item_limit=1000, concurrency_max_workers=1),
@@ -27,15 +26,28 @@ class FileMetadataAPI(CDFResourceAPI[InternalOrExternalId, FileMetadataRequest, 
     def _reference_response(self, response: SuccessResponse2) -> ResponseItems[InternalOrExternalId]:
         return ResponseItems[InternalOrExternalId].model_validate_json(response.body)
 
-    def create(self, items: Sequence[FileMetadataRequest]) -> list[FileMetadataResponse]:
-        """Create file metadata in CDF.
+    def upload(self, items: Sequence[FileMetadataRequest], overwrite: bool = False) -> list[FileMetadataResponse]:
+        """Upload file metadata to CDF.
 
         Args:
-            items: List of FileMetadataRequest objects to create.
+            item: FileMetadataRequest object to upload.
+            overwrite: Whether to overwrite existing file metadata with the same external ID.
+
         Returns:
-            List of created FileMetadataResponse objects.
+            Uploaded FileMetadataResponse object.
         """
-        return self._request_item_response(items, "create")
+        results: list[FileMetadataResponse] = []
+        for item in items:
+            request = RequestMessage2(
+                endpoint_url=self._make_url("/files"),
+                method="POST",
+                body_content=item.dump(),
+                parameters={"overwrite": overwrite},
+            )
+            response = self._http_client.request_single_retries(request)
+            result = response.get_success_or_raise()
+            results.extend(self._page_response(result).items)
+        return results
 
     def retrieve(
         self, items: Sequence[InternalOrExternalId], ignore_unknown_ids: bool = False
