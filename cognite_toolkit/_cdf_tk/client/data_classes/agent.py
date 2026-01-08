@@ -51,7 +51,8 @@ AgentInstanceSpaces = Annotated[
 class QueryKnowledgeGraphConfig(BaseModelObject):
     data_models: list[AgentDataModel]
     instance_spaces: AgentInstanceSpaces | None = None
-    version: Literal["v1", "v2"] = "v1"
+    # This is deviating from the API documentation, but the Atlas team has confirmed that "v2" is the default
+    version: Literal["v1", "v2"] = "v2"
 
 
 class QueryKnowledgeGraph(AgentToolDefinition):
