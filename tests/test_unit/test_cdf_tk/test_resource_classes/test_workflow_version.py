@@ -90,6 +90,59 @@ def invalid_workflow_version_test_cases() -> Iterable:
     )
 
 
+def valid_subworkflow_test_cases() -> Iterable:
+    """Test cases for CDF-26812: subworkflow reference validation."""
+    yield pytest.param(
+        {
+            "workflowExternalId": "wf1",
+            "version": "v1",
+            "workflowDefinition": {
+                "tasks": [
+                    {
+                        "externalId": "subworkflowTask",
+                        "type": "subworkflow",
+                        "parameters": {
+                            "subworkflow": {
+                                "workflowExternalId": "mySubWorkflow",
+                                "version": "v1",
+                            }
+                        },
+                    }
+                ]
+            },
+        },
+        id="Subworkflow task with external workflow reference",
+    )
+    yield pytest.param(
+        {
+            "workflowExternalId": "wf1",
+            "version": "v1",
+            "workflowDefinition": {
+                "tasks": [
+                    {
+                        "externalId": "subworkflowTask",
+                        "type": "subworkflow",
+                        "parameters": {
+                            "subworkflow": {
+                                "tasks": [
+                                    {
+                                        "externalId": "nestedTask1",
+                                        "type": "transformation",
+                                        "parameters": {
+                                            "transformation": {"externalId": "myTransformation"},
+                                        },
+                                    }
+                                ]
+                            }
+                        },
+                    }
+                ]
+            },
+        },
+        id="Subworkflow task with inline tasks",
+    )
+
+
 class TestWorkflowVersionYAML:
     @pytest.mark.parametrize("data", list(find_resources("WorkflowVersion")))
     def test_load_valid_workflow_file(self, data: dict[str, object]) -> None:
@@ -105,6 +158,15 @@ class TestWorkflowVersionYAML:
         assert isinstance(format_warning, ResourceFormatWarning)
 
         assert set(format_warning.errors) == expected_errors
+
+    @pytest.mark.parametrize("data", list(valid_subworkflow_test_cases()))
+    def test_valid_subworkflow_formats(self, data: dict[str, object]) -> None:
+        """Test that both subworkflow reference and inline tasks formats are valid (CDF-26812)."""
+        warning_list = validate_resource_yaml_pydantic(data, WorkflowVersionYAML, Path("some_file.yaml"))
+        assert len(warning_list) == 0, f"Expected no warnings, got: {warning_list}"
+
+        loaded = WorkflowVersionYAML.model_validate(data)
+        assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
 
     def test_tasks_are_in_union(self) -> None:
         all_tasks = get_concrete_subclasses(TaskDefinition)
