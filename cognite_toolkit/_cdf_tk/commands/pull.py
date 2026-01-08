@@ -643,6 +643,44 @@ class PullCommand(ToolkitCommand):
         loader: ResourceCRUD[T_ID, T_ResourceRequest, T_ResourceResponse],
         source_file: Path,
     ) -> tuple[str, dict[Path, str]]:
+        """Convert resource data from CDF into YAML file content ready to be written to disk.
+
+        This method takes the raw CDF resource data and transforms it back into a properly
+        formatted YAML file that preserves:
+        - Template variables (e.g., {{ variable_name }}) instead of their resolved values
+        - YAML comments from the original source file
+        - The original key ordering in dictionaries
+
+        The transformation process:
+        1. Replace all template variables with unique placeholders
+        2. Load source YAML content while preserving comments
+        3. Update the resource data with placeholder values where variables were used
+        4. Dump the updated data back to YAML format
+        5. Replace placeholders with the original template variable syntax
+        6. Restore the YAML comments
+
+        Args:
+            source: The original YAML file content as a string.
+            to_write: A mapping from resource identifiers to their updated data dictionaries
+                pulled from CDF.
+            resources: The list of built resources containing build variables and metadata.
+            environment_variables: A mapping of environment variable names to their values,
+                used to resolve variables like ${VAR_NAME} in template values.
+            loader: The ResourceCRUD loader instance for this resource type.
+            source_file: The path to the source file being processed.
+
+        Returns:
+            A tuple containing:
+            - The final YAML content string ready to be written to disk.
+            - A dictionary mapping extra file paths to their content (for resources
+              that have additional files, like SQL queries for transformations).
+
+        Raises:
+            ValueError: If the loaded YAML structure doesn't match between the original
+                and placeholder versions.
+            ToolkitMissingResourceError: If a resource identifier is not found in the
+                to_write or resources mappings.
+        """
         # 1. Replace all variables with placeholders
         # 2. Load source and keep the comments
         # 3. Update the to_write dict with the placeholders
