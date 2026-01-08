@@ -762,9 +762,22 @@ class PullCommand(ToolkitCommand):
 
 
 class ResourceReplacer:
-    """Replaces values in a local resource directory with the updated values from CDF.
+    """Replaces values in a local resource dictionary with the updated values from CDF.
 
     The local resource dict order is maintained. In addition, placeholders are used for variables.
+
+    This class is responsible for merging CDF resource values back into local configuration files
+    while preserving:
+    - The original key ordering in dictionaries
+    - Template variable placeholders (e.g., {{ variable_name }})
+    - Comments and formatting where possible
+
+    Args:
+        value_by_placeholder: A mapping from placeholder strings to their corresponding
+            BuildVariable objects. Placeholders are temporary substitutes for template
+            variables during processing.
+        loader: The ResourceCRUD loader instance used to determine how to diff lists
+            and handle resource-specific logic.
     """
 
     def __init__(self, value_by_placeholder: dict[str, BuildVariable], loader: ResourceCRUD) -> None:
@@ -777,6 +790,31 @@ class ResourceReplacer:
         placeholder: dict[str, Any],
         to_write: dict[str, Any],
     ) -> dict[str, Any]:
+        """Replace values in a local resource dict with updated values from CDF.
+
+        Merges the CDF resource values into the local configuration while maintaining
+        the original dictionary key ordering and preserving template variable placeholders.
+
+        Args:
+            current: The current local resource dictionary with resolved variable values.
+                This represents the source file content after template variables have
+                been substituted with their actual values.
+            placeholder: The local resource dictionary with placeholder strings instead
+                of resolved values. Used to identify which values contain template
+                variables that should be preserved.
+            to_write: The resource dictionary from CDF containing the updated values
+                to merge into the local configuration.
+
+        Returns:
+            A new dictionary with CDF values merged in, maintaining the original key
+            order from `current`. Template variables are preserved as placeholders
+            (to be converted back to {{ variable }} syntax by the caller). New keys
+            from CDF are appended at the end, and removed keys are omitted.
+
+        Raises:
+            ToolkitValueError: If a list variable has changed and cannot be updated,
+                or if there's a type mismatch between local and CDF values.
+        """
         return self._replace_dict(current, placeholder, to_write, tuple())
 
     def _replace_dict(
