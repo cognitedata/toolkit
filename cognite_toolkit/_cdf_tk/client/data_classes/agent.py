@@ -98,29 +98,26 @@ AgentTool = Annotated[
 ]
 
 
-class AgentRequest(RequestResource):
+class Agent(BaseModelObject):
     external_id: str
     name: str
     description: str | None = None
     instructions: str | None = None
     model: str = "azure/gpt-4o-mini"
     tools: list[AgentTool] | None = None
-    runtime_version: str | None = None
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
 
 
-class AgentResponse(ResponseResource[AgentRequest]):
+class AgentRequest(Agent, RequestResource):
+    runtime_version: str | None = None
+
+
+class AgentResponse(Agent, ResponseResource[AgentRequest]):
     created_time: int
     last_updated_time: int
     owner_id: str
-    external_id: str
-    name: str
-    description: str | None = None
-    instructions: str | None = None
-    model: str = "azure/gpt-4o-mini"
-    tools: list[AgentTool] | None = None
     runtime_version: str
 
     def as_request_resource(self) -> AgentRequest:

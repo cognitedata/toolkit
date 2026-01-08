@@ -1,12 +1,15 @@
 from typing import ClassVar
 
-from cognite_toolkit._cdf_tk.client.data_classes.base import RequestUpdateable, ResponseResource
+from cognite_toolkit._cdf_tk.client.data_classes.base import (
+    BaseModelObject,
+    RequestUpdateable,
+    ResponseResource,
+)
 
 from .identifiers import ExternalId, InternalOrExternalId
 
 
-class EventRequest(RequestUpdateable):
-    container_fields: ClassVar[frozenset[str]] = frozenset({"metadata", "asset_ids"})
+class Event(BaseModelObject):
     external_id: str | None = None
     data_set_id: int | None = None
     start_time: int | None = None
@@ -24,17 +27,11 @@ class EventRequest(RequestUpdateable):
         return ExternalId(external_id=self.external_id)
 
 
-class EventResponse(ResponseResource[EventRequest]):
-    external_id: str | None = None
-    data_set_id: int | None = None
-    start_time: int | None = None
-    end_time: int | None = None
-    type: str | None = None
-    subtype: str | None = None
-    description: str | None = None
-    metadata: dict[str, str] | None = None
-    asset_ids: list[int] | None = None
-    source: str | None = None
+class EventRequest(Event, RequestUpdateable):
+    container_fields: ClassVar[frozenset[str]] = frozenset({"metadata", "asset_ids"})
+
+
+class EventResponse(Event, ResponseResource[EventRequest]):
     id: int
     created_time: int
     last_updated_time: int

@@ -12,6 +12,16 @@ from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI
 from cognite_toolkit._cdf_tk.client.data_classes.agent import AgentRequest, AgentResponse
 from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.data_classes.base import Identifier, RequestResource, ResponseResource
+from cognite_toolkit._cdf_tk.client.data_classes.data_modeling import (
+    ContainerRequest,
+    ContainerResponse,
+    DataModelRequest,
+    DataModelResponse,
+    SpaceRequest,
+    SpaceResponse,
+    ViewRequest,
+    ViewResponse,
+)
 from cognite_toolkit._cdf_tk.client.data_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RAWDatabase, RAWTable
@@ -100,6 +110,47 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             # 'type' is not required in the response, but is required in the request. Likely a bug in the CDF API docs.
             "type": "default",
         },
+        SpaceResponse: {
+            "space": "my_space",
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+            "isGlobal": False,
+        },
+        ContainerResponse: {
+            "space": "my_space",
+            "externalId": "my_container",
+            "properties": {
+                "name": {
+                    "type": {"type": "text", "list": False, "collation": "ucs_basic"},
+                    "nullable": True,
+                },
+            },
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+            "isGlobal": False,
+        },
+        DataModelResponse: {
+            "space": "my_space",
+            "externalId": "my_data_model",
+            "version": "1",
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+            "isGlobal": False,
+        },
+        ViewResponse: {
+            "space": "my_space",
+            "externalId": "my_view",
+            "version": "1",
+            "filter": None,
+            "properties": {},
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+            "writable": True,
+            "queryable": True,
+            "usedFor": "node",
+            "isGlobal": False,
+            "mappedContainers": [],
+        },
     }
     try:
         return responses[resource_cls]
@@ -175,4 +226,36 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             example_data=get_example_minimum_responses(SimulatorModelResponse),
         ),
         id="SimulatorModel",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=SpaceResponse,
+            request_cls=SpaceRequest,
+            example_data=get_example_minimum_responses(SpaceResponse),
+        ),
+        id="Space",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=ContainerResponse,
+            request_cls=ContainerRequest,
+            example_data=get_example_minimum_responses(ContainerResponse),
+        ),
+        id="Container",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=DataModelResponse,
+            request_cls=DataModelRequest,
+            example_data=get_example_minimum_responses(DataModelResponse),
+        ),
+        id="DataModel",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=ViewResponse,
+            request_cls=ViewRequest,
+            example_data=get_example_minimum_responses(ViewResponse),
+        ),
+        id="View",
     )
