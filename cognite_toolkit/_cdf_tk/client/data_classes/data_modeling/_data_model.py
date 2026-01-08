@@ -7,6 +7,7 @@ from pydantic_core.core_schema import FieldSerializationInfo
 from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject, RequestResource, ResponseResource
 
 from ._references import DataModelReference, ViewReference
+from ._view import ViewResponse
 
 
 class DataModel(BaseModelObject, ABC):
@@ -60,3 +61,13 @@ class DataModelResponse(DataModel, ResponseResource[DataModelRequest]):
         if views is None:
             return None
         return [{**view.model_dump(**vars(info)), "type": "view"} for view in views]
+
+
+class DataModelResponseWithViews(DataModel, ResponseResource[DataModelRequest]):
+    views: list[ViewResponse] | None = None
+    created_time: int
+    last_updated_time: int
+    is_global: bool
+
+    def as_request_resource(self) -> DataModelRequest:
+        return DataModelRequest.model_validate(self.model_dump(by_alias=True), extra="ignore")
