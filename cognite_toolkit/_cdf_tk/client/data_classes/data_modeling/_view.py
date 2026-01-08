@@ -38,8 +38,8 @@ class View(BaseModelObject, ABC):
         if not isinstance(properties, dict):
             return data
         # We assume all properties without connectionType are core properties.
-        # The reason we set connectionType it easy for pydantic to discriminate the union.
-        # This also leads to better error messages, as if there is a union and pydantic do not know which
+        # The reason we set connectionType is to make it easy for pydantic to discriminate the union.
+        # This also leads to better error messages, as if there is a union and pydantic does not know which
         # type to pick it will give errors from all type in the union.
         new_properties: dict[str, Any] = {}
         for prop_id, prop in properties.items():
