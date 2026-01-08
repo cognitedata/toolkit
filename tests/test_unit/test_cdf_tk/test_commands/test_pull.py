@@ -517,7 +517,7 @@ description: New description
         id="Multiple resources changed",
     )
 
-    source = """space: {{instance_space}}
+    source = """space: {{ instance_space }}
 externalId: my_external_id
 version: v1
 filter:
@@ -563,7 +563,7 @@ filter:
 
     resources_view = BuiltFullResourceList([view_resource])
 
-    expected_view = """space: {{instance_space}}
+    expected_view = """space: {{ instance_space }}
 externalId: my_external_id
 version: v1
 filter:

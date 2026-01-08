@@ -1,5 +1,6 @@
 import dataclasses
 import itertools
+import json
 import re
 import sys
 import tempfile
@@ -28,6 +29,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     HostedExtractorSourceCRUD,
     ResourceCRUD,
     StreamlitCRUD,
+    ViewCRUD,
 )
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
@@ -853,7 +855,26 @@ class ResourceReplacer:
             ToolkitValueError: If a list variable has changed and cannot be updated,
                 or if there's a type mismatch between local and CDF values.
         """
-        return self._replace_dict(current, placeholder, to_write, tuple())
+        has_stringified_view_filter = False
+        if isinstance(self._loader, ViewCRUD):
+            if isinstance(current["filter"], dict):
+                current = current.copy()
+                current["filter"] = json.dumps(current["filter"])
+                has_stringified_view_filter = True
+            if isinstance(placeholder["filter"], dict):
+                placeholder = placeholder.copy()
+                placeholder["filter"] = json.dumps(placeholder["filter"])
+                has_stringified_view_filter = True
+            if isinstance(to_write["filter"], dict):
+                to_write = to_write.copy()
+                to_write["filter"] = json.dumps(to_write["filter"])
+                has_stringified_view_filter = True
+
+        output = self._replace_dict(current, placeholder, to_write, tuple())
+        if has_stringified_view_filter and "filter" in output:
+            # Special case for ViewCRUD where the filter is stringified in CDF
+            output["filter"] = json.loads(output["filter"])
+        return output
 
     def _replace_dict(
         self,
