@@ -53,7 +53,7 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
         TimeSeriesResponse: {
             "id": 456,
             "externalId": "ts_001",
-            "isSting": False,
+            "isString": False,
             "isStep": False,
             "type": "numeric",
             "createdTime": 1622547800000,
