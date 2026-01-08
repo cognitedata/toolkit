@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
@@ -14,6 +15,15 @@ from cognite_toolkit._cdf_tk.data_classes import (
     BuiltResourceFull,
 )
 from tests.test_unit.approval_client import ApprovalToolkitClient
+
+
+@dataclass
+class ExpectedDiff:
+    """Expected differences from comparing local and CDF resources."""
+
+    added: dict[str, Any] = field(default_factory=dict)
+    changed: dict[str, Any] = field(default_factory=dict)
+    cannot_change: dict[str, Any] = field(default_factory=dict)
 
 
 def load_update_diffs_use_cases():
@@ -62,11 +72,9 @@ authentication:
         "isPublic": True,
         "name": "pump_asset_hierarchy-load-collections_pump",
     }
-    expected = {
-        "added": {"isPublic": True, "conflictMode": "upsert"},
-        "changed": {},
-        "cannot_change": {},
-    }
+    expected = ExpectedDiff(
+        added={"isPublic": True, "conflictMode": "upsert"},
+    )
 
     dumped = """externalId: tr_pump_asset_hierarchy-load-collections_pump
 name: pump_asset_hierarchy-load-collections_pump
@@ -179,14 +187,12 @@ nodes:
         ],
     }
 
-    expected = {
-        "added": {
+    expected = ExpectedDiff(
+        added={
             "nodes.0.instanceType": "node",
             "nodes.0.sources.0.properties.appDataSpaceVersion": "1",
         },
-        "changed": {},
-        "cannot_change": {},
-    }
+    )
 
     dumped = """autoCreateDirectRelations: true
 skipOnVersionConflict: false
@@ -290,11 +296,9 @@ authentication:
         "ignoreNullFields": True,
     }
 
-    expected = {
-        "added": {"conflictMode": "upsert", "isPublic": True},
-        "changed": {},
-        "cannot_change": {},
-    }
+    expected = ExpectedDiff(
+        added={"conflictMode": "upsert", "isPublic": True},
+    )
 
     dumped = """externalId: tr_timeseries_{{default_location}}_{{source_timeseries}}_apm_simple_load_timeseries2assets
 name: timeseries:{{default_location}}:{{source_timeseries}}:apm_simple:load_timeseries2assets
@@ -339,7 +343,7 @@ class TestResourceYAML:
         build_file: str,
         source_file: str,
         cdf_resource: dict[str, Any],
-        expected: dict[str, dict[str, Any]],
+        expected: ExpectedDiff,
         expected_dumped: str,
     ) -> None:
         resource_yaml = ResourceYAMLDifference.load(build_file, source_file)
@@ -351,9 +355,9 @@ class TestResourceYAML:
             ".".join(map(str, key)): value.cdf_value for key, value in resource_yaml.items() if value.is_cannot_change
         }
 
-        assert added == expected["added"]
-        assert changed == expected["changed"]
-        assert cannot_change == expected["cannot_change"]
+        assert added == expected.added
+        assert changed == expected.changed
+        assert cannot_change == expected.cannot_change
 
         assert resource_yaml.dump_yaml_with_comments() == expected_dumped
 
