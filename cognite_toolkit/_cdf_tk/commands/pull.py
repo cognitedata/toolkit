@@ -1,5 +1,6 @@
 import dataclasses
 import itertools
+import json
 import re
 import sys
 import tempfile
@@ -28,6 +29,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     HostedExtractorSourceCRUD,
     ResourceCRUD,
     StreamlitCRUD,
+    ViewCRUD,
 )
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
@@ -643,6 +645,44 @@ class PullCommand(ToolkitCommand):
         loader: ResourceCRUD[T_ID, T_ResourceRequest, T_ResourceResponse],
         source_file: Path,
     ) -> tuple[str, dict[Path, str]]:
+        """Convert resource data from CDF into YAML file content ready to be written to disk.
+
+        This method takes the raw CDF resource data and transforms it back into a properly
+        formatted YAML file that preserves:
+        - Template variables (e.g., {{ variable_name }}) instead of their resolved values
+        - YAML comments from the original source file
+        - The original key ordering in dictionaries
+
+        The transformation process:
+        1. Replace all template variables with unique placeholders
+        2. Load source YAML content while preserving comments
+        3. Update the resource data with placeholder values where variables were used
+        4. Dump the updated data back to YAML format
+        5. Replace placeholders with the original template variable syntax
+        6. Restore the YAML comments
+
+        Args:
+            source: The original YAML file content as a string.
+            to_write: A mapping from resource identifiers to their updated data dictionaries
+                pulled from CDF.
+            resources: The list of built resources containing build variables and metadata.
+            environment_variables: A mapping of environment variable names to their values,
+                used to resolve variables like ${VAR_NAME} in template values.
+            loader: The ResourceCRUD loader instance for this resource type.
+            source_file: The path to the source file being processed.
+
+        Returns:
+            A tuple containing:
+            - The final YAML content string ready to be written to disk.
+            - A dictionary mapping extra file paths to their content (for resources
+              that have additional files, like SQL queries for transformations).
+
+        Raises:
+            ValueError: If the loaded YAML structure doesn't match between the original
+                and placeholder versions.
+            ToolkitMissingResourceError: If a resource identifier is not found in the
+                to_write or resources mappings.
+        """
         # 1. Replace all variables with placeholders
         # 2. Load source and keep the comments
         # 3. Update the to_write dict with the placeholders
@@ -762,9 +802,22 @@ class PullCommand(ToolkitCommand):
 
 
 class ResourceReplacer:
-    """Replaces values in a local resource directory with the updated values from CDF.
+    """Replaces values in a local resource dictionary with the updated values from CDF.
 
     The local resource dict order is maintained. In addition, placeholders are used for variables.
+
+    This class is responsible for merging CDF resource values back into local configuration files
+    while preserving:
+    - The original key ordering in dictionaries
+    - Template variable placeholders (e.g., {{ variable_name }})
+    - Comments and formatting where possible
+
+    Args:
+        value_by_placeholder: A mapping from placeholder strings to their corresponding
+            BuildVariable objects. Placeholders are temporary substitutes for template
+            variables during processing.
+        loader: The ResourceCRUD loader instance used to determine how to diff lists
+            and handle resource-specific logic.
     """
 
     def __init__(self, value_by_placeholder: dict[str, BuildVariable], loader: ResourceCRUD) -> None:
@@ -777,7 +830,49 @@ class ResourceReplacer:
         placeholder: dict[str, Any],
         to_write: dict[str, Any],
     ) -> dict[str, Any]:
-        return self._replace_dict(current, placeholder, to_write, tuple())
+        """Replace values in a local resource dict with updated values from CDF.
+
+        Merges the CDF resource values into the local configuration while maintaining
+        the original dictionary key ordering and preserving template variable placeholders.
+
+        Args:
+            current: The current local resource dictionary with resolved variable values.
+                This represents the source file content after template variables have
+                been substituted with their actual values.
+            placeholder: The local resource dictionary with placeholder strings instead
+                of resolved values. Used to identify which values contain template
+                variables that should be preserved.
+            to_write: The resource dictionary from CDF containing the updated values
+                to merge into the local configuration.
+
+        Returns:
+            A new dictionary with CDF values merged in, maintaining the original key
+            order from `current`. Template variables are preserved as placeholders
+            (to be converted back to {{ variable }} syntax by the caller). New keys
+            from CDF are appended at the end, and removed keys are omitted.
+
+        Raises:
+            ToolkitValueError: If a list variable has changed and cannot be updated,
+                or if there's a type mismatch between local and CDF values.
+        """
+        has_stringified_view_filter = False
+        if isinstance(self._loader, ViewCRUD):
+            # view.filter are recursive nested dicts that are complex. To avoid issues with comparing
+            # lists inside the filters, we stringify them before processing such that they are compared
+            # as strings.
+            processed = []
+            for d in (current, placeholder, to_write):
+                if isinstance(d.get("filter"), dict):
+                    d = d.copy()
+                    d["filter"] = json.dumps(d["filter"])
+                    has_stringified_view_filter = True
+                processed.append(d)
+            current, placeholder, to_write = processed
+        output = self._replace_dict(current, placeholder, to_write, tuple())
+        if has_stringified_view_filter and "filter" in output:
+            # Special case for ViewCRUD where the filter is stringified in CDF
+            output["filter"] = json.loads(output["filter"])
+        return output
 
     def _replace_dict(
         self,
