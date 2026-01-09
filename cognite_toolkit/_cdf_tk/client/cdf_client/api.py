@@ -5,12 +5,12 @@ that handle CRUD operations for CDF Data Modeling API resources.
 """
 
 from abc import ABC, abstractmethod
+from collections import defaultdict
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from functools import partial
 from typing import Any, Generic, Literal, TypeAlias, TypeVar
 
-from mypy.checkexpr import defaultdict
 from pydantic import BaseModel, JsonValue
 
 from cognite_toolkit._cdf_tk.client.data_classes.base import (
@@ -176,7 +176,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         cls, items: Sequence[_T_BaseModel], field_name: str
     ) -> dict[str, list[_T_BaseModel]]:
         """Group items by a text field."""
-        grouped_items: dict[Any, list[_T_BaseModel]] = defaultdict(list)
+        grouped_items: dict[str, list[_T_BaseModel]] = defaultdict(list)
         for item in items:
             key = str(getattr(item, field_name))
             grouped_items[key].append(item)
