@@ -21,6 +21,7 @@ from .api.lookup import LookUpGroup
 from .api.migration import MigrationAPI
 from .api.project import ProjectAPI
 from .api.search import SearchAPI
+from .api.simulators import SimulatorsAPI
 from .api.streams import StreamsAPI
 from .api.three_d import ThreeDAPI
 from .api.timeseries import TimeSeriesAPI
@@ -38,6 +39,7 @@ class ToolAPI:
         self.assets = AssetsAPI(http_client)
         self.timeseries = TimeSeriesAPI(http_client)
         self.events = EventsAPI(http_client)
+        self.simulators = SimulatorsAPI(http_client)
 
 
 class ToolkitClient(CogniteClient):
