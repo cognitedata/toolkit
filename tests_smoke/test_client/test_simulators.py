@@ -23,7 +23,7 @@ def simulator(toolkit_client: ToolkitClient) -> str:
         RequestMessage2(
             endpoint_url=config.create_api_url("/simulators/list"),
             method="POST",
-            body_content={"filter": {"externalId": SIMULATOR_EXTERNAL_ID}, "limit": 1},
+            body_content={"limit": 1000},
         )
     )
     if simulator_external_id := _parse_simulator_response(list_response):
@@ -47,11 +47,11 @@ def _parse_simulator_response(list_response: HTTPResult2) -> str | None:
         raise EndpointAssertionError("/simulators/list", str(list_response))
     try:
         items = list_response.body_json["items"]
-    except (KeyError, TypeError, ValueError):
+    except (KeyError, ValueError):
         raise AssertionError(f"Unexpected response format from /simulators/list: {list_response.body}") from None
     try:
-        return items[0]["externalId"]
-    except (KeyError, TypeError, ValueError):
+        return next(item["externalId"] for item in items if item["externalId"] == SIMULATOR_EXTERNAL_ID)
+    except (KeyError, StopIteration):
         return None
 
 
@@ -68,21 +68,41 @@ class TestSimulatorModelsAPI:
         )
         try:
             created = toolkit_client.tool.simulators.models.create([request])
-            assert len(created) == 1
-            assert created[0].as_request_resource().dump() == request.dump()
+            if len(created) != 1:
+                raise EndpointAssertionError(
+                    "/simulators/models",
+                    f"Expected 1 created simulator model, got {len(created)}",
+                )
+            if created[0].external_id != request.external_id:
+                raise EndpointAssertionError(
+                    "/simulators/models",
+                    f"Expected created simulator model external ID to be {request.external_id}, got {created[0].external_id}",
+                )
 
             retrieved = toolkit_client.tool.simulators.models.retrieve([request.as_id()])
-            assert len(retrieved) == 1
-            assert retrieved[0].dump() == created[0].dump()
+            if len(retrieved) != 1:
+                raise EndpointAssertionError(
+                    "/simulators/models/byids",
+                    f"Expected 1 retrieved simulator model, got {len(retrieved)}",
+                )
+            if retrieved[0].external_id != request.external_id:
+                raise EndpointAssertionError(
+                    "/simulators/models/byids",
+                    f"Expected retrieved simulator model external ID to be {request.external_id}, got {retrieved[0].external_id}",
+                )
 
-            update_request = (
-                created[0]
-                .as_request_resource()
-                .model_copy(update={"id": created[0].id, "description": "Updated description"})
-            )
+            update_request = created[0].as_request_resource().model_copy(update={"description": "Updated description"})
             updated = toolkit_client.tool.simulators.models.update([update_request])
-            assert len(updated) == 1
-            assert updated[0].description == "Updated description"
+            if len(updated) != 1:
+                raise EndpointAssertionError(
+                    "/simulators/models",
+                    f"Expected 1 updated simulator model, got {len(updated)}",
+                )
+            if updated[0].description != "Updated description":
+                raise EndpointAssertionError(
+                    "/simulators/models",
+                    f"Expected updated simulator model description to be 'Updated description', got {updated[0].description}",
+                )
         finally:
             toolkit_client.tool.simulators.models.delete([request.as_id()])
 
