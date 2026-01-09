@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.base import (
     T_RequestResource,
 )
 
-from ._references import ContainerReference, NodeReference, ViewReference
+from ._references import ContainerReference, EdgeReference, NodeReference, ViewReference
 
 
 class InstanceDefinition(BaseModelObject, ABC):
@@ -99,8 +99,8 @@ class EdgeRequest(InstanceRequestDefinition):
     start_node: NodeReference
     end_node: NodeReference
 
-    def as_id(self) -> NodeReference:
-        return NodeReference(space=self.space, external_id=self.external_id)
+    def as_id(self) -> EdgeReference:
+        return EdgeReference(space=self.space, external_id=self.external_id)
 
 
 class NodeResponse(InstanceResponseDefinition[NodeRequest]):
@@ -130,8 +130,8 @@ class EdgeResponse(InstanceResponseDefinition[EdgeRequest]):
     start_node: NodeReference
     end_node: NodeReference
 
-    def as_id(self) -> NodeReference:
-        return NodeReference(space=self.space, external_id=self.external_id)
+    def as_id(self) -> EdgeReference:
+        return EdgeReference(space=self.space, external_id=self.external_id)
 
     def as_request_resource(self) -> EdgeRequest:
         dumped = self.dump()
