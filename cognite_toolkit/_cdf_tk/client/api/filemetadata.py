@@ -36,6 +36,9 @@ class FileMetadataAPI(CDFResourceAPI[InternalOrExternalId, FileMetadataRequest, 
         Returns:
             List of created FileMetadataResponse objects.
         """
+        # The Files API is different from other APIs, thus we have a custom implementation here.
+        # - It only allow one item per request that is not wrapped in a "items" field.
+        # - It uses a query parameter for "overwrite" instead of including it in the body
         results: list[FileMetadataResponse] = []
         for item in items:
             request = RequestMessage2(
