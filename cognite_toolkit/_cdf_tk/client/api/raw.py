@@ -2,7 +2,7 @@ from collections.abc import Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RAWDatabase, RAWTable
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, SuccessResponse2
 
 
 class RawDatabasesAPI(CDFResourceAPI[RAWDatabase, RAWDatabase, RAWDatabase]):
@@ -84,68 +84,58 @@ class RawTablesAPI(CDFResourceAPI[RAWTable, RAWTable, RAWTable]):
     so it overrides several base class methods to handle dynamic paths.
     """
 
-    # Item limit for chunking requests
-    _ITEM_LIMIT = 1000
-
     def __init__(self, http_client: HTTPClient) -> None:
         # We pass empty endpoint map since paths are dynamic (depend on db_name)
-        super().__init__(http_client, {})
+        super().__init__(
+            http_client,
+            {
+                "create": Endpoint(method="POST", path="/raw/dbs/{dbName}/tables", item_limit=1000),
+                "delete": Endpoint(method="POST", path="/raw/dbs/{dbName}/tables/delete", item_limit=1000),
+                "list": Endpoint(method="GET", path="/raw/dbs/{dbName}/tables", item_limit=1000),
+            },
+        )
 
     def _page_response(self, response: SuccessResponse2) -> PagedResponse[RAWTable]:
         """Parse a page response. Note: db_name must be injected separately."""
         return PagedResponse[RAWTable].model_validate_json(response.body)
 
-    def _page_response_with_db(self, response: SuccessResponse2, db_name: str) -> PagedResponse[RAWTable]:
-        """Parse response and inject db_name into each table."""
-        parsed = self._page_response(response)
-        # Inject db_name into each table since it's not returned by the API
-        for item in parsed.items:
-            item.db_name = db_name
-        return parsed
-
     def _reference_response(self, response: SuccessResponse2) -> ResponseItems[RAWTable]:
         """Parse a reference response. Note: db_name must be injected separately."""
         return ResponseItems[RAWTable].model_validate_json(response.body)
 
-    def _reference_response_with_db(self, response: SuccessResponse2, db_name: str) -> ResponseItems[RAWTable]:
-        """Parse reference response and inject db_name into each table."""
-        parsed = self._reference_response(response)
-        for item in parsed.items:
-            item.db_name = db_name
-        return parsed
-
-    def create(self, db_name: str, items: Sequence[RAWTable]) -> list[RAWTable]:
+    def create(self, items: Sequence[RAWTable], ensure_parent: bool = False) -> list[RAWTable]:
         """Create tables in a database in CDF.
 
         Args:
-            db_name: The name of the database to create tables in.
             items: List of RAWTable objects to create.
+            ensure_parent: Create database if it doesn't exist already.
 
         Returns:
             List of created RAWTable objects.
         """
-        request = RequestMessage2(
-            endpoint_url=self._make_url(f"/raw/dbs/{db_name}/tables"),
-            method="POST",
-            body_content={"items": self._serialize_items(items)},
-        )
-        response = self._http_client.request_single_retries(request)
-        return self._page_response_with_db(response.get_success_or_raise(), db_name).items
+        result: list[RAWTable] = []
+        for db_name, group in self._group_items_by_text_field(items, "db_name").items():
+            if not db_name:
+                raise ValueError("db_name must be set on all RAWTable items for creation.")
+            endpoint = f"/raw/dbs/{db_name}/tables"
+            created = self._request_item_response(
+                group, "create", params={"ensureParent": ensure_parent}, endpoint=endpoint
+            )
+            for table in created:
+                result.append(RAWTable(db_name=db_name, name=table.name))
+        return result
 
-    def delete(self, db_name: str, items: Sequence[RAWTable]) -> None:
+    def delete(self, items: Sequence[RAWTable]) -> None:
         """Delete tables from a database in CDF.
 
         Args:
-            db_name: The name of the database to delete tables from.
             items: List of RAWTable objects to delete.
         """
-        request = RequestMessage2(
-            endpoint_url=self._make_url(f"/raw/dbs/{db_name}/tables/delete"),
-            method="POST",
-            body_content={"items": self._serialize_items(items)},
-        )
-        response = self._http_client.request_single_retries(request)
-        response.get_success_or_raise()
+        for db_name, group in self._group_items_by_text_field(items, "db_name").items():
+            if not db_name:
+                raise ValueError("db_name must be set on all RAWTable items for deletion.")
+            endpoint = f"/raw/dbs/{db_name}/tables/delete"
+            self._request_no_response(list(group), "delete", endpoint=endpoint)
 
     def iterate(
         self,
@@ -163,17 +153,7 @@ class RawTablesAPI(CDFResourceAPI[RAWTable, RAWTable, RAWTable]):
         Returns:
             PagedResponse of RAWTable objects.
         """
-        params: dict[str, str | int] = {"limit": limit}
-        if cursor is not None:
-            params["cursor"] = cursor
-
-        request = RequestMessage2(
-            endpoint_url=self._make_url(f"/raw/dbs/{db_name}/tables"),
-            method="GET",
-            parameters=params,
-        )
-        response = self._http_client.request_single_retries(request)
-        return self._page_response_with_db(response.get_success_or_raise(), db_name)
+        return self._iterate(cursor=cursor, limit=limit, params={"dbName": db_name})
 
     def list(self, db_name: str, limit: int | None = None) -> list[RAWTable]:
         """List all tables in a database in CDF.
@@ -185,17 +165,10 @@ class RawTablesAPI(CDFResourceAPI[RAWTable, RAWTable, RAWTable]):
         Returns:
             List of RAWTable objects.
         """
-        all_items: list[RAWTable] = []
-        next_cursor: str | None = None
-        total = 0
+        return self._list(limit, params={"dbName": db_name})
 
-        while True:
-            effective_limit = self._ITEM_LIMIT if limit is None else min(limit - total, self._ITEM_LIMIT)
-            page = self.iterate(db_name=db_name, limit=effective_limit, cursor=next_cursor)
-            all_items.extend(page.items)
-            total += len(page.items)
-            if page.next_cursor is None or (limit is not None and total >= limit):
-                break
-            next_cursor = page.next_cursor
 
-        return all_items
+class RawAPI:
+    def __init__(self, http_client: HTTPClient) -> None:
+        self.databases = RawDatabasesAPI(http_client)
+        self.tables = RawTablesAPI(http_client)

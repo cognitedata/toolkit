@@ -20,7 +20,7 @@ from .api.infield import InfieldAPI
 from .api.lookup import LookUpGroup
 from .api.migration import MigrationAPI
 from .api.project import ProjectAPI
-from .api.raw import RawDatabasesAPI, RawTablesAPI
+from .api.raw import RawAPI
 from .api.search import SearchAPI
 from .api.simulators import SimulatorsAPI
 from .api.streams import StreamsAPI
@@ -40,8 +40,7 @@ class ToolAPI:
         self.assets = AssetsAPI(http_client)
         self.timeseries = TimeSeriesAPI(http_client)
         self.events = EventsAPI(http_client)
-        self.raw_databases = RawDatabasesAPI(http_client)
-        self.raw_tables = RawTablesAPI(http_client)
+        self.raw = RawAPI(http_client)
         self.simulators = SimulatorsAPI(http_client)
 
 

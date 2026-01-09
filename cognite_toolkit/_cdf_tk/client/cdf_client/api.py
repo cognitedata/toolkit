@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from functools import partial
 from typing import Any, Generic, Literal, TypeAlias, TypeVar
 
+from mypy.checkexpr import defaultdict
 from pydantic import BaseModel, JsonValue
 
 from cognite_toolkit._cdf_tk.client.data_classes.base import (
@@ -97,9 +98,10 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         method: APIMethod,
         params: dict[str, Any] | None = None,
         extra_body: dict[str, Any] | None = None,
+        endpoint: str | None = None,
     ) -> list[T_ResponseResource]:
         response_items: list[T_ResponseResource] = []
-        for response in self._chunk_requests(items, method, self._serialize_items, params, extra_body):
+        for response in self._chunk_requests(items, method, self._serialize_items, params, extra_body, endpoint):
             response_items.extend(self._page_response(response).items)
         return response_items
 
@@ -121,8 +123,9 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         method: APIMethod,
         params: dict[str, Any] | None = None,
         extra_body: dict[str, Any] | None = None,
+        endpoint: str | None = None,
     ) -> None:
-        list(self._chunk_requests(items, method, self._serialize_items, params, extra_body))
+        list(self._chunk_requests(items, method, self._serialize_items, params, extra_body, endpoint))
         return None
 
     def _chunk_requests(
@@ -132,14 +135,28 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         serialization: Callable[[Sequence[_T_BaseModel]], list[dict[str, JsonValue]]],
         params: dict[str, Any] | None = None,
         extra_body: dict[str, Any] | None = None,
+        endpoint_path: str | None = None,
     ) -> Iterable[SuccessResponse2]:
+        """Send requests in chunks and yield responses.
+
+        Args:
+            items: The items to process.
+            method: The API method to use. This is used ot look the up the endpoint.
+            serialization: A function to serialize the items to JSON-compatible dicts.
+            params: Optional query parameters for the request.
+            extra_body: Optional extra body content to include in the request.
+            endpoint_path: Optional override for the endpoint path.
+
+        Yields:
+            The successful responses from the API.
+        """
         # Filter out None
         request_params = self._filter_out_none_values(params)
         endpoint = self._method_endpoint_map[method]
 
         for chunk in chunker_sequence(items, endpoint.item_limit):
             request = RequestMessage2(
-                endpoint_url=f"{self._make_url(endpoint.path)}",
+                endpoint_url=f"{self._make_url(endpoint_path or endpoint.path)}",
                 method=endpoint.method,
                 body_content={"items": serialization(chunk), **(extra_body or {})},  # type: ignore[dict-item]
                 parameters=request_params,
@@ -153,6 +170,17 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         if params:
             request_params = {k: v for k, v in params.items() if v is not None}
         return request_params
+
+    @classmethod
+    def _group_items_by_text_field(
+        cls, items: Sequence[_T_BaseModel], field_name: str
+    ) -> dict[str, list[_T_BaseModel]]:
+        """Group items by a text field."""
+        grouped_items: dict[Any, list[_T_BaseModel]] = defaultdict(list)
+        for item in items:
+            key = str(getattr(item, field_name))
+            grouped_items[key].append(item)
+        return grouped_items
 
     def _iterate(
         self,
