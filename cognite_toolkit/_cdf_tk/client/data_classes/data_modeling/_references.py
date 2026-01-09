@@ -48,6 +48,14 @@ class NodeReference(Identifier):
         return f"{self.space}:{self.external_id}"
 
 
+class EdgeReference(Identifier):
+    space: str
+    external_id: str
+
+    def __str__(self) -> str:
+        return f"{self.space}:{self.external_id}"
+
+
 class ContainerDirectReference(Identifier):
     source: ContainerReference
     identifier: str

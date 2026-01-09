@@ -42,6 +42,15 @@ from ._indexes import (
     IndexDefinition,
     InvertedIndex,
 )
+from ._instance import (
+    EdgeRequest,
+    EdgeResponse,
+    InstanceDefinition,
+    InstanceResponseDefinition,
+    InstanceSource,
+    NodeRequest,
+    NodeResponse,
+)
 from ._references import (
     ContainerConstraintReference,
     ContainerDirectReference,
@@ -99,6 +108,8 @@ __all__ = [
     "DateProperty",
     "DirectNodeRelation",
     "EdgeProperty",
+    "EdgeRequest",
+    "EdgeResponse",
     "EnumProperty",
     "EnumValue",
     "FileCDFExternalIdReference",
@@ -108,6 +119,9 @@ __all__ = [
     "Index",
     "IndexAdapter",
     "IndexDefinition",
+    "InstanceDefinition",
+    "InstanceResponseDefinition",
+    "InstanceSource",
     "Int32Property",
     "Int64Property",
     "InvertedIndex",
@@ -117,6 +131,8 @@ __all__ = [
     "MultiReverseDirectRelationPropertyRequest",
     "MultiReverseDirectRelationPropertyResponse",
     "NodeReference",
+    "NodeRequest",
+    "NodeResponse",
     "PropertyTypeDefinition",
     "RequiresConstraintDefinition",
     "ReverseDirectRelationProperty",
