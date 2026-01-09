@@ -188,6 +188,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         cursor: str | None = None,
         params: dict[str, Any] | None = None,
         body: dict[str, Any] | None = None,
+        endpoint_path: str | None = None,
     ) -> PagedResponse[T_ResponseResource]:
         """Fetch a single page of resources.
 
@@ -199,8 +200,11 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
                 - space: Filter by space
                 - includeGlobal: Whether to include global resources
             body : Body content for the request, if applicable.
+                limit: Maximum number of items to return in the page.
+                cursor: Cursor for pagination.
             limit: Maximum number of items to return in the page.
             cursor: Cursor for pagination.
+
         Returns:
             A Page containing the items and the cursor for the next page.
         """
@@ -222,7 +226,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
             raise NotImplementedError(f"Unsupported method {endpoint.method} for pagination.")
 
         request = RequestMessage2(
-            endpoint_url=self._make_url(endpoint.path),
+            endpoint_url=self._make_url(endpoint_path or endpoint.path),
             method=endpoint.method,
             parameters=request_params,
             body_content=body,
@@ -231,7 +235,9 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         response = result.get_success_or_raise()
         return self._page_response(response)
 
-    def _list(self, limit: int | None = None, params: dict[str, Any] | None = None) -> list[T_ResponseResource]:
+    def _list(
+        self, limit: int | None = None, params: dict[str, Any] | None = None, endpoint_path: str | None = None
+    ) -> list[T_ResponseResource]:
         """List all resources, handling pagination automatically."""
         all_items: list[T_ResponseResource] = []
         next_cursor: str | None = None
@@ -239,7 +245,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         endpoint = self._method_endpoint_map["list"]
         while True:
             page_limit = endpoint.item_limit if limit is None else min(limit - total, endpoint.item_limit)
-            page = self._iterate(limit=page_limit, cursor=next_cursor, params=params)
+            page = self._iterate(limit=page_limit, cursor=next_cursor, params=params, endpoint_path=endpoint_path)
             all_items.extend(page.items)
             total += len(page.items)
             if page.next_cursor is None or (limit is not None and total >= limit):
