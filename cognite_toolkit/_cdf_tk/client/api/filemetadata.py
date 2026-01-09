@@ -13,6 +13,7 @@ class FileMetadataAPI(CDFResourceAPI[InternalOrExternalId, FileMetadataRequest, 
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
+                "create": Endpoint(method="POST", path="/files", item_limit=1, concurrency_max_workers=1),
                 "retrieve": Endpoint(method="POST", path="/files/byids", item_limit=1000, concurrency_max_workers=1),
                 "update": Endpoint(method="POST", path="/files/update", item_limit=1000, concurrency_max_workers=1),
                 "delete": Endpoint(method="POST", path="/files/delete", item_limit=1000, concurrency_max_workers=1),
@@ -39,11 +40,12 @@ class FileMetadataAPI(CDFResourceAPI[InternalOrExternalId, FileMetadataRequest, 
         # The Files API is different from other APIs, thus we have a custom implementation here.
         # - It only allow one item per request that is not wrapped in a "items" field.
         # - It uses a query parameter for "overwrite" instead of including it in the body
+        endpoint = self._method_endpoint_map["create"]
         results: list[FileMetadataResponse] = []
         for item in items:
             request = RequestMessage2(
-                endpoint_url=self._make_url("/files"),
-                method="POST",
+                endpoint_url=self._make_url(endpoint.path),
+                method=endpoint.method,
                 body_content=item.dump(),
                 parameters={"overwrite": overwrite},
             )
