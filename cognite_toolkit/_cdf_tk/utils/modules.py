@@ -12,6 +12,7 @@ from cognite_toolkit._cdf_tk.constants import (
 def iterate_modules(root_dir: Path) -> Iterator[tuple[Path, list[Path]]]:
     """Iterate over all modules in the project and yield the module directory and all files in the module.
 
+
     Args:
         root_dir (Path): The root directory of the project
 

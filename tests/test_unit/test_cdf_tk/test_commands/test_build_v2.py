@@ -10,9 +10,9 @@ from cognite.client.data_classes.data_modeling import DataModelId, Space
 
 from cognite_toolkit._cdf_tk.commands.build_cmd import BuildCommand as OldBuildCommand
 from cognite_toolkit._cdf_tk.commands.build_v2.build_cmd import BuildCommand
-from cognite_toolkit._cdf_tk.commands.build_v2.build_issues import BuildIssue, BuildIssueList
 from cognite_toolkit._cdf_tk.cruds import TransformationCRUD
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, BuildVariables, Environment, Packages
+from cognite_toolkit._cdf_tk.data_classes._issues import Issue, IssueList
 from cognite_toolkit._cdf_tk.data_classes._module_directories import ModuleDirectories
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMissingModuleError,
@@ -41,9 +41,9 @@ class TestBuildV2Command:
             BuildCommand(print_warning=False).execute(
                 verbose=False,
                 build_dir=tmp_path,
-                organization_dir=data.PROJECT_WITH_BAD_MODULES,
+                base_dir=data.PROJECT_WITH_BAD_MODULES,
                 selected=None,
-                build_env_name="no_module",
+                build_env="no_module",
                 no_clean=False,
             )
 
@@ -53,16 +53,17 @@ class TestBuildV2Command:
             cmd.execute(
                 verbose=False,
                 build_dir=tmp_path,
-                organization_dir=data.PROJECT_WITH_BAD_MODULES,
+                base_dir=data.PROJECT_WITH_BAD_MODULES,
                 selected=None,
-                build_env_name="ill_module",
+                build_env="ill_module",
                 no_clean=False,
             )
 
         assert len(cmd.issues) >= 1
         assert (
-            BuildIssue(
-                description=f"Module 'ill_made_module' has non-resource directories: ['spaces']. {ModuleDefinition.short()}"
+            Issue(
+                name="ModuleWithNonResourceDirectories",
+                message=f"Module 'ill_made_module' has non-resource directories: ['spaces']. {ModuleDefinition.short()}",
             )
             in cmd.issues
         )
@@ -75,9 +76,9 @@ class TestBuildV2Command:
             cmd.execute(
                 verbose=False,
                 build_dir=tmp_path,
-                organization_dir=data.PROJECT_NO_COGNITE_MODULES,
+                base_dir=data.PROJECT_NO_COGNITE_MODULES,
                 selected=None,
-                build_env_name="dev",
+                build_env="dev",
                 no_clean=False,
             )
 
@@ -104,9 +105,9 @@ class TestBuildV2Command:
                 cmd.execute(
                     verbose=False,
                     build_dir=tmp_path / "build",
-                    organization_dir=data.COMPLETE_ORG,
+                    base_dir=data.COMPLETE_ORG,
                     selected=None,
-                    build_env_name="dev",
+                    build_env="dev",
                     no_clean=False,
                 )
 
@@ -147,10 +148,10 @@ capabilities:
             with suppress(NotImplementedError):
                 cmd.execute(
                     verbose=False,
-                    organization_dir=tmp_path / "my_org",
+                    base_dir=tmp_path / "my_org",
                     build_dir=tmp_path / "build",
                     selected=None,
-                    build_env_name=None,
+                    build_env=None,
                     no_clean=False,
                     client=toolkit_client_approval.mock_client,
                     on_error="raise",
@@ -234,9 +235,9 @@ class TestBuildParity:
             new_result = new_cmd.execute(
                 verbose=False,
                 build_dir=tmp_path / "new",
-                organization_dir=data.COMPLETE_ORG,
+                base_dir=data.COMPLETE_ORG,
                 selected=None,
-                build_env_name="dev",
+                build_env="dev",
                 no_clean=False,
             )
 
@@ -250,4 +251,4 @@ class TestBuildParity:
             no_clean=False,
         )
         assert new_result == old_result
-        assert new_cmd.issues == BuildIssueList.from_warning_list(old_cmd.warning_list)
+        assert new_cmd.issues == IssueList.from_warning_list(old_cmd.warning_list)

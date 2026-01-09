@@ -75,17 +75,17 @@ from ._resource_cruds import (
 )
 from ._worker import ResourceWorker
 
-_EXCLUDED_CRUDS: set[type[ResourceCRUD]] = set()
+EXCLUDED_CRUDS: set[type[ResourceCRUD]] = set()
 if not FeatureFlag.is_enabled(Flags.GRAPHQL):
-    _EXCLUDED_CRUDS.add(GraphQLCRUD)
+    EXCLUDED_CRUDS.add(GraphQLCRUD)
 if not FeatureFlag.is_enabled(Flags.INFIELD):
-    _EXCLUDED_CRUDS.add(InfieldV1CRUD)
-    _EXCLUDED_CRUDS.add(InFieldLocationConfigCRUD)
-    _EXCLUDED_CRUDS.add(InFieldCDMLocationConfigCRUD)
+    EXCLUDED_CRUDS.add(InfieldV1CRUD)
+    EXCLUDED_CRUDS.add(InFieldLocationConfigCRUD)
+    EXCLUDED_CRUDS.add(InFieldCDMLocationConfigCRUD)
 if not FeatureFlag.is_enabled(Flags.MIGRATE):
-    _EXCLUDED_CRUDS.add(ResourceViewMappingCRUD)
+    EXCLUDED_CRUDS.add(ResourceViewMappingCRUD)
 if not FeatureFlag.is_enabled(Flags.STREAMS):
-    _EXCLUDED_CRUDS.add(StreamCRUD)
+    EXCLUDED_CRUDS.add(StreamCRUD)
 
 
 CRUDS_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}
@@ -95,7 +95,7 @@ for _loader in itertools.chain(
     DataCRUD.__subclasses__(),
     GroupCRUD.__subclasses__(),
 ):
-    if _loader in [ResourceCRUD, ResourceContainerCRUD, DataCRUD, GroupCRUD] or _loader in _EXCLUDED_CRUDS:
+    if _loader in [ResourceCRUD, ResourceContainerCRUD, DataCRUD, GroupCRUD] or _loader in EXCLUDED_CRUDS:
         # Skipping base classes
         continue
     if _loader.folder_name not in CRUDS_BY_FOLDER_NAME:  # type: ignore[attr-defined]
@@ -158,6 +158,7 @@ def get_crud(resource_dir: str, kind: str) -> type[Loader]:
 __all__ = [
     "CRUDS_BY_FOLDER_NAME",
     "CRUD_LIST",
+    "EXCLUDED_CRUDS",
     "KINDS_BY_FOLDER_NAME",
     "RESOURCE_CRUD_BY_FOLDER_NAME",
     "RESOURCE_CRUD_CONTAINER_LIST",

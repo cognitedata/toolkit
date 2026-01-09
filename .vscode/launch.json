@@ -313,7 +313,7 @@
       "init", 
       ".",
       "--clean",
-      "--library-url=https://github.com/cognitedata/library/raw/refs/heads/packages-menu/packages.zip",
+      "--library-url=https://github.com/cognitedata/library/releases/download/latest/packages.zip",
       "--library-checksum=sha256:foo"
     
     ],
