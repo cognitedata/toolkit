@@ -135,9 +135,9 @@ class EdgeResponse(InstanceResponseDefinition[EdgeRequest]):
 
     def as_request_resource(self) -> EdgeRequest:
         dumped = self.dump()
-        if properties := dumped.pop("properties", None):
+        if self.properties:
             dumped["sources"] = [
-                InstanceSource(source=source_ref, properties=props) for source_ref, props in properties.items()
+                InstanceSource(source=source_ref, properties=props) for source_ref, props in self.properties.items()
             ]
         dumped["existingVersion"] = dumped.pop("version", None)
         return EdgeRequest.model_validate(dumped, extra="ignore")
