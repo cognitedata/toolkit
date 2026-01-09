@@ -1,0 +1,6 @@
+externalId: my_simulator_model
+name: My Simulator Model
+description: This is an example simulator model for demonstration purposes.
+type: SteadyState
+dataSetExternalId: ds_complete_org
+simulatorExternalId: my_simulator
