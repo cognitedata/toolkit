@@ -8,6 +8,7 @@ import pytest
 from cognite_toolkit._cdf_tk.client.api.assets import AssetsAPI
 from cognite_toolkit._cdf_tk.client.api.events import EventsAPI
 from cognite_toolkit._cdf_tk.client.api.filemetadata import FileMetadataAPI
+from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsAPI
 from cognite_toolkit._cdf_tk.client.api.timeseries import TimeSeriesAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI
 from cognite_toolkit._cdf_tk.client.data_classes.agent import AgentRequest, AgentResponse
@@ -294,6 +295,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=SimulatorModelResponse,
             request_cls=SimulatorModelRequest,
             example_data=get_example_minimum_responses(SimulatorModelResponse),
+            api_class=SimulatorModelsAPI,
         ),
         id="SimulatorModel",
     )
