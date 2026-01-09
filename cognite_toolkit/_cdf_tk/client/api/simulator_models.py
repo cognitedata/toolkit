@@ -13,17 +13,15 @@ class SimulatorModelsAPI(CDFResourceAPI[InternalOrExternalId, SimulatorModelRequ
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "create": Endpoint(
-                    method="POST", path="/simulators/models", item_limit=1000, concurrency_max_workers=1
-                ),
+                "create": Endpoint(method="POST", path="/simulators/models", item_limit=1, concurrency_max_workers=1),
                 "retrieve": Endpoint(
-                    method="POST", path="/simulators/models/byids", item_limit=1000, concurrency_max_workers=1
+                    method="POST", path="/simulators/models/byids", item_limit=1, concurrency_max_workers=1
                 ),
                 "update": Endpoint(
-                    method="POST", path="/simulators/models/update", item_limit=1000, concurrency_max_workers=1
+                    method="POST", path="/simulators/models/update", item_limit=1, concurrency_max_workers=1
                 ),
                 "delete": Endpoint(
-                    method="POST", path="/simulators/models/delete", item_limit=1000, concurrency_max_workers=1
+                    method="POST", path="/simulators/models/delete", item_limit=1, concurrency_max_workers=1
                 ),
                 "list": Endpoint(method="POST", path="/simulators/models/list", item_limit=1000),
             },
@@ -46,21 +44,16 @@ class SimulatorModelsAPI(CDFResourceAPI[InternalOrExternalId, SimulatorModelRequ
         """
         return self._request_item_response(items, "create")
 
-    def retrieve(
-        self, items: Sequence[InternalOrExternalId], ignore_unknown_ids: bool = False
-    ) -> list[SimulatorModelResponse]:
+    def retrieve(self, items: Sequence[InternalOrExternalId]) -> list[SimulatorModelResponse]:
         """Retrieve simulator models from CDF.
 
         Args:
             items: List of InternalOrExternalId objects to retrieve.
-            ignore_unknown_ids: Whether to ignore unknown IDs.
 
         Returns:
             List of retrieved SimulatorModelResponse objects.
         """
-        return self._request_item_response(
-            items, method="retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids}
-        )
+        return self._request_item_response(items, method="retrieve")
 
     def update(
         self, items: Sequence[SimulatorModelRequest], mode: Literal["patch", "replace"] = "replace"
@@ -76,14 +69,13 @@ class SimulatorModelsAPI(CDFResourceAPI[InternalOrExternalId, SimulatorModelRequ
         """
         return self._update(items, mode=mode)
 
-    def delete(self, items: Sequence[InternalOrExternalId], ignore_unknown_ids: bool = False) -> None:
+    def delete(self, items: Sequence[InternalOrExternalId]) -> None:
         """Delete simulator models from CDF.
 
         Args:
             items: List of InternalOrExternalId objects to delete.
-            ignore_unknown_ids: Whether to ignore unknown IDs.
         """
-        self._request_no_response(items, "delete", extra_body={"ignoreUnknownIds": ignore_unknown_ids})
+        self._request_no_response(items, "delete")
 
     def iterate(
         self,
@@ -108,9 +100,7 @@ class SimulatorModelsAPI(CDFResourceAPI[InternalOrExternalId, SimulatorModelRequ
         return self._iterate(
             cursor=cursor,
             limit=limit,
-            body={
-                "filter": filter_ or None,
-            },
+            body={"filter": filter_ or None},
         )
 
     def list(
