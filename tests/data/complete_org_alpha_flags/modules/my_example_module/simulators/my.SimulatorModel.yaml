@@ -3,5 +3,6 @@ name: My Simulator Model
 description: This is an example simulator model for demonstration purposes.
 type: SteadyState
 dataSetExternalId: ds_complete_org
-# This must match the fixture
+# This must match the fixture when testing the deployment of complete_org.
+# test_deploy_complete_org
 simulatorExternalId: integration-test-simulator

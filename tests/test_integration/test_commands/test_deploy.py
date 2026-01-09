@@ -37,7 +37,7 @@ from tests import data
 from tests_smoke.exceptions import EndpointAssertionError
 
 # This much match the simulatorExternalId in the SimulatorModel definition of the
-# complete_org
+# complete_org/complete_org_alpha test cases.
 SIMULATOR_EXTERNAL_ID = "integration-test-simulator"
 
 
@@ -119,6 +119,7 @@ def test_deploy_complete_org(env_vars: EnvironmentVariables, build_dir: Path) ->
 @pytest.mark.skipif(
     sys.version_info < (3, 11), reason="We only run this test on Python 3.11+ to avoid parallelism issues"
 )
+@pytest.mark.usefixtures("simulator")
 def test_deploy_complete_org_alpha(env_vars: EnvironmentVariables, build_dir: Path) -> None:
     build = BuildCommand(silent=True, skip_tracking=True)
 
