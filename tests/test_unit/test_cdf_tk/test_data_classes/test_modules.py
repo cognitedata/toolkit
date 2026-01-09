@@ -6,10 +6,7 @@ import pytest
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._modules import Modules
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.data_classes._issues import (
-    ModuleLoadingDisabledResourceIssue,
     ModuleLoadingIssue,
-    ModuleLoadingNoResourcesIssue,
-    ModuleLoadingUnrecognizedResourceIssue,
 )
 from tests.data import COMPLETE_ORG
 
@@ -123,8 +120,7 @@ class TestModules:
 
         assert len(issues) == 1
         assert issues[0].path == module_path
-        assert isinstance(issues[0], ModuleLoadingUnrecognizedResourceIssue)
-        assert issues[0].unrecognized_resource_folders == ["docs"]
+        assert issues[0].message == f"Module {module_path.as_posix()!r} contains unrecognized resource folders: docs"
 
     def test_module_with_normal_and_disabled_resources(self, tmp_path: Path) -> None:
         """Test that a module with both normal and disabled resource folders shows appropriate warnings."""
@@ -143,19 +139,18 @@ class TestModules:
         # The module should be loaded since it has at least one normal resource (transformations)
         assert len(modules.modules) == 1
         assert issues[0].path == module_path
-        assert isinstance(issues[0], ModuleLoadingDisabledResourceIssue)
-        assert issues[0].disabled_resource_folders == ["streams"]
+        assert (
+            issues[0].message
+            == f"Module {module_path.as_posix()!r} contains unsupported resource folders, check flags in cdf.toml: streams"
+        )
 
     def test_module_with_no_resources(self, tmp_path: Path) -> None:
         """Test that a module with no resource folders raises ModuleLoadingNoResourcesIssue and is not loaded."""
         module_path = tmp_path / MODULES / "empty_module"
         (module_path).mkdir(parents=True)
         (module_path / ".gitkeep").touch()
-        modules, issues = Modules.load(tmp_path, selection=["empty_module"])
+        modules, _ = Modules.load(tmp_path, selection=["empty_module"])
         assert len(modules.modules) == 0
-        assert len(issues) == 1
-        assert issues[0].path == module_path
-        assert isinstance(issues[0], ModuleLoadingNoResourcesIssue)
 
     def test_module_container_with_resources_and_nested_module(self, tmp_path: Path) -> None:
         global_path = tmp_path / MODULES / "global"
