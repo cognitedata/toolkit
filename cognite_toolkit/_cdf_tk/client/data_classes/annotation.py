@@ -8,23 +8,23 @@ from .identifiers import InternalId
 
 AnnotationStatus: TypeAlias = Literal["suggested", "rejected", "approved"]
 AnnotationType: TypeAlias = Literal[
-    "pointcloud.BoundingVolume",
-    "images.Classification",
-    "forms.Detection",
-    "documents.ExtractedText",
+    "diagrams.AssetLink",
     "diagrams.FileLink",
-    "isoplan.IsoPlanAnnotation",
+    "diagrams.InstanceLink",
     "diagrams.Junction",
-    "images.KeypointCollection",
     "diagrams.Line",
-    "images.ObjectDetection",
-    "images.TextRegion",
     "diagrams.UnhandledSymbolObject",
     "diagrams.UnhandledTextObject",
-    "diagrams.AssetLink",
-    "diagrams.InstanceLink",
+    "documents.ExtractedText",
+    "forms.Detection",
     "images.AssetLink",
+    "images.Classification",
     "images.InstanceLink",
+    "images.KeypointCollection",
+    "images.ObjectDetection",
+    "images.TextRegion",
+    "isoplan.IsoPlanAnnotation",
+    "pointcloud.BoundingVolume",
 ]
 
 
