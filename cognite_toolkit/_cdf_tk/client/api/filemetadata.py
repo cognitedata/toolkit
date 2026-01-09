@@ -26,15 +26,15 @@ class FileMetadataAPI(CDFResourceAPI[InternalOrExternalId, FileMetadataRequest, 
     def _reference_response(self, response: SuccessResponse2) -> ResponseItems[InternalOrExternalId]:
         return ResponseItems[InternalOrExternalId].model_validate_json(response.body)
 
-    def upload(self, items: Sequence[FileMetadataRequest], overwrite: bool = False) -> list[FileMetadataResponse]:
+    def create(self, items: Sequence[FileMetadataRequest], overwrite: bool = False) -> list[FileMetadataResponse]:
         """Upload file metadata to CDF.
 
         Args:
-            item: FileMetadataRequest object to upload.
+            items: List of FileMetadataRequest objects to upload.
             overwrite: Whether to overwrite existing file metadata with the same external ID.
 
         Returns:
-            Uploaded FileMetadataResponse object.
+            List of created FileMetadataResponse objects.
         """
         results: list[FileMetadataResponse] = []
         for item in items:
@@ -122,9 +122,7 @@ class FileMetadataAPI(CDFResourceAPI[InternalOrExternalId, FileMetadataRequest, 
         return self._iterate(
             cursor=cursor,
             limit=limit,
-            body={
-                "filter": filter_ or None,
-            },
+            body={"filter": filter_ or None},
         )
 
     def list(
