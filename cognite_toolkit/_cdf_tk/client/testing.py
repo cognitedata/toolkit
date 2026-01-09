@@ -33,6 +33,7 @@ from cognite_toolkit._cdf_tk.client.api.legacy.robotics import LocationsAPI as R
 from cognite_toolkit._cdf_tk.client.api.legacy.search_config import SearchConfigurationsAPI
 
 from ._toolkit_client import ToolAPI
+from .api.events import EventsAPI
 from .api.infield import InfieldAPI, InFieldCDMConfigAPI, InfieldConfigAPI
 from .api.lookup import (
     AssetLookUpAPI,
@@ -58,6 +59,7 @@ from .api.project import ProjectAPI
 from .api.search import SearchAPI
 from .api.streams import StreamsAPI
 from .api.three_d import ThreeDAPI, ThreeDModelAPI
+from .api.timeseries import TimeSeriesAPI
 from .api.token import TokenAPI
 from .api.verify import VerifyAPI
 
@@ -140,6 +142,8 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.three_d = MagicMock(spec=ThreeDAPI)
         self.tool.three_d.models = MagicMock(spec_set=ThreeDModelAPI)
         self.tool.assets = MagicMock(spec_set=AssetsAPI)
+        self.tool.timeseries = MagicMock(spec_set=TimeSeriesAPI)
+        self.tool.events = MagicMock(spec_set=EventsAPI)
 
         self.streams = MagicMock(spec=StreamsAPI)
 

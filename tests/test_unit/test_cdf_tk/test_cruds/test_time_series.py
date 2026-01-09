@@ -1,7 +1,7 @@
 import yaml
-from cognite.client.data_classes import TimeSeriesWrite
 from cognite.client.utils.useful_types import SequenceNotStr
 
+from cognite_toolkit._cdf_tk.client.data_classes.timeseries import TimeSeriesRequest
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.cruds import TimeSeriesCRUD
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -75,7 +75,7 @@ description: PH 1stStgSuctCool Gas Out
         ts = loader.load_resource(resource.copy(), is_dry_run=True)
         _ = loader.load_resource(resource.copy(), is_dry_run=False)
 
-        assert isinstance(ts, TimeSeriesWrite)
+        assert isinstance(ts, TimeSeriesRequest)
         assert ts.asset_id == -1
         assert ts.data_set_id == -1
         assert ts.security_categories == [-1]

@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
@@ -16,10 +17,13 @@ class TimeSeriesAPI(CDFResourceAPI[InternalOrExternalId, TimeSeriesRequest, Time
                 "retrieve": Endpoint(
                     method="POST", path="/timeseries/byids", item_limit=1000, concurrency_max_workers=1
                 ),
+                "update": Endpoint(
+                    method="POST", path="/timeseries/update", item_limit=1000, concurrency_max_workers=1
+                ),
                 "delete": Endpoint(
                     method="POST", path="/timeseries/delete", item_limit=1000, concurrency_max_workers=1
                 ),
-                "list": Endpoint(method="GET", path="/timeseries", item_limit=1000),
+                "list": Endpoint(method="POST", path="/timeseries/list", item_limit=1000),
             },
         )
 
@@ -29,7 +33,7 @@ class TimeSeriesAPI(CDFResourceAPI[InternalOrExternalId, TimeSeriesRequest, Time
     def _reference_response(self, response: SuccessResponse2) -> ResponseItems[InternalOrExternalId]:
         return ResponseItems[InternalOrExternalId].model_validate_json(response.body)
 
-    def create(self, items: list[TimeSeriesRequest]) -> list[TimeSeriesResponse]:
+    def create(self, items: Sequence[TimeSeriesRequest]) -> list[TimeSeriesResponse]:
         """Create time series in CDF.
 
         Args:
@@ -50,28 +54,62 @@ class TimeSeriesAPI(CDFResourceAPI[InternalOrExternalId, TimeSeriesRequest, Time
         Returns:
             List of retrieved TimeSeriesResponse objects.
         """
-        return self._request_item_response(items, method="retrieve", params={"ignoreUnknownIds": ignore_unknown_ids})
+        return self._request_item_response(
+            items, method="retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids}
+        )
 
-    def delete(self, items: list[InternalOrExternalId], ignore_unknown_ids: bool = False) -> None:
+    def update(
+        self, items: Sequence[TimeSeriesRequest], mode: Literal["patch", "replace"] = "replace"
+    ) -> list[TimeSeriesResponse]:
+        """Update time series in CDF.
+
+        Args:
+            items: List of TimeSeriesRequest objects to update.
+            mode: Update mode, either "patch" or "replace".
+
+        Returns:
+            List of updated TimeSeriesResponse objects.
+        """
+        return self._update(items, mode=mode)
+
+    def delete(self, items: Sequence[InternalOrExternalId], ignore_unknown_ids: bool = False) -> None:
         """Delete time series from CDF.
 
         Args:
             items: List of InternalOrExternalId objects to delete.
             ignore_unknown_ids: Whether to ignore unknown IDs.
         """
-        self._request_no_response(items, "delete", params={"ignoreUnknownIds": ignore_unknown_ids})
+        self._request_no_response(items, "delete", extra_body={"ignoreUnknownIds": ignore_unknown_ids})
 
     def iterate(
         self,
+        data_set_external_ids: list[str] | None = None,
+        asset_subtree_external_ids: list[str] | None = None,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[TimeSeriesResponse]:
         """Iterate over all time series in CDF.
 
+        Args:
+            data_set_external_ids: Filter by data set external IDs.
+            asset_subtree_external_ids: Filter by asset subtree external IDs.
+            limit: Maximum number of items to return.
+            cursor: Cursor for pagination.
+
         Returns:
             PagedResponse of TimeSeriesResponse objects.
         """
-        return self._iterate(cursor=cursor, limit=limit)
+        filter_: dict[str, Any] = {}
+        if asset_subtree_external_ids:
+            filter_["assetSubtreeIds"] = [{"externalId": ext_id} for ext_id in asset_subtree_external_ids]
+        if data_set_external_ids:
+            filter_["dataSetIds"] = [{"externalId": ds_id} for ds_id in data_set_external_ids]
+
+        return self._iterate(
+            cursor=cursor,
+            limit=limit,
+            body={"filter": filter_ or None},
+        )
 
     def list(
         self,

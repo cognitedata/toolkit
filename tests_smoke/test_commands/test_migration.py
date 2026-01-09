@@ -103,7 +103,7 @@ def tmp_3D_model_with_asset_mapping(
     client = toolkit_client
     model_request = ThreeDModelClassicRequest(
         name=f"toolkit_3d_model_migration_test_{RUN_UNIQUE_ID}",
-        dataSetId=smoke_dataset.id,
+        data_set_id=smoke_dataset.id,
         metadata={"source": "smoke_test_migration"},
     )
     models = client.tool.three_d.models.create([model_request])

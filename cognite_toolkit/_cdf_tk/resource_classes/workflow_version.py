@@ -93,10 +93,19 @@ class DynamicTaskParameters(BaseModelResource):
     dynamic: DynamicRef = Field(description="Reference to another task to use as the definition for this task.")
 
 
-class SubworkflowRef(BaseModelResource):
-    tasks: "WorkflowVersionId | list[Task]" = Field(
-        description="Reference to the subworkflow to execute. This can be either a reference to an existing workflow version or an inline definition of tasks."
-    )
+class SubworkflowInlineTasks(BaseModelResource):
+    """Inline definition of tasks for a subworkflow."""
+
+    tasks: "list[Task]" = Field(description="Inline definition of tasks for the subworkflow.")
+
+
+# SubworkflowRef can be either a reference to an existing workflow version OR an inline definition of tasks
+SubworkflowRef = Annotated[
+    WorkflowVersionId | SubworkflowInlineTasks,
+    Field(
+        description="Reference to the subworkflow to execute. This can be either a reference to an existing workflow version (with workflowExternalId and version) or an inline definition of tasks."
+    ),
+]
 
 
 class SubworkflowTaskParameters(BaseModelResource):

@@ -317,7 +317,7 @@ Edge:
   type:
     externalId: AnEdgeType
     space: sp_schema
-Event:
+EventResponse:
 - assetIds:
   - 13458544937205513867
   - 221232397997127486
@@ -854,7 +854,7 @@ ThreeDModel:
   metadata:
     origin: cognite-toolkit
   name: my_3Dmodel
-TimeSeries:
+TimeSeriesResponse:
 - dataSetId: 13045366179566211942
   description: This is an example timeseries used to demonstrate how to create a custom
     module in the Cognite Data Fusion Toolkit.

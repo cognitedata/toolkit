@@ -449,15 +449,15 @@ class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelResponse, ThreeDMigrati
             return None, issue
 
         mapped_request = ThreeDMigrationRequest(
-            modelId=item.id,
+            model_id=item.id,
             type=model_type,
             space=instance_space,
             revision=ThreeDRevisionMigrationRequest(
                 space=instance_space,
                 type=model_type,
-                revisionId=last_revision_id,
+                revision_id=last_revision_id,
                 model=Model(
-                    instanceId=InstanceIdentifier(
+                    instance_id=InstanceIdentifier(
                         space=instance_space,
                         external_id=f"cog_3d_model_{item.id!s}",
                     )
@@ -508,7 +508,7 @@ class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingResponse, AssetMa
             if asset_node_id is None:
                 issue.error_message.append(f"Missing asset instance for asset ID {item.asset_id!r}")
                 return None, issue
-            asset_instance_id = NodeReference(space=asset_node_id.space, externalId=asset_node_id.external_id)
+            asset_instance_id = NodeReference(space=asset_node_id.space, external_id=asset_node_id.external_id)
 
         if asset_instance_id is None:
             issue.error_message.append("Neither assetInstanceId nor assetId provided for mapping.")

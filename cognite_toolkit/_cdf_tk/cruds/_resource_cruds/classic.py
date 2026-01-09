@@ -5,15 +5,12 @@ from pathlib import Path
 from typing import Any, final
 
 import pandas as pd
+from cognite.client.data_classes import Sequence as CDFSequence
 from cognite.client.data_classes import (
-    Event,
-    EventList,
-    EventWrite,
     SequenceList,
     SequenceWrite,
     capabilities,
 )
-from cognite.client.data_classes import Sequence as CDFSequence
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
@@ -25,6 +22,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.asset import (
     AssetRequest,
     AssetResponse,
 )
+from cognite_toolkit._cdf_tk.client.data_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.data_classes.identifiers import ExternalId, InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.data_classes.legacy.sequences import (
     ToolkitSequenceRows,
@@ -496,10 +494,10 @@ class SequenceRowCRUD(ResourceCRUD[str, ToolkitSequenceRowsWrite, ToolkitSequenc
 
 
 @final
-class EventCRUD(ResourceCRUD[str, EventWrite, Event]):
+class EventCRUD(ResourceCRUD[ExternalId, EventRequest, EventResponse]):
     folder_name = "classic"
-    resource_cls = Event
-    resource_write_cls = EventWrite
+    resource_cls = EventResponse
+    resource_write_cls = EventRequest
     yaml_cls = EventYAML
     kind = "Event"
     dependencies = frozenset({DataSetsCRUD, AssetCRUD})
@@ -510,15 +508,15 @@ class EventCRUD(ResourceCRUD[str, EventWrite, Event]):
         return "events"
 
     @classmethod
-    def get_id(cls, item: Event | EventWrite | dict) -> str:
+    def get_id(cls, item: EventRequest | EventResponse | dict) -> ExternalId:
         if isinstance(item, dict):
-            return item["externalId"]
+            return ExternalId(external_id=item["externalId"])
         if not item.external_id:
             raise KeyError("Event must have external_id")
-        return item.external_id
+        return ExternalId(external_id=item.external_id)
 
     @classmethod
-    def get_internal_id(cls, item: Event | dict) -> int:
+    def get_internal_id(cls, item: EventResponse | dict) -> int:
         if isinstance(item, dict):
             return item["id"]
         if not item.id:
@@ -526,12 +524,12 @@ class EventCRUD(ResourceCRUD[str, EventWrite, Event]):
         return item.id
 
     @classmethod
-    def dump_id(cls, id: str) -> dict[str, Any]:
-        return {"externalId": id}
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return id.dump()
 
     @classmethod
     def get_required_capability(
-        cls, items: collections.abc.Sequence[EventWrite] | None, read_only: bool
+        cls, items: collections.abc.Sequence[EventRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -551,35 +549,38 @@ class EventCRUD(ResourceCRUD[str, EventWrite, Event]):
 
         return capabilities.EventsAcl(actions, scope)
 
-    def create(self, items: Sequence[EventWrite]) -> EventList:
-        return self.client.events.create(items)
+    def create(self, items: collections.abc.Sequence[EventRequest]) -> list[EventResponse]:
+        return self.client.tool.events.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> EventList:
-        return self.client.events.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
+    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[EventResponse]:
+        return self.client.tool.events.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[EventWrite]) -> EventList:
-        return self.client.events.update(items, mode="replace")
+    def update(self, items: collections.abc.Sequence[EventRequest]) -> list[EventResponse]:
+        return self.client.tool.events.update(items, mode="replace")
 
-    def delete(self, ids: SequenceNotStr[str | int]) -> int:
-        internal_ids, external_ids = self._split_ids(ids)
-        try:
-            self.client.events.delete(id=internal_ids, external_id=external_ids)
-        except (CogniteAPIError, CogniteNotFoundError) as e:
-            non_existing = set(e.failed or [])
-            if existing := [id_ for id_ in ids if id_ not in non_existing]:
-                internal_ids, external_ids = self._split_ids(existing)
-                self.client.events.delete(id=internal_ids, external_id=external_ids)
-            return len(existing)
-        else:
-            return len(ids)
+    def delete(self, ids: SequenceNotStr[InternalOrExternalId]) -> int:
+        if not ids:
+            return 0
+        self.client.tool.events.delete(list(ids), ignore_unknown_ids=True)
+        return len(ids)
 
     def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
-    ) -> Iterable[Event]:
-        return iter(self.client.events(data_set_external_ids=[data_set_external_id] if data_set_external_id else None))
+    ) -> Iterable[EventResponse]:
+        cursor: str | None = None
+        while True:
+            page = self.client.tool.events.iterate(
+                data_set_external_ids=[data_set_external_id] if data_set_external_id else None,
+                limit=1000,
+                cursor=cursor,
+            )
+            yield from page.items
+            if not page.next_cursor or not page.items:
+                break
+            cursor = page.next_cursor
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -594,15 +595,15 @@ class EventCRUD(ResourceCRUD[str, EventWrite, Event]):
             if isinstance(asset_id, str):
                 yield AssetCRUD, ExternalId(external_id=asset_id)
 
-    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> EventWrite:
-        if ds_external_id := resource.get("dataSetExternalId", None):
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> EventRequest:
+        if ds_external_id := resource.pop("dataSetExternalId", None):
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
         if asset_external_ids := resource.pop("assetExternalIds", []):
             resource["assetIds"] = self.client.lookup.assets.id(asset_external_ids, is_dry_run)
-        return EventWrite._load(resource)
+        return EventRequest.model_validate(resource)
 
-    def dump_resource(self, resource: Event, local: dict[str, Any] | None = None) -> dict[str, Any]:
-        dumped = resource.as_write().dump()
+    def dump_resource(self, resource: EventResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_request_resource().dump()
         local = local or {}
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
