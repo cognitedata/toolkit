@@ -19,6 +19,10 @@ from cognite_toolkit._cdf_tk.client.data_classes.data_modeling import (
     ContainerResponse,
     DataModelRequest,
     DataModelResponse,
+    EdgeRequest,
+    EdgeResponse,
+    NodeRequest,
+    NodeResponse,
     SpaceRequest,
     SpaceResponse,
     ViewRequest,
@@ -166,6 +170,48 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "isGlobal": False,
             "mappedContainers": [],
         },
+        NodeResponse: {
+            "space": "my_space",
+            "externalId": "my_node",
+            "instanceType": "node",
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+            "version": 1,
+            "properties": {
+                "my_space": {
+                    "MyView/v1": {
+                        "propertyA": "valueA",
+                    }
+                }
+            },
+        },
+        EdgeResponse: {
+            "space": "my_space",
+            "externalId": "my_edge",
+            "instanceType": "edge",
+            "type": {
+                "space": "my_space",
+                "externalId": "my_node_type",
+            },
+            "startNode": {
+                "space": "my_space",
+                "externalId": "start_node",
+            },
+            "endNode": {
+                "space": "my_space",
+                "externalId": "end_node",
+            },
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+            "version": 1,
+            "properties": {
+                "my_space": {
+                    "MyView/v1": {
+                        "propertyB": "valueB",
+                    }
+                }
+            },
+        },
     }
     try:
         return responses[resource_cls]
@@ -282,4 +328,20 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             example_data=get_example_minimum_responses(ViewResponse),
         ),
         id="View",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=NodeResponse,
+            request_cls=NodeRequest,
+            example_data=get_example_minimum_responses(NodeResponse),
+        ),
+        id="Node",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=EdgeResponse,
+            request_cls=EdgeRequest,
+            example_data=get_example_minimum_responses(EdgeResponse),
+        ),
+        id="Edge",
     )
