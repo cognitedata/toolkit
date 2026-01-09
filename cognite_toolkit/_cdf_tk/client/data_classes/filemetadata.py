@@ -41,6 +41,8 @@ class FileMetadataResponse(FileMetadata, ResponseResource[FileMetadataRequest]):
     uploaded: bool
     id: int
     instance_id: NodeReference | None = None
+    # This field is required in the upload endpoint response, but not in any other file metadata response
+    upload_url: str | None = None
 
     def as_request_resource(self) -> FileMetadataRequest:
         return FileMetadataRequest.model_validate(self.dump(), extra="ignore")
