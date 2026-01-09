@@ -7,6 +7,7 @@ from cognite.client._api.datapoints import DatapointsAPI
 from cognite.client._api.datapoints_subscriptions import DatapointsSubscriptionAPI
 from cognite.client._api.functions import FunctionCallsAPI, FunctionSchedulesAPI
 from cognite.client._api.raw import RawDatabasesAPI, RawRowsAPI, RawTablesAPI
+from cognite.client._api.simulators import SimulatorModelsAPI, SimulatorsAPI
 from cognite.client._api.synthetic_time_series import SyntheticDatapointsAPI
 from cognite.client.testing import CogniteClientMock
 from rich.console import Console
@@ -144,6 +145,8 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.assets = MagicMock(spec_set=AssetsAPI)
         self.tool.timeseries = MagicMock(spec_set=TimeSeriesAPI)
         self.tool.events = MagicMock(spec_set=EventsAPI)
+        self.tool.simulators = MagicMock(spec=SimulatorsAPI)
+        self.tool.simulators.models = MagicMock(spec_set=SimulatorModelsAPI)
 
         self.streams = MagicMock(spec=StreamsAPI)
 
