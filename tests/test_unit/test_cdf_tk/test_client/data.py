@@ -11,6 +11,7 @@ from cognite_toolkit._cdf_tk.client.api.filemetadata import FileMetadataAPI
 from cognite_toolkit._cdf_tk.client.api.timeseries import TimeSeriesAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI
 from cognite_toolkit._cdf_tk.client.data_classes.agent import AgentRequest, AgentResponse
+from cognite_toolkit._cdf_tk.client.data_classes.annotation import AnnotationRequest, AnnotationResponse
 from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.data_classes.base import Identifier, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.data_classes.data_modeling import (
@@ -92,6 +93,19 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "runtimeVersion": "v1",
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
+        },
+        AnnotationResponse: {
+            "id": 4096,
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+            "annotatedResourceType": "file",
+            "annotatedResourceId": 1337,
+            "annotationType": "images.Classification",
+            "creatingApp": "cognite-toolkit",
+            "creatingAppVersion": "1.0.0",
+            "creatingUser": "user@example.com",
+            "data": {"label": "pump"},
+            "status": "approved",
         },
         RAWDatabase: {
             "name": "example_db",
@@ -203,6 +217,14 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             example_data=get_example_minimum_responses(AgentResponse),
         ),
         id="Agent",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=AnnotationResponse,
+            request_cls=AnnotationRequest,
+            example_data=get_example_minimum_responses(AnnotationResponse),
+        ),
+        id="Annotation",
     )
     yield pytest.param(
         CDFResource(
