@@ -1,7 +1,7 @@
 from abc import ABC
 from typing import Any, Generic, Literal
 
-from pydantic import JsonValue, field_validator
+from pydantic import JsonValue, field_serializer, field_validator
 
 from cognite_toolkit._cdf_tk.client.data_classes.base import (
     BaseModelObject,
@@ -31,9 +31,7 @@ class InstanceRequestDefinition(InstanceDefinition, RequestResource, ABC):
     sources: list[InstanceSource]
 
 
-class InstanceResponseDefinition(
-    InstanceDefinition, Generic[T_RequestResource], ResponseResource[T_RequestResource], ABC
-):
+class InstanceResponseDefinition(InstanceDefinition, ResponseResource, Generic[T_RequestResource], ABC):
     version: int
     created_time: int
     last_updated_time: int
@@ -65,6 +63,22 @@ class InstanceResponseDefinition(
                     source_ref = ContainerReference(space=space, external_id=view_or_container_identifier)
                 parsed[source_ref] = prop
         return parsed
+
+    @field_serializer("properties", mode="plain")
+    def serialize_properties(self, value: dict[ViewReference | ContainerReference, dict[str, Any]] | None) -> Any:
+        if value is None:
+            return None
+        serialized: dict[str, dict[str, Any]] = {}
+        for source_ref, props in value.items():
+            space = source_ref.space
+            if space not in serialized:
+                serialized[space] = {}
+            if isinstance(source_ref, ViewReference):
+                identifier = f"{source_ref.external_id}/{source_ref.version}"
+            else:
+                identifier = source_ref.external_id
+            serialized[space][identifier] = props
+        return serialized
 
 
 class NodeRequest(InstanceRequestDefinition):
@@ -100,9 +114,9 @@ class NodeResponse(InstanceResponseDefinition[NodeRequest]):
 
     def as_request_resource(self) -> NodeRequest:
         dumped = self.dump()
-        if properties := dumped.pop("properties", None):
+        if self.properties:
             dumped["sources"] = [
-                InstanceSource(source=source_ref, properties=props) for source_ref, props in properties.items()
+                InstanceSource(source=source_ref, properties=props) for source_ref, props in self.properties.items()
             ]
         dumped["existingVersion"] = dumped.pop("version", None)
         return NodeRequest.model_validate(dumped, extra="ignore")
