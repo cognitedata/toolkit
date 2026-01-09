@@ -1,7 +1,7 @@
 from abc import ABC
-from typing import Generic, Literal
+from typing import Any, Generic, Literal
 
-from pydantic import JsonValue
+from pydantic import JsonValue, field_validator
 
 from cognite_toolkit._cdf_tk.client.data_classes.base import (
     BaseModelObject,
@@ -39,6 +39,32 @@ class InstanceResponseDefinition(
     last_updated_time: int
     deleted_time: int | None = None
     properties: dict[ViewReference | ContainerReference, dict[str, JsonValue]] | None = None
+
+    @field_validator("properties", mode="before")
+    def parse_reference(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        parsed: dict[ViewReference | ContainerReference, dict[str, Any]] = {}
+        for space, inner_dict in value.items():
+            if not isinstance(inner_dict, dict) or not isinstance(space, str):
+                raise ValueError(
+                    f"Invalid properties format expected dict[str, dict[...]], got: dict[{type(space).__name__}, {type(inner_dict).__name__}]"
+                )
+            for view_or_container_identifier, prop in inner_dict.items():
+                if not isinstance(view_or_container_identifier, str):
+                    raise ValueError(
+                        "Invalid properties format expected dict[str, dict[str, ...]]], "
+                        f"got: dict[{type(space).__name__}, "
+                        f"dict[{type(view_or_container_identifier).__name__}, ...]]"
+                    )
+                source_ref: ViewReference | ContainerReference
+                if "/" in view_or_container_identifier:
+                    external_id, version = view_or_container_identifier.split("/", 1)
+                    source_ref = ViewReference(space=space, external_id=external_id, version=version)
+                else:
+                    source_ref = ContainerReference(space=space, external_id=view_or_container_identifier)
+                parsed[source_ref] = prop
+        return parsed
 
 
 class NodeRequest(InstanceRequestDefinition):
