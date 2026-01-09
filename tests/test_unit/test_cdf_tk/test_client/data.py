@@ -8,6 +8,7 @@ import pytest
 from cognite_toolkit._cdf_tk.client.api.assets import AssetsAPI
 from cognite_toolkit._cdf_tk.client.api.events import EventsAPI
 from cognite_toolkit._cdf_tk.client.api.filemetadata import FileMetadataAPI
+from cognite_toolkit._cdf_tk.client.api.raw import RawDatabasesAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsAPI
 from cognite_toolkit._cdf_tk.client.api.timeseries import TimeSeriesAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI
@@ -278,6 +279,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=RAWDatabase,
             request_cls=RAWDatabase,
             example_data=get_example_minimum_responses(RAWDatabase),
+            api_class=RawDatabasesAPI,
         ),
         id="RAWDatabase",
     )
@@ -287,6 +289,8 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             request_cls=RAWTable,
             example_data=get_example_minimum_responses(RAWTable),
             is_dump_equal_to_example=False,
+            # We cannot use the generic tests RAWTableAPI for the RAWTable resource, as it requires db_name as
+            # a path parameter and thus custom endpoint mocking.
         ),
         id="RAWTable",
     )

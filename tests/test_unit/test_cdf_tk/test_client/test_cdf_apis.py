@@ -5,10 +5,16 @@ import pytest
 import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.api.raw import RawTablesAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import APIMethod
+from cognite_toolkit._cdf_tk.client.data_classes.raw import RAWTable
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
-from tests.test_unit.test_cdf_tk.test_client.data import CDFResource, iterate_cdf_resources
+from tests.test_unit.test_cdf_tk.test_client.data import (
+    CDFResource,
+    get_example_minimum_responses,
+    iterate_cdf_resources,
+)
 
 
 class TestCDFResourceAPI:
@@ -79,3 +85,46 @@ class TestCDFResourceAPI:
         url = api._make_url(endpoint.path)
 
         respx_mock.request(endpoint.method, url).mock(return_value=httpx.Response(status_code=200, json=json))
+
+    def test_raw_table_api_create_retrieve(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        """Test RawTablesAPI create, delete, list, and iterate methods.
+
+        This cannot be tested using the generic test above as it requires custom mocking of the
+        api endpoints as database is part of the URL.
+        """
+        resource = get_example_minimum_responses(RAWTable)
+        instance = RAWTable.model_validate(resource)
+        config = toolkit_config
+        api = RawTablesAPI(HTTPClient(config))
+
+        # Test create
+        respx_mock.post(config.create_api_url(f"/raw/dbs/{instance.db_name}/tables")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        created = api.create([instance])
+        assert len(created) == 1
+        assert created[0] == instance
+
+        # Test delete
+        respx_mock.post(config.create_api_url(f"/raw/dbs/{instance.db_name}/tables/delete")).mock(
+            return_value=httpx.Response(status_code=200)
+        )
+        api.delete([instance])
+
+        # Test retrieve list
+        respx_mock.get(config.create_api_url(f"/raw/dbs/{instance.db_name}/tables")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        listed = api.list(db_name=instance.db_name, limit=10)
+        assert len(listed) == 1
+        assert listed[0] == instance
+
+        # Test iterate
+        respx_mock.get(config.create_api_url(f"/raw/dbs/{instance.db_name}/tables")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        page = api.iterate(db_name=instance.db_name, limit=10)
+        assert len(page.items) == 1
+        assert page.items[0] == instance
