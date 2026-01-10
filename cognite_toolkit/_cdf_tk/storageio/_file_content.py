@@ -6,9 +6,10 @@ from pathlib import Path
 from typing import cast
 
 import httpx
-from cognite.client.data_classes.data_modeling import NodeId, ViewId
+from cognite.client.data_classes.data_modeling import ViewId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.data_classes.data_modeling import NodeReference
 from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.http_client import (
     DataBodyRequest,
@@ -319,12 +320,12 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
 
         """
         # We know that instance_id is always set for data modeling uploads
-        instance_id = cast(NodeId, item.item.instance_id)
+        instance_id = cast(NodeReference, item.item.instance_id)
         responses = http_client.request_with_retries(
             message=SimpleBodyRequest(
                 endpoint_url=http_client.config.create_api_url("/files/uploadlink"),
                 method="POST",
-                body_content={"items": [{"instanceId": instance_id.dump(include_instance_type=False)}]},  # type: ignore[dict-item]
+                body_content={"items": [{"instanceId": instance_id.dump()}]},
             )
         )
         # We know there is only one response since we only requested one upload link
@@ -339,7 +340,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
 
     @classmethod
     def _create_cognite_file_node(
-        cls, instance_id: NodeId, http_client: HTTPClient, upload_id: str, results: MutableSequence[HTTPMessage]
+        cls, instance_id: NodeReference, http_client: HTTPClient, upload_id: str, results: MutableSequence[HTTPMessage]
     ) -> bool:
         node_creation = http_client.request_with_retries(
             message=SimpleBodyRequest(
