@@ -118,6 +118,7 @@ from cognite.client.data_classes.transformations.notifications import (
 
 from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.data_classes.event import EventRequest, EventResponse
+from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.data_classes.infield import (
     InFieldCDMLocationConfig,
     InfieldLocationConfig,
@@ -817,6 +818,17 @@ API_RESOURCES = [
         api_name="tool.events",
         resource_cls=EventResponse,
         _write_cls=EventRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.filemetadata",
+        resource_cls=FileMetadataResponse,
+        _write_cls=FileMetadataRequest,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
