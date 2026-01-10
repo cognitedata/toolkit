@@ -18,7 +18,13 @@ from cognite_toolkit._cdf_tk.client.data_classes.base import (
     T_RequestResource,
     T_ResponseResource,
 )
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsRequest2, RequestMessage2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.http_client import (
+    HTTPClient,
+    ItemsRequest2,
+    ItemsSuccessResponse2,
+    RequestMessage2,
+    SuccessResponse2,
+)
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 
 from .responses import PagedResponse, ResponseItems
@@ -67,7 +73,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         return [item.as_update(mode=mode) for item in items]
 
     @abstractmethod
-    def _page_response(self, response: SuccessResponse2) -> PagedResponse[T_ResponseResource]:
+    def _page_response(self, response: SuccessResponse2 | ItemsSuccessResponse2) -> PagedResponse[T_ResponseResource]:
         """Parse a single item response."""
         raise NotImplementedError()
 
@@ -178,7 +184,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         method: APIMethod,
         params: dict[str, Any] | None = None,
         extra_body: dict[str, Any] | None = None,
-    ) -> Iterable[SuccessResponse2]:
+    ) -> Iterable[ItemsSuccessResponse2]:
         """Request items with retries and splitting on failures.
 
         This method handles large batches of items by chunking them according to the endpoint's item limit.
@@ -210,7 +216,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
             )
             responses = self._http_client.request_items_retries(request)
             for response in responses:
-                if isinstance(response, SuccessResponse2):
+                if isinstance(response, ItemsSuccessResponse2):
                     yield response
 
     @classmethod
