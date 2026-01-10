@@ -78,14 +78,16 @@ class SimulatorModelCRUD(ResourceCRUD[ExternalId, SimulatorModelRequest, Simulat
         # Note: The SimulatorModelsAPI doesn't support data_set_external_id filtering directly,
         # so we iterate and filter in memory if needed.
         cursor: str | None = None
+        data_set_id: int | None = None
+        if data_set_external_id:
+            data_set_id = self.client.lookup.data_sets.id(data_set_external_id, is_dry_run=False)
         while True:
             page = self.client.tool.simulators.models.iterate(
                 limit=1000,
                 cursor=cursor,
             )
-            if data_set_external_id:
+            if data_set_id:
                 # Filter by data_set_external_id in memory
-                data_set_id = self.client.lookup.data_sets.id(data_set_external_id, is_dry_run=False)
                 for item in page.items:
                     if item.data_set_id == data_set_id:
                         yield item
@@ -112,7 +114,6 @@ class SimulatorModelCRUD(ResourceCRUD[ExternalId, SimulatorModelRequest, Simulat
 
     def dump_resource(self, resource: SimulatorModelResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump()
-        local = local or {}
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
         return dumped
