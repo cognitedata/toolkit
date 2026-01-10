@@ -130,7 +130,7 @@ class RelationshipCRUD(ResourceCRUD[str, RelationshipWrite, Relationship]):
                     elif type_value == "timeseries":
                         yield TimeSeriesCRUD, ExternalId(external_id=id_value)
                     elif type_value == "file":
-                        yield FileMetadataCRUD, id_value
+                        yield FileMetadataCRUD, ExternalId(external_id=id_value)
                     elif type_value == "event":
                         yield EventCRUD, ExternalId(external_id=id_value)
 
