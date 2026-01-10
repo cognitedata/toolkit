@@ -144,6 +144,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.legacy.search_config import (
     SearchConfigList,
     SearchConfigWrite,
 )
+from cognite_toolkit._cdf_tk.client.data_classes.simulator_model import SimulatorModelRequest, SimulatorModelResponse
 from cognite_toolkit._cdf_tk.client.data_classes.streams import (
     StreamRequest,
     StreamResponse,
@@ -828,6 +829,17 @@ API_RESOURCES = [
         api_name="tool.timeseries",
         resource_cls=TimeSeriesResponse,
         _write_cls=TimeSeriesRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.simulators.models",
+        resource_cls=SimulatorModelResponse,
+        _write_cls=SimulatorModelRequest,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
