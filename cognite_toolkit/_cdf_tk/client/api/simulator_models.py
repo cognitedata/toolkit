@@ -44,16 +44,22 @@ class SimulatorModelsAPI(CDFResourceAPI[InternalOrExternalId, SimulatorModelRequ
         """
         return self._request_item_response(items, "create")
 
-    def retrieve(self, items: Sequence[InternalOrExternalId]) -> list[SimulatorModelResponse]:
+    def retrieve(
+        self, items: Sequence[InternalOrExternalId], ignore_unknown_ids: bool = False
+    ) -> list[SimulatorModelResponse]:
         """Retrieve simulator models from CDF.
 
         Args:
             items: List of InternalOrExternalId objects to retrieve.
+            ignore_unknown_ids: Whether to ignore unknown IDs.
 
         Returns:
             List of retrieved SimulatorModelResponse objects.
         """
-        return self._request_item_response(items, method="retrieve")
+        if ignore_unknown_ids is False:
+            return self._request_item_response(items, method="retrieve")
+        else:
+            raise NotImplementedError()
 
     def update(
         self, items: Sequence[SimulatorModelRequest], mode: Literal["patch", "replace"] = "replace"
