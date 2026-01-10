@@ -30,7 +30,10 @@ class BaseModelObject(BaseModel):
         """
         if exclude_extra:
             return self.model_dump(
-                mode="json", by_alias=camel_case, exclude_unset=True, exclude=set(self.__pydantic_extra__ or {})
+                mode="json",
+                by_alias=camel_case,
+                exclude_unset=True,
+                exclude=set(self.__pydantic_extra__) if self.__pydantic_extra__ else None,
             )
         return self.model_dump(mode="json", by_alias=camel_case, exclude_unset=True)
 
