@@ -5,7 +5,7 @@ from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedRespo
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.data_classes.identifiers import InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.data_classes.simulator_model import SimulatorModelRequest, SimulatorModelResponse
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
 
 
 class SimulatorModelsAPI(CDFResourceAPI[InternalOrExternalId, SimulatorModelRequest, SimulatorModelResponse]):
@@ -27,7 +27,9 @@ class SimulatorModelsAPI(CDFResourceAPI[InternalOrExternalId, SimulatorModelRequ
             },
         )
 
-    def _page_response(self, response: SuccessResponse2) -> PagedResponse[SimulatorModelResponse]:
+    def _page_response(
+        self, response: SuccessResponse2 | ItemsSuccessResponse2
+    ) -> PagedResponse[SimulatorModelResponse]:
         return PagedResponse[SimulatorModelResponse].model_validate_json(response.body)
 
     def _reference_response(self, response: SuccessResponse2) -> ResponseItems[InternalOrExternalId]:
@@ -44,16 +46,24 @@ class SimulatorModelsAPI(CDFResourceAPI[InternalOrExternalId, SimulatorModelRequ
         """
         return self._request_item_response(items, "create")
 
-    def retrieve(self, items: Sequence[InternalOrExternalId]) -> list[SimulatorModelResponse]:
+    def retrieve(
+        self, items: Sequence[InternalOrExternalId], ignore_unknown_ids: bool = False
+    ) -> list[SimulatorModelResponse]:
         """Retrieve simulator models from CDF.
 
         Args:
             items: List of InternalOrExternalId objects to retrieve.
+            ignore_unknown_ids: Whether to ignore unknown IDs.
 
         Returns:
             List of retrieved SimulatorModelResponse objects.
         """
-        return self._request_item_response(items, method="retrieve")
+        if ignore_unknown_ids:
+            # The CDF API does not support ignore_unknown_ids for simulator models,
+            # so we implement it with retries here.
+            return self._request_item_split_retries(items, method="retrieve")
+        else:
+            return self._request_item_response(items, method="retrieve")
 
     def update(
         self, items: Sequence[SimulatorModelRequest], mode: Literal["patch", "replace"] = "replace"

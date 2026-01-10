@@ -60,6 +60,7 @@ from ._resource_cruds import (
     SecurityCategoryCRUD,
     SequenceCRUD,
     SequenceRowCRUD,
+    SimulatorModelCRUD,
     SpaceCRUD,
     StreamCRUD,
     StreamlitCRUD,
@@ -86,7 +87,8 @@ if not FeatureFlag.is_enabled(Flags.MIGRATE):
     _EXCLUDED_CRUDS.add(ResourceViewMappingCRUD)
 if not FeatureFlag.is_enabled(Flags.STREAMS):
     _EXCLUDED_CRUDS.add(StreamCRUD)
-
+if not FeatureFlag.is_enabled(Flags.SIMULATORS):
+    _EXCLUDED_CRUDS.add(SimulatorModelCRUD)
 
 CRUDS_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}
 for _loader in itertools.chain(
@@ -142,6 +144,7 @@ ResourceTypes: TypeAlias = Literal[
     "functions",
     "raw",
     "robotics",
+    "simulators",
     "streams",
     "streamlit",
     "workflows",
@@ -209,6 +212,7 @@ __all__ = [
     "SecurityCategoryCRUD",
     "SequenceCRUD",
     "SequenceRowCRUD",
+    "SimulatorModelCRUD",
     "SpaceCRUD",
     "StreamlitCRUD",
     "ThreeDModelCRUD",
