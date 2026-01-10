@@ -18,7 +18,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.base import (
     T_RequestResource,
     T_ResponseResource,
 )
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsRequest2, RequestMessage2, SuccessResponse2
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 
 from .responses import PagedResponse, ResponseItems
@@ -146,6 +146,72 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
             )
             response = self._http_client.request_single_retries(request)
             yield response.get_success_or_raise()
+
+    def _request_item_split_retries(
+        self,
+        items: Sequence[_T_BaseModel],
+        method: APIMethod,
+        params: dict[str, Any] | None = None,
+        extra_body: dict[str, Any] | None = None,
+    ) -> list[T_ResponseResource]:
+        """Request items with retries, splitting on failures.
+
+        This method handles large batches of items by chunking them according to the endpoint's item limit.
+        If a single item fails, it splits the request into individual item requests to isolate the failure.
+
+        Args:
+            items: Sequence of items to request.
+            method: API method to use for the request.
+            params: Optional query parameters for the request.
+            extra_body: Optional additional body fields for the request.
+        Returns:
+            List of response items.
+        """
+        response_items: list[T_ResponseResource] = []
+        for response in self._chunk_requests_items_split_retries(items, method, params, extra_body):
+            response_items.extend(self._page_response(response).items)
+        return response_items
+
+    def _chunk_requests_items_split_retries(
+        self,
+        items: Sequence[_T_BaseModel],
+        method: APIMethod,
+        params: dict[str, Any] | None = None,
+        extra_body: dict[str, Any] | None = None,
+    ) -> Iterable[SuccessResponse2]:
+        """Request items with retries and splitting on failures.
+
+        This method handles large batches of items by chunking them according to the endpoint's item limit.
+        If a single item fails, it splits the request into individual item requests to isolate the failure.
+
+        This can be useful to create ignore unknown IDs behavior when retrieving items for API endpoints that
+        do not support it natively.
+
+        Args:
+            items: Sequence of items to request.
+            method: API method to use for the request.
+            params: Optional query parameters for the request.
+            extra_body: Optional additional body fields for the request.
+        Yields
+            SuccessResponse2: Successful responses from the API. All failed items are skipped.
+
+        """
+        # Filter out None
+        request_params = self._filter_out_none_values(params)
+        endpoint = self._method_endpoint_map[method]
+
+        for chunk in chunker_sequence(items, endpoint.item_limit):
+            request = ItemsRequest2(
+                endpoint_url=f"{self._make_url(endpoint.path)}",
+                method=endpoint.method,
+                parameters=request_params,
+                items=chunk,
+                extra_body_fields=extra_body,
+            )
+            responses = self._http_client.request_items_retries(request)
+            for response in responses:
+                if isinstance(response, SuccessResponse2):
+                    yield response
 
     @classmethod
     def _filter_out_none_values(cls, params: dict[str, Any] | None) -> dict[str, Any] | None:

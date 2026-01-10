@@ -56,10 +56,12 @@ class SimulatorModelsAPI(CDFResourceAPI[InternalOrExternalId, SimulatorModelRequ
         Returns:
             List of retrieved SimulatorModelResponse objects.
         """
-        if ignore_unknown_ids is False:
-            return self._request_item_response(items, method="retrieve")
+        if ignore_unknown_ids:
+            # The CDF API does not support ignore_unknown_ids for simulator models,
+            # so we implement it with retries here.
+            return self._request_item_split_retries(items, method="retrieve")
         else:
-            raise NotImplementedError()
+            return self._request_item_response(items, method="retrieve")
 
     def update(
         self, items: Sequence[SimulatorModelRequest], mode: Literal["patch", "replace"] = "replace"
