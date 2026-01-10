@@ -15,13 +15,8 @@
 
 from collections.abc import Hashable, Iterable, Sequence
 from datetime import date, datetime
-from typing import Any, cast, final
+from typing import Any, final
 
-from cognite.client.data_classes import (
-    FileMetadata,
-    FileMetadataList,
-    FileMetadataWrite,
-)
 from cognite.client.data_classes.capabilities import (
     Capability,
     DataModelInstancesAcl,
@@ -31,9 +26,9 @@ from cognite.client.data_classes.data_modeling import NodeApplyResultList, NodeI
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils._time import convert_data_modelling_timestamp
 from cognite.client.utils.useful_types import SequenceNotStr
-from rich import print
 
-from cognite_toolkit._cdf_tk.client.data_classes.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.data_classes.identifiers import ExternalId, InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.data_classes.legacy.extendable_cognite_file import (
     ExtendableCogniteFile,
     ExtendableCogniteFileApply,
@@ -56,11 +51,11 @@ from .datamodel import SpaceCRUD, ViewCRUD
 
 
 @final
-class FileMetadataCRUD(ResourceContainerCRUD[str, FileMetadataWrite, FileMetadata]):
+class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, FileMetadataResponse]):
     item_name = "file contents"
     folder_name = "files"
-    resource_cls = FileMetadata
-    resource_write_cls = FileMetadataWrite
+    resource_cls = FileMetadataResponse
+    resource_write_cls = FileMetadataRequest
     yaml_cls = FileMetadataYAML
     kind = "FileMetadata"
     dependencies = frozenset({DataSetsCRUD, GroupAllScopedCRUD, LabelCRUD, AssetCRUD})
@@ -73,7 +68,7 @@ class FileMetadataCRUD(ResourceContainerCRUD[str, FileMetadataWrite, FileMetadat
 
     @classmethod
     def get_required_capability(
-        cls, items: Sequence[FileMetadataWrite] | None, read_only: bool
+        cls, items: Sequence[FileMetadataRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -88,22 +83,22 @@ class FileMetadataCRUD(ResourceContainerCRUD[str, FileMetadataWrite, FileMetadat
         return FilesAcl(actions, scope)
 
     @classmethod
-    def get_id(cls, item: FileMetadata | FileMetadataWrite | dict) -> str:
+    def get_id(cls, item: FileMetadataRequest | FileMetadataResponse | dict) -> ExternalId:
         if isinstance(item, dict):
-            return item["externalId"]
+            return ExternalId(external_id=item["externalId"])
         if item.external_id is None:
             raise ToolkitRequiredValueError("FileMetadata must have external_id set.")
-        return item.external_id
+        return ExternalId(external_id=item.external_id)
 
     @classmethod
-    def get_internal_id(cls, item: FileMetadata | dict) -> int:
+    def get_internal_id(cls, item: FileMetadataResponse | dict) -> int:
         if isinstance(item, dict):
             return item["id"]
         return item.id
 
     @classmethod
-    def dump_id(cls, id: str) -> dict[str, Any]:
-        return {"externalId": id}
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return id.dump()
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -121,69 +116,71 @@ class FileMetadataCRUD(ResourceContainerCRUD[str, FileMetadataWrite, FileMetadat
         for asset_external_id in item.get("assetExternalIds", []):
             yield AssetCRUD, ExternalId(external_id=asset_external_id)
 
-    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> FileMetadataWrite:
-        if resource.get("dataSetExternalId") is not None:
-            ds_external_id = resource.pop("dataSetExternalId")
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> FileMetadataRequest:
+        if ds_external_id := resource.pop("dataSetExternalId", None):
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
         if security_categories_names := resource.pop("securityCategoryNames", []):
-            security_categories = self.client.lookup.security_categories.id(security_categories_names, is_dry_run)
-            resource["securityCategories"] = security_categories
-        if "assetExternalIds" in resource:
-            resource["assetIds"] = self.client.lookup.assets.id(resource["assetExternalIds"], is_dry_run)
-        return FileMetadataWrite._load(resource)
+            resource["securityCategories"] = self.client.lookup.security_categories.id(
+                security_categories_names, is_dry_run
+            )
+        if asset_external_ids := resource.pop("assetExternalIds", None):
+            resource["assetIds"] = self.client.lookup.assets.id(asset_external_ids, is_dry_run)
+        return FileMetadataRequest.model_validate(resource)
 
-    def dump_resource(self, resource: FileMetadata, local: dict[str, Any] | None = None) -> dict[str, Any]:
-        dumped = resource.as_write().dump()
-        if ds_id := dumped.pop("dataSetId", None):
-            dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(ds_id)
+    def dump_resource(self, resource: FileMetadataResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_request_resource().dump()
+        if data_set_id := dumped.pop("dataSetId", None):
+            dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
         if security_categories := dumped.pop("securityCategories", []):
             dumped["securityCategoryNames"] = self.client.lookup.security_categories.external_id(security_categories)
         if asset_ids := dumped.pop("assetIds", []):
             dumped["assetExternalIds"] = self.client.lookup.assets.external_id(asset_ids)
         return dumped
 
-    def create(self, items: Sequence[FileMetadataWrite]) -> FileMetadataList:
-        created = FileMetadataList([])
-        for meta in items:
-            try:
-                created.append(self.client.files.create(meta))
-            except CogniteAPIError as e:
-                if e.code == 409:
-                    print(f"  [bold yellow]WARNING:[/] File {meta.external_id} already exists, skipping upload.")
-        return created
+    def create(self, items: Sequence[FileMetadataRequest]) -> list[FileMetadataResponse]:
+        return self.client.tool.filemetadata.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> FileMetadataList:
-        return self.client.files.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
+    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[FileMetadataResponse]:
+        return self.client.tool.filemetadata.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[FileMetadataWrite]) -> FileMetadataList:
-        return self.client.files.update(items, mode="replace")
+    def update(self, items: Sequence[FileMetadataRequest]) -> list[FileMetadataResponse]:
+        return self.client.tool.filemetadata.update(items, mode="replace")
 
-    def delete(self, ids: str | int | SequenceNotStr[str | int] | None) -> int:
-        internal_ids, external_ids = self._split_ids(ids)
-        self.client.files.delete(id=internal_ids, external_id=external_ids)
-        return len(cast(SequenceNotStr[str], ids))
+    def delete(self, ids: SequenceNotStr[InternalOrExternalId]) -> int:
+        if not ids:
+            return 0
+        self.client.tool.filemetadata.delete(list(ids), ignore_unknown_ids=True)
+        return len(ids)
 
     def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
-    ) -> Iterable[FileMetadata]:
-        return iter(self.client.files(data_set_external_ids=[data_set_external_id] if data_set_external_id else None))
+    ) -> Iterable[FileMetadataResponse]:
+        cursor: str | None = None
+        while True:
+            page = self.client.tool.filemetadata.iterate(
+                data_set_external_ids=[data_set_external_id] if data_set_external_id else None,
+                limit=1000,
+                cursor=cursor,
+            )
+            yield from page.items
+            if not page.next_cursor or not page.items:
+                break
+            cursor = page.next_cursor
 
-    def count(self, ids: SequenceNotStr[str]) -> int:
+    def count(self, ids: SequenceNotStr[ExternalId]) -> int:
         return sum(
-            1
-            for meta in self.client.files.retrieve_multiple(external_ids=list(ids), ignore_unknown_ids=True)
-            if meta.uploaded
+            1 for meta in self.client.tool.filemetadata.retrieve(list(ids), ignore_unknown_ids=True) if meta.uploaded
         )
 
-    def drop_data(self, ids: SequenceNotStr[str]) -> int:
-        existing = self.client.files.retrieve_multiple(external_ids=list(ids), ignore_unknown_ids=True)
+    def drop_data(self, ids: SequenceNotStr[ExternalId]) -> int:
+        existing = self.client.tool.filemetadata.retrieve(list(ids), ignore_unknown_ids=True)
         # File and FileMetadata is tightly coupled, so we need to delete the metadata and recreate it
         # without the source set to delete the file.
-        deleted_files = self.delete(existing.as_external_ids())
-        self.create(existing.as_write())
+        deleted_files = self.delete([meta.as_id() for meta in existing])
+        self.create([meta.as_request_resource() for meta in existing])
         return deleted_files
 
 
