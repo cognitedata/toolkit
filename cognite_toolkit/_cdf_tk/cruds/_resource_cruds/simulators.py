@@ -58,7 +58,7 @@ class SimulatorModelCRUD(ResourceCRUD[ExternalId, SimulatorModelRequest, Simulat
         return self.client.tool.simulators.models.create(items)
 
     def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[SimulatorModelResponse]:
-        return self.client.tool.simulators.models.retrieve(list(ids))
+        return self.client.tool.simulators.models.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[SimulatorModelRequest]) -> list[SimulatorModelResponse]:
         return self.client.tool.simulators.models.update(items, mode="replace")
