@@ -50,6 +50,9 @@ class UploadFileContentItem(UploadItem[FileMetadataRequest]):
     file_path: Path
     mime_type: str
 
+    def dump(self) -> JsonVal:
+        return self.item.dump(camel_case=True, exclude_extra=True)
+
 
 @dataclass
 class MetadataWithFilePath(ResourceResponseProtocol):
