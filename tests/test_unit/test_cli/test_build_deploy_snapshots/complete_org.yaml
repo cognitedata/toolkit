@@ -365,14 +365,6 @@ FileCRUD:
 - external_id: myapp
   filehash: c59dc2b6
 FileMetadata:
-- dataSetId: 7982613576047462211
-  directory: /files
-  externalId: classicFileMetadata
-  metadata:
-    origin: cognite-toolkit
-  mimeType: text/plain
-  name: classicfile.txt
-  source: doctrino
 - data_set_id: 13045366179566211942
   external_id: fn_first_function
   id: 64
@@ -391,6 +383,15 @@ FileMetadata:
     theme: Light
     thumbnail: data:image/webp;base64,....
   name: MySuperApp-source.json
+FileMetadataResponse:
+- dataSetId: 7982613576047462211
+  directory: /files
+  externalId: classicFileMetadata
+  metadata:
+    origin: cognite-toolkit
+  mimeType: text/plain
+  name: classicfile.txt
+  source: doctrino
 Frame:
 - externalId: rootCoordinateFrame
   name: Root coordinate frame

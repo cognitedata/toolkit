@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Any, ClassVar
 
 import pytest
-from cognite.client.data_classes import Annotation, FileMetadata, Sequence
+from cognite.client.data_classes import Annotation, Sequence
 from cognite.client.data_classes.data_modeling import (
     EdgeApply,
     NodeId,
@@ -18,6 +18,7 @@ from cognite.client.data_classes.data_modeling.views import MappedProperty, Mult
 
 from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.data_classes.event import EventResponse
+from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import (
     AssetCentricId,
     CreatedSourceSystem,
@@ -617,12 +618,15 @@ class TestAssetCentricConversion:
                 id="Event with conversion issues (missing properties)",
             ),
             pytest.param(
-                FileMetadata(
+                FileMetadataResponse(
                     id=321,
                     external_id="file_321",
                     name="Test File",
                     mime_type="application/octet-stream",
                     metadata={"file_type": "pdf", "confidential": "true"},
+                    created_time=0,
+                    last_updated_time=0,
+                    uploaded=True,
                 ),
                 ResourceViewMapping(
                     external_id="file_mapping",
@@ -672,10 +676,13 @@ class TestAssetCentricConversion:
                     asset_centric_id=AssetCentricId("file", id_=321),
                     instance_id=INSTANCE_ID,
                     ignored_asset_centric_properties=[
+                        "createdTime",
+                        "lastUpdatedTime",
                         "metadata.confidential",
                         "metadata.file_type",
                         "mimeType",
                         "name",
+                        "uploaded",
                     ],
                     missing_asset_centric_properties=[],
                     missing_instance_properties=[],
@@ -840,7 +847,7 @@ class TestAssetCentricConversion:
     )
     def test_asset_centric_to_dm(
         self,
-        resource: AssetResponse | FileMetadata | EventResponse | TimeSeriesResponse | Sequence,
+        resource: AssetResponse | FileMetadataResponse | EventResponse | TimeSeriesResponse | Sequence,
         view_source: ResourceViewMapping,
         view_properties: dict[str, ViewProperty],
         expected_properties: dict[str, str],

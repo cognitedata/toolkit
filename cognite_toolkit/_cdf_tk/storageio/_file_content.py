@@ -6,10 +6,11 @@ from pathlib import Path
 from typing import cast
 
 import httpx
-from cognite.client.data_classes import FileMetadata, FileMetadataWrite
-from cognite.client.data_classes.data_modeling import NodeId, ViewId
+from cognite.client.data_classes.data_modeling import ViewId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.data_classes.data_modeling import NodeReference
+from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.http_client import (
     DataBodyRequest,
     ErrorDetails,
@@ -45,21 +46,24 @@ COGNITE_FILE_VIEW = ViewId("cdf_cdm", "CogniteFile", "v1")
 
 
 @dataclass
-class UploadFileContentItem(UploadItem[FileMetadataWrite]):
+class UploadFileContentItem(UploadItem[FileMetadataRequest]):
     file_path: Path
     mime_type: str
+
+    def dump(self) -> JsonVal:
+        return self.item.dump(camel_case=True, exclude_extra=True)
 
 
 @dataclass
 class MetadataWithFilePath(ResourceResponseProtocol):
-    metadata: FileMetadata
+    metadata: FileMetadataResponse
     file_path: Path
 
-    def as_write(self) -> FileMetadataWrite:
-        return self.metadata.as_write()
+    def as_write(self) -> FileMetadataRequest:
+        return self.metadata.as_request_resource()
 
 
-class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePath, FileMetadataWrite]):
+class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePath, FileMetadataRequest]):
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
     CHUNK_SIZE = 10
@@ -116,7 +120,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
                 )
             yield Page(items=downloaded_files, worker_id="Main")
 
-    def _retrieve_metadata(self, identifiers: Sequence[FileIdentifier]) -> Sequence[FileMetadata] | None:
+    def _retrieve_metadata(self, identifiers: Sequence[FileIdentifier]) -> Sequence[FileMetadataResponse] | None:
         config = self.client.config
         responses = self.client.http_client.request_with_retries(
             message=SimpleBodyRequest(
@@ -137,12 +141,11 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
         items_data = body.get("items", [])
         if not isinstance(items_data, list):
             return None
-        # MyPy does not understand that JsonVal is valid dict[Any, Any]
-        return [FileMetadata._load(item) for item in items_data]  # type: ignore[arg-type]
+        return [FileMetadataResponse.model_validate(item) for item in items_data]
 
     @staticmethod
-    def _as_metadata_map(metadata: Sequence[FileMetadata]) -> dict[FileIdentifier, FileMetadata]:
-        identifiers_map: dict[FileIdentifier, FileMetadata] = {}
+    def _as_metadata_map(metadata: Sequence[FileMetadataResponse]) -> dict[FileIdentifier, FileMetadataResponse]:
+        identifiers_map: dict[FileIdentifier, FileMetadataResponse] = {}
         for item in metadata:
             if item.id is not None:
                 identifiers_map[FileInternalID(internal_id=item.id)] = item
@@ -158,9 +161,9 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
                 ] = item
         return identifiers_map
 
-    def _create_filepath(self, meta: FileMetadata, selector: FileIdentifierSelector) -> Path:
+    def _create_filepath(self, meta: FileMetadataResponse, selector: FileIdentifierSelector) -> Path:
         # We now that metadata always have name set
-        filename = Path(sanitize_filename(cast(str, meta.name)))
+        filename = Path(sanitize_filename(meta.name))
         if len(filename.suffix) == 0 and meta.mime_type:
             if mime_ext := mimetypes.guess_extension(meta.mime_type):
                 filename = filename.with_suffix(mime_ext)
@@ -245,12 +248,12 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
             )
         return result
 
-    def json_to_resource(self, item_json: dict[str, JsonVal]) -> FileMetadataWrite:
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> FileMetadataRequest:
         return self._crud.load_resource(item_json)
 
     def upload_items(
         self,
-        data_chunk: Sequence[UploadItem[FileMetadataWrite]],
+        data_chunk: Sequence[UploadItem[FileMetadataRequest]],
         http_client: HTTPClient,
         selector: FileContentSelector | None = None,
     ) -> Sequence[HTTPMessage]:
@@ -320,12 +323,12 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
 
         """
         # We know that instance_id is always set for data modeling uploads
-        instance_id = cast(NodeId, item.item.instance_id)
+        instance_id = cast(NodeReference, item.item.instance_id)
         responses = http_client.request_with_retries(
             message=SimpleBodyRequest(
                 endpoint_url=http_client.config.create_api_url("/files/uploadlink"),
                 method="POST",
-                body_content={"items": [{"instanceId": instance_id.dump(include_instance_type=False)}]},  # type: ignore[dict-item]
+                body_content={"items": [{"instanceId": instance_id.dump()}]},
             )
         )
         # We know there is only one response since we only requested one upload link
@@ -340,7 +343,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
 
     @classmethod
     def _create_cognite_file_node(
-        cls, instance_id: NodeId, http_client: HTTPClient, upload_id: str, results: MutableSequence[HTTPMessage]
+        cls, instance_id: NodeReference, http_client: HTTPClient, upload_id: str, results: MutableSequence[HTTPMessage]
     ) -> bool:
         node_creation = http_client.request_with_retries(
             message=SimpleBodyRequest(

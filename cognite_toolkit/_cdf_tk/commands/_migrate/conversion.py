@@ -1,7 +1,7 @@
 from collections.abc import Iterable, Mapping, Set
 from typing import Any, ClassVar, cast
 
-from cognite.client.data_classes import Annotation, FileMetadata
+from cognite.client.data_classes import Annotation
 from cognite.client.data_classes.data_modeling import (
     DirectRelation,
     DirectRelationReference,
@@ -18,6 +18,7 @@ from cognite.client.utils._identifier import InstanceId
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.data_classes.event import EventResponse
+from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import (
     AssetCentricId,
     ResourceViewMappingApply,
@@ -117,7 +118,7 @@ class DirectRelationCache:
                     source_ids.add(resource.source)
                 if resource.parent_id is not None:
                     asset_ids.add(resource.parent_id)
-            elif isinstance(resource, FileMetadata):
+            elif isinstance(resource, FileMetadataResponse):
                 if resource.source:
                     source_ids.add(resource.source)
                 if resource.asset_ids:
@@ -248,7 +249,7 @@ def asset_centric_to_dm(
 def _lookup_resource_type(resource_type: AssetCentricResourceExtended) -> AssetCentricTypeExtended:
     if isinstance(resource_type, AssetResponse):
         return "asset"
-    elif isinstance(resource_type, FileMetadata):
+    elif isinstance(resource_type, FileMetadataResponse):
         return "file"
     elif isinstance(resource_type, EventResponse):
         return "event"

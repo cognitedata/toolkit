@@ -9,8 +9,6 @@ import pytest
 import respx
 from cognite.client.data_classes import (
     CountAggregate,
-    FileMetadata,
-    FileMetadataList,
     LabelDefinition,
     LabelDefinitionList,
 )
@@ -19,6 +17,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse
 from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.data_classes.event import EventResponse
+from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.data_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
@@ -65,23 +64,25 @@ def some_asset_data() -> list[AssetResponse]:
 
 
 @pytest.fixture(scope="module")
-def some_filemetadata_data() -> FileMetadataList:
+def some_filemetadata_data() -> list[FileMetadataResponse]:
     """Fixture to provide a sample FileMetadataList for testing."""
-    return FileMetadataList(
-        [
-            FileMetadata(
-                external_id=f"file_{i}",
-                name=f"File {i}",
-                directory="/test/dir",
-                mime_type="text/plain",
-                data_set_id=DATA_SET_ID,
-                asset_ids=[ASSET_ID],
-                source="test_source",
-                metadata={"key": f"value_{i}"} if i % 2 == 0 else None,
-            )
-            for i in range(RESOURCE_COUNT)
-        ]
-    )
+    return [
+        FileMetadataResponse(
+            id=1000 + i,
+            external_id=f"file_{i}",
+            name=f"File {i}",
+            directory="/test/dir",
+            mime_type="text/plain",
+            data_set_id=DATA_SET_ID,
+            asset_ids=[ASSET_ID],
+            source="test_source",
+            created_time=1,
+            last_updated_time=1,
+            uploaded=True,
+            **({"metadata": {"key": f"value_{i}"}} if i % 2 == 0 else {}),
+        )
+        for i in range(RESOURCE_COUNT)
+    ]
 
 
 @pytest.fixture(scope="module")
@@ -132,7 +133,7 @@ def some_event_data() -> list[EventResponse]:
 def asset_centric_client(
     toolkit_config: ToolkitClientConfig,
     some_asset_data: list[AssetResponse],
-    some_filemetadata_data: FileMetadataList,
+    some_filemetadata_data: list[FileMetadataResponse],
     some_timeseries_data: list[TimeSeriesResponse],
     some_event_data: list[EventResponse],
 ) -> Iterable[ToolkitClient]:
@@ -161,10 +162,18 @@ def asset_centric_client(
             event_items = event_chunks.pop()
             return PagedResponse(items=event_items, nextCursor="cursor" if event_chunks else None)
 
+        file_chunks = list(chunker(some_filemetadata_data, CHUNK_SIZE))
+        file_chunks.reverse()
+
+        def iterate_files(*_, **__) -> PagedResponse[FileMetadataResponse]:
+            nonlocal file_chunks
+            file_items = file_chunks.pop()
+            return PagedResponse(items=file_items, nextCursor="cursor" if file_chunks else None)
+
         client.tool.assets.iterate.side_effect = iterate_assets
         client.tool.timeseries.iterate.side_effect = iterate_timeseries
         client.tool.events.iterate.side_effect = iterate_events
-        client.files.return_value = chunker(some_filemetadata_data, CHUNK_SIZE)
+        client.tool.filemetadata.iterate.side_effect = iterate_files
 
         client.assets.aggregate_count.return_value = RESOURCE_COUNT
         client.files.aggregate.return_value = [CountAggregate(RESOURCE_COUNT)]
@@ -232,7 +241,7 @@ class TestAssetCentricIO:
         respx_mock: respx.MockRouter,
         asset_centric_client: ToolkitClient,
         some_asset_data: list[AssetResponse],
-        some_filemetadata_data: FileMetadataList,
+        some_filemetadata_data: list[FileMetadataResponse],
         some_timeseries_data: list[TimeSeriesResponse],
         some_event_data: list[EventResponse],
     ) -> None:

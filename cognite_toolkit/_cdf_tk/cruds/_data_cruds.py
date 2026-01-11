@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, cast, final
 import pandas as pd
 from cognite.client.data_classes import FileMetadataWrite
 
+from cognite_toolkit._cdf_tk.client.data_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.data_classes.legacy.extendable_cognite_file import ExtendableCogniteFileApply
 from cognite_toolkit._cdf_tk.client.data_classes.legacy.raw import RawTable
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
@@ -119,11 +120,14 @@ class FileCRUD(DataCRUD):
                 if not datafile.exists():
                     continue
 
+                identifier = resource.identifier
+                if isinstance(identifier, ExternalId):
+                    identifier = identifier.external_id
                 if dry_run:
-                    yield f" Would upload file '{datafile!s}' to file with {id_name}={resource.identifier!r}", 1
+                    yield f" Would upload file '{datafile!s}' to file with {id_name}={identifier!r}", 1
                 else:
-                    self.client.files.upload_content(path=str(datafile), **{id_name: resource.identifier})
-                    yield f" Uploaded file '{datafile!s}' to file with {id_name}={resource.identifier!r}", 1
+                    self.client.files.upload_content(path=str(datafile), **{id_name: identifier})
+                    yield f" Uploaded file '{datafile!s}' to file with {id_name}={identifier!r}", 1
 
     @staticmethod
     def _read_metadata(
