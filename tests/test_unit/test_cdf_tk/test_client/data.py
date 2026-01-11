@@ -49,12 +49,12 @@ from cognite_toolkit._cdf_tk.client.data_classes.hosted_extractor_mapping import
     HostedExtractorMappingResponse,
 )
 from cognite_toolkit._cdf_tk.client.data_classes.hosted_extractor_source import (
-    HostedExtractorKafkaSourceRequest,
-    HostedExtractorKafkaSourceResponse,
-    HostedExtractorMQTTSourceRequest,
-    HostedExtractorMQTTSourceResponse,
-    HostedExtractorRESTSourceRequest,
-    HostedExtractorRESTSourceResponse,
+    KafkaSourceRequest,
+    KafkaSourceResponse,
+    MQTTSourceRequest,
+    MQTTSourceResponse,
+    RESTSourceRequest,
+    RESTSourceResponse,
 )
 from cognite_toolkit._cdf_tk.client.data_classes.label import LabelRequest, LabelResponse
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RAWDatabase, RAWTable
@@ -286,21 +286,21 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
         },
-        HostedExtractorKafkaSourceResponse: {
+        KafkaSourceResponse: {
             "type": "kafka",
             "externalId": "kafka_source_001",
             "bootstrapBrokers": [{"host": "localhost", "port": 9092}],
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
         },
-        HostedExtractorMQTTSourceResponse: {
+        MQTTSourceResponse: {
             "type": "mqtt",
             "externalId": "mqtt_source_001",
             "host": "localhost",
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
         },
-        HostedExtractorRESTSourceResponse: {
+        RESTSourceResponse: {
             "type": "rest",
             "externalId": "rest_source_001",
             "host": "api.example.com",
@@ -555,25 +555,25 @@ def iterate_cdf_resources() -> Iterable[tuple]:
     )
     yield pytest.param(
         CDFResource(
-            response_cls=HostedExtractorKafkaSourceResponse,
-            request_cls=HostedExtractorKafkaSourceRequest,
-            example_data=get_example_minimum_responses(HostedExtractorKafkaSourceResponse),
+            response_cls=KafkaSourceResponse,
+            request_cls=KafkaSourceRequest,
+            example_data=get_example_minimum_responses(KafkaSourceResponse),
         ),
         id="HostedExtractorKafkaSource",
     )
     yield pytest.param(
         CDFResource(
-            response_cls=HostedExtractorMQTTSourceResponse,
-            request_cls=HostedExtractorMQTTSourceRequest,
-            example_data=get_example_minimum_responses(HostedExtractorMQTTSourceResponse),
+            response_cls=MQTTSourceResponse,
+            request_cls=MQTTSourceRequest,
+            example_data=get_example_minimum_responses(MQTTSourceResponse),
         ),
         id="HostedExtractorMQTTSource",
     )
     yield pytest.param(
         CDFResource(
-            response_cls=HostedExtractorRESTSourceResponse,
-            request_cls=HostedExtractorRESTSourceRequest,
-            example_data=get_example_minimum_responses(HostedExtractorRESTSourceResponse),
+            response_cls=RESTSourceResponse,
+            request_cls=RESTSourceRequest,
+            example_data=get_example_minimum_responses(RESTSourceResponse),
         ),
         id="HostedExtractorRESTSource",
     )
