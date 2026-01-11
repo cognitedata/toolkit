@@ -40,7 +40,7 @@ class RawBuilder(Builder):
                     entry_by_loader[RawDatabaseCRUD].append(item)
                 else:
                     entry_by_loader[RawTableCRUD].append(item)
-                    db_item = RawDatabaseCRUD.dump_id(RawDatabase(table_id.db_name))
+                    db_item = RawDatabaseCRUD.dump_id(RawDatabase(db_name=table_id.db_name))
                     hashable_db_item = tuple(db_item.items())
                     if hashable_db_item not in seen_databases:
                         seen_databases.add(hashable_db_item)
