@@ -1,4 +1,6 @@
-from pydantic import JsonValue
+from typing import Annotated, Literal
+
+from pydantic import Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client.data_classes.base import (
     BaseModelObject,
@@ -9,52 +11,53 @@ from cognite_toolkit._cdf_tk.client.data_classes.base import (
 from .identifiers import ExternalId
 
 
+class TriggerRuleDefinition(BaseModelObject):
+    trigger_type: str
+
+
 class ScheduleTriggerRule(BaseModelObject):
-    trigger_type: str | None = None
-    cron_expression: str | None = None
+    trigger_type: Literal["schedule"] = "schedule"
+    cron_expression: str
     timezone: str | None = None
 
 
 class DataModelingTriggerRule(BaseModelObject):
-    trigger_type: str | None = None
-    data_modeling_query: JsonValue | None = None
-    batch_size: int | None = None
-    batch_timeout: int | None = None
+    trigger_type: Literal["dataModeling"] = "dataModeling"
+    data_modeling_query: JsonValue
+    batch_size: int
+    batch_timeout: int
 
 
-class TriggerRule(BaseModelObject):
-    trigger_type: str | None = None
-    cron_expression: str | None = None
-    timezone: str | None = None
-    data_modeling_query: JsonValue | None = None
-    batch_size: int | None = None
-    batch_timeout: int | None = None
+TriggerRule = Annotated[
+    ScheduleTriggerRule | DataModelingTriggerRule,
+    Field(discriminator="trigger_type"),
+]
 
 
-class Authentication(BaseModelObject):
-    client_id: str | None = None
-    client_secret: str | None = None
+class NonceCredentials(BaseModelObject):
+    nonce: str
 
 
 class WorkflowTrigger(BaseModelObject):
     external_id: str
-    trigger_rule: TriggerRule | None = None
-    workflow_external_id: str | None = None
-    workflow_version: str | None = None
+    trigger_rule: TriggerRule
+    workflow_external_id: str
+    workflow_version: str
     input: JsonValue | None = None
     metadata: dict[str, str] | None = None
-    authentication: Authentication | None = None
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
 
 
-class WorkflowTriggerRequest(WorkflowTrigger, RequestResource): ...
+class WorkflowTriggerRequest(WorkflowTrigger, RequestResource):
+    authentication: NonceCredentials
 
 
 class WorkflowTriggerResponse(WorkflowTrigger, ResponseResource[WorkflowTriggerRequest]):
     created_time: int
     last_updated_time: int
+    is_paused: bool
 
     def as_request_resource(self) -> WorkflowTriggerRequest:
         return WorkflowTriggerRequest.model_validate(self.dump(), extra="ignore")
