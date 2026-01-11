@@ -36,7 +36,7 @@ class AuthenticationResponseDefinition(BaseModelObject):
     type: str
 
 
-class BasicAuthentication(BaseModelObject):
+class BasicAuthentication(AuthenticationRequestDefinition):
     type: Literal["basic"] = "basic"
     username: str
 
@@ -75,15 +75,15 @@ class ScramShaAuthenticationRequest(ScramShaAuthentication, AuthenticationReques
 class ScramShaAuthenticationResponse(ScramShaAuthentication, AuthenticationResponseDefinition): ...
 
 
-AuthenticationRequest = Annotated[
-    BasicAuthenticationRequest | ClientCredentialAuthenticationRequest | ScramShaAuthenticationRequest,
-    Field(discriminator="type"),
-]
+class HTTPBasicAuthenticationRequest(AuthenticationRequestDefinition):
+    type: Literal["header", "query"]
+    key: str
+    value: str
 
-AuthenticationResponse = Annotated[
-    BasicAuthenticationResponse | ClientCredentialAuthenticationResponse | ScramShaAuthenticationResponse,
-    Field(discriminator="type"),
-]
+
+class HTTPBasicAuthenticationResponse(AuthenticationResponseDefinition):
+    type: Literal["header", "query"]
+    key: str
 
 
 class KafkaBroker(BaseModelObject):
@@ -91,7 +91,7 @@ class KafkaBroker(BaseModelObject):
     port: int
 
 
-class HostedExtractorSourceRequestDefinition(RequestResource):
+class SourceRequestDefinition(RequestResource):
     type: str
     external_id: str
 
@@ -99,126 +99,122 @@ class HostedExtractorSourceRequestDefinition(RequestResource):
         return ExternalId(external_id=self.external_id)
 
 
-class HostedExtractorKafkaSource(BaseModelObject):
+class KafkaSource(BaseModelObject):
     type: Literal["kafka"] = "kafka"
     bootstrap_brokers: list[KafkaBroker]
     use_tls: bool | None = None
 
 
-class HostedExtractorKafkaSourceRequest(HostedExtractorKafkaSource, HostedExtractorSourceRequestDefinition):
-    authentication: AuthenticationRequest | None = None
-    ca_certificate: CACertificateRequest | str | None = None
+class KafkaSourceRequest(KafkaSource, SourceRequestDefinition):
+    authentication: (
+        BasicAuthenticationRequest | ClientCredentialAuthenticationRequest | ScramShaAuthenticationRequest | None
+    ) = Field(None, discriminator="type")
+    ca_certificate: CACertificateRequest | None = None
     auth_certificate: AuthCertificateRequest | None = None
 
 
-class HostedExtractorEventHubSource(BaseModelObject):
+class EventHubSource(BaseModelObject):
     type: Literal["eventHub"] = "eventHub"
     host: str
-    port: int | None = None
     event_hub_name: str
-    key_name: str
     consumer_group: str | None = None
-    scheme: str | None = None
-    use_tls: bool | None = None
 
 
-class HostedExtractorEventHubSourceRequest(HostedExtractorEventHubSource, HostedExtractorSourceRequestDefinition):
-    key_value: str
-    ca_certificate: CACertificateRequest | str | None = None
-    auth_certificate: AuthCertificateRequest | None = None
-    authentication: AuthenticationRequest | None = None
+class EventHubSourceRequest(EventHubSource, SourceRequestDefinition):
+    authentication: BasicAuthenticationRequest | None = None
 
 
-class HostedExtractorMQTTSource(BaseModelObject):
-    type: Literal["mqtt"] = "mqtt"
+class MQTTSource(BaseModelObject):
+    type: Literal["mqtt5", "mqtt3"]
     host: str
     port: int | None = None
     use_tls: bool | None = None
 
 
-class HostedExtractorMQTTSourceRequest(HostedExtractorMQTTSource, HostedExtractorSourceRequestDefinition):
-    authentication: AuthenticationRequest | None = None
-    ca_certificate: CACertificateRequest | str | None = None
+class MQTTSourceRequest(MQTTSource, SourceRequestDefinition):
+    authentication: BasicAuthenticationRequest | None = None
+    ca_certificate: CACertificateRequest | None = None
     auth_certificate: AuthCertificateRequest | None = None
 
 
-class HostedExtractorRESTSource(BaseModelObject):
+class RESTSource(BaseModelObject):
     type: Literal["rest"] = "rest"
     host: str
     port: int | None = None
-    use_tls: bool | None = None
 
 
-class HostedExtractorRESTSourceRequest(HostedExtractorRESTSource, HostedExtractorSourceRequestDefinition):
-    authentication: AuthenticationRequest | None = None
+class RESTSourceRequest(RESTSource, SourceRequestDefinition):
+    scheme: Literal["https", "http"] | None = None
+    authentication: (
+        BasicAuthenticationRequest | HTTPBasicAuthenticationRequest | ClientCredentialAuthenticationRequest | None
+    ) = Field(None, discriminator="type")
     ca_certificate: CACertificateRequest | str | None = None
     auth_certificate: AuthCertificateRequest | None = None
 
 
-class HostedExtractorSourceResponseDefinition(BaseModelObject):
+class SourceResponseDefinition(BaseModelObject):
     type: str
     external_id: str
     created_time: int
     last_updated_time: int
 
 
-class HostedExtractorKafkaSourceResponse(
-    HostedExtractorSourceResponseDefinition,
-    HostedExtractorKafkaSource,
-    ResponseResource[HostedExtractorKafkaSourceRequest],
+class KafkaSourceResponse(
+    SourceResponseDefinition,
+    KafkaSource,
+    ResponseResource[KafkaSourceRequest],
 ):
-    authentication: AuthenticationResponse | None = None
+    authentication: (
+        BasicAuthenticationResponse | ClientCredentialAuthenticationResponse | ScramShaAuthenticationResponse | None
+    ) = Field(None, discriminator="type")
     ca_certificate: CertificateResponse | None = None
     auth_certificate: CertificateResponse | None = None
 
-    def as_request_resource(self) -> HostedExtractorKafkaSourceRequest:
-        return HostedExtractorKafkaSourceRequest.model_validate(self.dump(), extra="ignore")
+    def as_request_resource(self) -> KafkaSourceRequest:
+        return KafkaSourceRequest.model_validate(self.dump(), extra="ignore")
 
 
-class HostedExtractorEventHubSourceResponse(
-    HostedExtractorSourceResponseDefinition,
-    HostedExtractorEventHubSource,
-    ResponseResource[HostedExtractorEventHubSourceRequest],
+class EventHubSourceResponse(
+    SourceResponseDefinition,
+    EventHubSource,
+    ResponseResource[EventHubSourceRequest],
 ):
-    authentication: AuthenticationResponse | None = None
+    authentication: BasicAuthenticationResponse | None = None
+
+    def as_request_resource(self) -> EventHubSourceRequest:
+        return EventHubSourceRequest.model_validate(self.dump(), extra="ignore")
+
+
+class MQTTSourceResponse(
+    SourceResponseDefinition,
+    MQTTSource,
+    ResponseResource[MQTTSourceRequest],
+):
+    authentication: BasicAuthenticationResponse | None = None
     ca_certificate: CertificateResponse | None = None
     auth_certificate: CertificateResponse | None = None
 
-    def as_request_resource(self) -> HostedExtractorEventHubSourceRequest:
-        return HostedExtractorEventHubSourceRequest.model_validate(self.dump(), extra="ignore")
+    def as_request_resource(self) -> MQTTSourceRequest:
+        return MQTTSourceRequest.model_validate(self.dump(), extra="ignore")
 
 
-class HostedExtractorMQTTSourceResponse(
-    HostedExtractorSourceResponseDefinition,
-    HostedExtractorMQTTSource,
-    ResponseResource[HostedExtractorMQTTSourceRequest],
+class RESTSourceResponse(
+    SourceResponseDefinition,
+    RESTSource,
+    ResponseResource[RESTSourceRequest],
 ):
-    authentication: AuthenticationResponse | None = None
+    authentication: (
+        BasicAuthenticationResponse | HTTPBasicAuthenticationResponse | ClientCredentialAuthenticationResponse | None
+    ) = Field(None, discriminator="type")
     ca_certificate: CertificateResponse | None = None
     auth_certificate: CertificateResponse | None = None
 
-    def as_request_resource(self) -> HostedExtractorMQTTSourceRequest:
-        return HostedExtractorMQTTSourceRequest.model_validate(self.dump(), extra="ignore")
-
-
-class HostedExtractorRESTSourceResponse(
-    HostedExtractorSourceResponseDefinition,
-    HostedExtractorRESTSource,
-    ResponseResource[HostedExtractorRESTSourceRequest],
-):
-    authentication: AuthenticationResponse | None = None
-    ca_certificate: CertificateResponse | None = None
-    auth_certificate: CertificateResponse | None = None
-
-    def as_request_resource(self) -> HostedExtractorRESTSourceRequest:
-        return HostedExtractorRESTSourceRequest.model_validate(self.dump(), extra="ignore")
+    def as_request_resource(self) -> RESTSourceRequest:
+        return RESTSourceRequest.model_validate(self.dump(), extra="ignore")
 
 
 HostedExtractorSourceRequestUnion = Annotated[
-    HostedExtractorKafkaSourceRequest
-    | HostedExtractorEventHubSourceRequest
-    | HostedExtractorMQTTSourceRequest
-    | HostedExtractorRESTSourceRequest,
+    KafkaSourceRequest | EventHubSourceRequest | MQTTSourceRequest | RESTSourceRequest,
     Field(discriminator="type"),
 ]
 
@@ -227,10 +223,7 @@ HostedExtractorSourceRequest: TypeAdapter[HostedExtractorSourceRequestUnion] = T
 )
 
 HostedExtractorSourceResponseUnion = Annotated[
-    HostedExtractorKafkaSourceResponse
-    | HostedExtractorEventHubSourceResponse
-    | HostedExtractorMQTTSourceResponse
-    | HostedExtractorRESTSourceResponse,
+    KafkaSourceResponse | EventHubSourceResponse | MQTTSourceResponse | RESTSourceResponse,
     Field(discriminator="type"),
 ]
 
