@@ -138,7 +138,7 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
         return dumped
 
     def create(self, items: Sequence[FileMetadataRequest]) -> list[FileMetadataResponse]:
-        return self.client.tool.filemetadata.create(items)
+        return self.client.tool.filemetadata.create(items, overwrite=True)
 
     def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[FileMetadataResponse]:
         return self.client.tool.filemetadata.retrieve(list(ids), ignore_unknown_ids=True)
