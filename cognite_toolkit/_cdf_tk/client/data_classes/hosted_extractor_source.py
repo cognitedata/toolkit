@@ -1,3 +1,7 @@
+from typing import Annotated, Literal
+
+from pydantic import Field, TypeAdapter
+
 from cognite_toolkit._cdf_tk.client.data_classes.base import (
     BaseModelObject,
     RequestResource,
@@ -7,28 +11,79 @@ from cognite_toolkit._cdf_tk.client.data_classes.base import (
 from .identifiers import ExternalId
 
 
-class CACertificate(BaseModelObject):
-    type: str | None = None
-    certificate: str | None = None
+class CACertificateRequest(BaseModelObject):
+    type: str
+    certificate: str
 
 
-class AuthCertificate(BaseModelObject):
-    key: str | None = None
+class AuthCertificateRequest(BaseModelObject):
+    key: str
     key_password: str | None = None
-    type: str | None = None
-    certificate: str | None = None
+    type: str
+    certificate: str
 
 
-class Authentication(BaseModelObject):
-    type: str | None = None
-    username: str | None = None
+class CertificateResponse(BaseModelObject):
+    thumbprint: str
+    expires_at: int
+
+
+class AuthenticationRequestDefinition(BaseModelObject):
+    type: str
+
+
+class AuthenticationResponseDefinition(BaseModelObject):
+    type: str
+
+
+class BasicAuthentication(BaseModelObject):
+    type: Literal["basic"] = "basic"
+    username: str
+
+
+class BasicAuthenticationRequest(BasicAuthentication, AuthenticationRequestDefinition):
     password: str | None = None
-    client_id: str | None = None
-    client_secret: str | None = None
-    token_url: str | None = None
-    scope: str | None = None
-    key: str | None = None
-    value: str | None = None
+
+
+class BasicAuthenticationResponse(BasicAuthentication, AuthenticationResponseDefinition): ...
+
+
+class ClientCredentialAuthentication(BaseModelObject):
+    type: Literal["clientCredential"] = "clientCredential"
+    client_id: str
+    token_url: str
+    scopes: str
+    default_expires_in: str | None = None
+
+
+class ClientCredentialAuthenticationRequest(ClientCredentialAuthentication, AuthenticationRequestDefinition):
+    client_secret: str
+
+
+class ClientCredentialAuthenticationResponse(ClientCredentialAuthentication, AuthenticationResponseDefinition): ...
+
+
+class ScramShaAuthentication(BaseModelObject):
+    type: Literal["scramSha256", "scramSha512"]
+    username: str
+
+
+class ScramShaAuthenticationRequest(ScramShaAuthentication, AuthenticationRequestDefinition):
+    password: str
+
+
+class ScramShaAuthenticationResponse(ScramShaAuthentication, AuthenticationResponseDefinition): ...
+
+
+AuthenticationRequest = Annotated[
+    BasicAuthenticationRequest | ClientCredentialAuthenticationRequest | ScramShaAuthenticationRequest,
+    Field(discriminator="type"),
+]
+
+AuthenticationResponse = Annotated[
+    BasicAuthenticationResponse | ClientCredentialAuthenticationResponse | ScramShaAuthenticationResponse,
+    Field(discriminator="type"),
+]
 
 
 class KafkaBroker(BaseModelObject):
@@ -36,32 +91,98 @@ class KafkaBroker(BaseModelObject):
     port: int
 
 
-class HostedExtractorSource(BaseModelObject):
+class HostedExtractorSourceRequestDefinition(RequestResource):
+    type: str
     external_id: str
-    type: str | None = None
-    host: str | None = None
-    port: int | None = None
-    event_hub_name: str | None = None
-    key_name: str | None = None
-    key_value: str | None = None
-    consumer_group: str | None = None
-    scheme: str | None = None
-    ca_certificate: CACertificate | str | None = None
-    auth_certificate: AuthCertificate | None = None
-    authentication: Authentication | None = None
-    use_tls: bool | None = None
-    bootstrap_brokers: list[KafkaBroker] | None = None
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
 
 
-class HostedExtractorSourceRequest(HostedExtractorSource, RequestResource): ...
+class HostedExtractorKafkaSource(BaseModelObject):
+    type: Literal["kafka"] = "kafka"
+    bootstrap_brokers: list[KafkaBroker]
+    use_tls: bool | None = None
 
 
-class HostedExtractorSourceResponse(HostedExtractorSource, ResponseResource[HostedExtractorSourceRequest]):
+class HostedExtractorKafkaSourceRequest(HostedExtractorKafkaSource, HostedExtractorSourceRequestDefinition):
+    authentication: AuthenticationRequest | None = None
+    ca_certificate: CACertificateRequest | str | None = None
+    auth_certificate: AuthCertificateRequest | None = None
+
+
+class HostedExtractorEventHubSourceRequest(HostedExtractorSourceRequestDefinition):
+    type: Literal["eventHub"] = "eventHub"
+    host: str
+    port: int | None = None
+    event_hub_name: str
+    key_name: str
+    key_value: str
+    consumer_group: str | None = None
+    scheme: str | None = None
+    ca_certificate: CACertificateRequest | str | None = None
+    auth_certificate: AuthCertificateRequest | None = None
+    authentication: AuthenticationRequest | None = None
+    use_tls: bool | None = None
+
+
+class HostedExtractorMQTTSourceRequest(HostedExtractorSourceRequestDefinition):
+    type: Literal["mqtt"] = "mqtt"
+    host: str
+    port: int | None = None
+    authentication: AuthenticationRequest | None = None
+    use_tls: bool | None = None
+    ca_certificate: CACertificateRequest | str | None = None
+    auth_certificate: AuthCertificateRequest | None = None
+
+
+class HostedExtractorRESTSourceRequest(HostedExtractorSourceRequestDefinition):
+    type: Literal["rest"] = "rest"
+    host: str
+    port: int | None = None
+    authentication: AuthenticationRequest | None = None
+    use_tls: bool | None = None
+    ca_certificate: CACertificateRequest | str | None = None
+    auth_certificate: AuthCertificateRequest | None = None
+
+
+class HostedExtractorSourceResponseDefinition(BaseModelObject):
+    type: str
+    external_id: str
     created_time: int
     last_updated_time: int
 
-    def as_request_resource(self) -> HostedExtractorSourceRequest:
-        return HostedExtractorSourceRequest.model_validate(self.dump(), extra="ignore")
+
+class HostedExtractorKafkaSourceResponse(
+    HostedExtractorSourceResponseDefinition,
+    HostedExtractorKafkaSource,
+    ResponseResource[HostedExtractorKafkaSourceRequest],
+):
+    authentication: AuthenticationResponse | None = None
+    ca_certificate: CertificateResponse | None = None
+    auth_certificate: CertificateResponse | None = None
+
+    def as_request_resource(self) -> HostedExtractorKafkaSourceRequest:
+        return HostedExtractorKafkaSourceRequest.model_validate(self.dump(), extra="ignore")
+
+
+HostedExtractorSourceRequestUnion = Annotated[
+    HostedExtractorKafkaSourceRequest
+    | HostedExtractorEventHubSourceRequest
+    | HostedExtractorMQTTSourceRequest
+    | HostedExtractorRESTSourceRequest,
+    Field(discriminator="type"),
+]
+
+HostedExtractorSourceRequest: TypeAdapter[HostedExtractorSourceRequestUnion] = TypeAdapter(
+    HostedExtractorSourceRequestUnion
+)
+
+HostedExtractorSourceResponseUnion = Annotated[
+    HostedExtractorKafkaSourceResponse,
+    Field(discriminator="type"),
+]
+
+HostedExtractorSourceResponse: TypeAdapter[HostedExtractorSourceResponseUnion] = TypeAdapter(
+    HostedExtractorSourceResponseUnion
+)
