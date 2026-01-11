@@ -111,37 +111,46 @@ class HostedExtractorKafkaSourceRequest(HostedExtractorKafkaSource, HostedExtrac
     auth_certificate: AuthCertificateRequest | None = None
 
 
-class HostedExtractorEventHubSourceRequest(HostedExtractorSourceRequestDefinition):
+class HostedExtractorEventHubSource(BaseModelObject):
     type: Literal["eventHub"] = "eventHub"
     host: str
     port: int | None = None
     event_hub_name: str
     key_name: str
-    key_value: str
     consumer_group: str | None = None
     scheme: str | None = None
-    ca_certificate: CACertificateRequest | str | None = None
-    auth_certificate: AuthCertificateRequest | None = None
-    authentication: AuthenticationRequest | None = None
     use_tls: bool | None = None
 
 
-class HostedExtractorMQTTSourceRequest(HostedExtractorSourceRequestDefinition):
+class HostedExtractorEventHubSourceRequest(HostedExtractorEventHubSource, HostedExtractorSourceRequestDefinition):
+    key_value: str
+    ca_certificate: CACertificateRequest | str | None = None
+    auth_certificate: AuthCertificateRequest | None = None
+    authentication: AuthenticationRequest | None = None
+
+
+class HostedExtractorMQTTSource(BaseModelObject):
     type: Literal["mqtt"] = "mqtt"
     host: str
     port: int | None = None
-    authentication: AuthenticationRequest | None = None
     use_tls: bool | None = None
+
+
+class HostedExtractorMQTTSourceRequest(HostedExtractorMQTTSource, HostedExtractorSourceRequestDefinition):
+    authentication: AuthenticationRequest | None = None
     ca_certificate: CACertificateRequest | str | None = None
     auth_certificate: AuthCertificateRequest | None = None
 
 
-class HostedExtractorRESTSourceRequest(HostedExtractorSourceRequestDefinition):
+class HostedExtractorRESTSource(BaseModelObject):
     type: Literal["rest"] = "rest"
     host: str
     port: int | None = None
-    authentication: AuthenticationRequest | None = None
     use_tls: bool | None = None
+
+
+class HostedExtractorRESTSourceRequest(HostedExtractorRESTSource, HostedExtractorSourceRequestDefinition):
+    authentication: AuthenticationRequest | None = None
     ca_certificate: CACertificateRequest | str | None = None
     auth_certificate: AuthCertificateRequest | None = None
 
@@ -166,6 +175,45 @@ class HostedExtractorKafkaSourceResponse(
         return HostedExtractorKafkaSourceRequest.model_validate(self.dump(), extra="ignore")
 
 
+class HostedExtractorEventHubSourceResponse(
+    HostedExtractorSourceResponseDefinition,
+    HostedExtractorEventHubSource,
+    ResponseResource[HostedExtractorEventHubSourceRequest],
+):
+    authentication: AuthenticationResponse | None = None
+    ca_certificate: CertificateResponse | None = None
+    auth_certificate: CertificateResponse | None = None
+
+    def as_request_resource(self) -> HostedExtractorEventHubSourceRequest:
+        return HostedExtractorEventHubSourceRequest.model_validate(self.dump(), extra="ignore")
+
+
+class HostedExtractorMQTTSourceResponse(
+    HostedExtractorSourceResponseDefinition,
+    HostedExtractorMQTTSource,
+    ResponseResource[HostedExtractorMQTTSourceRequest],
+):
+    authentication: AuthenticationResponse | None = None
+    ca_certificate: CertificateResponse | None = None
+    auth_certificate: CertificateResponse | None = None
+
+    def as_request_resource(self) -> HostedExtractorMQTTSourceRequest:
+        return HostedExtractorMQTTSourceRequest.model_validate(self.dump(), extra="ignore")
+
+
+class HostedExtractorRESTSourceResponse(
+    HostedExtractorSourceResponseDefinition,
+    HostedExtractorRESTSource,
+    ResponseResource[HostedExtractorRESTSourceRequest],
+):
+    authentication: AuthenticationResponse | None = None
+    ca_certificate: CertificateResponse | None = None
+    auth_certificate: CertificateResponse | None = None
+
+    def as_request_resource(self) -> HostedExtractorRESTSourceRequest:
+        return HostedExtractorRESTSourceRequest.model_validate(self.dump(), extra="ignore")
+
+
 HostedExtractorSourceRequestUnion = Annotated[
     HostedExtractorKafkaSourceRequest
     | HostedExtractorEventHubSourceRequest
@@ -179,7 +227,10 @@ HostedExtractorSourceRequest: TypeAdapter[HostedExtractorSourceRequestUnion] = T
 )
 
 HostedExtractorSourceResponseUnion = Annotated[
-    HostedExtractorKafkaSourceResponse,
+    HostedExtractorKafkaSourceResponse
+    | HostedExtractorEventHubSourceResponse
+    | HostedExtractorMQTTSourceResponse
+    | HostedExtractorRESTSourceResponse,
     Field(discriminator="type"),
 ]
 
