@@ -1,0 +1,43 @@
+from typing import Literal
+
+from cognite_toolkit._cdf_tk.client.data_classes.base import (
+    BaseModelObject,
+    RequestResource,
+    ResponseResource,
+)
+
+from .identifiers import ExternalId
+
+
+class SequenceColumn(BaseModelObject):
+    external_id: str
+    name: str | None = None
+    description: str | None = None
+    metadata: dict[str, str] | None = None
+    value_type: Literal["STRING", "DOUBLE", "LONG"] | None = None
+
+
+class Sequence(BaseModelObject):
+    external_id: str
+    name: str | None = None
+    description: str | None = None
+    asset_id: int | None = None
+    data_set_id: int | None = None
+    metadata: dict[str, str] | None = None
+    columns: list[SequenceColumn] | None = None
+
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)
+
+
+class SequenceRequest(Sequence, RequestResource):
+    pass
+
+
+class SequenceResponse(Sequence, ResponseResource[SequenceRequest]):
+    id: int
+    created_time: int
+    last_updated_time: int
+
+    def as_request_resource(self) -> SequenceRequest:
+        return SequenceRequest.model_validate(self.dump(), extra="ignore")
