@@ -87,10 +87,10 @@ class RawDatabaseCRUD(ResourceContainerCRUD[RAWDatabase, RAWDatabase, RAWDatabas
 
     @classmethod
     def dump_id(cls, id: RAWDatabase) -> dict[str, Any]:
-        return {"dbName": id.name}
+        return id.dump()
 
     def create(self, items: Sequence[RAWDatabase]) -> list[RAWDatabase]:
-        return self.client.tool.raw.databases.create(list(items))
+        return self.client.tool.raw.databases.create(items)
 
     def retrieve(self, ids: SequenceNotStr[RAWDatabase]) -> list[RAWDatabase]:
         database_list = self.client.tool.raw.databases.list(limit=None)
@@ -119,6 +119,7 @@ class RawDatabaseCRUD(ResourceContainerCRUD[RAWDatabase, RAWDatabase, RAWDatabas
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[RAWDatabase]:
+        self.client.tool.raw.databases.iterate()
         return iter(self.client.tool.raw.databases.list(limit=None))
 
     def count(self, ids: SequenceNotStr[RAWDatabase]) -> int:
@@ -146,12 +147,6 @@ class RawDatabaseCRUD(ResourceContainerCRUD[RAWDatabase, RAWDatabase, RAWDatabas
                 self.client.tool.raw.tables.delete(existing)
                 nr_of_tables += len(existing)
         return nr_of_tables
-
-    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> RAWDatabase:
-        return RAWDatabase(name=resource["dbName"])
-
-    def dump_resource(self, resource: RAWDatabase, local: dict[str, Any] | None = None) -> dict[str, Any]:
-        return {"dbName": resource.name}
 
 
 @final

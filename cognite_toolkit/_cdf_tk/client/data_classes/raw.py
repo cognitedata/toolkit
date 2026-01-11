@@ -15,7 +15,7 @@ else:
 
 
 class RAWDatabase(RequestResource, Identifier, ResponseResource["RAWDatabase"]):
-    name: str
+    name: str = Field(alias="dbName")
 
     def as_id(self) -> Self:
         return self
