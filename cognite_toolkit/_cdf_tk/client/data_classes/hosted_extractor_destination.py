@@ -8,20 +8,19 @@ from .identifiers import ExternalId
 
 
 class Credentials(BaseModelObject):
-    client_id: str | None = None
-    client_secret: str | None = None
+    nonce: str
 
 
 class HostedExtractorDestination(BaseModelObject):
     external_id: str
-    credentials: Credentials | None = None
     target_data_set_id: int | None = None
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
 
 
-class HostedExtractorDestinationRequest(HostedExtractorDestination, RequestResource): ...
+class HostedExtractorDestinationRequest(HostedExtractorDestination, RequestResource):
+    credentials: Credentials | None = None
 
 
 class HostedExtractorDestinationResponse(

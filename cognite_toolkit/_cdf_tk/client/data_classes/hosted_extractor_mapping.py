@@ -1,3 +1,7 @@
+from typing import Annotated, Literal
+
+from pydantic import Field
+
 from cognite_toolkit._cdf_tk.client.data_classes.base import (
     BaseModelObject,
     RequestResource,
@@ -11,33 +15,56 @@ class Mapping(BaseModelObject):
     expression: str
 
 
+class MappingInputDefinition(BaseModelObject):
+    type: str
+
+
 class ProtobufFile(BaseModelObject):
     file_name: str
     content: str
 
 
-class MappingInput(BaseModelObject):
-    type: str | None = None
-    delimiter: str | None = None
+class ProtoBufInput(BaseModelObject):
+    type: Literal["protobuf"] = "protobuf"
+    message_name: str
+    files: list[ProtobufFile]
+
+
+class CSVInput(BaseModelObject):
+    type: Literal["csv"] = "csv"
+    delimiter: str = ","
     custom_keys: list[str] | None = None
-    message_name: str | None = None
-    files: list[ProtobufFile] | None = None
+
+
+class XMLInput(BaseModelObject):
+    type: Literal["xml"] = "xml"
+
+
+class JSONInput(BaseModelObject):
+    type: Literal["json"] = "json"
+
+
+MappingInput = Annotated[
+    ProtoBufInput | CSVInput | XMLInput | JSONInput,
+    Field(discriminator="type"),
+]
 
 
 class HostedExtractorMapping(BaseModelObject):
     external_id: str
-    mapping: Mapping | None = None
-    input: MappingInput | None = None
-    published: bool | None = None
+    mapping: Mapping
+    published: bool
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
 
 
-class HostedExtractorMappingRequest(HostedExtractorMapping, RequestResource): ...
+class HostedExtractorMappingRequest(HostedExtractorMapping, RequestResource):
+    input: MappingInput | None = None
 
 
 class HostedExtractorMappingResponse(HostedExtractorMapping, ResponseResource[HostedExtractorMappingRequest]):
+    input: MappingInput
     created_time: int
     last_updated_time: int
 

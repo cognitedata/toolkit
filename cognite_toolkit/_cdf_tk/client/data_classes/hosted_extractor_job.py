@@ -57,10 +57,10 @@ class RestConfig(BaseModelObject):
 
 class HostedExtractorJob(BaseModelObject):
     external_id: str
-    destination_id: str | None = None
-    source_id: str | None = None
-    format: JobFormat | None = None
-    config: MQTTConfig | KafkaConfig | RestConfig | None = None
+    destination_id: str
+    source_id: str
+    format: JobFormat
+    config: MQTTConfig | KafkaConfig | RestConfig
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)

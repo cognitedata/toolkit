@@ -18,15 +18,17 @@ class SequenceColumn(BaseModelObject):
 
 
 class Sequence(BaseModelObject):
-    external_id: str
+    external_id: str | None = None
     name: str | None = None
     description: str | None = None
     asset_id: int | None = None
     data_set_id: int | None = None
     metadata: dict[str, str] | None = None
-    columns: list[SequenceColumn] | None = None
+    columns: list[SequenceColumn]
 
     def as_id(self) -> ExternalId:
+        if self.external_id is None:
+            raise ValueError("Cannot convert Sequence to ExternalId when external_id is None")
         return ExternalId(external_id=self.external_id)
 
 
