@@ -13,7 +13,7 @@ class AuthenticationResponseDefinition(BaseModelObject):
     type: str
 
 
-class BasicAuthentication(AuthenticationRequestDefinition):
+class BasicAuthentication(BaseModelObject):
     type: Literal["basic"] = "basic"
     username: str
 

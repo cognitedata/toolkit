@@ -84,6 +84,7 @@ class CDFResource:
     example_data: dict[str, Any]
     api_class: type[CDFResourceAPI] | None = None
     is_dump_equal_to_example: bool = True
+    is_as_request_possible: bool = True
 
     @cached_property
     def response_instance(self) -> ResponseResource:
@@ -375,7 +376,6 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             },
             "workflowExternalId": "workflow_001",
             "workflowVersion": "1",
-            "authentication": {"nonce": "abcdef123456"},
             "isPaused": False,
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
@@ -631,7 +631,8 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=WorkflowTriggerResponse,
             request_cls=WorkflowTriggerRequest,
             example_data=get_example_minimum_responses(WorkflowTriggerResponse),
-            is_dump_equal_to_example=False,
+            is_dump_equal_to_example=True,
+            is_as_request_possible=False,
         ),
         id="WorkflowTrigger",
     )

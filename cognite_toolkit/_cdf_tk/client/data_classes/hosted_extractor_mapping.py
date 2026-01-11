@@ -24,7 +24,7 @@ class ProtobufFile(BaseModelObject):
     content: str
 
 
-class ProtoBufInput(BaseModelObject):
+class ProtobufInput(BaseModelObject):
     type: Literal["protobuf"] = "protobuf"
     message_name: str
     files: list[ProtobufFile]
@@ -45,7 +45,7 @@ class JSONInput(BaseModelObject):
 
 
 MappingInput = Annotated[
-    ProtoBufInput | CSVInput | XMLInput | JSONInput,
+    ProtobufInput | CSVInput | XMLInput | JSONInput,
     Field(discriminator="type"),
 ]
 
