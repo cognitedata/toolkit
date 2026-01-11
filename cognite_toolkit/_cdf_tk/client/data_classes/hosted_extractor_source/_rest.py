@@ -30,7 +30,7 @@ class RESTSourceRequest(RESTSource, SourceRequestDefinition):
     authentication: (
         BasicAuthenticationRequest | HTTPBasicAuthenticationRequest | ClientCredentialAuthenticationRequest | None
     ) = Field(None, discriminator="type")
-    ca_certificate: CACertificateRequest | str | None = None
+    ca_certificate: CACertificateRequest | None = None
     auth_certificate: AuthCertificateRequest | None = None
 
 
