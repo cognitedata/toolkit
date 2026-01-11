@@ -1,5 +1,3 @@
-from typing import Any
-
 from cognite_toolkit._cdf_tk.client.data_classes.base import (
     BaseModelObject,
     RequestResource,
@@ -9,11 +7,40 @@ from cognite_toolkit._cdf_tk.client.data_classes.base import (
 from .identifiers import ExternalId
 
 
+class DataModelInfo(BaseModelObject):
+    space: str | None = None
+    external_id: str | None = None
+    version: str | None = None
+    destination_type: str | None = None
+    destination_relationship_from_type: str | None = None
+
+
+class ViewInfo(BaseModelObject):
+    space: str | None = None
+    external_id: str | None = None
+    version: str | None = None
+
+
+class EdgeType(BaseModelObject):
+    space: str | None = None
+    external_id: str | None = None
+
+
+class Destination(BaseModelObject):
+    type: str | None = None
+    database: str | None = None
+    table: str | None = None
+    data_model: DataModelInfo | None = None
+    view: ViewInfo | None = None
+    edge_type: EdgeType | None = None
+    instance_space: str | None = None
+
+
 class Transformation(BaseModelObject):
     external_id: str
     name: str | None = None
     query: str | None = None
-    destination: dict[str, Any] | None = None
+    destination: Destination | None = None
     conflict_mode: str | None = None
     is_public: bool | None = None
     ignore_null_fields: bool | None = None
@@ -24,8 +51,7 @@ class Transformation(BaseModelObject):
         return ExternalId(external_id=self.external_id)
 
 
-class TransformationRequest(Transformation, RequestResource):
-    pass
+class TransformationRequest(Transformation, RequestResource): ...
 
 
 class TransformationResponse(Transformation, ResponseResource[TransformationRequest]):

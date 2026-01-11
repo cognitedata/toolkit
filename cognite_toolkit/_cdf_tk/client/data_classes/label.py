@@ -17,8 +17,7 @@ class Label(BaseModelObject):
         return ExternalId(external_id=self.external_id)
 
 
-class LabelRequest(Label, RequestResource):
-    pass
+class LabelRequest(Label, RequestResource): ...
 
 
 class LabelResponse(Label, ResponseResource[LabelRequest]):

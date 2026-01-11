@@ -16,8 +16,7 @@ class Workflow(BaseModelObject):
         return ExternalId(external_id=self.external_id)
 
 
-class WorkflowRequest(Workflow, RequestResource):
-    pass
+class WorkflowRequest(Workflow, RequestResource): ...
 
 
 class WorkflowResponse(Workflow, ResponseResource[WorkflowRequest]):

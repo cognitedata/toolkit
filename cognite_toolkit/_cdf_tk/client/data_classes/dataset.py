@@ -12,7 +12,7 @@ class DataSet(BaseModelObject):
     name: str | None = None
     description: str | None = None
     metadata: dict[str, str] | None = None
-    write_protected: bool | None = None
+    write_protected: bool = False
 
     def as_id(self) -> ExternalId:
         if self.external_id is None:
@@ -20,8 +20,7 @@ class DataSet(BaseModelObject):
         return ExternalId(external_id=self.external_id)
 
 
-class DataSetRequest(DataSet, RequestResource):
-    pass
+class DataSetRequest(DataSet, RequestResource): ...
 
 
 class DataSetResponse(DataSet, ResponseResource[DataSetRequest]):

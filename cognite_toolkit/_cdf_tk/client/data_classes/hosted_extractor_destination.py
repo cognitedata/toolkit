@@ -1,5 +1,3 @@
-from typing import Any
-
 from cognite_toolkit._cdf_tk.client.data_classes.base import (
     BaseModelObject,
     RequestResource,
@@ -9,17 +7,21 @@ from cognite_toolkit._cdf_tk.client.data_classes.base import (
 from .identifiers import ExternalId
 
 
+class Credentials(BaseModelObject):
+    client_id: str | None = None
+    client_secret: str | None = None
+
+
 class HostedExtractorDestination(BaseModelObject):
     external_id: str
-    credentials: dict[str, Any] | None = None
+    credentials: Credentials | None = None
     target_data_set_id: int | None = None
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
 
 
-class HostedExtractorDestinationRequest(HostedExtractorDestination, RequestResource):
-    pass
+class HostedExtractorDestinationRequest(HostedExtractorDestination, RequestResource): ...
 
 
 class HostedExtractorDestinationResponse(

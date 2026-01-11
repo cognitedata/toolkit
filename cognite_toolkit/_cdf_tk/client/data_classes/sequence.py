@@ -30,8 +30,7 @@ class Sequence(BaseModelObject):
         return ExternalId(external_id=self.external_id)
 
 
-class SequenceRequest(Sequence, RequestResource):
-    pass
+class SequenceRequest(Sequence, RequestResource): ...
 
 
 class SequenceResponse(Sequence, ResponseResource[SequenceRequest]):

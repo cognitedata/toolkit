@@ -14,8 +14,7 @@ class SecurityCategory(BaseModelObject):
         return NameId(name=self.name)
 
 
-class SecurityCategoryRequest(SecurityCategory, RequestResource):
-    pass
+class SecurityCategoryRequest(SecurityCategory, RequestResource): ...
 
 
 class SecurityCategoryResponse(SecurityCategory, ResponseResource[SecurityCategoryRequest]):
