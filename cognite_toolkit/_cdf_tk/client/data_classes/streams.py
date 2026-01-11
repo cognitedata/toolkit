@@ -10,10 +10,13 @@ from .base import BaseModelObject, BaseResourceList, RequestResource, ResponseRe
 from .identifiers import ExternalId
 
 
-class StreamRequest(RequestResource):
+class Stream(BaseModelObject):
+    external_id: str
+
+
+class StreamRequest(Stream, RequestResource):
     """Stream request resource class."""
 
-    external_id: str
     settings: dict[Literal["template"], dict[Literal["name"], StreamTemplateName]]
 
     def as_id(self) -> ExternalId:
@@ -29,7 +32,6 @@ class StreamRequestList(BaseResourceList[StreamRequest], ResourceRequestListProt
 class LifecycleObject(BaseModelObject):
     """Lifecycle object."""
 
-    hot_phase_duration: str | None = None
     data_deleted_after: str | None = None
     retained_after_soft_delete: str
 
@@ -56,10 +58,9 @@ class StreamSettings(BaseModelObject):
     limits: LimitsObject
 
 
-class StreamResponse(ResponseResource["StreamRequest"]):
+class StreamResponse(Stream, ResponseResource[StreamRequest]):
     """Stream response resource class."""
 
-    external_id: str
     created_time: int
     created_from_template: StreamTemplateName
     type: Literal["Mutable", "Immutable"]
