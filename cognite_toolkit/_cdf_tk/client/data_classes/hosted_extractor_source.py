@@ -153,7 +153,6 @@ class RESTSourceRequest(RESTSource, SourceRequestDefinition):
 
 
 class SourceResponseDefinition(BaseModelObject):
-    type: str
     external_id: str
     created_time: int
     last_updated_time: int

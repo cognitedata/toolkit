@@ -294,7 +294,7 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "lastUpdatedTime": 1622547800000,
         },
         MQTTSourceResponse: {
-            "type": "mqtt",
+            "type": "mqtt5",
             "externalId": "mqtt_source_001",
             "host": "localhost",
             "createdTime": 1622547800000,
@@ -375,6 +375,7 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             },
             "workflowExternalId": "workflow_001",
             "workflowVersion": "1",
+            "authentication": {"nonce": "abcdef123456"},
             "isPaused": False,
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,

@@ -1,6 +1,5 @@
 from typing import Annotated, Literal
 
-from cognite.client.data_classes.transformations import NonceCredentials
 from pydantic import Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client.data_classes.base import (
@@ -10,6 +9,10 @@ from cognite_toolkit._cdf_tk.client.data_classes.base import (
 )
 
 from .identifiers import ExternalId
+
+
+class NonceCredentials(BaseModelObject):
+    nonce: str
 
 
 class DestinationDefinition(BaseModelObject):

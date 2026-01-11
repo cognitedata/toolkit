@@ -28,7 +28,7 @@ class CogniteFunctionRef(BaseModelObject):
     data: JsonValue | str | None = None
 
 
-class FunctionTaskParameters(BaseModelObject):
+class FunctionTaskParameters(TaskParameterDefinition):
     type: Literal["function"] = Field("function", exclude=True)
     function: CogniteFunctionRef
     is_async_complete: bool | None = None
@@ -40,7 +40,7 @@ class TransformationRef(BaseModelObject):
     use_transformation_credentials: bool | None = None
 
 
-class TransformationTaskParameters(BaseModelObject):
+class TransformationTaskParameters(TaskParameterDefinition):
     type: Literal["transformation"] = Field("transformation", exclude=True)
     transformation: TransformationRef
 
@@ -54,7 +54,7 @@ class CDFRequest(BaseModelObject):
     cdf_version_header: str | None = None
 
 
-class CDFTaskParameters(BaseModelObject):
+class CDFTaskParameters(TaskParameterDefinition):
     type: Literal["cdf"] = Field("cdf", exclude=True)
     cdf_request: CDFRequest
 
@@ -63,7 +63,7 @@ class DynamicRef(BaseModelObject):
     tasks: str
 
 
-class DynamicTaskParameters(BaseModelObject):
+class DynamicTaskParameters(TaskParameterDefinition):
     type: Literal["dynamic"] = Field("dynamic", exclude=True)
     dynamic: DynamicRef
 
@@ -72,7 +72,7 @@ class SubworkflowRef(BaseModelObject):
     tasks: "list[Task]"
 
 
-class SubworkflowTaskParameters(BaseModelObject):
+class SubworkflowTaskParameters(TaskParameterDefinition):
     type: Literal["subworkflow"] = Field("subworkflow", exclude=True)
     subworkflow: WorkflowVersionId | SubworkflowRef
 
@@ -88,13 +88,13 @@ class SimulatorInput(BaseModelObject):
 
 
 class SimulationRef(BaseModelObject):
-    type: Literal["simulation"] = Field("simulation", exclude=True)
     routine_external_id: str
     run_time: int | None = None
     inputs: list[SimulatorInput] | None = None
 
 
-class SimulationTaskParameters(BaseModelObject):
+class SimulationTaskParameters(TaskParameterDefinition):
+    type: Literal["simulation"] = Field("simulation", exclude=True)
     simulation: SimulationRef
 
 
