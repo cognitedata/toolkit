@@ -2,7 +2,8 @@ from typing import Literal
 
 from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject, RequestResource, ResponseResource
 
-from .identifiers import ExternalId
+from .data_modeling import DataModelReference
+from .identifiers import ExternalId, InternalId
 
 
 class LocationFilterScene(BaseModelObject):
@@ -10,14 +11,6 @@ class LocationFilterScene(BaseModelObject):
 
     external_id: str
     space: str
-
-
-class LocationFilterDataModel(BaseModelObject):
-    """Data model identifier for a location filter."""
-
-    external_id: str
-    space: str
-    version: str
 
 
 class LocationFilterView(BaseModelObject):
@@ -33,7 +26,7 @@ class AssetCentricSubFilter(BaseModelObject):
     """Sub-filter for asset-centric resource types."""
 
     data_set_ids: list[int] | None = None
-    asset_subtree_ids: list[dict[Literal["externalId", "id"], int | str]] | None = None
+    asset_subtree_ids: list[ExternalId | InternalId] | None = None
     external_id_prefix: str | None = None
 
 
@@ -46,18 +39,18 @@ class AssetCentricFilter(BaseModelObject):
     timeseries: AssetCentricSubFilter | None = None
     sequences: AssetCentricSubFilter | None = None
     data_set_ids: list[int] | None = None
-    asset_subtree_ids: list[dict[Literal["externalId", "id"], int | str]] | None = None
+    asset_subtree_ids: list[ExternalId | InternalId] | None = None
     external_id_prefix: str | None = None
 
 
-class LocationFilterBase(BaseModelObject):
+class LocationFilter(BaseModelObject):
     """Base class for location filter with common fields."""
 
     external_id: str
     name: str
     description: str | None = None
     parent_id: int | None = None
-    data_models: list[LocationFilterDataModel] | None = None
+    data_models: list[DataModelReference] | None = None
     instance_spaces: list[str] | None = None
     scene: LocationFilterScene | None = None
     asset_centric: AssetCentricFilter | None = None
@@ -65,14 +58,14 @@ class LocationFilterBase(BaseModelObject):
     data_modeling_type: Literal["HYBRID", "DATA_MODELING_ONLY"] | None = None
 
 
-class LocationFilterRequest(LocationFilterBase, RequestResource):
+class LocationFilterRequest(LocationFilter, RequestResource):
     """Request resource for creating/updating location filters."""
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
 
 
-class LocationFilterResponse(LocationFilterBase, ResponseResource[LocationFilterRequest]):
+class LocationFilterResponse(LocationFilter, ResponseResource[LocationFilterRequest]):
     """Response resource for location filters."""
 
     id: int
