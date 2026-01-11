@@ -11,7 +11,7 @@ class LabelRef(BaseModelObject):
     external_id: str
 
 
-class RelationshipBase(BaseModelObject):
+class Relationship(BaseModelObject):
     """Base class for relationship with common fields."""
 
     external_id: str
@@ -26,14 +26,14 @@ class RelationshipBase(BaseModelObject):
     labels: list[LabelRef] | None = None
 
 
-class RelationshipRequest(RelationshipBase, RequestResource):
+class RelationshipRequest(Relationship, RequestResource):
     """Request resource for creating/updating relationships."""
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
 
 
-class RelationshipResponse(RelationshipBase, ResponseResource[RelationshipRequest]):
+class RelationshipResponse(Relationship, ResponseResource[RelationshipRequest]):
     """Response resource for relationships."""
 
     created_time: int
