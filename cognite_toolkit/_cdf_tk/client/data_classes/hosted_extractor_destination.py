@@ -1,6 +1,6 @@
 from cognite_toolkit._cdf_tk.client.data_classes.base import (
     BaseModelObject,
-    RequestResource,
+    RequestUpdateable,
     ResponseResource,
 )
 
@@ -19,7 +19,7 @@ class HostedExtractorDestination(BaseModelObject):
         return ExternalId(external_id=self.external_id)
 
 
-class HostedExtractorDestinationRequest(HostedExtractorDestination, RequestResource):
+class HostedExtractorDestinationRequest(HostedExtractorDestination, RequestUpdateable):
     credentials: Credentials | None = None
 
 

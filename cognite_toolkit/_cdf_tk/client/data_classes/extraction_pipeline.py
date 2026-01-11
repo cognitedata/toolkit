@@ -1,6 +1,8 @@
+from typing import ClassVar
+
 from cognite_toolkit._cdf_tk.client.data_classes.base import (
     BaseModelObject,
-    RequestResource,
+    RequestUpdateable,
     ResponseResource,
 )
 
@@ -41,7 +43,11 @@ class ExtractionPipeline(BaseModelObject):
         return ExternalId(external_id=self.external_id)
 
 
-class ExtractionPipelineRequest(ExtractionPipeline, RequestResource): ...
+class ExtractionPipelineRequest(ExtractionPipeline, RequestUpdateable):
+    container_fields: ClassVar[frozenset[str]] = frozenset({"raw_tables", "contacts", "metadata"})
+    non_nullable_fields: ClassVar[frozenset[str]] = frozenset(
+        {"documentation", "source", "notification_config", "schedule", "description"}
+    )
 
 
 class ExtractionPipelineResponse(ExtractionPipeline, ResponseResource[ExtractionPipelineRequest]):

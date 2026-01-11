@@ -1,8 +1,8 @@
-from typing import Literal
+from typing import ClassVar, Literal
 
 from cognite_toolkit._cdf_tk.client.data_classes.base import (
     BaseModelObject,
-    RequestResource,
+    RequestUpdateable,
     ResponseResource,
 )
 
@@ -32,7 +32,8 @@ class Sequence(BaseModelObject):
         return ExternalId(external_id=self.external_id)
 
 
-class SequenceRequest(Sequence, RequestResource): ...
+class SequenceRequest(Sequence, RequestUpdateable):
+    container_fields: ClassVar[frozenset[str]] = frozenset({"metadata", "columns"})
 
 
 class SequenceResponse(Sequence, ResponseResource[SequenceRequest]):

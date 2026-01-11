@@ -1,6 +1,8 @@
+from typing import ClassVar
+
 from cognite_toolkit._cdf_tk.client.data_classes.base import (
     BaseModelObject,
-    RequestResource,
+    RequestUpdateable,
     ResponseResource,
 )
 
@@ -20,7 +22,8 @@ class DataSet(BaseModelObject):
         return ExternalId(external_id=self.external_id)
 
 
-class DataSetRequest(DataSet, RequestResource): ...
+class DataSetRequest(DataSet, RequestUpdateable):
+    container_fields: ClassVar[frozenset[str]] = frozenset({"metadata"})
 
 
 class DataSetResponse(DataSet, ResponseResource[DataSetRequest]):

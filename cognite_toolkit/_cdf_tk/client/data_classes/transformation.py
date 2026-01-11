@@ -1,10 +1,10 @@
-from typing import Annotated, Literal
+from typing import Annotated, ClassVar, Literal
 
 from pydantic import Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client.data_classes.base import (
     BaseModelObject,
-    RequestResource,
+    RequestUpdateable,
     ResponseResource,
 )
 
@@ -106,7 +106,9 @@ class Transformation(BaseModelObject):
         return ExternalId(external_id=self.external_id)
 
 
-class TransformationRequest(Transformation, RequestResource):
+class TransformationRequest(Transformation, RequestUpdateable):
+    container_fields: ClassVar[frozenset[str]] = frozenset({"tags"})
+    non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"is_public", "query", "destination"})
     query: str | None = None
     conflict_mode: str | None = None
     destination: Destination | None = None

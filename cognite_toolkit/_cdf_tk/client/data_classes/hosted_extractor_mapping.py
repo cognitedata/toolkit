@@ -4,7 +4,7 @@ from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client.data_classes.base import (
     BaseModelObject,
-    RequestResource,
+    RequestUpdateable,
     ResponseResource,
 )
 
@@ -59,7 +59,7 @@ class HostedExtractorMapping(BaseModelObject):
         return ExternalId(external_id=self.external_id)
 
 
-class HostedExtractorMappingRequest(HostedExtractorMapping, RequestResource):
+class HostedExtractorMappingRequest(HostedExtractorMapping, RequestUpdateable):
     input: MappingInput | None = None
 
 

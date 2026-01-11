@@ -1,10 +1,10 @@
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import Field, TypeAdapter
 
 from cognite_toolkit._cdf_tk.client.data_classes.base import (
     BaseModelObject,
-    RequestResource,
+    RequestUpdateable,
     ResponseResource,
 )
 
@@ -91,12 +91,17 @@ class KafkaBroker(BaseModelObject):
     port: int
 
 
-class SourceRequestDefinition(RequestResource):
+class SourceRequestDefinition(RequestUpdateable):
     type: str
     external_id: str
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
+
+    def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
+        output = super().as_update(mode)
+        output["type"] = self.type
+        return output
 
 
 class KafkaSource(BaseModelObject):
