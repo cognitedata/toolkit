@@ -510,6 +510,12 @@ class LegacyGenericsAcl(Capability):
     scope: AllScope
 
 
+class SimulatorsAcl(Capability):
+    _capability_name = "simulatorsAcl"
+    actions: list[Literal["READ", "WRITE", "DELETE", "RUN", "MANAGE"]]
+    scope: AllScope | DataSetScope
+
+
 class StreamsAcl(Capability):
     _capability_name = "streamsAcl"
     actions: list[Literal["READ", "CREATE", "DELETE"]]
