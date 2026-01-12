@@ -6,11 +6,20 @@ from typing import Any
 import pytest
 
 from cognite_toolkit._cdf_tk.client.api.assets import AssetsAPI
+from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
 from cognite_toolkit._cdf_tk.client.api.events import EventsAPI
+from cognite_toolkit._cdf_tk.client.api.extraction_pipelines import ExtractionPipelinesAPI
 from cognite_toolkit._cdf_tk.client.api.filemetadata import FileMetadataAPI
+from cognite_toolkit._cdf_tk.client.api.labels import LabelsAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawDatabasesAPI
+from cognite_toolkit._cdf_tk.client.api.security_categories import SecurityCategoriesAPI
+from cognite_toolkit._cdf_tk.client.api.sequences import SequencesAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsAPI
 from cognite_toolkit._cdf_tk.client.api.timeseries import TimeSeriesAPI
+from cognite_toolkit._cdf_tk.client.api.transformations import TransformationsAPI
+from cognite_toolkit._cdf_tk.client.api.workflow_triggers import WorkflowTriggersAPI
+from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersionsAPI
+from cognite_toolkit._cdf_tk.client.api.workflows import WorkflowsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI
 from cognite_toolkit._cdf_tk.client.data_classes.agent import AgentRequest, AgentResponse
 from cognite_toolkit._cdf_tk.client.data_classes.annotation import AnnotationRequest, AnnotationResponse
@@ -523,6 +532,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=SecurityCategoryResponse,
             request_cls=SecurityCategoryRequest,
             example_data=get_example_minimum_responses(SecurityCategoryResponse),
+            api_class=SecurityCategoriesAPI,
         ),
         id="SecurityCategory",
     )
@@ -531,6 +541,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=SequenceResponse,
             request_cls=SequenceRequest,
             example_data=get_example_minimum_responses(SequenceResponse),
+            api_class=SequencesAPI,
         ),
         id="Sequence",
     )
@@ -539,6 +550,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=DataSetResponse,
             request_cls=DataSetRequest,
             example_data=get_example_minimum_responses(DataSetResponse),
+            api_class=DataSetsAPI,
         ),
         id="DataSet",
     )
@@ -547,6 +559,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=LabelResponse,
             request_cls=LabelRequest,
             example_data=get_example_minimum_responses(LabelResponse),
+            api_class=LabelsAPI,
         ),
         id="Label",
     )
@@ -555,6 +568,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=ExtractionPipelineResponse,
             request_cls=ExtractionPipelineRequest,
             example_data=get_example_minimum_responses(ExtractionPipelineResponse),
+            api_class=ExtractionPipelinesAPI,
         ),
         id="ExtractionPipeline",
     )
@@ -611,6 +625,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=TransformationResponse,
             request_cls=TransformationRequest,
             example_data=get_example_minimum_responses(TransformationResponse),
+            api_class=TransformationsAPI,
         ),
         id="Transformation",
     )
@@ -619,6 +634,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=WorkflowResponse,
             request_cls=WorkflowRequest,
             example_data=get_example_minimum_responses(WorkflowResponse),
+            api_class=WorkflowsAPI,
         ),
         id="Workflow",
     )
@@ -627,6 +643,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=WorkflowVersionResponse,
             request_cls=WorkflowVersionRequest,
             example_data=get_example_minimum_responses(WorkflowVersionResponse),
+            api_class=WorkflowVersionsAPI,
         ),
         id="WorkflowVersion",
     )
@@ -635,6 +652,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=WorkflowTriggerResponse,
             request_cls=WorkflowTriggerRequest,
             example_data=get_example_minimum_responses(WorkflowTriggerResponse),
+            api_class=WorkflowTriggersAPI,
             is_dump_equal_to_example=True,
             is_as_request_possible=False,
         ),
