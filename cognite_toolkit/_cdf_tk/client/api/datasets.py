@@ -1,0 +1,97 @@
+from collections.abc import Sequence
+from typing import Literal
+
+from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
+from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
+from cognite_toolkit._cdf_tk.client.data_classes.dataset import DataSetRequest, DataSetResponse
+from cognite_toolkit._cdf_tk.client.data_classes.identifiers import InternalOrExternalId
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, SuccessResponse2
+
+
+class DataSetsAPI(CDFResourceAPI[InternalOrExternalId, DataSetRequest, DataSetResponse]):
+    def __init__(self, http_client: HTTPClient) -> None:
+        super().__init__(
+            http_client=http_client,
+            method_endpoint_map={
+                "create": Endpoint(method="POST", path="/datasets", item_limit=10, concurrency_max_workers=1),
+                "retrieve": Endpoint(method="POST", path="/datasets/byids", item_limit=1000, concurrency_max_workers=1),
+                "update": Endpoint(method="POST", path="/datasets/update", item_limit=1000, concurrency_max_workers=1),
+                "list": Endpoint(method="POST", path="/datasets/list", item_limit=1000),
+            },
+        )
+
+    def _page_response(self, response: SuccessResponse2) -> PagedResponse[DataSetResponse]:
+        return PagedResponse[DataSetResponse].model_validate_json(response.body)
+
+    def _reference_response(self, response: SuccessResponse2) -> ResponseItems[InternalOrExternalId]:
+        return ResponseItems[InternalOrExternalId].model_validate_json(response.body)
+
+    def create(self, items: Sequence[DataSetRequest]) -> list[DataSetResponse]:
+        """Create data sets in CDF.
+
+        Args:
+            items: List of DataSetRequest objects to create.
+        Returns:
+            List of created DataSetResponse objects.
+        """
+        return self._request_item_response(items, "create")
+
+    def retrieve(
+        self, items: Sequence[InternalOrExternalId], ignore_unknown_ids: bool = False
+    ) -> list[DataSetResponse]:
+        """Retrieve data sets from CDF.
+
+        Args:
+            items: List of InternalOrExternalId objects to retrieve.
+            ignore_unknown_ids: Whether to ignore unknown IDs.
+        Returns:
+            List of retrieved DataSetResponse objects.
+        """
+        return self._request_item_response(
+            items, method="retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids}
+        )
+
+    def update(
+        self, items: Sequence[DataSetRequest], mode: Literal["patch", "replace"] = "replace"
+    ) -> list[DataSetResponse]:
+        """Update data sets in CDF.
+
+        Args:
+            items: List of DataSetRequest objects to update.
+            mode: Update mode, either "patch" or "replace".
+
+        Returns:
+            List of updated DataSetResponse objects.
+        """
+        return self._update(items, mode=mode)
+
+    def iterate(
+        self,
+        limit: int = 100,
+        cursor: str | None = None,
+    ) -> PagedResponse[DataSetResponse]:
+        """Iterate over all data sets in CDF.
+
+        Args:
+            limit: Maximum number of items to return.
+            cursor: Cursor for pagination.
+
+        Returns:
+            PagedResponse of DataSetResponse objects.
+        """
+        return self._iterate(
+            cursor=cursor,
+            limit=limit,
+            body={},
+        )
+
+    def list(
+        self,
+        limit: int | None = 100,
+    ) -> list[DataSetResponse]:
+        """List all data sets in CDF.
+
+        Returns:
+            List of DataSetResponse objects.
+        """
+        return self._list(limit=limit)
