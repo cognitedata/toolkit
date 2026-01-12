@@ -39,6 +39,29 @@ class TestAPIDataClasses:
         assert isinstance(update_data, dict)
         assert "update" in update_data
 
+    def test_dump_exclude_extra(self) -> None:
+        """Tests that extra fields can be excluded when dumping a data class.
+        Using AssetRequest as an example.
+        """
+        raw = {
+            "externalId": "asset_1",
+            "name": "Asset 1",
+            "description": "An example asset",
+            "metadata": {"key": "value"},
+            "extra_field": "extra_value",
+        }
+        asset_request = AssetRequest.model_validate(raw)
+        dumped_with_extra = asset_request.dump()
+        assert dumped_with_extra == raw
+
+        dumped_without_extra = asset_request.dump(exclude_extra=True)
+        assert dumped_without_extra == {
+            "externalId": "asset_1",
+            "name": "Asset 1",
+            "description": "An example asset",
+            "metadata": {"key": "value"},
+        }
+
 
 class TestRequestUpdateable:
     """We use the AssetRequest class as a representative example of RequestUpdateable."""
