@@ -8,9 +8,9 @@ from collections.abc import Sequence
 from typing import Annotated, Any, Literal, TypeAlias
 
 from pydantic import BeforeValidator, Field, TypeAdapter, model_serializer, model_validator
-from pydantic_core.core_schema import FieldSerializationInfo
 
 from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject
+from cognite_toolkit._cdf_tk.client.data_classes.group._constants import ACL_NAME, SCOPE_NAME
 from tests.test_unit.test_cdf_tk.test_tk_warnings.test_warnings_metatest import get_all_subclasses
 
 from .scopes import (
@@ -49,23 +49,23 @@ class Acl(BaseModelObject):
         if not isinstance(scope, dict):
             return value
         # If scope already has scope_name, it's in the correct format
-        if "scope_name" in scope or "scopeName" in scope:
+        if SCOPE_NAME in scope:
             return value
         # Convert from API format: find the scope key and extract its data
         scope_name = next(iter(scope.keys()), None)
         if scope_name is not None:
             scope_data = scope.get(scope_name, {})
             if isinstance(scope_data, dict):
-                new_scope = {"scope_name": scope_name, **scope_data}
+                new_scope = {SCOPE_NAME: scope_name, **scope_data}
                 value = dict(value)
                 value["scope"] = new_scope
         return value
 
     @model_serializer(mode="plain")
-    def convert_scope_to_api_format(self, info: FieldSerializationInfo) -> dict[str, Any]:
+    def convert_scope_to_api_format(self) -> dict[str, Any]:
         """Convert scope from model format {'scope_name': 'all'} to API format {'all': {}}."""
         output: dict[str, Any] = {"actions": self.actions}
-        scope = self.scope.model_dump(**vars(info))
+        scope = self.scope.model_dump()
         if isinstance(scope, dict):
             output["scope"] = {self.scope.scope_name: scope}
         return output
@@ -573,8 +573,7 @@ _KNOWN_ACLS = {
 
 
 def _handle_unknown_acl(value: Any) -> Any:
-    if isinstance(value, dict):
-        acl_name = value.get("acl_name") or value.get("aclName")
+    if isinstance(value, dict) and isinstance(acl_name := value[ACL_NAME], str):
         acl_class = _KNOWN_ACLS.get(acl_name)
         if acl_class:
             return TypeAdapter(acl_class).validate_python(value)

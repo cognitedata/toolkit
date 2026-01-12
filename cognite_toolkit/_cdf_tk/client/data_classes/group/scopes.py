@@ -9,6 +9,7 @@ from typing import Annotated, Any, Literal, TypeAlias
 from pydantic import BeforeValidator, Field, TypeAdapter
 
 from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject
+from cognite_toolkit._cdf_tk.client.data_classes.group._constants import SCOPE_NAME
 from tests.test_unit.test_cdf_tk.test_tk_warnings.test_warnings_metatest import get_all_subclasses
 
 
@@ -136,8 +137,7 @@ _KNOWN_SCOPES = {
 
 
 def _handle_unknown_scope(value: Any) -> Any:
-    if isinstance(value, dict):
-        scope_name = value.get("scope_name") or value.get("scopeName")
+    if isinstance(value, dict) and isinstance(scope_name := value.get(SCOPE_NAME), str):
         scope_class = _KNOWN_SCOPES.get(scope_name)
         if scope_class:
             return TypeAdapter(scope_class).validate_python(value)

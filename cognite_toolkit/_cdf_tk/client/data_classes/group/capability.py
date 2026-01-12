@@ -10,6 +10,7 @@ from pydantic import model_serializer, model_validator
 from pydantic_core.core_schema import FieldSerializationInfo
 
 from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject
+from cognite_toolkit._cdf_tk.client.data_classes.group._constants import ACL_NAME
 
 from .acls import AclType
 
@@ -38,8 +39,8 @@ class GroupCapability(BaseModelObject):
         if acl_name is None:
             return value
         value_copy = value.copy()
-        acl_data = dict(value_copy.pop(acl_name))
-        acl_data["aclName"] = acl_name
+        acl_data = value_copy.pop(acl_name)
+        acl_data[ACL_NAME] = acl_name
         value_copy["acl"] = acl_data
         return value_copy
 
@@ -47,7 +48,7 @@ class GroupCapability(BaseModelObject):
     def serialize_acl_name(self, info: FieldSerializationInfo) -> dict[str, Any]:
         """Serialize 'acl' field back to its specific ACL key (e.g., 'assetsAcl') for API compatibility."""
         acl_data = self.acl.model_dump(**vars(info))
-        output = {self.acl.acl_name: acl_data}
+        output: dict[str, Any] = {self.acl.acl_name: acl_data}
         if self.project_url_names is not None:
             output["projectUrlNames"] = self.project_url_names.model_dump(**vars(info))
         return output
