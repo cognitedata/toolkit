@@ -19,6 +19,7 @@ class Issue(BaseModel):
 
     code: str
     message: str | None = Field(default=None)
+    fix: str | None = Field(default=None)
 
 
 # temporary adapter to manage existing warnings
@@ -32,15 +33,13 @@ class IssueList(UserList[Issue]):
 
 
 class ModuleLoadingIssue(Issue):
-    """Issue with the loading of a module folder
-
-    ## What it does
-    Validates that the module folder exists and contains resources.
-
-    ## Why is this bad?
-    If the module folder does not exist or contains no resources, the build will skip it.
+    """Issue with the loading of a module folder.
+    Args:
+        path: The path to the module folder.
+        message: The message of the issue.
+        fix: The fix for the issue.
     """
 
-    code: str = f"{MODULE_ISSUE_CODE}_001"
+    code: str = "MOD_001"
     path: Path
     message: str | None = Field(default=None)
