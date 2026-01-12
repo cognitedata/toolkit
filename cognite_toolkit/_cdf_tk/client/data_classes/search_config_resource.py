@@ -33,6 +33,7 @@ class SearchConfigBase(BaseModelObject):
 class SearchConfigRequest(SearchConfigBase, RequestResource):
     """Request resource for creating/updating search configuration."""
 
+    # This is required when updating an existing search config
     id: int | None = None
 
     def as_id(self) -> InternalId:

@@ -1,10 +1,8 @@
 from typing import Literal
 
-from pydantic import JsonValue
-
 from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject, RequestResource, ResponseResource
 
-from .identifiers import ExternalId, InternalId, InternalOrExternalId
+from .identifiers import ExternalId
 
 
 class SequenceColumn(BaseModelObject):
@@ -21,30 +19,26 @@ class SequenceRow(BaseModelObject):
     """Represents a row in a sequence."""
 
     row_number: int
-    values: list[JsonValue]
+    values: list[str | float]
 
 
-class SequenceRowsBase(BaseModelObject):
+class SequenceRows(BaseModelObject):
     """Base class for sequence rows with common fields."""
 
-    external_id: str | None = None
-    id: int | None = None
-    columns: list[str]
     rows: list[SequenceRow]
 
 
-class SequenceRowsRequest(SequenceRowsBase, RequestResource):
+class SequenceRowsRequest(SequenceRows, RequestResource):
     """Request resource for inserting sequence rows."""
 
-    def as_id(self) -> InternalOrExternalId:
-        if self.external_id is not None:
-            return ExternalId(external_id=self.external_id)
-        if self.id is not None:
-            return InternalId(id=self.id)
-        raise ValueError("Either external_id or id must be set")
+    external_id: str
+    columns: list[str]
+
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)
 
 
-class SequenceRowsResponse(SequenceRowsBase, ResponseResource[SequenceRowsRequest]):
+class SequenceRowsResponse(SequenceRows, ResponseResource[SequenceRowsRequest]):
     """Response resource for sequence rows.
 
     Note: The CDF API for sequence rows typically doesn't return the standard
@@ -52,7 +46,9 @@ class SequenceRowsResponse(SequenceRowsBase, ResponseResource[SequenceRowsReques
     The response contains the sequence identification and the row data.
     """
 
+    external_id: str | None = None
     id: int
+    columns: list[SequenceColumn]
 
     def as_request_resource(self) -> SequenceRowsRequest:
         return SequenceRowsRequest.model_validate(self.dump(), extra="ignore")

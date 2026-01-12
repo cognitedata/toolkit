@@ -44,7 +44,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.relationship import Relationshi
 from cognite_toolkit._cdf_tk.client.data_classes.search_config_resource import SearchConfigResponse
 from cognite_toolkit._cdf_tk.client.data_classes.sequence_rows import SequenceRowsResponse
 from cognite_toolkit._cdf_tk.client.data_classes.simulator_model import SimulatorModelRequest, SimulatorModelResponse
-from cognite_toolkit._cdf_tk.client.data_classes.streamlit import StreamlitResponse
+from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import StreamlitResponse
 from cognite_toolkit._cdf_tk.client.data_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 
 
