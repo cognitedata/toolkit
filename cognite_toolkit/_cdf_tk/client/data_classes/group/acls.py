@@ -1,162 +1,35 @@
-"""Group data classes for the Cognite API Groups endpoint.
+"""ACL (Access Control List) definitions for Group capabilities.
 
 Based on the API specification at:
 https://api-docs.cognite.com/20230101/tag/Groups/operation/createGroups
 """
 
 from types import MappingProxyType
-from typing import Annotated, Any, ClassVar, Literal
+from typing import Any, ClassVar, Literal
 
-from pydantic import BeforeValidator, model_serializer, model_validator
+from pydantic import model_serializer, model_validator
 from pydantic_core.core_schema import SerializerFunctionWrapHandler
 
-from cognite_toolkit._cdf_tk.client.data_classes.base import (
-    BaseModelObject,
-    RequestResource,
-    ResponseResource,
+from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject
+
+from .scopes import (
+    AllScope,
+    AppConfigScope,
+    AssetRootIDScope,
+    CurrentUserScope,
+    DataSetScope,
+    ExperimentScope,
+    ExtractionPipelineScope,
+    IDScope,
+    IDScopeLowerCase,
+    InstancesScope,
+    PartitionScope,
+    PostgresGatewayUsersScope,
+    Scope,
+    SpaceIDScope,
+    TableScope,
+    parse_scope,
 )
-
-from .identifiers import NameId
-
-# =============================================================================
-# Scope Definitions
-# =============================================================================
-
-
-class Scope(BaseModelObject):
-    """Base class for all scope definitions."""
-
-    _scope_name: ClassVar[str]
-
-    @model_serializer(mode="wrap", when_used="always", return_type=dict)
-    def include_scope_name(self, handler: SerializerFunctionWrapHandler) -> dict:
-        if self._scope_name is None:
-            raise ValueError("Scope name is not set")
-        serialized_data = handler(self)
-        return {self._scope_name: serialized_data}
-
-
-class AllScope(Scope):
-    """Scope that applies to all resources."""
-
-    _scope_name: ClassVar[str] = "all"
-
-
-class CurrentUserScope(Scope):
-    """Scope that applies to the current user only."""
-
-    _scope_name: ClassVar[str] = "currentuserscope"
-
-
-class DataSetScope(Scope):
-    """Scope limited to specific data sets by ID."""
-
-    _scope_name: ClassVar[str] = "datasetScope"
-    ids: list[int]
-
-
-class IDScope(Scope):
-    """Scope limited to specific resource IDs."""
-
-    _scope_name: ClassVar[str] = "idScope"
-    ids: list[int]
-
-
-class IDScopeLowerCase(Scope):
-    """Scope limited to specific resource IDs (lowercase variant)."""
-
-    _scope_name: ClassVar[str] = "idscope"
-    ids: list[int]
-
-
-class SpaceIDScope(Scope):
-    """Scope limited to specific spaces by ID."""
-
-    _scope_name: ClassVar[str] = "spaceIdScope"
-    space_ids: list[str]
-
-
-class AssetRootIDScope(Scope):
-    """Scope limited to assets under specific root assets."""
-
-    _scope_name: ClassVar[str] = "assetRootIdScope"
-    root_ids: list[int]
-
-
-class TableScope(Scope):
-    """Scope limited to specific RAW tables."""
-
-    _scope_name: ClassVar[str] = "tableScope"
-    dbs_to_tables: dict[str, list[str]]
-
-
-class ExtractionPipelineScope(Scope):
-    """Scope limited to specific extraction pipelines."""
-
-    _scope_name: ClassVar[str] = "extractionPipelineScope"
-    ids: list[int]
-
-
-class InstancesScope(Scope):
-    """Scope limited to specific instances."""
-
-    _scope_name: ClassVar[str] = "instancesScope"
-    instances: list[str]
-
-
-class PartitionScope(Scope):
-    """Scope limited to specific partitions."""
-
-    _scope_name: ClassVar[str] = "partition"
-    partition_ids: list[int]
-
-
-class ExperimentScope(Scope):
-    """Scope limited to specific experiments."""
-
-    _scope_name: ClassVar[str] = "experimentscope"
-    experiments: list[str]
-
-
-class AppConfigScope(Scope):
-    """Scope limited to specific app configurations."""
-
-    _scope_name: ClassVar[str] = "appScope"
-    apps: list[str]
-
-
-class PostgresGatewayUsersScope(Scope):
-    """Scope limited to specific PostgreSQL gateway users."""
-
-    _scope_name: ClassVar[str] = "usersScope"
-    usernames: list[str]
-
-
-# Build scope lookup
-_SCOPE_CLASS_BY_NAME: MappingProxyType[str, type[Scope]] = MappingProxyType(
-    {cls._scope_name: cls for cls in Scope.__subclasses__()}
-)
-
-
-def _parse_scope(data: dict[str, Any]) -> Scope:
-    """Parse a scope from a dictionary."""
-    if not isinstance(data, dict) or len(data) != 1:
-        raise ValueError(f"Invalid scope format: {data}")
-
-    scope_name, scope_content = next(iter(data.items()))
-    if scope_name not in _SCOPE_CLASS_BY_NAME:
-        # Return an AllScope as fallback for unknown scopes
-        return AllScope()
-
-    scope_cls = _SCOPE_CLASS_BY_NAME[scope_name]
-    if scope_content:
-        return scope_cls.model_validate(scope_content)
-    return scope_cls()
-
-
-# =============================================================================
-# ACL (Access Control List) Definitions
-# =============================================================================
 
 
 class Acl(BaseModelObject):
@@ -173,7 +46,7 @@ class Acl(BaseModelObject):
             scope_data = data["scope"]
             if isinstance(scope_data, dict):
                 data = dict(data)
-                data["scope"] = _parse_scope(scope_data)
+                data["scope"] = parse_scope(scope_data)
         return data
 
     @model_serializer(mode="wrap", when_used="always", return_type=dict)
@@ -683,139 +556,14 @@ def _get_all_acl_subclasses(cls: type) -> list[type]:
     return subclasses
 
 
-_ACL_CLASS_BY_NAME: MappingProxyType[str, type[Acl]] = MappingProxyType(
+ACL_CLASS_BY_NAME: MappingProxyType[str, type[Acl]] = MappingProxyType(
     {cls._acl_name: cls for cls in _get_all_acl_subclasses(Acl) if hasattr(cls, "_acl_name")}
 )
 
 
-def _parse_acl(acl_name: str, acl_data: dict[str, Any]) -> Acl:
+def parse_acl(acl_name: str, acl_data: dict[str, Any]) -> Acl:
     """Parse an ACL from its name and data."""
-    if acl_name in _ACL_CLASS_BY_NAME:
-        return _ACL_CLASS_BY_NAME[acl_name].model_validate(acl_data)
+    if acl_name in ACL_CLASS_BY_NAME:
+        return ACL_CLASS_BY_NAME[acl_name].model_validate(acl_data)
     # Unknown ACL type - return as UnknownAcl
     return UnknownAcl(actions=acl_data.get("actions", []), scope=AllScope())
-
-
-# =============================================================================
-# Capability Wrapper (contains ACL + optional projectUrlNames)
-# =============================================================================
-
-
-class ProjectUrlNames(BaseModelObject):
-    """Project URL names for cross-project capabilities."""
-
-    url_names: list[str]
-
-
-class GroupCapability(BaseModelObject):
-    """A single capability entry containing an ACL and optional project URL names."""
-
-    acl: Acl
-    project_url_names: ProjectUrlNames | None = None
-
-    @model_validator(mode="before")
-    @classmethod
-    def parse_capability(cls, data: Any) -> Any:
-        if not isinstance(data, dict):
-            return data
-
-        result: dict[str, Any] = {}
-        acl_found = False
-
-        for key, value in data.items():
-            if key == "projectUrlNames":
-                result["project_url_names"] = ProjectUrlNames.model_validate(value)
-            elif key in _ACL_CLASS_BY_NAME:
-                result["acl"] = _parse_acl(key, value)
-                acl_found = True
-            elif not acl_found and isinstance(value, dict) and "actions" in value:
-                # Unknown ACL type
-                result["acl"] = UnknownAcl(
-                    actions=value.get("actions", []),
-                    scope=_parse_scope(value.get("scope", {"all": {}})),
-                )
-                acl_found = True
-
-        if not acl_found:
-            raise ValueError(f"No ACL found in capability data: {data}")
-
-        return result
-
-    @model_serializer(mode="wrap", when_used="always", return_type=dict)
-    def serialize_capability(self, handler: SerializerFunctionWrapHandler) -> dict:
-        result = self.acl.dump(camel_case=True)
-        if self.project_url_names is not None:
-            result["projectUrlNames"] = self.project_url_names.dump(camel_case=True)
-        return result
-
-
-def _handle_capability(value: Any) -> Any:
-    """Validator to handle capability parsing."""
-    if isinstance(value, GroupCapability):
-        return value
-    if isinstance(value, dict):
-        return GroupCapability.model_validate(value)
-    return value
-
-
-GroupCapabilityType = Annotated[GroupCapability, BeforeValidator(_handle_capability)]
-
-
-# =============================================================================
-# Group Attributes
-# =============================================================================
-
-
-class TokenAttributes(BaseModelObject):
-    """Token attributes for group."""
-
-    app_ids: list[str] | None = None
-
-
-class GroupAttributes(BaseModelObject):
-    """Attributes for a group."""
-
-    token: TokenAttributes | None = None
-
-
-# =============================================================================
-# Group Classes
-# =============================================================================
-
-
-class Group(BaseModelObject):
-    """Base class for Group resources."""
-
-    name: str
-    capabilities: list[GroupCapabilityType] | None = None
-    metadata: dict[str, str] | None = None
-    attributes: GroupAttributes | None = None
-    source_id: str | None = None
-
-    def as_id(self) -> NameId:
-        return NameId(name=self.name)
-
-
-class GroupRequest(Group, RequestResource):
-    """Group request resource for creating/updating groups."""
-
-    pass
-
-
-class GroupResponse(Group, ResponseResource[GroupRequest]):
-    """Group response resource returned from API."""
-
-    id: int
-    is_deleted: bool = False
-    deleted_time: int | None = None
-
-    def as_request_resource(self) -> GroupRequest:
-        return GroupRequest.model_validate(
-            {
-                "name": self.name,
-                "capabilities": self.capabilities,
-                "metadata": self.metadata,
-                "attributes": self.attributes,
-                "sourceId": self.source_id,
-            }
-        )
