@@ -54,8 +54,8 @@ class StreamlitRequest(StreamlitFile, RequestUpdateable):
             metadata=metadata,
         )
 
-    def dump(self, camel_case: bool = True) -> dict[str, Any]:
-        return self.as_file().dump(camel_case=camel_case)
+    def dump(self, camel_case: bool = True, exclude_extra: bool = False) -> dict[str, Any]:
+        return self.as_file().dump(camel_case=camel_case, exclude_extra=exclude_extra)
 
     def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
         return self.as_file().as_update(mode)

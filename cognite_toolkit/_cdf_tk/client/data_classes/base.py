@@ -20,11 +20,21 @@ class BaseModelObject(BaseModel):
     # We allow extra fields to support forward compatibility.
     model_config = ConfigDict(alias_generator=to_camel, extra="allow", populate_by_name=True)
 
-    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+    def dump(self, camel_case: bool = True, exclude_extra: bool = False) -> dict[str, Any]:
         """Dump the resource to a dictionary.
 
-        This is the default serialization method for request resources.
+        Args:
+            camel_case (bool): Whether to use camelCase for the keys. Default is True.
+            exclude_extra (bool): Whether to exclude extra fields not defined in the model. Default is False.
+
         """
+        if exclude_extra:
+            return self.model_dump(
+                mode="json",
+                by_alias=camel_case,
+                exclude_unset=True,
+                exclude=set(self.__pydantic_extra__) if self.__pydantic_extra__ else None,
+            )
         return self.model_dump(mode="json", by_alias=camel_case, exclude_unset=True)
 
     @classmethod
@@ -39,7 +49,7 @@ class Identifier(BaseModelObject):
 
     model_config = ConfigDict(alias_generator=to_camel, extra="ignore", populate_by_name=True, frozen=True)
 
-    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+    def dump(self, camel_case: bool = True, exclude_extra: bool = False) -> dict[str, Any]:
         """Dump the resource to a dictionary.
 
         This is the default serialization method for request resources.

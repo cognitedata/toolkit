@@ -1050,7 +1050,11 @@ class ApprovalToolkitClient:
                             return v["view"]["space"] + "/" + v["view"]["externalId"]
                         raise ValueError(f"Could not find identifier in {v}")
 
-                    dumped[key] = sorted(dumped_resource, key=sort_key)
+                    try:
+                        dumped[key] = sorted(dumped_resource, key=sort_key)
+                    except TypeError as e:
+                        raise TypeError(f"Could not sort resources of type {key}. Error: {e}") from e
+
                 else:
                     dumped[key] = list(dumped_resource)
 

@@ -8,6 +8,7 @@ import pytest
 from cognite_toolkit._cdf_tk.client.api.assets import AssetsAPI
 from cognite_toolkit._cdf_tk.client.api.events import EventsAPI
 from cognite_toolkit._cdf_tk.client.api.filemetadata import FileMetadataAPI
+from cognite_toolkit._cdf_tk.client.api.raw import RawDatabasesAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsAPI
 from cognite_toolkit._cdf_tk.client.api.timeseries import TimeSeriesAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI
@@ -29,7 +30,12 @@ from cognite_toolkit._cdf_tk.client.data_classes.data_modeling import (
     ViewRequest,
     ViewResponse,
 )
+from cognite_toolkit._cdf_tk.client.data_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.data_classes.event import EventRequest, EventResponse
+from cognite_toolkit._cdf_tk.client.data_classes.extraction_pipeline import (
+    ExtractionPipelineRequest,
+    ExtractionPipelineResponse,
+)
 from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.data_classes.function import FunctionRequest, FunctionResponse
 from cognite_toolkit._cdf_tk.client.data_classes.function_schedule import (
@@ -40,14 +46,50 @@ from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_model import (
     GraphQLDataModelRequest,
     GraphQLDataModelResponse,
 )
+from cognite_toolkit._cdf_tk.client.data_classes.hosted_extractor_destination import (
+    HostedExtractorDestinationRequest,
+    HostedExtractorDestinationResponse,
+)
+from cognite_toolkit._cdf_tk.client.data_classes.hosted_extractor_job import (
+    HostedExtractorJobRequest,
+    HostedExtractorJobResponse,
+)
+from cognite_toolkit._cdf_tk.client.data_classes.hosted_extractor_mapping import (
+    HostedExtractorMappingRequest,
+    HostedExtractorMappingResponse,
+)
+from cognite_toolkit._cdf_tk.client.data_classes.hosted_extractor_source import (
+    KafkaSourceRequest,
+    KafkaSourceResponse,
+    MQTTSourceRequest,
+    MQTTSourceResponse,
+    RESTSourceRequest,
+    RESTSourceResponse,
+)
+from cognite_toolkit._cdf_tk.client.data_classes.label import LabelRequest, LabelResponse
 from cognite_toolkit._cdf_tk.client.data_classes.location_filter import LocationFilterRequest, LocationFilterResponse
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RAWDatabase, RAWTable
 from cognite_toolkit._cdf_tk.client.data_classes.relationship import RelationshipRequest, RelationshipResponse
 from cognite_toolkit._cdf_tk.client.data_classes.search_config_resource import SearchConfigRequest, SearchConfigResponse
+from cognite_toolkit._cdf_tk.client.data_classes.securitycategory import (
+    SecurityCategoryRequest,
+    SecurityCategoryResponse,
+)
+from cognite_toolkit._cdf_tk.client.data_classes.sequence import SequenceRequest, SequenceResponse
 from cognite_toolkit._cdf_tk.client.data_classes.sequence_rows import SequenceRowsRequest, SequenceRowsResponse
 from cognite_toolkit._cdf_tk.client.data_classes.simulator_model import SimulatorModelRequest, SimulatorModelResponse
 from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import StreamlitRequest, StreamlitResponse
 from cognite_toolkit._cdf_tk.client.data_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
+from cognite_toolkit._cdf_tk.client.data_classes.transformation import TransformationRequest, TransformationResponse
+from cognite_toolkit._cdf_tk.client.data_classes.workflow import WorkflowRequest, WorkflowResponse
+from cognite_toolkit._cdf_tk.client.data_classes.workflow_trigger import (
+    WorkflowTriggerRequest,
+    WorkflowTriggerResponse,
+)
+from cognite_toolkit._cdf_tk.client.data_classes.workflow_version import (
+    WorkflowVersionRequest,
+    WorkflowVersionResponse,
+)
 
 
 @dataclass
@@ -228,6 +270,131 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
                 }
             },
         },
+        SecurityCategoryResponse: {
+            "id": 201,
+            "name": "security_category_001",
+        },
+        SequenceResponse: {
+            "id": 202,
+            "externalId": "sequence_001",
+            "columns": [
+                {"externalId": "col_1", "valueType": "STRING"},
+            ],
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        DataSetResponse: {
+            "id": 203,
+            "externalId": "dataset_001",
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        LabelResponse: {
+            "externalId": "label_001",
+            "name": "Example Label",
+            "createdTime": 1622547800000,
+        },
+        ExtractionPipelineResponse: {
+            "id": 204,
+            "externalId": "extraction_pipeline_001",
+            "name": "Example Extraction Pipeline",
+            "dataSetId": 123456,
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        KafkaSourceResponse: {
+            "type": "kafka",
+            "externalId": "kafka_source_001",
+            "bootstrapBrokers": [{"host": "localhost", "port": 9092}],
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        MQTTSourceResponse: {
+            "type": "mqtt5",
+            "externalId": "mqtt_source_001",
+            "host": "localhost",
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        RESTSourceResponse: {
+            "type": "rest",
+            "externalId": "rest_source_001",
+            "host": "api.example.com",
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        HostedExtractorMappingResponse: {
+            "externalId": "mapping_001",
+            "mapping": {"expression": "SELECT * FROM source"},
+            "published": True,
+            "input": {"type": "json"},
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        HostedExtractorJobResponse: {
+            "externalId": "job_001",
+            "destinationId": "destination_001",
+            "sourceId": "source_001",
+            "format": {"type": "cognite"},
+            "config": {"topicFilter": "my/topic"},
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        HostedExtractorDestinationResponse: {
+            "externalId": "destination_001",
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        TransformationResponse: {
+            "id": 205,
+            "externalId": "transformation_001",
+            "name": "Example Transformation",
+            "ignoreNullFields": True,
+            "query": "SELECT * FROM source",
+            "isPublic": True,
+            "conflictMode": "upsert",
+            "destination": {"type": "assets"},
+            "owner": "user@example.com",
+            "ownerIsCurrentUser": True,
+            "hasSourceOidcCredentials": False,
+            "hasDestinationOidcCredentials": False,
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        WorkflowResponse: {
+            "externalId": "workflow_001",
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        WorkflowVersionResponse: {
+            "workflowExternalId": "workflow_001",
+            "version": "1",
+            "workflowDefinition": {
+                "tasks": [
+                    {
+                        "externalId": "task_001",
+                        "type": "function",
+                        "parameters": {
+                            "function": {"externalId": "my_function"},
+                        },
+                    }
+                ]
+            },
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        WorkflowTriggerResponse: {
+            "externalId": "trigger_001",
+            "triggerRule": {
+                "triggerType": "schedule",
+                "cronExpression": "0 0 * * *",
+            },
+            "workflowExternalId": "workflow_001",
+            "workflowVersion": "1",
+            "isPaused": False,
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
         SequenceRowsResponse: {
             "id": 123,
             "externalId": "sequence_001",
@@ -359,6 +526,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=RAWDatabase,
             request_cls=RAWDatabase,
             example_data=get_example_minimum_responses(RAWDatabase),
+            api_class=RawDatabasesAPI,
         ),
         id="RAWDatabase",
     )
@@ -368,6 +536,8 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             request_cls=RAWTable,
             example_data=get_example_minimum_responses(RAWTable),
             is_dump_equal_to_example=False,
+            # We cannot use the generic tests RAWTableAPI for the RAWTable resource, as it requires db_name as
+            # a path parameter and thus custom endpoint mocking.
         ),
         id="RAWTable",
     )
@@ -427,6 +597,128 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             example_data=get_example_minimum_responses(EdgeResponse),
         ),
         id="Edge",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=SecurityCategoryResponse,
+            request_cls=SecurityCategoryRequest,
+            example_data=get_example_minimum_responses(SecurityCategoryResponse),
+        ),
+        id="SecurityCategory",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=SequenceResponse,
+            request_cls=SequenceRequest,
+            example_data=get_example_minimum_responses(SequenceResponse),
+        ),
+        id="Sequence",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=DataSetResponse,
+            request_cls=DataSetRequest,
+            example_data=get_example_minimum_responses(DataSetResponse),
+        ),
+        id="DataSet",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=LabelResponse,
+            request_cls=LabelRequest,
+            example_data=get_example_minimum_responses(LabelResponse),
+        ),
+        id="Label",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=ExtractionPipelineResponse,
+            request_cls=ExtractionPipelineRequest,
+            example_data=get_example_minimum_responses(ExtractionPipelineResponse),
+        ),
+        id="ExtractionPipeline",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=KafkaSourceResponse,
+            request_cls=KafkaSourceRequest,
+            example_data=get_example_minimum_responses(KafkaSourceResponse),
+        ),
+        id="HostedExtractorKafkaSource",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=MQTTSourceResponse,
+            request_cls=MQTTSourceRequest,
+            example_data=get_example_minimum_responses(MQTTSourceResponse),
+        ),
+        id="HostedExtractorMQTTSource",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=RESTSourceResponse,
+            request_cls=RESTSourceRequest,
+            example_data=get_example_minimum_responses(RESTSourceResponse),
+        ),
+        id="HostedExtractorRESTSource",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=HostedExtractorMappingResponse,
+            request_cls=HostedExtractorMappingRequest,
+            example_data=get_example_minimum_responses(HostedExtractorMappingResponse),
+        ),
+        id="HostedExtractorMapping",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=HostedExtractorJobResponse,
+            request_cls=HostedExtractorJobRequest,
+            example_data=get_example_minimum_responses(HostedExtractorJobResponse),
+        ),
+        id="HostedExtractorJob",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=HostedExtractorDestinationResponse,
+            request_cls=HostedExtractorDestinationRequest,
+            example_data=get_example_minimum_responses(HostedExtractorDestinationResponse),
+        ),
+        id="HostedExtractorDestination",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=TransformationResponse,
+            request_cls=TransformationRequest,
+            example_data=get_example_minimum_responses(TransformationResponse),
+        ),
+        id="Transformation",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=WorkflowResponse,
+            request_cls=WorkflowRequest,
+            example_data=get_example_minimum_responses(WorkflowResponse),
+        ),
+        id="Workflow",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=WorkflowVersionResponse,
+            request_cls=WorkflowVersionRequest,
+            example_data=get_example_minimum_responses(WorkflowVersionResponse),
+        ),
+        id="WorkflowVersion",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=WorkflowTriggerResponse,
+            request_cls=WorkflowTriggerRequest,
+            example_data=get_example_minimum_responses(WorkflowTriggerResponse),
+            is_dump_equal_to_example=True,
+            is_as_request_possible=False,
+        ),
+        id="WorkflowTrigger",
     )
     yield pytest.param(
         CDFResource(
