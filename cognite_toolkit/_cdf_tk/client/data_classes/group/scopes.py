@@ -4,11 +4,12 @@ Based on the API specification at:
 https://api-docs.cognite.com/20230101/tag/Groups/operation/createGroups
 """
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import Field, TypeAdapter
+from pydantic import BeforeValidator, Field, TypeAdapter
 
 from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject
+from tests.test_unit.test_cdf_tk.test_tk_warnings.test_warnings_metatest import get_all_subclasses
 
 
 class ScopeDefinition(BaseModelObject):
@@ -119,7 +120,21 @@ class UnknownScope(ScopeDefinition):
     scope_name: str
 
 
-Scope = Annotated[
+_KNOWN_SCOPES = {
+    scope.scope_name: scope for scope in get_all_subclasses(ScopeDefinition) if hasattr(scope, "scope_name")
+}
+
+
+def _handle_unknown_scope(value: Any) -> Any:
+    if isinstance(value, dict):
+        scope_name = value.get("scope_name")
+        scope_class = _KNOWN_SCOPES.get(scope_name)
+        if scope_class:
+            return TypeAdapter(scope_class).validate_python(value)
+    return UnknownScope.model_validate(value)
+
+
+Scope: TypeAlias = Annotated[
     (
         AllScope
         | CurrentUserScope
@@ -137,7 +152,5 @@ Scope = Annotated[
         | PostgresGatewayUsersScope
         | UnknownScope
     ),
-    Field(discriminator="scope_name"),
+    BeforeValidator(_handle_unknown_scope),
 ]
-
-ScopeAdapter: TypeAdapter[Scope] = TypeAdapter(Scope)

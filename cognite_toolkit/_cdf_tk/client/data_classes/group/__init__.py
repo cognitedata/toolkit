@@ -5,7 +5,6 @@ https://api-docs.cognite.com/20230101/tag/Groups/operation/createGroups
 """
 
 from .acls import (
-    ACL_CLASS_BY_NAME,
     Acl,
     AgentsAcl,
     AnalyticsAcl,
@@ -68,11 +67,9 @@ from .acls import (
     VisionModelAcl,
     WellsAcl,
     WorkflowOrchestrationAcl,
-    parse_acl,
 )
 from .capability import (
     GroupCapability,
-    GroupCapabilityType,
     ProjectUrlNames,
 )
 from .group import (
@@ -96,14 +93,12 @@ from .scopes import (
     PartitionScope,
     PostgresGatewayUsersScope,
     Scope,
-    ScopeAdapter,
     ScopeDefinition,
     SpaceIDScope,
     TableScope,
 )
 
 __all__ = [
-    "ACL_CLASS_BY_NAME",
     "Acl",
     "AgentsAcl",
     "AllScope",
@@ -139,7 +134,6 @@ __all__ = [
     "Group",
     "GroupAttributes",
     "GroupCapability",
-    "GroupCapabilityType",
     "GroupRequest",
     "GroupResponse",
     "GroupsAcl",
@@ -166,7 +160,6 @@ __all__ = [
     "SAPWritebackRequestsAcl",
     "ScheduledCalculationsAcl",
     "Scope",
-    "ScopeAdapter",
     "ScopeDefinition",
     "SecurityCategoriesAcl",
     "SeismicAcl",
@@ -191,5 +184,4 @@ __all__ = [
     "VisionModelAcl",
     "WellsAcl",
     "WorkflowOrchestrationAcl",
-    "parse_acl",
 ]
