@@ -4,141 +4,138 @@ Based on the API specification at:
 https://api-docs.cognite.com/20230101/tag/Groups/operation/createGroups
 """
 
-from types import MappingProxyType
-from typing import Any, ClassVar
+from typing import Annotated, Literal
 
-from pydantic import model_serializer
-from pydantic_core.core_schema import SerializerFunctionWrapHandler
+from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject
 
 
-class Scope(BaseModelObject):
+class ScopeDefinition(BaseModelObject):
     """Base class for all scope definitions."""
 
-    _scope_name: ClassVar[str]
-
-    @model_serializer(mode="wrap", when_used="always", return_type=dict)
-    def include_scope_name(self, handler: SerializerFunctionWrapHandler) -> dict:
-        if self._scope_name is None:
-            raise ValueError("Scope name is not set")
-        serialized_data = handler(self)
-        return {self._scope_name: serialized_data}
+    scope_name: str
 
 
-class AllScope(Scope):
+class AllScope(ScopeDefinition):
     """Scope that applies to all resources."""
 
-    _scope_name: ClassVar[str] = "all"
+    scope_name: Literal["all"] = Field("all", exclude=True)
 
 
-class CurrentUserScope(Scope):
+class CurrentUserScope(ScopeDefinition):
     """Scope that applies to the current user only."""
 
-    _scope_name: ClassVar[str] = "currentuserscope"
+    scope_name: Literal["currentuserscope"] = Field("currentuserscope", exclude=True)
 
 
-class DataSetScope(Scope):
+class DataSetScope(ScopeDefinition):
     """Scope limited to specific data sets by ID."""
 
-    _scope_name: ClassVar[str] = "datasetScope"
+    scope_name: Literal["datasetScope"] = Field("datasetScope", exclude=True)
     ids: list[int]
 
 
-class IDScope(Scope):
+class IDScope(ScopeDefinition):
     """Scope limited to specific resource IDs."""
 
-    _scope_name: ClassVar[str] = "idScope"
+    scope_name: Literal["idScope"] = Field("idScope", exclude=True)
     ids: list[int]
 
 
-class IDScopeLowerCase(Scope):
+class IDScopeLowerCase(ScopeDefinition):
     """Scope limited to specific resource IDs (lowercase variant)."""
 
-    _scope_name: ClassVar[str] = "idscope"
+    scope_name: Literal["idscope"] = Field("idscope", exclude=True)
     ids: list[int]
 
 
-class SpaceIDScope(Scope):
+class SpaceIDScope(ScopeDefinition):
     """Scope limited to specific spaces by ID."""
 
-    _scope_name: ClassVar[str] = "spaceIdScope"
+    scope_name: Literal["spaceIdScope"] = Field("spaceIdScope", exclude=True)
     space_ids: list[str]
 
 
-class AssetRootIDScope(Scope):
+class AssetRootIDScope(ScopeDefinition):
     """Scope limited to assets under specific root assets."""
 
-    _scope_name: ClassVar[str] = "assetRootIdScope"
+    scope_name: Literal["assetRootIdScope"] = Field("assetRootIdScope", exclude=True)
     root_ids: list[int]
 
 
-class TableScope(Scope):
+class TableScope(ScopeDefinition):
     """Scope limited to specific RAW tables."""
 
-    _scope_name: ClassVar[str] = "tableScope"
+    scope_name: Literal["tableScope"] = Field("tableScope", exclude=True)
     dbs_to_tables: dict[str, list[str]]
 
 
-class ExtractionPipelineScope(Scope):
+class ExtractionPipelineScope(ScopeDefinition):
     """Scope limited to specific extraction pipelines."""
 
-    _scope_name: ClassVar[str] = "extractionPipelineScope"
+    scope_name: Literal["extractionPipelineScope"] = Field("extractionPipelineScope", exclude=True)
     ids: list[int]
 
 
-class InstancesScope(Scope):
+class InstancesScope(ScopeDefinition):
     """Scope limited to specific instances."""
 
-    _scope_name: ClassVar[str] = "instancesScope"
+    scope_name: Literal["instancesScope"] = Field("instancesScope", exclude=True)
     instances: list[str]
 
 
-class PartitionScope(Scope):
+class PartitionScope(ScopeDefinition):
     """Scope limited to specific partitions."""
 
-    _scope_name: ClassVar[str] = "partition"
+    scope_name: Literal["partition"] = Field("partition", exclude=True)
     partition_ids: list[int]
 
 
-class ExperimentScope(Scope):
+class ExperimentScope(ScopeDefinition):
     """Scope limited to specific experiments."""
 
-    _scope_name: ClassVar[str] = "experimentscope"
+    scope_name: Literal["experimentscope"] = Field("experimentscope", exclude=True)
     experiments: list[str]
 
 
-class AppConfigScope(Scope):
+class AppConfigScope(ScopeDefinition):
     """Scope limited to specific app configurations."""
 
-    _scope_name: ClassVar[str] = "appScope"
+    scope_name: Literal["appScope"] = Field("appScope", exclude=True)
     apps: list[str]
 
 
-class PostgresGatewayUsersScope(Scope):
+class PostgresGatewayUsersScope(ScopeDefinition):
     """Scope limited to specific PostgreSQL gateway users."""
 
-    _scope_name: ClassVar[str] = "usersScope"
+    scope_name: Literal["usersScope"] = Field("usersScope", exclude=True)
     usernames: list[str]
 
 
-# Build scope lookup
-_SCOPE_CLASS_BY_NAME: MappingProxyType[str, type[Scope]] = MappingProxyType(
-    {cls._scope_name: cls for cls in Scope.__subclasses__()}
-)
+class UnknownScope(ScopeDefinition):
+    """Fallback class for unknown scope definitions."""
+
+    scope_name: str
 
 
-def parse_scope(data: dict[str, Any]) -> Scope:
-    """Parse a scope from a dictionary."""
-    if not isinstance(data, dict) or len(data) != 1:
-        raise ValueError(f"Invalid scope format: {data}")
-
-    scope_name, scope_content = next(iter(data.items()))
-    if scope_name not in _SCOPE_CLASS_BY_NAME:
-        # Return an AllScope as fallback for unknown scopes
-        return AllScope()
-
-    scope_cls = _SCOPE_CLASS_BY_NAME[scope_name]
-    if scope_content:
-        return scope_cls.model_validate(scope_content)
-    return scope_cls()
+Scope = Annotated[
+    (
+        AllScope
+        | CurrentUserScope
+        | DataSetScope
+        | IDScope
+        | IDScopeLowerCase
+        | SpaceIDScope
+        | AssetRootIDScope
+        | TableScope
+        | ExtractionPipelineScope
+        | InstancesScope
+        | PartitionScope
+        | ExperimentScope
+        | AppConfigScope
+        | PostgresGatewayUsersScope
+        | UnknownScope
+    ),
+    Field(discriminator="scope_name"),
+]
