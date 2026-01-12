@@ -32,6 +32,20 @@ from cognite_toolkit._cdf_tk.client.data_classes.data_modeling import (
 from cognite_toolkit._cdf_tk.client.data_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RAWDatabase, RAWTable
+from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
+    DataPostProcessingRequest,
+    DataPostProcessingResponse,
+    FrameRequest,
+    FrameResponse,
+    LocationRequest,
+    LocationResponse,
+    RobotCapabilityRequest,
+    RobotCapabilityResponse,
+    RobotMapRequest,
+    RobotMapResponse,
+    RobotRequest,
+    RobotResponse,
+)
 from cognite_toolkit._cdf_tk.client.data_classes.simulator_model import SimulatorModelRequest, SimulatorModelResponse
 from cognite_toolkit._cdf_tk.client.data_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 
@@ -213,6 +227,50 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
                 }
             },
         },
+        FrameResponse: {
+            "externalId": "frame_001",
+            "name": "Example Frame",
+            "createdTime": 1622547800000,
+            "updatedTime": 1622547800000,
+        },
+        RobotCapabilityResponse: {
+            "externalId": "capability_001",
+            "name": "PTZ Camera",
+            "method": "capture_ptz",
+            "inputSchema": {"type": "object"},
+            "dataHandlingSchema": {"type": "object"},
+            "createdTime": 1622547800000,
+            "updatedTime": 1622547800000,
+        },
+        LocationResponse: {
+            "externalId": "location_001",
+            "name": "Factory Floor",
+            "createdTime": 1622547800000,
+            "updatedTime": 1622547800000,
+        },
+        RobotResponse: {
+            "name": "Spot-001",
+            "capabilities": ["capability_001"],
+            "robotType": "SPOT",
+            "dataSetId": 123456,
+            "createdTime": 1622547800000,
+            "updatedTime": 1622547800000,
+        },
+        DataPostProcessingResponse: {
+            "externalId": "postprocessing_001",
+            "name": "Gauge Reader",
+            "method": "read_gauge",
+            "inputSchema": {"type": "object"},
+            "createdTime": 1622547800000,
+            "updatedTime": 1622547800000,
+        },
+        RobotMapResponse: {
+            "externalId": "map_001",
+            "name": "Factory Map",
+            "mapType": "THREEDMODEL",
+            "createdTime": 1622547800000,
+            "updatedTime": 1622547800000,
+        },
     }
     try:
         return responses[resource_cls]
@@ -346,4 +404,52 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             example_data=get_example_minimum_responses(EdgeResponse),
         ),
         id="Edge",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=FrameResponse,
+            request_cls=FrameRequest,
+            example_data=get_example_minimum_responses(FrameResponse),
+        ),
+        id="Frame",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=RobotCapabilityResponse,
+            request_cls=RobotCapabilityRequest,
+            example_data=get_example_minimum_responses(RobotCapabilityResponse),
+        ),
+        id="RobotCapability",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=LocationResponse,
+            request_cls=LocationRequest,
+            example_data=get_example_minimum_responses(LocationResponse),
+        ),
+        id="Location",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=RobotResponse,
+            request_cls=RobotRequest,
+            example_data=get_example_minimum_responses(RobotResponse),
+        ),
+        id="Robot",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=DataPostProcessingResponse,
+            request_cls=DataPostProcessingRequest,
+            example_data=get_example_minimum_responses(DataPostProcessingResponse),
+        ),
+        id="DataPostProcessing",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=RobotMapResponse,
+            request_cls=RobotMapRequest,
+            example_data=get_example_minimum_responses(RobotMapResponse),
+        ),
+        id="RobotMap",
     )
