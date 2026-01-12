@@ -645,6 +645,7 @@ AclType: TypeAlias = Annotated[
         | WellsAcl
         | WorkflowOrchestrationAcl
         | SimulatorsAcl
+        | UnknownAcl
     ),
     BeforeValidator(_handle_unknown_acl),
 ]

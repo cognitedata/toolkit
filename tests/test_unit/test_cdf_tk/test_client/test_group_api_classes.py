@@ -181,3 +181,11 @@ class TestGroupAPIClasses:
         group = GroupRequest.model_validate(data)
         assert isinstance(group, GroupRequest)
         assert group.dump() == data
+
+    def test_serialize_deserialize_unknown_capability(self) -> None:
+        """Test that an unknown ACL type can be handled."""
+        acl_dict = {"unknownAcl": {"actions": ["READ"], "scope": {"all": {}}}}
+        data = {"name": "test-group", "id": 123, "capabilities": [acl_dict]}
+        group = GroupRequest.model_validate(data)
+        assert isinstance(group, GroupRequest)
+        assert group.dump() == data
