@@ -31,6 +31,7 @@ FileMetadata:
   id: 64
   name: Multi_File_Function.zip
   overwrite: true
+FileMetadataResponse:
 - dataSetId: 7982613576047462211
   directory: /files
   externalId: shopConfigFile
