@@ -36,7 +36,7 @@ class FunctionRequest(FunctionBase, RequestResource):
         return ExternalId(external_id=self.external_id)
 
 
-class FunctionAPIError:
+class FunctionAPIError(BaseModelObject):
     code: int
     message: str
 

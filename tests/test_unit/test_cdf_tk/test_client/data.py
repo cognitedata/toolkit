@@ -31,20 +31,22 @@ from cognite_toolkit._cdf_tk.client.data_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.data_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
-from cognite_toolkit._cdf_tk.client.data_classes.function import FunctionResponse
+from cognite_toolkit._cdf_tk.client.data_classes.function import FunctionRequest, FunctionResponse
 from cognite_toolkit._cdf_tk.client.data_classes.function_schedule import (
+    FunctionScheduleRequest,
     FunctionScheduleResponse,
 )
 from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_model import (
+    GraphQLDataModelRequest,
     GraphQLDataModelResponse,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.location_filter import LocationFilterResponse
+from cognite_toolkit._cdf_tk.client.data_classes.location_filter import LocationFilterRequest, LocationFilterResponse
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RAWDatabase, RAWTable
-from cognite_toolkit._cdf_tk.client.data_classes.relationship import RelationshipResponse
-from cognite_toolkit._cdf_tk.client.data_classes.search_config_resource import SearchConfigResponse
-from cognite_toolkit._cdf_tk.client.data_classes.sequence_rows import SequenceRowsResponse
+from cognite_toolkit._cdf_tk.client.data_classes.relationship import RelationshipRequest, RelationshipResponse
+from cognite_toolkit._cdf_tk.client.data_classes.search_config_resource import SearchConfigRequest, SearchConfigResponse
+from cognite_toolkit._cdf_tk.client.data_classes.sequence_rows import SequenceRowsRequest, SequenceRowsResponse
 from cognite_toolkit._cdf_tk.client.data_classes.simulator_model import SimulatorModelRequest, SimulatorModelResponse
-from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import StreamlitResponse
+from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import StreamlitRequest, StreamlitResponse
 from cognite_toolkit._cdf_tk.client.data_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 
 
@@ -424,4 +426,69 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             example_data=get_example_minimum_responses(EdgeResponse),
         ),
         id="Edge",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=SequenceRowsResponse,
+            request_cls=SequenceRowsRequest,
+            example_data=get_example_minimum_responses(SequenceRowsResponse),
+        ),
+        id="SequenceRows",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=SearchConfigResponse,
+            request_cls=SearchConfigRequest,
+            example_data=get_example_minimum_responses(SearchConfigResponse),
+        ),
+        id="SearchConfig",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=GraphQLDataModelResponse,
+            request_cls=GraphQLDataModelRequest,
+            example_data=get_example_minimum_responses(GraphQLDataModelResponse),
+        ),
+        id="GraphQLDataModel",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=FunctionResponse,
+            request_cls=FunctionRequest,
+            example_data=get_example_minimum_responses(FunctionResponse),
+        ),
+        id="Function",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=FunctionScheduleResponse,
+            request_cls=FunctionScheduleRequest,
+            example_data=get_example_minimum_responses(FunctionScheduleResponse),
+            is_dump_equal_to_example=False,
+        ),
+        id="FunctionSchedule",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=StreamlitResponse,
+            request_cls=StreamlitRequest,
+            example_data=get_example_minimum_responses(StreamlitResponse),
+        ),
+        id="Streamlit",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=LocationFilterResponse,
+            request_cls=LocationFilterRequest,
+            example_data=get_example_minimum_responses(LocationFilterResponse),
+        ),
+        id="LocationFilter",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=RelationshipResponse,
+            request_cls=RelationshipRequest,
+            example_data=get_example_minimum_responses(RelationshipResponse),
+        ),
+        id="Relationship",
     )
