@@ -28,8 +28,9 @@ class RAWDatabase(RequestResource, Identifier, ResponseResource["RAWDatabase"]):
 
 
 class RAWTable(RequestResource, Identifier, ResponseResource["RAWTable"]):
-    # This is a query parameter, so we exclude it from serialization
-    db_name: str = Field(exclude=True)
+    # This is a query parameter, so we exclude it from serialization.
+    # Default to empty string to allow parsing from API responses (which don't include db_name).
+    db_name: str = Field(default="", exclude=True)
     name: str
 
     def as_id(self) -> Self:
