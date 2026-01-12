@@ -33,14 +33,14 @@ from cognite_toolkit._cdf_tk.client.data_classes.event import EventRequest, Even
 from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RAWDatabase, RAWTable
 from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
-    DataPostProcessingRequest,
-    DataPostProcessingResponse,
-    FrameRequest,
-    FrameResponse,
-    LocationRequest,
-    LocationResponse,
     RobotCapabilityRequest,
     RobotCapabilityResponse,
+    RobotDataPostProcessingRequest,
+    RobotDataPostProcessingResponse,
+    RobotFrameRequest,
+    RobotFrameResponse,
+    RobotLocationRequest,
+    RobotLocationResponse,
     RobotMapRequest,
     RobotMapResponse,
     RobotRequest,
@@ -227,7 +227,7 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
                 }
             },
         },
-        FrameResponse: {
+        RobotFrameResponse: {
             "externalId": "frame_001",
             "name": "Example Frame",
             "createdTime": 1622547800000,
@@ -242,7 +242,7 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "createdTime": 1622547800000,
             "updatedTime": 1622547800000,
         },
-        LocationResponse: {
+        RobotLocationResponse: {
             "externalId": "location_001",
             "name": "Factory Floor",
             "createdTime": 1622547800000,
@@ -256,7 +256,7 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "createdTime": 1622547800000,
             "updatedTime": 1622547800000,
         },
-        DataPostProcessingResponse: {
+        RobotDataPostProcessingResponse: {
             "externalId": "postprocessing_001",
             "name": "Gauge Reader",
             "method": "read_gauge",
@@ -407,9 +407,9 @@ def iterate_cdf_resources() -> Iterable[tuple]:
     )
     yield pytest.param(
         CDFResource(
-            response_cls=FrameResponse,
-            request_cls=FrameRequest,
-            example_data=get_example_minimum_responses(FrameResponse),
+            response_cls=RobotFrameResponse,
+            request_cls=RobotFrameRequest,
+            example_data=get_example_minimum_responses(RobotFrameResponse),
         ),
         id="Frame",
     )
@@ -423,11 +423,11 @@ def iterate_cdf_resources() -> Iterable[tuple]:
     )
     yield pytest.param(
         CDFResource(
-            response_cls=LocationResponse,
-            request_cls=LocationRequest,
-            example_data=get_example_minimum_responses(LocationResponse),
+            response_cls=RobotLocationResponse,
+            request_cls=RobotLocationRequest,
+            example_data=get_example_minimum_responses(RobotLocationResponse),
         ),
-        id="Location",
+        id="RobotLocation",
     )
     yield pytest.param(
         CDFResource(
@@ -439,9 +439,9 @@ def iterate_cdf_resources() -> Iterable[tuple]:
     )
     yield pytest.param(
         CDFResource(
-            response_cls=DataPostProcessingResponse,
-            request_cls=DataPostProcessingRequest,
-            example_data=get_example_minimum_responses(DataPostProcessingResponse),
+            response_cls=RobotDataPostProcessingResponse,
+            request_cls=RobotDataPostProcessingRequest,
+            example_data=get_example_minimum_responses(RobotDataPostProcessingResponse),
         ),
         id="DataPostProcessing",
     )
