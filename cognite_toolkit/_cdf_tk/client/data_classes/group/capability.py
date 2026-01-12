@@ -38,7 +38,7 @@ class GroupCapability(BaseModelObject):
         if acl_name is None:
             return value
         value_copy = value.copy()
-        acl_data = value_copy.pop(acl_name)
+        acl_data = dict(value_copy.pop(acl_name))
         acl_data[ACL_NAME] = acl_name
         value_copy["acl"] = acl_data
         return value_copy
