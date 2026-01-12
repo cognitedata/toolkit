@@ -6,7 +6,7 @@ https://api-docs.cognite.com/20230101/tag/Groups/operation/createGroups
 
 from typing import Annotated, Literal
 
-from pydantic import Field
+from pydantic import Field, TypeAdapter
 
 from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject
 
@@ -139,3 +139,5 @@ Scope = Annotated[
     ),
     Field(discriminator="scope_name"),
 ]
+
+ScopeAdapter: TypeAdapter[Scope] = TypeAdapter(Scope)
