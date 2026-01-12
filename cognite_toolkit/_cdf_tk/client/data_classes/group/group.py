@@ -56,12 +56,4 @@ class GroupResponse(Group, ResponseResource[GroupRequest]):
     deleted_time: int | None = None
 
     def as_request_resource(self) -> GroupRequest:
-        return GroupRequest.model_validate(
-            {
-                "name": self.name,
-                "capabilities": self.capabilities,
-                "metadata": self.metadata,
-                "attributes": self.attributes,
-                "sourceId": self.source_id,
-            }
-        )
+        return GroupRequest.model_validate(self.dump(), extra="ignore")
