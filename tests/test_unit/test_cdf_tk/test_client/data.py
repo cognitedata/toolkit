@@ -31,6 +31,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.data_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.data_classes.group import GroupRequest, GroupResponse
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RAWDatabase, RAWTable
 from cognite_toolkit._cdf_tk.client.data_classes.simulator_model import SimulatorModelRequest, SimulatorModelResponse
 from cognite_toolkit._cdf_tk.client.data_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
@@ -213,6 +214,13 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
                 }
             },
         },
+        GroupResponse: {
+            "id": 202,
+            "externalId": "group_001",
+            "name": "Example Group",
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
     }
     try:
         return responses[resource_cls]
@@ -346,4 +354,13 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             example_data=get_example_minimum_responses(EdgeResponse),
         ),
         id="Edge",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=GroupResponse,
+            request_cls=GroupRequest,
+            example_data=get_example_minimum_responses(GroupResponse),
+            api_class=None,
+        ),
+        id="Group",
     )
