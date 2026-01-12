@@ -36,14 +36,14 @@ class RobotDataPostProcessingRequest(RobotDataPostProcessing, RequestUpdateable)
     """Request resource for creating or updating a DataPostProcessing."""
 
     non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"input_schema"})
-    input_schema: JsonValue | None = None
+    input_schema: dict[str, JsonValue] | None = None
 
 
 class RobotDataPostProcessingResponse(RobotDataPostProcessing, ResponseResource[RobotDataPostProcessingRequest]):
     """Response resource for a DataPostProcessing."""
 
     # The response always has input_schema
-    input_schema: JsonValue
+    input_schema: dict[str, JsonValue]
 
     def as_request_resource(self) -> RobotDataPostProcessingRequest:
         return RobotDataPostProcessingRequest.model_validate(self.dump(), extra="ignore")

@@ -38,16 +38,16 @@ class RobotCapabilityRequest(RobotCapability, RequestUpdateable):
     """Request resource for creating or updating a RobotCapability."""
 
     non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"input_schema", "data_handling_schema"})
-    input_schema: JsonValue | None = None
-    data_handling_schema: JsonValue | None = None
+    input_schema: dict[str, JsonValue] | None = None
+    data_handling_schema: dict[str, JsonValue] | None = None
 
 
 class RobotCapabilityResponse(RobotCapability, ResponseResource[RobotCapabilityRequest]):
     """Response resource for a RobotCapability."""
 
     # The response always has input_schema and data_handling_schema
-    input_schema: JsonValue
-    data_handling_schema: JsonValue
+    input_schema: dict[str, JsonValue]
+    data_handling_schema: dict[str, JsonValue]
 
     def as_request_resource(self) -> RobotCapabilityRequest:
         return RobotCapabilityRequest.model_validate(self.dump(), extra="ignore")

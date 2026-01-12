@@ -34,7 +34,7 @@ class RobotMap(BaseModelObject):
     map_type: MapType
     description: str | None = None
     frame_external_id: str | None = None
-    data: JsonValue | None = None
+    data: dict[str, JsonValue] | None = None
     location_external_id: str | None = None
     scale: float | None = None
 
