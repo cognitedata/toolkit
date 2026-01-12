@@ -411,7 +411,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             request_cls=RobotFrameRequest,
             example_data=get_example_minimum_responses(RobotFrameResponse),
         ),
-        id="Frame",
+        id="RobotFrame",
     )
     yield pytest.param(
         CDFResource(
@@ -443,7 +443,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             request_cls=RobotDataPostProcessingRequest,
             example_data=get_example_minimum_responses(RobotDataPostProcessingResponse),
         ),
-        id="DataPostProcessing",
+        id="RobotDataPostProcessing",
     )
     yield pytest.param(
         CDFResource(
