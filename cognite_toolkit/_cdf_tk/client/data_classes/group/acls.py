@@ -7,7 +7,7 @@ https://api-docs.cognite.com/20230101/tag/Groups/operation/createGroups
 from collections.abc import Sequence
 from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import BeforeValidator, TypeAdapter
+from pydantic import BeforeValidator, TypeAdapter, model_validator
 
 from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject
 from tests.test_unit.test_cdf_tk.test_tk_warnings.test_warnings_metatest import get_all_subclasses
@@ -37,6 +37,28 @@ class Acl(BaseModelObject):
     acl_name: str
     actions: Sequence[str]
     scope: Scope
+
+    @model_validator(mode="before")
+    @classmethod
+    def convert_scope_format(cls, value: Any) -> Any:
+        """Convert scope from API format {'all': {}} to model format {'scope_name': 'all'}."""
+        if not isinstance(value, dict):
+            return value
+        scope = value.get("scope")
+        if not isinstance(scope, dict):
+            return value
+        # If scope already has scope_name, it's in the correct format
+        if "scope_name" in scope or "scopeName" in scope:
+            return value
+        # Convert from API format: find the scope key and extract its data
+        scope_name = next(iter(scope.keys()), None)
+        if scope_name is not None:
+            scope_data = scope.get(scope_name, {})
+            if isinstance(scope_data, dict):
+                new_scope = {"scope_name": scope_name, **scope_data}
+                value = dict(value)
+                value["scope"] = new_scope
+        return value
 
 
 class AgentsAcl(Acl):
@@ -527,15 +549,25 @@ class UnknownAcl(Acl):
     scope: AllScope
 
 
-_KNOWN_ACLS = {acl.acl_name: acl for acl in get_all_subclasses(Acl) if hasattr(acl, "acl_name")}
+def _get_acl_name(cls: type[Acl]) -> str | None:
+    """Get the acl_name default value from a Pydantic model class."""
+    field = cls.model_fields.get("acl_name")
+    if field is not None and field.default is not None:
+        return field.default
+    return None
+
+
+_KNOWN_ACLS = {
+    name: acl for acl in get_all_subclasses(Acl) if (name := _get_acl_name(acl)) is not None and name != "unknownAcl"
+}
 
 
 def _handle_unknown_acl(value: Any) -> Any:
     if isinstance(value, dict):
-        scope_name = value.get("scope_name")
-        scope_class = _KNOWN_ACLS.get(scope_name)
-        if scope_class:
-            return TypeAdapter(scope_class).validate_python(value)
+        acl_name = value.get("acl_name") or value.get("aclName")
+        acl_class = _KNOWN_ACLS.get(acl_name)
+        if acl_class:
+            return TypeAdapter(acl_class).validate_python(value)
     return UnknownAcl.model_validate(value)
 
 

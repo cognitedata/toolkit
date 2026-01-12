@@ -26,15 +26,17 @@ class GroupCapability(BaseModelObject):
     project_url_names: ProjectUrlNames | None = None
 
     @model_validator(mode="before")
+    @classmethod
     def move_acl_name(cls, value: Any) -> Any:
-        """Move 'aclName' field to 'acl' field for compatibility with older API versions."""
+        """Move ACL key (e.g., 'assetsAcl') to 'acl' field for API compatibility."""
         if not isinstance(value, dict):
+            return value
+        if "acl" in value:
             return value
         acl_name = next((key for key in value if key.endswith("Acl")), None)
         if acl_name is None:
             return value
-        if "aclName" in value and "acl" not in value:
-            acl_data = value.pop(acl_name)
-            acl_data["aclName"] = acl_name
-            value["acl"] = acl_data
+        acl_data = dict(value.pop(acl_name))
+        acl_data["aclName"] = acl_name
+        value["acl"] = acl_data
         return value

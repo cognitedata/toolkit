@@ -120,14 +120,24 @@ class UnknownScope(ScopeDefinition):
     scope_name: str
 
 
+def _get_scope_name(cls: type[ScopeDefinition]) -> str | None:
+    """Get the scope_name default value from a Pydantic model class."""
+    field = cls.model_fields.get("scope_name")
+    if field is not None and field.default is not None:
+        return field.default
+    return None
+
+
 _KNOWN_SCOPES = {
-    scope.scope_name: scope for scope in get_all_subclasses(ScopeDefinition) if hasattr(scope, "scope_name")
+    name: scope
+    for scope in get_all_subclasses(ScopeDefinition)
+    if (name := _get_scope_name(scope)) is not None and scope is not UnknownScope
 }
 
 
 def _handle_unknown_scope(value: Any) -> Any:
     if isinstance(value, dict):
-        scope_name = value.get("scope_name")
+        scope_name = value.get("scope_name") or value.get("scopeName")
         scope_class = _KNOWN_SCOPES.get(scope_name)
         if scope_class:
             return TypeAdapter(scope_class).validate_python(value)
