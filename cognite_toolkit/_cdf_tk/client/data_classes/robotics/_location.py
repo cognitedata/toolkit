@@ -1,4 +1,4 @@
-from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject, RequestResource, ResponseResource
+from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject, RequestUpdateable, ResponseResource
 from cognite_toolkit._cdf_tk.client.data_classes.identifiers import ExternalId
 
 
@@ -20,10 +20,10 @@ class RobotLocation(BaseModelObject):
         return ExternalId(external_id=self.external_id)
 
 
-class RobotLocationRequest(RobotLocation, RequestResource):
+class RobotLocationRequest(RobotLocation, RequestUpdateable):
     """Request resource for creating or updating a Location."""
 
-    pass
+    ...
 
 
 class RobotLocationResponse(RobotLocation, ResponseResource[RobotLocationRequest]):

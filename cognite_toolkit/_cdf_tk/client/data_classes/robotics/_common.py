@@ -14,12 +14,9 @@ class Point3D(BaseModelObject):
     z: float
 
 
-class Quaternion(BaseModelObject):
+class Quaternion(Point3D):
     """A quaternion representing orientation."""
 
-    x: float
-    y: float
-    z: float
     w: float
 
 

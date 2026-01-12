@@ -1,6 +1,12 @@
+from typing import ClassVar
+
 from pydantic import JsonValue
 
-from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject, RequestResource, ResponseResource
+from cognite_toolkit._cdf_tk.client.data_classes.base import (
+    BaseModelObject,
+    RequestUpdateable,
+    ResponseResource,
+)
 from cognite_toolkit._cdf_tk.client.data_classes.identifiers import ExternalId
 
 
@@ -20,17 +26,17 @@ class RobotDataPostProcessing(BaseModelObject):
     external_id: str
     name: str
     method: str
-    input_schema: JsonValue | None = None
     description: str | None = None
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
 
 
-class RobotDataPostProcessingRequest(RobotDataPostProcessing, RequestResource):
+class RobotDataPostProcessingRequest(RobotDataPostProcessing, RequestUpdateable):
     """Request resource for creating or updating a DataPostProcessing."""
 
-    pass
+    non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"input_schema"})
+    input_schema: JsonValue | None = None
 
 
 class RobotDataPostProcessingResponse(RobotDataPostProcessing, ResponseResource[RobotDataPostProcessingRequest]):

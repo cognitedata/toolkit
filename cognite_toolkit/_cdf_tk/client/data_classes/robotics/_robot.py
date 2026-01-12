@@ -1,5 +1,11 @@
-from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject, RequestResource, ResponseResource
-from cognite_toolkit._cdf_tk.client.data_classes.identifiers import ExternalId
+from typing import ClassVar
+
+from cognite_toolkit._cdf_tk.client.data_classes.base import (
+    BaseModelObject,
+    RequestUpdateable,
+    ResponseResource,
+)
+from cognite_toolkit._cdf_tk.client.data_classes.identifiers import NameId
 
 from ._common import RobotType
 
@@ -26,15 +32,15 @@ class Robot(BaseModelObject):
     metadata: dict[str, str] | None = None
     location_external_id: str | None = None
 
-    def as_id(self) -> ExternalId:
-        # Robot does not have external_id in the legacy definition, using name as identifier
-        return ExternalId(external_id=self.name)
+    def as_id(self) -> NameId:
+        return NameId(name=self.name)
 
 
-class RobotRequest(Robot, RequestResource):
+class RobotRequest(Robot, RequestUpdateable):
     """Request resource for creating or updating a Robot."""
 
-    pass
+    container_fields: ClassVar[frozenset[str]] = frozenset({"metadata"})
+    non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"location_external_id"})
 
 
 class RobotResponse(Robot, ResponseResource[RobotRequest]):
