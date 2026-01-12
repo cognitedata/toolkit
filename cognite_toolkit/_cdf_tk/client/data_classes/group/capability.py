@@ -7,6 +7,7 @@ https://api-docs.cognite.com/20230101/tag/Groups/operation/createGroups
 from typing import Any
 
 from pydantic import model_serializer, model_validator
+from pydantic_core.core_schema import FieldSerializationInfo
 
 from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.data_classes.group._constants import ACL_NAME
@@ -43,11 +44,13 @@ class GroupCapability(BaseModelObject):
         value_copy["acl"] = acl_data
         return value_copy
 
-    @model_serializer
-    def serialize_acl_name(self) -> dict[str, Any]:
+    # MyPy complains that info; FieldSerializationInfo is not compatible with info: Any
+    # It is.
+    @model_serializer  # type: ignore[type-var]
+    def serialize_acl_name(self, info: FieldSerializationInfo) -> dict[str, Any]:
         """Serialize 'acl' field back to its specific ACL key (e.g., 'assetsAcl') for API compatibility."""
-        acl_data = self.acl.model_dump()
+        acl_data = self.acl.model_dump(**vars(info))
         output: dict[str, Any] = {self.acl.acl_name: acl_data}
         if self.project_url_names is not None:
-            output["projectUrlNames"] = self.project_url_names.model_dump()
+            output["projectUrlNames"] = self.project_url_names.model_dump(**vars(info))
         return output

@@ -8,6 +8,7 @@ from collections.abc import Sequence
 from typing import Annotated, Any, Literal, TypeAlias
 
 from pydantic import BeforeValidator, Field, TypeAdapter, model_serializer, model_validator
+from pydantic_core.core_schema import FieldSerializationInfo
 
 from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.data_classes.group._constants import ACL_NAME, SCOPE_NAME
@@ -61,11 +62,13 @@ class Acl(BaseModelObject):
                 value["scope"] = new_scope
         return value
 
-    @model_serializer
-    def convert_scope_to_api_format(self) -> dict[str, Any]:
+    # MyPy complains that info; FieldSerializationInfo is not compatible with info: Any
+    # It is.
+    @model_serializer  # type: ignore[type-var]
+    def convert_scope_to_api_format(self, info: FieldSerializationInfo) -> dict[str, Any]:
         """Convert scope from model format {'scope_name': 'all'} to API format {'all': {}}."""
         output: dict[str, Any] = {"actions": self.actions}
-        scope = self.scope.model_dump()
+        scope = self.scope.model_dump(**vars(info))
         if isinstance(scope, dict):
             output["scope"] = {self.scope.scope_name: scope}
         return output
