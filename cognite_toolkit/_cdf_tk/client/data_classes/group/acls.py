@@ -7,7 +7,7 @@ https://api-docs.cognite.com/20230101/tag/Groups/operation/createGroups
 from collections.abc import Sequence
 from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import BeforeValidator, TypeAdapter, model_serializer, model_validator
+from pydantic import BeforeValidator, Field, TypeAdapter, model_serializer, model_validator
 from pydantic_core.core_schema import FieldSerializationInfo
 
 from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject
@@ -61,10 +61,10 @@ class Acl(BaseModelObject):
                 value["scope"] = new_scope
         return value
 
-    @model_serializer
+    @model_serializer(mode="plain")
     def convert_scope_to_api_format(self, info: FieldSerializationInfo) -> dict[str, Any]:
         """Convert scope from model format {'scope_name': 'all'} to API format {'all': {}}."""
-        output: dict[str, Any] = {"actions": self.actions, "aclName": self.acl_name}
+        output: dict[str, Any] = {"actions": self.actions}
         scope = self.scope.model_dump(**vars(info))
         if isinstance(scope, dict):
             output["scope"] = {self.scope.scope_name: scope}
@@ -74,7 +74,7 @@ class Acl(BaseModelObject):
 class AgentsAcl(Acl):
     """ACL for Agents resources."""
 
-    acl_name: Literal["agentsAcl"] = "agentsAcl"
+    acl_name: Literal["agentsAcl"] = Field("agentsAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE", "RUN"]]
     scope: AllScope
 
@@ -82,15 +82,15 @@ class AgentsAcl(Acl):
 class AnalyticsAcl(Acl):
     """ACL for Analytics resources."""
 
-    acl_name: Literal["analyticsAcl"] = "analyticsAcl"
-    actions: Sequence[Literal["READ", "EXECUTE", "Sequence"]]
+    acl_name: Literal["analyticsAcl"] = Field("analyticsAcl", exclude=True)
+    actions: Sequence[Literal["READ", "EXECUTE", "LIST"]]
     scope: AllScope
 
 
 class AnnotationsAcl(Acl):
     """ACL for Annotations resources."""
 
-    acl_name: Literal["annotationsAcl"] = "annotationsAcl"
+    acl_name: Literal["annotationsAcl"] = Field("annotationsAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE", "SUGGEST", "REVIEW"]]
     scope: AllScope
 
@@ -98,7 +98,7 @@ class AnnotationsAcl(Acl):
 class AppConfigAcl(Acl):
     """ACL for App Config resources."""
 
-    acl_name: Literal["appConfigAcl"] = "appConfigAcl"
+    acl_name: Literal["appConfigAcl"] = Field("appConfigAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope | AppConfigScope
 
@@ -106,7 +106,7 @@ class AppConfigAcl(Acl):
 class AssetsAcl(Acl):
     """ACL for Assets resources."""
 
-    acl_name: Literal["assetsAcl"] = "assetsAcl"
+    acl_name: Literal["assetsAcl"] = Field("assetsAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope | DataSetScope
 
@@ -114,7 +114,7 @@ class AssetsAcl(Acl):
 class AuditlogAcl(Acl):
     """ACL for Audit Log resources."""
 
-    acl_name: Literal["auditlogAcl"] = "auditlogAcl"
+    acl_name: Literal["auditlogAcl"] = Field("auditlogAcl", exclude=True)
     actions: Sequence[Literal["READ"]]
     scope: AllScope
 
@@ -122,7 +122,7 @@ class AuditlogAcl(Acl):
 class DataModelInstancesAcl(Acl):
     """ACL for Data Model Instances resources."""
 
-    acl_name: Literal["dataModelInstancesAcl"] = "dataModelInstancesAcl"
+    acl_name: Literal["dataModelInstancesAcl"] = Field("dataModelInstancesAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE", "WRITE_PROPERTIES"]]
     scope: AllScope | SpaceIDScope
 
@@ -130,7 +130,7 @@ class DataModelInstancesAcl(Acl):
 class DataModelsAcl(Acl):
     """ACL for Data Models resources."""
 
-    acl_name: Literal["dataModelsAcl"] = "dataModelsAcl"
+    acl_name: Literal["dataModelsAcl"] = Field("dataModelsAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope | SpaceIDScope
 
@@ -138,7 +138,7 @@ class DataModelsAcl(Acl):
 class DataSetsAcl(Acl):
     """ACL for Data Sets resources."""
 
-    acl_name: Literal["datasetsAcl"] = "datasetsAcl"
+    acl_name: Literal["datasetsAcl"] = Field("datasetsAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE", "OWNER"]]
     scope: AllScope | IDScope
 
@@ -146,7 +146,7 @@ class DataSetsAcl(Acl):
 class DiagramParsingAcl(Acl):
     """ACL for Diagram Parsing resources."""
 
-    acl_name: Literal["diagramParsingAcl"] = "diagramParsingAcl"
+    acl_name: Literal["diagramParsingAcl"] = Field("diagramParsingAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope
 
@@ -154,7 +154,7 @@ class DiagramParsingAcl(Acl):
 class DigitalTwinAcl(Acl):
     """ACL for Digital Twin resources."""
 
-    acl_name: Literal["digitalTwinAcl"] = "digitalTwinAcl"
+    acl_name: Literal["digitalTwinAcl"] = Field("digitalTwinAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope
 
@@ -162,7 +162,7 @@ class DigitalTwinAcl(Acl):
 class DocumentFeedbackAcl(Acl):
     """ACL for Document Feedback resources."""
 
-    acl_name: Literal["documentFeedbackAcl"] = "documentFeedbackAcl"
+    acl_name: Literal["documentFeedbackAcl"] = Field("documentFeedbackAcl", exclude=True)
     actions: Sequence[Literal["CREATE", "READ", "DELETE"]]
     scope: AllScope
 
@@ -170,7 +170,7 @@ class DocumentFeedbackAcl(Acl):
 class DocumentPipelinesAcl(Acl):
     """ACL for Document Pipelines resources."""
 
-    acl_name: Literal["documentPipelinesAcl"] = "documentPipelinesAcl"
+    acl_name: Literal["documentPipelinesAcl"] = Field("documentPipelinesAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope
 
@@ -178,7 +178,7 @@ class DocumentPipelinesAcl(Acl):
 class EntityMatchingAcl(Acl):
     """ACL for Entity Matching resources."""
 
-    acl_name: Literal["entitymatchingAcl"] = "entitymatchingAcl"
+    acl_name: Literal["entitymatchingAcl"] = Field("entitymatchingAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope
 
@@ -186,7 +186,7 @@ class EntityMatchingAcl(Acl):
 class EventsAcl(Acl):
     """ACL for Events resources."""
 
-    acl_name: Literal["eventsAcl"] = "eventsAcl"
+    acl_name: Literal["eventsAcl"] = Field("eventsAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope | DataSetScope
 
@@ -194,7 +194,7 @@ class EventsAcl(Acl):
 class ExperimentsAcl(Acl):
     """ACL for Experiments resources."""
 
-    acl_name: Literal["experimentAcl"] = "experimentAcl"
+    acl_name: Literal["experimentAcl"] = Field("experimentAcl", exclude=True)
     actions: Sequence[Literal["USE"]]
     scope: ExperimentScope
 
@@ -202,7 +202,7 @@ class ExperimentsAcl(Acl):
 class ExtractionConfigsAcl(Acl):
     """ACL for Extraction Configs resources."""
 
-    acl_name: Literal["extractionConfigsAcl"] = "extractionConfigsAcl"
+    acl_name: Literal["extractionConfigsAcl"] = Field("extractionConfigsAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope | DataSetScope | ExtractionPipelineScope
 
@@ -210,7 +210,7 @@ class ExtractionConfigsAcl(Acl):
 class ExtractionPipelinesAcl(Acl):
     """ACL for Extraction Pipelines resources."""
 
-    acl_name: Literal["extractionPipelinesAcl"] = "extractionPipelinesAcl"
+    acl_name: Literal["extractionPipelinesAcl"] = Field("extractionPipelinesAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope | IDScope | DataSetScope
 
@@ -218,7 +218,7 @@ class ExtractionPipelinesAcl(Acl):
 class ExtractionRunsAcl(Acl):
     """ACL for Extraction Runs resources."""
 
-    acl_name: Literal["extractionRunsAcl"] = "extractionRunsAcl"
+    acl_name: Literal["extractionRunsAcl"] = Field("extractionRunsAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope | DataSetScope | ExtractionPipelineScope
 
@@ -226,7 +226,7 @@ class ExtractionRunsAcl(Acl):
 class FilePipelinesAcl(Acl):
     """ACL for File Pipelines resources."""
 
-    acl_name: Literal["filePipelinesAcl"] = "filePipelinesAcl"
+    acl_name: Literal["filePipelinesAcl"] = Field("filePipelinesAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope
 
@@ -234,7 +234,7 @@ class FilePipelinesAcl(Acl):
 class FilesAcl(Acl):
     """ACL for Files resources."""
 
-    acl_name: Literal["filesAcl"] = "filesAcl"
+    acl_name: Literal["filesAcl"] = Field("filesAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope | DataSetScope
 
@@ -242,7 +242,7 @@ class FilesAcl(Acl):
 class FunctionsAcl(Acl):
     """ACL for Functions resources."""
 
-    acl_name: Literal["functionsAcl"] = "functionsAcl"
+    acl_name: Literal["functionsAcl"] = Field("functionsAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope
 
@@ -250,7 +250,7 @@ class FunctionsAcl(Acl):
 class GeospatialAcl(Acl):
     """ACL for Geospatial resources."""
 
-    acl_name: Literal["geospatialAcl"] = "geospatialAcl"
+    acl_name: Literal["geospatialAcl"] = Field("geospatialAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope
 
@@ -258,7 +258,7 @@ class GeospatialAcl(Acl):
 class GeospatialCrsAcl(Acl):
     """ACL for Geospatial CRS resources."""
 
-    acl_name: Literal["geospatialCrsAcl"] = "geospatialCrsAcl"
+    acl_name: Literal["geospatialCrsAcl"] = Field("geospatialCrsAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope
 
@@ -266,15 +266,15 @@ class GeospatialCrsAcl(Acl):
 class GroupsAcl(Acl):
     """ACL for Groups resources."""
 
-    acl_name: Literal["groupsAcl"] = "groupsAcl"
-    actions: Sequence[Literal["CREATE", "DELETE", "READ", "Sequence", "UPDATE"]]
+    acl_name: Literal["groupsAcl"] = Field("groupsAcl", exclude=True)
+    actions: Sequence[Literal["CREATE", "DELETE", "READ", "LIST", "UPDATE"]]
     scope: AllScope | CurrentUserScope
 
 
 class HostedExtractorsAcl(Acl):
     """ACL for Hosted Extractors resources."""
 
-    acl_name: Literal["hostedExtractorsAcl"] = "hostedExtractorsAcl"
+    acl_name: Literal["hostedExtractorsAcl"] = Field("hostedExtractorsAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope
 
@@ -282,7 +282,7 @@ class HostedExtractorsAcl(Acl):
 class LabelsAcl(Acl):
     """ACL for Labels resources."""
 
-    acl_name: Literal["labelsAcl"] = "labelsAcl"
+    acl_name: Literal["labelsAcl"] = Field("labelsAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope | DataSetScope
 
@@ -290,7 +290,7 @@ class LabelsAcl(Acl):
 class LegacyGenericsAcl(Acl):
     """ACL for Legacy Generics resources."""
 
-    acl_name: Literal["genericsAcl"] = "genericsAcl"
+    acl_name: Literal["genericsAcl"] = Field("genericsAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope
 
@@ -298,7 +298,7 @@ class LegacyGenericsAcl(Acl):
 class LegacyModelHostingAcl(Acl):
     """ACL for Legacy Model Hosting resources."""
 
-    acl_name: Literal["modelHostingAcl"] = "modelHostingAcl"
+    acl_name: Literal["modelHostingAcl"] = Field("modelHostingAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope
 
@@ -306,7 +306,7 @@ class LegacyModelHostingAcl(Acl):
 class LocationFiltersAcl(Acl):
     """ACL for Location Filters resources."""
 
-    acl_name: Literal["locationFiltersAcl"] = "locationFiltersAcl"
+    acl_name: Literal["locationFiltersAcl"] = Field("locationFiltersAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope | IDScope
 
@@ -314,7 +314,7 @@ class LocationFiltersAcl(Acl):
 class MonitoringTasksAcl(Acl):
     """ACL for Monitoring Tasks resources."""
 
-    acl_name: Literal["monitoringTasksAcl"] = "monitoringTasksAcl"
+    acl_name: Literal["monitoringTasksAcl"] = Field("monitoringTasksAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope
 
@@ -322,7 +322,7 @@ class MonitoringTasksAcl(Acl):
 class NotificationsAcl(Acl):
     """ACL for Notifications resources."""
 
-    acl_name: Literal["notificationsAcl"] = "notificationsAcl"
+    acl_name: Literal["notificationsAcl"] = Field("notificationsAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope
 
@@ -330,7 +330,7 @@ class NotificationsAcl(Acl):
 class PipelinesAcl(Acl):
     """ACL for Pipelines resources."""
 
-    acl_name: Literal["pipelinesAcl"] = "pipelinesAcl"
+    acl_name: Literal["pipelinesAcl"] = Field("pipelinesAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope
 
@@ -338,7 +338,7 @@ class PipelinesAcl(Acl):
 class PostgresGatewayAcl(Acl):
     """ACL for PostgreSQL Gateway resources."""
 
-    acl_name: Literal["postgresGatewayAcl"] = "postgresGatewayAcl"
+    acl_name: Literal["postgresGatewayAcl"] = Field("postgresGatewayAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope | PostgresGatewayUsersScope
 
@@ -346,23 +346,23 @@ class PostgresGatewayAcl(Acl):
 class ProjectsAcl(Acl):
     """ACL for Projects resources."""
 
-    acl_name: Literal["projectsAcl"] = "projectsAcl"
-    actions: Sequence[Literal["READ", "CREATE", "Sequence", "UPDATE", "DELETE"]]
+    acl_name: Literal["projectsAcl"] = Field("projectsAcl", exclude=True)
+    actions: Sequence[Literal["READ", "CREATE", "LIST", "UPDATE", "DELETE"]]
     scope: AllScope
 
 
 class RawAcl(Acl):
     """ACL for RAW resources."""
 
-    acl_name: Literal["rawAcl"] = "rawAcl"
-    actions: Sequence[Literal["READ", "WRITE", "Sequence"]]
+    acl_name: Literal["rawAcl"] = Field("rawAcl", exclude=True)
+    actions: Sequence[Literal["READ", "WRITE", "LIST"]]
     scope: AllScope | TableScope
 
 
 class RelationshipsAcl(Acl):
     """ACL for Relationships resources."""
 
-    acl_name: Literal["relationshipsAcl"] = "relationshipsAcl"
+    acl_name: Literal["relationshipsAcl"] = Field("relationshipsAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope | DataSetScope
 
@@ -370,7 +370,7 @@ class RelationshipsAcl(Acl):
 class RoboticsAcl(Acl):
     """ACL for Robotics resources."""
 
-    acl_name: Literal["roboticsAcl"] = "roboticsAcl"
+    acl_name: Literal["roboticsAcl"] = Field("roboticsAcl", exclude=True)
     actions: Sequence[Literal["READ", "CREATE", "UPDATE", "DELETE"]]
     scope: AllScope | DataSetScope
 
@@ -378,7 +378,7 @@ class RoboticsAcl(Acl):
 class SAPWritebackAcl(Acl):
     """ACL for SAP Writeback resources."""
 
-    acl_name: Literal["sapWritebackAcl"] = "sapWritebackAcl"
+    acl_name: Literal["sapWritebackAcl"] = Field("sapWritebackAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope | InstancesScope
 
@@ -386,15 +386,15 @@ class SAPWritebackAcl(Acl):
 class SAPWritebackRequestsAcl(Acl):
     """ACL for SAP Writeback Requests resources."""
 
-    acl_name: Literal["sapWritebackRequestsAcl"] = "sapWritebackRequestsAcl"
-    actions: Sequence[Literal["WRITE", "Sequence"]]
+    acl_name: Literal["sapWritebackRequestsAcl"] = Field("sapWritebackRequestsAcl", exclude=True)
+    actions: Sequence[Literal["WRITE", "LIST"]]
     scope: AllScope | InstancesScope
 
 
 class ScheduledCalculationsAcl(Acl):
     """ACL for Scheduled Calculations resources."""
 
-    acl_name: Literal["scheduledCalculationsAcl"] = "scheduledCalculationsAcl"
+    acl_name: Literal["scheduledCalculationsAcl"] = Field("scheduledCalculationsAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope
 
@@ -402,15 +402,15 @@ class ScheduledCalculationsAcl(Acl):
 class SecurityCategoriesAcl(Acl):
     """ACL for Security Categories resources."""
 
-    acl_name: Literal["securityCategoriesAcl"] = "securityCategoriesAcl"
-    actions: Sequence[Literal["MEMBEROF", "Sequence", "CREATE", "UPDATE", "DELETE"]]
+    acl_name: Literal["securityCategoriesAcl"] = Field("securityCategoriesAcl", exclude=True)
+    actions: Sequence[Literal["MEMBEROF", "LIST", "CREATE", "UPDATE", "DELETE"]]
     scope: AllScope | IDScopeLowerCase
 
 
 class SeismicAcl(Acl):
     """ACL for Seismic resources."""
 
-    acl_name: Literal["seismicAcl"] = "seismicAcl"
+    acl_name: Literal["seismicAcl"] = Field("seismicAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope | PartitionScope
 
@@ -418,7 +418,7 @@ class SeismicAcl(Acl):
 class SequencesAcl(Acl):
     """ACL for Sequences resources."""
 
-    acl_name: Literal["sequencesAcl"] = "sequencesAcl"
+    acl_name: Literal["sequencesAcl"] = Field("sequencesAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope | DataSetScope
 
@@ -426,15 +426,15 @@ class SequencesAcl(Acl):
 class SessionsAcl(Acl):
     """ACL for Sessions resources."""
 
-    acl_name: Literal["sessionsAcl"] = "sessionsAcl"
-    actions: Sequence[Literal["Sequence", "CREATE", "DELETE"]]
+    acl_name: Literal["sessionsAcl"] = Field("sessionsAcl", exclude=True)
+    actions: Sequence[Literal["LIST", "CREATE", "DELETE"]]
     scope: AllScope
 
 
 class StreamRecordsAcl(Acl):
     """ACL for Stream Records resources."""
 
-    acl_name: Literal["streamRecordsAcl"] = "streamRecordsAcl"
+    acl_name: Literal["streamRecordsAcl"] = Field("streamRecordsAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope | SpaceIDScope
 
@@ -442,7 +442,7 @@ class StreamRecordsAcl(Acl):
 class StreamsAcl(Acl):
     """ACL for Streams resources."""
 
-    acl_name: Literal["streamsAcl"] = "streamsAcl"
+    acl_name: Literal["streamsAcl"] = Field("streamsAcl", exclude=True)
     actions: Sequence[Literal["READ", "CREATE", "DELETE"]]
     scope: AllScope
 
@@ -450,7 +450,7 @@ class StreamsAcl(Acl):
 class TemplateGroupsAcl(Acl):
     """ACL for Template Groups resources."""
 
-    acl_name: Literal["templateGroupsAcl"] = "templateGroupsAcl"
+    acl_name: Literal["templateGroupsAcl"] = Field("templateGroupsAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope | DataSetScope
 
@@ -458,7 +458,7 @@ class TemplateGroupsAcl(Acl):
 class TemplateInstancesAcl(Acl):
     """ACL for Template Instances resources."""
 
-    acl_name: Literal["templateInstancesAcl"] = "templateInstancesAcl"
+    acl_name: Literal["templateInstancesAcl"] = Field("templateInstancesAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope | DataSetScope
 
@@ -466,7 +466,7 @@ class TemplateInstancesAcl(Acl):
 class ThreeDAcl(Acl):
     """ACL for 3D resources."""
 
-    acl_name: Literal["threedAcl"] = "threedAcl"
+    acl_name: Literal["threedAcl"] = Field("threedAcl", exclude=True)
     actions: Sequence[Literal["READ", "CREATE", "UPDATE", "DELETE"]]
     scope: AllScope | DataSetScope
 
@@ -474,7 +474,7 @@ class ThreeDAcl(Acl):
 class TimeSeriesAcl(Acl):
     """ACL for Time Series resources."""
 
-    acl_name: Literal["timeSeriesAcl"] = "timeSeriesAcl"
+    acl_name: Literal["timeSeriesAcl"] = Field("timeSeriesAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope | DataSetScope | IDScopeLowerCase | AssetRootIDScope
 
@@ -482,7 +482,7 @@ class TimeSeriesAcl(Acl):
 class TimeSeriesSubscriptionsAcl(Acl):
     """ACL for Time Series Subscriptions resources."""
 
-    acl_name: Literal["timeSeriesSubscriptionsAcl"] = "timeSeriesSubscriptionsAcl"
+    acl_name: Literal["timeSeriesSubscriptionsAcl"] = Field("timeSeriesSubscriptionsAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope | DataSetScope
 
@@ -490,7 +490,7 @@ class TimeSeriesSubscriptionsAcl(Acl):
 class TransformationsAcl(Acl):
     """ACL for Transformations resources."""
 
-    acl_name: Literal["transformationsAcl"] = "transformationsAcl"
+    acl_name: Literal["transformationsAcl"] = Field("transformationsAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope | DataSetScope
 
@@ -498,7 +498,7 @@ class TransformationsAcl(Acl):
 class TypesAcl(Acl):
     """ACL for Types resources."""
 
-    acl_name: Literal["typesAcl"] = "typesAcl"
+    acl_name: Literal["typesAcl"] = Field("typesAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope
 
@@ -506,7 +506,7 @@ class TypesAcl(Acl):
 class UserProfilesAcl(Acl):
     """ACL for User Profiles resources."""
 
-    acl_name: Literal["userProfilesAcl"] = "userProfilesAcl"
+    acl_name: Literal["userProfilesAcl"] = Field("userProfilesAcl", exclude=True)
     actions: Sequence[Literal["READ"]]
     scope: AllScope
 
@@ -514,7 +514,7 @@ class UserProfilesAcl(Acl):
 class VideoStreamingAcl(Acl):
     """ACL for Video Streaming resources."""
 
-    acl_name: Literal["videoStreamingAcl"] = "videoStreamingAcl"
+    acl_name: Literal["videoStreamingAcl"] = Field("videoStreamingAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE", "SUBSCRIBE", "PUBLISH"]]
     scope: AllScope | DataSetScope
 
@@ -522,7 +522,7 @@ class VideoStreamingAcl(Acl):
 class VisionModelAcl(Acl):
     """ACL for Vision Model resources."""
 
-    acl_name: Literal["visionModelAcl"] = "visionModelAcl"
+    acl_name: Literal["visionModelAcl"] = Field("visionModelAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope
 
@@ -530,7 +530,7 @@ class VisionModelAcl(Acl):
 class WellsAcl(Acl):
     """ACL for Wells resources."""
 
-    acl_name: Literal["wellsAcl"] = "wellsAcl"
+    acl_name: Literal["wellsAcl"] = Field("wellsAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope
 
@@ -538,7 +538,7 @@ class WellsAcl(Acl):
 class WorkflowOrchestrationAcl(Acl):
     """ACL for Workflow Orchestration resources."""
 
-    acl_name: Literal["workflowOrchestrationAcl"] = "workflowOrchestrationAcl"
+    acl_name: Literal["workflowOrchestrationAcl"] = Field("workflowOrchestrationAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope | DataSetScope
 
@@ -546,7 +546,7 @@ class WorkflowOrchestrationAcl(Acl):
 class SimulatorsAcl(Acl):
     """ACL for Simulators resources."""
 
-    acl_name: Literal["simulatorsAcl"] = "simulatorsAcl"
+    acl_name: Literal["simulatorsAcl"] = Field("simulatorsAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope | DataSetScope
 
@@ -554,7 +554,7 @@ class SimulatorsAcl(Acl):
 class UnknownAcl(Acl):
     """Fallback for unknown ACL types."""
 
-    acl_name: Literal["unknownAcl"] = "unknownAcl"
+    acl_name: Literal["unknownAcl"] = Field("unknownAcl", exclude=True)
     actions: Sequence[str]
     scope: AllScope
 

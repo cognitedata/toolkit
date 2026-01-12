@@ -17,7 +17,7 @@ def all_acls() -> Iterable[tuple]:
         {"appConfigAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"appConfigAcl": {"actions": ["READ", "WRITE"], "scope": {"appScope": {"apps": ["SEARCH"]}}}},
         {"assetsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
-        {"assetsAcl": {"actions": ["READ", "WRITE"], "scope": {"datasetScope": {"ids": ["myDataSet"]}}}},
+        {"assetsAcl": {"actions": ["READ", "WRITE"], "scope": {"datasetScope": {"ids": [123]}}}},
         {"auditlogAcl": {"actions": ["READ"], "scope": {"all": {}}}},
         {"dataModelInstancesAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"dataModelInstancesAcl": {"actions": ["READ"], "scope": {"spaceIdScope": {"spaceIds": ["maintain"]}}}},
@@ -35,33 +35,33 @@ def all_acls() -> Iterable[tuple]:
             }
         },
         {"datasetsAcl": {"actions": ["READ", "WRITE", "OWNER"], "scope": {"all": {}}}},
-        {"datasetsAcl": {"actions": ["READ", "WRITE", "OWNER"], "scope": {"idScope": {"ids": ["my_dataset"]}}}},
+        {"datasetsAcl": {"actions": ["READ", "WRITE", "OWNER"], "scope": {"idScope": {"ids": [123]}}}},
         {"diagramParsingAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"digitalTwinAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"documentFeedbackAcl": {"actions": ["CREATE", "READ", "DELETE"], "scope": {"all": {}}}},
         {"documentPipelinesAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"entitymatchingAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"eventsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
-        {"eventsAcl": {"actions": ["READ", "WRITE"], "scope": {"datasetScope": {"ids": ["myDataSet"]}}}},
-        {"eventsAcl": {"actions": ["READ"], "scope": {"datasetScope": {"ids": ["myDataSet", "myDataSet2"]}}}},
+        {"eventsAcl": {"actions": ["READ", "WRITE"], "scope": {"datasetScope": {"ids": [123]}}}},
+        {"eventsAcl": {"actions": ["READ"], "scope": {"datasetScope": {"ids": [123, 456]}}}},
         {"extractionConfigsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"extractionPipelinesAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {
             "extractionPipelinesAcl": {
                 "actions": ["READ", "WRITE"],
-                "scope": {"idScope": {"ids": ["myPipeline", "myPipeline"]}},
+                "scope": {"idScope": {"ids": [37, 42]}},
             }
         },
         {
             "extractionPipelinesAcl": {
                 "actions": ["READ", "WRITE"],
-                "scope": {"datasetScope": {"ids": ["myDataSet", "myDataSet2"]}},
+                "scope": {"datasetScope": {"ids": [123, 456]}},
             }
         },
         {"extractionRunsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"filePipelinesAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"filesAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
-        {"filesAcl": {"actions": ["READ", "WRITE"], "scope": {"datasetScope": {"ids": ["myDataSet", "myDataSet2"]}}}},
+        {"filesAcl": {"actions": ["READ", "WRITE"], "scope": {"datasetScope": {"ids": [123, 456]}}}},
         {"functionsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"genericsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"groupsAcl": {"actions": ["LIST", "READ", "DELETE", "UPDATE", "CREATE"], "scope": {"all": {}}}},
@@ -72,7 +72,7 @@ def all_acls() -> Iterable[tuple]:
         {
             "locationFiltersAcl": {
                 "actions": ["READ", "WRITE"],
-                "scope": {"idScope": {"ids": ["dataset", "otherDataset"]}},
+                "scope": {"idScope": {"ids": [123, 456]}},
             }
         },
         {"modelHostingAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
@@ -100,9 +100,9 @@ def all_acls() -> Iterable[tuple]:
             }
         },
         {"relationshipsAcl": {"actions": ["READ"], "scope": {"all": {}}}},
-        {"relationshipsAcl": {"actions": ["READ"], "scope": {"datasetScope": {"ids": ["myDataSet", "myDataSet2"]}}}},
+        {"relationshipsAcl": {"actions": ["READ"], "scope": {"datasetScope": {"ids": [123, 456]}}}},
         {"roboticsAcl": {"actions": ["READ", "CREATE", "UPDATE", "DELETE"], "scope": {"all": {}}}},
-        {"roboticsAcl": {"actions": ["READ"], "scope": {"datasetScope": {"ids": ["myDataSet"]}}}},
+        {"roboticsAcl": {"actions": ["READ"], "scope": {"datasetScope": {"ids": [123]}}}},
         {"sapWritebackAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"sapWritebackAcl": {"actions": ["READ", "WRITE"], "scope": {"instancesScope": {"instances": ["123", "456"]}}}},
         {"sapWritebackRequestsAcl": {"actions": ["WRITE", "LIST"], "scope": {"all": {}}}},
@@ -122,25 +122,25 @@ def all_acls() -> Iterable[tuple]:
         {
             "securityCategoriesAcl": {
                 "actions": ["MEMBEROF", "LIST", "CREATE", "UPDATE", "DELETE"],
-                "scope": {"idscope": {"ids": ["myCategory", "myOtherCategory"]}},
+                "scope": {"idscope": {"ids": [42, 37]}},
             }
         },
         {"seismicAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"seismicAcl": {"actions": ["WRITE"], "scope": {"partition": {"partitionIds": [123, 456]}}}},
         {"sequencesAcl": {"actions": ["READ"], "scope": {"all": {}}}},
-        {"sequencesAcl": {"actions": ["WRITE"], "scope": {"datasetScope": {"ids": ["myDataSet", "myDataSet2"]}}}},
+        {"sequencesAcl": {"actions": ["WRITE"], "scope": {"datasetScope": {"ids": [123, 456]}}}},
         {"sessionsAcl": {"actions": ["LIST", "CREATE", "DELETE"], "scope": {"all": {}}}},
         {"templateGroupsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {
             "templateGroupsAcl": {
                 "actions": ["READ", "WRITE"],
-                "scope": {"datasetScope": {"ids": ["myDataSet", "myDataSet2"]}},
+                "scope": {"datasetScope": {"ids": [123, 456]}},
             }
         },
         {
             "templateInstancesAcl": {
                 "actions": ["READ", "WRITE"],
-                "scope": {"datasetScope": {"ids": ["myDataSet", "myDataSet2"]}},
+                "scope": {"datasetScope": {"ids": [123, 456]}},
             }
         },
         {"templateInstancesAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
@@ -149,20 +149,20 @@ def all_acls() -> Iterable[tuple]:
         {
             "timeSeriesAcl": {
                 "actions": ["READ", "WRITE"],
-                "scope": {"datasetScope": {"ids": ["myDataSet", "myDataSet2"]}},
+                "scope": {"datasetScope": {"ids": [123, 456]}},
             }
         },
-        {"timeSeriesAcl": {"actions": ["READ"], "scope": {"idscope": {"ids": ["myTimeseries", "myOtherTimeseries"]}}}},
-        {"timeSeriesAcl": {"actions": ["WRITE", "READ"], "scope": {"assetRootIdScope": {"rootIds": ["myAsset"]}}}},
+        {"timeSeriesAcl": {"actions": ["READ"], "scope": {"idscope": {"ids": [42, 37]}}}},
+        {"timeSeriesAcl": {"actions": ["WRITE", "READ"], "scope": {"assetRootIdScope": {"rootIds": [987]}}}},
         {"transformationsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
-        {"transformationsAcl": {"actions": ["READ", "WRITE"], "scope": {"datasetScope": {"ids": ["myDataSet"]}}}},
+        {"transformationsAcl": {"actions": ["READ", "WRITE"], "scope": {"datasetScope": {"ids": [123]}}}},
         {"visionModelAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"wellsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"workflowOrchestrationAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {
             "workflowOrchestrationAcl": {
                 "actions": ["READ", "WRITE"],
-                "scope": {"datasetScope": {"ids": ["myDataSet", "myDataSet2"]}},
+                "scope": {"datasetScope": {"ids": [123, 456]}},
             }
         },
         {"streamsAcl": {"actions": ["READ", "CREATE", "DELETE"], "scope": {"all": {}}}},
