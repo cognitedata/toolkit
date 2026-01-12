@@ -10,7 +10,7 @@ from pydantic import BeforeValidator, Field, TypeAdapter
 
 from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.data_classes.group._constants import SCOPE_NAME
-from tests.test_unit.test_cdf_tk.test_tk_warnings.test_warnings_metatest import get_all_subclasses
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
 
 class ScopeDefinition(BaseModelObject):
@@ -131,7 +131,7 @@ def _get_scope_name(cls: type[ScopeDefinition]) -> str | None:
 
 _KNOWN_SCOPES = {
     name: scope
-    for scope in get_all_subclasses(ScopeDefinition)
+    for scope in get_concrete_subclasses(ScopeDefinition)
     if (name := _get_scope_name(scope)) is not None and scope is not UnknownScope
 }
 

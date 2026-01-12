@@ -12,7 +12,7 @@ from pydantic_core.core_schema import FieldSerializationInfo
 
 from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.data_classes.group._constants import ACL_NAME, SCOPE_NAME
-from tests.test_unit.test_cdf_tk.test_tk_warnings.test_warnings_metatest import get_all_subclasses
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
 from .scopes import (
     AllScope,
@@ -571,7 +571,9 @@ def _get_acl_name(cls: type[Acl]) -> str | None:
 
 
 _KNOWN_ACLS = {
-    name: acl for acl in get_all_subclasses(Acl) if (name := _get_acl_name(acl)) is not None and name != "unknownAcl"
+    name: acl
+    for acl in get_concrete_subclasses(Acl)
+    if (name := _get_acl_name(acl)) is not None and name != "unknownAcl"
 }
 
 
