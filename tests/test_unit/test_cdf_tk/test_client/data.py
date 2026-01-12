@@ -57,6 +57,7 @@ class CDFResource:
     example_data: dict[str, Any]
     api_class: type[CDFResourceAPI] | None = None
     is_dump_equal_to_example: bool = True
+    is_as_request_possible: bool = True
 
     @cached_property
     def response_instance(self) -> ResponseResource:
@@ -230,7 +231,7 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
         SequenceRowsResponse: {
             "id": 123,
             "externalId": "sequence_001",
-            "columns": ["col1", "col2"],
+            "columns": [{"externalId": "col1", "valueType": "LONG"}, {"externalId": "col2", "valueType": "DOUBLE"}],
             "rows": [
                 {"rowNumber": 0, "values": ["value1", 123]},
                 {"rowNumber": 1, "values": ["value2", 456]},
@@ -465,6 +466,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             request_cls=FunctionScheduleRequest,
             example_data=get_example_minimum_responses(FunctionScheduleResponse),
             is_dump_equal_to_example=False,
+            is_as_request_possible=False,
         ),
         id="FunctionSchedule",
     )

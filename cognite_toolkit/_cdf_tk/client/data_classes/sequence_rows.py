@@ -51,4 +51,6 @@ class SequenceRowsResponse(SequenceRows, ResponseResource[SequenceRowsRequest]):
     columns: list[SequenceColumn]
 
     def as_request_resource(self) -> SequenceRowsRequest:
-        return SequenceRowsRequest.model_validate(self.dump(), extra="ignore")
+        dumped = self.dump()
+        dumped["columns"] = [col.external_id for col in self.columns]
+        return SequenceRowsRequest.model_validate(dumped, extra="ignore")
