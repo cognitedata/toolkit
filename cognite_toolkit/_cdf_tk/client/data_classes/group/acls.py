@@ -7,7 +7,8 @@ https://api-docs.cognite.com/20230101/tag/Groups/operation/createGroups
 from collections.abc import Sequence
 from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import BeforeValidator, TypeAdapter, model_validator
+from pydantic import BeforeValidator, TypeAdapter, model_serializer, model_validator
+from pydantic_core.core_schema import FieldSerializationInfo
 
 from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject
 from tests.test_unit.test_cdf_tk.test_tk_warnings.test_warnings_metatest import get_all_subclasses
@@ -59,6 +60,15 @@ class Acl(BaseModelObject):
                 value = dict(value)
                 value["scope"] = new_scope
         return value
+
+    @model_serializer
+    def convert_scope_to_api_format(self, info: FieldSerializationInfo) -> dict[str, Any]:
+        """Convert scope from model format {'scope_name': 'all'} to API format {'all': {}}."""
+        output: dict[str, Any] = {"actions": self.actions, "aclName": self.acl_name}
+        scope = self.scope.model_dump(**vars(info))
+        if isinstance(scope, dict):
+            output["scope"] = {self.scope.scope_name: scope}
+        return output
 
 
 class AgentsAcl(Acl):
