@@ -5,9 +5,9 @@ from typing import Any
 
 import pytest
 
-from cognite_toolkit._cdf_tk.client.data_classes.group import (
-    GroupRequest,
-)
+from cognite_toolkit._cdf_tk.client.data_classes.group import Acl, GroupRequest
+from cognite_toolkit._cdf_tk.resource_classes.capabilities import Capability
+from tests.test_unit.test_cdf_tk.test_tk_warnings.test_warnings_metatest import get_all_subclasses
 
 
 def all_acls() -> Iterable[tuple]:
@@ -189,3 +189,16 @@ class TestGroupAPIClasses:
         group = GroupRequest.model_validate(data)
         assert isinstance(group, GroupRequest)
         assert group.dump() == data
+
+    def test_capability_in_sync(self) -> None:
+        """Checks that the request/response capabilities are in sync with the YAML spec."""
+        request_capabilities = {acl.model_fields["acl_name"].default for acl in get_all_subclasses(Acl)} - {
+            "unknownAcl"
+        }
+        spec_capabilities = {capability._capability_name for capability in get_all_subclasses(Capability)}
+
+        assert request_capabilities == spec_capabilities, (
+            "Mismatch between GroupRequest capabilities and Capability spec. "
+            f"Request only: {request_capabilities - spec_capabilities}, "
+            f"Spec only: {spec_capabilities - request_capabilities}"
+        )
