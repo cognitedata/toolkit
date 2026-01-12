@@ -31,8 +31,20 @@ from cognite_toolkit._cdf_tk.client.data_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.data_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.data_classes.function import FunctionResponse
+from cognite_toolkit._cdf_tk.client.data_classes.function_schedule import (
+    FunctionScheduleResponse,
+)
+from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_model import (
+    GraphQLDataModelResponse,
+)
+from cognite_toolkit._cdf_tk.client.data_classes.location_filter import LocationFilterResponse
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RAWDatabase, RAWTable
+from cognite_toolkit._cdf_tk.client.data_classes.relationship import RelationshipResponse
+from cognite_toolkit._cdf_tk.client.data_classes.search_config_resource import SearchConfigResponse
+from cognite_toolkit._cdf_tk.client.data_classes.sequence_rows import SequenceRowsResponse
 from cognite_toolkit._cdf_tk.client.data_classes.simulator_model import SimulatorModelRequest, SimulatorModelResponse
+from cognite_toolkit._cdf_tk.client.data_classes.streamlit import StreamlitResponse
 from cognite_toolkit._cdf_tk.client.data_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 
 
@@ -212,6 +224,72 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
                     }
                 }
             },
+        },
+        SequenceRowsResponse: {
+            "id": 123,
+            "externalId": "sequence_001",
+            "columns": ["col1", "col2"],
+            "rows": [
+                {"rowNumber": 0, "values": ["value1", 123]},
+                {"rowNumber": 1, "values": ["value2", 456]},
+            ],
+        },
+        SearchConfigResponse: {
+            "id": 789,
+            "view": {
+                "space": "my_space",
+                "externalId": "my_view",
+            },
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        GraphQLDataModelResponse: {
+            "space": "my_space",
+            "externalId": "my_graphql_model",
+            "version": "1",
+            "isGlobal": False,
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        FunctionResponse: {
+            "id": 456,
+            "externalId": "function_001",
+            "name": "My Function",
+            "fileId": 789,
+            "createdTime": 1622547800000,
+            "status": "Ready",
+        },
+        FunctionScheduleResponse: {
+            "id": 321,
+            "name": "My Schedule",
+            "cronExpression": "0 0 * * *",
+            "createdTime": 1622547800000,
+            "when": "0 0 * * *",
+            "functionId": 456,
+            "functionExternalId": "function_001",
+        },
+        StreamlitResponse: {
+            "externalId": "streamlit_001",
+            "name": "My Streamlit App",
+            "creator": "user@example.com",
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        LocationFilterResponse: {
+            "id": 654,
+            "externalId": "location_001",
+            "name": "My Location",
+            "createdTime": 1622547800000,
+            "updatedTime": 1622547800000,
+        },
+        RelationshipResponse: {
+            "externalId": "relationship_001",
+            "sourceExternalId": "asset_001",
+            "sourceType": "asset",
+            "targetExternalId": "timeseries_001",
+            "targetType": "timeSeries",
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
         },
     }
     try:
