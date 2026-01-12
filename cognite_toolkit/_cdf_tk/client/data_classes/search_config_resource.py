@@ -1,13 +1,16 @@
 from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject, RequestResource, ResponseResource
 
-from .identifiers import InternalId
+from .identifiers import Identifier
 
 
-class SearchConfigViewId(BaseModelObject):
+class SearchConfigViewId(Identifier):
     """Identifier for a view in search configuration."""
 
     space: str
     external_id: str
+
+    def __str__(self) -> str:
+        return f"space='{self.space}', externalId='{self.external_id}'"
 
 
 class SearchConfigViewProperty(BaseModelObject):
@@ -29,17 +32,15 @@ class SearchConfigBase(BaseModelObject):
     filter_layout: list[SearchConfigViewProperty] | None = None
     properties_layout: list[SearchConfigViewProperty] | None = None
 
+    def as_id(self) -> SearchConfigViewId:
+        return self.view
+
 
 class SearchConfigRequest(SearchConfigBase, RequestResource):
     """Request resource for creating/updating search configuration."""
 
     # This is required when updating an existing search config
     id: int | None = None
-
-    def as_id(self) -> InternalId:
-        if self.id is not None:
-            return InternalId(id=self.id)
-        raise ValueError("id must be set for SearchConfigRequest")
 
 
 class SearchConfigResponse(SearchConfigBase, ResponseResource[SearchConfigRequest]):

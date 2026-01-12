@@ -58,4 +58,4 @@ class FunctionScheduleResponse(FunctionSchedule, ResponseResource[FunctionSchedu
     session_id: int | None = None
 
     def as_request_resource(self) -> FunctionScheduleRequest:
-        return FunctionScheduleRequest.model_validate(self.dump(), extra="ignore")
+        raise NotImplementedError("Cannot convert to request resource as 'nonce' is missing.")
