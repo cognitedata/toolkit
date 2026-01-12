@@ -42,3 +42,11 @@ class NameId(Identifier):
 
     def __str__(self) -> str:
         return f"name='{self.name}'"
+
+
+class WorkflowVersionId(Identifier):
+    workflow_external_id: str
+    version: str
+
+    def __str__(self) -> str:
+        return f"workflowExternalId='{self.workflow_external_id}', version='{self.version}'"

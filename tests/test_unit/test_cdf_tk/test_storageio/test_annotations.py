@@ -1,5 +1,7 @@
+import httpx
 import pytest
 import responses
+import respx
 from cognite.client.data_classes import Annotation, AnnotationList
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
@@ -9,18 +11,27 @@ from cognite_toolkit._cdf_tk.storageio.selectors import DataSetSelector
 
 class TestAnnotationIO:
     @pytest.mark.usefixtures("disable_pypi_check", "disable_gzip")
-    def test_stream_file_annotations(self, toolkit_config: ToolkitClientConfig, rsps: responses.RequestsMock) -> None:
+    def test_stream_file_annotations(
+        self, toolkit_config: ToolkitClientConfig, rsps: responses.RequestsMock, respx_mock: respx.MockRouter
+    ) -> None:
         config = toolkit_config
         client = ToolkitClient(config)
-        rsps.add(
-            responses.POST,
-            config.create_api_url("/files/list"),
-            json={
-                "items": [
-                    {"id": 1, "externalId": "external_1", "name": "file_1"},
-                ]
-            },
-            status=200,
+        respx_mock.post(config.create_api_url("/files/list")).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "items": [
+                        {
+                            "id": 1,
+                            "externalId": "external_1",
+                            "name": "file_1",
+                            "createdTime": 0,
+                            "lastUpdatedTime": 0,
+                            "uploaded": True,
+                        },
+                    ]
+                },
+            )
         )
         rsps.add(
             responses.POST,
