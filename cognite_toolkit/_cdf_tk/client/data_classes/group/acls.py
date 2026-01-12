@@ -61,7 +61,7 @@ class Acl(BaseModelObject):
                 value["scope"] = new_scope
         return value
 
-    @model_serializer(mode="plain")
+    @model_serializer
     def convert_scope_to_api_format(self) -> dict[str, Any]:
         """Convert scope from model format {'scope_name': 'all'} to API format {'all': {}}."""
         output: dict[str, Any] = {"actions": self.actions}
