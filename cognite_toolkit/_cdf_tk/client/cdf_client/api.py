@@ -5,6 +5,7 @@ that handle CRUD operations for CDF Data Modeling API resources.
 """
 
 from abc import ABC, abstractmethod
+from collections import defaultdict
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from functools import partial
@@ -103,9 +104,10 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         method: APIMethod,
         params: dict[str, Any] | None = None,
         extra_body: dict[str, Any] | None = None,
+        endpoint: str | None = None,
     ) -> list[T_ResponseResource]:
         response_items: list[T_ResponseResource] = []
-        for response in self._chunk_requests(items, method, self._serialize_items, params, extra_body):
+        for response in self._chunk_requests(items, method, self._serialize_items, params, extra_body, endpoint):
             response_items.extend(self._page_response(response).items)
         return response_items
 
@@ -127,8 +129,9 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         method: APIMethod,
         params: dict[str, Any] | None = None,
         extra_body: dict[str, Any] | None = None,
+        endpoint: str | None = None,
     ) -> None:
-        list(self._chunk_requests(items, method, self._serialize_items, params, extra_body))
+        list(self._chunk_requests(items, method, self._serialize_items, params, extra_body, endpoint))
         return None
 
     def _chunk_requests(
@@ -138,14 +141,28 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         serialization: Callable[[Sequence[_T_BaseModel]], list[dict[str, JsonValue]]],
         params: dict[str, Any] | None = None,
         extra_body: dict[str, Any] | None = None,
+        endpoint_path: str | None = None,
     ) -> Iterable[SuccessResponse2]:
+        """Send requests in chunks and yield responses.
+
+        Args:
+            items: The items to process.
+            method: The API method to use. This is used ot look the up the endpoint.
+            serialization: A function to serialize the items to JSON-compatible dicts.
+            params: Optional query parameters for the request.
+            extra_body: Optional extra body content to include in the request.
+            endpoint_path: Optional override for the endpoint path.
+
+        Yields:
+            The successful responses from the API.
+        """
         # Filter out None
         request_params = self._filter_out_none_values(params)
         endpoint = self._method_endpoint_map[method]
 
         for chunk in chunker_sequence(items, endpoint.item_limit):
             request = RequestMessage2(
-                endpoint_url=f"{self._make_url(endpoint.path)}",
+                endpoint_url=f"{self._make_url(endpoint_path or endpoint.path)}",
                 method=endpoint.method,
                 body_content={"items": serialization(chunk), **(extra_body or {})},  # type: ignore[dict-item]
                 parameters=request_params,
@@ -226,12 +243,24 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
             request_params = {k: v for k, v in params.items() if v is not None}
         return request_params
 
+    @classmethod
+    def _group_items_by_text_field(
+        cls, items: Sequence[_T_BaseModel], field_name: str
+    ) -> dict[str, list[_T_BaseModel]]:
+        """Group items by a text field."""
+        grouped_items: dict[str, list[_T_BaseModel]] = defaultdict(list)
+        for item in items:
+            key = str(getattr(item, field_name))
+            grouped_items[key].append(item)
+        return grouped_items
+
     def _iterate(
         self,
         limit: int,
         cursor: str | None = None,
         params: dict[str, Any] | None = None,
         body: dict[str, Any] | None = None,
+        endpoint_path: str | None = None,
     ) -> PagedResponse[T_ResponseResource]:
         """Fetch a single page of resources.
 
@@ -243,8 +272,11 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
                 - space: Filter by space
                 - includeGlobal: Whether to include global resources
             body : Body content for the request, if applicable.
+                limit: Maximum number of items to return in the page.
+                cursor: Cursor for pagination.
             limit: Maximum number of items to return in the page.
             cursor: Cursor for pagination.
+
         Returns:
             A Page containing the items and the cursor for the next page.
         """
@@ -266,7 +298,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
             raise NotImplementedError(f"Unsupported method {endpoint.method} for pagination.")
 
         request = RequestMessage2(
-            endpoint_url=self._make_url(endpoint.path),
+            endpoint_url=self._make_url(endpoint_path or endpoint.path),
             method=endpoint.method,
             parameters=request_params,
             body_content=body,
@@ -275,7 +307,9 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         response = result.get_success_or_raise()
         return self._page_response(response)
 
-    def _list(self, limit: int | None = None, params: dict[str, Any] | None = None) -> list[T_ResponseResource]:
+    def _list(
+        self, limit: int | None = None, params: dict[str, Any] | None = None, endpoint_path: str | None = None
+    ) -> list[T_ResponseResource]:
         """List all resources, handling pagination automatically."""
         all_items: list[T_ResponseResource] = []
         next_cursor: str | None = None
@@ -283,7 +317,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         endpoint = self._method_endpoint_map["list"]
         while True:
             page_limit = endpoint.item_limit if limit is None else min(limit - total, endpoint.item_limit)
-            page = self._iterate(limit=page_limit, cursor=next_cursor, params=params)
+            page = self._iterate(limit=page_limit, cursor=next_cursor, params=params, endpoint_path=endpoint_path)
             all_items.extend(page.items)
             total += len(page.items)
             if page.next_cursor is None or (limit is not None and total >= limit):
