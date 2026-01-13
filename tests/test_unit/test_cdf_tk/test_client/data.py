@@ -52,6 +52,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_model import (
     GraphQLDataModelRequest,
     GraphQLDataModelResponse,
 )
+from cognite_toolkit._cdf_tk.client.data_classes.group import GroupRequest, GroupResponse
 from cognite_toolkit._cdf_tk.client.data_classes.hosted_extractor_destination import (
     HostedExtractorDestinationRequest,
     HostedExtractorDestinationResponse,
@@ -412,6 +413,13 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "workflowExternalId": "workflow_001",
             "workflowVersion": "1",
             "isPaused": False,
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        GroupResponse: {
+            "id": 202,
+            "externalId": "group_001",
+            "name": "Example Group",
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
         },
@@ -796,6 +804,15 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             # it cannot create as_request from response.
         ),
         id="WorkflowTrigger",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=GroupResponse,
+            request_cls=GroupRequest,
+            example_data=get_example_minimum_responses(GroupResponse),
+            api_class=None,
+        ),
+        id="Group",
     )
     yield pytest.param(
         CDFResource(
