@@ -5,7 +5,7 @@ from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedRespo
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.data_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.data_classes.label import LabelRequest, LabelResponse
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
 
 
 class LabelsAPI(CDFResourceAPI[ExternalId, LabelRequest, LabelResponse]):
@@ -20,7 +20,7 @@ class LabelsAPI(CDFResourceAPI[ExternalId, LabelRequest, LabelResponse]):
             },
         )
 
-    def _page_response(self, response: SuccessResponse2) -> PagedResponse[LabelResponse]:
+    def _page_response(self, response: SuccessResponse2 | ItemsSuccessResponse2) -> PagedResponse[LabelResponse]:
         return PagedResponse[LabelResponse].model_validate_json(response.body)
 
     def _reference_response(self, response: SuccessResponse2) -> ResponseItems[ExternalId]:

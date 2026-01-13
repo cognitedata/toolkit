@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.extraction_pipeline import (
     ExtractionPipelineResponse,
 )
 from cognite_toolkit._cdf_tk.client.data_classes.identifiers import InternalOrExternalId
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
 
 
 class ExtractionPipelinesAPI(
@@ -26,7 +26,9 @@ class ExtractionPipelinesAPI(
             },
         )
 
-    def _page_response(self, response: SuccessResponse2) -> PagedResponse[ExtractionPipelineResponse]:
+    def _page_response(
+        self, response: SuccessResponse2 | ItemsSuccessResponse2
+    ) -> PagedResponse[ExtractionPipelineResponse]:
         return PagedResponse[ExtractionPipelineResponse].model_validate_json(response.body)
 
     def _reference_response(self, response: SuccessResponse2) -> ResponseItems[InternalOrExternalId]:

@@ -5,7 +5,7 @@ from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedRespo
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.data_classes.identifiers import InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.data_classes.sequence import SequenceRequest, SequenceResponse
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
 
 
 class SequencesAPI(CDFResourceAPI[InternalOrExternalId, SequenceRequest, SequenceResponse]):
@@ -23,7 +23,7 @@ class SequencesAPI(CDFResourceAPI[InternalOrExternalId, SequenceRequest, Sequenc
             },
         )
 
-    def _page_response(self, response: SuccessResponse2) -> PagedResponse[SequenceResponse]:
+    def _page_response(self, response: SuccessResponse2 | ItemsSuccessResponse2) -> PagedResponse[SequenceResponse]:
         return PagedResponse[SequenceResponse].model_validate_json(response.body)
 
     def _reference_response(self, response: SuccessResponse2) -> ResponseItems[InternalOrExternalId]:

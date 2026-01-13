@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.securitycategory import (
     SecurityCategoryRequest,
     SecurityCategoryResponse,
 )
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
 
 
 class SecurityCategoriesAPI(CDFResourceAPI[InternalId, SecurityCategoryRequest, SecurityCategoryResponse]):
@@ -22,7 +22,9 @@ class SecurityCategoriesAPI(CDFResourceAPI[InternalId, SecurityCategoryRequest, 
             },
         )
 
-    def _page_response(self, response: SuccessResponse2) -> PagedResponse[SecurityCategoryResponse]:
+    def _page_response(
+        self, response: SuccessResponse2 | ItemsSuccessResponse2
+    ) -> PagedResponse[SecurityCategoryResponse]:
         return PagedResponse[SecurityCategoryResponse].model_validate_json(response.body)
 
     def _reference_response(self, response: SuccessResponse2) -> ResponseItems[InternalId]:

@@ -5,7 +5,7 @@ from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedRespo
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.data_classes.identifiers import InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.data_classes.transformation import TransformationRequest, TransformationResponse
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
 
 
 class TransformationsAPI(CDFResourceAPI[InternalOrExternalId, TransformationRequest, TransformationResponse]):
@@ -21,7 +21,9 @@ class TransformationsAPI(CDFResourceAPI[InternalOrExternalId, TransformationRequ
             },
         )
 
-    def _page_response(self, response: SuccessResponse2) -> PagedResponse[TransformationResponse]:
+    def _page_response(
+        self, response: SuccessResponse2 | ItemsSuccessResponse2
+    ) -> PagedResponse[TransformationResponse]:
         return PagedResponse[TransformationResponse].model_validate_json(response.body)
 
     def _reference_response(self, response: SuccessResponse2) -> ResponseItems[InternalOrExternalId]:

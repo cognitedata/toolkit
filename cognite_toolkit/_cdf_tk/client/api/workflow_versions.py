@@ -5,7 +5,7 @@ from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedRespo
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.data_classes.identifiers import WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.data_classes.workflow_version import WorkflowVersionRequest, WorkflowVersionResponse
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
 
 
 class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionId, WorkflowVersionRequest, WorkflowVersionResponse]):
@@ -22,7 +22,9 @@ class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionId, WorkflowVersionReque
             },
         )
 
-    def _page_response(self, response: SuccessResponse2) -> PagedResponse[WorkflowVersionResponse]:
+    def _page_response(
+        self, response: SuccessResponse2 | ItemsSuccessResponse2
+    ) -> PagedResponse[WorkflowVersionResponse]:
         return PagedResponse[WorkflowVersionResponse].model_validate_json(response.body)
 
     def _reference_response(self, response: SuccessResponse2) -> ResponseItems[WorkflowVersionId]:
