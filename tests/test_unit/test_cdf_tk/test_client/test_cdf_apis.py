@@ -74,13 +74,20 @@ class TestCDFResourceAPI:
             listed = api.list(limit=10)
             assert len(listed) >= 1
             assert listed[0].dump() == resource.example_data
-        if hasattr(api, "iterate"):
+        if hasattr(api, "paginate"):
             self._mock_endpoint(api, "list", {"items": [resource.example_data]}, respx_mock)
 
-            page = api.iterate()
+            page = api.paginate()
             assert isinstance(page, PagedResponse)
             assert len(page.items) == 1
             assert page.items[0].dump() == resource.example_data
+        if hasattr(api, "iterate"):
+            self._mock_endpoint(api, "list", {"items": [resource.example_data]}, respx_mock)
+
+            batches = list(api.iterate())
+            assert len(batches) >= 1
+            items = [item for batch in batches for item in batch]
+            assert items[0].dump() == resource.example_data
 
     @classmethod
     def _mock_endpoint(
