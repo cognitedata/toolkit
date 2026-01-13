@@ -77,19 +77,19 @@ from ._resource_cruds import (
 )
 from ._worker import ResourceWorker
 
-EXCLUDED_CRUDS: set[type[ResourceCRUD]] = set()
+_EXCLUDED_CRUDS: set[type[ResourceCRUD]] = set()
 if not FeatureFlag.is_enabled(Flags.GRAPHQL):
-    EXCLUDED_CRUDS.add(GraphQLCRUD)
+    _EXCLUDED_CRUDS.add(GraphQLCRUD)
 if not FeatureFlag.is_enabled(Flags.INFIELD):
-    EXCLUDED_CRUDS.add(InfieldV1CRUD)
-    EXCLUDED_CRUDS.add(InFieldLocationConfigCRUD)
-    EXCLUDED_CRUDS.add(InFieldCDMLocationConfigCRUD)
+    _EXCLUDED_CRUDS.add(InfieldV1CRUD)
+    _EXCLUDED_CRUDS.add(InFieldLocationConfigCRUD)
+    _EXCLUDED_CRUDS.add(InFieldCDMLocationConfigCRUD)
 if not FeatureFlag.is_enabled(Flags.MIGRATE):
-    EXCLUDED_CRUDS.add(ResourceViewMappingCRUD)
+    _EXCLUDED_CRUDS.add(ResourceViewMappingCRUD)
 if not FeatureFlag.is_enabled(Flags.STREAMS):
-    EXCLUDED_CRUDS.add(StreamCRUD)
+    _EXCLUDED_CRUDS.add(StreamCRUD)
 if not FeatureFlag.is_enabled(Flags.SIMULATORS):
-    EXCLUDED_CRUDS.add(SimulatorModelCRUD)
+    _EXCLUDED_CRUDS.add(SimulatorModelCRUD)
 
 ALL_CRUDS_BY_FOLDER_NAME: defaultdict[str, list[type[Loader]]] = defaultdict(list)
 CRUDS_BY_FOLDER_NAME: defaultdict[str, list[type[Loader]]] = defaultdict(list)
@@ -107,7 +107,7 @@ for _loader in itertools.chain(
     if hasattr(_loader, "sub_folder_name") and _loader.sub_folder_name:
         ALL_CRUDS_BY_FOLDER_NAME[_loader.sub_folder_name].append(_loader)  # type: ignore[arg-type]
 
-    if _loader not in EXCLUDED_CRUDS:
+    if _loader not in _EXCLUDED_CRUDS:
         CRUDS_BY_FOLDER_NAME[_loader.folder_name].append(_loader)  # type: ignore[arg-type, attr-defined]
 del _loader  # cleanup module namespace
 
@@ -168,12 +168,12 @@ def get_crud(resource_dir: str, kind: str) -> type[Loader]:
 __all__ = [
     "CRUDS_BY_FOLDER_NAME",
     "CRUD_LIST",
-    "EXCLUDED_CRUDS",
     "KINDS_BY_FOLDER_NAME",
     "RESOURCE_CRUD_BY_FOLDER_NAME",
     "RESOURCE_CRUD_CONTAINER_LIST",
     "RESOURCE_CRUD_LIST",
     "RESOURCE_DATA_CRUD_LIST",
+    "_EXCLUDED_CRUDS",
     "AgentCRUD",
     "AssetCRUD",
     "CogniteFileCRUD",
