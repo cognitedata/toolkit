@@ -6,9 +6,15 @@ import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.api.raw import RawTablesAPI
+from cognite_toolkit._cdf_tk.client.api.workflow_triggers import WorkflowTriggersAPI
+from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersionsAPI
+from cognite_toolkit._cdf_tk.client.api.workflows import WorkflowsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import APIMethod
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RAWTable
+from cognite_toolkit._cdf_tk.client.data_classes.workflow import WorkflowResponse
+from cognite_toolkit._cdf_tk.client.data_classes.workflow_trigger import WorkflowTriggerRequest, WorkflowTriggerResponse
+from cognite_toolkit._cdf_tk.client.data_classes.workflow_version import WorkflowVersionResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from tests.test_unit.test_cdf_tk.test_client.data import (
     CDFResource,
@@ -130,3 +136,139 @@ class TestCDFResourceAPI:
         page = api.iterate(db_name=instance.db_name, limit=10)
         assert len(page.items) == 1
         assert page.items[0] == instance
+
+    def test_workflow_api_create_update_retrieve_delete_iterate_list(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        resource = get_example_minimum_responses(WorkflowResponse)
+        instance = WorkflowResponse.model_validate(resource)
+        config = toolkit_config
+        api = WorkflowsAPI(HTTPClient(config))
+        request_item = instance.as_request_resource()
+
+        # Test create/update (same endpoint)
+        respx_mock.post(config.create_api_url("/workflows")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        created = api.create([request_item])
+        assert len(created) == 1
+        assert created[0].dump() == resource
+
+        updated = api.update([request_item])
+        assert len(updated) == 1
+        assert updated[0].dump() == resource
+
+        # Test retrieve
+        respx_mock.get(config.create_api_url(f"/workflows/{instance.external_id}")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        retrieved = api.retrieve([instance.as_id()])
+        assert len(retrieved) == 1
+        assert retrieved[0].dump() == resource
+
+        # Test delete
+        respx_mock.post(config.create_api_url("/workflows/delete")).mock(return_value=httpx.Response(status_code=200))
+        api.delete([instance.as_id()])
+        assert len(respx_mock.calls) >= 1  # At least one call should have been made
+
+        # Test iterate/list
+        respx_mock.get(config.create_api_url("/workflows")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        listed = api.list(limit=10)
+        assert len(listed) == 1
+        assert listed[0].dump() == resource
+
+        page = api.iterate(limit=10)
+        assert len(page.items) == 1
+        assert page.items[0].dump() == resource
+
+    def test_workflow_version_api_create_update_retrieve_delete_iterate_list(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        resource = get_example_minimum_responses(WorkflowVersionResponse)
+        instance = WorkflowVersionResponse.model_validate(resource)
+        config = toolkit_config
+        api = WorkflowVersionsAPI(HTTPClient(config))
+        request_item = instance.as_request_resource()
+
+        # Test create/update (same endpoint)
+        respx_mock.post(config.create_api_url("/workflows/versions")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        created = api.create([request_item])
+        assert len(created) == 1
+        assert created[0].dump() == resource
+
+        updated = api.update([request_item])
+        assert len(updated) == 1
+        assert updated[0].dump() == resource
+
+        # Test retrieve
+        respx_mock.get(
+            config.create_api_url(f"/workflows/{instance.workflow_external_id}/versions/{instance.version}")
+        ).mock(return_value=httpx.Response(status_code=200, json={"items": [resource]}))
+        retrieved = api.retrieve([instance.as_id()])
+        assert len(retrieved) == 1
+        assert retrieved[0].dump() == resource
+
+        # Test delete
+        respx_mock.post(config.create_api_url("/workflows/versions/delete")).mock(
+            return_value=httpx.Response(status_code=200)
+        )
+        api.delete([instance.as_id()])
+        assert len(respx_mock.calls) >= 1  # At least one call should have been made
+
+        # Test iterate/list
+        respx_mock.post(config.create_api_url("/workflows/versions/list")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        listed = api.list(limit=10)
+        assert len(listed) == 1
+        assert listed[0].dump() == resource
+
+        page = api.iterate(limit=10)
+        assert len(page.items) == 1
+        assert page.items[0].dump() == resource
+
+    def test_workflow_trigger_api_create_update_delete_iterate_list(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        resource = get_example_minimum_responses(WorkflowTriggerResponse)
+        instance = WorkflowTriggerResponse.model_validate(resource)
+        config = toolkit_config
+        api = WorkflowTriggersAPI(HTTPClient(config))
+        request_item = WorkflowTriggerRequest.model_validate(
+            {**resource, "authentication": {"nonce": "test-nonce"}}, extra="ignore"
+        )
+
+        # Test create/update (same endpoint)
+        respx_mock.post(config.create_api_url("/workflows/triggers")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        created = api.create([request_item])
+        assert len(created) == 1
+        assert created[0].dump() == resource
+
+        updated = api.update([request_item])
+        assert len(updated) == 1
+        assert updated[0].dump() == resource
+
+        # Test delete
+        respx_mock.post(config.create_api_url("/workflows/triggers/delete")).mock(
+            return_value=httpx.Response(status_code=200)
+        )
+        api.delete([instance.as_id()])
+        assert len(respx_mock.calls) >= 1  # At least one call should have been made
+
+        # Test iterate/list
+        respx_mock.get(config.create_api_url("/workflows/triggers")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        listed = api.list(limit=10)
+        assert len(listed) == 1
+        assert listed[0].dump() == resource
+
+        page = api.iterate(limit=10)
+        assert len(page.items) == 1
+        assert page.items[0].dump() == resource
