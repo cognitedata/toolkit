@@ -14,6 +14,7 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.api.assets import AssetsAPI
+from cognite_toolkit._cdf_tk.client.api.filemetadata import FileMetadataAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.canvas import CanvasAPI, IndustrialCanvasAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.charts import ChartsAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.dml import DMLAPI
@@ -144,6 +145,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.three_d.models = MagicMock(spec_set=ThreeDModelAPI)
         self.tool.assets = MagicMock(spec_set=AssetsAPI)
         self.tool.timeseries = MagicMock(spec_set=TimeSeriesAPI)
+        self.tool.filemetadata = MagicMock(spec_set=FileMetadataAPI)
         self.tool.events = MagicMock(spec_set=EventsAPI)
         self.tool.simulators = MagicMock(spec=SimulatorsAPI)
         self.tool.simulators.models = MagicMock(spec_set=SimulatorModelsAPI)
