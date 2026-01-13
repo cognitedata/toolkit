@@ -56,6 +56,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_model import (
     GraphQLDataModelRequest,
     GraphQLDataModelResponse,
 )
+from cognite_toolkit._cdf_tk.client.data_classes.group import GroupRequest, GroupResponse
 from cognite_toolkit._cdf_tk.client.data_classes.hosted_extractor_destination import (
     HostedExtractorDestinationRequest,
     HostedExtractorDestinationResponse,
@@ -80,6 +81,20 @@ from cognite_toolkit._cdf_tk.client.data_classes.label import LabelRequest, Labe
 from cognite_toolkit._cdf_tk.client.data_classes.location_filter import LocationFilterRequest, LocationFilterResponse
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RAWDatabase, RAWTable
 from cognite_toolkit._cdf_tk.client.data_classes.relationship import RelationshipRequest, RelationshipResponse
+from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
+    RobotCapabilityRequest,
+    RobotCapabilityResponse,
+    RobotDataPostProcessingRequest,
+    RobotDataPostProcessingResponse,
+    RobotFrameRequest,
+    RobotFrameResponse,
+    RobotLocationRequest,
+    RobotLocationResponse,
+    RobotMapRequest,
+    RobotMapResponse,
+    RobotRequest,
+    RobotResponse,
+)
 from cognite_toolkit._cdf_tk.client.data_classes.search_config_resource import SearchConfigRequest, SearchConfigResponse
 from cognite_toolkit._cdf_tk.client.data_classes.securitycategory import (
     SecurityCategoryRequest,
@@ -405,6 +420,13 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
         },
+        GroupResponse: {
+            "id": 202,
+            "externalId": "group_001",
+            "name": "Example Group",
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
         SequenceRowsResponse: {
             "id": 123,
             "externalId": "sequence_001",
@@ -470,6 +492,50 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "targetType": "timeSeries",
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
+        },
+        RobotFrameResponse: {
+            "externalId": "frame_001",
+            "name": "Example Frame",
+            "createdTime": 1622547800000,
+            "updatedTime": 1622547800000,
+        },
+        RobotCapabilityResponse: {
+            "externalId": "capability_001",
+            "name": "PTZ Camera",
+            "method": "capture_ptz",
+            "inputSchema": {"type": "object"},
+            "dataHandlingSchema": {"type": "object"},
+            "createdTime": 1622547800000,
+            "updatedTime": 1622547800000,
+        },
+        RobotLocationResponse: {
+            "externalId": "location_001",
+            "name": "Factory Floor",
+            "createdTime": 1622547800000,
+            "updatedTime": 1622547800000,
+        },
+        RobotResponse: {
+            "name": "Spot-001",
+            "capabilities": ["capability_001"],
+            "robotType": "SPOT",
+            "dataSetId": 123456,
+            "createdTime": 1622547800000,
+            "updatedTime": 1622547800000,
+        },
+        RobotDataPostProcessingResponse: {
+            "externalId": "postprocessing_001",
+            "name": "Gauge Reader",
+            "method": "read_gauge",
+            "inputSchema": {"type": "object"},
+            "createdTime": 1622547800000,
+            "updatedTime": 1622547800000,
+        },
+        RobotMapResponse: {
+            "externalId": "map_001",
+            "name": "Factory Map",
+            "mapType": "THREEDMODEL",
+            "createdTime": 1622547800000,
+            "updatedTime": 1622547800000,
         },
     }
     try:
@@ -751,6 +817,15 @@ def iterate_cdf_resources() -> Iterable[tuple]:
     )
     yield pytest.param(
         CDFResource(
+            response_cls=GroupResponse,
+            request_cls=GroupRequest,
+            example_data=get_example_minimum_responses(GroupResponse),
+            api_class=None,
+        ),
+        id="Group",
+    )
+    yield pytest.param(
+        CDFResource(
             response_cls=SequenceRowsResponse,
             request_cls=SequenceRowsRequest,
             example_data=get_example_minimum_responses(SequenceRowsResponse),
@@ -814,4 +889,52 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             example_data=get_example_minimum_responses(RelationshipResponse),
         ),
         id="Relationship",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=RobotFrameResponse,
+            request_cls=RobotFrameRequest,
+            example_data=get_example_minimum_responses(RobotFrameResponse),
+        ),
+        id="RobotFrame",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=RobotCapabilityResponse,
+            request_cls=RobotCapabilityRequest,
+            example_data=get_example_minimum_responses(RobotCapabilityResponse),
+        ),
+        id="RobotCapability",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=RobotLocationResponse,
+            request_cls=RobotLocationRequest,
+            example_data=get_example_minimum_responses(RobotLocationResponse),
+        ),
+        id="RobotLocation",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=RobotResponse,
+            request_cls=RobotRequest,
+            example_data=get_example_minimum_responses(RobotResponse),
+        ),
+        id="Robot",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=RobotDataPostProcessingResponse,
+            request_cls=RobotDataPostProcessingRequest,
+            example_data=get_example_minimum_responses(RobotDataPostProcessingResponse),
+        ),
+        id="RobotDataPostProcessing",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=RobotMapResponse,
+            request_cls=RobotMapRequest,
+            example_data=get_example_minimum_responses(RobotMapResponse),
+        ),
+        id="RobotMap",
     )
