@@ -14,6 +14,7 @@ streams = true
 create = true
 extend-download = true
 extend-upload = true
+simulators = true
 
 [plugins]
 run = true
