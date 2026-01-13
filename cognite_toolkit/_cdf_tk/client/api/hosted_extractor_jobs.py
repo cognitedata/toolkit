@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.hosted_extractor_job import (
     HostedExtractorJobResponse,
 )
 from cognite_toolkit._cdf_tk.client.data_classes.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
 
 
 class HostedExtractorJobsAPI(CDFResourceAPI[ExternalId, HostedExtractorJobRequest, HostedExtractorJobResponse]):
@@ -24,7 +24,9 @@ class HostedExtractorJobsAPI(CDFResourceAPI[ExternalId, HostedExtractorJobReques
             },
         )
 
-    def _page_response(self, response: SuccessResponse2) -> PagedResponse[HostedExtractorJobResponse]:
+    def _page_response(
+        self, response: SuccessResponse2 | ItemsSuccessResponse2
+    ) -> PagedResponse[HostedExtractorJobResponse]:
         return PagedResponse[HostedExtractorJobResponse].model_validate_json(response.body)
 
     def _reference_response(self, response: SuccessResponse2) -> ResponseItems[ExternalId]:

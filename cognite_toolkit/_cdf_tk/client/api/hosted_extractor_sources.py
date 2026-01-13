@@ -1,6 +1,8 @@
 from collections.abc import Sequence
 from typing import Any, Literal
 
+from pydantic import JsonValue, TypeAdapter
+
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.data_classes.hosted_extractor_source import (
@@ -9,7 +11,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.hosted_extractor_source import 
     HostedExtractorSourceResponseUnion,
 )
 from cognite_toolkit._cdf_tk.client.data_classes.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
 
 
 class HostedExtractorSourcesAPI(
@@ -27,8 +29,13 @@ class HostedExtractorSourcesAPI(
             },
         )
 
-    def _page_response(self, response: SuccessResponse2) -> PagedResponse[HostedExtractorSourceResponseUnion]:
-        data = response.body_json
+    def _page_response(
+        self, response: SuccessResponse2 | ItemsSuccessResponse2
+    ) -> PagedResponse[HostedExtractorSourceResponseUnion]:
+        if isinstance(response, SuccessResponse2):
+            data = response.body_json
+        else:
+            data = TypeAdapter(dict[str, JsonValue]).validate_json(response.body)
         items = [HostedExtractorSourceResponse.validate_python(item) for item in data.get("items", [])]
         return PagedResponse[HostedExtractorSourceResponseUnion](items=items, nextCursor=data.get("nextCursor"))
 
