@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from .api.assets import AssetsAPI
 from .api.events import EventsAPI
 from .api.filemetadata import FileMetadataAPI
+from .api.hosted_extractors import HostedExtractorsAPI
 from .api.infield import InfieldAPI
 from .api.lookup import LookUpGroup
 from .api.migration import MigrationAPI
@@ -44,6 +45,7 @@ class ToolAPI:
         self.events = EventsAPI(http_client)
         self.raw = RawAPI(http_client)
         self.simulators = SimulatorsAPI(http_client)
+        self.hosted_extractors = HostedExtractorsAPI(http_client)
 
 
 class ToolkitClient(CogniteClient):
