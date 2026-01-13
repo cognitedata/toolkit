@@ -1,7 +1,7 @@
 import pytest
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.api_classes import PagedResponse
+from cognite_toolkit._cdf_tk.client.cdf_client.responses import PagedResponse
 
 
 @pytest.fixture()

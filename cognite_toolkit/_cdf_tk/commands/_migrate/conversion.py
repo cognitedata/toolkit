@@ -1,7 +1,7 @@
 from collections.abc import Iterable, Mapping, Set
 from typing import Any, ClassVar, cast
 
-from cognite.client.data_classes import Annotation, Asset, Event, FileMetadata, TimeSeries
+from cognite.client.data_classes import Annotation
 from cognite.client.data_classes.data_modeling import (
     DirectRelation,
     DirectRelationReference,
@@ -16,19 +16,21 @@ from cognite.client.data_classes.data_modeling.views import ViewProperty
 from cognite.client.utils._identifier import InstanceId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetResponse
+from cognite_toolkit._cdf_tk.client.data_classes.event import EventResponse
+from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import (
     AssetCentricId,
     ResourceViewMappingApply,
 )
+from cognite_toolkit._cdf_tk.client.data_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.utils.collection import flatten_dict_json_path
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     asset_centric_convert_to_primary_property,
     convert_to_primary_property,
 )
-from cognite_toolkit._cdf_tk.utils.useful_types import (
-    AssetCentricResourceExtended,
-    AssetCentricTypeExtended,
-)
+from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricTypeExtended
+from cognite_toolkit._cdf_tk.utils.useful_types2 import AssetCentricResourceExtended
 
 from .data_model import COGNITE_MIGRATION_SPACE_ID, INSTANCE_SOURCE_VIEW_ID
 from .issues import ConversionIssue, FailedConversion, InvalidPropertyDataType
@@ -111,22 +113,22 @@ class DirectRelationCache:
                         file_ids.add(file_id)
                     if isinstance(file_external_id := file_ref.get("externalId"), str):
                         file_external_ids.add(file_external_id)
-            elif isinstance(resource, Asset):
+            elif isinstance(resource, AssetResponse):
                 if resource.source:
                     source_ids.add(resource.source)
                 if resource.parent_id is not None:
                     asset_ids.add(resource.parent_id)
-            elif isinstance(resource, FileMetadata):
+            elif isinstance(resource, FileMetadataResponse):
                 if resource.source:
                     source_ids.add(resource.source)
                 if resource.asset_ids:
                     asset_ids.update(resource.asset_ids)
-            elif isinstance(resource, Event):
+            elif isinstance(resource, EventResponse):
                 if resource.source:
                     source_ids.add(resource.source)
                 if resource.asset_ids:
                     asset_ids.update(resource.asset_ids)
-            elif isinstance(resource, TimeSeries):
+            elif isinstance(resource, TimeSeriesResponse):
                 if resource.asset_id is not None:
                     asset_ids.add(resource.asset_id)
         if asset_ids:
@@ -245,13 +247,13 @@ def asset_centric_to_dm(
 
 
 def _lookup_resource_type(resource_type: AssetCentricResourceExtended) -> AssetCentricTypeExtended:
-    if isinstance(resource_type, Asset):
+    if isinstance(resource_type, AssetResponse):
         return "asset"
-    elif isinstance(resource_type, FileMetadata):
+    elif isinstance(resource_type, FileMetadataResponse):
         return "file"
-    elif isinstance(resource_type, Event):
+    elif isinstance(resource_type, EventResponse):
         return "event"
-    elif isinstance(resource_type, TimeSeries):
+    elif isinstance(resource_type, TimeSeriesResponse):
         return "timeseries"
     elif isinstance(resource_type, Annotation):
         if resource_type.annotated_resource_type == "file" and resource_type.annotation_type in (

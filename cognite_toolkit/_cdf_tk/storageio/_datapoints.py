@@ -15,6 +15,13 @@ from cognite.client.data_classes.filters import Exists
 from cognite.client.data_classes.time_series import TimeSeriesProperty
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.http_client import (
+    DataBodyRequest,
+    HTTPClient,
+    HTTPMessage,
+    SimpleBodyRequest,
+    SuccessResponse,
+)
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -26,13 +33,6 @@ from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
 )
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.fileio._readers import MultiFileReader
-from cognite_toolkit._cdf_tk.utils.http_client import (
-    DataBodyRequest,
-    HTTPClient,
-    HTTPMessage,
-    SimpleBodyRequest,
-    SuccessResponse,
-)
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import Page, TableStorageIO, TableUploadableStorageIO, UploadItem

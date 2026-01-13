@@ -2,9 +2,17 @@ from typing import Generic, TypeVar
 
 from pydantic import BaseModel, Field, JsonValue
 
-from cognite_toolkit._cdf_tk.utils.http_client._data_classes2 import RequestResource
-
 T = TypeVar("T", bound=BaseModel)
+
+
+class ResponseItems(BaseModel, Generic[T]):
+    """A page of reference items from a paginated API response.
+
+    Attributes:
+        items: The list of reference items in this page.
+    """
+
+    items: list[T]
 
 
 class PagedResponse(BaseModel, Generic[T]):
@@ -17,14 +25,3 @@ class QueryResponse(BaseModel, Generic[T]):
     typing: dict[str, JsonValue] | None = None
     next_cursor: dict[str, str] = Field(alias="nextCursor")
     debug: dict[str, JsonValue] | None = None
-
-
-class InternalIdRequest(RequestResource):
-    id: int
-
-    def as_id(self) -> int:
-        return self.id
-
-    @classmethod
-    def from_ids(cls, ids: list[int]) -> list["InternalIdRequest"]:
-        return [cls(id=id_) for id_ in ids]

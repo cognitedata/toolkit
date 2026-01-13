@@ -1,5 +1,6 @@
 from ._client import HTTPClient
 from ._data_classes import (
+    T_COVARIANT_ID,
     DataBodyRequest,
     ErrorDetails,
     FailedRequestItems,
@@ -10,6 +11,7 @@ from ._data_classes import (
     ItemMessage,
     ItemsRequest,
     ParamRequest,
+    RequestItem,
     RequestMessage,
     ResponseList,
     ResponseMessage,
@@ -18,7 +20,6 @@ from ._data_classes import (
     SuccessResponseItems,
 )
 from ._data_classes2 import (
-    BaseModelObject,
     ErrorDetails2,
     FailedRequest2,
     FailedResponse2,
@@ -29,13 +30,12 @@ from ._data_classes2 import (
     ItemsResultMessage2,
     ItemsSuccessResponse2,
     RequestMessage2,
-    RequestResource,
     SuccessResponse2,
 )
 from ._exception import ToolkitAPIError
 
 __all__ = [
-    "BaseModelObject",
+    "T_COVARIANT_ID",
     "DataBodyRequest",
     "ErrorDetails",
     "ErrorDetails2",
@@ -56,9 +56,9 @@ __all__ = [
     "ItemsResultMessage2",
     "ItemsSuccessResponse2",
     "ParamRequest",
+    "RequestItem",
     "RequestMessage",
     "RequestMessage2",
-    "RequestResource",
     "ResponseList",
     "ResponseMessage",
     "SimpleBodyRequest",

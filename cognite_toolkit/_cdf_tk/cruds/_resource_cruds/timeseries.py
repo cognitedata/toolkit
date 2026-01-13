@@ -2,16 +2,13 @@ import json
 from collections.abc import Hashable, Iterable, Sequence
 from itertools import zip_longest
 from pathlib import Path
-from typing import Any, Literal, cast, final
+from typing import Any, Literal, final
 
 from cognite.client.data_classes import (
     DatapointSubscription,
     DatapointSubscriptionList,
     DataPointSubscriptionUpdate,
     DataPointSubscriptionWrite,
-    TimeSeries,
-    TimeSeriesList,
-    TimeSeriesWrite,
 )
 from cognite.client.data_classes.capabilities import (
     Capability,
@@ -23,6 +20,8 @@ from cognite.client.data_classes.datapoints_subscriptions import TimeSeriesIDLis
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 
+from cognite_toolkit._cdf_tk.client.data_classes.identifiers import ExternalId, InternalOrExternalId
+from cognite_toolkit._cdf_tk.client.data_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 from cognite_toolkit._cdf_tk.constants import MAX_TIMESTAMP_MS, MIN_TIMESTAMP_MS
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -41,11 +40,11 @@ from .data_organization import DataSetsCRUD
 
 
 @final
-class TimeSeriesCRUD(ResourceContainerCRUD[str, TimeSeriesWrite, TimeSeries]):
+class TimeSeriesCRUD(ResourceContainerCRUD[ExternalId, TimeSeriesRequest, TimeSeriesResponse]):
     item_name = "datapoints"
     folder_name = "timeseries"
-    resource_cls = TimeSeries
-    resource_write_cls = TimeSeriesWrite
+    resource_cls = TimeSeriesResponse
+    resource_write_cls = TimeSeriesRequest
     yaml_cls = TimeSeriesYAML
     kind = "TimeSeries"
     dependencies = frozenset({DataSetsCRUD, GroupAllScopedCRUD, AssetCRUD})
@@ -57,7 +56,7 @@ class TimeSeriesCRUD(ResourceContainerCRUD[str, TimeSeriesWrite, TimeSeries]):
 
     @classmethod
     def get_required_capability(
-        cls, items: Sequence[TimeSeriesWrite] | None, read_only: bool
+        cls, items: Sequence[TimeSeriesRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -72,22 +71,22 @@ class TimeSeriesCRUD(ResourceContainerCRUD[str, TimeSeriesWrite, TimeSeries]):
         return TimeSeriesAcl(actions, scope)
 
     @classmethod
-    def get_id(cls, item: TimeSeries | TimeSeriesWrite | dict) -> str:
+    def get_id(cls, item: TimeSeriesRequest | TimeSeriesResponse | dict) -> ExternalId:
         if isinstance(item, dict):
-            return item["externalId"]
+            return ExternalId(external_id=item["externalId"])
         if item.external_id is None:
             raise ToolkitRequiredValueError("TimeSeries must have external_id set.")
-        return item.external_id
+        return ExternalId(external_id=item.external_id)
 
     @classmethod
-    def get_internal_id(cls, item: TimeSeries | dict) -> int:
+    def get_internal_id(cls, item: TimeSeriesResponse | dict) -> int:
         if isinstance(item, dict):
             return item["id"]
         return item.id
 
     @classmethod
-    def dump_id(cls, id: str) -> dict[str, Any]:
-        return {"externalId": id}
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return id.dump()
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -97,9 +96,9 @@ class TimeSeriesCRUD(ResourceContainerCRUD[str, TimeSeriesWrite, TimeSeries]):
             for security_category in item["securityCategoryNames"]:
                 yield SecurityCategoryCRUD, security_category
         if "assetExternalId" in item:
-            yield AssetCRUD, item["assetExternalId"]
+            yield AssetCRUD, ExternalId(external_id=item["assetExternalId"])
 
-    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> TimeSeriesWrite:
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> TimeSeriesRequest:
         if ds_external_id := resource.pop("dataSetExternalId", None):
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
         if security_categories_names := resource.pop("securityCategoryNames", []):
@@ -108,10 +107,10 @@ class TimeSeriesCRUD(ResourceContainerCRUD[str, TimeSeriesWrite, TimeSeries]):
             )
         if asset_external_id := resource.pop("assetExternalId", None):
             resource["assetId"] = self.client.lookup.assets.id(asset_external_id, is_dry_run)
-        return TimeSeriesWrite._load(resource)
+        return TimeSeriesRequest.model_validate(resource)
 
-    def dump_resource(self, resource: TimeSeries, local: dict[str, Any] | None = None) -> dict[str, Any]:
-        dumped = resource.as_write().dump()
+    def dump_resource(self, resource: TimeSeriesResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_request_resource().dump()
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
         if security_categories := dumped.pop("securityCategories", []):
@@ -120,53 +119,56 @@ class TimeSeriesCRUD(ResourceContainerCRUD[str, TimeSeriesWrite, TimeSeries]):
             dumped["assetExternalId"] = self.client.lookup.assets.external_id(asset_id)
         return dumped
 
-    def create(self, items: Sequence[TimeSeriesWrite]) -> TimeSeriesList:
-        return self.client.time_series.create(items)
+    def create(self, items: Sequence[TimeSeriesRequest]) -> list[TimeSeriesResponse]:
+        return self.client.tool.timeseries.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[str | int]) -> TimeSeriesList:
-        internal_ids, external_ids = self._split_ids(ids)
-        return self.client.time_series.retrieve_multiple(
-            ids=internal_ids, external_ids=external_ids, ignore_unknown_ids=True
-        )
+    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[TimeSeriesResponse]:
+        return self.client.tool.timeseries.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[TimeSeriesWrite]) -> TimeSeriesList:
-        return self.client.time_series.update(items, mode="replace")
+    def update(self, items: Sequence[TimeSeriesRequest]) -> list[TimeSeriesResponse]:
+        return self.client.tool.timeseries.update(items, mode="replace")
 
-    def delete(self, ids: SequenceNotStr[str | int]) -> int:
-        existing = self.retrieve(ids)
-        if existing:
-            self.client.time_series.delete(id=existing.as_ids(), ignore_unknown_ids=True)
-        return len(existing)
+    def delete(self, ids: SequenceNotStr[InternalOrExternalId]) -> int:
+        if not ids:
+            return 0
+        self.client.tool.timeseries.delete(list(ids), ignore_unknown_ids=True)
+        return len(ids)
 
     def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
-    ) -> Iterable[TimeSeries]:
-        return iter(
-            self.client.time_series(data_set_external_ids=[data_set_external_id] if data_set_external_id else None)
-        )
+    ) -> Iterable[TimeSeriesResponse]:
+        cursor: str | None = None
+        while True:
+            page = self.client.tool.timeseries.iterate(
+                data_set_external_ids=[data_set_external_id] if data_set_external_id else None,
+                limit=1000,
+                cursor=cursor,
+            )
+            yield from page.items
+            if not page.next_cursor or not page.items:
+                break
+            cursor = page.next_cursor
 
-    def count(self, ids: str | dict[str, Any] | SequenceNotStr[str | dict[str, Any]] | None) -> int:
+    def count(self, ids: SequenceNotStr[ExternalId]) -> int:
         datapoints = self.client.time_series.data.retrieve(
-            external_id=ids,  # type: ignore[arg-type]
+            external_id=[id.external_id for id in ids],
             start=MIN_TIMESTAMP_MS,
             end=MAX_TIMESTAMP_MS + 1,
             aggregates="count",
             granularity="1000d",
             ignore_unknown_ids=True,
         )
-        return sum(sum(data.count or []) for data in datapoints)  # type: ignore[union-attr, misc, arg-type]
+        return sum(sum(data.count or []) for data in datapoints)
 
-    def drop_data(self, ids: SequenceNotStr[str] | None) -> int:
+    def drop_data(self, ids: SequenceNotStr[ExternalId]) -> int:
         count = self.count(ids)
-        existing = self.client.time_series.retrieve_multiple(
-            external_ids=cast(SequenceNotStr[str], ids), ignore_unknown_ids=True
-        ).as_external_ids()
-        for external_id in existing:
+        existing = self.client.tool.timeseries.retrieve(list(ids), ignore_unknown_ids=True)
+        for ts in existing:
             self.client.time_series.data.delete_range(
-                external_id=external_id, start=MIN_TIMESTAMP_MS, end=MAX_TIMESTAMP_MS + 1
+                external_id=ts.external_id, start=MIN_TIMESTAMP_MS, end=MAX_TIMESTAMP_MS + 1
             )
         return count
 
@@ -219,7 +221,7 @@ class DatapointSubscriptionCRUD(
         if "dataSetExternalId" in item:
             yield DataSetsCRUD, item["dataSetExternalId"]
         for timeseries_id in item.get("timeSeriesIds", []):
-            yield TimeSeriesCRUD, timeseries_id
+            yield TimeSeriesCRUD, ExternalId(external_id=timeseries_id)
 
     @classmethod
     def get_required_capability(

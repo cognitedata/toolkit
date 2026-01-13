@@ -14,18 +14,37 @@ class TypedInstanceIdentifier(Identifier):
     space: str
     external_id: str
 
+    def __str__(self) -> str:
+        return f"Instance({self.instance_type}, {self.space}, {self.external_id})"
+
+    def dump(self, camel_case: bool = True, include_type: bool = True) -> dict[str, Any]:
+        """Dump the resource to a dictionary.
+
+        This is the default serialization method for request resources.
+        """
+        return self.model_dump(mode="json", by_alias=camel_case, exclude_unset=not include_type)
+
 
 class TypedNodeIdentifier(TypedInstanceIdentifier):
     instance_type: Literal["node"] = "node"
+
+    def __str__(self) -> str:
+        return f"Node({self.space}, {self.external_id})"
 
 
 class TypedEdgeIdentifier(TypedInstanceIdentifier):
     instance_type: Literal["edge"] = "edge"
 
+    def __str__(self) -> str:
+        return f"Edge({self.space}, {self.external_id})"
+
 
 class InstanceIdentifier(Identifier):
     space: str
     external_id: str
+
+    def __str__(self) -> str:
+        return f"Instance({self.space}, {self.external_id})"
 
 
 class InstanceResult(BaseModelObject):
@@ -50,6 +69,16 @@ class ViewReference(Identifier):
     space: str
     external_id: str
     version: str
+
+    def __str__(self) -> str:
+        return f"View({self.space}, {self.external_id}, v{self.version})"
+
+    def dump(self, camel_case: bool = True, include_type: bool = True) -> dict[str, Any]:
+        """Dump the resource to a dictionary.
+
+        This is the default serialization method for request resources.
+        """
+        return self.model_dump(mode="json", by_alias=camel_case, exclude_unset=not include_type)
 
 
 ######################################################
@@ -160,3 +189,8 @@ class InstanceResponseItem(BaseModelObject):
             space=self.space,
             external_id=self.external_id,
         )
+
+
+class NodeReference(BaseModelObject):
+    space: str
+    external_id: str

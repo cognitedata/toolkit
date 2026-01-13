@@ -1,5 +1,6 @@
 import pytest
 
+from cognite_toolkit._cdf_tk.client.data_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.data_classes.legacy.apm_config_v1 import (
     APMConfigWrite,
     FeatureConfiguration,
@@ -51,7 +52,7 @@ class TestInfieldV1Loader:
         }
 
         assert actual == {
-            (AssetCRUD.__name__, "my_root_asset"),
+            (AssetCRUD.__name__, ExternalId(external_id="my_root_asset")),
             (DataSetsCRUD.__name__, "my_dataset"),
             (SpaceCRUD.__name__, "my_app_data_space"),
             (SpaceCRUD.__name__, "my_customer_data_space"),
@@ -60,6 +61,6 @@ class TestInfieldV1Loader:
             (GroupResourceScopedCRUD.__name__, "my_admin_group2"),
             (GroupResourceScopedCRUD.__name__, "my_admin_group3"),
             (DataSetsCRUD.__name__, "my_other_dataset"),
-            (AssetCRUD.__name__, "my_asset_subtree"),
+            (AssetCRUD.__name__, ExternalId(external_id="my_asset_subtree")),
             (SpaceCRUD.__name__, "my_source_data_space"),
         }

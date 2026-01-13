@@ -7,16 +7,20 @@ from cognite_toolkit._cdf_tk.protocols import (
 )
 
 from .base import BaseModelObject, BaseResourceList, RequestResource, ResponseResource
+from .identifiers import ExternalId
 
 
-class StreamRequest(RequestResource):
+class Stream(BaseModelObject):
+    external_id: str
+
+
+class StreamRequest(Stream, RequestResource):
     """Stream request resource class."""
 
-    external_id: str
     settings: dict[Literal["template"], dict[Literal["name"], StreamTemplateName]]
 
-    def as_id(self) -> str:
-        return self.external_id
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)
 
 
 class StreamRequestList(BaseResourceList[StreamRequest], ResourceRequestListProtocol):
@@ -28,7 +32,6 @@ class StreamRequestList(BaseResourceList[StreamRequest], ResourceRequestListProt
 class LifecycleObject(BaseModelObject):
     """Lifecycle object."""
 
-    hot_phase_duration: str | None = None
     data_deleted_after: str | None = None
     retained_after_soft_delete: str
 
@@ -55,10 +58,9 @@ class StreamSettings(BaseModelObject):
     limits: LimitsObject
 
 
-class StreamResponse(ResponseResource["StreamRequest"]):
+class StreamResponse(Stream, ResponseResource[StreamRequest]):
     """Stream response resource class."""
 
-    external_id: str
     created_time: int
     created_from_template: StreamTemplateName
     type: Literal["Mutable", "Immutable"]

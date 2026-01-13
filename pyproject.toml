@@ -8,6 +8,18 @@ authors = [
 license = "Apache-2.0"
 readme = "README.md"
 requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Build Tools",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+]
 dependencies = [
     "python-dotenv >=1.0.0",
     "cognite-sdk>=7.87.0,<8.0.0",
@@ -77,13 +89,26 @@ cdf = "cognite_toolkit._cdf:app"
 [tool.uv]
 package = true
 
-[tool.coverage.report]
-show_missing = true
+[tool.coverage.run]
+source = ["cognite_toolkit"]
 omit = [
     # The apps module only holds CLI entrypoints, so we skip it in coverage reports'
     "cognite_toolkit/_cdf_tk/apps/*",
     # Exclude CLI entrypoints
     "cognite_toolkit/_cdf.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+    "from typing_extensions import Self",
 ]
 
 [tool.pytest.ini_options]

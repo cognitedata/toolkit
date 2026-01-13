@@ -7,6 +7,7 @@ from cognite.client.data_classes.capabilities import Capability, LocationFilters
 from cognite.client.data_classes.data_modeling import DataModelId, ViewId
 from cognite.client.utils.useful_types import SequenceNotStr
 
+from cognite_toolkit._cdf_tk.client.data_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.data_classes.legacy.location_filters import (
     LocationFilter,
     LocationFilterList,
@@ -239,14 +240,14 @@ class LocationFilterCRUD(ResourceCRUD[str, LocationFilterWrite, LocationFilter])
                 yield DataSetsCRUD, data_set_external_id
             for asset in asset_centric.get("assetSubtreeIds", []):
                 if "externalId" in asset:
-                    yield AssetCRUD, asset["externalId"]
+                    yield AssetCRUD, ExternalId(external_id=asset["externalId"])
             for subfilter_name in cls.subfilter_names:
                 subfilter = asset_centric.get(subfilter_name, {})
                 for data_set_external_id in subfilter.get("dataSetExternalIds", []):
                     yield DataSetsCRUD, data_set_external_id
                 for asset in subfilter.get("assetSubtreeIds", []):
                     if "externalId" in asset:
-                        yield AssetCRUD, asset["externalId"]
+                        yield AssetCRUD, ExternalId(external_id=asset["externalId"])
         for view in item.get("views", []):
             if in_dict(["space", "externalId", "version"], view):
                 yield ViewCRUD, ViewId(view["space"], view["externalId"], view["version"])

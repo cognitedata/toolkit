@@ -7,36 +7,34 @@ from unittest.mock import patch
 import httpx
 import pytest
 import respx
+from pydantic import BaseModel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
-from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
-from cognite_toolkit._cdf_tk.utils.http_client import (
+from cognite_toolkit._cdf_tk.client.http_client import (
     ErrorDetails,
+    ErrorDetails2,
+    FailedRequest2,
     FailedRequestItems,
     FailedRequestMessage,
     FailedResponse,
+    FailedResponse2,
     FailedResponseItems,
     HTTPClient,
     HTTPMessage,
     ItemMessage,
-    ItemsRequest,
-    ParamRequest,
-    SimpleBodyRequest,
-    SuccessResponse,
-    SuccessResponseItems,
-)
-from cognite_toolkit._cdf_tk.utils.http_client._data_classes2 import (
-    ErrorDetails2,
-    FailedRequest2,
-    FailedResponse2,
     ItemsFailedRequest2,
     ItemsFailedResponse2,
+    ItemsRequest,
     ItemsRequest2,
     ItemsSuccessResponse2,
+    ParamRequest,
     RequestMessage2,
-    RequestResource,
+    SimpleBodyRequest,
+    SuccessResponse,
     SuccessResponse2,
+    SuccessResponseItems,
 )
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from tests.test_unit.utils import FakeCogniteResourceGenerator
 
@@ -646,12 +644,12 @@ class TestHTTPMessage:
             pytest.fail(f"Dumped data is not valid JSON: {e}")
 
 
-class MyRequestItem(RequestResource):
+class MyRequestItem(BaseModel):
     name: str
     id: int
 
-    def as_id(self) -> int:
-        return self.id
+    def __str__(self) -> str:
+        return str(self.id)
 
 
 @pytest.mark.usefixtures("disable_pypi_check")
@@ -672,7 +670,9 @@ class TestHTTPClientItemRequests2:
             )
         )
         body = '{"items":[{"id":1,"value":42},{"id":2,"value":43}]}'
-        assert results == [ItemsSuccessResponse2(status_code=200, ids=[1, 2], body=body, content=body.encode("utf-8"))]
+        assert results == [
+            ItemsSuccessResponse2(status_code=200, ids=["1", "2"], body=body, content=body.encode("utf-8"))
+        ]
         assert len(rsps.calls) == 1
         assert json.loads(rsps.calls[0].request.content) == {
             "items": [{"name": "A", "id": 1}, {"name": "B", "id": 2}],
@@ -710,10 +710,10 @@ class TestHTTPClientItemRequests2:
         )
         body = '{"items":[{"externalId":"success","data":123}]}'
         assert results == [
-            ItemsSuccessResponse2(status_code=200, ids=[1], body=body, content=body.encode("utf-8")),
+            ItemsSuccessResponse2(status_code=200, ids=["1"], body=body, content=body.encode("utf-8")),
             ItemsFailedResponse2(
                 status_code=400,
-                ids=[2],
+                ids=["2"],
                 error=ErrorDetails2(message="Item failed", code=400),
                 body='{"error":{"message":"Item failed","code":400}}',
             ),
@@ -746,7 +746,7 @@ class TestHTTPClientItemRequests2:
         assert results == [
             ItemsFailedResponse2(
                 status_code=401,
-                ids=[1, 2],
+                ids=["1", "2"],
                 error=ErrorDetails2(message="Unauthorized", code=401),
                 body='{"error":{"message":"Unauthorized","code":401}}',
             ),
@@ -764,7 +764,7 @@ class TestHTTPClientItemRequests2:
             )
         )
         assert results == [
-            ItemsSuccessResponse2(status_code=200, ids=[1, 2], body="", content=b""),
+            ItemsSuccessResponse2(status_code=200, ids=["1", "2"], body="", content=b""),
         ]
 
     def test_timeout_error(self, http_client_one_retry: HTTPClient, rsps: respx.MockRouter) -> None:
@@ -780,7 +780,7 @@ class TestHTTPClientItemRequests2:
             )
         assert results == [
             ItemsFailedRequest2(
-                ids=[1], error_message="RequestException after 1 attempts (read error): Simulated timeout error"
+                ids=["1"], error_message="RequestException after 1 attempts (read error): Simulated timeout error"
             )
         ]
 

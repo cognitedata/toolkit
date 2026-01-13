@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Any, ClassVar
 
 import pytest
-from cognite.client.data_classes import Annotation, Asset, Event, FileMetadata, Sequence, TimeSeries
+from cognite.client.data_classes import Annotation, Sequence
 from cognite.client.data_classes.data_modeling import (
     EdgeApply,
     NodeId,
@@ -16,11 +16,15 @@ from cognite.client.data_classes.data_modeling.ids import ContainerId, EdgeId, V
 from cognite.client.data_classes.data_modeling.instances import NodeList, PropertyValueWrite
 from cognite.client.data_classes.data_modeling.views import MappedProperty, MultiEdgeConnection, ViewProperty
 
+from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetResponse
+from cognite_toolkit._cdf_tk.client.data_classes.event import EventResponse
+from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import (
     AssetCentricId,
     CreatedSourceSystem,
     ResourceViewMapping,
 )
+from cognite_toolkit._cdf_tk.client.data_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     DirectRelationCache,
@@ -65,8 +69,8 @@ def direct_relation_cache() -> DirectRelationCache:
         cache = DirectRelationCache(client)
         cache.update(
             [
-                Event(asset_ids=[123, 1], source="source_system_1"),
-                Asset(source="SourceA"),
+                EventResponse(asset_ids=[123, 1], source="source_system_1", createdTime=1, lastUpdatedTime=1, id=0),
+                AssetResponse(source="SourceA", createdTime=1, lastUpdatedTime=1, rootId=0, id=0, name=""),
                 Annotation("diagrams.FileLink", {}, "Accepted", "app", "app-version", "me", "file", 42, 1),
             ]
         )
@@ -363,7 +367,15 @@ class TestAssetCentricConversion:
         [
             pytest.param(
                 # Simple Asset with basic mapping
-                Asset(id=123, external_id="asset_123", name="Test Asset", description="A test asset"),
+                AssetResponse(
+                    id=123,
+                    externalId="asset_123",
+                    name="Test Asset",
+                    description="A test asset",
+                    createdTime=1,
+                    lastUpdatedTime=1,
+                    rootId=0,
+                ),
                 ResourceViewMapping(
                     external_id="asset_mapping",
                     version=1,
@@ -395,18 +407,23 @@ class TestAssetCentricConversion:
                 ConversionIssue(
                     asset_centric_id=AssetCentricId("asset", 123),
                     instance_id=INSTANCE_ID,
-                    ignored_asset_centric_properties=[],
+                    ignored_asset_centric_properties=["createdTime", "lastUpdatedTime", "rootId"],
                 ),
                 id="simple_asset_mapping",
             ),
             pytest.param(
-                TimeSeries(
+                TimeSeriesResponse(
                     id=456,
                     external_id="ts_456",
                     name="Test TimeSeries",
                     description="A test timeseries",
                     unit="celsius",
                     metadata={"sensor_type": "temperature", "location": "room_1"},
+                    is_string=False,
+                    is_step=False,
+                    created_time=0,
+                    last_updated_time=0,
+                    type="numeric",
                 ),
                 ResourceViewMapping(
                     external_id="timeseries_mapping",
@@ -465,12 +482,19 @@ class TestAssetCentricConversion:
                 ConversionIssue(
                     asset_centric_id=AssetCentricId("timeseries", id_=456),
                     instance_id=INSTANCE_ID,
-                    ignored_asset_centric_properties=["description"],
+                    ignored_asset_centric_properties=[
+                        "createdTime",
+                        "description",
+                        "isStep",
+                        "isString",
+                        "lastUpdatedTime",
+                        "type",
+                    ],
                 ),
                 id="timeseries_with_metadata",
             ),
             pytest.param(
-                Event(
+                EventResponse(
                     id=789,
                     external_id="event_789",
                     start_time=1756359489386,
@@ -486,6 +510,8 @@ class TestAssetCentricConversion:
                             {"externalId": "op_123", "space": "schema_space", "type": "Operation"}
                         ),
                     },
+                    created_time=1,
+                    last_updated_time=1,
                 ),
                 ResourceViewMapping(
                     external_id="incomplete_mapping",
@@ -575,7 +601,7 @@ class TestAssetCentricConversion:
                 ConversionIssue(
                     asset_centric_id=AssetCentricId("event", id_=789),
                     instance_id=INSTANCE_ID,
-                    ignored_asset_centric_properties=["description"],
+                    ignored_asset_centric_properties=["createdTime", "description", "lastUpdatedTime"],
                     missing_asset_centric_properties=["metadata.missingMetaProp", "missing_prop"],
                     missing_instance_properties=["anotherMissingDMProp", "missingDMProp", "targetProp"],
                     invalid_instance_property_types=[
@@ -592,12 +618,15 @@ class TestAssetCentricConversion:
                 id="Event with conversion issues (missing properties)",
             ),
             pytest.param(
-                FileMetadata(
+                FileMetadataResponse(
                     id=321,
                     external_id="file_321",
                     name="Test File",
                     mime_type="application/octet-stream",
                     metadata={"file_type": "pdf", "confidential": "true"},
+                    created_time=0,
+                    last_updated_time=0,
+                    uploaded=True,
                 ),
                 ResourceViewMapping(
                     external_id="file_mapping",
@@ -647,10 +676,13 @@ class TestAssetCentricConversion:
                     asset_centric_id=AssetCentricId("file", id_=321),
                     instance_id=INSTANCE_ID,
                     ignored_asset_centric_properties=[
+                        "createdTime",
+                        "lastUpdatedTime",
                         "metadata.confidential",
                         "metadata.file_type",
                         "mimeType",
                         "name",
+                        "uploaded",
                     ],
                     missing_asset_centric_properties=[],
                     missing_instance_properties=[],
@@ -658,11 +690,16 @@ class TestAssetCentricConversion:
                 id="FileMetadata with no mappings (all ignored)",
             ),
             pytest.param(
-                TimeSeries(
+                TimeSeriesResponse(
                     id=654,
                     name="Test TimeSeries",
                     description="A test timeseries",
                     metadata=None,
+                    is_string=False,
+                    is_step=False,
+                    created_time=0,
+                    last_updated_time=0,
+                    type="numeric",
                 ),
                 ResourceViewMapping(
                     external_id="timeseries_mapping",
@@ -695,14 +732,24 @@ class TestAssetCentricConversion:
                 ConversionIssue(
                     asset_centric_id=AssetCentricId("timeseries", id_=654),
                     instance_id=INSTANCE_ID,
-                    ignored_asset_centric_properties=["description"],
+                    ignored_asset_centric_properties=[
+                        "createdTime",
+                        "description",
+                        "isStep",
+                        "isString",
+                        "lastUpdatedTime",
+                        "metadata",
+                        "type",
+                    ],
                     missing_asset_centric_properties=["metadata.category"],
                     missing_instance_properties=[],
                 ),
                 id="TimeSeries with partial mapping",
             ),
             pytest.param(
-                Asset(id=999, external_id="asset_999", name=None, description=None),
+                AssetResponse(
+                    id=999, externalId="asset_999", name="The name", createdTime=1, lastUpdatedTime=1, rootId=0
+                ),
                 ResourceViewMapping(
                     external_id="empty_mapping",
                     version=1,
@@ -730,25 +777,25 @@ class TestAssetCentricConversion:
                         auto_increment=False,
                     ),
                 },
-                {},
+                {"assetName": "The name"},
                 ConversionIssue(
                     asset_centric_id=AssetCentricId("asset", id_=999),
                     instance_id=INSTANCE_ID,
-                    ignored_asset_centric_properties=[],
-                    # Name and description set to None is the same as missing as we have now way of knowing
-                    # whether they were explicitly set to None or just not set at all.
-                    missing_asset_centric_properties=["description", "name"],
+                    ignored_asset_centric_properties=["createdTime", "lastUpdatedTime", "rootId"],
+                    missing_asset_centric_properties=["description"],
                     missing_instance_properties=[],
                 ),
                 id="Asset with non-nullable properties all None",
             ),
             pytest.param(
-                Event(
+                EventResponse(
                     id=999,
                     external_id="event_999",
                     type="MyType",
                     metadata={"category": "MyCategory"},
                     source="not_existing",
+                    created_time=0,
+                    last_updated_time=1,
                 ),
                 ResourceViewMapping(
                     external_id="event_mapping",
@@ -783,7 +830,7 @@ class TestAssetCentricConversion:
                 ConversionIssue(
                     asset_centric_id=AssetCentricId("event", id_=999),
                     instance_id=INSTANCE_ID,
-                    ignored_asset_centric_properties=["metadata.category"],
+                    ignored_asset_centric_properties=["createdTime", "lastUpdatedTime", "metadata.category"],
                     failed_conversions=[
                         FailedConversion(
                             property_id="source",
@@ -800,7 +847,7 @@ class TestAssetCentricConversion:
     )
     def test_asset_centric_to_dm(
         self,
-        resource: Asset | FileMetadata | Event | TimeSeries | Sequence,
+        resource: AssetResponse | FileMetadataResponse | EventResponse | TimeSeriesResponse | Sequence,
         view_source: ResourceViewMapping,
         view_properties: dict[str, ViewProperty],
         expected_properties: dict[str, str],

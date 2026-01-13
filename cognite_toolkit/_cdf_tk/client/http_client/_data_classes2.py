@@ -2,22 +2,21 @@ import gzip
 import sys
 from abc import ABC, abstractmethod
 from collections import UserList
-from collections.abc import Hashable, Sequence
+from collections.abc import Sequence
 from typing import Any, Literal
 
 import httpx
 from cognite.client import global_config
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, model_validator
-from pydantic.alias_generators import to_camel
 
-from cognite_toolkit._cdf_tk.utils.http_client._exception import ToolkitAPIError
-from cognite_toolkit._cdf_tk.utils.http_client._tracker import ItemsRequestTracker
+from cognite_toolkit._cdf_tk.client.http_client._exception import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.http_client._tracker import ItemsRequestTracker
 from cognite_toolkit._cdf_tk.utils.useful_types import PrimitiveType
 
 if sys.version_info >= (3, 11):
-    from typing import Self
+    pass
 else:
-    from typing_extensions import Self
+    pass
 
 
 class HTTPResult2(BaseModel):
@@ -124,7 +123,7 @@ _BODY_SERIALIZER = TypeAdapter(dict[str, JsonValue])
 
 
 class ItemsResultMessage2(BaseModel):
-    ids: list[Hashable]
+    ids: list[str]
 
 
 class ItemsFailedRequest2(ItemsResultMessage2):
@@ -143,30 +142,6 @@ class ItemsFailedResponse2(ItemsResultMessage2):
     body: str
 
 
-class BaseModelObject(BaseModel):
-    """Base class for all object. This includes resources and nested objects."""
-
-    # We allow extra fields to support forward compatibility.
-    model_config = ConfigDict(alias_generator=to_camel, extra="allow")
-
-    def dump(self, camel_case: bool = True) -> dict[str, Any]:
-        """Dump the resource to a dictionary.
-
-        This is the default serialization method for request resources.
-        """
-        return self.model_dump(mode="json", by_alias=camel_case, exclude_unset=True)
-
-    @classmethod
-    def _load(cls, resource: dict[str, Any]) -> "Self":
-        """Load method to match CogniteResource signature."""
-        return cls.model_validate(resource)
-
-
-class RequestResource(BaseModelObject, ABC):
-    @abstractmethod
-    def as_id(self) -> Hashable: ...
-
-
 def _set_default_tracker(data: dict[str, Any]) -> ItemsRequestTracker:
     if "tracker" not in data or data["tracker"] is None:
         return ItemsRequestTracker(data.get("max_failures_before_abort", 50))
@@ -175,14 +150,16 @@ def _set_default_tracker(data: dict[str, Any]) -> ItemsRequestTracker:
 
 class ItemsRequest2(BaseRequestMessage):
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    items: Sequence[RequestResource]
+    items: Sequence[BaseModel]
     extra_body_fields: dict[str, JsonValue] | None = None
     max_failures_before_abort: int = 50
     tracker: ItemsRequestTracker = Field(init=False, default_factory=_set_default_tracker, exclude=True)
 
     @property
     def content(self) -> str | bytes | None:
-        body: dict[str, JsonValue] = {"items": [item.dump() for item in self.items]}
+        body: dict[str, JsonValue] = {
+            "items": [item.model_dump(mode="json", by_alias=True, exclude_unset=True) for item in self.items]
+        }
         if self.extra_body_fields:
             body.update(self.extra_body_fields)
         res = _BODY_SERIALIZER.dump_json(body)

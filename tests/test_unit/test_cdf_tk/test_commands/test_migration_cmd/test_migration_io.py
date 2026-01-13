@@ -8,6 +8,7 @@ from cognite.client.data_classes import Annotation
 from httpx import Response
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     AnnotationMigrationIO,
     AssetCentricMigrationIO,
@@ -16,7 +17,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.storageio import AssetIO, UploadItem
 from cognite_toolkit._cdf_tk.storageio.selectors import ThreeDModelIdSelector
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient
 
 
 @pytest.fixture(scope="module")
@@ -25,13 +25,27 @@ def toolkit_client(toolkit_config: ToolkitClientConfig) -> ToolkitClient:
 
 
 class TestAssetCentricMigrationIOAdapter:
-    def test_download(self, toolkit_client: ToolkitClient, rsps: responses.RequestsMock, tmp_path: Path) -> None:
+    def test_download(self, toolkit_client: ToolkitClient, respx_mock: respx.MockRouter, tmp_path: Path) -> None:
         client = toolkit_client
         config = toolkit_client.config
         N = 1500
-        items = [{"id": i, "externalId": f"asset_{i}", "space": "mySpace"} for i in range(N)]
-        rsps.post(config.create_api_url("/assets/byids"), json={"items": items[: AssetIO.CHUNK_SIZE]})
-        rsps.post(config.create_api_url("/assets/byids"), json={"items": items[AssetIO.CHUNK_SIZE :]})
+        items = [
+            {
+                "id": i,
+                "externalId": f"asset_{i}",
+                "name": f"Asset {i}",
+                "createdTime": 0,
+                "lastUpdatedTime": 1,
+                "rootId": 0,
+            }
+            for i in range(N)
+        ]
+        respx_mock.post(config.create_api_url("/assets/byids")).mock(
+            side_effect=[
+                Response(status_code=200, json={"items": items[: AssetIO.CHUNK_SIZE]}),
+                Response(status_code=200, json={"items": items[AssetIO.CHUNK_SIZE :]}),
+            ]
+        )
 
         csv_file = tmp_path / "files.csv"
         csv_file.write_text("id,space,externalId\n" + "\n".join(f"{i},mySpace,asset_{i}" for i in range(N)))
@@ -47,7 +61,14 @@ class TestAssetCentricMigrationIOAdapter:
         first_item = downloaded[0].items[0]
         assert first_item.dump() == {
             "mapping": {"id": 0, "instanceId": {"space": "mySpace", "externalId": "asset_0"}, "resourceType": "asset"},
-            "resource": {"id": 0, "externalId": "asset_0"},
+            "resource": {
+                "id": 0,
+                "externalId": "asset_0",
+                "name": "Asset 0",
+                "createdTime": 0,
+                "lastUpdatedTime": 1,
+                "rootId": 0,
+            },
         }
 
 

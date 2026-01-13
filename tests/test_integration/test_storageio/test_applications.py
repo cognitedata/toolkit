@@ -4,9 +4,9 @@ import pytest
 from cognite.client.data_classes import DataSet, Event, EventWrite
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, SuccessResponse
 from cognite_toolkit._cdf_tk.storageio import CanvasIO
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.http_client import HTTPClient, SuccessResponse
 
 
 @pytest.fixture

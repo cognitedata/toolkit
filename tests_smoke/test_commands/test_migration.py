@@ -22,6 +22,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.three_d import (
     ThreeDModelClassicRequest,
     ThreeDModelResponse,
 )
+from cognite_toolkit._cdf_tk.client.http_client import FailedRequestMessage, FailedResponse, HTTPClient
 from cognite_toolkit._cdf_tk.commands import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper, ThreeDAssetMapper, ThreeDMapper
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import COGNITE_MIGRATION_MODEL, SPACE_SOURCE_VIEW_ID
@@ -36,7 +37,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFile
 from cognite_toolkit._cdf_tk.storageio import UploadItem
 from cognite_toolkit._cdf_tk.storageio.selectors import ThreeDModelIdSelector
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.http_client import FailedRequestMessage, FailedResponse, HTTPClient
 from tests.test_integration.constants import RUN_UNIQUE_ID
 from tests_smoke.exceptions import EndpointAssertionError
 
@@ -103,7 +103,7 @@ def tmp_3D_model_with_asset_mapping(
     client = toolkit_client
     model_request = ThreeDModelClassicRequest(
         name=f"toolkit_3d_model_migration_test_{RUN_UNIQUE_ID}",
-        dataSetId=smoke_dataset.id,
+        data_set_id=smoke_dataset.id,
         metadata={"source": "smoke_test_migration"},
     )
     models = client.tool.three_d.models.create([model_request])
@@ -157,10 +157,10 @@ def tmp_3D_model_with_asset_mapping(
     created_mapping = client.tool.three_d.asset_mappings.create(
         [
             AssetMappingClassicRequest(
-                nodeId=three_d_node.id,
-                assetId=classic_asset.id,
-                modelId=model.id,
-                revisionId=revision.id,
+                node_id=three_d_node.id,
+                asset_id=classic_asset.id,
+                model_id=model.id,
+                revision_id=revision.id,
             )
         ]
     )

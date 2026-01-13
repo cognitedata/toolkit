@@ -11,6 +11,15 @@ from cognite_toolkit._cdf_tk.client.data_classes.three_d import (
     AssetMappingResponse,
     ThreeDModelResponse,
 )
+from cognite_toolkit._cdf_tk.client.http_client import (
+    FailedResponse,
+    HTTPClient,
+    HTTPMessage,
+    ItemsRequest,
+    SimpleBodyRequest,
+    SuccessResponseItems,
+    ToolkitAPIError,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import ThreeDMigrationRequest
 from cognite_toolkit._cdf_tk.constants import MISSING_EXTERNAL_ID, MISSING_INSTANCE_SPACE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError, ToolkitValueError
@@ -29,21 +38,12 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
 )
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
-from cognite_toolkit._cdf_tk.utils.http_client import (
-    FailedResponse,
-    HTTPClient,
-    HTTPMessage,
-    ItemsRequest,
-    SimpleBodyRequest,
-    SuccessResponseItems,
-    ToolkitAPIError,
-)
 from cognite_toolkit._cdf_tk.utils.useful_types import (
     AssetCentricKindExtended,
     AssetCentricType,
     JsonVal,
-    T_AssetCentricResource,
 )
+from cognite_toolkit._cdf_tk.utils.useful_types2 import T_AssetCentricResource
 
 from .data_classes import (
     AnnotationMapping,

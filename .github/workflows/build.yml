@@ -14,25 +14,13 @@ jobs:
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
       - name: Install uv and set the python version
-        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Install dependencies
         run: uv sync --all-extras
       - name: Linting and static code checks
-        continue-on-error: true
-        id: pre-commit-first-run
-        uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
-      - name: Commit changes
-        uses: stefanzweifel/git-auto-commit-action@04702edda442b2e678b25b537cec683a1493fcb9 # v7
-        id: auto-commit-action
-        with:
-          create_branch: false
-          commit_message: Linting and static code checks
-      # If the first run failed, run the checks again to ensure that the changes fixed the issue.
-      - name: Linting and static code checks try 2
-        if: steps.pre-commit-first-run.outcome != 'success'
-        uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
+        run: uv run pre-commit run --show-diff-on-failure --color=always --all-files
   test-no-alpha:
     name: Run tests without alpha features
     runs-on: ubuntu-latest

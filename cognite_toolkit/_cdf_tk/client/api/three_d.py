@@ -5,7 +5,8 @@ from typing import Any, TypeVar
 from pydantic import TypeAdapter
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk.client.data_classes.api_classes import InternalIdRequest, PagedResponse
+from cognite_toolkit._cdf_tk.client.cdf_client.responses import PagedResponse
+from cognite_toolkit._cdf_tk.client.data_classes.identifiers import InternalId
 from cognite_toolkit._cdf_tk.client.data_classes.three_d import (
     AssetMappingClassicRequest,
     AssetMappingDMRequest,
@@ -13,12 +14,12 @@ from cognite_toolkit._cdf_tk.client.data_classes.three_d import (
     ThreeDModelClassicRequest,
     ThreeDModelResponse,
 )
-from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
-from cognite_toolkit._cdf_tk.utils.http_client import (
+from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ItemsRequest2,
     RequestMessage2,
 )
+from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import PrimitiveType
 
 
@@ -70,7 +71,7 @@ class ThreeDModelAPI:
             ItemsRequest2(
                 endpoint_url=self._config.create_api_url(self.ENDPOINT + "/delete"),
                 method="POST",
-                items=InternalIdRequest.from_ids(list(ids)),
+                items=InternalId.from_ids(list(ids)),
             )
         )
         responses.raise_for_status()

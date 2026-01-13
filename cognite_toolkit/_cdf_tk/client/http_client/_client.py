@@ -10,9 +10,7 @@ import httpx
 from cognite.client import global_config
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
-from cognite_toolkit._cdf_tk.utils.auxiliary import get_current_toolkit_version, get_user_agent
-from cognite_toolkit._cdf_tk.utils.http_client._data_classes import (
+from cognite_toolkit._cdf_tk.client.http_client._data_classes import (
     BodyRequest,
     DataBodyRequest,
     FailedRequestMessage,
@@ -23,7 +21,7 @@ from cognite_toolkit._cdf_tk.utils.http_client._data_classes import (
     ResponseList,
     ResponseMessage,
 )
-from cognite_toolkit._cdf_tk.utils.http_client._data_classes2 import (
+from cognite_toolkit._cdf_tk.client.http_client._data_classes2 import (
     BaseRequestMessage,
     ErrorDetails2,
     FailedRequest2,
@@ -38,6 +36,8 @@ from cognite_toolkit._cdf_tk.utils.http_client._data_classes2 import (
     RequestMessage2,
     SuccessResponse2,
 )
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
+from cognite_toolkit._cdf_tk.utils.auxiliary import get_current_toolkit_version, get_user_agent
 from cognite_toolkit._cdf_tk.utils.useful_types import PrimitiveType
 
 if sys.version_info >= (3, 11):
@@ -414,7 +414,7 @@ class HTTPClient:
         if message.tracker and message.tracker.limit_reached():
             return [
                 ItemsFailedRequest2(
-                    ids=[item.as_id() for item in message.items],
+                    ids=[str(item) for item in message.items],
                     error_message=f"Aborting further splitting of requests after {message.tracker.failed_split_count} failed attempts.",
                 )
             ]
@@ -464,7 +464,7 @@ class HTTPClient:
         if 200 <= response.status_code < 300:
             return [
                 ItemsSuccessResponse2(
-                    ids=[item.as_id() for item in request.items],
+                    ids=[str(item) for item in request.items],
                     status_code=response.status_code,
                     body=response.text,
                     content=response.content,
@@ -480,7 +480,7 @@ class HTTPClient:
             if splits[0].tracker and splits[0].tracker.limit_reached():
                 return [
                     ItemsFailedResponse2(
-                        ids=[item.as_id() for item in request.items],
+                        ids=[str(item) for item in request.items],
                         status_code=response.status_code,
                         body=response.text,
                         error=ErrorDetails2.from_response(response),
@@ -494,7 +494,7 @@ class HTTPClient:
             # Permanent failure
             return [
                 ItemsFailedResponse2(
-                    ids=[item.as_id() for item in request.items],
+                    ids=[str(item) for item in request.items],
                     status_code=response.status_code,
                     body=response.text,
                     error=ErrorDetails2.from_response(response),
@@ -516,7 +516,7 @@ class HTTPClient:
             error_msg = f"Unexpected exception: {e!s}"
             return [
                 ItemsFailedRequest2(
-                    ids=[item.as_id() for item in request.items],
+                    ids=[str(item) for item in request.items],
                     error_message=error_msg,
                 )
             ]
@@ -530,7 +530,7 @@ class HTTPClient:
 
             return [
                 ItemsFailedRequest2(
-                    ids=[item.as_id() for item in request.items],
+                    ids=[str(item) for item in request.items],
                     error_message=error_msg,
                 )
             ]

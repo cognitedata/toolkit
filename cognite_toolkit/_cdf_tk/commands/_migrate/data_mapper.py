@@ -20,7 +20,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.charts_data import (
     ChartSource,
     ChartTimeseries,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.instance_api import InstanceIdentifier
+from cognite_toolkit._cdf_tk.client.data_classes.instance_api import InstanceIdentifier, NodeReference
 from cognite_toolkit._cdf_tk.client.data_classes.legacy.canvas import (
     ContainerReferenceApply,
     FdmInstanceContainerReferenceApply,
@@ -32,7 +32,6 @@ from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import Resourc
 from cognite_toolkit._cdf_tk.client.data_classes.three_d import (
     AssetMappingDMRequest,
     AssetMappingResponse,
-    NodeReference,
     RevisionStatus,
     ThreeDModelResponse,
 )
@@ -56,7 +55,7 @@ from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceRespo
 from cognite_toolkit._cdf_tk.storageio._base import T_Selector
 from cognite_toolkit._cdf_tk.storageio.selectors import CanvasSelector, ChartSelector, ThreeDSelector
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.useful_types import T_AssetCentricResourceExtended
+from cognite_toolkit._cdf_tk.utils.useful_types2 import T_AssetCentricResourceExtended
 
 from .data_classes import AssetCentricMapping
 from .selectors import AssetCentricMigrationSelector
@@ -450,15 +449,15 @@ class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelResponse, ThreeDMigrati
             return None, issue
 
         mapped_request = ThreeDMigrationRequest(
-            modelId=item.id,
+            model_id=item.id,
             type=model_type,
             space=instance_space,
             revision=ThreeDRevisionMigrationRequest(
                 space=instance_space,
                 type=model_type,
-                revisionId=last_revision_id,
+                revision_id=last_revision_id,
                 model=Model(
-                    instanceId=InstanceIdentifier(
+                    instance_id=InstanceIdentifier(
                         space=instance_space,
                         external_id=f"cog_3d_model_{item.id!s}",
                     )
@@ -509,12 +508,15 @@ class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingResponse, AssetMa
             if asset_node_id is None:
                 issue.error_message.append(f"Missing asset instance for asset ID {item.asset_id!r}")
                 return None, issue
-            asset_instance_id = NodeReference(space=asset_node_id.space, externalId=asset_node_id.external_id)
+            asset_instance_id = NodeReference(space=asset_node_id.space, external_id=asset_node_id.external_id)
 
         if asset_instance_id is None:
             issue.error_message.append("Neither assetInstanceId nor assetId provided for mapping.")
             return None, issue
         mapped_request = AssetMappingDMRequest(
-            modelId=item.model_id, revisionId=item.revision_id, nodeId=item.node_id, assetInstanceId=asset_instance_id
+            model_id=item.model_id,
+            revision_id=item.revision_id,
+            node_id=item.node_id,
+            asset_instance_id=asset_instance_id,
         )
         return mapped_request, issue

@@ -7,8 +7,8 @@ from typing import Generic, Literal, Protocol, TypeAlias, TypeVar
 import httpx
 from cognite.client.utils import _json
 
-from cognite_toolkit._cdf_tk.utils.http_client._exception import ToolkitAPIError
-from cognite_toolkit._cdf_tk.utils.http_client._tracker import ItemsRequestTracker
+from cognite_toolkit._cdf_tk.client.http_client._exception import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.http_client._tracker import ItemsRequestTracker
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal, PrimitiveType
 
 StatusCode: TypeAlias = int

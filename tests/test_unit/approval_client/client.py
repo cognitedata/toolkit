@@ -63,6 +63,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from requests import Response
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.data_classes.base import RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.data_classes.legacy.graphql_data_models import GraphQLDataModelWrite
 from cognite_toolkit._cdf_tk.client.data_classes.legacy.project import ProjectStatus, ProjectStatusList
 from cognite_toolkit._cdf_tk.client.data_classes.legacy.raw import RawDatabase
@@ -764,6 +765,10 @@ class ApprovalToolkitClient:
                 created_time="1",
             )
 
+        def create(items: Sequence[RequestResource], *_, **__) -> list[ResponseResource]:
+            created_resources[resource_cls.__name__].extend(items)
+            return []
+
         available_create_methods = {
             fn.__name__: fn
             for fn in [
@@ -782,6 +787,7 @@ class ApprovalToolkitClient:
                 apply_dml,
                 create_raw_table,
                 create_nodes,
+                create,
             ]
         }
         if mock_method not in available_create_methods:
@@ -903,6 +909,9 @@ class ApprovalToolkitClient:
                     to_return.append(resource)
             return to_return
 
+        def retrieve(ids: Sequence, *_, **__) -> list:
+            return existing_resources[resource_cls.__name__]
+
         available_retrieve_methods = {
             fn.__name__: fn
             for fn in [
@@ -913,6 +922,7 @@ class ApprovalToolkitClient:
                 files_retrieve,
                 iterate_values,
                 return_data_models,
+                retrieve,
             ]
         }
         if mock_method not in available_retrieve_methods:
@@ -1040,7 +1050,11 @@ class ApprovalToolkitClient:
                             return v["view"]["space"] + "/" + v["view"]["externalId"]
                         raise ValueError(f"Could not find identifier in {v}")
 
-                    dumped[key] = sorted(dumped_resource, key=sort_key)
+                    try:
+                        dumped[key] = sorted(dumped_resource, key=sort_key)
+                    except TypeError as e:
+                        raise TypeError(f"Could not sort resources of type {key}. Error: {e}") from e
+
                 else:
                     dumped[key] = list(dumped_resource)
 
@@ -1137,53 +1151,47 @@ class ApprovalToolkitClient:
             if (call_count := sum(method.call_count for method in methods))
         }
 
-    def not_mocked_calls(self) -> dict[str, int]:
+    def not_mocked_calls(self) -> dict[tuple[str, ...], int]:
         """This returns all the calls that have been made to the mock client to sub APIs that have not been mocked.
 
         For example, if you have not mocked the 'time_series' API, and the code you test calls the 'time_series.list' method,
-        then this method will return {'time_series.list': 1}
+        then this method will return {(time_series, list): 1}
 
         Returns:
-            A dict with the calls that have been made to sub APIs that have not been mocked, {api_name.method_name: call_count}
+            A dict with the calls that have been made to sub APIs that have not been mocked, {(api path): call_count}
         """
-        mocked_apis: dict[str : set[str]] = defaultdict(set)
+        mocked_apis: set[tuple[str, ...]] = set()
         for r in API_RESOURCES:
-            if r.api_name.count(".") == 1:
-                api_name, sub_api = r.api_name.split(".")
-            elif r.api_name.count(".") == 0:
-                api_name, sub_api = r.api_name, ""
-            else:
-                raise ValueError(f"Invalid api name {r.api_name}")
-            mocked_apis[api_name] |= {sub_api} if sub_api else set()
+            mocked_apis.add(tuple(r.api_name.split(".")))
         # These are mocked in the __init__ method
         for name, method in self.mock_client.lookup.__dict__.items():
             if not isinstance(method, MagicMock) or name.startswith("_") or name.startswith("assert_"):
                 continue
-            mocked_apis["lookup"].add(name)
-        mocked_apis["verify"] = {"authorization"}
-        mocked_apis["project"] = {"status"}
+            mocked_apis.add(("lookup", "name"))
+        mocked_apis.add(("verify",))
+        mocked_apis.add(("project",))
 
-        not_mocked: dict[str, int] = defaultdict(int)
-        for api_name, api in vars(self.mock_client).items():
-            if not isinstance(api, MagicMock) or api_name.startswith("_") or api_name.startswith("assert_"):
-                continue
-            mocked_sub_apis = mocked_apis.get(api_name, set())
-            for method_name in dir(api):
-                if method_name.startswith("_") or method_name.startswith("assert_"):
+        not_mocked: dict[tuple[str, ...], int] = defaultdict(int)
+        to_check = [(tuple(), vars(self.mock_client))]
+        while to_check:
+            parent_key, api = to_check.pop()
+            for api_name, api in api.items():
+                if not isinstance(api, MagicMock) or api_name.startswith("_") or api_name.startswith("assert_"):
                     continue
-                method = getattr(api, method_name)
-                if api_name not in mocked_apis and isinstance(method, MagicMock) and method.call_count:
-                    not_mocked[f"{api_name}.{method_name}"] += method.call_count
-                if hasattr(method, "_spec_set") and method._spec_set and method_name not in mocked_sub_apis:
-                    # this is a sub api that must be checked
-                    for sub_method_name in dir(method):
-                        if sub_method_name.startswith("_") or sub_method_name.startswith("assert_"):
-                            continue
-                        sub_method = getattr(method, sub_method_name)
-                        if isinstance(sub_method, MagicMock) and sub_method.call_count:
-                            not_mocked[f"{api_name}.{method_name}.{sub_method_name}"] += sub_method.call_count
+                for method_name in dir(api):
+                    if method_name.startswith("_") or method_name.startswith("assert_"):
+                        continue
+                    method = getattr(api, method_name)
+                    if isinstance(method, MagicMock) and method.call_count:
+                        key = (*parent_key, api_name)
+                        if key not in mocked_apis:
+                            not_mocked[(*key, method_name)] += method.call_count
+                    if hasattr(method, "_spec_set") and method._spec_set:
+                        # this is a sub api that must be checked
+                        to_check.append(((*parent_key, api_name), vars(method)))
+
         # This is mocked in the __init__
-        not_mocked.pop("iam.sessions.create", None)
+        not_mocked.pop(("iam", "sessions", "create"), None)
         return dict(not_mocked)
 
     def auth_create_group_calls(self) -> Iterable[AuthGroupCalls]:
