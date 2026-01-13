@@ -6,6 +6,9 @@ from cognite_toolkit._cdf_tk.client.data_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.data_classes.workflow import WorkflowRequest, WorkflowResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, SuccessResponse2
 
+from .workflow_triggers import WorkflowTriggersAPI
+from .workflow_versions import WorkflowVersionsAPI
+
 
 class WorkflowsAPI(CDFResourceAPI[ExternalId, WorkflowRequest, WorkflowResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
@@ -18,6 +21,8 @@ class WorkflowsAPI(CDFResourceAPI[ExternalId, WorkflowRequest, WorkflowResponse]
                 "list": Endpoint(method="GET", path="/workflows", item_limit=100),
             },
         )
+        self.versions = WorkflowVersionsAPI(http_client)
+        self.triggers = WorkflowTriggersAPI(http_client)
 
     def _page_response(self, response: SuccessResponse2) -> PagedResponse[WorkflowResponse]:
         return PagedResponse[WorkflowResponse].model_validate_json(response.body)
