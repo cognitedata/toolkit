@@ -104,7 +104,7 @@ class TransformationsAPI(CDFResourceAPI[InternalOrExternalId, TransformationRequ
         if is_public is not None:
             filter_["isPublic"] = is_public
 
-        return self._iterate(
+        return self._paginate(
             cursor=cursor,
             limit=limit,
             body={"filter": filter_ or None},

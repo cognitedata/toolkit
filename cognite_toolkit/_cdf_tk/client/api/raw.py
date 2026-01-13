@@ -61,7 +61,7 @@ class RawDatabasesAPI(CDFResourceAPI[RAWDatabase, RAWDatabase, RAWDatabase]):
         Returns:
             PagedResponse of RAWDatabase objects.
         """
-        return self._iterate(limit=limit, cursor=cursor)
+        return self._paginate(limit=limit, cursor=cursor)
 
     def list(self, limit: int | None = None) -> list[RAWDatabase]:
         """List all databases in CDF.
@@ -153,7 +153,7 @@ class RawTablesAPI(CDFResourceAPI[RAWTable, RAWTable, RAWTable]):
         Returns:
             PagedResponse of RAWTable objects.
         """
-        return self._iterate(cursor=cursor, limit=limit, endpoint_path=f"/raw/dbs/{db_name}/tables")
+        return self._paginate(cursor=cursor, limit=limit, endpoint_path=f"/raw/dbs/{db_name}/tables")
 
     def list(self, db_name: str, limit: int | None = None) -> list[RAWTable]:
         """List all tables in a database in CDF.

@@ -107,7 +107,7 @@ class SimulatorModelsAPI(CDFResourceAPI[InternalOrExternalId, SimulatorModelRequ
         if simulator_external_ids:
             filter_["simulatorExternalIds"] = simulator_external_ids
 
-        return self._iterate(
+        return self._paginate(
             cursor=cursor,
             limit=limit,
             body={"filter": filter_ or None},

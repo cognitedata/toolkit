@@ -94,7 +94,7 @@ class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionId, WorkflowVersionReque
         if workflow_external_id:
             body["workflowExternalId"] = workflow_external_id
 
-        return self._iterate(
+        return self._paginate(
             cursor=cursor,
             limit=limit,
             body=body,

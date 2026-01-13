@@ -103,7 +103,7 @@ class HostedExtractorDestinationsAPI(
         Returns:
             PagedResponse of destination response objects.
         """
-        return self._iterate(cursor=cursor, limit=limit)
+        return self._paginate(cursor=cursor, limit=limit)
 
     def list(self, limit: int | None = 100) -> list[HostedExtractorDestinationResponse]:
         """List all hosted extractor destinations in CDF.

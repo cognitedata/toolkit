@@ -89,7 +89,7 @@ class WorkflowsAPI(CDFResourceAPI[ExternalId, WorkflowRequest, WorkflowResponse]
         Returns:
             PagedResponse of WorkflowResponse objects.
         """
-        return self._iterate(
+        return self._paginate(
             cursor=cursor,
             limit=limit,
         )

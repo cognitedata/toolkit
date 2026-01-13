@@ -93,7 +93,7 @@ class DataSetsAPI(CDFResourceAPI[InternalOrExternalId, DataSetRequest, DataSetRe
         if write_protected is not None:
             filter_body["writeProtected"] = write_protected
 
-        return self._iterate(
+        return self._paginate(
             cursor=cursor,
             limit=limit,
             body={"filter": filter_body} if filter_body else {},

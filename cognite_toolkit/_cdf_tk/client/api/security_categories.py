@@ -64,7 +64,7 @@ class SecurityCategoriesAPI(CDFResourceAPI[InternalId, SecurityCategoryRequest, 
         Returns:
             PagedResponse of SecurityCategoryResponse objects.
         """
-        return self._iterate(cursor=cursor, limit=limit, params={"sort": sort})
+        return self._paginate(cursor=cursor, limit=limit, params={"sort": sort})
 
     def list(
         self,

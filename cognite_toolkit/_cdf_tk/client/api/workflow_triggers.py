@@ -80,7 +80,7 @@ class WorkflowTriggersAPI(CDFResourceAPI[ExternalId, WorkflowTriggerRequest, Wor
         if workflow_version:
             params["workflowVersion"] = workflow_version
 
-        return self._iterate(
+        return self._paginate(
             cursor=cursor,
             limit=limit,
             params=params,

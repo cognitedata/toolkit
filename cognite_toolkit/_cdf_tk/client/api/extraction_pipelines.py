@@ -106,7 +106,7 @@ class ExtractionPipelinesAPI(
         if data_set_external_ids is not None:
             filter_body["dataSetIds"] = [{"externalId": ds_id} for ds_id in data_set_external_ids]
 
-        return self._iterate(
+        return self._paginate(
             cursor=cursor,
             limit=limit,
             body={"filter": filter_body} if filter_body else None,

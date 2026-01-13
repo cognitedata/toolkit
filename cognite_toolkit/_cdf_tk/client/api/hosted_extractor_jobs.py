@@ -94,7 +94,7 @@ class HostedExtractorJobsAPI(CDFResourceAPI[ExternalId, HostedExtractorJobReques
         Returns:
             PagedResponse of job response objects.
         """
-        return self._iterate(cursor=cursor, limit=limit)
+        return self._paginate(cursor=cursor, limit=limit)
 
     def list(self, limit: int | None = 100) -> list[HostedExtractorJobResponse]:
         """List all hosted extractor jobs in CDF.

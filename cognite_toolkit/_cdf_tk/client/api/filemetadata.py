@@ -129,7 +129,7 @@ class FileMetadataAPI(CDFResourceAPI[InternalOrExternalId, FileMetadataRequest, 
         if uploaded is not None:
             filter_["uploaded"] = uploaded
 
-        return self._iterate(
+        return self._paginate(
             cursor=cursor,
             limit=limit,
             body={"filter": filter_ or None},

@@ -108,7 +108,7 @@ class HostedExtractorSourcesAPI(
         Returns:
             PagedResponse of source response objects.
         """
-        return self._iterate(cursor=cursor, limit=limit)
+        return self._paginate(cursor=cursor, limit=limit)
 
     def list(self, limit: int | None = 100) -> list[HostedExtractorSourceResponseUnion]:
         """List all hosted extractor sources in CDF.

@@ -97,7 +97,7 @@ class AssetsAPI(CDFResourceAPI[InternalOrExternalId, AssetRequest, AssetResponse
         if data_set_external_ids:
             filter_["dataSetIds"] = [{"externalId": ds_id} for ds_id in data_set_external_ids]
 
-        return self._iterate(
+        return self._paginate(
             cursor=cursor,
             limit=limit,
             body={
