@@ -26,7 +26,9 @@ class FileMetadataAPI(CDFResourceAPI[InternalOrExternalId, FileMetadataRequest, 
             },
         )
 
-    def _page_response(self, response: SuccessResponse2 | ItemsSuccessResponse2) -> PagedResponse[FileMetadataResponse]:
+    def _validate_page_response(
+        self, response: SuccessResponse2 | ItemsSuccessResponse2
+    ) -> PagedResponse[FileMetadataResponse]:
         return PagedResponse[FileMetadataResponse].model_validate_json(response.body)
 
     def _reference_response(self, response: SuccessResponse2) -> ResponseItems[InternalOrExternalId]:
@@ -56,7 +58,7 @@ class FileMetadataAPI(CDFResourceAPI[InternalOrExternalId, FileMetadataRequest, 
             )
             response = self._http_client.request_single_retries(request)
             result = response.get_success_or_raise()
-            results.extend(self._page_response(result).items)
+            results.extend(self._validate_page_response(result).items)
         return results
 
     def retrieve(

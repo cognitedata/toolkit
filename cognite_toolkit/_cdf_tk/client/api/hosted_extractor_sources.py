@@ -29,7 +29,7 @@ class HostedExtractorSourcesAPI(
             },
         )
 
-    def _page_response(
+    def _validate_page_response(
         self, response: SuccessResponse2 | ItemsSuccessResponse2
     ) -> PagedResponse[HostedExtractorSourceResponseUnion]:
         if isinstance(response, SuccessResponse2):

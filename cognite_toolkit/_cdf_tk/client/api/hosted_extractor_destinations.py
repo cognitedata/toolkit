@@ -26,7 +26,7 @@ class HostedExtractorDestinationsAPI(
             },
         )
 
-    def _page_response(
+    def _validate_page_response(
         self, response: SuccessResponse2 | ItemsSuccessResponse2
     ) -> PagedResponse[HostedExtractorDestinationResponse]:
         return PagedResponse[HostedExtractorDestinationResponse].model_validate_json(response.body)

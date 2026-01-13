@@ -22,7 +22,7 @@ class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionId, WorkflowVersionReque
             },
         )
 
-    def _page_response(
+    def _validate_page_response(
         self, response: SuccessResponse2 | ItemsSuccessResponse2
     ) -> PagedResponse[WorkflowVersionResponse]:
         return PagedResponse[WorkflowVersionResponse].model_validate_json(response.body)
