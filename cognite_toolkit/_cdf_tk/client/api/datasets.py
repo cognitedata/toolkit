@@ -85,10 +85,7 @@ class DataSetsAPI(CDFResourceAPI[InternalOrExternalId, DataSetRequest, DataSetRe
             body={},
         )
 
-    def list(
-        self,
-        limit: int | None = 100,
-    ) -> list[DataSetResponse]:
+    def list(self, limit: int | None = 100) -> list[DataSetResponse]:
         """List all data sets in CDF.
 
         Returns:

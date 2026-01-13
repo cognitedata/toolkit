@@ -12,8 +12,9 @@ class WorkflowsAPI(CDFResourceAPI[ExternalId, WorkflowRequest, WorkflowResponse]
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "create": Endpoint(method="POST", path="/workflows", item_limit=100, concurrency_max_workers=1),
-                "delete": Endpoint(method="POST", path="/workflows/delete", item_limit=100, concurrency_max_workers=1),
+                "upsert": Endpoint(method="POST", path="/workflows", item_limit=1),
+                "retrieve": Endpoint(method="GET", path="/workflows/{workflowExternalId}", item_limit=1),
+                "delete": Endpoint(method="POST", path="/workflows/delete", item_limit=100),
                 "list": Endpoint(method="GET", path="/workflows", item_limit=100),
             },
         )
@@ -24,7 +25,7 @@ class WorkflowsAPI(CDFResourceAPI[ExternalId, WorkflowRequest, WorkflowResponse]
     def _reference_response(self, response: SuccessResponse2) -> ResponseItems[ExternalId]:
         return ResponseItems[ExternalId].model_validate_json(response.body)
 
-    def upsert(self, items: Sequence[WorkflowRequest]) -> list[WorkflowResponse]:
+    def create(self, items: Sequence[WorkflowRequest]) -> list[WorkflowResponse]:
         """Create or update workflows in CDF.
 
         Args:
@@ -32,28 +33,34 @@ class WorkflowsAPI(CDFResourceAPI[ExternalId, WorkflowRequest, WorkflowResponse]
         Returns:
             List of created/updated WorkflowResponse objects.
         """
-        return self._request_item_response(items, "create")
+        return self._request_item_response(items, "upsert")
 
-    def retrieve(self, external_id: str) -> WorkflowResponse | None:
+    # This is a duplicate of the create method, included to standardize the API interface.
+    def update(self, items: Sequence[WorkflowRequest]) -> list[WorkflowResponse]:
+        """Create or update workflows in CDF.
+
+        Args:
+            items: List of WorkflowRequest objects to create or update.
+        Returns:
+            List of created/updated WorkflowResponse objects.
+        """
+        return self.create(items)
+
+    def retrieve(self, items: Sequence[ExternalId]) -> list[WorkflowResponse]:
         """Retrieve a workflow from CDF by external ID.
 
         Args:
-            external_id: The external ID of the workflow to retrieve.
+            items: List of ExternalId objects to retrieve.
+
         Returns:
             The retrieved WorkflowResponse object, or None if not found.
         """
-        from cognite_toolkit._cdf_tk.client.http_client import RequestMessage2
-
-        request = RequestMessage2(
-            endpoint_url=self._make_url(f"/workflows/{external_id}"),
-            method="GET",
-        )
-        result = self._http_client.request_single_retries(request)
-        response = result.get_success_or_raise()
-        # Workflow retrieve returns single item directly, not in items array
-        from cognite_toolkit._cdf_tk.client.data_classes.workflow import WorkflowResponse
-
-        return WorkflowResponse.model_validate_json(response.body)
+        result: list[WorkflowResponse] = []
+        for item in items:
+            endpoint = f"/workflow/{item.external_id}"
+            retrieved = self._request_item_response([item], "retrieve", endpoint=endpoint)
+            result.extend(retrieved)
+        return result
 
     def delete(self, items: Sequence[ExternalId]) -> None:
         """Delete workflows from CDF.

@@ -22,7 +22,7 @@ class ExtractionPipelinesAPI(
                 "retrieve": Endpoint(method="POST", path="/extpipes/byids", item_limit=1000, concurrency_max_workers=1),
                 "update": Endpoint(method="POST", path="/extpipes/update", item_limit=1000, concurrency_max_workers=1),
                 "delete": Endpoint(method="POST", path="/extpipes/delete", item_limit=1000, concurrency_max_workers=1),
-                "list": Endpoint(method="GET", path="/extpipes", item_limit=1000),
+                "list": Endpoint(method="POST", path="/extpipes/list", item_limit=1000),
             },
         )
 

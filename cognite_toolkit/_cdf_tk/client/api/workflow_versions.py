@@ -13,13 +13,12 @@ class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionId, WorkflowVersionReque
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "create": Endpoint(
-                    method="POST", path="/workflows/versions", item_limit=100, concurrency_max_workers=1
+                "upsert": Endpoint(method="POST", path="/workflows/versions", item_limit=1),
+                "retrieve": Endpoint(
+                    method="GET", path="/workflow/{workflowExternalId}/versions/{version}", item_limit=1
                 ),
-                "delete": Endpoint(
-                    method="POST", path="/workflows/versions/delete", item_limit=100, concurrency_max_workers=1
-                ),
-                "list": Endpoint(method="POST", path="/workflows/versions/list", item_limit=100),
+                "delete": Endpoint(method="POST", path="/workflows/versions/delete", item_limit=100),
+                "list": Endpoint(method="POST", path="/workflows/versions/list", item_limit=1000),
             },
         )
 
@@ -29,7 +28,7 @@ class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionId, WorkflowVersionReque
     def _reference_response(self, response: SuccessResponse2) -> ResponseItems[WorkflowVersionId]:
         return ResponseItems[WorkflowVersionId].model_validate_json(response.body)
 
-    def upsert(self, items: Sequence[WorkflowVersionRequest]) -> list[WorkflowVersionResponse]:
+    def create(self, items: Sequence[WorkflowVersionRequest]) -> list[WorkflowVersionResponse]:
         """Create or update workflow versions in CDF.
 
         Args:
@@ -37,7 +36,18 @@ class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionId, WorkflowVersionReque
         Returns:
             List of created/updated WorkflowVersionResponse objects.
         """
-        return self._request_item_response(items, "create")
+        return self._request_item_response(items, "upsert")
+
+    # This is a duplicate of the create method, included to standardize the API interface.
+    def update(self, items: Sequence[WorkflowVersionRequest]) -> list[WorkflowVersionResponse]:
+        """Create or update workflow versions in CDF.
+
+        Args:
+            items: List of WorkflowVersionRequest objects to create or update.
+        Returns:
+            List of created/updated WorkflowVersionResponse objects.
+        """
+        return self.create(items)
 
     def retrieve(self, items: Sequence[WorkflowVersionId]) -> list[WorkflowVersionResponse]:
         """Retrieve workflow versions from CDF.
@@ -47,7 +57,12 @@ class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionId, WorkflowVersionReque
         Returns:
             List of retrieved WorkflowVersionResponse objects.
         """
-        return self._request_item_response(items, method="list")
+        result: list[WorkflowVersionResponse] = []
+        for item in items:
+            endpoint = f"/workflow/{item.workflow_external_id}/versions/{item.version}"
+            retrieved = self._request_item_response([item], "retrieve", endpoint=endpoint)
+            result.extend(retrieved)
+        return result
 
     def delete(self, items: Sequence[WorkflowVersionId]) -> None:
         """Delete workflow versions from CDF.

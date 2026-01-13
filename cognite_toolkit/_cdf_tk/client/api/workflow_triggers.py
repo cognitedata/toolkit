@@ -13,13 +13,9 @@ class WorkflowTriggersAPI(CDFResourceAPI[ExternalId, WorkflowTriggerRequest, Wor
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "create": Endpoint(
-                    method="POST", path="/workflows/triggers", item_limit=100, concurrency_max_workers=1
-                ),
-                "delete": Endpoint(
-                    method="POST", path="/workflows/triggers/delete", item_limit=100, concurrency_max_workers=1
-                ),
-                "list": Endpoint(method="GET", path="/workflows/triggers", item_limit=100),
+                "upsert": Endpoint(method="POST", path="/workflows/triggers", item_limit=1),
+                "delete": Endpoint(method="POST", path="/workflows/triggers/delete", item_limit=1),
+                "list": Endpoint(method="GET", path="/workflows/triggers", item_limit=1000),
             },
         )
 
@@ -29,7 +25,7 @@ class WorkflowTriggersAPI(CDFResourceAPI[ExternalId, WorkflowTriggerRequest, Wor
     def _reference_response(self, response: SuccessResponse2) -> ResponseItems[ExternalId]:
         return ResponseItems[ExternalId].model_validate_json(response.body)
 
-    def upsert(self, items: Sequence[WorkflowTriggerRequest]) -> list[WorkflowTriggerResponse]:
+    def create(self, items: Sequence[WorkflowTriggerRequest]) -> list[WorkflowTriggerResponse]:
         """Create or update workflow triggers in CDF.
 
         Args:
@@ -37,7 +33,18 @@ class WorkflowTriggersAPI(CDFResourceAPI[ExternalId, WorkflowTriggerRequest, Wor
         Returns:
             List of created/updated WorkflowTriggerResponse objects.
         """
-        return self._request_item_response(items, "create")
+        return self._request_item_response(items, "upsert")
+
+    # This is a duplicate of the create method, included to standardize the API interface.
+    def update(self, items: Sequence[WorkflowTriggerRequest]) -> list[WorkflowTriggerResponse]:
+        """Create or update workflow triggers in CDF.
+
+        Args:
+            items: List of WorkflowTriggerRequest objects to create or update.
+        Returns:
+            List of created/updated WorkflowTriggerResponse objects.
+        """
+        return self.create(items)
 
     def delete(self, items: Sequence[ExternalId]) -> None:
         """Delete workflow triggers from CDF.

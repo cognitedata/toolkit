@@ -13,16 +13,10 @@ class TransformationsAPI(CDFResourceAPI[InternalOrExternalId, TransformationRequ
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "create": Endpoint(method="POST", path="/transformations", item_limit=1000, concurrency_max_workers=1),
-                "retrieve": Endpoint(
-                    method="POST", path="/transformations/byids", item_limit=1000, concurrency_max_workers=1
-                ),
-                "update": Endpoint(
-                    method="POST", path="/transformations/update", item_limit=1000, concurrency_max_workers=1
-                ),
-                "delete": Endpoint(
-                    method="POST", path="/transformations/delete", item_limit=1000, concurrency_max_workers=1
-                ),
+                "create": Endpoint(method="POST", path="/transformations", item_limit=1000),
+                "retrieve": Endpoint(method="POST", path="/transformations/byids", item_limit=1000),
+                "update": Endpoint(method="POST", path="/transformations/update", item_limit=1000),
+                "delete": Endpoint(method="POST", path="/transformations/delete", item_limit=1000),
                 "list": Endpoint(method="POST", path="/transformations/filter", item_limit=1000),
             },
         )
@@ -44,18 +38,21 @@ class TransformationsAPI(CDFResourceAPI[InternalOrExternalId, TransformationRequ
         return self._request_item_response(items, "create")
 
     def retrieve(
-        self, items: Sequence[InternalOrExternalId], ignore_unknown_ids: bool = False
+        self, items: Sequence[InternalOrExternalId], ignore_unknown_ids: bool = False, with_job_details: bool = False
     ) -> list[TransformationResponse]:
         """Retrieve transformations from CDF.
 
         Args:
             items: List of InternalOrExternalId objects to retrieve.
             ignore_unknown_ids: Whether to ignore unknown IDs.
+            with_job_details: Whether the transformations will be returned with running job and last created job details.
         Returns:
             List of retrieved TransformationResponse objects.
         """
         return self._request_item_response(
-            items, method="retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids}
+            items,
+            method="retrieve",
+            extra_body={"ignoreUnknownIds": ignore_unknown_ids, "withJobDetails": with_job_details},
         )
 
     def update(

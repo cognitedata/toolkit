@@ -13,9 +13,10 @@ class LabelsAPI(CDFResourceAPI[ExternalId, LabelRequest, LabelResponse]):
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "create": Endpoint(method="POST", path="/labels", item_limit=1000, concurrency_max_workers=1),
-                "delete": Endpoint(method="POST", path="/labels/delete", item_limit=1000, concurrency_max_workers=1),
-                "list": Endpoint(method="GET", path="/labels", item_limit=1000),
+                "create": Endpoint(method="POST", path="/labels", item_limit=1000),
+                "retrieve": Endpoint(method="POST", path="/labels/byids", item_limit=1000),
+                "delete": Endpoint(method="POST", path="/labels/delete", item_limit=1000),
+                "list": Endpoint(method="POST", path="/labels/list", item_limit=1000),
             },
         )
 
@@ -34,6 +35,19 @@ class LabelsAPI(CDFResourceAPI[ExternalId, LabelRequest, LabelResponse]):
             List of created LabelResponse objects.
         """
         return self._request_item_response(items, "create")
+
+    def retrieve(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> list[LabelResponse]:
+        """Retrieve labels from CDF.
+
+        Args:
+            items: List of ExternalId objects to retrieve.
+            ignore_unknown_ids: Whether to ignore unknown IDs.
+        Returns:
+            List of retrieved LabelResponse objects.
+        """
+        return self._request_item_response(
+            items, method="retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids}
+        )
 
     def delete(self, items: Sequence[ExternalId]) -> None:
         """Delete labels from CDF.
@@ -61,16 +75,16 @@ class LabelsAPI(CDFResourceAPI[ExternalId, LabelRequest, LabelResponse]):
         Returns:
             PagedResponse of LabelResponse objects.
         """
-        params: dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if name:
-            params["name"] = name
+            body["name"] = name
         if data_set_external_ids:
-            params["dataSetIds"] = [{"externalId": ds_id} for ds_id in data_set_external_ids]
+            body["dataSetIds"] = [{"externalId": ds_id} for ds_id in data_set_external_ids]
 
         return self._iterate(
             cursor=cursor,
             limit=limit,
-            params=params,
+            body=body,
         )
 
     def list(
