@@ -43,6 +43,15 @@ from cognite_toolkit._cdf_tk.client.data_classes.extraction_pipeline import (
     ExtractionPipelineResponse,
 )
 from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.data_classes.function import FunctionRequest, FunctionResponse
+from cognite_toolkit._cdf_tk.client.data_classes.function_schedule import (
+    FunctionScheduleRequest,
+    FunctionScheduleResponse,
+)
+from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_model import (
+    GraphQLDataModelRequest,
+    GraphQLDataModelResponse,
+)
 from cognite_toolkit._cdf_tk.client.data_classes.hosted_extractor_destination import (
     HostedExtractorDestinationRequest,
     HostedExtractorDestinationResponse,
@@ -64,13 +73,18 @@ from cognite_toolkit._cdf_tk.client.data_classes.hosted_extractor_source import 
     RESTSourceResponse,
 )
 from cognite_toolkit._cdf_tk.client.data_classes.label import LabelRequest, LabelResponse
+from cognite_toolkit._cdf_tk.client.data_classes.location_filter import LocationFilterRequest, LocationFilterResponse
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RAWDatabase, RAWTable
+from cognite_toolkit._cdf_tk.client.data_classes.relationship import RelationshipRequest, RelationshipResponse
+from cognite_toolkit._cdf_tk.client.data_classes.search_config_resource import SearchConfigRequest, SearchConfigResponse
 from cognite_toolkit._cdf_tk.client.data_classes.securitycategory import (
     SecurityCategoryRequest,
     SecurityCategoryResponse,
 )
 from cognite_toolkit._cdf_tk.client.data_classes.sequence import SequenceRequest, SequenceResponse
+from cognite_toolkit._cdf_tk.client.data_classes.sequence_rows import SequenceRowsRequest, SequenceRowsResponse
 from cognite_toolkit._cdf_tk.client.data_classes.simulator_model import SimulatorModelRequest, SimulatorModelResponse
+from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import StreamlitRequest, StreamlitResponse
 from cognite_toolkit._cdf_tk.client.data_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.data_classes.transformation import TransformationRequest, TransformationResponse
 from cognite_toolkit._cdf_tk.client.data_classes.workflow import WorkflowRequest, WorkflowResponse
@@ -387,6 +401,72 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
         },
+        SequenceRowsResponse: {
+            "id": 123,
+            "externalId": "sequence_001",
+            "columns": [{"externalId": "col1", "valueType": "LONG"}, {"externalId": "col2", "valueType": "DOUBLE"}],
+            "rows": [
+                {"rowNumber": 0, "values": ["value1", 123]},
+                {"rowNumber": 1, "values": ["value2", 456]},
+            ],
+        },
+        SearchConfigResponse: {
+            "id": 789,
+            "view": {
+                "space": "my_space",
+                "externalId": "my_view",
+            },
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        GraphQLDataModelResponse: {
+            "space": "my_space",
+            "externalId": "my_graphql_model",
+            "version": "1",
+            "isGlobal": False,
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        FunctionResponse: {
+            "id": 456,
+            "externalId": "function_001",
+            "name": "My Function",
+            "fileId": 789,
+            "createdTime": 1622547800000,
+            "status": "Ready",
+        },
+        FunctionScheduleResponse: {
+            "id": 321,
+            "name": "My Schedule",
+            "cronExpression": "0 0 * * *",
+            "createdTime": 1622547800000,
+            "when": "0 0 * * *",
+            "functionId": 456,
+            "functionExternalId": "function_001",
+        },
+        StreamlitResponse: {
+            "externalId": "streamlit_001",
+            "name": "My Streamlit App",
+            "creator": "user@example.com",
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        LocationFilterResponse: {
+            "id": 654,
+            "externalId": "location_001",
+            "name": "My Location",
+            "createdTime": 1622547800000,
+            "updatedTime": 1622547800000,
+        },
+        RelationshipResponse: {
+            "externalId": "relationship_001",
+            "sourceExternalId": "asset_001",
+            "sourceType": "asset",
+            "targetExternalId": "timeseries_001",
+            "targetType": "timeSeries",
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
     }
     try:
         return responses[resource_cls]
@@ -658,4 +738,70 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             # it cannot create as_request from response.
         ),
         id="WorkflowTrigger",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=SequenceRowsResponse,
+            request_cls=SequenceRowsRequest,
+            example_data=get_example_minimum_responses(SequenceRowsResponse),
+        ),
+        id="SequenceRows",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=SearchConfigResponse,
+            request_cls=SearchConfigRequest,
+            example_data=get_example_minimum_responses(SearchConfigResponse),
+        ),
+        id="SearchConfig",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=GraphQLDataModelResponse,
+            request_cls=GraphQLDataModelRequest,
+            example_data=get_example_minimum_responses(GraphQLDataModelResponse),
+        ),
+        id="GraphQLDataModel",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=FunctionResponse,
+            request_cls=FunctionRequest,
+            example_data=get_example_minimum_responses(FunctionResponse),
+        ),
+        id="Function",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=FunctionScheduleResponse,
+            request_cls=FunctionScheduleRequest,
+            example_data=get_example_minimum_responses(FunctionScheduleResponse),
+            is_dump_equal_to_example=False,
+            is_as_request_possible=False,
+        ),
+        id="FunctionSchedule",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=StreamlitResponse,
+            request_cls=StreamlitRequest,
+            example_data=get_example_minimum_responses(StreamlitResponse),
+        ),
+        id="Streamlit",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=LocationFilterResponse,
+            request_cls=LocationFilterRequest,
+            example_data=get_example_minimum_responses(LocationFilterResponse),
+        ),
+        id="LocationFilter",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=RelationshipResponse,
+            request_cls=RelationshipRequest,
+            example_data=get_example_minimum_responses(RelationshipResponse),
+        ),
+        id="Relationship",
     )

@@ -221,7 +221,8 @@ def test_resource_types_is_up_to_date() -> None:
         extra.discard("migration")
     if not FeatureFlag.is_enabled(Flags.STREAMS):
         extra.discard("streams")
-
+    if not FeatureFlag.is_enabled(Flags.SIMULATORS):
+        extra.discard("simulators")
     assert not missing, f"Missing {missing=}"
     assert not extra, f"Extra {extra=}"
 

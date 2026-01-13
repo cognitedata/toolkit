@@ -5,7 +5,12 @@ from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedRespo
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.data_classes.identifiers import InternalOrExternalId
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.http_client import (
+    HTTPClient,
+    ItemsSuccessResponse2,
+    RequestMessage2,
+    SuccessResponse2,
+)
 
 
 class FileMetadataAPI(CDFResourceAPI[InternalOrExternalId, FileMetadataRequest, FileMetadataResponse]):
@@ -21,7 +26,7 @@ class FileMetadataAPI(CDFResourceAPI[InternalOrExternalId, FileMetadataRequest, 
             },
         )
 
-    def _page_response(self, response: SuccessResponse2) -> PagedResponse[FileMetadataResponse]:
+    def _page_response(self, response: SuccessResponse2 | ItemsSuccessResponse2) -> PagedResponse[FileMetadataResponse]:
         return PagedResponse[FileMetadataResponse].model_validate_json(response.body)
 
     def _reference_response(self, response: SuccessResponse2) -> ResponseItems[InternalOrExternalId]:
