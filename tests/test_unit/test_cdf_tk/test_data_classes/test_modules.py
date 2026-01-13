@@ -123,7 +123,9 @@ class TestModules:
 
     def test_module_with_normal_and_disabled_resources(self, tmp_path: Path) -> None:
         """Test that a module with both normal and disabled resource folders shows appropriate warnings."""
-        from cognite_toolkit._cdf_tk.cruds._resource_cruds.streams import StreamCRUD
+        from collections import defaultdict
+
+        from cognite_toolkit._cdf_tk.cruds import CRUDS_BY_FOLDER_NAME
 
         module_path = tmp_path / MODULES / "mixed_module"
         (module_path / "transformations").mkdir(parents=True)
@@ -131,16 +133,17 @@ class TestModules:
         (module_path / "streams").mkdir(parents=True)
         (module_path / "streams" / "stream.yaml").touch()
 
-        # Mock EXCLUDED_CRUDS to always include StreamCRUD so streams is always disabled
-        with patch("cognite_toolkit._cdf_tk.commands.build_v2.data_classes._modules.EXCLUDED_CRUDS", {StreamCRUD}):
+        # Create a copy of CRUDS_BY_FOLDER_NAME without streams
+        cruds_without_streams = defaultdict(list, {k: v for k, v in CRUDS_BY_FOLDER_NAME.items() if k != "streams"})
+        with patch(
+            "cognite_toolkit._cdf_tk.commands.build_v2.data_classes._modules.CRUDS_BY_FOLDER_NAME",
+            cruds_without_streams,
+        ):
             modules, issues = Modules.load(tmp_path, selection=["mixed_module"])
 
         # The module should be loaded since it has at least one normal resource (transformations)
         assert len(modules.modules) == 1
-        assert (
-            issues[0].message
-            == "Module 'modules/mixed_module' contains unsupported resource folder(s), check flags in cdf.toml: streams"
-        )
+        assert issues[0].message == "Module 'modules/mixed_module' contains unrecognized resource folder(s): streams"
 
     def test_module_with_no_resources(self, tmp_path: Path) -> None:
         """Test that a module with no resource folders raises ModuleLoadingNoResourcesIssue and is not loaded."""
@@ -195,3 +198,23 @@ class TestModules:
 
         # No issues should be raised (functions folder should be recognized even with subfolders)
         assert len(issues) == 0, f"Expected no issues, but got: {issues}"
+
+
+class TestGetResourceFolder:
+    @pytest.mark.parametrize(
+        "resource_file",
+        [
+            Path("modules/my_module/transformations/transformation.yaml"),
+            Path("modules/my_module/data_modeling/views/my_view.yaml"),
+            Path("modules/my_module/data_modeling/my_view.yaml"),
+            Path("modules/parent/my_module/functions/my_function.yaml"),
+        ],
+    )
+    def test_get_module_folder(self, resource_file: Path) -> None:
+        result = Modules.get_module_folder(resource_file)
+        assert result.name == "my_module"
+
+    def test_get_resource_folder_arbitrary_yaml_in_subfolder(self, tmp_path: Path) -> None:
+        resource_file = tmp_path / MODULES / "my_module" / "functions" / "my_function" / "arbitrary.yaml"
+        result = Modules.get_module_folder(resource_file)
+        assert result is None

@@ -4,14 +4,14 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.cruds import CRUDS_BY_FOLDER_NAME, EXCLUDED_CRUDS
+from cognite_toolkit._cdf_tk.constants import EXCL_FILES, MODULES
+from cognite_toolkit._cdf_tk.cruds import ALL_CRUDS_BY_FOLDER_NAME, CRUDS_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.data_classes import IssueList
 from cognite_toolkit._cdf_tk.data_classes._issues import (
     ModuleLoadingIssue,
 )
 from cognite_toolkit._cdf_tk.data_classes._module_toml import ModuleToml
-from cognite_toolkit._cdf_tk.utils.modules import is_module_path, module_path, parse_user_selected_modules
+from cognite_toolkit._cdf_tk.utils.modules import module_path, parse_user_selected_modules
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -61,71 +61,56 @@ class Modules(BaseModel):
             issues.append(ModuleLoadingIssue(message="Module root directory 'modules' not found"))
             return cls(organization_dir=organization_dir, modules=[]), issues
 
-        # Map module paths to their resource folders and issues
-        detected_modules: defaultdict[Path, set[str]] = defaultdict(set)
-        detected_unrecognized_resource_folders: defaultdict[Path, set[str]] = defaultdict(set)
-        detected_disabled_resource_folders: defaultdict[Path, set[str]] = defaultdict(set)
-        detected_unselected_modules: set[Path] = set()
+        detected_modules: defaultdict[Path, set[Path]] = defaultdict(set)
+        unrecognized_resources: defaultdict[Path, set[str]] = defaultdict(set)
+        unselected_modules: set[Path] = set()
 
-        for current_dir in modules_root.glob("**/"):
-            # Skip the modules root directory itself
-            if current_dir == modules_root:
+        # iterate over all resource files in the modules root directory,
+        # using resources' parent hierarchy to determine the module folders
+
+        for resource_file in [p for p in modules_root.glob("**/*.y*ml") if p.name not in EXCL_FILES]:
+            # Get the module folder for the resource file.
+            module_candidate = cls.get_module_folder(resource_file)
+            if module_candidate is None:
                 continue
 
-            # Skip the modules that have already been detected
-            module_candidate = current_dir.parent
+            # If the module has already been processed, skip it.
             if module_candidate in detected_modules:
                 continue
 
             # Skip the modules that do not match the selection
             if not cls._matches_selection(module_candidate, modules_root, selected):
-                detected_unselected_modules.add(module_candidate)
+                unselected_modules.add(module_candidate)
                 continue
 
-            # A module is recognized by having one or more resource folders.
-            # We also consider resource folders that are not enabled by flags because we
-            # want to give the user a hint to check the flags in cdf.toml.
-            module_subfolders = [d for d in module_candidate.iterdir() if d.is_dir()]
-            excluded_folder_names = {crud.folder_name for crud in EXCLUDED_CRUDS}
-            resource_folders = {d.name for d in module_subfolders if d.name in CRUDS_BY_FOLDER_NAME.keys()}
-            disabled_resource_folders = {d.name for d in module_subfolders if d.name in excluded_folder_names}
-            unrecognized_resource_folders = {
-                d.name
-                for d in module_subfolders
-                if d.name not in CRUDS_BY_FOLDER_NAME
-                and d.name not in excluded_folder_names
-                and not is_module_path(d)  # Exclude submodules
-            }
+            # iterate over the resource folders in the module.
+            for resource_folder in [d for d in module_candidate.iterdir() if d.is_dir()]:
+                if resource_folder.name not in CRUDS_BY_FOLDER_NAME:
+                    unrecognized_resources[module_candidate].add(resource_folder.name)
+                    continue
 
-            if resource_folders:
-                detected_modules[module_candidate] = resource_folders
+                detected_modules[module_candidate].add(resource_folder)
 
-                # If the current module is a submodule of another module, remove the parent module from the detected modules. We only keep the deepest module.
-                for k, v in detected_modules.items():
-                    if k in module_candidate.parents:
-                        issues.append(
-                            ModuleLoadingIssue(
-                                message=f"Module {module_path(organization_dir, k)!r} is skipped because it has submodules"
-                            )
+                # If the current module is a submodule of another module, remove the parent module.
+                # We only keep the deepest module.
+                parent_modules_to_remove = [k for k in detected_modules if k in module_candidate.parents]
+                for k in parent_modules_to_remove:
+                    issues.append(
+                        ModuleLoadingIssue(
+                            message=f"Module {module_path(organization_dir, k)!r} is skipped because it has submodules"
                         )
-                        detected_unselected_modules.add(k)
-                        detected_modules.pop(k)
-                        break
+                    )
+                    unselected_modules.add(k)
+                    detected_modules.pop(k)
 
-                # if the submodule was mistakenly marked as an unrecognized resource folder
-                # to the parent, remove it from the list
-                if module_candidate.name in unrecognized_resource_folders:
-                    unrecognized_resource_folders.discard(module_candidate.name)
-            else:
-                # Skip the modules that have no resource folders.
-                # Note: if it only has disabled resource folders, we will skip it unnoticed.
-                continue
-            if disabled_resource_folders:
-                detected_disabled_resource_folders[module_candidate] = disabled_resource_folders
-            if unrecognized_resource_folders:
-                detected_unrecognized_resource_folders[module_candidate] = unrecognized_resource_folders
+                    # If the submodule was mistakenly marked as an unrecognized resource folder to the parent,
+                    # remove it from the list of unrecognized resources.
+                    if k in unrecognized_resources and module_candidate.name in unrecognized_resources[k]:
+                        unrecognized_resources[k].discard(module_candidate.name)
+                        if not unrecognized_resources[k]:  # Remove empty sets
+                            unrecognized_resources.pop(k)
 
-        loaded_modules = []
+        loaded_modules: list[Module] = []
         for module_candidate, resource_folders in detected_modules.items():
             loaded_modules.append(
                 Module.load(
@@ -133,23 +118,38 @@ class Modules(BaseModel):
                 )
             )
 
-        for k, v in detected_unrecognized_resource_folders.items():
+        for k, v in unrecognized_resources.items():
             issues.append(
                 ModuleLoadingIssue(
                     message=f"Module {module_path(organization_dir, k)!r} contains unrecognized resource folder(s): {', '.join(v)}"
                 )
             )
-        for k, v in detected_disabled_resource_folders.items():
-            issues.append(
-                ModuleLoadingIssue(
-                    message=f"Module {module_path(organization_dir, k)!r} contains unsupported resource folder(s), check flags in cdf.toml: {', '.join(v)}"
-                )
-            )
+        # for k, v in detected_disabled_resource_folders.items():
+        #     issues.append(
+        #         ModuleLoadingIssue(
+        #             message=f"Module {module_path(organization_dir, k)!r} contains unsupported resource folder(s), check flags in cdf.toml: {', '.join(v)}"
+        #         )
+        #     )
 
         return cls(
             organization_dir=organization_dir,
             modules=loaded_modules,
         ), issues
+
+    @classmethod
+    def get_module_folder(cls, resource_file: Path) -> Path | None:
+        # recognize the module by containing a resource accosiated by a CRUD.
+        # Special case: if the resource folder is a subfolder of a CRUD, return the parent of the subfolder.
+        resource_folder = resource_file.parent
+        crud = next(iter(ALL_CRUDS_BY_FOLDER_NAME.get(resource_folder.name, [])), None)
+        if crud:
+            # iterate over the parents of the resource folder until we find the module folder. This is to handle the special case of a subfolder of a CRUD, or yamls in for example function subfolders.
+            for p in resource_file.parents:
+                if p.name == crud.folder_name:
+                    return p.parent
+                if p.name == MODULES:
+                    return p
+        return None
 
     @staticmethod
     def _matches_selection(module_candidate: Path, modules_root: Path, selected: list[str | Path] | None) -> bool:
