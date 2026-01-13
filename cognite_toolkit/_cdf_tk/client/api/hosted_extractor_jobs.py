@@ -16,18 +16,10 @@ class HostedExtractorJobsAPI(CDFResourceAPI[ExternalId, HostedExtractorJobReques
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "create": Endpoint(
-                    method="POST", path="/hostedextractors/jobs", item_limit=100, concurrency_max_workers=1
-                ),
-                "retrieve": Endpoint(
-                    method="POST", path="/hostedextractors/jobs/retrieve", item_limit=100, concurrency_max_workers=1
-                ),
-                "update": Endpoint(
-                    method="POST", path="/hostedextractors/jobs/update", item_limit=100, concurrency_max_workers=1
-                ),
-                "delete": Endpoint(
-                    method="POST", path="/hostedextractors/jobs/delete", item_limit=100, concurrency_max_workers=1
-                ),
+                "create": Endpoint(method="POST", path="/hostedextractors/jobs", item_limit=10),
+                "retrieve": Endpoint(method="POST", path="/hostedextractors/jobs/byids", item_limit=100),
+                "update": Endpoint(method="POST", path="/hostedextractors/jobs/update", item_limit=10),
+                "delete": Endpoint(method="POST", path="/hostedextractors/jobs/delete", item_limit=100),
                 "list": Endpoint(method="GET", path="/hostedextractors/jobs", item_limit=100),
             },
         )

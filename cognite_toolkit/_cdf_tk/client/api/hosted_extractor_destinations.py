@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import Literal
+from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
@@ -18,27 +18,10 @@ class HostedExtractorDestinationsAPI(
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "create": Endpoint(
-                    method="POST", path="/hostedextractors/destinations", item_limit=100, concurrency_max_workers=1
-                ),
-                "retrieve": Endpoint(
-                    method="POST",
-                    path="/hostedextractors/destinations/retrieve",
-                    item_limit=100,
-                    concurrency_max_workers=1,
-                ),
-                "update": Endpoint(
-                    method="POST",
-                    path="/hostedextractors/destinations/update",
-                    item_limit=100,
-                    concurrency_max_workers=1,
-                ),
-                "delete": Endpoint(
-                    method="POST",
-                    path="/hostedextractors/destinations/delete",
-                    item_limit=100,
-                    concurrency_max_workers=1,
-                ),
+                "create": Endpoint(method="POST", path="/hostedextractors/destinations", item_limit=10),
+                "retrieve": Endpoint(method="POST", path="/hostedextractors/destinations/byids", item_limit=100),
+                "update": Endpoint(method="POST", path="/hostedextractors/destinations/update", item_limit=10),
+                "delete": Endpoint(method="POST", path="/hostedextractors/destinations/delete", item_limit=100),
                 "list": Endpoint(method="GET", path="/hostedextractors/destinations", item_limit=100),
             },
         )
@@ -60,7 +43,9 @@ class HostedExtractorDestinationsAPI(
         return self._request_item_response(items, "create")
 
     def retrieve(
-        self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False
+        self,
+        items: Sequence[ExternalId],
+        ignore_unknown_ids: bool = False,
     ) -> list[HostedExtractorDestinationResponse]:
         """Retrieve hosted extractor destinations from CDF.
 
@@ -88,14 +73,19 @@ class HostedExtractorDestinationsAPI(
         """
         return self._update(items, mode=mode)
 
-    def delete(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> None:
+    def delete(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False, force: bool | None = None) -> None:
         """Delete hosted extractor destinations from CDF.
 
         Args:
             items: List of ExternalId objects to delete.
             ignore_unknown_ids: Whether to ignore unknown IDs.
+            force: Delete any jobs associated with each item.
         """
-        self._request_no_response(items, "delete", extra_body={"ignoreUnknownIds": ignore_unknown_ids})
+        extra_body: dict[str, Any] = {"ignoreUnknownIds": ignore_unknown_ids}
+        if force is not None:
+            extra_body["force"] = force
+
+        self._request_no_response(items, "delete", extra_body=extra_body)
 
     def iterate(
         self,

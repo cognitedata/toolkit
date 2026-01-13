@@ -1,12 +1,11 @@
 from collections.abc import Sequence
-from typing import Literal
-
-from pydantic import TypeAdapter
+from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.data_classes.hosted_extractor_source import (
     HostedExtractorSourceRequestUnion,
+    HostedExtractorSourceResponse,
     HostedExtractorSourceResponseUnion,
 )
 from cognite_toolkit._cdf_tk.client.data_classes.identifiers import ExternalId
@@ -16,36 +15,22 @@ from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, SuccessRespon
 class HostedExtractorSourcesAPI(
     CDFResourceAPI[ExternalId, HostedExtractorSourceRequestUnion, HostedExtractorSourceResponseUnion]
 ):
-    _response_adapter: TypeAdapter[list[HostedExtractorSourceResponseUnion]] = TypeAdapter(
-        list[HostedExtractorSourceResponseUnion]
-    )
-
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "create": Endpoint(
-                    method="POST", path="/hostedextractors/sources", item_limit=100, concurrency_max_workers=1
-                ),
-                "retrieve": Endpoint(
-                    method="POST", path="/hostedextractors/sources/retrieve", item_limit=100, concurrency_max_workers=1
-                ),
-                "update": Endpoint(
-                    method="POST", path="/hostedextractors/sources/update", item_limit=100, concurrency_max_workers=1
-                ),
-                "delete": Endpoint(
-                    method="POST", path="/hostedextractors/sources/delete", item_limit=100, concurrency_max_workers=1
-                ),
+                "create": Endpoint(method="POST", path="/hostedextractors/sources", item_limit=10),
+                "retrieve": Endpoint(method="POST", path="/hostedextractors/sources/byids", item_limit=100),
+                "update": Endpoint(method="POST", path="/hostedextractors/sources/update", item_limit=10),
+                "delete": Endpoint(method="POST", path="/hostedextractors/sources/delete", item_limit=100),
                 "list": Endpoint(method="GET", path="/hostedextractors/sources", item_limit=100),
             },
         )
 
     def _page_response(self, response: SuccessResponse2) -> PagedResponse[HostedExtractorSourceResponseUnion]:
-        data = response.json()
-        return PagedResponse[HostedExtractorSourceResponseUnion](
-            items=self._response_adapter.validate_python(data.get("items", [])),
-            nextCursor=data.get("nextCursor"),
-        )
+        data = response.body_json
+        items = [HostedExtractorSourceResponse.validate_python(item) for item in data.get("items", [])]
+        return PagedResponse[HostedExtractorSourceResponseUnion](items=items, nextCursor=data.get("nextCursor"))
 
     def _reference_response(self, response: SuccessResponse2) -> ResponseItems[ExternalId]:
         return ResponseItems[ExternalId].model_validate_json(response.body)
@@ -89,14 +74,18 @@ class HostedExtractorSourcesAPI(
         """
         return self._update(list(items), mode=mode)
 
-    def delete(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> None:
+    def delete(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False, force: bool | None = None) -> None:
         """Delete hosted extractor sources from CDF.
 
         Args:
             items: List of ExternalId objects to delete.
             ignore_unknown_ids: Whether to ignore unknown IDs.
+            force: Delete any jobs associated with each item.
         """
-        self._request_no_response(items, "delete", extra_body={"ignoreUnknownIds": ignore_unknown_ids})
+        extra_body: dict[str, Any] = {"ignoreUnknownIds": ignore_unknown_ids}
+        if force is not None:
+            extra_body["force"] = force
+        self._request_no_response(items, "delete", extra_body=extra_body)
 
     def iterate(
         self,

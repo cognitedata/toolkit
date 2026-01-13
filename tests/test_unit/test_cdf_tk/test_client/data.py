@@ -8,6 +8,10 @@ import pytest
 from cognite_toolkit._cdf_tk.client.api.assets import AssetsAPI
 from cognite_toolkit._cdf_tk.client.api.events import EventsAPI
 from cognite_toolkit._cdf_tk.client.api.filemetadata import FileMetadataAPI
+from cognite_toolkit._cdf_tk.client.api.hosted_extractor_destinations import HostedExtractorDestinationsAPI
+from cognite_toolkit._cdf_tk.client.api.hosted_extractor_jobs import HostedExtractorJobsAPI
+from cognite_toolkit._cdf_tk.client.api.hosted_extractor_mappings import HostedExtractorMappingsAPI
+from cognite_toolkit._cdf_tk.client.api.hosted_extractor_sources import HostedExtractorSourcesAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawDatabasesAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsAPI
 from cognite_toolkit._cdf_tk.client.api.timeseries import TimeSeriesAPI
@@ -563,6 +567,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=KafkaSourceResponse,
             request_cls=KafkaSourceRequest,
             example_data=get_example_minimum_responses(KafkaSourceResponse),
+            api_class=HostedExtractorSourcesAPI,
         ),
         id="HostedExtractorKafkaSource",
     )
@@ -571,6 +576,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=MQTTSourceResponse,
             request_cls=MQTTSourceRequest,
             example_data=get_example_minimum_responses(MQTTSourceResponse),
+            api_class=HostedExtractorSourcesAPI,
         ),
         id="HostedExtractorMQTTSource",
     )
@@ -579,6 +585,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=RESTSourceResponse,
             request_cls=RESTSourceRequest,
             example_data=get_example_minimum_responses(RESTSourceResponse),
+            api_class=HostedExtractorSourcesAPI,
         ),
         id="HostedExtractorRESTSource",
     )
@@ -587,6 +594,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=HostedExtractorMappingResponse,
             request_cls=HostedExtractorMappingRequest,
             example_data=get_example_minimum_responses(HostedExtractorMappingResponse),
+            api_class=HostedExtractorMappingsAPI,
         ),
         id="HostedExtractorMapping",
     )
@@ -595,6 +603,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=HostedExtractorJobResponse,
             request_cls=HostedExtractorJobRequest,
             example_data=get_example_minimum_responses(HostedExtractorJobResponse),
+            api_class=HostedExtractorJobsAPI,
         ),
         id="HostedExtractorJob",
     )
@@ -603,6 +612,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=HostedExtractorDestinationResponse,
             request_cls=HostedExtractorDestinationRequest,
             example_data=get_example_minimum_responses(HostedExtractorDestinationResponse),
+            api_class=HostedExtractorDestinationsAPI,
         ),
         id="HostedExtractorDestination",
     )
