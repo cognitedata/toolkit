@@ -224,7 +224,7 @@ externalId: some_external_id
 
 
 class TestBuildParity:
-    def test_build_parity_with_old_build_command(self, tmp_path: Path, reset_cdf_toml_singleton) -> None:
+    def test_build_parity_with_old_build_command(self, tmp_path: Path) -> None:
         new_cmd = BuildCommand(silent=True, skip_tracking=True)
         new_result = None
         old_result = None
@@ -249,13 +249,15 @@ class TestBuildParity:
             no_clean=False,
         )
         assert new_result == old_result
-        # The new command may surface more issues than the old one (stricter checks),
-        # but it must at least include all issues that the old command produced.
+        # The new command should not surface more issues than the old one.
+        # It is allowed to produce fewer issues (a subset of the old warnings).
+        # This is especially important when alpha flags are off, as some resources
+        # may be disabled, resulting in fewer issues.
         expected_issues = IssueList.from_warning_list(old_cmd.warning_list)
         expected_issues_set = {(issue.code, issue.message) for issue in expected_issues}
         new_issues_set = {(issue.code, issue.message) for issue in new_cmd.issues}
 
-        # All old issues must still be present in the new command (superset check)
-        assert expected_issues_set.issubset(new_issues_set), (
-            f"Old issues {expected_issues_set - new_issues_set} are missing from new issues. New issues: {new_issues_set}"
+        # All new issues must be present in the old warnings (subset check)
+        assert new_issues_set.issubset(expected_issues_set), (
+            f"New issues {new_issues_set - expected_issues_set} are not in old warnings. Old warnings: {expected_issues_set}"
         )
