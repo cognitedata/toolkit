@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from typing import Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
@@ -15,12 +16,8 @@ class SecurityCategoriesAPI(CDFResourceAPI[InternalId, SecurityCategoryRequest, 
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "create": Endpoint(
-                    method="POST", path="/securitycategories", item_limit=1000, concurrency_max_workers=1
-                ),
-                "delete": Endpoint(
-                    method="POST", path="/securitycategories/delete", item_limit=1000, concurrency_max_workers=1
-                ),
+                "create": Endpoint(method="POST", path="/securitycategories", item_limit=1000),
+                "delete": Endpoint(method="POST", path="/securitycategories/delete", item_limit=1000),
                 "list": Endpoint(method="GET", path="/securitycategories", item_limit=1000),
             },
         )
@@ -51,22 +48,21 @@ class SecurityCategoriesAPI(CDFResourceAPI[InternalId, SecurityCategoryRequest, 
 
     def iterate(
         self,
+        sort: Literal["ASC", "DESC"] = "ASC",
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[SecurityCategoryResponse]:
         """Iterate over all security categories in CDF.
 
         Args:
+            sort: Sort descending or ascending.
             limit: Maximum number of items to return.
             cursor: Cursor for pagination.
 
         Returns:
             PagedResponse of SecurityCategoryResponse objects.
         """
-        return self._iterate(
-            cursor=cursor,
-            limit=limit,
-        )
+        return self._iterate(cursor=cursor, limit=limit, params={"sort": sort})
 
     def list(
         self,
