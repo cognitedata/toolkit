@@ -1,6 +1,6 @@
 from typing import ClassVar, Literal
 
-from pydantic import JsonValue
+from pydantic import Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject, RequestUpdateable, ResponseResource
 
@@ -32,6 +32,10 @@ class FileMetadata(BaseModelObject):
 class FileMetadataRequest(FileMetadata, RequestUpdateable):
     container_fields: ClassVar[frozenset[str]] = frozenset({"metadata", "labels", "asset_ids", "security_categories"})
     non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"asset_ids", "security_categories"})
+    # This field is not part of the request when creating or updating a resource
+    # but we added it here for convenience so that it is available when converting
+    # from response to request.
+    instance_id: NodeReference | None = Field(default=None, exclude=True)
 
 
 class FileMetadataResponse(FileMetadata, ResponseResource[FileMetadataRequest]):

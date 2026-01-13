@@ -13,7 +13,6 @@ from cognite.client.testing import CogniteClientMock
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.api.assets import AssetsAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.canvas import CanvasAPI, IndustrialCanvasAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.charts import ChartsAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.dml import DMLAPI
@@ -34,8 +33,13 @@ from cognite_toolkit._cdf_tk.client.api.legacy.robotics import LocationsAPI as R
 from cognite_toolkit._cdf_tk.client.api.legacy.search_config import SearchConfigurationsAPI
 
 from ._toolkit_client import ToolAPI
+from .api.assets import AssetsAPI
+from .api.datasets import DataSetsAPI
 from .api.events import EventsAPI
+from .api.extraction_pipelines import ExtractionPipelinesAPI
+from .api.filemetadata import FileMetadataAPI
 from .api.infield import InfieldAPI, InFieldCDMConfigAPI, InfieldConfigAPI
+from .api.labels import LabelsAPI
 from .api.lookup import (
     AssetLookUpAPI,
     DataSetLookUpAPI,
@@ -58,11 +62,17 @@ from .api.migration import (
 )
 from .api.project import ProjectAPI
 from .api.search import SearchAPI
+from .api.security_categories import SecurityCategoriesAPI
+from .api.sequences import SequencesAPI
 from .api.streams import StreamsAPI
 from .api.three_d import ThreeDAPI, ThreeDModelAPI
 from .api.timeseries import TimeSeriesAPI
 from .api.token import TokenAPI
+from .api.transformations import TransformationsAPI
 from .api.verify import VerifyAPI
+from .api.workflow_triggers import WorkflowTriggersAPI
+from .api.workflow_versions import WorkflowVersionsAPI
+from .api.workflows import WorkflowsAPI
 
 
 class ToolkitClientMock(CogniteClientMock):
@@ -144,9 +154,19 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.three_d.models = MagicMock(spec_set=ThreeDModelAPI)
         self.tool.assets = MagicMock(spec_set=AssetsAPI)
         self.tool.timeseries = MagicMock(spec_set=TimeSeriesAPI)
+        self.tool.filemetadata = MagicMock(spec_set=FileMetadataAPI)
         self.tool.events = MagicMock(spec_set=EventsAPI)
         self.tool.simulators = MagicMock(spec=SimulatorsAPI)
         self.tool.simulators.models = MagicMock(spec_set=SimulatorModelsAPI)
+        self.tool.datasets = MagicMock(spec_set=DataSetsAPI)
+        self.tool.extraction_pipelines = MagicMock(spec_set=ExtractionPipelinesAPI)
+        self.tool.labels = MagicMock(spec_set=LabelsAPI)
+        self.tool.security_categories = MagicMock(spec_set=SecurityCategoriesAPI)
+        self.tool.sequences = MagicMock(spec_set=SequencesAPI)
+        self.tool.transformations = MagicMock(spec_set=TransformationsAPI)
+        self.tool.workflows = MagicMock(spec=WorkflowsAPI)
+        self.tool.workflows.triggers = MagicMock(spec_set=WorkflowTriggersAPI)
+        self.tool.workflows.versions = MagicMock(spec_set=WorkflowVersionsAPI)
 
         self.streams = MagicMock(spec=StreamsAPI)
 

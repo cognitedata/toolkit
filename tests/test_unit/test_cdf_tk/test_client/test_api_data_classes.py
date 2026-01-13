@@ -16,25 +16,51 @@ class TestAPIDataClasses:
         data = resource.example_data
 
         response_instance = response_cls.model_validate(data)
-        request_instance = response_instance.as_request_resource()
-        assert isinstance(request_instance, request_cls)
-        resource_id = request_instance.as_id()
-        try:
-            hash(resource_id)
-        except TypeError:
-            assert False, f"Resource ID {resource_id} is not hashable"
-        assert isinstance(str(resource_id), str), "Resource ID string representation failed"
+        if resource.is_as_request_possible:
+            request_instance = response_instance.as_request_resource()
+            assert isinstance(request_instance, request_cls)
+            resource_id = request_instance.as_id()
+            try:
+                hash(resource_id)
+            except TypeError:
+                assert False, f"Resource ID {resource_id} is not hashable"
+            assert isinstance(str(resource_id), str), "Resource ID string representation failed"
         if resource.is_dump_equal_to_example:
             assert response_instance.dump() == data
 
     @pytest.mark.parametrize("resource", list(iterate_cdf_resources()))
     def test_as_update(self, resource: CDFResource) -> None:
+        if not resource.is_as_request_possible:
+            return
         request_instance = resource.request_instance
         if not isinstance(request_instance, RequestUpdateable):
             return
         update_data = request_instance.as_update(mode="patch")
         assert isinstance(update_data, dict)
         assert "update" in update_data
+
+    def test_dump_exclude_extra(self) -> None:
+        """Tests that extra fields can be excluded when dumping a data class.
+        Using AssetRequest as an example.
+        """
+        raw = {
+            "externalId": "asset_1",
+            "name": "Asset 1",
+            "description": "An example asset",
+            "metadata": {"key": "value"},
+            "extra_field": "extra_value",
+        }
+        asset_request = AssetRequest.model_validate(raw)
+        dumped_with_extra = asset_request.dump()
+        assert dumped_with_extra == raw
+
+        dumped_without_extra = asset_request.dump(exclude_extra=True)
+        assert dumped_without_extra == {
+            "externalId": "asset_1",
+            "name": "Asset 1",
+            "description": "An example asset",
+            "metadata": {"key": "value"},
+        }
 
 
 class TestRequestUpdateable:
