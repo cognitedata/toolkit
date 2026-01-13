@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
@@ -102,6 +102,20 @@ class HostedExtractorMappingsAPI(
             PagedResponse of mapping response objects.
         """
         return self._paginate(cursor=cursor, limit=limit)
+
+    def iterate(
+        self,
+        limit: int = 100,
+    ) -> Iterable[list[HostedExtractorMappingResponse]]:
+        """Iterate over hosted extractor mappings in CDF.
+
+        Args:
+            limit: Maximum number of items to return per page.
+
+        Returns:
+            Iterable of lists of mapping response objects.
+        """
+        return self._iterate(limit=limit)
 
     def list(self, limit: int | None = 100) -> list[HostedExtractorMappingResponse]:
         """List all hosted extractor mappings in CDF.

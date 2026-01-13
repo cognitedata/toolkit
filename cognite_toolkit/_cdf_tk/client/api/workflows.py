@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
@@ -92,6 +92,20 @@ class WorkflowsAPI(CDFResourceAPI[ExternalId, WorkflowRequest, WorkflowResponse]
             PagedResponse of WorkflowResponse objects.
         """
         return self._paginate(cursor=cursor, limit=limit)
+
+    def iterate(
+        self,
+        limit: int = 100,
+    ) -> Iterable[list[WorkflowResponse]]:
+        """Iterate over all workflows in CDF.
+
+        Args:
+            limit: Maximum number of items to return per page.
+
+        Returns:
+            Iterable of lists of WorkflowResponse objects.
+        """
+        return self._iterate(limit=limit)
 
     def list(
         self,

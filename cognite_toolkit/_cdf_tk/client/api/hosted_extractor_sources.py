@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from typing import Any, Literal
 
 from pydantic import JsonValue, TypeAdapter
@@ -109,6 +109,20 @@ class HostedExtractorSourcesAPI(
             PagedResponse of source response objects.
         """
         return self._paginate(cursor=cursor, limit=limit)
+
+    def iterate(
+        self,
+        limit: int = 100,
+    ) -> Iterable[list[HostedExtractorSourceResponseUnion]]:
+        """Iterate over hosted extractor sources in CDF.
+
+        Args:
+            limit: Maximum number of items to return per page.
+
+        Returns:
+            Iterable of lists of source response objects.
+        """
+        return self._iterate(limit=limit)
 
     def list(self, limit: int | None = 100) -> list[HostedExtractorSourceResponseUnion]:
         """List all hosted extractor sources in CDF.

@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from typing import Any
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
@@ -85,6 +85,33 @@ class WorkflowTriggersAPI(CDFResourceAPI[ExternalId, WorkflowTriggerRequest, Wor
 
         return self._paginate(
             cursor=cursor,
+            limit=limit,
+            params=params,
+        )
+
+    def iterate(
+        self,
+        workflow_external_id: str | None = None,
+        workflow_version: str | None = None,
+        limit: int = 100,
+    ) -> Iterable[list[WorkflowTriggerResponse]]:
+        """Iterate over all workflow triggers in CDF.
+
+        Args:
+            workflow_external_id: Filter by workflow external ID.
+            workflow_version: Filter by workflow version.
+            limit: Maximum number of items to return per page.
+
+        Returns:
+            Iterable of lists of WorkflowTriggerResponse objects.
+        """
+        params: dict[str, Any] = {}
+        if workflow_external_id:
+            params["workflowExternalId"] = workflow_external_id
+        if workflow_version:
+            params["workflowVersion"] = workflow_version
+
+        return self._iterate(
             limit=limit,
             params=params,
         )

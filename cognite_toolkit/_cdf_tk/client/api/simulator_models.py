@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
@@ -112,6 +112,29 @@ class SimulatorModelsAPI(CDFResourceAPI[InternalOrExternalId, SimulatorModelRequ
 
         return self._paginate(
             cursor=cursor,
+            limit=limit,
+            body={"filter": filter_ or None},
+        )
+
+    def iterate(
+        self,
+        simulator_external_ids: list[str] | None = None,
+        limit: int = 100,
+    ) -> Iterable[list[SimulatorModelResponse]]:
+        """Iterate over simulator models in CDF.
+
+        Args:
+            simulator_external_ids: Filter by simulator external IDs.
+            limit: Maximum number of items to return per page.
+
+        Returns:
+            Iterable of lists of SimulatorModelResponse objects.
+        """
+        filter_: dict[str, Any] = {}
+        if simulator_external_ids:
+            filter_["simulatorExternalIds"] = simulator_external_ids
+
+        return self._iterate(
             limit=limit,
             body={"filter": filter_ or None},
         )

@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from typing import Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
@@ -65,6 +65,22 @@ class SecurityCategoriesAPI(CDFResourceAPI[InternalId, SecurityCategoryRequest, 
             PagedResponse of SecurityCategoryResponse objects.
         """
         return self._paginate(cursor=cursor, limit=limit, params={"sort": sort})
+
+    def iterate(
+        self,
+        sort: Literal["ASC", "DESC"] = "ASC",
+        limit: int = 100,
+    ) -> Iterable[list[SecurityCategoryResponse]]:
+        """Iterate over all security categories in CDF.
+
+        Args:
+            sort: Sort descending or ascending.
+            limit: Maximum number of items to return per page.
+
+        Returns:
+            Iterable of lists of SecurityCategoryResponse objects.
+        """
+        return self._iterate(limit=limit, params={"sort": sort})
 
     def list(
         self,

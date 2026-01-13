@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
@@ -97,6 +97,37 @@ class DataSetsAPI(CDFResourceAPI[InternalOrExternalId, DataSetRequest, DataSetRe
 
         return self._paginate(
             cursor=cursor,
+            limit=limit,
+            body={"filter": filter_body} if filter_body else {},
+        )
+
+    def iterate(
+        self,
+        metadata: dict[str, str] | None = None,
+        external_id_prefix: str | None = None,
+        write_protected: bool | None = None,
+        limit: int = 100,
+    ) -> Iterable[list[DataSetResponse]]:
+        """Iterate over all data sets in CDF.
+
+        Args:
+            metadata: Filter by metadata.
+            external_id_prefix: Filter by external ID prefix.
+            write_protected: Filter by write protection status.
+            limit: Maximum number of items to return per page.
+
+        Returns:
+            Iterable of lists of DataSetResponse objects.
+        """
+        filter_body: dict[str, Any] = {}
+        if metadata is not None:
+            filter_body["metadata"] = metadata
+        if external_id_prefix is not None:
+            filter_body["externalIdPrefix"] = external_id_prefix
+        if write_protected is not None:
+            filter_body["writeProtected"] = write_protected
+
+        return self._iterate(
             limit=limit,
             body={"filter": filter_body} if filter_body else {},
         )
