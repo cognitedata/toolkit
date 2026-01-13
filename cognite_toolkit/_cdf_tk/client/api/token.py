@@ -4,7 +4,7 @@ from cognite.client import CogniteClient
 from cognite.client.data_classes.capabilities import _CAPABILITY_CLASS_BY_NAME, AllScope, Capability
 from cognite.client.data_classes.iam import TokenInspection
 
-from cognite_toolkit._cdf_tk.client.data_classes.capabilities import scope_intersection, scope_union
+from cognite_toolkit._cdf_tk.client.resource_classes.capabilities import scope_intersection, scope_union
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 _ACL_CLASS_BY_CLASS_NAME = {cap.__name__: cap for cap in _CAPABILITY_CLASS_BY_NAME.values()}

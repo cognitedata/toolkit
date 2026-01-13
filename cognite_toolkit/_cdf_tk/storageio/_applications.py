@@ -2,12 +2,12 @@ from collections.abc import Iterable, Sequence
 from typing import Any
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.canvas import (
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, HTTPMessage, SimpleBodyRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
     IndustrialCanvas,
     IndustrialCanvasApply,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.charts import Chart, ChartList, ChartWrite
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, HTTPMessage, SimpleBodyRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart, ChartList, ChartWrite
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence

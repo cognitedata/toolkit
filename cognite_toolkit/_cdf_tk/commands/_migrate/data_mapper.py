@@ -15,21 +15,21 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.exceptions import CogniteException
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.charts_data import (
+from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartCoreTimeseries,
     ChartSource,
     ChartTimeseries,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.instance_api import InstanceIdentifier, NodeReference
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.canvas import (
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import InstanceIdentifier, NodeReference
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
     ContainerReferenceApply,
     FdmInstanceContainerReferenceApply,
     IndustrialCanvas,
     IndustrialCanvasApply,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.charts import Chart, ChartWrite
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import ResourceViewMappingApply
-from cognite_toolkit._cdf_tk.client.data_classes.three_d import (
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart, ChartWrite
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import ResourceViewMappingApply
+from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingDMRequest,
     AssetMappingResponse,
     RevisionStatus,

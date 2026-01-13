@@ -2,7 +2,7 @@ from typing import Any, ClassVar
 
 import pytest
 
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.raw import RawProfileResults
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawProfileResults
 
 
 class TestRawProfileResults:

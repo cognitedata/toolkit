@@ -17,14 +17,14 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.asset import (
+from cognite_toolkit._cdf_tk.client.resource_classes.asset import (
     AssetAggregateItem,
     AssetRequest,
     AssetResponse,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.event import EventRequest, EventResponse
-from cognite_toolkit._cdf_tk.client.data_classes.identifiers import ExternalId, InternalOrExternalId
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.sequences import (
+from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalOrExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.sequences import (
     ToolkitSequenceRows,
     ToolkitSequenceRowsList,
     ToolkitSequenceRowsWrite,

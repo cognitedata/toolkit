@@ -5,7 +5,7 @@ from cognite.client.data_classes import EventList, EventWrite, EventWriteList
 from cognite.client.data_classes.data_modeling import EdgeId, NodeId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.canvas import (
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
     CanvasAnnotationApply,
     CanvasApply,
     ContainerReferenceApply,

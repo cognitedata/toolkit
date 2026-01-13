@@ -2,7 +2,7 @@ import pytest
 from cognite.client.data_classes.data_modeling import NodeApply, NodeApplyList, NodeList, NodeOrEdgeData, Space, ViewId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import (
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import (
     CreatedSourceSystem,
     InstanceSource,
     ResourceViewMapping,

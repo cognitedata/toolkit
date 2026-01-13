@@ -3,9 +3,12 @@ from typing import Any
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
-from cognite_toolkit._cdf_tk.client.data_classes.identifiers import WorkflowVersionId
-from cognite_toolkit._cdf_tk.client.data_classes.workflow_version import WorkflowVersionRequest, WorkflowVersionResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
+    WorkflowVersionRequest,
+    WorkflowVersionResponse,
+)
 
 
 class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionId, WorkflowVersionRequest, WorkflowVersionResponse]):

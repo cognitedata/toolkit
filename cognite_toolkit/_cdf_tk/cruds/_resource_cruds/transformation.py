@@ -65,7 +65,7 @@ from rich import print
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.raw import RawDatabase, RawTable
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawDatabase, RawTable
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (

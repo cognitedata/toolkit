@@ -3,7 +3,7 @@ from pathlib import Path
 from cognite.client.data_classes import TransformationPreviewResult
 
 from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse
-from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetAggregateItem, AssetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetAggregateItem, AssetResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DownloadCommand
 from cognite_toolkit._cdf_tk.storageio import AssetIO

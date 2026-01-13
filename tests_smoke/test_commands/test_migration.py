@@ -17,12 +17,12 @@ from cognite.client.data_classes.data_modeling import Node, NodeApply, NodeOrEdg
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteAsset
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.three_d import (
+from cognite_toolkit._cdf_tk.client.http_client import FailedRequestMessage, FailedResponse, HTTPClient
+from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicRequest,
     ThreeDModelClassicRequest,
     ThreeDModelResponse,
 )
-from cognite_toolkit._cdf_tk.client.http_client import FailedRequestMessage, FailedResponse, HTTPClient
 from cognite_toolkit._cdf_tk.commands import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper, ThreeDAssetMapper, ThreeDMapper
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import COGNITE_MIGRATION_MODEL, SPACE_SOURCE_VIEW_ID

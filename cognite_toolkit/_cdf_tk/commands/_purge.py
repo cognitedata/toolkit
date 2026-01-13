@@ -16,7 +16,6 @@ from rich.console import Console
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.instance_api import TypedInstanceIdentifier
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ItemsRequest,
@@ -24,6 +23,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsSuccessResponse2,
     SuccessResponseItems,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedInstanceIdentifier
 from cognite_toolkit._cdf_tk.cruds import (
     AssetCRUD,
     ContainerCRUD,

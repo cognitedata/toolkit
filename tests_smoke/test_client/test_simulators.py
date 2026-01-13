@@ -3,8 +3,8 @@ from cognite.client.data_classes import DataSet
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.simulator_model import SimulatorModelRequest
 from cognite_toolkit._cdf_tk.client.http_client import HTTPResult2, RequestMessage2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.resource_classes.simulator_model import SimulatorModelRequest
 from tests_smoke.exceptions import EndpointAssertionError
 
 SIMULATOR_EXTERNAL_ID = "smoke_test_simulator"

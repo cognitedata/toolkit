@@ -15,11 +15,11 @@ from cognite.client.data_classes import (
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse
-from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetResponse
-from cognite_toolkit._cdf_tk.client.data_classes.event import EventResponse
-from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataResponse
-from cognite_toolkit._cdf_tk.client.data_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
+from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
 from cognite_toolkit._cdf_tk.storageio import (

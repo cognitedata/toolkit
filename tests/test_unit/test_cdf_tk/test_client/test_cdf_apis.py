@@ -11,11 +11,14 @@ from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersion
 from cognite_toolkit._cdf_tk.client.api.workflows import WorkflowsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import APIMethod
-from cognite_toolkit._cdf_tk.client.data_classes.raw import RAWTable
-from cognite_toolkit._cdf_tk.client.data_classes.workflow import WorkflowResponse
-from cognite_toolkit._cdf_tk.client.data_classes.workflow_trigger import WorkflowTriggerRequest, WorkflowTriggerResponse
-from cognite_toolkit._cdf_tk.client.data_classes.workflow_version import WorkflowVersionResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTable
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
+    WorkflowTriggerRequest,
+    WorkflowTriggerResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionResponse
 from tests.test_unit.test_cdf_tk.test_client.data import (
     CDFResource,
     get_example_minimum_responses,

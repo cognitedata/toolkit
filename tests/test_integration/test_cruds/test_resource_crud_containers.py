@@ -13,7 +13,7 @@ from cognite.client.data_classes import (
 from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.timeseries import TimeSeriesRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest
 from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, TimeSeriesCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.three_d_model import ThreeDModelCRUD
 from tests.test_integration.constants import RUN_UNIQUE_ID

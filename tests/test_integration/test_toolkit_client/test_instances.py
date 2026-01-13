@@ -3,7 +3,7 @@ from cognite.client.data_classes.data_modeling import Space
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteTimeSeriesApply
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.instances import InstancesApplyResultList
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.instances import InstancesApplyResultList
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
 

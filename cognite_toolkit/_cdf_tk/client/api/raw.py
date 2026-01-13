@@ -1,8 +1,8 @@
 from collections.abc import Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse, ResponseItems
-from cognite_toolkit._cdf_tk.client.data_classes.raw import RAWDatabase, RAWTable
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabase, RAWTable
 
 
 class RawDatabasesAPI(CDFResourceAPI[RAWDatabase, RAWDatabase, RAWDatabase]):

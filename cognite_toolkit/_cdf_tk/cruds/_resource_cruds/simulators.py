@@ -4,8 +4,11 @@ from typing import Any, final
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk.client.data_classes.identifiers import ExternalId, InternalOrExternalId
-from cognite_toolkit._cdf_tk.client.data_classes.simulator_model import SimulatorModelRequest, SimulatorModelResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalOrExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.simulator_model import (
+    SimulatorModelRequest,
+    SimulatorModelResponse,
+)
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import SimulatorModelYAML
 

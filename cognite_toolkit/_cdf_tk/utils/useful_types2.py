@@ -4,9 +4,9 @@ from typing import TypeAlias, TypeVar
 
 from cognite.client.data_classes import Annotation, FileMetadata
 
-from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetResponse
-from cognite_toolkit._cdf_tk.client.data_classes.event import EventResponse
-from cognite_toolkit._cdf_tk.client.data_classes.timeseries import TimeSeriesResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 
 AssetCentricResource: TypeAlias = AssetResponse | FileMetadata | EventResponse | TimeSeriesResponse
 AssetCentricResourceExtended: TypeAlias = AssetResponse | FileMetadata | EventResponse | TimeSeriesResponse | Annotation

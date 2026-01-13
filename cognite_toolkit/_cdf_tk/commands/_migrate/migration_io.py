@@ -5,12 +5,6 @@ from cognite.client.data_classes import Annotation
 from cognite.client.data_classes.data_modeling import EdgeId, InstanceApply, NodeId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.pending_instances_ids import PendingInstanceId
-from cognite_toolkit._cdf_tk.client.data_classes.three_d import (
-    AssetMappingDMRequest,
-    AssetMappingResponse,
-    ThreeDModelResponse,
-)
 from cognite_toolkit._cdf_tk.client.http_client import (
     FailedResponse,
     HTTPClient,
@@ -19,6 +13,12 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     SimpleBodyRequest,
     SuccessResponseItems,
     ToolkitAPIError,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.pending_instances_ids import PendingInstanceId
+from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
+    AssetMappingDMRequest,
+    AssetMappingResponse,
+    ThreeDModelResponse,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import ThreeDMigrationRequest
 from cognite_toolkit._cdf_tk.constants import MISSING_EXTERNAL_ID, MISSING_INSTANCE_SPACE

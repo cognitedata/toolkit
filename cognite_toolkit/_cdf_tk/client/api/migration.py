@@ -17,7 +17,7 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_data_modeling import ExtendedInstancesAPI
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import (
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import (
     AssetCentricId,
     CreatedSourceSystem,
     InstanceSource,

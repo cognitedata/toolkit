@@ -2,9 +2,9 @@ from typing import Any, Literal
 
 import pytest
 
-from cognite_toolkit._cdf_tk.client.data_classes.agent import AgentRequest
-from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetRequest
-from cognite_toolkit._cdf_tk.client.data_classes.base import RequestUpdateable
+from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.base import RequestUpdateable
 from tests.test_unit.test_cdf_tk.test_client.data import CDFResource, iterate_cdf_resources
 
 

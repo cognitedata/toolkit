@@ -6,18 +6,18 @@ from pydantic import TypeAdapter
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.cdf_client.responses import PagedResponse
-from cognite_toolkit._cdf_tk.client.data_classes.identifiers import InternalId
-from cognite_toolkit._cdf_tk.client.data_classes.three_d import (
+from cognite_toolkit._cdf_tk.client.http_client import (
+    HTTPClient,
+    ItemsRequest2,
+    RequestMessage2,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicRequest,
     AssetMappingDMRequest,
     AssetMappingResponse,
     ThreeDModelClassicRequest,
     ThreeDModelResponse,
-)
-from cognite_toolkit._cdf_tk.client.http_client import (
-    HTTPClient,
-    ItemsRequest2,
-    RequestMessage2,
 )
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import PrimitiveType

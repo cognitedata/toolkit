@@ -9,8 +9,6 @@ import httpx
 from cognite.client.data_classes.data_modeling import ViewId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.data_modeling import NodeReference
-from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.http_client import (
     DataBodyRequest,
     ErrorDetails,
@@ -21,6 +19,8 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ResponseList,
     SimpleBodyRequest,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.cruds import FileMetadataCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.protocols import ResourceResponseProtocol

@@ -62,12 +62,12 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from pydantic import BaseModel, JsonValue
 from questionary import Choice
 
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.location_filters import (
+from cognite_toolkit._cdf_tk.client.http_client import T_COVARIANT_ID, RequestItem
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.location_filters import (
     LocationFilter,
     LocationFilterScene,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.sequences import ToolkitSequenceRows
-from cognite_toolkit._cdf_tk.client.http_client import T_COVARIANT_ID, RequestItem
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.sequences import ToolkitSequenceRows
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, read_yaml_file
 from tests.data import COMPLETE_ORG

@@ -2,7 +2,8 @@ import pytest
 from cognite.client.data_classes.raw import RowWriteList
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.raw import (
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import (
     BooleanProfileColumn,
     NumberProfileColumn,
     ObjectProfileColumn,
@@ -11,8 +12,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.legacy.raw import (
     UnknownTypeProfileColumn,
     VectorProfileColumn,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.raw import RAWDatabase, RAWTable
-from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabase, RAWTable
 
 
 @pytest.fixture(scope="module")

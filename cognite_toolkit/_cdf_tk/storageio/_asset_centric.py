@@ -6,11 +6,11 @@ from typing import Any, ClassVar, Generic
 from cognite.client.data_classes import Label, LabelDefinition
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetAggregateItem, AssetRequest, AssetResponse
-from cognite_toolkit._cdf_tk.client.data_classes.event import EventRequest, EventResponse
-from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataResponse
-from cognite_toolkit._cdf_tk.client.data_classes.identifiers import InternalId
-from cognite_toolkit._cdf_tk.client.data_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetAggregateItem, AssetRequest, AssetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 from cognite_toolkit._cdf_tk.cruds import (
     AssetCRUD,
     DataSetsCRUD,

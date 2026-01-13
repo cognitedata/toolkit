@@ -9,11 +9,11 @@ from cognite.client.utils._concurrency import execute_tasks
 from cognite.client.utils._identifier import IdentifierSequence
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.extended_filemetadata import (
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.extended_filemetadata import (
     ExtendedFileMetadata,
     ExtendedFileMetadataList,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.pending_instances_ids import PendingInstanceId
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.pending_instances_ids import PendingInstanceId
 
 
 class ExtendedFileMetadataAPI(FilesAPI):

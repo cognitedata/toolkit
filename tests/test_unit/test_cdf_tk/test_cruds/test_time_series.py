@@ -1,7 +1,7 @@
 import yaml
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk.client.data_classes.timeseries import TimeSeriesRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.cruds import TimeSeriesCRUD
 from tests.test_unit.approval_client import ApprovalToolkitClient

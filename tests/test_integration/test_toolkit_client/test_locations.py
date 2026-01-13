@@ -3,7 +3,7 @@ from cognite.client.data_classes.data_modeling import DataModel, DataModelApply,
 from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.location_filters import (
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.location_filters import (
     LocationFilter,
     LocationFilterList,
     LocationFilterWrite,

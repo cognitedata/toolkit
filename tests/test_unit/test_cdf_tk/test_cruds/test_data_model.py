@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 from cognite.client.data_classes import data_modeling as dm
 
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.graphql_data_models import (
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.graphql_data_models import (
     GraphQLDataModel,
     GraphQLDataModelWriteList,
 )
