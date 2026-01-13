@@ -41,7 +41,7 @@ class Endpoint:
     concurrency_max_workers: int = 1
 
 
-APIMethod: TypeAlias = Literal["create", "retrieve", "update", "delete", "list"]
+APIMethod: TypeAlias = Literal["create", "retrieve", "update", "delete", "list", "upsert"]
 
 
 class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource], ABC):
