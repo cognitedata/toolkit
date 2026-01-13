@@ -19,6 +19,7 @@ from .api.datasets import DataSetsAPI
 from .api.events import EventsAPI
 from .api.extraction_pipelines import ExtractionPipelinesAPI
 from .api.filemetadata import FileMetadataAPI
+from .api.hosted_extractors import HostedExtractorsAPI
 from .api.infield import InfieldAPI
 from .api.labels import LabelsAPI
 from .api.lookup import LookUpGroup
@@ -48,6 +49,7 @@ class ToolAPI:
         self.datasets = DataSetsAPI(http_client)
         self.events = EventsAPI(http_client)
         self.extraction_pipelines = ExtractionPipelinesAPI(http_client)
+        self.hosted_extractors = HostedExtractorsAPI(http_client)
         self.labels = LabelsAPI(http_client)
         self.filemetadata = FileMetadataAPI(http_client)
         self.raw = RawAPI(http_client)
