@@ -1,9 +1,10 @@
-from collections.abc import Sequence
-from typing import Any, Literal
+from collections.abc import Iterable, Sequence
+from typing import Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalOrExternalId
 
@@ -83,8 +84,7 @@ class AssetsAPI(CDFResourceAPI[InternalOrExternalId, AssetRequest, AssetResponse
     def paginate(
         self,
         aggregated_properties: bool = False,
-        data_set_external_ids: list[str] | None = None,
-        asset_subtree_external_ids: list[str] | None = None,
+        filter: ClassicFilter | None = None,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[AssetResponse]:
@@ -93,25 +93,35 @@ class AssetsAPI(CDFResourceAPI[InternalOrExternalId, AssetRequest, AssetResponse
         Returns:
             PagedResponse of AssetResponse objects.
         """
-        filter_: dict[str, Any] = {}
-        if asset_subtree_external_ids:
-            filter_["assetSubtreeExternalIds"] = [{"externalId": ext_id} for ext_id in asset_subtree_external_ids]
-        if data_set_external_ids:
-            filter_["dataSetIds"] = [{"externalId": ds_id} for ds_id in data_set_external_ids]
-
         return self._paginate(
             cursor=cursor,
             limit=limit,
             body={
                 "aggregatedProperties": ["childCount", "path", "depth"] if aggregated_properties else [],
-                "filter": filter_ or None,
+                "filter": filter.dump() if filter else None,
             },
         )
 
-    def list(
+    def iterate(
         self,
-        limit: int | None = 100,
-    ) -> list[AssetResponse]:
+        aggregated_properties: bool = False,
+        filter: ClassicFilter | None = None,
+        limit: int = 100,
+    ) -> Iterable[list[AssetResponse]]:
+        """Iterate over all assets in CDF.
+
+        Returns:
+            Sequence of AssetResponse objects.
+        """
+        return self._iterate(
+            limit=limit,
+            body={
+                "aggregatedProperties": ["childCount", "path", "depth"] if aggregated_properties else [],
+                "filter": filter.dump() if filter else None,
+            },
+        )
+
+    def list(self, limit: int | None = 100) -> list[AssetResponse]:
         """List all asset references in CDF.
 
         Returns:

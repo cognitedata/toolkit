@@ -17,6 +17,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import (
     AssetAggregateItem,
     AssetRequest,
@@ -140,18 +141,9 @@ class AssetCRUD(ResourceCRUD[ExternalId, AssetRequest, AssetResponse]):
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[AssetResponse]:
-        cursor: str | None = None
-        while True:
-            page = self.client.tool.assets.paginate(
-                limit=1000,
-                cursor=cursor,
-                data_set_external_ids=[data_set_external_id] if data_set_external_id else None,
-                aggregated_properties=True,
-            )
-            yield from page.items
-            if not page.next_cursor or not page.items:
-                break
-            cursor = page.next_cursor
+        filter_ = ClassicFilter.from_asset_subtree_and_data_sets(data_set_id=data_set_external_id)
+        for assets in self.client.tool.assets.iterate(aggregated_properties=True, filter=filter_):
+            yield from assets
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:

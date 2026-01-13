@@ -6,6 +6,7 @@ from typing import Any, ClassVar, Generic
 from cognite.client.data_classes import Label, LabelDefinition
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetAggregateItem, AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
@@ -100,6 +101,15 @@ class AssetCentricIO(
             # This selector is for uploads, not for downloading from CDF.
             raise ToolkitNotImplementedError(f"Selector type {type(selector)} not supported for {type(self).__name__}.")
         return asset_subtree_external_ids, data_set_external_ids
+
+    def _get_classic_filter(self, selector: AssetCentricSelector) -> ClassicFilter:
+        if isinstance(selector, DataSetSelector):
+            return ClassicFilter.from_asset_subtree_and_data_sets(data_set_id=selector.data_set_external_id)
+        elif isinstance(selector, AssetSubtreeSelector):
+            return ClassicFilter.from_asset_subtree_and_data_sets(asset_subtree_id=selector.hierarchy)
+        else:
+            # This selector is for uploads, not for downloading from CDF.
+            raise ToolkitNotImplementedError(f"Selector type {type(selector)} not supported for {type(self).__name__}.")
 
     def _collect_dependencies(
         self,
@@ -307,14 +317,13 @@ class AssetIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
         return asset_schema + metadata_schema
 
     def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[Page]:
-        asset_subtree_external_ids, data_set_external_ids = self._get_hierarchy_dataset_pair(selector)
+        filter_ = self._get_classic_filter(selector)
         cursor: str | None = None
         total_count = 0
         while True:
             page = self.client.tool.assets.paginate(
                 aggregated_properties=True,
-                data_set_external_ids=data_set_external_ids,
-                asset_subtree_external_ids=asset_subtree_external_ids,
+                filter=filter_,
                 limit=self.CHUNK_SIZE,
                 cursor=cursor,
             )
