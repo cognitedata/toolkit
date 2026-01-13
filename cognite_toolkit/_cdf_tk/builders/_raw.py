@@ -3,7 +3,7 @@ from collections.abc import Callable, Iterable, Sequence
 from typing import Any
 
 from cognite_toolkit._cdf_tk.builders import Builder
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.raw import RawDatabase
+from cognite_toolkit._cdf_tk.client.data_classes.raw import RAWDatabase
 from cognite_toolkit._cdf_tk.cruds import RawDatabaseCRUD, RawTableCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildDestinationFile,
@@ -40,7 +40,7 @@ class RawBuilder(Builder):
                     entry_by_loader[RawDatabaseCRUD].append(item)
                 else:
                     entry_by_loader[RawTableCRUD].append(item)
-                    db_item = RawDatabaseCRUD.dump_id(RawDatabase(db_name=table_id.db_name))
+                    db_item = RAWDatabase(name=table_id.db_name).dump()
                     hashable_db_item = tuple(db_item.items())
                     if hashable_db_item not in seen_databases:
                         seen_databases.add(hashable_db_item)
