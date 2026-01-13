@@ -17,9 +17,6 @@ from cognite_toolkit._cdf_tk.client.api.sequences import SequencesAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsAPI
 from cognite_toolkit._cdf_tk.client.api.timeseries import TimeSeriesAPI
 from cognite_toolkit._cdf_tk.client.api.transformations import TransformationsAPI
-from cognite_toolkit._cdf_tk.client.api.workflow_triggers import WorkflowTriggersAPI
-from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersionsAPI
-from cognite_toolkit._cdf_tk.client.api.workflows import WorkflowsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI
 from cognite_toolkit._cdf_tk.client.data_classes.agent import AgentRequest, AgentResponse
 from cognite_toolkit._cdf_tk.client.data_classes.annotation import AnnotationRequest, AnnotationResponse
@@ -629,12 +626,14 @@ def iterate_cdf_resources() -> Iterable[tuple]:
         ),
         id="Transformation",
     )
+
     yield pytest.param(
         CDFResource(
             response_cls=WorkflowResponse,
             request_cls=WorkflowRequest,
             example_data=get_example_minimum_responses(WorkflowResponse),
-            api_class=WorkflowsAPI,
+            # Workflows cannot be tested in generic API tests due to
+            # custom endpoint mocking.
         ),
         id="Workflow",
     )
@@ -643,7 +642,8 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=WorkflowVersionResponse,
             request_cls=WorkflowVersionRequest,
             example_data=get_example_minimum_responses(WorkflowVersionResponse),
-            api_class=WorkflowVersionsAPI,
+            # WorkflowVersion cannot be tested in generic API test due to custom
+            # endpoint mocking.
         ),
         id="WorkflowVersion",
     )
@@ -652,9 +652,10 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=WorkflowTriggerResponse,
             request_cls=WorkflowTriggerRequest,
             example_data=get_example_minimum_responses(WorkflowTriggerResponse),
-            api_class=WorkflowTriggersAPI,
             is_dump_equal_to_example=True,
             is_as_request_possible=False,
+            # WorkflowTrigger cannot be tested in generic API due to
+            # it cannot create as_request from response.
         ),
         id="WorkflowTrigger",
     )

@@ -81,6 +81,8 @@ class TestCDFResourceAPI:
         json: dict[str, Any] | None,
         respx_mock: respx.MockRouter,
     ) -> None:
+        if api_method in ("create", "update") and api_method not in api._method_endpoint_map:
+            api_method = "upsert"
         endpoint = api._method_endpoint_map[api_method]
         url = api._make_url(endpoint.path)
 
