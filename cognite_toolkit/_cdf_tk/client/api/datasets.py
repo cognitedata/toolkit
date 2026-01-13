@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import Literal
+from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
@@ -67,22 +67,36 @@ class DataSetsAPI(CDFResourceAPI[InternalOrExternalId, DataSetRequest, DataSetRe
 
     def iterate(
         self,
+        metadata: dict[str, str] | None = None,
+        external_id_prefix: str | None = None,
+        write_protected: bool | None = None,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[DataSetResponse]:
         """Iterate over all data sets in CDF.
 
         Args:
+            metadata: Filter by metadata.
+            external_id_prefix: Filter by external ID prefix.
+            write_protected: Filter by write protection status.
             limit: Maximum number of items to return.
             cursor: Cursor for pagination.
 
         Returns:
             PagedResponse of DataSetResponse objects.
         """
+        filter_body: dict[str, Any] = {}
+        if metadata is not None:
+            filter_body["metadata"] = metadata
+        if external_id_prefix is not None:
+            filter_body["externalIdPrefix"] = external_id_prefix
+        if write_protected is not None:
+            filter_body["writeProtected"] = write_protected
+
         return self._iterate(
             cursor=cursor,
             limit=limit,
-            body={},
+            body={"filter": filter_body} if filter_body else {},
         )
 
     def list(self, limit: int | None = 100) -> list[DataSetResponse]:

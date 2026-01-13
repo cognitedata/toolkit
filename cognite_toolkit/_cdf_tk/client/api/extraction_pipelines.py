@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import Literal
+from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
@@ -82,21 +82,32 @@ class ExtractionPipelinesAPI(
 
     def iterate(
         self,
+        external_id_prefix: str | None = None,
+        data_set_external_ids: list[str] | None = None,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[ExtractionPipelineResponse]:
         """Iterate over all extraction pipelines in CDF.
 
         Args:
+            external_id_prefix: Filter by external ID prefix.
+            data_set_external_ids: Filter by data set external IDs.
             limit: Maximum number of items to return.
             cursor: Cursor for pagination.
 
         Returns:
             PagedResponse of ExtractionPipelineResponse objects.
         """
+        filter_body: dict[str, Any] = {}
+        if external_id_prefix is not None:
+            filter_body["externalIdPrefix"] = external_id_prefix
+        if data_set_external_ids is not None:
+            filter_body["dataSetIds"] = [{"externalId": ds_id} for ds_id in data_set_external_ids]
+
         return self._iterate(
             cursor=cursor,
             limit=limit,
+            body={"filter": filter_body} if filter_body else None,
         )
 
     def list(

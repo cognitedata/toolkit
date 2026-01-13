@@ -44,19 +44,19 @@ class ToolAPI:
 
     def __init__(self, http_client: HTTPClient, console: Console) -> None:
         self.http_client = http_client
-        self.three_d = ThreeDAPI(http_client, console)
         self.assets = AssetsAPI(http_client)
         self.datasets = DataSetsAPI(http_client)
+        self.events = EventsAPI(http_client)
         self.extraction_pipelines = ExtractionPipelinesAPI(http_client)
         self.labels = LabelsAPI(http_client)
-        self.timeseries = TimeSeriesAPI(http_client)
         self.filemetadata = FileMetadataAPI(http_client)
-        self.events = EventsAPI(http_client)
         self.raw = RawAPI(http_client)
-        self.sequences = SequencesAPI(http_client)
-        self.transformations = TransformationsAPI(http_client)
         self.security_categories = SecurityCategoriesAPI(http_client)
+        self.sequences = SequencesAPI(http_client)
         self.simulators = SimulatorsAPI(http_client)
+        self.three_d = ThreeDAPI(http_client, console)
+        self.timeseries = TimeSeriesAPI(http_client)
+        self.transformations = TransformationsAPI(http_client)
         self.workflows = WorkflowsAPI(http_client)
 
 
