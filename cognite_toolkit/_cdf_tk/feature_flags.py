@@ -61,6 +61,10 @@ class Flags(Enum):
         visible=True,
         description="Enables extended upload to support uploading individual files",
     )
+    SIMULATORS = FlagMetadata(
+        visible=True,
+        description="Enables the support for simulator model resources",
+    )
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)
