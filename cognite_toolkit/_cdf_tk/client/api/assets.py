@@ -80,7 +80,7 @@ class AssetsAPI(CDFResourceAPI[InternalOrExternalId, AssetRequest, AssetResponse
             items, "delete", extra_body={"recursive": recursive, "ignoreUnknownIds": ignore_unknown_ids}
         )
 
-    def iterate(
+    def paginate(
         self,
         aggregated_properties: bool = False,
         data_set_external_ids: list[str] | None = None,

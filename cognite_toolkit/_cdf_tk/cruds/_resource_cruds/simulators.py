@@ -82,7 +82,7 @@ class SimulatorModelCRUD(ResourceCRUD[ExternalId, SimulatorModelRequest, Simulat
         if data_set_external_id:
             data_set_id = self.client.lookup.data_sets.id(data_set_external_id, is_dry_run=False)
         while True:
-            page = self.client.tool.simulators.models.iterate(
+            page = self.client.tool.simulators.models.paginate(
                 limit=1000,
                 cursor=cursor,
             )

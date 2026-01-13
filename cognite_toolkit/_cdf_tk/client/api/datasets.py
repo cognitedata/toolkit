@@ -67,7 +67,7 @@ class DataSetsAPI(CDFResourceAPI[InternalOrExternalId, DataSetRequest, DataSetRe
         """
         return self._update(items, mode=mode)
 
-    def iterate(
+    def paginate(
         self,
         metadata: dict[str, str] | None = None,
         external_id_prefix: str | None = None,

@@ -311,7 +311,7 @@ class AssetIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
         cursor: str | None = None
         total_count = 0
         while True:
-            page = self.client.tool.assets.iterate(
+            page = self.client.tool.assets.paginate(
                 aggregated_properties=True,
                 data_set_external_ids=data_set_external_ids,
                 asset_subtree_external_ids=asset_subtree_external_ids,
@@ -440,7 +440,7 @@ class FileMetadataIO(AssetCentricIO[FileMetadataResponse]):
         cursor: str | None = None
         total_count = 0
         while True:
-            page = self.client.tool.filemetadata.iterate(
+            page = self.client.tool.filemetadata.paginate(
                 data_set_external_ids=data_set_external_ids,
                 asset_subtree_external_ids=asset_subtree_external_ids,
                 limit=self.CHUNK_SIZE,
@@ -494,7 +494,7 @@ class TimeSeriesIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesReques
         cursor: str | None = None
         total_count = 0
         while True:
-            page = self.client.tool.timeseries.iterate(
+            page = self.client.tool.timeseries.paginate(
                 data_set_external_ids=data_set_external_ids,
                 asset_subtree_external_ids=asset_subtree_external_ids,
                 limit=self.CHUNK_SIZE,
@@ -628,7 +628,7 @@ class EventIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
         cursor: str | None = None
         total_count = 0
         while True:
-            page = self.client.tool.events.iterate(
+            page = self.client.tool.events.paginate(
                 data_set_external_ids=data_set_external_ids,
                 asset_subtree_external_ids=asset_subtree_external_ids,
                 limit=self.CHUNK_SIZE,

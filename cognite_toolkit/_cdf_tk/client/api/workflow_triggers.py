@@ -56,7 +56,7 @@ class WorkflowTriggersAPI(CDFResourceAPI[ExternalId, WorkflowTriggerRequest, Wor
         """
         self._request_no_response(items, "delete")
 
-    def iterate(
+    def paginate(
         self,
         workflow_external_id: str | None = None,
         workflow_version: str | None = None,

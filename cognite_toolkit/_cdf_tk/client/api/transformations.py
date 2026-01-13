@@ -80,7 +80,7 @@ class TransformationsAPI(CDFResourceAPI[InternalOrExternalId, TransformationRequ
         """
         self._request_no_response(items, "delete", extra_body={"ignoreUnknownIds": ignore_unknown_ids})
 
-    def iterate(
+    def paginate(
         self,
         data_set_external_ids: list[str] | None = None,
         is_public: bool | None = None,

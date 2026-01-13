@@ -87,7 +87,7 @@ class SimulatorModelsAPI(CDFResourceAPI[InternalOrExternalId, SimulatorModelRequ
         """
         self._request_no_response(items, "delete")
 
-    def iterate(
+    def paginate(
         self,
         simulator_external_ids: list[str] | None = None,
         limit: int = 100,

@@ -415,7 +415,7 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelResponse,
         total = 0
         while True:
             request_limit = min(self.DOWNLOAD_LIMIT, limit - total) if limit is not None else self.DOWNLOAD_LIMIT
-            response = self.client.tool.three_d.models.iterate(
+            response = self.client.tool.three_d.models.paginate(
                 published=published, include_revision_info=True, limit=request_limit, cursor=cursor
             )
             items = [item for item in response.items if self._is_selected(item, included_models)]
@@ -510,7 +510,7 @@ class ThreeDAssetMappingMigrationIO(UploadableStorageIO[ThreeDSelector, AssetMap
                     )
                     if limit is not None and total >= limit:
                         return
-                    response = self.client.tool.three_d.asset_mappings.iterate(
+                    response = self.client.tool.three_d.asset_mappings.paginate(
                         model_id=model.id,
                         revision_id=model.last_revision_info.revision_id,
                         cursor=cursor,

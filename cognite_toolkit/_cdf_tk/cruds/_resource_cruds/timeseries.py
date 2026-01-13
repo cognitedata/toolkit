@@ -142,7 +142,7 @@ class TimeSeriesCRUD(ResourceContainerCRUD[ExternalId, TimeSeriesRequest, TimeSe
     ) -> Iterable[TimeSeriesResponse]:
         cursor: str | None = None
         while True:
-            page = self.client.tool.timeseries.iterate(
+            page = self.client.tool.timeseries.paginate(
                 data_set_external_ids=[data_set_external_id] if data_set_external_id else None,
                 limit=1000,
                 cursor=cursor,

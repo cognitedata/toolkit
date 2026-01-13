@@ -133,7 +133,7 @@ class TestCDFResourceAPI:
         respx_mock.get(config.create_api_url(f"/raw/dbs/{instance.db_name}/tables")).mock(
             return_value=httpx.Response(status_code=200, json={"items": [resource]})
         )
-        page = api.iterate(db_name=instance.db_name, limit=10)
+        page = api.paginate(db_name=instance.db_name, limit=10)
         assert len(page.items) == 1
         assert page.items[0] == instance
 
@@ -179,7 +179,7 @@ class TestCDFResourceAPI:
         assert len(listed) == 1
         assert listed[0].dump() == resource
 
-        page = api.iterate(limit=10)
+        page = api.paginate(limit=10)
         assert len(page.items) == 1
         assert page.items[0].dump() == resource
 
@@ -227,7 +227,7 @@ class TestCDFResourceAPI:
         assert len(listed) == 1
         assert listed[0].dump() == resource
 
-        page = api.iterate(limit=10)
+        page = api.paginate(limit=10)
         assert len(page.items) == 1
         assert page.items[0].dump() == resource
 
@@ -269,6 +269,6 @@ class TestCDFResourceAPI:
         assert len(listed) == 1
         assert listed[0].dump() == resource
 
-        page = api.iterate(limit=10)
+        page = api.paginate(limit=10)
         assert len(page.items) == 1
         assert page.items[0].dump() == resource

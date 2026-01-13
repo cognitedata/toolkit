@@ -76,7 +76,7 @@ class ThreeDModelAPI:
         )
         responses.raise_for_status()
 
-    def iterate(
+    def paginate(
         self,
         published: bool | None = None,
         include_revision_info: bool = False,
@@ -122,7 +122,7 @@ class ThreeDModelAPI:
             )
             if request_limit <= 0:
                 break
-            page = self.iterate(
+            page = self.paginate(
                 published=published,
                 include_revision_info=include_revision_info,
                 limit=request_limit,
@@ -287,7 +287,7 @@ class ThreeDAssetMappingAPI:
             responses.raise_for_status()
         return None
 
-    def iterate(
+    def paginate(
         self,
         model_id: int,
         revision_id: int,
@@ -361,7 +361,7 @@ class ThreeDAssetMappingAPI:
             )
             if request_limit <= 0:
                 break
-            page = self.iterate(
+            page = self.paginate(
                 model_id=model_id,
                 revision_id=revision_id,
                 asset_ids=asset_ids,

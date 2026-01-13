@@ -17,7 +17,7 @@ class TestDownloadCommand:
         with monkeypatch_toolkit_client() as client:
             dataset = "my/:_data_set"
             client.assets.aggregate_count.return_value = 1
-            client.tool.assets.iterate.return_value = PagedResponse(
+            client.tool.assets.paginate.return_value = PagedResponse(
                 items=[
                     AssetResponse(
                         id=123,

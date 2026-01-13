@@ -26,8 +26,10 @@ class Test3DAPI:
     @pytest.mark.usefixtures("two_3d_models")
     def test_iterate(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
-        response = client.tool.three_d.models.iterate(limit=1, include_revision_info=True)
-        response2 = client.tool.three_d.models.iterate(limit=1, include_revision_info=True, cursor=response.next_cursor)
+        response = client.tool.three_d.models.paginate(limit=1, include_revision_info=True)
+        response2 = client.tool.three_d.models.paginate(
+            limit=1, include_revision_info=True, cursor=response.next_cursor
+        )
         assert isinstance(response, PagedResponse)
         assert isinstance(response2, PagedResponse)
         assert response != response2

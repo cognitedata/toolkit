@@ -83,7 +83,7 @@ class TimeSeriesAPI(CDFResourceAPI[InternalOrExternalId, TimeSeriesRequest, Time
         """
         self._request_no_response(items, "delete", extra_body={"ignoreUnknownIds": ignore_unknown_ids})
 
-    def iterate(
+    def paginate(
         self,
         data_set_external_ids: list[str] | None = None,
         asset_subtree_external_ids: list[str] | None = None,

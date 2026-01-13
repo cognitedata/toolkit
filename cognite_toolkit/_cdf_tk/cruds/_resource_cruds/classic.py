@@ -142,7 +142,7 @@ class AssetCRUD(ResourceCRUD[ExternalId, AssetRequest, AssetResponse]):
     ) -> Iterable[AssetResponse]:
         cursor: str | None = None
         while True:
-            page = self.client.tool.assets.iterate(
+            page = self.client.tool.assets.paginate(
                 limit=1000,
                 cursor=cursor,
                 data_set_external_ids=[data_set_external_id] if data_set_external_id else None,
@@ -572,7 +572,7 @@ class EventCRUD(ResourceCRUD[ExternalId, EventRequest, EventResponse]):
     ) -> Iterable[EventResponse]:
         cursor: str | None = None
         while True:
-            page = self.client.tool.events.iterate(
+            page = self.client.tool.events.paginate(
                 data_set_external_ids=[data_set_external_id] if data_set_external_id else None,
                 limit=1000,
                 cursor=cursor,

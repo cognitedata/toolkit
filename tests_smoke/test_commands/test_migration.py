@@ -135,7 +135,7 @@ def tmp_3D_model_with_asset_mapping(
             raise AssertionError("Timeout waiting for 3D model revision to be processed.")
     if revision.status != "Done":
         raise AssertionError(f"3D model revision processing failed with status: {revision.status}")
-    page = client.tool.three_d.models.iterate(include_revision_info=True)
+    page = client.tool.three_d.models.paginate(include_revision_info=True)
     retrieved_model = next((m for m in page.items if m.id == model.id), None)
     if not retrieved_model:
         raise EndpointAssertionError(

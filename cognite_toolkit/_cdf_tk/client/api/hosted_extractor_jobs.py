@@ -80,7 +80,7 @@ class HostedExtractorJobsAPI(CDFResourceAPI[ExternalId, HostedExtractorJobReques
         """
         self._request_no_response(items, "delete", extra_body={"ignoreUnknownIds": ignore_unknown_ids})
 
-    def iterate(
+    def paginate(
         self,
         limit: int = 100,
         cursor: str | None = None,

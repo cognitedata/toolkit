@@ -59,7 +59,7 @@ class LabelsAPI(CDFResourceAPI[ExternalId, LabelRequest, LabelResponse]):
         """
         self._request_no_response(items, "delete")
 
-    def iterate(
+    def paginate(
         self,
         name: str | None = None,
         data_set_external_ids: list[str] | None = None,

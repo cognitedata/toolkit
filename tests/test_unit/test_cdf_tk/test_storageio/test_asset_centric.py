@@ -170,10 +170,10 @@ def asset_centric_client(
             file_items = file_chunks.pop()
             return PagedResponse(items=file_items, nextCursor="cursor" if file_chunks else None)
 
-        client.tool.assets.iterate.side_effect = iterate_assets
-        client.tool.timeseries.iterate.side_effect = iterate_timeseries
-        client.tool.events.iterate.side_effect = iterate_events
-        client.tool.filemetadata.iterate.side_effect = iterate_files
+        client.tool.assets.paginate.side_effect = iterate_assets
+        client.tool.timeseries.paginate.side_effect = iterate_timeseries
+        client.tool.events.paginate.side_effect = iterate_events
+        client.tool.filemetadata.paginate.side_effect = iterate_files
 
         client.assets.aggregate_count.return_value = RESOURCE_COUNT
         client.files.aggregate.return_value = [CountAggregate(RESOURCE_COUNT)]

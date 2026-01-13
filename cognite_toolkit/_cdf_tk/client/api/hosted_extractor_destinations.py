@@ -89,7 +89,7 @@ class HostedExtractorDestinationsAPI(
 
         self._request_no_response(items, "delete", extra_body=extra_body)
 
-    def iterate(
+    def paginate(
         self,
         limit: int = 100,
         cursor: str | None = None,

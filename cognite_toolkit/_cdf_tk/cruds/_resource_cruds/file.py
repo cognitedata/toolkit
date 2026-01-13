@@ -160,7 +160,7 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
     ) -> Iterable[FileMetadataResponse]:
         cursor: str | None = None
         while True:
-            page = self.client.tool.filemetadata.iterate(
+            page = self.client.tool.filemetadata.paginate(
                 data_set_external_ids=[data_set_external_id] if data_set_external_id else None,
                 limit=1000,
                 cursor=cursor,

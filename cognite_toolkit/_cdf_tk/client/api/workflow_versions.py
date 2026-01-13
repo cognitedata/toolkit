@@ -74,7 +74,7 @@ class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionId, WorkflowVersionReque
         """
         self._request_no_response(items, "delete")
 
-    def iterate(
+    def paginate(
         self,
         workflow_external_id: str | None = None,
         limit: int = 100,

@@ -48,7 +48,7 @@ class SecurityCategoriesAPI(CDFResourceAPI[InternalId, SecurityCategoryRequest, 
         """
         self._request_no_response(items, "delete")
 
-    def iterate(
+    def paginate(
         self,
         sort: Literal["ASC", "DESC"] = "ASC",
         limit: int = 100,

@@ -47,7 +47,7 @@ class RawDatabasesAPI(CDFResourceAPI[RAWDatabase, RAWDatabase, RAWDatabase]):
         """
         self._request_no_response(list(items), "delete", extra_body={"recursive": recursive})
 
-    def iterate(
+    def paginate(
         self,
         limit: int = 100,
         cursor: str | None = None,
@@ -137,7 +137,7 @@ class RawTablesAPI(CDFResourceAPI[RAWTable, RAWTable, RAWTable]):
             endpoint = f"/raw/dbs/{db_name}/tables/delete"
             self._request_no_response(list(group), "delete", endpoint=endpoint)
 
-    def iterate(
+    def paginate(
         self,
         db_name: str,
         limit: int = 100,
