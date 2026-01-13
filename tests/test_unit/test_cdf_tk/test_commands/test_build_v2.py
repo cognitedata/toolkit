@@ -12,13 +12,12 @@ from cognite_toolkit._cdf_tk.commands.build_cmd import BuildCommand as OldBuildC
 from cognite_toolkit._cdf_tk.commands.build_v2.build_cmd import BuildCommand
 from cognite_toolkit._cdf_tk.cruds import TransformationCRUD
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, BuildVariables, Environment, Packages
-from cognite_toolkit._cdf_tk.data_classes._issues import Issue, IssueList
+from cognite_toolkit._cdf_tk.data_classes._issues import IssueList, ModuleLoadingIssue
 from cognite_toolkit._cdf_tk.data_classes._module_directories import ModuleDirectories
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMissingModuleError,
 )
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.hints import ModuleDefinition
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests import data
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -59,13 +58,12 @@ class TestBuildV2Command:
                 no_clean=False,
             )
 
-        assert len(cmd.issues) >= 1
+        load_issues = [issue for issue in cmd.issues if isinstance(issue, ModuleLoadingIssue)]
+        assert len(load_issues) == 1
+        assert load_issues[0].code == "MOD_001"
         assert (
-            Issue(
-                name="ModuleWithNonResourceDirectories",
-                message=f"Module 'ill_made_module' has non-resource directories: ['spaces']. {ModuleDefinition.short()}",
-            )
-            in cmd.issues
+            load_issues[0].message
+            == "Module 'modules/ill_made_module' contains unrecognized resource folder(s): spaces"
         )
 
     @pytest.mark.skipif(not Flags.GRAPHQL.is_enabled(), reason="GraphQL schema files will give warnings")

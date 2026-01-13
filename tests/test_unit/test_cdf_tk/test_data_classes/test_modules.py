@@ -119,8 +119,7 @@ class TestModules:
         _modules, issues = Modules.load(tmp_path)
 
         assert len(issues) == 1
-        assert issues[0].path == module_path
-        assert issues[0].message == f"Module {module_path.as_posix()!r} contains unrecognized resource folders: docs"
+        assert issues[0].message == "Module 'modules/mixed_module' contains unrecognized resource folder(s): docs"
 
     def test_module_with_normal_and_disabled_resources(self, tmp_path: Path) -> None:
         """Test that a module with both normal and disabled resource folders shows appropriate warnings."""
@@ -138,10 +137,9 @@ class TestModules:
 
         # The module should be loaded since it has at least one normal resource (transformations)
         assert len(modules.modules) == 1
-        assert issues[0].path == module_path
         assert (
             issues[0].message
-            == f"Module {module_path.as_posix()!r} contains unsupported resource folders, check flags in cdf.toml: streams"
+            == "Module 'modules/mixed_module' contains unsupported resource folder(s), check flags in cdf.toml: streams"
         )
 
     def test_module_with_no_resources(self, tmp_path: Path) -> None:
@@ -172,12 +170,8 @@ class TestModules:
         assert global_path not in module_paths
 
         # The parent module should be discarded with a ModuleLoadingIssue
-        parent_issues = [
-            issue for issue in issues if isinstance(issue, ModuleLoadingIssue) and issue.path == global_path
-        ]
-        assert len(parent_issues) > 0, (
-            f"Expected a ModuleLoadingIssue for parent module {global_path}, but found issues: {issues}"
-        )
+        assert len(issues) == 1
+        assert issues[0].message == "Module 'modules/global' is skipped because it has submodules"
 
     def test_functions_resource_folder_with_subfolder(self, tmp_path: Path) -> None:
         """Test that a functions resource folder with a subfolder (for function code) is still detected as a resource folder."""
