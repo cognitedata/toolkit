@@ -59,7 +59,7 @@ class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionId, WorkflowVersionReque
         """
         result: list[WorkflowVersionResponse] = []
         for item in items:
-            endpoint = f"/workflow/{item.workflow_external_id}/versions/{item.version}"
+            endpoint = f"/workflows/{item.workflow_external_id}/versions/{item.version}"
             retrieved = self._request_item_response([item], "retrieve", endpoint=endpoint)
             result.extend(retrieved)
         return result

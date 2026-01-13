@@ -57,7 +57,7 @@ class WorkflowsAPI(CDFResourceAPI[ExternalId, WorkflowRequest, WorkflowResponse]
         """
         result: list[WorkflowResponse] = []
         for item in items:
-            endpoint = f"/workflow/{item.external_id}"
+            endpoint = f"/workflows/{item.external_id}"
             retrieved = self._request_item_response([item], "retrieve", endpoint=endpoint)
             result.extend(retrieved)
         return result
