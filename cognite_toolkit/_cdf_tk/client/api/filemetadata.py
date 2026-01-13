@@ -137,7 +137,7 @@ class FileMetadataAPI(CDFResourceAPI[InternalOrExternalId, FileMetadataRequest, 
         filter: ClassicFilter | None = None,
         directory_prefix: str | None = None,
         uploaded: bool | None = None,
-        limit: int = 100,
+        limit: int | None = 100,
     ) -> Iterable[list[FileMetadataResponse]]:
         """Iterate over file metadata in CDF.
 

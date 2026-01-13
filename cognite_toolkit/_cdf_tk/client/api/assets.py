@@ -106,7 +106,7 @@ class AssetsAPI(CDFResourceAPI[InternalOrExternalId, AssetRequest, AssetResponse
         self,
         aggregated_properties: bool = False,
         filter: ClassicFilter | None = None,
-        limit: int = 100,
+        limit: int | None = 100,
     ) -> Iterable[list[AssetResponse]]:
         """Iterate over all assets in CDF.
 

@@ -20,6 +20,7 @@ from cognite.client.data_classes.datapoints_subscriptions import TimeSeriesIDLis
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 from cognite_toolkit._cdf_tk.constants import MAX_TIMESTAMP_MS, MIN_TIMESTAMP_MS
@@ -140,17 +141,9 @@ class TimeSeriesCRUD(ResourceContainerCRUD[ExternalId, TimeSeriesRequest, TimeSe
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[TimeSeriesResponse]:
-        cursor: str | None = None
-        while True:
-            page = self.client.tool.timeseries.paginate(
-                data_set_external_ids=[data_set_external_id] if data_set_external_id else None,
-                limit=1000,
-                cursor=cursor,
-            )
-            yield from page.items
-            if not page.next_cursor or not page.items:
-                break
-            cursor = page.next_cursor
+        filter_ = ClassicFilter.from_asset_subtree_and_data_sets(data_set_id=data_set_external_id)
+        for timeseries in self.client.tool.timeseries.iterate(filter=filter_, limit=None):
+            yield from timeseries
 
     def count(self, ids: SequenceNotStr[ExternalId]) -> int:
         datapoints = self.client.time_series.data.retrieve(

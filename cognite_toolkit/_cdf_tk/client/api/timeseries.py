@@ -109,7 +109,7 @@ class TimeSeriesAPI(CDFResourceAPI[InternalOrExternalId, TimeSeriesRequest, Time
     def iterate(
         self,
         filter: ClassicFilter | None = None,
-        limit: int = 100,
+        limit: int | None = 100,
     ) -> Iterable[list[TimeSeriesResponse]]:
         """Iterate over all time series in CDF.
 
