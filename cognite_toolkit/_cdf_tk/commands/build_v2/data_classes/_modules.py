@@ -137,7 +137,8 @@ class Modules(BaseModel):
         resource_folder = resource_file.parent
         crud = next(iter(ALL_CRUDS_BY_FOLDER_NAME.get(resource_folder.name, [])), None)
         if crud:
-            # iterate over the parents of the resource folder until we find the module folder. This is to handle the special case of a subfolder of a CRUD, or yamls in for example function subfolders.
+            # iterate over the parents of the resource folder until we find the module folder. 
+            # This is to handle the special case of a subfolder of a CRUD, or yamls in for example function subfolders.
             for p in resource_file.parents:
                 if p.name == crud.folder_name:
                     return p.parent
