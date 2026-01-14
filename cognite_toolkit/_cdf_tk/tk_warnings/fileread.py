@@ -271,6 +271,26 @@ class StreamlitRequirementsWarning(FileReadWarning):
 
 
 @dataclass(frozen=True)
+class FunctionRequirementsValidationWarning(FileReadWarning):
+    severity: ClassVar[SeverityLevel] = SeverityLevel.HIGH
+    function_external_id: str
+    error_details: str
+    is_credential_error: bool
+
+    def get_message(self) -> str:
+        message = (
+            f"Function [bold]{self.function_external_id}[/bold] requirements.txt validation failed. "
+            f"Packages could not be resolved: {self.error_details}"
+        )
+        if self.is_credential_error:
+            message += (
+                f"\n{HINT_LEAD_TEXT}This appears to be a credential/authentication issue. "
+                "Check if the Personal Access Token (PAT) or credentials in indexUrl are valid and not expired."
+            )
+        return message
+
+
+@dataclass(frozen=True)
 class ResourceFormatWarning(FileReadWarning):
     severity: ClassVar[SeverityLevel] = SeverityLevel.HIGH
     errors: tuple[str, ...]

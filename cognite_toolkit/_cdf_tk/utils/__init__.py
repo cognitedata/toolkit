@@ -20,10 +20,12 @@ from .hashing import (
     calculate_secure_hash,
 )
 from .modules import find_directory_with_subdirectories, iterate_modules, module_from_path, resource_folder_from_path
+from .pip_validator import PipValidationResult, has_template_variables, validate_requirements_with_pip
 from .sentry_utils import sentry_exception_filter
 
 __all__ = [
     "GraphQLParser",
+    "PipValidationResult",
     "YAMLComment",
     "YAMLWithComments",
     "calculate_directory_hash",
@@ -32,6 +34,7 @@ __all__ = [
     "find_directory_with_subdirectories",
     "flatten_dict",
     "get_cicd_environment",
+    "has_template_variables",
     "humanize_collection",
     "in_dict",
     "iterate_modules",
@@ -50,4 +53,5 @@ __all__ = [
     "stringify_value_by_key_in_yaml",
     "tmp_build_directory",
     "to_diff",
+    "validate_requirements_with_pip",
 ]
