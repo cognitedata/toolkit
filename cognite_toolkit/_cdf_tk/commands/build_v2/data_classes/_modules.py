@@ -124,12 +124,6 @@ class Modules(BaseModel):
                     message=f"Module {module_path(organization_dir, k)!r} contains unrecognized resource folder(s): {', '.join(v)}"
                 )
             )
-        # for k, v in detected_disabled_resource_folders.items():
-        #     issues.append(
-        #         ModuleLoadingIssue(
-        #             message=f"Module {module_path(organization_dir, k)!r} contains unsupported resource folder(s), check flags in cdf.toml: {', '.join(v)}"
-        #         )
-        #     )
 
         return cls(
             organization_dir=organization_dir,
