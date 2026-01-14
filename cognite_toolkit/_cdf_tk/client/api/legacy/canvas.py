@@ -16,7 +16,7 @@ from cognite.client.exceptions import CogniteDuplicatedError
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_data_modeling import ExtendedInstancesAPI
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.canvas import (
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
     ANNOTATION_EDGE_TYPE,
     CANVAS_INSTANCE_SPACE,
     CONTAINER_REFERENCE_EDGE_TYPE,
@@ -30,7 +30,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.legacy.canvas import (
     IndustrialCanvas,
     IndustrialCanvasApply,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.instances import InstancesApplyResultList
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.instances import InstancesApplyResultList
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 
 

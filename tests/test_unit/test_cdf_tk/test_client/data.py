@@ -22,11 +22,11 @@ from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsA
 from cognite_toolkit._cdf_tk.client.api.timeseries import TimeSeriesAPI
 from cognite_toolkit._cdf_tk.client.api.transformations import TransformationsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI
-from cognite_toolkit._cdf_tk.client.data_classes.agent import AgentRequest, AgentResponse
-from cognite_toolkit._cdf_tk.client.data_classes.annotation import AnnotationRequest, AnnotationResponse
-from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetRequest, AssetResponse
-from cognite_toolkit._cdf_tk.client.data_classes.base import Identifier, RequestResource, ResponseResource
-from cognite_toolkit._cdf_tk.client.data_classes.data_modeling import (
+from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationRequest, AnnotationResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.base import Identifier, RequestResource, ResponseResource
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerRequest,
     ContainerResponse,
     DataModelRequest,
@@ -40,36 +40,36 @@ from cognite_toolkit._cdf_tk.client.data_classes.data_modeling import (
     ViewRequest,
     ViewResponse,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.dataset import DataSetRequest, DataSetResponse
-from cognite_toolkit._cdf_tk.client.data_classes.event import EventRequest, EventResponse
-from cognite_toolkit._cdf_tk.client.data_classes.extraction_pipeline import (
+from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (
     ExtractionPipelineRequest,
     ExtractionPipelineResponse,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
-from cognite_toolkit._cdf_tk.client.data_classes.function import FunctionRequest, FunctionResponse
-from cognite_toolkit._cdf_tk.client.data_classes.function_schedule import (
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleRequest,
     FunctionScheduleResponse,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_model import (
+from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import (
     GraphQLDataModelRequest,
     GraphQLDataModelResponse,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.group import GroupRequest, GroupResponse
-from cognite_toolkit._cdf_tk.client.data_classes.hosted_extractor_destination import (
+from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupRequest, GroupResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_destination import (
     HostedExtractorDestinationRequest,
     HostedExtractorDestinationResponse,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.hosted_extractor_job import (
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_job import (
     HostedExtractorJobRequest,
     HostedExtractorJobResponse,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.hosted_extractor_mapping import (
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_mapping import (
     HostedExtractorMappingRequest,
     HostedExtractorMappingResponse,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.hosted_extractor_source import (
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source import (
     KafkaSourceRequest,
     KafkaSourceResponse,
     MQTTSourceRequest,
@@ -77,11 +77,14 @@ from cognite_toolkit._cdf_tk.client.data_classes.hosted_extractor_source import 
     RESTSourceRequest,
     RESTSourceResponse,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.label import LabelRequest, LabelResponse
-from cognite_toolkit._cdf_tk.client.data_classes.location_filter import LocationFilterRequest, LocationFilterResponse
-from cognite_toolkit._cdf_tk.client.data_classes.raw import RAWDatabase, RAWTable
-from cognite_toolkit._cdf_tk.client.data_classes.relationship import RelationshipRequest, RelationshipResponse
-from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
+from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest, LabelResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
+    LocationFilterRequest,
+    LocationFilterResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabase, RAWTable
+from cognite_toolkit._cdf_tk.client.resource_classes.relationship import RelationshipRequest, RelationshipResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
     RobotCapabilityRequest,
     RobotCapabilityResponse,
     RobotDataPostProcessingRequest,
@@ -95,23 +98,29 @@ from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
     RobotRequest,
     RobotResponse,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.search_config_resource import SearchConfigRequest, SearchConfigResponse
-from cognite_toolkit._cdf_tk.client.data_classes.securitycategory import (
+from cognite_toolkit._cdf_tk.client.resource_classes.search_config_resource import (
+    SearchConfigRequest,
+    SearchConfigResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import (
     SecurityCategoryRequest,
     SecurityCategoryResponse,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.sequence import SequenceRequest, SequenceResponse
-from cognite_toolkit._cdf_tk.client.data_classes.sequence_rows import SequenceRowsRequest, SequenceRowsResponse
-from cognite_toolkit._cdf_tk.client.data_classes.simulator_model import SimulatorModelRequest, SimulatorModelResponse
-from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import StreamlitRequest, StreamlitResponse
-from cognite_toolkit._cdf_tk.client.data_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
-from cognite_toolkit._cdf_tk.client.data_classes.transformation import TransformationRequest, TransformationResponse
-from cognite_toolkit._cdf_tk.client.data_classes.workflow import WorkflowRequest, WorkflowResponse
-from cognite_toolkit._cdf_tk.client.data_classes.workflow_trigger import (
+from cognite_toolkit._cdf_tk.client.resource_classes.sequence import SequenceRequest, SequenceResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.sequence_rows import SequenceRowsRequest, SequenceRowsResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.simulator_model import (
+    SimulatorModelRequest,
+    SimulatorModelResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitRequest, StreamlitResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationRequest, TransformationResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowRequest, WorkflowResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     WorkflowTriggerRequest,
     WorkflowTriggerResponse,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.workflow_version import (
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
     WorkflowVersionRequest,
     WorkflowVersionResponse,
 )

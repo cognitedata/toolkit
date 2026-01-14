@@ -5,20 +5,20 @@ from pydantic import TypeAdapter
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.cdf_client.responses import QueryResponse
-from cognite_toolkit._cdf_tk.client.data_classes.infield import (
-    DataExplorationConfig,
-    InFieldCDMLocationConfig,
-    InfieldLocationConfig,
-)
-from cognite_toolkit._cdf_tk.client.data_classes.instance_api import (
-    InstanceResponseItem,
-    InstanceResult,
-    TypedNodeIdentifier,
-)
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ItemsRequest2,
     RequestMessage2,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
+    DataExplorationConfig,
+    InFieldCDMLocationConfig,
+    InfieldLocationConfig,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import (
+    InstanceResponseItem,
+    InstanceResult,
+    TypedNodeIdentifier,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 

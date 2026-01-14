@@ -6,11 +6,12 @@ from typing import Any, ClassVar, Generic
 from cognite.client.data_classes import Label, LabelDefinition
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetAggregateItem, AssetRequest, AssetResponse
-from cognite_toolkit._cdf_tk.client.data_classes.event import EventRequest, EventResponse
-from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataResponse
-from cognite_toolkit._cdf_tk.client.data_classes.identifiers import InternalId
-from cognite_toolkit._cdf_tk.client.data_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetAggregateItem, AssetRequest, AssetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 from cognite_toolkit._cdf_tk.cruds import (
     AssetCRUD,
     DataSetsCRUD,
@@ -89,17 +90,14 @@ class AssetCentricIO(
             list(self._downloaded_labels_by_selector[selector]), LabelCRUD.create_loader(self.client)
         )
 
-    def _get_hierarchy_dataset_pair(self, selector: AssetCentricSelector) -> tuple[list[str] | None, list[str] | None]:
-        asset_subtree_external_ids: list[str] | None = None
-        data_set_external_ids: list[str] | None = None
+    def _get_classic_filter(self, selector: AssetCentricSelector) -> ClassicFilter:
         if isinstance(selector, DataSetSelector):
-            data_set_external_ids = [selector.data_set_external_id]
+            return ClassicFilter.from_asset_subtree_and_data_sets(data_set_id=selector.data_set_external_id)
         elif isinstance(selector, AssetSubtreeSelector):
-            asset_subtree_external_ids = [selector.hierarchy]
+            return ClassicFilter.from_asset_subtree_and_data_sets(asset_subtree_id=selector.hierarchy)
         else:
             # This selector is for uploads, not for downloading from CDF.
             raise ToolkitNotImplementedError(f"Selector type {type(selector)} not supported for {type(self).__name__}.")
-        return asset_subtree_external_ids, data_set_external_ids
 
     def _collect_dependencies(
         self,
@@ -307,14 +305,13 @@ class AssetIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
         return asset_schema + metadata_schema
 
     def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[Page]:
-        asset_subtree_external_ids, data_set_external_ids = self._get_hierarchy_dataset_pair(selector)
+        filter_ = self._get_classic_filter(selector)
         cursor: str | None = None
         total_count = 0
         while True:
-            page = self.client.tool.assets.iterate(
+            page = self.client.tool.assets.paginate(
                 aggregated_properties=True,
-                data_set_external_ids=data_set_external_ids,
-                asset_subtree_external_ids=asset_subtree_external_ids,
+                filter=filter_,
                 limit=self.CHUNK_SIZE,
                 cursor=cursor,
             )
@@ -436,13 +433,12 @@ class FileMetadataIO(AssetCentricIO[FileMetadataResponse]):
     def stream_data(
         self, selector: AssetCentricSelector, limit: int | None = None
     ) -> Iterable[Page[FileMetadataResponse]]:
-        asset_subtree_external_ids, data_set_external_ids = self._get_hierarchy_dataset_pair(selector)
+        filter_ = self._get_classic_filter(selector)
         cursor: str | None = None
         total_count = 0
         while True:
-            page = self.client.tool.filemetadata.iterate(
-                data_set_external_ids=data_set_external_ids,
-                asset_subtree_external_ids=asset_subtree_external_ids,
+            page = self.client.tool.filemetadata.paginate(
+                filter=filter_,
                 limit=self.CHUNK_SIZE,
                 cursor=cursor,
             )
@@ -490,13 +486,12 @@ class TimeSeriesIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesReques
         return self.client.tool.timeseries.retrieve(InternalId.from_ids(ids))
 
     def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[Page]:
-        asset_subtree_external_ids, data_set_external_ids = self._get_hierarchy_dataset_pair(selector)
+        filter_ = self._get_classic_filter(selector)
         cursor: str | None = None
         total_count = 0
         while True:
-            page = self.client.tool.timeseries.iterate(
-                data_set_external_ids=data_set_external_ids,
-                asset_subtree_external_ids=asset_subtree_external_ids,
+            page = self.client.tool.timeseries.paginate(
+                filter=filter_,
                 limit=self.CHUNK_SIZE,
                 cursor=cursor,
             )
@@ -624,13 +619,12 @@ class EventIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
         return event_schema + metadata_schema
 
     def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[Page]:
-        asset_subtree_external_ids, data_set_external_ids = self._get_hierarchy_dataset_pair(selector)
+        filter_ = self._get_classic_filter(selector)
         cursor: str | None = None
         total_count = 0
         while True:
-            page = self.client.tool.events.iterate(
-                data_set_external_ids=data_set_external_ids,
-                asset_subtree_external_ids=asset_subtree_external_ids,
+            page = self.client.tool.events.paginate(
+                filter=filter_,
                 limit=self.CHUNK_SIZE,
                 cursor=cursor,
             )

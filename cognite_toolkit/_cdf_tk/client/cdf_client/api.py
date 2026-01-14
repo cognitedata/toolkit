@@ -13,12 +13,6 @@ from typing import Any, Generic, Literal, TypeAlias, TypeVar
 
 from pydantic import BaseModel, JsonValue
 
-from cognite_toolkit._cdf_tk.client.data_classes.base import (
-    RequestUpdateable,
-    T_Identifier,
-    T_RequestResource,
-    T_ResponseResource,
-)
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ItemsRequest2,
@@ -26,9 +20,15 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     RequestMessage2,
     SuccessResponse2,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.base import (
+    RequestUpdateable,
+    T_Identifier,
+    T_RequestResource,
+    T_ResponseResource,
+)
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 
-from .responses import PagedResponse, ResponseItems
+from .responses import PagedResponse
 
 _T_BaseModel = TypeVar("_T_BaseModel", bound=BaseModel)
 
@@ -74,13 +74,10 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         return [item.as_update(mode=mode) for item in items]
 
     @abstractmethod
-    def _page_response(self, response: SuccessResponse2 | ItemsSuccessResponse2) -> PagedResponse[T_ResponseResource]:
+    def _validate_page_response(
+        self, response: SuccessResponse2 | ItemsSuccessResponse2
+    ) -> PagedResponse[T_ResponseResource]:
         """Parse a single item response."""
-        raise NotImplementedError()
-
-    @abstractmethod
-    def _reference_response(self, response: SuccessResponse2) -> ResponseItems[T_Identifier]:
-        """Parse a reference response."""
         raise NotImplementedError()
 
     def _make_url(self, path: str = "") -> str:
@@ -95,7 +92,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         for response in self._chunk_requests(
             items, "update", serialization=partial(self._serialize_updates, mode=mode)
         ):
-            response_items.extend(self._page_response(response).items)
+            response_items.extend(self._validate_page_response(response).items)
         return response_items
 
     def _request_item_response(
@@ -108,20 +105,8 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
     ) -> list[T_ResponseResource]:
         response_items: list[T_ResponseResource] = []
         for response in self._chunk_requests(items, method, self._serialize_items, params, extra_body, endpoint):
-            response_items.extend(self._page_response(response).items)
+            response_items.extend(self._validate_page_response(response).items)
         return response_items
-
-    def _request_reference_response(
-        self,
-        items: Sequence[BaseModel],
-        method: APIMethod,
-        params: dict[str, Any] | None = None,
-        extra_body: dict[str, Any] | None = None,
-    ) -> list[T_Identifier]:
-        all_ids: list[T_Identifier] = []
-        for response in self._chunk_requests(items, method, self._serialize_items, params, extra_body):
-            all_ids.extend(self._reference_response(response).items)
-        return all_ids
 
     def _request_no_response(
         self,
@@ -192,7 +177,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         """
         response_items: list[T_ResponseResource] = []
         for response in self._chunk_requests_items_split_retries(items, method, params, extra_body):
-            response_items.extend(self._page_response(response).items)
+            response_items.extend(self._validate_page_response(response).items)
         return response_items
 
     def _chunk_requests_items_split_retries(
@@ -254,7 +239,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
             grouped_items[key].append(item)
         return grouped_items
 
-    def _iterate(
+    def _paginate(
         self,
         limit: int,
         cursor: str | None = None,
@@ -305,22 +290,35 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         )
         result = self._http_client.request_single_retries(request)
         response = result.get_success_or_raise()
-        return self._page_response(response)
+        return self._validate_page_response(response)
+
+    def _iterate(
+        self,
+        limit: int | None = None,
+        cursor: str | None = None,
+        params: dict[str, Any] | None = None,
+        body: dict[str, Any] | None = None,
+        endpoint_path: str | None = None,
+    ) -> Iterable[list[T_ResponseResource]]:
+        """Iterate over all resources, handling pagination automatically."""
+        next_cursor = cursor
+        total = 0
+        endpoint = self._method_endpoint_map["list"]
+        while True:
+            page_limit = endpoint.item_limit if limit is None else min(limit - total, endpoint.item_limit)
+            page = self._paginate(
+                limit=page_limit, cursor=next_cursor, params=params, body=body, endpoint_path=endpoint_path
+            )
+            yield page.items
+            total += len(page.items)
+            if page.next_cursor is None or (limit is not None and total >= limit):
+                break
+            next_cursor = page.next_cursor
 
     def _list(
         self, limit: int | None = None, params: dict[str, Any] | None = None, endpoint_path: str | None = None
     ) -> list[T_ResponseResource]:
         """List all resources, handling pagination automatically."""
-        all_items: list[T_ResponseResource] = []
-        next_cursor: str | None = None
-        total = 0
-        endpoint = self._method_endpoint_map["list"]
-        while True:
-            page_limit = endpoint.item_limit if limit is None else min(limit - total, endpoint.item_limit)
-            page = self._iterate(limit=page_limit, cursor=next_cursor, params=params, endpoint_path=endpoint_path)
-            all_items.extend(page.items)
-            total += len(page.items)
-            if page.next_cursor is None or (limit is not None and total >= limit):
-                break
-            next_cursor = page.next_cursor
-        return all_items
+        return [
+            item for batch in self._iterate(limit=limit, params=params, endpoint_path=endpoint_path) for item in batch
+        ]

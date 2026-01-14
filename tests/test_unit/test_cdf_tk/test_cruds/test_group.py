@@ -6,7 +6,7 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client.data_classes import Group, GroupWrite
 
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.raw import RawDatabase, RawTable
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawDatabase, RawTable
 from cognite_toolkit._cdf_tk.cruds import (
     DataSetsCRUD,
     ExtractionPipelineCRUD,

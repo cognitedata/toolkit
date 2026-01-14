@@ -6,18 +6,18 @@ from pydantic import TypeAdapter
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.cdf_client.responses import PagedResponse
-from cognite_toolkit._cdf_tk.client.data_classes.identifiers import InternalId
-from cognite_toolkit._cdf_tk.client.data_classes.three_d import (
+from cognite_toolkit._cdf_tk.client.http_client import (
+    HTTPClient,
+    ItemsRequest2,
+    RequestMessage2,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicRequest,
     AssetMappingDMRequest,
     AssetMappingResponse,
     ThreeDModelClassicRequest,
     ThreeDModelResponse,
-)
-from cognite_toolkit._cdf_tk.client.http_client import (
-    HTTPClient,
-    ItemsRequest2,
-    RequestMessage2,
 )
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import PrimitiveType
@@ -76,7 +76,7 @@ class ThreeDModelAPI:
         )
         responses.raise_for_status()
 
-    def iterate(
+    def paginate(
         self,
         published: bool | None = None,
         include_revision_info: bool = False,
@@ -122,7 +122,7 @@ class ThreeDModelAPI:
             )
             if request_limit <= 0:
                 break
-            page = self.iterate(
+            page = self.paginate(
                 published=published,
                 include_revision_info=include_revision_info,
                 limit=request_limit,
@@ -287,7 +287,7 @@ class ThreeDAssetMappingAPI:
             responses.raise_for_status()
         return None
 
-    def iterate(
+    def paginate(
         self,
         model_id: int,
         revision_id: int,
@@ -361,7 +361,7 @@ class ThreeDAssetMappingAPI:
             )
             if request_limit <= 0:
                 break
-            page = self.iterate(
+            page = self.paginate(
                 model_id=model_id,
                 revision_id=revision_id,
                 asset_ids=asset_ids,

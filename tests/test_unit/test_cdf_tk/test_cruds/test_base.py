@@ -22,8 +22,8 @@ from pytest import MonkeyPatch
 from pytest_regressions.data_regression import DataRegressionFixture
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.graphql_data_models import GraphQLDataModel
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.streamlit_ import Streamlit
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.graphql_data_models import GraphQLDataModel
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.streamlit_ import Streamlit
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, ModulesCommand
 from cognite_toolkit._cdf_tk.constants import MODULES

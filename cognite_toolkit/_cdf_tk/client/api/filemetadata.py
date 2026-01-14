@@ -1,16 +1,17 @@
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
-from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
-from cognite_toolkit._cdf_tk.client.data_classes.identifiers import InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ItemsSuccessResponse2,
     RequestMessage2,
     SuccessResponse2,
 )
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalOrExternalId
 
 
 class FileMetadataAPI(CDFResourceAPI[InternalOrExternalId, FileMetadataRequest, FileMetadataResponse]):
@@ -26,7 +27,9 @@ class FileMetadataAPI(CDFResourceAPI[InternalOrExternalId, FileMetadataRequest, 
             },
         )
 
-    def _page_response(self, response: SuccessResponse2 | ItemsSuccessResponse2) -> PagedResponse[FileMetadataResponse]:
+    def _validate_page_response(
+        self, response: SuccessResponse2 | ItemsSuccessResponse2
+    ) -> PagedResponse[FileMetadataResponse]:
         return PagedResponse[FileMetadataResponse].model_validate_json(response.body)
 
     def _reference_response(self, response: SuccessResponse2) -> ResponseItems[InternalOrExternalId]:
@@ -56,7 +59,7 @@ class FileMetadataAPI(CDFResourceAPI[InternalOrExternalId, FileMetadataRequest, 
             )
             response = self._http_client.request_single_retries(request)
             result = response.get_success_or_raise()
-            results.extend(self._page_response(result).items)
+            results.extend(self._validate_page_response(result).items)
         return results
 
     def retrieve(
@@ -97,10 +100,9 @@ class FileMetadataAPI(CDFResourceAPI[InternalOrExternalId, FileMetadataRequest, 
         """
         self._request_no_response(items, "delete", extra_body={"ignoreUnknownIds": ignore_unknown_ids})
 
-    def iterate(
+    def paginate(
         self,
-        data_set_external_ids: list[str] | None = None,
-        asset_subtree_external_ids: list[str] | None = None,
+        filter: ClassicFilter | None = None,
         directory_prefix: str | None = None,
         uploaded: bool | None = None,
         limit: int = 100,
@@ -109,8 +111,7 @@ class FileMetadataAPI(CDFResourceAPI[InternalOrExternalId, FileMetadataRequest, 
         """Iterate over file metadata in CDF.
 
         Args:
-            data_set_external_ids: Filter by data set external IDs.
-            asset_subtree_external_ids: Filter by asset subtree external IDs.
+            filter: Filter by data set IDs and/or asset subtree IDs.
             directory_prefix: Filter by directory prefix.
             uploaded: Filter by upload status.
             limit: Maximum number of items to return per page.
@@ -119,18 +120,43 @@ class FileMetadataAPI(CDFResourceAPI[InternalOrExternalId, FileMetadataRequest, 
         Returns:
             PagedResponse of FileMetadataResponse objects.
         """
-        filter_: dict[str, Any] = {}
-        if asset_subtree_external_ids:
-            filter_["assetSubtreeIds"] = [{"externalId": ext_id} for ext_id in asset_subtree_external_ids]
-        if data_set_external_ids:
-            filter_["dataSetIds"] = [{"externalId": ds_id} for ds_id in data_set_external_ids]
+        filter_: dict[str, Any] = filter.dump() if filter else {}
+        if directory_prefix is not None:
+            filter_["directoryPrefix"] = directory_prefix
+        if uploaded is not None:
+            filter_["uploaded"] = uploaded
+
+        return self._paginate(
+            cursor=cursor,
+            limit=limit,
+            body={"filter": filter_ or None},
+        )
+
+    def iterate(
+        self,
+        filter: ClassicFilter | None = None,
+        directory_prefix: str | None = None,
+        uploaded: bool | None = None,
+        limit: int | None = 100,
+    ) -> Iterable[list[FileMetadataResponse]]:
+        """Iterate over file metadata in CDF.
+
+        Args:
+            filter: Filter by data set IDs and/or asset subtree IDs.
+            directory_prefix: Filter by directory prefix.
+            uploaded: Filter by upload status.
+            limit: Maximum number of items to return per page.
+
+        Returns:
+            Iterable of lists of FileMetadataResponse objects.
+        """
+        filter_: dict[str, Any] = filter.dump() if filter else {}
         if directory_prefix is not None:
             filter_["directoryPrefix"] = directory_prefix
         if uploaded is not None:
             filter_["uploaded"] = uploaded
 
         return self._iterate(
-            cursor=cursor,
             limit=limit,
             body={"filter": filter_ or None},
         )

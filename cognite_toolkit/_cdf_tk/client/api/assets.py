@@ -1,11 +1,12 @@
-from collections.abc import Sequence
-from typing import Any, Literal
+from collections.abc import Iterable, Sequence
+from typing import Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
-from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetRequest, AssetResponse
-from cognite_toolkit._cdf_tk.client.data_classes.identifiers import InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalOrExternalId
 
 
 class AssetsAPI(CDFResourceAPI[InternalOrExternalId, AssetRequest, AssetResponse]):
@@ -21,7 +22,9 @@ class AssetsAPI(CDFResourceAPI[InternalOrExternalId, AssetRequest, AssetResponse
             },
         )
 
-    def _page_response(self, response: SuccessResponse2 | ItemsSuccessResponse2) -> PagedResponse[AssetResponse]:
+    def _validate_page_response(
+        self, response: SuccessResponse2 | ItemsSuccessResponse2
+    ) -> PagedResponse[AssetResponse]:
         return PagedResponse[AssetResponse].model_validate_json(response.body)
 
     def _reference_response(self, response: SuccessResponse2) -> ResponseItems[InternalOrExternalId]:
@@ -78,11 +81,10 @@ class AssetsAPI(CDFResourceAPI[InternalOrExternalId, AssetRequest, AssetResponse
             items, "delete", extra_body={"recursive": recursive, "ignoreUnknownIds": ignore_unknown_ids}
         )
 
-    def iterate(
+    def paginate(
         self,
         aggregated_properties: bool = False,
-        data_set_external_ids: list[str] | None = None,
-        asset_subtree_external_ids: list[str] | None = None,
+        filter: ClassicFilter | None = None,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[AssetResponse]:
@@ -91,25 +93,35 @@ class AssetsAPI(CDFResourceAPI[InternalOrExternalId, AssetRequest, AssetResponse
         Returns:
             PagedResponse of AssetResponse objects.
         """
-        filter_: dict[str, Any] = {}
-        if asset_subtree_external_ids:
-            filter_["assetSubtreeExternalIds"] = [{"externalId": ext_id} for ext_id in asset_subtree_external_ids]
-        if data_set_external_ids:
-            filter_["dataSetIds"] = [{"externalId": ds_id} for ds_id in data_set_external_ids]
-
-        return self._iterate(
+        return self._paginate(
             cursor=cursor,
             limit=limit,
             body={
                 "aggregatedProperties": ["childCount", "path", "depth"] if aggregated_properties else [],
-                "filter": filter_ or None,
+                "filter": filter.dump() if filter else None,
             },
         )
 
-    def list(
+    def iterate(
         self,
+        aggregated_properties: bool = False,
+        filter: ClassicFilter | None = None,
         limit: int | None = 100,
-    ) -> list[AssetResponse]:
+    ) -> Iterable[list[AssetResponse]]:
+        """Iterate over all assets in CDF.
+
+        Returns:
+            Sequence of AssetResponse objects.
+        """
+        return self._iterate(
+            limit=limit,
+            body={
+                "aggregatedProperties": ["childCount", "path", "depth"] if aggregated_properties else [],
+                "filter": filter.dump() if filter else None,
+            },
+        )
+
+    def list(self, limit: int | None = 100) -> list[AssetResponse]:
         """List all asset references in CDF.
 
         Returns:

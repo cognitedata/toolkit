@@ -22,7 +22,7 @@ from cognite.client.data_classes.capabilities import (
     UnknownScope,
 )
 
-from cognite_toolkit._cdf_tk.client.data_classes.capabilities import scope_intersection, scope_union
+from cognite_toolkit._cdf_tk.client.resource_classes.capabilities import scope_intersection, scope_union
 from tests.test_unit.utils import FakeCogniteResourceGenerator
 
 

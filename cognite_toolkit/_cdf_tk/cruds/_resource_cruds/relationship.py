@@ -11,7 +11,7 @@ from cognite.client.data_classes.capabilities import Capability
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk.client.data_classes.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import RelationshipYAML
 

@@ -11,11 +11,14 @@ from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersion
 from cognite_toolkit._cdf_tk.client.api.workflows import WorkflowsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import APIMethod
-from cognite_toolkit._cdf_tk.client.data_classes.raw import RAWTable
-from cognite_toolkit._cdf_tk.client.data_classes.workflow import WorkflowResponse
-from cognite_toolkit._cdf_tk.client.data_classes.workflow_trigger import WorkflowTriggerRequest, WorkflowTriggerResponse
-from cognite_toolkit._cdf_tk.client.data_classes.workflow_version import WorkflowVersionResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTable
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
+    WorkflowTriggerRequest,
+    WorkflowTriggerResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionResponse
 from tests.test_unit.test_cdf_tk.test_client.data import (
     CDFResource,
     get_example_minimum_responses,
@@ -71,13 +74,20 @@ class TestCDFResourceAPI:
             listed = api.list(limit=10)
             assert len(listed) >= 1
             assert listed[0].dump() == resource.example_data
-        if hasattr(api, "iterate"):
+        if hasattr(api, "paginate"):
             self._mock_endpoint(api, "list", {"items": [resource.example_data]}, respx_mock)
 
-            page = api.iterate()
+            page = api.paginate()
             assert isinstance(page, PagedResponse)
             assert len(page.items) == 1
             assert page.items[0].dump() == resource.example_data
+        if hasattr(api, "iterate"):
+            self._mock_endpoint(api, "list", {"items": [resource.example_data]}, respx_mock)
+
+            batches = list(api.iterate())
+            assert len(batches) >= 1
+            items = [item for batch in batches for item in batch]
+            assert items[0].dump() == resource.example_data
 
     @classmethod
     def _mock_endpoint(
@@ -133,7 +143,7 @@ class TestCDFResourceAPI:
         respx_mock.get(config.create_api_url(f"/raw/dbs/{instance.db_name}/tables")).mock(
             return_value=httpx.Response(status_code=200, json={"items": [resource]})
         )
-        page = api.iterate(db_name=instance.db_name, limit=10)
+        page = api.paginate(db_name=instance.db_name, limit=10)
         assert len(page.items) == 1
         assert page.items[0] == instance
 
@@ -179,7 +189,7 @@ class TestCDFResourceAPI:
         assert len(listed) == 1
         assert listed[0].dump() == resource
 
-        page = api.iterate(limit=10)
+        page = api.paginate(limit=10)
         assert len(page.items) == 1
         assert page.items[0].dump() == resource
 
@@ -227,7 +237,7 @@ class TestCDFResourceAPI:
         assert len(listed) == 1
         assert listed[0].dump() == resource
 
-        page = api.iterate(limit=10)
+        page = api.paginate(limit=10)
         assert len(page.items) == 1
         assert page.items[0].dump() == resource
 
@@ -269,6 +279,6 @@ class TestCDFResourceAPI:
         assert len(listed) == 1
         assert listed[0].dump() == resource
 
-        page = api.iterate(limit=10)
+        page = api.paginate(limit=10)
         assert len(page.items) == 1
         assert page.items[0].dump() == resource

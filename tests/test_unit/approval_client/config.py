@@ -116,42 +116,45 @@ from cognite.client.data_classes.transformations.notifications import (
     TransformationNotificationWrite,
 )
 
-from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetRequest, AssetResponse
-from cognite_toolkit._cdf_tk.client.data_classes.event import EventRequest, EventResponse
-from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
-from cognite_toolkit._cdf_tk.client.data_classes.infield import (
+from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     InFieldCDMLocationConfig,
     InfieldLocationConfig,
     InfieldLocationConfigList,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.legacy import robotics
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.graphql_data_models import (
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy import robotics
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.graphql_data_models import (
     GraphQLDataModel,
     GraphQLDataModelList,
     GraphQLDataModelWrite,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.location_filters import (
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.location_filters import (
     LocationFilter,
     LocationFilterList,
     LocationFilterWrite,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import (
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import (
     ResourceViewMapping,
     ResourceViewMappingApply,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.raw import RawDatabase
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.search_config import (
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawDatabase
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import (
     SearchConfig,
     SearchConfigList,
     SearchConfigWrite,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.simulator_model import SimulatorModelRequest, SimulatorModelResponse
-from cognite_toolkit._cdf_tk.client.data_classes.streams import (
+from cognite_toolkit._cdf_tk.client.resource_classes.simulator_model import (
+    SimulatorModelRequest,
+    SimulatorModelResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
     StreamRequest,
     StreamResponse,
     StreamResponseList,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 
 from .data_classes import APIResource, Method
 

@@ -15,11 +15,11 @@ from cognite.client.data_classes import (
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse
-from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetResponse
-from cognite_toolkit._cdf_tk.client.data_classes.event import EventResponse
-from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataResponse
-from cognite_toolkit._cdf_tk.client.data_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
+from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
 from cognite_toolkit._cdf_tk.storageio import (
@@ -170,10 +170,10 @@ def asset_centric_client(
             file_items = file_chunks.pop()
             return PagedResponse(items=file_items, nextCursor="cursor" if file_chunks else None)
 
-        client.tool.assets.iterate.side_effect = iterate_assets
-        client.tool.timeseries.iterate.side_effect = iterate_timeseries
-        client.tool.events.iterate.side_effect = iterate_events
-        client.tool.filemetadata.iterate.side_effect = iterate_files
+        client.tool.assets.paginate.side_effect = iterate_assets
+        client.tool.timeseries.paginate.side_effect = iterate_timeseries
+        client.tool.events.paginate.side_effect = iterate_events
+        client.tool.filemetadata.paginate.side_effect = iterate_files
 
         client.assets.aggregate_count.return_value = RESOURCE_COUNT
         client.files.aggregate.return_value = [CountAggregate(RESOURCE_COUNT)]

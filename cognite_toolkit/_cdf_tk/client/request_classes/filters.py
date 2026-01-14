@@ -1,0 +1,38 @@
+import sys
+
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalId
+
+from .base import BaseModelRequest
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
+
+
+class Filter(BaseModelRequest): ...
+
+
+class ClassicFilter(Filter):
+    asset_subtree_ids: list[ExternalId | InternalId] | None = None
+    data_set_ids: list[ExternalId | InternalId] | None = None
+
+    @classmethod
+    def from_asset_subtree_and_data_sets(
+        cls,
+        asset_subtree_id: str | int | list[str | int] | None = None,
+        data_set_id: str | int | list[str | int] | None = None,
+    ) -> Self:
+        return cls(
+            asset_subtree_ids=cls._as_internal_or_external_id_list(asset_subtree_id),
+            data_set_ids=cls._as_internal_or_external_id_list(data_set_id),
+        )
+
+    @classmethod
+    def _as_internal_or_external_id_list(
+        cls, id: str | int | list[str | int] | None
+    ) -> list[ExternalId | InternalId] | None:
+        if id is None:
+            return None
+        ids = id if isinstance(id, list) else [id]
+        return [ExternalId(external_id=item) if isinstance(item, str) else InternalId(id=item) for item in ids]

@@ -7,7 +7,7 @@ import typer
 from questionary import Choice
 from rich import print
 
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.raw import RawTable
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawTable
 from cognite_toolkit._cdf_tk.commands import DownloadCommand
 from cognite_toolkit._cdf_tk.constants import DATA_DEFAULT_DIR
 from cognite_toolkit._cdf_tk.feature_flags import Flags

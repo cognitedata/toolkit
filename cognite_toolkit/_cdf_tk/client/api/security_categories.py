@@ -1,14 +1,14 @@
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from typing import Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
-from cognite_toolkit._cdf_tk.client.data_classes.identifiers import InternalId
-from cognite_toolkit._cdf_tk.client.data_classes.securitycategory import (
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import (
     SecurityCategoryRequest,
     SecurityCategoryResponse,
 )
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
 
 
 class SecurityCategoriesAPI(CDFResourceAPI[InternalId, SecurityCategoryRequest, SecurityCategoryResponse]):
@@ -22,7 +22,7 @@ class SecurityCategoriesAPI(CDFResourceAPI[InternalId, SecurityCategoryRequest, 
             },
         )
 
-    def _page_response(
+    def _validate_page_response(
         self, response: SuccessResponse2 | ItemsSuccessResponse2
     ) -> PagedResponse[SecurityCategoryResponse]:
         return PagedResponse[SecurityCategoryResponse].model_validate_json(response.body)
@@ -48,7 +48,7 @@ class SecurityCategoriesAPI(CDFResourceAPI[InternalId, SecurityCategoryRequest, 
         """
         self._request_no_response(items, "delete")
 
-    def iterate(
+    def paginate(
         self,
         sort: Literal["ASC", "DESC"] = "ASC",
         limit: int = 100,
@@ -64,7 +64,23 @@ class SecurityCategoriesAPI(CDFResourceAPI[InternalId, SecurityCategoryRequest, 
         Returns:
             PagedResponse of SecurityCategoryResponse objects.
         """
-        return self._iterate(cursor=cursor, limit=limit, params={"sort": sort})
+        return self._paginate(cursor=cursor, limit=limit, params={"sort": sort})
+
+    def iterate(
+        self,
+        sort: Literal["ASC", "DESC"] = "ASC",
+        limit: int = 100,
+    ) -> Iterable[list[SecurityCategoryResponse]]:
+        """Iterate over all security categories in CDF.
+
+        Args:
+            sort: Sort descending or ascending.
+            limit: Maximum number of items to return per page.
+
+        Returns:
+            Iterable of lists of SecurityCategoryResponse objects.
+        """
+        return self._iterate(limit=limit, params={"sort": sort})
 
     def list(
         self,

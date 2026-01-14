@@ -7,7 +7,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.search_config import (
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import (
     SearchConfig,
     SearchConfigList,
     SearchConfigWrite,

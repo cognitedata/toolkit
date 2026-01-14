@@ -3,7 +3,7 @@ from pathlib import Path
 from cognite.client.data_classes import TransformationPreviewResult
 
 from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse
-from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetAggregateItem, AssetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetAggregateItem, AssetResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DownloadCommand
 from cognite_toolkit._cdf_tk.storageio import AssetIO
@@ -17,7 +17,7 @@ class TestDownloadCommand:
         with monkeypatch_toolkit_client() as client:
             dataset = "my/:_data_set"
             client.assets.aggregate_count.return_value = 1
-            client.tool.assets.iterate.return_value = PagedResponse(
+            client.tool.assets.paginate.return_value = PagedResponse(
                 items=[
                     AssetResponse(
                         id=123,

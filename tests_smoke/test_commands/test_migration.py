@@ -17,12 +17,12 @@ from cognite.client.data_classes.data_modeling import Node, NodeApply, NodeOrEdg
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteAsset
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.three_d import (
+from cognite_toolkit._cdf_tk.client.http_client import FailedRequestMessage, FailedResponse, HTTPClient
+from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicRequest,
     ThreeDModelClassicRequest,
     ThreeDModelResponse,
 )
-from cognite_toolkit._cdf_tk.client.http_client import FailedRequestMessage, FailedResponse, HTTPClient
 from cognite_toolkit._cdf_tk.commands import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper, ThreeDAssetMapper, ThreeDMapper
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import COGNITE_MIGRATION_MODEL, SPACE_SOURCE_VIEW_ID
@@ -135,7 +135,7 @@ def tmp_3D_model_with_asset_mapping(
             raise AssertionError("Timeout waiting for 3D model revision to be processed.")
     if revision.status != "Done":
         raise AssertionError(f"3D model revision processing failed with status: {revision.status}")
-    page = client.tool.three_d.models.iterate(include_revision_info=True)
+    page = client.tool.three_d.models.paginate(include_revision_info=True)
     retrieved_model = next((m for m in page.items if m.id == model.id), None)
     if not retrieved_model:
         raise EndpointAssertionError(

@@ -6,14 +6,14 @@ import responses
 from cognite.client.data_classes.data_modeling import NodeList, NodeListWithCursor
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.data_classes.charts_data import ChartData
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.canvas import (
+from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartData
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
     Canvas,
     ContainerReference,
     IndustrialCanvas,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.charts import Chart, ChartList
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import InstanceSource
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart, ChartList
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import InstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.storageio import CanvasIO, ChartIO
 from cognite_toolkit._cdf_tk.storageio.selectors import (
