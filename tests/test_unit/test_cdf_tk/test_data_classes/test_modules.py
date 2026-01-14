@@ -1,3 +1,4 @@
+from collections import defaultdict
 from pathlib import Path
 from unittest.mock import patch
 
@@ -5,13 +6,20 @@ import pytest
 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._modules import Modules
 from cognite_toolkit._cdf_tk.constants import MODULES
+from cognite_toolkit._cdf_tk.cruds import CRUDS_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.data_classes._issues import (
     ModuleLoadingIssue,
 )
+from cognite_toolkit._cdf_tk.exceptions import ToolkitError
 from tests.data import COMPLETE_ORG
 
 
 class TestModules:
+    def test_no_folder_raises_error(self) -> None:
+        modules_root = Path("missing_module_root")
+        with pytest.raises(ToolkitError, match="Module root directory 'missing_module_root/modules' not found"):
+            Modules.load(modules_root)
+
     def test_load_modules(self) -> None:
         modules, _ = Modules.load(COMPLETE_ORG)
 
@@ -123,9 +131,6 @@ class TestModules:
 
     def test_module_with_normal_and_disabled_resources(self, tmp_path: Path) -> None:
         """Test that a module with both normal and disabled resource folders shows appropriate warnings."""
-        from collections import defaultdict
-
-        from cognite_toolkit._cdf_tk.cruds import CRUDS_BY_FOLDER_NAME
 
         module_path = tmp_path / MODULES / "mixed_module"
         (module_path / "transformations").mkdir(parents=True)

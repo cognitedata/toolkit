@@ -11,6 +11,7 @@ from cognite_toolkit._cdf_tk.data_classes._issues import (
     ModuleLoadingIssue,
 )
 from cognite_toolkit._cdf_tk.data_classes._module_toml import ModuleToml
+from cognite_toolkit._cdf_tk.exceptions import ToolkitError
 from cognite_toolkit._cdf_tk.utils.modules import module_path, parse_user_selected_modules
 
 if sys.version_info >= (3, 11):
@@ -58,8 +59,7 @@ class Modules(BaseModel):
         issues = IssueList()
 
         if not modules_root.exists():
-            issues.append(ModuleLoadingIssue(message="Module root directory 'modules' not found"))
-            return cls(organization_dir=organization_dir, modules=[]), issues
+            raise ToolkitError(f"Module root directory '{modules_root}' not found")
 
         detected_modules: defaultdict[Path, set[Path]] = defaultdict(set)
         unrecognized_resources: defaultdict[Path, set[str]] = defaultdict(set)
@@ -68,7 +68,10 @@ class Modules(BaseModel):
         # iterate over all resource files in the modules root directory,
         # using resources' parent hierarchy to determine the module folders
 
-        for resource_file in [p for p in modules_root.glob("**/*.y*ml") if p.name not in EXCL_FILES]:
+        for resource_file in modules_root.glob("**/*.y*ml"):
+            if resource_file.name in EXCL_FILES:
+                continue
+
             # Get the module folder for the resource file.
             module_candidate = cls.get_module_folder(resource_file)
             if module_candidate is None:
