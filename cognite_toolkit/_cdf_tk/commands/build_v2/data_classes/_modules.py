@@ -127,12 +127,6 @@ class Modules(BaseModel):
                     message=f"Module {module_path(organization_dir, k)!r} contains unrecognized resource folder(s): {', '.join(v)}"
                 )
             )
-        # for k, v in detected_disabled_resource_folders.items():
-        #     issues.append(
-        #         ModuleLoadingIssue(
-        #             message=f"Module {module_path(organization_dir, k)!r} contains unsupported resource folder(s), check flags in cdf.toml: {', '.join(v)}"
-        #         )
-        #     )
 
         return cls(
             organization_dir=organization_dir,
@@ -141,12 +135,13 @@ class Modules(BaseModel):
 
     @classmethod
     def get_module_folder(cls, resource_file: Path) -> Path | None:
-        # recognize the module by containing a resource accosiated by a CRUD.
+        # recognize the module by containing a resource associated by a CRUD.
         # Special case: if the resource folder is a subfolder of a CRUD, return the parent of the subfolder.
         resource_folder = resource_file.parent
         crud = next(iter(ALL_CRUDS_BY_FOLDER_NAME.get(resource_folder.name, [])), None)
         if crud:
-            # iterate over the parents of the resource folder until we find the module folder. This is to handle the special case of a subfolder of a CRUD, or yamls in for example function subfolders.
+            # iterate over the parents of the resource folder until we find the module folder. 
+            # This is to handle the special case of a subfolder of a CRUD, or yamls in for example function subfolders.
             for p in resource_file.parents:
                 if p.name == crud.folder_name:
                     return p.parent

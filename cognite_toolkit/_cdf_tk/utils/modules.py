@@ -111,7 +111,7 @@ def is_module_path(path: Path) -> bool:
     return any(sub_folder.name in CRUDS_BY_FOLDER_NAME for sub_folder in path.iterdir() if sub_folder.is_dir())
 
 
-def module_path(org_path: Path, module_path: Path) -> str:
+def module_path_display_name(org_path: Path, module_path: Path) -> str:
     """Returns the module directory path relative to the organization path as a posix string."""
     rel = module_path.relative_to(org_path)
     return rel.as_posix()
