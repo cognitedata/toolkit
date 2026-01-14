@@ -132,7 +132,7 @@ class Modules(BaseModel):
 
     @classmethod
     def get_module_folder(cls, resource_file: Path) -> Path | None:
-        # recognize the module by containing a resource accosiated by a CRUD.
+        # recognize the module by containing a resource associated by a CRUD.
         # Special case: if the resource folder is a subfolder of a CRUD, return the parent of the subfolder.
         resource_folder = resource_file.parent
         crud = next(iter(ALL_CRUDS_BY_FOLDER_NAME.get(resource_folder.name, [])), None)
