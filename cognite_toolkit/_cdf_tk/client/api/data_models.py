@@ -8,6 +8,7 @@ from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.request_classes.filters import DataModelFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelReference,
     DataModelRequest,
@@ -70,96 +71,57 @@ class DataModelsAPI(CDFResourceAPI[DataModelReference, DataModelRequest, DataMod
 
     def paginate(
         self,
-        space: str | None = None,
-        include_global: bool = False,
-        all_versions: bool = False,
-        inline_views: bool = False,
+        filter: DataModelFilter,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[DataModelResponse]:
         """Get a page of data models from CDF.
 
         Args:
-            space: Filter by space.
-            include_global: Whether to include global data models.
-            all_versions: Whether to include all versions.
-            inline_views: Whether to include full view definitions.
+            filter: DataModelFilter to filter data models.
             limit: Maximum number of data models to return.
             cursor: Cursor for pagination.
 
         Returns:
             PagedResponse of DataModelResponse objects.
         """
-        params = {
-            "includeGlobal": include_global,
-            "allVersions": all_versions,
-            "inlineViews": inline_views,
-        }
-        if space is not None:
-            params["space"] = space
         return self._paginate(
             cursor=cursor,
             limit=limit,
-            params=params,
+            params=filter.dump(),
         )
 
     def iterate(
         self,
-        space: str | None = None,
-        include_global: bool = False,
-        all_versions: bool = False,
-        inline_views: bool = False,
+        filter: DataModelFilter,
         limit: int | None = None,
     ) -> Iterable[list[DataModelResponse]]:
         """Iterate over all data models in CDF.
 
         Args:
-            space: Filter by space.
-            include_global: Whether to include global data models.
-            all_versions: Whether to include all versions.
-            inline_views: Whether to include full view definitions.
+            filter: DataModelFilter to filter data models.
             limit: Maximum total number of data models to return.
 
         Returns:
             Iterable of lists of DataModelResponse objects.
         """
-        params = {
-            "includeGlobal": include_global,
-            "allVersions": all_versions,
-            "inlineViews": inline_views,
-        }
-        if space is not None:
-            params["space"] = space
         return self._iterate(
             limit=limit,
-            params=params,
+            params=filter.dump(),
         )
 
     def list(
         self,
-        space: str | None = None,
-        include_global: bool = False,
-        all_versions: bool = False,
-        inline_views: bool = False,
+        filter: DataModelFilter,
         limit: int | None = None,
     ) -> list[DataModelResponse]:
         """List all data models in CDF.
 
         Args:
-            space: Filter by space.
-            include_global: Whether to include global data models.
-            all_versions: Whether to include all versions.
-            inline_views: Whether to include full view definitions.
+            filter: DataModelFilter to filter data models.
             limit: Maximum total number of data models to return.
 
         Returns:
             List of DataModelResponse objects.
         """
-        params = {
-            "includeGlobal": include_global,
-            "allVersions": all_versions,
-            "inlineViews": inline_views,
-        }
-        if space is not None:
-            params["space"] = space
-        return self._list(limit=limit, params=params)
+        return self._list(limit=limit, params=filter.dump())

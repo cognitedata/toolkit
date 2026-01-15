@@ -8,6 +8,7 @@ from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ContainerFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerReference,
     ContainerRequest,
@@ -28,7 +29,7 @@ class ContainersAPI(CDFResourceAPI[ContainerReference, ContainerRequest, Contain
                 "upsert": Endpoint(method="POST", path="/models/containers", item_limit=100),
                 "retrieve": Endpoint(method="POST", path="/models/containers/byids", item_limit=100),
                 "delete": Endpoint(method="POST", path="/models/containers/delete", item_limit=100),
-                "list": Endpoint(method="GET", path="/models/containers", item_limit=100),
+                "list": Endpoint(method="GET", path="/models/containers", item_limit=1000),
             },
         )
 
@@ -37,12 +38,22 @@ class ContainersAPI(CDFResourceAPI[ContainerReference, ContainerRequest, Contain
     ) -> PagedResponse[ContainerResponse]:
         return PagedResponse[ContainerResponse].model_validate_json(response.body)
 
-    def apply(self, items: Sequence[ContainerRequest]) -> list[ContainerResponse]:
-        """Apply (create or update) containers in CDF.
+    def create(self, items: Sequence[ContainerRequest]) -> list[ContainerResponse]:
+        """Create (create or update) containers in CDF.
 
         Args:
             items: List of ContainerRequest objects to apply.
 
+        Returns:
+            List of applied ContainerResponse objects.
+        """
+        return self._request_item_response(items, "upsert")
+
+    def update(self, items: Sequence[ContainerRequest]) -> list[ContainerResponse]:
+        """Update (create or update) containers in CDF.
+
+        Args:
+            items: List of ContainerRequest objects to apply.
         Returns:
             List of applied ContainerResponse objects.
         """
@@ -69,69 +80,53 @@ class ContainersAPI(CDFResourceAPI[ContainerReference, ContainerRequest, Contain
 
     def paginate(
         self,
-        space: str | None = None,
-        include_global: bool = False,
+        filter: ContainerFilter,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[ContainerResponse]:
         """Get a page of containers from CDF.
 
         Args:
-            space: Filter by space.
-            include_global: Whether to include global containers.
+            filter: ContainerFilter to filter containers.
             limit: Maximum number of containers to return.
             cursor: Cursor for pagination.
 
         Returns:
             PagedResponse of ContainerResponse objects.
         """
-        params = {"includeGlobal": include_global}
-        if space is not None:
-            params["space"] = space
         return self._paginate(
             cursor=cursor,
             limit=limit,
-            params=params,
+            params=filter.dump(),
         )
 
     def iterate(
         self,
-        space: str | None = None,
-        include_global: bool = False,
+        filter: ContainerFilter,
         limit: int | None = None,
     ) -> Iterable[list[ContainerResponse]]:
         """Iterate over all containers in CDF.
 
         Args:
-            space: Filter by space.
-            include_global: Whether to include global containers.
+            filter: ContainerFilter to filter containers.
             limit: Maximum total number of containers to return.
 
         Returns:
             Iterable of lists of ContainerResponse objects.
         """
-        params = {"includeGlobal": include_global}
-        if space is not None:
-            params["space"] = space
         return self._iterate(
             limit=limit,
-            params=params,
+            params=filter.dump(),
         )
 
-    def list(
-        self, space: str | None = None, include_global: bool = False, limit: int | None = None
-    ) -> list[ContainerResponse]:
+    def list(self, filter: ContainerFilter, limit: int | None = None) -> list[ContainerResponse]:
         """List all containers in CDF.
 
         Args:
-            space: Filter by space.
-            include_global: Whether to include global containers.
+            filter: ContainerFilter to filter containers.
             limit: Maximum total number of containers to return.
 
         Returns:
             List of ContainerResponse objects.
         """
-        params = {"includeGlobal": include_global}
-        if space is not None:
-            params["space"] = space
-        return self._list(limit=limit, params=params)
+        return self._list(limit=limit, params=filter.dump())

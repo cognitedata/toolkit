@@ -24,9 +24,9 @@ class AgentsAPI(CDFResourceAPI[ExternalId, AgentRequest, AgentResponse]):
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "upsert": Endpoint(method="POST", path="/ai/agents", item_limit=100),
+                "upsert": Endpoint(method="POST", path="/ai/agents", item_limit=1),
                 "retrieve": Endpoint(method="POST", path="/ai/agents/byids", item_limit=100),
-                "delete": Endpoint(method="POST", path="/ai/agents/delete", item_limit=100),
+                "delete": Endpoint(method="POST", path="/ai/agents/delete", item_limit=1),
                 "list": Endpoint(method="GET", path="/ai/agents", item_limit=1000),
             },
         )
@@ -36,7 +36,7 @@ class AgentsAPI(CDFResourceAPI[ExternalId, AgentRequest, AgentResponse]):
     ) -> PagedResponse[AgentResponse]:
         return PagedResponse[AgentResponse].model_validate_json(response.body)
 
-    def apply(self, items: Sequence[AgentRequest]) -> list[AgentResponse]:
+    def create(self, items: Sequence[AgentRequest]) -> list[AgentResponse]:
         """Apply (create or update) agents in CDF.
 
         Args:
@@ -47,24 +47,39 @@ class AgentsAPI(CDFResourceAPI[ExternalId, AgentRequest, AgentResponse]):
         """
         return self._request_item_response(items, "upsert")
 
-    def retrieve(self, items: Sequence[ExternalId]) -> list[AgentResponse]:
+    def update(self, items: Sequence[AgentRequest]) -> list[AgentResponse]:
+        """Update agents in CDF.
+
+        Args:
+            items: List of AgentRequest objects to update.
+        Returns:
+            List of updated AgentResponse objects.
+        """
+        # Implemented as an alias to create (upsert) to have a standardized interface.
+        return self._request_item_response(items, "upsert")
+
+    def retrieve(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> list[AgentResponse]:
         """Retrieve agents from CDF by external ID.
 
         Args:
             items: List of ExternalId objects to retrieve.
+            ignore_unknown_ids: Whether to ignore unknown IDs.
 
         Returns:
             List of retrieved AgentResponse objects.
         """
-        return self._request_item_response(items, method="retrieve")
+        return self._request_item_response(
+            items, method="retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids}
+        )
 
-    def delete(self, items: Sequence[ExternalId]) -> None:
+    def delete(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> None:
         """Delete agents from CDF.
 
         Args:
             items: List of ExternalId objects to delete.
+            ignore_unknown_ids: Whether to ignore unknown IDs.
         """
-        self._request_no_response(items, "delete")
+        self._request_no_response(items, "delete", extra_body={"ignoreUnknownIds": ignore_unknown_ids})
 
     def paginate(
         self,
@@ -80,10 +95,7 @@ class AgentsAPI(CDFResourceAPI[ExternalId, AgentRequest, AgentResponse]):
         Returns:
             PagedResponse of AgentResponse objects.
         """
-        return self._paginate(
-            cursor=cursor,
-            limit=limit,
-        )
+        raise NotImplementedError("The AgentsAPI does not support cursor-based pagination.")
 
     def iterate(
         self,

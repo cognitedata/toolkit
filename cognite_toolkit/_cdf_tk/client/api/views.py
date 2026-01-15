@@ -8,6 +8,7 @@ from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ViewFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewReference,
     ViewRequest,
@@ -74,96 +75,57 @@ class ViewsAPI(CDFResourceAPI[ViewReference, ViewRequest, ViewResponse]):
 
     def paginate(
         self,
-        space: str | None = None,
-        include_global: bool = False,
-        all_versions: bool = False,
-        include_inherited_properties: bool = False,
+        filter: ViewFilter,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[ViewResponse]:
         """Get a page of views from CDF.
 
         Args:
-            space: Filter by space.
-            include_global: Whether to include global views.
-            all_versions: Whether to include all versions.
-            include_inherited_properties: Whether to include inherited properties.
+            filter: ViewFilter to filter views.
             limit: Maximum number of views to return.
             cursor: Cursor for pagination.
 
         Returns:
             PagedResponse of ViewResponse objects.
         """
-        params = {
-            "includeGlobal": include_global,
-            "allVersions": all_versions,
-            "includeInheritedProperties": include_inherited_properties,
-        }
-        if space is not None:
-            params["space"] = space
         return self._paginate(
             cursor=cursor,
             limit=limit,
-            params=params,
+            params=filter.dump(),
         )
 
     def iterate(
         self,
-        space: str | None = None,
-        include_global: bool = False,
-        all_versions: bool = False,
-        include_inherited_properties: bool = False,
+        filter: ViewFilter,
         limit: int | None = None,
     ) -> Iterable[list[ViewResponse]]:
         """Iterate over all views in CDF.
 
         Args:
-            space: Filter by space.
-            include_global: Whether to include global views.
-            all_versions: Whether to include all versions.
-            include_inherited_properties: Whether to include inherited properties.
+            filter: ViewFilter to filter views.
             limit: Maximum total number of views to return.
 
         Returns:
             Iterable of lists of ViewResponse objects.
         """
-        params = {
-            "includeGlobal": include_global,
-            "allVersions": all_versions,
-            "includeInheritedProperties": include_inherited_properties,
-        }
-        if space is not None:
-            params["space"] = space
         return self._iterate(
             limit=limit,
-            params=params,
+            params=filter.dump(),
         )
 
     def list(
         self,
-        space: str | None = None,
-        include_global: bool = False,
-        all_versions: bool = False,
-        include_inherited_properties: bool = False,
+        filter: ViewFilter,
         limit: int | None = None,
     ) -> list[ViewResponse]:
         """List all views in CDF.
 
         Args:
-            space: Filter by space.
-            include_global: Whether to include global views.
-            all_versions: Whether to include all versions.
-            include_inherited_properties: Whether to include inherited properties.
+            filter: ViewFilter to filter views.
             limit: Maximum total number of views to return.
 
         Returns:
             List of ViewResponse objects.
         """
-        params = {
-            "includeGlobal": include_global,
-            "allVersions": all_versions,
-            "includeInheritedProperties": include_inherited_properties,
-        }
-        if space is not None:
-            params["space"] = space
-        return self._list(limit=limit, params=params)
+        return self._list(limit=limit, params=filter.dump())

@@ -5,7 +5,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import External
 from .base import BaseModelRequest
 
 if sys.version_info >= (3, 11):
-    from typing import Self
+    from typing import Literal, Self
 else:
     from typing_extensions import Self
 
@@ -36,3 +36,22 @@ class ClassicFilter(Filter):
             return None
         ids = id if isinstance(id, list) else [id]
         return [ExternalId(external_id=item) if isinstance(item, str) else InternalId(id=item) for item in ids]
+
+
+class DataModelingFilter(Filter):
+    space: str | None = None
+    include_global: bool | None = None
+
+
+class ContainerFilter(DataModelingFilter):
+    used_for: Literal["node", "edge", "record", "all"] | None
+
+
+class ViewFilter(DataModelingFilter):
+    include_inherited_properties: bool | None = None
+    all_versions: bool | None = None
+
+
+class DataModelFilter(DataModelingFilter):
+    inline_views: bool | None = None
+    all_versions: bool | None = None
