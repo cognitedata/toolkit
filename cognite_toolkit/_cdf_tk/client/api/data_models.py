@@ -38,12 +38,22 @@ class DataModelsAPI(CDFResourceAPI[DataModelReference, DataModelRequest, DataMod
     ) -> PagedResponse[DataModelResponse]:
         return PagedResponse[DataModelResponse].model_validate_json(response.body)
 
-    def apply(self, items: Sequence[DataModelRequest]) -> list[DataModelResponse]:
+    def create(self, items: Sequence[DataModelRequest]) -> list[DataModelResponse]:
         """Apply (create or update) data models in CDF.
 
         Args:
             items: List of DataModelRequest objects to apply.
 
+        Returns:
+            List of applied DataModelResponse objects.
+        """
+        return self._request_item_response(items, "upsert")
+
+    def update(self, items: Sequence[DataModelRequest]) -> list[DataModelResponse]:
+        """Apply (create or update) data models in CDF.
+
+        Args:
+            items: List of DataModelRequest objects to apply.
         Returns:
             List of applied DataModelResponse objects.
         """

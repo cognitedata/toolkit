@@ -5,22 +5,33 @@ from typing import Any
 
 import pytest
 
+from cognite_toolkit._cdf_tk.client.api.agents import AgentsAPI
+from cognite_toolkit._cdf_tk.client.api.annotations import AnnotationsAPI
 from cognite_toolkit._cdf_tk.client.api.assets import AssetsAPI
+from cognite_toolkit._cdf_tk.client.api.containers import ContainersAPI
+from cognite_toolkit._cdf_tk.client.api.data_models import DataModelsAPI
 from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
 from cognite_toolkit._cdf_tk.client.api.events import EventsAPI
 from cognite_toolkit._cdf_tk.client.api.extraction_pipelines import ExtractionPipelinesAPI
 from cognite_toolkit._cdf_tk.client.api.filemetadata import FileMetadataAPI
+from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedulesAPI
+from cognite_toolkit._cdf_tk.client.api.functions import FunctionsAPI
+from cognite_toolkit._cdf_tk.client.api.graphql_data_models import GraphQLDataModelsAPI
+from cognite_toolkit._cdf_tk.client.api.groups import GroupsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_destinations import HostedExtractorDestinationsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_jobs import HostedExtractorJobsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_mappings import HostedExtractorMappingsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_sources import HostedExtractorSourcesAPI
 from cognite_toolkit._cdf_tk.client.api.labels import LabelsAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawDatabasesAPI
+from cognite_toolkit._cdf_tk.client.api.relationships import RelationshipsAPI
 from cognite_toolkit._cdf_tk.client.api.security_categories import SecurityCategoriesAPI
 from cognite_toolkit._cdf_tk.client.api.sequences import SequencesAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsAPI
+from cognite_toolkit._cdf_tk.client.api.spaces import SpacesAPI
 from cognite_toolkit._cdf_tk.client.api.timeseries import TimeSeriesAPI
 from cognite_toolkit._cdf_tk.client.api.transformations import TransformationsAPI
+from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationRequest, AnnotationResponse
@@ -595,6 +606,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=AgentResponse,
             request_cls=AgentRequest,
             example_data=get_example_minimum_responses(AgentResponse),
+            api_class=AgentsAPI,
         ),
         id="Agent",
     )
@@ -603,6 +615,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=AnnotationResponse,
             request_cls=AnnotationRequest,
             example_data=get_example_minimum_responses(AnnotationResponse),
+            api_class=AnnotationsAPI,
         ),
         id="Annotation",
     )
@@ -640,6 +653,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=SpaceResponse,
             request_cls=SpaceRequest,
             example_data=get_example_minimum_responses(SpaceResponse),
+            api_class=SpacesAPI,
         ),
         id="Space",
     )
@@ -648,6 +662,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=ContainerResponse,
             request_cls=ContainerRequest,
             example_data=get_example_minimum_responses(ContainerResponse),
+            api_class=ContainersAPI,
         ),
         id="Container",
     )
@@ -656,6 +671,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=DataModelResponse,
             request_cls=DataModelRequest,
             example_data=get_example_minimum_responses(DataModelResponse),
+            api_class=DataModelsAPI,
         ),
         id="DataModel",
     )
@@ -664,6 +680,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=ViewResponse,
             request_cls=ViewRequest,
             example_data=get_example_minimum_responses(ViewResponse),
+            api_class=ViewsAPI,
         ),
         id="View",
     )
@@ -829,7 +846,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=GroupResponse,
             request_cls=GroupRequest,
             example_data=get_example_minimum_responses(GroupResponse),
-            api_class=None,
+            api_class=GroupsAPI,
         ),
         id="Group",
     )
@@ -854,6 +871,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=GraphQLDataModelResponse,
             request_cls=GraphQLDataModelRequest,
             example_data=get_example_minimum_responses(GraphQLDataModelResponse),
+            api_class=GraphQLDataModelsAPI,
         ),
         id="GraphQLDataModel",
     )
@@ -862,6 +880,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=FunctionResponse,
             request_cls=FunctionRequest,
             example_data=get_example_minimum_responses(FunctionResponse),
+            api_class=FunctionsAPI,
         ),
         id="Function",
     )
@@ -870,6 +889,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=FunctionScheduleResponse,
             request_cls=FunctionScheduleRequest,
             example_data=get_example_minimum_responses(FunctionScheduleResponse),
+            api_class=FunctionSchedulesAPI,
             is_dump_equal_to_example=False,
             is_as_request_possible=False,
         ),
@@ -896,6 +916,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=RelationshipResponse,
             request_cls=RelationshipRequest,
             example_data=get_example_minimum_responses(RelationshipResponse),
+            api_class=RelationshipsAPI,
         ),
         id="Relationship",
     )

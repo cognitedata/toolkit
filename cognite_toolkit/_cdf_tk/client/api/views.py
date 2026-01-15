@@ -38,7 +38,7 @@ class ViewsAPI(CDFResourceAPI[ViewReference, ViewRequest, ViewResponse]):
     ) -> PagedResponse[ViewResponse]:
         return PagedResponse[ViewResponse].model_validate_json(response.body)
 
-    def apply(self, items: Sequence[ViewRequest]) -> list[ViewResponse]:
+    def create(self, items: Sequence[ViewRequest]) -> list[ViewResponse]:
         """Apply (create or update) views in CDF.
 
         Args:
@@ -49,9 +49,17 @@ class ViewsAPI(CDFResourceAPI[ViewReference, ViewRequest, ViewResponse]):
         """
         return self._request_item_response(items, "upsert")
 
-    def retrieve(
-        self, items: Sequence[ViewReference], include_inherited_properties: bool = False
-    ) -> list[ViewResponse]:
+    def update(self, items: Sequence[ViewRequest]) -> list[ViewResponse]:
+        """Apply (create or update) views in CDF.
+
+        Args:
+            items: List of ViewRequest objects to apply.
+        Returns:
+            List of applied ViewResponse objects.
+        """
+        return self._request_item_response(items, "upsert")
+
+    def retrieve(self, items: Sequence[ViewReference], include_inherited_properties: bool = True) -> list[ViewResponse]:
         """Retrieve views from CDF.
 
         Args:
