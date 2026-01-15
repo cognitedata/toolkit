@@ -1,0 +1,173 @@
+"""Views API for managing CDF data modeling views.
+
+Based on the API specification at:
+https://api-docs.cognite.com/20230101/tag/Views/operation/ApplyViews
+"""
+
+from collections.abc import Iterable, Sequence
+
+from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    ViewReference,
+    ViewRequest,
+    ViewResponse,
+)
+
+
+class ViewsAPI(CDFResourceAPI[ViewReference, ViewRequest, ViewResponse]):
+    """API for managing CDF data modeling views.
+
+    Views use an apply/upsert pattern for create and update operations.
+    """
+
+    def __init__(self, http_client: HTTPClient) -> None:
+        super().__init__(
+            http_client=http_client,
+            method_endpoint_map={
+                "upsert": Endpoint(method="POST", path="/models/views", item_limit=100, concurrency_max_workers=1),
+                "retrieve": Endpoint(
+                    method="POST", path="/models/views/byids", item_limit=100, concurrency_max_workers=1
+                ),
+                "delete": Endpoint(
+                    method="POST", path="/models/views/delete", item_limit=100, concurrency_max_workers=1
+                ),
+                "list": Endpoint(method="GET", path="/models/views", item_limit=1000),
+            },
+        )
+
+    def _validate_page_response(
+        self, response: SuccessResponse2 | ItemsSuccessResponse2
+    ) -> PagedResponse[ViewResponse]:
+        return PagedResponse[ViewResponse].model_validate_json(response.body)
+
+    def apply(self, items: Sequence[ViewRequest]) -> list[ViewResponse]:
+        """Apply (create or update) views in CDF.
+
+        Args:
+            items: List of ViewRequest objects to apply.
+
+        Returns:
+            List of applied ViewResponse objects.
+        """
+        return self._request_item_response(items, "upsert")
+
+    def retrieve(
+        self, items: Sequence[ViewReference], include_inherited_properties: bool = False
+    ) -> list[ViewResponse]:
+        """Retrieve views from CDF.
+
+        Args:
+            items: List of ViewReference objects to retrieve.
+            include_inherited_properties: Whether to include inherited properties.
+
+        Returns:
+            List of retrieved ViewResponse objects.
+        """
+        return self._request_item_response(
+            items, method="retrieve", extra_body={"includeInheritedProperties": include_inherited_properties}
+        )
+
+    def delete(self, items: Sequence[ViewReference]) -> None:
+        """Delete views from CDF.
+
+        Args:
+            items: List of ViewReference objects to delete.
+        """
+        self._request_no_response(items, "delete")
+
+    def paginate(
+        self,
+        space: str | None = None,
+        include_global: bool = False,
+        all_versions: bool = False,
+        include_inherited_properties: bool = False,
+        limit: int = 100,
+        cursor: str | None = None,
+    ) -> PagedResponse[ViewResponse]:
+        """Get a page of views from CDF.
+
+        Args:
+            space: Filter by space.
+            include_global: Whether to include global views.
+            all_versions: Whether to include all versions.
+            include_inherited_properties: Whether to include inherited properties.
+            limit: Maximum number of views to return.
+            cursor: Cursor for pagination.
+
+        Returns:
+            PagedResponse of ViewResponse objects.
+        """
+        params = {
+            "includeGlobal": include_global,
+            "allVersions": all_versions,
+            "includeInheritedProperties": include_inherited_properties,
+        }
+        if space is not None:
+            params["space"] = space
+        return self._paginate(
+            cursor=cursor,
+            limit=limit,
+            params=params,
+        )
+
+    def iterate(
+        self,
+        space: str | None = None,
+        include_global: bool = False,
+        all_versions: bool = False,
+        include_inherited_properties: bool = False,
+        limit: int | None = None,
+    ) -> Iterable[list[ViewResponse]]:
+        """Iterate over all views in CDF.
+
+        Args:
+            space: Filter by space.
+            include_global: Whether to include global views.
+            all_versions: Whether to include all versions.
+            include_inherited_properties: Whether to include inherited properties.
+            limit: Maximum total number of views to return.
+
+        Returns:
+            Iterable of lists of ViewResponse objects.
+        """
+        params = {
+            "includeGlobal": include_global,
+            "allVersions": all_versions,
+            "includeInheritedProperties": include_inherited_properties,
+        }
+        if space is not None:
+            params["space"] = space
+        return self._iterate(
+            limit=limit,
+            params=params,
+        )
+
+    def list(
+        self,
+        space: str | None = None,
+        include_global: bool = False,
+        all_versions: bool = False,
+        include_inherited_properties: bool = False,
+        limit: int | None = None,
+    ) -> list[ViewResponse]:
+        """List all views in CDF.
+
+        Args:
+            space: Filter by space.
+            include_global: Whether to include global views.
+            all_versions: Whether to include all versions.
+            include_inherited_properties: Whether to include inherited properties.
+            limit: Maximum total number of views to return.
+
+        Returns:
+            List of ViewResponse objects.
+        """
+        params = {
+            "includeGlobal": include_global,
+            "allVersions": all_versions,
+            "includeInheritedProperties": include_inherited_properties,
+        }
+        if space is not None:
+            params["space"] = space
+        return self._list(limit=limit, params=params)
