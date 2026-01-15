@@ -22,10 +22,10 @@ class FunctionsAPI(CDFResourceAPI[InternalId, FunctionRequest, FunctionResponse]
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "create": Endpoint(method="POST", path="/functions", item_limit=1000),
-                "retrieve": Endpoint(method="POST", path="/functions/byids", item_limit=1000),
-                "delete": Endpoint(method="POST", path="/functions/delete", item_limit=1000),
-                "list": Endpoint(method="GET", path="/functions", item_limit=1000),
+                "create": Endpoint(method="POST", path="/functions", item_limit=1),
+                "retrieve": Endpoint(method="POST", path="/functions/byids", item_limit=10),
+                "delete": Endpoint(method="POST", path="/functions/delete", item_limit=10),
+                "list": Endpoint(method="POST", path="/functions/list", item_limit=1000),
             },
         )
 
@@ -45,24 +45,28 @@ class FunctionsAPI(CDFResourceAPI[InternalId, FunctionRequest, FunctionResponse]
         """
         return self._request_item_response(items, "create")
 
-    def retrieve(self, items: Sequence[InternalId]) -> list[FunctionResponse]:
+    def retrieve(self, items: Sequence[InternalId], ignore_unknown_ids: bool = False) -> list[FunctionResponse]:
         """Retrieve functions from CDF by ID.
 
         Args:
             items: List of InternalId objects to retrieve.
+            ignore_unknown_ids: Whether to ignore unknown IDs.
 
         Returns:
             List of retrieved FunctionResponse objects.
         """
-        return self._request_item_response(items, method="retrieve")
+        return self._request_item_response(
+            items, method="retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids}
+        )
 
-    def delete(self, items: Sequence[InternalId]) -> None:
+    def delete(self, items: Sequence[InternalId], ignore_unknown_ids: bool = False) -> None:
         """Delete functions from CDF.
 
         Args:
             items: List of InternalId objects to delete.
+            ignore_unknown_ids: Whether to ignore unknown IDs.
         """
-        self._request_no_response(items, "delete")
+        self._request_no_response(items, "delete", extra_body={"ignoreUnknownIds": ignore_unknown_ids})
 
     def paginate(
         self,

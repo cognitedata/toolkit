@@ -25,10 +25,10 @@ class FunctionSchedulesAPI(CDFResourceAPI[InternalId, FunctionScheduleRequest, F
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "create": Endpoint(method="POST", path="/functions/schedules", item_limit=1000),
-                "retrieve": Endpoint(method="POST", path="/functions/schedules/byids", item_limit=1000),
-                "delete": Endpoint(method="POST", path="/functions/schedules/delete", item_limit=1000),
-                "list": Endpoint(method="GET", path="/functions/schedules", item_limit=1000),
+                "create": Endpoint(method="POST", path="/functions/schedules", item_limit=1),
+                "retrieve": Endpoint(method="POST", path="/functions/schedules/byids", item_limit=10_000),
+                "delete": Endpoint(method="POST", path="/functions/schedules/delete", item_limit=10_000),
+                "list": Endpoint(method="POST", path="/functions/schedules/list", item_limit=1000),
             },
         )
 
@@ -48,16 +48,19 @@ class FunctionSchedulesAPI(CDFResourceAPI[InternalId, FunctionScheduleRequest, F
         """
         return self._request_item_response(items, "create")
 
-    def retrieve(self, items: Sequence[InternalId]) -> list[FunctionScheduleResponse]:
+    def retrieve(self, items: Sequence[InternalId], ignore_unknown_ids: bool = False) -> list[FunctionScheduleResponse]:
         """Retrieve function schedules from CDF by ID.
 
         Args:
             items: List of InternalId objects to retrieve.
+            ignore_unknown_ids: Whether to ignore unknown IDs.
 
         Returns:
             List of retrieved FunctionScheduleResponse objects.
         """
-        return self._request_item_response(items, method="retrieve")
+        return self._request_item_response(
+            items, method="retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids}
+        )
 
     def delete(self, items: Sequence[InternalId]) -> None:
         """Delete function schedules from CDF.
