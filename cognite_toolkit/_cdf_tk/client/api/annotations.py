@@ -20,16 +20,10 @@ class AnnotationsAPI(CDFResourceAPI[InternalId, AnnotationRequest, AnnotationRes
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "create": Endpoint(method="POST", path="/annotations", item_limit=1000, concurrency_max_workers=1),
-                "retrieve": Endpoint(
-                    method="POST", path="/annotations/byids", item_limit=1000, concurrency_max_workers=1
-                ),
-                "update": Endpoint(
-                    method="POST", path="/annotations/update", item_limit=1000, concurrency_max_workers=1
-                ),
-                "delete": Endpoint(
-                    method="POST", path="/annotations/delete", item_limit=1000, concurrency_max_workers=1
-                ),
+                "create": Endpoint(method="POST", path="/annotations", item_limit=1000),
+                "retrieve": Endpoint(method="POST", path="/annotations/byids", item_limit=1000),
+                "update": Endpoint(method="POST", path="/annotations/update", item_limit=1000),
+                "delete": Endpoint(method="POST", path="/annotations/delete", item_limit=1000),
                 "list": Endpoint(method="POST", path="/annotations/list", item_limit=1000),
             },
         )

@@ -22,11 +22,9 @@ class FunctionsAPI(CDFResourceAPI[InternalId, FunctionRequest, FunctionResponse]
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "create": Endpoint(method="POST", path="/functions", item_limit=1000, concurrency_max_workers=1),
-                "retrieve": Endpoint(
-                    method="POST", path="/functions/byids", item_limit=1000, concurrency_max_workers=1
-                ),
-                "delete": Endpoint(method="POST", path="/functions/delete", item_limit=1000, concurrency_max_workers=1),
+                "create": Endpoint(method="POST", path="/functions", item_limit=1000),
+                "retrieve": Endpoint(method="POST", path="/functions/byids", item_limit=1000),
+                "delete": Endpoint(method="POST", path="/functions/delete", item_limit=1000),
                 "list": Endpoint(method="GET", path="/functions", item_limit=1000),
             },
         )

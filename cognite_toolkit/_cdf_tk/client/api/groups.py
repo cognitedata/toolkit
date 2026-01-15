@@ -7,9 +7,15 @@ https://api-docs.cognite.com/20230101/tag/Groups/operation/createGroups
 from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.http_client import (
+    HTTPClient,
+    ItemsSuccessResponse2,
+    RequestMessage2,
+    SuccessResponse2,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupRequest, GroupResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
+from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 
 
 class GroupsAPI(CDFResourceAPI[InternalId, GroupRequest, GroupResponse]):
@@ -22,9 +28,8 @@ class GroupsAPI(CDFResourceAPI[InternalId, GroupRequest, GroupResponse]):
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "create": Endpoint(method="POST", path="/groups", item_limit=1000, concurrency_max_workers=1),
-                "retrieve": Endpoint(method="POST", path="/groups/byids", item_limit=1000, concurrency_max_workers=1),
-                "delete": Endpoint(method="POST", path="/groups/delete", item_limit=1000, concurrency_max_workers=1),
+                "create": Endpoint(method="POST", path="/groups", item_limit=1000),
+                "delete": Endpoint(method="POST", path="/groups/delete", item_limit=1000),
                 "list": Endpoint(method="GET", path="/groups", item_limit=1000),
             },
         )
@@ -45,24 +50,22 @@ class GroupsAPI(CDFResourceAPI[InternalId, GroupRequest, GroupResponse]):
         """
         return self._request_item_response(items, "create")
 
-    def retrieve(self, items: Sequence[InternalId]) -> list[GroupResponse]:
-        """Retrieve groups from CDF by ID.
-
-        Args:
-            items: List of InternalId objects to retrieve.
-
-        Returns:
-            List of retrieved GroupResponse objects.
-        """
-        return self._request_item_response(items, method="retrieve")
-
     def delete(self, items: Sequence[InternalId]) -> None:
         """Delete groups from CDF.
 
         Args:
             items: List of InternalId objects to delete.
         """
-        self._request_no_response(items, "delete")
+        # Custom implementation since delete does not wrap the items in a {"id": ...} structure
+        endpoint = self._method_endpoint_map["delete"]
+        for chunk in chunker_sequence(items, endpoint.item_limit):
+            request = RequestMessage2(
+                endpoint_url=self._make_url(endpoint.path),
+                method=endpoint.method,
+                body_content={"items": [item.id for item in chunk]},
+            )
+            response = self._http_client.request_single_retries(request)
+            response.get_success_or_raise()
 
     def paginate(
         self,

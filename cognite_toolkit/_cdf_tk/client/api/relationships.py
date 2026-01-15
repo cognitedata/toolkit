@@ -20,16 +20,10 @@ class RelationshipsAPI(CDFResourceAPI[ExternalId, RelationshipRequest, Relations
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "create": Endpoint(method="POST", path="/relationships", item_limit=1000, concurrency_max_workers=1),
-                "retrieve": Endpoint(
-                    method="POST", path="/relationships/byids", item_limit=1000, concurrency_max_workers=1
-                ),
-                "update": Endpoint(
-                    method="POST", path="/relationships/update", item_limit=1000, concurrency_max_workers=1
-                ),
-                "delete": Endpoint(
-                    method="POST", path="/relationships/delete", item_limit=1000, concurrency_max_workers=1
-                ),
+                "create": Endpoint(method="POST", path="/relationships", item_limit=1000),
+                "retrieve": Endpoint(method="POST", path="/relationships/byids", item_limit=1000),
+                "update": Endpoint(method="POST", path="/relationships/update", item_limit=1000),
+                "delete": Endpoint(method="POST", path="/relationships/delete", item_limit=1000),
                 "list": Endpoint(method="POST", path="/relationships/list", item_limit=1000),
             },
         )

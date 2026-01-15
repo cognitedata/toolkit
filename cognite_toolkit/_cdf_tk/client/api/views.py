@@ -25,13 +25,9 @@ class ViewsAPI(CDFResourceAPI[ViewReference, ViewRequest, ViewResponse]):
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "upsert": Endpoint(method="POST", path="/models/views", item_limit=100, concurrency_max_workers=1),
-                "retrieve": Endpoint(
-                    method="POST", path="/models/views/byids", item_limit=100, concurrency_max_workers=1
-                ),
-                "delete": Endpoint(
-                    method="POST", path="/models/views/delete", item_limit=100, concurrency_max_workers=1
-                ),
+                "upsert": Endpoint(method="POST", path="/models/views", item_limit=100),
+                "retrieve": Endpoint(method="POST", path="/models/views/byids", item_limit=100),
+                "delete": Endpoint(method="POST", path="/models/views/delete", item_limit=100),
                 "list": Endpoint(method="GET", path="/models/views", item_limit=1000),
             },
         )

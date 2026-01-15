@@ -25,15 +25,9 @@ class FunctionSchedulesAPI(CDFResourceAPI[InternalId, FunctionScheduleRequest, F
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "create": Endpoint(
-                    method="POST", path="/functions/schedules", item_limit=1000, concurrency_max_workers=1
-                ),
-                "retrieve": Endpoint(
-                    method="POST", path="/functions/schedules/byids", item_limit=1000, concurrency_max_workers=1
-                ),
-                "delete": Endpoint(
-                    method="POST", path="/functions/schedules/delete", item_limit=1000, concurrency_max_workers=1
-                ),
+                "create": Endpoint(method="POST", path="/functions/schedules", item_limit=1000),
+                "retrieve": Endpoint(method="POST", path="/functions/schedules/byids", item_limit=1000),
+                "delete": Endpoint(method="POST", path="/functions/schedules/delete", item_limit=1000),
                 "list": Endpoint(method="GET", path="/functions/schedules", item_limit=1000),
             },
         )
