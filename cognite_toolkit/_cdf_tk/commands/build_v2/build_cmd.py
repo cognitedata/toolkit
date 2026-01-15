@@ -7,8 +7,9 @@ from rich.panel import Panel
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.build_cmd import BuildCommand as OldBuildCommand
+from cognite_toolkit._cdf_tk.commands.build_v2._modules_parser import ModulesParser
 from cognite_toolkit._cdf_tk.commands.build_v2.build_parameters import BuildParameters
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._modules import Modules
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._modules import Module
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, BuildVariables, BuiltModuleList
 from cognite_toolkit._cdf_tk.data_classes._issues import Issue, IssueList
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError
@@ -52,17 +53,22 @@ class BuildCommand(ToolkitCommand):
         if self.verbose:
             self._print_build_input(build_parameters)
 
-        modules, load_issues = Modules.load(base_dir, selected or build_parameters.config.environment.selected)
-        self.issues.extend(load_issues)
-
         # Tracking the project and cluster for the build.
         if build_parameters.client:
             self._additional_tracking_info.project = build_parameters.client.config.project
             self._additional_tracking_info.cluster = build_parameters.client.config.cdf_cluster
 
-        # Capture warnings from module structure integrity
-        if module_selection_issues := self._validate_modules(build_parameters, modules):
-            self.issues.extend(module_selection_issues)
+        # Load modules
+        module_paths, module_loading_issues = ModulesParser(organization_dir=base_dir, selected=selected).parse()
+        if module_loading_issues:
+            self.issues.extend(module_loading_issues)
+            self._print_or_log_warnings_by_category(self.issues)
+            return BuiltModuleList()
+
+        # Load modules
+        modules = [Module.load(path) for path in module_paths]
+        for module in modules:
+            print(module.path)
 
         # Logistics: clean and create build directory
         if prepare_issues := self._prepare_target_directory(build_dir, not no_clean):
@@ -109,7 +115,7 @@ class BuildCommand(ToolkitCommand):
         build_dir.mkdir(parents=True, exist_ok=True)
         return issues
 
-    def _validate_modules(self, build_input: BuildParameters, modules: Modules) -> IssueList:
+    def _validate_module_selection(self, build_input: BuildParameters, modules: list[Module]) -> IssueList:
         issues = IssueList()
         # Validate module directory integrity.
         # issues.extend(modules.verify_integrity())
@@ -189,7 +195,7 @@ class BuildCommand(ToolkitCommand):
     # Delegate to old BuildCommand for backward compatibility with tests
     def build_modules(
         self,
-        modules: Modules,
+        modules: list[Module],
         build_dir: Path,
         variables: BuildVariables,
         verbose: bool = False,

@@ -23,7 +23,7 @@ from .modules import (
     find_directory_with_subdirectories,
     iterate_modules,
     module_from_path,
-    module_path,
+    module_path_display_name,
     resource_folder_from_path,
 )
 from .sentry_utils import sentry_exception_filter
@@ -43,7 +43,7 @@ __all__ = [
     "iterate_modules",
     "load_yaml_inject_variables",
     "module_from_path",
-    "module_path",
+    "module_path_display_name",
     "quote_int_value_by_key_in_yaml",
     "read_yaml_content",
     "read_yaml_file",

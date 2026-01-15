@@ -4,39 +4,35 @@ from unittest.mock import patch
 
 import pytest
 
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._modules import Modules
+from cognite_toolkit._cdf_tk.commands.build_v2._modules_parser import ModulesParser
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds import CRUDS_BY_FOLDER_NAME
-from cognite_toolkit._cdf_tk.data_classes._issues import (
-    ModuleLoadingIssue,
-)
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError
 from tests.data import COMPLETE_ORG
 
 
-class TestModules:
+class TestModulesParser:
     def test_no_folder_raises_error(self) -> None:
         modules_root = Path("missing_module_root")
         with pytest.raises(ToolkitError, match="Module root directory 'missing_module_root/modules' not found"):
-            Modules.load(modules_root)
+            ModulesParser(organization_dir=modules_root).parse()
 
     def test_load_modules(self) -> None:
-        modules, _ = Modules.load(COMPLETE_ORG)
+        modules, _ = ModulesParser(organization_dir=COMPLETE_ORG).parse()
 
-        assert len(modules.modules) == 3
-        assert {module.path for module in modules.modules} == {
+        assert len(modules) == 3
+        assert {module for module in modules} == {
             COMPLETE_ORG / MODULES / "my_example_module",
             COMPLETE_ORG / MODULES / "my_file_expand_module",
             COMPLETE_ORG / MODULES / "populate_model",
         }
 
     def test_load_selection(self) -> None:
-        modules, issues = Modules.load(
-            COMPLETE_ORG, selection=["my_example_module", Path(MODULES) / "my_file_expand_module"]
-        )
-
-        assert len(modules.modules) == 2
-        assert {module.path for module in modules.modules} == {
+        modules, issues = ModulesParser(
+            organization_dir=COMPLETE_ORG, selected=["my_example_module", Path(MODULES) / "my_file_expand_module"]
+        ).parse()
+        assert len(modules) == 2
+        assert {module for module in modules} == {
             COMPLETE_ORG / MODULES / "my_example_module",
             COMPLETE_ORG / MODULES / "my_file_expand_module",
         }
@@ -60,11 +56,11 @@ class TestModules:
         modules_root = selection_test_modules_root
         organization_dir = modules_root.parent
 
-        modules, issues = Modules.load(organization_dir)
+        modules, issues = ModulesParser(organization_dir=organization_dir).parse()
 
         # A is a parent module with nested modules, so it should be discarded
         # Only the deepest modules should be loaded
-        assert {m.path.relative_to(modules_root) for m in modules.modules} == {
+        assert {m.relative_to(modules_root) for m in modules} == {
             Path("A/sub/module1"),
             Path("B/module2"),
         }
@@ -75,10 +71,10 @@ class TestModules:
         modules_root = selection_test_modules_root
         organization_dir = modules_root.parent
 
-        modules, issues = Modules.load(organization_dir, selection=[Path(MODULES) / "A"])
+        modules, issues = ModulesParser(organization_dir=organization_dir, selected=[Path(MODULES) / "A"]).parse()
 
         # Only the selected module should be loaded
-        assert {m.path.relative_to(modules_root) for m in modules.modules} == {
+        assert {m.relative_to(modules_root) for m in modules} == {
             Path("A/sub/module1"),
         }
         # No issues should be raised
@@ -88,11 +84,11 @@ class TestModules:
         modules_root = selection_test_modules_root
         organization_dir = modules_root.parent
 
-        modules, issues = Modules.load(organization_dir, selection=["A/SUB"])
+        modules, issues = ModulesParser(organization_dir=organization_dir, selected=["A/SUB"]).parse()
 
         # A is a parent module with nested modules, so it should be discarded
         # Only the deepest module should be loaded
-        assert {m.path.relative_to(modules_root) for m in modules.modules} == {
+        assert {m.relative_to(modules_root) for m in modules} == {
             Path("A/sub/module1"),
         }
         # No issues should be raised
@@ -102,21 +98,15 @@ class TestModules:
         modules_root = selection_test_modules_root
         organization_dir = modules_root.parent
 
-        modules, issues = Modules.load(organization_dir, selection=["MODULES/A"])
+        modules, issues = ModulesParser(organization_dir=organization_dir, selected=["MODULES/A"]).parse()
 
         # A is a parent module with nested modules, so it should be discarded
         # Only the deepest module should be loaded
-        assert {m.path.relative_to(modules_root) for m in modules.modules} == {
+        assert {m.relative_to(modules_root) for m in modules} == {
             Path("A/sub/module1"),
         }
         # No issues should be raised
         assert len(issues) == 0
-
-    def test_module_root_directory_missing(self, tmp_path: Path) -> None:
-        modules_root = Path("missing_module_root")
-        _modules, issues = Modules.load(modules_root)
-        assert len(issues) == 1
-        assert isinstance(issues[0], ModuleLoadingIssue)
 
     def test_unrecognized_module_gives_warning(self, tmp_path: Path) -> None:
         module_path = tmp_path / MODULES / "mixed_module"
@@ -124,7 +114,7 @@ class TestModules:
         (module_path / "transformations" / "transformation.yaml").touch()
         (module_path / "docs").mkdir(parents=True)
         (module_path / "docs" / "readme.md").touch()
-        _modules, issues = Modules.load(tmp_path)
+        _modules, issues = ModulesParser(organization_dir=tmp_path).parse()
 
         assert len(issues) == 1
         assert issues[0].message == "Module 'modules/mixed_module' contains unrecognized resource folder(s): docs"
@@ -141,13 +131,13 @@ class TestModules:
         # Create a copy of CRUDS_BY_FOLDER_NAME without streams
         cruds_without_streams = defaultdict(list, {k: v for k, v in CRUDS_BY_FOLDER_NAME.items() if k != "streams"})
         with patch(
-            "cognite_toolkit._cdf_tk.commands.build_v2.data_classes._modules.CRUDS_BY_FOLDER_NAME",
+            "cognite_toolkit._cdf_tk.commands.build_v2._modules_parser.CRUDS_BY_FOLDER_NAME",
             cruds_without_streams,
         ):
-            modules, issues = Modules.load(tmp_path, selection=["mixed_module"])
+            modules, issues = ModulesParser(organization_dir=tmp_path, selected=["mixed_module"]).parse()
 
         # The module should be loaded since it has at least one normal resource (transformations)
-        assert len(modules.modules) == 1
+        assert len(modules) == 1
         assert issues[0].message == "Module 'modules/mixed_module' contains unrecognized resource folder(s): streams"
 
     def test_module_with_no_resources(self, tmp_path: Path) -> None:
@@ -155,8 +145,8 @@ class TestModules:
         module_path = tmp_path / MODULES / "empty_module"
         (module_path).mkdir(parents=True)
         (module_path / ".gitkeep").touch()
-        modules, _ = Modules.load(tmp_path, selection=["empty_module"])
-        assert len(modules.modules) == 0
+        modules, _ = ModulesParser(organization_dir=tmp_path, selected=["empty_module"]).parse()
+        assert len(modules) == 0
 
     def test_module_container_with_resources_and_nested_module(self, tmp_path: Path) -> None:
         global_path = tmp_path / MODULES / "global"
@@ -168,12 +158,12 @@ class TestModules:
         (nested_module_path / "transformations").mkdir(parents=True)
         (nested_module_path / "transformations" / "transformation.yaml").touch()
 
-        modules, issues = Modules.load(tmp_path)
+        modules, issues = ModulesParser(organization_dir=tmp_path).parse()
 
-        module_paths = {module.path for module in modules.modules}
+        module_paths = {module for module in modules}
 
         # Only the deepest module should be loaded
-        assert len(modules.modules) == 1
+        assert len(modules) == 1
         assert nested_module_path in module_paths
         assert global_path not in module_paths
 
@@ -195,11 +185,11 @@ class TestModules:
         code_path.mkdir()
         (code_path / "handler.py").touch()
 
-        modules, issues = Modules.load(tmp_path)
+        modules, issues = ModulesParser(organization_dir=tmp_path).parse()
 
         # The module should be loaded (functions with subfolders should still be detected)
-        assert len(modules.modules) == 1
-        assert modules.modules[0].path == module_path
+        assert len(modules) == 1
+        assert modules[0] == module_path
 
         # No issues should be raised (functions folder should be recognized even with subfolders)
         assert len(issues) == 0, f"Expected no issues, but got: {issues}"
@@ -216,10 +206,12 @@ class TestGetResourceFolder:
         ],
     )
     def test_get_module_folder(self, resource_file: Path) -> None:
-        result = Modules.get_module_folder(resource_file)
+        parser = ModulesParser(organization_dir=resource_file.parent)
+        result = parser._get_module_path_from_resource_file_path(resource_file)
         assert result.name == "my_module"
 
     def test_get_resource_folder_arbitrary_yaml_in_subfolder(self, tmp_path: Path) -> None:
         resource_file = tmp_path / MODULES / "my_module" / "functions" / "my_function" / "arbitrary.yaml"
-        result = Modules.get_module_folder(resource_file)
+        parser = ModulesParser(organization_dir=tmp_path)
+        result = parser._get_module_path_from_resource_file_path(resource_file)
         assert result is None
