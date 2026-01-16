@@ -14,7 +14,6 @@ from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
 from cognite_toolkit._cdf_tk.client.api.events import EventsAPI
 from cognite_toolkit._cdf_tk.client.api.extraction_pipelines import ExtractionPipelinesAPI
 from cognite_toolkit._cdf_tk.client.api.filemetadata import FileMetadataAPI
-from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.functions import FunctionsAPI
 from cognite_toolkit._cdf_tk.client.api.graphql_data_models import GraphQLDataModelsAPI
 from cognite_toolkit._cdf_tk.client.api.groups import GroupsAPI
@@ -889,9 +888,10 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=FunctionScheduleResponse,
             request_cls=FunctionScheduleRequest,
             example_data=get_example_minimum_responses(FunctionScheduleResponse),
-            api_class=FunctionSchedulesAPI,
             is_dump_equal_to_example=False,
             is_as_request_possible=False,
+            # FunctionSchedule cannot be tested in generic API due to
+            # it cannot create as_request from response.
         ),
         id="FunctionSchedule",
     )

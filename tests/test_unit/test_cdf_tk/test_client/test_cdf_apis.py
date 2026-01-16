@@ -27,7 +27,7 @@ from tests.test_unit.test_cdf_tk.test_client.data import (
 
 
 class TestCDFResourceAPI:
-    @pytest.mark.parametrize("resource", list(iterate_cdf_resources()))
+    @pytest.mark.parametrize("resource", [param for param in iterate_cdf_resources() if param[0][0].api_class])
     def test_create_retrieve_delete_iterate_list(
         self, resource: CDFResource, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
     ) -> None:
