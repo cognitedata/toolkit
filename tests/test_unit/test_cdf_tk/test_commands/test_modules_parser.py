@@ -77,7 +77,6 @@ class TestModulesParser:
         assert {m.relative_to(modules_root) for m in modules} == {
             Path("A/sub/module1"),
         }
-        # No issues should be raised
         assert len(issues) == 0
 
     def test_selection_by_name_is_case_insensitive(self, selection_test_modules_root: Path) -> None:
@@ -91,7 +90,6 @@ class TestModulesParser:
         assert {m.relative_to(modules_root) for m in modules} == {
             Path("A/sub/module1"),
         }
-        # No issues should be raised
         assert len(issues) == 0
 
     def test_selection_by_string_path_is_case_insensitive(self, selection_test_modules_root: Path) -> None:
@@ -105,7 +103,6 @@ class TestModulesParser:
         assert {m.relative_to(modules_root) for m in modules} == {
             Path("A/sub/module1"),
         }
-        # No issues should be raised
         assert len(issues) == 0
 
     def test_unrecognized_module_gives_warning(self, tmp_path: Path) -> None:

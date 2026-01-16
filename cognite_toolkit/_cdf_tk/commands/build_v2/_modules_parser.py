@@ -19,7 +19,6 @@ class ModulesParser:
             raise ToolkitError(f"Module root directory '{modules_root}' not found")
 
         module_paths: list[Path] = []
-        excluded_module_paths: list[Path] = []
         issues: IssueList = IssueList()
         for resource_file in self.organization_dir.glob("**/*.y*ml"):
             if resource_file.name in EXCL_FILES:
@@ -31,12 +30,7 @@ class ModulesParser:
                 continue
 
             # If the module has already been processed, skip it.
-            if module_path in module_paths or module_path in excluded_module_paths:
-                continue
-
-            # Skip the modules that do not match the selection
-            if not self._matches_selection(module_path, modules_root, self.selected):
-                excluded_module_paths.append(module_path)
+            if module_path in module_paths:
                 continue
 
             module_paths.append(module_path)
@@ -52,6 +46,30 @@ class ModulesParser:
                 for parent_module_path in parent_module_paths
             )
 
+        all_module_paths = module_paths
+
+        if self.selected:
+            normalized_selected = self._normalize_selection(self.selected)
+            selected_module_paths = [
+                module_path
+                for module_path in all_module_paths
+                if self._matches_selection(module_path, modules_root, normalized_selected)
+            ]
+            for selected_module in self.selected:
+                normalized_selected_item = self._normalize_selection([selected_module])
+                has_match = any(
+                    self._matches_selection(found_module, modules_root, normalized_selected_item)
+                    for found_module in all_module_paths
+                )
+                if not has_match:
+                    issues.append(
+                        ModuleLoadingIssue(
+                            message=f"Module '{self._selection_display_name(selected_module)}' not found"
+                        )
+                    )
+
+            module_paths = selected_module_paths
+
         valid_module_paths: list[Path] = []
         for module_path in module_paths:
             valid_module_path, issue = self._check_resource_folder_content(module_path)
@@ -59,14 +77,6 @@ class ModulesParser:
                 issues.append(issue)
             if valid_module_path:
                 valid_module_paths.append(valid_module_path)
-
-        # Check if selected modules exist
-        if self.selected:
-            all_found_modules = set(module_paths) | set(excluded_module_paths)
-            for selected_module in self.selected:
-                if selected_module not in all_found_modules:
-                    issues.append(ModuleLoadingIssue(message=f"Module '{selected_module}' not found"))
-                    break
 
         return valid_module_paths, issues
 
@@ -100,28 +110,20 @@ class ModulesParser:
         has_valid_resource_folders = bool(resource_folder_names & CRUDS_BY_FOLDER_NAME.keys())
         return (module_path if has_valid_resource_folders else None, issue)
 
-    def _matches_selection(self, module_path: Path, modules_root: Path, selected: list[str | Path] | None) -> bool:
-        if not selected:
+    def _matches_selection(
+        self, module_path: Path, modules_root: Path, normalized_selected: list[tuple[str, ...]] | None
+    ) -> bool:
+        if not normalized_selected:
             return True
 
         rel = module_path.relative_to(modules_root)
-        rel_parts = [p.lower() for p in rel.parts]
+        rel_parts = tuple(p.lower() for p in rel.parts)
         if not rel_parts:
             # module_path is the modules_root itself
             return False
         name_lower = rel_parts[-1]
-        modules_lower = MODULES.lower()
 
-        for sel in selected:
-            sel_path = Path(sel) if isinstance(sel, str) else sel
-
-            sel_parts = [p.lower() for p in sel_path.parts]
-            if not sel_parts:
-                continue
-
-            if sel_parts[0] == modules_lower:
-                sel_parts = sel_parts[1:]
-
+        for sel_parts in normalized_selected:
             if not sel_parts:
                 return True
 
@@ -132,6 +134,30 @@ class ModulesParser:
                 return True
 
         return False
+
+    def _normalize_selection(self, selected: list[str | Path]) -> list[tuple[str, ...]]:
+        normalized: list[tuple[str, ...]] = []
+        modules_lower = MODULES.lower()
+        for sel in selected:
+            if isinstance(sel, Path):
+                sel_parts = sel.parts
+            else:
+                sel_parts = tuple(part for part in str(sel).replace("\\", "/").split("/") if part)
+
+            sel_parts_lower = tuple(part.lower() for part in sel_parts)
+            if sel_parts_lower and sel_parts_lower[0] == modules_lower:
+                sel_parts_lower = sel_parts_lower[1:]
+
+            normalized.append(sel_parts_lower)
+
+        return normalized
+
+    def _selection_display_name(self, selected: str | Path) -> str:
+        if isinstance(selected, Path):
+            return selected.name
+
+        parts = str(selected).replace("\\", "/").split("/")
+        return parts[-1] if parts else str(selected)
 
     def _find_modules_with_submodules(self, module_paths: list[Path]) -> list[Path]:
         """Remove parent modules when they have submodules. Keep only the deepest modules."""
