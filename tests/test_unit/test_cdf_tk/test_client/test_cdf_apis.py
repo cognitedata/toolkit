@@ -5,6 +5,7 @@ import pytest
 import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.api.filemetadata import FileMetadataAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawTablesAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_triggers import WorkflowTriggersAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersionsAPI
@@ -12,6 +13,7 @@ from cognite_toolkit._cdf_tk.client.api.workflows import WorkflowsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import APIMethod
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTable
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
@@ -146,6 +148,60 @@ class TestCDFResourceAPI:
         page = api.paginate(db_name=instance.db_name, limit=10)
         assert len(page.items) == 1
         assert page.items[0] == instance
+
+    def test_metadataapi_crud_iterate(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
+        resource = get_example_minimum_responses(FileMetadataResponse)
+        instance = FileMetadataResponse.model_validate(resource)
+        config = toolkit_config
+        api = FileMetadataAPI(HTTPClient(config))
+        request_item = instance.as_request_resource()
+
+        # Test create
+        respx_mock.post(config.create_api_url("/files")).mock(
+            return_value=httpx.Response(status_code=200, json=resource)
+        )
+        created = api.create([request_item], overwrite=False)
+        assert len(created) == 1
+        assert created[0].dump() == resource
+
+        # Test retrieve
+        respx_mock.post(config.create_api_url("/files/byids")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        retrieved = api.retrieve([instance.as_id()])
+        assert len(retrieved) == 1
+        assert retrieved[0].dump() == resource
+
+        # Test update
+        respx_mock.post(config.create_api_url("/files/update")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        updated = api.update([request_item])
+        assert len(updated) == 1
+        assert updated[0].dump() == resource
+
+        # Test delete
+        respx_mock.post(config.create_api_url("/files/delete")).mock(return_value=httpx.Response(status_code=200))
+        api.delete([instance.as_id()])
+        assert len(respx_mock.calls) >= 1  # At least one call should have
+
+        # Test iterate/list/paginate
+        respx_mock.post(config.create_api_url("/files/list")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+
+        listed = api.list(limit=10)
+        assert len(listed) == 1
+        assert listed[0].dump() == resource
+
+        page = api.paginate(limit=10)
+        assert len(page.items) == 1
+        assert page.items[0].dump() == resource
+
+        iterated = list(api.iterate(limit=10))
+        assert len(iterated) >= 1
+        items = [item for batch in iterated for item in batch]
+        assert items[0].dump() == resource
 
     def test_workflow_api_create_update_retrieve_delete_iterate_list(
         self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
