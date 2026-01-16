@@ -25,3 +25,8 @@ class QueryResponse(BaseModel, Generic[T]):
     typing: dict[str, JsonValue] | None = None
     next_cursor: dict[str, str] = Field(alias="nextCursor")
     debug: dict[str, JsonValue] | None = None
+
+
+class GraphQLResponse(BaseModel):
+    data: dict[str, JsonValue] | None = None
+    errors: list[dict[str, JsonValue]] | None = None

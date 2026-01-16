@@ -8,6 +8,7 @@ from collections.abc import Iterable, Sequence
 from typing import Any
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
+from cognite_toolkit._cdf_tk.client.cdf_client.responses import GraphQLResponse
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ItemsSuccessResponse2,
@@ -15,6 +16,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     SuccessResponse2,
     ToolkitAPIError,
 )
+from cognite_toolkit._cdf_tk.client.request_classes.filters import DataModelFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import DataModelReference
 from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import (
     GraphQLDataModelRequest,
@@ -43,7 +45,7 @@ class GraphQLDataModelsAPI(CDFResourceAPI[DataModelReference, GraphQLDataModelRe
     ) -> PagedResponse[GraphQLDataModelResponse]:
         return PagedResponse[GraphQLDataModelResponse].model_validate_json(response.body)
 
-    def _post_graphql(self, query_name: str, payload: dict[str, Any]) -> dict[str, Any]:
+    def _post_graphql(self, query_name: str, payload: dict[str, Any]) -> GraphQLResponse:
         """Execute a GraphQL query against the DML endpoint."""
         request = RequestMessage2(
             endpoint_url=self._make_url("/dml/graphql"),
@@ -52,17 +54,12 @@ class GraphQLDataModelsAPI(CDFResourceAPI[DataModelReference, GraphQLDataModelRe
         )
         result = self._http_client.request_single_retries(request)
         response = result.get_success_or_raise()
-        res = response.body_json
+        parsed = GraphQLResponse.model_validate_json(response.body)
+        if parsed.errors:
+            raise ToolkitAPIError(f"Failed cGraphQL errors: {parsed.errors}")
+        return parsed
 
-        # Errors can be passed both at top level and nested in the response
-        errors = res.get("errors", []) + ((res.get("data", {}).get(query_name) or {}).get("errors") or [])
-        if errors:
-            error_messages = [error.get("message", str(error)) for error in errors]
-            raise ToolkitAPIError(f"GraphQL errors: {'; '.join(error_messages)}", status_code=400)
-
-        return res["data"]
-
-    def apply(self, items: Sequence[GraphQLDataModelRequest]) -> list[GraphQLDataModelResponse]:
+    def create(self, items: Sequence[GraphQLDataModelRequest]) -> list[GraphQLDataModelResponse]:
         """Apply (create or update) GraphQL data models in CDF.
 
         Args:
@@ -104,18 +101,7 @@ class GraphQLDataModelsAPI(CDFResourceAPI[DataModelReference, GraphQLDataModelRe
         for item in items:
             payload = {
                 "query": textwrap.dedent(graphql_body),
-                "variables": {
-                    "dmCreate": {
-                        "space": item.space,
-                        "externalId": item.external_id,
-                        "version": item.version,
-                        "previousVersion": item.previous_version,
-                        "graphQlDml": item.dml,
-                        "name": item.name,
-                        "description": item.description,
-                        "preserveDml": item.preserve_dml,
-                    }
-                },
+                "variables": {"dmCreate": item.dump()},
             }
 
             query_name = "upsertGraphQlDmlVersion"
@@ -161,96 +147,57 @@ class GraphQLDataModelsAPI(CDFResourceAPI[DataModelReference, GraphQLDataModelRe
 
     def paginate(
         self,
-        space: str | None = None,
-        include_global: bool = False,
-        all_versions: bool = False,
-        inline_views: bool = False,
+        filter: DataModelFilter | None = None,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[GraphQLDataModelResponse]:
         """Get a page of GraphQL data models from CDF.
 
         Args:
-            space: Filter by space.
-            include_global: Whether to include global data models.
-            all_versions: Whether to include all versions.
-            inline_views: Whether to include full view definitions.
+            filter: DataModelFilter to filter data models.
             limit: Maximum number of data models to return.
             cursor: Cursor for pagination.
 
         Returns:
             PagedResponse of GraphQLDataModelResponse objects.
         """
-        params = {
-            "includeGlobal": include_global,
-            "allVersions": all_versions,
-            "inlineViews": inline_views,
-        }
-        if space is not None:
-            params["space"] = space
         return self._paginate(
             cursor=cursor,
             limit=limit,
-            params=params,
+            params=filter.dump() if filter else None,
         )
 
     def iterate(
         self,
-        space: str | None = None,
-        include_global: bool = False,
-        all_versions: bool = False,
-        inline_views: bool = False,
+        filter: DataModelFilter | None = None,
         limit: int | None = None,
     ) -> Iterable[list[GraphQLDataModelResponse]]:
         """Iterate over all GraphQL data models in CDF.
 
         Args:
-            space: Filter by space.
-            include_global: Whether to include global data models.
-            all_versions: Whether to include all versions.
-            inline_views: Whether to include full view definitions.
+            filter: DataModelFilter to filter data models.
             limit: Maximum total number of data models to return.
 
         Returns:
             Iterable of lists of GraphQLDataModelResponse objects.
         """
-        params = {
-            "includeGlobal": include_global,
-            "allVersions": all_versions,
-            "inlineViews": inline_views,
-        }
-        if space is not None:
-            params["space"] = space
         return self._iterate(
             limit=limit,
-            params=params,
+            params=filter.dump() if filter else None,
         )
 
     def list(
         self,
-        space: str | None = None,
-        include_global: bool = False,
-        all_versions: bool = False,
-        inline_views: bool = False,
+        filter: DataModelFilter | None = None,
         limit: int | None = None,
     ) -> list[GraphQLDataModelResponse]:
         """List all GraphQL data models in CDF.
 
         Args:
-            space: Filter by space.
-            include_global: Whether to include global data models.
-            all_versions: Whether to include all versions.
-            inline_views: Whether to include full view definitions.
+            filter: DataModelFilter to filter data models.
             limit: Maximum total number of data models to return.
 
         Returns:
             List of GraphQLDataModelResponse objects.
         """
-        params = {
-            "includeGlobal": include_global,
-            "allVersions": all_versions,
-            "inlineViews": inline_views,
-        }
-        if space is not None:
-            params["space"] = space
-        return self._list(limit=limit, params=params)
+        return self._list(limit=limit, params=filter.dump() if filter else None)

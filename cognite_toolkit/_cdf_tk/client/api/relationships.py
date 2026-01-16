@@ -44,18 +44,25 @@ class RelationshipsAPI(CDFResourceAPI[ExternalId, RelationshipRequest, Relations
         """
         return self._request_item_response(items, "create")
 
-    def retrieve(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> list[RelationshipResponse]:
+    def retrieve(
+        self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False, fetch_resources: bool = False
+    ) -> list[RelationshipResponse]:
         """Retrieve relationships from CDF.
 
         Args:
             items: List of ExternalId objects to retrieve.
             ignore_unknown_ids: Whether to ignore unknown IDs.
+            fetch_resources: If true, will try to fetch the resources referred to in the relationship,
+                based on the users access rights. Will silently fail to attach the resources
+                if the user lacks access to some of them.
 
         Returns:
             List of retrieved RelationshipResponse objects.
         """
         return self._request_item_response(
-            items, method="retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids}
+            items,
+            method="retrieve",
+            extra_body={"ignoreUnknownIds": ignore_unknown_ids, "fetchResources": fetch_resources},
         )
 
     def update(
