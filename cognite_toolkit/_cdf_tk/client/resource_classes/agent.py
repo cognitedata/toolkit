@@ -3,7 +3,6 @@ from typing import Annotated, Any, Literal
 from pydantic import BeforeValidator, Field
 
 from cognite_toolkit._cdf_tk.client.resource_classes.base import BaseModelObject, RequestResource, ResponseResource
-from tests.test_unit.test_cdf_tk.test_tk_warnings.test_warnings_metatest import get_all_subclasses
 
 from .identifiers import ExternalId
 
@@ -74,7 +73,14 @@ class UnknownAgentTool(AgentToolDefinition):
     ...
 
 
-KNOWN_TOOLS = {tool.type: tool for tool in get_all_subclasses(AgentToolDefinition) if hasattr(tool, "type")}
+# Mapping of known agent tool types to their classes
+KNOWN_TOOLS: dict[str, type[AgentToolDefinition]] = {
+    "askDocument": AskDocument,
+    "examineDataSemantically": ExamineDataSemantically,
+    "queryKnowledgeGraph": QueryKnowledgeGraph,
+    "queryTimeSeriesDatapoints": QueryTimeSeriesDatapoints,
+    "summarizeDocument": SummarizeDocument,
+}
 
 
 def _handle_unknown_tool(value: Any) -> Any:

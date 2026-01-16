@@ -1,6 +1,10 @@
-from typing import Literal
+from typing import ClassVar, Literal
 
-from cognite_toolkit._cdf_tk.client.resource_classes.base import BaseModelObject, RequestResource, ResponseResource
+from cognite_toolkit._cdf_tk.client.resource_classes.base import (
+    BaseModelObject,
+    RequestUpdateable,
+    ResponseResource,
+)
 
 from .identifiers import ExternalId
 
@@ -26,8 +30,10 @@ class Relationship(BaseModelObject):
     labels: list[LabelRef] | None = None
 
 
-class RelationshipRequest(Relationship, RequestResource):
+class RelationshipRequest(Relationship, RequestUpdateable):
     """Request resource for creating/updating relationships."""
+
+    container_fields: ClassVar[frozenset[str]] = frozenset({"labels"})
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
