@@ -6,7 +6,6 @@ from typing import Any
 import pytest
 
 from cognite_toolkit._cdf_tk.client.api.agents import AgentsAPI
-from cognite_toolkit._cdf_tk.client.api.annotations import AnnotationsAPI
 from cognite_toolkit._cdf_tk.client.api.assets import AssetsAPI
 from cognite_toolkit._cdf_tk.client.api.containers import ContainersAPI
 from cognite_toolkit._cdf_tk.client.api.data_models import DataModelsAPI
@@ -15,7 +14,6 @@ from cognite_toolkit._cdf_tk.client.api.events import EventsAPI
 from cognite_toolkit._cdf_tk.client.api.extraction_pipelines import ExtractionPipelinesAPI
 from cognite_toolkit._cdf_tk.client.api.filemetadata import FileMetadataAPI
 from cognite_toolkit._cdf_tk.client.api.functions import FunctionsAPI
-from cognite_toolkit._cdf_tk.client.api.graphql_data_models import GraphQLDataModelsAPI
 from cognite_toolkit._cdf_tk.client.api.groups import GroupsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_destinations import HostedExtractorDestinationsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_jobs import HostedExtractorJobsAPI
@@ -614,7 +612,8 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=AnnotationResponse,
             request_cls=AnnotationRequest,
             example_data=get_example_minimum_responses(AnnotationResponse),
-            api_class=AnnotationsAPI,
+            # We cannot use the generic tests AnnotationsAPI for the Annotation resource, as it
+            # requires an Annotation filter in the list/iterate/paginate methods.
         ),
         id="Annotation",
     )
@@ -870,7 +869,8 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=GraphQLDataModelResponse,
             request_cls=GraphQLDataModelRequest,
             example_data=get_example_minimum_responses(GraphQLDataModelResponse),
-            api_class=GraphQLDataModelsAPI,
+            # GraphQLDataModel cannot be tested in generic API tests due to
+            # custom endpoint mocking.
         ),
         id="GraphQLDataModel",
     )

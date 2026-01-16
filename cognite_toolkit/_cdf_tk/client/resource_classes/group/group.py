@@ -6,12 +6,14 @@ https://api-docs.cognite.com/20230101/tag/Groups/operation/createGroups
 
 from typing import Literal
 
+from pydantic import Field
+
 from cognite_toolkit._cdf_tk.client.resource_classes.base import (
     BaseModelObject,
     RequestResource,
     ResponseResource,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import NameId
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
 
 from .capability import GroupCapability
 
@@ -38,14 +40,16 @@ class Group(BaseModelObject):
     source_id: str | None = None
     members: list[str] | Literal["allUserAccounts"] | None = None
 
-    def as_id(self) -> NameId:
-        return NameId(name=self.name)
-
 
 class GroupRequest(Group, RequestResource):
     """Group request resource for creating/updating groups."""
 
-    ...
+    id: int | None = Field(default=None, exclude=True)
+
+    def as_id(self) -> InternalId:
+        if self.id is None:
+            raise ValueError("Cannot convert GroupRequest to InternalId when id is None")
+        return InternalId(id=self.id)
 
 
 class GroupResponse(Group, ResponseResource[GroupRequest]):

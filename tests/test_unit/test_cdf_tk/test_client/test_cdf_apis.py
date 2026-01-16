@@ -5,6 +5,9 @@ import pytest
 import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.api.annotations import AnnotationsAPI
+from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedulesAPI
+from cognite_toolkit._cdf_tk.client.api.graphql_data_models import GraphQLDataModelsAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawTablesAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_triggers import WorkflowTriggersAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersionsAPI
@@ -12,6 +15,16 @@ from cognite_toolkit._cdf_tk.client.api.workflows import WorkflowsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import APIMethod
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
+from cognite_toolkit._cdf_tk.client.request_classes.filters import AnnotationFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
+    FunctionScheduleRequest,
+    FunctionScheduleResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import (
+    GraphQLDataModelResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTable
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
@@ -104,9 +117,11 @@ class TestCDFResourceAPI:
 
         respx_mock.request(endpoint.method, url).mock(return_value=httpx.Response(status_code=200, json=json))
 
-    def test_raw_table_api_create_retrieve(
-        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
-    ) -> None:
+    #### These are tests for APIs that cannot use the generic test above
+    # This is typically due to custom endpoints or request object cannot be made from response object
+    ####
+
+    def test_raw_table_api_crud(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
         """Test RawTablesAPI create, delete, list, and iterate methods.
 
         This cannot be tested using the generic test above as it requires custom mocking of the
@@ -147,7 +162,7 @@ class TestCDFResourceAPI:
         assert len(page.items) == 1
         assert page.items[0] == instance
 
-    def test_workflow_api_create_update_retrieve_delete_iterate_list(
+    def test_workflow_api_crud_list_methods(
         self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
     ) -> None:
         resource = get_example_minimum_responses(WorkflowResponse)
@@ -193,7 +208,7 @@ class TestCDFResourceAPI:
         assert len(page.items) == 1
         assert page.items[0].dump() == resource
 
-    def test_workflow_version_api_create_update_retrieve_delete_iterate_list(
+    def test_workflow_version_api_crud_list_methods(
         self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
     ) -> None:
         resource = get_example_minimum_responses(WorkflowVersionResponse)
@@ -241,7 +256,7 @@ class TestCDFResourceAPI:
         assert len(page.items) == 1
         assert page.items[0].dump() == resource
 
-    def test_workflow_trigger_api_create_update_delete_iterate_list(
+    def test_workflow_trigger_api_crud_list_methods(
         self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
     ) -> None:
         resource = get_example_minimum_responses(WorkflowTriggerResponse)
@@ -282,3 +297,161 @@ class TestCDFResourceAPI:
         page = api.paginate(limit=10)
         assert len(page.items) == 1
         assert page.items[0].dump() == resource
+
+    def test_function_schedule_api_crud_list_methods(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        resource = get_example_minimum_responses(FunctionScheduleResponse)
+
+        config = toolkit_config
+        api = FunctionSchedulesAPI(HTTPClient(config))
+        request_item = FunctionScheduleRequest.model_validate(
+            {**resource, "nonce": "test-nonce", "id": 1}, extra="ignore"
+        )
+        # Test create
+        respx_mock.post(config.create_api_url("/functions/schedules")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        created = api.create([request_item])
+        assert len(created) == 1
+        assert created[0].dump() == resource
+
+        # Test retrieve
+        respx_mock.post(config.create_api_url("/functions/schedules/byids")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        retrieved = api.retrieve([request_item.as_id()])
+        assert len(retrieved) == 1
+        assert retrieved[0].dump() == resource
+
+        # Test delete
+        respx_mock.post(config.create_api_url("/functions/schedules/delete")).mock(
+            return_value=httpx.Response(status_code=200)
+        )
+        api.delete([request_item.as_id()])
+        assert len(respx_mock.calls) >= 1  # At least one call should have been made
+
+        # Test iterate/list/paginate
+        respx_mock.post(config.create_api_url("/functions/schedules/list")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        listed = api.list(limit=10)
+        assert len(listed) == 1
+        assert listed[0].dump() == resource
+
+        page = api.paginate(limit=10)
+        assert len(page.items) == 1
+        assert page.items[0].dump() == resource
+
+        iterated = list(api.iterate(limit=10))
+        assert len(iterated) == 1
+        assert iterated[0][0].dump() == resource
+
+    def test_annotation_api_crud_list_methods(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        resource = get_example_minimum_responses(AnnotationResponse)
+        instance = AnnotationResponse.model_validate(resource)
+        config = toolkit_config
+        request_item = instance.as_request_resource()
+        api = AnnotationsAPI(HTTPClient(config))
+        filter = AnnotationFilter(
+            annotated_resource_type="file", annotated_resource_ids=[ExternalId(external_id="my_file")]
+        )
+
+        # Test create
+        respx_mock.post(config.create_api_url("/annotations")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        created = api.create([request_item])
+        assert len(created) == 1
+        assert created[0].dump() == resource
+
+        # Test retrieve
+        respx_mock.post(config.create_api_url("/annotations/byids")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        retrieved = api.retrieve([instance.as_id()])
+        assert len(retrieved) == 1
+        assert retrieved[0].dump() == resource
+
+        # Test update
+        respx_mock.post(config.create_api_url("/annotations/update")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        updated = api.update([request_item], mode="replace")
+        assert len(updated) == 1
+        assert updated[0].dump() == resource
+
+        # Test delete
+        respx_mock.post(config.create_api_url("/annotations/delete")).mock(return_value=httpx.Response(status_code=200))
+        api.delete([instance.as_id()])
+        assert len(respx_mock.calls) >= 1  # At least one call should have been made
+
+        # Test iterate/list/paginate
+        respx_mock.post(config.create_api_url("/annotations/list")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        listed = api.list(limit=10, filter=filter)
+        assert len(listed) == 1
+        assert listed[0].dump() == resource
+
+        page = api.paginate(limit=10, filter=filter)
+        assert len(page.items) == 1
+        assert page.items[0].dump() == resource
+
+        iterated = list(api.iterate(limit=10, filter=filter))
+        assert len(iterated) == 1
+        assert iterated[0][0].dump() == resource
+
+    def test_graphql_data_models_api_custom_methods(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        resource = get_example_minimum_responses(GraphQLDataModelResponse)
+        instance = GraphQLDataModelResponse.model_validate(resource)
+        config = toolkit_config
+        api = GraphQLDataModelsAPI(HTTPClient(config))
+        request_item = instance.as_request_resource()
+
+        # Test create/update (same endpoint)
+        respx_mock.post(config.create_api_url("/dml/graphql")).mock(
+            return_value=httpx.Response(status_code=200, json={"upsertGraphQlDmlVersion": {"data": resource}})
+        )
+        created = api.create([request_item])
+        assert len(created) == 1
+        assert created[0].dump() == resource
+
+        updated = api.update([request_item])
+        assert len(updated) == 1
+        assert updated[0].dump() == resource
+
+        # Test retrieve
+        respx_mock.post(config.create_api_url("/models/datamodels/byids")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        retrieved = api.retrieve([request_item.as_id()], inline_views=False)
+        assert len(retrieved) == 1
+        assert retrieved[0].dump() == resource
+
+        # Test delete
+        respx_mock.post(config.create_api_url("/models/datamodels/delete")).mock(
+            return_value=httpx.Response(status_code=200)
+        )
+        api.delete([request_item.as_id()])
+        assert len(respx_mock.calls) >= 1  # At least one call should have been made
+
+        # Test iterate/list/paginate
+        respx_mock.get(config.create_api_url("/models/datamodels")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        listed = api.list(limit=10)
+        assert len(listed) == 1
+        assert listed[0].dump() == resource
+
+        page = api.paginate(limit=10)
+        assert len(page.items) == 1
+        assert page.items[0].dump() == resource
+
+        iterated = list(api.iterate(limit=10))
+        assert len(iterated) == 1
+        assert iterated[0][0].dump() == resource
