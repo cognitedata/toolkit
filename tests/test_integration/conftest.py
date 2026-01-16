@@ -40,8 +40,13 @@ from pydantic import JsonValue
 from rich import print
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.raw import RawDatabase, RawDatabaseList, RawTable, RawTableList
 from cognite_toolkit._cdf_tk.client.http_client import HTTPResult2, RequestMessage2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import (
+    RawDatabase,
+    RawDatabaseList,
+    RawTable,
+    RawTableList,
+)
 from cognite_toolkit._cdf_tk.commands import CollectCommand
 from cognite_toolkit._cdf_tk.cruds import RawDatabaseCRUD, RawTableCRUD
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables

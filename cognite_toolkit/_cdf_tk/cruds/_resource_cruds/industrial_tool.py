@@ -14,7 +14,7 @@ from packaging.requirements import Requirement
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.streamlit_ import (
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.streamlit_ import (
     Streamlit,
     StreamlitList,
     StreamlitWrite,

@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.raw import RawTable
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawTable
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.cruds import RawFileCRUD, RawTableCRUD
 from cognite_toolkit._cdf_tk.data_classes import BuildEnvironment, BuiltResource, BuiltResourceList, SourceLocationEager

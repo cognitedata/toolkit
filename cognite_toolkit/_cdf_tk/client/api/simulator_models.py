@@ -1,11 +1,14 @@
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
-from cognite_toolkit._cdf_tk.client.data_classes.identifiers import InternalOrExternalId
-from cognite_toolkit._cdf_tk.client.data_classes.simulator_model import SimulatorModelRequest, SimulatorModelResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalOrExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.simulator_model import (
+    SimulatorModelRequest,
+    SimulatorModelResponse,
+)
 
 
 class SimulatorModelsAPI(CDFResourceAPI[InternalOrExternalId, SimulatorModelRequest, SimulatorModelResponse]):
@@ -27,7 +30,7 @@ class SimulatorModelsAPI(CDFResourceAPI[InternalOrExternalId, SimulatorModelRequ
             },
         )
 
-    def _page_response(
+    def _validate_page_response(
         self, response: SuccessResponse2 | ItemsSuccessResponse2
     ) -> PagedResponse[SimulatorModelResponse]:
         return PagedResponse[SimulatorModelResponse].model_validate_json(response.body)
@@ -87,7 +90,7 @@ class SimulatorModelsAPI(CDFResourceAPI[InternalOrExternalId, SimulatorModelRequ
         """
         self._request_no_response(items, "delete")
 
-    def iterate(
+    def paginate(
         self,
         simulator_external_ids: list[str] | None = None,
         limit: int = 100,
@@ -107,8 +110,31 @@ class SimulatorModelsAPI(CDFResourceAPI[InternalOrExternalId, SimulatorModelRequ
         if simulator_external_ids:
             filter_["simulatorExternalIds"] = simulator_external_ids
 
-        return self._iterate(
+        return self._paginate(
             cursor=cursor,
+            limit=limit,
+            body={"filter": filter_ or None},
+        )
+
+    def iterate(
+        self,
+        simulator_external_ids: list[str] | None = None,
+        limit: int = 100,
+    ) -> Iterable[list[SimulatorModelResponse]]:
+        """Iterate over simulator models in CDF.
+
+        Args:
+            simulator_external_ids: Filter by simulator external IDs.
+            limit: Maximum number of items to return per page.
+
+        Returns:
+            Iterable of lists of SimulatorModelResponse objects.
+        """
+        filter_: dict[str, Any] = {}
+        if simulator_external_ids:
+            filter_["simulatorExternalIds"] = simulator_external_ids
+
+        return self._iterate(
             limit=limit,
             body={"filter": filter_ or None},
         )

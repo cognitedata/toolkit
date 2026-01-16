@@ -1,11 +1,14 @@
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from typing import Any
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
-from cognite_toolkit._cdf_tk.client.data_classes.identifiers import WorkflowVersionId
-from cognite_toolkit._cdf_tk.client.data_classes.workflow_version import WorkflowVersionRequest, WorkflowVersionResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
+    WorkflowVersionRequest,
+    WorkflowVersionResponse,
+)
 
 
 class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionId, WorkflowVersionRequest, WorkflowVersionResponse]):
@@ -22,7 +25,7 @@ class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionId, WorkflowVersionReque
             },
         )
 
-    def _page_response(
+    def _validate_page_response(
         self, response: SuccessResponse2 | ItemsSuccessResponse2
     ) -> PagedResponse[WorkflowVersionResponse]:
         return PagedResponse[WorkflowVersionResponse].model_validate_json(response.body)
@@ -74,7 +77,7 @@ class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionId, WorkflowVersionReque
         """
         self._request_no_response(items, "delete")
 
-    def iterate(
+    def paginate(
         self,
         workflow_external_id: str | None = None,
         limit: int = 100,
@@ -94,8 +97,31 @@ class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionId, WorkflowVersionReque
         if workflow_external_id:
             body["workflowExternalId"] = workflow_external_id
 
-        return self._iterate(
+        return self._paginate(
             cursor=cursor,
+            limit=limit,
+            body=body,
+        )
+
+    def iterate(
+        self,
+        workflow_external_id: str | None = None,
+        limit: int = 100,
+    ) -> Iterable[list[WorkflowVersionResponse]]:
+        """Iterate over all workflow versions in CDF.
+
+        Args:
+            workflow_external_id: Filter by workflow external ID.
+            limit: Maximum number of items to return per page.
+
+        Returns:
+            Iterable of lists of WorkflowVersionResponse objects.
+        """
+        body: dict[str, Any] = {}
+        if workflow_external_id:
+            body["workflowExternalId"] = workflow_external_id
+
+        return self._iterate(
             limit=limit,
             body=body,
         )

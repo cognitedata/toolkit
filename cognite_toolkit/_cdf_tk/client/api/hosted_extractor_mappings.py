@@ -1,14 +1,14 @@
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
-from cognite_toolkit._cdf_tk.client.data_classes.hosted_extractor_mapping import (
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_mapping import (
     HostedExtractorMappingRequest,
     HostedExtractorMappingResponse,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 
 
 class HostedExtractorMappingsAPI(
@@ -26,7 +26,7 @@ class HostedExtractorMappingsAPI(
             },
         )
 
-    def _page_response(
+    def _validate_page_response(
         self, response: SuccessResponse2 | ItemsSuccessResponse2
     ) -> PagedResponse[HostedExtractorMappingResponse]:
         return PagedResponse[HostedExtractorMappingResponse].model_validate_json(response.body)
@@ -87,7 +87,7 @@ class HostedExtractorMappingsAPI(
 
         self._request_no_response(items, "delete", extra_body=extra_body)
 
-    def iterate(
+    def paginate(
         self,
         limit: int = 100,
         cursor: str | None = None,
@@ -101,7 +101,21 @@ class HostedExtractorMappingsAPI(
         Returns:
             PagedResponse of mapping response objects.
         """
-        return self._iterate(cursor=cursor, limit=limit)
+        return self._paginate(cursor=cursor, limit=limit)
+
+    def iterate(
+        self,
+        limit: int = 100,
+    ) -> Iterable[list[HostedExtractorMappingResponse]]:
+        """Iterate over hosted extractor mappings in CDF.
+
+        Args:
+            limit: Maximum number of items to return per page.
+
+        Returns:
+            Iterable of lists of mapping response objects.
+        """
+        return self._iterate(limit=limit)
 
     def list(self, limit: int | None = 100) -> list[HostedExtractorMappingResponse]:
         """List all hosted extractor mappings in CDF.

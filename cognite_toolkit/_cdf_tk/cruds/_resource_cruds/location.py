@@ -7,8 +7,8 @@ from cognite.client.data_classes.capabilities import Capability, LocationFilters
 from cognite.client.data_classes.data_modeling import DataModelId, ViewId
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk.client.data_classes.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.location_filters import (
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.location_filters import (
     LocationFilter,
     LocationFilterList,
     LocationFilterWrite,

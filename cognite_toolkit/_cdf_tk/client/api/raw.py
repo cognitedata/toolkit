@@ -1,8 +1,8 @@
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse, ResponseItems
-from cognite_toolkit._cdf_tk.client.data_classes.raw import RAWDatabase, RAWTable
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabase, RAWTable
 
 
 class RawDatabasesAPI(CDFResourceAPI[RAWDatabase, RAWDatabase, RAWDatabase]):
@@ -21,7 +21,7 @@ class RawDatabasesAPI(CDFResourceAPI[RAWDatabase, RAWDatabase, RAWDatabase]):
             },
         )
 
-    def _page_response(self, response: SuccessResponse2 | ItemsSuccessResponse2) -> PagedResponse[RAWDatabase]:
+    def _validate_page_response(self, response: SuccessResponse2 | ItemsSuccessResponse2) -> PagedResponse[RAWDatabase]:
         return PagedResponse[RAWDatabase].model_validate_json(response.body)
 
     def _reference_response(self, response: SuccessResponse2) -> ResponseItems[RAWDatabase]:
@@ -47,7 +47,7 @@ class RawDatabasesAPI(CDFResourceAPI[RAWDatabase, RAWDatabase, RAWDatabase]):
         """
         self._request_no_response(list(items), "delete", extra_body={"recursive": recursive})
 
-    def iterate(
+    def paginate(
         self,
         limit: int = 100,
         cursor: str | None = None,
@@ -61,7 +61,21 @@ class RawDatabasesAPI(CDFResourceAPI[RAWDatabase, RAWDatabase, RAWDatabase]):
         Returns:
             PagedResponse of RAWDatabase objects.
         """
-        return self._iterate(limit=limit, cursor=cursor)
+        return self._paginate(limit=limit, cursor=cursor)
+
+    def iterate(
+        self,
+        limit: int = 100,
+    ) -> Iterable[list[RAWDatabase]]:
+        """Iterate over all databases in CDF.
+
+        Args:
+            limit: Maximum number of items to return per page.
+
+        Returns:
+            Iterable of lists of RAWDatabase objects.
+        """
+        return self._iterate(limit=limit)
 
     def list(self, limit: int | None = None) -> list[RAWDatabase]:
         """List all databases in CDF.
@@ -95,7 +109,7 @@ class RawTablesAPI(CDFResourceAPI[RAWTable, RAWTable, RAWTable]):
             },
         )
 
-    def _page_response(self, response: SuccessResponse2 | ItemsSuccessResponse2) -> PagedResponse[RAWTable]:
+    def _validate_page_response(self, response: SuccessResponse2 | ItemsSuccessResponse2) -> PagedResponse[RAWTable]:
         """Parse a page response. Note: db_name must be injected separately."""
         return PagedResponse[RAWTable].model_validate_json(response.body)
 
@@ -137,7 +151,7 @@ class RawTablesAPI(CDFResourceAPI[RAWTable, RAWTable, RAWTable]):
             endpoint = f"/raw/dbs/{db_name}/tables/delete"
             self._request_no_response(list(group), "delete", endpoint=endpoint)
 
-    def iterate(
+    def paginate(
         self,
         db_name: str,
         limit: int = 100,
@@ -153,7 +167,23 @@ class RawTablesAPI(CDFResourceAPI[RAWTable, RAWTable, RAWTable]):
         Returns:
             PagedResponse of RAWTable objects.
         """
-        return self._iterate(cursor=cursor, limit=limit, endpoint_path=f"/raw/dbs/{db_name}/tables")
+        return self._paginate(cursor=cursor, limit=limit, endpoint_path=f"/raw/dbs/{db_name}/tables")
+
+    def iterate(
+        self,
+        db_name: str,
+        limit: int = 100,
+    ) -> Iterable[list[RAWTable]]:
+        """Iterate over all tables in a database in CDF.
+
+        Args:
+            db_name: The name of the database to list tables from.
+            limit: Maximum number of items to return per page.
+
+        Returns:
+            Iterable of lists of RAWTable objects.
+        """
+        return self._iterate(limit=limit, endpoint_path=f"/raw/dbs/{db_name}/tables")
 
     def list(self, db_name: str, limit: int | None = None) -> list[RAWTable]:
         """List all tables in a database in CDF.

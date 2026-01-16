@@ -11,12 +11,12 @@ from cognite.client.utils._identifier import InstanceId
 from cognite.client.utils._text import to_camel_case
 from pydantic import BaseModel, BeforeValidator, Field, field_validator, model_validator
 
-from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject, RequestResource
-from cognite_toolkit._cdf_tk.client.data_classes.identifiers import InternalId
-from cognite_toolkit._cdf_tk.client.data_classes.instance_api import InstanceIdentifier
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.instances import InstanceApplyList
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import AssetCentricId
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.pending_instances_ids import PendingInstanceId
+from cognite_toolkit._cdf_tk.client.resource_classes.base import BaseModelObject, RequestResource
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import InstanceIdentifier
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.instances import InstanceApplyList
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import AssetCentricId
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.pending_instances_ids import PendingInstanceId
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
     ASSET_ANNOTATIONS_ID,
     FILE_ANNOTATIONS_ID,

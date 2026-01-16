@@ -1,11 +1,12 @@
-from collections.abc import Sequence
-from typing import Any, Literal
+from collections.abc import Iterable, Sequence
+from typing import Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
-from cognite_toolkit._cdf_tk.client.data_classes.identifiers import InternalOrExternalId
-from cognite_toolkit._cdf_tk.client.data_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalOrExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 
 
 class TimeSeriesAPI(CDFResourceAPI[InternalOrExternalId, TimeSeriesRequest, TimeSeriesResponse]):
@@ -27,7 +28,9 @@ class TimeSeriesAPI(CDFResourceAPI[InternalOrExternalId, TimeSeriesRequest, Time
             },
         )
 
-    def _page_response(self, response: SuccessResponse2 | ItemsSuccessResponse2) -> PagedResponse[TimeSeriesResponse]:
+    def _validate_page_response(
+        self, response: SuccessResponse2 | ItemsSuccessResponse2
+    ) -> PagedResponse[TimeSeriesResponse]:
         return PagedResponse[TimeSeriesResponse].model_validate_json(response.body)
 
     def _reference_response(self, response: SuccessResponse2) -> ResponseItems[InternalOrExternalId]:
@@ -81,34 +84,45 @@ class TimeSeriesAPI(CDFResourceAPI[InternalOrExternalId, TimeSeriesRequest, Time
         """
         self._request_no_response(items, "delete", extra_body={"ignoreUnknownIds": ignore_unknown_ids})
 
-    def iterate(
+    def paginate(
         self,
-        data_set_external_ids: list[str] | None = None,
-        asset_subtree_external_ids: list[str] | None = None,
+        filter: ClassicFilter | None = None,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[TimeSeriesResponse]:
         """Iterate over all time series in CDF.
 
         Args:
-            data_set_external_ids: Filter by data set external IDs.
-            asset_subtree_external_ids: Filter by asset subtree external IDs.
+            filter: Filter by data set IDs and/or asset subtree IDs.
             limit: Maximum number of items to return.
             cursor: Cursor for pagination.
 
         Returns:
             PagedResponse of TimeSeriesResponse objects.
         """
-        filter_: dict[str, Any] = {}
-        if asset_subtree_external_ids:
-            filter_["assetSubtreeIds"] = [{"externalId": ext_id} for ext_id in asset_subtree_external_ids]
-        if data_set_external_ids:
-            filter_["dataSetIds"] = [{"externalId": ds_id} for ds_id in data_set_external_ids]
-
-        return self._iterate(
+        return self._paginate(
             cursor=cursor,
             limit=limit,
-            body={"filter": filter_ or None},
+            body={"filter": filter.dump() if filter else None},
+        )
+
+    def iterate(
+        self,
+        filter: ClassicFilter | None = None,
+        limit: int | None = 100,
+    ) -> Iterable[list[TimeSeriesResponse]]:
+        """Iterate over all time series in CDF.
+
+        Args:
+            filter: Filter by data set IDs and/or asset subtree IDs.
+            limit: Maximum number of items to return per page.
+
+        Returns:
+            Iterable of lists of TimeSeriesResponse objects.
+        """
+        return self._iterate(
+            limit=limit,
+            body={"filter": filter.dump() if filter else None},
         )
 
     def list(

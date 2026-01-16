@@ -9,8 +9,8 @@ from cognite.client.data_classes import View
 from cognite.client.data_classes.data_modeling import DataModel, EdgeApply, Node, NodeApply
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.instances import InstanceApplyList, InstanceList
 from cognite_toolkit._cdf_tk.client.http_client import FailedResponseItems, HTTPClient, SuccessResponseItems
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.instances import InstanceApplyList, InstanceList
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
 from cognite_toolkit._cdf_tk.storageio import InstanceIO
 from cognite_toolkit._cdf_tk.storageio.selectors import InstanceSpaceSelector, InstanceViewSelector, SelectedView

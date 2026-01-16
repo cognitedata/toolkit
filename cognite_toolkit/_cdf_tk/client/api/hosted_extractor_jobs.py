@@ -1,14 +1,14 @@
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from typing import Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
-from cognite_toolkit._cdf_tk.client.data_classes.hosted_extractor_job import (
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_job import (
     HostedExtractorJobRequest,
     HostedExtractorJobResponse,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 
 
 class HostedExtractorJobsAPI(CDFResourceAPI[ExternalId, HostedExtractorJobRequest, HostedExtractorJobResponse]):
@@ -24,7 +24,7 @@ class HostedExtractorJobsAPI(CDFResourceAPI[ExternalId, HostedExtractorJobReques
             },
         )
 
-    def _page_response(
+    def _validate_page_response(
         self, response: SuccessResponse2 | ItemsSuccessResponse2
     ) -> PagedResponse[HostedExtractorJobResponse]:
         return PagedResponse[HostedExtractorJobResponse].model_validate_json(response.body)
@@ -80,7 +80,7 @@ class HostedExtractorJobsAPI(CDFResourceAPI[ExternalId, HostedExtractorJobReques
         """
         self._request_no_response(items, "delete", extra_body={"ignoreUnknownIds": ignore_unknown_ids})
 
-    def iterate(
+    def paginate(
         self,
         limit: int = 100,
         cursor: str | None = None,
@@ -94,7 +94,21 @@ class HostedExtractorJobsAPI(CDFResourceAPI[ExternalId, HostedExtractorJobReques
         Returns:
             PagedResponse of job response objects.
         """
-        return self._iterate(cursor=cursor, limit=limit)
+        return self._paginate(cursor=cursor, limit=limit)
+
+    def iterate(
+        self,
+        limit: int = 100,
+    ) -> Iterable[list[HostedExtractorJobResponse]]:
+        """Iterate over hosted extractor jobs in CDF.
+
+        Args:
+            limit: Maximum number of items to return per page.
+
+        Returns:
+            Iterable of lists of job response objects.
+        """
+        return self._iterate(limit=limit)
 
     def list(self, limit: int | None = 100) -> list[HostedExtractorJobResponse]:
         """List all hosted extractor jobs in CDF.

@@ -6,13 +6,13 @@ from cognite.client.data_classes import TimeSeries, TimeSeriesWrite, UserProfile
 from cognite.client.exceptions import CogniteNotFoundError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.charts_data import (
+from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartData,
     ChartSource,
     ChartTimeseries,
     UserInfo,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.charts import Chart, ChartWrite
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart, ChartWrite
 
 
 @pytest.fixture(scope="session")

@@ -8,14 +8,14 @@ from cognite.client.data_classes.data_modeling import NodeApplyResultList, NodeI
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk.client.data_classes.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.data_classes.infield import (
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     InFieldCDMLocationConfig,
     InfieldLocationConfig,
     InfieldLocationConfigList,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.instance_api import InstanceResult, TypedNodeIdentifier
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.apm_config_v1 import (
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import InstanceResult, TypedNodeIdentifier
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.apm_config_v1 import (
     APMConfig,
     APMConfigList,
     APMConfigWrite,

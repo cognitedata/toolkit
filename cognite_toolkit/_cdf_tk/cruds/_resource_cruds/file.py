@@ -27,9 +27,10 @@ from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils._time import convert_data_modelling_timestamp
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
-from cognite_toolkit._cdf_tk.client.data_classes.identifiers import ExternalId, InternalOrExternalId
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.extendable_cognite_file import (
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalOrExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.extendable_cognite_file import (
     ExtendableCogniteFile,
     ExtendableCogniteFileApply,
     ExtendableCogniteFileList,
@@ -158,17 +159,9 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[FileMetadataResponse]:
-        cursor: str | None = None
-        while True:
-            page = self.client.tool.filemetadata.iterate(
-                data_set_external_ids=[data_set_external_id] if data_set_external_id else None,
-                limit=1000,
-                cursor=cursor,
-            )
-            yield from page.items
-            if not page.next_cursor or not page.items:
-                break
-            cursor = page.next_cursor
+        filter_ = ClassicFilter.from_asset_subtree_and_data_sets(data_set_id=data_set_external_id)
+        for files in self.client.tool.filemetadata.iterate(filter=filter_, limit=None):
+            yield from files
 
     def count(self, ids: SequenceNotStr[ExternalId]) -> int:
         return sum(

@@ -52,10 +52,10 @@ from rich.console import Console
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.location_filters import LocationFilterList
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.search_config import SearchConfigList
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.search_config import ViewId as SearchConfigViewId
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.streamlit_ import Streamlit, StreamlitList
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.location_filters import LocationFilterList
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import SearchConfigList
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import ViewId as SearchConfigViewId
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.streamlit_ import Streamlit, StreamlitList
 from cognite_toolkit._cdf_tk.cruds import (
     AgentCRUD,
     ContainerCRUD,

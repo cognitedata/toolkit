@@ -16,15 +16,15 @@ from cognite.client.data_classes.data_modeling.ids import ContainerId, EdgeId, V
 from cognite.client.data_classes.data_modeling.instances import NodeList, PropertyValueWrite
 from cognite.client.data_classes.data_modeling.views import MappedProperty, MultiEdgeConnection, ViewProperty
 
-from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetResponse
-from cognite_toolkit._cdf_tk.client.data_classes.event import EventResponse
-from cognite_toolkit._cdf_tk.client.data_classes.filemetadata import FileMetadataResponse
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import (
+from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import (
     AssetCentricId,
     CreatedSourceSystem,
     ResourceViewMapping,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.timeseries import TimeSeriesResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     DirectRelationCache,

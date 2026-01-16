@@ -1,11 +1,11 @@
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
-from cognite_toolkit._cdf_tk.client.data_classes.dataset import DataSetRequest, DataSetResponse
-from cognite_toolkit._cdf_tk.client.data_classes.identifiers import InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalOrExternalId
 
 
 class DataSetsAPI(CDFResourceAPI[InternalOrExternalId, DataSetRequest, DataSetResponse]):
@@ -20,7 +20,9 @@ class DataSetsAPI(CDFResourceAPI[InternalOrExternalId, DataSetRequest, DataSetRe
             },
         )
 
-    def _page_response(self, response: SuccessResponse2 | ItemsSuccessResponse2) -> PagedResponse[DataSetResponse]:
+    def _validate_page_response(
+        self, response: SuccessResponse2 | ItemsSuccessResponse2
+    ) -> PagedResponse[DataSetResponse]:
         return PagedResponse[DataSetResponse].model_validate_json(response.body)
 
     def _reference_response(self, response: SuccessResponse2) -> ResponseItems[InternalOrExternalId]:
@@ -65,7 +67,7 @@ class DataSetsAPI(CDFResourceAPI[InternalOrExternalId, DataSetRequest, DataSetRe
         """
         return self._update(items, mode=mode)
 
-    def iterate(
+    def paginate(
         self,
         metadata: dict[str, str] | None = None,
         external_id_prefix: str | None = None,
@@ -93,8 +95,39 @@ class DataSetsAPI(CDFResourceAPI[InternalOrExternalId, DataSetRequest, DataSetRe
         if write_protected is not None:
             filter_body["writeProtected"] = write_protected
 
-        return self._iterate(
+        return self._paginate(
             cursor=cursor,
+            limit=limit,
+            body={"filter": filter_body} if filter_body else {},
+        )
+
+    def iterate(
+        self,
+        metadata: dict[str, str] | None = None,
+        external_id_prefix: str | None = None,
+        write_protected: bool | None = None,
+        limit: int = 100,
+    ) -> Iterable[list[DataSetResponse]]:
+        """Iterate over all data sets in CDF.
+
+        Args:
+            metadata: Filter by metadata.
+            external_id_prefix: Filter by external ID prefix.
+            write_protected: Filter by write protection status.
+            limit: Maximum number of items to return per page.
+
+        Returns:
+            Iterable of lists of DataSetResponse objects.
+        """
+        filter_body: dict[str, Any] = {}
+        if metadata is not None:
+            filter_body["metadata"] = metadata
+        if external_id_prefix is not None:
+            filter_body["externalIdPrefix"] = external_id_prefix
+        if write_protected is not None:
+            filter_body["writeProtected"] = write_protected
+
+        return self._iterate(
             limit=limit,
             body={"filter": filter_body} if filter_body else {},
         )

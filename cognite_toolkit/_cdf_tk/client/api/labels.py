@@ -1,11 +1,12 @@
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from typing import Any
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
-from cognite_toolkit._cdf_tk.client.data_classes.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.data_classes.label import LabelRequest, LabelResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest, LabelResponse
 
 
 class LabelsAPI(CDFResourceAPI[ExternalId, LabelRequest, LabelResponse]):
@@ -20,7 +21,9 @@ class LabelsAPI(CDFResourceAPI[ExternalId, LabelRequest, LabelResponse]):
             },
         )
 
-    def _page_response(self, response: SuccessResponse2 | ItemsSuccessResponse2) -> PagedResponse[LabelResponse]:
+    def _validate_page_response(
+        self, response: SuccessResponse2 | ItemsSuccessResponse2
+    ) -> PagedResponse[LabelResponse]:
         return PagedResponse[LabelResponse].model_validate_json(response.body)
 
     def _reference_response(self, response: SuccessResponse2) -> ResponseItems[ExternalId]:
@@ -57,32 +60,55 @@ class LabelsAPI(CDFResourceAPI[ExternalId, LabelRequest, LabelResponse]):
         """
         self._request_no_response(items, "delete")
 
-    def iterate(
+    def paginate(
         self,
+        filter: ClassicFilter | None = None,
         name: str | None = None,
-        data_set_external_ids: list[str] | None = None,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[LabelResponse]:
         """Iterate over all labels in CDF.
 
         Args:
+            filter: Filter by data set IDs.
             name: Filter by label name (prefix match).
-            data_set_external_ids: Filter by data set external IDs.
             limit: Maximum number of items to return.
             cursor: Cursor for pagination.
 
         Returns:
             PagedResponse of LabelResponse objects.
         """
-        body: dict[str, Any] = {}
+        body: dict[str, Any] = filter.dump() if filter else {}
         if name:
             body["name"] = name
-        if data_set_external_ids:
-            body["dataSetIds"] = [{"externalId": ds_id} for ds_id in data_set_external_ids]
+
+        return self._paginate(
+            cursor=cursor,
+            limit=limit,
+            body=body,
+        )
+
+    def iterate(
+        self,
+        filter: ClassicFilter | None = None,
+        name: str | None = None,
+        limit: int = 100,
+    ) -> Iterable[list[LabelResponse]]:
+        """Iterate over all labels in CDF.
+
+        Args:
+            filter: Filter by data set IDs.
+            name: Filter by label name (prefix match).
+            limit: Maximum number of items to return per page.
+
+        Returns:
+            Iterable of lists of LabelResponse objects.
+        """
+        body: dict[str, Any] = filter.dump() if filter else {}
+        if name:
+            body["name"] = name
 
         return self._iterate(
-            cursor=cursor,
             limit=limit,
             body=body,
         )

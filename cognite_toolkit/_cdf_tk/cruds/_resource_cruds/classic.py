@@ -17,14 +17,15 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.asset import (
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.asset import (
     AssetAggregateItem,
     AssetRequest,
     AssetResponse,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.event import EventRequest, EventResponse
-from cognite_toolkit._cdf_tk.client.data_classes.identifiers import ExternalId, InternalOrExternalId
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.sequences import (
+from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalOrExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.sequences import (
     ToolkitSequenceRows,
     ToolkitSequenceRowsList,
     ToolkitSequenceRowsWrite,
@@ -140,18 +141,9 @@ class AssetCRUD(ResourceCRUD[ExternalId, AssetRequest, AssetResponse]):
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[AssetResponse]:
-        cursor: str | None = None
-        while True:
-            page = self.client.tool.assets.iterate(
-                limit=1000,
-                cursor=cursor,
-                data_set_external_ids=[data_set_external_id] if data_set_external_id else None,
-                aggregated_properties=True,
-            )
-            yield from page.items
-            if not page.next_cursor or not page.items:
-                break
-            cursor = page.next_cursor
+        filter_ = ClassicFilter.from_asset_subtree_and_data_sets(data_set_id=data_set_external_id)
+        for assets in self.client.tool.assets.iterate(aggregated_properties=True, filter=filter_, limit=None):
+            yield from assets
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -570,17 +562,9 @@ class EventCRUD(ResourceCRUD[ExternalId, EventRequest, EventResponse]):
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[EventResponse]:
-        cursor: str | None = None
-        while True:
-            page = self.client.tool.events.iterate(
-                data_set_external_ids=[data_set_external_id] if data_set_external_id else None,
-                limit=1000,
-                cursor=cursor,
-            )
-            yield from page.items
-            if not page.next_cursor or not page.items:
-                break
-            cursor = page.next_cursor
+        filter_ = ClassicFilter.from_asset_subtree_and_data_sets(data_set_id=data_set_external_id)
+        for events in self.client.tool.events.iterate(filter=filter_, limit=None):
+            yield from events
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:

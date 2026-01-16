@@ -21,7 +21,7 @@ from cognite.client.data_classes.capabilities import (
 )
 from cognite.client.data_classes.iam import Group, GroupList, ProjectSpec, TokenInspection
 
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.project import ProjectStatusList
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.project import ProjectStatusList
 from cognite_toolkit._cdf_tk.commands import AuthCommand
 from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
 from cognite_toolkit._cdf_tk.tk_warnings import (

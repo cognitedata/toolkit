@@ -1,10 +1,10 @@
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
-from cognite_toolkit._cdf_tk.client.data_classes.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.data_classes.workflow import WorkflowRequest, WorkflowResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowRequest, WorkflowResponse
 
 from .workflow_triggers import WorkflowTriggersAPI
 from .workflow_versions import WorkflowVersionsAPI
@@ -24,7 +24,9 @@ class WorkflowsAPI(CDFResourceAPI[ExternalId, WorkflowRequest, WorkflowResponse]
         self.versions = WorkflowVersionsAPI(http_client)
         self.triggers = WorkflowTriggersAPI(http_client)
 
-    def _page_response(self, response: SuccessResponse2 | ItemsSuccessResponse2) -> PagedResponse[WorkflowResponse]:
+    def _validate_page_response(
+        self, response: SuccessResponse2 | ItemsSuccessResponse2
+    ) -> PagedResponse[WorkflowResponse]:
         return PagedResponse[WorkflowResponse].model_validate_json(response.body)
 
     def _reference_response(self, response: SuccessResponse2) -> ResponseItems[ExternalId]:
@@ -75,7 +77,7 @@ class WorkflowsAPI(CDFResourceAPI[ExternalId, WorkflowRequest, WorkflowResponse]
         """
         self._request_no_response(items, "delete")
 
-    def iterate(
+    def paginate(
         self,
         limit: int = 100,
         cursor: str | None = None,
@@ -89,10 +91,21 @@ class WorkflowsAPI(CDFResourceAPI[ExternalId, WorkflowRequest, WorkflowResponse]
         Returns:
             PagedResponse of WorkflowResponse objects.
         """
-        return self._iterate(
-            cursor=cursor,
-            limit=limit,
-        )
+        return self._paginate(cursor=cursor, limit=limit)
+
+    def iterate(
+        self,
+        limit: int = 100,
+    ) -> Iterable[list[WorkflowResponse]]:
+        """Iterate over all workflows in CDF.
+
+        Args:
+            limit: Maximum number of items to return per page.
+
+        Returns:
+            Iterable of lists of WorkflowResponse objects.
+        """
+        return self._iterate(limit=limit)
 
     def list(
         self,

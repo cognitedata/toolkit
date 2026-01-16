@@ -4,8 +4,8 @@ import pytest
 import responses
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.data_classes.base import BaseModelObject
-from cognite_toolkit._cdf_tk.client.data_classes.charts_data import (
+from cognite_toolkit._cdf_tk.client.resource_classes.base import BaseModelObject
+from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartCoreTimeseries,
     ChartData,
     ChartScheduledCalculation,
@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.charts_data import (
     ChartWorkflow,
     UserInfo,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.charts import Chart, ChartList, ChartWrite
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart, ChartList, ChartWrite
 
 CHART = Chart(
     external_id="chart",

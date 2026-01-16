@@ -1,11 +1,12 @@
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
-from cognite_toolkit._cdf_tk.client.data_classes.identifiers import InternalOrExternalId
-from cognite_toolkit._cdf_tk.client.data_classes.transformation import TransformationRequest, TransformationResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalOrExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationRequest, TransformationResponse
 
 
 class TransformationsAPI(CDFResourceAPI[InternalOrExternalId, TransformationRequest, TransformationResponse]):
@@ -21,7 +22,7 @@ class TransformationsAPI(CDFResourceAPI[InternalOrExternalId, TransformationRequ
             },
         )
 
-    def _page_response(
+    def _validate_page_response(
         self, response: SuccessResponse2 | ItemsSuccessResponse2
     ) -> PagedResponse[TransformationResponse]:
         return PagedResponse[TransformationResponse].model_validate_json(response.body)
@@ -80,9 +81,9 @@ class TransformationsAPI(CDFResourceAPI[InternalOrExternalId, TransformationRequ
         """
         self._request_no_response(items, "delete", extra_body={"ignoreUnknownIds": ignore_unknown_ids})
 
-    def iterate(
+    def paginate(
         self,
-        data_set_external_ids: list[str] | None = None,
+        filter: ClassicFilter | None = None,
         is_public: bool | None = None,
         limit: int = 100,
         cursor: str | None = None,
@@ -90,7 +91,7 @@ class TransformationsAPI(CDFResourceAPI[InternalOrExternalId, TransformationRequ
         """Iterate over all transformations in CDF.
 
         Args:
-            data_set_external_ids: Filter by data set external IDs.
+            filter: Filter by data set IDs.
             is_public: Filter by public status.
             limit: Maximum number of items to return.
             cursor: Cursor for pagination.
@@ -98,14 +99,37 @@ class TransformationsAPI(CDFResourceAPI[InternalOrExternalId, TransformationRequ
         Returns:
             PagedResponse of TransformationResponse objects.
         """
-        filter_: dict[str, Any] = {}
-        if data_set_external_ids:
-            filter_["dataSetIds"] = [{"externalId": ds_id} for ds_id in data_set_external_ids]
+        filter_: dict[str, Any] = filter.dump() if filter else {}
+        if is_public is not None:
+            filter_["isPublic"] = is_public
+
+        return self._paginate(
+            cursor=cursor,
+            limit=limit,
+            body={"filter": filter_ or None},
+        )
+
+    def iterate(
+        self,
+        filter: ClassicFilter | None = None,
+        is_public: bool | None = None,
+        limit: int = 100,
+    ) -> Iterable[list[TransformationResponse]]:
+        """Iterate over all transformations in CDF.
+
+        Args:
+            filter: Filter by data set IDs.
+            is_public: Filter by public status.
+            limit: Maximum number of items to return per page.
+
+        Returns:
+            Iterable of lists of TransformationResponse objects.
+        """
+        filter_: dict[str, Any] = filter.dump() if filter else {}
         if is_public is not None:
             filter_["isPublic"] = is_public
 
         return self._iterate(
-            cursor=cursor,
             limit=limit,
             body={"filter": filter_ or None},
         )

@@ -5,12 +5,6 @@ from cognite.client.data_classes import Annotation
 from cognite.client.data_classes.data_modeling import EdgeId, InstanceApply, NodeId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.pending_instances_ids import PendingInstanceId
-from cognite_toolkit._cdf_tk.client.data_classes.three_d import (
-    AssetMappingDMRequest,
-    AssetMappingResponse,
-    ThreeDModelResponse,
-)
 from cognite_toolkit._cdf_tk.client.http_client import (
     FailedResponse,
     HTTPClient,
@@ -19,6 +13,12 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     SimpleBodyRequest,
     SuccessResponseItems,
     ToolkitAPIError,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.pending_instances_ids import PendingInstanceId
+from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
+    AssetMappingDMRequest,
+    AssetMappingResponse,
+    ThreeDModelResponse,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import ThreeDMigrationRequest
 from cognite_toolkit._cdf_tk.constants import MISSING_EXTERNAL_ID, MISSING_INSTANCE_SPACE
@@ -415,7 +415,7 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelResponse,
         total = 0
         while True:
             request_limit = min(self.DOWNLOAD_LIMIT, limit - total) if limit is not None else self.DOWNLOAD_LIMIT
-            response = self.client.tool.three_d.models.iterate(
+            response = self.client.tool.three_d.models.paginate(
                 published=published, include_revision_info=True, limit=request_limit, cursor=cursor
             )
             items = [item for item in response.items if self._is_selected(item, included_models)]
@@ -510,7 +510,7 @@ class ThreeDAssetMappingMigrationIO(UploadableStorageIO[ThreeDSelector, AssetMap
                     )
                     if limit is not None and total >= limit:
                         return
-                    response = self.client.tool.three_d.asset_mappings.iterate(
+                    response = self.client.tool.three_d.asset_mappings.paginate(
                         model_id=model.id,
                         revision_id=model.last_revision_info.revision_id,
                         cursor=cursor,

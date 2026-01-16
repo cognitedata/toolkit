@@ -23,11 +23,11 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, ProjectStatistics
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.data_classes.asset import AssetResponse
-from cognite_toolkit._cdf_tk.client.data_classes.charts_data import ChartData, ChartSource, ChartTimeseries
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.canvas import ContainerReference, IndustrialCanvas
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.charts import Chart
-from cognite_toolkit._cdf_tk.client.data_classes.legacy.migration import InstanceSource
+from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartData, ChartSource, ChartTimeseries
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import ContainerReference, IndustrialCanvas
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import InstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper, CanvasMapper, ChartMapper

@@ -2,7 +2,7 @@ import pytest
 from cognite.client.data_classes.data_modeling import ContainerApply, Space, SpaceApply, ViewApply
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.infield import InFieldCDMLocationConfig, InfieldLocationConfig
+from cognite_toolkit._cdf_tk.client.resource_classes.infield import InFieldCDMLocationConfig, InfieldLocationConfig
 from tests.data import INFIELD_CDM_LOCATION_CONFIG_CONTAINER_YAML, INFIELD_CDM_LOCATION_CONFIG_VIEW_YAML
 from tests.test_integration.constants import RUN_UNIQUE_ID
 

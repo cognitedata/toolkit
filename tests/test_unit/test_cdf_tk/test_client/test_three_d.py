@@ -6,8 +6,8 @@ import pytest
 import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.data_classes.instance_api import NodeReference
-from cognite_toolkit._cdf_tk.client.data_classes.three_d import (
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import NodeReference
+from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicRequest,
     AssetMappingDMRequest,
 )
@@ -142,7 +142,7 @@ class TestAssetsMappings:
             },
         )
 
-        page = toolkit_client.tool.three_d.asset_mappings.iterate(model_id=37, revision_id=42, limit=100)
+        page = toolkit_client.tool.three_d.asset_mappings.paginate(model_id=37, revision_id=42, limit=100)
         assert len(page.items) == 2
         assert page.items[0].dump() == asset_mapping_classic
         assert page.items[1].dump() == asset_mapping_dm
@@ -275,7 +275,7 @@ class TestAssetsMappings:
         self, args: dict[str, Any], expected_error: str, toolkit_client: ToolkitClient
     ) -> None:
         with pytest.raises(ValueError, match=expected_error):
-            toolkit_client.tool.three_d.asset_mappings.iterate(model_id=37, revision_id=42, **args)
+            toolkit_client.tool.three_d.asset_mappings.paginate(model_id=37, revision_id=42, **args)
 
     def test_create_empty_list(
         self,
