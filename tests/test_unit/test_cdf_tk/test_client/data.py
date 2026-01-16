@@ -12,7 +12,6 @@ from cognite_toolkit._cdf_tk.client.api.data_models import DataModelsAPI
 from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
 from cognite_toolkit._cdf_tk.client.api.events import EventsAPI
 from cognite_toolkit._cdf_tk.client.api.extraction_pipelines import ExtractionPipelinesAPI
-from cognite_toolkit._cdf_tk.client.api.filemetadata import FileMetadataAPI
 from cognite_toolkit._cdf_tk.client.api.functions import FunctionsAPI
 from cognite_toolkit._cdf_tk.client.api.groups import GroupsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_destinations import HostedExtractorDestinationsAPI
@@ -594,7 +593,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=FileMetadataResponse,
             request_cls=FileMetadataRequest,
             example_data=get_example_minimum_responses(FileMetadataResponse),
-            api_class=FileMetadataAPI,
+            # FileMetadata API requires custom mocking.
         ),
         id="FileMetadata",
     )
