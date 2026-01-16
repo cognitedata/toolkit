@@ -61,18 +61,21 @@ class BuildCommand(ToolkitCommand):
             self._additional_tracking_info.cluster = build_parameters.client.config.cdf_cluster
 
         # Load modules
-        module_paths, module_loading_issues = ModulesParser(organization_dir=base_dir, selected=selected).parse()
+        modules_parser = ModulesParser(organization_dir=base_dir, selected=selected)
+        module_paths = modules_parser.parse()
+        module_loading_issues = modules_parser.issues
         if module_loading_issues:
             self.issues.extend(module_loading_issues)
             self._print_or_log_issues_by_category(self.issues)
-            if any(issue.fatal for issue in module_loading_issues):
-                raise ToolkitError("Module loading issues encountered. See above for details.")
-            return BuiltModuleList()
+            raise ToolkitError("Module loading issues encountered. Cannot continue. See above for details.")
 
         # Load modules
-        modules = [Module.load(path) for path in module_paths]
-        for module in modules:
-            print(module.path)
+        if module_paths:
+            pass
+
+        # modules = [Module.load(path) for path in module_paths]
+        # for module in modules:
+        #    continue
 
         # Logistics: clean and create build directory
         if prepare_issues := self._prepare_target_directory(build_dir, not no_clean):

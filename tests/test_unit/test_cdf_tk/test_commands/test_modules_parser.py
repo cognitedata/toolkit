@@ -18,7 +18,7 @@ class TestModulesParser:
             ModulesParser(organization_dir=modules_root).parse()
 
     def test_load_modules(self) -> None:
-        modules, _ = ModulesParser(organization_dir=COMPLETE_ORG).parse()
+        modules = ModulesParser(organization_dir=COMPLETE_ORG).parse()
 
         assert len(modules) == 3
         assert {module for module in modules} == {
@@ -28,9 +28,11 @@ class TestModulesParser:
         }
 
     def test_load_selection(self) -> None:
-        modules, issues = ModulesParser(
+        module_parser = ModulesParser(
             organization_dir=COMPLETE_ORG, selected=["my_example_module", Path(MODULES) / "my_file_expand_module"]
-        ).parse()
+        )
+        modules = module_parser.parse()
+        issues = module_parser.issues
         assert len(modules) == 2
         assert {module for module in modules} == {
             COMPLETE_ORG / MODULES / "my_example_module",
@@ -56,7 +58,9 @@ class TestModulesParser:
         modules_root = selection_test_modules_root
         organization_dir = modules_root.parent
 
-        modules, issues = ModulesParser(organization_dir=organization_dir).parse()
+        module_parser = ModulesParser(organization_dir=organization_dir)
+        modules = module_parser.parse()
+        issues = module_parser.issues
 
         # A is a parent module with nested modules, so it should be discarded
         # Only the deepest modules should be loaded
@@ -71,7 +75,9 @@ class TestModulesParser:
         modules_root = selection_test_modules_root
         organization_dir = modules_root.parent
 
-        modules, issues = ModulesParser(organization_dir=organization_dir, selected=[Path(MODULES) / "A"]).parse()
+        module_parser = ModulesParser(organization_dir=organization_dir, selected=[Path(MODULES) / "A"])
+        modules = module_parser.parse()
+        issues = module_parser.issues
 
         # Only the selected module should be loaded
         assert {m.relative_to(modules_root) for m in modules} == {
@@ -83,7 +89,9 @@ class TestModulesParser:
         modules_root = selection_test_modules_root
         organization_dir = modules_root.parent
 
-        modules, issues = ModulesParser(organization_dir=organization_dir, selected=["A/SUB"]).parse()
+        module_parser = ModulesParser(organization_dir=organization_dir, selected=["A/SUB"])
+        modules = module_parser.parse()
+        issues = module_parser.issues
 
         # A is a parent module with nested modules, so it should be discarded
         # Only the deepest module should be loaded
@@ -96,7 +104,9 @@ class TestModulesParser:
         modules_root = selection_test_modules_root
         organization_dir = modules_root.parent
 
-        modules, issues = ModulesParser(organization_dir=organization_dir, selected=["MODULES/A"]).parse()
+        module_parser = ModulesParser(organization_dir=organization_dir, selected=["MODULES/A"])
+        modules = module_parser.parse()
+        issues = module_parser.issues
 
         # A is a parent module with nested modules, so it should be discarded
         # Only the deepest module should be loaded
@@ -111,7 +121,9 @@ class TestModulesParser:
         (module_path / "transformations" / "transformation.yaml").touch()
         (module_path / "docs").mkdir(parents=True)
         (module_path / "docs" / "readme.md").touch()
-        _modules, issues = ModulesParser(organization_dir=tmp_path).parse()
+        module_parser = ModulesParser(organization_dir=tmp_path)
+        module_parser.parse()
+        issues = module_parser.issues
 
         assert len(issues) == 1
         assert issues[0].message == "Module 'modules/mixed_module' contains unrecognized resource folder(s): docs"
@@ -131,7 +143,9 @@ class TestModulesParser:
             "cognite_toolkit._cdf_tk.commands.build_v2._modules_parser.CRUDS_BY_FOLDER_NAME",
             cruds_without_streams,
         ):
-            modules, issues = ModulesParser(organization_dir=tmp_path, selected=["mixed_module"]).parse()
+            module_parser = ModulesParser(organization_dir=tmp_path, selected=["mixed_module"])
+            modules = module_parser.parse()
+            issues = module_parser.issues
 
         # The module should be loaded since it has at least one normal resource (transformations)
         assert len(modules) == 1
@@ -142,8 +156,12 @@ class TestModulesParser:
         module_path = tmp_path / MODULES / "empty_module"
         (module_path).mkdir(parents=True)
         (module_path / ".gitkeep").touch()
-        modules, _ = ModulesParser(organization_dir=tmp_path, selected=["empty_module"]).parse()
+        module_parser = ModulesParser(organization_dir=tmp_path, selected=["empty_module"])
+        modules = module_parser.parse()
+        issues = module_parser.issues
         assert len(modules) == 0
+        assert len(issues) == 1
+        assert issues[0].message == "Module 'empty_module' not found"
 
     def test_module_container_with_resources_and_nested_module(self, tmp_path: Path) -> None:
         global_path = tmp_path / MODULES / "global"
@@ -155,7 +173,9 @@ class TestModulesParser:
         (nested_module_path / "transformations").mkdir(parents=True)
         (nested_module_path / "transformations" / "transformation.yaml").touch()
 
-        modules, issues = ModulesParser(organization_dir=tmp_path).parse()
+        module_parser = ModulesParser(organization_dir=tmp_path)
+        modules = module_parser.parse()
+        issues = module_parser.issues
 
         module_paths = {module for module in modules}
 
@@ -182,14 +202,16 @@ class TestModulesParser:
         code_path.mkdir()
         (code_path / "handler.py").touch()
 
-        modules, issues = ModulesParser(organization_dir=tmp_path).parse()
+        module_parser = ModulesParser(organization_dir=tmp_path)
+        modules = module_parser.parse()
+        issues = module_parser.issues
 
         # The module should be loaded (functions with subfolders should still be detected)
         assert len(modules) == 1
         assert modules[0] == module_path
 
         # No issues should be raised (functions folder should be recognized even with subfolders)
-        assert len(issues) == 0, f"Expected no issues, but got: {issues}"
+        assert len(issues) == 0
 
 
 class TestGetResourceFolder:

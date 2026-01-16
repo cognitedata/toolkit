@@ -61,7 +61,9 @@ class TestBuildV2Command:
 
     def test_module_not_found_error(self, tmp_path: Path) -> None:
         cmd = BuildCommand(print_warning=False)
-        with pytest.raises(ToolkitError, match=r"Module loading issues encountered\. See above for details\."):
+        with pytest.raises(
+            ToolkitError, match=r"Module loading issues encountered\. Cannot continue\. See above for details\."
+        ):
             cmd.execute(
                 verbose=False,
                 build_dir=tmp_path,
@@ -73,11 +75,12 @@ class TestBuildV2Command:
         assert len(cmd.issues) == 1
         assert cmd.issues[0].code == "MOD_001"
         assert cmd.issues[0].message == "Module 'no_such_module' not found"
-        assert cmd.issues[0].fatal
 
     def test_module_with_non_resource_directories(self, tmp_path: Path) -> None:
         cmd = BuildCommand(print_warning=False)
-        with suppress(NotImplementedError):
+        with pytest.raises(
+            ToolkitError, match=r"Module loading issues encountered\. Cannot continue\. See above for details\."
+        ):
             cmd.execute(
                 verbose=False,
                 build_dir=tmp_path,
@@ -94,7 +97,6 @@ class TestBuildV2Command:
             load_issues[0].message
             == "Module 'modules/ill_made_module' contains unrecognized resource folder(s): spaces"
         )
-        assert not load_issues[0].fatal
 
     @pytest.mark.skipif(not Flags.GRAPHQL.is_enabled(), reason="GraphQL schema files will give warnings")
     def test_custom_project_no_warnings(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:

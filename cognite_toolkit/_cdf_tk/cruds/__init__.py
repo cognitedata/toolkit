@@ -91,7 +91,7 @@ if not FeatureFlag.is_enabled(Flags.STREAMS):
 if not FeatureFlag.is_enabled(Flags.SIMULATORS):
     _EXCLUDED_CRUDS.add(SimulatorModelCRUD)
 
-ALL_CRUDS_BY_FOLDER_NAME: defaultdict[str, list[type[Loader]]] = defaultdict(list)
+CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA_AND_SUBFOLDERS: defaultdict[str, list[type[Loader]]] = defaultdict(list)
 CRUDS_BY_FOLDER_NAME: defaultdict[str, list[type[Loader]]] = defaultdict(list)
 for _loader in itertools.chain(
     ResourceCRUD.__subclasses__(),
@@ -103,9 +103,9 @@ for _loader in itertools.chain(
         # Skipping base classes
         continue
     # MyPy bug: https://github.com/python/mypy/issues/4717
-    ALL_CRUDS_BY_FOLDER_NAME[_loader.folder_name].append(_loader)  # type: ignore[arg-type, attr-defined]
+    CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA_AND_SUBFOLDERS[_loader.folder_name].append(_loader)  # type: ignore[arg-type, attr-defined]
     if hasattr(_loader, "sub_folder_name") and _loader.sub_folder_name:
-        ALL_CRUDS_BY_FOLDER_NAME[_loader.sub_folder_name].append(_loader)  # type: ignore[arg-type]
+        CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA_AND_SUBFOLDERS[_loader.sub_folder_name].append(_loader)  # type: ignore[arg-type, attr-defined]
 
     if _loader not in _EXCLUDED_CRUDS:
         CRUDS_BY_FOLDER_NAME[_loader.folder_name].append(_loader)  # type: ignore[arg-type, attr-defined]
@@ -114,7 +114,9 @@ del _loader  # cleanup module namespace
 
 # For backwards compatibility
 CRUDS_BY_FOLDER_NAME["data_models"] = CRUDS_BY_FOLDER_NAME["data_modeling"]  # Todo: Remove in v1.0
-ALL_CRUDS_BY_FOLDER_NAME["data_models"] = ALL_CRUDS_BY_FOLDER_NAME["data_modeling"]
+CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA_AND_SUBFOLDERS["data_models"] = CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA_AND_SUBFOLDERS[
+    "data_modeling"
+]
 RESOURCE_CRUD_BY_FOLDER_NAME = {
     folder_name: cruds
     for folder_name, loaders in CRUDS_BY_FOLDER_NAME.items()
