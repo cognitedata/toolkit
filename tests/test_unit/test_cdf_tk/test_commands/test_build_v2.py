@@ -8,16 +8,15 @@ import yaml
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client.data_classes.data_modeling import DataModelId, Space
 
+from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands.build_cmd import BuildCommand as OldBuildCommand
 from cognite_toolkit._cdf_tk.commands.build_v2.build_cmd import BuildCommand
+from cognite_toolkit._cdf_tk.constants import clean_name
 from cognite_toolkit._cdf_tk.cruds import TransformationCRUD
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, BuildVariables, Environment, Packages
 from cognite_toolkit._cdf_tk.data_classes._issues import IssueList, ModuleLoadingIssue
 from cognite_toolkit._cdf_tk.data_classes._module_directories import ModuleDirectories
-from cognite_toolkit._cdf_tk.exceptions import (
-    ToolkitMissingModuleError,
-)
-from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests import data
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -35,16 +34,43 @@ def dummy_environment() -> Environment:
 
 # Checks to avoid regressions
 class TestBuildV2Command:
+    _v08_patcher = None
+
+    @classmethod
+    def setup_class(cls):
+        """Enable v08 flag for all tests in this class."""
+        FeatureFlag.flush()  # Clear cache
+        cls._v08_patcher = patch("cognite_toolkit._cdf_tk.feature_flags.FeatureFlag.is_enabled")
+        mock_is_enabled = cls._v08_patcher.start()
+
+        def is_enabled_side_effect(flag):
+            if flag == Flags.v08:
+                return True
+            # Call original implementation for other flags
+            return CDFToml.load().alpha_flags.get(clean_name(flag.name), False)
+
+        mock_is_enabled.side_effect = is_enabled_side_effect
+
+    @classmethod
+    def teardown_class(cls):
+        """Clean up the v08 flag patch."""
+        if cls._v08_patcher:
+            cls._v08_patcher.stop()
+            FeatureFlag.flush()  # Clear cache again
+
     def test_module_not_found_error(self, tmp_path: Path) -> None:
-        with pytest.raises(ToolkitMissingModuleError):
-            BuildCommand(print_warning=False).execute(
-                verbose=False,
-                build_dir=tmp_path,
-                base_dir=data.PROJECT_WITH_BAD_MODULES,
-                selected=None,
-                build_env="no_module",
-                no_clean=False,
-            )
+        cmd = BuildCommand(print_warning=False)
+        cmd.execute(
+            verbose=False,
+            build_dir=tmp_path,
+            base_dir=data.PROJECT_WITH_BAD_MODULES,
+            selected=["no_such_module"],
+            build_env="no_module",
+            no_clean=False,
+        )
+        assert len(cmd.issues) == 1
+        assert cmd.issues[0].code == "MOD_001"
+        assert cmd.issues[0].message == "Module 'no_such_module' not found"
 
     def test_module_with_non_resource_directories(self, tmp_path: Path) -> None:
         cmd = BuildCommand(print_warning=False)

@@ -60,6 +60,14 @@ class ModulesParser:
             if valid_module_path:
                 valid_module_paths.append(valid_module_path)
 
+        # Check if selected modules exist
+        if self.selected:
+            all_found_modules = set(module_paths) | set(excluded_module_paths)
+            for selected_module in self.selected:
+                if selected_module not in all_found_modules:
+                    issues.append(ModuleLoadingIssue(message=f"Module '{selected_module}' not found"))
+                    break
+
         return valid_module_paths, issues
 
     def _get_module_path_from_resource_file_path(self, resource_file: Path) -> Path | None:
