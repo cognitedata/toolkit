@@ -9,7 +9,6 @@ from cognite_toolkit._cdf_tk.client.api.assets import AssetsAPI
 from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
 from cognite_toolkit._cdf_tk.client.api.events import EventsAPI
 from cognite_toolkit._cdf_tk.client.api.extraction_pipelines import ExtractionPipelinesAPI
-from cognite_toolkit._cdf_tk.client.api.filemetadata import FileMetadataAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_destinations import HostedExtractorDestinationsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_jobs import HostedExtractorJobsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_mappings import HostedExtractorMappingsAPI
@@ -586,7 +585,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=FileMetadataResponse,
             request_cls=FileMetadataRequest,
             example_data=get_example_minimum_responses(FileMetadataResponse),
-            api_class=FileMetadataAPI,
+            # FileMetadata API requires custom mocking.
         ),
         id="FileMetadata",
     )
