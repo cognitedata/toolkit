@@ -7,6 +7,8 @@ https://api-docs.cognite.com/20230101/tag/Annotations/operation/annotationsCreat
 from collections.abc import Iterable, Sequence
 from typing import Literal
 
+from cognite.client.data_classes import AnnotationFilter
+
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationRequest, AnnotationResponse
@@ -79,78 +81,50 @@ class AnnotationsAPI(CDFResourceAPI[InternalId, AnnotationRequest, AnnotationRes
 
     def paginate(
         self,
-        annotated_resource_type: str | None = None,
-        annotated_resource_ids: list[int] | None = None,
+        filter: AnnotationFilter,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[AnnotationResponse]:
         """Get a page of annotations from CDF.
 
         Args:
-            annotated_resource_type: Filter by annotated resource type.
-            annotated_resource_ids: Filter by annotated resource IDs.
+            filter: AnnotationFilter to filter annotations.
             limit: Maximum number of annotations to return.
             cursor: Cursor for pagination.
 
         Returns:
             PagedResponse of AnnotationResponse objects.
         """
-        body = {}
-        if annotated_resource_type is not None:
-            body["annotatedResourceType"] = annotated_resource_type
-        if annotated_resource_ids is not None:
-            body["annotatedResourceIds"] = [{"id": id_} for id_ in annotated_resource_ids]
-        return self._paginate(
-            cursor=cursor,
-            limit=limit,
-            body=body if body else None,
-        )
+        return self._paginate(cursor=cursor, limit=limit, body=filter.dump())
 
     def iterate(
         self,
-        annotated_resource_type: str | None = None,
-        annotated_resource_ids: list[int] | None = None,
+        filter: AnnotationFilter,
         limit: int | None = None,
     ) -> Iterable[list[AnnotationResponse]]:
         """Iterate over all annotations in CDF.
 
         Args:
-            annotated_resource_type: Filter by annotated resource type.
-            annotated_resource_ids: Filter by annotated resource IDs.
+            filter: AnnotationFilter to filter annotations.
             limit: Maximum total number of annotations to return.
 
         Returns:
             Iterable of lists of AnnotationResponse objects.
         """
-        body = {}
-        if annotated_resource_type is not None:
-            body["annotatedResourceType"] = annotated_resource_type
-        if annotated_resource_ids is not None:
-            body["annotatedResourceIds"] = [{"id": id_} for id_ in annotated_resource_ids]
-        return self._iterate(limit=limit, body=body if body else None)
+        return self._iterate(limit=limit, body=filter.dump())
 
     def list(
         self,
-        annotated_resource_type: str | None = None,
-        annotated_resource_ids: list[int] | None = None,
+        filter: AnnotationFilter,
         limit: int | None = None,
     ) -> list[AnnotationResponse]:
         """List all annotations in CDF.
 
         Args:
-            annotated_resource_type: Filter by annotated resource type.
-            annotated_resource_ids: Filter by annotated resource IDs.
+            filter: AnnotationFilter to filter annotations.
             limit: Maximum total number of annotations to return.
 
         Returns:
             List of AnnotationResponse objects.
         """
-        return [
-            item
-            for batch in self.iterate(
-                annotated_resource_type=annotated_resource_type,
-                annotated_resource_ids=annotated_resource_ids,
-                limit=limit,
-            )
-            for item in batch
-        ]
+        return self._list(limit=limit, body=filter.dump())

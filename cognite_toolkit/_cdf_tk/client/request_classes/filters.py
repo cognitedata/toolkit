@@ -1,5 +1,6 @@
 import sys
 
+from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationStatus, AnnotationType
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalId
 
 from .base import BaseModelRequest
@@ -55,3 +56,13 @@ class ViewFilter(DataModelingFilter):
 class DataModelFilter(DataModelingFilter):
     inline_views: bool | None = None
     all_versions: bool | None = None
+
+
+class AnnotationFilter(Filter):
+    annotated_resource_type: Literal["file", "threedmodel"]
+    annotated_resource_ids: list[ExternalId | InternalId]
+    annotationType: AnnotationType | None = None
+    created_app: str | None = None
+    creating_app_version: str | None = None
+    creating_user: str | None = None
+    status: AnnotationStatus | None = None
