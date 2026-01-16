@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from cognite_toolkit._cdf_tk.constants import EXCL_FILES, MODULES
-from cognite_toolkit._cdf_tk.cruds import CRUDS_BY_FOLDER_NAME, CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA_AND_SUBFOLDERS
+from cognite_toolkit._cdf_tk.cruds import CRUDS_BY_FOLDER_NAME, CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA
 from cognite_toolkit._cdf_tk.data_classes import IssueList
 from cognite_toolkit._cdf_tk.data_classes._issues import ModuleLoadingIssue
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError
@@ -81,18 +81,16 @@ class ModulesParser:
         return valid_module_paths
 
     def _get_module_path_from_resource_file_path(self, resource_file: Path) -> Path | None:
-        # recognize the module by containing a resource associated by a CRUD.
-        # Special case: if the resource folder is a subfolder of a CRUD, return the parent of the subfolder.
-        resource_folder = resource_file.parent
-        crud = next(iter(CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA_AND_SUBFOLDERS.get(resource_folder.name, [])), None)
-        if crud:
-            # iterate over the parents of the resource folder until we find the module folder.
-            # This is to handle the special case of a subfolder of a CRUD, or yamls in for example function subfolders.
-            for p in resource_file.parents:
-                if p.name == crud.folder_name:
-                    return p.parent
-                if p.name == MODULES:
-                    return p
+        # recognize the module by containing a resource that is a descendent of a CRUD folder...
+
+        for parent in resource_file.parents:
+            if parent.name in CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA:
+                # special case: if the crud is FunctionCRUD, the resource file has to be a direct descendent.
+                if parent.name == "functions" and resource_file.parent.name != "functions":
+                    return None
+                return parent.parent
+            if parent.name == MODULES:
+                return parent
         return None
 
     def _check_resource_folder_content(self, module_path: Path) -> tuple[None | Path, ModuleLoadingIssue | None]:

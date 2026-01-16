@@ -221,6 +221,7 @@ class TestGetResourceFolder:
             Path("modules/my_module/transformations/transformation.yaml"),
             Path("modules/my_module/data_modeling/views/my_view.yaml"),
             Path("modules/my_module/data_modeling/my_view.yaml"),
+            Path("modules/my_module/data_modeling/something/something_else/my_view.yaml"),
             Path("modules/parent/my_module/functions/my_function.yaml"),
         ],
     )

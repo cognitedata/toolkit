@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from cognite_toolkit._cdf_tk.constants import EXCL_FILES, MODULES
-from cognite_toolkit._cdf_tk.cruds import CRUDS_BY_FOLDER_NAME, CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA_AND_SUBFOLDERS
+from cognite_toolkit._cdf_tk.cruds import CRUDS_BY_FOLDER_NAME, CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA
 from cognite_toolkit._cdf_tk.data_classes import IssueList
 from cognite_toolkit._cdf_tk.data_classes._issues import ModuleLoadingIssue
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError
@@ -66,7 +66,7 @@ class ModulesParser:
         # recognize the module by containing a resource associated by a CRUD.
         # Special case: if the resource folder is a subfolder of a CRUD, return the parent of the subfolder.
         resource_folder = resource_file.parent
-        crud = next(iter(CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA_AND_SUBFOLDERS.get(resource_folder.name, [])), None)
+        crud = next(iter(CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA.get(resource_folder.name, [])), None)
         if crud:
             # iterate over the parents of the resource folder until we find the module folder.
             # This is to handle the special case of a subfolder of a CRUD, or yamls in for example function subfolders.
