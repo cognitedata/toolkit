@@ -81,7 +81,7 @@ class ModulesParser:
         return valid_module_paths
 
     def _get_module_path_from_resource_file_path(self, resource_file: Path) -> Path | None:
-        # recognize the module by traversing the parents of the resource file until we find a CRUD folder...
+        # recognize the module by traversing the parents of the resource file until we find a CRUD folder
 
         for parent in resource_file.parents:
             if parent.name in CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA:
