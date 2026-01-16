@@ -180,7 +180,7 @@ class TestGroupAPIClasses:
         data = {"name": "test-group", "id": 123, "capabilities": [acl_dict]}
         group = GroupRequest.model_validate(data)
         assert isinstance(group, GroupRequest)
-        assert group.dump() == data
+        assert group.dump() == {"name": "test-group", "capabilities": [acl_dict]}
 
     def test_serialize_deserialize_unknown_capability(self) -> None:
         """Test that an unknown ACL type can be handled."""
@@ -188,7 +188,7 @@ class TestGroupAPIClasses:
         data = {"name": "test-group", "id": 123, "capabilities": [acl_dict]}
         group = GroupRequest.model_validate(data)
         assert isinstance(group, GroupRequest)
-        assert group.dump() == data
+        assert group.dump() == {"name": "test-group", "capabilities": [acl_dict]}
 
     def test_capability_in_sync(self) -> None:
         """Checks that the request/response capabilities are in sync with the YAML spec."""
