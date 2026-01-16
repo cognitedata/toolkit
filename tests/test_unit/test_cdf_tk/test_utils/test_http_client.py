@@ -643,6 +643,36 @@ class TestHTTPMessage:
         except (TypeError, ValueError) as e:
             pytest.fail(f"Dumped data is not valid JSON: {e}")
 
+    def test_splitting_items(self) -> None:
+        message = ItemsRequest(
+            endpoint_url="https://example.com/api/resource",
+            method="POST",
+            connect_attempt=7,
+            read_attempt=3,
+            status_attempt=1,
+            api_version="alpha",
+            content_type="text/plain",
+            accept="text/plain",
+            content_length=42,
+            items=[MyRequestItemID({"id": i}) for i in range(10)],
+            extra_body_fields={"key": "value"},
+            max_failures_before_abort=30,
+        )
+
+        part1, _ = message.split(status_attempts=4)
+        assert part1.endpoint_url == "https://example.com/api/resource"
+        assert part1.method == "POST"
+        assert part1.connect_attempt == 7
+        assert part1.read_attempt == 3
+        assert part1.status_attempt == 4  # Updated
+        assert part1.api_version == "alpha"
+        assert part1.content_type == "text/plain"
+        assert part1.accept == "text/plain"
+        assert part1.content_length == 42
+        assert part1.items == [MyRequestItemID({"id": i}) for i in range(5)]
+        assert part1.extra_body_fields == {"key": "value"}
+        assert part1.max_failures_before_abort == 30
+
 
 class MyRequestItem(BaseModel):
     name: str
