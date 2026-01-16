@@ -81,7 +81,7 @@ class DataModelsAPI(CDFResourceAPI[DataModelReference, DataModelRequest, DataMod
 
     def paginate(
         self,
-        filter: DataModelFilter,
+        filter: DataModelFilter | None = None,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[DataModelResponse]:
@@ -98,12 +98,12 @@ class DataModelsAPI(CDFResourceAPI[DataModelReference, DataModelRequest, DataMod
         return self._paginate(
             cursor=cursor,
             limit=limit,
-            params=filter.dump(),
+            params=filter.dump() if filter else None,
         )
 
     def iterate(
         self,
-        filter: DataModelFilter,
+        filter: DataModelFilter | None = None,
         limit: int | None = None,
     ) -> Iterable[list[DataModelResponse]]:
         """Iterate over all data models in CDF.
@@ -117,12 +117,12 @@ class DataModelsAPI(CDFResourceAPI[DataModelReference, DataModelRequest, DataMod
         """
         return self._iterate(
             limit=limit,
-            params=filter.dump(),
+            params=filter.dump() if filter else None,
         )
 
     def list(
         self,
-        filter: DataModelFilter,
+        filter: DataModelFilter | None = None,
         limit: int | None = None,
     ) -> list[DataModelResponse]:
         """List all data models in CDF.
@@ -134,4 +134,4 @@ class DataModelsAPI(CDFResourceAPI[DataModelReference, DataModelRequest, DataMod
         Returns:
             List of DataModelResponse objects.
         """
-        return self._list(limit=limit, params=filter.dump())
+        return self._list(limit=limit, params=filter.dump() if filter else None)

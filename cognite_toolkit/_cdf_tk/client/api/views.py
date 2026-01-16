@@ -83,7 +83,7 @@ class ViewsAPI(CDFResourceAPI[ViewReference, ViewRequest, ViewResponse]):
 
     def paginate(
         self,
-        filter: ViewFilter,
+        filter: ViewFilter | None = None,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[ViewResponse]:
@@ -100,12 +100,12 @@ class ViewsAPI(CDFResourceAPI[ViewReference, ViewRequest, ViewResponse]):
         return self._paginate(
             cursor=cursor,
             limit=limit,
-            params=filter.dump(),
+            params=filter.dump() if filter else None,
         )
 
     def iterate(
         self,
-        filter: ViewFilter,
+        filter: ViewFilter | None = None,
         limit: int | None = None,
     ) -> Iterable[list[ViewResponse]]:
         """Iterate over all views in CDF.
@@ -119,12 +119,12 @@ class ViewsAPI(CDFResourceAPI[ViewReference, ViewRequest, ViewResponse]):
         """
         return self._iterate(
             limit=limit,
-            params=filter.dump(),
+            params=filter.dump() if filter else None,
         )
 
     def list(
         self,
-        filter: ViewFilter,
+        filter: ViewFilter | None = None,
         limit: int | None = None,
     ) -> list[ViewResponse]:
         """List all views in CDF.
@@ -136,4 +136,4 @@ class ViewsAPI(CDFResourceAPI[ViewReference, ViewRequest, ViewResponse]):
         Returns:
             List of ViewResponse objects.
         """
-        return self._list(limit=limit, params=filter.dump())
+        return self._list(limit=limit, params=filter.dump() if filter else None)

@@ -80,7 +80,7 @@ class ContainersAPI(CDFResourceAPI[ContainerReference, ContainerRequest, Contain
 
     def paginate(
         self,
-        filter: ContainerFilter,
+        filter: ContainerFilter | None = None,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[ContainerResponse]:
@@ -97,12 +97,12 @@ class ContainersAPI(CDFResourceAPI[ContainerReference, ContainerRequest, Contain
         return self._paginate(
             cursor=cursor,
             limit=limit,
-            params=filter.dump(),
+            params=filter.dump() if filter else None,
         )
 
     def iterate(
         self,
-        filter: ContainerFilter,
+        filter: ContainerFilter | None = None,
         limit: int | None = None,
     ) -> Iterable[list[ContainerResponse]]:
         """Iterate over all containers in CDF.
@@ -116,10 +116,10 @@ class ContainersAPI(CDFResourceAPI[ContainerReference, ContainerRequest, Contain
         """
         return self._iterate(
             limit=limit,
-            params=filter.dump(),
+            params=filter.dump() if filter else None,
         )
 
-    def list(self, filter: ContainerFilter, limit: int | None = None) -> list[ContainerResponse]:
+    def list(self, filter: ContainerFilter | None = None, limit: int | None = None) -> list[ContainerResponse]:
         """List all containers in CDF.
 
         Args:
@@ -129,4 +129,4 @@ class ContainersAPI(CDFResourceAPI[ContainerReference, ContainerRequest, Contain
         Returns:
             List of ContainerResponse objects.
         """
-        return self._list(limit=limit, params=filter.dump())
+        return self._list(limit=limit, params=filter.dump() if filter else None)

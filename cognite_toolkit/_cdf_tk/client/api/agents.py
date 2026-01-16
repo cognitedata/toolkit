@@ -81,22 +81,6 @@ class AgentsAPI(CDFResourceAPI[ExternalId, AgentRequest, AgentResponse]):
         """
         self._request_no_response(items, "delete", extra_body={"ignoreUnknownIds": ignore_unknown_ids})
 
-    def paginate(
-        self,
-        limit: int = 100,
-        cursor: str | None = None,
-    ) -> PagedResponse[AgentResponse]:
-        """Get a page of agents from CDF.
-
-        Args:
-            limit: Maximum number of agents to return.
-            cursor: Cursor for pagination.
-
-        Returns:
-            PagedResponse of AgentResponse objects.
-        """
-        raise NotImplementedError("The AgentsAPI does not support cursor-based pagination.")
-
     def iterate(
         self,
         limit: int | None = None,
