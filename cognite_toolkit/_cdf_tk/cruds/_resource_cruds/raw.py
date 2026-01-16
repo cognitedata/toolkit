@@ -30,11 +30,11 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import (
-    RawDatabase,
     RawDatabaseList,
     RawTable,
     RawTableList,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabase
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import DatabaseYAML, TableYAML
 
@@ -42,11 +42,11 @@ from .auth import GroupAllScopedCRUD
 
 
 @final
-class RawDatabaseCRUD(ResourceContainerCRUD[RawDatabase, RawDatabase, RawDatabase]):
+class RawDatabaseCRUD(ResourceContainerCRUD[RAWDatabase, RAWDatabase, RAWDatabase]):
     item_name = "raw tables"
     folder_name = "raw"
-    resource_cls = RawDatabase
-    resource_write_cls = RawDatabase
+    resource_cls = RAWDatabase
+    resource_write_cls = RAWDatabase
     kind = "Database"
     yaml_cls = DatabaseYAML
     dependencies = frozenset({GroupAllScopedCRUD})
@@ -63,7 +63,7 @@ class RawDatabaseCRUD(ResourceContainerCRUD[RawDatabase, RawDatabase, RawDatabas
 
     @classmethod
     def get_required_capability(
-        cls, items: Sequence[RawDatabase] | None, read_only: bool
+        cls, items: Sequence[RAWDatabase] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -85,25 +85,25 @@ class RawDatabaseCRUD(ResourceContainerCRUD[RawDatabase, RawDatabase, RawDatabas
         return RawAcl(actions, scope)
 
     @classmethod
-    def get_id(cls, item: RawDatabase | dict) -> RawDatabase:
+    def get_id(cls, item: RAWDatabase | dict) -> RAWDatabase:
         if isinstance(item, dict):
-            return RawDatabase(item["dbName"])
+            return RAWDatabase(item["dbName"])
         return item
 
     @classmethod
-    def dump_id(cls, id: RawDatabase) -> dict[str, Any]:
+    def dump_id(cls, id: RAWDatabase) -> dict[str, Any]:
         return {"dbName": id.db_name}
 
-    def create(self, items: Sequence[RawDatabase]) -> RawDatabaseList:
+    def create(self, items: Sequence[RAWDatabase]) -> list[RAWDatabase]:
         database_list = self.client.raw.databases.create([db.db_name for db in items])
-        return RawDatabaseList([RawDatabase(db_name=db.name) for db in database_list if db.name])
+        return ([RawDatabase(db_name=db.name) for db in database_list if db.name])
 
-    def retrieve(self, ids: SequenceNotStr[RawDatabase]) -> RawDatabaseList:
+    def retrieve(self, ids: SequenceNotStr[RAWDatabase]) -> list[RAWDatabase]:
         database_list = self.client.raw.databases.list(limit=-1)
         target_dbs = {db.db_name for db in ids}
         return RawDatabaseList([RawDatabase(db_name=db.name) for db in database_list if db.name in target_dbs])
 
-    def delete(self, ids: SequenceNotStr[RawDatabase]) -> int:
+    def delete(self, ids: SequenceNotStr[RAWDatabase]) -> int:
         db_names = [table.db_name for table in ids]
         try:
             self.client.raw.databases.delete(db_names)
@@ -122,10 +122,10 @@ class RawDatabaseCRUD(ResourceContainerCRUD[RawDatabase, RawDatabase, RawDatabas
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
-    ) -> Iterable[RawDatabase]:
-        return (RawDatabase(db_name=cast(str, db.name)) for db in self.client.raw.databases)
+    ) -> Iterable[RAWDatabase]:
+        return (RAWDatabase(db_name=cast(str, db.name)) for db in self.client.raw.databases)
 
-    def count(self, ids: SequenceNotStr[RawDatabase]) -> int:
+    def count(self, ids: SequenceNotStr[RAWDatabase]) -> int:
         nr_of_tables = 0
         for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.db_name), key=lambda x: x.db_name):
             try:
@@ -137,7 +137,7 @@ class RawDatabaseCRUD(ResourceContainerCRUD[RawDatabase, RawDatabase, RawDatabas
             nr_of_tables += len(tables.data)
         return nr_of_tables
 
-    def drop_data(self, ids: SequenceNotStr[RawDatabase]) -> int:
+    def drop_data(self, ids: SequenceNotStr[RAWDatabase]) -> int:
         nr_of_tables = 0
         for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.db_name), key=lambda x: x.db_name):
             try:
