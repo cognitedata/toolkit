@@ -8,7 +8,8 @@ from pathlib import Path
 from typing import Any, SupportsIndex, overload
 
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
-from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, iterate_modules, resource_folder_from_path
+from cognite_toolkit._cdf_tk.utils.hashing import calculate_directory_hash
+from cognite_toolkit._cdf_tk.utils.modules import iterate_modules, resource_folder_from_path
 
 from ._module_toml import ModuleToml
 
