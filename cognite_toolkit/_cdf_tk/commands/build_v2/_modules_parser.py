@@ -17,7 +17,7 @@ class ModulesParser:
     def parse(self) -> list[Path]:
         modules_root = self.organization_dir / MODULES
         if not modules_root.exists():
-            raise ToolkitError(f"Module root directory '{modules_root}' not found")
+            raise ToolkitError(f"Module root directory '{modules_root.as_posix()}' not found")
 
         module_paths: list[Path] = []
         for resource_file in self.organization_dir.glob("**/*.y*ml"):
