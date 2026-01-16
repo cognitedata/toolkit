@@ -429,6 +429,7 @@ class TestMigrateFile:
             dry_run=False,
             verbose=False,
         )
+
         assert file.external_id is not None, "File external ID is None, cannot validate migration."
         # Validate that the file exists in data modeling and has content.
         # In addition, check that the instanceId is set on the file metadata in CDF.
