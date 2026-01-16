@@ -104,6 +104,7 @@ for _loader in itertools.chain(
         continue
     # MyPy bug: https://github.com/python/mypy/issues/4717
     CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA_AND_SUBFOLDERS[_loader.folder_name].append(_loader)  # type: ignore[arg-type, attr-defined]
+    # required to match a resource with subfolders like views and containers
     if hasattr(_loader, "sub_folder_name") and _loader.sub_folder_name:
         CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA_AND_SUBFOLDERS[_loader.sub_folder_name].append(_loader)  # type: ignore[arg-type]
 

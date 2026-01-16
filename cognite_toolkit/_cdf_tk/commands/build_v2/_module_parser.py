@@ -5,7 +5,7 @@ from cognite_toolkit._cdf_tk.cruds import CRUDS_BY_FOLDER_NAME, CRUDS_BY_FOLDER_
 from cognite_toolkit._cdf_tk.data_classes import IssueList
 from cognite_toolkit._cdf_tk.data_classes._issues import ModuleLoadingIssue
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError
-from cognite_toolkit._cdf_tk.utils import module_path_display_name
+from cognite_toolkit._cdf_tk.utils import humanize_collection, module_path_display_name
 
 
 class ModulesParser:
@@ -83,7 +83,7 @@ class ModulesParser:
 
         issue = (
             ModuleLoadingIssue(
-                message=f"Module {module_path_display_name(self.organization_dir, module_path)!r} contains unrecognized resource folder(s): humanize_collection(unrecognized_resource_folder_names)}"
+                message=f"Module {module_path_display_name(self.organization_dir, module_path)!r} contains unrecognized resource folder(s): {humanize_collection(unrecognized_resource_folder_names)}"
             )
             if unrecognized_resource_folder_names
             else None
