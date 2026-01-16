@@ -83,7 +83,7 @@ class ModulesParser:
 
         issue = (
             ModuleLoadingIssue(
-                message=f"Module {module_path_display_name(self.organization_dir, module_path)!r} contains unrecognized resource folder(s): {', '.join(unrecognized_resource_folder_names)}"
+                message=f"Module {module_path_display_name(self.organization_dir, module_path)!r} contains unrecognized resource folder(s): humanize_collection(unrecognized_resource_folder_names)}"
             )
             if unrecognized_resource_folder_names
             else None
