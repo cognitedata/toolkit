@@ -62,7 +62,7 @@ class DataModelFilter(DataModelingFilter):
 class AnnotationFilter(Filter):
     annotated_resource_type: Literal["file", "threedmodel"]
     annotated_resource_ids: list[ExternalId | InternalId]
-    annotationType: AnnotationType | None = None
+    annotation_type: AnnotationType | None = None
     created_app: str | None = None
     creating_app_version: str | None = None
     creating_user: str | None = None

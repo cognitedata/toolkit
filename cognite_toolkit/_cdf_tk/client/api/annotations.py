@@ -7,10 +7,9 @@ https://api-docs.cognite.com/20230101/tag/Annotations/operation/annotationsCreat
 from collections.abc import Iterable, Sequence
 from typing import Literal
 
-from cognite.client.data_classes import AnnotationFilter
-
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.request_classes.filters import AnnotationFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationRequest, AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
 
