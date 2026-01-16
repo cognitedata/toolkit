@@ -41,7 +41,7 @@ class ModulesParser:
             module_paths = deepest_module_paths
             issues.extend(
                 ModuleLoadingIssue(
-                    message=f"Module {module_path_display_name(self.organization_dir, parent_module_path)!r} is skipped because it has submodules"
+                    message=f"Module {module_path_display_name(self.organization_dir, parent_module_path)!r} is skipped because it has submodules",
                 )
                 for parent_module_path in parent_module_paths
             )
@@ -64,7 +64,8 @@ class ModulesParser:
                 if not has_match:
                     issues.append(
                         ModuleLoadingIssue(
-                            message=f"Module '{self._selection_display_name(selected_module)}' not found"
+                            message=f"Module '{self._selection_display_name(selected_module)}' not found",
+                            fatal=True,
                         )
                     )
 

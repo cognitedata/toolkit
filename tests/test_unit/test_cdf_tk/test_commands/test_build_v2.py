@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.cruds import TransformationCRUD
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, BuildVariables, Environment, Packages
 from cognite_toolkit._cdf_tk.data_classes._issues import IssueList, ModuleLoadingIssue
 from cognite_toolkit._cdf_tk.data_classes._module_directories import ModuleDirectories
+from cognite_toolkit._cdf_tk.exceptions import ToolkitError
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests import data
@@ -60,17 +61,19 @@ class TestBuildV2Command:
 
     def test_module_not_found_error(self, tmp_path: Path) -> None:
         cmd = BuildCommand(print_warning=False)
-        cmd.execute(
-            verbose=False,
-            build_dir=tmp_path,
-            base_dir=data.PROJECT_WITH_BAD_MODULES,
-            selected=["no_such_module"],
-            build_env="no_module",
-            no_clean=False,
-        )
+        with pytest.raises(ToolkitError, match=r"Module loading issues encountered\. See above for details\."):
+            cmd.execute(
+                verbose=False,
+                build_dir=tmp_path,
+                base_dir=data.PROJECT_WITH_BAD_MODULES,
+                selected=["no_such_module"],
+                build_env="no_module",
+                no_clean=False,
+            )
         assert len(cmd.issues) == 1
         assert cmd.issues[0].code == "MOD_001"
         assert cmd.issues[0].message == "Module 'no_such_module' not found"
+        assert cmd.issues[0].fatal
 
     def test_module_with_non_resource_directories(self, tmp_path: Path) -> None:
         cmd = BuildCommand(print_warning=False)
@@ -91,6 +94,7 @@ class TestBuildV2Command:
             load_issues[0].message
             == "Module 'modules/ill_made_module' contains unrecognized resource folder(s): spaces"
         )
+        assert not load_issues[0].fatal
 
     @pytest.mark.skipif(not Flags.GRAPHQL.is_enabled(), reason="GraphQL schema files will give warnings")
     def test_custom_project_no_warnings(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:

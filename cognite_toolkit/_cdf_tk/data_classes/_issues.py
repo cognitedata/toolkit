@@ -18,6 +18,7 @@ class Issue(BaseModel):
 
     code: str
     message: str | None = Field(default=None)
+    fatal: bool = Field(default=False)
 
 
 # temporary adapter to manage existing warnings

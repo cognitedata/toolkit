@@ -64,7 +64,9 @@ class BuildCommand(ToolkitCommand):
         module_paths, module_loading_issues = ModulesParser(organization_dir=base_dir, selected=selected).parse()
         if module_loading_issues:
             self.issues.extend(module_loading_issues)
-            self._print_or_log_warnings_by_category(self.issues)
+            self._print_or_log_issues_by_category(self.issues)
+            if any(issue.fatal for issue in module_loading_issues):
+                raise ToolkitError("Module loading issues encountered. See above for details.")
             return BuiltModuleList()
 
         # Load modules
@@ -88,7 +90,7 @@ class BuildCommand(ToolkitCommand):
             self.issues.extend(build_quality_issues)
 
         # Finally, print warnings grouped by category/code and location.
-        self._print_or_log_warnings_by_category(self.issues)
+        self._print_or_log_issues_by_category(self.issues)
 
         return built_modules
 
@@ -157,7 +159,7 @@ class BuildCommand(ToolkitCommand):
     def _track(self, build_input: BuildParameters) -> None:
         raise NotImplementedError()
 
-    def _print_or_log_warnings_by_category(self, issues: IssueList) -> None:
+    def _print_or_log_issues_by_category(self, issues: IssueList) -> None:
         issues_sorted = sorted(issues, key=self._issue_sort_key)
         for code, grouped_issues in groupby(issues_sorted, key=lambda issue: issue.code or ""):
             print(f"[bold]{code}[/]")
