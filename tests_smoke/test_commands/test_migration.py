@@ -17,7 +17,14 @@ from cognite.client.data_classes.data_modeling import Node, NodeApply, NodeOrEdg
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteAsset
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.http_client import FailedRequestMessage, FailedResponse, HTTPClient
+from cognite_toolkit._cdf_tk.client.http_client import (
+    FailedRequestMessage,
+    FailedResponse,
+    HTTPClient,
+    RequestMessage2,
+    SuccessResponse2,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicRequest,
     ThreeDModelClassicRequest,
@@ -337,3 +344,67 @@ class TestMigrate3D:
                 client.data_modeling.instances._RESOURCE_PATH,
                 f"{self.ERROR_HEADING}CAD node instance not found in data modeling after migration.",
             )
+
+
+@pytest.fixture()
+def classic_file_with_content(toolkit_client: ToolkitClient, smoke_dataset: DataSet) -> Iterator[FileMetadataResponse]:
+    client = toolkit_client
+    mime_type = "text/plain"
+    metadata = FileMetadataRequest(
+        external_id="toolkit_classic_file_with_content_migration_smoke_test",
+        name="Toolkit Classic File With Content Migration Smoke Test.txt",
+        data_set_id=smoke_dataset.id,
+        mime_type=mime_type,
+    )
+    # Ensure clean state
+    client.tool.filemetadata.delete([metadata.as_id()], ignore_unknown_ids=True)
+
+    created = client.tool.filemetadata.create([metadata])
+    if len(created) != 1:
+        raise EndpointAssertionError(
+            client.tool.filemetadata._method_endpoint_map["create"].path,
+            "Failed to create classic file metadata for migration test.",
+        )
+    created_file = created[0]
+    if created_file.upload_url is None:
+        raise AssertionError("Created classic file metadata has no upload URL.")
+    response = client.http_client.request_single_retries(
+        RequestMessage2(
+            endpoint_url=created_file.upload_url,
+            method="PUT",
+            content_type=mime_type,
+            data_content=b"Toolkit classic file content for migration smoke test.",
+        )
+    )
+    if not isinstance(response, SuccessResponse2):
+        raise EndpointAssertionError(
+            created_file.upload_url,
+            f"Failed to upload content for classic file metadata. Response: {response}",
+        )
+
+    yield created_file
+
+    # Cleanup
+    client.tool.filemetadata.delete([created_file.as_id()], ignore_unknown_ids=True)
+
+
+class TestMigrateFile:
+    def test_migrate_file(
+        self,
+        classic_file_with_content: FileMetadataResponse,
+        toolkit_client: ToolkitClient,
+        smoke_dataset: DataSet,
+        tmp_path: Path,
+    ) -> None:
+        client = toolkit_client
+        cmd = MigrationCommand()
+        cmd.migrate(
+            selected=MigrationCSVFileSelector(kind="FileMetadata", datafile=tmp_path),
+            data=AssetCentricMigrationIO(client, skip_linking=False),
+            mapper=AssetCentricMapper(client),
+            log_dir=tmp_path / "migration_logs",
+            dry_run=False,
+            verbose=False,
+        )
+
+        # Validate that thee
