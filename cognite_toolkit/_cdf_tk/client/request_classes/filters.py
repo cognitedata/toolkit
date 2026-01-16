@@ -1,4 +1,5 @@
 import sys
+from typing import Literal
 
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationStatus, AnnotationType
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalId
@@ -6,7 +7,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import External
 from .base import BaseModelRequest
 
 if sys.version_info >= (3, 11):
-    from typing import Literal, Self
+    from typing import Self
 else:
     from typing_extensions import Self
 
