@@ -3,12 +3,11 @@
 This API provides a wrapper around the legacy DML API for managing GraphQL data models.
 """
 
-import textwrap
 from collections.abc import Iterable, Sequence
 from typing import Any
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
-from cognite_toolkit._cdf_tk.client.cdf_client.responses import GraphQLResponse
+from cognite_toolkit._cdf_tk.client.cdf_client.responses import GraphQLUpsertResponse
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ItemsSuccessResponse2,
@@ -17,6 +16,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ToolkitAPIError,
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import DataModelFilter
+from cognite_toolkit._cdf_tk.client.request_classes.graphql import UPSERT_BODY
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import DataModelReference
 from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import (
     GraphQLDataModelRequest,
@@ -45,7 +45,7 @@ class GraphQLDataModelsAPI(CDFResourceAPI[DataModelReference, GraphQLDataModelRe
     ) -> PagedResponse[GraphQLDataModelResponse]:
         return PagedResponse[GraphQLDataModelResponse].model_validate_json(response.body)
 
-    def _post_graphql(self, query_name: str, payload: dict[str, Any]) -> GraphQLResponse:
+    def _post_graphql(self, payload: dict[str, Any]) -> GraphQLUpsertResponse:
         """Execute a GraphQL query against the DML endpoint."""
         request = RequestMessage2(
             endpoint_url=self._make_url("/dml/graphql"),
@@ -54,9 +54,9 @@ class GraphQLDataModelsAPI(CDFResourceAPI[DataModelReference, GraphQLDataModelRe
         )
         result = self._http_client.request_single_retries(request)
         response = result.get_success_or_raise()
-        parsed = GraphQLResponse.model_validate_json(response.body)
-        if parsed.errors:
-            raise ToolkitAPIError(f"Failed cGraphQL errors: {parsed.errors}")
+        parsed = GraphQLUpsertResponse.model_validate_json(response.body)
+        if errors := parsed.upsert_graph_ql_dml_version.errors:
+            raise ToolkitAPIError(f"Failed GraphQL errors: {errors}")
         return parsed
 
     def create(self, items: Sequence[GraphQLDataModelRequest]) -> list[GraphQLDataModelResponse]:
@@ -69,59 +69,23 @@ class GraphQLDataModelsAPI(CDFResourceAPI[DataModelReference, GraphQLDataModelRe
             List of applied GraphQLDataModelResponse objects.
         """
         results: list[GraphQLDataModelResponse] = []
-
-        graphql_body = """
-            mutation UpsertGraphQlDmlVersion($dmCreate: GraphQlDmlVersionUpsert!) {
-                upsertGraphQlDmlVersion(graphQlDmlVersion: $dmCreate) {
-                    errors {
-                        kind
-                        message
-                        hint
-                        location {
-                            start {
-                                line
-                                column
-                            }
-                        }
-                    }
-                    result {
-                        space
-                        externalId
-                        version
-                        name
-                        description
-                        graphQlDml
-                        createdTime
-                        lastUpdatedTime
-                    }
-                }
-            }
-        """
-
         for item in items:
-            payload = {
-                "query": textwrap.dedent(graphql_body),
-                "variables": {"dmCreate": item.dump()},
-            }
+            payload = {"query": UPSERT_BODY, "variables": {"dmCreate": item.dump()}}
+            response = self._post_graphql(payload)
 
-            query_name = "upsertGraphQlDmlVersion"
-            res = self._post_graphql(query_name, payload)
-            result_data = res[query_name]["result"]
-
-            # Convert the result to a GraphQLDataModelResponse
-            response = GraphQLDataModelResponse(
-                space=result_data["space"],
-                external_id=result_data["externalId"],
-                version=result_data["version"],
-                name=result_data.get("name"),
-                description=result_data.get("description"),
-                is_global=False,  # GraphQL data models are not global
-                created_time=result_data["createdTime"],
-                last_updated_time=result_data["lastUpdatedTime"],
-            )
-            results.append(response)
+            results.append(response.upsert_graph_ql_dml_version.data)
 
         return results
+
+    def update(self, items: Sequence[GraphQLDataModelRequest]) -> list[GraphQLDataModelResponse]:
+        """Update GraphQL data models in CDF.
+
+        Args:
+            items: List of GraphQLDataModelRequest objects to update.
+        Returns:
+            List of updated GraphQLDataModelResponse objects.
+        """
+        return self.create(items)
 
     def retrieve(
         self, items: Sequence[DataModelReference], inline_views: bool = False
