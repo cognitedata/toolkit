@@ -316,9 +316,15 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
             next_cursor = page.next_cursor
 
     def _list(
-        self, limit: int | None = None, params: dict[str, Any] | None = None, endpoint_path: str | None = None
+        self,
+        limit: int | None = None,
+        params: dict[str, Any] | None = None,
+        endpoint_path: str | None = None,
+        body: dict[str, Any] | None = None,
     ) -> list[T_ResponseResource]:
         """List all resources, handling pagination automatically."""
         return [
-            item for batch in self._iterate(limit=limit, params=params, endpoint_path=endpoint_path) for item in batch
+            item
+            for batch in self._iterate(limit=limit, params=params, endpoint_path=endpoint_path, body=body)
+            for item in batch
         ]
