@@ -1,3 +1,5 @@
+import re
+from itertools import groupby
 from pathlib import Path
 from typing import Any, Literal
 
@@ -115,43 +117,9 @@ class BuildCommand(ToolkitCommand):
         build_dir.mkdir(parents=True, exist_ok=True)
         return issues
 
-    def _validate_module_selection(self, build_input: BuildParameters, modules: list[Module]) -> IssueList:
-        issues = IssueList()
-        # Validate module directory integrity.
-        # issues.extend(modules.verify_integrity())
-
-        # Validate module selection
-        # Note: validate_module_selection expects ModuleDirectories, but we're using build_v2 Modules for now.
-        # For now, we'll skip this validation or need to adapt it
-        # packages: dict[str, list[str]] = {}
-        # user_selected_modules = build_input.config.environment.get_selected_modules(packages)
-        # module_warnings = validate_module_selection(
-        #     modules, build_input.config, packages, user_selected_modules, build_input.organization_dir
-        # )
-        # if module_warnings:
-        #     issues.extend(IssueList.from_warning_list(module_warnings))
-
-        # Validate variables. Note: this looks for non-replaced template
-        # variables <.*?> and can be improved in the future.
-        # Keeping for reference.
-        # variables_warnings = validate_modules_variables(build_input.variables.selected, build_input.config.filepath)
-        # if variables_warnings:
-        #     issues.extend(IssueList.from_warning_list(variables_warnings))
-
-        # Track LOC of managed configuration
-        # Note: _track is not implemented yet, so we skip it for now
-        # self._track(input)
-
-        return issues
-
     def _build_configuration(self, build_input: BuildParameters) -> tuple[BuiltModuleList, IssueList]:
         issues = IssueList()
         # Use build_input.modules directly (it is already filtered by selection)
-        if not list(build_input.config.environment.selected):
-            return BuiltModuleList(), issues
-
-        # first collect variables into practical lookup
-        # TODO: parallelism is not implemented yet. I'm sure there are optimizations to be had here, but we'll focus on process parallelism since we believe loading yaml and file i/O are the biggest bottlenecks.
 
         old_build_command = OldBuildCommand(print_warning=False, skip_tracking=False)
         built_modules = old_build_command.build_config(
@@ -190,7 +158,20 @@ class BuildCommand(ToolkitCommand):
         raise NotImplementedError()
 
     def _print_or_log_warnings_by_category(self, issues: IssueList) -> None:
-        pass
+        issues_sorted = sorted(issues, key=self._issue_sort_key)
+        for code, grouped_issues in groupby(issues_sorted, key=lambda issue: issue.code or ""):
+            print(f"[bold]{code}[/]")
+            for issue in grouped_issues:
+                message = issue.message or ""
+                print(f"  - {message}")
+
+    def _issue_sort_key(self, issue: Issue) -> tuple[str, str]:
+        code = issue.code or ""
+        if not issue.message:
+            return code, ""
+        match = re.search(r"'([^']+)'", issue.message)
+        path = match.group(1) if match else issue.message
+        return code, path
 
     # Delegate to old BuildCommand for backward compatibility with tests
     def build_modules(
