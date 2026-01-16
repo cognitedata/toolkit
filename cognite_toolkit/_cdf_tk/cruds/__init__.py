@@ -105,7 +105,7 @@ for _loader in itertools.chain(
     # MyPy bug: https://github.com/python/mypy/issues/4717
     CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA_AND_SUBFOLDERS[_loader.folder_name].append(_loader)  # type: ignore[arg-type, attr-defined]
     if hasattr(_loader, "sub_folder_name") and _loader.sub_folder_name:
-        CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA_AND_SUBFOLDERS[_loader.sub_folder_name].append(_loader)  # type: ignore[arg-type, attr-defined]
+        CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA_AND_SUBFOLDERS[_loader.sub_folder_name].append(_loader)  # type: ignore[arg-type]
 
     if _loader not in _EXCLUDED_CRUDS:
         CRUDS_BY_FOLDER_NAME[_loader.folder_name].append(_loader)  # type: ignore[arg-type, attr-defined]
