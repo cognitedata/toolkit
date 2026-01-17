@@ -1,5 +1,3 @@
-import contextlib
-
 import pytest
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -119,8 +117,8 @@ def existing_frame(toolkit_client: ToolkitClient, root_frame: RobotFrameResponse
 
 
 @pytest.fixture(scope="session")
-def existing_robots_data_set(toolkit_client: ToolkitClient) -> DataSet:
-    data_set = DataSetWrite(
+def existing_robots_data_set(toolkit_client: ToolkitClient) -> DataSetResponse:
+    data_set = DataSetRequest(
         external_id="ds_robotics_api_tests",
         name="Robotics API Tests",
         description="Data set for testing the Robotics API",
@@ -133,8 +131,8 @@ def existing_robots_data_set(toolkit_client: ToolkitClient) -> DataSet:
 
 
 @pytest.fixture(scope="session")
-def persistent_robots_data_set(toolkit_client: ToolkitClient) -> DataSet:
-    data_set = DataSetWrite(
+def persistent_robots_data_set(toolkit_client: ToolkitClient) -> DataSetResponse:
+    data_set = DataSetRequest(
         external_id="ds_robotics_api_tests_persistent",
         name="Robotics API Tests Persistent",
         description="Data set for testing the Robotics API with persistent data",
@@ -148,7 +146,9 @@ def persistent_robots_data_set(toolkit_client: ToolkitClient) -> DataSet:
 
 @pytest.fixture(scope="session")
 def existing_robot(
-    toolkit_client: ToolkitClient, persistent_robots_data_set: DataSet, existing_capability: RobotCapabilityResponse
+    toolkit_client: ToolkitClient,
+    persistent_robots_data_set: DataSetResponse,
+    existing_capability: RobotCapabilityResponse,
 ) -> RobotResponse:
     robot = RobotRequest(
         name="wall-e",
@@ -174,21 +174,22 @@ class TestRobotCapabilityAPI:
             data_handling_schema=DATA_HANDLING_SCHEMA_CAPABILITY,
             description="Pan, tilt, zoom camera for visual image capture",
         )
+        client = toolkit_client
         try:
-            with contextlib.suppress(CogniteDuplicatedError):
-                created = toolkit_client.tool.robotics.capabilities.create(capability)
-                assert isinstance(created, RobotCapabilityResponse)
-                assert created.as_write().model_dump() == capability.model_dump()
+            created = client.tool.robotics.capabilities.create([capability])
+            assert len(created) == 1
+            assert isinstance(created[0], RobotCapabilityResponse)
+            assert created[0].as_request_resource().dump() == capability.dump()
 
-            retrieved = toolkit_client.tool.robotics.capabilities.retrieve(capability.external_id)
+            retrieved = client.tool.robotics.capabilities.retrieve([capability.as_id()])
 
             assert isinstance(retrieved, RobotCapabilityResponse)
             assert retrieved.as_write().model_dump() == capability.model_dump()
         finally:
-            toolkit_client.tool.robotics.capabilities.delete(capability.external_id)
+            client.tool.robotics.capabilities.delete([capability.as_id()])
 
         with pytest.raises(ToolkitAPIError):
-            toolkit_client.tool.robotics.capabilities.retrieve(capability.external_id)
+            client.tool.robotics.capabilities.retrieve([capability.as_id()])
 
     @pytest.mark.usefixtures("existing_capability")
     def test_list_capabilities(self, toolkit_client: ToolkitClient) -> None:
@@ -219,7 +220,7 @@ class TestRobotsAPI:
     def test_create_retrieve_delete(
         self,
         toolkit_client: ToolkitClient,
-        existing_robots_data_set: DataSet,
+        existing_robots_data_set: DataSetResponse,
         existing_capability: RobotCapabilityResponse,
     ) -> None:
         robot = RobotRequest(
@@ -231,10 +232,9 @@ class TestRobotsAPI:
         )
         retrieved: RobotResponse | None = None
         try:
-            with contextlib.suppress(CogniteDuplicatedError):
-                created = toolkit_client.tool.robotics.robots.create(robot)
-                assert isinstance(created, RobotResponse)
-                assert created.as_write().model_dump() == robot.model_dump()
+            created = toolkit_client.tool.robotics.robots.create(robot)
+            assert isinstance(created, RobotResponse)
+            assert created.as_write().model_dump() == robot.model_dump()
 
             all_retrieved = toolkit_client.tool.robotics.robots.retrieve(robot.data_set_id)
             assert isinstance(all_retrieved, list)
@@ -280,10 +280,9 @@ class TestDataProcessingAPI:
             description="Read dial gauge from an image using Cognite Vision gauge reader",
         )
         try:
-            with contextlib.suppress(CogniteDuplicatedError):
-                created = toolkit_client.tool.robotics.data_postprocessing.create(data_processing)
-                assert isinstance(created, RobotDataPostProcessingResponse)
-                assert created.as_write().model_dump() == data_processing.model_dump()
+            created = toolkit_client.tool.robotics.data_postprocessing.create(data_processing)
+            assert isinstance(created, RobotDataPostProcessingResponse)
+            assert created.as_write().model_dump() == data_processing.model_dump()
 
             retrieved = toolkit_client.tool.robotics.data_postprocessing.retrieve(data_processing.external_id)
 
@@ -329,10 +328,9 @@ class TestMapAPI:
             scale=1.0,
         )
         try:
-            with contextlib.suppress(CogniteDuplicatedError):
-                created = toolkit_client.tool.robotics.maps.create(map_)
-                assert isinstance(created, RobotMapResponse)
-                assert created.as_write().model_dump() == map_.model_dump()
+            created = toolkit_client.tool.robotics.maps.create(map_)
+            assert isinstance(created, RobotMapResponse)
+            assert created.as_write().model_dump() == map_.model_dump()
 
             retrieved = toolkit_client.tool.robotics.maps.retrieve(map_.external_id)
 
@@ -373,10 +371,9 @@ class TestLocationAPI:
             external_id="test_create_retrieve_delete",
         )
         try:
-            with contextlib.suppress(CogniteDuplicatedError):
-                created = toolkit_client.tool.robotics.locations.create(location)
-                assert isinstance(created, RobotLocationResponse)
-                assert created.as_write().model_dump() == location.model_dump()
+            created = toolkit_client.tool.robotics.locations.create(location)
+            assert isinstance(created, RobotLocationResponse)
+            assert created.as_write().model_dump() == location.model_dump()
 
             retrieved = toolkit_client.tool.robotics.locations.retrieve(location.external_id)
 
@@ -422,10 +419,9 @@ class TestFrameAPI:
             ),
         )
         try:
-            with contextlib.suppress(CogniteDuplicatedError):
-                created = toolkit_client.tool.robotics.frames.create(frame)
-                assert isinstance(created, RobotFrameResponse)
-                assert created.as_write().model_dump() == frame.model_dump()
+            created = toolkit_client.tool.robotics.frames.create(frame)
+            assert isinstance(created, RobotFrameResponse)
+            assert created.as_write().model_dump() == frame.model_dump()
 
             retrieved = toolkit_client.tool.robotics.frames.retrieve(frame.external_id)
 
