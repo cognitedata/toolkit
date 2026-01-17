@@ -51,7 +51,9 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
     including creating, retrieving, deleting, and listing resources.
     """
 
-    def __init__(self, http_client: HTTPClient, method_endpoint_map: dict[APIMethod, Endpoint], disable_gzip: bool = False) -> None:
+    def __init__(
+        self, http_client: HTTPClient, method_endpoint_map: dict[APIMethod, Endpoint], disable_gzip: bool = False
+    ) -> None:
         """Initialize the resource API.
 
         Args:
@@ -154,7 +156,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
                 method=endpoint.method,
                 body_content={"items": serialization(chunk), **(extra_body or {})},  # type: ignore[dict-item]
                 parameters=request_params,
-                disable_gzip=self._disable_gzip
+                disable_gzip=self._disable_gzip,
             )
             response = self._http_client.request_single_retries(request)
             yield response.get_success_or_raise()
@@ -219,7 +221,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
                 parameters=request_params,
                 items=chunk,
                 extra_body_fields=extra_body,
-                disable_gzip=self._disable_gzip
+                disable_gzip=self._disable_gzip,
             )
             responses = self._http_client.request_items_retries(request)
             for response in responses:
@@ -292,7 +294,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
             method=endpoint.method,
             parameters=request_params,
             body_content=body,
-            disable_gzip=self._disable_gzip
+            disable_gzip=self._disable_gzip,
         )
         result = self._http_client.request_single_retries(request)
         response = result.get_success_or_raise()

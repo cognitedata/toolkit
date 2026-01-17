@@ -333,7 +333,9 @@ class HTTPClient:
                 raise TypeError(f"Unexpected result type: {type(result)}")
 
     def _make_request2(self, message: BaseRequestMessage) -> httpx.Response:
-        headers = self._create_headers(message.api_version, message.content_type, message.accept, disable_gzip=message.disable_gzip)
+        headers = self._create_headers(
+            message.api_version, message.content_type, message.accept, disable_gzip=message.disable_gzip
+        )
         return self.session.request(
             method=message.method,
             url=message.endpoint_url,
