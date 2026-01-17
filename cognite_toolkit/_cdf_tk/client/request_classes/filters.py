@@ -1,7 +1,8 @@
 import sys
-from typing import Literal
+from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationStatus, AnnotationType
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalId
 
 from .base import BaseModelRequest
@@ -57,6 +58,28 @@ class ViewFilter(DataModelingFilter):
 class DataModelFilter(DataModelingFilter):
     inline_views: bool | None = None
     all_versions: bool | None = None
+
+
+class InstanceFilter(Filter):
+    instance_type: Literal["node", "edge"] | None = None
+    source: ViewReference | None = None
+    space: list[str] | None = None
+
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        body: dict[str, Any] = {}
+        if self.instance_type is not None:
+            body["instanceType"] = self.instance_type
+        if self.source is not None:
+            body["sources"] = [{"source": self.source.dump()}]
+        if self.space is not None:
+            instance_type = self.instance_type or "node"
+            body["filter"] = {
+                "in": {
+                    "property": [instance_type, "space"],
+                    "values": self.space,
+                }
+            }
+        return body
 
 
 class AnnotationFilter(Filter):

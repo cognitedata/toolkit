@@ -4,7 +4,11 @@ from typing import Literal
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceRequest, InstanceResponse
+from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    InstanceRequest,
+    InstanceResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedInstanceIdentifier
 
 
@@ -56,16 +60,36 @@ class InstancesAPI(CDFResourceAPI[TypedInstanceIdentifier, InstanceRequest, Inst
         """
         self._request_no_response(items, "delete")
 
+    @staticmethod
+    def _create_sort_body(instance_type: Literal["node", "edge"] | None) -> list[dict]:
+        """We sort by space and externalId to get a stable sort order.
+
+        This is also more performant than sorting by using the default sort, which will sort on
+        internal CDF IDs. This will be slow if you have deleted a lot of instances, as they will be counted.
+        By sorting on space and externalId, we avoid this issue.
+        """
+        instance_type = instance_type or "node"
+        return [
+            {
+                "property": [instance_type, "space"],
+                "direction": "ascending",
+            },
+            {
+                "property": [instance_type, "externalId"],
+                "direction": "ascending",
+            },
+        ]
+
     def paginate(
         self,
-        instance_type: Literal["node", "edge"] = "node",
+        filter: InstanceFilter,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[InstanceResponse]:
         """Iterate over all instances in CDF.
 
         Args:
-            instance_type: Type of instance to filter by ("node" or "edge").
+           filter: InstanceFilter to filter instances.
             limit: Maximum number of items to return.
             cursor: Cursor for pagination.
 
@@ -75,18 +99,18 @@ class InstancesAPI(CDFResourceAPI[TypedInstanceIdentifier, InstanceRequest, Inst
         return self._paginate(
             cursor=cursor,
             limit=limit,
-            body={"instanceType": instance_type},
+            body={**filter.model_dump(exclude_none=True), "sort": self._create_sort_body(filter.instance_type)},
         )
 
     def iterate(
         self,
-        instance_type: Literal["node", "edge"] = "node",
+        filter: InstanceFilter,
         limit: int = 100,
     ) -> Iterable[list[InstanceResponse]]:
         """Iterate over all instances in CDF.
 
         Args:
-            instance_type: Type of instance to filter by ("node" or "edge").
+            filter: InstanceFilter to filter instances.
             limit: Maximum number of items to return per page.
 
         Returns:
@@ -94,7 +118,7 @@ class InstancesAPI(CDFResourceAPI[TypedInstanceIdentifier, InstanceRequest, Inst
         """
         return self._iterate(
             limit=limit,
-            body={"instanceType": instance_type},
+            body={**filter.model_dump(exclude_none=True), "sort": self._create_sort_body(filter.instance_type)},
         )
 
     def list(self, limit: int | None = 100) -> list[InstanceResponse]:
