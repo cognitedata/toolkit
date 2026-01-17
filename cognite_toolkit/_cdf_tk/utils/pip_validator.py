@@ -45,8 +45,7 @@ def validate_requirements_with_pip(
     extra_index_urls: list[str] | None = None,
     timeout: int = 10,
 ) -> PipValidationResult:
-    """
-    Validate that requirements.txt can be resolved using pip install --dry-run.
+    """Validate that requirements.txt can be resolved using pip install --dry-run.
 
     This simulates package installation without actually installing anything.
     It validates that:
@@ -63,6 +62,7 @@ def validate_requirements_with_pip(
 
     Returns:
         PipValidationResult with success status and error details if failed
+
     """
     if not requirements_txt_path.exists():
         return PipValidationResult(error_message=f"Requirements file not found: {requirements_txt_path}")
@@ -87,10 +87,9 @@ def validate_requirements_with_pip(
         result = subprocess.run(args, capture_output=True, text=True, timeout=timeout, check=False)
         if result.returncode == 0:
             return PipValidationResult()
-        else:
-            return PipValidationResult(
-                error_message=f"pip validation failed with exit code {result.returncode}:\n{result.stderr}"
-            )
+        return PipValidationResult(
+            error_message=f"pip validation failed with exit code {result.returncode}:\n{result.stderr}",
+        )
     except subprocess.TimeoutExpired:
         return PipValidationResult(error_message=f"pip validation timed out after {timeout} seconds")
     except (OSError, RuntimeError) as e:

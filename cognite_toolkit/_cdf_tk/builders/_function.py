@@ -41,7 +41,7 @@ class FunctionBuilder(Builder):
         self.validation_time_ms = 0
 
     def _validate_function_requirements(
-        self, requirements_txt: Path, raw_function: dict[str, Any], filepath: Path, external_id: str
+        self, requirements_txt: Path, raw_function: dict[str, Any], filepath: Path, external_id: str,
     ) -> FunctionRequirementsValidationWarning | None:
         """Validate function requirements.txt using pip dry-run.
 
@@ -81,7 +81,7 @@ class FunctionBuilder(Builder):
         )
 
     def build(
-        self, source_files: list[BuildSourceFile], module: ModuleLocation, console: Callable[[str], None] | None = None
+        self, source_files: list[BuildSourceFile], module: ModuleLocation, console: Callable[[str], None] | None = None,
     ) -> Iterable[BuildDestinationFile | Sequence[ToolkitWarning]]:
         for source_file in source_files:
             if source_file.loaded is None:
@@ -112,7 +112,7 @@ class FunctionBuilder(Builder):
             )
 
     def validate_directory(
-        self, built_resources: BuiltResourceList, module: ModuleLocation
+        self, built_resources: BuiltResourceList, module: ModuleLocation,
     ) -> WarningList[ToolkitWarning]:
         warnings = WarningList[ToolkitWarning]()
         has_config_files = any(resource.kind == FunctionCRUD.kind for resource in built_resources)
@@ -131,7 +131,7 @@ class FunctionBuilder(Builder):
                     f"was not found in {required_location.as_posix()!r}. "
                     f"The file {yaml_source_path.as_posix()!r} is currently "
                     f"considered part of the Function's artifacts and "
-                    f"will not be processed by the Toolkit."
+                    f"will not be processed by the Toolkit.",
                 )
                 warnings.append(warning)
         return warnings
@@ -150,22 +150,22 @@ class FunctionBuilder(Builder):
                 warnings.append(
                     HighSeverityWarning(
                         f"Function in {source_file.source.path.as_posix()!r} has no externalId defined. "
-                        f"This is used to match the function to the function directory."
-                    )
+                        f"This is used to match the function to the function directory.",
+                    ),
                 )
                 continue
             if not function_path:
                 warnings.append(
                     MediumSeverityWarning(
-                        f"Function {external_id} in {source_file.source.path.as_posix()!r} has no function_path defined."
-                    )
+                        f"Function {external_id} in {source_file.source.path.as_posix()!r} has no function_path defined.",
+                    ),
                 )
 
             function_directory = source_file.source.path.with_name(external_id)
 
             if not function_directory.is_dir():
                 raise ToolkitNotADirectoryError(
-                    f"Function directory not found for externalId {external_id} defined in {source_file.source.path.as_posix()!r}."
+                    f"Function directory not found for externalId {external_id} defined in {source_file.source.path.as_posix()!r}.",
                 )
 
             # Validate requirements.txt if present and feature is enabled
@@ -174,7 +174,7 @@ class FunctionBuilder(Builder):
                 and (requirements_txt := function_directory / "requirements.txt").exists()
             ):
                 warning = self._validate_function_requirements(
-                    requirements_txt, raw_function, source_file.source.path, external_id
+                    requirements_txt, raw_function, source_file.source.path, external_id,
                 )
                 if warning:
                     warnings.append(warning)
@@ -182,7 +182,7 @@ class FunctionBuilder(Builder):
             destination = self.build_dir / self.resource_folder / external_id
             if destination.exists():
                 raise ToolkitFileExistsError(
-                    f"Function {external_id!r} is duplicated. If this is unexpected, ensure you have a clean build directory."
+                    f"Function {external_id!r} is duplicated. If this is unexpected, ensure you have a clean build directory.",
                 )
             shutil.copytree(function_directory, destination, ignore=shutil.ignore_patterns("__pycache__"))
 
