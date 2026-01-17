@@ -1,7 +1,7 @@
 from abc import ABC
-from typing import Any, Generic, Literal
+from typing import Annotated, Any, Generic, Literal, TypeAlias
 
-from pydantic import JsonValue, field_serializer, field_validator
+from pydantic import Field, JsonValue, field_serializer, field_validator
 
 from cognite_toolkit._cdf_tk.client.resource_classes.base import (
     BaseModelObject,
@@ -9,8 +9,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.base import (
     ResponseResource,
     T_RequestResource,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedEdgeIdentifier, TypedNodeIdentifier
 
-from ._references import ContainerReference, EdgeReference, NodeReference, ViewReference
+from ._references import ContainerReference, NodeReference, ViewReference
 
 
 class InstanceDefinition(BaseModelObject, ABC):
@@ -87,8 +88,8 @@ class NodeRequest(InstanceRequestDefinition):
     instance_type: Literal["node"] = "node"
     type: NodeReference | None = None
 
-    def as_id(self) -> NodeReference:
-        return NodeReference(space=self.space, external_id=self.external_id)
+    def as_id(self) -> TypedNodeIdentifier:
+        return TypedNodeIdentifier(space=self.space, external_id=self.external_id)
 
 
 class EdgeRequest(InstanceRequestDefinition):
@@ -99,8 +100,8 @@ class EdgeRequest(InstanceRequestDefinition):
     start_node: NodeReference
     end_node: NodeReference
 
-    def as_id(self) -> EdgeReference:
-        return EdgeReference(space=self.space, external_id=self.external_id)
+    def as_id(self) -> TypedEdgeIdentifier:
+        return TypedEdgeIdentifier(space=self.space, external_id=self.external_id)
 
 
 class NodeResponse(InstanceResponseDefinition[NodeRequest]):
@@ -109,8 +110,8 @@ class NodeResponse(InstanceResponseDefinition[NodeRequest]):
     instance_type: Literal["node"] = "node"
     type: NodeReference | None = None
 
-    def as_id(self) -> NodeReference:
-        return NodeReference(space=self.space, external_id=self.external_id)
+    def as_id(self) -> TypedNodeIdentifier:
+        return TypedNodeIdentifier(space=self.space, external_id=self.external_id)
 
     def as_request_resource(self) -> NodeRequest:
         dumped = self.dump()
@@ -130,8 +131,8 @@ class EdgeResponse(InstanceResponseDefinition[EdgeRequest]):
     start_node: NodeReference
     end_node: NodeReference
 
-    def as_id(self) -> EdgeReference:
-        return EdgeReference(space=self.space, external_id=self.external_id)
+    def as_id(self) -> TypedEdgeIdentifier:
+        return TypedEdgeIdentifier(space=self.space, external_id=self.external_id)
 
     def as_request_resource(self) -> EdgeRequest:
         dumped = self.dump()
@@ -141,3 +142,13 @@ class EdgeResponse(InstanceResponseDefinition[EdgeRequest]):
             ]
         dumped["existingVersion"] = dumped.pop("version", None)
         return EdgeRequest.model_validate(dumped, extra="ignore")
+
+
+InstanceRequest: TypeAlias = Annotated[
+    NodeRequest | EdgeRequest,
+    Field(discriminator="instance_type"),
+]
+InstanceResponse: TypeAlias = Annotated[
+    NodeResponse | EdgeResponse,
+    Field(discriminator="instance_type"),
+]
