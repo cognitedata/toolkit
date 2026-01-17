@@ -8,6 +8,7 @@ from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilte
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceRequest,
     InstanceResponse,
+    ViewReference,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedInstanceIdentifier
 
@@ -42,15 +43,20 @@ class InstancesAPI(CDFResourceAPI[TypedInstanceIdentifier, InstanceRequest, Inst
         """
         return self._request_item_response(items, "upsert")
 
-    def retrieve(self, items: Sequence[TypedInstanceIdentifier]) -> list[InstanceResponse]:
+    def retrieve(
+        self, items: Sequence[TypedInstanceIdentifier], source: ViewReference | None = None
+    ) -> list[InstanceResponse]:
         """Retrieve instances from CDF.
 
         Args:
             items: List of ExternalId objects to retrieve.
+            source: Optional ViewReference to specify the source view for the instances.
         Returns:
             List of retrieved LabelResponse objects.
         """
-        return self._request_item_response(items, method="retrieve")
+        return self._request_item_response(
+            items, method="retrieve", extra_body={"sources": [{"source": source.dump()}]} if source else None
+        )
 
     def delete(self, items: Sequence[TypedInstanceIdentifier]) -> None:
         """Delete instances from CDF.
