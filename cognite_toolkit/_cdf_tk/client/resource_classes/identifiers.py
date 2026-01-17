@@ -50,3 +50,10 @@ class WorkflowVersionId(Identifier):
 
     def __str__(self) -> str:
         return f"workflowExternalId='{self.workflow_external_id}', version='{self.version}'"
+
+
+class DataSetId(Identifier):
+    data_set_id: int
+
+    def __str__(self) -> str:
+        return f"dataSetId={self.data_set_id}"

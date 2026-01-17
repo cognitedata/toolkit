@@ -1,4 +1,4 @@
-from typing import ClassVar
+from typing import ClassVar, Literal
 
 from pydantic import JsonValue
 
@@ -48,6 +48,11 @@ class RobotMapRequest(RobotMap, RequestUpdateable):
     non_nullable_fields: ClassVar[frozenset[str]] = frozenset(
         {"description", "data", "frame_external_id", "location_external_id", "scale"}
     )
+
+    def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, JsonValue]:
+        update = super().as_update(mode)
+        update["update"].pop("mapType", None)
+        return update
 
 
 class RobotMapResponse(RobotMap, ResponseResource[RobotMapRequest]):

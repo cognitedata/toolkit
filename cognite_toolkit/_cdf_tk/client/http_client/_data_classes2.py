@@ -77,6 +77,7 @@ class BaseRequestMessage(BaseModel, ABC):
     read_attempt: int = 0
     status_attempt: int = 0
     api_version: str | None = None
+    disable_gzip: bool = False
     content_type: str = "application/json"
     accept: str = "application/json"
 
@@ -106,13 +107,13 @@ class RequestMessage2(BaseRequestMessage):
         data: str | bytes | None = None
         if self.data_content is not None:
             data = self.data_content
-            if not global_config.disable_gzip:
+            if not global_config.disable_gzip and not self.disable_gzip:
                 data = gzip.compress(data)
         elif self.body_content is not None:
             # We serialize using pydantic instead of json.dumps. This is because pydantic is faster
             # and handles more complex types such as datetime, float('nan'), etc.
             data = _BODY_SERIALIZER.dump_json(self.body_content)
-            if not global_config.disable_gzip and isinstance(data, bytes):
+            if not global_config.disable_gzip and not self.disable_gzip and isinstance(data, bytes):
                 data = gzip.compress(data)
         return data
 
@@ -161,7 +162,7 @@ class ItemsRequest2(BaseRequestMessage):
         if self.extra_body_fields:
             body.update(self.extra_body_fields)
         res = _BODY_SERIALIZER.dump_json(body)
-        if not global_config.disable_gzip and isinstance(res, bytes):
+        if not global_config.disable_gzip and not self.disable_gzip and isinstance(res, bytes):
             return gzip.compress(res)
         return res
 
