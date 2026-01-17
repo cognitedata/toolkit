@@ -4,6 +4,7 @@ from functools import cached_property
 from typing import Any, Generic, TypeAlias
 
 import pytest
+from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.api.robotics_capabilities import CapabilitiesAPI
@@ -21,8 +22,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.base import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
-    Point3D,
-    Quaternion,
     RobotCapabilityRequest,
     RobotCapabilityResponse,
     RobotDataPostProcessingRequest,
@@ -35,7 +34,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
     RobotMapResponse,
     RobotRequest,
     RobotResponse,
-    Transform,
 )
 from tests_smoke.exceptions import EndpointAssertionError
 
@@ -57,12 +55,54 @@ class CDFResource(Generic[T_Identifier, T_RequestResource, T_ResponseResource]):
         return self.request_cls.model_validate(self.example_request)
 
     @property
-    def example_update_instance(self) -> T_RequestResource:
-        return self.example_request_instance.model_copy(update=self.example_update)
-
-    @property
     def identifier(self) -> T_Identifier:
         return self.example_request_instance.as_id()  # type: ignore[return-value]
+
+
+ROOT_FRAME_EXTERNAL_ID = "rootCoordinateFrame"
+
+
+@pytest.fixture(scope="session")
+def root_frame(toolkit_client: ToolkitClient) -> RobotFrameResponse:
+    root = RobotFrameRequest(
+        name="Root coordinate frame",
+        external_id=ROOT_FRAME_EXTERNAL_ID,
+    )
+    try:
+        return toolkit_client.tool.robotics.frames.retrieve([root.as_id()])[0]
+    except ToolkitAPIError:
+        return toolkit_client.tool.robotics.frames.create([root])[0]
+
+
+@pytest.fixture(scope="session")
+def persistent_robots_data_set(toolkit_client: ToolkitClient) -> DataSetResponse:
+    data_set = DataSetRequest(
+        external_id="ds_robotics_api_tests_persistent",
+        name="Robotics API Tests Persistent",
+        description="Data set for testing the Robotics API with persistent data",
+    )
+    retrieved = toolkit_client.tool.datasets.retrieve([data_set.as_id()])
+    if retrieved:
+        return retrieved[0]
+    else:
+        return toolkit_client.tool.datasets.create([data_set])[0]
+
+
+@pytest.fixture(scope="session")
+def existing_capability(toolkit_client: ToolkitClient) -> RobotCapabilityResponse:
+    capability = RobotCapabilityRequest(
+        name="ptz",
+        external_id="ptz_persistent",
+        method="ptz",
+        input_schema=INPUT_SCHEMA_CAPABILITY,
+        data_handling_schema=DATA_HANDLING_SCHEMA_CAPABILITY,
+        description="Pan, tilt, zoom camera for visual image capture (persistent)",
+    )
+    client = toolkit_client
+    try:
+        return client.tool.robotics.capabilities.retrieve([capability.as_id()])[0]
+    except ToolkitAPIError:
+        return client.tool.robotics.capabilities.create([capability])[0]
 
 
 def robotic_api_resource_definitions() -> dict[str, CDFResource]:
@@ -130,8 +170,13 @@ def robotic_api_resource_definitions() -> dict[str, CDFResource]:
             response_cls=RobotFrameResponse,
             request_cls=RobotFrameRequest,
             example_request={
-                "name": "Root coordinate frame",
-                "external_id": "rootCoordinateFrame",
+                "name": "Root coordinate frame of a location",
+                "external_id": "rootCoordinateFrameLocation1",
+                "transform": {
+                    "parentFrameExternalId": ROOT_FRAME_EXTERNAL_ID,
+                    "translation": {"x": 0, "y": 0, "z": 0},
+                    "orientation": {"x": 0, "y": 0, "z": 0, "w": 1},
+                },
             },
             example_update={
                 "name": "Updated name",
@@ -155,7 +200,7 @@ def robotic_api_resource_definitions() -> dict[str, CDFResource]:
     }
 
 
-DATA_HANDLING_SCHEMA_CAPABILITY = {
+DATA_HANDLING_SCHEMA_CAPABILITY: dict[str, JsonValue] = {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "id": "robotics/schemas/0.1.0/data_handling/ptz",
     "type": "object",
@@ -183,7 +228,7 @@ DATA_HANDLING_SCHEMA_CAPABILITY = {
     "required": ["uploadInstructions"],
 }
 
-INPUT_SCHEMA_CAPABILITY = {
+INPUT_SCHEMA_CAPABILITY: dict[str, JsonValue] = {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "id": "robotics/schemas/0.1.0/capabilities/ptz",
     "title": "PTZ camera capability input",
@@ -233,17 +278,32 @@ INPUT_SCHEMA_DATA_PROCESSING = {
 
 
 class TestRoboticsAPI:
+    @pytest.mark.usefixtures("root_frame")
     @pytest.mark.parametrize(
         "resource_def", [pytest.param(value, id=key) for key, value in robotic_api_resource_definitions().items()]
     )
-    def test_crud_list(self, toolkit_client: ToolkitClient, resource_def: CDFResource) -> None:
+    def test_crud_and_list(
+        self,
+        persistent_robots_data_set: DataSetResponse,
+        existing_capability: RobotCapabilityResponse,
+        toolkit_client: ToolkitClient,
+        resource_def: CDFResource,
+    ) -> None:
         api: RoboticsAPIType = resource_def.api_class(toolkit_client.http_client)  # type: ignore[call-arg,assignment]
 
-        request = resource_def.example_request_instance
+        if not issubclass(resource_def.request_cls, RobotRequest):
+            request = resource_def.example_request_instance
+        else:
+            example = resource_def.example_request.copy()
+            example["dataSetId"] = persistent_robots_data_set.id
+            # example["capabilities"] = [existing_capability.external_id]
+            request = RobotRequest.model_validate(example)
+
+        identifier = request.as_id()
 
         # Ensure clean state
         with suppress(ToolkitAPIError):
-            api.delete([resource_def.identifier])
+            api.delete([identifier])
 
         try:
             # Create
@@ -257,7 +317,7 @@ class TestRoboticsAPI:
                 )
 
             # Retrieve
-            retrieved = api.retrieve([resource_def.identifier])
+            retrieved = api.retrieve([identifier])
             retrieve_endpoint = api._method_endpoint_map["retrieve"].path
             if len(retrieved) != 1:
                 raise EndpointAssertionError(retrieve_endpoint, "Expected exactly one retrieved item")
@@ -272,11 +332,11 @@ class TestRoboticsAPI:
 
             listed = api.list(limit=None)
             list_endpoint = api._method_endpoint_map["list"].path
-            if not any(item.external_id == created[0].external_id for item in listed):
+            if not any(item.as_id() == identifier for item in listed):
                 raise EndpointAssertionError(list_endpoint, "Created item not found in list")
 
             # Update
-            update_instance = resource_def.example_update_instance
+            update_instance = request.model_copy(update=resource_def.example_update)
             updated = api.update([update_instance])
             update_endpoint = api._method_endpoint_map["update"].path
             if len(updated) != 1:
@@ -289,190 +349,7 @@ class TestRoboticsAPI:
                 raise EndpointAssertionError(update_endpoint, "Updated item does not match the update data")
         finally:
             # Delete
-            api.delete([resource_def.identifier])
+            api.delete([identifier])
 
             with pytest.raises(ToolkitAPIError):
-                api.retrieve([resource_def.identifier])
-
-
-@pytest.fixture(scope="session")
-def root_frame(toolkit_client: ToolkitClient) -> RobotFrameResponse:
-    root = RobotFrameRequest(
-        name="Root coordinate frame",
-        external_id="rootCoordinateFrame",
-    )
-    try:
-        return toolkit_client.tool.robotics.frames.retrieve(root.external_id)
-    except ToolkitAPIError:
-        return toolkit_client.tool.robotics.frames.create(root)
-
-
-FRAME_NAMES = ["Root coordinate frame of a location", "Updated name"]
-
-
-@pytest.fixture(scope="session")
-def existing_frame(toolkit_client: ToolkitClient, root_frame: RobotFrameResponse) -> RobotFrameResponse:
-    location = RobotFrameRequest(
-        name=FRAME_NAMES[0],
-        external_id="rootCoordinateFrame",
-        transform=Transform(
-            parent_frame_external_id=root_frame.external_id,
-            translation=Point3D(x=0, y=0, z=0),
-            orientation=Quaternion(x=0, y=0, z=0, w=1),
-        ),
-    )
-    try:
-        return toolkit_client.tool.robotics.frames.retrieve(location.external_id)
-    except ToolkitAPIError:
-        return toolkit_client.tool.robotics.frames.create(location)
-
-
-@pytest.fixture(scope="session")
-def existing_robots_data_set(toolkit_client: ToolkitClient) -> DataSetResponse:
-    data_set = DataSetRequest(
-        external_id="ds_robotics_api_tests",
-        name="Robotics API Tests",
-        description="Data set for testing the Robotics API",
-    )
-    retrieved = toolkit_client.data_sets.retrieve(external_id=data_set.external_id)
-    if retrieved:
-        return retrieved
-    else:
-        return toolkit_client.data_sets.create(data_set)
-
-
-@pytest.fixture(scope="session")
-def persistent_robots_data_set(toolkit_client: ToolkitClient) -> DataSetResponse:
-    data_set = DataSetRequest(
-        external_id="ds_robotics_api_tests_persistent",
-        name="Robotics API Tests Persistent",
-        description="Data set for testing the Robotics API with persistent data",
-    )
-    retrieved = toolkit_client.data_sets.retrieve(external_id=data_set.external_id)
-    if retrieved:
-        return retrieved
-    else:
-        return toolkit_client.data_sets.create(data_set)
-
-
-@pytest.fixture(scope="session")
-def existing_robot(
-    toolkit_client: ToolkitClient,
-    persistent_robots_data_set: DataSetResponse,
-    existing_capability: RobotCapabilityResponse,
-) -> RobotResponse:
-    robot = RobotRequest(
-        name="wall-e",
-        capabilities=[existing_capability.external_id],
-        robot_type="DJI_DRONE",
-        data_set_id=persistent_robots_data_set.id,
-        description=DESCRIPTIONS[0],
-    )
-    try:
-        found = toolkit_client.tool.robotics.robots.list()
-        return next(r for r in found if r.name == robot.name)
-    except (ToolkitAPIError, StopIteration):
-        return toolkit_client.tool.robotics.robots.create(robot)
-
-
-@pytest.mark.skip("Robot API seems to fail if you have two robots. This causes every other test run to fail.")
-class TestRobotsAPI:
-    def test_create_retrieve_delete(
-        self,
-        toolkit_client: ToolkitClient,
-        existing_robots_data_set: DataSetResponse,
-        existing_capability: RobotCapabilityResponse,
-    ) -> None:
-        robot = RobotRequest(
-            name="test_robot",
-            capabilities=[],
-            robot_type="SPOT",
-            data_set_id=existing_robots_data_set.id,
-            description="test_description",
-        )
-        retrieved: RobotResponse | None = None
-        try:
-            created = toolkit_client.tool.robotics.robots.create(robot)
-            assert isinstance(created, RobotResponse)
-            assert created.as_write().model_dump() == robot.model_dump()
-
-            all_retrieved = toolkit_client.tool.robotics.robots.retrieve(robot.data_set_id)
-            assert isinstance(all_retrieved, list)
-            retrieved = next((r for r in all_retrieved if r.name == robot.name), None)
-            assert isinstance(retrieved, RobotResponse)
-            assert retrieved.as_write().model_dump() == robot.model_dump()
-        finally:
-            if retrieved:
-                toolkit_client.tool.robotics.robots.delete(retrieved.data_set_id)
-
-        with pytest.raises(ToolkitAPIError):
-            toolkit_client.tool.robotics.robots.retrieve(robot.data_set_id)
-
-    @pytest.mark.usefixtures("existing_robot")
-    def test_list_robots(self, toolkit_client: ToolkitClient) -> None:
-        robots = toolkit_client.tool.robotics.robots.list()
-        assert isinstance(robots, list)
-        assert len(robots) > 0
-        assert all(isinstance(r, RobotResponse) for r in robots)
-
-    @pytest.mark.usefixtures("existing_robot")
-    def test_iterate_robots(self, toolkit_client: ToolkitClient) -> None:
-        for robot in toolkit_client.tool.robotics.robots:
-            assert isinstance(robot, RobotResponse)
-            break
-        else:
-            pytest.fail("No robots found")
-
-    def test_update_robot(self, toolkit_client: ToolkitClient, existing_robot: RobotResponse) -> None:
-        update = existing_robot.as_write()
-        update.description = next(desc for desc in DESCRIPTIONS if desc != existing_robot.description)
-        updated = toolkit_client.tool.robotics.robots.update(update)
-        assert updated.description == update.description
-
-
-class TestFrameAPI:
-    def test_create_retrieve_delete(self, toolkit_client: ToolkitClient, root_frame: RobotFrameResponse) -> None:
-        frame = RobotFrameRequest(
-            name="test_create_retrieve_delete",
-            external_id="test_create_retrieve_delete",
-            transform=Transform(
-                parent_frame_external_id=root_frame.external_id,
-                translation=Point3D(x=0, y=0, z=0),
-                orientation=Quaternion(x=0, y=0, z=0, w=1),
-            ),
-        )
-        try:
-            created = toolkit_client.tool.robotics.frames.create(frame)
-            assert isinstance(created, RobotFrameResponse)
-            assert created.as_write().model_dump() == frame.model_dump()
-
-            retrieved = toolkit_client.tool.robotics.frames.retrieve(frame.external_id)
-
-            assert isinstance(retrieved, RobotFrameResponse)
-            assert retrieved.as_write().model_dump() == frame.model_dump()
-        finally:
-            toolkit_client.tool.robotics.frames.delete(frame.external_id)
-
-        with pytest.raises(ToolkitAPIError):
-            toolkit_client.tool.robotics.frames.retrieve(frame.external_id)
-
-    @pytest.mark.usefixtures("existing_frame")
-    def test_list_frames(self, toolkit_client: ToolkitClient) -> None:
-        frames = toolkit_client.tool.robotics.frames.list()
-        assert isinstance(frames, list)
-        assert len(frames) > 0
-        assert all(isinstance(f, RobotFrameResponse) for f in frames)
-
-    @pytest.mark.usefixtures("existing_frame")
-    def test_iterate_frames(self, toolkit_client: ToolkitClient) -> None:
-        for frame in toolkit_client.tool.robotics.frames:
-            assert isinstance(frame, RobotFrameResponse)
-            break
-        else:
-            pytest.fail("No frames found")
-
-    def test_update_frame(self, toolkit_client: ToolkitClient, existing_frame: RobotFrameResponse) -> None:
-        update = existing_frame.as_write()
-        update.name = next(name for name in FRAME_NAMES if name != existing_frame.name)
-        updated = toolkit_client.tool.robotics.frames.update(update)
-        assert updated.name == update.name
+                api.retrieve([identifier])
