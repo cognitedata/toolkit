@@ -1,10 +1,9 @@
 from collections.abc import Iterable, Sequence
-from typing import Any
+from typing import Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
-from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceRequest, InstanceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedInstanceIdentifier
 
@@ -17,7 +16,7 @@ class LabelsAPI(CDFResourceAPI[TypedInstanceIdentifier, InstanceRequest, Instanc
                 "upsert": Endpoint(method="POST", path="/models/instances", item_limit=1000),
                 "retrieve": Endpoint(method="POST", path="/models/instances/byids", item_limit=1000),
                 "delete": Endpoint(method="POST", path="/models/instances/delete", item_limit=1000),
-                "list": Endpoint(method="POST", path="/models/instances/query", item_limit=1000),
+                "list": Endpoint(method="POST", path="/models/instances/list", item_limit=1000),
             },
         )
 
@@ -59,55 +58,43 @@ class LabelsAPI(CDFResourceAPI[TypedInstanceIdentifier, InstanceRequest, Instanc
 
     def paginate(
         self,
-        filter: ClassicFilter | None = None,
-        name: str | None = None,
+        instance_type: Literal["node", "edge"] = "node",
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[InstanceResponse]:
         """Iterate over all instances in CDF.
 
         Args:
-            filter: Filter by data set IDs.
-            name: Filter by instance name (prefix match).
+            instance_type: Type of instance to filter by ("node" or "edge").
             limit: Maximum number of items to return.
             cursor: Cursor for pagination.
 
         Returns:
             PagedResponse of LabelResponse objects.
         """
-        body: dict[str, Any] = filter.dump() if filter else {}
-        if name:
-            body["name"] = name
-
         return self._paginate(
             cursor=cursor,
             limit=limit,
-            body=body,
+            body={"instanceType": instance_type},
         )
 
     def iterate(
         self,
-        filter: ClassicFilter | None = None,
-        name: str | None = None,
+        instance_type: Literal["node", "edge"] = "node",
         limit: int = 100,
     ) -> Iterable[list[InstanceResponse]]:
         """Iterate over all instances in CDF.
 
         Args:
-            filter: Filter by data set IDs.
-            name: Filter by instance name (prefix match).
+            instance_type: Type of instance to filter by ("node" or "edge").
             limit: Maximum number of items to return per page.
 
         Returns:
             Iterable of lists of LabelResponse objects.
         """
-        body: dict[str, Any] = filter.dump() if filter else {}
-        if name:
-            body["name"] = name
-
         return self._iterate(
             limit=limit,
-            body=body,
+            body={"instanceType": instance_type},
         )
 
     def list(self, limit: int | None = 100) -> list[InstanceResponse]:
