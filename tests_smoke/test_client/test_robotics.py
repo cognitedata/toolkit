@@ -28,6 +28,20 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.robotics import (
     RobotWrite,
     Transform,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
+    RobotDataPostProcessingRequest,
+    RobotDataPostProcessingResponse,
+    RobotCapabilityRequest,
+    RobotCapabilityResponse,
+    RobotLocationResponse,
+    RobotFrameRequest,
+    RobotFrameResponse,
+    RobotMapResponse,
+    RobotRequest,
+    RobotResponse,
+    RobotLocationRequest,
+    RobotMapRequest,
+)
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
 DESCRIPTIONS = ["Original Description", "Updated Description"]
