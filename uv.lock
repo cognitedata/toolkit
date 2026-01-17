@@ -752,6 +752,7 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/90/c2/ca76afca0c2debef368a42a701d501e696490e0a7138f0337709a724b189/fastparquet-2025.12.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:d8d70d90614f19752919037c4a88aaaeda3cd7667aeb54857c48054e2a9e3588", size = 1819692, upload-time = "2025-12-18T21:58:43.095Z" },
     { url = "https://files.pythonhosted.org/packages/ab/41/f235c0d8171f6676b9d4fb8468c781fbe7bf90fed2c4383f2d8d82e574db/fastparquet-2025.12.0-cp312-cp312-musllinux_1_2_i686.whl", hash = "sha256:8e2ccf387f629cb11b72fec6f15a55e0f40759b47713124764a9867097bcd377", size = 1784357, upload-time = "2025-12-18T21:58:13.258Z" },
     { url = "https://files.pythonhosted.org/packages/29/7e/c86bf33b363cf5a1ad71d3ebd4a352131ba99566c78aa58d9e56c98526ba/fastparquet-2025.12.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:1978e7f3c32044f2f7a0b35784240dfc3eaeb8065a879fa3011c832fea4e7037", size = 1815777, upload-time = "2025-12-18T21:58:44.432Z" },
+    { url = "https://files.pythonhosted.org/packages/d7/0b/769333ab6e6ed401755b550b3338cee96b8f6502db5da55312d86a97db62/fastparquet-2025.12.0-cp312-cp312-win_amd64.whl", hash = "sha256:25e87fff63c011fe658a7547ba83355e02568db1ee26a65e6b75c2287701d5dc", size = 667555, upload-time = "2026-01-06T21:24:36.381Z" },
     { url = "https://files.pythonhosted.org/packages/13/cf/1801afbc1e84ad0413ec66bf93590472152462c454593e3be3265861aa0f/fastparquet-2025.12.0-cp313-cp313-macosx_10_13_universal2.whl", hash = "sha256:1bd79ca75977aaeaae8d2a6cb1958e806991f0ff23207b938522a59a724491b2", size = 893835, upload-time = "2025-12-18T21:53:53.87Z" },
     { url = "https://files.pythonhosted.org/packages/79/f9/5539b19ae7e1e0ad77f5b8a1e8d480fdf0193639cf97239734173b8730ab/fastparquet-2025.12.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:b6db801b72433d8227fcb92009a631f14d6d49a43b3c599911b58a8a6ffde9e3", size = 686010, upload-time = "2025-12-18T21:54:15.234Z" },
     { url = "https://files.pythonhosted.org/packages/ff/d9/0f39782c500bbf6b2e40a67cac3c9ec2eae70bdaa8b283106c2b3d532a95/fastparquet-2025.12.0-cp313-cp313-manylinux1_i686.manylinux_2_28_i686.manylinux_2_5_i686.whl", hash = "sha256:23cce7202de91b64abb251cec07125d94e8108eb99aab6ffa42570a89a5c869d", size = 1755599, upload-time = "2025-12-18T21:58:15.016Z" },
@@ -780,11 +781,11 @@ wheels = [
 
 [[package]]
 name = "filelock"
-version = "3.20.2"
+version = "3.20.3"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/c1/e0/a75dbe4bca1e7d41307323dad5ea2efdd95408f74ab2de8bd7dba9b51a1a/filelock-3.20.2.tar.gz", hash = "sha256:a2241ff4ddde2a7cebddf78e39832509cb045d18ec1a09d7248d6bfc6bfbbe64", size = 19510, upload-time = "2026-01-02T15:33:32.582Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/1d/65/ce7f1b70157833bf3cb851b556a37d4547ceafc158aa9b34b36782f23696/filelock-3.20.3.tar.gz", hash = "sha256:18c57ee915c7ec61cff0ecf7f0f869936c7c30191bb0cf406f1341778d0834e1", size = 19485, upload-time = "2026-01-09T17:55:05.421Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/9a/30/ab407e2ec752aa541704ed8f93c11e2a5d92c168b8a755d818b74a3c5c2d/filelock-3.20.2-py3-none-any.whl", hash = "sha256:fbba7237d6ea277175a32c54bb71ef814a8546d8601269e1bfc388de333974e8", size = 16697, upload-time = "2026-01-02T15:33:31.133Z" },
+    { url = "https://files.pythonhosted.org/packages/b5/36/7fb70f04bf00bc646cd5bb45aa9eddb15e19437a28b8fb2b4a5249fac770/filelock-3.20.3-py3-none-any.whl", hash = "sha256:4b0dda527ee31078689fc205ec4f1c1bf7d56cf88b6dc9426c4f230e46c2dce1", size = 16701, upload-time = "2026-01-09T17:55:04.334Z" },
 ]
 
 [[package]]
