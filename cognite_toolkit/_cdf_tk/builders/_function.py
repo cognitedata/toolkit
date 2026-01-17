@@ -43,10 +43,7 @@ class FunctionBuilder(Builder):
     def _validate_function_requirements(
         self, requirements_txt: Path, raw_function: dict[str, Any], filepath: Path, external_id: str,
     ) -> FunctionRequirementsValidationWarning | None:
-        """Validate function requirements.txt using pip dry-run.
-
-        Returns a warning if validation fails, None otherwise.
-        """
+        """Validate function requirements.txt using pip dry-run."""
         start_time = time.time()
         validation_result = validate_requirements_with_pip(
             requirements_txt_path=requirements_txt,
@@ -54,21 +51,16 @@ class FunctionBuilder(Builder):
             extra_index_urls=raw_function.get("extraIndexUrls"),
         )
         elapsed_ms = int((time.time() - start_time) * 1000)
-
-        # Track metrics
         self.validation_count += 1
         self.validation_time_ms += elapsed_ms
 
-        # Early return if successful
         if validation_result.success:
             return None
 
-        # Track failure metrics
         self.validation_failures += 1
         if validation_result.is_credential_error:
             self.validation_credential_errors += 1
 
-        # Extract last N non-empty lines for display
         error_detail = validation_result.error_message or "Unknown error"
         relevant_lines = [line for line in error_detail.strip().split("\n") if line.strip()][-_MAX_ERROR_LINES:]
         error_detail = "\n      ".join(relevant_lines)
