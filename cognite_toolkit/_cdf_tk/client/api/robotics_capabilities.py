@@ -53,18 +53,15 @@ class CapabilitiesAPI(CDFResourceAPI[ExternalId, RobotCapabilityRequest, RobotCa
         """
         return self._request_item_response(items, "create")
 
-    def retrieve(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> list[RobotCapabilityResponse]:
+    def retrieve(self, items: Sequence[ExternalId]) -> list[RobotCapabilityResponse]:
         """Retrieve capabilities from CDF.
 
         Args:
             items: List of ExternalId objects to retrieve.
-            ignore_unknown_ids: Whether to ignore unknown IDs.
         Returns:
             List of retrieved RobotCapabilityResponse objects.
         """
-        return self._request_item_response(
-            items, method="retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids}
-        )
+        return self._request_item_response(items, method="retrieve")
 
     def update(
         self, items: Sequence[RobotCapabilityRequest], mode: Literal["patch", "replace"] = "replace"
@@ -80,14 +77,13 @@ class CapabilitiesAPI(CDFResourceAPI[ExternalId, RobotCapabilityRequest, RobotCa
         """
         return self._update(items, mode=mode)
 
-    def delete(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> None:
+    def delete(self, items: Sequence[ExternalId]) -> None:
         """Delete capabilities from CDF.
 
         Args:
             items: List of ExternalId objects to delete.
-            ignore_unknown_ids: Whether to ignore unknown IDs.
         """
-        self._request_no_response(items, "delete", extra_body={"ignoreUnknownIds": ignore_unknown_ids})
+        self._request_no_response(items, "delete")
 
     def paginate(
         self,

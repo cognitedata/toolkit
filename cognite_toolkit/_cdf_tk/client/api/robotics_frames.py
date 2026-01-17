@@ -48,18 +48,15 @@ class FramesAPI(CDFResourceAPI[ExternalId, RobotFrameRequest, RobotFrameResponse
         """
         return self._request_item_response(items, "create")
 
-    def retrieve(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> list[RobotFrameResponse]:
+    def retrieve(self, items: Sequence[ExternalId]) -> list[RobotFrameResponse]:
         """Retrieve frames from CDF.
 
         Args:
             items: List of ExternalId objects to retrieve.
-            ignore_unknown_ids: Whether to ignore unknown IDs.
         Returns:
             List of retrieved RobotFrameResponse objects.
         """
-        return self._request_item_response(
-            items, method="retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids}
-        )
+        return self._request_item_response(items, method="retrieve")
 
     def update(
         self, items: Sequence[RobotFrameRequest], mode: Literal["patch", "replace"] = "replace"
@@ -75,14 +72,13 @@ class FramesAPI(CDFResourceAPI[ExternalId, RobotFrameRequest, RobotFrameResponse
         """
         return self._update(items, mode=mode)
 
-    def delete(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> None:
+    def delete(self, items: Sequence[ExternalId]) -> None:
         """Delete frames from CDF.
 
         Args:
             items: List of ExternalId objects to delete.
-            ignore_unknown_ids: Whether to ignore unknown IDs.
         """
-        self._request_no_response(items, "delete", extra_body={"ignoreUnknownIds": ignore_unknown_ids})
+        self._request_no_response(items, "delete")
 
     def paginate(
         self,

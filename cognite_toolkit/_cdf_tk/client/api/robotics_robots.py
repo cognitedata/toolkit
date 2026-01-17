@@ -48,18 +48,15 @@ class RobotsAPI(CDFResourceAPI[NameId, RobotRequest, RobotResponse]):
         """
         return self._request_item_response(items, "create")
 
-    def retrieve(self, items: Sequence[NameId], ignore_unknown_ids: bool = False) -> list[RobotResponse]:
+    def retrieve(self, items: Sequence[NameId]) -> list[RobotResponse]:
         """Retrieve robots from CDF.
 
         Args:
             items: List of NameId objects to retrieve.
-            ignore_unknown_ids: Whether to ignore unknown IDs.
         Returns:
             List of retrieved RobotResponse objects.
         """
-        return self._request_item_response(
-            items, method="retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids}
-        )
+        return self._request_item_response(items, method="retrieve")
 
     def update(
         self, items: Sequence[RobotRequest], mode: Literal["patch", "replace"] = "replace"
@@ -75,14 +72,13 @@ class RobotsAPI(CDFResourceAPI[NameId, RobotRequest, RobotResponse]):
         """
         return self._update(items, mode=mode)
 
-    def delete(self, items: Sequence[NameId], ignore_unknown_ids: bool = False) -> None:
+    def delete(self, items: Sequence[NameId]) -> None:
         """Delete robots from CDF.
 
         Args:
             items: List of NameId objects to delete.
-            ignore_unknown_ids: Whether to ignore unknown IDs.
         """
-        self._request_no_response(items, "delete", extra_body={"ignoreUnknownIds": ignore_unknown_ids})
+        self._request_no_response(items, "delete")
 
     def paginate(
         self,
