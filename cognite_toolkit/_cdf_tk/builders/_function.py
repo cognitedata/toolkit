@@ -1,6 +1,8 @@
 import shutil
 import time
 from collections.abc import Callable, Iterable, Sequence
+from pathlib import Path
+from typing import Any
 
 from cognite_toolkit._cdf_tk.builders import Builder
 from cognite_toolkit._cdf_tk.cruds import FunctionCRUD
@@ -22,19 +24,61 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     WarningList,
 )
 from cognite_toolkit._cdf_tk.utils import validate_requirements_with_pip
-from cognite_toolkit._cdf_tk.utils.pip_validator import _MAX_ERROR_LINES
+
+# Maximum number of error lines to display in warnings
+_MAX_ERROR_LINES = 3
 
 
 class FunctionBuilder(Builder):
     _resource_folder = FunctionCRUD.folder_name
 
-    def __init__(self, build_dir, warn):
-        super().__init__(build_dir, warn)
+    def __init__(self, build_dir: Path, warn: Callable[[ToolkitWarning], None]) -> None:
+        super().__init__(build_dir, warn=warn)
         # Metrics for telemetry
         self.validation_count = 0
         self.validation_failures = 0
         self.validation_credential_errors = 0
         self.validation_time_ms = 0
+
+    def _validate_function_requirements(
+        self, requirements_txt: Path, raw_function: dict[str, Any], filepath: Path, external_id: str
+    ) -> FunctionRequirementsValidationWarning | None:
+        """Validate function requirements.txt using pip dry-run.
+
+        Returns a warning if validation fails, None otherwise.
+        """
+        start_time = time.time()
+        validation_result = validate_requirements_with_pip(
+            requirements_txt_path=requirements_txt,
+            index_url=raw_function.get("indexUrl"),
+            extra_index_urls=raw_function.get("extraIndexUrls"),
+        )
+        elapsed_ms = int((time.time() - start_time) * 1000)
+
+        # Track metrics
+        self.validation_count += 1
+        self.validation_time_ms += elapsed_ms
+
+        # Early return if successful
+        if validation_result.success:
+            return None
+
+        # Track failure metrics
+        self.validation_failures += 1
+        if validation_result.is_credential_error:
+            self.validation_credential_errors += 1
+
+        # Extract last N non-empty lines for display
+        error_detail = validation_result.error_message or "Unknown error"
+        relevant_lines = [line for line in error_detail.strip().split("\n") if line.strip()][-_MAX_ERROR_LINES:]
+        error_detail = "\n      ".join(relevant_lines)
+
+        return FunctionRequirementsValidationWarning(
+            filepath=filepath,
+            function_external_id=external_id,
+            error_details=error_detail,
+            is_credential_error=validation_result.is_credential_error,
+        )
 
     def build(
         self, source_files: list[BuildSourceFile], module: ModuleLocation, console: Callable[[str], None] | None = None
@@ -125,42 +169,15 @@ class FunctionBuilder(Builder):
                 )
 
             # Validate requirements.txt if present and feature is enabled
-            if Flags.FUNCTION_REQUIREMENTS_VALIDATION.is_enabled():
-                requirements_txt = function_directory / "requirements.txt"
-                if requirements_txt.exists():
-                    start_time = time.time()
-                    validation_result = validate_requirements_with_pip(
-                        requirements_txt_path=requirements_txt,
-                        index_url=raw_function.get("indexUrl"),
-                        extra_index_urls=raw_function.get("extraIndexUrls"),
-                    )
-                    elapsed_ms = int((time.time() - start_time) * 1000)
-
-                    # Track metrics
-                    self.validation_count += 1
-                    self.validation_time_ms += elapsed_ms
-
-                    if not validation_result.success:
-                        self.validation_failures += 1
-                        if validation_result.is_credential_error:
-                            self.validation_credential_errors += 1
-
-                        error_detail = validation_result.error_message or "Unknown error"
-                        # Extract last N non-empty lines for display
-                        if error_detail:
-                            relevant_lines = [line for line in error_detail.strip().split("\n") if line.strip()][
-                                -_MAX_ERROR_LINES:
-                            ]
-                            error_detail = "\n      ".join(relevant_lines)
-
-                        warnings.append(
-                            FunctionRequirementsValidationWarning(
-                                filepath=source_file.source.path,
-                                function_external_id=external_id,
-                                error_details=error_detail,
-                                is_credential_error=validation_result.is_credential_error,
-                            )
-                        )
+            if (
+                Flags.FUNCTION_REQUIREMENTS_VALIDATION.is_enabled()
+                and (requirements_txt := function_directory / "requirements.txt").exists()
+            ):
+                warning = self._validate_function_requirements(
+                    requirements_txt, raw_function, source_file.source.path, external_id
+                )
+                if warning:
+                    warnings.append(warning)
 
             destination = self.build_dir / self.resource_folder / external_id
             if destination.exists():
