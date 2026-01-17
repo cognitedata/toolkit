@@ -43,7 +43,7 @@ def validate_requirements_with_pip(
     requirements_txt_path: Path,
     index_url: str | None = None,
     extra_index_urls: list[str] | None = None,
-    timeout: int = 30,
+    timeout: int = 10,
 ) -> PipValidationResult:
     """
     Validate that requirements.txt can be resolved using pip install --dry-run.
