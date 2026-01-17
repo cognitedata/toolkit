@@ -88,23 +88,6 @@ def persistent_robots_data_set(toolkit_client: ToolkitClient) -> DataSetResponse
         return toolkit_client.tool.datasets.create([data_set])[0]
 
 
-@pytest.fixture(scope="session")
-def existing_capability(toolkit_client: ToolkitClient) -> RobotCapabilityResponse:
-    capability = RobotCapabilityRequest(
-        name="ptz",
-        external_id="ptz_persistent",
-        method="ptz",
-        input_schema=INPUT_SCHEMA_CAPABILITY,
-        data_handling_schema=DATA_HANDLING_SCHEMA_CAPABILITY,
-        description="Pan, tilt, zoom camera for visual image capture (persistent)",
-    )
-    client = toolkit_client
-    try:
-        return client.tool.robotics.capabilities.retrieve([capability.as_id()])[0]
-    except ToolkitAPIError:
-        return client.tool.robotics.capabilities.create([capability])[0]
-
-
 def robotic_api_resource_definitions() -> dict[str, CDFResource]:
     return {
         "capabilities": CDFResource(
@@ -191,6 +174,7 @@ def robotic_api_resource_definitions() -> dict[str, CDFResource]:
                 "capabilities": [],
                 "robot_type": "DJI_DRONE",
                 "description": "Test robot",
+                "metadata": {},
             },
             example_update={
                 "description": "Updated description",
@@ -249,7 +233,7 @@ INPUT_SCHEMA_CAPABILITY: dict[str, JsonValue] = {
     "additionalProperties": False,
 }
 
-INPUT_SCHEMA_DATA_PROCESSING = {
+INPUT_SCHEMA_DATA_PROCESSING: dict[str, JsonValue] = {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "id": "robotics/schemas/0.1.0/data_postprocessing/read_dial_gauge",
     "title": "Read dial gauge postprocessing input",
@@ -285,7 +269,6 @@ class TestRoboticsAPI:
     def test_crud_and_list(
         self,
         persistent_robots_data_set: DataSetResponse,
-        existing_capability: RobotCapabilityResponse,
         toolkit_client: ToolkitClient,
         resource_def: CDFResource,
     ) -> None:
@@ -345,7 +328,7 @@ class TestRoboticsAPI:
                 raise EndpointAssertionError(
                     update_endpoint, f"Expected item of type {resource_def.response_cls.__name__}"
                 )
-            if updated[0].as_write().model_dump() != update_instance.model_dump():
+            if updated[0].as_request_resource().model_dump() != update_instance.model_dump():
                 raise EndpointAssertionError(update_endpoint, "Updated item does not match the update data")
         finally:
             # Delete

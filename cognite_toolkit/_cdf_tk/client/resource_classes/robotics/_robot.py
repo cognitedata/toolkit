@@ -44,6 +44,7 @@ class RobotRequest(Robot, RequestUpdateable):
 
     def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
         update = super().as_update(mode)
+        update["update"].pop("capabilities", None)
         return update
 
 
