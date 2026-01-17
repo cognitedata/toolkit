@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.robotics._robot import RobotRequest, RobotResponse
 
 
-class RobotsResourceAPI(CDFResourceAPI[NameId, RobotRequest, RobotResponse]):
+class RobotsAPI(CDFResourceAPI[NameId, RobotRequest, RobotResponse]):
     """API for managing Robot resources in CDF."""
 
     def __init__(self, http_client: HTTPClient) -> None:

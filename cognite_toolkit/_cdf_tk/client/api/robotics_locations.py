@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.robotics._location import (
 )
 
 
-class LocationsResourceAPI(CDFResourceAPI[ExternalId, RobotLocationRequest, RobotLocationResponse]):
+class LocationsAPI(CDFResourceAPI[ExternalId, RobotLocationRequest, RobotLocationResponse]):
     """API for managing Location resources in CDF."""
 
     def __init__(self, http_client: HTTPClient) -> None:

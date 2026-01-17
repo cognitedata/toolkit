@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.robotics._data_post_process
 )
 
 
-class DataPostProcessingResourceAPI(
+class DataPostProcessingAPI(
     CDFResourceAPI[ExternalId, RobotDataPostProcessingRequest, RobotDataPostProcessingResponse]
 ):
     """API for managing DataPostProcessing resources in CDF."""

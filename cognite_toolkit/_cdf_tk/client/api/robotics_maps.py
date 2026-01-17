@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import External
 from cognite_toolkit._cdf_tk.client.resource_classes.robotics._map import RobotMapRequest, RobotMapResponse
 
 
-class MapsResourceAPI(CDFResourceAPI[ExternalId, RobotMapRequest, RobotMapResponse]):
+class MapsAPI(CDFResourceAPI[ExternalId, RobotMapRequest, RobotMapResponse]):
     """API for managing Map resources in CDF."""
 
     def __init__(self, http_client: HTTPClient) -> None:

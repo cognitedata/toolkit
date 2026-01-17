@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import External
 from cognite_toolkit._cdf_tk.client.resource_classes.robotics._frame import RobotFrameRequest, RobotFrameResponse
 
 
-class FramesResourceAPI(CDFResourceAPI[ExternalId, RobotFrameRequest, RobotFrameResponse]):
+class FramesAPI(CDFResourceAPI[ExternalId, RobotFrameRequest, RobotFrameResponse]):
     """API for managing Frame resources in CDF."""
 
     def __init__(self, http_client: HTTPClient) -> None:
