@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     ModuleLocation,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileExistsError, ToolkitNotADirectoryError, ToolkitValueError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import (
     FileReadWarning,
     FunctionRequirementsValidationWarning,
@@ -113,31 +114,32 @@ class FunctionBuilder(Builder):
                     f"Function directory not found for externalId {external_id} defined in {source_file.source.path.as_posix()!r}."
                 )
 
-            # Validate requirements.txt if present
-            requirements_txt = function_directory / "requirements.txt"
-            if requirements_txt.exists():
-                validation_result = validate_requirements_with_pip(
-                    requirements_txt_path=requirements_txt,
-                    index_url=raw_function.get("indexUrl"),
-                    extra_index_urls=raw_function.get("extraIndexUrls"),
-                )
-
-                # Warn only if validation failed (not if skipped)
-                if not validation_result.success and not validation_result.skipped:
-                    error_detail = validation_result.error_message or "Unknown error"
-                    # Extract last 3 non-empty lines for display
-                    if error_detail:
-                        relevant_lines = [line for line in error_detail.strip().split("\n") if line.strip()][-3:]
-                        error_detail = "\n      ".join(relevant_lines)
-
-                    warnings.append(
-                        FunctionRequirementsValidationWarning(
-                            filepath=source_file.source.path,
-                            function_external_id=external_id,
-                            error_details=error_detail,
-                            is_credential_error=validation_result.is_credential_error,
-                        )
+            # Validate requirements.txt if present and feature is enabled
+            if Flags.FUNCTION_REQUIREMENTS_VALIDATION.is_enabled():
+                requirements_txt = function_directory / "requirements.txt"
+                if requirements_txt.exists():
+                    validation_result = validate_requirements_with_pip(
+                        requirements_txt_path=requirements_txt,
+                        index_url=raw_function.get("indexUrl"),
+                        extra_index_urls=raw_function.get("extraIndexUrls"),
                     )
+
+                    # Warn only if validation failed (not if skipped)
+                    if not validation_result.success and not validation_result.skipped:
+                        error_detail = validation_result.error_message or "Unknown error"
+                        # Extract last 3 non-empty lines for display
+                        if error_detail:
+                            relevant_lines = [line for line in error_detail.strip().split("\n") if line.strip()][-3:]
+                            error_detail = "\n      ".join(relevant_lines)
+
+                        warnings.append(
+                            FunctionRequirementsValidationWarning(
+                                filepath=source_file.source.path,
+                                function_external_id=external_id,
+                                error_details=error_detail,
+                                is_credential_error=validation_result.is_credential_error,
+                            )
+                        )
 
             destination = self.build_dir / self.resource_folder / external_id
             if destination.exists():

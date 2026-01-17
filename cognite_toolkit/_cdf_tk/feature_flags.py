@@ -65,6 +65,10 @@ class Flags(Enum):
         visible=True,
         description="Enables the support for simulator model resources",
     )
+    FUNCTION_REQUIREMENTS_VALIDATION = FlagMetadata(
+        visible=True,
+        description="Enables validation of function requirements.txt during build using pip dry-run",
+    )
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)
