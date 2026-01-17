@@ -30,7 +30,7 @@ class InstancesAPI(CDFResourceAPI[TypedInstanceIdentifier, InstanceRequest, Inst
     ) -> PagedResponse[InstanceResponse]:
         return PagedResponse[InstanceResponse].model_validate_json(response.body)
 
-    def _reference_response(self, response: SuccessResponse2) -> ResponseItems[TypedInstanceIdentifier]:
+    def _validate_response(self, response: SuccessResponse2) -> ResponseItems[TypedInstanceIdentifier]:
         return ResponseItems[TypedInstanceIdentifier].model_validate_json(response.body)
 
     def create(self, items: Sequence[InstanceRequest]) -> list[InstanceResponse]:
@@ -58,13 +58,16 @@ class InstancesAPI(CDFResourceAPI[TypedInstanceIdentifier, InstanceRequest, Inst
             items, method="retrieve", extra_body={"sources": [{"source": source.dump()}]} if source else None
         )
 
-    def delete(self, items: Sequence[TypedInstanceIdentifier]) -> None:
+    def delete(self, items: Sequence[TypedInstanceIdentifier]) -> list[TypedInstanceIdentifier]:
         """Delete instances from CDF.
 
         Args:
             items: List of TypedInstanceIdentifier objects to delete.
         """
-        self._request_no_response(items, "delete")
+        response_items: list[TypedInstanceIdentifier] = []
+        for response in self._chunk_requests(items, "delete", self._serialize_items):
+            response_items.extend(self._validate_response(response).items)
+        return response_items
 
     @staticmethod
     def _create_sort_body(instance_type: Literal["node", "edge"] | None) -> list[dict]:
