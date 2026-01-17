@@ -1,5 +1,5 @@
 from collections.abc import Iterable, Sequence
-from typing import Literal
+from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
@@ -37,9 +37,9 @@ class InstancesAPI(CDFResourceAPI[TypedInstanceIdentifier, InstanceRequest, Inst
         """Create instances in CDF.
 
         Args:
-            items: List of LabelRequest objects to create.
+            items: List of InstanceRequest objects to create.
         Returns:
-            List of created LabelResponse objects.
+            List of created InstanceResponse objects.
         """
         return self._request_item_response(items, "upsert")
 
@@ -52,7 +52,7 @@ class InstancesAPI(CDFResourceAPI[TypedInstanceIdentifier, InstanceRequest, Inst
             items: List of ExternalId objects to retrieve.
             source: Optional ViewReference to specify the source view for the instances.
         Returns:
-            List of retrieved LabelResponse objects.
+            List of retrieved InstanceResponse objects.
         """
         return self._request_item_response(
             items, method="retrieve", extra_body={"sources": [{"source": source.dump()}]} if source else None
@@ -62,7 +62,7 @@ class InstancesAPI(CDFResourceAPI[TypedInstanceIdentifier, InstanceRequest, Inst
         """Delete instances from CDF.
 
         Args:
-            items: List of ExternalId objects to delete.
+            items: List of TypedInstanceIdentifier objects to delete.
         """
         self._request_no_response(items, "delete")
 
@@ -86,9 +86,16 @@ class InstancesAPI(CDFResourceAPI[TypedInstanceIdentifier, InstanceRequest, Inst
             },
         ]
 
+    @classmethod
+    def _create_body(cls, filter: InstanceFilter | None) -> dict[str, Any]:
+        return {
+            **(filter.model_dump(exclude_none=True) if filter else {}),
+            "sort": cls._create_sort_body(filter.instance_type if filter else "node"),
+        }
+
     def paginate(
         self,
-        filter: InstanceFilter,
+        filter: InstanceFilter | None = None,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[InstanceResponse]:
@@ -100,19 +107,15 @@ class InstancesAPI(CDFResourceAPI[TypedInstanceIdentifier, InstanceRequest, Inst
             cursor: Cursor for pagination.
 
         Returns:
-            PagedResponse of LabelResponse objects.
+            PagedResponse of InstanceResponse objects.
         """
         return self._paginate(
             cursor=cursor,
             limit=limit,
-            body={**filter.model_dump(exclude_none=True), "sort": self._create_sort_body(filter.instance_type)},
+            body=self._create_body(filter),
         )
 
-    def iterate(
-        self,
-        filter: InstanceFilter,
-        limit: int = 100,
-    ) -> Iterable[list[InstanceResponse]]:
+    def iterate(self, filter: InstanceFilter | None = None, limit: int = 100) -> Iterable[list[InstanceResponse]]:
         """Iterate over all instances in CDF.
 
         Args:
@@ -120,17 +123,14 @@ class InstancesAPI(CDFResourceAPI[TypedInstanceIdentifier, InstanceRequest, Inst
             limit: Maximum number of items to return per page.
 
         Returns:
-            Iterable of lists of LabelResponse objects.
+            Iterable of lists of InstanceResponse objects.
         """
-        return self._iterate(
-            limit=limit,
-            body={**filter.model_dump(exclude_none=True), "sort": self._create_sort_body(filter.instance_type)},
-        )
+        return self._iterate(limit=limit, body=self._create_body(filter))
 
-    def list(self, limit: int | None = 100) -> list[InstanceResponse]:
+    def list(self, filter: InstanceFilter | None = None, limit: int | None = 100) -> list[InstanceResponse]:
         """List all instances in CDF.
 
         Returns:
-            List of LabelResponse objects.
+            List of InstanceResponse objects.
         """
-        return self._list(limit=limit)
+        return self._list(limit=limit, body=self._create_body(filter))
