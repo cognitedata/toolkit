@@ -27,6 +27,7 @@ class MapsAPI(CDFResourceAPI[ExternalId, RobotMapRequest, RobotMapResponse]):
                 ),
                 "list": Endpoint(method="GET", path="/robotics/maps", item_limit=1000),
             },
+            disable_gzip=True,
         )
 
     def _validate_page_response(

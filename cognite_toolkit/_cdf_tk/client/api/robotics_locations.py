@@ -32,6 +32,7 @@ class LocationsAPI(CDFResourceAPI[ExternalId, RobotLocationRequest, RobotLocatio
                 ),
                 "list": Endpoint(method="GET", path="/robotics/locations", item_limit=1000),
             },
+            disable_gzip=True,
         )
 
     def _validate_page_response(

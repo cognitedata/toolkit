@@ -32,6 +32,7 @@ class CapabilitiesAPI(CDFResourceAPI[ExternalId, RobotCapabilityRequest, RobotCa
                 ),
                 "list": Endpoint(method="GET", path="/robotics/capabilities", item_limit=1000),
             },
+            disable_gzip=True,
         )
 
     def _validate_page_response(

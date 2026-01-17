@@ -43,6 +43,7 @@ class DataPostProcessingAPI(
                 ),
                 "list": Endpoint(method="GET", path="/robotics/data_postprocessing", item_limit=1000),
             },
+            disable_gzip=True,
         )
 
     def _validate_page_response(

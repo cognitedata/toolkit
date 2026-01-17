@@ -27,6 +27,7 @@ class FramesAPI(CDFResourceAPI[ExternalId, RobotFrameRequest, RobotFrameResponse
                 ),
                 "list": Endpoint(method="GET", path="/robotics/frames", item_limit=1000),
             },
+            disable_gzip=True,
         )
 
     def _validate_page_response(

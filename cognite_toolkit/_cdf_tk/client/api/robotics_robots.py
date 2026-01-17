@@ -27,6 +27,7 @@ class RobotsAPI(CDFResourceAPI[NameId, RobotRequest, RobotResponse]):
                 ),
                 "list": Endpoint(method="GET", path="/robotics/robots", item_limit=1000),
             },
+            disable_gzip=True,
         )
 
     def _validate_page_response(
