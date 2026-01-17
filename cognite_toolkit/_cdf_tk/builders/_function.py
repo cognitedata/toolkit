@@ -122,13 +122,12 @@ class FunctionBuilder(Builder):
                     extra_index_urls=raw_function.get("extraIndexUrls"),
                 )
 
-                # Warn only if validation failed (skip if passed or credentials not yet injected)
+                # Warn only if validation failed (not if skipped)
                 if not validation_result.success and not validation_result.skipped:
                     error_detail = validation_result.error_message or "Unknown error"
-                    if validation_result.stderr:
-                        relevant_lines = [
-                            line for line in validation_result.stderr.strip().split("\n") if line.strip()
-                        ][-3:]
+                    # Extract last 3 non-empty lines for display
+                    if error_detail:
+                        relevant_lines = [line for line in error_detail.strip().split("\n") if line.strip()][-3:]
                         error_detail = "\n      ".join(relevant_lines)
 
                     warnings.append(
