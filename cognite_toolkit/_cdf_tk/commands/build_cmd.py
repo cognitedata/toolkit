@@ -33,6 +33,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     DataSetsCRUD,
     ExtractionPipelineConfigCRUD,
     FileCRUD,
+    FunctionCRUD,
     LocationFilterCRUD,
     NodeCRUD,
     RawDatabaseCRUD,
@@ -414,6 +415,15 @@ class BuildCommand(ToolkitCommand):
             builder.validate_directory(built_resources, module)
 
             build_resources_by_folder[resource_name].extend(built_resources)
+
+            # Collect validation metrics from FunctionBuilder
+            if resource_name == FunctionCRUD.folder_name and hasattr(builder, "validation_count"):
+                self._additional_tracking_info.function_validation_count += builder.validation_count
+                self._additional_tracking_info.function_validation_failures += builder.validation_failures
+                self._additional_tracking_info.function_validation_credential_errors += (
+                    builder.validation_credential_errors
+                )
+                self._additional_tracking_info.function_validation_time_ms += builder.validation_time_ms
 
         return build_resources_by_folder
 

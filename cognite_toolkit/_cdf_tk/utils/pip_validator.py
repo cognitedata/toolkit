@@ -5,13 +5,15 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+# Maximum number of error lines to include in warnings
+_MAX_ERROR_LINES = 3
+
 
 @dataclass
 class PipValidationResult:
     """Result from validating a requirements.txt file."""
 
     error_message: str | None = None
-    skip_reason: str | None = None
 
     @property
     def success(self) -> bool:
@@ -19,25 +21,22 @@ class PipValidationResult:
         return self.error_message is None
 
     @property
-    def skipped(self) -> bool:
-        """Validation was skipped if there's a skip reason."""
-        return self.skip_reason is not None
-
-    @property
     def is_credential_error(self) -> bool:
-        """Check if the error appears to be related to authentication/credentials."""
+        """Check if the error appears to be related to authentication/credentials.
+
+        Only checks for explicit HTTP authentication errors to avoid false positives
+        from legitimate package not found errors.
+        """
         if not self.error_message:
             return False
         credential_indicators = [
             "401",
             "403",
             "Unauthorized",
+            "Forbidden",
             "Authentication",
-            "credentials",
-            "Could not find a version that satisfies the requirement",
-            "No matching distribution found",
         ]
-        return any(indicator.lower() in self.error_message.lower() for indicator in credential_indicators)
+        return any(indicator in self.error_message for indicator in credential_indicators)
 
 
 def validate_requirements_with_pip(
@@ -94,5 +93,5 @@ def validate_requirements_with_pip(
             )
     except subprocess.TimeoutExpired:
         return PipValidationResult(error_message=f"pip validation timed out after {timeout} seconds")
-    except Exception as e:
-        return PipValidationResult(error_message=f"Unexpected error during pip validation: {e!s}")
+    except (OSError, RuntimeError) as e:
+        return PipValidationResult(error_message=f"Error running pip validation: {e!s}")

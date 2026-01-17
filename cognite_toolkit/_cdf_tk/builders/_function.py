@@ -1,4 +1,5 @@
 import shutil
+import time
 from collections.abc import Callable, Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.builders import Builder
@@ -21,10 +22,19 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     WarningList,
 )
 from cognite_toolkit._cdf_tk.utils import validate_requirements_with_pip
+from cognite_toolkit._cdf_tk.utils.pip_validator import _MAX_ERROR_LINES
 
 
 class FunctionBuilder(Builder):
     _resource_folder = FunctionCRUD.folder_name
+
+    def __init__(self, build_dir, warn):
+        super().__init__(build_dir, warn)
+        # Metrics for telemetry
+        self.validation_count = 0
+        self.validation_failures = 0
+        self.validation_credential_errors = 0
+        self.validation_time_ms = 0
 
     def build(
         self, source_files: list[BuildSourceFile], module: ModuleLocation, console: Callable[[str], None] | None = None
@@ -118,18 +128,29 @@ class FunctionBuilder(Builder):
             if Flags.FUNCTION_REQUIREMENTS_VALIDATION.is_enabled():
                 requirements_txt = function_directory / "requirements.txt"
                 if requirements_txt.exists():
+                    start_time = time.time()
                     validation_result = validate_requirements_with_pip(
                         requirements_txt_path=requirements_txt,
                         index_url=raw_function.get("indexUrl"),
                         extra_index_urls=raw_function.get("extraIndexUrls"),
                     )
+                    elapsed_ms = int((time.time() - start_time) * 1000)
 
-                    # Warn only if validation failed (not if skipped)
-                    if not validation_result.success and not validation_result.skipped:
+                    # Track metrics
+                    self.validation_count += 1
+                    self.validation_time_ms += elapsed_ms
+
+                    if not validation_result.success:
+                        self.validation_failures += 1
+                        if validation_result.is_credential_error:
+                            self.validation_credential_errors += 1
+
                         error_detail = validation_result.error_message or "Unknown error"
-                        # Extract last 3 non-empty lines for display
+                        # Extract last N non-empty lines for display
                         if error_detail:
-                            relevant_lines = [line for line in error_detail.strip().split("\n") if line.strip()][-3:]
+                            relevant_lines = [line for line in error_detail.strip().split("\n") if line.strip()][
+                                -_MAX_ERROR_LINES:
+                            ]
                             error_detail = "\n      ".join(relevant_lines)
 
                         warnings.append(

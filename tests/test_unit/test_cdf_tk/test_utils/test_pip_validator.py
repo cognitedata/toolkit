@@ -69,10 +69,20 @@ class TestPipValidator:
             "401 Unauthorized",
             "403 Forbidden",
             "Authentication required",
-            "Could not find a version that satisfies the requirement azure-functions==1.*",
-            "No matching distribution found for package",
         ],
     )
     def test_authentication_error_patterns(self, error_pattern: str) -> None:
+        """Test that explicit HTTP authentication errors are detected."""
         result = PipValidationResult(error_message=error_pattern)
         assert result.is_credential_error
+
+    def test_non_credential_errors_not_detected(self) -> None:
+        """Package not found errors should not be flagged as credential errors."""
+        non_credential_errors = [
+            "Could not find a version that satisfies the requirement azure-functions==1.*",
+            "No matching distribution found for package",
+            "ERROR: Package 'nonexistent-package' not found",
+        ]
+        for error in non_credential_errors:
+            result = PipValidationResult(error_message=error)
+            assert not result.is_credential_error, f"'{error}' should not be flagged as credential error"
