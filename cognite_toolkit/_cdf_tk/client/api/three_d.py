@@ -5,13 +5,15 @@ from typing import Any, TypeVar
 from pydantic import TypeAdapter
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk.client.cdf_client.responses import PagedResponse
+from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
+from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ItemsRequest2,
-    RequestMessage2,
+    ItemsSuccessResponse2,
+    SuccessResponse2,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId, NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicRequest,
     AssetMappingDMRequest,
@@ -20,19 +22,24 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     ThreeDModelResponse,
 )
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
-from cognite_toolkit._cdf_tk.utils.useful_types import PrimitiveType
 
 
-class ThreeDModelAPI:
-    ENDPOINT = "/3d/models"
-    MAX_CLASSIC_MODELS_PER_CREATE_REQUEST = 1000
-    MAX_MODELS_PER_DELETE_REQUEST = 1000
-    _LIST_REQUEST_MAX_LIMIT = 1000
+class ThreeDModelAPI(CDFResourceAPI[NameId, ThreeDModelClassicRequest, ThreeDModelResponse]):
+    def __init__(self, http_client: HTTPClient) -> None:
+        super().__init__(
+            http_client=http_client,
+            method_endpoint_map={
+                "create": Endpoint(method="POST", path="/3d/models", item_limit=1000, concurrency_max_workers=1),
+                "delete": Endpoint(method="POST", path="/3d/models/delete", item_limit=1000, concurrency_max_workers=1),
+                # Note: The 3D models list endpoint uses GET, not POST
+                "list": Endpoint(method="GET", path="/3d/models", item_limit=1000),
+            },
+        )
 
-    def __init__(self, http_client: HTTPClient, console: Console) -> None:
-        self._http_client = http_client
-        self._console = console
-        self._config = http_client.config
+    def _validate_page_response(
+        self, response: SuccessResponse2 | ItemsSuccessResponse2
+    ) -> PagedResponse[ThreeDModelResponse]:
+        return PagedResponse[ThreeDModelResponse].model_validate_json(response.body)
 
     def create(self, models: Sequence[ThreeDModelClassicRequest]) -> list[ThreeDModelResponse]:
         """Create 3D models in classic format.
@@ -43,19 +50,7 @@ class ThreeDModelAPI:
         Returns:
             list[ThreeDModelResponse]: The created 3D model(s).
         """
-        if not models:
-            return []
-        if len(models) > self.MAX_CLASSIC_MODELS_PER_CREATE_REQUEST:
-            raise ValueError("Cannot create more than 1000 3D models in a single request.")
-        responses = self._http_client.request_items_retries(
-            ItemsRequest2(
-                endpoint_url=self._config.create_api_url(self.ENDPOINT),
-                method="POST",
-                items=models,
-            )
-        )
-        responses.raise_for_status()
-        return TypeAdapter(list[ThreeDModelResponse]).validate_python(responses.get_items())
+        return self._request_item_response(models, "create")
 
     def delete(self, ids: Sequence[int]) -> None:
         """Delete 3D models by their IDs.
@@ -65,16 +60,7 @@ class ThreeDModelAPI:
         """
         if not ids:
             return None
-        if len(ids) > self.MAX_MODELS_PER_DELETE_REQUEST:
-            raise ValueError("Cannot delete more than 1000 3D models in a single request.")
-        responses = self._http_client.request_items_retries(
-            ItemsRequest2(
-                endpoint_url=self._config.create_api_url(self.ENDPOINT + "/delete"),
-                method="POST",
-                items=InternalId.from_ids(list(ids)),
-            )
-        )
-        responses.raise_for_status()
+        self._request_no_response(InternalId.from_ids(list(ids)), "delete")
 
     def paginate(
         self,
@@ -83,73 +69,62 @@ class ThreeDModelAPI:
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[ThreeDModelResponse]:
-        if not (0 < limit <= self._LIST_REQUEST_MAX_LIMIT):
-            raise ValueError(f"Limit must be between 1 and {self._LIST_REQUEST_MAX_LIMIT}, got {limit}.")
-        parameters: dict[str, PrimitiveType] = {
+        params = {
             # There is a bug in the API. The parameter includeRevisionInfo is expected to be lower case and not
             # camel case as documented. You get error message: Unrecognized query parameter includeRevisionInfo,
             # did you mean includerevisioninfo?
             "includerevisioninfo": include_revision_info,
-            "limit": limit,
         }
         if published is not None:
-            parameters["published"] = published
-        if cursor is not None:
-            parameters["cursor"] = cursor
-        responses = self._http_client.request_single_retries(
-            RequestMessage2(
-                endpoint_url=self._config.create_api_url(self.ENDPOINT),
-                method="GET",
-                parameters=parameters,
-            )
-        )
-        success_response = responses.get_success_or_raise()
-        return PagedResponse[ThreeDModelResponse].model_validate(success_response.body_json)
+            params["published"] = published
+        return self._paginate(limit=limit, cursor=cursor, params=params)
 
     def list(
         self,
         published: bool | None = None,
         include_revision_info: bool = False,
         limit: int | None = 100,
-        cursor: str | None = None,
     ) -> list[ThreeDModelResponse]:
-        results: list[ThreeDModelResponse] = []
-        while True:
-            request_limit = (
-                self._LIST_REQUEST_MAX_LIMIT
-                if limit is None
-                else min(limit - len(results), self._LIST_REQUEST_MAX_LIMIT)
-            )
-            if request_limit <= 0:
-                break
-            page = self.paginate(
-                published=published,
-                include_revision_info=include_revision_info,
-                limit=request_limit,
-                cursor=cursor,
-            )
-            results.extend(page.items)
-            if page.next_cursor is None:
-                break
-            cursor = page.next_cursor
-        return results
+        params = {
+            # There is a bug in the API. The parameter includeRevisionInfo is expected to be lower case and not
+            # camel case as documented. You get error message: Unrecognized query parameter includeRevisionInfo,
+            # did you mean includerevisioninfo?
+            "includerevisioninfo": include_revision_info,
+        }
+        if published is not None:
+            params["published"] = published
+        return self._list(limit=limit, params=params)
 
 
 T_RequestMapping = TypeVar("T_RequestMapping", bound=AssetMappingClassicRequest | AssetMappingDMRequest)
 
 
-class ThreeDAssetMappingAPI:
+class ThreeDAssetMappingAPI(
+    CDFResourceAPI[AssetMappingClassicRequest, AssetMappingClassicRequest, AssetMappingResponse]
+):
     ENDPOINT = "/3d/models/{modelId}/revisions/{revisionId}/mappings"
     CREATE_CLASSIC_MAX_MAPPINGS_PER_REQUEST = 1000
     CREATE_DM_MAX_MAPPINGS_PER_REQUEST = 100
     DELETE_CLASSIC_MAX_MAPPINGS_PER_REQUEST = 1000
     DELETE_DM_MAX_MAPPINGS_PER_REQUEST = 100
-    LIST_REQUEST_MAX_LIMIT = 1000
 
-    def __init__(self, http_client: HTTPClient, console: Console) -> None:
-        self._http_client = http_client
-        self._console = console
-        self._config = http_client.config
+    def __init__(self, http_client: HTTPClient) -> None:
+        super().__init__(
+            http_client=http_client,
+            method_endpoint_map={
+                # These endpoints are parameterized, so the paths are templates
+                "create": Endpoint(method="POST", path=self.ENDPOINT, item_limit=1000, concurrency_max_workers=1),
+                "delete": Endpoint(
+                    method="DELETE", path=f"{self.ENDPOINT}/delete", item_limit=1000, concurrency_max_workers=1
+                ),
+                "list": Endpoint(method="POST", path=f"{self.ENDPOINT}/list", item_limit=1000),
+            },
+        )
+
+    def _validate_page_response(
+        self, response: SuccessResponse2 | ItemsSuccessResponse2
+    ) -> PagedResponse[AssetMappingResponse]:
+        return PagedResponse[AssetMappingResponse].model_validate_json(response.body)
 
     def create(self, mappings: Sequence[AssetMappingClassicRequest]) -> list[AssetMappingResponse]:
         """Create 3D asset mappings.
@@ -167,7 +142,7 @@ class ThreeDAssetMappingAPI:
         ):
             responses = self._http_client.request_items_retries(
                 ItemsRequest2(
-                    endpoint_url=self._config.create_api_url(endpoint),
+                    endpoint_url=self._make_url(endpoint),
                     method="POST",
                     items=revision_mappings,
                 )
@@ -203,7 +178,7 @@ class ThreeDAssetMappingAPI:
         ):
             responses = self._http_client.request_items_retries(
                 ItemsRequest2(
-                    endpoint_url=self._config.create_api_url(endpoint),
+                    endpoint_url=self._make_url(endpoint),
                     method="POST",
                     items=revision_mappings,
                     extra_body_fields={
@@ -249,7 +224,7 @@ class ThreeDAssetMappingAPI:
         ):
             responses = self._http_client.request_items_retries(
                 ItemsRequest2(
-                    endpoint_url=self._config.create_api_url(f"{endpoint}/delete"),
+                    endpoint_url=self._make_url(f"{endpoint}/delete"),
                     method="DELETE",
                     items=revision_mappings,
                 )
@@ -273,7 +248,7 @@ class ThreeDAssetMappingAPI:
         ):
             responses = self._http_client.request_items_retries(
                 ItemsRequest2(
-                    endpoint_url=self._config.create_api_url(f"{endpoint}/delete"),
+                    endpoint_url=self._make_url(f"{endpoint}/delete"),
                     method="DELETE",
                     items=revision_mappings,
                     extra_body_fields={
@@ -299,13 +274,10 @@ class ThreeDAssetMappingAPI:
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[AssetMappingResponse]:
-        if not (0 < limit <= self.LIST_REQUEST_MAX_LIMIT):
-            raise ValueError(f"Limit must be between 1 and {self.LIST_REQUEST_MAX_LIMIT}, got {limit}.")
         if sum(param is not None for param in [asset_ids, asset_instance_ids, node_ids, tree_indexes]) > 1:
             raise ValueError("Only one of asset_ids, asset_instance_ids, node_ids, or tree_indexes can be provided.")
         body: dict[str, Any] = {
             "getDmsInstances": get_dms_instances,
-            "limit": limit,
         }
         if asset_ids is not None:
             if not (0 < len(asset_ids) <= 100):
@@ -323,24 +295,14 @@ class ThreeDAssetMappingAPI:
             if not (0 < len(tree_indexes) <= 100):
                 raise ValueError("tree_indexes must contain between 1 and 100 indexes.")
             body["filter"] = {"treeIndexes": tree_indexes}
-        if cursor is not None:
-            body["cursor"] = cursor
 
         endpoint = self.ENDPOINT.format(modelId=model_id, revisionId=revision_id)
-        responses = self._http_client.request_single_retries(
-            RequestMessage2(
-                endpoint_url=self._config.create_api_url(f"{endpoint}/list"),
-                method="POST",
-                body_content=body,
-            )
-        )
-        success_response = responses.get_success_or_raise()
-        body_json = success_response.body_json
+        page = self._paginate(limit=limit, cursor=cursor, body=body, endpoint_path=f"{endpoint}/list")
         # Add modelId and revisionId to items since the API does not return them
-        for item in body_json.get("items", []):
-            item["modelId"] = model_id
-            item["revisionId"] = revision_id
-        return PagedResponse[AssetMappingResponse].model_validate(body_json)
+        for item in page.items:
+            object.__setattr__(item, "model_id", model_id)
+            object.__setattr__(item, "revision_id", revision_id)
+        return page
 
     def list(
         self,
@@ -355,10 +317,9 @@ class ThreeDAssetMappingAPI:
     ) -> list[AssetMappingResponse]:
         results: list[AssetMappingResponse] = []
         cursor: str | None = None
+        endpoint = self._method_endpoint_map["list"]
         while True:
-            request_limit = (
-                self.LIST_REQUEST_MAX_LIMIT if limit is None else min(limit - len(results), self.LIST_REQUEST_MAX_LIMIT)
-            )
+            request_limit = endpoint.item_limit if limit is None else min(limit - len(results), endpoint.item_limit)
             if request_limit <= 0:
                 break
             page = self.paginate(
@@ -381,5 +342,5 @@ class ThreeDAssetMappingAPI:
 
 class ThreeDAPI:
     def __init__(self, http_client: HTTPClient, console: Console) -> None:
-        self.models = ThreeDModelAPI(http_client, console)
-        self.asset_mappings = ThreeDAssetMappingAPI(http_client, console)
+        self.models = ThreeDModelAPI(http_client)
+        self.asset_mappings = ThreeDAssetMappingAPI(http_client)
