@@ -1,3 +1,5 @@
+from typing import ClassVar, Literal
+
 from cognite_toolkit._cdf_tk.client.resource_classes.base import (
     BaseModelObject,
     RequestResource,
@@ -9,6 +11,11 @@ from .identifiers import ExternalId
 
 
 class ResourceViewMapping(BaseModelObject):
+    space: ClassVar[str] = "cognite_migration"
+    view_ref: ClassVar[ViewReference] = ViewReference(
+        space="cognite_migration", external_id="ResourceViewMapping", version="v1"
+    )
+    instance_type: Literal["node"] = "node"
     external_id: str
     resource_type: str
     view_id: ViewReference

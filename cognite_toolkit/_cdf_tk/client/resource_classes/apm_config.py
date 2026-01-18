@@ -1,4 +1,4 @@
-from typing import ClassVar
+from typing import ClassVar, Literal
 
 from cognite_toolkit._cdf_tk.client.resource_classes.base import (
     BaseModelObject,
@@ -102,6 +102,7 @@ class FeatureConfiguration(BaseModelObject):
 class APMConfig(BaseModelObject):
     space: ClassVar[str] = "APM_Config"
     view_id: ClassVar[ViewReference] = ViewReference(space="APM_Config", external_id="APM_Config", version="1")
+    instance_type: Literal["node"] = "node"
     external_id: str
     name: str | None = None
     app_data_space_id: str | None = None
