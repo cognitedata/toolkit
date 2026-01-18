@@ -19,10 +19,8 @@ from cognite_toolkit._cdf_tk.client.api.hosted_extractor_jobs import HostedExtra
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_mappings import HostedExtractorMappingsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_sources import HostedExtractorSourcesAPI
 from cognite_toolkit._cdf_tk.client.api.labels import LabelsAPI
-from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawDatabasesAPI
 from cognite_toolkit._cdf_tk.client.api.relationships import RelationshipsAPI
-from cognite_toolkit._cdf_tk.client.api.search_config import SearchConfigurationsAPI
 from cognite_toolkit._cdf_tk.client.api.security_categories import SecurityCategoriesAPI
 from cognite_toolkit._cdf_tk.client.api.sequences import SequencesAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsAPI
@@ -862,7 +860,8 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=SearchConfigResponse,
             request_cls=SearchConfigRequest,
             example_data=get_example_minimum_responses(SearchConfigResponse),
-            api_class=SearchConfigurationsAPI,
+            # SearchConfig cannot be tested in generic API tests due to
+            # custom endpoint mocking.
         ),
         id="SearchConfig",
     )
@@ -910,7 +909,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=LocationFilterResponse,
             request_cls=LocationFilterRequest,
             example_data=get_example_minimum_responses(LocationFilterResponse),
-            api_class=LocationFiltersAPI,
+            # LocationFilter API requires custom mocking.
         ),
         id="LocationFilter",
     )
