@@ -105,7 +105,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
     RobotRequest,
     RobotResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.search_config_resource import (
+from cognite_toolkit._cdf_tk.client.resource_classes.search_config import (
     SearchConfigRequest,
     SearchConfigResponse,
 )

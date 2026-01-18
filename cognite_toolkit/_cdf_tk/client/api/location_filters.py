@@ -30,7 +30,7 @@ class LocationFiltersAPI(CDFResourceAPI[InternalId, LocationFilterRequest, Locat
             http_client=http_client,
             method_endpoint_map={
                 "create": Endpoint(method="POST", path=self.BASE_PATH, item_limit=1),
-                "retrieve": Endpoint(method="GET", path=f"{self.BASE_PATH}/byids", item_limit=1000),
+                "retrieve": Endpoint(method="POST", path=f"{self.BASE_PATH}/byids", item_limit=1000),
                 "update": Endpoint(method="PUT", path=f"{self.BASE_PATH}/{{id}}", item_limit=1),
                 "delete": Endpoint(method="DELETE", path=f"{self.BASE_PATH}/{{id}}", item_limit=1),
                 "list": Endpoint(method="POST", path=f"{self.BASE_PATH}/list", item_limit=1000),
@@ -112,7 +112,7 @@ class LocationFiltersAPI(CDFResourceAPI[InternalId, LocationFilterRequest, Locat
             result = self._http_client.request_single_retries(request)
             response = result.get_success_or_raise()
             parsed = LocationFilterResponse.model_validate_json(response.body)
-            parsed.id = parsed.id
+            parsed.id = item.id
             results.append(parsed)
         return results
 
@@ -121,6 +121,9 @@ class LocationFiltersAPI(CDFResourceAPI[InternalId, LocationFilterRequest, Locat
 
         Args:
             items: The ID of the location filter to delete.
+
+        Returns:
+            list[LocationFilterResponse]: The deleted location filters.
         """
         endpoint = self._method_endpoint_map["delete"]
         results: list[LocationFilterResponse] = []
@@ -155,7 +158,6 @@ class LocationFiltersAPI(CDFResourceAPI[InternalId, LocationFilterRequest, Locat
         """Iterate over all location filters.
 
         Args:
-            limit: Maximum total number of items to return.
             flat: Whether to return a flat list (default True).
 
         Returns:
@@ -167,7 +169,6 @@ class LocationFiltersAPI(CDFResourceAPI[InternalId, LocationFilterRequest, Locat
         """List all location filters.
 
         Args:
-            limit: Maximum number of items to return.
             flat: Whether to return a flat list (default True).
 
         Returns:

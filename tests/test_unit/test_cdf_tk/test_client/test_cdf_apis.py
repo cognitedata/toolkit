@@ -31,7 +31,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import (
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTable
-from cognite_toolkit._cdf_tk.client.resource_classes.search_config_resource import SearchConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     WorkflowTriggerRequest,
@@ -571,7 +571,7 @@ class TestCDFResourceAPI:
         assert created[0].dump() == resource
 
         # Test retrieve
-        respx_mock.get(config.create_app_url("/storage/config/locationfilters/byids")).mock(
+        respx_mock.post(config.create_app_url("/storage/config/locationfilters/byids")).mock(
             return_value=httpx.Response(status_code=200, json={"items": [resource]})
         )
         retrieved = api.retrieve([request_item.as_id()])

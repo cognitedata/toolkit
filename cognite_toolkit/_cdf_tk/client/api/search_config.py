@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     RequestMessage2,
     SuccessResponse2,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.search_config_resource import (
+from cognite_toolkit._cdf_tk.client.resource_classes.search_config import (
     SearchConfigRequest,
     SearchConfigResponse,
     SearchConfigViewId,
@@ -85,9 +85,6 @@ class SearchConfigurationsAPI(CDFResourceAPI[SearchConfigViewId, SearchConfigReq
 
     def iterate(self) -> Iterable[list[SearchConfigResponse]]:
         """Iterate over all search configurations.
-
-        Args:
-            limit: Maximum total number of items to return.
 
         Returns:
             Iterable of lists of SearchConfigResponse objects.
