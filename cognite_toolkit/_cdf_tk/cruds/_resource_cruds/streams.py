@@ -9,7 +9,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import External
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
     StreamRequest,
     StreamResponse,
-    StreamResponseList,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import StreamYAML
@@ -18,7 +17,7 @@ from .datamodel import ContainerCRUD
 
 
 @final
-class StreamCRUD(ResourceCRUD[str, StreamRequest, StreamResponse]):
+class StreamCRUD(ResourceCRUD[ExternalId, StreamRequest, StreamResponse]):
     folder_name = "streams"
     resource_cls = StreamResponse
     resource_write_cls = StreamRequest
@@ -56,25 +55,17 @@ class StreamCRUD(ResourceCRUD[str, StreamRequest, StreamResponse]):
         )
         return StreamsAcl(actions, StreamsAcl.Scope.All())
 
-    def create(self, items: Sequence[StreamRequest]) -> StreamResponseList:
-        created = self.client.streams.create(list(items))
-        return StreamResponseList(created)
+    def create(self, items: Sequence[StreamRequest]) -> list[StreamResponse]:
+        return self.client.streams.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> StreamResponseList:
-        retrieved: list[StreamResponse] = []
-        for _id in ids:
-            try:
-                _resp = self.client.streams.retrieve([ExternalId(external_id=_id)])
-            except ToolkitAPIError:
-                continue
-            retrieved.extend(_resp)
-        return StreamResponseList(retrieved)
+    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[StreamResponse]:
+        return self.client.streams.retrieve(ids, ignore_unknown_ids=True)
 
-    def delete(self, ids: SequenceNotStr[str]) -> int:
+    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
         count = 0
-        for _id in ids:
+        for id_ in ids:
             try:
-                self.client.streams.delete([ExternalId(external_id=_id)])
+                self.client.streams.delete([id_])
             except ToolkitAPIError:
                 continue
             count += 1

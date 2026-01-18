@@ -149,11 +149,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.simulator_model import (
     SimulatorModelRequest,
     SimulatorModelResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
-    StreamRequest,
-    StreamResponse,
-    StreamResponseList,
-)
+from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest, StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 
 from .data_classes import APIResource, Method
@@ -796,7 +792,6 @@ API_RESOURCES = [
     APIResource(
         api_name="streams",
         resource_cls=StreamResponse,
-        _list_cls=StreamResponseList,
         _write_cls=StreamRequest,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create_multiple")],

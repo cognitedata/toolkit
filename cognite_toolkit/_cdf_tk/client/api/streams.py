@@ -40,17 +40,24 @@ class StreamsAPI(CDFResourceAPI[ExternalId, StreamRequest, StreamResponse]):
         """
         return self._request_item_response(items, "create")
 
-    def delete(self, items: Sequence[ExternalId]) -> None:
+    def delete(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> None:
         """Delete streams using their external IDs.
 
         Note: The streams API only supports deleting one stream at a time via path parameter.
 
         Args:
             items: Sequence of ExternalId objects to delete.
+            ignore_unknown_ids: Whether to ignore unknown IDs.
         """
-        return self._request_no_response(items, "delete")
+        if ignore_unknown_ids:
+            # The endpoint does not support ignoreUnknownIds, so we have to do it on the client side
+            return self._request_item_split_retries_no_response(items, "delete")
+        else:
+            return self._request_no_response(items, "delete")
 
-    def retrieve(self, items: Sequence[ExternalId], include_statistics: bool = True) -> list[StreamResponse]:
+    def retrieve(
+        self, items: Sequence[ExternalId], include_statistics: bool = False, ignore_unknown_ids: bool = False
+    ) -> list[StreamResponse]:
         """Retrieve streams by their external IDs.
 
         Note: The streams API only supports retrieving one stream at a time via path parameter.
@@ -58,6 +65,7 @@ class StreamsAPI(CDFResourceAPI[ExternalId, StreamRequest, StreamResponse]):
         Args:
             items: Sequence of ExternalId objects to retrieve.
             include_statistics: Whether to include usage statistics in the response.
+            ignore_unknown_ids: Whether to ignore unknown IDs.
 
         Returns:
             List of StreamResponse items.
@@ -72,8 +80,11 @@ class StreamsAPI(CDFResourceAPI[ExternalId, StreamRequest, StreamResponse]):
                     parameters={"includeStatistics": include_statistics},
                 )
             )
-            success = response.get_success_or_raise()
-            results.append(StreamResponse.model_validate(success.body_json))
+            if isinstance(response, SuccessResponse2):
+                results.append(StreamResponse.model_validate(response.body_json))
+            elif ignore_unknown_ids:
+                continue
+            _ = response.get_success_or_raise()
         return results
 
     def list(self) -> list[StreamResponse]:

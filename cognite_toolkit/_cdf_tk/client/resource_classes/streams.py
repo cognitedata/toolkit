@@ -1,12 +1,8 @@
 from typing import Literal
 
 from cognite_toolkit._cdf_tk.constants import StreamTemplateName
-from cognite_toolkit._cdf_tk.protocols import (
-    ResourceRequestListProtocol,
-    ResourceResponseListProtocol,
-)
 
-from .base import BaseModelObject, BaseResourceList, RequestResource, ResponseResource
+from .base import BaseModelObject, RequestResource, ResponseResource
 from .identifiers import ExternalId
 
 
@@ -21,12 +17,6 @@ class StreamRequest(Stream, RequestResource):
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
-
-
-class StreamRequestList(BaseResourceList[StreamRequest], ResourceRequestListProtocol):
-    """List of Stream request resources."""
-
-    _RESOURCE = StreamRequest
 
 
 class LifecycleObject(BaseModelObject):
@@ -81,12 +71,3 @@ class StreamResponse(Stream, ResponseResource[StreamRequest]):
                 "settings": {"template": {"name": self.created_from_template}},
             }
         )
-
-
-class StreamResponseList(BaseResourceList[StreamResponse], ResourceResponseListProtocol):
-    """List of Stream response resources."""
-
-    _RESOURCE = StreamResponse
-
-    def as_write(self) -> StreamRequestList:
-        return StreamRequestList([item.as_write() for item in self.data])
